@@ -163,7 +163,7 @@
   "keys.speed": "Tempo ±5 %",
   "keys.mode": "Mode: play, song, wait, workshop",
   "keys.view": "View: tab lane, tablature, notation, both",
-  "keys.pages": "Pages: library, practice, tuner, settings, setup",
+  "keys.pages": "Pages: library, practice, tuner, settings, setup, progress",
   "library.underminute": "under 1 min practised",
   "notice.more.strings": "The piece goes down to {note}, lower than the bass in your profile. Kontra shows it for {strings} strings; you can change the string count in the settings.",
   "hint.quantum": "The audio system works in blocks of {frames} samples ({ms} ms). Every response comes noticeably late. Make them smaller, e.g. in a terminal: pw-metadata -n settings 0 clock.force-quantum 256 (until restart); permanently in ~/.config/pipewire/pipewire.conf.d/ with default.clock.quantum = 256.",
@@ -188,5 +188,15 @@
   "tuner.wrongstring": "That sounds like another string. Pluck the {name} string.",
   "tuner.hold": "In tune – hold it …",
   "tuner.up.string": "{name} string: tune a little higher (tighten the peg).",
-  "tuner.down.string": "{name} string: tune a little lower (loosen the peg)."
+  "tuner.down.string": "{name} string: tune a little lower (loosen the peg).",
+  "progress.title": "Progress",
+  "progress.empty.title": "No runs yet",
+  "progress.empty.text": "Play a piece, and you will see here how often and how well you practise.",
+  "progress.week": "This week: {minutes} min on {days} days. Keep going!",
+  "progress.week.none": "No practice yet this week. Ten minutes are enough to start.",
+  "progress.days": "Practice time, last 14 days",
+  "progress.pieces": "Pieces",
+  "progress.speed": "steady up to {percent} % tempo",
+  "progress.runs": "{n} runs",
+  "nav.progress": "Progress"
 }

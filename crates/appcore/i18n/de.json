@@ -163,7 +163,7 @@
   "keys.speed": "Tempo ±5 %",
   "keys.mode": "Modus: Spielen, Song, Warten, Werkstatt",
   "keys.view": "Ansicht: Tab-Lane, Tabulatur, Noten, Noten + Tab",
-  "keys.pages": "Seiten: Bibliothek, Üben, Stimmgerät, Einstellungen, Einrichtung",
+  "keys.pages": "Seiten: Bibliothek, Üben, Stimmgerät, Einstellungen, Einrichtung, Fortschritt",
   "library.underminute": "unter 1 min geübt",
   "notice.more.strings": "Das Stück geht bis {note} hinunter, tiefer als dein Bass im Profil. Kontra zeigt es für {strings} Saiten; in den Einstellungen kannst du die Saitenzahl ändern.",
   "hint.quantum": "Das Audiosystem arbeitet in Blöcken von {frames} Samples ({ms} ms). Damit kommt jede Rückmeldung spürbar zu spät. Kleiner stellen, z. B. im Terminal: pw-metadata -n settings 0 clock.force-quantum 256 (gilt bis zum Neustart); dauerhaft in ~/.config/pipewire/pipewire.conf.d/ mit default.clock.quantum = 256.",
@@ -188,5 +188,15 @@
   "tuner.wrongstring": "Das klingt nach einer anderen Saite. Schlag die {name}-Saite an.",
   "tuner.hold": "Gestimmt – kurz halten …",
   "tuner.up.string": "{name}-Saite: etwas höher drehen (Wirbel spannen).",
-  "tuner.down.string": "{name}-Saite: etwas tiefer drehen (Wirbel lockern)."
+  "tuner.down.string": "{name}-Saite: etwas tiefer drehen (Wirbel lockern).",
+  "progress.title": "Fortschritt",
+  "progress.empty.title": "Noch keine Übungsläufe",
+  "progress.empty.text": "Spiel ein Stück, dann siehst du hier, wie oft und wie gut du übst.",
+  "progress.week": "Diese Woche: {minutes} min an {days} Tagen. Weiter so!",
+  "progress.week.none": "Diese Woche noch nicht geübt. Zehn Minuten reichen für den Anfang.",
+  "progress.days": "Übungszeit der letzten 14 Tage",
+  "progress.pieces": "Stücke",
+  "progress.speed": "bis {percent} % Tempo sicher",
+  "progress.runs": "{n} Läufe",
+  "nav.progress": "Fortschritt"
 }

@@ -167,6 +167,11 @@ pub mod qobject {
             low_string_on_top: bool,
         );
 
+        /// Progress over all pieces as JSON (LH-FOR-01), read when the page opens.
+        #[qinvokable]
+        #[cxx_name = "progressJson"]
+        fn progress_json(self: &Self) -> QString;
+
         /// Timing window ("auto", "loose", "normal", "strict") and pitch limit (0 = auto).
         #[qinvokable]
         #[cxx_name = "changeScoring"]
@@ -817,6 +822,10 @@ impl qobject::Controller {
         self.as_mut().set_reference(reference);
         self.as_mut().set_low_string_on_top(low_string_on_top);
         self.as_mut().set_playing(false);
+    }
+
+    fn progress_json(&self) -> QString {
+        q(&self.rust().core.progress_json())
     }
 
     fn change_scoring(mut self: Pin<&mut Self>, strictness: &QString, pitch_cents: f64) {
