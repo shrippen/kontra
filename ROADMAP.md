@@ -67,11 +67,13 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 (P1–P7) durchgespielt und, wo möglich, an echten Übungsläufen gemessen
 (Trefferquote, Timing-Streuung, Übungszeit, Abbrüche).
 
-- [ ] Bestandsaufnahme: Lehrwerke und Methoden (Bassschulen, Suzuki/
+- [x] Bestandsaufnahme: Lehrwerke und Methoden (Bassschulen, Suzuki/
       Gehör zuerst, Groove zuerst, Notenlesen zuerst), Spiele und Apps
       (Rocksmith Riff Repeater und Dynamic Difficulty, Synthesia, Yousician,
       Melodics), Forschung zu Üben (deliberate practice, verteiltes Üben,
-      Chunking, Fehler-Feedback). Ergebnis: `DIDAKTIK.md` mit Thesen
+      Chunking, Fehler-Feedback). Ergebnis (9.10.2026): [`DIDAKTIK.md`](DIDAKTIK.md),
+      7 Thesen, 12 Ideen, Vorschlag für drei Prototypen nach 0.1 (Blind-Probe, Stellen-Wiederholung über Tage,
+      Groove-Start mit „vor/hinter dem Beat“)
 - [ ] Ideen sammeln und je eine Skizze, z. B.: Groove vor Tönen (erst
       Rhythmus auf einer Saite), Hören vor Lesen (nachspielen ohne Anzeige),
       Lieder in Bausteine zerlegen und zusammensetzen, adaptives Tempo und
