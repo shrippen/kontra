@@ -6,6 +6,7 @@
 //! ```
 
 mod i18n;
+pub mod quiz;
 mod store;
 
 pub use i18n::{Catalog, Language};
@@ -117,6 +118,8 @@ pub struct Core {
     notice: Option<String>,
     /// The setlist being played and the position in it (LH-BIB-04).
     active_setlist: Option<(String, usize)>,
+    /// Fretboard quiz in progress (LH-LRN-02).
+    quiz: Option<quiz::Quiz>,
 }
 
 impl Core {
@@ -128,6 +131,7 @@ impl Core {
             .as_deref()
             .map_or_else(Language::from_environment, Language::from_code);
         Core {
+            quiz: None,
             notice: None,
             active_setlist: None,
             catalog: Catalog::new(language),
@@ -1340,6 +1344,105 @@ impl Core {
         })
     }
 
+    /// Starts the fretboard quiz ("notes" or "intervals") and returns `quiz_json`.
+    pub fn quiz_start(&mut self, kind: &str) -> String {
+        let kind = match kind {
+            "intervals" => quiz::QuizKind::Intervals,
+            _ => quiz::QuizKind::Notes,
+        };
+        let seed = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(1, |d| d.as_nanos() as u64);
+        self.quiz = Some(quiz::Quiz::new(
+            kind,
+            &instrument_from(&self.settings),
+            seed,
+        ));
+        self.quiz_json()
+    }
+
+    /// Next question.
+    pub fn quiz_next(&mut self) -> String {
+        let instrument = instrument_from(&self.settings);
+        if let Some(q) = &mut self.quiz {
+            q.next(&instrument);
+        }
+        self.quiz_json()
+    }
+
+    /// Answers with a played pitch; true when it was the first right answer.
+    pub fn quiz_answer(&mut self, midi: f64) -> bool {
+        let instrument = instrument_from(&self.settings);
+        self.quiz
+            .as_mut()
+            .is_some_and(|q| q.answer(midi, &instrument))
+    }
+
+    /// The question in words, the score, and once solved where the answer lies:
+    /// `{"prompt", "right", "asked", "solved", "positions": [{string, fret, role}]}`.
+    pub fn quiz_json(&self) -> String {
+        let Some(q) = &self.quiz else {
+            return String::new();
+        };
+        let instrument = instrument_from(&self.settings);
+        let string_name = |s: usize| {
+            instrument
+                .tuning
+                .strings
+                .get(s)
+                .map_or(String::new(), |p| self.note_label(&p.name().to_string()))
+        };
+        let question = &q.question;
+        let prompt = match q.kind {
+            quiz::QuizKind::Notes => self.tr(
+                "quiz.notes.prompt",
+                &[
+                    ("note", self.note_label(&quiz::note_name(question.target))),
+                    ("string", string_name(question.string)),
+                ],
+            ),
+            quiz::QuizKind::Intervals => {
+                let (_, fret) = q.root_position(&instrument).unwrap_or((0, 0));
+                self.tr(
+                    "quiz.intervals.prompt",
+                    &[
+                        (
+                            "interval",
+                            self.tr(
+                                &format!("quiz.interval.{}", question.interval.unwrap_or("p5")),
+                                &[],
+                            ),
+                        ),
+                        (
+                            "note",
+                            self.note_label(&quiz::note_name(question.root.unwrap_or(0))),
+                        ),
+                        ("string", string_name(question.string)),
+                        ("fret", fret.to_string()),
+                    ],
+                )
+            }
+        };
+        let mut positions: Vec<serde_json::Value> = Vec::new();
+        if let Some((string, fret)) = q.root_position(&instrument) {
+            positions.push(json!({ "string": string, "fret": fret, "role": "root" }));
+        }
+        if q.solved {
+            positions.extend(q.positions(&instrument).into_iter().map(
+                |(string, fret)| json!({ "string": string, "fret": fret, "role": "current" }),
+            ));
+        }
+        json!({
+            "prompt": prompt,
+            "right": q.right,
+            "asked": q.asked,
+            "solved": q.solved,
+            "score": self.tr("quiz.score", &[("right", q.right.to_string()), ("asked", q.asked.to_string())]),
+            "positions": positions,
+        })
+        .to_string()
+    }
+
     /// Writes a generated exercise (LH-LRN-04) into the data folder and returns its path.
     pub fn generate_exercise(&mut self, spec: &exercise::ExerciseSpec) -> Result<PathBuf, String> {
         let generated = exercise::generate(spec);
@@ -1905,6 +2008,31 @@ mod tests {
         let a = core.arrangement().unwrap();
         assert_eq!(a.notes.len(), 48);
         assert_eq!(a.markers[0].name, "F7");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-LRN-02: the quiz asks in words, counts a right answer once and then shows the places.
+    #[test]
+    fn quiz_asks_and_shows_the_answer() {
+        let dir = temp_dir("quiz");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_start("notes")).unwrap();
+        assert!(
+            q["prompt"].as_str().unwrap().contains("-Saite")
+                || q["prompt"].as_str().unwrap().contains("string")
+        );
+        assert_eq!(q["positions"].as_array().unwrap().len(), 0);
+        // Play every pitch of the neck until one answers.
+        let solved = (28..=55).any(|m| core.quiz_answer(f64::from(m)));
+        assert!(solved);
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_json()).unwrap();
+        assert_eq!(q["right"], 1);
+        assert!(!q["positions"].as_array().unwrap().is_empty());
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_next()).unwrap();
+        assert_eq!(
+            (q["asked"].as_u64(), q["solved"].as_bool()),
+            (Some(2), Some(false))
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 

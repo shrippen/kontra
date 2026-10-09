@@ -20,6 +20,7 @@ Kirigami.ApplicationWindow {
         setup: Qt.resolvedUrl("SetupPage.qml"),
         progress: Qt.resolvedUrl("ProgressPage.qml"),
         exercises: Qt.resolvedUrl("ExercisePage.qml"),
+        quiz: Qt.resolvedUrl("QuizPage.qml"),
         library: Qt.resolvedUrl("LibraryPage.qml"),
         practice: Qt.resolvedUrl("PracticePage.qml"),
         tuner: Qt.resolvedUrl("TunerPage.qml"),
@@ -62,7 +63,7 @@ Kirigami.ApplicationWindow {
     color: KanteStyle.themed ? KanteStyle.backgroundColor : Kirigami.Theme.backgroundColor
 
     function show(name) {
-        if ((current === "tuner" || current === "setup") && name !== current) {
+        if ((current === "tuner" || current === "setup" || current === "quiz") && name !== current) {
             ctl.stopTuner()
         }
         current = name
@@ -85,7 +86,8 @@ Kirigami.ApplicationWindow {
             Kirigami.Action { text: texts.t("nav.settings"); icon.name: "settings-configure"; checked: root.current === "settings"; shortcut: "Ctrl+4"; onTriggered: root.show("settings") },
             Kirigami.Action { text: texts.t("nav.setup"); icon.name: "tools-wizard"; checked: root.current === "setup"; shortcut: "Ctrl+5"; onTriggered: root.show("setup") },
             Kirigami.Action { text: texts.t("nav.progress"); icon.name: "view-statistics"; checked: root.current === "progress"; shortcut: "Ctrl+6"; onTriggered: root.show("progress") },
-            Kirigami.Action { text: texts.t("nav.exercises"); icon.name: "view-media-playlist"; checked: root.current === "exercises"; shortcut: "Ctrl+7"; onTriggered: root.show("exercises") }
+            Kirigami.Action { text: texts.t("nav.exercises"); icon.name: "view-media-playlist"; checked: root.current === "exercises"; shortcut: "Ctrl+7"; onTriggered: root.show("exercises") },
+            Kirigami.Action { text: texts.t("nav.quiz"); icon.name: "games-config-board"; checked: root.current === "quiz"; shortcut: "Ctrl+8"; onTriggered: root.show("quiz") }
         ]
     }
 
