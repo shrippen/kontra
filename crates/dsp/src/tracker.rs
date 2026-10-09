@@ -266,12 +266,16 @@ impl NoteTracker {
     ///
     /// The plain estimate is used, not `estimate_fundamental` (its low-pass needs warm-up audio a
     /// fresh note does not have), then `refine_hz` removes the stiff-string bias for intonation.
+    /// `refine_hz` gets all audio since the attack (up to the scratch length): it needs 2.25
+    /// periods, more than `needed()` holds for notes near `min_hz` (B0 −20 ct on a 5-string),
+    /// which then kept the bias (+8 ct).
     fn estimate(&mut self, p: &Pending, until: u64) -> Option<PitchEstimate> {
         let skip = (self.config.attack_skip_s * self.sample_rate) as u64;
-        let from = (p.onset + skip).max(until.saturating_sub(self.yin.needed() as u64));
+        let from = (p.onset + skip).max(until.saturating_sub(self.scratch.len() as u64));
         let count = (until - from) as usize;
         self.copy_out(from, count);
-        let mut estimate = self.yin.estimate(&self.scratch[..count])?;
+        let yin_from = count.saturating_sub(self.yin.needed());
+        let mut estimate = self.yin.estimate(&self.scratch[yin_from..count])?;
         if estimate.confidence < self.config.min_confidence {
             return None;
         }
@@ -370,6 +374,24 @@ mod tests {
             0.25,
         );
         let signal = render(&notes, SR, 3.6, ToneShape::Rich, 5);
+        assert_matches(&track(&signal, InputSource::Line), &notes, 5.0, 3.0);
+    }
+
+    #[test]
+    fn low_b_cents_off_pitch() {
+        // J-B4 (P3, fretless): B0 below its pitch read +8 ct off (−20 ct as −11.7).
+        let base = Pitch::parse("B0").unwrap().hz(A4_HZ);
+        let notes: Vec<SynthNote> = [-40.0, -20.0, 0.0, 20.0]
+            .iter()
+            .enumerate()
+            .map(|(i, cents)| SynthNote {
+                onset_s: 0.2 + i as f64 * 0.5,
+                hz: base * 2f64.powf(cents / 1200.0),
+                duration_s: 0.45,
+                velocity: 0.7,
+            })
+            .collect();
+        let signal = render(&notes, SR, 2.3, ToneShape::Rich, 12);
         assert_matches(&track(&signal, InputSource::Line), &notes, 5.0, 3.0);
     }
 
