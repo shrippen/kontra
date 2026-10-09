@@ -1,6 +1,8 @@
-//! Input: a sound device or a file, analyzed on a worker thread.
+//! Input: a sound device or a file, analyzed on a worker thread and optionally monitored
+//! (copied to a player's output).
 
 use crate::clock::Clock;
+use crate::player::Player;
 use crate::{EngineError, Event};
 use kontra_drivers::{read_audio, InputStream, StreamConfig};
 use kontra_dsp::synth::laptop_jack;
@@ -40,6 +42,28 @@ pub enum InputKind {
     },
 }
 
+/// Write end of a player's monitor ring and the player's rate. Input at another rate is not
+/// monitored: resampling would add latency for a feature that only helps when it is fast.
+struct Tap {
+    ring: rtrb::Producer<f32>,
+    rate: u32,
+}
+
+impl Tap {
+    fn from_player(player: Option<&mut Player>) -> Option<Tap> {
+        let player = player?;
+        let rate = player.sample_rate;
+        player.take_monitor().map(|ring| Tap { ring, rate })
+    }
+
+    /// Copies `samples`; a full ring (output stalled) drops them instead of blocking.
+    fn push(&mut self, samples: &[f32]) {
+        for &s in samples {
+            let _ = self.ring.push(s);
+        }
+    }
+}
+
 /// Running input; dropping it stops the threads.
 #[derive(Debug)]
 pub struct Input {
@@ -55,19 +79,23 @@ pub struct Input {
 }
 
 impl Input {
+    /// Starts the input. With `monitor`, its samples also go to that player's output when both
+    /// run at the same rate (real-time files and devices; the player's gain decides if it is heard).
     pub fn start(
         kind: &InputKind,
         instrument: &Instrument,
         source: InputSource,
         clock: &Clock,
         events: Sender<Event>,
+        monitor: Option<&mut Player>,
     ) -> Result<Input, EngineError> {
         let stop = Arc::new(AtomicBool::new(false));
         let tuner_on = Arc::new(AtomicBool::new(false));
+        let tap = Tap::from_player(monitor);
         match kind {
-            InputKind::Device(config) => {
-                start_device(config, instrument, source, clock, events, stop, tuner_on)
-            }
+            InputKind::Device(config) => start_device(
+                config, instrument, source, clock, events, stop, tuner_on, tap,
+            ),
             InputKind::File {
                 path,
                 pace,
@@ -82,6 +110,7 @@ impl Input {
                 events,
                 stop,
                 tuner_on,
+                tap.filter(|_| *pace == Pace::RealTime),
             ),
         }
     }
@@ -172,6 +201,7 @@ impl Analysis {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn start_device(
     config: &StreamConfig,
     instrument: &Instrument,
@@ -180,6 +210,7 @@ fn start_device(
     events: Sender<Event>,
     stop: Arc<AtomicBool>,
     tuner_on: Arc<AtomicBool>,
+    tap: Option<Tap>,
 ) -> Result<Input, EngineError> {
     // The ring size depends on the sample rate, which we only know after opening; 192 kHz is the cap.
     let (mut producer, mut consumer) = rtrb::RingBuffer::<f32>::new((RING_S * 192_000.0) as usize);
@@ -190,6 +221,12 @@ fn start_device(
     let block_cb = Arc::clone(&block);
     let clock_cb = clock.clone();
     let error_events = events.clone();
+    // The device's rate is known only after opening; until it matches the player's, nothing is
+    // monitored.
+    let tap_rate = tap.as_ref().map_or(0, |t| t.rate);
+    let mut tap = tap;
+    let monitor_on = Arc::new(AtomicBool::new(false));
+    let monitor_cb = Arc::clone(&monitor_on);
     let stream = InputStream::open(
         config,
         move |samples: &[f32]| {
@@ -205,12 +242,16 @@ fn start_device(
                 // A full ring means the analysis fell behind; dropping is better than blocking.
                 let _ = producer.push(s);
             }
+            if let Some(tap) = tap.as_mut().filter(|_| monitor_cb.load(Ordering::Relaxed)) {
+                tap.push(samples);
+            }
         },
         move |message| {
             let _ = error_events.send(Event::Error(message));
         },
     )?;
     let sample_rate = stream.sample_rate;
+    monitor_on.store(tap_rate == sample_rate, Ordering::Relaxed);
     let mut analysis = Analysis::new(f64::from(sample_rate), instrument, source);
     let stop_worker = Arc::clone(&stop);
     let tuner_worker = Arc::clone(&tuner_on);
@@ -261,6 +302,7 @@ fn start_file(
     events: Sender<Event>,
     stop: Arc<AtomicBool>,
     tuner_on: Arc<AtomicBool>,
+    tap: Option<Tap>,
 ) -> Result<Input, EngineError> {
     let buffer = read_audio(path)?;
     let sample_rate = buffer.sample_rate;
@@ -270,6 +312,7 @@ fn start_file(
         samples = laptop_jack(&samples, sr, 1);
     }
     let mut analysis = Analysis::new(sr, instrument, source);
+    let mut tap = tap.filter(|t| t.rate == sample_rate);
     let clock = clock.clone();
     let started_flag = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
     let started_worker = Arc::clone(&started_flag);
@@ -293,6 +336,9 @@ fn start_file(
                         std::thread::sleep(Duration::from_secs_f64(wait));
                     }
                 }
+                if let Some(tap) = tap.as_mut() {
+                    tap.push(block);
+                }
                 analysis.process(block, tuner_worker.load(Ordering::Relaxed), &events);
             }
             analysis.finish(&events);
@@ -308,4 +354,59 @@ fn start_file(
         _stream: None,
         sample_rate,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kontra_drivers::{write_wav, AudioBuffer};
+
+    /// Feeds a 0.1 s real-time file at `file_rate` into a tap at `tap_rate`; returns what
+    /// reached the monitor ring.
+    fn monitored(file_rate: u32, tap_rate: u32, name: &str) -> Vec<f32> {
+        let path = std::env::temp_dir().join(format!("kontra-{name}-{}.wav", std::process::id()));
+        let samples: Vec<f32> = (0..file_rate / 10).map(|i| (i % 7) as f32 / 10.0).collect();
+        write_wav(
+            &path,
+            &AudioBuffer {
+                sample_rate: file_rate,
+                channels: vec![samples],
+            },
+        )
+        .unwrap();
+        let (ring, mut rx) = rtrb::RingBuffer::<f32>::new(10_000);
+        let (tx, events) = std::sync::mpsc::channel();
+        let input = start_file(
+            &path,
+            Pace::RealTime,
+            false,
+            &Instrument::default_bass(),
+            InputSource::Line,
+            &Clock::new(),
+            tx,
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicBool::new(false)),
+            Some(Tap {
+                ring,
+                rate: tap_rate,
+            }),
+        )
+        .unwrap();
+        while !matches!(events.recv(), Ok(Event::Ended) | Err(_)) {}
+        drop(input);
+        std::fs::remove_file(path).unwrap();
+        std::iter::from_fn(|| rx.pop().ok()).collect()
+    }
+
+    #[test]
+    fn real_time_file_reaches_the_monitor() {
+        let heard = monitored(48_000, 48_000, "monitor-same");
+        assert_eq!(heard.len(), 4800);
+        assert!((heard[3] - 0.3).abs() < 1e-6);
+    }
+
+    #[test]
+    fn other_rate_is_not_monitored() {
+        assert!(monitored(44_100, 48_000, "monitor-other").is_empty());
+    }
 }

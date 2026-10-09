@@ -44,6 +44,7 @@ fn file_input_detects_riff() {
         InputSource::Line,
         &clock,
         tx,
+        None,
     )
     .unwrap();
     let mut found = Vec::new();

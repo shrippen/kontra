@@ -1,8 +1,14 @@
-//! Output: metronome clicks, reference tones and the backing track, scheduled on the engine clock.
+//! Output: metronome clicks, reference tones, the backing track and the monitored bass input,
+//! scheduled on the engine clock.
 //!
 //! The control thread schedules sounds slightly ahead (≥ 100 ms); the audio callback starts each
 //! one at the exact frame. Nothing in the callback allocates or frees: backing audio arrives as an
 //! `Arc` that the control side keeps alive (see `Output::play_backing`).
+//!
+//! ```text
+//! input callback ─► monitor ring (mono) ─┐
+//! control ─► command ring ───────────────┴─► output callback: voices + backing + monitor ─► device
+//! ```
 
 use crate::clock::Clock;
 use crate::{EngineError, Event};
@@ -15,6 +21,12 @@ use std::sync::Arc;
 const COMMANDS: usize = 1024;
 const VOICES: usize = 48;
 const CLICK_S: f32 = 0.02;
+/// Monitor ring: half a second at the highest supported rate.
+const MONITOR_RING: usize = 96_000;
+/// More queued monitor audio than this means the clocks drifted apart; the excess is dropped
+/// down to `MONITOR_KEEP_S`, so the bass never lags further behind.
+const MONITOR_MAX_S: f64 = 0.08;
+const MONITOR_KEEP_S: f64 = 0.02;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Accent {
@@ -58,6 +70,8 @@ pub struct Gains {
     pub click: f32,
     pub tone: f32,
     pub backing: f32,
+    /// The bass input played back (input monitoring); 0 = off.
+    pub monitor: f32,
 }
 
 impl Default for Gains {
@@ -66,6 +80,7 @@ impl Default for Gains {
             click: 0.8,
             tone: 0.6,
             backing: 0.8,
+            monitor: 0.0,
         }
     }
 }
@@ -120,6 +135,8 @@ pub struct Player {
     commands: rtrb::Producer<Command>,
     _stream: OutputStream,
     started: Arc<AtomicU64>,
+    /// Write end of the monitor ring, until an input takes it.
+    monitor: Option<rtrb::Producer<f32>>,
     pub sample_rate: u32,
 }
 
@@ -130,6 +147,7 @@ impl Player {
         events: Sender<Event>,
     ) -> Result<Player, EngineError> {
         let (producer, mut consumer) = rtrb::RingBuffer::<Command>::new(COMMANDS);
+        let (monitor, monitor_rx) = rtrb::RingBuffer::<f32>::new(MONITOR_RING);
         let started = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
         let started_cb = Arc::clone(&started);
         let clock = clock.clone();
@@ -138,6 +156,7 @@ impl Player {
             gains: Gains::default(),
             backing: None,
             next: None,
+            monitor: Some(monitor_rx),
         };
         let mut frame: u64 = 0;
         let mut first_block = true;
@@ -156,6 +175,7 @@ impl Player {
                     mixer.apply(command);
                 }
                 let sr = rate_cb.load(Ordering::Relaxed) as f64;
+                mixer.trim_monitor(sr);
                 for out in data.chunks_mut(channels.max(1)) {
                     let now = t0 + frame as f64 / sr;
                     let (left, right) = mixer.render(now, sr);
@@ -181,7 +201,13 @@ impl Player {
             sample_rate: stream.sample_rate,
             _stream: stream,
             started,
+            monitor: Some(monitor),
         })
+    }
+
+    /// Hands the monitor ring's write end to an input (once).
+    pub(crate) fn take_monitor(&mut self) -> Option<rtrb::Producer<f32>> {
+        self.monitor.take()
     }
 
     /// True once the device asked for its first block (before that, nothing plays).
@@ -248,6 +274,8 @@ struct Mixer {
     backing: Option<Backing>,
     /// Starts at its `at_s` and replaces `backing`.
     next: Option<Backing>,
+    /// Read end of the monitor ring (mono input samples at the output rate).
+    monitor: Option<rtrb::Consumer<f32>>,
 }
 
 impl Mixer {
@@ -296,6 +324,26 @@ impl Mixer {
         }
     }
 
+    /// Once per block: drops queued monitor audio that is muted or lags too far behind.
+    /// Example at 48 kHz: 5000 queued frames (104 ms) are cut to the newest 960 (20 ms).
+    fn trim_monitor(&mut self, sr: f64) {
+        let Some(ring) = self.monitor.as_mut() else {
+            return;
+        };
+        let queued = ring.slots();
+        let keep = if self.gains.monitor > 0.0 {
+            (MONITOR_KEEP_S * sr) as usize
+        } else {
+            0
+        };
+        if self.gains.monitor > 0.0 && queued <= (MONITOR_MAX_S * sr) as usize {
+            return;
+        }
+        if let Ok(chunk) = ring.read_chunk(queued.saturating_sub(keep)) {
+            chunk.commit_all();
+        }
+    }
+
     /// One stereo frame at engine time `now`.
     fn render(&mut self, now: f64, sr: f64) -> (f32, f32) {
         let mono = render(&mut self.voices, now, sr as f32, self.gains);
@@ -312,6 +360,12 @@ impl Mixer {
                     right += pair[1] * self.gains.backing;
                 }
             }
+        }
+        // Monitoring: one input sample per frame; an empty ring (underrun) stays silent.
+        if let Some(ring) = self.monitor.as_mut() {
+            let sample = ring.pop().unwrap_or(0.0) * self.gains.monitor;
+            left += sample;
+            right += sample;
         }
         (left.clamp(-1.0, 1.0), right.clamp(-1.0, 1.0))
     }
@@ -370,9 +424,11 @@ mod tests {
                 click: 1.0,
                 tone: 1.0,
                 backing: 1.0,
+                monitor: 1.0,
             },
             backing: None,
             next: None,
+            monitor: None,
         }
     }
 
@@ -436,5 +492,65 @@ mod tests {
         assert!((m.render(1.201, sr).0 - 1.0 / 4000.0).abs() < 1e-6);
         m.apply(Command::StopBacking { at_s: 1.5 });
         assert_eq!(m.render(1.6, sr), (0.0, 0.0));
+    }
+
+    /// A mixer with a monitor ring; returns the ring's write end.
+    fn monitored(gain: f32) -> (Mixer, rtrb::Producer<f32>) {
+        let (tx, rx) = rtrb::RingBuffer::<f32>::new(MONITOR_RING);
+        let mut m = mixer();
+        m.gains.monitor = gain;
+        m.monitor = Some(rx);
+        (m, tx)
+    }
+
+    #[test]
+    fn monitor_plays_input_at_its_gain() {
+        let (mut m, mut tx) = monitored(0.5);
+        for _ in 0..10 {
+            tx.push(0.4).unwrap();
+        }
+        let sr = 48_000.0;
+        m.trim_monitor(sr);
+        let (l, r) = m.render(0.0, sr);
+        assert!((l - 0.2).abs() < 1e-6 && (r - 0.2).abs() < 1e-6);
+        // Underrun: silence, not stale audio.
+        for i in 1..10 {
+            m.render(f64::from(i) / sr, sr);
+        }
+        assert_eq!(m.render(1.0, sr), (0.0, 0.0));
+    }
+
+    #[test]
+    fn muted_monitor_drains_its_ring() {
+        let (mut m, mut tx) = monitored(0.0);
+        for _ in 0..1000 {
+            tx.push(0.4).unwrap();
+        }
+        m.trim_monitor(48_000.0);
+        assert_eq!(m.render(0.0, 48_000.0), (0.0, 0.0));
+        // Switched on later: starts with fresh input, not with what queued while muted.
+        m.apply(Command::Gains(Gains {
+            monitor: 1.0,
+            ..m.gains
+        }));
+        assert_eq!(m.render(0.0, 48_000.0), (0.0, 0.0));
+    }
+
+    #[test]
+    fn lagging_monitor_is_cut_to_the_newest_audio() {
+        let (mut m, mut tx) = monitored(1.0);
+        let sr = 1000.0;
+        // 200 ms queued at 1 kHz: older samples 0.1, the newest 20 ms 0.3.
+        for i in 0..200 {
+            tx.push(if i < 180 { 0.1 } else { 0.3 }).unwrap();
+        }
+        m.trim_monitor(sr);
+        assert!((m.render(0.0, sr).0 - 0.3).abs() < 1e-6);
+        // Within the limit nothing is dropped.
+        for _ in 0..50 {
+            tx.push(0.2).unwrap();
+        }
+        m.trim_monitor(sr);
+        assert!((m.render(0.0, sr).0 - 0.3).abs() < 1e-6);
     }
 }
