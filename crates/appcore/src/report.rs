@@ -14,6 +14,8 @@ const KANTE_CSS: &str = include_str!("../report/shrippen.css");
 const CHART_W: f64 = 600.0;
 const CHART_H: f64 = 200.0;
 const CHART_PAD: f64 = 24.0;
+/// Room left of the plot for the axis labels ("150 %").
+const CHART_AXIS: f64 = 48.0;
 /// The tempo the progress view calls "sitzt" (LH-FOR-01): best speed at ≥ 90 % hits.
 const SOLID_HIT_RATE: f64 = 0.9;
 const SECONDS_PER_DAY: u64 = 86_400;
@@ -61,10 +63,13 @@ impl Core {
             html,
             "<section class=\"section\">\n<h1>{}</h1>\n<p>{}</p>\n</section>\n<div class=\"facts\">\n",
             escape(&title),
-            escape(&self.tr(
-                "report.subtitle",
-                &[("artist", p.artist.clone()), ("date", date(now_unix))]
-            )),
+            escape(&match p.artist.trim() {
+                "" => self.tr("report.made", &[("date", date(now_unix))]),
+                artist => self.tr(
+                    "report.subtitle",
+                    &[("artist", artist.to_string()), ("date", date(now_unix))]
+                ),
+            }),
         );
         for (value, label) in &facts {
             let _ = writeln!(
@@ -127,13 +132,13 @@ impl Core {
     }
 }
 
-/// Hit rate (line with marks) and tempo (dashed line) per run, oldest left; grid at 0/50/100 %.
+/// Hit rate (line with marks) and tempo (plain line) per run, oldest left; grid at 0/50/100 %.
 fn chart(runs: &[Run], label: &str) -> String {
-    let inner_w = CHART_W - 2.0 * CHART_PAD;
+    let inner_w = CHART_W - CHART_AXIS - CHART_PAD;
     let inner_h = CHART_H - 2.0 * CHART_PAD;
     let x = |i: usize| {
         let steps = runs.len().saturating_sub(1).max(1) as f64;
-        CHART_PAD + inner_w * i as f64 / steps
+        CHART_AXIS + inner_w * i as f64 / steps
     };
     let y = |v: f64| CHART_PAD + inner_h * (1.0 - v.clamp(0.0, 1.5) / 1.5);
     let mut svg = format!(
@@ -143,17 +148,17 @@ fn chart(runs: &[Run], label: &str) -> String {
     for level in [0.0, 0.5, 1.0, 1.5] {
         let _ = writeln!(
             svg,
-            "<line class=\"grid\" x1=\"{CHART_PAD}\" x2=\"{}\" y1=\"{1:.1}\" y2=\"{1:.1}\"/>\
+            "<line class=\"grid\" x1=\"{CHART_AXIS}\" x2=\"{}\" y1=\"{1:.1}\" y2=\"{1:.1}\"/>\
              <text class=\"axis\" x=\"{2}\" y=\"{1:.1}\">{3:.0} %</text>",
             CHART_W - CHART_PAD,
             y(level),
-            CHART_PAD - 4.0,
+            CHART_AXIS - 6.0,
             level * 100.0
         );
     }
     let _ = writeln!(
         svg,
-        "<line class=\"goal\" x1=\"{CHART_PAD}\" x2=\"{}\" y1=\"{1:.1}\" y2=\"{1:.1}\"/>",
+        "<line class=\"goal\" x1=\"{CHART_AXIS}\" x2=\"{}\" y1=\"{1:.1}\" y2=\"{1:.1}\"/>",
         CHART_W - CHART_PAD,
         y(SOLID_HIT_RATE)
     );
@@ -166,7 +171,7 @@ fn chart(runs: &[Run], label: &str) -> String {
     };
     let _ = writeln!(
         svg,
-        "<polyline class=\"line s2 bar is-prev\" points=\"{}\"/>",
+        "<polyline class=\"line s2\" points=\"{}\"/>",
         points(|r| r.speed)
     );
     let _ = writeln!(
