@@ -117,5 +117,9 @@
   "setup.later": "Later, to the library",
   "hint.bluetooth": "Sound goes over Bluetooth. That adds a large, uneven delay; wired headphones give exact timing.",
   "library.search": "Search …",
-  "library.nomatch": "Nothing found."
+  "library.nomatch": "Nothing found.",
+  "view.combined": "Notation + tab",
+  "settings.lowtop": "Low string on top",
+  "settings.lowtop.hint": "As when looking down at the fretboard; by default the high string is on top as in tablature.",
+  "error.device.lost": "The audio device is gone ({reason}). Plug it back in and press play."
 }

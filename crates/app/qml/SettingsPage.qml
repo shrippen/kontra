@@ -83,6 +83,15 @@ Kirigami.ScrollablePage {
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            title: texts.t("settings.lowtop")
+            hint: texts.t("settings.lowtop.hint")
+            QQC2.Switch {
+                checked: ctl.lowStringOnTop
+                onToggled: ctl.changeOptions(ctl.metronome, ctl.reference, checked)
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
             title: texts.t("transport.metronome")
             QQC2.Switch {
                 checked: ctl.metronome

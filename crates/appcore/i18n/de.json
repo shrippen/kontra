@@ -117,5 +117,9 @@
   "setup.later": "Später, zur Bibliothek",
   "hint.bluetooth": "Der Ton geht über Bluetooth. Das verzögert stark und ungleichmäßig; für genaues Timing besser Kabel-Kopfhörer nehmen.",
   "library.search": "Suchen …",
-  "library.nomatch": "Nichts gefunden."
+  "library.nomatch": "Nichts gefunden.",
+  "view.combined": "Noten + Tab",
+  "settings.lowtop": "Tiefe Saite oben",
+  "settings.lowtop.hint": "Wie beim Blick auf das Griffbrett von oben; Standard ist die hohe Saite oben wie in Tabulaturen.",
+  "error.device.lost": "Das Audiogerät ist weg ({reason}). Wieder anstecken und auf Abspielen drücken."
 }

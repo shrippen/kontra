@@ -45,6 +45,7 @@ for lang in de en; do
     shot calibration "$lang" 7500 --page settings --input-file "$WORK/clicks.wav" --calibrate
     shot practice-tab "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --view tab
     shot practice-notation "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --view notation
+    shot practice-combined "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --view combined
     shot practice-wait "$lang" 5000 --open "$DEMO" --mode wait --view lane --autoplay
     shot summary "$lang" 25000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --mode song --view lane
 done

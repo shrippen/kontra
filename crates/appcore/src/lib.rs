@@ -64,6 +64,8 @@ pub enum UiEvent {
     },
     Message(String),
     Error(String),
+    /// The audio device failed (unplugged); the run was stopped.
+    DeviceLost(String),
     /// Calibration finished: new latency (if measured) and a text for the user.
     Calibrated {
         latency_ms: Option<f64>,
@@ -238,7 +240,6 @@ impl Core {
         let Some(a) = self.arrangement() else {
             return "[]".into();
         };
-        let quarter = kontra_model::TICKS_PER_QUARTER as f64;
         let notes: Vec<_> = a
             .notes
             .iter()
@@ -250,7 +251,7 @@ impl Core {
                     "string": n.string.unwrap_or(0),
                     "fret": n.fret.unwrap_or(0),
                     "midi": n.pitch.0,
-                    "beats": n.duration_ticks as f64 / quarter,
+                    "beats": written_beats(n.duration_ticks),
                     "tied": n.tied,
                     "state": "pending",
                 })
@@ -484,6 +485,10 @@ impl Core {
             raw.extend(tuner.poll());
         }
         let mut events: Vec<UiEvent> = raw.into_iter().filter_map(|e| self.translate(e)).collect();
+        if events.iter().any(|e| matches!(e, UiEvent::DeviceLost(_))) {
+            self.stop_live();
+            self.tuner = None;
+        }
         if events.iter().any(|e| matches!(e, UiEvent::Finished { .. })) {
             self.record_run();
         }
@@ -617,9 +622,11 @@ impl Core {
                 clipped,
             }),
             PracticeEvent::Tuner { note, cents } => Some(UiEvent::Tuner { note, cents }),
-            PracticeEvent::Error(m) => {
-                Some(UiEvent::Error(self.tr("error.audio", &[("reason", m)])))
-            }
+            // A device error usually means the interface was unplugged (LH-ALL-04): the run ends
+            // and the next play opens the device again.
+            PracticeEvent::Error(m) => Some(UiEvent::DeviceLost(
+                self.tr("error.device.lost", &[("reason", m)]),
+            )),
             PracticeEvent::InputEnded => None,
             PracticeEvent::Session(e) => self.session_event(e),
         }
@@ -748,6 +755,15 @@ impl Core {
     }
 }
 
+/// Written length in quarter notes, rounded to the nearest sixteenth: played (MIDI) notes are
+/// often a little shorter than written (staccato), and notation must not turn eighths into
+/// sixteenths.
+fn written_beats(duration_ticks: u64) -> f64 {
+    let sixteenth = kontra_model::TICKS_PER_QUARTER / 4;
+    let rounded = ((duration_ticks as f64 / sixteenth as f64).round() as u64).max(1) * sixteenth;
+    rounded as f64 / kontra_model::TICKS_PER_QUARTER as f64
+}
+
 fn instrument_from(settings: &Settings) -> kontra_model::Instrument {
     let tuning = match settings.strings {
         5 => kontra_model::Tuning::bass5_standard(),
@@ -781,6 +797,14 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("kontra-core-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         dir
+    }
+
+    #[test]
+    fn written_beats_round_to_sixteenths() {
+        let q = kontra_model::TICKS_PER_QUARTER;
+        assert_eq!(written_beats(q / 2 - 40), 0.5);
+        assert_eq!(written_beats(q), 1.0);
+        assert_eq!(written_beats(10), 0.25);
     }
 
     #[test]

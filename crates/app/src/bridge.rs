@@ -643,6 +643,11 @@ impl qobject::Controller {
                 }
                 UiEvent::Message(text) => self.as_mut().set_message(q(&text)),
                 UiEvent::Error(text) => self.as_mut().show_error(&text),
+                UiEvent::DeviceLost(text) => {
+                    self.as_mut().set_playing(false);
+                    self.as_mut().set_tuner_active(false);
+                    self.as_mut().show_error(&text);
+                }
                 UiEvent::Calibrated { latency_ms, text } => {
                     if let Some(latency) = latency_ms {
                         self.as_mut().set_latency_ms(latency);

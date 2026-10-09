@@ -12,7 +12,7 @@ Kirigami.Page {
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
     readonly property var modes: ["play", "song", "wait", "workshop"]
-    readonly property var views: ["lane", "tab", "notation"]
+    readonly property var views: ["lane", "tab", "notation", "combined"]
 
     // Notes with their live state; judged states are collected and applied ten times a second,
     // because the views re-read the whole list on every assignment.
@@ -172,6 +172,30 @@ Kirigami.Page {
                 notes: visible ? page.notes : []
                 bars: page.bars
                 position: ctl.position
+            }
+            // Notation above tablature (LH-ANZ-04).
+            ColumnLayout {
+                id: combined
+                anchors.fill: parent
+                visible: ctl.view === "combined"
+                spacing: KanteStyle.unit(8)
+                KanteBassStaff {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    notes: combined.visible ? page.notes : []
+                    bars: page.bars
+                    position: ctl.position
+                }
+                KanteTabStaff {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    strings: page.stringNames.length
+                    stringNames: page.stringNames
+                    lowStringOnTop: ctl.lowStringOnTop
+                    notes: combined.visible ? page.notes : []
+                    bars: page.bars
+                    position: ctl.position
+                }
             }
         }
 
