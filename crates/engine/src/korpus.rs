@@ -201,16 +201,39 @@ pub fn evaluate(
     sample_rate: u32,
     notes: &[Annotation],
 ) -> Evaluation {
+    evaluate_window(set, samples, sample_rate, notes, MATCH_S).0
+}
+
+/// Like `evaluate`, with a chosen matching window (real recordings with score-grid annotations
+/// need ±50 ms); also returns the detections for inspection.
+pub fn evaluate_window(
+    set: KorpusSet,
+    samples: &[f32],
+    sample_rate: u32,
+    notes: &[Annotation],
+    window_s: f64,
+) -> (Evaluation, Vec<DetectedNote>) {
     let detected = analyze(
         samples,
         f64::from(sample_rate),
         &set.instrument(),
         set.source(),
     );
-    compare(set, notes, &detected)
+    let evaluation = compare(set, notes, &detected, window_s);
+    (evaluation, detected)
 }
 
-fn compare(set: KorpusSet, notes: &[Annotation], detected: &[DetectedNote]) -> Evaluation {
+/// `samples` as heard through a laptop combo jack (level, band limit, hum, noise).
+pub fn simulate_laptop_jack(samples: &[f32], sample_rate: u32) -> Vec<f32> {
+    laptop_jack(samples, f64::from(sample_rate), 3)
+}
+
+fn compare(
+    set: KorpusSet,
+    notes: &[Annotation],
+    detected: &[DetectedNote],
+    window_s: f64,
+) -> Evaluation {
     let mut used = vec![false; detected.len()];
     let mut onset_errors = Vec::new();
     let mut cents_errors = Vec::new();
@@ -219,7 +242,7 @@ fn compare(set: KorpusSet, notes: &[Annotation], detected: &[DetectedNote]) -> E
         let best = detected
             .iter()
             .enumerate()
-            .filter(|(i, d)| !used[*i] && (d.onset_s - note.onset_s).abs() <= MATCH_S)
+            .filter(|(i, d)| !used[*i] && (d.onset_s - note.onset_s).abs() <= window_s)
             .min_by(|a, b| {
                 (a.1.onset_s - note.onset_s)
                     .abs()

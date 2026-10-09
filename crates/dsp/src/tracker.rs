@@ -6,6 +6,11 @@
 //!        │                       │                                                └─ no: retry every 5 ms
 //!        └──────────────── timeout (150 ms) ──────────────────────────────────────────────► emit best
 //! ```
+//!
+//! An onset only counts once the level after it has risen above the level before it
+//! (`RISE_*`): a released or ringing note makes spectral changes too, but no new attack.
+//! An attack that comes in two bursts (a second onset before the first has a pitch, within
+//! `MERGE_S`) is one note: the first onset with the pitch measured after the second.
 
 use crate::intonation::refine_hz;
 use crate::level::amplitude_to_db;
@@ -15,6 +20,21 @@ use kontra_model::{cents_between, hz_to_midi, DetectedNote, InputSource, Instrum
 
 const RETRY_S: f64 = 0.005;
 const LEVEL_SPAN_S: f64 = 0.02;
+/// Level before an onset: peak over this span, ending `RISE_GAP_S` before it (−20..−8 ms). The
+/// gap keeps an onset reported a few ms late from seeing its own attack as "before"; the span is
+/// short so that a staccato note before does not count, and still sees ≥ 0.8 of a B0 wave's peak.
+const RISE_BEFORE_S: f64 = 0.012;
+const RISE_GAP_S: f64 = 0.008;
+/// Level after an onset: peak over this span from the onset.
+const RISE_AFTER_S: f64 = 0.04;
+/// The level after must exceed the level before by this factor (+0.8 dB). Chosen on IDMT and
+/// NSynth recordings (testdata/korpus/QUELLEN.md): keeps 90 % of real attacks, drops 62 % of
+/// false ones; stricter factors drop few more false onsets but more soft notes.
+const RISE_FACTOR: f32 = 1.1;
+/// Below this peak the level before counts as silence (any onset is a rise).
+const SILENCE: f32 = 1e-4;
+/// A second onset this soon after one without pitch belongs to the same attack.
+const MERGE_S: f64 = 0.08;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TrackerConfig {
@@ -52,7 +72,10 @@ impl TrackerConfig {
 
 #[derive(Debug, Clone, Copy)]
 struct Pending {
+    /// Where the pitch search starts (the latest attack burst).
     onset: u64,
+    /// The onset reported (the first burst of a merged attack).
+    report: u64,
     last: Option<PitchEstimate>,
     best: Option<PitchEstimate>,
     next_try: u64,
@@ -69,6 +92,8 @@ pub struct NoteTracker {
     scratch: Vec<f32>,
     pushed: u64,
     pending: Option<Pending>,
+    /// An onset waiting for the level after it (`RISE_AFTER_S`), at most one at a time.
+    candidate: Option<u64>,
     out: Vec<DetectedNote>,
 }
 
@@ -78,7 +103,8 @@ impl NoteTracker {
         let window_s = 1.0 / config.min_hz;
         let yin = Yin::new(sample_rate, config.min_hz, config.max_hz, window_s);
         let estimate_len = 2 * yin.needed();
-        let ring_len = estimate_len + ((config.timeout_s + 0.2) * sample_rate) as usize;
+        let ring_len = estimate_len
+            + ((config.timeout_s + 0.2 + RISE_BEFORE_S + RISE_GAP_S) * sample_rate) as usize;
         NoteTracker {
             onsets: OnsetDetector::new(sample_rate, config.onset),
             config,
@@ -88,6 +114,7 @@ impl NoteTracker {
             scratch: vec![0.0; estimate_len],
             pushed: 0,
             pending: None,
+            candidate: None,
             out: Vec::with_capacity(16),
         }
     }
@@ -111,8 +138,13 @@ impl NoteTracker {
             let count = self.onsets.push(chunk).len();
             for i in 0..count {
                 let onset = self.onsets.last_found()[i].sample;
-                self.start(onset);
+                self.check_candidate();
+                if let Some(earlier) = self.candidate.replace(onset) {
+                    // Two onsets within the rise window: decide the first one now on what exists.
+                    self.decide(earlier);
+                }
             }
+            self.check_candidate();
             self.advance();
         }
         &self.out
@@ -121,6 +153,9 @@ impl NoteTracker {
     /// Emits a pending note now, e.g. at the end of a file.
     pub fn flush(&mut self) -> &[DetectedNote] {
         self.out.clear();
+        if let Some(onset) = self.candidate.take() {
+            self.decide(onset);
+        }
         if let Some(p) = self.pending.take() {
             self.emit(p);
         }
@@ -135,14 +170,61 @@ impl NoteTracker {
         }
     }
 
+    /// Decides the waiting onset once the audio after it is there.
+    fn check_candidate(&mut self) {
+        let Some(onset) = self.candidate else {
+            return;
+        };
+        if self.pushed >= onset + (RISE_AFTER_S * self.sample_rate) as u64 {
+            self.candidate = None;
+            self.decide(onset);
+        }
+    }
+
+    fn decide(&mut self, onset: u64) {
+        if self.level_rises(onset) {
+            self.start(onset);
+        }
+    }
+
+    /// Peak after the onset against the peak just before it.
+    fn level_rises(&self, onset: u64) -> bool {
+        let sr = self.sample_rate;
+        let gap = (RISE_GAP_S * sr) as u64;
+        let before_end = onset.saturating_sub(gap);
+        let before = self.peak(
+            before_end.saturating_sub((RISE_BEFORE_S * sr) as u64),
+            before_end,
+        );
+        let after = self.peak(onset, onset + (RISE_AFTER_S * sr) as u64);
+        before < SILENCE || after >= before * RISE_FACTOR
+    }
+
+    /// Peak magnitude in `[from, to)`, limited to what the ring still holds.
+    fn peak(&self, from: u64, to: u64) -> f32 {
+        let len = self.ring.len() as u64;
+        let from = from.max(self.pushed.saturating_sub(len));
+        let to = to.min(self.pushed);
+        (from..to)
+            .map(|s| self.ring[(s % len) as usize].abs())
+            .fold(0.0f32, f32::max)
+    }
+
     fn start(&mut self, onset: u64) {
+        let mut report = onset;
         if let Some(p) = self.pending.take() {
-            self.emit(p);
+            let merge = (MERGE_S * self.sample_rate) as u64;
+            if p.best.is_none() && onset < p.report + merge {
+                report = p.report;
+            } else {
+                self.emit(p);
+            }
         }
         let skip = (self.config.attack_skip_s * self.sample_rate) as u64;
         let first_try = onset + skip + self.yin.needed() as u64;
         self.pending = Some(Pending {
             onset,
+            report,
             last: None,
             best: None,
             next_try: first_try,
@@ -207,13 +289,13 @@ impl NoteTracker {
     }
 
     fn emit(&mut self, p: Pending) {
-        let level_db = self.level_after(p.onset);
+        let level_db = self.level_after(p.report);
         let (midi, confidence) = match p.best {
             Some(b) => (hz_to_midi(b.hz, self.config.a4_hz), b.confidence),
             None => (0.0, 0.0),
         };
         self.out.push(DetectedNote {
-            onset_s: p.onset as f64 / self.sample_rate,
+            onset_s: p.report as f64 / self.sample_rate,
             midi,
             confidence,
             level_db,
@@ -236,7 +318,7 @@ impl NoteTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::synth::{laptop_jack, render, SynthNote, ToneShape};
+    use crate::synth::{bass_tone, laptop_jack, render, SynthNote, ToneShape};
     use kontra_model::{BassKind, Pitch, Tuning, A4_HZ};
 
     const SR: f64 = 48_000.0;
@@ -303,6 +385,41 @@ mod tests {
         let notes = line(&["E1", "A1", "D2", "G2", "C2", "F1"], 0.3);
         let signal = laptop_jack(&render(&notes, SR, 2.3, ToneShape::Dull, 7), SR, 8);
         assert_matches(&track(&signal, InputSource::LaptopJack), &notes, 8.0, 10.0);
+    }
+
+    #[test]
+    fn hard_stop_is_no_new_note() {
+        // A note cut off without fade (a muted string, a sample's end) changes the spectrum
+        // like an onset, but the level falls: no second note.
+        let hz = Pitch::parse("A1").unwrap().hz(A4_HZ);
+        let mut signal = vec![0.0; (0.2 * SR) as usize];
+        let tone = bass_tone(hz, SR, 2.0, ToneShape::Rich, 9);
+        signal.extend_from_slice(&tone[..(0.6 * SR) as usize]);
+        signal.extend(std::iter::repeat_n(0.0, (0.6 * SR) as usize));
+        let found = track(&signal, InputSource::Line);
+        assert_eq!(found.len(), 1, "found {found:?}");
+        assert!((found[0].onset_s - 0.2).abs() < 0.005);
+    }
+
+    #[test]
+    fn attack_in_two_bursts_is_one_note() {
+        // A second burst 40 ms into the attack, before any pitch is known, belongs to the
+        // first: one note at the first onset with the right pitch, not a pitchless one plus
+        // a second note.
+        let hz = Pitch::parse("D1").unwrap().hz(A4_HZ);
+        let first = bass_tone(hz, SR, 0.04, ToneShape::Rich, 10);
+        let second = bass_tone(hz, SR, 0.8, ToneShape::Rich, 11);
+        let mut signal = vec![0.0; (0.2 * SR) as usize];
+        signal.extend(first.iter().map(|x| x * 0.4));
+        signal.extend(second.iter().map(|x| x * 0.9));
+        signal.extend(std::iter::repeat_n(0.0, (0.3 * SR) as usize));
+        let found = track(&signal, InputSource::Line);
+        assert_eq!(found.len(), 1, "found {found:?}");
+        assert!((found[0].onset_s - 0.2).abs() < 0.005, "{found:?}");
+        assert!(
+            (found[0].midi - hz_to_midi(hz, A4_HZ)).abs() < 0.1,
+            "{found:?}"
+        );
     }
 
     #[test]

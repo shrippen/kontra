@@ -61,11 +61,10 @@ python3 $S filobass "$L/dl/filobass/FiloBass ISMIR Publication" $L/conv/filobass
 python3 $S csv aufnahme.wav onsets.csv $L/conv/eigen --name riff-1 --set Line5   # CSV: onset_s,midi
 ```
 
-`kontra-cli korpus check DIR` liest nur die fünf festen Namen (`line-4.wav` …) und bricht ab, wenn einer fehlt. Ein
-umgewandeltes Stück lässt sich prüfen, indem man es unter diesem Namen verlinkt (Symlink `line-4.wav/.json`); `set` in
-der JSON bestimmt Instrument und Eingang. `LaptopJack4` simuliert dabei nichts, die Aufnahme muss selbst über die Buchse
-gelaufen sein (die Simulation gibt es nur in `analyze --laptop-jack`). Vorschlag: `korpus check --any DIR` wertet jedes
-`*.json` mit seiner `set` aus, mit `--window-ms` (Raster-Annotationen wie IDMT brauchen ±50 ms) und `--laptop-jack`.
+`kontra-cli korpus measure DIR… [--window-ms 50] [--laptop-jack] [--verbose]` wertet jedes `*.json` mit seiner
+`set` aus (Instrument und Eingang), mit wählbarem Fenster (Raster-Annotationen wie IDMT brauchen ±50 ms) und der
+Laptop-Simulation; `--verbose` listet Fehler, falsche Tonhöhen und zusätzliche Erkennungen je Datei. Es misst nur und
+bricht nicht ab; `korpus check` bleibt die harte Prüfung des synthetischen Korpus.
 
 ## Messung (Erkennung Stand 2026-10-09, `kontra-cli analyze --json`, Abgleich wie `korpus.rs::compare`)
 
@@ -86,6 +85,28 @@ Aufnahmen wird keins davon erreicht; nur die Onset-Genauigkeit bei sauberen Eins
 
 Unabhängig von der Annotationsqualität: auf IDMT liefert die Erkennung 1495 Noten für 948 gespielte (+58 %), auf
 NSynth 195 für 157 Einzelnoten.
+
+### Nach den Korrekturen (Branch `erkennung-echt`)
+
+Bewertung mit Tonhöhe: eine Note gilt als gefunden, wenn eine Erkennung ±80 ms daneben liegt **und** die gerundete
+Tonhöhe stimmt (das ±50-ms-Fenster ohne Tonhöhe zählt bei IDMT tonlose Vorläufer als Treffer und wertet richtige
+Töne 52–60 ms neben dem Partitur-Raster als Fehler). F1 = harmonisches Mittel aus Recall und Präzision.
+
+| Material | Noten | vorher erkannt | vorher R / P / F1 | nachher erkannt | nachher R / P / F1 |
+|---|---|---|---|---|---|
+| IDMT Line | 948 | 1495 | 85,8 / 54,4 / 66,6 | 989 | 82,5 / 79,1 / **80,8** |
+| NSynth Line | 157 | 195 | 86,0 / 69,2 / 76,5 | 158 | 86,0 / 85,4 / **85,7** |
+| FiloBass | 842 | 704 | 28,1 / 33,7 / 30,6 | 595 | 28,0 / 39,7 / **32,9** |
+
+- Befund 1 behoben: ein zweiter Einsatz binnen 80 ms, bevor der erste eine Tonhöhe hat, gehört zum selben Anschlag
+  (Onset des ersten, Tonhöhe nach dem zweiten). Keine `midi 0`-Noten mehr in NSynth.
+- Befund 2 größtenteils behoben: ein Einsatz zählt nur, wenn der Spitzenpegel 0–40 ms danach den von −20…−8 ms davor
+  um 10 % übersteigt. Gewählt an den Erkennungen der alten Version (946 richtige, 608 falsche auf IDMT und NSynth):
+  behält 90 % der richtigen, verwirft 62 % der falschen. Strengere Faktoren (1,25/1,5) verwerfen kaum mehr falsche,
+  aber mehr leise Töne nach lauten; reine Pegelmerkmale kommen nicht über 90 % der richtigen hinaus.
+- Befund 3 nur teilweise: YIN prüft ohne klaren Einbruch unter der Schwelle jetzt die halbe Periode (NSynth +2,5
+  Punkte Tonhöhe); FiloBass hat weiter rund 100 Noten eine Oktave zu tief. Offen.
+- Synthetischer Korpus unverändert 100 %.
 
 ## Befunde
 

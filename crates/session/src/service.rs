@@ -12,9 +12,10 @@ use std::sync::mpsc::channel;
 
 pub use kontra_content::{assign_tab, import_file, FileKind, ImportError, ImportResult, TrackInfo};
 pub use kontra_engine::{
-    evaluate as evaluate_korpus, generate as generate_korpus, list_devices, render_performance,
-    BackingTrack, Connection, DeviceInfo, Direction, Evaluation, KorpusItem, KorpusSet, Mistakes,
-    StreamConfig,
+    evaluate as evaluate_korpus, evaluate_window as evaluate_korpus_window,
+    generate as generate_korpus, list_devices, render_performance, simulate_laptop_jack,
+    Annotation, BackingTrack, Connection, DeviceInfo, Direction, Evaluation, KorpusItem, KorpusSet,
+    Mistakes, StreamConfig,
 };
 
 /// Writes mono audio as WAV (corpus export).
@@ -36,6 +37,19 @@ pub fn read_korpus(dir: &Path, set: KorpusSet) -> Result<KorpusItem, String> {
     let mut item: KorpusItem =
         serde_json::from_str(&text).map_err(|e| format!("{}: {e}", json.display()))?;
     let wav = dir.join(format!("{}.wav", set.name()));
+    let audio = kontra_engine::read_audio(&wav).map_err(|e| e.to_string())?;
+    item.sample_rate = audio.sample_rate;
+    item.samples = audio.mono();
+    Ok(item)
+}
+
+/// Reads one corpus item from `json` and the WAV of the same name next to it (any name, for
+/// real recordings converted by `scripts/korpus-import.py`).
+pub fn read_korpus_file(json: &Path) -> Result<KorpusItem, String> {
+    let text = std::fs::read_to_string(json).map_err(|e| format!("{}: {e}", json.display()))?;
+    let mut item: KorpusItem =
+        serde_json::from_str(&text).map_err(|e| format!("{}: {e}", json.display()))?;
+    let wav = json.with_extension("wav");
     let audio = kontra_engine::read_audio(&wav).map_err(|e| e.to_string())?;
     item.sample_rate = audio.sample_rate;
     item.samples = audio.mono();

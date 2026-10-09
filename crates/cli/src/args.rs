@@ -105,6 +105,20 @@ pub enum KorpusCommand {
     Write { dir: PathBuf },
     /// Check detection quality on the generated sets (or WAV+JSON pairs in a directory).
     Check { dir: Option<PathBuf> },
+    /// Measure detection on every WAV+JSON pair in the given directories (real recordings);
+    /// reports, does not fail.
+    Measure {
+        dirs: Vec<PathBuf>,
+        /// Matching window in ms (score-grid annotations need 50).
+        #[arg(long, default_value_t = 30.0)]
+        window_ms: f64,
+        /// Pass the audio through the laptop-jack simulation first.
+        #[arg(long)]
+        laptop_jack: bool,
+        /// List misses and extra detections per file.
+        #[arg(long)]
+        verbose: bool,
+    },
 }
 
 #[derive(Debug, Args)]
