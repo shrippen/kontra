@@ -332,6 +332,7 @@ dependencies = [
  "kontra-drivers",
  "kontra-dsp",
  "kontra-model",
+ "kontra-stretch",
  "rtrb",
  "serde",
  "serde_json",

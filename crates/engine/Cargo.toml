@@ -9,6 +9,7 @@ license.workspace = true
 kontra-model.workspace = true
 kontra-dsp = { path = "../dsp" }
 kontra-drivers.workspace = true
+kontra-stretch = { path = "../stretch" }
 rtrb.workspace = true
 thiserror.workspace = true
 serde.workspace = true

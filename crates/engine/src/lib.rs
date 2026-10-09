@@ -9,17 +9,20 @@
 //!
 //! All times are seconds on one engine clock that starts when the `Clock` is created.
 
+mod backing;
 mod clock;
 mod input;
 mod korpus;
 mod offline;
 mod player;
 
+pub use backing::BackingTrack;
 pub use clock::Clock;
 pub use input::{Input, InputKind, Pace};
+pub use kontra_drivers::{list_devices, Connection, DeviceInfo, Direction, StreamConfig};
 pub use korpus::{evaluate, generate, Annotation, Evaluation, KorpusItem, KorpusSet};
 pub use offline::analyze;
-pub use player::{Accent, Player, Sound};
+pub use player::{Accent, BackingAudio, Gains, Output, Player, Sound};
 
 use kontra_dsp::TunerReading;
 use kontra_model::DetectedNote;

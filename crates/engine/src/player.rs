@@ -1,7 +1,8 @@
-//! Output: metronome clicks and reference tones, scheduled on the engine clock.
+//! Output: metronome clicks, reference tones and the backing track, scheduled on the engine clock.
 //!
 //! The control thread schedules sounds slightly ahead (≥ 100 ms); the audio callback starts each
-//! one at the exact frame. Nothing in the callback allocates.
+//! one at the exact frame. Nothing in the callback allocates or frees: backing audio arrives as an
+//! `Arc` that the control side keeps alive (see `Output::play_backing`).
 
 use crate::clock::Clock;
 use crate::{EngineError, Event};
@@ -33,26 +34,69 @@ pub enum Sound {
     },
 }
 
+/// Interleaved stereo audio at the output's sample rate.
+pub type BackingAudio = Arc<Vec<f32>>;
+
+/// What the session layer needs from an output; `Player` is the device implementation.
+pub trait Output {
+    fn sample_rate(&self) -> u32;
+    /// Plays `sound` at engine time `at_s`. Returns false if the command queue is full.
+    fn schedule(&mut self, at_s: f64, sound: Sound) -> bool;
+    /// Drops everything scheduled at or after `from_s` (seek, pause, tempo change).
+    fn clear_from(&mut self, from_s: f64);
+    /// Plays `audio` from stereo frame `from_frame` starting at engine time `at_s`; the running
+    /// backing continues until then (one pending start, e.g. the next loop pass). The caller must keep a clone of `audio` until it is replaced, so the
+    /// audio thread never frees memory.
+    fn play_backing(&mut self, audio: BackingAudio, at_s: f64, from_frame: usize);
+    fn stop_backing(&mut self, at_s: f64);
+    fn set_gains(&mut self, gains: Gains);
+}
+
+/// Bus volumes, 0..=1.
 #[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Gains {
+    pub click: f32,
+    pub tone: f32,
+    pub backing: f32,
+}
+
+impl Default for Gains {
+    fn default() -> Self {
+        Gains {
+            click: 0.8,
+            tone: 0.6,
+            backing: 0.8,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 enum Command {
     Schedule {
         at_s: f64,
         sound: Sound,
     },
-    /// Drops everything scheduled at or after `from_s` (seek, pause, tempo change).
+    /// Drops everything scheduled at or after `from_s`.
     ClearFrom {
         from_s: f64,
     },
-    Gain {
-        bus: Bus,
-        gain: f32,
+    Backing {
+        audio: BackingAudio,
+        at_s: f64,
+        from_frame: usize,
     },
+    StopBacking {
+        at_s: f64,
+    },
+    Gains(Gains),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Bus {
-    Click,
-    Tone,
+#[derive(Debug, Clone)]
+struct Backing {
+    audio: BackingAudio,
+    at_s: f64,
+    from_frame: usize,
+    stop_s: f64,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -89,8 +133,12 @@ impl Player {
         let started = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
         let started_cb = Arc::clone(&started);
         let clock = clock.clone();
-        let mut voices = [IDLE_VOICE; VOICES];
-        let mut gains = (0.8f32, 0.6f32);
+        let mut mixer = Mixer {
+            voices: [IDLE_VOICE; VOICES],
+            gains: Gains::default(),
+            backing: None,
+            next: None,
+        };
         let mut frame: u64 = 0;
         let mut first_block = true;
         // The device's rate is known only after opening; the callback reads it from here.
@@ -105,14 +153,21 @@ impl Player {
                 }
                 let t0 = f64::from_bits(started_cb.load(Ordering::Relaxed));
                 while let Ok(command) = consumer.pop() {
-                    apply(command, &mut voices, &mut gains);
+                    mixer.apply(command);
                 }
-                data.iter_mut().for_each(|s| *s = 0.0);
                 let sr = rate_cb.load(Ordering::Relaxed) as f64;
                 for out in data.chunks_mut(channels.max(1)) {
                     let now = t0 + frame as f64 / sr;
-                    let value = render(&mut voices, now, sr as f32, gains);
-                    out.iter_mut().for_each(|s| *s = value);
+                    let (left, right) = mixer.render(now, sr);
+                    match out {
+                        [mono] => *mono = 0.5 * (left + right),
+                        [l, r, rest @ ..] => {
+                            *l = left;
+                            *r = right;
+                            rest.iter_mut().for_each(|s| *s = 0.0);
+                        }
+                        [] => {}
+                    }
                     frame += 1;
                 }
             },
@@ -133,66 +188,118 @@ impl Player {
     pub fn is_running(&self) -> bool {
         !f64::from_bits(self.started.load(Ordering::Relaxed)).is_nan()
     }
+}
 
-    /// Plays `sound` at engine time `at_s`. Returns false if the command queue is full.
-    pub fn schedule(&mut self, at_s: f64, sound: Sound) -> bool {
+impl Output for Player {
+    fn sample_rate(&self) -> u32 {
+        self.sample_rate
+    }
+
+    fn schedule(&mut self, at_s: f64, sound: Sound) -> bool {
         self.commands
             .push(Command::Schedule { at_s, sound })
             .is_ok()
     }
 
-    pub fn clear_from(&mut self, from_s: f64) {
+    fn clear_from(&mut self, from_s: f64) {
         let _ = self.commands.push(Command::ClearFrom { from_s });
     }
 
-    pub fn set_click_gain(&mut self, gain: f32) {
-        let _ = self.commands.push(Command::Gain {
-            bus: Bus::Click,
-            gain,
+    fn play_backing(&mut self, audio: BackingAudio, at_s: f64, from_frame: usize) {
+        let _ = self.commands.push(Command::Backing {
+            audio,
+            at_s,
+            from_frame,
         });
     }
 
-    pub fn set_tone_gain(&mut self, gain: f32) {
-        let _ = self.commands.push(Command::Gain {
-            bus: Bus::Tone,
-            gain,
-        });
+    fn stop_backing(&mut self, at_s: f64) {
+        let _ = self.commands.push(Command::StopBacking { at_s });
+    }
+
+    fn set_gains(&mut self, gains: Gains) {
+        let _ = self.commands.push(Command::Gains(gains));
     }
 }
 
-fn apply(command: Command, voices: &mut [Voice; VOICES], gains: &mut (f32, f32)) {
-    match command {
-        Command::Schedule { at_s, sound } => {
-            if let Some(free) = voices.iter_mut().find(|v| !v.active) {
-                *free = Voice {
-                    start_s: at_s,
-                    sound,
-                    phase: 0.0,
-                    active: true,
-                };
+/// State owned by the audio callback.
+struct Mixer {
+    voices: [Voice; VOICES],
+    gains: Gains,
+    backing: Option<Backing>,
+    /// Starts at its `at_s` and replaces `backing`.
+    next: Option<Backing>,
+}
+
+impl Mixer {
+    fn apply(&mut self, command: Command) {
+        match command {
+            Command::Schedule { at_s, sound } => {
+                if let Some(free) = self.voices.iter_mut().find(|v| !v.active) {
+                    *free = Voice {
+                        start_s: at_s,
+                        sound,
+                        phase: 0.0,
+                        active: true,
+                    };
+                }
+            }
+            Command::ClearFrom { from_s } => {
+                for v in self
+                    .voices
+                    .iter_mut()
+                    .filter(|v| v.active && v.start_s >= from_s)
+                {
+                    v.active = false;
+                }
+            }
+            Command::Backing {
+                audio,
+                at_s,
+                from_frame,
+            } => {
+                self.next = Some(Backing {
+                    audio,
+                    at_s,
+                    from_frame,
+                    stop_s: f64::INFINITY,
+                });
+            }
+            Command::StopBacking { at_s } => {
+                if let Some(b) = self.backing.as_mut() {
+                    b.stop_s = at_s;
+                }
+                if self.next.as_ref().is_some_and(|n| n.at_s >= at_s) {
+                    self.next = None;
+                }
+            }
+            Command::Gains(gains) => self.gains = gains,
+        }
+    }
+
+    /// One stereo frame at engine time `now`.
+    fn render(&mut self, now: f64, sr: f64) -> (f32, f32) {
+        let mono = render(&mut self.voices, now, sr as f32, self.gains);
+        let (mut left, mut right) = (mono, mono);
+        if self.next.as_ref().is_some_and(|n| now >= n.at_s) {
+            // The control side still holds the old Arc, so this drop frees nothing here.
+            self.backing = self.next.take();
+        }
+        if let Some(b) = &self.backing {
+            if now >= b.at_s && now < b.stop_s {
+                let frame = b.from_frame + ((now - b.at_s) * sr) as usize;
+                if let Some(pair) = b.audio.get(frame * 2..frame * 2 + 2) {
+                    left += pair[0] * self.gains.backing;
+                    right += pair[1] * self.gains.backing;
+                }
             }
         }
-        Command::ClearFrom { from_s } => {
-            for v in voices
-                .iter_mut()
-                .filter(|v| v.active && v.start_s >= from_s)
-            {
-                v.active = false;
-            }
-        }
-        Command::Gain {
-            bus: Bus::Click,
-            gain,
-        } => gains.0 = gain.clamp(0.0, 1.0),
-        Command::Gain {
-            bus: Bus::Tone,
-            gain,
-        } => gains.1 = gain.clamp(0.0, 1.0),
+        (left.clamp(-1.0, 1.0), right.clamp(-1.0, 1.0))
     }
 }
 
 /// Mixes all voices for one frame at engine time `now`.
-fn render(voices: &mut [Voice; VOICES], now: f64, sr: f32, gains: (f32, f32)) -> f32 {
+fn render(voices: &mut [Voice; VOICES], now: f64, sr: f32, gains: Gains) -> f32 {
     let mut mix = 0.0;
     for v in voices.iter_mut().filter(|v| v.active && v.start_s <= now) {
         let t = (now - v.start_s) as f32;
@@ -208,7 +315,7 @@ fn render(voices: &mut [Voice; VOICES], now: f64, sr: f32, gains: (f32, f32)) ->
                     1400.0
                 };
                 v.phase = (v.phase + hz / sr).fract();
-                mix += gains.0 * 0.5 * (TAU * v.phase).sin() * (-t / 0.004).exp();
+                mix += gains.click * 0.5 * (TAU * v.phase).sin() * (-t / 0.004).exp();
             }
             Sound::Tone {
                 hz,
@@ -226,63 +333,89 @@ fn render(voices: &mut [Voice; VOICES], now: f64, sr: f32, gains: (f32, f32)) ->
                     + 0.3 * (3.0 * p).sin()
                     + 0.15 * (4.0 * p).sin();
                 let release = ((duration_s - t) / 0.01).min(1.0);
-                mix += gains.1 * velocity * 0.25 * wave * (-t / 1.2).exp() * release;
+                mix += gains.tone * velocity * 0.25 * wave * (-t / 1.2).exp() * release;
             }
         }
     }
-    mix.clamp(-1.0, 1.0)
+    mix
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn mixer() -> Mixer {
+        Mixer {
+            voices: [IDLE_VOICE; VOICES],
+            gains: Gains {
+                click: 1.0,
+                tone: 1.0,
+                backing: 1.0,
+            },
+            backing: None,
+            next: None,
+        }
+    }
+
     #[test]
     fn click_starts_on_time_and_ends() {
-        let mut voices = [IDLE_VOICE; VOICES];
-        let mut gains = (1.0, 1.0);
-        apply(
-            Command::Schedule {
-                at_s: 0.01,
-                sound: Sound::Click(Accent::Downbeat),
-            },
-            &mut voices,
-            &mut gains,
-        );
+        let mut m = mixer();
+        m.apply(Command::Schedule {
+            at_s: 0.01,
+            sound: Sound::Click(Accent::Downbeat),
+        });
         let sr = 48_000.0;
-        let before: f32 = (0..400)
-            .map(|i| render(&mut voices, i as f64 / 48_000.0, sr, gains).abs())
-            .sum();
+        let before: f32 = (0..400).map(|i| m.render(i as f64 / sr, sr).0.abs()).sum();
         assert_eq!(before, 0.0);
         let during: f32 = (480..960)
-            .map(|i| render(&mut voices, i as f64 / 48_000.0, sr, gains).abs())
+            .map(|i| m.render(i as f64 / sr, sr).0.abs())
             .sum();
         assert!(during > 1.0);
-        render(&mut voices, 1.0, sr, gains);
-        assert!(voices.iter().all(|v| !v.active));
+        m.render(1.0, sr);
+        assert!(m.voices.iter().all(|v| !v.active));
     }
 
     #[test]
     fn clear_drops_future_sounds() {
-        let mut voices = [IDLE_VOICE; VOICES];
-        let mut gains = (1.0, 1.0);
-        apply(
-            Command::Schedule {
-                at_s: 1.0,
-                sound: Sound::Click(Accent::Beat),
-            },
-            &mut voices,
-            &mut gains,
+        let mut m = mixer();
+        m.apply(Command::Schedule {
+            at_s: 1.0,
+            sound: Sound::Click(Accent::Beat),
+        });
+        m.apply(Command::Schedule {
+            at_s: 2.0,
+            sound: Sound::Click(Accent::Beat),
+        });
+        m.apply(Command::ClearFrom { from_s: 1.5 });
+        assert_eq!(m.voices.iter().filter(|v| v.active).count(), 1);
+    }
+
+    #[test]
+    fn backing_starts_at_frame_and_stops() {
+        let mut m = mixer();
+        let audio: BackingAudio = Arc::new(
+            (0..2000)
+                .flat_map(|i| [i as f32 / 4000.0, -(i as f32) / 4000.0])
+                .collect(),
         );
-        apply(
-            Command::Schedule {
-                at_s: 2.0,
-                sound: Sound::Click(Accent::Beat),
-            },
-            &mut voices,
-            &mut gains,
-        );
-        apply(Command::ClearFrom { from_s: 1.5 }, &mut voices, &mut gains);
-        assert_eq!(voices.iter().filter(|v| v.active).count(), 1);
+        m.apply(Command::Backing {
+            audio: Arc::clone(&audio),
+            at_s: 1.0,
+            from_frame: 100,
+        });
+        let sr = 1000.0;
+        assert_eq!(m.render(0.5, sr), (0.0, 0.0));
+        let (l, r) = m.render(1.010, sr);
+        assert!((l - 110.0 / 4000.0).abs() < 1e-6 && (r + 110.0 / 4000.0).abs() < 1e-6);
+        // A pending start (next loop pass) takes over at its time.
+        m.apply(Command::Backing {
+            audio: Arc::clone(&audio),
+            at_s: 1.2,
+            from_frame: 0,
+        });
+        assert!((m.render(1.1, sr).0 - 200.0 / 4000.0).abs() < 1e-6);
+        assert!((m.render(1.201, sr).0 - 1.0 / 4000.0).abs() < 1e-6);
+        m.apply(Command::StopBacking { at_s: 1.5 });
+        assert_eq!(m.render(1.6, sr), (0.0, 0.0));
     }
 }
