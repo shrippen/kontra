@@ -11,6 +11,8 @@ use std::sync::Arc;
 
 /// Below this cumulative-mean-normalized difference a dip counts as the period.
 const THRESHOLD: f64 = 0.15;
+/// A dip at half the period wins if it is at most this much shallower (normalized difference).
+const OCTAVE_TOLERANCE: f64 = 0.1;
 /// Low-pass cutoff relative to the coarse estimate for the refining pass.
 const REFINE_CUTOFF: f64 = 1.5;
 
@@ -180,7 +182,12 @@ impl Yin {
         }
     }
 
-    /// First dip below the threshold (then its local minimum); else the global minimum.
+    /// First dip below the threshold (then its local minimum); else the global minimum, moved
+    /// to half its period while a dip there is nearly as deep.
+    ///
+    /// Without a dip below the threshold (noisy attack, beating, weak fundamental) the global
+    /// minimum often sits at twice the period, a note an octave too low. Real recordings showed
+    /// this on 20 % of double-bass and some electric-bass notes; the halving check fixes it.
     fn pick(&self) -> Option<(usize, f64)> {
         let range = self.tau_min..self.tau_max;
         for tau in range.clone() {
@@ -193,8 +200,25 @@ impl Yin {
             }
             return Some((best, self.diff[best]));
         }
-        let best = range.min_by(|a, b| self.diff[*a].total_cmp(&self.diff[*b]))?;
+        let mut best = range.min_by(|a, b| self.diff[*a].total_cmp(&self.diff[*b]))?;
+        while let Some(half) = self.dip_near(best / 2) {
+            if self.diff[half] > self.diff[best] + OCTAVE_TOLERANCE {
+                break;
+            }
+            best = half;
+        }
         Some((best, self.diff[best]))
+    }
+
+    /// The local minimum within ±3 % of `tau`, if that range lies inside the search range.
+    fn dip_near(&self, tau: usize) -> Option<usize> {
+        let spread = (tau / 33).max(1);
+        let from = tau.checked_sub(spread)?.max(self.tau_min);
+        let to = (tau + spread).min(self.tau_max - 1);
+        if from >= to || tau < self.tau_min {
+            return None;
+        }
+        (from..=to).min_by(|a, b| self.diff[*a].total_cmp(&self.diff[*b]))
     }
 
     /// Parabolic interpolation around `tau` for sub-sample precision.
