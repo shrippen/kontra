@@ -121,5 +121,10 @@
   "view.combined": "Noten + Tab",
   "settings.lowtop": "Tiefe Saite oben",
   "settings.lowtop.hint": "Wie beim Blick auf das Griffbrett von oben; Standard ist die hohe Saite oben wie in Tabulaturen.",
+  "settings.playmarks": "Markierungen im Spielen-Modus",
+  "settings.playmarks.hint": "Beim freien Spielen zeigt Kontra Treffer und Fehler nur dezent oder gar nicht; die Auswertung danach bleibt vollständig.",
+  "settings.playmarks.quiet": "Leise",
+  "settings.playmarks.off": "Aus",
+  "settings.playmarks.full": "Voll",
   "error.device.lost": "Das Audiogerät ist weg ({reason}). Wieder anstecken und auf Abspielen drücken."
 }

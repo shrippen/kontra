@@ -20,6 +20,8 @@ import "."
  *              (else sharps in sharp keys, flats in flat keys), an accidental holds to
  *              the end of the bar
  *   position   the current time in seconds
+ *   marks      Full, Quiet (notes in the text colour, small muted signs) or Off;
+ *              setNoteState(index, state) / resetStates() change states without a new layout
  *
  * Pages line by line as KanteTabStaff: the top line holds the current bar, `systems - 1`
  * lines preview. The current note sits on a selection band, states show above the staff
@@ -29,6 +31,12 @@ import "."
  */
 Item {
     id: staff
+
+    enum Marks {
+        Full,
+        Quiet,
+        Off
+    }
 
     property var notes: []
     property var rests: []
@@ -47,6 +55,41 @@ Item {
     property var letterNames: ["C", "D", "E", "F", "G", "A", "H"]
     property string sharpText: "is"
     property string flatText: "es"
+    /**
+     * How note states show (Kante 1.24): Full (state colour and sign), Quiet (notes in the
+     * text colour, small muted signs that tell the state by shape: Kontra's play mode),
+     * Off (no states).
+     */
+    property int marks: KanteBassStaff.Marks.Full
+    /** Counts state changes made with setNoteState / resetStates (and new note lists). */
+    readonly property int stateRevision: revision
+    property int revision: 0
+    // States set with setNoteState, by note index (plain object, read through stateRevision).
+    property var changedStates: ({})
+
+    /** Sets the state of one note without reassigning `notes` (no new layout, only colours and signs). */
+    function setNoteState(index, state) {
+        if (!notes || index < 0 || index >= notes.length) {
+            return
+        }
+        changedStates[index] = String(state)
+        revision++
+    }
+    /** Back to the states in `notes`. */
+    function resetStates() {
+        changedStates = {}
+        revision++
+    }
+    /** The state of note i: as set with setNoteState, else from `notes`. */
+    function stateOf(i) {
+        var s = changedStates[i]
+        return s !== undefined ? s : (notes && notes[i] && notes[i].state ? String(notes[i].state) : "pending")
+    }
+    /** The state as shown: "pending" when marks are Off. Depends on stateRevision. */
+    function shownState(i, revision) {
+        return marks === KanteBassStaff.Marks.Off || i === undefined ? "pending" : stateOf(i)
+    }
+    onNotesChanged: resetStates()
 
     readonly property real sp: Math.max(4, staffSpace)
     readonly property int currentIndex: lastAtOrBefore(position)
@@ -70,7 +113,7 @@ Item {
         var d = barText.arg(currentBar + 1).arg(barList.length)
         if (currentIndex >= 0) {
             var n = notes[currentIndex]
-            d += ", " + pitchName(Number(n.midi)) + " (" + KanteStyle.noteStateName(n.state || "pending") + ")"
+            d += ", " + pitchName(Number(n.midi)) + " (" + KanteStyle.noteStateName(shownState(currentIndex, stateRevision)) + ")"
         }
         return d
     }
@@ -317,12 +360,12 @@ Item {
             if (sp_.alter !== current && !(prevTied && barAt(Number(ns[i - 1].time)) !== b)) {
                 var ag = sp_.alter > 0 ? G.sharp : sp_.alter < 0 ? G.flat : G.natural
                 var aw = sp_.alter > 0 ? 1.0 : sp_.alter < 0 ? 0.9 : 0.7
-                L.glyphs.push({ x: x - sp * (aw + 0.25), y: y, g: ag, ink: st, index: i })
+                L.glyphs.push({ x: x - sp * (aw + 0.25), y: y, g: ag, ink: "note", index: i })
             }
             acc[key] = sp_.alter
-            L.glyphs.push({ x: x, y: y, g: G.heads[v.type], ink: st, index: i })
+            L.glyphs.push({ x: x, y: y, g: G.heads[v.type], ink: "note", index: i })
             for (var d = 0; d < v.dots; d++) {
-                L.glyphs.push({ x: x + headW + sp * (0.35 + d * 0.5), y: yOf(sp_.pos % 2 === 0 ? sp_.pos + 1 : sp_.pos, sys), g: G.dot, ink: st, index: i })
+                L.glyphs.push({ x: x + headW + sp * (0.35 + d * 0.5), y: yOf(sp_.pos % 2 === 0 ? sp_.pos + 1 : sp_.pos, sys), g: G.dot, ink: "note", index: i })
             }
             for (var p = -2; p >= sp_.pos; p -= 2) {
                 L.rects.push({ x: x - sp * 0.4, y: yOf(p, sys) - ledgerT / 2, w: headW + sp * 0.8, h: ledgerT, ink: "" })
@@ -330,9 +373,7 @@ Item {
             for (var q = 10; q <= sp_.pos; q += 2) {
                 L.rects.push({ x: x - sp * 0.4, y: yOf(q, sys) - ledgerT / 2, w: headW + sp * 0.8, h: ledgerT, ink: "" })
             }
-            if (st !== "pending") {
-                L.marks.push({ x: x + headW / 2, y: sys * systemHeight + sp * 1.0, state: st })
-            }
+            L.marks.push({ x: x + headW / 2, y: sys * systemHeight + sp * 1.0, index: i })
             L.boxes[i] = { x: x, w: headW, sys: sys }
             var unit = bl[b].den === 8 && bl[b].num % 3 === 0 ? 1.5 : 1
             var spq = (bl[b].end - bl[b].time) / (bl[b].num * 4 / bl[b].den)
@@ -436,14 +477,19 @@ Item {
             var hgt = Math.min(sp * 1.2, Math.max(sp * 0.5, (tx1 - tx0) * 0.12)) * (below ? 1 : -1)
             var th = sp * 0.36 * (below ? 1 : -1)
             var dx = (tx1 - tx0) / 3
-            L.ties.push({ ink: a1.st, path: "M " + tx0 + " " + ty
+            L.ties.push({ ink: "note", index: a1.i, path: "M " + tx0 + " " + ty
                 + " C " + (tx0 + dx) + " " + (ty + hgt) + " " + (tx1 - dx) + " " + (ty + hgt) + " " + tx1 + " " + ty
                 + " C " + (tx1 - dx) + " " + (ty + hgt - th) + " " + (tx0 + dx) + " " + (ty + hgt - th) + " " + tx0 + " " + ty + " Z" })
         }
         return L
     }
 
-    function inkColor(ink) {
+    /** Colour of a layout part; "note" parts follow the live state of note `index`. */
+    function inkColor(ink, index, revision) {
+        if (ink === "note") {
+            var st = shownState(index, revision)
+            return st === "pending" || marks !== KanteBassStaff.Marks.Full ? KanteStyle.textColor : KanteStyle.noteStateColor(st)
+        }
         if (ink === "line") return KanteStyle.mutedTextColor
         if (ink === "muted") return KanteStyle.mutedTextColor
         if (ink === "" || ink === "pending" || ink === undefined) return KanteStyle.textColor
@@ -498,7 +544,7 @@ Item {
             antialiasing: true
             ShapePath {
                 strokeColor: "transparent"
-                fillColor: staff.inkColor(modelData.ink)
+                fillColor: staff.inkColor(modelData.ink, modelData.index, staff.stateRevision)
                 PathSvg { path: modelData.path }
             }
         }
@@ -512,7 +558,10 @@ Item {
             x: modelData.x
             y: modelData.y - (glyph ? baselineOffset : 0)
             text: glyph ? modelData.g : modelData.text
-            color: current && (modelData.ink === "pending" || modelData.ink === "") ? KanteStyle.strongTextColor : staff.inkColor(modelData.ink)
+            color: {
+                var c = staff.inkColor(modelData.ink, modelData.index, staff.stateRevision)
+                return current && modelData.ink === "note" && staff.shownState(modelData.index, staff.stateRevision) === "pending" ? KanteStyle.strongTextColor : c
+            }
             font.family: glyph ? music.font.family : KanteStyle.monoFont(10, false).family
             font.pixelSize: glyph ? Math.round(staff.sp * 4) : Math.max(8, Math.round(staff.sp * 0.95))
             Accessible.ignored: true
@@ -522,11 +571,14 @@ Item {
         model: staff.layout.marks
         delegate: KanteNoteMark {
             required property var modelData
-            width: Math.round(staff.sp * 1.3)
+            readonly property bool full: staff.marks === KanteBassStaff.Marks.Full
+            visible: drawn
+            width: Math.round(staff.sp * (full ? 1.3 : 0.95))
             height: width
             x: modelData.x - width / 2
             y: modelData.y - height / 2
-            noteState: modelData.state
+            noteState: staff.shownState(modelData.index, staff.stateRevision)
+            color: full ? KanteStyle.noteStateColor(noteState) : KanteStyle.mutedTextColor
         }
     }
 

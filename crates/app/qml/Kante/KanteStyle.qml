@@ -71,7 +71,25 @@ QtObject {
     readonly property color negativeTextColor: themed ? palette.negative : Kirigami.Theme.negativeTextColor
 
     readonly property font defaultFont: Kirigami.Theme.defaultFont
-    readonly property font smallFont: Kirigami.Theme.smallFont
+    /**
+     * The platform's small font, but never larger than the default font: without a
+     * platform theme (Kirigami's basic theme, e.g. Fusion on any desktop) smallFont can come
+     * out larger than defaultFont, which turned hints and labels bigger than their titles
+     * (found in Kontra at 200 %). Then 85 % of the default font is used.
+     */
+    readonly property font smallFont: {
+        var s = Kirigami.Theme.smallFont, d = Kirigami.Theme.defaultFont
+        if (fontPixels(s) <= fontPixels(d)) {
+            return s
+        }
+        return d.pointSize > 0
+            ? Qt.font({ family: d.family, pointSize: Math.max(7, d.pointSize * 0.85) })
+            : Qt.font({ family: d.family, pixelSize: Math.max(9, Math.round(d.pixelSize * 0.85)) })
+    }
+    /** Size of a font in pixels at 96 dpi, from its point or pixel size. */
+    function fontPixels(f) {
+        return f.pointSize > 0 ? f.pointSize * 4 / 3 : f.pixelSize
+    }
 
     // ── Surfaces (System values match a plain Kirigami look) ─────────────
     readonly property color strongTextColor: themed ? palette.strongText : Kirigami.Theme.textColor

@@ -68,6 +68,8 @@ pub struct Settings {
     /// "kante", "kante-light" or "system".
     pub style: String,
     pub low_string_on_top: bool,
+    /// Note marks in play mode: "quiet" (default), "off" or "full". Other modes always mark fully.
+    pub play_marks: String,
     /// The first-start assistant was completed or skipped (LH-EIN-01).
     pub setup_done: bool,
 }
@@ -89,6 +91,7 @@ impl Default for Settings {
             mode: "play".into(),
             style: "kante".into(),
             low_string_on_top: false,
+            play_marks: "quiet".into(),
             setup_done: false,
         }
     }

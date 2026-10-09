@@ -14,12 +14,15 @@ Kirigami.Page {
     readonly property var modes: ["play", "song", "wait", "workshop"]
     readonly property var views: ["lane", "tab", "notation", "combined"]
 
-    // Notes with their live state; judged states are collected and applied ten times a second,
-    // because the views re-read the whole list on every assignment.
+    // The notes as loaded; live states go to the views one by one (setNoteState) and are kept
+    // here too, so a view that gets its notes later (view switch) can catch up.
     property var notes: []
     property var bars: JSON.parse(ctl.barsJson)
-    property var pendingStates: ({})
-    property bool dirty: false
+    property var states: ({})
+    // Play mode marks quietly or not at all (setting); the other modes mark fully.
+    readonly property int marks: ctl.mode !== "play" || ctl.playMarks === "full" ? KanteTabLane.Marks.Full
+                               : ctl.playMarks === "off" ? KanteTabLane.Marks.Off : KanteTabLane.Marks.Quiet
+    readonly property var noteViews: [lane, tabStaff, bassStaff, combinedBass, combinedTab]
 
     // Kirigami pages paint the platform background; Kante's ground replaces it.
     background: Rectangle { color: KanteStyle.backgroundColor }
@@ -30,8 +33,15 @@ Kirigami.Page {
     function reset() {
         notes = JSON.parse(ctl.notesJson)
         bars = JSON.parse(ctl.barsJson)
-        pendingStates = {}
-        dirty = false
+        states = {}
+    }
+
+    // Re-applies the live states after `view` got a new notes list (which clears them).
+    // Called through a fresh closure: Qt.callLater merges calls of the same function.
+    function catchUp(view) {
+        for (var key in states) {
+            view.setNoteState(Number(key), states[key])
+        }
     }
 
     function barAt(time) {
@@ -50,28 +60,12 @@ Kirigami.Page {
         target: ctl
         function onArrangementLoaded() { page.reset() }
         function onNoteJudged(index, state, offsetMs, cents) {
-            page.pendingStates[index] = state
-            page.dirty = true
+            page.states[index] = state
+            for (var i = 0; i < page.noteViews.length; i++) {
+                page.noteViews[i].setNoteState(index, state)
+            }
         }
         function onFinished() { summary.open() }
-    }
-
-    Timer {
-        interval: 100
-        repeat: true
-        running: page.dirty
-        onTriggered: {
-            var next = page.notes.slice()
-            for (var key in page.pendingStates) {
-                var i = Number(key)
-                if (next[i]) {
-                    next[i] = Object.assign({}, next[i], { state: page.pendingStates[key] })
-                }
-            }
-            page.pendingStates = {}
-            page.dirty = false
-            page.notes = next
-        }
     }
 
     readonly property var times: bars.map(function(b) { return b.time })
@@ -148,6 +142,8 @@ Kirigami.Page {
                 stringNames: page.stringNames
                 lowStringOnTop: ctl.lowStringOnTop
                 notes: page.notes
+                marks: page.marks
+                onNotesChanged: Qt.callLater(function() { page.catchUp(lane) })
                 bars: page.times
                 position: ctl.position
                 // Wide enough that eighths at 160 BPM do not overlap: about two note heads per beat.
@@ -157,19 +153,25 @@ Kirigami.Page {
                 loopEnd: ctl.loopEnd
             }
             KanteTabStaff {
+                id: tabStaff
                 anchors.fill: parent
                 visible: ctl.view === "tab"
                 strings: page.stringNames.length
                 stringNames: page.stringNames
                 lowStringOnTop: ctl.lowStringOnTop
                 notes: visible ? page.notes : []
+                marks: page.marks
+                onNotesChanged: Qt.callLater(function() { page.catchUp(tabStaff) })
                 bars: page.bars
                 position: ctl.position
             }
             KanteBassStaff {
+                id: bassStaff
                 anchors.fill: parent
                 visible: ctl.view === "notation"
                 notes: visible ? page.notes : []
+                marks: page.marks
+                onNotesChanged: Qt.callLater(function() { page.catchUp(bassStaff) })
                 bars: page.bars
                 position: ctl.position
             }
@@ -180,19 +182,25 @@ Kirigami.Page {
                 visible: ctl.view === "combined"
                 spacing: KanteStyle.unit(8)
                 KanteBassStaff {
+                    id: combinedBass
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     notes: combined.visible ? page.notes : []
+                    marks: page.marks
+                    onNotesChanged: Qt.callLater(function() { page.catchUp(combinedBass) })
                     bars: page.bars
                     position: ctl.position
                 }
                 KanteTabStaff {
+                    id: combinedTab
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     strings: page.stringNames.length
                     stringNames: page.stringNames
                     lowStringOnTop: ctl.lowStringOnTop
                     notes: combined.visible ? page.notes : []
+                    marks: page.marks
+                    onNotesChanged: Qt.callLater(function() { page.catchUp(combinedTab) })
                     bars: page.bars
                     position: ctl.position
                 }

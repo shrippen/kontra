@@ -92,6 +92,18 @@ Kirigami.ScrollablePage {
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            title: texts.t("settings.playmarks")
+            hint: texts.t("settings.playmarks.hint")
+            KanteSegmented {
+                readonly property var values: ["quiet", "off", "full"]
+                model: [texts.t("settings.playmarks.quiet"), texts.t("settings.playmarks.off"),
+                        texts.t("settings.playmarks.full")]
+                currentIndex: Math.max(0, values.indexOf(ctl.playMarks))
+                onActivated: function(index) { ctl.changePlayMarks(values[index]) }
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
             title: texts.t("transport.metronome")
             QQC2.Switch {
                 checked: ctl.metronome

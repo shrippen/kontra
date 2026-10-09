@@ -54,6 +54,7 @@ pub mod qobject {
         #[qproperty(bool, count_in, cxx_name = "countIn")]
         #[qproperty(bool, reference)]
         #[qproperty(bool, low_string_on_top, cxx_name = "lowStringOnTop")]
+        #[qproperty(QString, play_marks, cxx_name = "playMarks")]
         #[qproperty(f64, latency_ms, cxx_name = "latencyMs")]
         #[qproperty(bool, calibrating)]
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
@@ -153,6 +154,11 @@ pub mod qobject {
             reference: bool,
             low_string_on_top: bool,
         );
+
+        /// Note marks in play mode: "quiet", "off" or "full".
+        #[qinvokable]
+        #[cxx_name = "changePlayMarks"]
+        fn change_play_marks(self: Pin<&mut Self>, marks: &QString);
 
         #[qinvokable]
         #[cxx_name = "changeCountIn"]
@@ -261,6 +267,7 @@ pub struct ControllerRust {
     count_in: bool,
     reference: bool,
     low_string_on_top: bool,
+    play_marks: QString,
     latency_ms: f64,
     calibrating: bool,
     calibration_text: QString,
@@ -342,6 +349,7 @@ impl Default for ControllerRust {
             count_in: s.count_in_bars > 0,
             reference: s.reference_tones,
             low_string_on_top: s.low_string_on_top,
+            play_marks: q(&s.play_marks),
             latency_ms: s.latency_ms,
             calibrating: false,
             calibration_text: QString::default(),
@@ -733,6 +741,19 @@ impl qobject::Controller {
         self.as_mut().set_reference(reference);
         self.as_mut().set_low_string_on_top(low_string_on_top);
         self.as_mut().set_playing(false);
+    }
+
+    fn change_play_marks(mut self: Pin<&mut Self>, marks: &QString) {
+        let marks = marks.to_string();
+        if !["quiet", "off", "full"].contains(&marks.as_str()) {
+            return;
+        }
+        let value = q(&marks);
+        // Display only: no need to stop a running take.
+        self.as_mut()
+            .core()
+            .update_settings(|s| s.play_marks = marks);
+        self.as_mut().set_play_marks(value);
     }
 
     fn change_count_in(mut self: Pin<&mut Self>, on: bool) {

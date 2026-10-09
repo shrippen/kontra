@@ -13,12 +13,15 @@ import "."
  *                             palette below where missing
  *   notes                     [{time, duration, string, fret, state, label}], sorted by
  *                             time; seconds. state: "pending", "hit", "wrong", "missed",
- *                             "early", "late". Reassign the list to show a new state
+ *                             "early", "late". setNoteState(index, state) changes one
+ *                             note without reassigning the list; resetStates() undoes it
  *   bars                      bar start times in seconds (numbers or {time})
  *   position                  the current time in seconds (sits on the play line)
  *   pixelsPerSecond           speed of the highway
  *   playLine                  where the play line is, 0..1 of the width from the left
  *   loopStart, loopEnd        loop range in seconds, -1 for none
+ *   marks                     Full, Quiet (play mode: string colours, small muted signs)
+ *                             or Off (no states)
  *
  * A note is a square head with the fret number at its onset and a tail as long as it
  * lasts. The state shows by shape and colour: pending filled in the string colour,
@@ -37,6 +40,12 @@ import "."
 Item {
     id: lane
 
+    enum Marks {
+        Full,
+        Quiet,
+        Off
+    }
+
     property int strings: 4
     property var stringNames: ["E", "A", "D", "G"]
     property bool lowStringOnTop: false
@@ -52,6 +61,61 @@ Item {
     property bool barNumbers: true
     /** Name for screen readers. */
     property string accessibleName: "Tab-Lane"
+    /**
+     * How note states show (Kante 1.24): Full (fill and badge), Quiet (the note keeps its
+     * string colour, a small muted sign beside it tells the state by shape: Kontra's play
+     * mode), Off (no states, every note as pending).
+     */
+    property int marks: KanteTabLane.Marks.Full
+    /** Counts state changes made with setNoteState / resetStates (and new note lists). */
+    readonly property int stateRevision: revision
+    property int revision: 0
+    // States set with setNoteState, by note index (plain object: no bindings depend on it).
+    property var changedStates: ({})
+    // Notes per state, kept up to date by setNoteState (the summary stays O(1)).
+    property var stateCounts: ({})
+
+    /**
+     * Sets the state of one note without reassigning `notes`: only that note's visuals
+     * change (and the screen-reader summary). Cost: well under 1 ms per call with 3000 notes.
+     */
+    function setNoteState(index, state) {
+        if (!notes || index < 0 || index >= notes.length) {
+            return
+        }
+        var old = stateOf(index)
+        stateCounts[old] = (stateCounts[old] || 1) - 1
+        stateCounts[String(state)] = (stateCounts[String(state)] || 0) + 1
+        changedStates[index] = String(state)
+        var it = noteRepeater.itemAt(index)
+        if (it) {
+            it.override = String(state)
+        }
+        revision++
+    }
+    /** Back to the states in `notes` (e.g. a new run of the same song). */
+    function resetStates() {
+        changedStates = {}
+        var c = {}
+        for (var k = 0; notes && k < notes.length; k++) {
+            var st = notes[k].state ? String(notes[k].state) : "pending"
+            c[st] = (c[st] || 0) + 1
+        }
+        stateCounts = c
+        for (var i = 0; i < noteRepeater.count; i++) {
+            var it = noteRepeater.itemAt(i)
+            if (it) {
+                it.override = ""
+            }
+        }
+        revision++
+    }
+    /** The state of note i: as set with setNoteState, else from `notes`. */
+    function stateOf(i) {
+        var s = changedStates[i]
+        return s !== undefined ? s : (notes[i] && notes[i].state ? String(notes[i].state) : "pending")
+    }
+    onNotesChanged: resetStates()
 
     /** Index of the next note to play (first with time ≥ position), -1 after the last. */
     readonly property int nextIndex: firstAtOrAfter(position)
@@ -77,7 +141,7 @@ Item {
 
     Accessible.role: Accessible.Chart
     Accessible.name: accessibleName
-    Accessible.description: summary(nextIndex, notes)
+    Accessible.description: summary(nextIndex, notes, stateRevision)
 
     function firstAtOrAfter(t) {
         var a = 0, b = notes ? notes.length : 0
@@ -95,12 +159,8 @@ Item {
         return stringNames && s < stringNames.length ? String(stringNames[s]) : String(s + 1)
     }
     /** Next note and the count per state, for screen readers. */
-    function summary(next, list) {
-        var counts = {}
-        for (var i = 0; list && i < list.length; i++) {
-            var st = list[i].state || "pending"
-            counts[st] = (counts[st] || 0) + 1
-        }
+    function summary(next, list, revision) {
+        var counts = stateCounts
         var parts = []
         if (next >= 0) {
             var n = list[next]
@@ -247,6 +307,7 @@ Item {
             }
 
             Repeater {
+                id: noteRepeater
                 model: lane.notes ? lane.notes.length : 0
                 delegate: Item {
                     id: note
@@ -255,9 +316,13 @@ Item {
                     readonly property real t: Number(n.time) || 0
                     readonly property real d: Math.max(0, Number(n.duration) || 0)
                     readonly property int str: Math.max(0, Math.min(lane.strings - 1, Number(n.string) || 0))
-                    readonly property string st: n.state ? String(n.state) : "pending"
-                    readonly property bool hollow: st === "missed"
-                    readonly property color fill: st === "pending" ? lane.stringColor(str) : KanteStyle.noteStateColor(st)
+                    /** Set by setNoteState; "" = the state in `notes`. */
+                    property string override: ""
+                    readonly property string st: lane.marks === KanteTabLane.Marks.Off ? "pending"
+                        : (override !== "" ? override : (n.state ? String(n.state) : "pending"))
+                    readonly property bool full: lane.marks === KanteTabLane.Marks.Full
+                    readonly property bool hollow: st === "missed" && full
+                    readonly property color fill: st === "pending" || !full ? lane.stringColor(str) : KanteStyle.noteStateColor(st)
                     readonly property bool near: t + d >= lane.windowFrom - lane.chunk && t <= lane.windowTo + lane.chunk
                     visible: t + d >= lane.windowFrom && t <= lane.windowTo
                     x: t * lane.pps
@@ -318,11 +383,16 @@ Item {
                                 }
                                 Loader {
                                     active: note.st !== "pending" && !note.hollow
-                                    x: headBox.x + headBox.width - width * 0.6
-                                    y: headBox.y - height * 0.4
-                                    width: Math.round(lane.head * 0.55)
+                                    // Quiet: small and muted, above the head's corner.
+                                    x: note.full ? headBox.x + headBox.width - width * 0.6 : headBox.x + headBox.width
+                                    y: note.full ? headBox.y - height * 0.4 : headBox.y - height * 0.7
+                                    width: Math.round(lane.head * (note.full ? 0.55 : 0.4))
                                     height: width
-                                    sourceComponent: KanteNoteMark { noteState: note.st; badge: true }
+                                    sourceComponent: KanteNoteMark {
+                                        noteState: note.st
+                                        badge: note.full
+                                        color: note.full ? KanteStyle.noteStateColor(note.st) : KanteStyle.mutedTextColor
+                                    }
                                 }
                                 Text {
                                     visible: !!note.n.label

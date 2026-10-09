@@ -121,5 +121,10 @@
   "view.combined": "Notation + tab",
   "settings.lowtop": "Low string on top",
   "settings.lowtop.hint": "As when looking down at the fretboard; by default the high string is on top as in tablature.",
+  "settings.playmarks": "Marks in play mode",
+  "settings.playmarks.hint": "When just playing, Kontra shows hits and mistakes quietly or not at all; the summary afterwards stays complete.",
+  "settings.playmarks.quiet": "Quiet",
+  "settings.playmarks.off": "Off",
+  "settings.playmarks.full": "Full",
   "error.device.lost": "The audio device is gone ({reason}). Plug it back in and press play."
 }

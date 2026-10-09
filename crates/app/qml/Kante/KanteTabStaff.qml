@@ -19,6 +19,9 @@ import "."
  *   position     the current time in seconds
  *   barsPerSystem  bars per line, 0 = as many as fit (`minBarWidth` each)
  *   systems      lines shown
+ *   marks        Full, Quiet (fret numbers in the text colour, small muted signs) or Off;
+ *                setNoteState(index, state) / resetStates() change states without a new
+ *                layout (the layout is computed once per page, the states are read live)
  *
  * The state of a note shows above the staff as a KanteNoteMark and in the colour of
  * its fret number. The layout is computed once per page (not per frame): only the
@@ -27,6 +30,12 @@ import "."
  */
 Item {
     id: staff
+
+    enum Marks {
+        Full,
+        Quiet,
+        Off
+    }
 
     property int strings: 4
     property var stringNames: ["E", "A", "D", "G"]
@@ -45,6 +54,41 @@ Item {
     property string accessibleName: "Tabulatur"
     /** Text of the bar in the screen-reader description; %1 bar, %2 of. */
     property string barText: "Takt %1 von %2"
+    /**
+     * How note states show (Kante 1.24): Full (state colour and sign), Quiet (notes in the
+     * text colour, small muted signs that tell the state by shape: Kontra's play mode),
+     * Off (no states).
+     */
+    property int marks: KanteTabStaff.Marks.Full
+    /** Counts state changes made with setNoteState / resetStates (and new note lists). */
+    readonly property int stateRevision: revision
+    property int revision: 0
+    // States set with setNoteState, by note index (plain object, read through stateRevision).
+    property var changedStates: ({})
+
+    /** Sets the state of one note without reassigning `notes` (no new layout, only colours and signs). */
+    function setNoteState(index, state) {
+        if (!notes || index < 0 || index >= notes.length) {
+            return
+        }
+        changedStates[index] = String(state)
+        revision++
+    }
+    /** Back to the states in `notes`. */
+    function resetStates() {
+        changedStates = {}
+        revision++
+    }
+    /** The state of note i: as set with setNoteState, else from `notes`. */
+    function stateOf(i) {
+        var s = changedStates[i]
+        return s !== undefined ? s : (notes && notes[i] && notes[i].state ? String(notes[i].state) : "pending")
+    }
+    /** The state as shown: "pending" when marks are Off. Depends on stateRevision. */
+    function shownState(i, revision) {
+        return marks === KanteTabStaff.Marks.Off || i === undefined ? "pending" : stateOf(i)
+    }
+    onNotesChanged: resetStates()
 
     /** Last note with time ≤ position, -1 before the first. */
     readonly property int currentIndex: lastAtOrBefore(position)
@@ -74,7 +118,7 @@ Item {
         var d = barText.arg(currentBar + 1).arg(barList.length)
         if (currentIndex >= 0) {
             var n = notes[currentIndex]
-            d += ", " + nameOf(Number(n.string) || 0) + " " + n.fret + " (" + KanteStyle.noteStateName(n.state || "pending") + ")"
+            d += ", " + nameOf(Number(n.string) || 0) + " " + n.fret + " (" + KanteStyle.noteStateName(shownState(currentIndex, stateRevision)) + ")"
         }
         return d
     }
@@ -224,26 +268,23 @@ Item {
             var x = xOf(t, b)
             var sys = sysOf(b)
             var y = sys * systemHeight + staffTop + rowOf(Math.max(0, Math.min(nstr - 1, Number(n.string) || 0))) * ls
-            L.frets.push({ x: x, y: y, text: n.fret !== undefined ? String(n.fret) : "", state: n.state || "pending", index: i, label: n.label || "" })
+            L.frets.push({ x: x, y: y, text: n.fret !== undefined ? String(n.fret) : "", index: i, label: n.label || "" })
             L.boxes[i] = { x: x, sys: sys }
             var prev = onsets.length ? onsets[onsets.length - 1] : null
             if (prev && Math.abs(prev.t - t) < 1e-3) {
-                if (!prev.marked && (n.state || "pending") !== "pending") {
-                    prev.state = n.state
-                }
+                prev.indices.push(i)
                 continue
             }
             var dur = Math.max(0, Number(n.duration) || 0)
             var beats = Number(n.beats) || 0
             var spq = dur > 0 && beats > 0 ? dur / beats : (bl[b].end - bl[b].time) / 4
             onsets.push({ t: t, x: x, sys: sys, bar: b, beat: Math.floor((t - bl[b].time) / spq + 1e-3),
-                          r: rhythmOf(beats > 0 ? beats : dur / spq), state: n.state || "pending" })
+                          r: rhythmOf(beats > 0 ? beats : dur / spq), indices: [i] })
         }
         for (var o = 0; o < onsets.length; o++) {
             var on = onsets[o]
-            if (on.state !== "pending") {
-                L.marks.push({ x: on.x, y: on.sys * systemHeight + markRow / 2, state: on.state })
-            }
+            // One sign per onset (a chord shows its first non-pending state); hidden while pending.
+            L.marks.push({ x: on.x, y: on.sys * systemHeight + markRow / 2, indices: on.indices })
         }
         if (!withRhythm) {
             return L
@@ -413,8 +454,10 @@ Item {
                 id: fret
                 anchors.centerIn: parent
                 text: parent.modelData.text
-                color: parent.modelData.state === "pending" ? (parent.current ? KanteStyle.strongTextColor : KanteStyle.textColor)
-                     : KanteStyle.noteStateColor(parent.modelData.state)
+                readonly property string st: staff.shownState(parent.modelData.index, staff.stateRevision)
+                color: st === "pending" || staff.marks !== KanteTabStaff.Marks.Full
+                     ? (parent.current ? KanteStyle.strongTextColor : KanteStyle.textColor)
+                     : KanteStyle.noteStateColor(st)
                 font.family: nameMetrics.font.family
                 font.weight: parent.current ? Font.Bold : Font.Medium
                 font.pixelSize: Math.round(staff.ls * 0.9)
@@ -435,11 +478,20 @@ Item {
         model: staff.layout.marks
         delegate: KanteNoteMark {
             required property var modelData
-            width: Math.round(staff.ls * 0.95)
+            readonly property bool full: staff.marks === KanteTabStaff.Marks.Full
+            visible: drawn
+            width: Math.round(staff.ls * (full ? 0.95 : 0.7))
             height: width
             x: modelData.x - width / 2
             y: modelData.y - height / 2
-            noteState: modelData.state
+            noteState: {
+                for (var k = 0; k < modelData.indices.length; k++) {
+                    var s = staff.shownState(modelData.indices[k], staff.stateRevision)
+                    if (s !== "pending") return s
+                }
+                return "pending"
+            }
+            color: full ? KanteStyle.noteStateColor(noteState) : KanteStyle.mutedTextColor
         }
     }
 
