@@ -12,6 +12,7 @@
 //! arrangement at original tempo). At speed 0.5 the position advances half as fast.
 
 mod calibration;
+mod density;
 mod expected;
 mod live;
 mod matcher;
@@ -26,6 +27,7 @@ mod transport;
 pub use calibration::{
     CalibrationResult, CLICKS as CALIBRATION_CLICKS, INTERVAL_S as CALIBRATION_INTERVAL_S,
 };
+pub use density::Density;
 pub use expected::{expected_notes, ExpectedNote};
 pub use kontra_engine::Gains;
 pub use live::{InputChoice, Live, LiveCalibration, LiveOutput, LiveSetup, LiveTuner};
