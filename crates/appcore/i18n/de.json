@@ -17,7 +17,7 @@
   "mode.play.hint": "Läuft durch, ohne Punkte.",
   "mode.song.hint": "Läuft durch, mit Auswertung am Ende.",
   "mode.wait.hint": "Wartet vor jeder Note, bis du sie spielst.",
-  "mode.workshop.hint": "Abschnitt wiederholen und langsam steigern.",
+  "mode.workshop.hint": "Abschnitt wiederholen; das Tempo folgt deiner Trefferquote.",
   "view.lane": "Tab-Lane",
   "view.tab": "Tabulatur",
   "view.notation": "Noten",
@@ -126,5 +126,16 @@
   "settings.playmarks.quiet": "Leise",
   "settings.playmarks.off": "Aus",
   "settings.playmarks.full": "Voll",
-  "error.device.lost": "Das Audiogerät ist weg ({reason}). Wieder anstecken und auf Abspielen drücken."
+  "error.device.lost": "Das Audiogerät ist weg ({reason}). Wieder anstecken und auf Abspielen drücken.",
+  "workshop.bars": "Takte",
+  "workshop.from": "Von Takt",
+  "workshop.to": "bis",
+  "workshop.until": "Bis Takt",
+  "workshop.band": "Ziel {low}–{high} % Treffer",
+  "workshop.speed": "Tempo {percent} %",
+  "workshop.pass": "Durchlauf {n}: {percent} % Treffer",
+  "workshop.choose": "Takte wählen, dann Abspielen",
+  "workshop.above": "über dem Ziel: zweimal in Folge wird es schneller",
+  "workshop.below": "unter dem Ziel: zweimal in Folge wird es langsamer",
+  "workshop.inside": "im Ziel: Tempo bleibt"
 }

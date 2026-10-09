@@ -76,7 +76,7 @@ Erwartet: Lied wartet ohne Zeitdruck; falscher Ton wird freundlich angezeigt (we
 **J-B3 Refrain sitzt bis Freitag** ⚙ · Persona: P2 Jens · Phase 1 · LH-MOD-04, -05, -07, LH-WIE-01, LH-BEW-03
 1. Song-Modus, Lied 3 durchspielen; Auswertung zeigt schwierigste Takte.
 2. Auf den schwierigsten Takt klicken → Riff-Werkstatt mit diesem Bereich.
-3. Tempo 60 %, automatische Steigerung „+5 % nach 3 fehlerfreien Durchläufen“, Vorzähler an.
+3. Tempo 60 %, automatische Anpassung an das Zielband 80–90 % Treffer, Vorzähler an.
 4. Fehlerfreie Durchläufe einspeisen bis 100 %.
 5. Alles nur mit Tastatur wiederholen.
 Erwartet: Bereich und Tempo stimmen; Backing Track bei 60 % ohne metallischen Klang; Steigerung sichtbar; jede Funktion per Tastenkürzel.

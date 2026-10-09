@@ -48,6 +48,8 @@ pub enum UiEvent {
     Released,
     PassComplete {
         clean: bool,
+        /// Hits among the pass's notes and extras (0..=1); the workshop keeps it in a band.
+        hit_rate: f64,
     },
     SpeedChanged(f64),
     Finished {
@@ -360,6 +362,11 @@ impl Core {
     }
 
     /// Loops bars `from..=to` (indices into the arrangement's bars).
+    /// The workshop's hit-rate band (low, high), for the UI.
+    pub fn workshop_band() -> (f64, f64) {
+        Workshop::default().band
+    }
+
     pub fn set_loop(&mut self, from: usize, to: usize) {
         self.looping = Some((from.min(to), from.max(to)));
         let range = self.loop_range();
@@ -668,7 +675,9 @@ impl Core {
                 Some(UiEvent::Holding { index: note, text })
             }
             SessionEvent::Released => Some(UiEvent::Released),
-            SessionEvent::PassComplete { clean, .. } => Some(UiEvent::PassComplete { clean }),
+            SessionEvent::PassComplete {
+                clean, hit_rate, ..
+            } => Some(UiEvent::PassComplete { clean, hit_rate }),
             SessionEvent::SpeedChanged(s) => Some(UiEvent::SpeedChanged(s)),
             SessionEvent::Finished => {
                 let summary = self.live.as_ref()?.practice().session().summary();

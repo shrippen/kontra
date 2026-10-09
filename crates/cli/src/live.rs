@@ -137,11 +137,16 @@ fn show(event: &PracticeEvent, arrangement: &kontra_model::Arrangement) -> bool 
                 );
             }
         }
-        PracticeEvent::Session(SessionEvent::PassComplete { pass, clean }) => {
+        PracticeEvent::Session(SessionEvent::PassComplete {
+            pass,
+            clean,
+            hit_rate,
+        }) => {
             println!(
-                "— pass {} {}",
+                "— pass {} {} ({:.0} % hits)",
                 pass + 1,
-                if *clean { "clean" } else { "with mistakes" }
+                if *clean { "clean" } else { "with mistakes" },
+                hit_rate * 100.0
             );
         }
         PracticeEvent::Session(SessionEvent::SpeedChanged(speed)) => {

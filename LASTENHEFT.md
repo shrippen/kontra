@@ -151,9 +151,9 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-MOD-01 | **Spielen:** Lied läuft durch, nichts hält an, keine Punkte; Treffer dezent markiert, abschaltbar. | Muss | 1 | P2, P1 | J-B1: Lied von Anfang bis Ende ohne Unterbrechung oder Wertungsbildschirm. |
 | LH-MOD-02 | **Song:** wie Spielen, mit Bewertung und Auswertung am Ende. | Muss | 1 | P2, P3 | Auswertung zeigt Trefferquote, Timing-Tendenz, schwierigste Takte. |
 | LH-MOD-03 | **Warten:** Lied hält vor jeder Note, bis der richtige Ton gespielt ist; Backing Track pausiert mit. | Muss | 1 | P1 | J-B2 ohne Zeitdruck schaffbar. |
-| LH-MOD-04 | **Riff-Werkstatt:** Bereich wählen (Takte oder Markierungen), Loop, Tempo 25 bis 150 % in 5-%-Schritten, automatische Steigerung („+5 % nach 3 fehlerfreien Durchläufen“), Vorzähler. | Muss | 1 | P2, P3 | J-B3: Bereich, Tempo und Steigerung wirken wie eingestellt. |
+| LH-MOD-04 | **Riff-Werkstatt:** Bereich wählen (Takte oder Markierungen), Loop, Tempo 25 bis 150 % in 5-%-Schritten, automatische Anpassung an ein Zielband der Trefferquote (Standard 80–90 %: zwei Durchläufe darüber +5 %, zwei darunter −5 %, dazwischen gleich; Runde 5), Vorzähler. | Muss | 1 | P2, P3 | J-B3: Bereich, Tempo und Steigerung wirken wie eingestellt. |
 | LH-MOD-05 | Metronom und Vorzähler in allen Modi, Lautstärke getrennt regelbar. | Muss | 1 | P2, P3 | Mixer: Instrument, Backing Track, Metronom getrennt. |
-| LH-MOD-06 | Adaptive Schwierigkeit: Notendichte steigt mit der Trefferquote, sinkt bei Häufung von Fehlern; abschaltbar und pro Abschnitt fixierbar. | Soll | 2 | P1 | Testspieler mit 95 % Treffern erreicht volle Notendichte in ≤ 5 Durchläufen. |
+| LH-MOD-06 | Adaptive Schwierigkeit: Notendichte steigt mit der Trefferquote, sinkt bei Häufung von Fehlern; nur zwischen Durchläufen, sichtbar und als Vorschlag („Nächster Durchlauf mit mehr Noten?“), nie mitten im Lied (Runde 5); abschaltbar und pro Abschnitt fixierbar. | Soll | 2 | P1 | Testspieler mit 95 % Treffern erreicht volle Notendichte in ≤ 5 Durchläufen. |
 | LH-MOD-07 | Tastenkürzel für alle Transportfunktionen (Start/Stop, Loop setzen, Tempo ±, zurück zum Loop-Anfang); optional Fußschalter über Tastatur-Emulation. | Muss | 1 | P3, P7 | Alle Funktionen ohne Maus erreichbar. |
 
 ### 4.6 Bewertung (BEW)

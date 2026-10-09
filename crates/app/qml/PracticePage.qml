@@ -123,6 +123,62 @@ Kirigami.Page {
             }
         }
 
+        // Workshop (LH-MOD-04): which bars, and how the tempo follows the hit rate (target band).
+        RowLayout {
+            id: workshopRow
+            Layout.fillWidth: true
+            visible: ctl.mode === "workshop"
+            spacing: KanteStyle.unit(8)
+            readonly property int fromBar: ctl.loopStart >= 0 ? page.barAt(ctl.loopStart) + 1 : 0
+            readonly property int toBar: ctl.loopEnd >= 0 ? page.barAt(ctl.loopEnd - 0.001) + 1 : 0
+            property string lastChange: ""
+
+            KanteHud { fullText: texts.t("workshop.bars"); color: KanteStyle.mutedTextColor }
+            QQC2.SpinBox {
+                id: fromSpin
+                from: 1
+                to: Math.max(1, page.bars.length)
+                value: Math.max(1, workshopRow.fromBar)
+                editable: true
+                Accessible.name: texts.t("workshop.from")
+                onValueModified: ctl.loopBars(value - 1, Math.max(value, toSpin.value) - 1)
+            }
+            QQC2.Label { text: texts.t("workshop.to"); color: KanteStyle.textColor }
+            QQC2.SpinBox {
+                id: toSpin
+                from: 1
+                to: Math.max(1, page.bars.length)
+                value: Math.max(1, workshopRow.toBar > 0 ? workshopRow.toBar : fromSpin.value)
+                editable: true
+                Accessible.name: texts.t("workshop.until")
+                onValueModified: ctl.loopBars(Math.min(fromSpin.value, value) - 1, value - 1)
+            }
+            QQC2.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: KanteStyle.textColor
+                text: {
+                    var band = texts.t("workshop.band", { low: Math.round(ctl.bandLow * 100), high: Math.round(ctl.bandHigh * 100) })
+                    var speed = texts.t("workshop.speed", { percent: Math.round(ctl.speed * 100) })
+                    if (ctl.loopStart < 0)
+                        return texts.t("workshop.choose") + " · " + band
+                    if (ctl.passRate < 0)
+                        return band + " · " + speed
+                    return texts.t("workshop.pass", { n: ctl.passes, percent: Math.round(ctl.passRate * 100) })
+                        + " · " + band + " · " + speed
+                        + (workshopRow.lastChange !== "" ? " · " + workshopRow.lastChange : "")
+                }
+            }
+            Connections {
+                target: ctl
+                function onPassComplete(clean, hitRate) {
+                    workshopRow.lastChange = hitRate > ctl.bandHigh ? texts.t("workshop.above")
+                        : hitRate < ctl.bandLow ? texts.t("workshop.below") : texts.t("workshop.inside")
+                }
+                function onModeChanged() { workshopRow.lastChange = "" }
+            }
+        }
+
         // Wait mode: what to play next, in words (LH-MOD-03).
         KanteBanner {
             Layout.fillWidth: true

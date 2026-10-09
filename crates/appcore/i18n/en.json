@@ -17,7 +17,7 @@
   "mode.play.hint": "Runs through, no scores.",
   "mode.song.hint": "Runs through, with an evaluation at the end.",
   "mode.wait.hint": "Waits before every note until you play it.",
-  "mode.workshop.hint": "Repeat a section and speed up step by step.",
+  "mode.workshop.hint": "Repeat a section; the tempo follows your hit rate.",
   "view.lane": "Tab lane",
   "view.tab": "Tablature",
   "view.notation": "Notation",
@@ -126,5 +126,16 @@
   "settings.playmarks.quiet": "Quiet",
   "settings.playmarks.off": "Off",
   "settings.playmarks.full": "Full",
-  "error.device.lost": "The audio device is gone ({reason}). Plug it back in and press play."
+  "error.device.lost": "The audio device is gone ({reason}). Plug it back in and press play.",
+  "workshop.bars": "Bars",
+  "workshop.from": "From bar",
+  "workshop.to": "to",
+  "workshop.until": "To bar",
+  "workshop.band": "Target {low}–{high} % hits",
+  "workshop.speed": "Tempo {percent} %",
+  "workshop.pass": "Pass {n}: {percent} % hits",
+  "workshop.choose": "Choose bars, then play",
+  "workshop.above": "above target: twice in a row speeds up",
+  "workshop.below": "below target: twice in a row slows down",
+  "workshop.inside": "on target: tempo stays"
 }

@@ -135,6 +135,10 @@ Kirigami.ApplicationWindow {
             first = !ctl.setupDone && !ctl.loaded ? "setup" : (ctl.loaded ? "practice" : "library")
         }
         show(first)
+        if (ctl.startLoop !== "" && ctl.loaded) {
+            var bars = ctl.startLoop.split("-")
+            ctl.loopBars(Number(bars[0]) - 1, Number(bars[1]) - 1)
+        }
         if (ctl.autoplay && ctl.loaded) {
             ctl.togglePlay()
         }

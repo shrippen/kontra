@@ -27,6 +27,10 @@ pub mod qobject {
         #[qproperty(bool, playing)]
         #[qproperty(f64, speed)]
         #[qproperty(f64, loop_start, cxx_name = "loopStart")]
+        #[qproperty(f64, pass_rate, cxx_name = "passRate")]
+        #[qproperty(i32, passes, cxx_name = "passes")]
+        #[qproperty(f64, band_low, cxx_name = "bandLow")]
+        #[qproperty(f64, band_high, cxx_name = "bandHigh")]
         #[qproperty(f64, loop_end, cxx_name = "loopEnd")]
         #[qproperty(QString, mode)]
         #[qproperty(QString, view)]
@@ -65,6 +69,8 @@ pub mod qobject {
         #[qproperty(bool, setup_done, cxx_name = "setupDone")]
         #[qproperty(bool, autoplay)]
         #[qproperty(bool, autocalibrate)]
+        /// QA: bars to loop at start, 1-based "from-to" ("" = none).
+        #[qproperty(QString, start_loop, cxx_name = "startLoop")]
         #[qproperty(QString, screenshot_path, cxx_name = "screenshotPath")]
         #[qproperty(i32, screenshot_after, cxx_name = "screenshotAfter")]
         #[qproperty(i32, quit_after, cxx_name = "quitAfter")]
@@ -208,7 +214,7 @@ pub mod qobject {
 
         #[qsignal]
         #[cxx_name = "passComplete"]
-        fn pass_complete(self: Pin<&mut Self>, clean: bool);
+        fn pass_complete(self: Pin<&mut Self>, clean: bool, hit_rate: f64);
 
         #[qsignal]
         fn finished(self: Pin<&mut Self>);
@@ -240,6 +246,12 @@ pub struct ControllerRust {
     playing: bool,
     speed: f64,
     loop_start: f64,
+    /// Hit rate of the last loop pass (-1: none yet).
+    pass_rate: f64,
+    /// Loop passes completed since the loop or mode was set.
+    passes: i32,
+    band_low: f64,
+    band_high: f64,
     loop_end: f64,
     mode: QString,
     view: QString,
@@ -278,6 +290,7 @@ pub struct ControllerRust {
     setup_done: bool,
     autoplay: bool,
     autocalibrate: bool,
+    start_loop: QString,
     screenshot_path: QString,
     screenshot_after: i32,
     quit_after: i32,
@@ -322,6 +335,10 @@ impl Default for ControllerRust {
             playing: false,
             speed: 1.0,
             loop_start: -1.0,
+            pass_rate: -1.0,
+            passes: 0,
+            band_low: kontra_appcore::Core::workshop_band().0,
+            band_high: kontra_appcore::Core::workshop_band().1,
             loop_end: -1.0,
             mode: q(&s.mode),
             view: q(&s.view),
@@ -360,6 +377,10 @@ impl Default for ControllerRust {
             setup_done: s.setup_done,
             autoplay: args.autoplay,
             autocalibrate: args.calibrate,
+            start_loop: q(&args
+                .loop_bars
+                .map(|(a, b)| format!("{a}-{b}"))
+                .unwrap_or_default()),
             screenshot_path: q(&args
                 .screenshot
                 .as_ref()
@@ -546,6 +567,7 @@ impl qobject::Controller {
         let mode = mode.to_string();
         self.as_mut().core().set_mode(&mode);
         self.as_mut().set_mode(q(&mode));
+        self.as_mut().reset_passes();
         self.as_mut().rewind();
     }
 
@@ -579,12 +601,19 @@ impl qobject::Controller {
         let from = usize::try_from(from).unwrap_or(0);
         let to = usize::try_from(to).unwrap_or(0);
         self.as_mut().core().set_loop(from, to);
+        self.as_mut().reset_passes();
         let (start, end) = self.as_ref().rust().core.loop_seconds();
         self.as_mut().set_loop_start(start);
         self.as_mut().set_loop_end(end);
     }
 
+    fn reset_passes(mut self: Pin<&mut Self>) {
+        self.as_mut().set_passes(0);
+        self.as_mut().set_pass_rate(-1.0);
+    }
+
     fn clear_loop(mut self: Pin<&mut Self>) {
+        self.as_mut().reset_passes();
         self.as_mut().core().clear_loop();
         self.as_mut().set_loop_start(-1.0);
         self.as_mut().set_loop_end(-1.0);
@@ -629,7 +658,12 @@ impl qobject::Controller {
                     self.as_mut().set_holding_text(q(&text));
                 }
                 UiEvent::Released => self.as_mut().set_holding_index(-1),
-                UiEvent::PassComplete { clean } => self.as_mut().pass_complete(clean),
+                UiEvent::PassComplete { clean, hit_rate } => {
+                    let passes = *self.as_ref().passes() + 1;
+                    self.as_mut().set_passes(passes);
+                    self.as_mut().set_pass_rate(hit_rate);
+                    self.as_mut().pass_complete(clean, hit_rate);
+                }
                 UiEvent::SpeedChanged(speed) => self.as_mut().set_speed(speed),
                 UiEvent::Finished { summary_json } => {
                     self.as_mut().set_summary_json(q(&summary_json));

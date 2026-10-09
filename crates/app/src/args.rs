@@ -17,6 +17,8 @@ pub struct AppArgs {
     pub mode: Option<String>,
     pub view: Option<String>,
     pub calibrate: bool,
+    /// `--loop-bars 3-4`: loop these bars (1-based) before autoplay.
+    pub loop_bars: Option<(i32, i32)>,
 }
 
 impl AppArgs {
@@ -46,6 +48,14 @@ impl AppArgs {
                 "--mode" => out.mode = Some(value()),
                 "--view" => out.view = Some(value()),
                 "--calibrate" => out.calibrate = true,
+                "--loop-bars" => {
+                    let v = value();
+                    let mut parts = v.split('-').map(|p| p.trim().parse::<i32>());
+                    if let (Some(Ok(a)), b) = (parts.next(), parts.next()) {
+                        let b = b.and_then(Result::ok).unwrap_or(a);
+                        out.loop_bars = Some((a.min(b), a.max(b)));
+                    }
+                }
                 _ => {}
             }
         }
@@ -56,6 +66,16 @@ impl AppArgs {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_loop_bars() {
+        let parse =
+            |v: &str| AppArgs::parse(["--loop-bars", v].iter().map(|s| s.to_string())).loop_bars;
+        assert_eq!(parse("3-4"), Some((3, 4)));
+        assert_eq!(parse("5"), Some((5, 5)));
+        assert_eq!(parse("4-2"), Some((2, 4)));
+        assert_eq!(parse("x"), None);
+    }
 
     #[test]
     fn parses_qa_options() {
