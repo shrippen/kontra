@@ -7,3 +7,4 @@
 /testdata/import/local/
 /crates/app/.qmlls.ini
 /target-*/
+__pycache__/
