@@ -1,0 +1,39 @@
+# Flatpak manifest (LH-NF-12). Untested: this repository's development container cannot run
+# flatpak-builder. Build with:
+#   python3 flatpak-cargo-generator.py ../Cargo.lock -o cargo-sources.json
+#   flatpak-builder --user --install build-dir org.shrippen.Kontra.yml
+id: org.shrippen.Kontra
+runtime: org.kde.Platform
+runtime-version: "6.10"
+sdk: org.kde.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: kontra
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # Audio through PipeWire/PulseAudio (ALSA in the runtime routes there). No home access:
+  # files are opened through the portal file dialog.
+  - --socket=pulseaudio
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/kontra/cargo
+    CARGO_NET_OFFLINE: "true"
+modules:
+  - name: kontra
+    buildsystem: simple
+    build-commands:
+      - cargo --offline build --release -p kontra-app
+      - install -Dm755 target/release/kontra /app/bin/kontra
+      - mkdir -p /app/share/kontra/qml /app/share/kontra/demo
+      - cp -r crates/app/qml/Kante /app/share/kontra/qml/Kante
+      - install -Dm644 testdata/demo/etude-1.mid /app/share/kontra/demo/etude-1.mid
+      - install -Dm644 packaging/org.shrippen.Kontra.desktop /app/share/applications/org.shrippen.Kontra.desktop
+      - install -Dm644 packaging/org.shrippen.Kontra.metainfo.xml /app/share/metainfo/org.shrippen.Kontra.metainfo.xml
+    sources:
+      - type: dir
+        path: ..
+      - cargo-sources.json
