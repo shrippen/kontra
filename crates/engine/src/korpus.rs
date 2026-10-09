@@ -201,17 +201,35 @@ pub fn evaluate(
     sample_rate: u32,
     notes: &[Annotation],
 ) -> Evaluation {
-    evaluate_window(set, samples, sample_rate, notes, MATCH_S).0
+    evaluate_with(set, samples, sample_rate, notes, Matching::default()).0
 }
 
-/// Like `evaluate`, with a chosen matching window (real recordings with score-grid annotations
-/// need ±50 ms); also returns the detections for inspection.
-pub fn evaluate_window(
+/// How detections are matched to annotated notes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Matching {
+    /// Largest onset distance (real recordings with score-grid annotations need ±50–80 ms).
+    pub window_s: f64,
+    /// Only a detection with the right rounded pitch matches. Without it a pitchless or wrong
+    /// detection near the note counts as found, which flatters recall on loose annotations.
+    pub require_pitch: bool,
+}
+
+impl Default for Matching {
+    fn default() -> Self {
+        Matching {
+            window_s: MATCH_S,
+            require_pitch: false,
+        }
+    }
+}
+
+/// Like `evaluate`, with chosen matching; also returns the detections for inspection.
+pub fn evaluate_with(
     set: KorpusSet,
     samples: &[f32],
     sample_rate: u32,
     notes: &[Annotation],
-    window_s: f64,
+    matching: Matching,
 ) -> (Evaluation, Vec<DetectedNote>) {
     let detected = analyze(
         samples,
@@ -219,7 +237,7 @@ pub fn evaluate_window(
         &set.instrument(),
         set.source(),
     );
-    let evaluation = compare(set, notes, &detected, window_s);
+    let evaluation = compare(set, notes, &detected, matching);
     (evaluation, detected)
 }
 
@@ -232,7 +250,7 @@ fn compare(
     set: KorpusSet,
     notes: &[Annotation],
     detected: &[DetectedNote],
-    window_s: f64,
+    matching: Matching,
 ) -> Evaluation {
     let mut used = vec![false; detected.len()];
     let mut onset_errors = Vec::new();
@@ -242,7 +260,11 @@ fn compare(
         let best = detected
             .iter()
             .enumerate()
-            .filter(|(i, d)| !used[*i] && (d.onset_s - note.onset_s).abs() <= window_s)
+            .filter(|(i, d)| {
+                !used[*i]
+                    && (d.onset_s - note.onset_s).abs() <= matching.window_s
+                    && (!matching.require_pitch || d.midi.round() == note.midi.round())
+            })
             .min_by(|a, b| {
                 (a.1.onset_s - note.onset_s)
                     .abs()

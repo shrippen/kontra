@@ -23,6 +23,9 @@ fn main() {
         app.as_mut()
             .set_organization_domain(&QString::from("shrippen.org"));
     }
+    // Wayland compositors find the window icon (packaging/org.shrippen.Kontra.svg) through the
+    // desktop file of this name.
+    QGuiApplication::set_desktop_file_name(&QString::from("org.shrippen.Kontra"));
     if let Some(mut engine) = engine.as_mut() {
         for dir in qml_dirs() {
             engine

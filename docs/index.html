@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kontra — bass trainer for KDE Plasma</title>
+<meta name="description" content="Kontra listens to your real bass through a jack cable, runs tab lane, tablature and notation along and tells you whether pitch and timing were right. Free, offline, for KDE Plasma. In development.">
+<meta property="og:title" content="Kontra — bass trainer for KDE Plasma">
+<meta property="og:description" content="Plug in your bass, open a Guitar Pro, MIDI or MusicXML file and play. Kontra hears pitch and timing. Free, offline, for KDE Plasma.">
+<!-- social-preview.png: overview/tools/make-social.py card (Kontra is not in sites.json while internal), footer git.arianw.de. -->
+<meta property="og:image" content="https://shrippen.github.io/Kontra/social-preview.png">
+<!-- Not live yet: internal until 1.0, no GitHub mirror and no entry on the public overview. -->
+<meta property="og:url" content="https://shrippen.github.io/Kontra/">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<!-- Umami tracker: mandatory on every landing page, same tag and ID everywhere, do not change -->
+<script defer src="https://um.arianw.de/script.js" data-website-id="056d39ee-6a9d-4b14-9902-5a1ac399df08"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://shrippen.github.io/v1/shrippen.css">
+<script src="https://shrippen.github.io/v1/shrippen.js"></script>
+<!--
+  Assets (icon.svg, icon-mono.svg, shots/) live in this project's docs/ folder, next to this file.
+  Every visible text exists twice: lang="en" (default) and lang="de".
+  Screenshots come in DE/EN pairs (shots/<name>-<lang>.png), shown one at a time by the language switch,
+  as demo/tools/use-shots.py in shrippen.github.io writes them.
+-->
+</head>
+<body>
+
+<div class="banner">
+  <div class="banner-inner">
+    <span class="banner-title"><span lang="en">Work in progress</span><span lang="de">In Entwicklung</span></span>
+    <span class="banner-text"><span lang="en">No release yet. Phase 0/1, before 0.1. Detection on real recordings is not at its target yet.</span><span lang="de">Noch keine Version. Phase 0/1, vor 0.1. Die Erkennung auf echten Aufnahmen ist noch nicht am Ziel.</span></span>
+  </div>
+</div>
+
+<nav class="nav"><div class="nav-inner">
+  <a class="nav-brand" href="#"><img src="icon.svg" alt="">Kontra</a>
+  <div class="nav-links">
+    <a href="#features"><span lang="en">Features</span><span lang="de">Funktionen</span></a>
+    <a href="#how"><span lang="en">How it works</span><span lang="de">So funktioniert es</span></a>
+    <a href="https://git.arianw.de/shrippen/Kontra/src/branch/main/ROADMAP.md">Roadmap</a>
+    <a class="nav-hl" href="https://git.arianw.de/shrippen/Kontra">Gitea</a>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="de" aria-pressed="false">DE</button>
+    </div>
+  </div>
+</div></nav>
+
+<header class="hero">
+  <img class="hero-wm" src="icon-mono.svg" alt="" aria-hidden="true">
+  <div class="hero-main">
+    <h1 style="--title-size:clamp(3.5rem,9vw,8.5rem);--title-size-narrow:clamp(3rem,25vw,13.1rem)">Kontra</h1>
+    <p class="tagline" lang="en">A bass trainer for KDE Plasma. Plug your bass into the computer, open a Guitar Pro, MIDI or MusicXML file and play. Kontra hears every attack and every note and tells you whether pitch and timing were right. Learn, or just play songs.</p>
+    <p class="tagline" lang="de">Ein Bass-Trainer für KDE Plasma. Bass per Klinke an den Rechner, Guitar-Pro-, MIDI- oder MusicXML-Datei öffnen, spielen. Kontra hört jeden Anschlag und jeden Ton und sagt dir, ob Ton und Timing stimmen. Zum Lernen oder einfach zum Mitspielen.</p>
+  </div>
+
+  <!-- No install card: there are no packages yet. The Flatpak follows after a local test (ROADMAP, Runde 3). -->
+  <div class="hero-side">
+    <div class="hero-shot">
+      <img lang="en" src="shots/practice-lane-en.png" alt="Kontra practising Etude 1 in the tab lane, fretboard and input level below">
+      <img lang="de" src="shots/practice-lane-de.png" alt="Kontra beim Üben von Etude 1 in der Tab-Lane, darunter Griffbrett und Eingangspegel">
+    </div>
+  </div>
+</header>
+
+<main>
+
+<div class="facts">
+  <div class="fact"><b>4</b><span lang="en">Modes: play, song, wait, workshop</span><span lang="de">Modi: Spielen, Song, Warten, Werkstatt</span></div>
+  <div class="fact"><b>4</b><span lang="en">Views: tab lane, tablature, notation, both</span><span lang="de">Ansichten: Tab-Lane, Tabulatur, Noten, beides</span></div>
+  <div class="fact"><b>3</b><span lang="en">Import formats: Guitar Pro 3–8, MIDI, MusicXML</span><span lang="de">Importformate: Guitar Pro 3–8, MIDI, MusicXML</span></div>
+  <div class="fact"><b>0</b><span lang="en">Accounts, subscriptions, telemetry</span><span lang="de">Konten, Abos, Telemetrie</span></div>
+</div>
+
+<section class="features" id="features">
+  <div class="feat" data-tier="red">
+    <span class="feat-tag"><span lang="en">Listens</span><span lang="de">Hört zu</span></span>
+    <h3 lang="en">Your real bass</h3><h3 lang="de">Dein echter Bass</h3>
+    <p lang="en">Jack cable into an audio interface or straight into the laptop. Four, five or six strings, fretted or fretless. No controller, no MIDI bass needed.</p>
+    <p lang="de">Klinke ins Audio-Interface oder direkt in den Laptop. Vier, fünf oder sechs Saiten, mit oder ohne Bünde. Kein Controller, kein MIDI-Bass nötig.</p>
+  </div>
+  <div class="feat" data-tier="yellow">
+    <span class="feat-tag"><span lang="en">Your files</span><span lang="de">Deine Dateien</span></span>
+    <h3 lang="en">Open content</h3><h3 lang="de">Offene Inhalte</h3>
+    <p lang="en">No song shop: Kontra reads what you have. Guitar Pro 3 to 8, MIDI and MusicXML; it picks the bass track and writes a tab for MIDI files.</p>
+    <p lang="de">Kein Song-Shop: Kontra liest, was du hast. Guitar Pro 3 bis 8, MIDI und MusicXML; die Bassspur sucht es selbst, für MIDI-Dateien erzeugt es die Tab.</p>
+  </div>
+  <div class="feat" data-tier="blue">
+    <span class="feat-tag"><span lang="en">Timing</span><span lang="de">Timing</span></span>
+    <h3 lang="en">Pitch and time</h3><h3 lang="de">Ton und Zeit</h3>
+    <p lang="en">Every note is judged twice: right or wrong, and early or late in milliseconds. For bass, timing matters as much as the note.</p>
+    <p lang="de">Jede Note wird zweimal bewertet: richtig oder falsch, und früh oder spät in Millisekunden. Beim Bass zählt das Timing so viel wie der Ton.</p>
+  </div>
+</section>
+
+<section class="showcase">
+  <div class="showcase-text">
+    <span class="showcase-tag"><span lang="en">Practice</span><span lang="de">Üben</span></span>
+    <h2 lang="en">Four modes</h2><h2 lang="de">Vier Modi</h2>
+    <ul lang="en">
+      <li><b>Play</b>: the song runs through, nothing stops, hits are marked quietly or not at all.</li>
+      <li><b>Song</b>: the same with scoring and a summary at the end.</li>
+      <li><b>Wait</b>: stops before each note until you play it.</li>
+      <li><b>Workshop</b>: loop a section, 25 to 150 % speed, step up after clean runs.</li>
+    </ul>
+    <ul lang="de">
+      <li><b>Spielen</b>: das Lied läuft durch, nichts hält an, Treffer leise oder gar nicht markiert.</li>
+      <li><b>Song</b>: dasselbe mit Bewertung und Auswertung am Ende.</li>
+      <li><b>Warten</b>: hält vor jeder Note, bis du sie spielst.</li>
+      <li><b>Werkstatt</b>: Abschnitt in Schleife, Tempo 25 bis 150 %, schneller nach fehlerfreien Durchläufen.</li>
+    </ul>
+    <p lang="en">Metronome, count-in and reference tone are built in. The workshop works in the core; its controls in the app are still minimal.</p>
+    <p lang="de">Metronom, Einzähler und Referenzton sind eingebaut. Die Werkstatt arbeitet im Kern; ihre Bedienung in der App ist noch knapp.</p>
+  </div>
+  <figure>
+    <img lang="en" src="shots/practice-wait-en.png" alt="Wait mode: the tab lane holds before the next note on the E string" loading="lazy">
+    <img lang="de" src="shots/practice-wait-de.png" alt="Warten-Modus: die Tab-Lane hält vor der nächsten Note auf der E-Saite" loading="lazy">
+    <figcaption><span lang="en">Wait mode (demo data)</span><span lang="de">Warten-Modus (Demodaten)</span></figcaption>
+  </figure>
+</section>
+
+<section class="showcase rev">
+  <div class="showcase-text">
+    <span class="showcase-tag"><span lang="en">Views</span><span lang="de">Ansichten</span></span>
+    <h2 lang="en">Lane, tab or notes</h2><h2 lang="de">Lane, Tab oder Noten</h2>
+    <p lang="en">The tab lane is the default: strings as tracks, the fret number on each note, length is duration. Switch to classic tablature, bass clef notation or both together. A fretboard below shows the next note and the position.</p>
+    <p lang="de">Standard ist die Tab-Lane: Saiten als Bahnen, Bundzahl auf der Note, Länge ist Dauer. Umschaltbar auf klassische Tabulatur, Noten im Bassschlüssel oder beides zusammen. Das Griffbrett darunter zeigt die nächste Note und die Lage.</p>
+    <ul lang="en"><li>Hits and misses as symbol and colour, never colour alone.</li><li>Low string on top or bottom, as you prefer.</li></ul>
+    <ul lang="de"><li>Treffer und Fehler als Symbol und Farbe, nie nur Farbe.</li><li>Tiefe Saite oben oder unten, wie du willst.</li></ul>
+  </div>
+  <figure>
+    <img lang="en" src="shots/practice-combined-en.png" alt="Notation and tablature together, with check marks and crosses above each note" loading="lazy">
+    <img lang="de" src="shots/practice-combined-de.png" alt="Noten und Tabulatur zusammen, mit Haken und Kreuzen über jeder Note" loading="lazy">
+    <figcaption><span lang="en">Notation + tab (demo data)</span><span lang="de">Noten + Tab (Demodaten)</span></figcaption>
+  </figure>
+</section>
+
+<section class="showcase">
+  <div class="showcase-text">
+    <span class="showcase-tag"><span lang="en">Feedback</span><span lang="de">Rückmeldung</span></span>
+    <h2 lang="en">What went wrong</h2><h2 lang="de">Was nicht stimmte</h2>
+    <p lang="en">After a run in song mode: hit rate, a timing histogram (early, late, spread) and the hardest bars, each one click away from the workshop. Runs are saved; the library shows your best result and practice time.</p>
+    <p lang="de">Nach einem Durchlauf im Song-Modus: Trefferquote, Timing-Histogramm (früh, spät, Streuung) und die schwierigsten Takte, jeder einen Klick von der Werkstatt entfernt. Läufe werden gespeichert; die Bibliothek zeigt bestes Ergebnis und Übungszeit.</p>
+  </div>
+  <figure>
+    <img lang="en" src="shots/summary-en.png" alt="Evaluation: 86 % hit, mostly 20 ms early, histogram and hardest bars" loading="lazy">
+    <img lang="de" src="shots/summary-de.png" alt="Auswertung: 86 % Treffer, meist 20 ms zu früh, Histogramm und schwierigste Takte" loading="lazy">
+    <figcaption><span lang="en">Evaluation after a run (demo data)</span><span lang="de">Auswertung nach einem Durchlauf (Demodaten)</span></figcaption>
+  </figure>
+</section>
+
+<section class="showcase rev">
+  <div class="showcase-text">
+    <span class="showcase-tag"><span lang="en">Tuner</span><span lang="de">Stimmgerät</span></span>
+    <h2 lang="en">Tune first</h2><h2 lang="de">Erst stimmen</h2>
+    <p lang="en">Chromatic tuner with note name, octave and cents, down to the low B. “In tune” is said in words and with a symbol. The input level below tells you whether to turn the bass or the gain up or down.</p>
+    <p lang="de">Chromatisches Stimmgerät mit Tonname, Oktave und Cent, bis zur tiefen H-Saite. „Gestimmt“ steht in Worten und als Symbol da. Der Pegel darunter sagt, ob Bass oder Gain lauter oder leiser muss.</p>
+  </div>
+  <figure>
+    <img lang="en" src="shots/tuner-en.png" alt="Tuner showing E1 at 0 cents, in tune" loading="lazy">
+    <img lang="de" src="shots/tuner-de.png" alt="Stimmgerät zeigt E1 bei 0 Cent, gestimmt" loading="lazy">
+    <figcaption><span lang="en">Tuner (demo data)</span><span lang="de">Stimmgerät (Demodaten)</span></figcaption>
+  </figure>
+</section>
+
+<section class="showcase">
+  <div class="showcase-text">
+    <span class="showcase-tag"><span lang="en">First start</span><span lang="de">Erster Start</span></span>
+    <h2 lang="en">Set up in five steps</h2><h2 lang="de">In fünf Schritten eingerichtet</h2>
+    <p lang="en">Instrument, connection, level and tuning, latency, first exercise. Every step can be skipped and changed later in the settings.</p>
+    <p lang="de">Instrument, Anschluss, Pegel und Stimmen, Latenz, erste Übung. Jeder Schritt lässt sich überspringen und später in den Einstellungen ändern.</p>
+  </div>
+  <figure>
+    <img lang="en" src="shots/setup-en.png" alt="Setup assistant, step 1: which bass do you play" loading="lazy">
+    <img lang="de" src="shots/setup-de.png" alt="Einrichtungsassistent, Schritt 1: welchen Bass spielst du" loading="lazy">
+    <figcaption><span lang="en">Setup assistant (demo data)</span><span lang="de">Einrichtungsassistent (Demodaten)</span></figcaption>
+  </figure>
+</section>
+
+<section class="shots" aria-label="More screenshots">
+  <figure>
+    <img lang="en" src="shots/practice-tab-en.png" alt="Tablature view" loading="lazy">
+    <img lang="de" src="shots/practice-tab-de.png" alt="Tabulatur-Ansicht" loading="lazy">
+    <figcaption><span lang="en">Tablature</span><span lang="de">Tabulatur</span></figcaption>
+  </figure>
+  <figure>
+    <img lang="en" src="shots/practice-notation-en.png" alt="Bass clef notation view" loading="lazy">
+    <img lang="de" src="shots/practice-notation-de.png" alt="Notenansicht im Bassschlüssel" loading="lazy">
+    <figcaption><span lang="en">Notation</span><span lang="de">Noten</span></figcaption>
+  </figure>
+  <figure>
+    <img lang="en" src="shots/library-en.png" alt="Library with recently played pieces" loading="lazy">
+    <img lang="de" src="shots/library-de.png" alt="Bibliothek mit zuletzt gespielten Stücken" loading="lazy">
+    <figcaption><span lang="en">Library</span><span lang="de">Bibliothek</span></figcaption>
+  </figure>
+  <figure>
+    <img lang="en" src="shots/library-empty-en.png" alt="Empty library: open a Guitar Pro, MIDI or MusicXML file" loading="lazy">
+    <img lang="de" src="shots/library-empty-de.png" alt="Leere Bibliothek: Guitar-Pro-, MIDI- oder MusicXML-Datei öffnen" loading="lazy">
+    <figcaption><span lang="en">Empty library</span><span lang="de">Leere Bibliothek</span></figcaption>
+  </figure>
+  <figure>
+    <img lang="en" src="shots/calibration-en.png" alt="Settings after latency calibration: 40 ms measured" loading="lazy">
+    <img lang="de" src="shots/calibration-de.png" alt="Einstellungen nach der Latenz-Kalibrierung: 40 ms gemessen" loading="lazy">
+    <figcaption><span lang="en">Latency calibration</span><span lang="de">Latenz-Kalibrierung</span></figcaption>
+  </figure>
+  <figure>
+    <img lang="en" src="shots/settings-en.png" alt="Settings: input, connection, strings, language, style" loading="lazy">
+    <img lang="de" src="shots/settings-de.png" alt="Einstellungen: Eingang, Anschluss, Saiten, Sprache, Stil" loading="lazy">
+    <figcaption><span lang="en">Settings</span><span lang="de">Einstellungen</span></figcaption>
+  </figure>
+</section>
+
+<section class="section" id="how">
+  <h2 lang="en">How it works</h2><h2 lang="de">So funktioniert es</h2>
+  <div class="flow">
+    <div class="flow-node"><b lang="en">Attack</b><b lang="de">Anschlag</b>
+      <span lang="en">The bass signal arrives through the jack input. The audio callback only copies; analysis runs in its own thread.</span>
+      <span lang="de">Das Bass-Signal kommt über den Klinkeneingang. Der Audio-Callback kopiert nur; die Analyse läuft in einem eigenen Thread.</span></div>
+    <div class="flow-arrow" aria-hidden="true"></div>
+    <div class="flow-node hl"><b lang="en">Detection</b><b lang="de">Erkennung</b>
+      <span lang="en">The onset gives the time within a few milliseconds. The pitch (YIN with phase refinement) follows 40 to 80 ms later: a low E vibrates only every 24 ms.</span>
+      <span lang="de">Der Einsatz liefert den Zeitpunkt in wenigen Millisekunden. Die Tonhöhe (YIN mit Phasenverfeinerung) folgt 40 bis 80 ms später: ein tiefes E schwingt nur alle 24 ms.</span></div>
+    <div class="flow-arrow" aria-hidden="true"></div>
+    <div class="flow-node"><b lang="en">Scoring</b><b lang="de">Bewertung</b>
+      <span lang="en">The note is matched to the expected one: right or wrong, cents off, milliseconds early or late, minus the measured latency.</span>
+      <span lang="de">Die Note wird der erwarteten zugeordnet: richtig oder falsch, Abweichung in Cent, Millisekunden früh oder spät, abzüglich der gemessenen Latenz.</span></div>
+  </div>
+  <ul lang="en">
+    <li><b>Latency calibration.</b> You play along to a click; Kontra measures the delay of your whole chain (interface, buffer, output) and subtracts it when scoring. Bluetooth output gets a warning, its delay is too long and unsteady.</li>
+    <li><b>Time-stretch.</b> A backing track (your own audio file) plays slower or faster without changing pitch. Kontra has its own phase vocoder; for five- and six-string basses it uses a longer window so the low B stays clean.</li>
+    <li><b>Own code.</b> Detection, time-stretch, notation and import are written for Kontra in Rust, MIT licensed. The interface is Qt 6 with Kirigami and Kante.</li>
+  </ul>
+  <ul lang="de">
+    <li><b>Latenz-Kalibrierung.</b> Du spielst auf einen Klick; Kontra misst die Verzögerung der ganzen Kette (Interface, Puffer, Ausgabe) und zieht sie bei der Bewertung ab. Bei Bluetooth-Ausgabe warnt es, deren Verzögerung ist zu lang und schwankt.</li>
+    <li><b>Time-Stretch.</b> Ein Backing-Track (deine eigene Audiodatei) läuft langsamer oder schneller, ohne die Tonhöhe zu ändern. Kontra hat einen eigenen Phasen-Vocoder; bei fünf- und sechssaitigen Bässen nimmt er ein längeres Fenster, damit die tiefe H-Saite sauber bleibt.</li>
+    <li><b>Eigener Code.</b> Erkennung, Time-Stretch, Notensatz und Import sind für Kontra in Rust geschrieben, MIT-Lizenz. Die Oberfläche ist Qt 6 mit Kirigami und Kante.</li>
+  </ul>
+  <div class="callout callout-warn"><span lang="en"><strong>Honest status:</strong> on synthetic recordings detection meets its targets. On real recordings it does not yet: on public bass datasets about 81 to 86 % of notes are found with the right pitch (target: 98 %), double bass is much lower (octave errors). Tests with real basses at the device and a latency measurement are still open.</span><span lang="de"><strong>Ehrlicher Stand:</strong> Auf synthetischen Aufnahmen erfüllt die Erkennung ihre Ziele. Auf echten noch nicht: bei freien Bass-Datensätzen werden etwa 81 bis 86 % der Noten mit richtiger Tonhöhe gefunden (Ziel: 98 %), beim Kontrabass deutlich weniger (Oktavfehler). Tests mit echten Bässen am Gerät und eine Latenzmessung stehen aus.</span></div>
+</section>
+
+<section class="section" id="roadmap">
+  <h2>Roadmap</h2>
+  <div class="table-wrap"><table class="table cards-sm">
+    <tr><th lang="en">Phase</th><th lang="de">Phase</th><th lang="en">Goal</th><th lang="de">Ziel</th><th>Status</th></tr>
+    <tr><td lang="en" data-card="title">0 Feasibility</td><td lang="de" data-card="title">0 Machbarkeit</td>
+      <td lang="en" data-label="Goal">Qt bridge, audio engine, detection, own time-stretch, latency</td><td lang="de" data-label="Ziel">Qt-Brücke, Audio-Engine, Erkennung, eigener Time-Stretch, Latenz</td>
+      <td lang="en" data-label="Status">Mostly done on synthetic data; real recordings open</td><td lang="de" data-label="Status">Synthetisch weitgehend erledigt; echte Aufnahmen offen</td></tr>
+    <tr><td lang="en" data-card="title">1 MVP (0.1)</td><td lang="de" data-card="title">1 MVP (0.1)</td>
+      <td lang="en" data-label="Goal">Electric bass, import, tab lane, tab, notation, four modes, Flatpak</td><td lang="de" data-label="Ziel">E-Bass, Import, Tab-Lane, Tab, Noten, vier Modi, Flatpak</td>
+      <td lang="en" data-label="Status">Large parts built</td><td lang="de" data-label="Status">Große Teile umgesetzt</td></tr>
+    <tr><td lang="en" data-card="title">2 Learning (0.2–0.4)</td><td lang="de" data-card="title">2 Lernen (0.2–0.4)</td>
+      <td lang="en" data-label="Goal">Groove, fretboard, adaptive difficulty</td><td lang="de" data-label="Ziel">Groove, Griffbrett, adaptive Schwierigkeit</td>
+      <td lang="en" data-label="Status">MusicXML brought forward</td><td lang="de" data-label="Status">MusicXML vorgezogen</td></tr>
+    <tr><td lang="en" data-card="title">3 Content (0.5–0.7)</td><td lang="de" data-card="title">3 Inhalte (0.5–0.7)</td>
+      <td lang="en" data-label="Goal">Own audio with beat detection, packages, etudes, ear training</td><td lang="de" data-label="Ziel">Eigene Audiodatei mit Beat-Erkennung, Pakete, Etüden, Gehör</td>
+      <td lang="en" data-label="Status">Backing track with time-stretch exists</td><td lang="de" data-label="Status">Backing-Track mit Time-Stretch vorhanden</td></tr>
+    <tr><td lang="en" data-card="title">4 Complete bass (0.8–1.0)</td><td lang="de" data-card="title">4 Bass komplett (0.8–1.0)</td>
+      <td lang="en" data-label="Goal">Double bass by microphone, bass over MIDI, techniques</td><td lang="de" data-label="Ziel">Kontrabass am Mikrofon, Bass über MIDI, Techniken</td>
+      <td lang="en" data-label="Status">Open</td><td lang="de" data-label="Status">Offen</td></tr>
+  </table></div>
+  <p><a href="https://git.arianw.de/shrippen/Kontra/src/branch/main/ROADMAP.md"><span lang="en">Full roadmap →</span><span lang="de">Ganze Roadmap →</span></a></p>
+</section>
+
+<section class="section" id="changes">
+  <h2 lang="en">Changes</h2><h2 lang="de">Änderungen</h2>
+  <ol class="changelog">
+    <li class="release" id="dev-2026-10">
+      <div class="release-head"><b class="release-version"><span lang="en">Dev</span><span lang="de">Stand</span></b><time datetime="2026-10-09"><span lang="en">Oct 2026</span><span lang="de">Okt. 2026</span></time></div>
+      <div class="release-body">
+        <p class="release-lead" lang="en">Development status October 2026 (no release yet): the app runs end to end with all four modes and views; detection is being tuned on real recordings.</p>
+        <p class="release-lead" lang="de">Entwicklungsstand Oktober 2026 (noch kein Release): die App läuft von Anfang bis Ende mit allen vier Modi und Ansichten; die Erkennung wird an echten Aufnahmen nachgeschärft.</p>
+        <div class="release-group" data-kind="new"><h3><span lang="en">New</span><span lang="de">Neu</span></h3>
+          <ul lang="en"><li>Import of Guitar Pro 3–8, MIDI and MusicXML, so you practise with files you already have.</li><li>Tab lane, tablature, notation and notation + tab, so everyone reads what they know.</li><li>Tuner, setup assistant and latency calibration, so the first note is scored correctly.</li><li>Backing track with time-stretch, to play along slower without a change in pitch.</li></ul>
+          <ul lang="de"><li>Import von Guitar Pro 3–8, MIDI und MusicXML, damit du mit vorhandenen Dateien übst.</li><li>Tab-Lane, Tabulatur, Noten und Noten + Tab, damit jeder liest, was er kennt.</li><li>Stimmgerät, Einrichtungsassistent und Latenz-Kalibrierung, damit schon die erste Note richtig bewertet wird.</li><li>Backing-Track mit Time-Stretch, um langsamer mitzuspielen, ohne dass sich die Tonhöhe ändert.</li></ul></div>
+        <div class="release-group" data-kind="improved"><h3><span lang="en">Improved</span><span lang="de">Verbessert</span></h3>
+          <ul lang="en"><li>Detection on real recordings: notes found with the right pitch rose from 67 to 81 % (IDMT) and from 77 to 86 % (NSynth).</li><li>Chords count as one attack; play mode marks hits quietly or not at all.</li></ul>
+          <ul lang="de"><li>Erkennung auf echten Aufnahmen: Noten mit richtiger Tonhöhe stiegen von 67 auf 81 % (IDMT) und von 77 auf 86 % (NSynth).</li><li>Akkorde zählen als ein Anschlag; im Spielen-Modus werden Treffer leise oder gar nicht markiert.</li></ul></div>
+        <div class="release-group" data-kind="fixed"><h3><span lang="en">Fixed</span><span lang="de">Behoben</span></h3>
+          <ul lang="en"><li>Recordings were aligned to the wrong moment, so every note seemed shifted.</li><li>Released notes triggered again, and some low notes were heard an octave too low.</li><li>Light text on light ground in settings and library; the notation page could hang.</li></ul>
+          <ul lang="de"><li>Aufnahmen wurden am falschen Zeitpunkt ausgerichtet, dadurch wirkte jede Note verschoben.</li><li>Losgelassene Töne lösten erneut aus, manche tiefen Töne wurden eine Oktave zu tief gehört.</li><li>Helle Schrift auf hellem Grund in Einstellungen und Bibliothek; die Notenansicht konnte hängen.</li></ul></div>
+        <div class="release-group" data-kind="note"><h3><span lang="en">Note</span><span lang="de">Hinweis</span></h3>
+          <ul lang="en"><li>No package yet; a Flatpak follows after a local test, Flathub after 0.1.</li><li>Not yet tested with real basses at the device.</li></ul>
+          <ul lang="de"><li>Noch kein Paket; ein Flatpak folgt nach lokalem Test, Flathub nach 0.1.</li><li>Mit echten Bässen am Gerät noch nicht getestet.</li></ul></div>
+        <div class="release-shots">
+          <figure>
+            <img lang="en" src="shots/practice-combined-en.png" alt="Notation and tablature together" loading="lazy">
+            <img lang="de" src="shots/practice-combined-de.png" alt="Noten und Tabulatur zusammen" loading="lazy">
+            <figcaption><span lang="en">Notation + tab (demo data)</span><span lang="de">Noten + Tab (Demodaten)</span></figcaption>
+          </figure>
+          <figure>
+            <img lang="en" src="shots/calibration-en.png" alt="Latency calibration result in the settings" loading="lazy">
+            <img lang="de" src="shots/calibration-de.png" alt="Ergebnis der Latenz-Kalibrierung in den Einstellungen" loading="lazy">
+            <figcaption><span lang="en">Latency calibration (demo data)</span><span lang="de">Latenz-Kalibrierung (Demodaten)</span></figcaption>
+          </figure>
+        </div>
+        <a class="release-notes" href="https://git.arianw.de/shrippen/Kontra/src/branch/main/ROADMAP.md"><span lang="en">Status and QA rounds in the roadmap →</span><span lang="de">Stand und QA-Runden in der Roadmap →</span></a>
+      </div>
+    </li>
+  </ol>
+</section>
+
+<section class="section" id="faq">
+  <h2>FAQ</h2>
+  <div class="faq">
+    <details><summary><span lang="en">Which basses work?</span><span lang="de">Welche Bässe gehen?</span></summary>
+      <div><p lang="en">Electric basses with four, five or six strings, fretted or fretless, through a jack cable. Double bass by microphone and bass over MIDI come in phase 4; until then Kontra says clearly that they are not supported.</p>
+      <p lang="de">E-Bässe mit vier, fünf oder sechs Saiten, mit oder ohne Bünde, über Klinke. Kontrabass am Mikrofon und Bass über MIDI kommen in Phase 4; bis dahin sagt Kontra klar, dass das noch nicht geht.</p></div></details>
+    <details><summary><span lang="en">Do I need an audio interface?</span><span lang="de">Brauche ich ein Audio-Interface?</span></summary>
+      <div><p lang="en">No, but it helps. An interface with an instrument input (Hi-Z) gives a clean signal and low latency. A jack straight into the laptop's headset socket also works; the level is weaker and noisier, and the setup assistant shows whether it is enough.</p>
+      <p lang="de">Nein, aber es hilft. Ein Interface mit Instrumenteneingang (Hi-Z) liefert ein sauberes Signal und wenig Latenz. Die Klinke direkt in die Headset-Buchse des Laptops geht auch; der Pegel ist schwächer und rauscht mehr, der Einrichtungsassistent zeigt, ob es reicht.</p></div></details>
+    <details><summary><span lang="en">Linux only?</span><span lang="de">Nur Linux?</span></summary>
+      <div><p lang="en">Yes, for now. Kontra is built for KDE Plasma and ships as a Flatpak first. Windows and macOS are planned after 1.0; the audio layer is cross-platform already.</p>
+      <p lang="de">Ja, vorerst. Kontra ist für KDE Plasma gebaut und kommt zuerst als Flatpak. Windows und macOS sind nach 1.0 geplant; die Audio-Schicht ist schon plattformübergreifend.</p></div></details>
+    <details><summary><span lang="en">Which files can I import?</span><span lang="de">Welche Dateien kann ich importieren?</span></summary>
+      <div><p lang="en">Guitar Pro 3 to 8 (<code>.gp3</code>, <code>.gp4</code>, <code>.gp5</code>, <code>.gpx</code>, <code>.gp</code>), MIDI and MusicXML (for example from MuseScore). Kontra picks the bass track; for MIDI it works out the strings and frets. Audio files (MP3, FLAC, Ogg, WAV) serve as a backing track.</p>
+      <p lang="de">Guitar Pro 3 bis 8 (<code>.gp3</code>, <code>.gp4</code>, <code>.gp5</code>, <code>.gpx</code>, <code>.gp</code>), MIDI und MusicXML (etwa aus MuseScore). Kontra wählt die Bassspur; bei MIDI legt es Saiten und Bünde selbst fest. Audiodateien (MP3, FLAC, Ogg, WAV) dienen als Backing-Track.</p></div></details>
+    <details><summary><span lang="en">Why not Rocksmith?</span><span lang="de">Warum nicht Rocksmith?</span></summary>
+      <div><p lang="en">Rocksmith has licensed original songs and a 3D highway; Kontra has neither. But Rocksmith+ needs a subscription and an online connection, does not run on Linux and does not open your own tabs. Kontra is free (MIT), offline, without an account, reads your Guitar Pro, MIDI and MusicXML files and puts timing first.</p>
+      <p lang="de">Rocksmith hat lizenzierte Originalsongs und einen 3D-Highway; Kontra hat beides nicht. Rocksmith+ braucht aber ein Abo und eine Online-Verbindung, läuft nicht unter Linux und öffnet keine eigenen Tabs. Kontra ist frei (MIT), offline, ohne Konto, liest deine Guitar-Pro-, MIDI- und MusicXML-Dateien und stellt das Timing nach vorn.</p></div></details>
+    <details><summary><span lang="en">Can I try it now?</span><span lang="de">Kann ich es schon ausprobieren?</span></summary>
+      <div><p lang="en">Only by building it from source (Rust, Qt 6.10, Kirigami); see the README on Gitea. There is no package yet.</p>
+      <p lang="de">Nur aus dem Quelltext (Rust, Qt 6.10, Kirigami); siehe README auf Gitea. Ein Paket gibt es noch nicht.</p></div></details>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <div class="foot-brand">
+      <img src="icon.svg" alt="">
+      <div><span class="foot-name">Kontra</span>
+        <span class="foot-tag"><span lang="en">Bass trainer for KDE Plasma</span><span lang="de">Bass-Trainer für KDE Plasma</span></span></div>
+    </div>
+    <nav class="foot-cols" aria-label="Footer">
+      <div><h4><span lang="en">Project</span><span lang="de">Projekt</span></h4>
+        <a href="#features"><span lang="en">Features</span><span lang="de">Funktionen</span></a>
+        <a href="#how"><span lang="en">How it works</span><span lang="de">So funktioniert es</span></a>
+        <a href="#changes"><span lang="en">Changes</span><span lang="de">Änderungen</span></a>
+        <a href="#faq">FAQ</a></div>
+      <div><h4><span lang="en">Source</span><span lang="de">Quelltext</span></h4>
+        <a href="https://git.arianw.de/shrippen/Kontra">Gitea</a><a href="https://git.arianw.de/shrippen/Kontra/issues">Issues</a><a href="https://git.arianw.de/shrippen/Kontra/src/branch/main/ROADMAP.md">Roadmap</a></div>
+    </nav>
+  </div>
+  <div class="foot-meta"><p>MIT · shrippen · <span lang="en">no release yet</span><span lang="de">noch keine Version</span></p></div>
+</footer>
+
+</body>
+</html>

@@ -12,10 +12,10 @@ use std::sync::mpsc::channel;
 
 pub use kontra_content::{assign_tab, import_file, FileKind, ImportError, ImportResult, TrackInfo};
 pub use kontra_engine::{
-    evaluate as evaluate_korpus, evaluate_window as evaluate_korpus_window,
+    evaluate as evaluate_korpus, evaluate_with as evaluate_korpus_with,
     generate as generate_korpus, list_devices, render_performance, simulate_laptop_jack,
     Annotation, BackingTrack, Connection, DeviceInfo, Direction, Evaluation, KorpusItem, KorpusSet,
-    Mistakes, StreamConfig,
+    Matching, Mistakes, StreamConfig,
 };
 
 /// Writes mono audio as WAV (corpus export).

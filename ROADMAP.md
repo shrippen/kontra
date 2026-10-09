@@ -22,6 +22,7 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 - [ ] Echte Aufnahmen für den Korpus (Interface, Laptop-Buchse, bundlos)
 - [x] Freie Fremdaufnahmen als Regressionsprobe (NSynth, IDMT, FiloBass; `testdata/korpus/QUELLEN.md`,
       `kontra-cli korpus measure`); erste Korrekturen: F1 IDMT 66,6 → 80,8, NSynth 76,5 → 85,7
+- [x] IDMT als Regressionsprüfung in der CI (Untergrenzen Recall 81 %, Präzision 77 %, mit Tonhöhe)
 - [ ] Oktavfehler bei Kontrabass (FiloBass rund 100 von 842 Noten), leise Töne nach lauten, Laptop-Pegel
 - [ ] Latenz Anschlag → Anzeige am echten Gerät messen
 - [x] Eigener Time-Stretch (Phasen-Vocoder), Tests synthetisch; Hörvergleich mit Signalsmith offen
@@ -49,6 +50,15 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 | LH-ALL-01/02 Sprache, Stil | umgesetzt |
 | LH-NF-07 Barrierefreiheit | Kante-Bauteile mit Namen und Formen; Tastaturdurchlauf der App offen |
 
+## Entscheidungen Runde 3 (9.10.2026)
+
+- 3D-Highway (nach 1.0): Qt bleibt. Zuerst eine perspektivische Lane (2,5D) in Qt Quick (LGPL, gleiches Fenster,
+  Kante-Farben, Screenreader); echtes 3D später neu bewerten. Qt Quick 3D ist in Qt 6.10 nur GPL-3 oder kommerziell.
+- Veröffentlichung: Flatpak erst lokal bauen und testen, Flathub nach 0.1.
+- Landing Page jetzt im Kontra-Repo (`docs/`), kein Eintrag in der öffentlichen Übersicht bis 1.0.
+- Logo: Claude entwirft 10 Vorschläge zur Auswahl.
+- Didaktik: Bestandsaufnahme jetzt (`DIDAKTIK.md`), Prototypen nach 0.1.
+
 ## Didaktik: wie Kontra Bass vermittelt (laufend, alle Phasen)
 
 Ziel: nicht nur Noten abfragen, sondern herausfinden, welche Wege zum
@@ -57,11 +67,13 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 (P1–P7) durchgespielt und, wo möglich, an echten Übungsläufen gemessen
 (Trefferquote, Timing-Streuung, Übungszeit, Abbrüche).
 
-- [ ] Bestandsaufnahme: Lehrwerke und Methoden (Bassschulen, Suzuki/
+- [x] Bestandsaufnahme: Lehrwerke und Methoden (Bassschulen, Suzuki/
       Gehör zuerst, Groove zuerst, Notenlesen zuerst), Spiele und Apps
       (Rocksmith Riff Repeater und Dynamic Difficulty, Synthesia, Yousician,
       Melodics), Forschung zu Üben (deliberate practice, verteiltes Üben,
-      Chunking, Fehler-Feedback). Ergebnis: `DIDAKTIK.md` mit Thesen
+      Chunking, Fehler-Feedback). Ergebnis (9.10.2026): [`DIDAKTIK.md`](DIDAKTIK.md),
+      7 Thesen, 12 Ideen, Vorschlag für drei Prototypen nach 0.1 (Blind-Probe, Stellen-Wiederholung über Tage,
+      Groove-Start mit „vor/hinter dem Beat“)
 - [ ] Ideen sammeln und je eine Skizze, z. B.: Groove vor Tönen (erst
       Rhythmus auf einer Saite), Hören vor Lesen (nachspielen ohne Anzeige),
       Lieder in Bausteine zerlegen und zusammensetzen, adaptives Tempo und

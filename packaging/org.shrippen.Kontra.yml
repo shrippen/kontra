@@ -32,6 +32,7 @@ modules:
       - cp -r crates/app/qml/Kante /app/share/kontra/qml/Kante
       - install -Dm644 testdata/demo/etude-1.mid /app/share/kontra/demo/etude-1.mid
       - install -Dm644 packaging/org.shrippen.Kontra.desktop /app/share/applications/org.shrippen.Kontra.desktop
+      - install -Dm644 packaging/org.shrippen.Kontra.svg /app/share/icons/hicolor/scalable/apps/org.shrippen.Kontra.svg
       - install -Dm644 packaging/org.shrippen.Kontra.metainfo.xml /app/share/metainfo/org.shrippen.Kontra.metainfo.xml
     sources:
       - type: dir

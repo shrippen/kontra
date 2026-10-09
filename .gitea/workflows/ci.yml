@@ -43,6 +43,27 @@ jobs:
       - run: cargo deny check licenses bans sources
       - name: Corpus quality (LH-NF-02/03)
         run: cargo run -q -p kontra-cli --release -- korpus check
+      # Real recordings as a regression guard (testdata/korpus/QUELLEN.md): IDMT-SMT-Bass-Single-Track,
+      # 17 electric-bass lines, released for this use by the owner. Audio is never committed.
+      - uses: actions/cache@v4
+        with:
+          path: testdata/korpus/local/dl/idmt-st
+          key: idmt-st-7544099
+      - name: Real recordings (IDMT, regression floor)
+        run: |
+          L=testdata/korpus/local
+          if [ ! -d "$L/dl/idmt-st/audio" ]; then
+            mkdir -p $L/dl/idmt-st
+            curl -sSfL -o $L/dl/idmt-st/st.zip \
+              https://zenodo.org/api/records/7544099/files/IDMT-SMT-BASS-SINGLE-TRACKS.zip/content
+            python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" \
+              $L/dl/idmt-st/st.zip $L/dl/idmt-st
+            rm $L/dl/idmt-st/st.zip
+          fi
+          python3 scripts/korpus-import.py idmt-st $L/dl/idmt-st $L/conv/idmt-st > /dev/null
+          # Floors 1-2 points under the measured 82.5 % / 78.9 % (pitch-aware, ±80 ms).
+          cargo run -q -p kontra-cli --release -- korpus measure $L/conv/idmt-st \
+            --window-ms 80 --pitch --min-recall 81 --min-precision 77
 
   app:
     # The Qt app: Qt 6.10 and Kirigami from scripts/setup-qt-env.sh (cached), headless screenshots.

@@ -6,8 +6,7 @@ GenericName[de]=Bass-Trainer
 Comment=Learn bass and play songs with feedback on pitch and timing
 Comment[de]=Bass lernen und Lieder spielen, mit Rückmeldung zu Ton und Timing
 Exec=kontra
-# Placeholder until a logo is chosen (decision pending).
-Icon=audio-input-line
+Icon=org.shrippen.Kontra
 Categories=AudioVideo;Audio;Music;Education;
 Keywords=bass;tab;tablature;tuner;practice;Bass;Tabulatur;Stimmgerät;Üben;
 StartupNotify=true

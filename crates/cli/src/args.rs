@@ -115,6 +115,15 @@ pub enum KorpusCommand {
         /// Pass the audio through the laptop-jack simulation first.
         #[arg(long)]
         laptop_jack: bool,
+        /// Count a note as found only with the right rounded pitch.
+        #[arg(long)]
+        pitch: bool,
+        /// Fail if total recall (percent) falls below this (regression guard in CI).
+        #[arg(long)]
+        min_recall: Option<f64>,
+        /// Fail if total precision (percent) falls below this.
+        #[arg(long)]
+        min_precision: Option<f64>,
         /// List misses and extra detections per file.
         #[arg(long)]
         verbose: bool,

@@ -24,8 +24,8 @@ pub use kontra_drivers::{
     StreamConfig,
 };
 pub use korpus::{
-    evaluate, evaluate_window, generate, render_performance, simulate_laptop_jack, Annotation,
-    Evaluation, KorpusItem, KorpusSet, Mistakes,
+    evaluate, evaluate_with, generate, render_performance, simulate_laptop_jack, Annotation,
+    Evaluation, KorpusItem, KorpusSet, Matching, Mistakes,
 };
 pub use offline::analyze;
 pub use player::{Accent, BackingAudio, Gains, NullOutput, Output, Player, Sound};
