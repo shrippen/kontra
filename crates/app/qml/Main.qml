@@ -48,6 +48,7 @@ Kirigami.ApplicationWindow {
             pending: "",
             hit: texts.t("result.hit"),
             wrong: texts.t("result.wrong"),
+            offpitch: texts.t("result.offpitch"),
             missed: texts.t("result.missed"),
             early: texts.t("result.early"),
             late: texts.t("result.late")

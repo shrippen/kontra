@@ -13,6 +13,9 @@ pub enum Outcome {
     Hit,
     /// Something was played inside the window, but the wrong pitch.
     WrongPitch { played_midi: f64 },
+    /// The right note, but further off in cents than the pitch limit allows ("unsauber",
+    /// intonation on fretless or double bass). The deviation is in `NoteResult::cents`.
+    OffPitch,
     /// Nothing was played for this note.
     Missed,
     /// Played where no note was expected.
@@ -102,21 +105,22 @@ impl Matcher {
                 && !self.resolved.contains(&(pass, *slot))
         });
         let cents_of = |e: &ExpectedNote| e.cents_from(midi);
-        let mut best: Option<(usize, bool, f64)> = None;
+        // Rank candidates: in tune before off pitch before wrong, then by distance.
+        let mut best: Option<(usize, u8, f64)> = None;
         for (slot, e) in candidates {
-            let in_tune = cents_of(e).abs() <= settings.pitch_cents;
+            let rank = pitch_rank(cents_of(e), settings.pitch_cents);
             let distance = (e.position_s - position_s).abs();
             let better = match best {
                 None => true,
-                Some((_, best_tune, best_distance)) => {
-                    (in_tune && !best_tune) || (in_tune == best_tune && distance < best_distance)
+                Some((_, best_rank, best_distance)) => {
+                    rank < best_rank || (rank == best_rank && distance < best_distance)
                 }
             };
             if better {
-                best = Some((slot, in_tune, distance));
+                best = Some((slot, rank, distance));
             }
         }
-        let Some((slot, in_tune, _)) = best else {
+        let Some((slot, _, _)) = best else {
             return NoteResult {
                 pass,
                 note: None,
@@ -129,11 +133,7 @@ impl Matcher {
         };
         self.resolved.insert((pass, slot));
         let e = self.expected[slot];
-        let outcome = if in_tune {
-            Outcome::Hit
-        } else {
-            Outcome::WrongPitch { played_midi: midi }
-        };
+        let outcome = pitch_outcome(cents_of(&e), settings.pitch_cents, midi);
         NoteResult {
             pass,
             note: Some(e.index),
@@ -143,6 +143,27 @@ impl Matcher {
             cents: Some(cents_of(&e)),
             position_s: e.position_s,
         }
+    }
+}
+
+/// Hit within `limit_cents`; the right semitone but beyond the limit is off pitch; anything
+/// nearer to another semitone is a wrong note.
+pub(crate) fn pitch_outcome(cents: f64, limit_cents: f64, played_midi: f64) -> Outcome {
+    match pitch_rank(cents, limit_cents) {
+        0 => Outcome::Hit,
+        1 => Outcome::OffPitch,
+        _ => Outcome::WrongPitch { played_midi },
+    }
+}
+
+fn pitch_rank(cents: f64, limit_cents: f64) -> u8 {
+    let off = cents.abs();
+    if off <= limit_cents {
+        0
+    } else if off < 50.0 {
+        1
+    } else {
+        2
     }
 }
 
@@ -185,6 +206,22 @@ mod tests {
         assert_eq!(r.note, Some(1));
         assert!(r.is_hit());
         assert!((r.offset_ms.unwrap() + 30.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn right_note_beyond_the_limit_is_off_pitch() {
+        let mut m = matcher();
+        let tight = ScoreSettings {
+            pitch_cents: 30.0,
+            ..ScoreSettings::default()
+        };
+        let r = m.score(0, 2.0, 28.4, 1.0, &tight, ALL);
+        assert_eq!(r.outcome, Outcome::OffPitch);
+        assert!((r.cents.unwrap() - 40.0).abs() < 1e-6);
+        let r = m.score(0, 1.0, 28.2, 1.0, &tight, ALL);
+        assert!(r.is_hit());
+        let r = m.score(0, 1.05, 33.6, 1.0, &tight, ALL);
+        assert!(matches!(r.outcome, Outcome::WrongPitch { .. }));
     }
 
     #[test]
