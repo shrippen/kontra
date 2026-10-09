@@ -19,6 +19,8 @@ pub struct AppArgs {
     pub calibrate: bool,
     /// `--mixer`: practice and settings open with the mixer in view (screenshots).
     pub mixer: bool,
+    /// `--align`: practice opens the backing-track alignment (screenshots).
+    pub align: bool,
     /// `--loop-bars 3-4`: loop these bars (1-based) before autoplay.
     pub loop_bars: Option<(i32, i32)>,
 }
@@ -53,6 +55,7 @@ impl AppArgs {
                 "--view" => out.view = Some(value()),
                 "--calibrate" => out.calibrate = true,
                 "--mixer" => out.mixer = true,
+                "--align" => out.align = true,
                 "--loop-bars" => {
                     let v = value();
                     let mut parts = v.split('-').map(|p| p.trim().parse::<i32>());

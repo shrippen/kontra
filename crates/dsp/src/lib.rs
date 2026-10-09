@@ -10,6 +10,7 @@
 //!                                    Yin
 //! ```
 
+mod beats;
 mod biquad;
 mod intonation;
 mod level;
@@ -21,6 +22,7 @@ mod yin;
 
 pub mod synth;
 
+pub use beats::{track_beats, BeatGrid};
 pub use biquad::{Biquad, FilterKind};
 pub use intonation::refine_hz;
 pub use level::{amplitude_to_db, peak_db, rms_db, SILENCE_DB};

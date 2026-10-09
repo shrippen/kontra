@@ -103,6 +103,7 @@ pub mod qobject {
         #[qproperty(bool, autocalibrate)]
         /// QA: practice and settings show the mixer from the start.
         #[qproperty(bool, show_mixer, cxx_name = "showMixer")]
+        #[qproperty(bool, show_align, cxx_name = "showAlign")]
         /// QA: bars to loop at start, 1-based "from-to" ("" = none).
         #[qproperty(QString, start_loop, cxx_name = "startLoop")]
         #[qproperty(QString, screenshot_path, cxx_name = "screenshotPath")]
@@ -352,6 +353,30 @@ pub mod qobject {
         #[cxx_name = "quizJson"]
         fn quiz_json(self: &Self) -> QString;
 
+        /// Backing-track beat map (LH-BIB-06); see `Core::backing_json`.
+        #[qinvokable]
+        #[cxx_name = "backingJson"]
+        fn backing_json(self: &Self) -> QString;
+
+        #[qinvokable]
+        #[cxx_name = "backingAnalyse"]
+        fn backing_analyse(self: Pin<&mut Self>);
+
+        /// Bar 1 by `downbeat` beats, all bars by `shift_ms`, bar `bar` (>= 0) by `bar_ms`.
+        #[qinvokable]
+        #[cxx_name = "backingAdjust"]
+        fn backing_adjust(
+            self: Pin<&mut Self>,
+            downbeat: i32,
+            shift_ms: f64,
+            bar: i32,
+            bar_ms: f64,
+        );
+
+        #[qinvokable]
+        #[cxx_name = "backingClear"]
+        fn backing_clear(self: Pin<&mut Self>);
+
         /// Opens the bundled first exercise.
         #[qinvokable]
         #[cxx_name = "openDemo"]
@@ -475,6 +500,7 @@ pub struct ControllerRust {
     autoplay: bool,
     autocalibrate: bool,
     show_mixer: bool,
+    show_align: bool,
     start_loop: QString,
     screenshot_path: QString,
     screenshot_after: i32,
@@ -584,6 +610,7 @@ impl Default for ControllerRust {
             autoplay: args.autoplay,
             autocalibrate: args.calibrate,
             show_mixer: args.mixer,
+            show_align: args.align,
             start_loop: q(&args
                 .loop_bars
                 .map(|(a, b)| format!("{a}-{b}"))
@@ -1314,6 +1341,32 @@ impl qobject::Controller {
 
     fn quiz_json(&self) -> QString {
         q(&self.rust().core.quiz_json())
+    }
+
+    fn backing_json(&self) -> QString {
+        q(&self.rust().core.backing_json())
+    }
+
+    fn backing_analyse(mut self: Pin<&mut Self>) {
+        let result = self.as_mut().core().backing_analyse();
+        self.as_mut().after_retune(result);
+    }
+
+    fn backing_adjust(
+        mut self: Pin<&mut Self>,
+        downbeat: i32,
+        shift_ms: f64,
+        bar: i32,
+        bar_ms: f64,
+    ) {
+        let bar = usize::try_from(bar).ok().map(|b| (b, bar_ms));
+        let result = self.as_mut().core().backing_adjust(downbeat, shift_ms, bar);
+        self.as_mut().after_retune(result);
+    }
+
+    fn backing_clear(mut self: Pin<&mut Self>) {
+        let result = self.as_mut().core().backing_clear();
+        self.as_mut().after_retune(result);
     }
 
     fn exercises_json(&self) -> QString {

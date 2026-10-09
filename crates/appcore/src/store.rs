@@ -165,6 +165,39 @@ pub struct RecentEntry {
     pub view: Option<String>,
 }
 
+/// Where the bars of a piece fall in its backing track (LH-BIB-06): the detected beats, which
+/// of them is the first downbeat, and the user's corrections.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BeatMap {
+    /// Beat times in the audio, seconds.
+    pub beats: Vec<f64>,
+    pub bpm: f64,
+    /// Index into `beats` of bar 1's downbeat.
+    pub first: usize,
+    /// Shift of every bar, ms (fine alignment).
+    pub shift_ms: f64,
+    /// Per-bar corrections, ms: bar index → shift of that bar's start.
+    pub nudges: std::collections::BTreeMap<usize, f64>,
+}
+
+impl BeatMap {
+    /// Audio time of each bar start, for bars of `beats_per_bar` beats; as far as beats reach.
+    pub fn bar_times(&self, beats_per_bar: &[u32]) -> Vec<f64> {
+        let mut out = Vec::new();
+        let mut beat = self.first;
+        for (bar, n) in beats_per_bar.iter().enumerate() {
+            let Some(t) = self.beats.get(beat) else {
+                break;
+            };
+            let nudge = self.nudges.get(&bar).copied().unwrap_or(0.0);
+            out.push(t + (self.shift_ms + nudge) / 1000.0);
+            beat += (*n).max(1) as usize;
+        }
+        out
+    }
+}
+
 /// A named order of pieces for a gig or rehearsal (LH-BIB-04).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Setlist {
@@ -177,6 +210,8 @@ pub struct Setlist {
 pub struct Library {
     /// Every known piece; the most recently played first, imported but unplayed ones after.
     pub recent: Vec<RecentEntry>,
+    /// Backing-track beat maps per piece (LH-BIB-06).
+    pub beat_maps: std::collections::BTreeMap<PathBuf, BeatMap>,
     pub setlists: Vec<Setlist>,
 }
 
