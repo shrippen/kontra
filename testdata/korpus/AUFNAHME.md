@@ -13,13 +13,16 @@ Format: WAV, 48 kHz, Mono, 24 Bit oder Float, Pegel so, dass die lautesten Töne
    (gleicher Start, z. B. in einer DAW auf zwei Spuren). Die Annotation gilt dann für die eigene Aufnahme.
 3. Datei als `testdata/korpus/local/<satz>.wav` speichern, die JSON-Datei daneben kopieren.
 
-| Satz | Instrument | Eingang | Persona |
-|---|---|---|---|
-| `line-4` | E-Bass, 4 Saiten | Interface (Hi-Z) | P2, P4 |
-| `line-5` | E-Bass, 5 Saiten | Interface (Hi-Z) | P3 |
-| `laptop-jack-4` | E-Bass, 4 Saiten | Klinke direkt in die Laptop-Buchse | P1 |
-| `fretless-5` | Bundloser Bass, absichtlich leicht verstimmt gespielt | Interface | P3 |
-| `sixteenths` | E-Bass | Interface | P2 |
+Runde 6 (9.10.2026): der Eigentümer nimmt einen 4-Saiter über das Interface und über die Laptop-Buchse auf. Diese
+drei Sätze werden echt; die übrigen bleiben synthetisch (und IDMT/NSynth aus `QUELLEN.md`).
+
+| Satz | Instrument | Eingang | Persona | Aufnahme |
+|---|---|---|---|---|
+| `line-4` | E-Bass, 4 Saiten | Interface (Hi-Z) | P2, P4 | Eigentümer |
+| `laptop-jack-4` | E-Bass, 4 Saiten | Klinke direkt in die Laptop-Buchse | P1 | Eigentümer |
+| `sixteenths` | E-Bass, 4 Saiten | Interface | P2 | Eigentümer |
+| `line-5` | E-Bass, 5 Saiten | Interface (Hi-Z) | P3 | synthetisch |
+| `fretless-5` | Bundloser Bass, absichtlich leicht verstimmt gespielt | Interface | P3 | synthetisch |
 
 Beim bundlosen Satz die tatsächliche Intonation mit einem Stimmgerät-Mitschnitt prüfen und in der JSON-Datei
 nachtragen (`midi` mit Nachkommastellen), sonst misst die Prüfung die Verstimmung als Fehler.

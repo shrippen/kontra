@@ -66,12 +66,26 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 - Werkstatt: Zielband 80–90 % Treffer statt „3 fehlerfrei“, umgesetzt.
 - Didaktik-Prototypen nach 0.1: Blind-Probe, Stellen-Wiederholung über Tage, Groove-Start.
 - Testspieler: nur der Eigentümer.
-- Eigene Aufnahmen: teilweise, was vorhanden ist (welche Bässe und Eingänge: offen, Runde 6).
+- Eigene Aufnahmen: teilweise, was vorhanden ist (welche Bässe und Eingänge: Runde 6).
 - 0.1 ist fertig, wenn Phase 1 vollständig ist; der Erkennungsstand wird im Release-Log offen genannt.
 - Zuerst: Werkstatt-Bedienung, Tastatur und Screenreader, Pegel-Assistent (alle drei umgesetzt).
 - Flatpak-Bau in der Gitea-CI.
 - Logo: vereinfachte Kleinversion für 16–24 px (umgesetzt).
 - „Hinweis“ als eigene Gruppe im Änderungsverlauf: Kante-PR #42 (offen).
+
+## Entscheidungen Runde 6 (9.10.2026)
+
+- Spielen-Modus: keine Auswertung am Ende, nur „Auswertung anzeigen“; der Lauf wird gespeichert (umgesetzt).
+- Intonation: eigener Zustand „unsauber“ (richtiger Ton, mehr Cent daneben als die Grenze) mit eigener Form,
+  Cent-Mittel in der Auswertung (Logik umgesetzt; Form kommt mit dem Kante-PR).
+- Bewegung: der Systemeinstellung folgen, dazu ein Schalter; bei weniger Bewegung Tabulatur statt Lane (umgesetzt).
+- Mixer: drei Regler (Backing, Metronom, Referenzton) und zusätzlich der Bass durch Kontra hörbar, abschaltbar,
+  aus als Standard (LH-WIE-03).
+- Eigene Aufnahmen: 4-Saiter über Interface und über die Laptop-Buchse (`line-4`, `laptop-jack-4`, `sixteenths`
+  in `testdata/korpus/AUFNAHME.md`); 5-Saiter, bundlos und Kontrabass bleiben synthetisch oder aus offenen Quellen.
+- Kante-Wünsche aus der QA-Runde: ein Kante-PR mit allem, der Eigentümer prüft und merged.
+- Neue öffentliche Felder freigegeben: `Bar.key_fifths`, `Evaluation.p95_abs_cents`, `Evaluation.max_abs_cents`.
+- Kante-PR #42 („Hinweis“): der Eigentümer prüft und merged.
 
 ## Didaktik: wie Kontra Bass vermittelt (laufend, alle Phasen)
 
