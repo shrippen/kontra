@@ -1,9 +1,9 @@
 //! MusicXML (`score-partwise`; uncompressed or `.mxl`). Bars, repeats, endings and tempo
-//! come from the first part; notes from every part. Chords keep their lowest note;
+//! come from the first part; notes from every part, chords included;
 //! `<technical><string>/<fret>` is used when the part declares a staff tuning.
 
 use crate::error::ImportError;
-use crate::score::{BarHead, Legato, Part, RawNote, Score, WHOLE_TICKS};
+use crate::score::{BarHead, Jump, Legato, Part, RawNote, Score, Target, Until, WHOLE_TICKS};
 use crate::xml::{self, Element};
 use crate::zip::Zip;
 use kontra_model::{Pitch, Technique, TimeSignature, TICKS_PER_QUARTER};
@@ -151,6 +151,10 @@ struct PartReader {
     tuning: Vec<Pitch>,
     /// Alternate ending mask in effect until its closing barline.
     ending: u32,
+    /// Segno names in order of appearance: first = segno, others = segno segno.
+    segnos: Vec<String>,
+    /// Coda names in order of appearance: first = coda, others = double coda.
+    codas: Vec<String>,
 }
 
 impl PartReader {
@@ -162,6 +166,8 @@ impl PartReader {
             transpose: 0,
             tuning: Vec::new(),
             ending: 0,
+            segnos: Vec::new(),
+            codas: Vec::new(),
         }
     }
 
@@ -217,6 +223,7 @@ impl PartReader {
             head.endings |= self.ending;
         }
         self.close_ending(measure);
+        self.navigation(measure, &mut head);
 
         // Pickup bar: shorter than its signature.
         if measure.attr("implicit") == Some("yes") && index == 0 {
@@ -224,7 +231,8 @@ impl PartReader {
                 head.signature = short;
             }
         }
-        part.bar_mut(index).extend(lowest_per_start(notes));
+        notes.sort_by_key(|n| (n.offset, n.pitch));
+        part.bar_mut(index).extend(notes);
 
         let Some(target) = score.bars.get_mut(index) else {
             return Ok(());
@@ -238,6 +246,8 @@ impl PartReader {
             target.repeat_plays = head.repeat_plays;
             target.endings = head.endings;
             target.marker = head.marker;
+            target.targets = head.targets;
+            target.jumps = head.jumps;
         }
         Ok(())
     }
@@ -368,6 +378,36 @@ impl PartReader {
     }
 
     /// An ending stops at a `stop` or `discontinue` ending in this measure.
+    /// Playback directions from `<sound>`: segno, coda, fine, dacapo, dalsegno, tocoda.
+    fn navigation(&mut self, measure: &Element, head: &mut BarHead) {
+        for sound in measure.every("sound") {
+            if let Some(name) = sound.attr("segno") {
+                let target = pick(&mut self.segnos, name, Target::Segno, Target::SegnoSegno);
+                head.targets.push(target);
+            }
+            if let Some(name) = sound.attr("coda") {
+                let target = pick(&mut self.codas, name, Target::Coda, Target::DoubleCoda);
+                head.targets.push(target);
+            }
+            if sound.attr("fine").is_some() {
+                head.targets.push(Target::Fine);
+            }
+            if sound.attr("dacapo") == Some("yes") {
+                head.jumps.push(Jump::DaCapo(Until::Any));
+            }
+            if let Some(name) = sound.attr("dalsegno") {
+                let (single, double) =
+                    (Jump::DalSegno(Until::Any), Jump::DalSegnoSegno(Until::Any));
+                let jump = pick(&mut self.segnos, name, single, double);
+                head.jumps.push(jump);
+            }
+            if let Some(name) = sound.attr("tocoda") {
+                let jump = pick(&mut self.codas, name, Jump::ToCoda, Jump::ToDoubleCoda);
+                head.jumps.push(jump);
+            }
+        }
+    }
+
     fn close_ending(&mut self, measure: &Element) {
         let closes = measure
             .all("barline")
@@ -376,6 +416,18 @@ impl PartReader {
         if closes {
             self.ending = 0;
         }
+    }
+}
+
+/// `first` for the first name seen in `names`, `second` for any other name.
+fn pick<T>(names: &mut Vec<String>, name: &str, first: T, second: T) -> T {
+    if !names.iter().any(|n| n == name) {
+        names.push(name.to_string());
+    }
+    if names.first().is_some_and(|n| n == name) {
+        first
+    } else {
+        second
     }
 }
 
@@ -459,20 +511,13 @@ fn sound(sound: &Element, position: u64, head: &mut BarHead) {
 /// Signature matching a shorter first bar, e.g. a one-beat pickup in 4/4 → 1/4.
 fn pickup(signature: TimeSignature, length: u64) -> Option<TimeSignature> {
     let beat = WHOLE_TICKS / u64::from(signature.denominator.max(1));
-    if length == 0 || length >= signature.bar_ticks() || length % beat != 0 {
+    if length == 0 || length >= signature.bar_ticks() || !length.is_multiple_of(beat) {
         return None;
     }
     Some(TimeSignature {
         numerator: u8::try_from(length / beat).ok()?,
         denominator: signature.denominator,
     })
-}
-
-/// Keeps the lowest note of notes starting together.
-fn lowest_per_start(mut notes: Vec<RawNote>) -> Vec<RawNote> {
-    notes.sort_by_key(|n| (n.offset, n.pitch));
-    notes.dedup_by_key(|n| n.offset);
-    notes
 }
 
 #[cfg(test)]

@@ -10,7 +10,9 @@
 
 use crate::bytes::Reader;
 use crate::error::ImportError;
-use crate::score::{BarHead, Legato, Part, RawNote, Score, DEFAULT_BPM, WHOLE_TICKS};
+use crate::score::{
+    BarHead, Jump, Legato, Part, RawNote, Score, Target, Until, DEFAULT_BPM, WHOLE_TICKS,
+};
 use kontra_model::{Pitch, Technique, TimeSignature};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -115,8 +117,10 @@ impl Parser<'_> {
             self.r.skip(1)?; // octave
         }
         let programs = self.channels()?;
+        let mut signs = Vec::new();
         if self.version >= Version::V500 {
-            self.r.skip(38 + 4)?; // directions (19 shorts), master reverb
+            signs = self.directions()?;
+            self.r.skip(4)?; // master reverb
         }
 
         let bar_count = self.r.count()?;
@@ -128,6 +132,7 @@ impl Parser<'_> {
             let head = self.bar_head(index, &score.bars)?;
             score.bars.push(head);
         }
+        place_signs(&mut score.bars, &signs);
         for index in 0..track_count {
             let part = self.part(index, &programs)?;
             score.parts.push(part);
@@ -142,6 +147,15 @@ impl Parser<'_> {
             }
         }
         Ok(score)
+    }
+
+    /// GP5 directions: 19 bar numbers (1-based, -1 = unused) in `SIGNS` order.
+    fn directions(&mut self) -> Result<Vec<(Sign, i16)>, ImportError> {
+        let mut found = Vec::with_capacity(SIGNS.len());
+        for sign in SIGNS {
+            found.push((sign, self.r.i16()?));
+        }
+        Ok(found)
     }
 
     fn info(&mut self, score: &mut Score) -> Result<(), ImportError> {
@@ -630,6 +644,53 @@ impl Parser<'_> {
             .checked_mul(9)
             .ok_or_else(|| ImportError::bad("bend point count"))?;
         self.r.skip(size)
+    }
+}
+
+/// A GP5 direction: a sign jumped to, or a jump.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Sign {
+    Target(Target),
+    Jump(Jump),
+}
+
+/// Order of the 19 direction slots in a GP5 file.
+const SIGNS: [Sign; 19] = [
+    Sign::Target(Target::Coda),
+    Sign::Target(Target::DoubleCoda),
+    Sign::Target(Target::Segno),
+    Sign::Target(Target::SegnoSegno),
+    Sign::Target(Target::Fine),
+    Sign::Jump(Jump::DaCapo(Until::End)),
+    Sign::Jump(Jump::DaCapo(Until::Coda)),
+    Sign::Jump(Jump::DaCapo(Until::DoubleCoda)),
+    Sign::Jump(Jump::DaCapo(Until::Fine)),
+    Sign::Jump(Jump::DalSegno(Until::End)),
+    Sign::Jump(Jump::DalSegno(Until::Coda)),
+    Sign::Jump(Jump::DalSegno(Until::DoubleCoda)),
+    Sign::Jump(Jump::DalSegno(Until::Fine)),
+    Sign::Jump(Jump::DalSegnoSegno(Until::End)),
+    Sign::Jump(Jump::DalSegnoSegno(Until::Coda)),
+    Sign::Jump(Jump::DalSegnoSegno(Until::DoubleCoda)),
+    Sign::Jump(Jump::DalSegnoSegno(Until::Fine)),
+    Sign::Jump(Jump::ToCoda),
+    Sign::Jump(Jump::ToDoubleCoda),
+];
+
+/// Attaches directions to their bars; numbers outside the song are ignored.
+fn place_signs(bars: &mut [BarHead], signs: &[(Sign, i16)]) {
+    for &(sign, number) in signs {
+        let Some(bar) = usize::try_from(number)
+            .ok()
+            .and_then(|n| n.checked_sub(1))
+            .and_then(|i| bars.get_mut(i))
+        else {
+            continue;
+        };
+        match sign {
+            Sign::Target(target) => bar.targets.push(target),
+            Sign::Jump(jump) => bar.jumps.push(jump),
+        }
     }
 }
 

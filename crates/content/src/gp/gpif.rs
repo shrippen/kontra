@@ -9,7 +9,7 @@
 
 use crate::error::ImportError;
 use crate::gp::binary::tuplet_ticks;
-use crate::score::{BarHead, Legato, Part, RawNote, Score, WHOLE_TICKS};
+use crate::score::{BarHead, Jump, Legato, Part, RawNote, Score, Target, Until, WHOLE_TICKS};
 use crate::xml::{self, Element};
 use kontra_model::{Pitch, Technique, TimeSignature};
 use std::collections::HashMap;
@@ -183,12 +183,64 @@ fn head(master: &Element) -> Result<BarHead, ImportError> {
         }
     }
 
+    if let Some(directions) = master.child("Directions") {
+        directions_of(directions, &mut head);
+    }
+
     if let Some(section) = master.child("Section") {
         let text = section.value("Text").filter(|t| !t.is_empty());
         let name = text.or_else(|| section.value("Letter").filter(|t| !t.is_empty()));
         head.marker = name.map(str::to_string);
     }
     Ok(head)
+}
+
+/// `<Directions><Target>Segno</Target><Jump>DaCapoAlFine</Jump></Directions>`.
+fn directions_of(directions: &Element, head: &mut BarHead) {
+    for child in directions.children() {
+        match child.name() {
+            "Target" => head.targets.extend(target(child.text())),
+            "Jump" => head.jumps.extend(jump(child.text())),
+            _ => {}
+        }
+    }
+}
+
+fn target(name: &str) -> Option<Target> {
+    match name {
+        "Segno" => Some(Target::Segno),
+        "SegnoSegno" => Some(Target::SegnoSegno),
+        "Coda" => Some(Target::Coda),
+        "DoubleCoda" => Some(Target::DoubleCoda),
+        "Fine" => Some(Target::Fine),
+        _ => None,
+    }
+}
+
+/// GPIF jump names: `DaCapo`, `DaSegnoSegnoAlFine`, `DaCoda`, ...
+fn jump(name: &str) -> Option<Jump> {
+    match name {
+        "DaCoda" => return Some(Jump::ToCoda),
+        "DaDoubleCoda" => return Some(Jump::ToDoubleCoda),
+        _ => {}
+    }
+    let (from, until) = match name.split_once("Al") {
+        Some((from, until)) => (from, until),
+        None => (name, ""),
+    };
+    let until = match until {
+        "" => Until::End,
+        "Fine" => Until::Fine,
+        "Coda" => Until::Coda,
+        "DoubleCoda" => Until::DoubleCoda,
+        _ => return None,
+    };
+    match from {
+        "DaCapo" => Some(Jump::DaCapo(until)),
+        "DaSegno" => Some(Jump::DalSegno(until)),
+        "DaSegnoSegno" => Some(Jump::DalSegnoSegno(until)),
+        _ => None,
+    }
 }
 
 /// Parses "3/4".
@@ -400,6 +452,18 @@ fn tempo_value(text: &str) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn jump_names() {
+        assert_eq!(jump("DaCapo"), Some(Jump::DaCapo(Until::End)));
+        assert_eq!(jump("DaSegnoAlCoda"), Some(Jump::DalSegno(Until::Coda)));
+        assert_eq!(
+            jump("DaSegnoSegnoAlDoubleCoda"),
+            Some(Jump::DalSegnoSegno(Until::DoubleCoda))
+        );
+        assert_eq!(jump("DaCoda"), Some(Jump::ToCoda));
+        assert_eq!(jump("Nonsense"), None);
+    }
 
     #[test]
     fn tempo_units() {

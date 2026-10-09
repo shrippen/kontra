@@ -2,83 +2,17 @@
 //! changes on the timeline, resolves ties and hammer-ons, picks the instrument.
 
 use crate::error::ImportError;
-use crate::score::{BarHead, Legato, Part, Score};
+use crate::score::{Legato, Part, Score};
 use crate::tab::assign_tab;
+use crate::unroll::unroll;
 use kontra_model::{
     Arrangement, Bar, BassKind, Instrument, Marker, Note, Pitch, Technique, TempoChange, TempoMap,
     Tuning,
 };
 use std::collections::HashMap;
 
-/// Upper bound for the unrolled timeline; protects against absurd repeat counts.
-pub(crate) const MAX_BARS: usize = 20_000;
-
-/// More plays than this are clamped (Guitar Pro allows up to 99, nobody writes that).
-const MAX_PLAYS: u8 = 32;
-
 /// Lowest note below which a 5-string bass is assumed when the file has no usable tuning.
 const FIVE_STRING_BELOW: Pitch = Pitch(28);
-
-/// Source bar indices in playing order, repeats and alternate endings unrolled.
-///
-/// Example: bars `|: A | B(1.) :| C(2.) |` give `A B A C`.
-pub(crate) fn unroll(bars: &[BarHead]) -> Result<Vec<usize>, ImportError> {
-    let mut order = Vec::new();
-    let mut jumps = vec![0u8; bars.len()];
-    let mut start = 0;
-    let mut pass: u32 = 1;
-    let mut i = 0;
-
-    while i < bars.len() {
-        let bar = &bars[i];
-
-        // A repeat opened on a fresh arrival (not after jumping back) starts a new section.
-        if bar.repeat_open && i != start {
-            start = i;
-            pass = 1;
-        }
-
-        if !ending_plays(bar.endings, pass) {
-            i += 1;
-            continue;
-        }
-
-        order.push(i);
-        if order.len() > MAX_BARS {
-            return Err(ImportError::TooLong(MAX_BARS));
-        }
-
-        let plays = bar.repeat_plays.min(MAX_PLAYS);
-        if plays == 0 {
-            i += 1;
-            continue;
-        }
-
-        // Jump back until all plays are done, then continue after the repeat.
-        if jumps[i] + 1 < plays {
-            jumps[i] += 1;
-            pass += 1;
-            i = start;
-            continue;
-        }
-        jumps[i] = 0;
-        pass = 1;
-        i += 1;
-        start = i;
-    }
-    Ok(order)
-}
-
-/// True if a bar with the `endings` mask is played on pass `pass` (1-based).
-fn ending_plays(endings: u32, pass: u32) -> bool {
-    if endings == 0 {
-        return true;
-    }
-    let Some(bit) = 1u32.checked_shl(pass.saturating_sub(1)) else {
-        return false;
-    };
-    endings & bit != 0
-}
 
 /// Builds the arrangement for part `index`.
 pub(crate) fn arrangement(score: &Score, index: usize) -> Result<Arrangement, ImportError> {
@@ -300,62 +234,6 @@ fn bass_name(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kontra_model::TimeSignature;
-
-    fn bars(n: usize) -> Vec<BarHead> {
-        vec![BarHead::new(TimeSignature::COMMON); n]
-    }
-
-    #[test]
-    fn plain_order() {
-        assert_eq!(unroll(&bars(3)).unwrap(), vec![0, 1, 2]);
-    }
-
-    #[test]
-    fn simple_repeat() {
-        let mut b = bars(3);
-        b[0].repeat_open = true;
-        b[1].repeat_plays = 3;
-        assert_eq!(unroll(&b).unwrap(), vec![0, 1, 0, 1, 0, 1, 2]);
-    }
-
-    #[test]
-    fn repeat_without_open_starts_at_beginning() {
-        let mut b = bars(4);
-        b[1].repeat_plays = 2;
-        b[3].repeat_plays = 2;
-        assert_eq!(unroll(&b).unwrap(), vec![0, 1, 0, 1, 2, 3, 2, 3]);
-    }
-
-    #[test]
-    fn alternate_endings() {
-        // |: 0 | 1 (1.) :| 2 (2.) | 3
-        let mut b = bars(4);
-        b[0].repeat_open = true;
-        b[1].endings = 0b01;
-        b[1].repeat_plays = 2;
-        b[2].endings = 0b10;
-        assert_eq!(unroll(&b).unwrap(), vec![0, 1, 0, 2, 3]);
-    }
-
-    #[test]
-    fn endings_before_close() {
-        // GP7 style: |: 0 | 1 (1.,3.) | 2 (2.) | 3 x4 :| 4
-        let mut b = bars(5);
-        b[0].repeat_open = true;
-        b[1].endings = 0b101;
-        b[2].endings = 0b010;
-        b[3].repeat_plays = 4;
-        let order = unroll(&b).unwrap();
-        assert_eq!(order, vec![0, 1, 3, 0, 2, 3, 0, 1, 3, 0, 3, 4]);
-    }
-
-    #[test]
-    fn too_long_is_an_error() {
-        let mut b = bars(MAX_BARS);
-        b[MAX_BARS - 1].repeat_plays = 2;
-        assert!(matches!(unroll(&b), Err(ImportError::TooLong(_))));
-    }
 
     #[test]
     fn bass_names() {

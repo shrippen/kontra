@@ -2,8 +2,9 @@
 //! Namespaces are dropped (local names only); text and CDATA are joined per element.
 
 use crate::error::ImportError;
-use quick_xml::events::{BytesStart, Event};
-use quick_xml::Reader;
+use quick_xml::escape::resolve_xml_entity;
+use quick_xml::events::{BytesRef, BytesStart, Event};
+use quick_xml::{Reader, XmlVersion};
 
 /// Nesting deeper than this is rejected (real files stay below 20).
 const MAX_DEPTH: usize = 256;
@@ -112,13 +113,15 @@ pub(crate) fn parse(data: &[u8]) -> Result<Element, ImportError> {
                 top(&mut stack)?.children.push(done);
             }
             Event::Text(text) => {
-                let text = text
-                    .unescape()
-                    .map_err(|e| ImportError::Malformed(format!("XML text: {e}")))?;
+                let text = text.xml_content(XmlVersion::Implicit1_0);
                 top(&mut stack)?.text.push_str(&text);
             }
             Event::CData(data) => {
-                let text = String::from_utf8_lossy(&data);
+                let text = data.xml_content(XmlVersion::Implicit1_0);
+                top(&mut stack)?.text.push_str(&text);
+            }
+            Event::GeneralRef(reference) => {
+                let text = entity(&reference)?;
                 top(&mut stack)?.text.push_str(&text);
             }
             Event::Eof => break,
@@ -146,14 +149,24 @@ fn top(stack: &mut [Element]) -> Result<&mut Element, ImportError> {
         .ok_or_else(|| ImportError::bad("XML end tag without start"))
 }
 
+/// `&amp;`, `&#38;`, `&#x26;`; other named entities (from a DTD) are rejected.
+fn entity(reference: &BytesRef) -> Result<String, ImportError> {
+    let bad = || ImportError::Malformed(format!("XML entity &{};", &**reference));
+    if let Some(text) = resolve_xml_entity(reference) {
+        return Ok(text.to_string());
+    }
+    let resolved = reference.resolve_char_ref().map_err(|_| bad())?;
+    resolved.map(String::from).ok_or_else(bad)
+}
+
 fn element(start: &BytesStart) -> Result<Element, ImportError> {
-    let name = String::from_utf8_lossy(start.local_name().as_ref()).into_owned();
+    let name = start.local_name().as_ref().to_string();
     let mut attrs = Vec::new();
     for attr in start.attributes() {
         let attr = attr.map_err(|e| ImportError::Malformed(format!("XML attribute: {e}")))?;
-        let key = String::from_utf8_lossy(attr.key.local_name().as_ref()).into_owned();
+        let key = attr.key.local_name().as_ref().to_string();
         let value = attr
-            .unescape_value()
+            .normalized_value(XmlVersion::Implicit1_0)
             .map_err(|e| ImportError::Malformed(format!("XML attribute: {e}")))?;
         attrs.push((key, value.into_owned()));
     }

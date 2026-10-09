@@ -15,6 +15,7 @@ mod midi;
 mod musicxml;
 mod score;
 mod tab;
+mod unroll;
 mod xml;
 mod zip;
 

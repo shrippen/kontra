@@ -79,6 +79,9 @@ pub struct GpTrack {
 pub struct GpSong {
     pub title: String,
     pub tempo: i32,
+    /// GP5 direction slots (coda, double coda, segno, ..., da double coda): bar number
+    /// (1-based) or -1.
+    pub directions: [i16; 19],
     pub heads: Vec<GpBar>,
     pub tracks: Vec<GpTrack>,
 }
@@ -148,7 +151,10 @@ pub fn gp5(song: &GpSong) -> Vec<u8> {
         o.i32(program);
         o.zeros(8);
     }
-    o.zeros(38 + 4);
+    for number in song.directions {
+        o.i16(number);
+    }
+    o.zeros(4); // master reverb
     o.i32(song.heads.len() as i32);
     o.i32(song.tracks.len() as i32);
 
@@ -319,6 +325,7 @@ pub fn bass_song() -> GpSong {
     GpSong {
         title: "Fixture".to_string(),
         tempo: 120,
+        directions: [-1; 19],
         heads: vec![
             GpBar {
                 repeat_open: true,
@@ -347,8 +354,70 @@ pub fn bass_song() -> GpSong {
     }
 }
 
+/// GP5 direction slots used by `directions_song`.
+pub const SLOT_CODA: usize = 0;
+pub const SLOT_SEGNO: usize = 2;
+pub const SLOT_DS_AL_CODA: usize = 10;
+pub const SLOT_TO_CODA: usize = 17;
+
+/// Five bars of one whole note each (E string, fret = bar index) with a repeat and
+/// directions: `0 | 1 :| 2 Segno | 3 to Coda | 4 D.S. al Coda | 5 Coda`.
+pub fn directions_song() -> GpSong {
+    let bars: Vec<Vec<GpBeat>> = (0..6i8).map(|i| vec![beat(-2, vec![note(4, i)])]).collect();
+    let mut heads = vec![GpBar::default(); 6];
+    heads[1].repeat_plays = 2;
+    let mut directions = [-1; 19];
+    directions[SLOT_SEGNO] = 3;
+    directions[SLOT_TO_CODA] = 4;
+    directions[SLOT_DS_AL_CODA] = 5;
+    directions[SLOT_CODA] = 6;
+    GpSong {
+        title: "Directions".to_string(),
+        tempo: 100,
+        directions,
+        heads,
+        tracks: vec![GpTrack {
+            name: "Bass".to_string(),
+            tuning: vec![43, 38, 33, 28],
+            program: 33,
+            bars,
+        }],
+    }
+}
+
 // ---------------------------------------------------------------------------------------------
 // GPIF (Guitar Pro 6/7)
+
+/// One bass track, one whole note per bar (E string, fret = bar index); `extras[i]` is
+/// inserted into master bar `i` (repeats, directions).
+pub fn gpif_bars(extras: &[&str]) -> String {
+    let mut masters = String::new();
+    let mut bars = String::new();
+    let mut voices = String::new();
+    let mut beats = String::new();
+    let mut notes = String::new();
+    for (i, extra) in extras.iter().enumerate() {
+        masters.push_str(&format!(
+            "<MasterBar><Time>4/4</Time>{extra}<Bars>{i}</Bars></MasterBar>"
+        ));
+        bars.push_str(&format!(
+            r#"<Bar id="{i}"><Voices>{i} -1 -1 -1</Voices></Bar>"#
+        ));
+        voices.push_str(&format!(r#"<Voice id="{i}"><Beats>{i}</Beats></Voice>"#));
+        beats.push_str(&format!(
+            r#"<Beat id="{i}"><Rhythm ref="0"/><Notes>{i}</Notes></Beat>"#
+        ));
+        notes.push_str(&format!(
+            r#"<Note id="{i}"><Properties><Property name="String"><String>0</String></Property><Property name="Fret"><Fret>{i}</Fret></Property></Properties></Note>"#
+        ));
+    }
+    format!(
+        r#"<GPIF><Score><Title>Flow</Title></Score>
+<Tracks><Track id="0"><Name>Bass</Name><Staves><Staff><Properties><Property name="Tuning"><Pitches>28 33 38 43</Pitches></Property></Properties></Staff></Staves></Track></Tracks>
+<MasterBars>{masters}</MasterBars><Bars>{bars}</Bars><Voices>{voices}</Voices><Beats>{beats}</Beats><Notes>{notes}</Notes>
+<Rhythms><Rhythm id="0"><NoteValue>Whole</NoteValue></Rhythm></Rhythms></GPIF>"#
+    )
+}
 
 /// A bass track with a repeat and two endings, tempo automations, a triplet, a dotted note,
 /// a tie and a hammer-on.
@@ -539,7 +608,7 @@ impl BitWriter {
     fn bits(&mut self, value: u32, count: u32, reversed: bool) {
         for i in 0..count {
             let shift = if reversed { i } else { count - 1 - i };
-            if self.used % 8 == 0 {
+            if self.used.is_multiple_of(8) {
                 self.bytes.push(0);
             }
             if (value >> shift) & 1 == 1 {
@@ -650,8 +719,8 @@ pub fn midi() -> Vec<u8> {
     piano.push(end());
     smf.tracks.push(piano);
 
-    // Bass: E1 A1 B1 quarter notes, then E2 (note-on velocity 0 as note-off), then a chord
-    // E1+B1 of which only E1 stays.
+    // Bass: E1 A1 B1 quarter notes, then E2 (note-on velocity 0 as note-off), then the
+    // chord E1+B1.
     let mut bass = vec![
         event(0, TrackEventKind::Meta(MetaMessage::TrackName(b"Track 3"))),
         event(
@@ -757,6 +826,29 @@ pub fn musicxml() -> String {
 </score-partwise>
 "#
     .to_string()
+}
+
+/// One bass part, one whole note per measure (E2 written, E1 + measure index sounding);
+/// `extras[i]` is inserted into measure `i` (directions, barlines).
+pub fn musicxml_bars(extras: &[&str]) -> String {
+    let steps = ["E", "F", "G", "A", "B", "C"];
+    let mut measures = String::new();
+    for (i, extra) in extras.iter().enumerate() {
+        let attributes = if i == 0 {
+            "<attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>"
+        } else {
+            ""
+        };
+        let octave = if i < 5 { 1 } else { 2 };
+        measures.push_str(&format!(
+            r#"<measure number="{n}">{attributes}{extra}<note><pitch><step>{step}</step><octave>{octave}</octave></pitch><duration>4</duration></note></measure>"#,
+            n = i + 1,
+            step = steps[i % steps.len()],
+        ));
+    }
+    format!(
+        r#"<?xml version="1.0"?><score-partwise><part-list><score-part id="P1"><part-name>Bass</part-name></score-part></part-list><part id="P1">{measures}</part></score-partwise>"#
+    )
 }
 
 /// `.mxl` archive with container pointing to `score.musicxml`.

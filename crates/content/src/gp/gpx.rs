@@ -185,7 +185,7 @@ mod tests {
             for i in 0..count {
                 let shift = if reversed { i } else { count - 1 - i };
                 let bit = (value >> shift) & 1;
-                if self.used % 8 == 0 {
+                if self.used.is_multiple_of(8) {
                     self.bytes.push(0);
                 }
                 if bit == 1 {

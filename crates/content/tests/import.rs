@@ -203,7 +203,8 @@ fn midi_tracks_tempo_and_tab() {
             (960, 960, 33),
             (1920, 960, 35),
             (2880, 960, 40),
-            (3840, 1920, 28)
+            (3840, 1920, 28),
+            (3840, 1920, 35)
         ]
     );
     // Generated tab: every note placed, low notes near the nut.
@@ -213,11 +214,15 @@ fn midi_tracks_tempo_and_tab() {
         .all(|n| n.string.is_some() && n.fret.is_some()));
     assert_eq!((a.notes[0].string, a.notes[0].fret), (Some(0), Some(0)));
     assert_eq!((a.notes[1].string, a.notes[1].fret), (Some(1), Some(0)));
+    // The closing chord E1+B1 takes two strings: open E and A string fret 2.
+    assert_eq!((a.notes[4].string, a.notes[4].fret), (Some(0), Some(0)));
+    assert_eq!((a.notes[5].string, a.notes[5].fret), (Some(1), Some(2)));
 
-    // Piano chords collapse to their lowest note.
+    // Piano chords keep all their notes.
     let piano = imported.arrangement(0).unwrap();
-    assert_eq!(piano.notes.len(), 2);
+    assert_eq!(piano.notes.len(), 6);
     assert_eq!(piano.notes[0].pitch, Pitch(60));
+    assert_eq!(piano.notes[2].pitch, Pitch(67));
 }
 
 fn check_musicxml(imported: &kontra_content::ImportResult) {
@@ -232,12 +237,13 @@ fn check_musicxml(imported: &kontra_content::ImportResult) {
     let pass: Vec<(u64, u64, u8, bool)> = vec![
         (0, 960, 28, false),
         (960, 960, 33, false),
+        (960, 960, 40, false),
         (1920, 1920, 31, false),
         (3840, 1920, 31, true),
         (6720, 960, 36, false),
     ];
     let mut expected = pass.clone();
-    expected.extend(pass.iter().take(3).map(|r| (r.0 + 7680, r.1, r.2, r.3)));
+    expected.extend(pass.iter().take(4).map(|r| (r.0 + 7680, r.1, r.2, r.3)));
     expected.push((11520, 3840, 28, false));
     let found: Vec<(u64, u64, u8, bool)> = a
         .notes
@@ -246,11 +252,13 @@ fn check_musicxml(imported: &kontra_content::ImportResult) {
         .collect();
     assert_eq!(found, expected);
 
-    // Tab from the file where given, generated elsewhere.
+    // Tab from the file where given, generated elsewhere; the chord's E2 avoids the
+    // A string the file gave to A1.
     assert_eq!((a.notes[1].string, a.notes[1].fret), (Some(1), Some(0)));
-    assert_eq!((a.notes[2].string, a.notes[2].fret), (Some(0), Some(3)));
+    assert_eq!((a.notes[2].string, a.notes[2].fret), (Some(2), Some(2)));
+    assert_eq!((a.notes[3].string, a.notes[3].fret), (Some(0), Some(3)));
     assert!(a.notes.iter().all(|n| n.fret.is_some()));
-    assert!(has(&a.notes[2], Technique::Staccato));
+    assert!(has(&a.notes[3], Technique::Staccato));
 }
 
 #[test]

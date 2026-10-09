@@ -1,9 +1,9 @@
 //! Standard MIDI files (type 0 and 1). Every (track, channel) pair with notes becomes a part;
 //! ticks are rescaled to 960 per quarter, bars come from the time signature events.
 
-use crate::build::MAX_BARS;
 use crate::error::ImportError;
 use crate::score::{BarHead, Part, RawNote, Score, DEFAULT_BPM};
+use crate::unroll::MAX_BARS;
 use kontra_model::{Pitch, TimeSignature, TICKS_PER_QUARTER};
 use midly::{MetaMessage, MidiMessage, Smf, Timing, TrackEventKind};
 use std::collections::{BTreeMap, HashMap, VecDeque};
@@ -247,7 +247,7 @@ fn parts(score: &mut Score, starts: &[u64], tracks: &[TrackData]) {
                 .or_else(|| global.get(&channel))
                 .copied();
             part.percussion = channel == DRUM_CHANNEL;
-            for &(start, end, key) in &lowest_per_start(notes) {
+            for &(start, end, key) in notes {
                 let (bar, offset) = locate(starts, start);
                 let note = RawNote::new(offset, end - start, Pitch(key));
                 part.bar_mut(bar).push(note);
@@ -255,14 +255,6 @@ fn parts(score: &mut Score, starts: &[u64], tracks: &[TrackData]) {
             score.parts.push(part);
         }
     }
-}
-
-/// Keeps the lowest note of notes starting together: a bass line, not chords.
-fn lowest_per_start(notes: &[(u64, u64, u8)]) -> Vec<(u64, u64, u8)> {
-    let mut sorted = notes.to_vec();
-    sorted.sort_by_key(|n| (n.0, n.2));
-    sorted.dedup_by_key(|n| n.0);
-    sorted
 }
 
 #[cfg(test)]
@@ -275,12 +267,6 @@ mod tests {
         assert_eq!(locate(&starts, 0), (0, 0));
         assert_eq!(locate(&starts, 4000), (1, 160));
         assert_eq!(locate(&starts, 9000), (2, 2280));
-    }
-
-    #[test]
-    fn keeps_lowest_of_chord() {
-        let notes = [(0, 10, 40), (0, 10, 28), (10, 20, 30)];
-        assert_eq!(lowest_per_start(&notes), vec![(0, 10, 28), (10, 20, 30)]);
     }
 
     #[test]

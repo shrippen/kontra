@@ -5,15 +5,14 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
-rust-version.workspace = true
 
 [dependencies]
 kontra-model.workspace = true
 thiserror.workspace = true
 # MIDI files (Unlicense); rayon-based `parallel` feature off.
 midly = { version = "0.5.3", default-features = false, features = ["std"] }
-# XML tokenizer (MIT); 0.37 keeps the workspace MSRV 1.85.
-quick-xml = "0.37.5"
+# XML tokenizer (MIT).
+quick-xml = "0.42"
 # Inflate for zip entries (MIT/Zlib/Apache-2.0); the zip container itself is parsed here.
 miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
 

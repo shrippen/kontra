@@ -55,6 +55,43 @@ impl RawNote {
     }
 }
 
+/// Navigation signs a jump refers to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Target {
+    Segno,
+    SegnoSegno,
+    Coda,
+    DoubleCoda,
+    /// Playing ends after this bar once a jump "al Fine" was taken.
+    Fine,
+}
+
+/// Where playing continues to after a D.C. or D.S. jump.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Until {
+    /// Play to the end.
+    End,
+    /// Stop at the Fine bar.
+    Fine,
+    /// Take the "to coda" jump.
+    Coda,
+    /// Take the "to double coda" jump.
+    DoubleCoda,
+    /// Whatever the score marks: Fine and "to coda" both apply (MusicXML).
+    Any,
+}
+
+/// Jumps at the end of a bar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Jump {
+    DaCapo(Until),
+    DalSegno(Until),
+    DalSegnoSegno(Until),
+    /// Taken only after a D.C./D.S. "al Coda".
+    ToCoda,
+    ToDoubleCoda,
+}
+
 /// Bar properties shared by all tracks (Guitar Pro "measure header", GPIF "MasterBar").
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct BarHead {
@@ -65,6 +102,10 @@ pub(crate) struct BarHead {
     /// Alternate endings: bit 0 = played on the first pass, bit 1 on the second, ...; 0 = always.
     pub(crate) endings: u32,
     pub(crate) marker: Option<String>,
+    /// Signs a jump may land on (segno, coda) or stop at (fine).
+    pub(crate) targets: Vec<Target>,
+    /// Jumps taken after the bar is played (D.C., D.S., to coda).
+    pub(crate) jumps: Vec<Jump>,
     /// Tempo changes as (offset in ticks from the bar start, quarter notes per minute).
     pub(crate) tempos: Vec<(u64, f64)>,
 }
@@ -77,6 +118,8 @@ impl BarHead {
             repeat_plays: 0,
             endings: 0,
             marker: None,
+            targets: Vec::new(),
+            jumps: Vec::new(),
             tempos: Vec::new(),
         }
     }
