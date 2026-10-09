@@ -1,0 +1,79 @@
+name: ci
+
+# Branches are tested through their pull request; main runs on push.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    # Everything below the GUI: no Qt needed.
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: System libraries
+        run: |
+          SUDO=$(command -v sudo || true)
+          $SUDO apt-get update -qq && $SUDO apt-get install -y -qq libasound2-dev pkg-config curl build-essential
+      - name: Rust
+        run: |
+          # The runner image has no rustup: install it (stable, minimal).
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal -c rustfmt,clippy
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/bin/cargo-deny
+            target
+          key: core-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --exclude kontra-app --all-targets -- -D warnings
+      - run: cargo test --workspace --exclude kontra-app
+      - run: command -v cargo-deny || cargo install --locked cargo-deny
+      - run: cargo deny check licenses bans sources
+      - name: Corpus quality (LH-NF-02/03)
+        run: cargo run -q -p kontra-cli --release -- korpus check
+
+  app:
+    # The Qt app: Qt 6.10 and Kirigami from scripts/setup-qt-env.sh (cached), headless screenshots.
+    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            /opt/qt
+            /opt/kf6
+            /opt/qt-tools
+          key: qt-6.10.3-kf-6.30.0
+      - name: Qt, Kirigami and system libraries
+        run: |
+          SUDO=$(command -v sudo || true)
+          $SUDO apt-get update -qq && $SUDO apt-get install -y -qq libasound2-dev pkg-config curl build-essential
+          $SUDO scripts/setup-qt-env.sh
+      - name: Rust
+        run: |
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal -c clippy
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Build and lint
+        run: |
+          . scripts/qt-env.sh
+          cargo clippy -p kontra-app --all-targets -- -D warnings
+          cargo test -p kontra-app
+      - name: Screenshots
+        run: scripts/screenshots.sh shots
+      - uses: actions/upload-artifact@v3
+        with:
+          name: screenshots
+          path: shots/

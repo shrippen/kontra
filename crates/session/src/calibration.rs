@@ -1,0 +1,134 @@
+//! Latency calibration "play on the click" (LH-EIN-05): eight clicks, the player plucks along,
+//! the median offset between click and detected onset is the round-trip latency (output +
+//! input + detection) that scoring subtracts.
+
+use serde::{Deserialize, Serialize};
+
+pub const CLICKS: usize = 8;
+pub const INTERVAL_S: f64 = 0.6;
+/// A detection belongs to the nearest click within this distance.
+const MATCH_S: f64 = 0.25;
+/// At least this many plucks must be matched.
+const MIN_MATCHED: usize = 5;
+/// Above this spread the player was not steady enough to measure.
+const MAX_SPREAD_MS: f64 = 30.0;
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum CalibrationResult {
+    /// Median latency in ms and the spread (median absolute deviation) of the offsets.
+    Measured { latency_ms: f64, spread_ms: f64 },
+    /// Too few plucks heard (`matched` of `CLICKS`).
+    TooFew { matched: usize },
+    /// Plucks too uneven to measure.
+    Unsteady { spread_ms: f64 },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Calibration {
+    clicks: Vec<f64>,
+    onsets: Vec<f64>,
+}
+
+impl Calibration {
+    /// Clicks every `INTERVAL_S` from `first_click_s` on (engine clock).
+    pub fn new(first_click_s: f64) -> Calibration {
+        let clicks = (0..CLICKS)
+            .map(|i| first_click_s + i as f64 * INTERVAL_S)
+            .collect();
+        Calibration {
+            clicks,
+            onsets: Vec::new(),
+        }
+    }
+
+    pub fn clicks(&self) -> &[f64] {
+        &self.clicks
+    }
+
+    /// When the last pluck can have arrived.
+    pub fn ends_at(&self) -> f64 {
+        self.clicks.last().copied().unwrap_or(0.0) + MATCH_S + 0.5
+    }
+
+    pub fn on_onset(&mut self, onset_s: f64) {
+        self.onsets.push(onset_s);
+    }
+
+    pub fn result(&self) -> CalibrationResult {
+        let mut offsets = Vec::new();
+        for click in &self.clicks {
+            let nearest = self
+                .onsets
+                .iter()
+                .map(|o| o - click)
+                .filter(|d| d.abs() <= MATCH_S)
+                .min_by(|a, b| a.abs().total_cmp(&b.abs()));
+            if let Some(offset) = nearest {
+                offsets.push(offset * 1000.0);
+            }
+        }
+        if offsets.len() < MIN_MATCHED {
+            return CalibrationResult::TooFew {
+                matched: offsets.len(),
+            };
+        }
+        let latency = median(&mut offsets.clone());
+        let mut deviations: Vec<f64> = offsets.iter().map(|o| (o - latency).abs()).collect();
+        let spread = median(&mut deviations);
+        if spread > MAX_SPREAD_MS {
+            return CalibrationResult::Unsteady { spread_ms: spread };
+        }
+        CalibrationResult::Measured {
+            latency_ms: latency.max(0.0),
+            spread_ms: spread,
+        }
+    }
+}
+
+fn median(values: &mut [f64]) -> f64 {
+    values.sort_by(f64::total_cmp);
+    let n = values.len();
+    if n == 0 {
+        return 0.0;
+    }
+    if n % 2 == 1 {
+        values[n / 2]
+    } else {
+        (values[n / 2 - 1] + values[n / 2]) / 2.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn measures_median_latency_ignoring_one_outlier() {
+        let mut c = Calibration::new(1.0);
+        for (i, click) in c.clicks().to_vec().iter().enumerate() {
+            let jitter = [0.0, 3.0, -2.0, 1.0, -1.0, 2.0, 0.0, 120.0][i] / 1000.0;
+            c.on_onset(click + 0.040 + jitter);
+        }
+        let CalibrationResult::Measured {
+            latency_ms,
+            spread_ms,
+        } = c.result()
+        else {
+            panic!("{:?}", c.result());
+        };
+        assert!((latency_ms - 40.5).abs() < 1.0, "{latency_ms}");
+        assert!(spread_ms < 3.0);
+    }
+
+    #[test]
+    fn too_few_and_unsteady() {
+        let mut c = Calibration::new(0.0);
+        c.on_onset(0.05);
+        assert_eq!(c.result(), CalibrationResult::TooFew { matched: 1 });
+        let mut c = Calibration::new(0.0);
+        for (i, click) in c.clicks().to_vec().iter().enumerate() {
+            c.on_onset(click + if i % 2 == 0 { 0.0 } else { 0.2 });
+        }
+        assert!(matches!(c.result(), CalibrationResult::Unsteady { .. }));
+    }
+}

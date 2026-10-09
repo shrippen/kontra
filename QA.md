@@ -5,16 +5,26 @@ und nennt die Anforderungen aus dem [Lastenheft](LASTENHEFT.md), die sie prüft.
 
 ## Ablauf einer Sitzung
 
-1. **Aufbau.** Kontra aus dem Branch bauen (`make run`), frisches Profil: `KONTRA_DATA_DIR=/tmp/qa-<journey> make run`.
+1. **Aufbau.** Qt-Umgebung einmal einrichten (`sudo scripts/setup-qt-env.sh`), dann `. scripts/qt-env.sh` und
+   `cargo build -p kontra-app -p kontra-cli`. Frisches Profil: `KONTRA_DATA_DIR=/tmp/qa-<journey>`.
+   Nach Änderungen an `crates/app/src/bridge.rs` vorher `cargo clean -p kontra-app` (siehe `agent.md`, Gelernte Fehler).
 2. **Eingang.** Mit echtem Instrument oder simuliert:
-   - `--input-file testdata/korpus/<datei>.wav` speist eine Aufnahme statt des Audio-Eingangs ein (in Echtzeit, mit realistischer Pufferung).
-   - `--input-profile laptop-jack` simuliert Pegel und Rauschen einer Laptop-Kombibuchse.
-   - `--midi-file <datei>.mid` speist MIDI-Ereignisse ein (ab Phase 4).
-3. **Als Persona spielen.** Vor dem Start die Persona lesen und ihre Ausrüstung nachstellen (Auflösung, Skalierung, Farbfilter, Eingang). Entscheidungen so treffen, wie sie es täte, nicht wie ein Entwickler.
-4. **Nebenher beobachten:** Log (`level=ERROR`, Xruns), Bildrate (`KONTRA_FPS=1`), rohe Übersetzungsschlüssel, Sprachmix, abgeschnittene Texte, Farbe als einziges Signal, Fokus nicht sichtbar.
-5. **Fund notieren** mit: Stufe (Fehler, Reibung, unlogisch, kosmetisch), Persona, Journey und Schritt, was passierte gegen was erwartet war, Beleg (Screenshot, Log-Zeile, Aufnahme). Nur Beobachtetes; Ungetestetes ausdrücklich nennen.
+   - Aufnahme erzeugen: `kontra-cli render testdata/demo/etude-1.mid take.wav --lead-in 2.4 [--offset-ms 20] [--wrong-every 7] [--miss-every 13] [--detune-cents 15]`
+     (`--lead-in` = Länge des Einzählers, bei 100 BPM ein 4/4-Takt = 2,4 s).
+   - App mit Aufnahme statt Audio-Eingang: `kontra --open <datei> --input-file take.wav [--input-profile laptop-jack] [--autoplay] [--mode song|wait|workshop] [--view lane|tab|notation]`.
+   - Ohne GUI: `kontra-cli practice <datei> --input-file take.wav --mode song` und `kontra-cli score <datei> take.wav`.
+   - Ohne Audioausgang (Container, CI) läuft Kontra stumm weiter und sagt das.
+3. **Als Persona spielen.** Vor dem Start die Persona lesen und ihre Ausrüstung nachstellen (Auflösung, Skalierung
+   `QT_SCALE_FACTOR=2`, Sprache `--language de|en`, Stil `--style kante|kante-light|system`, Eingang).
+   Entscheidungen so treffen, wie sie es täte, nicht wie ein Entwickler.
+4. **Belege:** `--screenshot out.png --screenshot-after <ms>` speichert die aktuelle Seite; `scripts/screenshots.sh` macht alle Seiten auf Deutsch und Englisch.
+   Nebenher beobachten: Konsole (QML-Warnungen, `audio problem`), rohe Übersetzungsschlüssel (`level.quiet`), Sprachmix, abgeschnittene Texte,
+   Farbe als einziges Signal, Fokus nicht sichtbar.
+5. **Fund notieren** mit: Stufe (Fehler, Reibung, unlogisch, kosmetisch), Persona, Journey und Schritt, was passierte gegen was erwartet war,
+   Beleg (Screenshot, Log-Zeile, Aufnahme). Nur Beobachtetes; Ungetestetes ausdrücklich nennen.
 6. **Ergebnis** der Runde in `ROADMAP.md` unter „QA-Runde <Datum>“; gefundene Fehler: zuerst ein Test, der fehlschlägt, dann die Korrektur.
-7. **Automatisierung.** Journeys mit messbaren Schritten (markiert mit ⚙) haben einen Test in `tests/journeys/`, der dieselben Schritte über die Session-Schnittstelle mit eingespeisten Aufnahmen fährt. Screenshots für Release-Logs entstehen aus diesen Tests.
+7. **Automatisierung.** Journeys mit messbaren Schritten (markiert mit ⚙) haben einen Test (Rust: `crates/*/tests`, `crates/appcore` spielt
+   Aufnahmen live ab). Screenshots für Release-Logs kommen aus `scripts/screenshots.sh`.
 
 Markierungen: ⚙ automatisiert · 🔍 auch mit 200 % Skalierung und Farbfilter Deuteranopie (P7) · 📽 auch bei 1280×720 (P4).
 

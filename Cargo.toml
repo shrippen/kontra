@@ -1,0 +1,42 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+license = "MIT"
+repository = "https://git.arianw.de/shrippen/Kontra"
+publish = false
+
+[workspace.dependencies]
+kontra-model = { path = "crates/model" }
+kontra-drivers = { path = "crates/drivers" }
+kontra-engine = { path = "crates/engine" }
+kontra-content = { path = "crates/content" }
+kontra-session = { path = "crates/session" }
+kontra-dsp = { path = "crates/dsp" }
+kontra-stretch = { path = "crates/stretch" }
+kontra-appcore = { path = "crates/appcore" }
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rustfft = "6"
+rtrb = "0.4"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+dbg_macro = "deny"
+todo = "deny"
+
+[profile.release]
+debug = 1
+
+[profile.test]
+opt-level = 2

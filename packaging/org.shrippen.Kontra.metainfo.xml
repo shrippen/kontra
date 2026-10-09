@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.shrippen.Kontra</id>
+  <name>Kontra</name>
+  <summary>Learn bass and play songs with feedback on pitch and timing</summary>
+  <summary xml:lang="de">Bass lernen und Lieder spielen, mit Rückmeldung zu Ton und Timing</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="org.shrippen">
+    <name>shrippen</name>
+  </developer>
+  <description>
+    <p>Kontra listens to your real bass through an interface or the laptop jack. Tab lane, tablature or notation run along and every note is judged for pitch and timing.</p>
+    <p xml:lang="de">Kontra hört deinem echten Bass über ein Interface oder die Laptop-Buchse zu. Tab-Lane, Tabulatur oder Noten laufen mit, jeder Ton wird nach Tonhöhe und Timing bewertet.</p>
+    <ul>
+      <li>Imports Guitar Pro (3–8), MIDI and MusicXML</li>
+      <li>Play, Song, Wait and Workshop modes; slow down without changing pitch</li>
+      <li>Tuner, latency calibration, evaluation with timing histogram</li>
+      <li>Offline, no account, no telemetry</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">org.shrippen.Kontra.desktop</launchable>
+  <content_rating type="oars-1.1"/>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+</component>

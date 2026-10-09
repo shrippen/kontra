@@ -1,0 +1,20 @@
+[package]
+name = "kontra-engine"
+description = "Audio engine for Kontra: live and file input with note tracking, tuner, level meter; output mixer for clicks and reference tones."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+kontra-model.workspace = true
+kontra-dsp.workspace = true
+kontra-drivers.workspace = true
+kontra-stretch.workspace = true
+rtrb.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
