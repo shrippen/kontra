@@ -15,7 +15,7 @@ und nennt die Anforderungen aus dem [Lastenheft](LASTENHEFT.md), die sie prüft.
    - Ohne GUI: `kontra-cli practice <datei> --input-file take.wav --mode song` und `kontra-cli score <datei> take.wav`.
    - Ohne Audioausgang (Container, CI) läuft Kontra stumm weiter und sagt das.
 3. **Als Persona spielen.** Vor dem Start die Persona lesen und ihre Ausrüstung nachstellen (Auflösung, Skalierung
-   `QT_SCALE_FACTOR=2`, Sprache `--language de|en`, Stil `--style kante|kante-light|system`, Eingang).
+   `QT_SCALE_FACTOR=2`, Sprache `--language de|en`, Stil `--theme kante|kante-light|system` (nicht `--style`, das nimmt Qt), Eingang).
    Entscheidungen so treffen, wie sie es täte, nicht wie ein Entwickler.
 4. **Belege:** `--screenshot out.png --screenshot-after <ms>` speichert die aktuelle Seite; `scripts/screenshots.sh` macht alle Seiten auf Deutsch und Englisch.
    Nebenher beobachten: Konsole (QML-Warnungen, `audio problem`), rohe Übersetzungsschlüssel (`level.quiet`), Sprachmix, abgeschnittene Texte,

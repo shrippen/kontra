@@ -32,7 +32,7 @@
   "result.missed": "Ausgelassen",
   "result.early": "zu früh",
   "result.late": "zu spät",
-  "waiting.for": "Spiel {note} – Saite {string}, Bund {fret}",
+  "waiting.for": "Spiel {note} – {string}-Saite, Bund {fret}.",
   "summary.title": "Auswertung",
   "summary.hitrate": "{percent} % getroffen",
   "summary.counts": "{hits} von {judged} · {wrong} falsch · {missed} ausgelassen",
@@ -137,5 +137,6 @@
   "workshop.choose": "Takte wählen, dann Abspielen",
   "workshop.above": "über dem Ziel: zweimal in Folge wird es schneller",
   "workshop.below": "unter dem Ziel: zweimal in Folge wird es langsamer",
-  "workshop.inside": "im Ziel: Tempo bleibt"
+  "workshop.inside": "im Ziel: Tempo bleibt",
+  "waiting.played": "Gespielt: {played}."
 }

@@ -32,7 +32,7 @@
   "result.missed": "Missed",
   "result.early": "early",
   "result.late": "late",
-  "waiting.for": "Play {note} – string {string}, fret {fret}",
+  "waiting.for": "Play {note} – {string} string, fret {fret}.",
   "summary.title": "Evaluation",
   "summary.hitrate": "{percent} % hit",
   "summary.counts": "{hits} of {judged} · {wrong} wrong · {missed} missed",
@@ -137,5 +137,6 @@
   "workshop.choose": "Choose bars, then play",
   "workshop.above": "above target: twice in a row speeds up",
   "workshop.below": "below target: twice in a row slows down",
-  "workshop.inside": "on target: tempo stays"
+  "workshop.inside": "on target: tempo stays",
+  "waiting.played": "You played {played}."
 }

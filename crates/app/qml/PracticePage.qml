@@ -179,11 +179,22 @@ Kirigami.Page {
             }
         }
 
-        // Wait mode: what to play next, in words (LH-MOD-03).
-        KanteBanner {
+        // Wait mode: what to play next, in words (LH-MOD-03). An instruction, not a warning (QA
+        // P1: the hazard banner read as an alarm); read out by screen readers when it changes (P7).
+        KanteCallout {
+            id: waitCallout
             Layout.fillWidth: true
             visible: ctl.holdingIndex >= 0
+            kind: KanteCallout.Kind.Info
+            autoHide: false
             title: ctl.holdingText
+        }
+        Connections {
+            target: ctl
+            function onHoldingTextChanged() {
+                if (ctl.holdingIndex >= 0 && ctl.holdingText !== "")
+                    waitCallout.Accessible.announce(ctl.holdingText)
+            }
         }
 
         Item {

@@ -3,7 +3,7 @@
 //! ```text
 //! kontra [--open FILE] [--page library|practice|tuner|settings] [--input-file WAV]
 //!        [--input-profile laptop-jack] [--autoplay] [--screenshot PNG] [--screenshot-after MS]
-//!        [--quit-after MS] [--style kante|kante-light|system] [--language de|en]
+//!        [--quit-after MS] [--theme kante|kante-light|system] [--language de|en]
 //!        [--mode play|song|wait|workshop] [--view lane|tab|notation] [--calibrate]
 //! ```
 
@@ -32,6 +32,14 @@ fn main() {
                 .as_mut()
                 .add_import_path(&QString::from(dir.to_string_lossy().as_ref()));
         }
+        // Without this a broken UI leaves a process without a window that never exits.
+        engine
+            .as_mut()
+            .on_object_creation_failed(|_, url| {
+                eprintln!("kontra: could not load {}", url.to_qstring());
+                std::process::exit(1);
+            })
+            .release();
         engine.load(&QUrl::from(MAIN_QML));
     }
     if let Some(app) = app.as_mut() {

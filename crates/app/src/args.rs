@@ -43,7 +43,9 @@ impl AppArgs {
                 "--screenshot" => out.screenshot = Some(PathBuf::from(value())),
                 "--screenshot-after" => out.screenshot_after_ms = value().parse().unwrap_or(1500),
                 "--quit-after" => out.quit_after_ms = value().parse().unwrap_or(0),
-                "--style" => out.style = Some(value()),
+                // Not "--style": QGuiApplication takes that for a Qt Quick Controls style and
+                // fails to load the UI (QA round 9.10.2026).
+                "--theme" => out.style = Some(value()),
                 "--language" => out.language = Some(value()),
                 "--mode" => out.mode = Some(value()),
                 "--view" => out.view = Some(value()),
@@ -66,6 +68,16 @@ impl AppArgs {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn theme_is_not_qts_style_option() {
+        let parse = |a: &[&str]| AppArgs::parse(a.iter().map(|s| s.to_string())).style;
+        assert_eq!(
+            parse(&["--theme", "kante-light"]),
+            Some("kante-light".into())
+        );
+        assert_eq!(parse(&["--style", "kante-light"]), None);
+    }
 
     #[test]
     fn parses_loop_bars() {

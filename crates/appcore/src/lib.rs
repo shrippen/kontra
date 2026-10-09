@@ -144,6 +144,39 @@ impl Core {
         &self.settings
     }
 
+    /// A note name as the user's language writes it: German says H for B (B is B♭ there).
+    pub fn note_label(&self, name: &str) -> String {
+        match (self.catalog.language(), name.strip_prefix('B')) {
+            (Language::German, Some(rest)) if !rest.starts_with('#') => format!("H{rest}"),
+            _ => name.to_string(),
+        }
+    }
+
+    /// Wait mode: what to play next, with the string by name; after a wrong note also what was
+    /// played (J-B2: the player sees both, in words).
+    pub fn wait_text(&self, note: usize, played_midi: Option<f64>) -> Option<String> {
+        let a = self.arrangement()?;
+        let n = a.notes.get(note)?;
+        let string = n
+            .string
+            .and_then(|s| a.instrument.tuning.strings.get(usize::from(s)))
+            .map_or_else(String::new, |p| self.note_label(&p.name().to_string()));
+        let args = [
+            ("note", self.note_label(&n.pitch.to_string())),
+            ("string", string),
+            ("fret", n.fret.unwrap_or(0).to_string()),
+        ];
+        let wanted = self.tr("waiting.for", &args);
+        Some(match played_midi {
+            Some(m) => {
+                let played = kontra_model::Pitch(m.round().clamp(0.0, 127.0) as u8).to_string();
+                let played = self.tr("waiting.played", &[("played", self.note_label(&played))]);
+                format!("{played} {wanted}")
+            }
+            None => wanted,
+        })
+    }
+
     /// Changes settings that do not affect a running practice (view, style, language) and saves.
     pub fn update_settings(&mut self, change: impl FnOnce(&mut Settings)) {
         change(&mut self.settings);
@@ -628,7 +661,10 @@ impl Core {
                 rms_db: f64::from(rms_db),
                 clipped,
             }),
-            PracticeEvent::Tuner { note, cents } => Some(UiEvent::Tuner { note, cents }),
+            PracticeEvent::Tuner { note, cents } => Some(UiEvent::Tuner {
+                note: self.note_label(&note),
+                cents,
+            }),
             // A device error usually means the interface was unplugged (LH-ALL-04): the run ends
             // and the next play opens the device again.
             PracticeEvent::Error(m) => Some(UiEvent::DeviceLost(
@@ -651,6 +687,11 @@ impl Core {
                     Outcome::Hit if offset < -window => "early",
                     Outcome::Hit if offset > window => "late",
                     Outcome::Hit => "hit",
+                    // In wait mode the note stays open: show what was played instead of marking it.
+                    Outcome::WrongPitch { played_midi } if self.settings.mode == "wait" => {
+                        let text = self.wait_text(index, Some(played_midi))?;
+                        return Some(UiEvent::Holding { index, text });
+                    }
                     Outcome::WrongPitch { .. } => "wrong",
                     Outcome::Missed => "missed",
                     Outcome::Extra { .. } => return Some(UiEvent::Extra),
@@ -663,15 +704,7 @@ impl Core {
                 })
             }
             SessionEvent::Holding { note } => {
-                let n = self.arrangement()?.notes.get(note)?;
-                let text = self.tr(
-                    "waiting.for",
-                    &[
-                        ("note", n.pitch.to_string()),
-                        ("string", n.string.map_or(0, |s| s + 1).to_string()),
-                        ("fret", n.fret.unwrap_or(0).to_string()),
-                    ],
-                );
+                let text = self.wait_text(note, None)?;
                 Some(UiEvent::Holding { index: note, text })
             }
             SessionEvent::Released => Some(UiEvent::Released),
@@ -814,6 +847,46 @@ mod tests {
         assert_eq!(written_beats(q / 2 - 40), 0.5);
         assert_eq!(written_beats(q), 1.0);
         assert_eq!(written_beats(10), 0.25);
+    }
+
+    #[test]
+    fn note_names_follow_the_language() {
+        let dir = temp_dir("names");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        assert_eq!(core.note_label("B1"), "H1");
+        assert_eq!(core.note_label("A#1"), "A#1");
+        assert_eq!(core.note_label("E2"), "E2");
+        core.update_settings(|s| s.language = Some("en".into()));
+        assert_eq!(core.note_label("B1"), "B1");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Wait mode (J-B2): the string by its name, not a number counted from the low string, and
+    /// after a wrong note what was played.
+    #[test]
+    fn wait_text_names_string_and_played_note() {
+        let dir = temp_dir("wait");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&demo()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let (index, n) = a
+            .notes
+            .iter()
+            .enumerate()
+            .find(|(_, n)| n.string.is_some())
+            .unwrap();
+        let open = a.instrument.tuning.strings[usize::from(n.string.unwrap())]
+            .name()
+            .to_string();
+        let text = core.wait_text(index, None).unwrap();
+        assert!(text.contains(&format!("{open}-Saite")), "{text}");
+        let played = f64::from(n.pitch.0) + 1.0;
+        let text = core.wait_text(index, Some(played)).unwrap();
+        let played_name = core.note_label(&kontra_model::Pitch(n.pitch.0 + 1).to_string());
+        assert!(text.contains(&played_name), "{text}");
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
