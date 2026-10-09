@@ -219,5 +219,16 @@
   "setlist.next": "Next: {title}",
   "keys.next": "Next piece of the setlist",
   "setlist.delete.sure": "Really delete?",
-  "track.label": "Track"
+  "track.label": "Track",
+  "mixer.title": "Mixer",
+  "mixer.hint": "Volumes for backing track, metronome and reference tone; applies at once, also while playing.",
+  "mixer.backing": "Backing track",
+  "mixer.metronome": "Metronome",
+  "mixer.tone": "Reference tone",
+  "mixer.percent": "{percent} %",
+  "mixer.monitor": "Hear my bass through Kontra",
+  "mixer.monitor.hint": "The sound passes through the computer and so arrives a little late. If your interface has direct monitoring, use that and leave this off.",
+  "mixer.monitor.volume": "Bass volume",
+  "hint.monitor.rate": "Kontra cannot pass your bass through: input and output run at different sample rates. Choose the same device for both or use the interface's direct monitoring.",
+  "keys.mixer": "Show or hide the mixer"
 }
