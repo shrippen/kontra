@@ -33,6 +33,8 @@ modules:
       - install -Dm644 testdata/demo/etude-1.mid /app/share/kontra/demo/etude-1.mid
       - install -Dm644 packaging/org.shrippen.Kontra.desktop /app/share/applications/org.shrippen.Kontra.desktop
       - install -Dm644 packaging/org.shrippen.Kontra.svg /app/share/icons/hicolor/scalable/apps/org.shrippen.Kontra.svg
+      # 16–24 px from the simplified small logo (three lanes), larger sizes from the full one.
+      - for n in 16 22 24 32 48 64 128 256; do install -Dm644 packaging/icons/$n.png /app/share/icons/hicolor/${n}x${n}/apps/org.shrippen.Kontra.png; done
       - install -Dm644 packaging/org.shrippen.Kontra.metainfo.xml /app/share/metainfo/org.shrippen.Kontra.metainfo.xml
     sources:
       - type: dir
