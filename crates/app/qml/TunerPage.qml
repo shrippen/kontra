@@ -26,15 +26,18 @@ Kirigami.Page {
     readonly property real targetCents: hearing && targetString ? (ctl.tunerMidi - targetString.midi) * 100 : 0
     readonly property bool wrongString: hearing && Math.abs(targetCents) > 250
     // The string that is ringing (nearest open string), for the chromatic view (LH-TUN-01).
-    readonly property string ringing: {
-        if (!hearing || strings.length === 0) return ""
-        var best = strings[0]
+    // By index: drop D has two strings named D (LH-TUN-02).
+    readonly property int ringingIndex: {
+        if (!hearing || strings.length === 0) return -1
+        var best = 0
         for (var i = 1; i < strings.length; i++)
-            if (Math.abs(strings[i].midi - ctl.tunerMidi) < Math.abs(best.midi - ctl.tunerMidi)) best = strings[i]
-        return Math.abs(best.midi - ctl.tunerMidi) < 1.5 ? best.name : ""
+            if (Math.abs(strings[i].midi - ctl.tunerMidi) < Math.abs(strings[best].midi - ctl.tunerMidi)) best = i
+        return Math.abs(strings[best].midi - ctl.tunerMidi) < 1.5 ? best : -1
     }
+    readonly property string ringing: ringingIndex >= 0 ? strings[ringingIndex].name : ""
 
     function restart() { target = 0; done = []; inTuneMs = 0 }
+    onStringsChanged: restart()
 
     Timer {
         interval: 100
@@ -42,14 +45,10 @@ Kirigami.Page {
         running: page.guided && !page.allDone
         onTriggered: {
             // A beginner plucks whatever string: follow it if it is one still to tune.
-            if (page.wrongString && page.ringing !== "") {
-                for (var i = 0; i < page.strings.length; i++) {
-                    if (page.strings[i].name === page.ringing && page.done.indexOf(i) < 0) {
-                        page.target = i
-                        page.inTuneMs = 0
-                        return
-                    }
-                }
+            if (page.wrongString && page.ringingIndex >= 0 && page.done.indexOf(page.ringingIndex) < 0) {
+                page.target = page.ringingIndex
+                page.inTuneMs = 0
+                return
             }
             if (page.hearing && !page.wrongString && Math.abs(page.targetCents) <= 3) {
                 page.inTuneMs += interval

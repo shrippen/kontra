@@ -13,17 +13,28 @@ pub use i18n::{Catalog, Language};
 pub use kontra_session::exercise;
 pub use store::{data_dir, InputKind, Library, RecentEntry, Setlist, Settings};
 
-use kontra_model::{Arrangement, BassKind, InputSource};
+use kontra_model::{Arrangement, BassKind, InputSource, Tuning};
 use kontra_session::{
-    import_file, list_devices, run_from, CalibrationResult, Direction, Gains, ImportResult,
-    InputChoice, Live, LiveCalibration, LiveSetup, LiveTuner, LoopRange, Mode, Outcome,
-    PracticeEvent, PracticeOptions, ProgressStore, ScoreSettings, SessionEvent, Summary, Workshop,
+    import_file, list_devices, run_from, CalibrationResult, Connection, DeviceInfo, Direction,
+    Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveSetup, LiveTuner, LoopRange, Mode,
+    Outcome, PracticeEvent, PracticeOptions, ProgressStore, ScoreSettings, SessionEvent, Summary,
+    Workshop,
 };
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
 /// Seconds from the input's start to the first calibration click.
 const CALIBRATION_LEAD_S: f64 = 1.0;
+/// Reference pitch range for A4 (LH-TUN-04).
+const A4_MIN_HZ: f64 = 430.0;
+const A4_MAX_HZ: f64 = 450.0;
+/// Range of the free timing window (LH-BEW-02).
+const WINDOW_MIN_MS: f64 = 20.0;
+const WINDOW_MAX_MS: f64 = 150.0;
+/// Notes a string of a custom tuning may have: G0 (MIDI 19) to G3 (MIDI 55).
+const CUSTOM_NOTES: std::ops::RangeInclusive<u8> = 19..=55;
+/// Tunings the settings offer (LH-TUN-02); "drop" lowers the lowest string a whole step.
+const TUNINGS: [&str; 5] = ["standard", "drop", "half-down", "whole-down", "custom"];
 
 /// Options for QA runs (QA.md): a recording instead of the audio input.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -223,6 +234,9 @@ impl Core {
             "loose" => kontra_session::Strictness::Loose,
             "normal" => kontra_session::Strictness::Normal,
             "strict" => kontra_session::Strictness::Strict,
+            "custom" => kontra_session::Strictness::Custom {
+                window_ms: self.settings.window_ms.clamp(WINDOW_MIN_MS, WINDOW_MAX_MS),
+            },
             _ => settings.strictness,
         };
         if self.settings.pitch_cents > 0.0 {
@@ -234,16 +248,51 @@ impl Core {
     /// Open strings for guided tuning (LH-TUN-03), lowest first: the loaded piece's tuning, else
     /// the profile's. `[{"name": "E", "midi": 28}, …]`.
     pub fn tuning_json(&self) -> String {
-        let instrument = self
-            .arrangement()
-            .map_or_else(|| instrument_from(&self.settings), |a| a.instrument.clone());
-        let strings: Vec<serde_json::Value> = instrument
-            .tuning
+        self.strings_json(&self.instrument().tuning)
+    }
+
+    /// The profile's open strings (LH-TUN-02), as `tuning_json`; for the settings.
+    pub fn profile_tuning_json(&self) -> String {
+        self.strings_json(&instrument_from(&self.settings).tuning)
+    }
+
+    /// Notes a string of a custom tuning can take, lowest first: `[{"name": "G0", "midi": 19}, …]`.
+    pub fn note_choices_json(&self) -> String {
+        let notes: Vec<serde_json::Value> = CUSTOM_NOTES
+            .map(|m| json!({ "name": self.note_label(&kontra_model::Pitch(m).to_string()), "midi": m }))
+            .collect();
+        serde_json::Value::Array(notes).to_string()
+    }
+
+    /// `[{"name": "E", "octave": "E1", "midi": 28}, …]`: the name for the tuner, with octave
+    /// where open strings share a name (drop D: D1 and D2).
+    fn strings_json(&self, tuning: &kontra_model::Tuning) -> String {
+        let strings: Vec<serde_json::Value> = tuning
             .strings
             .iter()
-            .map(|p| json!({ "name": self.note_label(&p.name().to_string()), "midi": p.0 }))
+            .map(|p| {
+                json!({
+                    "name": self.note_label(&p.name().to_string()),
+                    "full": self.note_label(&p.to_string()),
+                    "midi": p.0,
+                })
+            })
             .collect();
         serde_json::Value::Array(strings).to_string()
+    }
+
+    /// The instrument to listen for: the loaded piece's, else the profile; with the reference
+    /// pitch from the settings (LH-TUN-04).
+    fn instrument(&self) -> kontra_model::Instrument {
+        let mut instrument = self
+            .arrangement()
+            .map_or_else(|| instrument_from(&self.settings), |a| a.instrument.clone());
+        instrument.a4_hz = self.a4_hz();
+        instrument
+    }
+
+    fn a4_hz(&self) -> f64 {
+        self.settings.a4_hz.clamp(A4_MIN_HZ, A4_MAX_HZ)
     }
 
     /// Progress over all pieces (LH-FOR-01): per piece best result, best tempo and time, and
@@ -284,6 +333,11 @@ impl Core {
 
     /// Plays another track of the loaded file (Kontra's guess may be the wrong one).
     pub fn switch_track(&mut self, track: usize) -> Result<(), String> {
+        self.reload(track)
+    }
+
+    /// Imports the loaded file again and plays `track`; keeps the setlist position.
+    fn reload(&mut self, track: usize) -> Result<(), String> {
         let path = self.loaded_path().ok_or("nothing loaded")?.to_path_buf();
         let imported = import_file(&path).map_err(|e| self.import_error(&e))?;
         let setlist = self.active_setlist.clone();
@@ -330,6 +384,68 @@ impl Core {
     pub fn reconfigure(&mut self, change: impl FnOnce(&mut Settings)) {
         self.update_settings(change);
         self.stop_live();
+    }
+
+    /// Changes the instrument profile (strings, tuning, reference pitch) so that it acts at once:
+    /// a loaded piece without its own tuning is laid out on the new strings again (LH-TUN-02) and
+    /// a running tuner listens with the new strings and reference.
+    pub fn retune(&mut self, change: impl FnOnce(&mut Settings)) -> Result<(), String> {
+        let tuner_running = self.tuner.is_some();
+        self.reconfigure(change);
+        if let Some(track) = self.loaded.as_ref().map(|l| l.track) {
+            self.reload(track)?;
+        }
+        if tuner_running {
+            self.start_tuner()?;
+        }
+        Ok(())
+    }
+
+    /// Chooses a tuning by name (`TUNINGS`); "custom" starts from the strings in use.
+    pub fn set_tuning(&mut self, name: &str) -> Result<(), String> {
+        if !TUNINGS.contains(&name) {
+            return Ok(());
+        }
+        let current = names_of(&tuning_from(&self.settings));
+        self.retune(|s| {
+            if name == "custom" && s.custom_tuning.len() != current.len() {
+                s.custom_tuning = current;
+            }
+            s.tuning = name.to_string();
+        })
+    }
+
+    /// Sets one open string (0 = lowest) to `midi` and makes the result the custom tuning.
+    pub fn set_custom_string(&mut self, string: usize, midi: u8) -> Result<(), String> {
+        let mut names = names_of(&tuning_from(&self.settings));
+        let Some(slot) = names.get_mut(string) else {
+            return Ok(());
+        };
+        if !CUSTOM_NOTES.contains(&midi) {
+            return Ok(());
+        }
+        *slot = kontra_model::Pitch(midi).to_string();
+        self.retune(|s| {
+            s.custom_tuning = names;
+            s.tuning = "custom".into();
+        })
+    }
+
+    /// Reference pitch of A4 (LH-TUN-04), clamped to 430–450 Hz; returns the value kept.
+    pub fn set_reference(&mut self, a4_hz: f64) -> Result<f64, String> {
+        let hz = a4_hz.clamp(A4_MIN_HZ, A4_MAX_HZ);
+        self.retune(|s| s.a4_hz = hz)?;
+        Ok(hz)
+    }
+
+    /// Free timing window (LH-BEW-02), clamped to 20–150 ms; returns the value kept.
+    pub fn set_window(&mut self, window_ms: f64) -> f64 {
+        let ms = window_ms.clamp(WINDOW_MIN_MS, WINDOW_MAX_MS).round();
+        self.reconfigure(|s| {
+            s.window_ms = ms;
+            s.strictness = "custom".into();
+        });
+        ms
     }
 
     /// Changes the mixer (volumes, monitoring) and saves; a running practice hears it at once.
@@ -615,6 +731,7 @@ impl Core {
         if self.settings.fretless {
             arrangement.instrument.kind = BassKind::Fretless;
         }
+        arrangement.instrument.a4_hz = self.a4_hz();
         self.stop_live();
         self.looping = None;
         self.library.touch(RecentEntry {
@@ -865,10 +982,18 @@ impl Core {
                 laptop_jack: self.qa.laptop_jack,
             },
             None => InputChoice::Device {
-                id: self.settings.input_device.clone(),
+                id: self.input_device(),
                 channel: None,
             },
         }
+    }
+
+    /// The chosen input, else an interface before the built-in card (LH-EIN-02).
+    fn input_device(&self) -> Option<String> {
+        if self.settings.input_device.is_some() {
+            return self.settings.input_device.clone();
+        }
+        preferred_input(&list_devices(Direction::Input)).map(|d| d.id.clone())
     }
 
     /// Starts audio for the loaded arrangement; true if there is no sound output.
@@ -906,10 +1031,7 @@ impl Core {
 
     pub fn start_tuner(&mut self) -> Result<(), String> {
         self.stop_live();
-        let instrument = match self.arrangement() {
-            Some(a) => a.instrument.clone(),
-            None => instrument_from(&self.settings),
-        };
+        let instrument = self.instrument();
         let tuner = LiveTuner::start(&self.input_choice(), &instrument, self.source())
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
         self.tuner = Some(tuner);
@@ -970,10 +1092,7 @@ impl Core {
     pub fn start_calibration(&mut self) -> Result<(), String> {
         self.stop_live();
         self.tuner = None;
-        let instrument = match self.arrangement() {
-            Some(a) => a.instrument.clone(),
-            None => instrument_from(&self.settings),
-        };
+        let instrument = self.instrument();
         let setup = LiveSetup {
             input: self.input_choice(),
             output_device: self.settings.output_device.clone(),
@@ -1476,9 +1595,14 @@ impl Core {
         } else {
             Direction::Output
         };
-        let list: Vec<_> = list_devices(direction)
-            .into_iter()
-            .map(|d| json!({ "id": d.id, "name": d.name, "default": d.is_default, "connection": format!("{:?}", d.connection) }))
+        let devices = list_devices(direction);
+        // Input: the one Kontra takes when none is chosen (LH-EIN-02).
+        let preferred = preferred_input(&devices)
+            .filter(|_| input)
+            .map(|d| d.id.clone());
+        let list: Vec<_> = devices
+            .iter()
+            .map(|d| json!({ "id": d.id, "name": d.name, "default": d.is_default, "connection": format!("{:?}", d.connection), "preferred": preferred.as_ref() == Some(&d.id) }))
             .collect();
         serde_json::Value::Array(list).to_string()
     }
@@ -1618,18 +1742,63 @@ fn split_rest(bar: u64, from: u64, to: u64, out: &mut Vec<(u64, u64)>) {
 }
 
 fn instrument_from(settings: &Settings) -> kontra_model::Instrument {
-    let tuning = match settings.strings {
-        5 => kontra_model::Tuning::bass5_standard(),
-        6 => kontra_model::Tuning::bass6_standard(),
-        _ => kontra_model::Tuning::bass4_standard(),
-    };
     let kind = if settings.fretless {
         BassKind::Fretless
     } else {
         BassKind::Fretted
     };
-    kontra_model::Instrument::new(kind, tuning, 24)
-        .unwrap_or_else(|_| kontra_model::Instrument::default_bass())
+    let mut instrument = kontra_model::Instrument::new(kind, tuning_from(settings), 24)
+        .unwrap_or_else(|_| kontra_model::Instrument::default_bass());
+    instrument.a4_hz = settings.a4_hz.clamp(A4_MIN_HZ, A4_MAX_HZ);
+    instrument
+}
+
+/// The profile's tuning (LH-TUN-02): standard for the string count, changed as chosen. A custom
+/// tuning for another string count falls back to standard.
+fn tuning_from(settings: &Settings) -> Tuning {
+    let standard = match settings.strings {
+        5 => Tuning::bass5_standard(),
+        6 => Tuning::bass6_standard(),
+        _ => Tuning::bass4_standard(),
+    };
+    let chosen = match settings.tuning.as_str() {
+        "drop" => drop_lowest(&standard),
+        "half-down" => standard.shifted("half-down", -1),
+        "whole-down" => standard.shifted("whole-down", -2),
+        "custom" if settings.custom_tuning.len() == standard.string_count() => {
+            let names: Vec<&str> = settings.custom_tuning.iter().map(String::as_str).collect();
+            Tuning::from_names("custom", &names).ok()
+        }
+        _ => None,
+    };
+    chosen.unwrap_or(standard)
+}
+
+/// The lowest string a whole step down: E A D G → D A D G, B E A D G → A E A D G.
+fn drop_lowest(standard: &Tuning) -> Option<Tuning> {
+    let mut strings = standard.strings.clone();
+    let lowest = strings.first_mut()?;
+    *lowest = lowest.transposed(-2)?;
+    Some(Tuning {
+        name: "drop".into(),
+        strings,
+    })
+}
+
+/// Note names of a tuning's open strings, lowest first ("D1", "A1", …).
+fn names_of(tuning: &Tuning) -> Vec<String> {
+    tuning.strings.iter().map(ToString::to_string).collect()
+}
+
+/// LH-EIN-02: with no input chosen, an interface (USB) before the built-in card, the system's
+/// default first if it is one. `None`: no interface, the system decides.
+fn preferred_input(devices: &[DeviceInfo]) -> Option<&DeviceInfo> {
+    let usb = |d: &&DeviceInfo| d.connection == Connection::Usb;
+    devices
+        .iter()
+        .filter(usb)
+        .find(|d| d.is_default)
+        .or_else(|| devices.iter().find(usb))
 }
 
 /// Block length in ms if it is longer than 512 frames at 48 kHz (10.7 ms): beyond that the
@@ -2052,6 +2221,121 @@ mod tests {
         assert!(total >= 30);
         assert_eq!(levels[0]["items"][0]["best"], -1.0);
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    fn open_strings(core: &Core) -> Vec<String> {
+        let strings: Vec<serde_json::Value> = serde_json::from_str(&core.tuning_json()).unwrap();
+        strings
+            .iter()
+            .map(|s| s["full"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    /// LH-TUN-02: the presets for four and five strings, and a custom tuning that only fits its
+    /// string count.
+    #[test]
+    fn tunings_follow_the_settings() {
+        let names = |strings: u8, tuning: &str| {
+            let settings = Settings {
+                strings,
+                tuning: tuning.into(),
+                custom_tuning: vec!["C1".into(), "G1".into(), "C2".into(), "F2".into()],
+                ..Settings::default()
+            };
+            names_of(&tuning_from(&settings)).join(" ")
+        };
+        assert_eq!(names(4, "standard"), "E1 A1 D2 G2");
+        assert_eq!(names(4, "drop"), "D1 A1 D2 G2");
+        assert_eq!(names(5, "drop"), "A0 E1 A1 D2 G2");
+        assert_eq!(names(4, "half-down"), "D#1 G#1 C#2 F#2");
+        assert_eq!(names(4, "whole-down"), "D1 G1 C2 F2");
+        assert_eq!(names(4, "custom"), "C1 G1 C2 F2");
+        assert_eq!(names(5, "custom"), "B0 E1 A1 D2 G2");
+    }
+
+    /// LH-TUN-02 acceptance: a custom tuning is used by the tuner and for the tab of a MIDI file
+    /// (no tuning of its own), and survives a restart.
+    #[test]
+    fn custom_tuning_reaches_tuner_and_tab() {
+        let dir = temp_dir("custom-tuning");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        core.set_tuning("drop").unwrap();
+        assert_eq!(open_strings(&core), ["D1", "A1", "D2", "G2"]);
+        core.set_custom_string(3, 41).unwrap(); // G2 → F2
+        assert_eq!(core.settings().tuning, "custom");
+        assert_eq!(open_strings(&core), ["D1", "A1", "D2", "F2"]);
+
+        // Every note sits on a string and fret that sound its pitch in the new tuning.
+        let a = core.arrangement().unwrap();
+        assert_eq!(a.instrument.tuning.strings[3].0, 41);
+        for n in &a.notes {
+            let (string, fret) = (n.string.unwrap(), n.fret.unwrap());
+            assert_eq!(a.instrument.pitch_at(string, fret), Some(n.pitch));
+        }
+
+        let again = Core::new(&dir, QaOptions::default());
+        assert_eq!(open_strings(&again), ["D1", "A1", "D2", "F2"]);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-TUN-04: the reference pitch reaches the instrument the tuner and scoring listen with.
+    #[test]
+    fn reference_pitch_is_used() {
+        let dir = temp_dir("reference");
+        let mut core = Core::new(&dir, QaOptions::default());
+        assert_eq!(core.instrument().a4_hz, 440.0);
+        assert_eq!(core.set_reference(442.0).unwrap(), 442.0);
+        assert_eq!(core.instrument().a4_hz, 442.0);
+        core.open(&demo()).unwrap();
+        assert_eq!(core.arrangement().unwrap().instrument.a4_hz, 442.0);
+        assert_eq!(core.set_reference(470.0).unwrap(), 450.0);
+        assert_eq!(core.arrangement().unwrap().instrument.a4_hz, 450.0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-BEW-02: a free window in ms, kept within 20–150 ms.
+    #[test]
+    fn free_timing_window() {
+        let dir = temp_dir("window");
+        let mut core = Core::new(&dir, QaOptions::default());
+        assert_eq!(core.set_window(35.0), 35.0);
+        assert_eq!(core.settings().strictness, "custom");
+        let settings = core.score_settings(BassKind::Fretted);
+        assert_eq!(settings.strictness.window_ms(), 35.0);
+        assert_eq!(core.set_window(5.0), 20.0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-EIN-02: Scarlett Solo and the internal card → the interface, default or not.
+    #[test]
+    fn interface_before_internal_card() {
+        let device = |id: &str, connection: Connection, is_default: bool| DeviceInfo {
+            id: id.into(),
+            name: id.into(),
+            direction: Direction::Input,
+            is_default,
+            connection,
+            sample_rate: 48_000,
+            channels: 2,
+        };
+        let internal = device("hda", Connection::BuiltIn, true);
+        let scarlett = device("scarlett", Connection::Usb, false);
+        let list = [internal.clone(), scarlett.clone()];
+        assert_eq!(
+            preferred_input(&list).map(|d| d.id.as_str()),
+            Some("scarlett")
+        );
+
+        let usb_default = device("usb-default", Connection::Usb, true);
+        let list = [scarlett, internal.clone(), usb_default];
+        assert_eq!(
+            preferred_input(&list).map(|d| d.id.as_str()),
+            Some("usb-default")
+        );
+
+        let list = [internal, device("pipewire", Connection::Other, false)];
+        assert_eq!(preferred_input(&list), None);
     }
 
     /// LH-FOR-01 / J-C1: recorded runs show up per piece and with their time for the day view.

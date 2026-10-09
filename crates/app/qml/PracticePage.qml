@@ -222,6 +222,8 @@ Kirigami.Page {
             }
             QQC2.Label {
                 Layout.fillWidth: true
+                // As wide as the text, so the info button sits right after it.
+                Layout.maximumWidth: implicitWidth
                 wrapMode: Text.WordWrap
                 color: KanteStyle.textColor
                 text: {
@@ -236,6 +238,11 @@ Kirigami.Page {
                         + (workshopRow.lastChange !== "" ? " · " + workshopRow.lastChange : "")
                 }
             }
+            InfoTip {
+                term: texts.t("help.band.term")
+                info: texts.t("help.band", { low: Math.round(ctl.bandLow * 100), high: Math.round(ctl.bandHigh * 100) })
+            }
+            Item { Layout.fillWidth: true }
             Connections {
                 target: ctl
                 function onPassComplete(clean, hitRate) {
@@ -291,6 +298,7 @@ Kirigami.Page {
                 strings: page.stringNames.length
                 stringNames: page.stringNames
                 lowStringOnTop: ctl.lowStringOnTop
+                stringColors: applicationWindow().stringColors
                 notes: page.notes
                 marks: page.marks
                 onNotesChanged: Qt.callLater(function() { page.catchUp(lane) })
@@ -374,6 +382,7 @@ Kirigami.Page {
                 stringNames: page.stringNames
                 frets: 15
                 lowStringOnTop: ctl.lowStringOnTop
+                leftHanded: ctl.leftHanded
                 markers: page.nextNote ? [{ string: page.nextNote.string, fret: page.nextNote.fret, role: "next" }] : []
                 accessibleName: texts.t("fretboard.name")
                 markerText: texts.t("fretboard.marker")
