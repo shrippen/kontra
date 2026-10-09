@@ -7,6 +7,7 @@
 //!        └──────────────── timeout (150 ms) ──────────────────────────────────────────────► emit best
 //! ```
 
+use crate::intonation::refine_hz;
 use crate::level::amplitude_to_db;
 use crate::onset::{OnsetConfig, OnsetDetector};
 use crate::yin::{PitchEstimate, Yin};
@@ -181,16 +182,21 @@ impl NoteTracker {
 
     /// YIN over the newest `needed()` samples before `until` (all after the attack).
     ///
-    /// The plain estimate is used, not `estimate_fundamental`: its low-pass needs warm-up audio
-    /// that a fresh note does not have yet. Stiff strings make the plain estimate read up to
-    /// ~8 cents sharp on the lowest notes, well inside the scoring tolerance.
+    /// The plain estimate is used, not `estimate_fundamental` (its low-pass needs warm-up audio a
+    /// fresh note does not have), then `refine_hz` removes the stiff-string bias for intonation.
     fn estimate(&mut self, p: &Pending, until: u64) -> Option<PitchEstimate> {
         let skip = (self.config.attack_skip_s * self.sample_rate) as u64;
         let from = (p.onset + skip).max(until.saturating_sub(self.yin.needed() as u64));
         let count = (until - from) as usize;
         self.copy_out(from, count);
-        let estimate = self.yin.estimate(&self.scratch[..count])?;
-        (estimate.confidence >= self.config.min_confidence).then_some(estimate)
+        let mut estimate = self.yin.estimate(&self.scratch[..count])?;
+        if estimate.confidence < self.config.min_confidence {
+            return None;
+        }
+        if let Some(hz) = refine_hz(&self.scratch[..count], self.sample_rate, estimate.hz) {
+            estimate.hz = hz;
+        }
+        Some(estimate)
     }
 
     fn copy_out(&mut self, from: u64, count: usize) {
@@ -282,14 +288,14 @@ mod tests {
             0.25,
         );
         let signal = render(&notes, SR, 3.6, ToneShape::Rich, 5);
-        assert_matches(&track(&signal, InputSource::Line), &notes, 5.0, 10.0);
+        assert_matches(&track(&signal, InputSource::Line), &notes, 5.0, 3.0);
     }
 
     #[test]
     fn sixteenths_at_120() {
         let notes = line(&["E1", "E1", "G1", "A1", "E1", "E1", "D2", "E2"], 0.125);
         let signal = render(&notes, SR, 1.5, ToneShape::Rich, 6);
-        assert_matches(&track(&signal, InputSource::Line), &notes, 5.0, 10.0);
+        assert_matches(&track(&signal, InputSource::Line), &notes, 5.0, 3.0);
     }
 
     #[test]

@@ -11,6 +11,8 @@ kontra-dsp = { path = "../dsp" }
 kontra-drivers.workspace = true
 rtrb.workspace = true
 thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

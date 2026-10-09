@@ -11,11 +11,13 @@
 
 mod clock;
 mod input;
+mod korpus;
 mod offline;
 mod player;
 
 pub use clock::Clock;
 pub use input::{Input, InputKind, Pace};
+pub use korpus::{evaluate, generate, Annotation, Evaluation, KorpusItem, KorpusSet};
 pub use offline::analyze;
 pub use player::{Accent, Player, Sound};
 
