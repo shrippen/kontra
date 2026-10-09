@@ -9,6 +9,7 @@ mod i18n;
 mod store;
 
 pub use i18n::{Catalog, Language};
+pub use kontra_session::exercise;
 pub use store::{data_dir, InputKind, Library, RecentEntry, Setlist, Settings};
 
 use kontra_model::{Arrangement, BassKind, InputSource};
@@ -1217,6 +1218,143 @@ impl Core {
         })
     }
 
+    /// Folder of the bundled exercises (LH-BIB-08): installed share dir, else the repo's.
+    pub fn exercises_dir() -> PathBuf {
+        let installed = std::env::current_exe()
+            .ok()
+            .and_then(|e| e.parent().map(|p| p.join("../share/kontra/exercises")));
+        match installed {
+            Some(path) if path.is_dir() => path,
+            _ => PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/exercises"),
+        }
+    }
+
+    /// Bundled exercises by level: `[{"level": "1 Einstieg", "items": [{"title", "path", "best"}]}]`.
+    pub fn bundled_json(&self) -> String {
+        let mut levels: Vec<PathBuf> = std::fs::read_dir(Self::exercises_dir())
+            .map(|d| {
+                d.flatten()
+                    .map(|e| e.path())
+                    .filter(|p| p.is_dir())
+                    .collect()
+            })
+            .unwrap_or_default();
+        levels.sort();
+        let list: Vec<_> = levels
+            .iter()
+            .map(|dir| {
+                let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
+                    .map(|d| {
+                        d.flatten()
+                            .map(|e| e.path())
+                            .filter(|p| p.extension().is_some_and(|x| x == "mid"))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                files.sort();
+                let items: Vec<_> = files
+                    .iter()
+                    .map(|f| {
+                        let stem = f
+                            .file_stem()
+                            .map_or(String::new(), |s| s.to_string_lossy().into_owned());
+                        // "07 Dur-Tonleiter in G (60 BPM)": the number only sorts.
+                        let title = stem
+                            .split_once(' ')
+                            .map_or(stem.clone(), |(_, t)| t.to_string());
+                        let best = self.best_rate(f);
+                        json!({ "title": title, "path": f.to_string_lossy(), "best": best })
+                    })
+                    .collect();
+                let name = dir
+                    .file_name()
+                    .map_or(String::new(), |n| n.to_string_lossy().into_owned());
+                let level = name
+                    .split_once(' ')
+                    .map_or(name.clone(), |(_, l)| l.to_string());
+                json!({ "level": level, "items": items })
+            })
+            .collect();
+        json!(list).to_string()
+    }
+
+    /// Best hit rate (0..1) of a piece, or -1 when never played.
+    fn best_rate(&self, path: &Path) -> f64 {
+        self.library
+            .entry(path)
+            .and_then(|e| self.progress_store().load_id(&e.song_id))
+            .and_then(|p| p.best_hit_rate())
+            .unwrap_or(-1.0)
+    }
+
+    /// An exercise from the UI's choice: `kind` "scale" | "arpeggio" | "walking" | "groove",
+    /// `variant` the scale ("major", "minor", "majorpenta", "minorpenta", "blues") or the
+    /// progression ("tonic", "251", "blues", "minor"), `rhythm` for grooves.
+    pub fn exercise_spec(
+        kind: &str,
+        variant: &str,
+        rhythm: &str,
+        key: u8,
+        bpm: f64,
+    ) -> Option<exercise::ExerciseSpec> {
+        use exercise::{ExerciseKind, Progression, Rhythm, ScaleKind};
+        let progression = || match variant {
+            "tonic" => Some(Progression::Tonic),
+            "251" => Some(Progression::TwoFiveOne),
+            "blues" => Some(Progression::Blues),
+            "minor" => Some(Progression::Minor),
+            _ => None,
+        };
+        let kind = match kind {
+            "scale" => ExerciseKind::Scale(match variant {
+                "major" => ScaleKind::Major,
+                "minor" => ScaleKind::Minor,
+                "majorpenta" => ScaleKind::MajorPentatonic,
+                "minorpenta" => ScaleKind::MinorPentatonic,
+                "blues" => ScaleKind::Blues,
+                _ => return None,
+            }),
+            "arpeggio" => ExerciseKind::Arpeggio(progression()?),
+            "walking" => ExerciseKind::WalkingBass(progression()?),
+            "groove" => ExerciseKind::Groove(
+                progression()?,
+                match rhythm {
+                    "quarters" => Rhythm::Quarters,
+                    "eighths" => Rhythm::Eighths,
+                    "sixteenths" => Rhythm::Sixteenths,
+                    "rests" => Rhythm::WithRests,
+                    "shuffle" => Rhythm::Shuffle,
+                    "octaves" => Rhythm::Octaves,
+                    _ => return None,
+                },
+            ),
+            _ => return None,
+        };
+        Some(exercise::ExerciseSpec {
+            kind,
+            key: key % 12,
+            bpm: bpm.clamp(40.0, 200.0),
+            slow: false,
+            // Short patterns (scales, two-bar grooves) get more passes than a 12-bar blues.
+            repeats: if matches!(variant, "blues") { 1 } else { 2 },
+        })
+    }
+
+    /// Writes a generated exercise (LH-LRN-04) into the data folder and returns its path.
+    pub fn generate_exercise(&mut self, spec: &exercise::ExerciseSpec) -> Result<PathBuf, String> {
+        let generated = exercise::generate(spec);
+        let dir = self.data_dir.join("exercises");
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let name: String = generated
+            .title
+            .chars()
+            .map(|c| if matches!(c, '/' | ':' | '#') { '-' } else { c })
+            .collect();
+        let path = dir.join(format!("{name}.mid"));
+        std::fs::write(&path, &generated.midi).map_err(|e| e.to_string())?;
+        Ok(path)
+    }
+
     /// Path of the bundled first exercise: next to the binary when installed, else in the repo.
     pub fn demo_path() -> PathBuf {
         let installed = std::env::current_exe().ok().and_then(|e| {
@@ -1751,6 +1889,40 @@ mod tests {
             .collect();
         assert_eq!(names, ["H", "E", "A", "D", "G"]);
         assert_eq!(strings[0]["midi"], 23);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-LRN-04: a generated exercise is written to the data folder and opens like a piece.
+    #[test]
+    fn generated_exercise_opens() {
+        let dir = temp_dir("exercise");
+        let mut core = Core::new(&dir, QaOptions::default());
+        assert!(Core::exercise_spec("groove", "251", "nope", 0, 90.0).is_none());
+        let spec = Core::exercise_spec("walking", "blues", "", 5, 110.0).unwrap();
+        let path = core.generate_exercise(&spec).unwrap();
+        assert!(path.starts_with(dir.join("exercises")));
+        assert!(matches!(core.open(&path), Ok(Opened::Ready)));
+        let a = core.arrangement().unwrap();
+        assert_eq!(a.notes.len(), 48);
+        assert_eq!(a.markers[0].name, "F7");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-BIB-08: the bundled set lists four levels with at least 30 exercises.
+    #[test]
+    fn bundled_exercises_by_level() {
+        let dir = temp_dir("bundled");
+        let core = Core::new(&dir, QaOptions::default());
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let levels = levels.as_array().unwrap();
+        assert_eq!(levels.len(), 4);
+        assert_eq!(levels[0]["level"], "Einstieg");
+        let total: usize = levels
+            .iter()
+            .map(|l| l["items"].as_array().unwrap().len())
+            .sum();
+        assert!(total >= 30);
+        assert_eq!(levels[0]["items"][0]["best"], -1.0);
         let _ = std::fs::remove_dir_all(dir);
     }
 

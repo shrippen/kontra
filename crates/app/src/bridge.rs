@@ -274,6 +274,23 @@ pub mod qobject {
         #[cxx_name = "finishSetup"]
         fn finish_setup(self: Pin<&mut Self>);
 
+        /// Bundled exercises by level (LH-BIB-08); see `Core::bundled_json`.
+        #[qinvokable]
+        #[cxx_name = "exercisesJson"]
+        fn exercises_json(self: &Self) -> QString;
+
+        /// Generates an exercise (LH-LRN-04) and opens it; see `Core::exercise_spec`.
+        #[qinvokable]
+        #[cxx_name = "generateExercise"]
+        fn generate_exercise(
+            self: Pin<&mut Self>,
+            kind: &QString,
+            variant: &QString,
+            rhythm: &QString,
+            key: i32,
+            bpm: f64,
+        ) -> bool;
+
         /// Opens the bundled first exercise.
         #[qinvokable]
         #[cxx_name = "openDemo"]
@@ -1130,6 +1147,36 @@ impl qobject::Controller {
             .update_settings(|s| s.setup_done = true);
         self.as_mut().set_tuner_active(false);
         self.as_mut().set_setup_done(true);
+    }
+
+    fn exercises_json(&self) -> QString {
+        q(&self.rust().core.bundled_json())
+    }
+
+    fn generate_exercise(
+        mut self: Pin<&mut Self>,
+        kind: &QString,
+        variant: &QString,
+        rhythm: &QString,
+        key: i32,
+        bpm: f64,
+    ) -> bool {
+        let Some(spec) = Core::exercise_spec(
+            &kind.to_string(),
+            &variant.to_string(),
+            &rhythm.to_string(),
+            u8::try_from(key.rem_euclid(12)).unwrap_or(0),
+            bpm,
+        ) else {
+            return false;
+        };
+        match self.as_mut().core().generate_exercise(&spec) {
+            Ok(path) => self.as_mut().open_file(&q(&path.to_string_lossy())),
+            Err(e) => {
+                self.as_mut().show_error(&e);
+                false
+            }
+        }
     }
 
     fn open_demo(mut self: Pin<&mut Self>) -> bool {

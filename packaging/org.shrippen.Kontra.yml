@@ -31,6 +31,8 @@ modules:
       - mkdir -p /app/share/kontra/qml /app/share/kontra/demo
       - cp -r crates/app/qml/Kante /app/share/kontra/qml/Kante
       - install -Dm644 testdata/demo/etude-1.mid /app/share/kontra/demo/etude-1.mid
+      - cp -r testdata/exercises /app/share/kontra/exercises
+      - rm /app/share/kontra/exercises/README.md
       - install -Dm644 packaging/org.shrippen.Kontra.desktop /app/share/applications/org.shrippen.Kontra.desktop
       - install -Dm644 packaging/org.shrippen.Kontra.svg /app/share/icons/hicolor/scalable/apps/org.shrippen.Kontra.svg
       # 16–24 px from the simplified small logo (three lanes), larger sizes from the full one.
