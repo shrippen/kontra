@@ -119,7 +119,8 @@ den Bass als eigenes Instrument mit Groove-Fokus behandelt und nativ unter Linux
   Bundzahl auf der Note, Länge = Dauer. Das ist lesbarer als ein 3D-Highway, braucht keine GPU-Leistung und ist barrierearm.
 - **Alternativ: Notenschrift (Bassschlüssel)** und **klassische Tabulatur**, umschaltbar oder kombiniert.
 - **Griffbrett-Ansicht** unten: zeigt die nächste Note und die Lage (Anchor), optional mit Fingersatz.
-- **3D-Highway** als spätere Option, nicht im MVP.
+- **3D-Highway** als spätere Option, nicht im MVP. Technik (Runde 3): zuerst 2,5D in Qt Quick, kein Wechsel zu Godot;
+  Qt Quick 3D nur nach neuer Bewertung (GPL-3).
 - Saitenfarben konfigurierbar; Bedeutung nie nur über Farbe (Form und Beschriftung zusätzlich).
 
 ### 5.4 Feedback und Bewertung

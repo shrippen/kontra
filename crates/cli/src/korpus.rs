@@ -14,8 +14,24 @@ pub fn run(a: &KorpusArgs) -> CliResult {
             dirs,
             window_ms,
             laptop_jack,
+            pitch,
+            min_recall,
+            min_precision,
             verbose,
-        } => measure(dirs, *window_ms, *laptop_jack, *verbose),
+        } => {
+            let matching = session::Matching {
+                window_s: window_ms / 1000.0,
+                require_pitch: *pitch,
+            };
+            let (recall, precision) = measure(dirs, matching, *laptop_jack, *verbose)?;
+            let low = |floor: &Option<f64>, value: f64| floor.is_some_and(|m| value < m);
+            if low(min_recall, recall) || low(min_precision, precision) {
+                return Err(format!(
+                    "below the regression floor: recall {recall:.1} %, precision {precision:.1} %"
+                ));
+            }
+            Ok(())
+        }
     }
 }
 
@@ -79,12 +95,13 @@ fn check(dir: Option<&Path>) -> CliResult {
     Ok(())
 }
 
+/// Prints one line per file and the total; returns total recall and precision in percent.
 fn measure(
     dirs: &[std::path::PathBuf],
-    window_ms: f64,
+    matching: session::Matching,
     laptop_jack: bool,
     verbose: bool,
-) -> CliResult {
+) -> Result<(f64, f64), String> {
     let mut files: Vec<std::path::PathBuf> = Vec::new();
     for dir in dirs {
         let entries = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
@@ -106,12 +123,12 @@ fn measure(
         if laptop_jack {
             item.samples = session::simulate_laptop_jack(&item.samples, item.sample_rate);
         }
-        let (e, found) = session::evaluate_korpus_window(
+        let (e, found) = session::evaluate_korpus_with(
             item.set,
             &item.samples,
             item.sample_rate,
             &item.notes,
-            window_ms / 1000.0,
+            matching,
         );
         annotated += e.annotated;
         detected += e.detected;
@@ -132,7 +149,7 @@ fn measure(
             e.mean_abs_cents
         );
         if verbose {
-            report(&item.notes, &found, window_ms / 1000.0);
+            report(&item.notes, &found, matching);
         }
     }
     let pct = |a: usize, b: usize| {
@@ -151,17 +168,26 @@ fn measure(
         pct(matched, detected),
         pct(pitch, matched)
     );
-    Ok(())
+    Ok((pct(matched, annotated), pct(matched, detected)))
 }
 
 /// Misses, wrong pitches and extra detections of one file (greedy nearest match, as evaluated).
-fn report(notes: &[session::Annotation], found: &[kontra_model::DetectedNote], window_s: f64) {
+fn report(
+    notes: &[session::Annotation],
+    found: &[kontra_model::DetectedNote],
+    matching: session::Matching,
+) {
+    let window_s = matching.window_s;
     let mut used = vec![false; found.len()];
     for n in notes {
         let best = found
             .iter()
             .enumerate()
-            .filter(|(i, d)| !used[*i] && (d.onset_s - n.onset_s).abs() <= window_s)
+            .filter(|(i, d)| {
+                !used[*i]
+                    && (d.onset_s - n.onset_s).abs() <= window_s
+                    && (!matching.require_pitch || d.midi.round() == n.midi.round())
+            })
             .min_by(|a, b| {
                 (a.1.onset_s - n.onset_s)
                     .abs()
