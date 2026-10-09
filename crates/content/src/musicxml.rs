@@ -3,7 +3,7 @@
 //! `<technical><string>/<fret>` is used when the part declares a staff tuning.
 
 use crate::error::ImportError;
-use crate::score::{BarHead, Jump, Legato, Part, RawNote, Score, Target, Until, WHOLE_TICKS};
+use crate::score::{self, BarHead, Jump, Legato, Part, RawNote, Score, Target, Until, WHOLE_TICKS};
 use crate::xml::{self, Element};
 use crate::zip::Zip;
 use kontra_model::{Pitch, Technique, TimeSignature, TICKS_PER_QUARTER};
@@ -15,6 +15,8 @@ const FIRST_PROGRAM: u8 = 1;
 /// MusicXML numbers MIDI channels 1..=16; 10 is drums.
 const DRUM_CHANNEL: u8 = 10;
 const SEMITONES: i32 = 12;
+/// One semitone up is seven steps on the circle of fifths (C → G♭ … → C♯ = 7 fifths).
+const FIFTHS_PER_SEMITONE: i32 = 7;
 
 /// Compressed MusicXML: the root file named in the container, else the first score file.
 pub(crate) fn parse_mxl(data: &[u8]) -> Result<Score, ImportError> {
@@ -240,6 +242,10 @@ impl PartReader {
         for (offset, bpm) in &head.tempos {
             target.add_tempo(*offset, *bpm);
         }
+        // Every part writes the same concert key; the first part that has one wins.
+        if target.key.is_none() {
+            target.key = head.key;
+        }
         if self.role == Role::Leading {
             target.signature = head.signature;
             target.repeat_open = head.repeat_open;
@@ -273,6 +279,15 @@ impl PartReader {
             let chromatic: i32 = transpose.number("chromatic").unwrap_or(0);
             let octave: i32 = transpose.number("octave-change").unwrap_or(0);
             self.transpose = chromatic + octave * SEMITONES;
+        }
+
+        // The written key, moved to concert pitch like the notes (after <transpose>, which
+        // MusicXML puts behind <key>).
+        let fifths = attributes
+            .child("key")
+            .and_then(|k| k.number::<i32>("fifths"));
+        if let Some(fifths) = fifths {
+            head.key = score::key(concert_fifths(fifths, self.transpose));
         }
         if let Some(details) = attributes.child("staff-details") {
             let tuning = staff_tuning(details);
@@ -417,6 +432,24 @@ impl PartReader {
             self.ending = 0;
         }
     }
+}
+
+/// Key of a part written `transpose` semitones away from concert pitch, e.g. a B♭ clarinet
+/// (-2) written in C major (0) sounds in B♭ major (-2); octaves change nothing.
+fn concert_fifths(written: i32, transpose: i32) -> i32 {
+    let mut shift = (transpose * FIFTHS_PER_SEMITONE).rem_euclid(SEMITONES);
+    if shift > SEMITONES / 2 {
+        shift -= SEMITONES;
+    }
+    let concert = written + shift;
+    let max = i32::from(score::MAX_FIFTHS);
+    if concert > max {
+        return concert - SEMITONES;
+    }
+    if concert < -max {
+        return concert + SEMITONES;
+    }
+    concert
 }
 
 /// `first` for the first name seen in `names`, `second` for any other name.

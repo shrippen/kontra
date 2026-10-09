@@ -350,6 +350,14 @@ impl Core {
         serde_json::Value::Array(bars).to_string()
     }
 
+    /// The notation view (Kante `KanteBassStaff`): notes in the order of `notes_json`, rests,
+    /// key signature.
+    pub fn staff_json(&self) -> String {
+        self.arrangement()
+            .map_or_else(empty_staff, staff)
+            .to_string()
+    }
+
     pub fn string_names_json(&self) -> String {
         let names: Vec<String> = self
             .arrangement()
@@ -846,9 +854,133 @@ impl Core {
 /// often a little shorter than written (staccato), and notation must not turn eighths into
 /// sixteenths.
 fn written_beats(duration_ticks: u64) -> f64 {
+    written_ticks(duration_ticks) as f64 / kontra_model::TICKS_PER_QUARTER as f64
+}
+
+/// Written length in ticks, rounded as `written_beats`.
+fn written_ticks(duration_ticks: u64) -> u64 {
     let sixteenth = kontra_model::TICKS_PER_QUARTER / 4;
-    let rounded = ((duration_ticks as f64 / sixteenth as f64).round() as u64).max(1) * sixteenth;
-    rounded as f64 / kontra_model::TICKS_PER_QUARTER as f64
+    ((duration_ticks as f64 / sixteenth as f64).round() as u64).max(1) * sixteenth
+}
+
+/// Bass is written an octave above its sound (bass clef, as in MuseScore and Guitar Pro):
+/// low B (B0, 6 ledger lines) reads as B1 (2 ledger lines). Only the staff is shifted; the
+/// importers already turned any written octave (<transpose>) into sounding pitch, and tab,
+/// scoring and tuner stay sounding.
+const WRITTEN_OCTAVE_UP: u8 = 12;
+
+fn empty_staff() -> serde_json::Value {
+    json!({ "notes": [], "rests": [], "keyFifths": 0 })
+}
+
+/// `staff_json` for an arrangement. The staff shows one key; it is the first bar's.
+fn staff(a: &Arrangement) -> serde_json::Value {
+    let notes: Vec<_> = a
+        .notes
+        .iter()
+        .zip(ties_forward(&a.notes))
+        .map(|(n, tied)| {
+            json!({
+                "time": a.tempo.seconds_at(n.start_ticks),
+                "beats": written_beats(n.duration_ticks),
+                "midi": n.pitch.0.saturating_add(WRITTEN_OCTAVE_UP),
+                "tied": tied,
+                "state": "pending",
+            })
+        })
+        .collect();
+    let quarter = kontra_model::TICKS_PER_QUARTER as f64;
+    let rests: Vec<_> = rests(a)
+        .into_iter()
+        .map(|(tick, ticks)| {
+            json!({ "time": a.tempo.seconds_at(tick), "beats": ticks as f64 / quarter })
+        })
+        .collect();
+    let key = a.bars.first().map_or(0, |b| b.key_fifths);
+    json!({ "notes": notes, "rests": rests, "keyFifths": key })
+}
+
+/// Kontra marks the note that continues a tie (`tied`: no new attack); Kante's staff marks
+/// the note tied to the next one. The last earlier note of the same pitch gets the tie.
+fn ties_forward(notes: &[kontra_model::Note]) -> Vec<bool> {
+    let mut out = vec![false; notes.len()];
+    for (index, note) in notes.iter().enumerate() {
+        if !note.tied {
+            continue;
+        }
+        let before = notes[..index].iter().rposition(|n| n.pitch == note.pitch);
+        if let Some(before) = before {
+            out[before] = true;
+        }
+    }
+    out
+}
+
+/// Rests as (start, length) in ticks: the gaps between written notes in each bar, on the
+/// sixteenth grid. A gap fills the bar → one bar rest; else it is split into values that
+/// start on their own beat, e.g. a gap from beat 2 to the end of 4/4 → quarter, half.
+fn rests(a: &Arrangement) -> Vec<(u64, u64)> {
+    let mut out = Vec::new();
+    let mut covered = 0u64;
+    let mut notes = a.notes.iter().peekable();
+    for bar in &a.bars {
+        let (start, end) = (bar.start_ticks, bar.end_ticks());
+
+        // Gaps between the notes starting in this bar; a note may reach into the next bar.
+        let mut gaps = Vec::new();
+        while let Some(note) = notes.next_if(|n| n.start_ticks < end) {
+            let from = covered.max(start);
+            if note.start_ticks > from {
+                gaps.push((from, note.start_ticks));
+            }
+            let written = note.start_ticks + written_ticks(note.duration_ticks);
+            covered = covered.max(note.end_ticks()).max(written);
+        }
+        if covered < end {
+            gaps.push((covered.max(start), end));
+        }
+
+        for (from, to) in gaps {
+            let (from, to) = (snap(from, start).min(end), snap(to, start).min(end));
+            if from == start && to == end {
+                out.push((start, end - start));
+                continue;
+            }
+            split_rest(start, from, to, &mut out);
+        }
+    }
+    out
+}
+
+/// `tick` on the sixteenth grid of the bar starting at `bar`.
+fn snap(tick: u64, bar: u64) -> u64 {
+    let sixteenth = kontra_model::TICKS_PER_QUARTER / 4;
+    let offset = tick.saturating_sub(bar);
+    bar + (offset + sixteenth / 2) / sixteenth * sixteenth
+}
+
+/// Rest values from whole to sixteenth, in ticks.
+const REST_TICKS: [u64; 5] = [
+    kontra_model::TICKS_PER_QUARTER * 4,
+    kontra_model::TICKS_PER_QUARTER * 2,
+    kontra_model::TICKS_PER_QUARTER,
+    kontra_model::TICKS_PER_QUARTER / 2,
+    kontra_model::TICKS_PER_QUARTER / 4,
+];
+
+/// Splits the rest `from..to` into the largest values that fit and start on a multiple
+/// of their own length within the bar.
+fn split_rest(bar: u64, from: u64, to: u64, out: &mut Vec<(u64, u64)>) {
+    let mut at = from;
+    while at < to {
+        let offset = at - bar;
+        let value = REST_TICKS
+            .into_iter()
+            .find(|v| *v <= to - at && offset.is_multiple_of(*v))
+            .unwrap_or(to - at);
+        out.push((at, value));
+        at += value;
+    }
 }
 
 fn instrument_from(settings: &Settings) -> kontra_model::Instrument {
@@ -892,6 +1024,102 @@ mod tests {
         assert_eq!(written_beats(q / 2 - 40), 0.5);
         assert_eq!(written_beats(q), 1.0);
         assert_eq!(written_beats(10), 0.25);
+    }
+
+    const Q: u64 = kontra_model::TICKS_PER_QUARTER;
+
+    /// One bar of 4/4 or more, notes as (start, duration, MIDI) in ticks.
+    fn arrangement(notes: &[(u64, u64, u8)]) -> Arrangement {
+        let mut a = Arrangement::new("Staff", kontra_model::Instrument::default_bass());
+        for &(start, duration, midi) in notes {
+            a.notes.push(kontra_model::Note::new(
+                start,
+                duration,
+                kontra_model::Pitch(midi),
+            ));
+        }
+        a.normalize();
+        a
+    }
+
+    #[test]
+    fn staff_shows_the_key_of_the_first_bar() {
+        let mut a = arrangement(&[(0, 4 * Q, 34), (4 * Q, 4 * Q, 34)]);
+        a.bars[0].key_fifths = -2;
+        a.bars[1].key_fifths = 1;
+        assert_eq!(staff(&a)["keyFifths"], -2);
+    }
+
+    /// Rests as (start in quarters, length in quarters); 120 BPM: a quarter is 0.5 s.
+    fn rests_of(a: &Arrangement) -> Vec<(f64, f64)> {
+        let value = staff(a);
+        let rests = value["rests"].as_array().unwrap();
+        rests
+            .iter()
+            .map(|r| {
+                let time = r["time"].as_f64().unwrap();
+                (time * 2.0, r["beats"].as_f64().unwrap())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn staff_rests_fill_gaps_on_their_beat() {
+        // | q q q - | q - - - | (empty) | q |
+        let a = arrangement(&[
+            (0, Q, 28),
+            (Q, Q, 30),
+            (2 * Q, Q, 31),
+            (4 * Q, Q, 33),
+            (12 * Q, Q, 35),
+        ]);
+        assert_eq!(
+            rests_of(&a),
+            [
+                (3.0, 1.0),
+                (5.0, 1.0),
+                (6.0, 2.0),
+                (8.0, 4.0),
+                (13.0, 1.0),
+                (14.0, 2.0)
+            ]
+        );
+    }
+
+    #[test]
+    fn staff_rests_ignore_short_played_notes_and_triplets() {
+        // Staccato eighths (played 400 of 480 ticks), quarter triplets, a rest on beat 4.
+        let t = Q * 2 / 3;
+        let a = arrangement(&[
+            (0, 400, 28),
+            (Q / 2, 400, 30),
+            (Q, t, 31),
+            (Q + t, t, 33),
+            (Q + 2 * t, t, 35),
+        ]);
+        assert_eq!(rests_of(&a), [(3.0, 1.0)]);
+    }
+
+    #[test]
+    fn staff_ties_start_at_the_note_before_the_continuation() {
+        // G1 on beat 4 tied over the bar line; Kontra marks the second G1, Kante the first.
+        let mut a = arrangement(&[(0, 3 * Q, 28), (3 * Q, Q, 31), (4 * Q, Q, 31)]);
+        a.notes[2].tied = true;
+        let value = staff(&a);
+        let ties: Vec<bool> = value["notes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n["tied"].as_bool().unwrap())
+            .collect();
+        assert_eq!(ties, [false, true, false]);
+    }
+
+    #[test]
+    fn staff_writes_bass_an_octave_up() {
+        // B0 (MIDI 23) is written as B1 (35).
+        let a = arrangement(&[(0, 4 * Q, 23)]);
+        assert_eq!(staff(&a)["notes"][0]["midi"], 35);
     }
 
     #[test]

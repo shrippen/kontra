@@ -91,6 +91,9 @@ pub struct Bar {
     pub start_ticks: u64,
     pub signature: TimeSignature,
     pub source_index: u32,
+    /// Key signature in effect (concert pitch): 1..7 sharps, -1..-7 flats, 0 = C major.
+    #[serde(default)]
+    pub key_fifths: i8,
 }
 
 impl Bar {
@@ -141,12 +144,14 @@ impl Arrangement {
             .bars
             .last()
             .map_or(TimeSignature::COMMON, |b| b.signature);
+        let key_fifths = self.bars.last().map_or(0, |b| b.key_fifths);
         let mut index = self.bars.last().map_or(0, |b| b.source_index + 1);
         while next < end {
             self.bars.push(Bar {
                 start_ticks: next,
                 signature,
                 source_index: index,
+                key_fifths,
             });
             next += signature.bar_ticks();
             index += 1;

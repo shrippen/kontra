@@ -9,7 +9,7 @@
 
 use crate::error::ImportError;
 use crate::gp::binary::tuplet_ticks;
-use crate::score::{BarHead, Jump, Legato, Part, RawNote, Score, Target, Until, WHOLE_TICKS};
+use crate::score::{self, BarHead, Jump, Legato, Part, RawNote, Score, Target, Until, WHOLE_TICKS};
 use crate::xml::{self, Element};
 use kontra_model::{Pitch, Technique, TimeSignature};
 use std::collections::HashMap;
@@ -186,6 +186,12 @@ fn head(master: &Element) -> Result<BarHead, ImportError> {
     if let Some(directions) = master.child("Directions") {
         directions_of(directions, &mut head);
     }
+
+    // <Key><AccidentalCount>-2</AccidentalCount><Mode>Major</Mode></Key>
+    let fifths = master.path(&["Key", "AccidentalCount"]);
+    head.key = fifths
+        .and_then(|f| f.text().trim().parse::<i32>().ok())
+        .and_then(score::key);
 
     if let Some(section) = master.child("Section") {
         let text = section.value("Text").filter(|t| !t.is_empty());
