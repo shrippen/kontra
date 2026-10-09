@@ -222,6 +222,8 @@ Kirigami.Page {
             }
             QQC2.Label {
                 Layout.fillWidth: true
+                // As wide as the text, so the info button sits right after it.
+                Layout.maximumWidth: implicitWidth
                 wrapMode: Text.WordWrap
                 color: KanteStyle.textColor
                 text: {
@@ -240,6 +242,7 @@ Kirigami.Page {
                 term: texts.t("help.band.term")
                 info: texts.t("help.band", { low: Math.round(ctl.bandLow * 100), high: Math.round(ctl.bandHigh * 100) })
             }
+            Item { Layout.fillWidth: true }
             Connections {
                 target: ctl
                 function onPassComplete(clean, hitRate) {
