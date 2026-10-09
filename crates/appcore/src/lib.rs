@@ -235,6 +235,33 @@ impl Core {
         serde_json::Value::Array(strings).to_string()
     }
 
+    /// Progress over all pieces (LH-FOR-01): per piece best result, best tempo and time, and
+    /// every run's time stamp and length so the view can sum days in local time.
+    pub fn progress_json(&self) -> String {
+        let mut songs = self.progress_store().all();
+        songs.sort_by_key(|p| std::cmp::Reverse(p.runs.iter().map(|r| r.finished_unix).max()));
+        let pieces: Vec<serde_json::Value> = songs
+            .iter()
+            .map(|p| {
+                json!({
+                    "title": p.title,
+                    "artist": p.artist,
+                    "best": p.best_hit_rate(),
+                    "bestSpeed": p.best_speed(0.9),
+                    "practiceMin": p.practice_s() / 60.0,
+                    "runs": p.runs.len(),
+                    "lastUnix": p.runs.iter().map(|r| r.finished_unix).max(),
+                })
+            })
+            .collect();
+        let runs: Vec<serde_json::Value> = songs
+            .iter()
+            .flat_map(|p| p.runs.iter())
+            .map(|r| json!({ "unix": r.finished_unix, "s": r.practice_s }))
+            .collect();
+        json!({ "pieces": pieces, "runs": runs }).to_string()
+    }
+
     /// The note left by the last `open`, once.
     pub fn take_notice(&mut self) -> Option<String> {
         self.notice.take()
@@ -506,6 +533,10 @@ impl Core {
 
     /// Ends the run; the next `play` starts from the beginning with current settings.
     pub fn stop_live(&mut self) {
+        // A run stopped before the end still counts as practice (QA P1 J-C1).
+        if self.run_started.is_some() {
+            self.record_run();
+        }
         self.live = None;
     }
 
@@ -757,6 +788,10 @@ impl Core {
         };
         let session = live.practice().session();
         let summary = session.summary();
+        if summary.judged == 0 {
+            self.run_started = None;
+            return;
+        }
         let practice_s = self
             .run_started
             .take()
@@ -1395,6 +1430,32 @@ mod tests {
             .collect();
         assert_eq!(names, ["H", "E", "A", "D", "G"]);
         assert_eq!(strings[0]["midi"], 23);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-FOR-01 / J-C1: recorded runs show up per piece and with their time for the day view.
+    #[test]
+    fn progress_lists_pieces_and_runs() {
+        let dir = temp_dir("progress");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        for (unix, rate) in [(1_000, 0.7), (90_000, 0.92)] {
+            let run = kontra_session::Run {
+                finished_unix: unix,
+                practice_s: 600.0,
+                speed: 0.8,
+                hit_rate: rate,
+                mode: "song".into(),
+                section: None,
+            };
+            core.progress_store().record(&a, run).unwrap();
+        }
+        let p: serde_json::Value = serde_json::from_str(&core.progress_json()).unwrap();
+        assert_eq!(p["pieces"][0]["title"], "Etude 1");
+        assert_eq!(p["pieces"][0]["best"], 0.92);
+        assert_eq!(p["pieces"][0]["practiceMin"], 20.0);
+        assert_eq!(p["runs"].as_array().unwrap().len(), 2);
         let _ = std::fs::remove_dir_all(dir);
     }
 
