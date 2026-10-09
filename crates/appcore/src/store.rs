@@ -98,6 +98,14 @@ pub struct RecentEntry {
     pub artist: String,
     pub track: usize,
     pub last_unix: u64,
+    /// Backing track for this piece (LH-WIE-01) and where the score starts in it.
+    /// Progress key (`ProgressStore::song_id`).
+    #[serde(default)]
+    pub song_id: String,
+    #[serde(default)]
+    pub backing: Option<PathBuf>,
+    #[serde(default)]
+    pub backing_offset_s: f64,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -107,11 +115,25 @@ pub struct Library {
 }
 
 impl Library {
-    /// Moves or adds `entry` to the top.
-    pub fn touch(&mut self, entry: RecentEntry) {
+    /// Moves or adds `entry` to the top; keeps a backing track chosen earlier.
+    pub fn touch(&mut self, mut entry: RecentEntry) {
+        if let Some(old) = self.recent.iter().find(|e| e.path == entry.path) {
+            if entry.backing.is_none() {
+                entry.backing = old.backing.clone();
+                entry.backing_offset_s = old.backing_offset_s;
+            }
+        }
         self.recent.retain(|e| e.path != entry.path);
         self.recent.insert(0, entry);
         self.recent.truncate(RECENT_MAX);
+    }
+
+    pub fn entry_mut(&mut self, path: &Path) -> Option<&mut RecentEntry> {
+        self.recent.iter_mut().find(|e| e.path == path)
+    }
+
+    pub fn entry(&self, path: &Path) -> Option<&RecentEntry> {
+        self.recent.iter().find(|e| e.path == path)
     }
 }
 
@@ -145,6 +167,9 @@ mod tests {
             artist: String::new(),
             track: 0,
             last_unix: 0,
+            song_id: String::new(),
+            backing: None,
+            backing_offset_s: 0.0,
         };
         library.touch(entry("a"));
         library.touch(entry("b"));

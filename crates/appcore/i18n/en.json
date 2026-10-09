@@ -84,5 +84,18 @@
   "level.quiet.hint": "Raise the bass volume or the gain.",
   "level.loud.hint": "Lower the gain a little.",
   "level.clip.hint": "Lower the gain a lot, otherwise detection gets inaccurate.",
-  "settings.connection": "Connection"
+  "settings.connection": "Connection",
+  "calibration.title": "Measure latency",
+  "calibration.hint": "After starting, pluck the open A string eight times exactly on the click.",
+  "calibration.start": "Measure",
+  "calibration.running": "Listen to the clicks and pluck along …",
+  "calibration.done": "Measured: {ms} ms (spread ±{spread} ms). Subtracted from now on.",
+  "calibration.few": "Only {matched} of 8 plucks heard. Play louder and measure again.",
+  "calibration.unsteady": "The plucks were too uneven. Again, calmly on every click.",
+  "backing.title": "Backing track",
+  "backing.choose": "Choose audio file …",
+  "backing.none": "No backing track",
+  "backing.remove": "Remove",
+  "library.best": "best result {percent} %",
+  "library.minutes": "{minutes} min practised"
 }

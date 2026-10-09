@@ -16,6 +16,7 @@ pub struct AppArgs {
     pub language: Option<String>,
     pub mode: Option<String>,
     pub view: Option<String>,
+    pub calibrate: bool,
 }
 
 impl AppArgs {
@@ -44,6 +45,7 @@ impl AppArgs {
                 "--language" => out.language = Some(value()),
                 "--mode" => out.mode = Some(value()),
                 "--view" => out.view = Some(value()),
+                "--calibrate" => out.calibrate = true,
                 _ => {}
             }
         }

@@ -55,10 +55,14 @@ pub mod qobject {
         #[qproperty(bool, reference)]
         #[qproperty(bool, low_string_on_top, cxx_name = "lowStringOnTop")]
         #[qproperty(f64, latency_ms, cxx_name = "latencyMs")]
+        #[qproperty(bool, calibrating)]
+        #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
+        #[qproperty(QString, backing_name, cxx_name = "backingName")]
         #[qproperty(QString, message)]
         #[qproperty(QString, error_text, cxx_name = "errorText")]
         #[qproperty(QString, start_page, cxx_name = "startPage")]
         #[qproperty(bool, autoplay)]
+        #[qproperty(bool, autocalibrate)]
         #[qproperty(QString, screenshot_path, cxx_name = "screenshotPath")]
         #[qproperty(i32, screenshot_after, cxx_name = "screenshotAfter")]
         #[qproperty(i32, quit_after, cxx_name = "quitAfter")]
@@ -157,6 +161,16 @@ pub mod qobject {
         #[cxx_name = "changeLatency"]
         fn change_latency(self: Pin<&mut Self>, latency_ms: f64);
 
+        /// Latency calibration "play on the click" (LH-EIN-05).
+        #[qinvokable]
+        #[cxx_name = "startCalibration"]
+        fn start_calibration(self: Pin<&mut Self>);
+
+        /// Backing track for the loaded piece (LH-WIE-01); an empty URL removes it.
+        #[qinvokable]
+        #[cxx_name = "chooseBacking"]
+        fn choose_backing(self: Pin<&mut Self>, url: &QString);
+
         #[qinvokable]
         #[cxx_name = "dismissMessage"]
         fn dismiss_message(self: Pin<&mut Self>);
@@ -237,10 +251,14 @@ pub struct ControllerRust {
     reference: bool,
     low_string_on_top: bool,
     latency_ms: f64,
+    calibrating: bool,
+    calibration_text: QString,
+    backing_name: QString,
     message: QString,
     error_text: QString,
     start_page: QString,
     autoplay: bool,
+    autocalibrate: bool,
     screenshot_path: QString,
     screenshot_after: i32,
     quit_after: i32,
@@ -313,10 +331,14 @@ impl Default for ControllerRust {
             reference: s.reference_tones,
             low_string_on_top: s.low_string_on_top,
             latency_ms: s.latency_ms,
+            calibrating: false,
+            calibration_text: QString::default(),
+            backing_name: QString::default(),
             message: QString::default(),
             error_text: QString::default(),
             start_page: q(args.page.as_deref().unwrap_or("library")),
             autoplay: args.autoplay,
+            autocalibrate: args.calibrate,
             screenshot_path: q(&args
                 .screenshot
                 .as_ref()
@@ -352,6 +374,7 @@ impl ControllerRust {
                 self.string_names_json = q(&self.core.string_names_json());
                 self.duration = self.core.duration_s();
                 self.recent_json = q(&self.core.recent_json());
+                self.backing_name = q(&self.core.backing_name());
             }
             Ok(Opened::ChooseTrack(names)) => {
                 self.track_choices_json = q(&serde_json::to_string(&names).unwrap_or_default());
@@ -402,6 +425,7 @@ impl qobject::Controller {
         let duration = core.duration_s();
         let recent = core.recent_json();
         let loaded = core.arrangement().is_some();
+        let backing = core.backing_name();
         self.as_mut().set_title(q(&title));
         self.as_mut().set_artist(q(&artist));
         self.as_mut().set_notes_json(q(&notes));
@@ -410,6 +434,7 @@ impl qobject::Controller {
         self.as_mut().set_duration(duration);
         self.as_mut().set_recent_json(q(&recent));
         self.as_mut().set_loaded(loaded);
+        self.as_mut().set_backing_name(q(&backing));
         self.as_mut().set_position(0.0);
         self.as_mut().set_summary_json(QString::default());
         self.as_mut().set_holding_index(-1);
@@ -605,6 +630,13 @@ impl qobject::Controller {
                 }
                 UiEvent::Message(text) => self.as_mut().set_message(q(&text)),
                 UiEvent::Error(text) => self.as_mut().show_error(&text),
+                UiEvent::Calibrated { latency_ms, text } => {
+                    if let Some(latency) = latency_ms {
+                        self.as_mut().set_latency_ms(latency);
+                    }
+                    self.as_mut().set_calibration_text(q(&text));
+                    self.as_mut().set_calibrating(false);
+                }
             }
         }
     }
@@ -697,6 +729,28 @@ impl qobject::Controller {
         let value = latency_ms.clamp(0.0, 500.0);
         self.as_mut().core().reconfigure(|s| s.latency_ms = value);
         self.as_mut().set_latency_ms(value);
+        self.as_mut().set_playing(false);
+    }
+
+    fn start_calibration(mut self: Pin<&mut Self>) {
+        self.as_mut().set_playing(false);
+        self.as_mut().set_tuner_active(false);
+        match self.as_mut().core().start_calibration() {
+            Ok(()) => {
+                let text = self.as_ref().rust().core.tr("calibration.running", &[]);
+                self.as_mut().set_calibration_text(q(&text));
+                self.as_mut().set_calibrating(true);
+            }
+            Err(e) => self.as_mut().show_error(&e),
+        }
+    }
+
+    fn choose_backing(mut self: Pin<&mut Self>, url: &QString) {
+        let url = url.to_string();
+        let path = (!url.is_empty()).then(|| local_path(&url));
+        self.as_mut().core().set_backing(path, 0.0);
+        let name = self.as_ref().rust().core.backing_name();
+        self.as_mut().set_backing_name(q(&name));
         self.as_mut().set_playing(false);
     }
 

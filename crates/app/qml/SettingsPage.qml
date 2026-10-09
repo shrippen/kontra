@@ -101,13 +101,27 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.latency")
             hint: texts.t("settings.latency.hint")
-            QQC2.SpinBox {
-                from: 0
-                to: 500
-                stepSize: 5
-                value: Math.round(ctl.latencyMs)
-                onValueModified: ctl.changeLatency(value)
+            RowLayout {
+                QQC2.SpinBox {
+                    from: 0
+                    to: 500
+                    stepSize: 5
+                    value: Math.round(ctl.latencyMs)
+                    onValueModified: ctl.changeLatency(value)
+                }
+                KanteButton {
+                    text: texts.t("calibration.start")
+                    busy: ctl.calibrating
+                    enabled: !ctl.calibrating
+                    onClicked: ctl.startCalibration()
+                }
             }
+        }
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: KanteStyle.mutedTextColor
+            text: ctl.calibrationText !== "" ? ctl.calibrationText : texts.t("calibration.hint")
         }
         KanteSettingRow {
             Layout.fillWidth: true

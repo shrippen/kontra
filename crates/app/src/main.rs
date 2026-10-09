@@ -4,7 +4,7 @@
 //! kontra [--open FILE] [--page library|practice|tuner|settings] [--input-file WAV]
 //!        [--input-profile laptop-jack] [--autoplay] [--screenshot PNG] [--screenshot-after MS]
 //!        [--quit-after MS] [--style kante|kante-light|system] [--language de|en]
-//!        [--mode play|song|wait|workshop] [--view lane|tab|notation]
+//!        [--mode play|song|wait|workshop] [--view lane|tab|notation] [--calibrate]
 //! ```
 
 mod args;

@@ -84,7 +84,10 @@ Kirigami.ScrollablePage {
                     Layout.fillWidth: true
                     text: modelData.title
                     subtitle: modelData.artist
-                    meta: String(modelData.path).split("/").pop()
+                    meta: modelData.best !== null && modelData.best !== undefined
+                          ? texts.t("library.best", { percent: Math.round(modelData.best * 100) })
+                            + " · " + texts.t("library.minutes", { minutes: Math.round(modelData.practiceMin) })
+                          : String(modelData.path).split("/").pop()
                     onClicked: page.open(String(modelData.path))
                 }
             }

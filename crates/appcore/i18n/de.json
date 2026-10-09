@@ -84,5 +84,18 @@
   "level.quiet.hint": "Lautstärke am Bass oder Gain erhöhen.",
   "level.loud.hint": "Gain etwas verringern.",
   "level.clip.hint": "Gain deutlich verringern, sonst wird die Erkennung ungenau.",
-  "settings.connection": "Anschluss"
+  "settings.connection": "Anschluss",
+  "calibration.title": "Latenz messen",
+  "calibration.hint": "Schlag nach dem Start achtmal die leere A-Saite genau auf den Klick.",
+  "calibration.start": "Messen",
+  "calibration.running": "Hör auf die Klicks und schlag mit …",
+  "calibration.done": "Gemessen: {ms} ms (Streuung ±{spread} ms). Wird ab jetzt abgezogen.",
+  "calibration.few": "Nur {matched} von 8 Anschlägen gehört. Lauter spielen und noch einmal messen.",
+  "calibration.unsteady": "Die Anschläge lagen zu unterschiedlich. Noch einmal, ruhig auf jeden Klick.",
+  "backing.title": "Backing-Track",
+  "backing.choose": "Audiodatei wählen …",
+  "backing.none": "Kein Backing-Track",
+  "backing.remove": "Entfernen",
+  "library.best": "bestes Ergebnis {percent} %",
+  "library.minutes": "{minutes} min geübt"
 }

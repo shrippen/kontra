@@ -124,5 +124,8 @@ Kirigami.ApplicationWindow {
         if (ctl.autoplay && ctl.loaded) {
             ctl.togglePlay()
         }
+        if (ctl.autocalibrate) {
+            ctl.startCalibration()
+        }
     }
 }

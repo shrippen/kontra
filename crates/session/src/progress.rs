@@ -137,6 +137,12 @@ impl ProgressStore {
         Ok(progress)
     }
 
+    /// Progress stored under `song_id`, if any (for lists that only know the id).
+    pub fn load_id(&self, song_id: &str) -> Option<SongProgress> {
+        let text = fs::read_to_string(self.path(song_id)).ok()?;
+        serde_json::from_str(&text).ok()
+    }
+
     fn path(&self, song_id: &str) -> PathBuf {
         self.dir.join(format!("{song_id}.json"))
     }

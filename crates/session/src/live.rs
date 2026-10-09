@@ -1,5 +1,6 @@
 //! Live practice and tuner with real devices or a recording as input.
 
+use crate::calibration::{Calibration, CalibrationResult};
 use crate::practice::{Practice, PracticeEvent, PracticeOptions};
 use crate::session::Mode;
 use crate::settings::ScoreSettings;
@@ -235,5 +236,70 @@ fn open_output(
         Err(_) => LiveOutput::Silent(NullOutput {
             sample_rate: 48_000,
         }),
+    }
+}
+
+/// A running latency calibration: clicks on the output, plucks on the input.
+#[derive(Debug)]
+pub struct LiveCalibration {
+    clock: Clock,
+    output: LiveOutput,
+    input: Input,
+    events: Receiver<Event>,
+    calibration: Option<Calibration>,
+    /// Engine time of the first click after the input has started.
+    lead_s: f64,
+}
+
+impl LiveCalibration {
+    /// Starts input and output; the clicks begin `lead_s` after the input's first sample
+    /// (a recording for QA starts its plucks at the same offset).
+    pub fn start(
+        setup: &LiveSetup,
+        instrument: &Instrument,
+        lead_s: f64,
+    ) -> Result<LiveCalibration, EngineError> {
+        let clock = Clock::new();
+        let (tx, rx) = channel();
+        let output = open_output(setup.output_device.as_deref(), &clock, tx.clone());
+        let input = Input::start(
+            &input_kind(&setup.input),
+            instrument,
+            setup.source,
+            &clock,
+            tx,
+        )?;
+        Ok(LiveCalibration {
+            clock,
+            output,
+            input,
+            events: rx,
+            calibration: None,
+            lead_s,
+        })
+    }
+
+    /// Polls; returns the result once all clicks are through.
+    pub fn poll(&mut self) -> Option<CalibrationResult> {
+        if self.calibration.is_none() {
+            let start = self.input.started_s()?;
+            let calibration = Calibration::new(start + self.lead_s);
+            for (i, click) in calibration.clicks().iter().enumerate() {
+                let accent = if i == 0 {
+                    kontra_engine::Accent::Downbeat
+                } else {
+                    kontra_engine::Accent::Beat
+                };
+                self.output.schedule(*click, Sound::Click(accent));
+            }
+            self.calibration = Some(calibration);
+        }
+        let calibration = self.calibration.as_mut()?;
+        while let Ok(event) = self.events.try_recv() {
+            if let Event::Note(note) = event {
+                calibration.on_onset(note.onset_s);
+            }
+        }
+        (self.clock.now_s() > calibration.ends_at()).then(|| calibration.result())
     }
 }

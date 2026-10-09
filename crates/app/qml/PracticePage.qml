@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as QQC2
+import QtQuick.Dialogs
 import org.kde.kirigami as Kirigami
 import Kante
 
@@ -101,6 +102,30 @@ Kirigami.Page {
                 model: page.views.map(function(v) { return texts.t("view." + v) })
                 currentIndex: Math.max(0, page.views.indexOf(ctl.view))
                 onActivated: function(index) { ctl.changeView(page.views[index]) }
+            }
+        }
+
+        // Backing track (LH-WIE-01): chosen per piece, stretched with the speed.
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: KanteStyle.unit(8)
+            KanteHud { fullText: texts.t("backing.title"); color: KanteStyle.mutedTextColor }
+            QQC2.Label {
+                Layout.fillWidth: true
+                elide: Text.ElideMiddle
+                text: ctl.backingName !== "" ? ctl.backingName : texts.t("backing.none")
+                color: ctl.backingName !== "" ? KanteStyle.textColor : KanteStyle.mutedTextColor
+            }
+            KanteButton {
+                text: texts.t("backing.choose")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: backingDialog.open()
+            }
+            KanteButton {
+                visible: ctl.backingName !== ""
+                text: texts.t("backing.remove")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: ctl.chooseBacking("")
             }
         }
 
@@ -223,6 +248,12 @@ Kirigami.Page {
                 ctl.loopBars(bar, Math.min(bar + 1, page.bars.length - 1))
             }
         }
+    }
+
+    FileDialog {
+        id: backingDialog
+        nameFilters: ["Audio (*.wav *.flac *.ogg *.mp3)"]
+        onAccepted: ctl.chooseBacking(selectedFile.toString())
     }
 
     SummarySheet {

@@ -13,12 +13,15 @@ pub use store::{data_dir, InputKind, Library, RecentEntry, Settings};
 
 use kontra_model::{Arrangement, BassKind, InputSource};
 use kontra_session::{
-    import_file, list_devices, Direction, ImportResult, InputChoice, Live, LiveSetup, LiveTuner,
-    LoopRange, Mode, Outcome, PracticeEvent, PracticeOptions, ScoreSettings, SessionEvent, Summary,
-    Workshop,
+    import_file, list_devices, run_from, CalibrationResult, Direction, ImportResult, InputChoice,
+    Live, LiveCalibration, LiveSetup, LiveTuner, LoopRange, Mode, Outcome, PracticeEvent,
+    PracticeOptions, ProgressStore, ScoreSettings, SessionEvent, Summary, Workshop,
 };
 use serde_json::json;
 use std::path::{Path, PathBuf};
+
+/// Seconds from the input's start to the first calibration click.
+const CALIBRATION_LEAD_S: f64 = 1.0;
 
 /// Options for QA runs (QA.md): a recording instead of the audio input.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -61,6 +64,11 @@ pub enum UiEvent {
     },
     Message(String),
     Error(String),
+    /// Calibration finished: new latency (if measured) and a text for the user.
+    Calibrated {
+        latency_ms: Option<f64>,
+        text: String,
+    },
 }
 
 /// Result of opening a file.
@@ -88,6 +96,9 @@ pub struct Core {
     pending: Option<(PathBuf, ImportResult)>,
     live: Option<Live>,
     tuner: Option<LiveTuner>,
+    calibration: Option<LiveCalibration>,
+    /// Engine-independent start of the current run, for practice time.
+    run_started: Option<std::time::Instant>,
     speed: f64,
     looping: Option<(usize, usize)>,
 }
@@ -110,6 +121,8 @@ impl Core {
             pending: None,
             live: None,
             tuner: None,
+            calibration: None,
+            run_started: None,
             speed: 1.0,
             looping: None,
         }
@@ -144,11 +157,17 @@ impl Core {
     }
 
     pub fn recent_json(&self) -> String {
+        let store = self.progress_store();
         let list: Vec<_> = self
             .library
             .recent
             .iter()
-            .map(|e| json!({ "path": e.path, "title": e.title, "artist": e.artist }))
+            .map(|e| {
+                let progress = store.load_id(&e.song_id);
+                let best = progress.as_ref().and_then(|p| p.best_hit_rate());
+                let minutes = progress.as_ref().map_or(0.0, |p| p.practice_s() / 60.0);
+                json!({ "path": e.path, "title": e.title, "artist": e.artist, "best": best, "practiceMin": minutes })
+            })
             .collect();
         serde_json::Value::Array(list).to_string()
     }
@@ -194,6 +213,9 @@ impl Core {
             artist: arrangement.artist.clone(),
             track,
             last_unix: unix_now(),
+            song_id: ProgressStore::song_id(&arrangement),
+            backing: None,
+            backing_offset_s: 0.0,
         });
         let _ = store::save(&self.data_dir.join("library.json"), &self.library);
         self.loaded = Some(Loaded {
@@ -415,13 +437,13 @@ impl Core {
             metronome: self.settings.metronome,
             count_in_bars: self.settings.count_in_bars,
             reference_tones: self.settings.reference_tones,
-            backing_offset_s: 0.0,
+            backing_offset_s: self.backing().map_or(0.0, |(_, offset)| offset),
         };
         let setup = LiveSetup {
             input: self.input_choice(),
             output_device: self.settings.output_device.clone(),
             source: self.source(),
-            backing: None,
+            backing: self.backing().map(|(path, _)| path),
         };
         let mut live = Live::start(arrangement, self.mode(), settings, options, &setup)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
@@ -429,6 +451,7 @@ impl Core {
         live.practice_mut().set_loop(self.loop_range());
         let silent = live.output_is_silent;
         self.live = Some(live);
+        self.run_started = Some(std::time::Instant::now());
         Ok(silent)
     }
 
@@ -457,7 +480,126 @@ impl Core {
         if let Some(tuner) = self.tuner.as_mut() {
             raw.extend(tuner.poll());
         }
-        raw.into_iter().filter_map(|e| self.translate(e)).collect()
+        let mut events: Vec<UiEvent> = raw.into_iter().filter_map(|e| self.translate(e)).collect();
+        if events.iter().any(|e| matches!(e, UiEvent::Finished { .. })) {
+            self.record_run();
+        }
+        if let Some(result) = self.calibration.as_mut().and_then(LiveCalibration::poll) {
+            self.calibration = None;
+            events.push(self.calibrated(result));
+        }
+        events
+    }
+
+    /// Starts "play on the click" (LH-EIN-05): 8 clicks from one second after the input starts.
+    pub fn start_calibration(&mut self) -> Result<(), String> {
+        self.stop_live();
+        self.tuner = None;
+        let instrument = match self.arrangement() {
+            Some(a) => a.instrument.clone(),
+            None => instrument_from(&self.settings),
+        };
+        let setup = LiveSetup {
+            input: self.input_choice(),
+            output_device: self.settings.output_device.clone(),
+            source: self.source(),
+            backing: None,
+        };
+        let calibration = LiveCalibration::start(&setup, &instrument, CALIBRATION_LEAD_S)
+            .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
+        self.calibration = Some(calibration);
+        Ok(())
+    }
+
+    pub fn is_calibrating(&self) -> bool {
+        self.calibration.is_some()
+    }
+
+    fn calibrated(&mut self, result: CalibrationResult) -> UiEvent {
+        match result {
+            CalibrationResult::Measured {
+                latency_ms,
+                spread_ms,
+            } => {
+                self.reconfigure(|s| s.latency_ms = latency_ms.round());
+                let text = self.tr(
+                    "calibration.done",
+                    &[
+                        ("ms", format!("{latency_ms:.0}")),
+                        ("spread", format!("{spread_ms:.0}")),
+                    ],
+                );
+                UiEvent::Calibrated {
+                    latency_ms: Some(latency_ms.round()),
+                    text,
+                }
+            }
+            CalibrationResult::TooFew { matched } => UiEvent::Calibrated {
+                latency_ms: None,
+                text: self.tr("calibration.few", &[("matched", matched.to_string())]),
+            },
+            CalibrationResult::Unsteady { .. } => UiEvent::Calibrated {
+                latency_ms: None,
+                text: self.tr("calibration.unsteady", &[]),
+            },
+        }
+    }
+
+    fn progress_store(&self) -> ProgressStore {
+        ProgressStore::new(&self.data_dir.join("progress"))
+    }
+
+    /// Saves the finished run (LH-FOR-01).
+    fn record_run(&mut self) {
+        let Some(live) = self.live.as_ref() else {
+            return;
+        };
+        let session = live.practice().session();
+        let summary = session.summary();
+        let practice_s = self
+            .run_started
+            .take()
+            .map_or(0.0, |t| t.elapsed().as_secs_f64());
+        let section = session
+            .transport()
+            .loop_range()
+            .map(|l| (l.start_s, l.end_s));
+        let run = run_from(
+            &summary,
+            practice_s,
+            self.speed,
+            &self.settings.mode,
+            section,
+            unix_now(),
+        );
+        let arrangement = session.arrangement().clone();
+        let _ = self.progress_store().record(&arrangement, run);
+    }
+
+    /// Backing track of the loaded piece and its offset.
+    fn backing(&self) -> Option<(PathBuf, f64)> {
+        let path = self.loaded_path()?;
+        let entry = self.library.entry(path)?;
+        entry.backing.clone().map(|b| (b, entry.backing_offset_s))
+    }
+
+    pub fn backing_name(&self) -> String {
+        self.backing()
+            .and_then(|(p, _)| p.file_name().map(|n| n.to_string_lossy().to_string()))
+            .unwrap_or_default()
+    }
+
+    /// Sets (or with `None` removes) the backing track of the loaded piece.
+    pub fn set_backing(&mut self, path: Option<PathBuf>, offset_s: f64) {
+        let Some(loaded) = self.loaded_path().map(Path::to_path_buf) else {
+            return;
+        };
+        if let Some(entry) = self.library.entry_mut(&loaded) {
+            entry.backing = path;
+            entry.backing_offset_s = offset_s;
+        }
+        let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+        self.stop_live();
     }
 
     fn translate(&self, event: PracticeEvent) -> Option<UiEvent> {
@@ -626,6 +768,53 @@ mod tests {
         assert_eq!(bars[1]["number"], 2);
         let again = Core::new(&dir, QaOptions::default());
         assert!(again.recent_json().contains("Etude 1"));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn calibration_measures_recorded_latency() {
+        let dir = temp_dir("calibrate");
+        std::fs::create_dir_all(&dir).unwrap();
+        let take = dir.join("clicks.wav");
+        // Eight quarter notes at 100 BPM (0.6 s), plucked 45 ms after each click.
+        let mut a = Arrangement::new("clicks", kontra_model::Instrument::default_bass());
+        a.tempo = kontra_model::TempoMap::constant(100.0);
+        for i in 0..8 {
+            let q = kontra_model::TICKS_PER_QUARTER;
+            a.notes.push(kontra_model::Note::new(
+                i * q,
+                q / 2,
+                kontra_model::Pitch(33),
+            ));
+        }
+        a.normalize();
+        let mistakes = kontra_session::Mistakes {
+            offset_ms: 45.0,
+            ..Default::default()
+        };
+        let samples =
+            kontra_session::render_performance(&a, 1.0, CALIBRATION_LEAD_S, mistakes, 48_000);
+        kontra_session::write_mono_wav(&take, &samples, 48_000).unwrap();
+        let mut core = Core::new(
+            &dir,
+            QaOptions {
+                input_file: Some(take),
+                laptop_jack: false,
+            },
+        );
+        core.start_calibration().unwrap();
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(8);
+        let mut result = None;
+        while std::time::Instant::now() < end && result.is_none() {
+            result = core.tick().into_iter().find_map(|e| match e {
+                UiEvent::Calibrated { latency_ms, .. } => Some(latency_ms),
+                _ => None,
+            });
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        let latency = result.flatten().expect("measured");
+        assert!((latency - 45.0).abs() <= 3.0, "{latency}");
+        assert_eq!(core.settings().latency_ms, latency);
         std::fs::remove_dir_all(dir).unwrap();
     }
 
