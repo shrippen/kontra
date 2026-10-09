@@ -1,0 +1,16 @@
+[package]
+name = "kontra-engine"
+description = "Audio engine for Kontra: live and file input with note tracking, tuner, level meter; output mixer for clicks and reference tones."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kontra-model.workspace = true
+kontra-dsp = { path = "../dsp" }
+kontra-drivers.workspace = true
+rtrb.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

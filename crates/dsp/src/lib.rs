@@ -14,6 +14,7 @@ mod biquad;
 mod level;
 mod onset;
 mod tracker;
+mod tuner;
 mod yin;
 
 pub mod synth;
@@ -22,4 +23,5 @@ pub use biquad::{Biquad, FilterKind};
 pub use level::{amplitude_to_db, peak_db, rms_db, SILENCE_DB};
 pub use onset::{Onset, OnsetConfig, OnsetDetector};
 pub use tracker::{NoteTracker, TrackerConfig};
+pub use tuner::{Tuner, TunerReading};
 pub use yin::{PitchEstimate, Yin};
