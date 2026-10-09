@@ -37,9 +37,9 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 | LH-BIB-04 Bibliothek | „Zuletzt gespielt“ mit Suche; Setlisten offen |
 | LH-ANZ-01/02/03 Tab-Lane, Tab, Noten | umgesetzt (Kante) |
 | LH-MOD-01..04 Spielen, Song, Warten, Werkstatt | Logik umgesetzt und getestet; Werkstatt-Bedienung in der App minimal |
-| LH-MOD-05 Metronom, Einzähler | umgesetzt |
+| LH-MOD-05 Metronom, Einzähler | umgesetzt; Lautstärke im Mixer |
 | LH-WIE-01 Time-Stretch | umgesetzt; Backing-Track je Stück wählbar |
-| LH-WIE-03 Referenzton | umgesetzt |
+| LH-WIE-03 Referenzton, Mixer | umgesetzt: Backing, Metronom, Referenzton, Mithören (Standard aus; bei verschiedenen Abtastraten von Ein- und Ausgang kein Mithören, mit Hinweis) |
 | LH-BEW-01..05 Bewertung | umgesetzt |
 | LH-TUN-01/03 Stimmgerät | umgesetzt |
 | LH-EIN-01 Einrichtungsassistent | umgesetzt (5 Schritte, überspringbar, startet die erste Übung) |

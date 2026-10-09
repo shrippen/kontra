@@ -71,6 +71,7 @@ Kirigami.Page {
     Shortcut { sequence: "L"; enabled: page.keysFree; onActivated: transport.loopToggled() }
     Shortcut { sequence: "M"; enabled: page.keysFree; onActivated: ctl.changeOptions(!ctl.metronome, ctl.reference, ctl.lowStringOnTop) }
     Shortcut { sequence: "C"; enabled: page.keysFree; onActivated: ctl.changeCountIn(!ctl.countIn) }
+    Shortcut { sequence: "X"; enabled: page.keysFree; onActivated: mixerButton.toggle() }
     Shortcut { sequences: ["+", "="]; enabled: page.keysFree; onActivated: ctl.changeSpeed(Math.min(1.5, ctl.speed + 0.05)) }
     Shortcut { sequence: "-"; enabled: page.keysFree; onActivated: ctl.changeSpeed(Math.max(0.25, ctl.speed - 0.05)) }
     Repeater {
@@ -374,39 +375,73 @@ Kirigami.Page {
             }
         }
 
-        KanteTransportBar {
-            id: transport
+        // The mixer opens above the transport (in the page, so screenshots show it).
+        KanteCard {
             Layout.fillWidth: true
-            playing: ctl.playing
-            looping: ctl.loopStart >= 0
-            metronome: ctl.metronome
-            countIn: ctl.countIn
-            speed: ctl.speed
-            rewindText: texts.t("transport.rewind")
-            playText: texts.t("transport.play")
-            pauseText: texts.t("transport.pause")
-            loopText: texts.t("transport.loop")
-            speedText: texts.t("transport.speed")
-            metronomeText: texts.t("transport.metronome")
-            countInText: texts.t("transport.countin")
-            positionName: texts.t("transport.position")
-            accessibleName: texts.t("transport.name")
-            onCountInToggled: ctl.changeCountIn(!ctl.countIn)
-            minSpeed: 0.25
-            maxSpeed: 1.5
-            position: ctl.position
-            duration: ctl.duration
-            onPlayToggled: ctl.togglePlay()
-            onRewind: ctl.rewind()
-            onSpeedChangeRequested: function(speed) { ctl.changeSpeed(speed) }
-            onMetronomeToggled: ctl.changeOptions(!ctl.metronome, ctl.reference, ctl.lowStringOnTop)
-            onLoopToggled: {
-                if (ctl.loopStart >= 0) {
-                    ctl.clearLoop()
-                    return
+            Layout.preferredHeight: pageMixer.implicitHeight + KanteStyle.unit(16)
+            visible: mixerButton.checked
+            barColor: KanteStyle.accentColor
+            borderColor: KanteStyle.frameColor
+            Mixer {
+                id: pageMixer
+                x: KanteStyle.unit(12)
+                y: KanteStyle.unit(8)
+                width: parent.width - KanteStyle.unit(24)
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: KanteStyle.unit(8)
+            KanteTransportBar {
+                id: transport
+                Layout.fillWidth: true
+                playing: ctl.playing
+                looping: ctl.loopStart >= 0
+                metronome: ctl.metronome
+                countIn: ctl.countIn
+                speed: ctl.speed
+                rewindText: texts.t("transport.rewind")
+                playText: texts.t("transport.play")
+                pauseText: texts.t("transport.pause")
+                loopText: texts.t("transport.loop")
+                speedText: texts.t("transport.speed")
+                metronomeText: texts.t("transport.metronome")
+                countInText: texts.t("transport.countin")
+                positionName: texts.t("transport.position")
+                accessibleName: texts.t("transport.name")
+                onCountInToggled: ctl.changeCountIn(!ctl.countIn)
+                minSpeed: 0.25
+                maxSpeed: 1.5
+                position: ctl.position
+                duration: ctl.duration
+                onPlayToggled: ctl.togglePlay()
+                onRewind: ctl.rewind()
+                onSpeedChangeRequested: function(speed) { ctl.changeSpeed(speed) }
+                onMetronomeToggled: ctl.changeOptions(!ctl.metronome, ctl.reference, ctl.lowStringOnTop)
+                onLoopToggled: {
+                    if (ctl.loopStart >= 0) {
+                        ctl.clearLoop()
+                        return
+                    }
+                    var bar = page.barAt(ctl.position)
+                    ctl.loopBars(bar, Math.min(bar + 1, page.bars.length - 1))
                 }
-                var bar = page.barAt(ctl.position)
-                ctl.loopBars(bar, Math.min(bar + 1, page.bars.length - 1))
+            }
+            KanteToolButton {
+                id: mixerButton
+                Layout.alignment: Qt.AlignTop
+                Layout.preferredHeight: KanteStyle.heightMedium
+                text: texts.t("mixer.title")
+                display: QQC2.AbstractButton.TextOnly
+                implicitWidth: Math.ceil(leftPadding + mixerWords.advanceWidth + rightPadding + KanteStyle.unit(2))
+                checkable: true
+                checked: ctl.showMixer
+                focusPolicy: Qt.StrongFocus
+                Accessible.name: text
+                QQC2.ToolTip.text: texts.t("keys.mixer")
+                QQC2.ToolTip.visible: hovered
+                TextMetrics { id: mixerWords; font: mixerButton.font; text: mixerButton.text }
             }
         }
     }

@@ -152,7 +152,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-MOD-02 | **Song:** wie Spielen, mit Bewertung und Auswertung am Ende. | Muss | 1 | P2, P3 | Auswertung zeigt Trefferquote, Timing-Tendenz, schwierigste Takte. |
 | LH-MOD-03 | **Warten:** Lied hält vor jeder Note, bis der richtige Ton gespielt ist; Backing Track pausiert mit. | Muss | 1 | P1 | J-B2 ohne Zeitdruck schaffbar. |
 | LH-MOD-04 | **Riff-Werkstatt:** Bereich wählen (Takte oder Markierungen), Loop, Tempo 25 bis 150 % in 5-%-Schritten, automatische Anpassung an ein Zielband der Trefferquote (Standard 80–90 %: zwei Durchläufe darüber +5 %, zwei darunter −5 %, dazwischen gleich; Runde 5), Vorzähler. | Muss | 1 | P2, P3 | J-B3: Bereich, Tempo und Steigerung wirken wie eingestellt. |
-| LH-MOD-05 | Metronom und Vorzähler in allen Modi, Lautstärke getrennt regelbar. | Muss | 1 | P2, P3 | Mixer: Instrument, Backing Track, Metronom getrennt. |
+| LH-MOD-05 | Metronom und Vorzähler in allen Modi, Lautstärke getrennt regelbar (Mixer, LH-WIE-03). | Muss | 1 | P2, P3 | Mixer: Instrument, Backing Track, Metronom getrennt. |
 | LH-MOD-06 | Adaptive Schwierigkeit: Notendichte steigt mit der Trefferquote, sinkt bei Häufung von Fehlern; nur zwischen Durchläufen, sichtbar und als Vorschlag („Nächster Durchlauf mit mehr Noten?“), nie mitten im Lied (Runde 5); abschaltbar und pro Abschnitt fixierbar. | Soll | 2 | P1 | Testspieler mit 95 % Treffern erreicht volle Notendichte in ≤ 5 Durchläufen. |
 | LH-MOD-07 | Tastenkürzel für alle Transportfunktionen (Start/Stop, Loop setzen, Tempo ±, zurück zum Loop-Anfang); optional Fußschalter über Tastatur-Emulation. | Muss | 1 | P3, P7 | Alle Funktionen ohne Maus erreichbar. |
 
@@ -182,7 +182,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 |---|---|---|---|---|---|
 | LH-WIE-01 | Backing Track mit Tempoänderung ohne Tonhöhenänderung (25 bis 150 %) in guter Qualität. | Muss | 1 | P2 | Hörtest bei 50 %: keine metallischen Artefakte (Blindvergleich mit Referenz). |
 | LH-WIE-02 | Transponieren des Backing Tracks in Halbtönen (±6) mit passender Anpassung der Noten. | Kann | 3 | P2 | +2 Halbtöne: Audio und Tab passen zusammen. |
-| LH-WIE-03 | Mixer: Instrument, Backing Track, Metronom, Referenz-Bass (synthetisch aus dem Arrangement) getrennt. | Muss | 1 | P2, P1 | Referenz-Bass zum Vorhören einer Stelle abspielbar. |
+| LH-WIE-03 | Mixer: Instrument, Backing Track, Metronom, Referenz-Bass (synthetisch aus dem Arrangement) getrennt. Instrument heißt Mithören über Kontra: abschaltbar, Standard aus, mit Hinweis, dass Direct Monitoring des Interfaces schneller ist (Runde 6). | Muss | 1 | P2, P1 | Referenz-Bass zum Vorhören einer Stelle abspielbar. |
 
 ### 4.9 Fortschritt (FOR)
 

@@ -17,6 +17,8 @@ pub struct AppArgs {
     pub mode: Option<String>,
     pub view: Option<String>,
     pub calibrate: bool,
+    /// `--mixer`: practice and settings open with the mixer in view (screenshots).
+    pub mixer: bool,
     /// `--loop-bars 3-4`: loop these bars (1-based) before autoplay.
     pub loop_bars: Option<(i32, i32)>,
 }
@@ -50,6 +52,7 @@ impl AppArgs {
                 "--mode" => out.mode = Some(value()),
                 "--view" => out.view = Some(value()),
                 "--calibrate" => out.calibrate = true,
+                "--mixer" => out.mixer = true,
                 "--loop-bars" => {
                     let v = value();
                     let mut parts = v.split('-').map(|p| p.trim().parse::<i32>());
@@ -111,10 +114,11 @@ mod tests {
             "--autoplay",
             "--page",
             "practice",
+            "--mixer",
         ];
         let a = AppArgs::parse(args.iter().map(|s| s.to_string()));
         assert_eq!(a.input_file, Some(PathBuf::from("take.wav")));
-        assert!(a.laptop_jack && a.autoplay);
+        assert!(a.laptop_jack && a.autoplay && a.mixer);
         assert_eq!(a.page.as_deref(), Some("practice"));
         assert_eq!(a.screenshot_after_ms, 1500);
     }
