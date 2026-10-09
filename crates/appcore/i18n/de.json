@@ -242,5 +242,8 @@
   "keys.mixer": "Mixer ein- und ausblenden",
   "keys.loopstart": "Loop-Anfang auf den aktuellen Takt",
   "keys.loopend": "Loop-Ende auf den aktuellen Takt",
-  "keys.footswitch": "Fußschalter: Jeder Fußschalter, der Tasten sendet, funktioniert ohne Treiber. Die meisten senden Bild ab (Abspielen/Pause) und Bild auf (zurück) – das passt schon. Sonst stell ihn auf eine der Tasten oben ein."
+  "keys.footswitch": "Fußschalter: Jeder Fußschalter, der Tasten sendet, funktioniert ohne Treiber. Die meisten senden Bild ab (Abspielen/Pause) und Bild auf (zurück) – das passt schon. Sonst stell ihn auf eine der Tasten oben ein.",
+  "fretboard.position": "Lage {position}",
+  "fretboard.shift": "Lagenwechsel: Lage {position} ab Takt {bar}",
+  "fretboard.finger": "Finger {finger} (1 Zeigefinger … 4 kleiner Finger)"
 }

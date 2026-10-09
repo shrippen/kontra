@@ -115,6 +115,25 @@ Kirigami.Page {
     readonly property var stringNames: JSON.parse(ctl.stringNamesJson)
     readonly property int nextIndex: ctl.holdingIndex >= 0 ? ctl.holdingIndex : lane.nextIndex
     readonly property var nextNote: nextIndex >= 0 && nextIndex < notes.length ? notes[nextIndex] : null
+    // Hand position (LH-ANZ-05) and the next change of it, shown at least one bar ahead.
+    readonly property int handPosition: nextNote ? nextNote.position : 0
+    readonly property var shift: positionShift(nextIndex, ctl.position)
+
+    // The first note from `from` on whose position differs, if it starts within a bar from `now`.
+    function positionShift(from, now) {
+        if (from < 0 || from >= notes.length || bars.length === 0) {
+            return null
+        }
+        var bar = barAt(now)
+        var length = bar + 1 < bars.length ? bars[bar + 1].time - bars[bar].time : bars[bar].time - (bar > 0 ? bars[bar - 1].time : 0)
+        var horizon = Math.max(now, notes[from].time) + Math.max(length, 0.5)
+        for (var i = from + 1; i < notes.length && notes[i].time <= horizon; i++) {
+            if (notes[i].position !== notes[from].position) {
+                return { position: notes[i].position, bar: bars[barAt(notes[i].time)].number }
+            }
+        }
+        return null
+    }
 
     // Small screens and beamers (QA P4: 1280×720 at 150 %): the title gets its own row and the
     // fretboard and level make room for the notes.
@@ -371,6 +390,9 @@ Kirigami.Page {
             Layout.fillWidth: true
             visible: !page.compact
             spacing: KanteStyle.unit(16)
+            ColumnLayout {
+            Layout.fillWidth: true
+            spacing: KanteStyle.unit(4)
             KanteFretboard {
                 Layout.fillWidth: true
                 Layout.preferredHeight: KanteStyle.unit(120)
@@ -378,9 +400,34 @@ Kirigami.Page {
                 stringNames: page.stringNames
                 frets: 15
                 lowStringOnTop: ctl.lowStringOnTop
-                markers: page.nextNote ? [{ string: page.nextNote.string, fret: page.nextNote.fret, role: "next" }] : []
+                // The finger the position suggests is written in the marker (1 index … 4 pinky).
+                markers: page.nextNote ? [{ string: page.nextNote.string, fret: page.nextNote.fret, role: "next",
+                                            label: page.nextNote.finger > 0 ? String(page.nextNote.finger) : "" }] : []
                 accessibleName: texts.t("fretboard.name")
                 markerText: texts.t("fretboard.marker")
+            }
+            RowLayout {
+                spacing: KanteStyle.unit(8)
+                visible: page.handPosition > 0
+                KantePill {
+                    status: KantePill.State.Off
+                    text: texts.t("fretboard.position", { position: page.handPosition })
+                    Accessible.name: text
+                }
+                KantePill {
+                    id: shiftPill
+                    visible: page.shift !== null
+                    status: KantePill.State.Locked
+                    text: page.shift ? texts.t("fretboard.shift", { position: page.shift.position, bar: page.shift.bar }) : ""
+                    Accessible.name: text
+                    onTextChanged: if (text !== "") Accessible.announce(text)
+                }
+                QQC2.Label {
+                    visible: page.nextNote !== null && page.nextNote.finger > 0
+                    text: page.nextNote ? texts.t("fretboard.finger", { finger: page.nextNote.finger }) : ""
+                    color: KanteStyle.mutedTextColor
+                }
+            }
             }
             ColumnLayout {
             Layout.preferredWidth: meter.implicitWidth

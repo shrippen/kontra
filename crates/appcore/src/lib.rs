@@ -657,11 +657,14 @@ impl Core {
         let Some(a) = self.arrangement() else {
             return "[]".into();
         };
+        let positions = hand_positions(&a.notes);
         let notes: Vec<_> = a
             .notes
             .iter()
-            .map(|n| {
+            .zip(positions)
+            .map(|(n, position)| {
                 let time = a.tempo.seconds_at(n.start_ticks);
+                let fret = n.fret.unwrap_or(0);
                 json!({
                     "time": time,
                     "duration": a.tempo.seconds_at(n.end_ticks()) - time,
@@ -671,6 +674,9 @@ impl Core {
                     "beats": written_beats(n.duration_ticks),
                     "tied": n.tied,
                     "state": "pending",
+                    // Hand position (LH-ANZ-05) and the finger it suggests (0 = open string).
+                    "position": position,
+                    "finger": if fret == 0 { 0 } else { fret + 1 - position.min(fret) },
                 })
             })
             .collect();
@@ -1278,6 +1284,47 @@ impl Core {
     }
 }
 
+/// Frets one hand covers without shifting: index finger on the position's fret, pinky three up.
+const HAND_SPAN: u8 = 3;
+
+/// Hand position (Lage: the index finger's fret, at least 1) for every note, from the tab.
+/// The hand stays while notes fit; a note outside moves it to the position, among those
+/// holding that note, that also holds the most notes after it. Open strings fit anywhere.
+///
+/// ```text
+/// frets 3 5 7 9 7      positions 3 3 6 6 6    (7 needs a shift; 6–9 holds 7, 9 and 7)
+/// ```
+fn hand_positions(notes: &[kontra_model::Note]) -> Vec<u8> {
+    let frets: Vec<u8> = notes.iter().map(|n| n.fret.unwrap_or(0)).collect();
+    let fits =
+        |position: u8, fret: u8| fret == 0 || (position..=position + HAND_SPAN).contains(&fret);
+    let mut out = Vec::with_capacity(frets.len());
+    let mut position = 0u8;
+    for (index, &fret) in frets.iter().enumerate() {
+        if position == 0 || !fits(position, fret) {
+            position = best_position(&frets[index..], position, fits);
+        }
+        out.push(position.max(1));
+    }
+    out
+}
+
+/// The position for `frets[0]` that holds the longest run of the following notes; ties keep
+/// the hand nearer to `from`.
+fn best_position(frets: &[u8], from: u8, fits: impl Fn(u8, u8) -> bool) -> u8 {
+    let Some(&first) = frets.iter().find(|f| **f > 0) else {
+        return from;
+    };
+    // The first position puts the index finger on the first note when nothing else decides.
+    let from = if from == 0 { first } else { from };
+    let candidates = first.saturating_sub(HAND_SPAN).max(1)..=first;
+    let reach = |p: u8| frets.iter().take_while(|f| fits(p, **f)).count();
+    candidates
+        .map(|p| (reach(p), std::cmp::Reverse(p.abs_diff(from)), p))
+        .max()
+        .map_or(first, |(_, _, p)| p)
+}
+
 /// Written length in quarter notes, rounded to the nearest sixteenth: played (MIDI) notes are
 /// often a little shorter than written (staccato), and notation must not turn eighths into
 /// sixteenths.
@@ -1490,6 +1537,29 @@ mod tests {
         }
         a.normalize();
         a
+    }
+
+    fn positions_of(frets: &[u8]) -> Vec<u8> {
+        let notes: Vec<_> = frets
+            .iter()
+            .enumerate()
+            .map(|(i, f)| {
+                let mut n = kontra_model::Note::new(i as u64 * Q, Q, kontra_model::Pitch(40));
+                n.fret = Some(*f);
+                n
+            })
+            .collect();
+        hand_positions(&notes)
+    }
+
+    #[test]
+    fn hand_stays_while_notes_fit_and_shifts_ahead() {
+        assert_eq!(positions_of(&[3, 5, 0, 6]), [3, 3, 3, 3]);
+        // 7 does not fit 3–6; 6–9 holds it and the notes after it.
+        assert_eq!(positions_of(&[3, 5, 7, 9, 7]), [3, 3, 6, 6, 6]);
+        // Open strings first: the hand waits for the first fretted note.
+        assert_eq!(positions_of(&[0, 0, 2, 4]), [2, 2, 2, 2]);
+        assert_eq!(positions_of(&[0, 0]), [1, 1]);
     }
 
     #[test]
