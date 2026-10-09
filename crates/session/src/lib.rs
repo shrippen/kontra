@@ -28,7 +28,9 @@ pub use calibration::{
 };
 pub use expected::{expected_notes, ExpectedNote};
 pub use kontra_engine::Gains;
-pub use live::{InputChoice, Live, LiveCalibration, LiveOutput, LiveSetup, LiveTuner};
+pub use live::{
+    soak, InputChoice, Live, LiveCalibration, LiveOutput, LiveSetup, LiveTuner, SoakReport,
+};
 pub use matcher::{NoteResult, Outcome};
 pub use practice::{Practice, PracticeEvent, PracticeOptions};
 pub use progress::{run_from, ProgressError, ProgressStore, Run, SongProgress};

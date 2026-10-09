@@ -133,6 +133,8 @@ pub struct Core {
     lost: Option<unplug::Lost>,
     /// Input used instead of the lost one; never saved.
     fallback_input: Option<String>,
+    /// Dropouts of finished runs since the start (LH-NF-04).
+    xruns_done: u64,
 }
 
 impl Core {
@@ -148,6 +150,7 @@ impl Core {
             active_setlist: None,
             lost: None,
             fallback_input: None,
+            xruns_done: 0,
             catalog: Catalog::new(language),
             settings,
             library,
@@ -883,7 +886,14 @@ impl Core {
         if self.run_started.is_some() {
             self.record_run();
         }
-        self.live = None;
+        if let Some(live) = self.live.take() {
+            self.xruns_done += live.xruns();
+        }
+    }
+
+    /// Audio dropouts since Kontra started, over all runs (LH-NF-04).
+    pub fn xruns(&self) -> u64 {
+        self.xruns_done + self.live.as_ref().map_or(0, Live::xruns)
     }
 
     pub fn set_speed(&mut self, speed: f64) {

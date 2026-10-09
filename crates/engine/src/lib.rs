@@ -21,7 +21,7 @@ pub use clock::Clock;
 pub use input::{Input, InputKind, Pace};
 pub use kontra_drivers::{
     list_devices, read_audio, write_wav, AudioBuffer, Connection, DeviceInfo, Direction,
-    StreamConfig,
+    StreamConfig, NULL_DEVICE,
 };
 pub use korpus::{
     evaluate, evaluate_with, generate, render_performance, simulate_laptop_jack, Annotation,

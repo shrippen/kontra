@@ -82,6 +82,7 @@ pub mod qobject {
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
         #[qproperty(QString, backing_name, cxx_name = "backingName")]
         #[qproperty(QString, message)]
+        #[qproperty(i32, xruns)]
         #[qproperty(QString, offer_input, cxx_name = "offerInput")]
         #[qproperty(QString, offer_text, cxx_name = "offerText")]
         #[qproperty(QString, error_text, cxx_name = "errorText")]
@@ -411,6 +412,7 @@ pub struct ControllerRust {
     calibration_text: QString,
     backing_name: QString,
     message: QString,
+    xruns: i32,
     offer_input: QString,
     offer_text: QString,
     error_text: QString,
@@ -515,6 +517,7 @@ impl Default for ControllerRust {
             calibration_text: QString::default(),
             backing_name: QString::default(),
             message: QString::default(),
+            xruns: 0,
             offer_input: QString::default(),
             offer_text: QString::default(),
             error_text: QString::default(),
@@ -782,6 +785,10 @@ impl qobject::Controller {
         }
         if playing != *self.as_ref().playing() {
             self.as_mut().set_playing(playing);
+        }
+        let xruns = i32::try_from(self.as_ref().rust().core.xruns()).unwrap_or(i32::MAX);
+        if xruns != *self.as_ref().xruns() {
+            self.as_mut().set_xruns(xruns);
         }
     }
 

@@ -78,6 +78,16 @@ impl Output for LiveOutput {
     }
 }
 
+impl LiveOutput {
+    /// Output dropouts since the start (LH-NF-04); silence has none.
+    pub fn xruns(&self) -> u64 {
+        match self {
+            LiveOutput::Device(p) => p.xruns(),
+            LiveOutput::Silent(_) => 0,
+        }
+    }
+}
+
 /// A running live practice.
 #[derive(Debug)]
 pub struct Live {
@@ -138,6 +148,11 @@ impl Live {
         self.input
             .block_frames()
             .map(|b| (b, self.input.sample_rate))
+    }
+
+    /// Input and output dropouts since the start (LH-NF-04).
+    pub fn xruns(&self) -> u64 {
+        self.input.xruns() + self.practice.output().xruns()
     }
 
     /// False when monitoring cannot work: no output, or input and output run at different rates.
@@ -324,4 +339,67 @@ impl LiveCalibration {
         }
         (self.clock.now_s() > calibration.ends_at()).then(|| calibration.result())
     }
+}
+
+/// Result of an endurance run (LH-NF-04).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SoakReport {
+    pub seconds: f64,
+    pub xruns: u64,
+    /// Loop passes played.
+    pub passes: u32,
+}
+
+/// Plays `arrangement` in a loop for `duration_s` at `speed`, with metronome, reference tones
+/// and the backing time-stretched to that speed, on `output_device` (`NULL_DEVICE`: a timer
+/// instead of a sound card), and counts dropouts. No input: this measures the output path.
+pub fn soak(
+    arrangement: Arrangement,
+    backing: Option<&std::path::Path>,
+    speed: f64,
+    duration_s: f64,
+    output_device: Option<&str>,
+) -> Result<SoakReport, EngineError> {
+    const TICK: std::time::Duration = std::time::Duration::from_millis(10);
+    let clock = Clock::new();
+    let (tx, rx) = channel();
+    let config = StreamConfig {
+        device_id: output_device.map(str::to_string),
+        ..StreamConfig::default()
+    };
+    let output = LiveOutput::Device(Player::start(&config, &clock, tx)?);
+    let backing = backing
+        .map(|p| BackingTrack::load(p, output.sample_rate()))
+        .transpose()?;
+    let end_s = arrangement.duration_s();
+    let options = PracticeOptions {
+        reference_tones: true,
+        ..PracticeOptions::default()
+    };
+    let mut practice = Practice::new(
+        arrangement,
+        Mode::Play,
+        ScoreSettings::default(),
+        options,
+        output,
+        clock.clone(),
+    );
+    practice.set_backing(backing);
+    practice.set_speed(speed);
+    practice.set_loop(Some(crate::LoopRange {
+        start_s: 0.0,
+        end_s,
+    }));
+    practice.play();
+    let started = std::time::Instant::now();
+    while started.elapsed().as_secs_f64() < duration_s {
+        while rx.try_recv().is_ok() {}
+        practice.tick();
+        std::thread::sleep(TICK);
+    }
+    Ok(SoakReport {
+        seconds: started.elapsed().as_secs_f64(),
+        xruns: practice.output().xruns(),
+        passes: practice.session().transport().pass(),
+    })
 }

@@ -269,6 +269,16 @@ Kirigami.ScrollablePage {
             }
         }
 
+        // LH-NF-04: audio dropouts since the start, for bug reports.
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: KanteStyle.mutedTextColor
+            font: KanteStyle.monoFont(KanteStyle.defaultFont.pointSize, false)
+            text: texts.t("settings.xruns", { n: ctl.xruns })
+            Accessible.name: text
+        }
+
         // All keyboard shortcuts in one place (LH-NF-07).
         KanteSectionLabel { text: texts.t("keys.title"); Layout.topMargin: KanteStyle.unit(12) }
         GridLayout {

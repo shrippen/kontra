@@ -210,6 +210,11 @@ impl Player {
         self.monitor.take()
     }
 
+    /// Output dropouts since the start (LH-NF-04).
+    pub fn xruns(&self) -> u64 {
+        self._stream.xruns()
+    }
+
     /// True once the device asked for its first block (before that, nothing plays).
     pub fn is_running(&self) -> bool {
         !f64::from_bits(self.started.load(Ordering::Relaxed)).is_nan()

@@ -290,5 +290,6 @@
   "package.error.missing": "{name} is gone. Open the piece again or choose the file once more.",
   "unplug.offer": "Meanwhile you can use “{name}”. Plug your device back in and Kontra uses it again on its own.",
   "unplug.use": "Use this input",
-  "unplug.back": "Your input is back. Press play to go on."
+  "unplug.back": "Your input is back. Press play to go on.",
+  "settings.xruns": "Audio dropouts since start: {n}"
 }
