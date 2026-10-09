@@ -4,3 +4,4 @@
 /build/
 /.flatpak-builder/
 /testdata/korpus/local/
+/testdata/import/local/
