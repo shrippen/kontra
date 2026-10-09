@@ -165,7 +165,7 @@
   "advice.laptop.use": "Use laptop jack",
   "keys.title": "Keyboard shortcuts",
   "keys.play": "Play and pause",
-  "keys.rewind": "Back to the start",
+  "keys.rewind": "Back to the start, or to the loop start when a loop is set",
   "keys.loop": "Repeat section on/off",
   "keys.metronome": "Metronome on/off",
   "keys.countin": "Count-in on/off",
@@ -239,5 +239,8 @@
   "mixer.monitor.hint": "The sound passes through the computer and so arrives a little late. If your interface has direct monitoring, use that and leave this off.",
   "mixer.monitor.volume": "Bass volume",
   "hint.monitor.rate": "Kontra cannot pass your bass through: input and output run at different sample rates. Choose the same device for both or use the interface's direct monitoring.",
-  "keys.mixer": "Show or hide the mixer"
+  "keys.mixer": "Show or hide the mixer",
+  "keys.loopstart": "Loop start at the current bar",
+  "keys.loopend": "Loop end at the current bar",
+  "keys.footswitch": "Foot switch: any pedal that sends keys works without a driver. Most send Page Down (play/pause) and Page Up (back) – that already fits. Otherwise set it to one of the keys above."
 }

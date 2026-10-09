@@ -77,6 +77,13 @@ pub enum UiEvent {
     },
 }
 
+/// Which end of the loop a key sets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LoopEdge {
+    Start,
+    End,
+}
+
 /// Result of opening a file.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Opened {
@@ -804,6 +811,30 @@ impl Core {
         if let Some(live) = self.live.as_mut() {
             live.practice_mut().set_loop(range);
         }
+    }
+
+    /// Sets one end of the loop to the bar at `position_s` (keys `[` and `]`, LH-MOD-07); the
+    /// other end stays where it is unless it would cross, e.g. loop 3–6, `]` in bar 2 → 2–2.
+    pub fn set_loop_edge(&mut self, edge: LoopEdge, position_s: f64) {
+        let Some(a) = self.arrangement() else {
+            return;
+        };
+        let Some(bar) = a.bar_at(a.tempo.tick_at(position_s.max(0.0))) else {
+            return;
+        };
+        let (from, to) = match (edge, self.looping) {
+            (LoopEdge::Start, Some((_, to))) if to >= bar => (bar, to),
+            (LoopEdge::End, Some((from, _))) if from <= bar => (from, bar),
+            _ => (bar, bar),
+        };
+        self.set_loop(from, to);
+    }
+
+    /// Back to the start: the loop's first bar if a loop is set, else the piece's (LH-MOD-07).
+    /// Ends the run; returns the position the next `play` starts from.
+    pub fn rewind(&mut self) -> f64 {
+        self.stop_live();
+        self.loop_range().map_or(0.0, |r| r.start_s)
     }
 
     pub fn clear_loop(&mut self) {
@@ -1849,6 +1880,27 @@ mod tests {
         assert_eq!(bars[1]["number"], 2);
         let again = Core::new(&dir, QaOptions::default());
         assert!(again.recent_json().contains("Etude 1"));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn loop_keys_set_edges_and_rewind_to_loop_start() {
+        let dir = temp_dir("loopkeys");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        let bars: serde_json::Value = serde_json::from_str(&core.bars_json()).unwrap();
+        let start = |i: usize| bars[i]["time"].as_f64().unwrap();
+        assert_eq!(core.rewind(), 0.0);
+
+        // `[` in bar 3, `]` in bar 5 → bars 3–5; rewind goes to bar 3.
+        core.set_loop_edge(LoopEdge::Start, start(2) + 0.1);
+        core.set_loop_edge(LoopEdge::End, start(4) + 0.1);
+        assert_eq!(core.loop_seconds(), (start(2), start(5)));
+        assert_eq!(core.rewind(), start(2));
+
+        // An end before the start starts over in that bar.
+        core.set_loop_edge(LoopEdge::End, start(1));
+        assert_eq!(core.loop_seconds(), (start(1), start(2)));
         std::fs::remove_dir_all(dir).unwrap();
     }
 

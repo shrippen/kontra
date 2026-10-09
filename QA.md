@@ -78,7 +78,7 @@ Erwartet: Lied wartet ohne Zeitdruck; falscher Ton wird freundlich angezeigt (we
 2. Auf den schwierigsten Takt klicken → Riff-Werkstatt mit diesem Bereich.
 3. Tempo 60 %, automatische Anpassung an das Zielband 80–90 % Treffer, Vorzähler an.
 4. Fehlerfreie Durchläufe einspeisen bis 100 %.
-5. Alles nur mit Tastatur wiederholen.
+5. Alles nur mit Tastatur wiederholen (Loop mit `[` und `]` setzen, Pos1 springt an den Loop-Anfang), dann mit einem Fußschalter (Bild ab/auf).
 Erwartet: Bereich und Tempo stimmen; Backing Track bei 60 % ohne metallischen Klang; Steigerung sichtbar; jede Funktion per Tastenkürzel.
 
 **J-B4 Bundlos und tief** ⚙ · Persona: P3 Mira · Phase 1 · LH-TUN-01, LH-BEW-01, -02, -05, LH-NF-03, LH-ANZ-03

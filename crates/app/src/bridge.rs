@@ -144,6 +144,11 @@ pub mod qobject {
         #[cxx_name = "clearLoop"]
         fn clear_loop(self: Pin<&mut Self>);
 
+        /// Sets the loop's "start" or "end" to the bar at the current position (LH-MOD-07).
+        #[qinvokable]
+        #[cxx_name = "loopEdge"]
+        fn loop_edge(self: Pin<&mut Self>, edge: &QString);
+
         /// Polls audio and session; QML calls it from a 16 ms timer.
         #[qinvokable]
         fn tick(self: Pin<&mut Self>);
@@ -315,7 +320,7 @@ use crate::args::AppArgs;
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
-use kontra_appcore::{data_dir, Core, Opened, QaOptions, UiEvent};
+use kontra_appcore::{data_dir, Core, LoopEdge, Opened, QaOptions, UiEvent};
 use std::path::PathBuf;
 
 pub struct ControllerRust {
@@ -670,9 +675,9 @@ impl qobject::Controller {
     }
 
     fn rewind(mut self: Pin<&mut Self>) {
-        self.as_mut().core().stop_live();
+        let start = self.as_mut().core().rewind();
         self.as_mut().set_playing(false);
-        self.as_mut().set_position(0.0);
+        self.as_mut().set_position(start);
         self.as_mut().set_summary_json(QString::default());
         self.as_mut().set_holding_index(-1);
         self.as_mut().arrangement_loaded();
@@ -720,6 +725,20 @@ impl qobject::Controller {
         let from = usize::try_from(from).unwrap_or(0);
         let to = usize::try_from(to).unwrap_or(0);
         self.as_mut().core().set_loop(from, to);
+        self.as_mut().reset_passes();
+        let (start, end) = self.as_ref().rust().core.loop_seconds();
+        self.as_mut().set_loop_start(start);
+        self.as_mut().set_loop_end(end);
+    }
+
+    fn loop_edge(mut self: Pin<&mut Self>, edge: &QString) {
+        let edge = match edge.to_string().as_str() {
+            "start" => LoopEdge::Start,
+            "end" => LoopEdge::End,
+            _ => return,
+        };
+        let position = *self.as_ref().position();
+        self.as_mut().core().set_loop_edge(edge, position);
         self.as_mut().reset_passes();
         let (start, end) = self.as_ref().rust().core.loop_seconds();
         self.as_mut().set_loop_start(start);

@@ -114,6 +114,12 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 - [ ] Auswertung und Entscheidung (als Artifact mit Vorschlägen): welche Wege
       werden Kern von Kontra, welche Lernpfade entstehen daraus (Phase 2/3)
 
+## Lastenheft-Umsetzung (10.10.2026)
+
+- [x] LH-MOD-07: Pos1/Bild auf springt an den Loop-Anfang (sonst an den Anfang); `[`/`,` und `]`/`.`
+      setzen Loop-Anfang und -Ende auf den aktuellen Takt; Bild ab spielt/pausiert (Fußschalter);
+      alle Tasten und ein Fußschalter-Hinweis in den Einstellungen.
+
 ## QA-Runden
 
 ### QA-Runde 9.10.2026 (Personas, headless, erzeugte und echte Aufnahmen)

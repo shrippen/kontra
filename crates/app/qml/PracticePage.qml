@@ -68,9 +68,13 @@ Kirigami.Page {
         var item = applicationWindow().activeFocusItem
         return !(item && item.hasOwnProperty("cursorPosition"))
     }
-    Shortcut { sequence: "K"; enabled: page.keysFree; onActivated: ctl.togglePlay() }
+    // Foot switches emulate a keyboard and mostly send PageDown/PageUp: play and rewind.
+    Shortcut { sequences: ["K", "PgDown"]; enabled: page.keysFree; onActivated: ctl.togglePlay() }
     Shortcut { sequence: "N"; enabled: page.keysFree && ctl.nextTitle !== ""; onActivated: ctl.openNext() }
-    Shortcut { sequence: "Home"; enabled: page.keysFree; onActivated: ctl.rewind() }
+    Shortcut { sequences: ["Home", "PgUp"]; enabled: page.keysFree; onActivated: ctl.rewind() }
+    // Loop start and end at the current bar; "," and "." for layouts where brackets need AltGr.
+    Shortcut { sequences: ["[", ","]; enabled: page.keysFree; onActivated: ctl.loopEdge("start") }
+    Shortcut { sequences: ["]", "."]; enabled: page.keysFree; onActivated: ctl.loopEdge("end") }
     Shortcut { sequence: "L"; enabled: page.keysFree; onActivated: transport.loopToggled() }
     Shortcut { sequence: "M"; enabled: page.keysFree; onActivated: ctl.changeOptions(!ctl.metronome, ctl.reference, ctl.lowStringOnTop) }
     Shortcut { sequence: "C"; enabled: page.keysFree; onActivated: ctl.changeCountIn(!ctl.countIn) }

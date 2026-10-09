@@ -240,7 +240,8 @@ Kirigami.ScrollablePage {
             rowSpacing: KanteStyle.unit(4)
             Repeater {
                 model: [
-                    ["Space / K", "keys.play"], ["Pos1 / Home", "keys.rewind"], ["L", "keys.loop"],
+                    ["Space / K / PgDn", "keys.play"], ["Pos1 / Home / PgUp", "keys.rewind"], ["L", "keys.loop"],
+                    ["[ / ,", "keys.loopstart"], ["] / .", "keys.loopend"],
                     ["M", "keys.metronome"], ["C", "keys.countin"], ["X", "keys.mixer"], ["+ / −", "keys.speed"],
                     ["N", "keys.next"], ["1–4", "keys.mode"], ["Alt+1–4", "keys.view"], ["Ctrl+1–6", "keys.pages"]
                 ]
@@ -248,7 +249,7 @@ Kirigami.ScrollablePage {
                     Layout.columnSpan: 2
                     spacing: KanteStyle.unit(16)
                     QQC2.Label {
-                        Layout.preferredWidth: KanteStyle.unit(110)
+                        Layout.preferredWidth: KanteStyle.unit(150)
                         text: modelData[0]
                         font: KanteStyle.monoFont(KanteStyle.defaultFont.pointSize, false)
                         color: KanteStyle.strongTextColor
@@ -261,6 +262,13 @@ Kirigami.ScrollablePage {
                     }
                 }
             }
+        }
+        // Foot switch (LH-MOD-07): any pedal that types keys works, no driver needed.
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            text: texts.t("keys.footswitch")
+            color: KanteStyle.mutedTextColor
         }
     }
 }
