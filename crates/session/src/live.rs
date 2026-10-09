@@ -124,6 +124,13 @@ impl Live {
         })
     }
 
+    /// The input's block size in frames and its sample rate, once the device delivered audio.
+    pub fn input_block(&self) -> Option<(u32, u32)> {
+        self.input
+            .block_frames()
+            .map(|b| (b, self.input.sample_rate))
+    }
+
     pub fn practice(&self) -> &Practice<LiveOutput> {
         &self.practice
     }

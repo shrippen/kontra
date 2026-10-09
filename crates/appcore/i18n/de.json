@@ -165,5 +165,17 @@
   "keys.view": "Ansicht: Tab-Lane, Tabulatur, Noten, Noten + Tab",
   "keys.pages": "Seiten: Bibliothek, Üben, Stimmgerät, Einstellungen, Einrichtung",
   "library.underminute": "unter 1 min geübt",
-  "notice.more.strings": "Das Stück geht bis {note} hinunter, tiefer als dein Bass im Profil. Kontra zeigt es für {strings} Saiten; in den Einstellungen kannst du die Saitenzahl ändern."
+  "notice.more.strings": "Das Stück geht bis {note} hinunter, tiefer als dein Bass im Profil. Kontra zeigt es für {strings} Saiten; in den Einstellungen kannst du die Saitenzahl ändern.",
+  "hint.quantum": "Das Audiosystem arbeitet in Blöcken von {frames} Samples ({ms} ms). Damit kommt jede Rückmeldung spürbar zu spät. Kleiner stellen, z. B. im Terminal: pw-metadata -n settings 0 clock.force-quantum 256 (gilt bis zum Neustart); dauerhaft in ~/.config/pipewire/pipewire.conf.d/ mit default.clock.quantum = 256.",
+  "settings.device.default": "Standard des Systems",
+  "settings.input.none": "Kontra findet keinen Audio-Eingang. Ist das Interface eingesteckt? Dann bleibt „Standard des Systems“.",
+  "settings.later": "Kommt in einer späteren Version: MIDI-Instrumente (z. B. Keyboard) und Mikrofon für Kontrabass oder Akustikbass. Bis dahin hört Kontra den E-Bass über Kabel.",
+  "settings.auto": "Automatisch",
+  "settings.window": "Zeitfenster",
+  "settings.window.hint": "Wie genau der Anschlag auf der Zeit liegen muss. Automatisch: normal, am Mikrofon locker.",
+  "settings.window.loose": "Locker ±90 ms",
+  "settings.window.normal": "Normal ±60 ms",
+  "settings.window.strict": "Streng ±25 ms",
+  "settings.cents": "Tonhöhen-Grenze",
+  "settings.cents.hint": "Wie weit ein Ton daneben liegen darf. Automatisch: 50 Cent mit Bünden, 30 Cent bundlos."
 }

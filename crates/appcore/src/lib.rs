@@ -103,6 +103,8 @@ pub struct Core {
     calibration: Option<LiveCalibration>,
     /// Engine-independent start of the current run, for practice time.
     run_started: Option<std::time::Instant>,
+    /// The audio server's block size was checked for this run (LH-EIN-07).
+    quantum_checked: bool,
     speed: f64,
     looping: Option<(usize, usize)>,
     /// A note for the user from the last `open` (e.g. a five-string bass was chosen).
@@ -130,6 +132,7 @@ impl Core {
             tuner: None,
             calibration: None,
             run_started: None,
+            quantum_checked: false,
             speed: 1.0,
             looping: None,
         }
@@ -197,6 +200,22 @@ impl Core {
             }
             None => wanted,
         })
+    }
+
+    /// Scoring from the instrument, the input and the user's choices (LH-BEW-02, -05).
+    pub fn score_settings(&self, kind: BassKind) -> ScoreSettings {
+        let mut settings = ScoreSettings::defaults(kind, self.source());
+        settings.latency_ms = self.settings.latency_ms;
+        settings.strictness = match self.settings.strictness.as_str() {
+            "loose" => kontra_session::Strictness::Loose,
+            "normal" => kontra_session::Strictness::Normal,
+            "strict" => kontra_session::Strictness::Strict,
+            _ => settings.strictness,
+        };
+        if self.settings.pitch_cents > 0.0 {
+            settings.pitch_cents = self.settings.pitch_cents;
+        }
+        settings
     }
 
     /// The note left by the last `open`, once.
@@ -569,8 +588,7 @@ impl Core {
         };
         self.tuner = None;
         let arrangement = loaded.arrangement.clone();
-        let mut settings = ScoreSettings::defaults(arrangement.instrument.kind, self.source());
-        settings.latency_ms = self.settings.latency_ms;
+        let settings = self.score_settings(arrangement.instrument.kind);
         let options = PracticeOptions {
             metronome: self.settings.metronome,
             count_in_bars: self.settings.count_in_bars,
@@ -591,6 +609,7 @@ impl Core {
         let silent = live.output_is_silent;
         self.live = Some(live);
         self.run_started = Some(std::time::Instant::now());
+        self.quantum_checked = false;
         Ok(silent)
     }
 
@@ -627,11 +646,33 @@ impl Core {
         if events.iter().any(|e| matches!(e, UiEvent::Finished { .. })) {
             self.record_run();
         }
+        if let Some(hint) = self.quantum_check() {
+            events.push(UiEvent::Message(hint));
+        }
         if let Some(result) = self.calibration.as_mut().and_then(LiveCalibration::poll) {
             self.calibration = None;
             events.push(self.calibrated(result));
         }
         events
+    }
+
+    /// LH-EIN-07: once per run, a second after the start, a hint if the audio server's block is
+    /// too long for the latency target.
+    fn quantum_check(&mut self) -> Option<String> {
+        if self.quantum_checked {
+            return None;
+        }
+        let started = self.run_started?;
+        if started.elapsed() < std::time::Duration::from_secs(1) {
+            return None;
+        }
+        self.quantum_checked = true;
+        let (frames, rate) = self.live.as_ref()?.input_block()?;
+        let ms = quantum_too_long_ms(frames, rate)?;
+        Some(self.tr(
+            "hint.quantum",
+            &[("frames", frames.to_string()), ("ms", format!("{ms:.0}"))],
+        ))
     }
 
     /// Starts "play on the click" (LH-EIN-05): 8 clicks from one second after the input starts.
@@ -1040,6 +1081,13 @@ fn instrument_from(settings: &Settings) -> kontra_model::Instrument {
         .unwrap_or_else(|_| kontra_model::Instrument::default_bass())
 }
 
+/// Block length in ms if it is longer than 512 frames at 48 kHz (10.7 ms): beyond that the
+/// latency target (LH-NF-01) cannot be met.
+fn quantum_too_long_ms(frames: u32, rate: u32) -> Option<f64> {
+    let ms = f64::from(frames) / f64::from(rate.max(1)) * 1000.0;
+    (ms > 512.0 / 48.0 + 0.05).then_some(ms)
+}
+
 fn unix_now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1281,6 +1329,34 @@ mod tests {
         let mut again = Core::new(&dir, QaOptions::default());
         again.open(&demo()).unwrap();
         assert_eq!(again.view(), "tab");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-EIN-07: quantum 2048 at 48 kHz gives the hint, 256 and 512 do not.
+    #[test]
+    fn long_quantum_is_reported() {
+        assert!(quantum_too_long_ms(256, 48_000).is_none());
+        assert!(quantum_too_long_ms(512, 48_000).is_none());
+        let ms = quantum_too_long_ms(2048, 48_000).unwrap();
+        assert!((ms - 42.7).abs() < 0.1, "{ms}");
+        assert!(quantum_too_long_ms(1024, 44_100).is_some());
+    }
+
+    /// QA P3 (F6): window and pitch limit are the user's choice; "auto" keeps the defaults.
+    #[test]
+    fn scoring_follows_the_settings() {
+        let dir = temp_dir("scoring");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let auto = core.score_settings(BassKind::Fretless);
+        assert_eq!(auto.pitch_cents, 30.0);
+        assert_eq!(auto.strictness.window_ms(), 60.0);
+        core.reconfigure(|s| {
+            s.strictness = "strict".into();
+            s.pitch_cents = 20.0;
+        });
+        let chosen = core.score_settings(BassKind::Fretless);
+        assert_eq!(chosen.strictness.window_ms(), 25.0);
+        assert_eq!(chosen.pitch_cents, 20.0);
         let _ = std::fs::remove_dir_all(dir);
     }
 

@@ -165,5 +165,17 @@
   "keys.view": "View: tab lane, tablature, notation, both",
   "keys.pages": "Pages: library, practice, tuner, settings, setup",
   "library.underminute": "under 1 min practised",
-  "notice.more.strings": "The piece goes down to {note}, lower than the bass in your profile. Kontra shows it for {strings} strings; you can change the string count in the settings."
+  "notice.more.strings": "The piece goes down to {note}, lower than the bass in your profile. Kontra shows it for {strings} strings; you can change the string count in the settings.",
+  "hint.quantum": "The audio system works in blocks of {frames} samples ({ms} ms). Every response comes noticeably late. Make them smaller, e.g. in a terminal: pw-metadata -n settings 0 clock.force-quantum 256 (until restart); permanently in ~/.config/pipewire/pipewire.conf.d/ with default.clock.quantum = 256.",
+  "settings.device.default": "System default",
+  "settings.input.none": "Kontra finds no audio input. Is the interface plugged in? Then “System default” stays.",
+  "settings.later": "Coming in a later version: MIDI instruments (e.g. keyboard) and a microphone for double bass or acoustic bass. Until then Kontra listens to an electric bass by cable.",
+  "settings.auto": "Automatic",
+  "settings.window": "Timing window",
+  "settings.window.hint": "How close to the beat a pluck must be. Automatic: normal, loose on a microphone.",
+  "settings.window.loose": "Loose ±90 ms",
+  "settings.window.normal": "Normal ±60 ms",
+  "settings.window.strict": "Strict ±25 ms",
+  "settings.cents": "Pitch limit",
+  "settings.cents.hint": "How far off a note may be. Automatic: 50 cents fretted, 30 cents fretless."
 }

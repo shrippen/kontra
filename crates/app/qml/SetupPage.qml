@@ -89,13 +89,20 @@ Kirigami.ScrollablePage {
                 text: texts.t("hint.laptop")
                 autoHide: false
             }
+            KanteCallout {
+                Layout.fillWidth: true
+                kind: KanteCallout.Kind.Info
+                autoHide: false
+                text: texts.t("settings.later")
+            }
             KanteSettingRow {
                 Layout.fillWidth: true
                 title: texts.t("settings.input")
                 QQC2.ComboBox {
                     Accessible.name: texts.t("settings.input")
                     Layout.fillWidth: true
-                    model: ["—"].concat(page.inputs.map(function(d) { return d.name }))
+                    Layout.preferredWidth: KanteStyle.unit(280)
+                    model: [texts.t("settings.device.default")].concat(page.inputs.map(function(d) { return d.name }))
                     onActivated: function(index) { ctl.chooseInput(index === 0 ? "" : page.inputs[index - 1].id) }
                 }
             }

@@ -60,6 +60,8 @@ pub mod qobject {
         #[qproperty(bool, reference)]
         #[qproperty(bool, low_string_on_top, cxx_name = "lowStringOnTop")]
         #[qproperty(QString, play_marks, cxx_name = "playMarks")]
+        #[qproperty(QString, strictness)]
+        #[qproperty(f64, pitch_cents, cxx_name = "pitchCents")]
         #[qproperty(f64, latency_ms, cxx_name = "latencyMs")]
         #[qproperty(bool, calibrating)]
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
@@ -161,6 +163,11 @@ pub mod qobject {
             reference: bool,
             low_string_on_top: bool,
         );
+
+        /// Timing window ("auto", "loose", "normal", "strict") and pitch limit (0 = auto).
+        #[qinvokable]
+        #[cxx_name = "changeScoring"]
+        fn change_scoring(self: Pin<&mut Self>, strictness: &QString, pitch_cents: f64);
 
         /// Note marks in play mode: "quiet", "off" or "full".
         #[qinvokable]
@@ -282,6 +289,8 @@ pub struct ControllerRust {
     reference: bool,
     low_string_on_top: bool,
     play_marks: QString,
+    strictness: QString,
+    pitch_cents: f64,
     latency_ms: f64,
     calibrating: bool,
     calibration_text: QString,
@@ -370,6 +379,8 @@ impl Default for ControllerRust {
             reference: s.reference_tones,
             low_string_on_top: s.low_string_on_top,
             play_marks: q(&s.play_marks),
+            strictness: q(&s.strictness),
+            pitch_cents: s.pitch_cents,
             latency_ms: s.latency_ms,
             calibrating: false,
             calibration_text: QString::default(),
@@ -795,6 +806,22 @@ impl qobject::Controller {
         self.as_mut().set_metronome(metronome);
         self.as_mut().set_reference(reference);
         self.as_mut().set_low_string_on_top(low_string_on_top);
+        self.as_mut().set_playing(false);
+    }
+
+    fn change_scoring(mut self: Pin<&mut Self>, strictness: &QString, pitch_cents: f64) {
+        let strictness = strictness.to_string();
+        if !["auto", "loose", "normal", "strict"].contains(&strictness.as_str()) {
+            return;
+        }
+        let cents = pitch_cents.clamp(0.0, 100.0);
+        let value = q(&strictness);
+        self.as_mut().core().reconfigure(|s| {
+            s.strictness = strictness;
+            s.pitch_cents = cents;
+        });
+        self.as_mut().set_strictness(value);
+        self.as_mut().set_pitch_cents(cents);
         self.as_mut().set_playing(false);
     }
 

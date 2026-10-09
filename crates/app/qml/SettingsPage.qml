@@ -37,10 +37,12 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.input")
+            hint: page.inputs.length === 0 ? texts.t("settings.input.none") : ""
             QQC2.ComboBox {
                 Accessible.name: texts.t("settings.input")
                 Layout.fillWidth: true
-                model: ["—"].concat(page.inputs.map(function(d) { return d.name }))
+                Layout.preferredWidth: KanteStyle.unit(280)
+                model: [texts.t("settings.device.default")].concat(page.inputs.map(function(d) { return d.name }))
                 currentIndex: page.deviceIndex(page.inputs, ctl.inputDevice)
                 onActivated: function(index) { ctl.chooseInput(index === 0 ? "" : page.inputs[index - 1].id) }
             }
@@ -51,7 +53,8 @@ Kirigami.ScrollablePage {
             QQC2.ComboBox {
                 Accessible.name: texts.t("settings.output")
                 Layout.fillWidth: true
-                model: ["—"].concat(page.outputs.map(function(d) { return d.name }))
+                Layout.preferredWidth: KanteStyle.unit(280)
+                model: [texts.t("settings.device.default")].concat(page.outputs.map(function(d) { return d.name }))
                 currentIndex: page.deviceIndex(page.outputs, ctl.outputDevice)
                 onActivated: function(index) { ctl.chooseOutput(index === 0 ? "" : page.outputs[index - 1].id) }
             }
@@ -66,6 +69,13 @@ Kirigami.ScrollablePage {
                 currentIndex: ctl.laptopJack ? 1 : 0
                 onActivated: function(index) { ctl.changeInstrument(ctl.strings, ctl.fretless, index === 1) }
             }
+        }
+        // LH-EIN-10: inputs that come later are named, not left out (QA P5 Aylin, P6 Karl).
+        KanteCallout {
+            Layout.fillWidth: true
+            kind: KanteCallout.Kind.Info
+            autoHide: false
+            text: texts.t("settings.later")
         }
         KanteSettingRow {
             Layout.fillWidth: true
@@ -107,6 +117,31 @@ Kirigami.ScrollablePage {
                         texts.t("settings.playmarks.full")]
                 currentIndex: Math.max(0, values.indexOf(ctl.playMarks))
                 onActivated: function(index) { ctl.changePlayMarks(values[index]) }
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            title: texts.t("settings.window")
+            hint: texts.t("settings.window.hint")
+            KanteSegmented {
+                Accessible.name: texts.t("settings.window")
+                readonly property var values: ["auto", "loose", "normal", "strict"]
+                model: [texts.t("settings.auto"), texts.t("settings.window.loose"),
+                        texts.t("settings.window.normal"), texts.t("settings.window.strict")]
+                currentIndex: Math.max(0, values.indexOf(ctl.strictness))
+                onActivated: function(index) { ctl.changeScoring(values[index], ctl.pitchCents) }
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            title: texts.t("settings.cents")
+            hint: texts.t("settings.cents.hint")
+            KanteSegmented {
+                Accessible.name: texts.t("settings.cents")
+                readonly property var values: [0, 10, 20, 30, 50]
+                model: [texts.t("settings.auto"), "10 ct", "20 ct", "30 ct", "50 ct"]
+                currentIndex: Math.max(0, values.indexOf(ctl.pitchCents))
+                onActivated: function(index) { ctl.changeScoring(ctl.strictness, values[index]) }
             }
         }
         KanteSettingRow {
