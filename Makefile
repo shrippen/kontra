@@ -1,7 +1,7 @@
-.PHONY: check fmt lint test deny korpus run cli qt-env
+.PHONY: check fmt lint test deny design korpus run cli qt-env
 
 # Everything CI runs; run before every commit (agent.md).
-check: fmt lint test deny
+check: fmt lint test deny design
 
 fmt:
 	cargo fmt --all --check
@@ -15,6 +15,10 @@ test:
 # Licence policy (deny.toml); `cargo install --locked cargo-deny` once.
 deny:
 	cargo deny check licenses bans sources
+
+# Kante only: no own colours, sizes or fonts in the app's QML (LH-NF-10).
+design:
+	scripts/check-design.sh
 
 # Detection quality on the synthetic corpus (LH-NF-02/03).
 korpus:

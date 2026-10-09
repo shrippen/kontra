@@ -37,6 +37,8 @@ jobs:
             target
           key: core-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
       - run: cargo fmt --all --check
+      - name: Design tokens only (LH-NF-10)
+        run: scripts/check-design.sh
       - run: cargo clippy --workspace --exclude kontra-app --all-targets -- -D warnings
       # Includes the journey tests (tests/journeys, QA.md ⚙): recordings rendered on the fly,
       # played in real time through the app core without a sound card.
