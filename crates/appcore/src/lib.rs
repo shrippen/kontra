@@ -89,6 +89,9 @@ pub enum Opened {
 struct Loaded {
     path: PathBuf,
     arrangement: Arrangement,
+    /// All tracks of the file and the one played, so the player can switch (QA P2 R9).
+    tracks: Vec<String>,
+    track: usize,
 }
 
 #[derive(Debug)]
@@ -263,6 +266,25 @@ impl Core {
             .map(|r| json!({ "unix": r.finished_unix, "s": r.practice_s }))
             .collect();
         json!({ "pieces": pieces, "runs": runs }).to_string()
+    }
+
+    /// Tracks of the loaded file and the one played: `{"names": [...], "current": i}`.
+    pub fn tracks_json(&self) -> String {
+        let (names, current) = self
+            .loaded
+            .as_ref()
+            .map_or((Vec::new(), 0), |l| (l.tracks.clone(), l.track));
+        json!({ "names": names, "current": current }).to_string()
+    }
+
+    /// Plays another track of the loaded file (Kontra's guess may be the wrong one).
+    pub fn switch_track(&mut self, track: usize) -> Result<(), String> {
+        let path = self.loaded_path().ok_or("nothing loaded")?.to_path_buf();
+        let imported = import_file(&path).map_err(|e| self.import_error(&e))?;
+        let setlist = self.active_setlist.clone();
+        self.load(&path, &imported, track)?;
+        self.active_setlist = setlist;
+        Ok(())
     }
 
     /// The note left by the last `open`, once.
@@ -585,6 +607,12 @@ impl Core {
         self.loaded = Some(Loaded {
             path: path.to_path_buf(),
             arrangement,
+            tracks: imported
+                .tracks()
+                .iter()
+                .map(|t| t.name().to_string())
+                .collect(),
+            track,
         });
         Ok(())
     }
@@ -1687,6 +1715,19 @@ mod tests {
             .ends_with("2-clicks.mid"));
         let again = Core::new(&dir, QaOptions::default());
         assert!(again.setlists_json().contains("Freitag"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA P2 (R9): another track of the file can be chosen after Kontra's own choice.
+    #[test]
+    fn switches_to_another_track() {
+        let dir = temp_dir("tracks");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        let t: serde_json::Value = serde_json::from_str(&core.tracks_json()).unwrap();
+        assert!(!t["names"].as_array().unwrap().is_empty());
+        assert!(core.switch_track(0).is_ok());
+        assert!(core.switch_track(99).is_err());
         let _ = std::fs::remove_dir_all(dir);
     }
 

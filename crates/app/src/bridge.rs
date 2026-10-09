@@ -51,6 +51,8 @@ pub mod qobject {
         #[qproperty(QString, summary_json, cxx_name = "summaryJson")]
         #[qproperty(QString, recent_json, cxx_name = "recentJson")]
         #[qproperty(QString, setlists_json, cxx_name = "setlistsJson")]
+        /// Tracks of the loaded file: `{"names": [...], "current": i}`.
+        #[qproperty(QString, tracks_json, cxx_name = "tracksJson")]
         /// Title of the next piece of the setlist being played ("" = none).
         #[qproperty(QString, next_title, cxx_name = "nextTitle")]
         #[qproperty(QString, track_choices_json, cxx_name = "trackChoicesJson")]
@@ -200,6 +202,11 @@ pub mod qobject {
         #[cxx_name = "openFromSetlist"]
         fn open_from_setlist(self: Pin<&mut Self>, name: &QString, index: i32) -> bool;
 
+        /// Plays another track of the loaded file.
+        #[qinvokable]
+        #[cxx_name = "switchTrack"]
+        fn switch_track(self: Pin<&mut Self>, track: i32);
+
         /// Opens the next piece of the setlist being played.
         #[qinvokable]
         #[cxx_name = "openNext"]
@@ -326,6 +333,7 @@ pub struct ControllerRust {
     recent_json: QString,
     setlists_json: QString,
     next_title: QString,
+    tracks_json: QString,
     track_choices_json: QString,
     input_devices_json: QString,
     output_devices_json: QString,
@@ -420,6 +428,7 @@ impl Default for ControllerRust {
             recent_json: q(&core.recent_json()),
             setlists_json: q(&core.setlists_json()),
             next_title: QString::default(),
+            tracks_json: q("{\"names\": [], \"current\": 0}"),
             track_choices_json: q("[]"),
             input_devices_json: q("[]"),
             output_devices_json: q("[]"),
@@ -492,6 +501,7 @@ impl ControllerRust {
                 self.recent_json = q(&self.core.recent_json());
                 self.backing_name = q(&self.core.backing_name());
                 self.view = q(&self.core.view());
+                self.tracks_json = q(&self.core.tracks_json());
                 if let Some(notice) = self.core.take_notice() {
                     self.message = q(&notice);
                 }
@@ -548,7 +558,9 @@ impl qobject::Controller {
         let loaded = core.arrangement().is_some();
         let backing = core.backing_name();
         let view = core.view();
+        let tracks = core.tracks_json();
         self.as_mut().set_view(q(&view));
+        self.as_mut().set_tracks_json(q(&tracks));
         self.as_mut().set_title(q(&title));
         self.as_mut().set_artist(q(&artist));
         self.as_mut().set_notes_json(q(&notes));
@@ -914,6 +926,14 @@ impl qobject::Controller {
             .core()
             .open_from_setlist(&name.to_string(), index);
         self.as_mut().after_open(result)
+    }
+
+    fn switch_track(mut self: Pin<&mut Self>, track: i32) {
+        let track = usize::try_from(track).unwrap_or(usize::MAX);
+        match self.as_mut().core().switch_track(track) {
+            Ok(()) => self.as_mut().refresh_arrangement(),
+            Err(e) => self.as_mut().show_error(&e),
+        }
     }
 
     fn open_next(mut self: Pin<&mut Self>) -> bool {

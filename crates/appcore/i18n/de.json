@@ -218,5 +218,6 @@
   "setlist.create": "Anlegen",
   "setlist.next": "Nächstes: {title}",
   "keys.next": "Nächstes Stück der Setliste",
-  "setlist.delete.sure": "Wirklich löschen?"
+  "setlist.delete.sure": "Wirklich löschen?",
+  "track.label": "Spur"
 }

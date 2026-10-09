@@ -218,5 +218,6 @@
   "setlist.create": "Create",
   "setlist.next": "Next: {title}",
   "keys.next": "Next piece of the setlist",
-  "setlist.delete.sure": "Really delete?"
+  "setlist.delete.sure": "Really delete?",
+  "track.label": "Track"
 }

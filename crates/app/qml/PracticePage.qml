@@ -118,6 +118,19 @@ Kirigami.Page {
                 spacing: 0
                 KanteHeading { text: ctl.title; pageTitle: true; Layout.fillWidth: true; elide: Text.ElideRight }
                 QQC2.Label { text: ctl.artist; visible: ctl.artist !== ""; color: KanteStyle.mutedTextColor }
+                // Kontra picks the bass track itself; another can be chosen (QA P2 R9).
+                RowLayout {
+                    readonly property var tracks: JSON.parse(ctl.tracksJson)
+                    visible: tracks.names.length > 1
+                    QQC2.Label { text: texts.t("track.label"); color: KanteStyle.mutedTextColor }
+                    QQC2.ComboBox {
+                        Layout.preferredWidth: KanteStyle.unit(220)
+                        Accessible.name: texts.t("track.label")
+                        model: parent.tracks.names
+                        currentIndex: parent.tracks.current
+                        onActivated: function(index) { ctl.switchTrack(index) }
+                    }
+                }
             }
             KanteSegmented {
                 model: page.modes.map(function(m) { return texts.t("mode." + m) })
