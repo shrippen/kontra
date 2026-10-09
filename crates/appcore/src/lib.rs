@@ -794,12 +794,13 @@ fn staff(a: &Arrangement) -> serde_json::Value {
     let notes: Vec<_> = a
         .notes
         .iter()
-        .map(|n| {
+        .zip(ties_forward(&a.notes))
+        .map(|(n, tied)| {
             json!({
                 "time": a.tempo.seconds_at(n.start_ticks),
                 "beats": written_beats(n.duration_ticks),
                 "midi": n.pitch.0,
-                "tied": n.tied,
+                "tied": tied,
                 "state": "pending",
             })
         })
@@ -813,6 +814,22 @@ fn staff(a: &Arrangement) -> serde_json::Value {
         .collect();
     let key = a.bars.first().map_or(0, |b| b.key_fifths);
     json!({ "notes": notes, "rests": rests, "keyFifths": key })
+}
+
+/// Kontra marks the note that continues a tie (`tied`: no new attack); Kante's staff marks
+/// the note tied to the next one. The last earlier note of the same pitch gets the tie.
+fn ties_forward(notes: &[kontra_model::Note]) -> Vec<bool> {
+    let mut out = vec![false; notes.len()];
+    for (index, note) in notes.iter().enumerate() {
+        if !note.tied {
+            continue;
+        }
+        let before = notes[..index].iter().rposition(|n| n.pitch == note.pitch);
+        if let Some(before) = before {
+            out[before] = true;
+        }
+    }
+    out
 }
 
 /// Rests as (start, length) in ticks: the gaps between written notes in each bar, on the
@@ -997,6 +1014,21 @@ mod tests {
             (Q + 2 * t, t, 35),
         ]);
         assert_eq!(rests_of(&a), [(3.0, 1.0)]);
+    }
+
+    #[test]
+    fn staff_ties_start_at_the_note_before_the_continuation() {
+        // G1 on beat 4 tied over the bar line; Kontra marks the second G1, Kante the first.
+        let mut a = arrangement(&[(0, 3 * Q, 28), (3 * Q, Q, 31), (4 * Q, Q, 31)]);
+        a.notes[2].tied = true;
+        let value = staff(&a);
+        let ties: Vec<bool> = value["notes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n["tied"].as_bool().unwrap())
+            .collect();
+        assert_eq!(ties, [false, true, false]);
     }
 
     #[test]
