@@ -82,6 +82,21 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Information nie nur über Farbe (Form, Symbol oder Text dazu).
 - Zeiten in Millisekunden, Tonhöhen in Cent relativ zum Sollton, Frequenzen in Hz; Einheit im Namen (`offsetMs`, `deviationCent`).
 
+## Gelernte Fehler
+- cxx-qt: Nach Änderungen an `crates/app/src/bridge.rs` (neue Property, Invokable oder Signal) kann der vorkompilierte
+  QML-Code (qmlcachegen) alte Methodenindizes aufrufen und abstürzen (SIGSEGV in `QMetaObject::method`), wenn sich die
+  QML-Dateien selbst nicht geändert haben. Dann `cargo clean -p kontra-app`; `scripts/screenshots.sh` tut das immer.
+- Kirigami-Seiten malen den Plattform-Hintergrund; ohne `background: Rectangle { color: KanteStyle.backgroundColor }`
+  steht helle Kante-Schrift auf hellem Grund.
+- `grabToImage` auf dem Fenster selbst scheitert („no QML engine“); Screenshots nehmen die aktuelle Seite. Was im
+  Screenshot erscheinen soll, liegt deshalb in der Seite, nicht in einem Fenster-Dialog.
+- rustfmt bricht lange Zeilen um (max_width 100): Skripte, die Quelltext per Textersetzung ändern, finden danach ihre
+  Vorlage nicht mehr. Erst lesen, dann ändern.
+- QML: Eine eigene Eigenschaft namens `data` (oder `children`, `resources`) auf einem Item überdeckt dessen Kind-Liste;
+  die Seite hängt ohne Fehlermeldung. Namen wie `summary` verwenden.
+- Die Engine stempelt Noten aus Dateien mit `Pace::Fast` dateirelativ, mit `Pace::RealTime` auf die Engine-Uhr. Eine
+  Aufnahme wird über `Input::started_s()` ausgerichtet, nicht über den Zeitpunkt des Aufrufs (Dekodieren dauert).
+
 ## Persona rule
 
 - `PERSONAS.md` holds the fixed personas P1–P7. They are used automatically, without being asked:

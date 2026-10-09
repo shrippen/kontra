@@ -127,14 +127,20 @@ impl Core {
         &self.settings
     }
 
-    /// Changes settings, saves them and drops a running practice (it uses the old ones).
+    /// Changes settings that do not affect a running practice (view, style, language) and saves.
     pub fn update_settings(&mut self, change: impl FnOnce(&mut Settings)) {
         change(&mut self.settings);
         if let Some(code) = &self.settings.language {
             self.catalog = Catalog::new(Language::from_code(code));
         }
-        self.stop_live();
         let _ = store::save(&self.data_dir.join("settings.json"), &self.settings);
+    }
+
+    /// Changes settings the audio depends on (mode, instrument, devices, latency, metronome):
+    /// saves them and ends a running practice, the next `play` uses the new ones.
+    pub fn reconfigure(&mut self, change: impl FnOnce(&mut Settings)) {
+        self.update_settings(change);
+        self.stop_live();
     }
 
     pub fn recent_json(&self) -> String {
@@ -324,7 +330,7 @@ impl Core {
     }
 
     pub fn set_mode(&mut self, mode: &str) {
-        self.update_settings(|s| s.mode = mode.to_string());
+        self.reconfigure(|s| s.mode = mode.to_string());
     }
 
     /// Loops bars `from..=to` (indices into the arrangement's bars).

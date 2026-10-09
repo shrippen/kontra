@@ -40,3 +40,34 @@ jobs:
       - run: cargo deny check licenses bans sources
       - name: Corpus quality (LH-NF-02/03)
         run: cargo run -q -p kontra-cli --release -- korpus check
+
+  app:
+    # The Qt app: Qt 6.10 and Kirigami from scripts/setup-qt-env.sh (cached), headless screenshots.
+    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            /opt/qt
+            /opt/kf6
+            /opt/qt-tools
+          key: qt-6.10.3-kf-6.30.0
+      - name: Qt and Kirigami
+        run: sudo scripts/setup-qt-env.sh
+      - name: Rust
+        run: |
+          rustup toolchain install stable --profile minimal -c clippy
+          rustup default stable
+      - name: Build and lint
+        run: |
+          . scripts/qt-env.sh
+          cargo clippy -p kontra-app --all-targets -- -D warnings
+          cargo test -p kontra-app
+      - name: Screenshots
+        run: scripts/screenshots.sh shots
+      - uses: actions/upload-artifact@v3
+        with:
+          name: screenshots
+          path: shots/
