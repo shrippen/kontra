@@ -108,6 +108,8 @@ pub(crate) struct BarHead {
     pub(crate) jumps: Vec<Jump>,
     /// Tempo changes as (offset in ticks from the bar start, quarter notes per minute).
     pub(crate) tempos: Vec<(u64, f64)>,
+    /// Key change at this bar in concert pitch (fifths, -7..=7); `None` keeps the previous key.
+    pub(crate) key: Option<i8>,
 }
 
 impl BarHead {
@@ -121,6 +123,7 @@ impl BarHead {
             targets: Vec::new(),
             jumps: Vec::new(),
             tempos: Vec::new(),
+            key: None,
         }
     }
 
@@ -134,6 +137,16 @@ impl BarHead {
         }
         self.tempos.push((offset, bpm));
     }
+}
+
+/// Most sharps or flats a key signature has.
+pub(crate) const MAX_FIFTHS: i8 = 7;
+
+/// A key signature from a file, if it is one (-7..=7).
+pub(crate) fn key(fifths: i32) -> Option<i8> {
+    i8::try_from(fifths)
+        .ok()
+        .filter(|f| (-MAX_FIFTHS..=MAX_FIFTHS).contains(f))
 }
 
 /// One instrument part.

@@ -281,6 +281,14 @@ impl Core {
         serde_json::Value::Array(bars).to_string()
     }
 
+    /// The notation view (Kante `KanteBassStaff`): notes in the order of `notes_json`, rests,
+    /// key signature.
+    pub fn staff_json(&self) -> String {
+        self.arrangement()
+            .map_or_else(empty_staff, staff)
+            .to_string()
+    }
+
     pub fn string_names_json(&self) -> String {
         let names: Vec<String> = self
             .arrangement()
@@ -773,6 +781,29 @@ fn written_beats(duration_ticks: u64) -> f64 {
     rounded as f64 / kontra_model::TICKS_PER_QUARTER as f64
 }
 
+fn empty_staff() -> serde_json::Value {
+    json!({ "notes": [], "rests": [], "keyFifths": 0 })
+}
+
+/// `staff_json` for an arrangement. The staff shows one key; it is the first bar's.
+fn staff(a: &Arrangement) -> serde_json::Value {
+    let notes: Vec<_> = a
+        .notes
+        .iter()
+        .map(|n| {
+            json!({
+                "time": a.tempo.seconds_at(n.start_ticks),
+                "beats": written_beats(n.duration_ticks),
+                "midi": n.pitch.0,
+                "tied": n.tied,
+                "state": "pending",
+            })
+        })
+        .collect();
+    let key = a.bars.first().map_or(0, |b| b.key_fifths);
+    json!({ "notes": notes, "rests": [], "keyFifths": key })
+}
+
 fn instrument_from(settings: &Settings) -> kontra_model::Instrument {
     let tuning = match settings.strings {
         5 => kontra_model::Tuning::bass5_standard(),
@@ -814,6 +845,30 @@ mod tests {
         assert_eq!(written_beats(q / 2 - 40), 0.5);
         assert_eq!(written_beats(q), 1.0);
         assert_eq!(written_beats(10), 0.25);
+    }
+
+    const Q: u64 = kontra_model::TICKS_PER_QUARTER;
+
+    /// One bar of 4/4 or more, notes as (start, duration, MIDI) in ticks.
+    fn arrangement(notes: &[(u64, u64, u8)]) -> Arrangement {
+        let mut a = Arrangement::new("Staff", kontra_model::Instrument::default_bass());
+        for &(start, duration, midi) in notes {
+            a.notes.push(kontra_model::Note::new(
+                start,
+                duration,
+                kontra_model::Pitch(midi),
+            ));
+        }
+        a.normalize();
+        a
+    }
+
+    #[test]
+    fn staff_shows_the_key_of_the_first_bar() {
+        let mut a = arrangement(&[(0, 4 * Q, 34), (4 * Q, 4 * Q, 34)]);
+        a.bars[0].key_fifths = -2;
+        a.bars[1].key_fifths = 1;
+        assert_eq!(staff(&a)["keyFifths"], -2);
     }
 
     #[test]

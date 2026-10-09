@@ -21,6 +21,7 @@ pub mod qobject {
         #[qproperty(QString, artist)]
         #[qproperty(QString, notes_json, cxx_name = "notesJson")]
         #[qproperty(QString, bars_json, cxx_name = "barsJson")]
+        #[qproperty(QString, staff_json, cxx_name = "staffJson")]
         #[qproperty(QString, string_names_json, cxx_name = "stringNamesJson")]
         #[qproperty(f64, duration)]
         #[qproperty(f64, position)]
@@ -240,6 +241,7 @@ pub struct ControllerRust {
     artist: QString,
     notes_json: QString,
     bars_json: QString,
+    staff_json: QString,
     string_names_json: QString,
     duration: f64,
     position: f64,
@@ -329,6 +331,7 @@ impl Default for ControllerRust {
             artist: QString::default(),
             notes_json: q("[]"),
             bars_json: q("[]"),
+            staff_json: q(&core.staff_json()),
             string_names_json: q("[]"),
             duration: 0.0,
             position: 0.0,
@@ -413,6 +416,7 @@ impl ControllerRust {
                     .map_or(String::new(), |a| a.artist.clone()));
                 self.notes_json = q(&self.core.notes_json());
                 self.bars_json = q(&self.core.bars_json());
+                self.staff_json = q(&self.core.staff_json());
                 self.string_names_json = q(&self.core.string_names_json());
                 self.duration = self.core.duration_s();
                 self.recent_json = q(&self.core.recent_json());
@@ -463,6 +467,7 @@ impl qobject::Controller {
             });
         let notes = core.notes_json();
         let bars = core.bars_json();
+        let staff = core.staff_json();
         let names = core.string_names_json();
         let duration = core.duration_s();
         let recent = core.recent_json();
@@ -472,6 +477,7 @@ impl qobject::Controller {
         self.as_mut().set_artist(q(&artist));
         self.as_mut().set_notes_json(q(&notes));
         self.as_mut().set_bars_json(q(&bars));
+        self.as_mut().set_staff_json(q(&staff));
         self.as_mut().set_string_names_json(q(&names));
         self.as_mut().set_duration(duration);
         self.as_mut().set_recent_json(q(&recent));

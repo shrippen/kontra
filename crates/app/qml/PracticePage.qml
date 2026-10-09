@@ -18,6 +18,8 @@ Kirigami.Page {
     // here too, so a view that gets its notes later (view switch) can catch up.
     property var notes: []
     property var bars: JSON.parse(ctl.barsJson)
+    // The notation view: the same notes as written for bass, rests, key signature.
+    property var staff: JSON.parse(ctl.staffJson)
     property var states: ({})
     // Play mode marks quietly or not at all (setting); the other modes mark fully.
     readonly property int marks: ctl.mode !== "play" || ctl.playMarks === "full" ? KanteTabLane.Marks.Full
@@ -33,6 +35,7 @@ Kirigami.Page {
     function reset() {
         notes = JSON.parse(ctl.notesJson)
         bars = JSON.parse(ctl.barsJson)
+        staff = JSON.parse(ctl.staffJson)
         states = {}
     }
 
@@ -225,7 +228,9 @@ Kirigami.Page {
                 id: bassStaff
                 anchors.fill: parent
                 visible: ctl.view === "notation"
-                notes: visible ? page.notes : []
+                notes: visible ? page.staff.notes : []
+                rests: page.staff.rests
+                keyFifths: page.staff.keyFifths
                 marks: page.marks
                 onNotesChanged: Qt.callLater(function() { page.catchUp(bassStaff) })
                 bars: page.bars
@@ -241,7 +246,9 @@ Kirigami.Page {
                     id: combinedBass
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    notes: combined.visible ? page.notes : []
+                    notes: combined.visible ? page.staff.notes : []
+                    rests: page.staff.rests
+                    keyFifths: page.staff.keyFifths
                     marks: page.marks
                     onNotesChanged: Qt.callLater(function() { page.catchUp(combinedBass) })
                     bars: page.bars

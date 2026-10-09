@@ -2,7 +2,7 @@
 //! changes on the timeline, resolves ties and hammer-ons, picks the instrument.
 
 use crate::error::ImportError;
-use crate::score::{Legato, Part, Score};
+use crate::score::{BarHead, Legato, Part, Score};
 use crate::tab::assign_tab;
 use crate::unroll::unroll;
 use kontra_model::{
@@ -19,6 +19,7 @@ pub(crate) fn arrangement(score: &Score, index: usize) -> Result<Arrangement, Im
     let part = score.parts.get(index).ok_or(ImportError::NoTrack(index))?;
     let order = unroll(&score.bars)?;
     let (instrument, tab) = instrument(part);
+    let keys = keys(&score.bars);
 
     let mut arrangement = Arrangement::new(&score.title, instrument);
     arrangement.artist = score.artist.clone();
@@ -33,6 +34,7 @@ pub(crate) fn arrangement(score: &Score, index: usize) -> Result<Arrangement, Im
             start_ticks: tick,
             signature: head.signature,
             source_index: u32::try_from(source).unwrap_or(u32::MAX),
+            key_fifths: keys.get(source).copied().unwrap_or(0),
         });
         if let Some(name) = &head.marker {
             arrangement.markers.push(Marker {
@@ -73,6 +75,19 @@ pub(crate) fn arrangement(score: &Score, index: usize) -> Result<Arrangement, Im
     arrangement.normalize();
     assign_tab(&mut arrangement);
     Ok(arrangement)
+}
+
+/// Key in effect in every bar as written (before unrolling, so a repeat gets the key of
+/// the bar it jumps to): a bar without a change keeps the key before it; C major at first.
+fn keys(heads: &[BarHead]) -> Vec<i8> {
+    let mut current = 0;
+    heads
+        .iter()
+        .map(|h| {
+            current = h.key.unwrap_or(current);
+            current
+        })
+        .collect()
 }
 
 /// Whether string/fret from the file fit the chosen instrument.
