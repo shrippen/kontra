@@ -60,7 +60,7 @@ fn file_input_detects_riff() {
     std::fs::remove_file(path).unwrap();
     assert!(levels > 30);
     assert_eq!(found.len(), names.len());
-    let start = found[0].onset_s - 0.3;
+    let start = 0.0;
     for (f, n) in found.iter().zip(&notes) {
         assert!(((f.onset_s - start) - n.onset_s).abs() < 0.006);
         assert_eq!(

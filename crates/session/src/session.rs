@@ -181,6 +181,11 @@ impl Session {
         std::mem::take(&mut self.events)
     }
 
+    /// The next note the player has to strike in the current pass.
+    pub fn next_expected(&self) -> Option<crate::expected::ExpectedNote> {
+        self.matcher.expected().get(self.cursor_slot).copied()
+    }
+
     pub fn summary(&self) -> Summary {
         Summary::from_results(&self.results, &self.arrangement)
     }

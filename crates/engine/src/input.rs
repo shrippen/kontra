@@ -251,13 +251,15 @@ fn start_file(
     let worker = std::thread::Builder::new()
         .name("kontra-file-input".into())
         .spawn(move || {
-            analysis.start_s = clock.now_s();
+            // Real-time files run on the engine clock; fast ones report file-relative times.
+            let started = clock.now_s();
+            analysis.start_s = if pace == Pace::RealTime { started } else { 0.0 };
             for (i, block) in samples.chunks(BLOCK).enumerate() {
                 if stop_worker.load(Ordering::Relaxed) {
                     return;
                 }
                 if pace == Pace::RealTime {
-                    let due = analysis.start_s + (i * BLOCK) as f64 / sr;
+                    let due = started + (i * BLOCK) as f64 / sr;
                     let wait = due - clock.now_s();
                     if wait > 0.0 {
                         std::thread::sleep(Duration::from_secs_f64(wait));

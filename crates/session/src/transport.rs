@@ -200,6 +200,13 @@ impl Transport {
         }
     }
 
+    /// The latest segment: from real time `.0` the position runs from `.1` at rate `.2` (0 =
+    /// stopped) in pass `.3`. Unlike `position_at`, this also describes a start in the future.
+    pub fn anchor(&self) -> (f64, f64, f64, u32) {
+        let last = self.last();
+        (last.real_s, last.position_s, last.rate, last.pass)
+    }
+
     /// True when the clock is held although the transport is running.
     pub fn is_held(&self) -> bool {
         self.running && self.last().rate == 0.0

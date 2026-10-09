@@ -13,7 +13,9 @@
 
 mod expected;
 mod matcher;
+mod practice;
 mod progress;
+mod service;
 mod session;
 mod settings;
 mod summary;
@@ -21,7 +23,9 @@ mod transport;
 
 pub use expected::{expected_notes, ExpectedNote};
 pub use matcher::{NoteResult, Outcome};
+pub use practice::{Practice, PracticeEvent, PracticeOptions};
 pub use progress::{run_from, ProgressError, ProgressStore, Run, SongProgress};
+pub use service::*;
 pub use session::{Mode, Session, SessionEvent, Workshop};
 pub use settings::{ScoreSettings, Strictness};
 pub use summary::{Summary, TimingHistogram};
