@@ -97,15 +97,23 @@ Kirigami.Page {
     readonly property int nextIndex: ctl.holdingIndex >= 0 ? ctl.holdingIndex : lane.nextIndex
     readonly property var nextNote: nextIndex >= 0 && nextIndex < notes.length ? notes[nextIndex] : null
 
+    // Small screens and beamers (QA P4: 1280×720 at 150 %): the title gets its own row and the
+    // fretboard and level make room for the notes.
+    readonly property bool narrow: width < KanteStyle.unit(1000)
+    readonly property bool compact: height < KanteStyle.unit(560)
+
     ColumnLayout {
         anchors.fill: parent
         spacing: KanteStyle.unit(10)
 
-        RowLayout {
+        GridLayout {
             Layout.fillWidth: true
-            spacing: KanteStyle.unit(12)
+            columns: page.narrow ? 2 : 3
+            columnSpacing: KanteStyle.unit(12)
+            rowSpacing: KanteStyle.unit(8)
             ColumnLayout {
                 Layout.fillWidth: true
+                Layout.columnSpan: page.narrow ? 2 : 1
                 spacing: 0
                 KanteHeading { text: ctl.title; pageTitle: true; Layout.fillWidth: true; elide: Text.ElideRight }
                 QQC2.Label { text: ctl.artist; visible: ctl.artist !== ""; color: KanteStyle.mutedTextColor }
@@ -304,6 +312,7 @@ Kirigami.Page {
 
         RowLayout {
             Layout.fillWidth: true
+            visible: !page.compact
             spacing: KanteStyle.unit(16)
             KanteFretboard {
                 Layout.fillWidth: true
@@ -385,11 +394,21 @@ Kirigami.Page {
         onAccepted: ctl.chooseBacking(selectedFile.toString())
     }
 
+    // The summary covers the notes completely (QA P1/P4: the page showed through the card).
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: -page.padding
+        visible: summary.visible
+        z: 4
+        color: Qt.rgba(KanteStyle.backgroundColor.r, KanteStyle.backgroundColor.g, KanteStyle.backgroundColor.b, 0.92)
+        MouseArea { anchors.fill: parent; onClicked: summary.close() }
+    }
+
     SummarySheet {
         id: summary
         anchors.centerIn: parent
         width: Math.min(page.width - KanteStyle.unit(40), KanteStyle.unit(640))
-        height: contentHeight
+        height: Math.min(contentHeight, page.height - KanteStyle.unit(24))
         z: 5
         onPracticeBar: function(bar) {
             ctl.changeMode("workshop")

@@ -4,7 +4,7 @@
 #
 #   scripts/flatpak.sh [OUT_DIR]      (default: flatpak-out)
 #
-# Needs flatpak and flatpak-builder; installs org.kde.Sdk//6.10 and the Rust extension from
+# Needs flatpak, flatpak-builder and librsvg2-common (appstreamcli reads the SVG icon on the host); installs org.kde.Sdk//6.10 and the Rust extension from
 # Flathub for the current user if missing.
 set -euo pipefail
 cd "$(dirname "$0")/.."

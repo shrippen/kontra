@@ -20,15 +20,28 @@ KanteCard {
 
     visible: false
     barColor: KanteStyle.accentColor
+    color: KanteStyle.backgroundColor
+    borderColor: KanteStyle.frameColor
     // Sizes come from the content's implicit size; the content is placed, not anchored to fill,
     // so the card's size never feeds back into it.
     readonly property real contentHeight: content.implicitHeight + KanteStyle.unit(32)
 
-    ColumnLayout {
-        id: content
+    // Scrolls when the screen is lower than the content (beamer at 150 %).
+    Flickable {
+        id: flick
         x: KanteStyle.unit(16)
         y: KanteStyle.unit(16)
         width: sheet.width - KanteStyle.unit(32)
+        height: sheet.height - KanteStyle.unit(32)
+        contentWidth: width
+        contentHeight: content.implicitHeight
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        QQC2.ScrollBar.vertical: QQC2.ScrollBar { policy: flick.contentHeight > flick.height ? QQC2.ScrollBar.AlwaysOn : QQC2.ScrollBar.AsNeeded }
+
+    ColumnLayout {
+        id: content
+        width: flick.width
         spacing: KanteStyle.unit(12)
 
         RowLayout {
@@ -78,4 +91,5 @@ KanteCard {
             }
         }
     }
+}
 }
