@@ -1,0 +1,13 @@
+[package]
+name = "kontra-dsp"
+description = "Pure signal processing for Kontra: pitch (YIN), onsets, note tracking, filters, test synthesis. No I/O."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kontra-model.workspace = true
+rustfft.workspace = true
+
+[lints]
+workspace = true
