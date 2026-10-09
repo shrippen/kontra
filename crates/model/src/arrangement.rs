@@ -94,6 +94,14 @@ pub struct Bar {
     /// Key signature in effect (concert pitch): 1..7 sharps, -1..-7 flats, 0 = C major.
     #[serde(default)]
     pub key_fifths: i8,
+    /// Repeat signs as written, for display (LH-ANZ-02): `|:` at the start, `:|` at the end.
+    #[serde(default)]
+    pub repeat_open: bool,
+    #[serde(default)]
+    pub repeat_close: bool,
+    /// Alternate endings (volta) as written: bit 0 = "1.", bit 1 = "2.", …; 0 = none.
+    #[serde(default)]
+    pub endings: u32,
 }
 
 impl Bar {
@@ -152,6 +160,9 @@ impl Arrangement {
                 signature,
                 source_index: index,
                 key_fifths,
+                repeat_open: false,
+                repeat_close: false,
+                endings: 0,
             });
             next += signature.bar_ticks();
             index += 1;

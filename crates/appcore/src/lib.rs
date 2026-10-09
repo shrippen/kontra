@@ -690,6 +690,10 @@ impl Core {
                     "number": b.source_index + 1,
                     "numerator": b.signature.numerator,
                     "denominator": b.signature.denominator,
+                    // Written repeat signs and volta numbers (LH-ANZ-02), e.g. "endings": [1, 2].
+                    "repeatStart": b.repeat_open,
+                    "repeatEnd": b.repeat_close,
+                    "endings": (0..32).filter(|i| b.endings & (1 << i) != 0).map(|i| i + 1).collect::<Vec<u32>>(),
                 })
             })
             .collect();
@@ -1486,6 +1490,27 @@ mod tests {
         }
         a.normalize();
         a
+    }
+
+    #[test]
+    fn bars_carry_repeat_signs_and_endings() {
+        let mut a = arrangement(&[(0, 4 * Q, 34), (4 * Q, 4 * Q, 34)]);
+        a.bars[0].repeat_open = true;
+        a.bars[1].repeat_close = true;
+        a.bars[1].endings = 0b11;
+        let dir = temp_dir("repeats");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.loaded = Some(Loaded {
+            path: dir.join("x.mid"),
+            arrangement: a,
+            tracks: Vec::new(),
+            track: 0,
+        });
+        let bars: serde_json::Value = serde_json::from_str(&core.bars_json()).unwrap();
+        assert_eq!(bars[0]["repeatStart"], true);
+        assert_eq!(bars[0]["repeatEnd"], false);
+        assert_eq!(bars[1]["repeatEnd"], true);
+        assert_eq!(bars[1]["endings"], json!([1, 2]));
     }
 
     #[test]

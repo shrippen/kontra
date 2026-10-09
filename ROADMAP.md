@@ -119,6 +119,9 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 - [x] LH-MOD-07: Pos1/Bild auf springt an den Loop-Anfang (sonst an den Anfang); `[`/`,` und `]`/`.`
       setzen Loop-Anfang und -Ende auf den aktuellen Takt; Bild ab spielt/pausiert (Fußschalter);
       alle Tasten und ein Fußschalter-Hinweis in den Einstellungen.
+- [x] LH-ANZ-02: Takte tragen die geschriebenen Wiederholungszeichen und Volta-Nummern (`Bar`:
+      `repeat_open`, `repeat_close`, `endings`); die Tabulatur zeigt `|:` und `:|` im ausgerollten
+      Verlauf. Volta-Klammern fehlen in Kante (`KanteTabStaff`), die Daten liegen bereit.
 
 ## QA-Runden
 

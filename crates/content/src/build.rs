@@ -35,6 +35,9 @@ pub(crate) fn arrangement(score: &Score, index: usize) -> Result<Arrangement, Im
             signature: head.signature,
             source_index: u32::try_from(source).unwrap_or(u32::MAX),
             key_fifths: keys.get(source).copied().unwrap_or(0),
+            repeat_open: head.repeat_open,
+            repeat_close: head.repeat_plays > 0,
+            endings: head.endings,
         });
         if let Some(name) = &head.marker {
             arrangement.markers.push(Marker {
