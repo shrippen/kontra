@@ -70,6 +70,7 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Rust (stable), cargo fmt, clippy ohne Warnungen. `make check` vor jedem Commit
   (Tests, Erkennungs-Tests gegen `testdata/korpus/`, Token-Prüfung, cargo-deny).
 - Kein `unsafe` außerhalb von `drivers/` und der cxx-qt-Brücke; jedes `unsafe` mit Kommentar, warum es sicher ist.
+  Ausnahme: Tests (`tests/`, `#[cfg(test)]`) dürfen `unsafe` für Messhilfen nutzen, etwa einen zählenden Allocator, der Allokationen im Audio-Thread nachweist; auch dort mit Kommentar.
 - Kein `unwrap()`/`expect()` außerhalb von Tests; Fehler als eigene Fehlertypen je Crate.
 - Audio-Callback: keine Allokation, keine Sperren, kein Warten; Ergebnisse über vorab angelegte
   Ringpuffer (rtrb). Debug-Builds prüfen das mit einem Allokations-Wächter. Jede Änderung im

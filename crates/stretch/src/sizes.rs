@@ -3,6 +3,8 @@
 /// Analysis window length in seconds (4096 samples at 44.1/48 kHz).
 /// Long enough to resolve bass partials 41 Hz apart (bin ≈ 11 Hz).
 const WIN_SECONDS: f64 = 0.085;
+/// Fine resolution: twice as long (8192 at 48 kHz) for partials 31 Hz apart (low B).
+const WIN_SECONDS_FINE: f64 = 0.17;
 
 /// Synthesis overlap: Hann² sums flat at 4x, cost stays at one FFT pair
 /// per channel pair and hop; transients are handled separately.
@@ -33,8 +35,12 @@ pub(crate) struct Sizes {
 }
 
 impl Sizes {
-    pub(crate) fn new(sample_rate: u32) -> Self {
-        let ideal = f64::from(sample_rate.max(1)) * WIN_SECONDS;
+    pub(crate) fn new(sample_rate: u32, resolution: crate::Resolution) -> Self {
+        let seconds = match resolution {
+            crate::Resolution::Standard => WIN_SECONDS,
+            crate::Resolution::Fine => WIN_SECONDS_FINE,
+        };
+        let ideal = f64::from(sample_rate.max(1)) * seconds;
         let exp = (ideal.log2().round() as i32).clamp(WIN_LOG2_MIN, WIN_LOG2_MAX);
         let win = 1usize << exp;
         let det_win = win / DET_RATIO;

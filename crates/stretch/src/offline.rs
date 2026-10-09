@@ -10,6 +10,16 @@ const BLOCK: usize = 4096;
 /// aligned: output sample `o` corresponds to input sample `o * speed`.
 /// Shorter channels are padded with silence.
 pub fn stretch_buffer(channels: &[Vec<f32>], sample_rate: u32, speed: f64) -> Vec<Vec<f32>> {
+    stretch_buffer_with(channels, sample_rate, speed, crate::Resolution::Standard)
+}
+
+/// `stretch_buffer` with a chosen analysis resolution.
+pub fn stretch_buffer_with(
+    channels: &[Vec<f32>],
+    sample_rate: u32,
+    speed: f64,
+    resolution: crate::Resolution,
+) -> Vec<Vec<f32>> {
     let speed = match speed.is_finite() {
         true => speed.clamp(SPEED_MIN, SPEED_MAX),
         false => 1.0,
@@ -21,7 +31,7 @@ pub fn stretch_buffer(channels: &[Vec<f32>], sample_rate: u32, speed: f64) -> Ve
         return out;
     }
 
-    let mut st = Stretcher::new(channels.len(), sample_rate, BLOCK);
+    let mut st = Stretcher::with_resolution(channels.len(), sample_rate, BLOCK, resolution);
     st.set_speed(speed);
 
     let mut chunk = vec![vec![0.0; BLOCK]; channels.len()];

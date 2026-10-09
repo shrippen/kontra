@@ -35,7 +35,18 @@ use plan::Planner;
 use sizes::Sizes;
 use vocoder::Vocoder;
 
-pub use offline::stretch_buffer;
+pub use offline::{stretch_buffer, stretch_buffer_with};
+
+/// Frequency resolution of the analysis window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Resolution {
+    /// 4096 samples at 48 kHz: clean down to E1 (41 Hz partial spacing), 133 ms latency.
+    #[default]
+    Standard,
+    /// 8192 samples at 48 kHz: clean down to B0 (31 Hz), about 85 ms more latency and
+    /// slightly softer non-percussive attacks. For five- and six-string basses.
+    Fine,
+}
 
 /// Slowest supported speed (25 % tempo).
 const SPEED_MIN: f64 = 0.25;
@@ -107,8 +118,18 @@ impl Stretcher {
     /// `max_block`: largest number of samples passed to one `push` or `pull`.
     /// Zero channels or block size are treated as one.
     pub fn new(channels: usize, sample_rate: u32, max_block: usize) -> Self {
+        Self::with_resolution(channels, sample_rate, max_block, Resolution::Standard)
+    }
+
+    /// Like `new`, with a chosen analysis `resolution`.
+    pub fn with_resolution(
+        channels: usize,
+        sample_rate: u32,
+        max_block: usize,
+        resolution: Resolution,
+    ) -> Self {
         let channels = channels.max(1);
-        let sizes = Sizes::new(sample_rate);
+        let sizes = Sizes::new(sample_rate, resolution);
 
         // Room for the lookahead, one block and one maximal hop, twice over
         // so compaction stays rare.

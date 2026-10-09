@@ -441,3 +441,37 @@ fn stereo_delay_kept() {
     println!("inter-channel delay {best} samples (input {delay})");
     assert_eq!(best, delay);
 }
+
+/// Fine resolution keeps a low-B tone exact and is selectable.
+#[test]
+fn fine_resolution_low_b() {
+    let sr = 48_000u32;
+    let hz = 30.868f64;
+    let n = sr as usize * 3;
+    let tone: Vec<f32> = (0..n)
+        .map(|i| {
+            let t = i as f64 / f64::from(sr);
+            ((2.0 * std::f64::consts::PI * hz * t).sin() * 0.4
+                + (4.0 * std::f64::consts::PI * hz * t).sin() * 0.3) as f32
+        })
+        .collect();
+    let out = kontra_stretch::stretch_buffer_with(
+        std::slice::from_ref(&tone),
+        sr,
+        0.5,
+        kontra_stretch::Resolution::Fine,
+    );
+    assert_eq!(out[0].len(), (n as f64 / 0.5).round() as usize);
+    let mid = &out[0][n / 2..n / 2 + sr as usize];
+    let rms_in = (tone[n / 4..n / 4 + sr as usize]
+        .iter()
+        .map(|s| s * s)
+        .sum::<f32>()
+        / sr as f32)
+        .sqrt();
+    let rms_out = (mid.iter().map(|s| s * s).sum::<f32>() / sr as f32).sqrt();
+    assert!(
+        (20.0 * (rms_out / rms_in).log10()).abs() < 1.0,
+        "level {rms_in} -> {rms_out}"
+    );
+}

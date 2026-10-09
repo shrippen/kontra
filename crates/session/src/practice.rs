@@ -10,7 +10,7 @@
 use crate::session::{Mode, Session, SessionEvent};
 use crate::settings::ScoreSettings;
 use crate::transport::LoopRange;
-use kontra_engine::{Accent, BackingAudio, BackingTrack, Clock, Event, Output, Sound};
+use kontra_engine::{Accent, BackingAudio, BackingTrack, Clock, Event, Output, Resolution, Sound};
 use kontra_model::{Arrangement, TICKS_PER_QUARTER};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -376,9 +376,19 @@ impl<O: Output> Practice<O> {
             return Some(Arc::clone(audio));
         }
         let track = self.backing.as_ref()?;
-        let audio: BackingAudio = Arc::new(track.interleaved(speed));
+        let audio: BackingAudio = Arc::new(track.interleaved(speed, self.stretch_resolution()));
         self.stretched.insert(key, Arc::clone(&audio));
         Some(audio)
+    }
+
+    /// Fine stretch window only when the lowest string is below E1 (five and six strings):
+    /// the longer window resolves partials of low B at the cost of more latency.
+    fn stretch_resolution(&self) -> Resolution {
+        const E1: u8 = 28;
+        match self.session.arrangement().instrument.tuning.lowest() {
+            Some(low) if low.0 < E1 => Resolution::Fine,
+            _ => Resolution::Standard,
+        }
     }
 
     fn beats_per_bar(&self) -> usize {

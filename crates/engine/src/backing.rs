@@ -3,6 +3,7 @@
 use crate::EngineError;
 use kontra_drivers::read_audio;
 use kontra_dsp::resample;
+pub use kontra_stretch::Resolution;
 use std::path::Path;
 
 /// Stereo backing audio at `sample_rate` (mono files are duplicated, extra channels dropped).
@@ -34,12 +35,13 @@ impl BackingTrack {
     }
 
     /// Interleaved stereo at `speed` (time-stretched, pitch kept), ready for `Output::play_backing`.
-    pub fn interleaved(&self, speed: f64) -> Vec<f32> {
+    /// `resolution` picks the stretch window; `Fine` for basses tuned below E1.
+    pub fn interleaved(&self, speed: f64, resolution: Resolution) -> Vec<f32> {
         let channels = [self.left.clone(), self.right.clone()];
         let stretched = if (speed - 1.0).abs() < 1e-6 {
             channels.to_vec()
         } else {
-            kontra_stretch::stretch_buffer(&channels, self.sample_rate, speed)
+            kontra_stretch::stretch_buffer_with(&channels, self.sample_rate, speed, resolution)
         };
         let frames = stretched.first().map_or(0, Vec::len);
         let mut out = Vec::with_capacity(frames * 2);

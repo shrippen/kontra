@@ -16,7 +16,7 @@ mod korpus;
 mod offline;
 mod player;
 
-pub use backing::BackingTrack;
+pub use backing::{BackingTrack, Resolution};
 pub use clock::Clock;
 pub use input::{Input, InputKind, Pace};
 pub use kontra_drivers::{
