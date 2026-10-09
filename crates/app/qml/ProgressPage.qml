@@ -153,7 +153,6 @@ Kirigami.ScrollablePage {
                                 axis: true
                                 unit: "%"
                                 minValue: 0
-                                maxValue: 150
                                 series: [
                                     modelData.history.map(function(h) { return Math.round(h.speed * 100) }),
                                     modelData.history.map(function(h) { return Math.round(h.hitRate * 100) })
