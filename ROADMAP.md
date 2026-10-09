@@ -29,18 +29,19 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 |---|---|
 | LH-BIB-01/02 Import GP3–8, MIDI | umgesetzt, gegen Fremddateien geprüft |
 | LH-BIB-03 MusicXML | umgesetzt (vorgezogen) |
-| LH-BIB-04 Bibliothek | „Zuletzt gespielt“; Suche, Setlisten offen |
+| LH-BIB-04 Bibliothek | „Zuletzt gespielt“ mit Suche; Setlisten offen |
 | LH-ANZ-01/02/03 Tab-Lane, Tab, Noten | umgesetzt (Kante) |
 | LH-MOD-01..04 Spielen, Song, Warten, Werkstatt | Logik umgesetzt und getestet; Werkstatt-Bedienung in der App minimal |
 | LH-MOD-05 Metronom, Einzähler | umgesetzt |
-| LH-WIE-01 Time-Stretch | umgesetzt; Backing-Track in der App noch ohne Dateiwahl |
+| LH-WIE-01 Time-Stretch | umgesetzt; Backing-Track je Stück wählbar |
 | LH-WIE-03 Referenzton | umgesetzt |
 | LH-BEW-01..05 Bewertung | umgesetzt |
 | LH-TUN-01/03 Stimmgerät | umgesetzt |
-| LH-EIN-01 Einrichtungsassistent | offen |
+| LH-EIN-01 Einrichtungsassistent | umgesetzt (5 Schritte, überspringbar, startet die erste Übung) |
 | LH-EIN-03/04 Pegel, Laptop-Hinweis | Pegelanzeige mit Hinweisen; Assistent offen |
-| LH-EIN-05 Latenz-Kalibrierung | Wert einstellbar; Messung „spiel auf den Klick“ offen |
-| LH-FOR-01/03 Fortschritt | Speicher vorhanden, in der App noch nicht angezeigt |
+| LH-EIN-05 Latenz-Kalibrierung | „Spiel auf den Klick“ umgesetzt, mit Aufnahme getestet (40 ms ± 3) |
+| LH-EIN-06 Bluetooth-Hinweis | umgesetzt |
+| LH-FOR-01/03 Fortschritt | Läufe werden gespeichert; Bibliothek zeigt bestes Ergebnis und Übungszeit |
 | LH-ALL-01/02 Sprache, Stil | umgesetzt |
 | LH-NF-07 Barrierefreiheit | Kante-Bauteile mit Namen und Formen; Tastaturdurchlauf der App offen |
 
@@ -57,4 +58,7 @@ Durchgespielt mit gerenderten Aufnahmen (`kontra-cli render`) und Screenshots al
 - Reibung: Pegeltexte überlappten im Kante-Pegel; jetzt kurze Zonen-Texte plus Hinweis darunter.
 - Fehler: Einstellungen und Bibliothek hell auf hell (Kirigami-Hintergrund) – behoben.
 - Fehler: Notenansicht-Seite hing (QML-Eigenschaft `data` überdeckte Kind-Liste) – behoben.
-- Nicht getestet: echte Geräte, Tastaturbedienung, 200 % Skalierung, Farbfilter (J-F1).
+- J-A3 (P3) Latenz kalibrieren: mit Aufnahme 40 ms gemessen, übernommen. Fehler gefunden: eine fehlerhafte Demo-MIDI (falsche Meta-Länge) – Testdatei korrigiert, Importer war richtig.
+- J-A1 (P1) Erster Start: Assistent erscheint, alle Schritte überspringbar, endet in der ersten Übung. Fehler: Hinweistext dunkel auf dunkel – behoben.
+- J-F1 (P7) 200 % Skalierung: Üben und Einstellungen ohne Abschneiden. Kosmetisch: in Kantes Einstellungszeile ist der Hinweis größer gesetzt als der Titel (an Kante melden).
+- Nicht getestet: echte Geräte, Tastaturdurchlauf, Screenreader, Farbfilter.
