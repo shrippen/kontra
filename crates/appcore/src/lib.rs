@@ -785,6 +785,12 @@ fn written_ticks(duration_ticks: u64) -> u64 {
     ((duration_ticks as f64 / sixteenth as f64).round() as u64).max(1) * sixteenth
 }
 
+/// Bass is written an octave above its sound (bass clef, as in MuseScore and Guitar Pro):
+/// low B (B0, 6 ledger lines) reads as B1 (2 ledger lines). Only the staff is shifted; the
+/// importers already turned any written octave (<transpose>) into sounding pitch, and tab,
+/// scoring and tuner stay sounding.
+const WRITTEN_OCTAVE_UP: u8 = 12;
+
 fn empty_staff() -> serde_json::Value {
     json!({ "notes": [], "rests": [], "keyFifths": 0 })
 }
@@ -799,7 +805,7 @@ fn staff(a: &Arrangement) -> serde_json::Value {
             json!({
                 "time": a.tempo.seconds_at(n.start_ticks),
                 "beats": written_beats(n.duration_ticks),
-                "midi": n.pitch.0,
+                "midi": n.pitch.0.saturating_add(WRITTEN_OCTAVE_UP),
                 "tied": tied,
                 "state": "pending",
             })
@@ -1029,6 +1035,13 @@ mod tests {
             .map(|n| n["tied"].as_bool().unwrap())
             .collect();
         assert_eq!(ties, [false, true, false]);
+    }
+
+    #[test]
+    fn staff_writes_bass_an_octave_up() {
+        // B0 (MIDI 23) is written as B1 (35).
+        let a = arrangement(&[(0, 4 * Q, 23)]);
+        assert_eq!(staff(&a)["notes"][0]["midi"], 35);
     }
 
     #[test]
