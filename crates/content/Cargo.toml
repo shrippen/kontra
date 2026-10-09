@@ -9,6 +9,9 @@ publish.workspace = true
 [dependencies]
 kontra-model.workspace = true
 thiserror.workspace = true
+# Package manifest (.kontra, LH-BIB-07).
+serde.workspace = true
+serde_json.workspace = true
 # MIDI files (Unlicense); rayon-based `parallel` feature off.
 midly = { version = "0.5.3", default-features = false, features = ["std"] }
 # XML tokenizer (MIT).

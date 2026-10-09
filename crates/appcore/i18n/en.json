@@ -276,5 +276,16 @@
   "report.col.tempo": "Tempo",
   "report.col.hits": "Hits",
   "report.col.time": "Time",
-  "report.col.bars": "Hardest bars"
+  "report.col.bars": "Hardest bars",
+  "package.share": "Share …",
+  "package.share.name": "Share {title} as a Kontra package",
+  "package.audio": "Include the backing track",
+  "package.audio.none": "No backing track chosen",
+  "package.save": "Save package …",
+  "package.files": "Kontra package",
+  "package.saved": "Package saved: {name}. Score, chosen track and progress are inside, the backing track is not.",
+  "package.saved.audio": "Package saved: {name}. Score, chosen track, progress and backing track are inside.",
+  "package.opened": "Package opened: {title}. {runs} runs from the package are now in your progress.",
+  "package.error.unknown": "This piece is not in your library.",
+  "package.error.missing": "{name} is gone. Open the piece again or choose the file once more."
 }

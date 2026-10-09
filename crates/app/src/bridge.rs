@@ -294,6 +294,11 @@ pub mod qobject {
         #[cxx_name = "exportReport"]
         fn export_report(self: Pin<&mut Self>, song_id: &QString, url: &QString);
 
+        /// Shares a library piece as `.kontra` (LH-BIB-07); `audio` is "embed" or "link".
+        #[qinvokable]
+        #[cxx_name = "exportPackage"]
+        fn export_package(self: Pin<&mut Self>, piece: &QString, url: &QString, audio: &QString);
+
         #[qinvokable]
         #[cxx_name = "dismissMessage"]
         fn dismiss_message(self: Pin<&mut Self>);
@@ -330,7 +335,7 @@ use crate::args::AppArgs;
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
-use kontra_appcore::{data_dir, Core, DataImport, Opened, QaOptions, UiEvent};
+use kontra_appcore::{data_dir, Core, DataImport, Opened, PackageAudio, QaOptions, UiEvent};
 use std::path::PathBuf;
 
 pub struct ControllerRust {
@@ -1229,6 +1234,24 @@ impl qobject::Controller {
             .rust()
             .core
             .export_report(&song_id.to_string(), &path);
+        match result {
+            Ok(text) => self.as_mut().set_message(q(&text)),
+            Err(e) => self.as_mut().show_error(&e),
+        }
+    }
+
+    fn export_package(mut self: Pin<&mut Self>, piece: &QString, url: &QString, audio: &QString) {
+        let piece = local_path(&piece.to_string());
+        let out = local_path(&url.to_string());
+        let audio = match audio.to_string().as_str() {
+            "embed" => PackageAudio::Embed,
+            _ => PackageAudio::Link,
+        };
+        let result = self
+            .as_ref()
+            .rust()
+            .core
+            .export_package(&piece, &out, audio);
         match result {
             Ok(text) => self.as_mut().set_message(q(&text)),
             Err(e) => self.as_mut().show_error(&e),

@@ -13,6 +13,7 @@ mod error;
 mod gp;
 mod midi;
 mod musicxml;
+mod package;
 mod score;
 mod tab;
 mod unroll;
@@ -20,6 +21,9 @@ mod xml;
 mod zip;
 
 pub use error::ImportError;
+pub use package::{
+    read_package, write_package, Manifest, Package, PackageBacking, PACKAGE_FORMAT, PACKAGE_VERSION,
+};
 pub use tab::assign_tab;
 
 use kontra_model::Arrangement;

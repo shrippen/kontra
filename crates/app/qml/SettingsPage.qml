@@ -1,4 +1,5 @@
 import QtQuick
+import QtCore
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import QtQuick.Controls as QQC2
@@ -305,7 +306,7 @@ Kirigami.ScrollablePage {
         id: exportDialog
         fileMode: FileDialog.SaveFile
         defaultSuffix: "json"
-        currentFile: "kontra-daten.json"
+        currentFile: StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + "kontra-daten.json"
         nameFilters: [texts.t("data.files") + " (*.json)"]
         onAccepted: ctl.exportData(selectedFile.toString())
     }

@@ -7,11 +7,13 @@
 
 mod data;
 mod i18n;
+mod package;
 mod report;
 mod store;
 
 pub use data::DataImport;
 pub use i18n::{Catalog, Language};
+pub use package::PackageAudio;
 pub use store::{data_dir, InputKind, Library, RecentEntry, Setlist, Settings};
 
 use kontra_model::{Arrangement, BassKind, InputSource};
@@ -447,7 +449,7 @@ impl Core {
                 let progress = store.load_id(&e.song_id);
                 let best = progress.as_ref().and_then(|p| p.best_hit_rate());
                 let minutes = progress.as_ref().map_or(0.0, |p| p.practice_s() / 60.0);
-                json!({ "path": e.path, "title": e.title, "artist": e.artist, "best": best, "practiceMin": minutes, "lastUnix": e.last_unix })
+                json!({ "path": e.path, "title": e.title, "artist": e.artist, "best": best, "practiceMin": minutes, "lastUnix": e.last_unix, "hasBacking": e.backing.is_some() })
             })
             .collect();
         serde_json::Value::Array(list).to_string()
@@ -638,6 +640,9 @@ impl Core {
     /// Imports a score; picks the bass track or asks.
     pub fn open(&mut self, path: &Path) -> Result<Opened, String> {
         self.active_setlist = None;
+        if package::is_package(path) {
+            return self.open_package(path).map(|()| Opened::Ready);
+        }
         let imported = import_file(path).map_err(|e| self.import_error(&e))?;
         if let Some(track) = imported.suggested() {
             return self.load(path, &imported, track).map(|()| Opened::Ready);
@@ -2018,6 +2023,57 @@ mod tests {
             "no outside files"
         );
         assert!(core.export_report("0000000000000000", &file).is_err());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-BIB-07 / J-D2: a piece shared as `.kontra` opens on a second profile with the same
+    /// notes, track, backing (only if embedded) and progress; opening it twice adds no runs.
+    #[test]
+    fn package_moves_a_piece_to_another_profile() {
+        let dir = temp_dir("package");
+        std::fs::create_dir_all(&dir).unwrap();
+        let backing = dir.join("song.wav");
+        kontra_session::write_mono_wav(&backing, &vec![0.0; 4_800], 48_000).unwrap();
+        let mut teacher = Core::new(&dir.join("thomas"), QaOptions::default());
+        teacher.open(&demo()).unwrap();
+        teacher.set_backing(Some(backing.clone()), 0.5);
+        let a = teacher.arrangement().unwrap().clone();
+        let run = kontra_session::Run {
+            finished_unix: 9,
+            practice_s: 120.0,
+            speed: 0.7,
+            hit_rate: 0.85,
+            mode: "workshop".into(),
+            section: None,
+            hardest_bars: vec![2],
+        };
+        teacher.progress_store().record(&a, run).unwrap();
+        let linked = dir.join("etude-link.kontra");
+        let embedded = dir.join("etude.kontra");
+        teacher
+            .export_package(&demo(), &linked, PackageAudio::Link)
+            .unwrap();
+        teacher
+            .export_package(&demo(), &embedded, PackageAudio::Embed)
+            .unwrap();
+        assert!(
+            std::fs::metadata(&embedded).unwrap().len() > std::fs::metadata(&linked).unwrap().len()
+        );
+
+        let mut student = Core::new(&dir.join("schueler"), QaOptions::default());
+        assert_eq!(student.open(&embedded).unwrap(), Opened::Ready);
+        assert_eq!(student.notes_json(), teacher.notes_json());
+        assert_eq!(student.bars_json(), teacher.bars_json());
+        assert_eq!(student.backing_name(), "song.wav");
+        assert!(student.take_notice().is_some());
+        let p: serde_json::Value = serde_json::from_str(&student.progress_json()).unwrap();
+        assert_eq!(p["pieces"][0]["runs"], 1);
+        student.open(&embedded).unwrap();
+        let p: serde_json::Value = serde_json::from_str(&student.progress_json()).unwrap();
+        assert_eq!(p["pieces"][0]["runs"], 1, "no doubled runs");
+
+        std::fs::write(&linked, b"PK\x03\x04 broken").unwrap();
+        assert!(student.open(&linked).is_err());
         let _ = std::fs::remove_dir_all(dir);
     }
 
