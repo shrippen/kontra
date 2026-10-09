@@ -47,5 +47,6 @@ for lang in de en; do
     shot practice-notation "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --view notation
     shot practice-combined "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --view combined
     shot practice-wait "$lang" 5000 --open "$DEMO" --mode wait --view lane --autoplay
+    shot play-done "$lang" 25000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --mode play --view lane
     shot summary "$lang" 25000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --mode song --view lane
 done

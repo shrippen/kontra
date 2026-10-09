@@ -1097,6 +1097,7 @@ impl Core {
                         return Some(UiEvent::Holding { index, text });
                     }
                     Outcome::WrongPitch { .. } => "wrong",
+                    Outcome::OffPitch => "offpitch",
                     Outcome::Missed => "missed",
                     Outcome::Extra { .. } => return Some(UiEvent::Extra),
                 };
@@ -1155,6 +1156,14 @@ impl Core {
             ]),
             "tendencyText": tendency,
             "spreadText": s.spread_ms.map_or(String::new(), |v| self.tr("summary.spread", &[("ms", format!("{v:.0}"))])),
+            // Intonation only where it is scored: a fretless or double bass, or off-pitch notes.
+            "intonationText": match s.mean_abs_cents {
+                Some(c) if s.off_pitch > 0 || self.scored_intonation() => self.tr("summary.intonation", &[
+                    ("offpitch", s.off_pitch.to_string()),
+                    ("cents", format!("{c:.0}")),
+                ]),
+                _ => String::new(),
+            },
             "meanOffsetMs": s.mean_offset_ms.unwrap_or(0.0),
             "counts": s.histogram.counts,
             "firstBinMs": s.histogram.first_bin_ms,
@@ -1162,6 +1171,15 @@ impl Core {
             "hardestBars": hardest,
         })
         .to_string()
+    }
+
+    /// Intonation is part of the score for fretless and double basses (pitch limit below 50 ct).
+    fn scored_intonation(&self) -> bool {
+        let kind = self.arrangement().map_or_else(
+            || instrument_from(&self.settings).kind,
+            |a| a.instrument.kind,
+        );
+        self.score_settings(kind).pitch_cents < 50.0
     }
 
     /// True if the chosen (or default) output goes over Bluetooth (LH-EIN-06).
