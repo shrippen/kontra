@@ -74,6 +74,8 @@ pub struct Settings {
     pub low_string_on_top: bool,
     /// Note marks in play mode: "quiet" (default), "off" or "full". Other modes always mark fully.
     pub play_marks: String,
+    /// Motion: "system" (follow the desktop's animation setting), "reduce" or "full".
+    pub motion: String,
     /// Timing window (LH-BEW-02): "auto" (by input), "loose", "normal" or "strict".
     pub strictness: String,
     /// Pitch limit in cents (LH-BEW-05); 0 = by bass kind (50 fretted, 30 fretless).
@@ -108,6 +110,7 @@ impl Default for Settings {
             style: "kante".into(),
             low_string_on_top: false,
             play_marks: "quiet".into(),
+            motion: "system".into(),
             strictness: "auto".into(),
             pitch_cents: 0.0,
             setup_done: false,

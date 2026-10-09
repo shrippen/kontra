@@ -279,3 +279,24 @@ fn chord_counts_once_for_all_tones() {
     assert_eq!(first_chord.len(), 2);
     assert!(first_chord.iter().all(|(_, o)| *o == Outcome::Hit));
 }
+
+/// Round 6: the right note 40 cents off on a fretless bass is "off pitch", not wrong; in Wait mode
+/// it still releases the clock, and the summary counts it apart with its cents.
+#[test]
+fn off_pitch_is_its_own_outcome() {
+    let fretless = ScoreSettings {
+        pitch_cents: 30.0,
+        ..ScoreSettings::default()
+    };
+    let mut s = Session::new(riff(), Mode::Wait, fretless);
+    s.play(0.0);
+    run(&mut s, &[], 1.0);
+    s.on_note(&played(1.1, 28.4));
+    let events = s.update(1.2);
+    assert!(events.contains(&SessionEvent::Released));
+    let r = s.results().iter().find(|r| r.note == Some(0)).unwrap();
+    assert_eq!(r.outcome, Outcome::OffPitch);
+    let summary = s.summary();
+    assert_eq!((summary.off_pitch, summary.wrong, summary.hits), (1, 0, 0));
+    assert!((summary.mean_abs_cents.unwrap() - 40.0).abs() < 1e-6);
+}

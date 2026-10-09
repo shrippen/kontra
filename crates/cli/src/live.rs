@@ -115,6 +115,7 @@ fn show(event: &PracticeEvent, arrangement: &kontra_model::Arrangement) -> bool 
                     "✗ wrong ({})",
                     kontra_model::Pitch(played_midi.round().clamp(0.0, 127.0) as u8)
                 ),
+                Outcome::OffPitch => format!("~ off pitch ({:+.0} ct)", r.cents.unwrap_or(0.0)),
                 Outcome::Missed => "○ missed".to_string(),
                 Outcome::Extra { played_midi } => format!(
                     "+ extra ({})",

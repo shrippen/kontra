@@ -49,5 +49,6 @@ for lang in de en; do
     shot practice-wait "$lang" 5000 --open "$DEMO" --mode wait --view lane --autoplay
     shot practice-mixer "$lang" 3000 --open "$DEMO" --view lane --mixer
     shot settings-mixer "$lang" 2000 --page settings --mixer
+    shot play-done "$lang" 25000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --mode play --view lane
     shot summary "$lang" 25000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --mode song --view lane
 done

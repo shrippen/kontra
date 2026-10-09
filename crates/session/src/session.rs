@@ -278,12 +278,9 @@ impl Session {
             return;
         };
         let cents = target.cents_from(midi);
-        let in_tune = cents.abs() <= self.settings.pitch_cents;
-        let outcome = if in_tune {
-            Outcome::Hit
-        } else {
-            Outcome::WrongPitch { played_midi: midi }
-        };
+        let outcome = crate::matcher::pitch_outcome(cents, self.settings.pitch_cents, midi);
+        // An off-pitch note is still the right note: the wait is over.
+        let in_tune = !matches!(outcome, Outcome::WrongPitch { .. });
         let pass = self.transport.pass();
         self.record(NoteResult {
             pass,

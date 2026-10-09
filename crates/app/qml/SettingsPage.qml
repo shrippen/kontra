@@ -127,6 +127,19 @@ Kirigami.ScrollablePage {
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            title: texts.t("settings.motion")
+            hint: texts.t("settings.motion.hint")
+            KanteSegmented {
+                Accessible.name: texts.t("settings.motion")
+                readonly property var values: ["system", "reduce", "full"]
+                model: [texts.t("settings.motion.system"), texts.t("settings.motion.reduce"),
+                        texts.t("settings.motion.full")]
+                currentIndex: Math.max(0, values.indexOf(ctl.motion))
+                onActivated: function(index) { ctl.changeMotion(values[index]) }
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
             title: texts.t("settings.window")
             hint: texts.t("settings.window.hint")
             KanteSegmented {

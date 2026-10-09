@@ -41,6 +41,8 @@ pub struct Summary {
     pub judged: u32,
     pub hits: u32,
     pub wrong: u32,
+    /// Right notes beyond the pitch limit ("unsauber").
+    pub off_pitch: u32,
     pub missed: u32,
     pub extra: u32,
     /// hits / judged, 0..=1.
@@ -49,7 +51,7 @@ pub struct Summary {
     pub mean_offset_ms: Option<f64>,
     /// Standard deviation of the hit offsets in ms: the steadiness.
     pub spread_ms: Option<f64>,
-    /// Mean absolute pitch deviation of hits in cents (intonation, fretless).
+    /// Mean absolute pitch deviation of hits and off-pitch notes in cents (intonation).
     pub mean_abs_cents: Option<f64>,
     pub histogram: TimingHistogram,
     /// Bars with the lowest hit rate, worst first (index into `Arrangement::bars`).
@@ -63,12 +65,13 @@ impl Summary {
             |f: fn(&Outcome) -> bool| final_results.iter().filter(|r| f(&r.outcome)).count() as u32;
         let hits = count(|o| matches!(o, Outcome::Hit));
         let wrong = count(|o| matches!(o, Outcome::WrongPitch { .. }));
+        let off_pitch = count(|o| matches!(o, Outcome::OffPitch));
         let missed = count(|o| matches!(o, Outcome::Missed));
         let extra = results
             .iter()
             .filter(|r| matches!(r.outcome, Outcome::Extra { .. }))
             .count() as u32;
-        let judged = hits + wrong + missed;
+        let judged = hits + wrong + off_pitch + missed;
         let offsets: Vec<f64> = final_results
             .iter()
             .filter(|r| r.is_hit())
@@ -76,7 +79,7 @@ impl Summary {
             .collect();
         let cents: Vec<f64> = final_results
             .iter()
-            .filter(|r| r.is_hit())
+            .filter(|r| matches!(r.outcome, Outcome::Hit | Outcome::OffPitch))
             .filter_map(|r| r.cents.map(f64::abs))
             .collect();
         let mean_offset = mean(&offsets);
@@ -87,6 +90,7 @@ impl Summary {
             judged,
             hits,
             wrong,
+            off_pitch,
             missed,
             extra,
             hit_rate: if judged == 0 {
