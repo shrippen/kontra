@@ -219,7 +219,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-NF-08 | **Datenschutz:** keine Netzwerkzugriffe außer auf ausdrücklichen Wunsch (Download Stem-Modell); keine Telemetrie; Audio wird nicht gespeichert, außer der Nutzer nimmt bewusst auf. | Muss | 1 | Netzwerk-Monitor während J-A1 bis J-C3: keine Verbindungen. |
 | LH-NF-09 | **Offline:** alle Funktionen außer optionalen Downloads ohne Netz. | Muss | 1 | Test ohne Netz. |
 | LH-NF-10 | **Design:** GUI aus Kante (QML-Komponenten unverändert); keine eigenen Farben, Schriften oder Maße; fehlende Komponenten zuerst in Kante. | Muss | 1 | Prüfskript: keine Hex-Werte und px-Maße für Bedienelemente außerhalb der vendorten Kante-Dateien. |
-| LH-NF-11 | **Lizenz:** Kontra unter MIT; alle Abhängigkeiten MIT-kompatibel (keine GPL), LGPL nur dynamisch gelinkt; Lizenzliste im Programm. | Muss | 1 | Lizenzprüfung in `make check`. |
+| LH-NF-11 | **Lizenz:** Kontra unter MIT; Abhängigkeiten nur unter freizügigen Lizenzen (MIT, Apache-2.0, BSD, ISC, Zlib, Unlicense, CC0; Schriften SIL OFL); Qt und KDE Frameworks (LGPL) nur dynamisch gelinkt; im Zweifel eigene Implementierung. Lizenzliste im Programm. | Muss | 1 | `cargo-deny` in `make check` schlägt bei jeder anderen Lizenz fehl. |
 | LH-NF-12 | **Paketierung:** Flatpak mit KDE-Runtime, Zugriff nur auf Audio, MIDI und vom Nutzer gewählte Dateien. | Muss | 1 | Flatpak-Manifest-Review, keine `--filesystem=home`. |
 | LH-NF-13 | **Testbarkeit:** Engine läuft ohne Hardware gegen WAV-Dateien und virtuelle MIDI-Quellen; Journey-Tests laufen in CI. | Muss | 0 | CI-Lauf mit Testkorpus grün. |
 | LH-NF-14 | **Erweiterbarkeit:** neue Instrumente und Eingänge als Profile und Adapter, ohne Änderung an Session und Bewertung. | Muss | 1 | Dummy-Profil im Test. |
@@ -228,7 +228,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 
 ## 6. Rahmenbedingungen
 
-- **Technik:** Go; Qt 6/QML mit Kirigami und Kante-QML; miniaudio (malgo); Signalsmith Stretch; Details im Konzept, Abschnitt 6.
+- **Technik:** Rust; Qt 6/QML mit Kirigami und Kante-QML über cxx-qt; cpal; eigene Erkennung, eigener Time-Stretch und Notensatz; Details im Konzept, Abschnitt 6.
 - **Repository:** `shrippen/kontra` auf git.arianw.de, GitHub als Spiegel; Änderungen nur als Pull Request.
 - **Arbeitsregeln:** [`agent.md`](agent.md) (Code-Stil, Persona- und QA-Regel, Release-, GUI- und Repository-Regel).
 - **Release:** jede Version mit Release-Log (Neu, Verbessert, Behoben, Hinweis), Screenshots aus der Demo und Eintrag auf der Landing Page.
@@ -253,7 +253,8 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 
 | Punkt | Klärung in |
 |---|---|
-| miqt oder C++-Host für die QML-Anbindung | Phase 0 |
-| Notensatz: eigene Komponente in Kante oder Bibliothek (MIT-kompatibel) | Phase 0, mit Kante |
+| cxx-qt mit Kirigami: Listenmodelle, Bildrate der Tab-Lane | Phase 0 |
+| cpal oder direkter PipeWire-Treiber (Latenz) | Phase 0 |
+| Notensatz-Komponente in Kante (Bravura, einstimmig zuerst) | Phase 0, mit Kante |
 | Herkunft des Testkorpus (eigene Aufnahmen, Lizenz für Weitergabe in CI) | vor Phase 1 |
 | Format für Fortschrittsdaten (JSON-Dateien oder SQLite) | Phase 1 |

@@ -47,8 +47,8 @@ zu Ton und Timing. Lernen und einfach Lieder spielen. Bis 1.0 nur Bass.
 Konzept und Entscheidungen: `KONZEPT.md`; Anforderungen: `LASTENHEFT.md`;
 Personas: `PERSONAS.md`; Journeys: `QA.md`; Plan und QA-Runden: `ROADMAP.md`.
 
-Implementierung: Go, UI in QML (Kirigami + Kante), Audio über miniaudio (malgo),
-Time-Stretch Signalsmith Stretch (cgo). Lizenz MIT.
+Implementierung: Rust (Cargo-Workspace), UI in QML (Kirigami + Kante) über cxx-qt,
+Audio über cpal. Erkennung, Time-Stretch, Notensatz und Import sind eigene Implementierungen. Lizenz MIT.
 
 ## Schichten (nur zum direkten Nachbarn darunter)
 ```
@@ -58,19 +58,26 @@ session/    Zeitachse, Modi, Bewertung, Fortschritt
   ↓
 engine/     Erkennung (Onset, Tonhöhe), Wiedergabe, Mixer, Instrument-Profile
   ↓
-drivers/    rohes Audio-I/O (malgo), MIDI (gomidi), Dateizugriff
+drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 ```
 - `content/` (Import, Arrangement, Pakete) liegt neben `session/` und wird nur von ihr gerufen.
 - UI ruft nie Engine oder Treiber direkt auf.
 - Instrument und Eingang sind getrennte Profile/Adapter; ein neues Instrument ändert weder Session noch Bewertung.
-- Unexportierte (kleingeschriebene) Namen; Export nach außen nur mit Rückfrage.
+- Jede Schicht ist ein eigenes Crate; Abhängigkeiten nur zum Nachbarn darunter (in `Cargo.toml` sichtbar).
+- Alles privat; `pub` (auch `pub(crate)`) nur mit Rückfrage.
 
 ## Konventionen
-- Go (aktuelle Stable-Version), gofmt, go vet. `make check` vor jedem Commit
-  (Tests, Erkennungs-Tests gegen `testdata/korpus/`, Token-Prüfung, Lizenzprüfung).
-- Audio-Callback: keine Allokation, keine Sperren, kein blockierender Kanal; Ergebnisse über
-  vorab angelegte Ringpuffer. Jede Änderung im Audio-Pfad misst Xruns und GC-Pausen.
-- Nur MIT-kompatible Abhängigkeiten, keine GPL; LGPL (Qt, KDE Frameworks) nur dynamisch.
+- Rust (stable), cargo fmt, clippy ohne Warnungen. `make check` vor jedem Commit
+  (Tests, Erkennungs-Tests gegen `testdata/korpus/`, Token-Prüfung, cargo-deny).
+- Kein `unsafe` außerhalb von `drivers/` und der cxx-qt-Brücke; jedes `unsafe` mit Kommentar, warum es sicher ist.
+- Kein `unwrap()`/`expect()` außerhalb von Tests; Fehler als eigene Fehlertypen je Crate.
+- Audio-Callback: keine Allokation, keine Sperren, kein Warten; Ergebnisse über vorab angelegte
+  Ringpuffer (rtrb). Debug-Builds prüfen das mit einem Allokations-Wächter. Jede Änderung im
+  Audio-Pfad misst Latenz und Xruns.
+- Abhängigkeiten nur unter MIT, Apache-2.0, BSD, ISC, Zlib, Unlicense, CC0 (Schriften: SIL OFL);
+  Qt und KDE Frameworks (LGPL) nur dynamisch. Keine GPL, MPL oder LGPL-Crates.
+  Im Zweifel (Lizenz unklar, kaum gepflegt, nur kleiner Teil gebraucht) selbst bauen.
+  Neue Abhängigkeit nur mit Begründung im PR.
 - Texte nur über Übersetzungsschlüssel (Deutsch und Englisch); keine Texte im Code.
 - Information nie nur über Farbe (Form, Symbol oder Text dazu).
 - Zeiten in Millisekunden, Tonhöhen in Cent relativ zum Sollton, Frequenzen in Hz; Einheit im Namen (`offsetMs`, `deviationCent`).

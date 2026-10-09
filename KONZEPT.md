@@ -194,21 +194,21 @@ Mehrere Eingänge gleichzeitig sind im Datenmodell vorgesehen, aber nicht vor 1.
 │  Bibliothek · Spielen · Song · Warten · Riff-Werkstatt                        │
 │  Groove · Griffbrett · Gehör · Tuner · Einrichtung (Eingang, Instrument)      │
 └───────────────▲───────────────────────────────────────────▲───────────────────┘
-                │ Modelle, Signale (Qt-Brücke)               │
+                │ Modelle, Signale (cxx-qt)                  │
 ┌───────────────┴─────────────┐   ┌─────────────────────────┴────────────────────┐
-│  Session (Go)               │   │  Inhalte (Go)                                │
+│  Session (Rust)             │   │  Inhalte (Rust)                              │
 │  Zeitachse, Bewertung,      │◄──┤  Import GP/MusicXML/MIDI → Arrangement       │
 │  adaptive Schwierigkeit     │   │  Tab-Generator, Tempo-Map, .kontra-Pakete    │
 └───────────────▲─────────────┘   └──────────────────────────────────────────────┘
                 │ Notenereignisse (Zeit, Tonhöhe, Saite?, Quelle, Sicherheit)
 ┌───────────────┴─────────────────────────────────────────────────────────────────┐
-│  Engine (Go, Audio-Callback ohne Allokation), Instrument-Profil wählt Parameter  │
+│  Engine (Rust, Audio-Callback ohne Allokation), Instrument-Profil wählt Param.   │
 │  Eingänge: Klinke · Audio-Interface · Mikrofon · MIDI                            │
 │  Audio: [Rauschsperre, Echo-Abzug nur Mikro] → Onset → Tonhöhe → Ereignis        │
 │  MIDI: Note-On/Off → Ereignis (gleiches Format, gleiche Zeitbasis)               │
 │  Backing Track (Decoder, Time-Stretch) + Metronom + Monitoring → Ausgang         │
 └───────────────▲─────────────────────────────────────────────────────────────────┘
-                │ Treiber: miniaudio (PipeWire/PulseAudio/JACK/ALSA) · RtMidi (ALSA-Seq)
+                │ Treiber: cpal (ALSA/PipeWire/JACK) · midir (ALSA-Seq)
 ```
 
 Schichten sprechen nur mit dem direkten Nachbarn darunter: Die UI ruft nie die Engine oder Treiber direkt auf,
@@ -216,28 +216,34 @@ die Session nie einen Audio-Treiber. Rohes Audio- und MIDI-I/O liegt in einer ei
 
 ### 6.2 Stack
 
-Entschieden: **Go** (bestehende Erfahrung aus anderen Projekten), **MIT-Lizenz**, **Linux zuerst**.
-Daraus folgt: keine GPL-Bibliotheken (Rubber Band, aubio fallen weg), Qt und KDE Frameworks nur dynamisch gelinkt (LGPL).
+Entschieden: **Rust**, **MIT-Lizenz**, **Linux zuerst**, und: **im Zweifel eigene Funktionalität statt fremder Bibliothek.**
+
+**Abhängigkeitsregel.** Erlaubt sind nur freizügige Lizenzen (MIT, Apache-2.0, BSD, ISC, Zlib, Unlicense, CC0) sowie
+SIL OFL für Schriften. Einzige Ausnahme sind Qt und KDE Frameworks (LGPL), dynamisch gelinkt. Keine GPL, kein MPL,
+kein LGPL in Rust-Crates (Rust linkt statisch). Ist eine Lizenz unklar, eine Bibliothek kaum gepflegt oder nur für
+einen kleinen Teil nötig, bauen wir die Funktion selbst. `cargo-deny` setzt die Liste in `make check` durch.
 
 | Bereich | Wahl | Lizenz | Begründung |
 |---|---|---|---|
-| Sprache | Go (aktuelle Stable) | BSD | Entscheidung; cgo für C-Bibliotheken. |
+| Sprache | Rust (stable) | MIT/Apache-2.0 | Keine Speicherbereinigung, also keine Pausen im Audio-Pfad; Speichersicherheit; Erfahrung aus lmix und strom. |
 | UI | Qt 6, QML, **Kirigami**, **Kante-QML** (`qml/Kante`, unverändert kopiert) | LGPL / Kante | Nativ in Plasma; Aussehen kommt aus Kante (GUI-Regel). |
-| Go ↔ QML | **miqt** (Go-Bindings für Qt 6), sonst dünner C++-Host mit `QQmlApplicationEngine`, der den Go-Kern als `c-shared`-Bibliothek lädt | MIT | In Phase 0 prüfen, ob miqt QML/Quick ausreichend abdeckt; die Rückfallebene ist bewährt und klein. |
-| Audio-I/O | **miniaudio** über **malgo** | MIT-0 / Unlicense | Alle Linux-Backends, später WASAPI und CoreAudio. Qt Multimedia ist für niedrige Latenz ungeeignet. |
-| MIDI | **gomidi/midi v2** mit RtMidi-Treiber | MIT | Eingang (ab Phase 4) und MIDI-Dateien. |
-| Tonhöhe, Onset | Eigene Implementierung (YIN/MPM, spektraler Fluss) in Go | MIT | Volle Kontrolle über Fensterlänge und Bass-Optimierung, keine GPL. |
-| Time-Stretch | **Signalsmith Stretch** (C++, header-only) über cgo | MIT | Ersetzt Rubber Band; hohe Qualität bei Tempo 25 bis 150 %. |
-| Decoder | go-mp3, mewkiz/flac, jfreymuth/oggvorbis, WAV selbst | Apache-2.0 / Unlicense / MIT | Reines Go, keine FFmpeg-Abhängigkeit. |
-| Import | Eigener Guitar-Pro-Parser (GP3–GP5 binär, GP6/7 als ZIP+XML), MusicXML über `encoding/xml`, MIDI über gomidi | MIT | Formatbeschreibungen aus TuxGuitar und alphaTab als Referenz, kein Code übernommen (beide nicht MIT). |
-| Stem-Trennung (optional) | ONNX Runtime + Demucs-Modell | MIT | Separater Download, nach Phase 3. |
-| Build | `go build` mit cgo, Makefile; `make check` (gofmt, go vet, Tests, Token-Prüfung) | | Wie andere Go-Projekte. |
-| Pakete | **Flatpak** mit KDE-Runtime (Flathub) | | Linux zuerst; Windows und macOS erst nach 1.0. |
+| Rust ↔ QML | **cxx-qt** (KDAB) | MIT/Apache-2.0 | QObjects, Signale und Listenmodelle in Rust, in KDE-Projekten im Einsatz. Phase 0 prüft das Zusammenspiel mit Kirigami. |
+| Audio-I/O | **cpal** (ALSA, JACK; PipeWire über seine ALSA- und JACK-Schicht) | Apache-2.0 | Bewährt, plattformübergreifend für später. Phase 0 vergleicht die Latenz mit einem direkten PipeWire-Treiber (pipewire-rs, MIT); der bessere gewinnt. |
+| Ringpuffer | **rtrb** | MIT/Apache-2.0 | Lock-frei, Echtzeit-tauglich. |
+| MIDI | **midir** (Eingang, ab Phase 4), **midly** (Dateien) | MIT / Unlicense | Klein, gepflegt. |
+| FFT | **rustfft** | MIT/Apache-2.0 | Grundlage für Erkennung und Time-Stretch. |
+| Tonhöhe, Onset | **eigene Implementierung** (YIN/MPM, spektraler Fluss) | MIT | Volle Kontrolle über Fensterlänge und Bass-Optimierung. |
+| Time-Stretch | **eigene Implementierung** (Phasen-Vocoder mit Phasengradienten-Integration, veröffentlichtes Verfahren) | MIT | Rubber Band ist GPL; Signalsmith Stretch (MIT, C++) dient nur in Tests als Qualitätsreferenz und wird nicht ausgeliefert. |
+| Decoder | **hound** (WAV), **claxon** (FLAC), **lewton** (Ogg Vorbis), **minimp3** (MP3) | Apache-2.0 / MIT / CC0 | Reines Rust bzw. kleiner C-Kern; symphonia (MPL) wird gemieden. |
+| Import | **eigene Parser** für Guitar Pro (GP3–GP5 binär, GP6/7 als ZIP+XML) und MusicXML; **zip**, **quick-xml** als Bausteine | MIT | Formatbeschreibungen aus TuxGuitar und alphaTab nur gelesen, kein Code übernommen. |
+| Notensatz | **eigene Kante-Komponente** mit der Musikschrift **Bravura** (SMuFL) | SIL OFL | Verovio (LGPL) und MuseScore (GPL) fallen weg. |
+| Stem-Trennung (optional) | **ort** + ONNX Runtime + Demucs-Modell | MIT/Apache-2.0, MIT | Separater Download, nach Phase 3. |
+| Build | Cargo-Workspace, `make check` (cargo fmt, clippy, Tests, cargo-deny, Token-Prüfung) | | |
+| Pakete | **Flatpak** mit KDE-Runtime und Rust-SDK-Erweiterung | | Linux zuerst; Windows und macOS erst nach 1.0. |
 
-**Go und Echtzeit-Audio.** Der Go-Garbage-Collector pausiert in der Regel unter 1 ms, aber nur, wenn der Audio-Pfad
-nichts allokiert. Regeln: Puffer und Ringpuffer werden vorab angelegt, der Audio-Callback allokiert nicht, sperrt nicht
-und ruft keine Go-Kanäle blockierend auf; Ergebnisse gehen über lock-freie Ringpuffer an die Session. Phase 0 misst
-Aussetzer (Xruns) und GC-Pausen unter Last.
+**Rust und Echtzeit-Audio.** Der Audio-Callback allokiert nicht, sperrt nicht und wartet auf nichts; Ergebnisse gehen über
+vorab angelegte Ringpuffer (rtrb) an die Session. In Debug-Builds prüft ein Allokations-Wächter den Callback.
+Phase 0 misst Aussetzer (Xruns) und Latenz unter Last.
 
 ### 6.3 Die schwierigste Stelle: Bass-Tonerkennung mit wenig Latenz
 
@@ -270,7 +276,7 @@ Was Kontra braucht und Kante noch nicht hat, entsteht **zuerst in Kante** (QML-K
 |---|---|
 | Tab-Lane | Saiten als Bahnen, laufende Noten mit Bund, Spiellinie, Treffer-Markierung |
 | Tabulatur-Zeile | klassische Tab mit Takten, Rhythmus, Wiederholungen |
-| Notenzeile | Bassschlüssel, Noten, Pausen, Vorzeichen (Rendering über eine Notensatz-Bibliothek oder eigene Glyphen aus einer freien Musikschrift wie Bravura, SIL OFL) |
+| Notenzeile | Bassschlüssel, Noten, Pausen, Vorzeichen; eigener Notensatz mit Glyphen aus Bravura (SMuFL, SIL OFL) |
 | Griffbrett | Bünde, Saiten, Lagen-Markierung, Fingersatz |
 | Stimmgerät | Tonname, Cent-Abweichung, Saite |
 | Pegelanzeige | Eingangspegel mit Übersteuerungswarnung |
@@ -285,7 +291,7 @@ Die Landing Page (`docs/index.html`) folgt wie bei allen Projekten der zentralen
 
 | Phase | Inhalt | Ergebnis |
 |---|---|---|
-| **0 Machbarkeit** | Go↔QML-Brücke (miqt oder C++-Host), Audio-Engine mit malgo, Tuner, Onset + Tonhöhe gegen Testkorpus, Latenz, Xruns und GC-Pausen messen | Zahlen; Go/No-Go je Baustein |
+| **0 Machbarkeit** | cxx-qt mit Kirigami und Kante-QML, Audio-Engine (cpal gegen pipewire-rs), Tuner, Onset + Tonhöhe gegen Testkorpus, eigener Time-Stretch gegen Referenz, Latenz und Xruns messen | Zahlen; Entscheidung je Baustein |
 | **1 MVP** | E-Bass über Klinke/Interface, Guitar-Pro- und MIDI-Datei-Import, **Tab-Lane, Tabulatur und Notenansicht**, Spielen-, Song- und Warte-Modus, Riff-Werkstatt (Loop, Tempo), Backing Track mit Time-Stretch, Stimmgerät, Kalibrierung, Fortschritt lokal | 0.1 als Flatpak |
 | **2 Lernen** | Groove-Modul, Griffbrett-Modul, adaptive Schwierigkeit, MusicXML-Import | 0.2 bis 0.4 |
 | **3 Inhalte** | Eigene Audiodatei koppeln (Beat-Erkennung), `.kontra`-Pakete, mitgelieferte Etüden, Gehör-Modul | 0.5 bis 0.7 |
@@ -304,9 +310,9 @@ Nicht im Umfang: Online-Konten, Song-Shop, Multiplayer übers Netz.
 | Audio-Latenz unter Linux (PipeWire-Quantum, Bluetooth, HDMI) | Timing-Feedback falsch | Kalibrierung, Warnung bei Bluetooth, Hinweis auf Quantum-Einstellung |
 | Wenig Inhalte ohne Lizenzsongs | geringe Motivation | Guitar-Pro-Import, eigene Audiodatei koppeln, gute mitgelieferte Grooves |
 | Guitar-Pro-Formate sind proprietär und komplex | Importfehler | Mit GP5 und GP7 beginnen, Testdateien, alphaTab/TuxGuitar nur als Formatreferenz |
-| Go und Echtzeit-Audio (GC-Pausen, cgo-Callbacks) | Aussetzer, Timing-Fehler | Allokationsfreier Callback, Ringpuffer, Messung in Phase 0; Rückfall: Audio-Callback in C, Go nur für Analyse |
-| Go↔QML-Brücke (miqt deckt QML nicht vollständig ab) | Mehraufwand UI | Phase 0 entscheidet; Rückfall C++-Host mit Go als `c-shared` |
-| Notenansicht schon im MVP | Notensatz ist aufwendig | Bassschlüssel einstimmig zuerst, Komponente in Kante, freie Musikschrift |
+| cxx-qt-Lernkurve, lange Rust-Builds | langsamer Start | Phase 0 mit kleiner QML-Seite; Workspace in kleine Crates teilen |
+| Eigene Implementierungen (Time-Stretch, Notensatz, Parser) statt Bibliotheken | mehr Aufwand, Qualitätsrisiko | Referenz-Tests gegen Signalsmith Stretch und MuseScore-Exporte; Notensatz zuerst einstimmig im Bassschlüssel |
+| Notenansicht schon im MVP | Notensatz ist aufwendig | Bassschlüssel einstimmig zuerst, Komponente in Kante, Bravura |
 | Stem-Trennung ist groß und rechenintensiv | Downloadgröße, Wartezeit | Optional, getrennter Download, Ergebnis wird zwischengespeichert |
 | Mikrofon: Raumklang und Backing Track stören die Erkennung | Fehlbewertungen | Kopfhörer empfehlen, Echo-Abzug, weitere Toleranzen, eigener Testkorpus mit Mikrofonaufnahmen |
 | Klinke direkt in Laptop-Mikrofonbuchse | schwaches, verrauschtes Signal | Pegelassistent, Testkorpus mit solchen Aufnahmen, klarer Hinweis auf Hi-Z |
@@ -323,9 +329,9 @@ Nicht im Umfang: Online-Konten, Song-Shop, Multiplayer übers Netz.
 | Weitere Instrumente | **Bis 1.0 nur Bass** (E-Bass, in Phase 4 Kontrabass und Bass über MIDI); andere Instrumente nach 1.0, Architektur bleibt offen dafür |
 | Repository | **Eigenes Repo `shrippen/kontra` auf git.arianw.de**, GitHub als Spiegel |
 | Design | **Kirigami mit Kante**: Kante hat QML-Komponenten, sie werden unverändert übernommen; fehlende Komponenten zuerst in Kante |
-| Stack | **Go** (statt C++) |
+| Stack | **Rust** (zuerst Go gewählt, nach Abwägung geändert: keine GC-Pausen im Audio-Pfad, cxx-qt für QML, Erfahrung aus lmix und strom) |
 | Darstellung | **2D-Tab-Lane als Standard, 3D später; Tabulatur und Notenansicht schon im MVP** |
-| Lizenz | **MIT**; deshalb keine GPL-Bibliotheken (Rubber Band → Signalsmith Stretch, aubio → eigene Erkennung) |
+| Lizenz | **MIT**; nur freizügige Abhängigkeiten, **im Zweifel eigene Implementierung** (Time-Stretch, Tonerkennung, Notensatz, Import) |
 | Plattformen im MVP | **Nur Linux (Flatpak)** |
 | Personas | Alle sieben vorgeschlagenen, siehe [`PERSONAS.md`](PERSONAS.md) |
 
