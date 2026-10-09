@@ -105,6 +105,8 @@ pub struct Core {
     run_started: Option<std::time::Instant>,
     speed: f64,
     looping: Option<(usize, usize)>,
+    /// A note for the user from the last `open` (e.g. a five-string bass was chosen).
+    notice: Option<String>,
 }
 
 impl Core {
@@ -116,6 +118,7 @@ impl Core {
             .as_deref()
             .map_or_else(Language::from_environment, Language::from_code);
         Core {
+            notice: None,
             catalog: Catalog::new(language),
             settings,
             library,
@@ -196,6 +199,30 @@ impl Core {
         })
     }
 
+    /// The note left by the last `open`, once.
+    pub fn take_notice(&mut self) -> Option<String> {
+        self.notice.take()
+    }
+
+    /// The view for the loaded piece: the one last used with it, else the default (LH-ANZ-04).
+    pub fn view(&self) -> String {
+        self.loaded_path()
+            .and_then(|p| self.library.entry(p))
+            .and_then(|e| e.view.clone())
+            .unwrap_or_else(|| self.settings.view.clone())
+    }
+
+    /// Remembers `view` for the loaded piece and as the default for pieces opened next.
+    pub fn set_view(&mut self, view: &str) {
+        self.update_settings(|s| s.view = view.to_string());
+        if let Some(path) = self.loaded_path().map(Path::to_path_buf) {
+            if let Some(entry) = self.library.entry_mut(&path) {
+                entry.view = Some(view.to_string());
+            }
+            let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+        }
+    }
+
     /// Changes settings that do not affect a running practice (view, style, language) and saves.
     pub fn update_settings(&mut self, change: impl FnOnce(&mut Settings)) {
         change(&mut self.settings);
@@ -266,6 +293,20 @@ impl Core {
                 (Some(open), Some(low)) => open <= low,
                 _ => true,
             };
+            if !reaches {
+                // QA P2 (U1): say why the tab shows more strings than the profile.
+                let note = lowest.map_or_else(String::new, |p| self.note_label(&p.to_string()));
+                self.notice = Some(self.tr(
+                    "notice.more.strings",
+                    &[
+                        ("note", note),
+                        (
+                            "strings",
+                            arrangement.instrument.tuning.strings.len().to_string(),
+                        ),
+                    ],
+                ));
+            }
             if reaches && profile.tuning != arrangement.instrument.tuning {
                 arrangement.instrument = profile;
                 for n in &mut arrangement.notes {
@@ -289,6 +330,7 @@ impl Core {
             song_id: ProgressStore::song_id(&arrangement),
             backing: None,
             backing_offset_s: 0.0,
+            view: None,
         });
         let _ = store::save(&self.data_dir.join("library.json"), &self.library);
         self.loaded = Some(Loaded {
@@ -1225,6 +1267,20 @@ mod tests {
             "{err}"
         );
         assert!(!err.contains("format") && !err.contains("file"), "{err}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-ANZ-04, QA P2 (R7): each piece keeps its own view.
+    #[test]
+    fn view_is_remembered_per_piece() {
+        let dir = temp_dir("view");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        core.set_view("tab");
+        core.update_settings(|s| s.view = "lane".into());
+        let mut again = Core::new(&dir, QaOptions::default());
+        again.open(&demo()).unwrap();
+        assert_eq!(again.view(), "tab");
         let _ = std::fs::remove_dir_all(dir);
     }
 

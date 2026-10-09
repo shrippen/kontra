@@ -8,3 +8,8 @@
 /crates/app/.qmlls.ini
 /target-*/
 __pycache__/
+/vendor/
+/flatpak-build/
+/flatpak-repo/
+/flatpak-out/
+/packaging/cargo-vendor.toml

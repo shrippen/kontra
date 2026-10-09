@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Guitar Pro files are not in shared-mime-info; MIDI and MusicXML are. -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-guitar-pro">
+    <comment>Guitar Pro tablature</comment>
+    <comment xml:lang="de">Guitar-Pro-Tabulatur</comment>
+    <glob pattern="*.gp3"/>
+    <glob pattern="*.gp4"/>
+    <glob pattern="*.gp5"/>
+    <glob pattern="*.gpx"/>
+    <glob pattern="*.gp"/>
+  </mime-type>
+</mime-info>

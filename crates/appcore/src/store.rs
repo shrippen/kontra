@@ -112,6 +112,9 @@ pub struct RecentEntry {
     pub backing: Option<PathBuf>,
     #[serde(default)]
     pub backing_offset_s: f64,
+    /// View last used for this piece (LH-ANZ-04); `None`: the default from the settings.
+    #[serde(default)]
+    pub view: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -127,6 +130,9 @@ impl Library {
             if entry.backing.is_none() {
                 entry.backing = old.backing.clone();
                 entry.backing_offset_s = old.backing_offset_s;
+            }
+            if entry.view.is_none() {
+                entry.view = old.view.clone();
             }
         }
         self.recent.retain(|e| e.path != entry.path);
@@ -176,6 +182,7 @@ mod tests {
             song_id: String::new(),
             backing: None,
             backing_offset_s: 0.0,
+            view: None,
         };
         library.touch(entry("a"));
         library.touch(entry("b"));

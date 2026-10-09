@@ -395,6 +395,11 @@ impl Default for ControllerRust {
         };
         if let Some(path) = args.open {
             controller.open_now(&path);
+            // An explicit --view wins over the view remembered for the piece (QA runs).
+            if let Some(view) = &args.view {
+                controller.core.set_view(view);
+                controller.view = q(view);
+            }
         }
         controller
     }
@@ -421,6 +426,10 @@ impl ControllerRust {
                 self.duration = self.core.duration_s();
                 self.recent_json = q(&self.core.recent_json());
                 self.backing_name = q(&self.core.backing_name());
+                self.view = q(&self.core.view());
+                if let Some(notice) = self.core.take_notice() {
+                    self.message = q(&notice);
+                }
             }
             Ok(Opened::ChooseTrack(names)) => {
                 self.track_choices_json = q(&serde_json::to_string(&names).unwrap_or_default());
@@ -473,6 +482,8 @@ impl qobject::Controller {
         let recent = core.recent_json();
         let loaded = core.arrangement().is_some();
         let backing = core.backing_name();
+        let view = core.view();
+        self.as_mut().set_view(q(&view));
         self.as_mut().set_title(q(&title));
         self.as_mut().set_artist(q(&artist));
         self.as_mut().set_notes_json(q(&notes));
@@ -499,6 +510,9 @@ impl qobject::Controller {
             Ok(Opened::Ready) => {
                 self.as_mut().set_track_choices_json(q("[]"));
                 self.as_mut().refresh_arrangement();
+                if let Some(notice) = self.as_mut().core().take_notice() {
+                    self.as_mut().set_message(q(&notice));
+                }
                 true
             }
             Ok(Opened::ChooseTrack(names)) => {
@@ -522,6 +536,9 @@ impl qobject::Controller {
         match result {
             Ok(()) => {
                 self.as_mut().refresh_arrangement();
+                if let Some(notice) = self.as_mut().core().take_notice() {
+                    self.as_mut().set_message(q(&notice));
+                }
                 true
             }
             Err(e) => {
@@ -579,9 +596,7 @@ impl qobject::Controller {
 
     fn change_view(mut self: Pin<&mut Self>, view: &QString) {
         let view = view.to_string();
-        self.as_mut()
-            .core()
-            .update_settings(|s| s.view = view.clone());
+        self.as_mut().core().set_view(&view);
         self.as_mut().set_view(q(&view));
     }
 

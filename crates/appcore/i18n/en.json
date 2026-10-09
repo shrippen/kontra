@@ -163,5 +163,7 @@
   "keys.speed": "Tempo ±5 %",
   "keys.mode": "Mode: play, song, wait, workshop",
   "keys.view": "View: tab lane, tablature, notation, both",
-  "keys.pages": "Pages: library, practice, tuner, settings, setup"
+  "keys.pages": "Pages: library, practice, tuner, settings, setup",
+  "library.underminute": "under 1 min practised",
+  "notice.more.strings": "The piece goes down to {note}, lower than the bass in your profile. Kontra shows it for {strings} strings; you can change the string count in the settings."
 }

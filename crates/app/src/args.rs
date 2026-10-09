@@ -58,6 +58,10 @@ impl AppArgs {
                         out.loop_bars = Some((a.min(b), a.max(b)));
                     }
                 }
+                // A file from the file manager (desktop file `%f`).
+                other if !other.starts_with('-') && out.open.is_none() => {
+                    out.open = Some(PathBuf::from(other));
+                }
                 _ => {}
             }
         }
@@ -77,6 +81,14 @@ mod tests {
             Some("kante-light".into())
         );
         assert_eq!(parse(&["--style", "kante-light"]), None);
+    }
+
+    #[test]
+    fn a_bare_path_opens_the_file() {
+        let args = AppArgs::parse(["song.gp5".to_string()].into_iter());
+        assert_eq!(args.open, Some(PathBuf::from("song.gp5")));
+        let args = AppArgs::parse(["--open", "a.mid", "b.mid"].iter().map(|s| s.to_string()));
+        assert_eq!(args.open, Some(PathBuf::from("a.mid")));
     }
 
     #[test]
