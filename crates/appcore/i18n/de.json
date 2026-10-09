@@ -116,7 +116,7 @@
   "setup.finish": "Erste Übung starten",
   "setup.later": "Später, zur Bibliothek",
   "hint.bluetooth": "Der Ton geht über Bluetooth. Das verzögert stark und ungleichmäßig; für genaues Timing besser Kabel-Kopfhörer nehmen.",
-  "library.search": "Suchen …",
+  "library.search": "Titel, Interpret oder Tag suchen …",
   "library.nomatch": "Nichts gefunden.",
   "view.combined": "Noten + Tab",
   "settings.lowtop": "Tiefe Saite oben",
@@ -260,5 +260,9 @@
   "progress.history": "Werkstatt-Tempo der letzten 30 Tage",
   "progress.history.speed": "Tempo (%)",
   "progress.history.rate": "Trefferquote (%)",
-  "progress.history.axis": "Durchläufe vom {from} bis {to}"
+  "progress.history.axis": "Durchläufe vom {from} bis {to}",
+  "library.tags": "Tags",
+  "library.tags.edit": "Tags von {title} bearbeiten",
+  "library.tags.add": "Tag hinzufügen, z. B. Band oder Slap",
+  "library.tags.remove": "%1 entfernen"
 }

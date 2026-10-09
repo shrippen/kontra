@@ -226,6 +226,16 @@ pub mod qobject {
         #[cxx_name = "openNext"]
         fn open_next(self: Pin<&mut Self>) -> bool;
 
+        /// Sets a library piece's tags from a JSON list of strings (LH-BIB-04).
+        #[qinvokable]
+        #[cxx_name = "setTags"]
+        fn set_tags(self: Pin<&mut Self>, path: &QString, tags_json: &QString);
+
+        /// Every tag in the library as a JSON list, for suggestions.
+        #[qinvokable]
+        #[cxx_name = "tagsJson"]
+        fn tags_json(self: &Self) -> QString;
+
         /// Progress over all pieces as JSON (LH-FOR-01), read when the page opens.
         #[qinvokable]
         #[cxx_name = "progressJson"]
@@ -1021,6 +1031,19 @@ impl qobject::Controller {
         };
         self.as_mut().refresh_setlists();
         ready
+    }
+
+    fn set_tags(mut self: Pin<&mut Self>, path: &QString, tags_json: &QString) {
+        let tags: Vec<String> = serde_json::from_str(&tags_json.to_string()).unwrap_or_default();
+        self.as_mut()
+            .core()
+            .set_tags(&local_path(&path.to_string()), &tags);
+        let recent = self.as_ref().rust().core.recent_json();
+        self.as_mut().set_recent_json(q(&recent));
+    }
+
+    fn tags_json(&self) -> QString {
+        q(&self.rust().core.tags_json())
     }
 
     fn progress_json(&self) -> QString {

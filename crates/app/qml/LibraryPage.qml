@@ -17,7 +17,7 @@ Kirigami.ScrollablePage {
     readonly property var recent: {
         var list = JSON.parse(ctl.recentJson).filter(function(e) {
             var q = query.trim().toLowerCase()
-            return q === "" || (e.title + " " + e.artist + " " + e.path).toLowerCase().indexOf(q) >= 0
+            return q === "" || (e.title + " " + e.artist + " " + e.path + " " + (e.tags || []).join(" ")).toLowerCase().indexOf(q) >= 0
         })
         if (sort === "title")
             list.sort(function(a, b) { return a.title.localeCompare(b.title) })
@@ -217,16 +217,45 @@ Kirigami.ScrollablePage {
             }
             Repeater {
                 model: page.recent
-                delegate: KanteListRow {
+                delegate: ColumnLayout {
+                    id: piece
                     required property var modelData
+                    property bool editing: false
                     Layout.fillWidth: true
-                    text: modelData.title
-                    subtitle: modelData.artist
-                    meta: modelData.best !== null && modelData.best !== undefined
-                          ? texts.t("library.best", { percent: Math.round(modelData.best * 100) })
-                            + " · " + (modelData.practiceMin < 1 ? texts.t("library.underminute") : texts.t("library.minutes", { minutes: Math.round(modelData.practiceMin) }))
-                          : String(modelData.path).split("/").pop()
-                    onClicked: page.open(String(modelData.path))
+                    spacing: KanteStyle.unit(4)
+                    RowLayout {
+                        Layout.fillWidth: true
+                        KanteListRow {
+                            Layout.fillWidth: true
+                            text: piece.modelData.title
+                            // Tags (LH-BIB-04) after the artist; the search finds them too.
+                            subtitle: [piece.modelData.artist].concat(piece.modelData.tags.map(function(t) { return "#" + t }))
+                                      .filter(function(s) { return s !== "" }).join(" · ")
+                            meta: piece.modelData.best !== null && piece.modelData.best !== undefined
+                                  ? texts.t("library.best", { percent: Math.round(piece.modelData.best * 100) })
+                                    + " · " + (piece.modelData.practiceMin < 1 ? texts.t("library.underminute") : texts.t("library.minutes", { minutes: Math.round(piece.modelData.practiceMin) }))
+                                  : String(piece.modelData.path).split("/").pop()
+                            onClicked: page.open(String(piece.modelData.path))
+                        }
+                        KanteButton {
+                            text: texts.t("library.tags")
+                            emphasis: KanteButton.Emphasis.Quiet
+                            checkable: true
+                            checked: piece.editing
+                            Accessible.name: texts.t("library.tags.edit", { title: piece.modelData.title })
+                            onClicked: piece.editing = !piece.editing
+                        }
+                    }
+                    KanteTagPicker {
+                        Layout.fillWidth: true
+                        visible: piece.editing
+                        tags: piece.modelData.tags
+                        suggestions: piece.editing ? JSON.parse(ctl.tagsJson()) : []
+                        placeholderText: texts.t("library.tags.add")
+                        removeText: texts.t("library.tags.remove")
+                        Accessible.name: texts.t("library.tags.edit", { title: piece.modelData.title })
+                        onEdited: function(tags) { ctl.setTags(String(piece.modelData.path), JSON.stringify(tags)) }
+                    }
                 }
             }
         }

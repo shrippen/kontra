@@ -133,6 +133,9 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
       das Tempo der Session (die Werkstatt ändert es selbst; vorher stand das Starttempo drin).
 - [x] LH-FOR-02: Werkstatt-Tempo und Trefferquote der letzten 30 Tage je Abschnitt als
       Liniendiagramm mit Achse, Zeitraum und Legende.
+- [x] LH-BIB-04: Tags je Stück (in der Bibliothek mit Kantes Tag-Auswahl bearbeitbar, Vorschläge
+      aus allen Tags), Suche findet Titel, Interpret und Tags; Sortierung nach zuletzt, Titel und
+      Fortschritt.
 
 ## QA-Runden
 

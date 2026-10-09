@@ -379,10 +379,33 @@ impl Core {
                 let progress = store.load_id(&e.song_id);
                 let best = progress.as_ref().and_then(|p| p.best_hit_rate());
                 let minutes = progress.as_ref().map_or(0.0, |p| p.practice_s() / 60.0);
-                json!({ "path": e.path, "title": e.title, "artist": e.artist, "best": best, "practiceMin": minutes, "lastUnix": e.last_unix })
+                json!({ "path": e.path, "title": e.title, "artist": e.artist, "best": best, "practiceMin": minutes, "lastUnix": e.last_unix, "tags": e.tags })
             })
             .collect();
         serde_json::Value::Array(list).to_string()
+    }
+
+    /// Sets the tags of the piece at `path` (LH-BIB-04): trimmed, without empty or repeated ones.
+    pub fn set_tags(&mut self, path: &Path, tags: &[String]) {
+        let mut clean: Vec<String> = Vec::new();
+        for tag in tags.iter().map(|t| t.trim()) {
+            if !tag.is_empty() && !clean.iter().any(|c| c.eq_ignore_ascii_case(tag)) {
+                clean.push(tag.to_string());
+            }
+        }
+        let Some(entry) = self.library.entry_mut(path) else {
+            return;
+        };
+        entry.tags = clean;
+        self.save_library();
+    }
+
+    /// Every tag in the library, sorted, for suggestions.
+    pub fn tags_json(&self) -> String {
+        let mut tags: Vec<&String> = self.library.recent.iter().flat_map(|e| &e.tags).collect();
+        tags.sort_by_key(|t| t.to_lowercase());
+        tags.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
+        json!(tags).to_string()
     }
 
     /// Adds every score in `dir` to the library without playing it (LH-BIB-04, J-B1); with
@@ -2154,6 +2177,29 @@ mod tests {
         assert_eq!(p["pieces"][0]["best"], 0.92);
         assert_eq!(p["pieces"][0]["practiceMin"], 20.0);
         assert_eq!(p["runs"].as_array().unwrap().len(), 2);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn tags_are_cleaned_listed_and_kept() {
+        let dir = temp_dir("tags");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        let tags = [
+            " Band ".to_string(),
+            "slap".into(),
+            "band".into(),
+            String::new(),
+        ];
+        core.set_tags(&demo(), &tags);
+        let recent: serde_json::Value = serde_json::from_str(&core.recent_json()).unwrap();
+        assert_eq!(recent[0]["tags"], json!(["Band", "slap"]));
+        assert_eq!(core.tags_json(), r#"["Band","slap"]"#);
+
+        // Opening again keeps them.
+        core.open(&demo()).unwrap();
+        let again = Core::new(&dir, QaOptions::default());
+        assert!(again.recent_json().contains("\"slap\""));
         let _ = std::fs::remove_dir_all(dir);
     }
 

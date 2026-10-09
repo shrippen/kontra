@@ -116,7 +116,7 @@
   "setup.finish": "Start the first exercise",
   "setup.later": "Later, to the library",
   "hint.bluetooth": "Sound goes over Bluetooth. That adds a large, uneven delay; wired headphones give exact timing.",
-  "library.search": "Search …",
+  "library.search": "Search title, artist or tag …",
   "library.nomatch": "Nothing found.",
   "view.combined": "Notation + tab",
   "settings.lowtop": "Low string on top",
@@ -260,5 +260,9 @@
   "progress.history": "Workshop tempo over the last 30 days",
   "progress.history.speed": "Tempo (%)",
   "progress.history.rate": "Hit rate (%)",
-  "progress.history.axis": "Runs from {from} to {to}"
+  "progress.history.axis": "Runs from {from} to {to}",
+  "library.tags": "Tags",
+  "library.tags.edit": "Edit tags of {title}",
+  "library.tags.add": "Add a tag, e.g. band or slap",
+  "library.tags.remove": "Remove %1"
 }
