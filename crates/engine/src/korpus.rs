@@ -171,6 +171,10 @@ pub struct Evaluation {
     pub max_abs_onset_ms: f64,
     /// Mean absolute pitch error of matched notes in cents (meaningful for fretless).
     pub mean_abs_cents: f64,
+    /// 95th percentile of it: a mean hides one note that is always off (B0 +8 ct, J-B4).
+    pub p95_abs_cents: f64,
+    /// Largest of it; LH-BEW-05 holds per note.
+    pub max_abs_cents: f64,
 }
 
 impl Evaluation {
@@ -281,6 +285,7 @@ fn compare(
         }
     }
     onset_errors.sort_by(f64::total_cmp);
+    cents_errors.sort_by(f64::total_cmp);
     let mean = |v: &[f64]| {
         if v.is_empty() {
             0.0
@@ -288,11 +293,13 @@ fn compare(
             v.iter().sum::<f64>() / v.len() as f64
         }
     };
-    let p95 = onset_errors
-        .get((onset_errors.len() as f64 * 0.95) as usize)
-        .or(onset_errors.last())
-        .copied()
-        .unwrap_or(0.0);
+    // Of a sorted list.
+    let p95 = |v: &[f64]| {
+        v.get((v.len() as f64 * 0.95) as usize)
+            .or(v.last())
+            .copied()
+            .unwrap_or(0.0)
+    };
     Evaluation {
         set,
         annotated: notes.len(),
@@ -300,9 +307,11 @@ fn compare(
         matched: onset_errors.len(),
         pitch_correct,
         mean_abs_onset_ms: mean(&onset_errors),
-        p95_abs_onset_ms: p95,
+        p95_abs_onset_ms: p95(&onset_errors),
         max_abs_onset_ms: onset_errors.last().copied().unwrap_or(0.0),
         mean_abs_cents: mean(&cents_errors),
+        p95_abs_cents: p95(&cents_errors),
+        max_abs_cents: cents_errors.last().copied().unwrap_or(0.0),
     }
 }
 
@@ -351,6 +360,13 @@ mod tests {
                     e.mean_abs_cents < 6.0,
                     "fretless cents {:.1}",
                     e.mean_abs_cents
+                );
+                // LH-BEW-05: intonation shown within 3 cents, for every note.
+                assert!(
+                    e.p95_abs_cents <= 3.0 && e.max_abs_cents <= 3.0,
+                    "fretless cents p95 {:.1}, max {:.1}",
+                    e.p95_abs_cents,
+                    e.max_abs_cents
                 );
             }
         }

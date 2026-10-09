@@ -6,6 +6,9 @@ use kontra_session as session;
 use kontra_session::KorpusSet;
 use std::path::Path;
 
+/// LH-BEW-05: fretless intonation within 3 cents of the reference, per note.
+const FRETLESS_MAX_CENTS: f64 = 3.0;
+
 pub fn run(a: &KorpusArgs) -> CliResult {
     match &a.command {
         KorpusCommand::Write { dir } => write(dir),
@@ -57,8 +60,8 @@ fn write(dir: &Path) -> CliResult {
 
 fn check(dir: Option<&Path>) -> CliResult {
     println!(
-        "{:<14} {:>6} {:>8} {:>9} {:>7} {:>9} {:>8}",
-        "set", "notes", "recall", "precision", "pitch", "p95 ms", "cents"
+        "{:<14} {:>6} {:>8} {:>9} {:>7} {:>9} {:>8} {:>8} {:>8}",
+        "set", "notes", "recall", "precision", "pitch", "p95 ms", "cents", "p95 ct", "max ct"
     );
     let mut failed = false;
     for set in KorpusSet::ALL {
@@ -72,13 +75,17 @@ fn check(dir: Option<&Path>) -> CliResult {
         } else {
             0.98
         };
+        // A mean hides one note that is always off (B0 +8 ct, J-B4): check p95 and max too.
+        let cents_ok = set != KorpusSet::Fretless5
+            || (e.p95_abs_cents <= FRETLESS_MAX_CENTS && e.max_abs_cents <= FRETLESS_MAX_CENTS);
         let ok = e.recall() >= 0.99
             && e.precision() >= 0.99
             && e.pitch_accuracy() >= needed
-            && e.p95_abs_onset_ms < 10.0;
+            && e.p95_abs_onset_ms < 10.0
+            && cents_ok;
         failed |= !ok;
         println!(
-            "{:<14} {:>6} {:>7.1}% {:>8.1}% {:>6.1}% {:>9.2} {:>8.2} {}",
+            "{:<14} {:>6} {:>7.1}% {:>8.1}% {:>6.1}% {:>9.2} {:>8.2} {:>8.2} {:>8.2} {}",
             set.name(),
             e.annotated,
             e.recall() * 100.0,
@@ -86,11 +93,13 @@ fn check(dir: Option<&Path>) -> CliResult {
             e.pitch_accuracy() * 100.0,
             e.p95_abs_onset_ms,
             e.mean_abs_cents,
+            e.p95_abs_cents,
+            e.max_abs_cents,
             if ok { "ok" } else { "FAILED" }
         );
     }
     if failed {
-        return Err("corpus below LH-NF-02/03 targets".into());
+        return Err("corpus below LH-NF-02/03 or LH-BEW-05 targets".into());
     }
     Ok(())
 }
