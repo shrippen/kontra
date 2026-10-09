@@ -351,7 +351,7 @@ Kirigami.Page {
 
     FileDialog {
         id: backingDialog
-        nameFilters: ["Audio (*.wav *.flac *.ogg *.mp3)"]
+        nameFilters: [texts.t("backing.filter") + " (*.wav *.flac *.ogg *.mp3)"]
         onAccepted: ctl.chooseBacking(selectedFile.toString())
     }
 

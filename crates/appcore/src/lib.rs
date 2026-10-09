@@ -152,6 +152,25 @@ impl Core {
         }
     }
 
+    /// An import error in the user's language (QA P2: the English reason showed in German).
+    fn import_error(&self, e: &kontra_session::ImportError) -> String {
+        use kontra_session::ImportError as E;
+        let reason = match e {
+            E::Io(_) => self.tr("import.io", &[]),
+            // Detection by content failed: also what a cut-off download looks like.
+            E::UnknownFormat => self.tr("import.unknown", &[]),
+            E::Unsupported(what) => self.tr("import.unsupported", &[("what", what.clone())]),
+            E::Truncated(_) | E::Malformed(_) => self.tr("import.damaged", &[]),
+            E::NoTrack(_) => self.tr("import.notrack", &[]),
+            E::TooLarge(bytes) => {
+                self.tr("import.large", &[("mb", (bytes / 1_000_000).to_string())])
+            }
+            E::Empty => self.tr("import.empty", &[]),
+            E::TooLong(bars) => self.tr("import.long", &[("bars", bars.to_string())]),
+        };
+        self.tr("error.import", &[("reason", reason)])
+    }
+
     /// Wait mode: what to play next, with the string by name; after a wrong note also what was
     /// played (J-B2: the player sees both, in words).
     pub fn wait_text(&self, note: usize, played_midi: Option<f64>) -> Option<String> {
@@ -211,8 +230,7 @@ impl Core {
 
     /// Imports a score; picks the bass track or asks.
     pub fn open(&mut self, path: &Path) -> Result<Opened, String> {
-        let imported =
-            import_file(path).map_err(|e| self.tr("error.import", &[("reason", e.to_string())]))?;
+        let imported = import_file(path).map_err(|e| self.import_error(&e))?;
         if let Some(track) = imported.suggested() {
             return self.load(path, &imported, track).map(|()| Opened::Ready);
         }
@@ -233,7 +251,7 @@ impl Core {
     fn load(&mut self, path: &Path, imported: &ImportResult, track: usize) -> Result<(), String> {
         let mut arrangement = imported
             .arrangement(track)
-            .map_err(|e| self.tr("error.import", &[("reason", e.to_string())]))?;
+            .map_err(|e| self.import_error(&e))?;
         if arrangement.title.trim().is_empty() {
             arrangement.title = path
                 .file_stem()
@@ -365,6 +383,14 @@ impl Core {
 
     pub fn play(&mut self) -> Vec<UiEvent> {
         let mut events = Vec::new();
+        if let Some((path, _)) = self.backing().filter(|(p, _)| !p.exists()) {
+            let name = path
+                .file_name()
+                .map_or_else(String::new, |n| n.to_string_lossy().into());
+            events.push(UiEvent::Message(
+                self.tr("hint.backing.missing", &[("name", name)]),
+            ));
+        }
         if self.live.is_none() {
             match self.start_live() {
                 Ok(silent) if silent => events.push(UiEvent::Message(self.tr("hint.silent", &[]))),
@@ -505,7 +531,8 @@ impl Core {
             input: self.input_choice(),
             output_device: self.settings.output_device.clone(),
             source: self.source(),
-            backing: self.backing().map(|(path, _)| path),
+            // A backing file that is gone is skipped (play() says so), not an error.
+            backing: self.backing().map(|(path, _)| path).filter(|p| p.exists()),
         };
         let mut live = Live::start(arrangement, self.mode(), settings, options, &setup)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
@@ -919,6 +946,57 @@ mod tests {
         assert_eq!(names.len(), 5, "{names:?}");
         let a = core.arrangement().unwrap();
         assert!(a.notes.iter().all(|n| n.string.is_some_and(|s| s < 5)));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA P2 (F9): a backing file that is gone must not stop the piece; it plays without, and
+    /// says so in the user's language.
+    #[test]
+    fn missing_backing_plays_without_it() {
+        let dir = temp_dir("backing");
+        let take = dir.join("take.wav");
+        std::fs::create_dir_all(&dir).unwrap();
+        kontra_session::write_mono_wav(&take, &vec![0.0; 48_000], 48_000).unwrap();
+        let mut core = Core::new(
+            &dir,
+            QaOptions {
+                input_file: Some(take),
+                laptop_jack: false,
+            },
+        );
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&demo()).unwrap();
+        core.set_backing(Some(dir.join("weg.wav")), 0.0);
+        let events = core.play();
+        assert!(
+            !events.iter().any(|e| matches!(e, UiEvent::Error(_))),
+            "{events:?}"
+        );
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, UiEvent::Message(m) if m.contains("weg.wav"))),
+            "{events:?}"
+        );
+        core.stop_live();
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA P2 (R1): a broken file gets a German reason in German, not "unknown file format".
+    #[test]
+    fn import_errors_are_translated() {
+        let dir = temp_dir("broken");
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("kaputt.gp5");
+        std::fs::write(&file, b"FICHIER GUITAR PRO v5.00 but cut off").unwrap();
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        let err = core.open(&file).unwrap_err();
+        assert!(
+            err.starts_with("Die Datei lässt sich nicht öffnen"),
+            "{err}"
+        );
+        assert!(!err.contains("format") && !err.contains("file"), "{err}");
         let _ = std::fs::remove_dir_all(dir);
     }
 

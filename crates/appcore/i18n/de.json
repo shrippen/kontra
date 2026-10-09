@@ -41,7 +41,6 @@
   "summary.ontime": "im Timing",
   "summary.spread": "Streuung ±{ms} ms",
   "summary.hardest": "Schwierigste Takte",
-  "summary.practice": "In der Werkstatt üben",
   "summary.histogram.x": "Abweichung (ms)",
   "summary.histogram.y": "Noten",
   "tuner.title": "Stimmgerät",
@@ -138,5 +137,17 @@
   "workshop.above": "über dem Ziel: zweimal in Folge wird es schneller",
   "workshop.below": "unter dem Ziel: zweimal in Folge wird es langsamer",
   "workshop.inside": "im Ziel: Tempo bleibt",
-  "waiting.played": "Gespielt: {played}."
+  "waiting.played": "Gespielt: {played}.",
+  "hint.backing.missing": "Der Backing-Track {name} fehlt. Kontra spielt ohne; über „Audiodatei wählen …“ neu verknüpfen.",
+  "import.io": "sie ist nicht lesbar (fehlt sie, oder fehlen Rechte?)",
+  "import.unknown": "das Format ist unbekannt oder die Datei ist beschädigt. Kontra liest Guitar Pro 3–8, MIDI und MusicXML.",
+  "import.unsupported": "{what} wird noch nicht unterstützt",
+  "import.damaged": "sie ist beschädigt oder unvollständig",
+  "import.notrack": "die gewählte Spur gibt es nicht",
+  "import.large": "sie ist zu groß ({mb} MB)",
+  "import.empty": "sie enthält keine Noten",
+  "import.long": "das Stück ist zu lang (mehr als {bars} Takte mit Wiederholungen)",
+  "summary.close": "Schließen",
+  "summary.practice.bar": "Takt {bar} in der Werkstatt üben",
+  "backing.filter": "Audiodateien"
 }

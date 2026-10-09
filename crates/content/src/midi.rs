@@ -89,11 +89,12 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
 
     let mut score = Score::new();
     // Type 1 files name the song in the first track, which holds only tempo and meta events.
-    if let Some(first) = tracks
+    if let Some(title) = tracks
         .first()
-        .filter(|t| t.notes.is_empty() && !t.name.is_empty())
+        .filter(|t| t.notes.is_empty())
+        .and_then(|t| song_title(&t.name))
     {
-        score.title = first.name.clone();
+        score.title = title;
     }
     let end = tracks
         .iter()
@@ -257,9 +258,36 @@ fn parts(score: &mut Score, starts: &[u64], tracks: &[TrackData]) {
     }
 }
 
+/// The first track's name as song title, unless it is a sequencer's generic name for the tempo
+/// track (QA P2: a song was called "Tempo"); then the app falls back to the file name.
+fn song_title(name: &str) -> Option<String> {
+    const GENERIC: [&str; 6] = [
+        "tempo",
+        "tempo track",
+        "conductor",
+        "untitled",
+        "track 1",
+        "meta",
+    ];
+    let name = name.trim();
+    let generic = GENERIC.iter().any(|g| name.eq_ignore_ascii_case(g));
+    (!name.is_empty() && !generic).then(|| name.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn generic_tempo_track_names_are_no_title() {
+        assert_eq!(song_title("Tempo"), None);
+        assert_eq!(song_title(" Conductor "), None);
+        assert_eq!(song_title(""), None);
+        assert_eq!(
+            song_title("Seven Nation Army"),
+            Some("Seven Nation Army".into())
+        );
+    }
 
     #[test]
     fn locates_ticks() {

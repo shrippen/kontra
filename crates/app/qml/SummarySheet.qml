@@ -34,7 +34,7 @@ KanteCard {
         RowLayout {
             Layout.fillWidth: true
             KanteHeading { text: texts.t("summary.title"); Layout.fillWidth: true }
-            KanteButton { text: "×"; emphasis: KanteButton.Emphasis.Quiet; Accessible.name: "Close"; onClicked: sheet.close() }
+            KanteButton { text: texts.t("summary.close"); emphasis: KanteButton.Emphasis.Quiet; onClicked: sheet.close() }
         }
 
         KanteKpi {
@@ -72,7 +72,7 @@ KanteCard {
                 model: sheet.summary ? sheet.summary.hardestBars : []
                 delegate: KanteButton {
                     required property var modelData
-                    text: texts.t("summary.practice") + " · " + modelData.number
+                    text: texts.t("summary.practice.bar", { bar: modelData.number })
                     onClicked: sheet.practiceBar(modelData.index)
                 }
             }

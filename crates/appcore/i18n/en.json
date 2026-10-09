@@ -41,7 +41,6 @@
   "summary.ontime": "on time",
   "summary.spread": "spread ±{ms} ms",
   "summary.hardest": "Hardest bars",
-  "summary.practice": "Practice in the workshop",
   "summary.histogram.x": "Offset (ms)",
   "summary.histogram.y": "Notes",
   "tuner.title": "Tuner",
@@ -138,5 +137,17 @@
   "workshop.above": "above target: twice in a row speeds up",
   "workshop.below": "below target: twice in a row slows down",
   "workshop.inside": "on target: tempo stays",
-  "waiting.played": "You played {played}."
+  "waiting.played": "You played {played}.",
+  "hint.backing.missing": "The backing track {name} is missing. Kontra plays without it; link it again with “Choose audio file …”.",
+  "import.io": "it cannot be read (is it missing, or are permissions missing?)",
+  "import.unknown": "the format is unknown or the file is damaged. Kontra reads Guitar Pro 3–8, MIDI and MusicXML.",
+  "import.unsupported": "{what} is not supported yet",
+  "import.damaged": "it is damaged or incomplete",
+  "import.notrack": "the chosen track does not exist",
+  "import.large": "it is too large ({mb} MB)",
+  "import.empty": "it contains no notes",
+  "import.long": "the piece is too long (more than {bars} bars with repeats)",
+  "summary.close": "Close",
+  "summary.practice.bar": "Practise bar {bar} in the workshop",
+  "backing.filter": "Audio files"
 }
