@@ -45,6 +45,8 @@ jobs:
       - run: cargo test --workspace --exclude kontra-app
       - run: command -v cargo-deny || cargo install --locked cargo-deny
       - run: cargo deny check licenses bans sources
+      - name: Licence list in the program is current (LH-NF-11)
+        run: python3 scripts/licences.py --check
       - name: Corpus quality (LH-NF-02/03)
         run: cargo run -q -p kontra-cli --release -- korpus check
       # Real recordings as a regression guard (testdata/korpus/QUELLEN.md): IDMT-SMT-Bass-Single-Track,

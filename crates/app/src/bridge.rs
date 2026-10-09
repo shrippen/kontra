@@ -92,6 +92,8 @@ pub mod qobject {
         #[qproperty(bool, autocalibrate)]
         /// QA: practice and settings show the mixer from the start.
         #[qproperty(bool, show_mixer, cxx_name = "showMixer")]
+        /// QA: the settings section to scroll to ("data", "about").
+        #[qproperty(QString, start_section, cxx_name = "startSection")]
         /// QA: bars to loop at start, 1-based "from-to" ("" = none).
         #[qproperty(QString, start_loop, cxx_name = "startLoop")]
         #[qproperty(QString, screenshot_path, cxx_name = "screenshotPath")]
@@ -302,6 +304,11 @@ pub mod qobject {
         #[cxx_name = "exportPackage"]
         fn export_package(self: Pin<&mut Self>, piece: &QString, url: &QString, audio: &QString);
 
+        /// Licences for the About section (LH-NF-11).
+        #[qinvokable]
+        #[cxx_name = "licencesJson"]
+        fn licences_json(self: &Self) -> QString;
+
         #[qinvokable]
         #[cxx_name = "dismissMessage"]
         fn dismiss_message(self: Pin<&mut Self>);
@@ -421,6 +428,7 @@ pub struct ControllerRust {
     autoplay: bool,
     autocalibrate: bool,
     show_mixer: bool,
+    start_section: QString,
     start_loop: QString,
     screenshot_path: QString,
     screenshot_after: i32,
@@ -526,6 +534,7 @@ impl Default for ControllerRust {
             autoplay: args.autoplay,
             autocalibrate: args.calibrate,
             show_mixer: args.mixer,
+            start_section: q(args.section.as_deref().unwrap_or("")),
             start_loop: q(&args
                 .loop_bars
                 .map(|(a, b)| format!("{a}-{b}"))
@@ -1051,6 +1060,10 @@ impl qobject::Controller {
         };
         self.as_mut().refresh_setlists();
         ready
+    }
+
+    fn licences_json(&self) -> QString {
+        q(&self.rust().core.licences_json())
     }
 
     fn progress_json(&self) -> QString {

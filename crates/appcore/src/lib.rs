@@ -26,6 +26,9 @@ use kontra_session::{
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
+/// Crates linked into the app and their licences, from `scripts/licences.py` (LH-NF-11).
+const LICENCES: &str = include_str!("../licences.json");
+
 /// Seconds from the input's start to the first calibration click.
 const CALIBRATION_LEAD_S: f64 = 1.0;
 
@@ -375,6 +378,18 @@ impl Core {
                 ("name", file_name(path)),
             ],
         ))
+    }
+
+    /// The About section's licence list (LH-NF-11): Kontra, the dynamically linked Qt and KDE
+    /// Frameworks, then every crate: `[{"name", "version", "license"}, …]`.
+    pub fn licences_json(&self) -> String {
+        let crates: Vec<serde_json::Value> = serde_json::from_str(LICENCES).unwrap_or_default();
+        let own = [
+            json!({ "name": "Kontra", "version": env!("CARGO_PKG_VERSION"), "license": env!("CARGO_PKG_LICENSE") }),
+            json!({ "name": "Qt 6", "version": "", "license": self.tr("about.lgpl", &[]) }),
+            json!({ "name": "KDE Frameworks 6 (Kirigami)", "version": "", "license": self.tr("about.lgpl", &[]) }),
+        ];
+        serde_json::Value::Array(own.into_iter().chain(crates).collect()).to_string()
     }
 
     /// Tracks of the loaded file and the one played: `{"names": [...], "current": i}`.
@@ -2104,6 +2119,32 @@ mod tests {
         std::fs::write(&linked, b"PK\x03\x04 broken").unwrap();
         assert!(student.open(&linked).is_err());
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-NF-11: the licence list names Kontra (MIT) and only permissive crate licences.
+    #[test]
+    fn licence_list_is_complete_and_permissive() {
+        let core = Core::new(&temp_dir("licences"), QaOptions::default());
+        let list: serde_json::Value = serde_json::from_str(&core.licences_json()).unwrap();
+        let list = list.as_array().unwrap();
+        assert_eq!(list[0]["name"], "Kontra");
+        assert_eq!(list[0]["license"], "MIT");
+        assert!(list.iter().any(|c| c["name"] == "cpal"));
+        let permissive = [
+            "MIT",
+            "Apache-2.0",
+            "BSD",
+            "ISC",
+            "Zlib",
+            "Unlicense",
+            "0BSD",
+            "Unicode",
+        ];
+        for c in &list[3..] {
+            let licence = c["license"].as_str().unwrap();
+            assert!(permissive.iter().any(|p| licence.contains(p)), "{c}");
+            assert!(!licence.contains("GPL"), "{c}");
+        }
     }
 
     /// QA P2 (R9): another track of the file can be chosen after Kontra's own choice.

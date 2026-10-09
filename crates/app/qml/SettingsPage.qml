@@ -28,6 +28,7 @@ Kirigami.ScrollablePage {
         if (ctl.showMixer) {
             Qt.callLater(function() { page.flickable.contentY = mixerLabel.y })
         }
+        sectionTimer.running = ctl.startSection !== ""
     }
 
     function deviceIndex(list, id) {
@@ -236,7 +237,7 @@ Kirigami.ScrollablePage {
         }
 
         // LH-FOR-03: all user data as one open JSON file (backup, second computer).
-        KanteSectionLabel { text: texts.t("data.title"); Layout.topMargin: KanteStyle.unit(12) }
+        KanteSectionLabel { id: dataLabel; text: texts.t("data.title"); Layout.topMargin: KanteStyle.unit(12) }
         QQC2.Label {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
@@ -279,6 +280,43 @@ Kirigami.ScrollablePage {
             Accessible.name: text
         }
 
+        // LH-NF-11: Kontra's licence and every library inside it.
+        KanteSectionLabel { id: aboutLabel; text: texts.t("about.title"); Layout.topMargin: KanteStyle.unit(12) }
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: KanteStyle.textColor
+            text: texts.t("about.text")
+        }
+        GridLayout {
+            Layout.fillWidth: true
+            columns: 2
+            columnSpacing: KanteStyle.unit(16)
+            rowSpacing: KanteStyle.unit(2)
+            Accessible.name: texts.t("about.title")
+            Repeater {
+                model: JSON.parse(ctl.licencesJson())
+                delegate: RowLayout {
+                    required property var modelData
+                    Layout.columnSpan: 2
+                    spacing: KanteStyle.unit(16)
+                    QQC2.Label {
+                        Layout.preferredWidth: KanteStyle.unit(220)
+                        elide: Text.ElideRight
+                        text: modelData.name + (modelData.version !== "" ? " " + modelData.version : "")
+                        font: KanteStyle.monoFont(KanteStyle.defaultFont.pointSize, false)
+                        color: KanteStyle.strongTextColor
+                    }
+                    QQC2.Label {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: modelData.license
+                        color: KanteStyle.textColor
+                    }
+                }
+            }
+        }
+
         // All keyboard shortcuts in one place (LH-NF-07).
         KanteSectionLabel { text: texts.t("keys.title"); Layout.topMargin: KanteStyle.unit(12) }
         GridLayout {
@@ -308,6 +346,18 @@ Kirigami.ScrollablePage {
                         color: KanteStyle.textColor
                     }
                 }
+            }
+        }
+    }
+
+    // QA `--section data|about`: screenshots of the lower sections, once the layout settled.
+    Timer {
+        id: sectionTimer
+        interval: 500
+        onTriggered: {
+            var target = ({ data: dataLabel, about: aboutLabel })[ctl.startSection]
+            if (target) {
+                page.flickable.contentY = target.mapToItem(page.flickable.contentItem, 0, 0).y
             }
         }
     }

@@ -269,7 +269,7 @@
   "report.best": "beste Trefferquote",
   "report.solid": "Tempo mit 90 % Treffern",
   "report.history": "Verlauf",
-  "report.legend": "Durchgezogene Linie mit Punkten: Trefferquote. Gestrichelte Linie: Tempo. Waagerechte gestrichelte Linie: 90 % Treffer. Ältester Durchlauf links.",
+  "report.legend": "Linie mit Punkten: Trefferquote. Linie ohne Punkte: Tempo. Gestrichelt: 90 % Treffer. Ältester Durchlauf links.",
   "report.table": "Alle Durchläufe",
   "report.col.date": "Datum",
   "report.col.mode": "Modus",
@@ -291,5 +291,9 @@
   "unplug.offer": "Solange es fehlt, kannst du „{name}“ nehmen. Steckst du dein Gerät wieder an, nimmt Kontra es von selbst.",
   "unplug.use": "Diesen Eingang nehmen",
   "unplug.back": "Dein Eingang ist wieder da. Drück auf Abspielen, dann geht es weiter.",
-  "settings.xruns": "Audio-Aussetzer seit dem Start: {n}"
+  "settings.xruns": "Audio-Aussetzer seit dem Start: {n}",
+  "about.title": "Über Kontra",
+  "about.text": "Kontra ist freie Software unter der MIT-Lizenz. Es nutzt diese Bausteine, alle unter freizügigen Lizenzen; Qt und KDE Frameworks sind dynamisch eingebunden.",
+  "about.lgpl": "LGPL-3.0 (dynamisch eingebunden)",
+  "report.made": "erstellt mit Kontra am {date}"
 }
