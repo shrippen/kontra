@@ -57,9 +57,10 @@ jobs:
             /opt/kf6
             /opt/qt-tools
           key: qt-6.10.3-kf-6.30.0
-      - name: Qt and Kirigami
+      - name: Qt, Kirigami and system libraries
         run: |
           SUDO=$(command -v sudo || true)
+          $SUDO apt-get update -qq && $SUDO apt-get install -y -qq libasound2-dev pkg-config curl build-essential
           $SUDO scripts/setup-qt-env.sh
       - name: Rust
         run: |
