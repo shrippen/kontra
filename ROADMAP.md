@@ -128,6 +128,11 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 - [x] LH-BEW-01/-05: Auswertung mit jeder Note (Takt, Ton, Zustand, ms früh/spät, Cent) –
       die schwierigsten fünf sofort, alle auf Knopfdruck; Cent gehen im Modus volle Markierung als
       drittes Argument an `setNoteState` (wirkt, sobald Kante PR #43 gemergt ist).
+- [x] LH-FOR-01: Fortschritt je Abschnitt (Ganzes Stück, „Takte 5–8“): beste Trefferquote mit
+      Tempo und Datum; die Bibliothek merkt sich die Takte geübter Abschnitte. Läufe speichern jetzt
+      das Tempo der Session (die Werkstatt ändert es selbst; vorher stand das Starttempo drin).
+- [x] LH-FOR-02: Werkstatt-Tempo und Trefferquote der letzten 30 Tage je Abschnitt als
+      Liniendiagramm mit Achse, Zeitraum und Legende.
 
 ## QA-Runden
 

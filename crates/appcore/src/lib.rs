@@ -9,13 +9,14 @@ mod i18n;
 mod store;
 
 pub use i18n::{Catalog, Language};
-pub use store::{data_dir, InputKind, Library, RecentEntry, Setlist, Settings};
+pub use store::{data_dir, InputKind, Library, RecentEntry, SectionBars, Setlist, Settings};
 
 use kontra_model::{Arrangement, BassKind, InputSource};
 use kontra_session::{
     import_file, list_devices, run_from, CalibrationResult, Direction, Gains, ImportResult,
     InputChoice, Live, LiveCalibration, LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Outcome,
-    PracticeEvent, PracticeOptions, ProgressStore, ScoreSettings, SessionEvent, Summary, Workshop,
+    PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings, SessionEvent, Summary,
+    Workshop,
 };
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -251,6 +252,19 @@ impl Core {
     /// Progress over all pieces (LH-FOR-01): per piece best result, best tempo and time, and
     /// every run's time stamp and length so the view can sum days in local time.
     pub fn progress_json(&self) -> String {
+        self.progress_json_at(unix_now())
+    }
+
+    /// Bars of the sections practised in the piece with `song_id`, as the library knows them.
+    fn section_names(&self, song_id: &str) -> &[SectionBars] {
+        self.library
+            .recent
+            .iter()
+            .find(|e| e.song_id == song_id)
+            .map_or(&[], |e| e.sections.as_slice())
+    }
+
+    fn progress_json_at(&self, now: u64) -> String {
         let mut songs = self.progress_store().all();
         songs.sort_by_key(|p| std::cmp::Reverse(p.runs.iter().map(|r| r.finished_unix).max()));
         let pieces: Vec<serde_json::Value> = songs
@@ -264,6 +278,7 @@ impl Core {
                     "practiceMin": p.practice_s() / 60.0,
                     "runs": p.runs.len(),
                     "lastUnix": p.runs.iter().map(|r| r.finished_unix).max(),
+                    "sections": self.sections_json(&p.runs, self.section_names(&p.song_id), now),
                 })
             })
             .collect();
@@ -421,6 +436,8 @@ impl Core {
                         backing: None,
                         backing_offset_s: 0.0,
                         view: None,
+                        tags: Vec::new(),
+                        sections: Vec::new(),
                     });
                     added.push(path);
                 }
@@ -629,6 +646,8 @@ impl Core {
             backing: None,
             backing_offset_s: 0.0,
             view: None,
+            tags: Vec::new(),
+            sections: Vec::new(),
         });
         let _ = store::save(&self.data_dir.join("library.json"), &self.library);
         self.loaded = Some(Loaded {
@@ -1079,16 +1098,123 @@ impl Core {
             .transport()
             .loop_range()
             .map(|l| (l.start_s, l.end_s));
+        // The session's speed: the workshop changes it on its own (LH-FOR-02 charts it).
         let run = run_from(
             &summary,
             practice_s,
-            self.speed,
+            session.transport().speed(),
             &self.settings.mode,
             section,
             unix_now(),
         );
         let arrangement = session.arrangement().clone();
         let _ = self.progress_store().record(&arrangement, run);
+        if let (Some((start_s, end_s)), Some((from, to))) = (section, self.looping) {
+            self.remember_section(start_s, end_s, from, to);
+        }
+    }
+
+    /// Keeps the written bar numbers of a practised section with the piece (LH-FOR-01).
+    fn remember_section(&mut self, start_s: f64, end_s: f64, from: usize, to: usize) {
+        let Some(a) = self.arrangement() else {
+            return;
+        };
+        let number = |i: usize| a.bars.get(i).map_or(0, |b| b.source_index + 1);
+        let section = SectionBars {
+            start_s,
+            end_s,
+            from_bar: number(from),
+            to_bar: number(to),
+        };
+        let Some(path) = self.loaded_path().map(Path::to_path_buf) else {
+            return;
+        };
+        let Some(entry) = self.library.entry_mut(&path) else {
+            return;
+        };
+        if entry
+            .sections
+            .iter()
+            .any(|s| same_section(s, start_s, end_s))
+        {
+            return;
+        }
+        entry.sections.push(section);
+        self.save_library();
+    }
+
+    /// Per section of a piece (LH-FOR-01): the best run with its tempo and date, and the
+    /// workshop runs of the last 30 days for the tempo chart (LH-FOR-02). The whole piece
+    /// comes first, then sections by start.
+    fn sections_json(
+        &self,
+        runs: &[Run],
+        names: &[SectionBars],
+        now_unix: u64,
+    ) -> Vec<serde_json::Value> {
+        // Sections as centiseconds, so float noise does not split them.
+        let key = |r: &Run| {
+            r.section
+                .map(|(a, b)| ((a * 100.0).round() as i64, (b * 100.0).round() as i64))
+        };
+        let mut groups: std::collections::BTreeMap<Option<(i64, i64)>, Vec<&Run>> =
+            std::collections::BTreeMap::new();
+        for run in runs {
+            groups.entry(key(run)).or_default().push(run);
+        }
+        let since = now_unix.saturating_sub(HISTORY_DAYS * SECONDS_PER_DAY);
+        groups
+            .into_values()
+            .filter_map(|runs| {
+                let best = runs.iter().max_by(|a, b| {
+                    a.hit_rate.total_cmp(&b.hit_rate).then(a.speed.total_cmp(&b.speed))
+                })?;
+                let mut history: Vec<&&Run> = runs
+                    .iter()
+                    .filter(|r| r.mode == "workshop" && r.finished_unix >= since)
+                    .collect();
+                history.sort_by_key(|r| r.finished_unix);
+                let history: Vec<serde_json::Value> = history
+                    .iter()
+                    .map(|r| json!({ "unix": r.finished_unix, "speed": r.speed, "hitRate": r.hit_rate }))
+                    .collect();
+                Some(json!({
+                    "label": self.section_label(best.section, names),
+                    "best": best.hit_rate,
+                    "speed": best.speed,
+                    "unix": best.finished_unix,
+                    "runs": runs.len(),
+                    "history": history,
+                }))
+            })
+            .collect()
+    }
+
+    /// "Ganzes Stück", "Takt 5–8" or, for a section without known bars, "0:12–0:24".
+    fn section_label(&self, section: Option<(f64, f64)>, names: &[SectionBars]) -> String {
+        let Some((start_s, end_s)) = section else {
+            return self.tr("progress.section.whole", &[]);
+        };
+        let Some(bars) = names.iter().find(|s| same_section(s, start_s, end_s)) else {
+            let clock = |s: f64| format!("{}:{:02}", (s / 60.0) as u32, (s % 60.0) as u32);
+            return self.tr(
+                "progress.section.time",
+                &[("from", clock(start_s)), ("to", clock(end_s))],
+            );
+        };
+        if bars.from_bar == bars.to_bar {
+            return self.tr(
+                "progress.section.bar",
+                &[("bar", bars.from_bar.to_string())],
+            );
+        }
+        self.tr(
+            "progress.section.bars",
+            &[
+                ("from", bars.from_bar.to_string()),
+                ("to", bars.to_bar.to_string()),
+            ],
+        )
     }
 
     /// Backing track of the loaded piece and its offset.
@@ -1335,6 +1461,16 @@ impl Core {
             .collect();
         serde_json::Value::Array(list).to_string()
     }
+}
+
+/// Days of workshop history in the tempo chart (LH-FOR-02).
+const HISTORY_DAYS: u64 = 30;
+
+const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
+
+/// True if `bars` names the section `start_s..end_s` (stored times, to the centisecond).
+fn same_section(bars: &SectionBars, start_s: f64, end_s: f64) -> bool {
+    (bars.start_s - start_s).abs() < 0.01 && (bars.end_s - end_s).abs() < 0.01
 }
 
 /// Hits further off than this show as early or late.
@@ -2018,6 +2154,62 @@ mod tests {
         assert_eq!(p["pieces"][0]["best"], 0.92);
         assert_eq!(p["pieces"][0]["practiceMin"], 20.0);
         assert_eq!(p["runs"].as_array().unwrap().len(), 2);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-FOR-01/-02: per section the best run (rate, tempo, date) and the workshop tempo of the
+    /// last 30 days; sections are named by their bars.
+    #[test]
+    fn progress_per_section_with_history() {
+        let dir = temp_dir("sections");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        core.set_loop(4, 7);
+        let (start, end) = core.loop_seconds();
+        core.remember_section(start, end, 4, 7);
+        let a = core.arrangement().unwrap().clone();
+        let day = SECONDS_PER_DAY;
+        let now = 100 * day;
+        let runs = [
+            (now - 40 * day, 0.95, 0.5, Some((start, end))),
+            (now - 2 * day, 0.8, 0.6, Some((start, end))),
+            (now - day, 0.85, 0.7, Some((start, end))),
+            (now - day, 0.9, 1.0, None),
+        ];
+        for (unix, rate, speed, section) in runs {
+            let run = Run {
+                finished_unix: unix,
+                practice_s: 60.0,
+                speed,
+                hit_rate: rate,
+                mode: if section.is_some() {
+                    "workshop"
+                } else {
+                    "song"
+                }
+                .into(),
+                section,
+            };
+            core.progress_store().record(&a, run).unwrap();
+        }
+        let p: serde_json::Value = serde_json::from_str(&core.progress_json_at(now)).unwrap();
+        let sections = p["pieces"][0]["sections"].as_array().unwrap();
+        assert_eq!(sections.len(), 2);
+        assert_eq!(sections[0]["label"], core.tr("progress.section.whole", &[]));
+        let bars = core.tr(
+            "progress.section.bars",
+            &[("from", "5".into()), ("to", "8".into())],
+        );
+        assert_eq!(sections[1]["label"], bars);
+        assert_eq!(sections[1]["best"], 0.95);
+        assert_eq!(sections[1]["unix"], now - 40 * day);
+        let speeds: Vec<f64> = sections[1]["history"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|h| h["speed"].as_f64().unwrap())
+            .collect();
+        assert_eq!(speeds, [0.6, 0.7]);
         let _ = std::fs::remove_dir_all(dir);
     }
 

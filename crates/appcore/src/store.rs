@@ -141,6 +141,21 @@ pub struct RecentEntry {
     /// View last used for this piece (LH-ANZ-04); `None`: the default from the settings.
     #[serde(default)]
     pub view: Option<String>,
+    /// Own tags for search (LH-BIB-04), e.g. "Band", "Slap".
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// Bars of the sections practised, so progress can name them (LH-FOR-01).
+    #[serde(default)]
+    pub sections: Vec<SectionBars>,
+}
+
+/// A practised section: its time range (as a progress run stores it) and its bars as written.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SectionBars {
+    pub start_s: f64,
+    pub end_s: f64,
+    pub from_bar: u32,
+    pub to_bar: u32,
 }
 
 /// A named order of pieces for a gig or rehearsal (LH-BIB-04).
@@ -168,6 +183,12 @@ impl Library {
             }
             if entry.view.is_none() {
                 entry.view = old.view.clone();
+            }
+            if entry.tags.is_empty() {
+                entry.tags = old.tags.clone();
+            }
+            if entry.sections.is_empty() {
+                entry.sections = old.sections.clone();
             }
         }
         self.recent.retain(|e| e.path != entry.path);
@@ -245,6 +266,8 @@ mod tests {
             backing: None,
             backing_offset_s: 0.0,
             view: None,
+            tags: Vec::new(),
+            sections: Vec::new(),
         };
         library.touch(entry("a"));
         library.touch(entry("b"));

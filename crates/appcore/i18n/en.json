@@ -251,5 +251,14 @@
   "summary.note.late": "{ms} ms late",
   "summary.note.cents": "{cents} cents",
   "summary.hardest.notes": "These notes are worth a second look",
-  "summary.all.notes": "All notes ({n})"
+  "summary.all.notes": "All notes ({n})",
+  "progress.section.whole": "Whole piece",
+  "progress.section.bar": "Bar {bar}",
+  "progress.section.bars": "Bars {from}–{to}",
+  "progress.section.time": "Section {from}–{to}",
+  "progress.section.best": "{label}: best {percent} % at {speed} % tempo on {date}",
+  "progress.history": "Workshop tempo over the last 30 days",
+  "progress.history.speed": "Tempo (%)",
+  "progress.history.rate": "Hit rate (%)",
+  "progress.history.axis": "Runs from {from} to {to}"
 }

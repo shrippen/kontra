@@ -251,5 +251,14 @@
   "summary.note.late": "{ms} ms zu spät",
   "summary.note.cents": "{cents} Cent",
   "summary.hardest.notes": "Diese Noten lohnen einen zweiten Blick",
-  "summary.all.notes": "Alle Noten ({n})"
+  "summary.all.notes": "Alle Noten ({n})",
+  "progress.section.whole": "Ganzes Stück",
+  "progress.section.bar": "Takt {bar}",
+  "progress.section.bars": "Takte {from}–{to}",
+  "progress.section.time": "Abschnitt {from}–{to}",
+  "progress.section.best": "{label}: bestes Ergebnis {percent} % bei {speed} % Tempo am {date}",
+  "progress.history": "Werkstatt-Tempo der letzten 30 Tage",
+  "progress.history.speed": "Tempo (%)",
+  "progress.history.rate": "Trefferquote (%)",
+  "progress.history.axis": "Durchläufe vom {from} bis {to}"
 }
