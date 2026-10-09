@@ -38,6 +38,8 @@ jobs:
           key: core-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --exclude kontra-app --all-targets -- -D warnings
+      # Includes the journey tests (tests/journeys, QA.md ⚙): recordings rendered on the fly,
+      # played in real time through the app core without a sound card.
       - run: cargo test --workspace --exclude kontra-app
       - run: command -v cargo-deny || cargo install --locked cargo-deny
       - run: cargo deny check licenses bans sources

@@ -23,8 +23,9 @@ und nennt die Anforderungen aus dem [Lastenheft](LASTENHEFT.md), die sie prüft.
 5. **Fund notieren** mit: Stufe (Fehler, Reibung, unlogisch, kosmetisch), Persona, Journey und Schritt, was passierte gegen was erwartet war,
    Beleg (Screenshot, Log-Zeile, Aufnahme). Nur Beobachtetes; Ungetestetes ausdrücklich nennen.
 6. **Ergebnis** der Runde in `ROADMAP.md` unter „QA-Runde <Datum>“; gefundene Fehler: zuerst ein Test, der fehlschlägt, dann die Korrektur.
-7. **Automatisierung.** Journeys mit messbaren Schritten (markiert mit ⚙) haben einen Test (Rust: `crates/*/tests`, `crates/appcore` spielt
-   Aufnahmen live ab). Screenshots für Release-Logs kommen aus `scripts/screenshots.sh`.
+7. **Automatisierung.** Journeys mit messbaren Schritten (markiert mit ⚙) haben einen Test in `tests/journeys/` (ein Modul je Journey,
+   `cargo test -p kontra-appcore --test journeys`, läuft in CI): Aufnahmen und Testmaterial (etwa `stimmen-e-30c.wav`) erzeugt der
+   Test selbst, die App-Logik spielt sie in Echtzeit ab, ohne Soundkarte. Screenshots für Release-Logs kommen aus `scripts/screenshots.sh`.
 
 Markierungen: ⚙ automatisiert · 🔍 auch mit 200 % Skalierung und Farbfilter Deuteranopie (P7) · 📽 auch bei 1280×720 (P4).
 
@@ -42,7 +43,7 @@ Erwartet: ≤ 60 s bis zum ersten bewerteten Ton; der Hinweis zur Laptop-Buchse 
 
 **J-A2 Stimmen ohne Vorwissen** ⚙ 🔍 · Persona: P1 Lea · Phase 1 · LH-TUN-01, -03
 1. Stimmgerät öffnen, „Geführt“.
-2. E-Saite 30 Cent zu tief anschlagen (`testdata/korpus/stimmen-e-30c.wav`), Anweisung befolgen.
+2. E-Saite 30 Cent zu tief anschlagen (`stimmen-e-30c.wav`, erzeugt der Journey-Test), Anweisung befolgen.
 3. Alle vier Saiten durchgehen.
 Erwartet: Anweisung in Worten („etwas höher drehen“) und Symbol; Erfolg pro Saite eindeutig, auch ohne Farbe.
 
