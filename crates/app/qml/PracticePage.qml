@@ -32,7 +32,10 @@ Kirigami.Page {
     title: ctl.title
     padding: KanteStyle.unit(12)
 
+    property bool summaryReady: false
+
     function reset() {
+        summaryReady = false
         notes = JSON.parse(ctl.notesJson)
         bars = JSON.parse(ctl.barsJson)
         staff = JSON.parse(ctl.staffJson)
@@ -90,7 +93,17 @@ Kirigami.Page {
                 page.noteViews[i].setNoteState(index, state)
             }
         }
-        function onFinished() { summary.open() }
+        // Play mode just plays (LH-MOD-01, round 6): the summary only on request.
+        function onFinished() {
+            if (ctl.mode === "play") {
+                page.summaryReady = true
+                summaryCallout.Accessible.announce(texts.t("summary.ready"))
+            } else {
+                summary.open()
+            }
+        }
+        function onPlayingChanged() { if (ctl.playing) page.summaryReady = false }
+        function onModeChanged() { page.summaryReady = false }
     }
 
     readonly property var times: bars.map(function(b) { return b.time })
@@ -247,6 +260,22 @@ Kirigami.Page {
             function onHoldingTextChanged() {
                 if (ctl.holdingIndex >= 0 && ctl.holdingText !== "")
                     waitCallout.Accessible.announce(ctl.holdingText)
+            }
+        }
+
+        // Play mode: the run is over, the summary waits behind a button.
+        KanteCallout {
+            id: summaryCallout
+            Layout.fillWidth: true
+            visible: page.summaryReady && !summary.visible
+            kind: KanteCallout.Kind.Info
+            autoHide: false
+            title: texts.t("summary.ready")
+            Accessible.name: texts.t("summary.ready")
+            KanteButton {
+                text: texts.t("summary.show")
+                emphasis: KanteButton.Emphasis.Primary
+                onClicked: summary.open()
             }
         }
 

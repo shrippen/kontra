@@ -54,6 +54,9 @@ Kirigami.ApplicationWindow {
             late: texts.t("result.late")
         })
     }
+    // Round 6: follow the desktop (animations off there means durations 0), or the own switch.
+    readonly property bool systemReducesMotion: Kirigami.Units.longDuration === 0
+    Binding { target: KanteStyle; property: "motion"; value: ctl.motion !== "reduce" }
     KanteScope { target: root.contentItem }
     color: KanteStyle.themed ? KanteStyle.backgroundColor : Kirigami.Theme.backgroundColor
 
@@ -137,6 +140,9 @@ Kirigami.ApplicationWindow {
         if (first === "") {
             first = !ctl.setupDone && !ctl.loaded ? "setup" : (ctl.loaded ? "practice" : "library")
         }
+        // First start with animations off on the desktop: the page-wise tab, not the lane.
+        if (!ctl.setupDone && ctl.motion === "system" && systemReducesMotion && ctl.view === "lane")
+            ctl.changeView("tab")
         show(first)
         if (ctl.startLoop !== "" && ctl.loaded) {
             var bars = ctl.startLoop.split("-")

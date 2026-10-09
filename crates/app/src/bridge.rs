@@ -68,6 +68,7 @@ pub mod qobject {
         #[qproperty(bool, reference)]
         #[qproperty(bool, low_string_on_top, cxx_name = "lowStringOnTop")]
         #[qproperty(QString, play_marks, cxx_name = "playMarks")]
+        #[qproperty(QString, motion)]
         #[qproperty(QString, strictness)]
         #[qproperty(f64, pitch_cents, cxx_name = "pitchCents")]
         #[qproperty(f64, latency_ms, cxx_name = "latencyMs")]
@@ -227,6 +228,11 @@ pub mod qobject {
         #[cxx_name = "changePlayMarks"]
         fn change_play_marks(self: Pin<&mut Self>, marks: &QString);
 
+        /// Motion: "system" (follow the desktop), "reduce" or "full" (round 6).
+        #[qinvokable]
+        #[cxx_name = "changeMotion"]
+        fn change_motion(self: Pin<&mut Self>, motion: &QString);
+
         #[qinvokable]
         #[cxx_name = "changeCountIn"]
         fn change_count_in(self: Pin<&mut Self>, on: bool);
@@ -347,6 +353,7 @@ pub struct ControllerRust {
     reference: bool,
     low_string_on_top: bool,
     play_marks: QString,
+    motion: QString,
     strictness: QString,
     pitch_cents: f64,
     latency_ms: f64,
@@ -442,6 +449,7 @@ impl Default for ControllerRust {
             reference: s.reference_tones,
             low_string_on_top: s.low_string_on_top,
             play_marks: q(&s.play_marks),
+            motion: q(&s.motion),
             strictness: q(&s.strictness),
             pitch_cents: s.pitch_cents,
             latency_ms: s.latency_ms,
@@ -997,6 +1005,22 @@ impl qobject::Controller {
             .core()
             .update_settings(|s| s.play_marks = marks);
         self.as_mut().set_play_marks(value);
+    }
+
+    fn change_motion(mut self: Pin<&mut Self>, motion: &QString) {
+        let motion = motion.to_string();
+        if !["system", "reduce", "full"].contains(&motion.as_str()) {
+            return;
+        }
+        let value = q(&motion);
+        self.as_mut()
+            .core()
+            .update_settings(|s| s.motion = motion.clone());
+        self.as_mut().set_motion(value);
+        // Less motion means the page-wise tab instead of the scrolling lane.
+        if motion == "reduce" && self.as_ref().view().to_string() == "lane" {
+            self.as_mut().change_view(&q("tab"));
+        }
     }
 
     fn change_count_in(mut self: Pin<&mut Self>, on: bool) {
