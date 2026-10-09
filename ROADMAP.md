@@ -9,6 +9,7 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 | 2 Lernen (0.2–0.4) | Groove, Griffbrett, adaptive Schwierigkeit, MusicXML | MusicXML-Import vorgezogen |
 | 3 Inhalte (0.5–0.7) | eigene Audiodatei, `.kontra`-Pakete, Etüden, Gehör | Backing-Track-Wiedergabe mit Time-Stretch vorhanden |
 | 4 Bass komplett (0.8–1.0) | Kontrabass am Mikrofon, Bass über MIDI, Techniken, Stem-Trennung | offen |
+| Didaktik (laufend) | Wie vermittelt Kontra Bass am besten? Ideen entwickeln, als Prototypen umsetzen, mit Personas vergleichen | offen, siehe unten |
 
 ## Phase 0
 
@@ -44,6 +45,31 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 | LH-FOR-01/03 Fortschritt | Läufe werden gespeichert; Bibliothek zeigt bestes Ergebnis und Übungszeit |
 | LH-ALL-01/02 Sprache, Stil | umgesetzt |
 | LH-NF-07 Barrierefreiheit | Kante-Bauteile mit Namen und Formen; Tastaturdurchlauf der App offen |
+
+## Didaktik: wie Kontra Bass vermittelt (laufend, alle Phasen)
+
+Ziel: nicht nur Noten abfragen, sondern herausfinden, welche Wege zum
+Bassspielen bei welchen Menschen am besten wirken, und die besten davon in
+Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
+(P1–P7) durchgespielt und, wo möglich, an echten Übungsläufen gemessen
+(Trefferquote, Timing-Streuung, Übungszeit, Abbrüche).
+
+- [ ] Bestandsaufnahme: Lehrwerke und Methoden (Bassschulen, Suzuki/
+      Gehör zuerst, Groove zuerst, Notenlesen zuerst), Spiele und Apps
+      (Rocksmith Riff Repeater und Dynamic Difficulty, Synthesia, Yousician,
+      Melodics), Forschung zu Üben (deliberate practice, verteiltes Üben,
+      Chunking, Fehler-Feedback). Ergebnis: `DIDAKTIK.md` mit Thesen
+- [ ] Ideen sammeln und je eine Skizze, z. B.: Groove vor Tönen (erst
+      Rhythmus auf einer Saite), Hören vor Lesen (nachspielen ohne Anzeige),
+      Lieder in Bausteine zerlegen und zusammensetzen, adaptives Tempo und
+      Ausdünnen, Griffbrett-Landkarte über Intervalle statt Bundnummern,
+      Mitspielen mit Band ab der ersten Stunde, Rückmeldung zu Timing als
+      „vor/hinter dem Beat“ statt richtig/falsch, Wiederholung schwacher
+      Stellen über Tage
+- [ ] Je Idee: Prototyp hinter einem Experiment-Schalter, QA-Journey mit den
+      passenden Personas, Messgrößen festlegen
+- [ ] Auswertung und Entscheidung (als Artifact mit Vorschlägen): welche Wege
+      werden Kern von Kontra, welche Lernpfade entstehen daraus (Phase 2/3)
 
 ## QA-Runden
 
