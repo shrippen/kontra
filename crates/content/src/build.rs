@@ -82,6 +82,11 @@ enum TabSource {
     Generated,
 }
 
+/// Whether the part brings a usable tuning (Guitar Pro, MusicXML staff tuning).
+pub(crate) fn has_tuning(part: &Part) -> bool {
+    matches!(instrument(part).1, TabSource::File)
+}
+
 /// Instrument from the part's tuning, or a standard bass when the tuning is unusable.
 fn instrument(part: &Part) -> (Instrument, TabSource) {
     let frets = part.frets.clamp(1, 36);

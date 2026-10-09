@@ -239,6 +239,24 @@ impl Core {
                 .file_stem()
                 .map_or_else(String::new, |s| s.to_string_lossy().to_string());
         }
+        if !imported.has_tuning(track) {
+            // No tuning in the file: the player's instrument, if it reaches the lowest note
+            // (QA F13: a five-string profile was replaced by four strings).
+            let profile = instrument_from(&self.settings);
+            let lowest = arrangement.notes.iter().map(|n| n.pitch).min();
+            let reaches = match (profile.tuning.lowest(), lowest) {
+                (Some(open), Some(low)) => open <= low,
+                _ => true,
+            };
+            if reaches && profile.tuning != arrangement.instrument.tuning {
+                arrangement.instrument = profile;
+                for n in &mut arrangement.notes {
+                    n.string = None;
+                    n.fret = None;
+                }
+                kontra_session::assign_tab(&mut arrangement);
+            }
+        }
         if self.settings.fretless {
             arrangement.instrument.kind = BassKind::Fretless;
         }
@@ -886,6 +904,21 @@ mod tests {
         let text = core.wait_text(index, Some(played)).unwrap();
         let played_name = core.note_label(&kontra_model::Pitch(n.pitch.0 + 1).to_string());
         assert!(text.contains(&played_name), "{text}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA P3 (F13): a file without tuning (MIDI, MusicXML) takes the instrument profile; it used
+    /// to fall back to four strings and overwrite a five-string profile.
+    #[test]
+    fn file_without_tuning_uses_the_profile() {
+        let dir = temp_dir("profile");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.reconfigure(|s| s.strings = 5);
+        core.open(&demo()).unwrap();
+        let names: Vec<String> = serde_json::from_str(&core.string_names_json()).unwrap();
+        assert_eq!(names.len(), 5, "{names:?}");
+        let a = core.arrangement().unwrap();
+        assert!(a.notes.iter().all(|n| n.string.is_some_and(|s| s < 5)));
         let _ = std::fs::remove_dir_all(dir);
     }
 
