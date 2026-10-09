@@ -7,6 +7,8 @@ use std::collections::VecDeque;
 const HISTORY: usize = 64;
 const MIN_SPEED: f64 = 0.1;
 const MAX_SPEED: f64 = 2.0;
+/// How long before a start a played note still belongs to it.
+const EARLY_START_S: f64 = 0.25;
 
 /// Section to repeat, in arrangement seconds.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -129,6 +131,22 @@ impl Transport {
 
     /// Position and pass at real time `real_s` (also in the past, within the history).
     pub fn position_at(&self, real_s: f64) -> (f64, u32) {
+        // Shortly before a start the position runs backwards from it, so a note played a little
+        // early before the first beat is scored as early, not clamped to the start.
+        let next = self
+            .segments
+            .iter()
+            .find(|s| s.real_s > real_s && s.rate > 0.0);
+        if let Some(next) = next {
+            let previous = self.segments.iter().rev().find(|s| s.real_s <= real_s);
+            let stopped = previous.is_none_or(|p| p.rate == 0.0);
+            if stopped && next.real_s - real_s < EARLY_START_S {
+                return (
+                    next.position_s - (next.real_s - real_s) * next.rate,
+                    next.pass,
+                );
+            }
+        }
         let segment = self
             .segments
             .iter()
@@ -276,6 +294,14 @@ mod tests {
         assert_eq!(t.position_at(5.0).0, 2.0);
         t.release(6.0);
         assert_eq!(t.position_at(7.0).0, 3.0);
+    }
+
+    #[test]
+    fn slightly_before_start_is_negative() {
+        let mut t = Transport::new(10.0);
+        t.play(2.0);
+        assert!((t.position_at(1.9).0 + 0.1).abs() < 1e-9);
+        assert_eq!(t.position_at(1.0).0, 0.0);
     }
 
     #[test]

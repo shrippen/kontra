@@ -132,11 +132,20 @@ impl<O: Output> Practice<O> {
 
     /// Starts after the count-in.
     pub fn play(&mut self) {
-        let now = self.clock.now_s();
+        let start = self.clock.now_s() + START_LEAD_S;
+        self.play_from(start);
+    }
+
+    /// Like `play`, but the count-in starts exactly at engine time `count_in_s`; lines up with a
+    /// recording that started at a known time (its first sample = first count-in click).
+    pub fn play_from(&mut self, count_in_s: f64) {
+        let now = count_in_s;
         let speed = self.session.transport().speed();
         let beat_s = self.beat_length_s() / speed;
         let count_in = self.beats_per_bar() * self.options.count_in_bars as usize;
-        let start = now + START_LEAD_S + count_in as f64 * beat_s;
+        let start = now + count_in as f64 * beat_s;
+        self.output.clear_from(self.clock.now_s());
+        self.scheduled.clear();
         for i in 0..count_in {
             let accent = if i % self.beats_per_bar().max(1) == 0 {
                 Accent::Downbeat
@@ -144,7 +153,7 @@ impl<O: Output> Practice<O> {
                 Accent::Beat
             };
             self.output
-                .schedule(now + START_LEAD_S + i as f64 * beat_s, Sound::Click(accent));
+                .schedule(now + i as f64 * beat_s, Sound::Click(accent));
         }
         self.session.play(start);
         self.restart_backing(start);

@@ -12,9 +12,35 @@ use std::sync::mpsc::channel;
 
 pub use kontra_content::{assign_tab, import_file, FileKind, ImportError, ImportResult, TrackInfo};
 pub use kontra_engine::{
-    evaluate as evaluate_korpus, generate as generate_korpus, list_devices, BackingTrack,
-    Connection, DeviceInfo, Direction, Evaluation, KorpusItem, KorpusSet, StreamConfig,
+    evaluate as evaluate_korpus, generate as generate_korpus, list_devices, render_performance,
+    BackingTrack, Connection, DeviceInfo, Direction, Evaluation, KorpusItem, KorpusSet, Mistakes,
+    StreamConfig,
 };
+
+/// Writes mono audio as WAV (corpus export).
+pub fn write_mono_wav(path: &Path, samples: &[f32], sample_rate: u32) -> Result<(), EngineError> {
+    kontra_engine::write_wav(
+        path,
+        &kontra_engine::AudioBuffer {
+            sample_rate,
+            channels: vec![samples.to_vec()],
+        },
+    )?;
+    Ok(())
+}
+
+/// Reads a corpus set written by `write_mono_wav` plus its JSON annotation.
+pub fn read_korpus(dir: &Path, set: KorpusSet) -> Result<KorpusItem, String> {
+    let json = dir.join(format!("{}.json", set.name()));
+    let text = std::fs::read_to_string(&json).map_err(|e| format!("{}: {e}", json.display()))?;
+    let mut item: KorpusItem =
+        serde_json::from_str(&text).map_err(|e| format!("{}: {e}", json.display()))?;
+    let wav = dir.join(format!("{}.wav", set.name()));
+    let audio = kontra_engine::read_audio(&wav).map_err(|e| e.to_string())?;
+    item.sample_rate = audio.sample_rate;
+    item.samples = audio.mono();
+    Ok(item)
+}
 
 /// Detects all notes in an audio file (as fast as possible).
 pub fn analyze_file(

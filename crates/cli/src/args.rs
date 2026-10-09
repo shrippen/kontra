@@ -1,0 +1,202 @@
+//! Command line arguments.
+
+use clap::{Args, Parser, Subcommand, ValueEnum};
+use std::path::PathBuf;
+
+#[derive(Debug, Parser)]
+#[command(
+    name = "kontra-cli",
+    version,
+    about = "Kontra bass trainer on the command line"
+)]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Command,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Command {
+    /// List audio devices.
+    Devices,
+    /// Import a Guitar Pro, MIDI or MusicXML file and show the bass part.
+    Import(ImportArgs),
+    /// Detect notes in an audio recording.
+    Analyze(AnalyzeArgs),
+    /// Score a recording against a score file.
+    Score(ScoreArgs),
+    /// Generate or check the synthetic test corpus.
+    Korpus(KorpusArgs),
+    /// Practice live with an audio device or a file as input.
+    Practice(PracticeArgs),
+    /// Chromatic tuner.
+    Tune(TuneArgs),
+    /// Render a synthetic performance of a score (QA input files).
+    Render(RenderArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct ImportArgs {
+    pub file: PathBuf,
+    /// Track index (default: the recognized bass track).
+    #[arg(long)]
+    pub track: Option<usize>,
+    /// Bars of tab to print.
+    #[arg(long, default_value_t = 4)]
+    pub bars: usize,
+    /// Write the arrangement as JSON.
+    #[arg(long)]
+    pub json: Option<PathBuf>,
+}
+
+#[derive(Debug, Args)]
+pub struct AnalyzeArgs {
+    pub file: PathBuf,
+    #[arg(long, default_value_t = 4)]
+    pub strings: u8,
+    #[arg(long)]
+    pub fretless: bool,
+    /// Simulate a laptop combo jack.
+    #[arg(long)]
+    pub laptop_jack: bool,
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum StrictnessArg {
+    Loose,
+    Normal,
+    Strict,
+}
+
+impl From<StrictnessArg> for kontra_session::Strictness {
+    fn from(value: StrictnessArg) -> Self {
+        match value {
+            StrictnessArg::Loose => kontra_session::Strictness::Loose,
+            StrictnessArg::Normal => kontra_session::Strictness::Normal,
+            StrictnessArg::Strict => kontra_session::Strictness::Strict,
+        }
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct ScoreArgs {
+    pub score: PathBuf,
+    pub recording: PathBuf,
+    #[arg(long)]
+    pub track: Option<usize>,
+    /// Speed the recording was played at (0.25–1.5).
+    #[arg(long, default_value_t = 1.0)]
+    pub speed: f64,
+    /// Seconds into the recording where the score starts.
+    #[arg(long, default_value_t = 0.0)]
+    pub offset: f64,
+    #[arg(long, value_enum, default_value = "normal")]
+    pub strictness: StrictnessArg,
+    #[arg(long, default_value_t = 0.0)]
+    pub latency_ms: f64,
+    #[arg(long)]
+    pub laptop_jack: bool,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum KorpusCommand {
+    /// Write every set as WAV and JSON annotation into a directory.
+    Write { dir: PathBuf },
+    /// Check detection quality on the generated sets (or WAV+JSON pairs in a directory).
+    Check { dir: Option<PathBuf> },
+}
+
+#[derive(Debug, Args)]
+pub struct KorpusArgs {
+    #[command(subcommand)]
+    pub command: KorpusCommand,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum ModeArg {
+    Play,
+    Song,
+    Wait,
+    Workshop,
+}
+
+#[derive(Debug, Args)]
+pub struct PracticeArgs {
+    pub score: PathBuf,
+    #[arg(long)]
+    pub track: Option<usize>,
+    #[arg(long, value_enum, default_value = "play")]
+    pub mode: ModeArg,
+    #[arg(long, default_value_t = 1.0)]
+    pub speed: f64,
+    /// Loop bars, e.g. `5-8` (1-based, inclusive).
+    #[arg(long)]
+    pub r#loop: Option<String>,
+    /// Workshop: target speed.
+    #[arg(long, default_value_t = 1.0)]
+    pub target: f64,
+    /// Use a recording instead of the audio input (QA journeys).
+    #[arg(long)]
+    pub input_file: Option<PathBuf>,
+    /// With --input-file: simulate a laptop combo jack.
+    #[arg(long)]
+    pub laptop_jack: bool,
+    /// Backing track audio file.
+    #[arg(long)]
+    pub backing: Option<PathBuf>,
+    /// Seconds into the backing file where the score starts.
+    #[arg(long, default_value_t = 0.0)]
+    pub backing_offset: f64,
+    #[arg(long)]
+    pub no_metronome: bool,
+    /// Play the expected notes as reference tones.
+    #[arg(long)]
+    pub reference: bool,
+    #[arg(long, default_value_t = 1)]
+    pub count_in: u32,
+    #[arg(long, default_value_t = 0.0)]
+    pub latency_ms: f64,
+    /// Input device id (see `devices`).
+    #[arg(long)]
+    pub input: Option<String>,
+    /// Output device id (see `devices`).
+    #[arg(long)]
+    pub output: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct TuneArgs {
+    /// Use a recording instead of the audio input.
+    #[arg(long)]
+    pub input_file: Option<PathBuf>,
+    #[arg(long, default_value_t = 5)]
+    pub strings: u8,
+    /// Seconds to run.
+    #[arg(long, default_value_t = 30.0)]
+    pub seconds: f64,
+    #[arg(long)]
+    pub input: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct RenderArgs {
+    pub score: PathBuf,
+    pub out: PathBuf,
+    #[arg(long)]
+    pub track: Option<usize>,
+    #[arg(long, default_value_t = 1.0)]
+    pub speed: f64,
+    /// Silence before the first bar, e.g. for a count-in of one 4/4 bar at 120 BPM: 2.0.
+    #[arg(long, default_value_t = 0.0)]
+    pub lead_in: f64,
+    /// Play every note this many ms late (negative = early).
+    #[arg(long, default_value_t = 0.0, allow_negative_numbers = true)]
+    pub offset_ms: f64,
+    #[arg(long, default_value_t = 0)]
+    pub wrong_every: usize,
+    #[arg(long, default_value_t = 0)]
+    pub miss_every: usize,
+    #[arg(long, default_value_t = 0.0, allow_negative_numbers = true)]
+    pub detune_cents: f64,
+}

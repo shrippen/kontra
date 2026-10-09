@@ -19,10 +19,15 @@ mod player;
 pub use backing::BackingTrack;
 pub use clock::Clock;
 pub use input::{Input, InputKind, Pace};
-pub use kontra_drivers::{list_devices, Connection, DeviceInfo, Direction, StreamConfig};
-pub use korpus::{evaluate, generate, Annotation, Evaluation, KorpusItem, KorpusSet};
+pub use kontra_drivers::{
+    list_devices, read_audio, write_wav, AudioBuffer, Connection, DeviceInfo, Direction,
+    StreamConfig,
+};
+pub use korpus::{
+    evaluate, generate, render_performance, Annotation, Evaluation, KorpusItem, KorpusSet, Mistakes,
+};
 pub use offline::analyze;
-pub use player::{Accent, BackingAudio, Gains, Output, Player, Sound};
+pub use player::{Accent, BackingAudio, Gains, NullOutput, Output, Player, Sound};
 
 use kontra_dsp::TunerReading;
 use kontra_model::DetectedNote;

@@ -311,3 +311,53 @@ mod tests {
         }
     }
 }
+
+/// Deliberate mistakes for a rendered performance (QA journeys).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Mistakes {
+    /// Constant timing offset in ms (positive = late).
+    pub offset_ms: f64,
+    /// Every n-th note one semitone too high (0 = never).
+    pub wrong_every: usize,
+    /// Every n-th note left out (0 = never).
+    pub miss_every: usize,
+    /// Detuning in cents for every note (fretless intonation tests).
+    pub detune_cents: f64,
+}
+
+/// Renders an arrangement as a synthetic bass performance at `speed`, starting `lead_in_s` into
+/// the audio (e.g. the count-in), at `sample_rate`.
+pub fn render_performance(
+    arrangement: &kontra_model::Arrangement,
+    speed: f64,
+    lead_in_s: f64,
+    mistakes: Mistakes,
+    sample_rate: u32,
+) -> Vec<f32> {
+    let speed = speed.clamp(0.1, 2.0);
+    let mut notes = Vec::new();
+    for (i, note) in arrangement
+        .notes
+        .iter()
+        .filter(|n| n.needs_attack())
+        .enumerate()
+    {
+        let n = i + 1;
+        if mistakes.miss_every > 0 && n % mistakes.miss_every == 0 {
+            continue;
+        }
+        let wrong = mistakes.wrong_every > 0 && n % mistakes.wrong_every == 0;
+        let midi =
+            f64::from(note.pitch.0) + if wrong { 1.0 } else { 0.0 } + mistakes.detune_cents / 100.0;
+        let start = arrangement.tempo.seconds_at(note.start_ticks) / speed;
+        let end = arrangement.tempo.seconds_at(note.end_ticks()) / speed;
+        notes.push(SynthNote {
+            onset_s: lead_in_s + start + mistakes.offset_ms / 1000.0,
+            hz: arrangement.instrument.a4_hz * 2f64.powf((midi - 69.0) / 12.0),
+            duration_s: (end - start).max(0.05),
+            velocity: 0.7,
+        });
+    }
+    let total = lead_in_s + arrangement.duration_s() / speed + 1.0;
+    render(&notes, f64::from(sample_rate), total, ToneShape::Rich, 42)
+}

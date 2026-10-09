@@ -45,6 +45,8 @@ pub enum InputKind {
 pub struct Input {
     stop: Arc<AtomicBool>,
     tuner_on: Arc<AtomicBool>,
+    /// Engine time of the first sample (NaN until known).
+    started: Arc<AtomicU64>,
     worker: Option<JoinHandle<()>>,
     _stream: Option<InputStream>,
     pub sample_rate: u32,
@@ -80,6 +82,13 @@ impl Input {
                 tuner_on,
             ),
         }
+    }
+
+    /// Engine time of the input's first sample, once known (device: first callback; file: start
+    /// of playback after decoding).
+    pub fn started_s(&self) -> Option<f64> {
+        let value = f64::from_bits(self.started.load(Ordering::Relaxed));
+        (!value.is_nan()).then_some(value)
     }
 
     /// Switches tuner readings on or off.
@@ -169,6 +178,7 @@ fn start_device(
     let (mut producer, mut consumer) = rtrb::RingBuffer::<f32>::new((RING_S * 192_000.0) as usize);
     let started = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
     let started_cb = Arc::clone(&started);
+    let started_input = Arc::clone(&started);
     let clock_cb = clock.clone();
     let error_events = events.clone();
     let stream = InputStream::open(
@@ -219,6 +229,7 @@ fn start_device(
     Ok(Input {
         stop,
         tuner_on,
+        started: started_input,
         worker: Some(worker),
         _stream: Some(stream),
         sample_rate,
@@ -246,6 +257,8 @@ fn start_file(
     }
     let mut analysis = Analysis::new(sr, instrument, source);
     let clock = clock.clone();
+    let started_flag = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
+    let started_worker = Arc::clone(&started_flag);
     let stop_worker = Arc::clone(&stop);
     let tuner_worker = Arc::clone(&tuner_on);
     let worker = std::thread::Builder::new()
@@ -253,6 +266,7 @@ fn start_file(
         .spawn(move || {
             // Real-time files run on the engine clock; fast ones report file-relative times.
             let started = clock.now_s();
+            started_worker.store(started.to_bits(), Ordering::Relaxed);
             analysis.start_s = if pace == Pace::RealTime { started } else { 0.0 };
             for (i, block) in samples.chunks(BLOCK).enumerate() {
                 if stop_worker.load(Ordering::Relaxed) {
@@ -274,6 +288,7 @@ fn start_file(
     Ok(Input {
         stop,
         tuner_on,
+        started: started_flag,
         worker: Some(worker),
         _stream: None,
         sample_rate,

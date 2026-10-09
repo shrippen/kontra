@@ -222,6 +222,25 @@ impl Output for Player {
     }
 }
 
+/// Output that plays nothing (no device, CI, file-only QA runs).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NullOutput {
+    pub sample_rate: u32,
+}
+
+impl Output for NullOutput {
+    fn sample_rate(&self) -> u32 {
+        self.sample_rate
+    }
+    fn schedule(&mut self, _at_s: f64, _sound: Sound) -> bool {
+        true
+    }
+    fn clear_from(&mut self, _from_s: f64) {}
+    fn play_backing(&mut self, _audio: BackingAudio, _at_s: f64, _from_frame: usize) {}
+    fn stop_backing(&mut self, _at_s: f64) {}
+    fn set_gains(&mut self, _gains: Gains) {}
+}
+
 /// State owned by the audio callback.
 struct Mixer {
     voices: [Voice; VOICES],

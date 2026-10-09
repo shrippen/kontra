@@ -36,6 +36,8 @@ const REFINE_FRACTION: f32 = 0.3;
 /// Envelope block for refinement and the look-back that defines a rise.
 const BLOCK_S: f64 = 0.0005;
 const RISE_BLOCKS: usize = 6;
+/// Longer than one period of the lowest bass note (B0: 32 ms).
+const PERIOD_S: f64 = 0.035;
 
 /// Tunable thresholds.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -198,13 +200,16 @@ impl OnsetDetector {
 
         // Flux against the maximum over older frames (LAG..memory back) and ±1 bin.
         let mut flux = 0.0f32;
-        if self.frames >= self.memory as u64 {
+        // Frames before the stream started count as silence (the ring starts zeroed), so an
+        // attack right at the start is still found.
+        if self.frames >= LAG as u64 {
             let bins = self.spectra[slot].len();
+            let reach = self.memory.min(self.frames as usize + 1);
             for k in 0..bins {
                 let lo = k.saturating_sub(1);
                 let hi = (k + 1).min(bins - 1);
                 let mut reference = f32::MIN;
-                for back in LAG..self.memory {
+                for back in LAG..reach {
                     let old = ((self.frames + self.memory as u64 - back as u64)
                         % self.memory as u64) as usize;
                     reference = self.spectra[old][lo..=hi]
@@ -252,48 +257,78 @@ impl OnsetDetector {
         });
     }
 
-    /// Locates the attack near `estimate` in the high-passed history: the steepest rise of a
-    /// 0.5 ms peak envelope, then the first sample that crosses `REFINE_FRACTION` of that rise.
-    /// Ringing of the previous note is ignored because only the rise counts.
+    /// Locates the attack near `estimate` in the high-passed history.
+    ///
+    /// 1. The first 0.5 ms block whose peak exceeds 1.5× the highest peak of the period before it
+    ///    (`PERIOD_S`): a ringing note never outgrows its own last period, a new attack does.
+    /// 2. If none does (a soft note after a loud one), the steepest rise within ±8 ms.
+    ///
+    /// The onset is the first sample in that block's rise that crosses `REFINE_FRACTION`.
     fn refine(&self, estimate: u64) -> u64 {
         let block = ((BLOCK_S * self.sample_rate) as u64).max(1);
-        let span = (0.025 * self.sample_rate) as u64;
         let len = self.history.len() as u64;
         let oldest = self.pushed.saturating_sub(len);
-        let from = estimate.saturating_sub(span).max(oldest);
-        let to = (estimate + span).min(self.pushed);
-        if to < from + block * (RISE_BLOCKS as u64 + 2) {
+        let from = estimate
+            .saturating_sub((0.025 * self.sample_rate) as u64)
+            .max(oldest);
+        let to = (estimate + (0.025 * self.sample_rate) as u64).min(self.pushed);
+        if to < from + block * 4 {
             return estimate;
         }
-        let at = |s: u64| self.history[((s - oldest + self.history_pos as u64) % len) as usize];
-        let envelope = |b: u64| {
-            (from + b * block..from + (b + 1) * block)
+        // Sample n was written at index n % len; samples outside the history count as silence.
+        let at = |s: u64| {
+            if s >= oldest && s < self.pushed {
+                self.history[(s % len) as usize]
+            } else {
+                0.0
+            }
+        };
+        let peak = |start: u64, end: u64| (start..end).map(|s| at(s).abs()).fold(0.0f32, f32::max);
+        let period = (PERIOD_S * self.sample_rate) as u64;
+
+        let mut chosen = None;
+        let mut start = from;
+        while start + block <= to {
+            let level = peak(start, start + block);
+            let before = peak(start.saturating_sub(period).max(oldest), start);
+            if level > before * 1.5 && level > 1e-4 {
+                chosen = Some((start, before));
+                break;
+            }
+            start += block;
+        }
+        let (block_start, floor) = match chosen {
+            Some(found) => found,
+            None => self.steepest_rise(estimate, block, &at),
+        };
+        let level = peak(block_start, block_start + block);
+        let threshold = floor + (level - floor) * REFINE_FRACTION;
+        (block_start.saturating_sub(block)..block_start + block)
+            .find(|s| at(*s).abs() >= threshold)
+            .unwrap_or(block_start)
+    }
+
+    /// Fallback: block with the steepest rise over `RISE_BLOCKS` blocks within ±8 ms of `estimate`.
+    fn steepest_rise(&self, estimate: u64, block: u64, at: &dyn Fn(u64) -> f32) -> (u64, f32) {
+        let span = (0.008 * self.sample_rate) as u64;
+        let peak = |start: u64| {
+            (start..start + block)
                 .map(|s| at(s).abs())
                 .fold(0.0f32, f32::max)
         };
-        let blocks = (to - from) / block;
-
-        // Steepest rise over RISE_BLOCKS blocks.
-        let mut best = (0u64, 0.0f32, 0.0f32);
-        for b in RISE_BLOCKS as u64..blocks {
-            let level = envelope(b);
-            let floor = (b - RISE_BLOCKS as u64..b)
-                .map(&envelope)
+        let mut best = (estimate, 0.0f32, 0.0f32);
+        let mut start = estimate.saturating_sub(span);
+        while start <= estimate + span {
+            let floor = (1..=RISE_BLOCKS as u64)
+                .map(|k| peak(start.saturating_sub(k * block)))
                 .fold(f32::MAX, f32::min);
-            if level - floor > best.1 {
-                best = (b, level - floor, floor);
+            let rise = peak(start) - floor;
+            if rise > best.1 {
+                best = (start, rise, floor);
             }
+            start += block;
         }
-        let (peak_block, rise, floor) = best;
-        if rise <= 0.0 {
-            return estimate;
-        }
-        let threshold = floor + rise * REFINE_FRACTION;
-        let start = from + (peak_block - RISE_BLOCKS as u64) * block;
-        let end = from + (peak_block + 1) * block;
-        (start..end)
-            .find(|s| at(*s).abs() >= threshold)
-            .unwrap_or(estimate)
+        (best.0, best.2)
     }
 }
 
@@ -366,6 +401,17 @@ mod tests {
         let notes = riff(0.6);
         let signal = laptop_jack(&render(&notes, SR, 4.0, ToneShape::Dull, 3), SR, 4);
         check(&signal, &notes, 8.0);
+    }
+
+    #[test]
+    fn note_at_the_very_start() {
+        let notes = [SynthNote {
+            onset_s: 0.0,
+            hz: 41.2,
+            duration_s: 0.3,
+            velocity: 0.7,
+        }];
+        check(&render(&notes, SR, 0.5, ToneShape::Rich, 5), &notes, 5.0);
     }
 
     #[test]
