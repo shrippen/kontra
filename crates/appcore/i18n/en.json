@@ -80,9 +80,6 @@
   "histogram.count": "%1 notes",
   "histogram.name": "Timing",
   "tuner.name": "Tuner",
-  "level.quiet.hint": "Raise the bass volume or the gain.",
-  "level.loud.hint": "Lower the gain a little.",
-  "level.clip.hint": "Lower the gain a lot, otherwise detection gets inaccurate.",
   "settings.connection": "Connection",
   "calibration.title": "Measure latency",
   "calibration.hint": "After starting, pluck the open A string eight times exactly on the click.",
@@ -106,7 +103,7 @@
   "setup.step.done": "Let's go",
   "setup.instrument.hint": "Which bass do you play?",
   "setup.connection.hint": "How is the bass connected to the computer?",
-  "setup.level.hint": "Play a few notes. The level should sit in the good range; the tuner shows whether the string is in tune.",
+  "setup.level.hint": "Play a few notes. The plucks should land in the “good” range; the tuner shows whether the string is in tune.",
   "setup.latency.hint": "Optional but more precise: Kontra measures how long a note takes from the pluck to the screen.",
   "setup.done.hint": "All set. The first exercise is an eight-bar riff in E minor.",
   "setup.next": "Next",
@@ -149,5 +146,12 @@
   "import.long": "the piece is too long (more than {bars} bars with repeats)",
   "summary.close": "Close",
   "summary.practice.bar": "Practise bar {bar} in the workshop",
-  "backing.filter": "Audio files"
+  "backing.filter": "Audio files",
+  "advice.silent": "No signal. Is the bass plugged in, its volume knob up, and the right input chosen?",
+  "advice.quiet": "Too quiet. Turn the bass's volume knob all the way up, then the gain.",
+  "advice.loud": "A little loud: turn the gain down a bit.",
+  "advice.clip": "Clipping: turn the gain well down, or detection gets inaccurate.",
+  "advice.gain": "Gain is the input amplification: the knob on the audio interface, otherwise in the system settings under Audio → Input devices. Aim: plucks in the “good” range.",
+  "advice.laptop": "Very quiet for a few seconds. Is the bass in the laptop's headphone/microphone jack? Then the laptop setting helps.",
+  "advice.laptop.use": "Use laptop jack"
 }

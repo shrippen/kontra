@@ -114,12 +114,13 @@ Kirigami.ScrollablePage {
                 clipText: texts.t("level.clip")
                 accessibleName: texts.t("level.name")
             }
-            QQC2.Label {
+            LevelAdvice {
                 Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                visible: meter.zone !== "good" && ctl.tunerNote !== ""
-                text: texts.t("level." + meter.zone + ".hint")
-                color: KanteStyle.mutedTextColor
+                peakDb: ctl.peakDb
+                clipped: ctl.clipped
+                listening: page.steps[page.step] === "level"
+                laptopJack: ctl.laptopJack
+                onUseLaptopJack: ctl.changeInstrument(ctl.strings, ctl.fretless, true)
             }
             KanteTunerGauge {
                 Layout.fillWidth: true

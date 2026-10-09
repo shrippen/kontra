@@ -303,12 +303,13 @@ Kirigami.Page {
                 clipText: texts.t("level.clip")
                 accessibleName: texts.t("level.name")
             }
-            QQC2.Label {
+            LevelAdvice {
                 Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                visible: meter.zone !== "good"
-                text: texts.t("level." + meter.zone + ".hint")
-                color: KanteStyle.mutedTextColor
+                peakDb: ctl.peakDb
+                clipped: ctl.clipped
+                listening: ctl.playing
+                laptopJack: ctl.laptopJack
+                onUseLaptopJack: ctl.changeInstrument(ctl.strings, ctl.fretless, true)
             }
             }
         }

@@ -80,9 +80,6 @@
   "histogram.count": "%1 Noten",
   "histogram.name": "Timing",
   "tuner.name": "Stimmgerät",
-  "level.quiet.hint": "Lautstärke am Bass oder Gain erhöhen.",
-  "level.loud.hint": "Gain etwas verringern.",
-  "level.clip.hint": "Gain deutlich verringern, sonst wird die Erkennung ungenau.",
   "settings.connection": "Anschluss",
   "calibration.title": "Latenz messen",
   "calibration.hint": "Schlag nach dem Start achtmal die leere A-Saite genau auf den Klick.",
@@ -106,7 +103,7 @@
   "setup.step.done": "Los geht's",
   "setup.instrument.hint": "Welchen Bass spielst du?",
   "setup.connection.hint": "Wie ist der Bass mit dem Rechner verbunden?",
-  "setup.level.hint": "Spiel ein paar Töne. Der Pegel sollte im grünen Bereich liegen; das Stimmgerät zeigt, ob die Saite stimmt.",
+  "setup.level.hint": "Spiel ein paar Töne. Die Anschläge sollten im Bereich „gut“ liegen; das Stimmgerät zeigt, ob die Saite stimmt.",
   "setup.latency.hint": "Optional, aber genauer: Kontra misst, wie lange der Ton vom Anschlag bis zur Anzeige braucht.",
   "setup.done.hint": "Alles bereit. Die erste Übung ist ein Riff in e-Moll mit acht Takten.",
   "setup.next": "Weiter",
@@ -149,5 +146,12 @@
   "import.long": "das Stück ist zu lang (mehr als {bars} Takte mit Wiederholungen)",
   "summary.close": "Schließen",
   "summary.practice.bar": "Takt {bar} in der Werkstatt üben",
-  "backing.filter": "Audiodateien"
+  "backing.filter": "Audiodateien",
+  "advice.silent": "Kein Signal. Ist der Bass eingesteckt, der Lautstärkeregler am Bass auf und der richtige Eingang gewählt?",
+  "advice.quiet": "Zu leise. Dreh den Lautstärkeregler am Bass ganz auf, dann den Gain.",
+  "advice.loud": "Etwas zu laut: Gain ein wenig zurück.",
+  "advice.clip": "Übersteuert: Gain deutlich zurück, sonst wird die Erkennung ungenau.",
+  "advice.gain": "Gain ist die Eingangsverstärkung: der Drehregler am Audio-Interface, sonst in den Systemeinstellungen unter Audio → Eingabegeräte. Ziel: Anschläge im Bereich „gut“.",
+  "advice.laptop": "Seit ein paar Sekunden sehr leise. Steckt der Bass in der Kopfhörer-/Mikrofonbuchse des Laptops? Dann hilft die Laptop-Einstellung.",
+  "advice.laptop.use": "Laptop-Buchse verwenden"
 }
