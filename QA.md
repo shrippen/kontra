@@ -34,17 +34,18 @@ Markierungen: ⚙ automatisiert · 🔍 auch mit 200 % Skalierung und Farbfilter
 
 **J-A1 Anstecken und los** ⚙ 🔍 · Persona: P1 Lea · Phase 1 · LH-EIN-01, -02, -03, -04, LH-NF-01
 1. Kontra zum ersten Mal starten, Bass per Klinke in die Laptop-Buchse (`--input-profile laptop-jack`).
-2. Assistent: Instrument „E-Bass, 4 Saiten“, Eingang wählen. Pegel ist zu leise.
+2. Assistent: Instrument „E-Bass, 4 Saiten“, Stimmung „Standard“; Anschluss „Klinke direkt in den Laptop“ (MIDI und Mikrofon stehen als „kommt später“ in der Liste); Eingang wählen (ein Interface ist vorgewählt). Pegel ist zu leise.
 3. Den Hinweis lesen und befolgen (Lautstärke am Bass auf, Gain im Assistenten).
 4. Kalibrierung überspringen.
 5. Erste Übung aus „Erste Schritte“ wählen, ersten Ton spielen.
 Erwartet: ≤ 60 s bis zum ersten bewerteten Ton; der Hinweis zur Laptop-Buchse erklärt in einem Satz, warum es dumpf klingt, und verweigert nichts; kein Fachbegriff ohne Erklärung.
 
-**J-A2 Stimmen ohne Vorwissen** ⚙ 🔍 · Persona: P1 Lea · Phase 1 · LH-TUN-01, -03
+**J-A2 Stimmen ohne Vorwissen** ⚙ 🔍 · Persona: P1 Lea · Phase 1 · LH-TUN-01, -02, -03, -04
 1. Stimmgerät öffnen, „Geführt“.
 2. E-Saite 30 Cent zu tief anschlagen (`testdata/korpus/stimmen-e-30c.wav`), Anweisung befolgen.
 3. Alle vier Saiten durchgehen.
-Erwartet: Anweisung in Worten („etwas höher drehen“) und Symbol; Erfolg pro Saite eindeutig, auch ohne Farbe.
+4. Einstellungen: Stimmung „Drop D“, dann „Eigene“ (oberste Saite F), Kammerton 442 Hz; Stimmgerät erneut öffnen, eine MIDI-Datei öffnen.
+Erwartet: Anweisung in Worten („etwas höher drehen“) und Symbol; Erfolg pro Saite eindeutig, auch ohne Farbe. Nach Schritt 4 führt das Stimmgerät durch D A D F, Cent beziehen sich auf 442 Hz, die Tab liegt auf den neuen Saiten; alles bleibt nach einem Neustart.
 
 **J-A3 Latenz kalibrieren** ⚙ · Persona: P3 Mira · Phase 1 · LH-EIN-05, -07
 1. Einstellungen → Eingang → Kalibrieren, „Spiel auf den Klick“.
