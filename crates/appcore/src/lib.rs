@@ -318,6 +318,9 @@ impl Core {
                 Err(e) => return vec![UiEvent::Error(e)],
             }
         }
+        if self.output_is_bluetooth() {
+            events.push(UiEvent::Message(self.tr("hint.bluetooth", &[])));
+        }
         let aligned = self.qa.input_file.is_some();
         if let Some(live) = self.live.as_mut() {
             if aligned {
@@ -706,6 +709,29 @@ impl Core {
             "hardestBars": hardest,
         })
         .to_string()
+    }
+
+    /// True if the chosen (or default) output goes over Bluetooth (LH-EIN-06).
+    fn output_is_bluetooth(&self) -> bool {
+        list_devices(Direction::Output).iter().any(|d| {
+            let chosen = match &self.settings.output_device {
+                Some(id) => &d.id == id,
+                None => d.is_default,
+            };
+            chosen && d.connection == kontra_session::Connection::Bluetooth
+        })
+    }
+
+    /// Path of the bundled first exercise: next to the binary when installed, else in the repo.
+    pub fn demo_path() -> PathBuf {
+        let installed = std::env::current_exe().ok().and_then(|e| {
+            e.parent()
+                .map(|p| p.join("../share/kontra/demo/etude-1.mid"))
+        });
+        match installed {
+            Some(path) if path.exists() => path,
+            _ => PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/demo/etude-1.mid"),
+        }
     }
 
     pub fn devices_json(&self, input: bool) -> String {

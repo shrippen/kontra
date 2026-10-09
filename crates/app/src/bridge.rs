@@ -61,6 +61,7 @@ pub mod qobject {
         #[qproperty(QString, message)]
         #[qproperty(QString, error_text, cxx_name = "errorText")]
         #[qproperty(QString, start_page, cxx_name = "startPage")]
+        #[qproperty(bool, setup_done, cxx_name = "setupDone")]
         #[qproperty(bool, autoplay)]
         #[qproperty(bool, autocalibrate)]
         #[qproperty(QString, screenshot_path, cxx_name = "screenshotPath")]
@@ -171,6 +172,16 @@ pub mod qobject {
         #[cxx_name = "chooseBacking"]
         fn choose_backing(self: Pin<&mut Self>, url: &QString);
 
+        /// Marks the first-start assistant as done (or skipped).
+        #[qinvokable]
+        #[cxx_name = "finishSetup"]
+        fn finish_setup(self: Pin<&mut Self>);
+
+        /// Opens the bundled first exercise.
+        #[qinvokable]
+        #[cxx_name = "openDemo"]
+        fn open_demo(self: Pin<&mut Self>) -> bool;
+
         #[qinvokable]
         #[cxx_name = "dismissMessage"]
         fn dismiss_message(self: Pin<&mut Self>);
@@ -257,6 +268,7 @@ pub struct ControllerRust {
     message: QString,
     error_text: QString,
     start_page: QString,
+    setup_done: bool,
     autoplay: bool,
     autocalibrate: bool,
     screenshot_path: QString,
@@ -336,7 +348,8 @@ impl Default for ControllerRust {
             backing_name: QString::default(),
             message: QString::default(),
             error_text: QString::default(),
-            start_page: q(args.page.as_deref().unwrap_or("library")),
+            start_page: q(args.page.as_deref().unwrap_or("")),
+            setup_done: s.setup_done,
             autoplay: args.autoplay,
             autocalibrate: args.calibrate,
             screenshot_path: q(&args
@@ -752,6 +765,20 @@ impl qobject::Controller {
         let name = self.as_ref().rust().core.backing_name();
         self.as_mut().set_backing_name(q(&name));
         self.as_mut().set_playing(false);
+    }
+
+    fn finish_setup(mut self: Pin<&mut Self>) {
+        self.as_mut().core().stop_tuner();
+        self.as_mut()
+            .core()
+            .update_settings(|s| s.setup_done = true);
+        self.as_mut().set_tuner_active(false);
+        self.as_mut().set_setup_done(true);
+    }
+
+    fn open_demo(mut self: Pin<&mut Self>) -> bool {
+        let path = Core::demo_path();
+        self.as_mut().open_file(&q(&path.to_string_lossy()))
     }
 
     fn dismiss_message(mut self: Pin<&mut Self>) {

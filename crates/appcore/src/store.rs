@@ -68,6 +68,8 @@ pub struct Settings {
     /// "kante", "kante-light" or "system".
     pub style: String,
     pub low_string_on_top: bool,
+    /// The first-start assistant was completed or skipped (LH-EIN-01).
+    pub setup_done: bool,
 }
 
 impl Default for Settings {
@@ -87,6 +89,7 @@ impl Default for Settings {
             mode: "play".into(),
             style: "kante".into(),
             low_string_on_top: false,
+            setup_done: false,
         }
     }
 }

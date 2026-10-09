@@ -17,6 +17,7 @@ Kirigami.ApplicationWindow {
     property alias texts: texts
     property string current: ""
     readonly property var pages: ({
+        setup: Qt.resolvedUrl("SetupPage.qml"),
         library: Qt.resolvedUrl("LibraryPage.qml"),
         practice: Qt.resolvedUrl("PracticePage.qml"),
         tuner: Qt.resolvedUrl("TunerPage.qml"),
@@ -55,7 +56,7 @@ Kirigami.ApplicationWindow {
     color: KanteStyle.themed ? KanteStyle.backgroundColor : Kirigami.Theme.backgroundColor
 
     function show(name) {
-        if (current === "tuner" && name !== "tuner") {
+        if ((current === "tuner" || current === "setup") && name !== current) {
             ctl.stopTuner()
         }
         current = name
@@ -75,7 +76,8 @@ Kirigami.ApplicationWindow {
             Kirigami.Action { text: texts.t("nav.library"); icon.name: "folder-music"; checked: root.current === "library"; onTriggered: root.show("library") },
             Kirigami.Action { text: texts.t("nav.practice"); icon.name: "media-playback-start"; enabled: ctl.loaded; checked: root.current === "practice"; onTriggered: root.show("practice") },
             Kirigami.Action { text: texts.t("nav.tuner"); icon.name: "audio-input-line"; checked: root.current === "tuner"; onTriggered: root.show("tuner") },
-            Kirigami.Action { text: texts.t("nav.settings"); icon.name: "settings-configure"; checked: root.current === "settings"; onTriggered: root.show("settings") }
+            Kirigami.Action { text: texts.t("nav.settings"); icon.name: "settings-configure"; checked: root.current === "settings"; onTriggered: root.show("settings") },
+            Kirigami.Action { text: texts.t("nav.setup"); icon.name: "tools-wizard"; checked: root.current === "setup"; onTriggered: root.show("setup") }
         ]
     }
 
@@ -119,8 +121,20 @@ Kirigami.ApplicationWindow {
         onTriggered: Qt.quit()
     }
 
+    // Space starts and stops everywhere except in text fields (LH-MOD-07).
+    Shortcut {
+        sequence: "Space"
+        enabled: ctl.loaded && root.current === "practice"
+        onActivated: ctl.togglePlay()
+    }
+
     Component.onCompleted: {
-        show(ctl.loaded && ctl.startPage === "library" ? "practice" : ctl.startPage)
+        // No --page: the assistant on first start, else practice for an opened file or the library.
+        var first = ctl.startPage
+        if (first === "") {
+            first = !ctl.setupDone && !ctl.loaded ? "setup" : (ctl.loaded ? "practice" : "library")
+        }
+        show(first)
         if (ctl.autoplay && ctl.loaded) {
             ctl.togglePlay()
         }

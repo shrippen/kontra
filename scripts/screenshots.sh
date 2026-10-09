@@ -36,6 +36,7 @@ shot() {
 }
 
 for lang in de en; do
+    shot setup "$lang" 1500
     shot library-empty "$lang" 1500 --page library
     shot practice-lane "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay
     shot library "$lang" 1500 --page library

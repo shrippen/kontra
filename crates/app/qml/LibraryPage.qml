@@ -11,7 +11,11 @@ Kirigami.ScrollablePage {
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
-    readonly property var recent: JSON.parse(ctl.recentJson)
+    property string query: ""
+    readonly property var recent: JSON.parse(ctl.recentJson).filter(function(e) {
+        var q = query.trim().toLowerCase()
+        return q === "" || (e.title + " " + e.artist + " " + e.path).toLowerCase().indexOf(q) >= 0
+    })
     readonly property var tracks: JSON.parse(ctl.trackChoicesJson)
 
     // Kirigami pages paint the platform background; Kante's ground replaces it.
@@ -67,10 +71,22 @@ Kirigami.ScrollablePage {
         }
 
         KanteEmptyState {
-            visible: page.recent.length === 0 && page.tracks.length === 0
+            visible: JSON.parse(ctl.recentJson).length === 0 && page.tracks.length === 0
             Layout.fillWidth: true
             title: texts.t("library.empty.title")
             text: texts.t("library.empty.hint")
+        }
+
+        KanteTextField {
+            Layout.fillWidth: true
+            visible: JSON.parse(ctl.recentJson).length > 5
+            placeholderText: texts.t("library.search")
+            onTextChanged: page.query = text
+        }
+        QQC2.Label {
+            visible: page.query !== "" && page.recent.length === 0
+            text: texts.t("library.nomatch")
+            color: KanteStyle.mutedTextColor
         }
 
         ColumnLayout {
