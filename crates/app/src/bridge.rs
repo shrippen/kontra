@@ -50,6 +50,11 @@ pub mod qobject {
         #[qproperty(QString, holding_text, cxx_name = "holdingText")]
         #[qproperty(QString, summary_json, cxx_name = "summaryJson")]
         #[qproperty(QString, recent_json, cxx_name = "recentJson")]
+        #[qproperty(QString, setlists_json, cxx_name = "setlistsJson")]
+        /// Tracks of the loaded file: `{"names": [...], "current": i}`.
+        #[qproperty(QString, tracks_json, cxx_name = "tracksJson")]
+        /// Title of the next piece of the setlist being played ("" = none).
+        #[qproperty(QString, next_title, cxx_name = "nextTitle")]
         #[qproperty(QString, track_choices_json, cxx_name = "trackChoicesJson")]
         #[qproperty(QString, input_devices_json, cxx_name = "inputDevicesJson")]
         #[qproperty(QString, output_devices_json, cxx_name = "outputDevicesJson")]
@@ -166,6 +171,46 @@ pub mod qobject {
             reference: bool,
             low_string_on_top: bool,
         );
+
+        /// Adds all scores of a folder (URL) to the library, optionally as a setlist.
+        #[qinvokable]
+        #[cxx_name = "importFolder"]
+        fn import_folder(self: Pin<&mut Self>, url: &QString, as_setlist: bool);
+
+        #[qinvokable]
+        #[cxx_name = "setlistCreate"]
+        fn setlist_create(self: Pin<&mut Self>, name: &QString);
+
+        #[qinvokable]
+        #[cxx_name = "setlistDelete"]
+        fn setlist_delete(self: Pin<&mut Self>, name: &QString);
+
+        #[qinvokable]
+        #[cxx_name = "setlistAddLoaded"]
+        fn setlist_add_loaded(self: Pin<&mut Self>, name: &QString);
+
+        #[qinvokable]
+        #[cxx_name = "setlistRemove"]
+        fn setlist_remove(self: Pin<&mut Self>, name: &QString, index: i32);
+
+        #[qinvokable]
+        #[cxx_name = "setlistMove"]
+        fn setlist_move(self: Pin<&mut Self>, name: &QString, index: i32, step: i32);
+
+        /// Opens piece `index` of a setlist; true when it is ready to practise.
+        #[qinvokable]
+        #[cxx_name = "openFromSetlist"]
+        fn open_from_setlist(self: Pin<&mut Self>, name: &QString, index: i32) -> bool;
+
+        /// Plays another track of the loaded file.
+        #[qinvokable]
+        #[cxx_name = "switchTrack"]
+        fn switch_track(self: Pin<&mut Self>, track: i32);
+
+        /// Opens the next piece of the setlist being played.
+        #[qinvokable]
+        #[cxx_name = "openNext"]
+        fn open_next(self: Pin<&mut Self>) -> bool;
 
         /// Progress over all pieces as JSON (LH-FOR-01), read when the page opens.
         #[qinvokable]
@@ -286,6 +331,9 @@ pub struct ControllerRust {
     holding_text: QString,
     summary_json: QString,
     recent_json: QString,
+    setlists_json: QString,
+    next_title: QString,
+    tracks_json: QString,
     track_choices_json: QString,
     input_devices_json: QString,
     output_devices_json: QString,
@@ -378,6 +426,9 @@ impl Default for ControllerRust {
             holding_text: QString::default(),
             summary_json: QString::default(),
             recent_json: q(&core.recent_json()),
+            setlists_json: q(&core.setlists_json()),
+            next_title: QString::default(),
+            tracks_json: q("{\"names\": [], \"current\": 0}"),
             track_choices_json: q("[]"),
             input_devices_json: q("[]"),
             output_devices_json: q("[]"),
@@ -450,6 +501,7 @@ impl ControllerRust {
                 self.recent_json = q(&self.core.recent_json());
                 self.backing_name = q(&self.core.backing_name());
                 self.view = q(&self.core.view());
+                self.tracks_json = q(&self.core.tracks_json());
                 if let Some(notice) = self.core.take_notice() {
                     self.message = q(&notice);
                 }
@@ -506,7 +558,9 @@ impl qobject::Controller {
         let loaded = core.arrangement().is_some();
         let backing = core.backing_name();
         let view = core.view();
+        let tracks = core.tracks_json();
         self.as_mut().set_view(q(&view));
+        self.as_mut().set_tracks_json(q(&tracks));
         self.as_mut().set_title(q(&title));
         self.as_mut().set_artist(q(&artist));
         self.as_mut().set_notes_json(q(&notes));
@@ -529,25 +583,8 @@ impl qobject::Controller {
 
     fn open_file(mut self: Pin<&mut Self>, url: &QString) -> bool {
         let path = local_path(&url.to_string());
-        match self.as_mut().core().open(&path) {
-            Ok(Opened::Ready) => {
-                self.as_mut().set_track_choices_json(q("[]"));
-                self.as_mut().refresh_arrangement();
-                if let Some(notice) = self.as_mut().core().take_notice() {
-                    self.as_mut().set_message(q(&notice));
-                }
-                true
-            }
-            Ok(Opened::ChooseTrack(names)) => {
-                self.as_mut()
-                    .set_track_choices_json(q(&serde_json::to_string(&names).unwrap_or_default()));
-                false
-            }
-            Err(e) => {
-                self.as_mut().show_error(&e);
-                false
-            }
-        }
+        let result = self.as_mut().core().open(&path);
+        self.as_mut().after_open(result)
     }
 
     fn choose_track(mut self: Pin<&mut Self>, track: i32) -> bool {
@@ -822,6 +859,111 @@ impl qobject::Controller {
         self.as_mut().set_reference(reference);
         self.as_mut().set_low_string_on_top(low_string_on_top);
         self.as_mut().set_playing(false);
+    }
+
+    fn import_folder(mut self: Pin<&mut Self>, url: &QString, as_setlist: bool) {
+        let dir = local_path(&url.to_string());
+        let (added, failed) = self.as_mut().core().import_folder(&dir, as_setlist);
+        let (text, recent, lists) = {
+            let this = self.as_ref();
+            let core = &this.rust().core;
+            let mut text = core.tr("library.imported", &[("n", added.to_string())]);
+            for (name, reason) in &failed {
+                text.push_str(&format!("\n{name}: {reason}"));
+            }
+            (text, core.recent_json(), core.setlists_json())
+        };
+        self.as_mut().set_recent_json(q(&recent));
+        self.as_mut().set_setlists_json(q(&lists));
+        self.as_mut().set_message(q(&text));
+    }
+
+    fn refresh_setlists(mut self: Pin<&mut Self>) {
+        let (lists, next) = {
+            let this = self.as_ref();
+            let core = &this.rust().core;
+            (core.setlists_json(), core.next_title().unwrap_or_default())
+        };
+        self.as_mut().set_setlists_json(q(&lists));
+        self.as_mut().set_next_title(q(&next));
+    }
+
+    fn setlist_create(mut self: Pin<&mut Self>, name: &QString) {
+        self.as_mut().core().setlist_create(&name.to_string());
+        self.as_mut().refresh_setlists();
+    }
+
+    fn setlist_delete(mut self: Pin<&mut Self>, name: &QString) {
+        self.as_mut().core().setlist_delete(&name.to_string());
+        self.as_mut().refresh_setlists();
+    }
+
+    fn setlist_add_loaded(mut self: Pin<&mut Self>, name: &QString) {
+        self.as_mut().core().setlist_add_loaded(&name.to_string());
+        self.as_mut().refresh_setlists();
+    }
+
+    fn setlist_remove(mut self: Pin<&mut Self>, name: &QString, index: i32) {
+        let index = usize::try_from(index).unwrap_or(usize::MAX);
+        self.as_mut()
+            .core()
+            .setlist_remove(&name.to_string(), index);
+        self.as_mut().refresh_setlists();
+    }
+
+    fn setlist_move(mut self: Pin<&mut Self>, name: &QString, index: i32, step: i32) {
+        let index = usize::try_from(index).unwrap_or(usize::MAX);
+        self.as_mut()
+            .core()
+            .setlist_move(&name.to_string(), index, step.signum());
+        self.as_mut().refresh_setlists();
+    }
+
+    fn open_from_setlist(mut self: Pin<&mut Self>, name: &QString, index: i32) -> bool {
+        let index = usize::try_from(index).unwrap_or(usize::MAX);
+        let result = self
+            .as_mut()
+            .core()
+            .open_from_setlist(&name.to_string(), index);
+        self.as_mut().after_open(result)
+    }
+
+    fn switch_track(mut self: Pin<&mut Self>, track: i32) {
+        let track = usize::try_from(track).unwrap_or(usize::MAX);
+        match self.as_mut().core().switch_track(track) {
+            Ok(()) => self.as_mut().refresh_arrangement(),
+            Err(e) => self.as_mut().show_error(&e),
+        }
+    }
+
+    fn open_next(mut self: Pin<&mut Self>) -> bool {
+        let result = self.as_mut().core().open_next();
+        self.as_mut().after_open(result)
+    }
+
+    /// Shared tail of opening: refresh views, ask for the track, or show the error.
+    fn after_open(mut self: Pin<&mut Self>, result: Result<Opened, String>) -> bool {
+        let ready = match result {
+            Ok(Opened::Ready) => {
+                self.as_mut().set_track_choices_json(q("[]"));
+                self.as_mut().refresh_arrangement();
+                if let Some(notice) = self.as_mut().core().take_notice() {
+                    self.as_mut().set_message(q(&notice));
+                }
+                true
+            }
+            Ok(Opened::ChooseTrack(names)) => {
+                self.as_mut()
+                    .set_track_choices_json(q(&serde_json::to_string(&names).unwrap_or_default()));
+                false
+            }
+            Err(e) => {
+                self.as_mut().show_error(&e);
+                false
+            }
+        };
+        self.as_mut().refresh_setlists();
+        ready
     }
 
     fn progress_json(&self) -> QString {

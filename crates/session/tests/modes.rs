@@ -221,6 +221,33 @@ fn early_note_at_loop_start_counts_for_the_next_pass() {
     assert!((first.offset_ms.unwrap() + 20.0).abs() < 1.0, "{first:?}");
 }
 
+/// QA P2 (F3): after a stall (stretching a backing track blocked the thread) notes arrive before
+/// the clock was advanced past the loop end; they belong to the next pass, not "extra".
+#[test]
+fn notes_after_a_stall_land_in_the_right_pass() {
+    let mut s = Session::new(riff(), Mode::Song, ScoreSettings::default());
+    s.set_loop(
+        0.0,
+        Some(LoopRange {
+            start_s: 0.0,
+            end_s: 2.0,
+        }),
+    );
+    s.play(0.0);
+    // Nothing advanced the clock; three passes worth of notes arrive at once.
+    for pass in 0..3 {
+        let base = pass as f64 * 2.0;
+        for (i, midi) in [28.0, 33.0, 38.0, 43.0].iter().enumerate() {
+            s.on_note(&played(base + i as f64 * 0.5, *midi));
+        }
+    }
+    s.update(6.6);
+    let extras = s.results().iter().filter(|r| r.note.is_none()).count();
+    let hits = s.results().iter().filter(|r| r.is_hit()).count();
+    assert_eq!(extras, 0, "{:?}", s.results());
+    assert_eq!(hits, 12, "{:?}", s.results());
+}
+
 /// Chords: any tone counts for the whole chord (the detector hears one note), and every chord
 /// tone gets the result.
 #[test]

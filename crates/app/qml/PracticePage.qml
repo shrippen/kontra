@@ -66,6 +66,7 @@ Kirigami.Page {
         return !(item && item.hasOwnProperty("cursorPosition"))
     }
     Shortcut { sequence: "K"; enabled: page.keysFree; onActivated: ctl.togglePlay() }
+    Shortcut { sequence: "N"; enabled: page.keysFree && ctl.nextTitle !== ""; onActivated: ctl.openNext() }
     Shortcut { sequence: "Home"; enabled: page.keysFree; onActivated: ctl.rewind() }
     Shortcut { sequence: "L"; enabled: page.keysFree; onActivated: transport.loopToggled() }
     Shortcut { sequence: "M"; enabled: page.keysFree; onActivated: ctl.changeOptions(!ctl.metronome, ctl.reference, ctl.lowStringOnTop) }
@@ -117,6 +118,19 @@ Kirigami.Page {
                 spacing: 0
                 KanteHeading { text: ctl.title; pageTitle: true; Layout.fillWidth: true; elide: Text.ElideRight }
                 QQC2.Label { text: ctl.artist; visible: ctl.artist !== ""; color: KanteStyle.mutedTextColor }
+                // Kontra picks the bass track itself; another can be chosen (QA P2 R9).
+                RowLayout {
+                    readonly property var tracks: JSON.parse(ctl.tracksJson)
+                    visible: tracks.names.length > 1
+                    QQC2.Label { text: texts.t("track.label"); color: KanteStyle.mutedTextColor }
+                    QQC2.ComboBox {
+                        Layout.preferredWidth: KanteStyle.unit(220)
+                        Accessible.name: texts.t("track.label")
+                        model: parent.tracks.names
+                        currentIndex: parent.tracks.current
+                        onActivated: function(index) { ctl.switchTrack(index) }
+                    }
+                }
             }
             KanteSegmented {
                 model: page.modes.map(function(m) { return texts.t("mode." + m) })
@@ -146,6 +160,13 @@ Kirigami.Page {
                 text: texts.t("backing.choose")
                 emphasis: KanteButton.Emphasis.Quiet
                 onClicked: backingDialog.open()
+            }
+            // Setlist (LH-BIB-04, J-B1: next song in at most two clicks; also the N key).
+            KanteButton {
+                visible: ctl.nextTitle !== ""
+                text: texts.t("setlist.next", { title: ctl.nextTitle })
+                emphasis: KanteButton.Emphasis.Primary
+                onClicked: ctl.openNext()
             }
             KanteButton {
                 visible: ctl.backingName !== ""
