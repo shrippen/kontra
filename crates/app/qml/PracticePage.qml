@@ -56,6 +56,27 @@ Kirigami.Page {
 
     Component.onCompleted: reset()
 
+    // Keyboard (LH-NF-07, QA P7/P2): the transport keys work on the whole page, not only with
+    // focus in the transport bar; modes 1–4, views Alt+1–4. Not while typing in a field.
+    readonly property bool keysFree: {
+        var item = applicationWindow().activeFocusItem
+        return !(item && item.hasOwnProperty("cursorPosition"))
+    }
+    Shortcut { sequence: "K"; enabled: page.keysFree; onActivated: ctl.togglePlay() }
+    Shortcut { sequence: "Home"; enabled: page.keysFree; onActivated: ctl.rewind() }
+    Shortcut { sequence: "L"; enabled: page.keysFree; onActivated: transport.loopToggled() }
+    Shortcut { sequence: "M"; enabled: page.keysFree; onActivated: ctl.changeOptions(!ctl.metronome, ctl.reference, ctl.lowStringOnTop) }
+    Shortcut { sequence: "C"; enabled: page.keysFree; onActivated: ctl.changeCountIn(!ctl.countIn) }
+    Shortcut { sequences: ["+", "="]; enabled: page.keysFree; onActivated: ctl.changeSpeed(Math.min(1.5, ctl.speed + 0.05)) }
+    Shortcut { sequence: "-"; enabled: page.keysFree; onActivated: ctl.changeSpeed(Math.max(0.25, ctl.speed - 0.05)) }
+    Repeater {
+        model: 4
+        delegate: Item {
+            Shortcut { sequence: String(index + 1); enabled: page.keysFree; onActivated: ctl.changeMode(page.modes[index]) }
+            Shortcut { sequence: "Alt+" + (index + 1); onActivated: ctl.changeView(page.views[index]) }
+        }
+    }
+
     Connections {
         target: ctl
         function onArrangementLoaded() { page.reset() }
@@ -315,6 +336,7 @@ Kirigami.Page {
         }
 
         KanteTransportBar {
+            id: transport
             Layout.fillWidth: true
             playing: ctl.playing
             looping: ctl.loopStart >= 0

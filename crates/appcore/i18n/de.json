@@ -153,5 +153,15 @@
   "advice.clip": "Übersteuert: Gain deutlich zurück, sonst wird die Erkennung ungenau.",
   "advice.gain": "Gain ist die Eingangsverstärkung: der Drehregler am Audio-Interface, sonst in den Systemeinstellungen unter Audio → Eingabegeräte. Ziel: Anschläge im Bereich „gut“.",
   "advice.laptop": "Seit ein paar Sekunden sehr leise. Steckt der Bass in der Kopfhörer-/Mikrofonbuchse des Laptops? Dann hilft die Laptop-Einstellung.",
-  "advice.laptop.use": "Laptop-Buchse verwenden"
+  "advice.laptop.use": "Laptop-Buchse verwenden",
+  "keys.title": "Tastenkürzel",
+  "keys.play": "Abspielen und Pause",
+  "keys.rewind": "An den Anfang",
+  "keys.loop": "Abschnitt wiederholen an/aus",
+  "keys.metronome": "Metronom an/aus",
+  "keys.countin": "Einzähler an/aus",
+  "keys.speed": "Tempo ±5 %",
+  "keys.mode": "Modus: Spielen, Song, Warten, Werkstatt",
+  "keys.view": "Ansicht: Tab-Lane, Tabulatur, Noten, Noten + Tab",
+  "keys.pages": "Seiten: Bibliothek, Üben, Stimmgerät, Einstellungen, Einrichtung"
 }

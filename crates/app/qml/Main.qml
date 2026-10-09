@@ -73,11 +73,11 @@ Kirigami.ApplicationWindow {
         collapsible: true
         collapsed: !root.wideScreen
         actions: [
-            Kirigami.Action { text: texts.t("nav.library"); icon.name: "folder-music"; checked: root.current === "library"; onTriggered: root.show("library") },
-            Kirigami.Action { text: texts.t("nav.practice"); icon.name: "media-playback-start"; enabled: ctl.loaded; checked: root.current === "practice"; onTriggered: root.show("practice") },
-            Kirigami.Action { text: texts.t("nav.tuner"); icon.name: "audio-input-line"; checked: root.current === "tuner"; onTriggered: root.show("tuner") },
-            Kirigami.Action { text: texts.t("nav.settings"); icon.name: "settings-configure"; checked: root.current === "settings"; onTriggered: root.show("settings") },
-            Kirigami.Action { text: texts.t("nav.setup"); icon.name: "tools-wizard"; checked: root.current === "setup"; onTriggered: root.show("setup") }
+            Kirigami.Action { text: texts.t("nav.library"); icon.name: "folder-music"; checked: root.current === "library"; shortcut: "Ctrl+1"; onTriggered: root.show("library") },
+            Kirigami.Action { text: texts.t("nav.practice"); icon.name: "media-playback-start"; enabled: ctl.loaded; checked: root.current === "practice"; shortcut: "Ctrl+2"; onTriggered: root.show("practice") },
+            Kirigami.Action { text: texts.t("nav.tuner"); icon.name: "audio-input-line"; checked: root.current === "tuner"; shortcut: "Ctrl+3"; onTriggered: root.show("tuner") },
+            Kirigami.Action { text: texts.t("nav.settings"); icon.name: "settings-configure"; checked: root.current === "settings"; shortcut: "Ctrl+4"; onTriggered: root.show("settings") },
+            Kirigami.Action { text: texts.t("nav.setup"); icon.name: "tools-wizard"; checked: root.current === "setup"; shortcut: "Ctrl+5"; onTriggered: root.show("setup") }
         ]
     }
 

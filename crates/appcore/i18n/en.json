@@ -153,5 +153,15 @@
   "advice.clip": "Clipping: turn the gain well down, or detection gets inaccurate.",
   "advice.gain": "Gain is the input amplification: the knob on the audio interface, otherwise in the system settings under Audio → Input devices. Aim: plucks in the “good” range.",
   "advice.laptop": "Very quiet for a few seconds. Is the bass in the laptop's headphone/microphone jack? Then the laptop setting helps.",
-  "advice.laptop.use": "Use laptop jack"
+  "advice.laptop.use": "Use laptop jack",
+  "keys.title": "Keyboard shortcuts",
+  "keys.play": "Play and pause",
+  "keys.rewind": "Back to the start",
+  "keys.loop": "Repeat section on/off",
+  "keys.metronome": "Metronome on/off",
+  "keys.countin": "Count-in on/off",
+  "keys.speed": "Tempo ±5 %",
+  "keys.mode": "Mode: play, song, wait, workshop",
+  "keys.view": "View: tab lane, tablature, notation, both",
+  "keys.pages": "Pages: library, practice, tuner, settings, setup"
 }

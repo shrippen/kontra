@@ -55,6 +55,7 @@ Kirigami.ScrollablePage {
                 Layout.fillWidth: true
                 title: texts.t("settings.strings")
                 KanteSegmented {
+                    Accessible.name: texts.t("settings.strings")
                     model: ["4", "5", "6"]
                     currentIndex: ctl.strings - 4
                     onActivated: function(index) { ctl.changeInstrument(index + 4, ctl.fretless, ctl.laptopJack) }
@@ -64,6 +65,7 @@ Kirigami.ScrollablePage {
                 Layout.fillWidth: true
                 title: texts.t("settings.fretless")
                 QQC2.Switch {
+                    Accessible.name: texts.t("settings.fretless")
                     checked: ctl.fretless
                     onToggled: ctl.changeInstrument(ctl.strings, checked, ctl.laptopJack)
                 }
@@ -75,6 +77,7 @@ Kirigami.ScrollablePage {
             visible: page.steps[page.step] === "connection"
             Layout.fillWidth: true
             KanteSegmented {
+                Accessible.name: texts.t("settings.connection")
                 model: [texts.t("settings.source.line"), texts.t("settings.source.laptop")]
                 currentIndex: ctl.laptopJack ? 1 : 0
                 onActivated: function(index) { ctl.changeInstrument(ctl.strings, ctl.fretless, index === 1) }
@@ -90,6 +93,7 @@ Kirigami.ScrollablePage {
                 Layout.fillWidth: true
                 title: texts.t("settings.input")
                 QQC2.ComboBox {
+                    Accessible.name: texts.t("settings.input")
                     Layout.fillWidth: true
                     model: ["—"].concat(page.inputs.map(function(d) { return d.name }))
                     onActivated: function(index) { ctl.chooseInput(index === 0 ? "" : page.inputs[index - 1].id) }
