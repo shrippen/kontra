@@ -32,6 +32,9 @@ pub struct Run {
     pub mode: String,
     /// Loop start and end in arrangement seconds, if a section was practiced.
     pub section: Option<(f64, f64)>,
+    /// Bars with the most mistakes, as numbered in the score (progress report, LH-FOR-04).
+    #[serde(default)]
+    pub hardest_bars: Vec<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -110,7 +113,7 @@ impl ProgressStore {
         serde_json::from_str(&text).map_err(|source| ProgressError::Format { path, source })
     }
 
-    /// Adds a run and saves atomically (write to a temp file, then rename).
+    /// Adds a run and saves.
     pub fn record(
         &self,
         arrangement: &Arrangement,
@@ -118,6 +121,13 @@ impl ProgressStore {
     ) -> Result<SongProgress, ProgressError> {
         let mut progress = self.load(arrangement)?;
         progress.runs.push(run);
+        self.save(&progress)?;
+        Ok(progress)
+    }
+
+    /// Writes `progress` under its song id atomically (temp file, then rename); replaces what
+    /// was stored for that song (data import, LH-FOR-03).
+    pub fn save(&self, progress: &SongProgress) -> Result<(), ProgressError> {
         fs::create_dir_all(&self.dir).map_err(|source| ProgressError::Io {
             path: self.dir.clone(),
             source,
@@ -125,7 +135,7 @@ impl ProgressStore {
         let path = self.path(&progress.song_id);
         let temp = path.with_extension("json.tmp");
         let text =
-            serde_json::to_string_pretty(&progress).map_err(|source| ProgressError::Format {
+            serde_json::to_string_pretty(progress).map_err(|source| ProgressError::Format {
                 path: path.clone(),
                 source,
             })?;
@@ -133,8 +143,7 @@ impl ProgressStore {
             path: temp.clone(),
             source,
         })?;
-        fs::rename(&temp, &path).map_err(|source| ProgressError::Io { path, source })?;
-        Ok(progress)
+        fs::rename(&temp, &path).map_err(|source| ProgressError::Io { path, source })
     }
 
     /// Progress stored under `song_id`, if any (for lists that only know the id).
@@ -178,6 +187,12 @@ pub fn run_from(
         hit_rate: summary.hit_rate,
         mode: mode.to_string(),
         section,
+        // Bar indices count from 0; without repeats they are the printed numbers minus one.
+        hardest_bars: summary
+            .hardest_bars
+            .iter()
+            .map(|b| u32::try_from(*b + 1).unwrap_or(u32::MAX))
+            .collect(),
     }
 }
 
@@ -199,6 +214,7 @@ mod tests {
             hit_rate: 0.9,
             mode: "song".into(),
             section: None,
+            hardest_bars: Vec::new(),
         };
         store.record(&a, run.clone()).unwrap();
         let p = store

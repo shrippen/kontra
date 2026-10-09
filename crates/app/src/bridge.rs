@@ -279,6 +279,21 @@ pub mod qobject {
         #[cxx_name = "openDemo"]
         fn open_demo(self: Pin<&mut Self>) -> bool;
 
+        /// All user data as one JSON file (LH-FOR-03).
+        #[qinvokable]
+        #[cxx_name = "exportData"]
+        fn export_data(self: Pin<&mut Self>, url: &QString);
+
+        /// Loads a data file; `how` is "merge" or "replace".
+        #[qinvokable]
+        #[cxx_name = "importData"]
+        fn import_data(self: Pin<&mut Self>, url: &QString, how: &QString);
+
+        /// Progress report of one piece as HTML (LH-FOR-04).
+        #[qinvokable]
+        #[cxx_name = "exportReport"]
+        fn export_report(self: Pin<&mut Self>, song_id: &QString, url: &QString);
+
         #[qinvokable]
         #[cxx_name = "dismissMessage"]
         fn dismiss_message(self: Pin<&mut Self>);
@@ -315,7 +330,7 @@ use crate::args::AppArgs;
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
-use kontra_appcore::{data_dir, Core, Opened, QaOptions, UiEvent};
+use kontra_appcore::{data_dir, Core, DataImport, Opened, QaOptions, UiEvent};
 use std::path::PathBuf;
 
 pub struct ControllerRust {
@@ -1135,6 +1150,89 @@ impl qobject::Controller {
     fn open_demo(mut self: Pin<&mut Self>) -> bool {
         let path = Core::demo_path();
         self.as_mut().open_file(&q(&path.to_string_lossy()))
+    }
+
+    fn export_data(mut self: Pin<&mut Self>, url: &QString) {
+        let path = local_path(&url.to_string());
+        match self.as_ref().rust().core.export_data(&path) {
+            Ok(text) => self.as_mut().set_message(q(&text)),
+            Err(e) => self.as_mut().show_error(&e),
+        }
+    }
+
+    fn import_data(mut self: Pin<&mut Self>, url: &QString, how: &QString) {
+        let path = local_path(&url.to_string());
+        let how = match how.to_string().as_str() {
+            "replace" => DataImport::Replace,
+            _ => DataImport::Merge,
+        };
+        match self.as_mut().core().import_data(&path, how) {
+            Ok(text) => {
+                self.as_mut().sync_settings();
+                self.as_mut().set_message(q(&text));
+            }
+            Err(e) => self.as_mut().show_error(&e),
+        }
+    }
+
+    /// Every settings property and list from the core, after the data changed underneath.
+    fn sync_settings(mut self: Pin<&mut Self>) {
+        let (s, texts, recent, tuning) = {
+            let this = self.as_ref();
+            let core = &this.rust().core;
+            (
+                core.settings().clone(),
+                core.texts_json(),
+                core.recent_json(),
+                core.tuning_json(),
+            )
+        };
+        self.as_mut().set_texts(q(&texts));
+        self.as_mut().set_recent_json(q(&recent));
+        self.as_mut().set_tuning_json(q(&tuning));
+        self.as_mut().refresh_setlists();
+        self.as_mut().set_mode(q(&s.mode));
+        self.as_mut().set_view(q(&s.view));
+        self.as_mut().set_style(q(&s.style));
+        self.as_mut()
+            .set_language(q(s.language.as_deref().unwrap_or("")));
+        self.as_mut()
+            .set_input_device(q(s.input_device.as_deref().unwrap_or("")));
+        self.as_mut()
+            .set_output_device(q(s.output_device.as_deref().unwrap_or("")));
+        self.as_mut().set_strings(i32::from(s.strings));
+        self.as_mut().set_fretless(s.fretless);
+        self.as_mut()
+            .set_laptop_jack(s.input_kind == kontra_appcore::InputKind::LaptopJack);
+        self.as_mut().set_metronome(s.metronome);
+        self.as_mut().set_count_in(s.count_in_bars > 0);
+        self.as_mut().set_reference(s.reference_tones);
+        self.as_mut().set_low_string_on_top(s.low_string_on_top);
+        self.as_mut().set_play_marks(q(&s.play_marks));
+        self.as_mut().set_motion(q(&s.motion));
+        self.as_mut().set_strictness(q(&s.strictness));
+        self.as_mut().set_pitch_cents(s.pitch_cents);
+        self.as_mut().set_latency_ms(s.latency_ms);
+        self.as_mut().set_backing_volume(s.backing_volume);
+        self.as_mut().set_metronome_volume(s.metronome_volume);
+        self.as_mut().set_tone_volume(s.tone_volume);
+        self.as_mut().set_monitor(s.monitor);
+        self.as_mut().set_monitor_volume(s.monitor_volume);
+        self.as_mut().set_setup_done(s.setup_done);
+        self.as_mut().set_playing(false);
+    }
+
+    fn export_report(mut self: Pin<&mut Self>, song_id: &QString, url: &QString) {
+        let path = local_path(&url.to_string());
+        let result = self
+            .as_ref()
+            .rust()
+            .core
+            .export_report(&song_id.to_string(), &path);
+        match result {
+            Ok(text) => self.as_mut().set_message(q(&text)),
+            Err(e) => self.as_mut().show_error(&e),
+        }
     }
 
     fn dismiss_message(mut self: Pin<&mut Self>) {

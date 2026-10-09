@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import Kante
@@ -13,6 +14,8 @@ Kirigami.ScrollablePage {
     readonly property var inputs: JSON.parse(ctl.inputDevicesJson)
     readonly property var outputs: JSON.parse(ctl.outputDevicesJson)
     readonly property var styles: ["kante", "kante-light", "system"]
+    // LH-FOR-03: how a loaded backup is taken over.
+    property string dataHow: "merge"
 
     // Kirigami pages paint the platform background; Kante's ground replaces it.
     background: Rectangle { color: KanteStyle.backgroundColor }
@@ -231,6 +234,40 @@ Kirigami.ScrollablePage {
             }
         }
 
+        // LH-FOR-03: all user data as one open JSON file (backup, second computer).
+        KanteSectionLabel { text: texts.t("data.title"); Layout.topMargin: KanteStyle.unit(12) }
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: KanteStyle.mutedTextColor
+            text: texts.t("data.hint")
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            title: texts.t("data.import.how")
+            hint: page.dataHow === "replace" ? texts.t("data.replace.hint") : texts.t("data.merge.hint")
+            KanteSegmented {
+                Accessible.name: texts.t("data.import.how")
+                readonly property var values: ["merge", "replace"]
+                model: [texts.t("data.merge"), texts.t("data.replace")]
+                currentIndex: Math.max(0, values.indexOf(page.dataHow))
+                onActivated: function(index) { page.dataHow = values[index] }
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            KanteButton {
+                text: texts.t("data.export")
+                Accessible.name: texts.t("data.export")
+                onClicked: exportDialog.open()
+            }
+            KanteButton {
+                text: texts.t("data.import")
+                Accessible.name: texts.t("data.import")
+                onClicked: importDialog.open()
+            }
+        }
+
         // All keyboard shortcuts in one place (LH-NF-07).
         KanteSectionLabel { text: texts.t("keys.title"); Layout.topMargin: KanteStyle.unit(12) }
         GridLayout {
@@ -262,5 +299,19 @@ Kirigami.ScrollablePage {
                 }
             }
         }
+    }
+
+    FileDialog {
+        id: exportDialog
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "json"
+        currentFile: "kontra-daten.json"
+        nameFilters: [texts.t("data.files") + " (*.json)"]
+        onAccepted: ctl.exportData(selectedFile.toString())
+    }
+    FileDialog {
+        id: importDialog
+        nameFilters: [texts.t("data.files") + " (*.json)"]
+        onAccepted: ctl.importData(selectedFile.toString(), page.dataHow)
     }
 }

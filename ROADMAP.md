@@ -173,3 +173,5 @@ Durchgespielt mit gerenderten Aufnahmen (`kontra-cli render`) und Screenshots al
 ## Lastenheft-Umsetzung (10.10.2026)
 
 - LH-NF-13: Journey-Tests in `tests/journeys/` (J-A2, J-B1, J-B2, J-B3, J-C2, Neustart) als Test `journeys` von `kontra-appcore`, laufen im CI-Job `core`; Aufnahmen, MIDI-Dateien und `stimmen-e-30c.wav` erzeugt der Test.
+- LH-FOR-03: Einstellungen → „Deine Daten“: alles als eine JSON-Datei sichern (`kontra-data`, Version 1) und laden; beim Laden „Ergänzen“ (eigene Einstellungen bleiben, neue Stücke, Setlisten, Durchläufe dazu) oder „Ersetzen“; ungültige Dateien ändern nichts; Bericht als Meldung.
+- LH-FOR-04: Fortschritt → „Bericht …“ je Stück: eine HTML-Datei mit Kante-Stil eingebettet (offline lesbar), Kennzahlen, Verlauf Trefferquote/Tempo, Tabelle aller Durchläufe mit schwierigsten Takten (neu im Durchlauf gespeichert).

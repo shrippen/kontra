@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import Kante
@@ -13,6 +14,8 @@ Kirigami.ScrollablePage {
     readonly property var texts: applicationWindow().texts
     property var data: ({ pieces: [], runs: [] })
     readonly property int dayCount: 14
+    // LH-FOR-04: the piece whose report is being saved.
+    property string reportSongId: ""
 
     // Minutes per local day, oldest first, the last entry is today.
     readonly property var days: {
@@ -97,12 +100,26 @@ Kirigami.ScrollablePage {
                     required property var modelData
                     Layout.fillWidth: true
                     spacing: KanteStyle.unit(2)
-                    QQC2.Label {
+                    RowLayout {
                         Layout.fillWidth: true
-                        elide: Text.ElideRight
-                        text: modelData.title + (modelData.artist ? " · " + modelData.artist : "")
-                        color: KanteStyle.strongTextColor
-                        font.bold: true
+                        QQC2.Label {
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                            text: modelData.title + (modelData.artist ? " · " + modelData.artist : "")
+                            color: KanteStyle.strongTextColor
+                            font.bold: true
+                        }
+                        // LH-FOR-04: a report for the teacher, one HTML file.
+                        KanteButton {
+                            text: texts.t("report.export")
+                            emphasis: KanteButton.Emphasis.Quiet
+                            Accessible.name: texts.t("report.export.name", { title: modelData.title })
+                            onClicked: {
+                                page.reportSongId = modelData.songId
+                                reportDialog.currentFile = "kontra-" + modelData.title.replace(/[^A-Za-z0-9äöüÄÖÜß-]+/g, "-") + ".html"
+                                reportDialog.open()
+                            }
+                        }
                     }
                     QQC2.Label {
                         Layout.fillWidth: true
@@ -119,5 +136,13 @@ Kirigami.ScrollablePage {
                 }
             }
         }
+    }
+
+    FileDialog {
+        id: reportDialog
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "html"
+        nameFilters: [texts.t("report.files") + " (*.html)"]
+        onAccepted: ctl.exportReport(page.reportSongId, selectedFile.toString())
     }
 }

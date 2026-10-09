@@ -5,9 +5,12 @@
 //!     ◄──properties/signals── bridge ◄── UiEvent
 //! ```
 
+mod data;
 mod i18n;
+mod report;
 mod store;
 
+pub use data::DataImport;
 pub use i18n::{Catalog, Language};
 pub use store::{data_dir, InputKind, Library, RecentEntry, Setlist, Settings};
 
@@ -250,6 +253,7 @@ impl Core {
             .iter()
             .map(|p| {
                 json!({
+                    "songId": p.song_id,
                     "title": p.title,
                     "artist": p.artist,
                     "best": p.best_hit_rate(),
@@ -266,6 +270,92 @@ impl Core {
             .map(|r| json!({ "unix": r.finished_unix, "s": r.practice_s }))
             .collect();
         json!({ "pieces": pieces, "runs": runs }).to_string()
+    }
+
+    /// Writes settings, library and progress as one JSON file (LH-FOR-03); returns what was
+    /// saved, as a text for the user.
+    pub fn export_data(&self, path: &Path) -> Result<String, String> {
+        let bundle = data::Bundle {
+            format: data::FORMAT.into(),
+            version: data::VERSION,
+            exported_unix: unix_now(),
+            settings: self.settings.clone(),
+            library: self.library.clone(),
+            progress: self.progress_store().all(),
+        };
+        store::save(path, &bundle)
+            .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
+        let runs = bundle.progress.iter().map(|p| p.runs.len()).sum::<usize>();
+        Ok(self.tr(
+            "data.exported",
+            &[
+                ("pieces", bundle.library.recent.len().to_string()),
+                ("setlists", bundle.library.setlists.len().to_string()),
+                ("runs", runs.to_string()),
+                ("name", file_name(path)),
+            ],
+        ))
+    }
+
+    /// Reads a file written by `export_data`: merges it into the own data or replaces them.
+    /// Nothing changes if the file is not valid. Returns a report for the user.
+    pub fn import_data(&mut self, path: &Path, how: DataImport) -> Result<String, String> {
+        let text = std::fs::read_to_string(path).map_err(|_| self.tr("data.error.read", &[]))?;
+        let bundle = data::Bundle::parse(&text).map_err(|e| match e {
+            data::BundleError::Newer(v) => {
+                self.tr("data.error.newer", &[("version", v.to_string())])
+            }
+            data::BundleError::Unreadable | data::BundleError::BadSongId => {
+                self.tr("data.error.format", &[])
+            }
+        })?;
+        self.stop_live();
+        let store = self.progress_store();
+        let mut merged = data::Merged::default();
+        match how {
+            DataImport::Replace => {
+                merged.pieces = bundle.library.recent.len();
+                merged.setlists = bundle.library.setlists.len();
+                self.library = bundle.library;
+                for old in store.all() {
+                    let _ = std::fs::remove_file(
+                        self.data_dir
+                            .join("progress")
+                            .join(format!("{}.json", old.song_id)),
+                    );
+                }
+                self.update_settings(|s| *s = bundle.settings);
+            }
+            DataImport::Merge => merged = data::merge_library(&mut self.library, bundle.library),
+        }
+        for incoming in bundle.progress {
+            let mut song = match how {
+                DataImport::Merge => store.load_id(&incoming.song_id),
+                DataImport::Replace => None,
+            }
+            .unwrap_or_else(|| kontra_session::SongProgress {
+                runs: Vec::new(),
+                ..incoming.clone()
+            });
+            merged.runs += data::merge_runs(&mut song, incoming);
+            store
+                .save(&song)
+                .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
+        }
+        self.save_library();
+        let key = match how {
+            DataImport::Merge => "data.merged",
+            DataImport::Replace => "data.replaced",
+        };
+        Ok(self.tr(
+            key,
+            &[
+                ("pieces", merged.pieces.to_string()),
+                ("setlists", merged.setlists.to_string()),
+                ("runs", merged.runs.to_string()),
+                ("name", file_name(path)),
+            ],
+        ))
     }
 
     /// Tracks of the loaded file and the one played: `{"names": [...], "current": i}`.
@@ -1038,7 +1128,7 @@ impl Core {
             .transport()
             .loop_range()
             .map(|l| (l.start_s, l.end_s));
-        let run = run_from(
+        let mut run = run_from(
             &summary,
             practice_s,
             self.speed,
@@ -1047,6 +1137,13 @@ impl Core {
             unix_now(),
         );
         let arrangement = session.arrangement().clone();
+        // Bar numbers as printed in the score (repeats are unrolled into more bars).
+        run.hardest_bars = summary
+            .hardest_bars
+            .iter()
+            .filter_map(|b| arrangement.bars.get(*b))
+            .map(|bar| bar.source_index + 1)
+            .collect();
         let _ = self.progress_store().record(&arrangement, run);
     }
 
@@ -1413,6 +1510,11 @@ fn quantum_too_long_ms(frames: u32, rate: u32) -> Option<f64> {
     (ms > 512.0 / 48.0 + 0.05).then_some(ms)
 }
 
+fn file_name(path: &Path) -> String {
+    path.file_name()
+        .map_or_else(String::new, |n| n.to_string_lossy().into())
+}
+
 fn unix_now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1769,6 +1871,7 @@ mod tests {
                 hit_rate: rate,
                 mode: "song".into(),
                 section: None,
+                hardest_bars: Vec::new(),
             };
             core.progress_store().record(&a, run).unwrap();
         }
@@ -1822,6 +1925,99 @@ mod tests {
             .ends_with("2-clicks.mid"));
         let again = Core::new(&dir, QaOptions::default());
         assert!(again.setlists_json().contains("Freitag"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-FOR-03: an export loaded on a second profile gives the same state (replace), or adds
+    /// to an existing one without doubling runs (merge); a foreign file changes nothing.
+    #[test]
+    fn data_export_and_import() {
+        let dir = temp_dir("data");
+        let mut first = Core::new(&dir.join("a"), QaOptions::default());
+        first.update_settings(|s| s.language = Some("de".into()));
+        first.reconfigure(|s| s.strings = 5);
+        first.open(&demo()).unwrap();
+        first.setlist_create("Freitag");
+        first.setlist_add_loaded("Freitag");
+        let a = first.arrangement().unwrap().clone();
+        let run = kontra_session::Run {
+            finished_unix: 7,
+            practice_s: 300.0,
+            speed: 0.8,
+            hit_rate: 0.75,
+            mode: "song".into(),
+            section: None,
+            hardest_bars: Vec::new(),
+        };
+        first.progress_store().record(&a, run).unwrap();
+        let file = dir.join("sicherung.json");
+        let text = first.export_data(&file).unwrap();
+        assert!(
+            text.contains("1 Durchläufe") || text.contains("1 Durchl"),
+            "{text}"
+        );
+
+        let mut second = Core::new(&dir.join("b"), QaOptions::default());
+        let report = second.import_data(&file, DataImport::Replace).unwrap();
+        assert!(report.contains("sicherung.json"), "{report}");
+        assert_eq!(second.settings(), first.settings());
+        assert_eq!(second.setlists_json(), first.setlists_json());
+        assert_eq!(second.recent_json(), first.recent_json());
+        assert_eq!(second.progress_json(), first.progress_json());
+
+        // Merging the same file again adds nothing and keeps the own settings.
+        second.update_settings(|s| s.strings = 4);
+        let report = second.import_data(&file, DataImport::Merge).unwrap();
+        assert!(
+            report.contains("0 neue Stücke, 0 neue Setlisten, 0 neue Durchläufe"),
+            "{report}"
+        );
+        assert_eq!(second.settings().strings, 4);
+        assert_eq!(second.progress_json(), first.progress_json());
+
+        std::fs::write(&file, r#"{"format": "something else"}"#).unwrap();
+        assert!(second.import_data(&file, DataImport::Replace).is_err());
+        assert_eq!(second.progress_json(), first.progress_json());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-FOR-04: the report is one HTML file with Kante's styles inside, the piece's figures,
+    /// a chart and every run with its hardest bars.
+    #[test]
+    fn progress_report_is_self_contained() {
+        let dir = temp_dir("report");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&demo()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        for (unix, rate) in [(1_791_504_000, 0.7), (1_791_590_400, 0.95)] {
+            let run = kontra_session::Run {
+                finished_unix: unix,
+                practice_s: 600.0,
+                speed: 0.8,
+                hit_rate: rate,
+                mode: "workshop".into(),
+                section: None,
+                hardest_bars: vec![3, 7],
+            };
+            core.progress_store().record(&a, run).unwrap();
+        }
+        let p: serde_json::Value = serde_json::from_str(&core.progress_json()).unwrap();
+        let id = p["pieces"][0]["songId"].as_str().unwrap().to_string();
+        let file = dir.join("bericht.html");
+        let text = core.export_report(&id, &file).unwrap();
+        assert!(text.contains("bericht.html"), "{text}");
+        let html = std::fs::read_to_string(&file).unwrap();
+        assert!(html.starts_with("<!doctype html>"));
+        assert!(html.contains("Übungsbericht: Etude 1"));
+        assert!(html.contains("<svg class=\"chart\""));
+        assert!(html.contains("2026-10-10") && html.contains("Werkstatt") && html.contains("3, 7"));
+        assert!(html.contains("<b>20</b>"), "20 minutes");
+        assert!(
+            !html.contains("<link") && !html.contains("<script"),
+            "no outside files"
+        );
+        assert!(core.export_report("0000000000000000", &file).is_err());
         let _ = std::fs::remove_dir_all(dir);
     }
 
