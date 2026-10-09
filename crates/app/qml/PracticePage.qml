@@ -66,6 +66,7 @@ Kirigami.Page {
         return !(item && item.hasOwnProperty("cursorPosition"))
     }
     Shortcut { sequence: "K"; enabled: page.keysFree; onActivated: ctl.togglePlay() }
+    Shortcut { sequence: "N"; enabled: page.keysFree && ctl.nextTitle !== ""; onActivated: ctl.openNext() }
     Shortcut { sequence: "Home"; enabled: page.keysFree; onActivated: ctl.rewind() }
     Shortcut { sequence: "L"; enabled: page.keysFree; onActivated: transport.loopToggled() }
     Shortcut { sequence: "M"; enabled: page.keysFree; onActivated: ctl.changeOptions(!ctl.metronome, ctl.reference, ctl.lowStringOnTop) }
@@ -146,6 +147,13 @@ Kirigami.Page {
                 text: texts.t("backing.choose")
                 emphasis: KanteButton.Emphasis.Quiet
                 onClicked: backingDialog.open()
+            }
+            // Setlist (LH-BIB-04, J-B1: next song in at most two clicks; also the N key).
+            KanteButton {
+                visible: ctl.nextTitle !== ""
+                text: texts.t("setlist.next", { title: ctl.nextTitle })
+                emphasis: KanteButton.Emphasis.Primary
+                onClicked: ctl.openNext()
             }
             KanteButton {
                 visible: ctl.backingName !== ""

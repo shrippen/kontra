@@ -9,7 +9,7 @@ mod i18n;
 mod store;
 
 pub use i18n::{Catalog, Language};
-pub use store::{data_dir, InputKind, Library, RecentEntry, Settings};
+pub use store::{data_dir, InputKind, Library, RecentEntry, Setlist, Settings};
 
 use kontra_model::{Arrangement, BassKind, InputSource};
 use kontra_session::{
@@ -111,6 +111,8 @@ pub struct Core {
     looping: Option<(usize, usize)>,
     /// A note for the user from the last `open` (e.g. a five-string bass was chosen).
     notice: Option<String>,
+    /// The setlist being played and the position in it (LH-BIB-04).
+    active_setlist: Option<(String, usize)>,
 }
 
 impl Core {
@@ -123,6 +125,7 @@ impl Core {
             .map_or_else(Language::from_environment, Language::from_code);
         Core {
             notice: None,
+            active_setlist: None,
             catalog: Catalog::new(language),
             settings,
             library,
@@ -312,14 +315,197 @@ impl Core {
                 let progress = store.load_id(&e.song_id);
                 let best = progress.as_ref().and_then(|p| p.best_hit_rate());
                 let minutes = progress.as_ref().map_or(0.0, |p| p.practice_s() / 60.0);
-                json!({ "path": e.path, "title": e.title, "artist": e.artist, "best": best, "practiceMin": minutes })
+                json!({ "path": e.path, "title": e.title, "artist": e.artist, "best": best, "practiceMin": minutes, "lastUnix": e.last_unix })
             })
             .collect();
         serde_json::Value::Array(list).to_string()
     }
 
+    /// Adds every score in `dir` to the library without playing it (LH-BIB-04, J-B1); with
+    /// `as_setlist` also a setlist named after the folder, in file name order. Returns how many
+    /// were added and, for each file that failed, its name and the reason in the user's language.
+    pub fn import_folder(
+        &mut self,
+        dir: &Path,
+        as_setlist: bool,
+    ) -> (usize, Vec<(String, String)>) {
+        const EXTENSIONS: [&str; 9] = [
+            "gp", "gp3", "gp4", "gp5", "gpx", "mid", "midi", "musicxml", "mxl",
+        ];
+        let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
+            .map(|entries| entries.filter_map(Result::ok).map(|e| e.path()).collect())
+            .unwrap_or_default();
+        files.retain(|p| {
+            p.extension().and_then(|e| e.to_str()).is_some_and(|e| {
+                EXTENSIONS.contains(&e.to_ascii_lowercase().as_str())
+                    || e.eq_ignore_ascii_case("xml")
+            })
+        });
+        files.sort();
+        let mut added = Vec::new();
+        let mut failed = Vec::new();
+        for path in files {
+            let name = path
+                .file_name()
+                .map_or_else(String::new, |n| n.to_string_lossy().into());
+            let arrangement = import_file(&path)
+                .map_err(|e| self.import_error(&e))
+                .and_then(|i| {
+                    i.arrangement(i.suggested().unwrap_or(0))
+                        .map_err(|e| self.import_error(&e))
+                });
+            match arrangement {
+                Ok(a) => {
+                    let title = if a.title.trim().is_empty() {
+                        path.file_stem()
+                            .map_or_else(String::new, |s| s.to_string_lossy().into())
+                    } else {
+                        a.title.clone()
+                    };
+                    self.library.add_known(RecentEntry {
+                        path: path.clone(),
+                        title,
+                        artist: a.artist.clone(),
+                        track: 0,
+                        last_unix: 0,
+                        song_id: ProgressStore::song_id(&a),
+                        backing: None,
+                        backing_offset_s: 0.0,
+                        view: None,
+                    });
+                    added.push(path);
+                }
+                Err(reason) => failed.push((name, reason)),
+            }
+        }
+        if as_setlist && !added.is_empty() {
+            let name = dir
+                .file_name()
+                .map_or_else(|| "Setlist".into(), |n| n.to_string_lossy().into());
+            self.library.setlists.retain(|s| s.name != name);
+            self.library.setlists.push(Setlist {
+                name,
+                pieces: added.clone(),
+            });
+        }
+        self.save_library();
+        (added.len(), failed)
+    }
+
+    pub fn setlist_create(&mut self, name: &str) {
+        let name = name.trim();
+        if !name.is_empty() && self.library.setlist_mut(name).is_none() {
+            self.library.setlists.push(Setlist {
+                name: name.to_string(),
+                pieces: Vec::new(),
+            });
+            self.save_library();
+        }
+    }
+
+    pub fn setlist_delete(&mut self, name: &str) {
+        self.library.setlists.retain(|s| s.name != name);
+        self.save_library();
+    }
+
+    /// Adds the loaded piece to the end of `name`.
+    pub fn setlist_add_loaded(&mut self, name: &str) {
+        let Some(path) = self.loaded_path().map(Path::to_path_buf) else {
+            return;
+        };
+        if let Some(list) = self.library.setlist_mut(name) {
+            list.pieces.push(path);
+            self.save_library();
+        }
+    }
+
+    pub fn setlist_remove(&mut self, name: &str, index: usize) {
+        if let Some(list) = self.library.setlist_mut(name) {
+            if index < list.pieces.len() {
+                list.pieces.remove(index);
+                self.save_library();
+            }
+        }
+    }
+
+    /// Moves the piece at `from` one place up (`-1`) or down (`1`).
+    pub fn setlist_move(&mut self, name: &str, from: usize, step: i32) {
+        if let Some(list) = self.library.setlist_mut(name) {
+            let to = from as i64 + i64::from(step);
+            if from < list.pieces.len() && (0..list.pieces.len() as i64).contains(&to) {
+                list.pieces.swap(from, to as usize);
+                self.save_library();
+            }
+        }
+    }
+
+    /// Opens piece `index` of setlist `name` and remembers the position for `next_in_setlist`.
+    pub fn open_from_setlist(&mut self, name: &str, index: usize) -> Result<Opened, String> {
+        let path = self
+            .library
+            .setlists
+            .iter()
+            .find(|s| s.name == name)
+            .and_then(|s| s.pieces.get(index))
+            .cloned()
+            .ok_or("no such piece")?;
+        let opened = self.open(&path)?;
+        self.active_setlist = Some((name.to_string(), index));
+        Ok(opened)
+    }
+
+    /// Title of the next piece in the active setlist, if any.
+    pub fn next_title(&self) -> Option<String> {
+        let (name, index) = self.active_setlist.as_ref()?;
+        let list = self.library.setlists.iter().find(|s| &s.name == name)?;
+        let path = list.pieces.get(index + 1)?;
+        Some(self.library.entry(path).map_or_else(
+            || {
+                path.file_stem()
+                    .map_or_else(String::new, |s| s.to_string_lossy().into())
+            },
+            |e| e.title.clone(),
+        ))
+    }
+
+    /// Opens the next piece of the active setlist.
+    pub fn open_next(&mut self) -> Result<Opened, String> {
+        let (name, index) = self.active_setlist.clone().ok_or("no setlist")?;
+        self.open_from_setlist(&name, index + 1)
+    }
+
+    pub fn setlists_json(&self) -> String {
+        let lists: Vec<serde_json::Value> = self
+            .library
+            .setlists
+            .iter()
+            .map(|l| {
+                let pieces: Vec<serde_json::Value> = l
+                    .pieces
+                    .iter()
+                    .map(|p| {
+                        let e = self.library.entry(p);
+                        json!({
+                            "path": p,
+                            "title": e.map_or_else(|| p.file_stem().map_or_else(String::new, |s| s.to_string_lossy().into()), |e| e.title.clone()),
+                            "artist": e.map_or_else(String::new, |e| e.artist.clone()),
+                            "missing": !p.exists(),
+                        })
+                    })
+                    .collect();
+                json!({ "name": l.name, "pieces": pieces })
+            })
+            .collect();
+        serde_json::Value::Array(lists).to_string()
+    }
+
+    fn save_library(&self) {
+        let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+    }
+
     /// Imports a score; picks the bass track or asks.
     pub fn open(&mut self, path: &Path) -> Result<Opened, String> {
+        self.active_setlist = None;
         let imported = import_file(path).map_err(|e| self.import_error(&e))?;
         if let Some(track) = imported.suggested() {
             return self.load(path, &imported, track).map(|()| Opened::Ready);
@@ -1456,6 +1642,51 @@ mod tests {
         assert_eq!(p["pieces"][0]["best"], 0.92);
         assert_eq!(p["pieces"][0]["practiceMin"], 20.0);
         assert_eq!(p["runs"].as_array().unwrap().len(), 2);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-BIB-04 / J-B1: a folder becomes library pieces and a setlist; a broken file is named
+    /// with a translated reason; the setlist plays in order.
+    #[test]
+    fn folder_import_makes_a_setlist() {
+        let dir = temp_dir("folder");
+        let songs = dir.join("Freitag");
+        std::fs::create_dir_all(&songs).unwrap();
+        std::fs::copy(demo(), songs.join("1-etude.mid")).unwrap();
+        std::fs::copy(
+            demo().with_file_name("clicks.mid"),
+            songs.join("2-clicks.mid"),
+        )
+        .unwrap();
+        std::fs::write(songs.join("3-kaputt.gp5"), b"FICHIER GUITAR PRO v5.00 cut").unwrap();
+        std::fs::write(songs.join("notes.txt"), b"not a score").unwrap();
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        let (added, failed) = core.import_folder(&songs, true);
+        assert_eq!(added, 2);
+        assert_eq!(failed.len(), 1, "{failed:?}");
+        assert_eq!(failed[0].0, "3-kaputt.gp5");
+        assert!(failed[0].1.starts_with("Die Datei"), "{failed:?}");
+        let lists: serde_json::Value = serde_json::from_str(&core.setlists_json()).unwrap();
+        assert_eq!(lists[0]["name"], "Freitag");
+        assert_eq!(lists[0]["pieces"].as_array().unwrap().len(), 2);
+
+        assert_eq!(core.open_from_setlist("Freitag", 0).unwrap(), Opened::Ready);
+        assert_eq!(
+            core.next_title().as_deref(),
+            Some(lists[0]["pieces"][1]["title"].as_str().unwrap())
+        );
+        core.open_next().unwrap();
+        assert_eq!(core.next_title(), None);
+
+        core.setlist_move("Freitag", 1, -1);
+        let lists: serde_json::Value = serde_json::from_str(&core.setlists_json()).unwrap();
+        assert!(lists[0]["pieces"][0]["path"]
+            .as_str()
+            .unwrap()
+            .ends_with("2-clicks.mid"));
+        let again = Core::new(&dir, QaOptions::default());
+        assert!(again.setlists_json().contains("Freitag"));
         let _ = std::fs::remove_dir_all(dir);
     }
 

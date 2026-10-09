@@ -3,7 +3,8 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-const RECENT_MAX: usize = 50;
+/// Pieces the library keeps (LH-BIB-04 asks for 200 with fast search).
+const RECENT_MAX: usize = 2000;
 
 /// `KONTRA_DATA_DIR`, else `$XDG_DATA_HOME/kontra`, else `~/.local/share/kontra`.
 pub fn data_dir() -> PathBuf {
@@ -123,10 +124,19 @@ pub struct RecentEntry {
     pub view: Option<String>,
 }
 
+/// A named order of pieces for a gig or rehearsal (LH-BIB-04).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Setlist {
+    pub name: String,
+    pub pieces: Vec<PathBuf>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Library {
+    /// Every known piece; the most recently played first, imported but unplayed ones after.
     pub recent: Vec<RecentEntry>,
+    pub setlists: Vec<Setlist>,
 }
 
 impl Library {
@@ -144,6 +154,17 @@ impl Library {
         self.recent.retain(|e| e.path != entry.path);
         self.recent.insert(0, entry);
         self.recent.truncate(RECENT_MAX);
+    }
+
+    /// Adds a piece without playing it (folder import): after the played ones, nothing moves.
+    pub fn add_known(&mut self, entry: RecentEntry) {
+        if self.entry(&entry.path).is_none() && self.recent.len() < RECENT_MAX {
+            self.recent.push(entry);
+        }
+    }
+
+    pub fn setlist_mut(&mut self, name: &str) -> Option<&mut Setlist> {
+        self.setlists.iter_mut().find(|s| s.name == name)
     }
 
     pub fn entry_mut(&mut self, path: &Path) -> Option<&mut RecentEntry> {
