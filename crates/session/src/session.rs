@@ -143,6 +143,15 @@ impl Session {
         self.clean_streak = 0;
     }
 
+    /// Jumps to `position_s`; counting restarts at the first note from there.
+    pub fn seek(&mut self, real_s: f64, position_s: f64) {
+        self.transport.seek(real_s, position_s);
+        let (position, pass) = self.transport.position_at(real_s);
+        self.cursor_pass = pass;
+        self.cursor_slot = self.first_slot_from(position);
+        self.holding = false;
+    }
+
     /// Scores a detected note. Its onset is on the same real clock as the transport.
     pub fn on_note(&mut self, note: &DetectedNote) {
         let real_s = note.onset_s - self.settings.latency_ms / 1000.0;

@@ -1,0 +1,42 @@
+name: ci
+
+# Branches are tested through their pull request; main runs on push.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    # Everything below the GUI: no Qt needed.
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: System libraries
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libasound2-dev pkg-config
+      - name: Rust
+        run: |
+          rustup toolchain install stable --profile minimal -c rustfmt,clippy
+          rustup default stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/bin/cargo-deny
+            target
+          key: core-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --exclude kontra-app --all-targets -- -D warnings
+      - run: cargo test --workspace --exclude kontra-app
+      - run: command -v cargo-deny || cargo install --locked cargo-deny
+      - run: cargo deny check licenses bans sources
+      - name: Corpus quality (LH-NF-02/03)
+        run: cargo run -q -p kontra-cli --release -- korpus check

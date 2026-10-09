@@ -4,6 +4,7 @@ description = "Raw I/O for Kontra: audio devices (cpal), audio file decoding and
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 
 [dependencies]
 thiserror.workspace = true

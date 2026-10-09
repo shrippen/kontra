@@ -88,6 +88,13 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
     }
 
     let mut score = Score::new();
+    // Type 1 files name the song in the first track, which holds only tempo and meta events.
+    if let Some(first) = tracks
+        .first()
+        .filter(|t| t.notes.is_empty() && !t.name.is_empty())
+    {
+        score.title = first.name.clone();
+    }
     let end = tracks
         .iter()
         .flat_map(|t| t.notes.values().flatten())

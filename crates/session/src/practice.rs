@@ -159,6 +159,22 @@ impl<O: Output> Practice<O> {
         self.restart_backing(start);
     }
 
+    /// Arrangement position now (seconds at original tempo).
+    pub fn position_s(&self) -> f64 {
+        self.session.transport().position_at(self.clock.now_s()).0
+    }
+
+    pub fn is_playing(&self) -> bool {
+        self.session.transport().is_running()
+    }
+
+    /// Jumps to `position_s` and re-plans sounds and backing.
+    pub fn seek(&mut self, position_s: f64) {
+        let now = self.clock.now_s() + START_LEAD_S;
+        self.session.seek(now, position_s);
+        self.reschedule();
+    }
+
     pub fn pause(&mut self) {
         let now = self.clock.now_s();
         self.session.pause(now);

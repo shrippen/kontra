@@ -4,6 +4,7 @@ description = "Time-stretch (tempo without pitch change): phase vocoder with pha
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 
 [dependencies]
 rustfft.workspace = true
