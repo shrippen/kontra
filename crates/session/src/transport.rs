@@ -159,6 +159,17 @@ impl Transport {
         } else {
             segment.position_s + elapsed * segment.rate
         };
+        // Past the last advance (the thread stalled, notes arrived first) a running loop has
+        // wrapped already; map the time into the pass it falls in (QA P2, F3).
+        let last = std::ptr::eq(segment, self.last());
+        if let Some(l) = self.looping.filter(|_| last && segment.rate > 0.0) {
+            if segment.position_s < l.end_s && position >= l.end_s {
+                let length = l.end_s - l.start_s;
+                let wraps = ((position - l.end_s) / length).floor() + 1.0;
+                let wrapped = position - wraps * length;
+                return (wrapped, segment.pass + wraps as u32);
+            }
+        }
         (position.min(self.end_s), segment.pass)
     }
 
