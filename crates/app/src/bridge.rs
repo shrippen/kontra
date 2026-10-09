@@ -82,6 +82,8 @@ pub mod qobject {
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
         #[qproperty(QString, backing_name, cxx_name = "backingName")]
         #[qproperty(QString, message)]
+        #[qproperty(QString, offer_input, cxx_name = "offerInput")]
+        #[qproperty(QString, offer_text, cxx_name = "offerText")]
         #[qproperty(QString, error_text, cxx_name = "errorText")]
         #[qproperty(QString, start_page, cxx_name = "startPage")]
         #[qproperty(bool, setup_done, cxx_name = "setupDone")]
@@ -303,6 +305,11 @@ pub mod qobject {
         #[cxx_name = "dismissMessage"]
         fn dismiss_message(self: Pin<&mut Self>);
 
+        /// Takes the input offered after a device was lost (LH-ALL-04).
+        #[qinvokable]
+        #[cxx_name = "useOfferedInput"]
+        fn use_offered_input(self: Pin<&mut Self>);
+
         #[qsignal]
         #[cxx_name = "noteJudged"]
         fn note_judged(
@@ -404,6 +411,8 @@ pub struct ControllerRust {
     calibration_text: QString,
     backing_name: QString,
     message: QString,
+    offer_input: QString,
+    offer_text: QString,
     error_text: QString,
     start_page: QString,
     setup_done: bool,
@@ -506,6 +515,8 @@ impl Default for ControllerRust {
             calibration_text: QString::default(),
             backing_name: QString::default(),
             message: QString::default(),
+            offer_input: QString::default(),
+            offer_text: QString::default(),
             error_text: QString::default(),
             start_page: q(args.page.as_deref().unwrap_or("")),
             setup_done: s.setup_done,
@@ -825,6 +836,17 @@ impl qobject::Controller {
                 }
                 UiEvent::Message(text) => self.as_mut().set_message(q(&text)),
                 UiEvent::Error(text) => self.as_mut().show_error(&text),
+                UiEvent::InputOffer { id, text } => {
+                    self.as_mut().set_offer_input(q(&id));
+                    self.as_mut().set_offer_text(q(&text));
+                }
+                UiEvent::InputBack(text) => {
+                    self.as_mut().set_offer_input(QString::default());
+                    self.as_mut().set_offer_text(QString::default());
+                    self.as_mut().set_error_text(QString::default());
+                    self.as_mut().set_playing(false);
+                    self.as_mut().set_message(q(&text));
+                }
                 UiEvent::DeviceLost(text) => {
                     self.as_mut().set_playing(false);
                     self.as_mut().set_tuner_active(false);
@@ -1256,6 +1278,14 @@ impl qobject::Controller {
             Ok(text) => self.as_mut().set_message(q(&text)),
             Err(e) => self.as_mut().show_error(&e),
         }
+    }
+
+    fn use_offered_input(mut self: Pin<&mut Self>) {
+        let id = self.as_ref().offer_input().to_string();
+        self.as_mut().core().use_offered_input(&id);
+        self.as_mut().set_offer_input(QString::default());
+        self.as_mut().set_offer_text(QString::default());
+        self.as_mut().set_error_text(QString::default());
     }
 
     fn dismiss_message(mut self: Pin<&mut Self>) {

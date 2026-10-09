@@ -287,5 +287,8 @@
   "package.saved.audio": "Paket gespeichert: {name}. Noten, gewählte Spur, Fortschritt und Begleitspur sind drin.",
   "package.opened": "Paket geöffnet: {title}. {runs} Durchläufe aus dem Paket sind jetzt in deinem Fortschritt.",
   "package.error.unknown": "Dieses Stück ist nicht in deiner Bibliothek.",
-  "package.error.missing": "{name} ist nicht mehr da. Öffne das Stück neu oder wähle die Datei noch einmal."
+  "package.error.missing": "{name} ist nicht mehr da. Öffne das Stück neu oder wähle die Datei noch einmal.",
+  "unplug.offer": "Solange es fehlt, kannst du „{name}“ nehmen. Steckst du dein Gerät wieder an, nimmt Kontra es von selbst.",
+  "unplug.use": "Diesen Eingang nehmen",
+  "unplug.back": "Dein Eingang ist wieder da. Drück auf Abspielen, dann geht es weiter."
 }

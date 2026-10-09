@@ -10,6 +10,7 @@ mod i18n;
 mod package;
 mod report;
 mod store;
+mod unplug;
 
 pub use data::DataImport;
 pub use i18n::{Catalog, Language};
@@ -75,6 +76,13 @@ pub enum UiEvent {
     Error(String),
     /// The audio device failed (unplugged); the run was stopped.
     DeviceLost(String),
+    /// Another input could be used meanwhile (LH-ALL-04): its id and a question for the user.
+    InputOffer {
+        id: String,
+        text: String,
+    },
+    /// The lost input is back and used again.
+    InputBack(String),
     /// Calibration finished: new latency (if measured) and a text for the user.
     Calibrated {
         latency_ms: Option<f64>,
@@ -121,6 +129,10 @@ pub struct Core {
     notice: Option<String>,
     /// The setlist being played and the position in it (LH-BIB-04).
     active_setlist: Option<(String, usize)>,
+    /// The input that went away, watched until it is back (LH-ALL-04).
+    lost: Option<unplug::Lost>,
+    /// Input used instead of the lost one; never saved.
+    fallback_input: Option<String>,
 }
 
 impl Core {
@@ -134,6 +146,8 @@ impl Core {
         Core {
             notice: None,
             active_setlist: None,
+            lost: None,
+            fallback_input: None,
             catalog: Catalog::new(language),
             settings,
             library,
@@ -955,7 +969,10 @@ impl Core {
                 laptop_jack: self.qa.laptop_jack,
             },
             None => InputChoice::Device {
-                id: self.settings.input_device.clone(),
+                id: self
+                    .fallback_input
+                    .clone()
+                    .or_else(|| self.settings.input_device.clone()),
                 channel: None,
             },
         }
@@ -1023,7 +1040,9 @@ impl Core {
         if events.iter().any(|e| matches!(e, UiEvent::DeviceLost(_))) {
             self.stop_live();
             self.tuner = None;
+            events.extend(self.input_lost());
         }
+        events.extend(self.watch_lost());
         if events.iter().any(|e| matches!(e, UiEvent::Finished { .. })) {
             self.record_run();
         }
