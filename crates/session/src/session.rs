@@ -229,9 +229,27 @@ impl Session {
             .map(|e| e.position_s)
     }
 
+    /// Records `result`; for a chord the same result is recorded for each further chord tone.
     fn record(&mut self, result: NoteResult) {
+        let chord = result.note.and_then(|index| {
+            let expected = self.matcher.expected();
+            let from = expected.partition_point(|e| e.position_s < result.position_s);
+            expected[from..]
+                .iter()
+                .take_while(|e| e.position_s <= result.position_s)
+                .find(|e| e.index == index)
+                .map(|e| e.chord)
+        });
         self.results.push(result);
         self.events.push(SessionEvent::Result(result));
+        for (index, _) in chord.iter().flat_map(|c| c.iter()) {
+            let tone = NoteResult {
+                note: Some(index),
+                ..result
+            };
+            self.results.push(tone);
+            self.events.push(SessionEvent::Result(tone));
+        }
     }
 
     /// Wait mode: compare with the note we wait for, whenever it is played.
@@ -239,7 +257,7 @@ impl Session {
         let Some(target) = self.matcher.expected().get(self.cursor_slot).copied() else {
             return;
         };
-        let cents = (midi - f64::from(target.midi)) * 100.0;
+        let cents = target.cents_from(midi);
         let in_tune = cents.abs() <= self.settings.pitch_cents;
         let outcome = if in_tune {
             Outcome::Hit

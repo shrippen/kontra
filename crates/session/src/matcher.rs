@@ -1,5 +1,7 @@
 //! Matches detected notes to expected notes of one loop pass.
 
+#[cfg(test)]
+use crate::expected::ChordTones;
 use crate::expected::ExpectedNote;
 use crate::settings::ScoreSettings;
 use serde::{Deserialize, Serialize};
@@ -83,7 +85,7 @@ impl Matcher {
                 && e.position_s < range.1
                 && !self.resolved.contains(&(pass, *slot))
         });
-        let cents_of = |e: &ExpectedNote| (midi - f64::from(e.midi)) * 100.0;
+        let cents_of = |e: &ExpectedNote| e.cents_from(midi);
         let mut best: Option<(usize, bool, f64)> = None;
         for (slot, e) in candidates {
             let in_tune = cents_of(e).abs() <= settings.pitch_cents;
@@ -139,18 +141,21 @@ mod tests {
                 position_s: 1.0,
                 midi: 28,
                 bar: Some(0),
+                chord: ChordTones::default(),
             },
             ExpectedNote {
                 index: 1,
                 position_s: 1.05,
                 midi: 33,
                 bar: Some(0),
+                chord: ChordTones::default(),
             },
             ExpectedNote {
                 index: 2,
                 position_s: 2.0,
                 midi: 28,
                 bar: Some(1),
+                chord: ChordTones::default(),
             },
         ])
     }

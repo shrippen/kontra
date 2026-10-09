@@ -148,3 +148,35 @@ fn workshop_speeds_up_after_clean_passes() {
         .iter()
         .any(|e| matches!(e, SessionEvent::SpeedChanged(v) if (v - 0.6).abs() < 1e-9)));
 }
+
+/// Chords: any tone counts for the whole chord (the detector hears one note), and every chord
+/// tone gets the result.
+#[test]
+fn chord_counts_once_for_all_tones() {
+    let mut a = Arrangement::new("Chords", Instrument::default_bass());
+    a.tempo = TempoMap::constant(120.0);
+    for (beat, midi) in [(0u64, 28u8), (0, 35), (1, 33), (2, 38), (2, 45)] {
+        a.notes.push(Note::new(
+            beat * TICKS_PER_QUARTER,
+            TICKS_PER_QUARTER,
+            Pitch(midi),
+        ));
+    }
+    a.normalize();
+    let mut s = Session::new(a, Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    // Upper tone of the first chord, then the single note; the second chord is not played.
+    run(&mut s, &[played(0.01, 35.0), played(0.5, 33.0)], 3.0);
+    let summary = s.summary();
+    assert_eq!(summary.hits, 3, "{:?}", s.results());
+    assert_eq!(summary.missed, 2);
+    assert_eq!(summary.extra, 0);
+    let first_chord: Vec<_> = s
+        .results()
+        .iter()
+        .filter(|r| r.position_s < 0.1)
+        .map(|r| (r.note, r.outcome))
+        .collect();
+    assert_eq!(first_chord.len(), 2);
+    assert!(first_chord.iter().all(|(_, o)| *o == Outcome::Hit));
+}
