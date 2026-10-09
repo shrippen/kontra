@@ -15,7 +15,7 @@ und nennt die Anforderungen aus dem [Lastenheft](LASTENHEFT.md), die sie prüft.
    - Ohne GUI: `kontra-cli practice <datei> --input-file take.wav --mode song` und `kontra-cli score <datei> take.wav`.
    - Ohne Audioausgang (Container, CI) läuft Kontra stumm weiter und sagt das.
 3. **Als Persona spielen.** Vor dem Start die Persona lesen und ihre Ausrüstung nachstellen (Auflösung, Skalierung
-   `QT_SCALE_FACTOR=2`, Sprache `--language de|en`, Stil `--style kante|kante-light|system`, Eingang).
+   `QT_SCALE_FACTOR=2`, Sprache `--language de|en`, Stil `--theme kante|kante-light|system` (nicht `--style`, das nimmt Qt), Eingang).
    Entscheidungen so treffen, wie sie es täte, nicht wie ein Entwickler.
 4. **Belege:** `--screenshot out.png --screenshot-after <ms>` speichert die aktuelle Seite; `scripts/screenshots.sh` macht alle Seiten auf Deutsch und Englisch.
    Nebenher beobachten: Konsole (QML-Warnungen, `audio problem`), rohe Übersetzungsschlüssel (`level.quiet`), Sprachmix, abgeschnittene Texte,
@@ -76,7 +76,7 @@ Erwartet: Lied wartet ohne Zeitdruck; falscher Ton wird freundlich angezeigt (we
 **J-B3 Refrain sitzt bis Freitag** ⚙ · Persona: P2 Jens · Phase 1 · LH-MOD-04, -05, -07, LH-WIE-01, LH-BEW-03
 1. Song-Modus, Lied 3 durchspielen; Auswertung zeigt schwierigste Takte.
 2. Auf den schwierigsten Takt klicken → Riff-Werkstatt mit diesem Bereich.
-3. Tempo 60 %, automatische Steigerung „+5 % nach 3 fehlerfreien Durchläufen“, Vorzähler an.
+3. Tempo 60 %, automatische Anpassung an das Zielband 80–90 % Treffer, Vorzähler an.
 4. Fehlerfreie Durchläufe einspeisen bis 100 %.
 5. Alles nur mit Tastatur wiederholen.
 Erwartet: Bereich und Tempo stimmen; Backing Track bei 60 % ohne metallischen Klang; Steigerung sichtbar; jede Funktion per Tastenkürzel.

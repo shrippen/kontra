@@ -48,6 +48,8 @@ pub enum UiEvent {
     Released,
     PassComplete {
         clean: bool,
+        /// Hits among the pass's notes and extras (0..=1); the workshop keeps it in a band.
+        hit_rate: f64,
     },
     SpeedChanged(f64),
     Finished {
@@ -61,6 +63,8 @@ pub enum UiEvent {
     Tuner {
         note: String,
         cents: f64,
+        /// The heard pitch as fractional MIDI number (guided tuning compares it with a string).
+        midi: f64,
     },
     Message(String),
     Error(String),
@@ -101,8 +105,12 @@ pub struct Core {
     calibration: Option<LiveCalibration>,
     /// Engine-independent start of the current run, for practice time.
     run_started: Option<std::time::Instant>,
+    /// The audio server's block size was checked for this run (LH-EIN-07).
+    quantum_checked: bool,
     speed: f64,
     looping: Option<(usize, usize)>,
+    /// A note for the user from the last `open` (e.g. a five-string bass was chosen).
+    notice: Option<String>,
 }
 
 impl Core {
@@ -114,6 +122,7 @@ impl Core {
             .as_deref()
             .map_or_else(Language::from_environment, Language::from_code);
         Core {
+            notice: None,
             catalog: Catalog::new(language),
             settings,
             library,
@@ -125,6 +134,7 @@ impl Core {
             tuner: None,
             calibration: None,
             run_started: None,
+            quantum_checked: false,
             speed: 1.0,
             looping: None,
         }
@@ -140,6 +150,140 @@ impl Core {
 
     pub fn settings(&self) -> &Settings {
         &self.settings
+    }
+
+    /// A note name as the user's language writes it: German says H for B (B is B♭ there).
+    pub fn note_label(&self, name: &str) -> String {
+        match (self.catalog.language(), name.strip_prefix('B')) {
+            (Language::German, Some(rest)) if !rest.starts_with('#') => format!("H{rest}"),
+            _ => name.to_string(),
+        }
+    }
+
+    /// An import error in the user's language (QA P2: the English reason showed in German).
+    fn import_error(&self, e: &kontra_session::ImportError) -> String {
+        use kontra_session::ImportError as E;
+        let reason = match e {
+            E::Io(_) => self.tr("import.io", &[]),
+            // Detection by content failed: also what a cut-off download looks like.
+            E::UnknownFormat => self.tr("import.unknown", &[]),
+            E::Unsupported(what) => self.tr("import.unsupported", &[("what", what.clone())]),
+            E::Truncated(_) | E::Malformed(_) => self.tr("import.damaged", &[]),
+            E::NoTrack(_) => self.tr("import.notrack", &[]),
+            E::TooLarge(bytes) => {
+                self.tr("import.large", &[("mb", (bytes / 1_000_000).to_string())])
+            }
+            E::Empty => self.tr("import.empty", &[]),
+            E::TooLong(bars) => self.tr("import.long", &[("bars", bars.to_string())]),
+        };
+        self.tr("error.import", &[("reason", reason)])
+    }
+
+    /// Wait mode: what to play next, with the string by name; after a wrong note also what was
+    /// played (J-B2: the player sees both, in words).
+    pub fn wait_text(&self, note: usize, played_midi: Option<f64>) -> Option<String> {
+        let a = self.arrangement()?;
+        let n = a.notes.get(note)?;
+        let string = n
+            .string
+            .and_then(|s| a.instrument.tuning.strings.get(usize::from(s)))
+            .map_or_else(String::new, |p| self.note_label(&p.name().to_string()));
+        let args = [
+            ("note", self.note_label(&n.pitch.to_string())),
+            ("string", string),
+            ("fret", n.fret.unwrap_or(0).to_string()),
+        ];
+        let wanted = self.tr("waiting.for", &args);
+        Some(match played_midi {
+            Some(m) => {
+                let played = kontra_model::Pitch(m.round().clamp(0.0, 127.0) as u8).to_string();
+                let played = self.tr("waiting.played", &[("played", self.note_label(&played))]);
+                format!("{played} {wanted}")
+            }
+            None => wanted,
+        })
+    }
+
+    /// Scoring from the instrument, the input and the user's choices (LH-BEW-02, -05).
+    pub fn score_settings(&self, kind: BassKind) -> ScoreSettings {
+        let mut settings = ScoreSettings::defaults(kind, self.source());
+        settings.latency_ms = self.settings.latency_ms;
+        settings.strictness = match self.settings.strictness.as_str() {
+            "loose" => kontra_session::Strictness::Loose,
+            "normal" => kontra_session::Strictness::Normal,
+            "strict" => kontra_session::Strictness::Strict,
+            _ => settings.strictness,
+        };
+        if self.settings.pitch_cents > 0.0 {
+            settings.pitch_cents = self.settings.pitch_cents;
+        }
+        settings
+    }
+
+    /// Open strings for guided tuning (LH-TUN-03), lowest first: the loaded piece's tuning, else
+    /// the profile's. `[{"name": "E", "midi": 28}, …]`.
+    pub fn tuning_json(&self) -> String {
+        let instrument = self
+            .arrangement()
+            .map_or_else(|| instrument_from(&self.settings), |a| a.instrument.clone());
+        let strings: Vec<serde_json::Value> = instrument
+            .tuning
+            .strings
+            .iter()
+            .map(|p| json!({ "name": self.note_label(&p.name().to_string()), "midi": p.0 }))
+            .collect();
+        serde_json::Value::Array(strings).to_string()
+    }
+
+    /// Progress over all pieces (LH-FOR-01): per piece best result, best tempo and time, and
+    /// every run's time stamp and length so the view can sum days in local time.
+    pub fn progress_json(&self) -> String {
+        let mut songs = self.progress_store().all();
+        songs.sort_by_key(|p| std::cmp::Reverse(p.runs.iter().map(|r| r.finished_unix).max()));
+        let pieces: Vec<serde_json::Value> = songs
+            .iter()
+            .map(|p| {
+                json!({
+                    "title": p.title,
+                    "artist": p.artist,
+                    "best": p.best_hit_rate(),
+                    "bestSpeed": p.best_speed(0.9),
+                    "practiceMin": p.practice_s() / 60.0,
+                    "runs": p.runs.len(),
+                    "lastUnix": p.runs.iter().map(|r| r.finished_unix).max(),
+                })
+            })
+            .collect();
+        let runs: Vec<serde_json::Value> = songs
+            .iter()
+            .flat_map(|p| p.runs.iter())
+            .map(|r| json!({ "unix": r.finished_unix, "s": r.practice_s }))
+            .collect();
+        json!({ "pieces": pieces, "runs": runs }).to_string()
+    }
+
+    /// The note left by the last `open`, once.
+    pub fn take_notice(&mut self) -> Option<String> {
+        self.notice.take()
+    }
+
+    /// The view for the loaded piece: the one last used with it, else the default (LH-ANZ-04).
+    pub fn view(&self) -> String {
+        self.loaded_path()
+            .and_then(|p| self.library.entry(p))
+            .and_then(|e| e.view.clone())
+            .unwrap_or_else(|| self.settings.view.clone())
+    }
+
+    /// Remembers `view` for the loaded piece and as the default for pieces opened next.
+    pub fn set_view(&mut self, view: &str) {
+        self.update_settings(|s| s.view = view.to_string());
+        if let Some(path) = self.loaded_path().map(Path::to_path_buf) {
+            if let Some(entry) = self.library.entry_mut(&path) {
+                entry.view = Some(view.to_string());
+            }
+            let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+        }
     }
 
     /// Changes settings that do not affect a running practice (view, style, language) and saves.
@@ -176,8 +320,7 @@ impl Core {
 
     /// Imports a score; picks the bass track or asks.
     pub fn open(&mut self, path: &Path) -> Result<Opened, String> {
-        let imported =
-            import_file(path).map_err(|e| self.tr("error.import", &[("reason", e.to_string())]))?;
+        let imported = import_file(path).map_err(|e| self.import_error(&e))?;
         if let Some(track) = imported.suggested() {
             return self.load(path, &imported, track).map(|()| Opened::Ready);
         }
@@ -198,11 +341,43 @@ impl Core {
     fn load(&mut self, path: &Path, imported: &ImportResult, track: usize) -> Result<(), String> {
         let mut arrangement = imported
             .arrangement(track)
-            .map_err(|e| self.tr("error.import", &[("reason", e.to_string())]))?;
+            .map_err(|e| self.import_error(&e))?;
         if arrangement.title.trim().is_empty() {
             arrangement.title = path
                 .file_stem()
                 .map_or_else(String::new, |s| s.to_string_lossy().to_string());
+        }
+        if !imported.has_tuning(track) {
+            // No tuning in the file: the player's instrument, if it reaches the lowest note
+            // (QA F13: a five-string profile was replaced by four strings).
+            let profile = instrument_from(&self.settings);
+            let lowest = arrangement.notes.iter().map(|n| n.pitch).min();
+            let reaches = match (profile.tuning.lowest(), lowest) {
+                (Some(open), Some(low)) => open <= low,
+                _ => true,
+            };
+            if !reaches {
+                // QA P2 (U1): say why the tab shows more strings than the profile.
+                let note = lowest.map_or_else(String::new, |p| self.note_label(&p.to_string()));
+                self.notice = Some(self.tr(
+                    "notice.more.strings",
+                    &[
+                        ("note", note),
+                        (
+                            "strings",
+                            arrangement.instrument.tuning.strings.len().to_string(),
+                        ),
+                    ],
+                ));
+            }
+            if reaches && profile.tuning != arrangement.instrument.tuning {
+                arrangement.instrument = profile;
+                for n in &mut arrangement.notes {
+                    n.string = None;
+                    n.fret = None;
+                }
+                kontra_session::assign_tab(&mut arrangement);
+            }
         }
         if self.settings.fretless {
             arrangement.instrument.kind = BassKind::Fretless;
@@ -218,6 +393,7 @@ impl Core {
             song_id: ProgressStore::song_id(&arrangement),
             backing: None,
             backing_offset_s: 0.0,
+            view: None,
         });
         let _ = store::save(&self.data_dir.join("library.json"), &self.library);
         self.loaded = Some(Loaded {
@@ -279,6 +455,14 @@ impl Core {
         serde_json::Value::Array(bars).to_string()
     }
 
+    /// The notation view (Kante `KanteBassStaff`): notes in the order of `notes_json`, rests,
+    /// key signature.
+    pub fn staff_json(&self) -> String {
+        self.arrangement()
+            .map_or_else(empty_staff, staff)
+            .to_string()
+    }
+
     pub fn string_names_json(&self) -> String {
         let names: Vec<String> = self
             .arrangement()
@@ -312,6 +496,14 @@ impl Core {
 
     pub fn play(&mut self) -> Vec<UiEvent> {
         let mut events = Vec::new();
+        if let Some((path, _)) = self.backing().filter(|(p, _)| !p.exists()) {
+            let name = path
+                .file_name()
+                .map_or_else(String::new, |n| n.to_string_lossy().into());
+            events.push(UiEvent::Message(
+                self.tr("hint.backing.missing", &[("name", name)]),
+            ));
+        }
         if self.live.is_none() {
             match self.start_live() {
                 Ok(silent) if silent => events.push(UiEvent::Message(self.tr("hint.silent", &[]))),
@@ -341,6 +533,10 @@ impl Core {
 
     /// Ends the run; the next `play` starts from the beginning with current settings.
     pub fn stop_live(&mut self) {
+        // A run stopped before the end still counts as practice (QA P1 J-C1).
+        if self.run_started.is_some() {
+            self.record_run();
+        }
         self.live = None;
     }
 
@@ -360,6 +556,11 @@ impl Core {
     }
 
     /// Loops bars `from..=to` (indices into the arrangement's bars).
+    /// The workshop's hit-rate band (low, high), for the UI.
+    pub fn workshop_band() -> (f64, f64) {
+        Workshop::default().band
+    }
+
     pub fn set_loop(&mut self, from: usize, to: usize) {
         self.looping = Some((from.min(to), from.max(to)));
         let range = self.loop_range();
@@ -435,8 +636,7 @@ impl Core {
         };
         self.tuner = None;
         let arrangement = loaded.arrangement.clone();
-        let mut settings = ScoreSettings::defaults(arrangement.instrument.kind, self.source());
-        settings.latency_ms = self.settings.latency_ms;
+        let settings = self.score_settings(arrangement.instrument.kind);
         let options = PracticeOptions {
             metronome: self.settings.metronome,
             count_in_bars: self.settings.count_in_bars,
@@ -447,7 +647,8 @@ impl Core {
             input: self.input_choice(),
             output_device: self.settings.output_device.clone(),
             source: self.source(),
-            backing: self.backing().map(|(path, _)| path),
+            // A backing file that is gone is skipped (play() says so), not an error.
+            backing: self.backing().map(|(path, _)| path).filter(|p| p.exists()),
         };
         let mut live = Live::start(arrangement, self.mode(), settings, options, &setup)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
@@ -456,6 +657,7 @@ impl Core {
         let silent = live.output_is_silent;
         self.live = Some(live);
         self.run_started = Some(std::time::Instant::now());
+        self.quantum_checked = false;
         Ok(silent)
     }
 
@@ -492,11 +694,33 @@ impl Core {
         if events.iter().any(|e| matches!(e, UiEvent::Finished { .. })) {
             self.record_run();
         }
+        if let Some(hint) = self.quantum_check() {
+            events.push(UiEvent::Message(hint));
+        }
         if let Some(result) = self.calibration.as_mut().and_then(LiveCalibration::poll) {
             self.calibration = None;
             events.push(self.calibrated(result));
         }
         events
+    }
+
+    /// LH-EIN-07: once per run, a second after the start, a hint if the audio server's block is
+    /// too long for the latency target.
+    fn quantum_check(&mut self) -> Option<String> {
+        if self.quantum_checked {
+            return None;
+        }
+        let started = self.run_started?;
+        if started.elapsed() < std::time::Duration::from_secs(1) {
+            return None;
+        }
+        self.quantum_checked = true;
+        let (frames, rate) = self.live.as_ref()?.input_block()?;
+        let ms = quantum_too_long_ms(frames, rate)?;
+        Some(self.tr(
+            "hint.quantum",
+            &[("frames", frames.to_string()), ("ms", format!("{ms:.0}"))],
+        ))
     }
 
     /// Starts "play on the click" (LH-EIN-05): 8 clicks from one second after the input starts.
@@ -564,6 +788,10 @@ impl Core {
         };
         let session = live.practice().session();
         let summary = session.summary();
+        if summary.judged == 0 {
+            self.run_started = None;
+            return;
+        }
         let practice_s = self
             .run_started
             .take()
@@ -621,7 +849,12 @@ impl Core {
                 rms_db: f64::from(rms_db),
                 clipped,
             }),
-            PracticeEvent::Tuner { note, cents } => Some(UiEvent::Tuner { note, cents }),
+            PracticeEvent::Tuner { note, cents } => Some(UiEvent::Tuner {
+                midi: kontra_model::Pitch::parse(&note)
+                    .map_or(0.0, |p| f64::from(p.0) + cents / 100.0),
+                note: self.note_label(&note),
+                cents,
+            }),
             // A device error usually means the interface was unplugged (LH-ALL-04): the run ends
             // and the next play opens the device again.
             PracticeEvent::Error(m) => Some(UiEvent::DeviceLost(
@@ -644,6 +877,11 @@ impl Core {
                     Outcome::Hit if offset < -window => "early",
                     Outcome::Hit if offset > window => "late",
                     Outcome::Hit => "hit",
+                    // In wait mode the note stays open: show what was played instead of marking it.
+                    Outcome::WrongPitch { played_midi } if self.settings.mode == "wait" => {
+                        let text = self.wait_text(index, Some(played_midi))?;
+                        return Some(UiEvent::Holding { index, text });
+                    }
                     Outcome::WrongPitch { .. } => "wrong",
                     Outcome::Missed => "missed",
                     Outcome::Extra { .. } => return Some(UiEvent::Extra),
@@ -656,19 +894,13 @@ impl Core {
                 })
             }
             SessionEvent::Holding { note } => {
-                let n = self.arrangement()?.notes.get(note)?;
-                let text = self.tr(
-                    "waiting.for",
-                    &[
-                        ("note", n.pitch.to_string()),
-                        ("string", n.string.map_or(0, |s| s + 1).to_string()),
-                        ("fret", n.fret.unwrap_or(0).to_string()),
-                    ],
-                );
+                let text = self.wait_text(note, None)?;
                 Some(UiEvent::Holding { index: note, text })
             }
             SessionEvent::Released => Some(UiEvent::Released),
-            SessionEvent::PassComplete { clean, .. } => Some(UiEvent::PassComplete { clean }),
+            SessionEvent::PassComplete {
+                clean, hit_rate, ..
+            } => Some(UiEvent::PassComplete { clean, hit_rate }),
             SessionEvent::SpeedChanged(s) => Some(UiEvent::SpeedChanged(s)),
             SessionEvent::Finished => {
                 let summary = self.live.as_ref()?.practice().session().summary();
@@ -759,9 +991,133 @@ impl Core {
 /// often a little shorter than written (staccato), and notation must not turn eighths into
 /// sixteenths.
 fn written_beats(duration_ticks: u64) -> f64 {
+    written_ticks(duration_ticks) as f64 / kontra_model::TICKS_PER_QUARTER as f64
+}
+
+/// Written length in ticks, rounded as `written_beats`.
+fn written_ticks(duration_ticks: u64) -> u64 {
     let sixteenth = kontra_model::TICKS_PER_QUARTER / 4;
-    let rounded = ((duration_ticks as f64 / sixteenth as f64).round() as u64).max(1) * sixteenth;
-    rounded as f64 / kontra_model::TICKS_PER_QUARTER as f64
+    ((duration_ticks as f64 / sixteenth as f64).round() as u64).max(1) * sixteenth
+}
+
+/// Bass is written an octave above its sound (bass clef, as in MuseScore and Guitar Pro):
+/// low B (B0, 6 ledger lines) reads as B1 (2 ledger lines). Only the staff is shifted; the
+/// importers already turned any written octave (<transpose>) into sounding pitch, and tab,
+/// scoring and tuner stay sounding.
+const WRITTEN_OCTAVE_UP: u8 = 12;
+
+fn empty_staff() -> serde_json::Value {
+    json!({ "notes": [], "rests": [], "keyFifths": 0 })
+}
+
+/// `staff_json` for an arrangement. The staff shows one key; it is the first bar's.
+fn staff(a: &Arrangement) -> serde_json::Value {
+    let notes: Vec<_> = a
+        .notes
+        .iter()
+        .zip(ties_forward(&a.notes))
+        .map(|(n, tied)| {
+            json!({
+                "time": a.tempo.seconds_at(n.start_ticks),
+                "beats": written_beats(n.duration_ticks),
+                "midi": n.pitch.0.saturating_add(WRITTEN_OCTAVE_UP),
+                "tied": tied,
+                "state": "pending",
+            })
+        })
+        .collect();
+    let quarter = kontra_model::TICKS_PER_QUARTER as f64;
+    let rests: Vec<_> = rests(a)
+        .into_iter()
+        .map(|(tick, ticks)| {
+            json!({ "time": a.tempo.seconds_at(tick), "beats": ticks as f64 / quarter })
+        })
+        .collect();
+    let key = a.bars.first().map_or(0, |b| b.key_fifths);
+    json!({ "notes": notes, "rests": rests, "keyFifths": key })
+}
+
+/// Kontra marks the note that continues a tie (`tied`: no new attack); Kante's staff marks
+/// the note tied to the next one. The last earlier note of the same pitch gets the tie.
+fn ties_forward(notes: &[kontra_model::Note]) -> Vec<bool> {
+    let mut out = vec![false; notes.len()];
+    for (index, note) in notes.iter().enumerate() {
+        if !note.tied {
+            continue;
+        }
+        let before = notes[..index].iter().rposition(|n| n.pitch == note.pitch);
+        if let Some(before) = before {
+            out[before] = true;
+        }
+    }
+    out
+}
+
+/// Rests as (start, length) in ticks: the gaps between written notes in each bar, on the
+/// sixteenth grid. A gap fills the bar → one bar rest; else it is split into values that
+/// start on their own beat, e.g. a gap from beat 2 to the end of 4/4 → quarter, half.
+fn rests(a: &Arrangement) -> Vec<(u64, u64)> {
+    let mut out = Vec::new();
+    let mut covered = 0u64;
+    let mut notes = a.notes.iter().peekable();
+    for bar in &a.bars {
+        let (start, end) = (bar.start_ticks, bar.end_ticks());
+
+        // Gaps between the notes starting in this bar; a note may reach into the next bar.
+        let mut gaps = Vec::new();
+        while let Some(note) = notes.next_if(|n| n.start_ticks < end) {
+            let from = covered.max(start);
+            if note.start_ticks > from {
+                gaps.push((from, note.start_ticks));
+            }
+            let written = note.start_ticks + written_ticks(note.duration_ticks);
+            covered = covered.max(note.end_ticks()).max(written);
+        }
+        if covered < end {
+            gaps.push((covered.max(start), end));
+        }
+
+        for (from, to) in gaps {
+            let (from, to) = (snap(from, start).min(end), snap(to, start).min(end));
+            if from == start && to == end {
+                out.push((start, end - start));
+                continue;
+            }
+            split_rest(start, from, to, &mut out);
+        }
+    }
+    out
+}
+
+/// `tick` on the sixteenth grid of the bar starting at `bar`.
+fn snap(tick: u64, bar: u64) -> u64 {
+    let sixteenth = kontra_model::TICKS_PER_QUARTER / 4;
+    let offset = tick.saturating_sub(bar);
+    bar + (offset + sixteenth / 2) / sixteenth * sixteenth
+}
+
+/// Rest values from whole to sixteenth, in ticks.
+const REST_TICKS: [u64; 5] = [
+    kontra_model::TICKS_PER_QUARTER * 4,
+    kontra_model::TICKS_PER_QUARTER * 2,
+    kontra_model::TICKS_PER_QUARTER,
+    kontra_model::TICKS_PER_QUARTER / 2,
+    kontra_model::TICKS_PER_QUARTER / 4,
+];
+
+/// Splits the rest `from..to` into the largest values that fit and start on a multiple
+/// of their own length within the bar.
+fn split_rest(bar: u64, from: u64, to: u64, out: &mut Vec<(u64, u64)>) {
+    let mut at = from;
+    while at < to {
+        let offset = at - bar;
+        let value = REST_TICKS
+            .into_iter()
+            .find(|v| *v <= to - at && offset.is_multiple_of(*v))
+            .unwrap_or(to - at);
+        out.push((at, value));
+        at += value;
+    }
 }
 
 fn instrument_from(settings: &Settings) -> kontra_model::Instrument {
@@ -777,6 +1133,13 @@ fn instrument_from(settings: &Settings) -> kontra_model::Instrument {
     };
     kontra_model::Instrument::new(kind, tuning, 24)
         .unwrap_or_else(|_| kontra_model::Instrument::default_bass())
+}
+
+/// Block length in ms if it is longer than 512 frames at 48 kHz (10.7 ms): beyond that the
+/// latency target (LH-NF-01) cannot be met.
+fn quantum_too_long_ms(frames: u32, rate: u32) -> Option<f64> {
+    let ms = f64::from(frames) / f64::from(rate.max(1)) * 1000.0;
+    (ms > 512.0 / 48.0 + 0.05).then_some(ms)
 }
 
 fn unix_now() -> u64 {
@@ -805,6 +1168,295 @@ mod tests {
         assert_eq!(written_beats(q / 2 - 40), 0.5);
         assert_eq!(written_beats(q), 1.0);
         assert_eq!(written_beats(10), 0.25);
+    }
+
+    const Q: u64 = kontra_model::TICKS_PER_QUARTER;
+
+    /// One bar of 4/4 or more, notes as (start, duration, MIDI) in ticks.
+    fn arrangement(notes: &[(u64, u64, u8)]) -> Arrangement {
+        let mut a = Arrangement::new("Staff", kontra_model::Instrument::default_bass());
+        for &(start, duration, midi) in notes {
+            a.notes.push(kontra_model::Note::new(
+                start,
+                duration,
+                kontra_model::Pitch(midi),
+            ));
+        }
+        a.normalize();
+        a
+    }
+
+    #[test]
+    fn staff_shows_the_key_of_the_first_bar() {
+        let mut a = arrangement(&[(0, 4 * Q, 34), (4 * Q, 4 * Q, 34)]);
+        a.bars[0].key_fifths = -2;
+        a.bars[1].key_fifths = 1;
+        assert_eq!(staff(&a)["keyFifths"], -2);
+    }
+
+    /// Rests as (start in quarters, length in quarters); 120 BPM: a quarter is 0.5 s.
+    fn rests_of(a: &Arrangement) -> Vec<(f64, f64)> {
+        let value = staff(a);
+        let rests = value["rests"].as_array().unwrap();
+        rests
+            .iter()
+            .map(|r| {
+                let time = r["time"].as_f64().unwrap();
+                (time * 2.0, r["beats"].as_f64().unwrap())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn staff_rests_fill_gaps_on_their_beat() {
+        // | q q q - | q - - - | (empty) | q |
+        let a = arrangement(&[
+            (0, Q, 28),
+            (Q, Q, 30),
+            (2 * Q, Q, 31),
+            (4 * Q, Q, 33),
+            (12 * Q, Q, 35),
+        ]);
+        assert_eq!(
+            rests_of(&a),
+            [
+                (3.0, 1.0),
+                (5.0, 1.0),
+                (6.0, 2.0),
+                (8.0, 4.0),
+                (13.0, 1.0),
+                (14.0, 2.0)
+            ]
+        );
+    }
+
+    #[test]
+    fn staff_rests_ignore_short_played_notes_and_triplets() {
+        // Staccato eighths (played 400 of 480 ticks), quarter triplets, a rest on beat 4.
+        let t = Q * 2 / 3;
+        let a = arrangement(&[
+            (0, 400, 28),
+            (Q / 2, 400, 30),
+            (Q, t, 31),
+            (Q + t, t, 33),
+            (Q + 2 * t, t, 35),
+        ]);
+        assert_eq!(rests_of(&a), [(3.0, 1.0)]);
+    }
+
+    #[test]
+    fn staff_ties_start_at_the_note_before_the_continuation() {
+        // G1 on beat 4 tied over the bar line; Kontra marks the second G1, Kante the first.
+        let mut a = arrangement(&[(0, 3 * Q, 28), (3 * Q, Q, 31), (4 * Q, Q, 31)]);
+        a.notes[2].tied = true;
+        let value = staff(&a);
+        let ties: Vec<bool> = value["notes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n["tied"].as_bool().unwrap())
+            .collect();
+        assert_eq!(ties, [false, true, false]);
+    }
+
+    #[test]
+    fn staff_writes_bass_an_octave_up() {
+        // B0 (MIDI 23) is written as B1 (35).
+        let a = arrangement(&[(0, 4 * Q, 23)]);
+        assert_eq!(staff(&a)["notes"][0]["midi"], 35);
+    }
+
+    #[test]
+    fn note_names_follow_the_language() {
+        let dir = temp_dir("names");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        assert_eq!(core.note_label("B1"), "H1");
+        assert_eq!(core.note_label("A#1"), "A#1");
+        assert_eq!(core.note_label("E2"), "E2");
+        core.update_settings(|s| s.language = Some("en".into()));
+        assert_eq!(core.note_label("B1"), "B1");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Wait mode (J-B2): the string by its name, not a number counted from the low string, and
+    /// after a wrong note what was played.
+    #[test]
+    fn wait_text_names_string_and_played_note() {
+        let dir = temp_dir("wait");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&demo()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let (index, n) = a
+            .notes
+            .iter()
+            .enumerate()
+            .find(|(_, n)| n.string.is_some())
+            .unwrap();
+        let open = a.instrument.tuning.strings[usize::from(n.string.unwrap())]
+            .name()
+            .to_string();
+        let text = core.wait_text(index, None).unwrap();
+        assert!(text.contains(&format!("{open}-Saite")), "{text}");
+        let played = f64::from(n.pitch.0) + 1.0;
+        let text = core.wait_text(index, Some(played)).unwrap();
+        let played_name = core.note_label(&kontra_model::Pitch(n.pitch.0 + 1).to_string());
+        assert!(text.contains(&played_name), "{text}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA P3 (F13): a file without tuning (MIDI, MusicXML) takes the instrument profile; it used
+    /// to fall back to four strings and overwrite a five-string profile.
+    #[test]
+    fn file_without_tuning_uses_the_profile() {
+        let dir = temp_dir("profile");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.reconfigure(|s| s.strings = 5);
+        core.open(&demo()).unwrap();
+        let names: Vec<String> = serde_json::from_str(&core.string_names_json()).unwrap();
+        assert_eq!(names.len(), 5, "{names:?}");
+        let a = core.arrangement().unwrap();
+        assert!(a.notes.iter().all(|n| n.string.is_some_and(|s| s < 5)));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA P2 (F9): a backing file that is gone must not stop the piece; it plays without, and
+    /// says so in the user's language.
+    #[test]
+    fn missing_backing_plays_without_it() {
+        let dir = temp_dir("backing");
+        let take = dir.join("take.wav");
+        std::fs::create_dir_all(&dir).unwrap();
+        kontra_session::write_mono_wav(&take, &vec![0.0; 48_000], 48_000).unwrap();
+        let mut core = Core::new(
+            &dir,
+            QaOptions {
+                input_file: Some(take),
+                laptop_jack: false,
+            },
+        );
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&demo()).unwrap();
+        core.set_backing(Some(dir.join("weg.wav")), 0.0);
+        let events = core.play();
+        assert!(
+            !events.iter().any(|e| matches!(e, UiEvent::Error(_))),
+            "{events:?}"
+        );
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, UiEvent::Message(m) if m.contains("weg.wav"))),
+            "{events:?}"
+        );
+        core.stop_live();
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA P2 (R1): a broken file gets a German reason in German, not "unknown file format".
+    #[test]
+    fn import_errors_are_translated() {
+        let dir = temp_dir("broken");
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("kaputt.gp5");
+        std::fs::write(&file, b"FICHIER GUITAR PRO v5.00 but cut off").unwrap();
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        let err = core.open(&file).unwrap_err();
+        assert!(
+            err.starts_with("Die Datei lässt sich nicht öffnen"),
+            "{err}"
+        );
+        assert!(!err.contains("format") && !err.contains("file"), "{err}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-ANZ-04, QA P2 (R7): each piece keeps its own view.
+    #[test]
+    fn view_is_remembered_per_piece() {
+        let dir = temp_dir("view");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        core.set_view("tab");
+        core.update_settings(|s| s.view = "lane".into());
+        let mut again = Core::new(&dir, QaOptions::default());
+        again.open(&demo()).unwrap();
+        assert_eq!(again.view(), "tab");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-EIN-07: quantum 2048 at 48 kHz gives the hint, 256 and 512 do not.
+    #[test]
+    fn long_quantum_is_reported() {
+        assert!(quantum_too_long_ms(256, 48_000).is_none());
+        assert!(quantum_too_long_ms(512, 48_000).is_none());
+        let ms = quantum_too_long_ms(2048, 48_000).unwrap();
+        assert!((ms - 42.7).abs() < 0.1, "{ms}");
+        assert!(quantum_too_long_ms(1024, 44_100).is_some());
+    }
+
+    /// QA P3 (F6): window and pitch limit are the user's choice; "auto" keeps the defaults.
+    #[test]
+    fn scoring_follows_the_settings() {
+        let dir = temp_dir("scoring");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let auto = core.score_settings(BassKind::Fretless);
+        assert_eq!(auto.pitch_cents, 30.0);
+        assert_eq!(auto.strictness.window_ms(), 60.0);
+        core.reconfigure(|s| {
+            s.strictness = "strict".into();
+            s.pitch_cents = 20.0;
+        });
+        let chosen = core.score_settings(BassKind::Fretless);
+        assert_eq!(chosen.strictness.window_ms(), 25.0);
+        assert_eq!(chosen.pitch_cents, 20.0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-TUN-03: guided tuning walks the profile's strings, lowest first.
+    #[test]
+    fn tuning_lists_the_profile_strings() {
+        let dir = temp_dir("tuning");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.reconfigure(|s| s.strings = 5);
+        let strings: serde_json::Value = serde_json::from_str(&core.tuning_json()).unwrap();
+        let names: Vec<&str> = strings
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(names, ["H", "E", "A", "D", "G"]);
+        assert_eq!(strings[0]["midi"], 23);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-FOR-01 / J-C1: recorded runs show up per piece and with their time for the day view.
+    #[test]
+    fn progress_lists_pieces_and_runs() {
+        let dir = temp_dir("progress");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        for (unix, rate) in [(1_000, 0.7), (90_000, 0.92)] {
+            let run = kontra_session::Run {
+                finished_unix: unix,
+                practice_s: 600.0,
+                speed: 0.8,
+                hit_rate: rate,
+                mode: "song".into(),
+                section: None,
+            };
+            core.progress_store().record(&a, run).unwrap();
+        }
+        let p: serde_json::Value = serde_json::from_str(&core.progress_json()).unwrap();
+        assert_eq!(p["pieces"][0]["title"], "Etude 1");
+        assert_eq!(p["pieces"][0]["best"], 0.92);
+        assert_eq!(p["pieces"][0]["practiceMin"], 20.0);
+        assert_eq!(p["runs"].as_array().unwrap().len(), 2);
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

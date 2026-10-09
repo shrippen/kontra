@@ -21,12 +21,17 @@ pub mod qobject {
         #[qproperty(QString, artist)]
         #[qproperty(QString, notes_json, cxx_name = "notesJson")]
         #[qproperty(QString, bars_json, cxx_name = "barsJson")]
+        #[qproperty(QString, staff_json, cxx_name = "staffJson")]
         #[qproperty(QString, string_names_json, cxx_name = "stringNamesJson")]
         #[qproperty(f64, duration)]
         #[qproperty(f64, position)]
         #[qproperty(bool, playing)]
         #[qproperty(f64, speed)]
         #[qproperty(f64, loop_start, cxx_name = "loopStart")]
+        #[qproperty(f64, pass_rate, cxx_name = "passRate")]
+        #[qproperty(i32, passes, cxx_name = "passes")]
+        #[qproperty(f64, band_low, cxx_name = "bandLow")]
+        #[qproperty(f64, band_high, cxx_name = "bandHigh")]
         #[qproperty(f64, loop_end, cxx_name = "loopEnd")]
         #[qproperty(QString, mode)]
         #[qproperty(QString, view)]
@@ -36,6 +41,9 @@ pub mod qobject {
         #[qproperty(f64, rms_db, cxx_name = "rmsDb")]
         #[qproperty(bool, clipped)]
         #[qproperty(QString, tuner_note, cxx_name = "tunerNote")]
+        #[qproperty(f64, tuner_midi, cxx_name = "tunerMidi")]
+        /// Open strings for guided tuning: `[{"name", "midi"}]`, lowest first.
+        #[qproperty(QString, tuning_json, cxx_name = "tuningJson")]
         #[qproperty(f64, tuner_cents, cxx_name = "tunerCents")]
         #[qproperty(bool, tuner_active, cxx_name = "tunerActive")]
         #[qproperty(i32, holding_index, cxx_name = "holdingIndex")]
@@ -55,6 +63,8 @@ pub mod qobject {
         #[qproperty(bool, reference)]
         #[qproperty(bool, low_string_on_top, cxx_name = "lowStringOnTop")]
         #[qproperty(QString, play_marks, cxx_name = "playMarks")]
+        #[qproperty(QString, strictness)]
+        #[qproperty(f64, pitch_cents, cxx_name = "pitchCents")]
         #[qproperty(f64, latency_ms, cxx_name = "latencyMs")]
         #[qproperty(bool, calibrating)]
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
@@ -65,6 +75,8 @@ pub mod qobject {
         #[qproperty(bool, setup_done, cxx_name = "setupDone")]
         #[qproperty(bool, autoplay)]
         #[qproperty(bool, autocalibrate)]
+        /// QA: bars to loop at start, 1-based "from-to" ("" = none).
+        #[qproperty(QString, start_loop, cxx_name = "startLoop")]
         #[qproperty(QString, screenshot_path, cxx_name = "screenshotPath")]
         #[qproperty(i32, screenshot_after, cxx_name = "screenshotAfter")]
         #[qproperty(i32, quit_after, cxx_name = "quitAfter")]
@@ -155,6 +167,16 @@ pub mod qobject {
             low_string_on_top: bool,
         );
 
+        /// Progress over all pieces as JSON (LH-FOR-01), read when the page opens.
+        #[qinvokable]
+        #[cxx_name = "progressJson"]
+        fn progress_json(self: &Self) -> QString;
+
+        /// Timing window ("auto", "loose", "normal", "strict") and pitch limit (0 = auto).
+        #[qinvokable]
+        #[cxx_name = "changeScoring"]
+        fn change_scoring(self: Pin<&mut Self>, strictness: &QString, pitch_cents: f64);
+
         /// Note marks in play mode: "quiet", "off" or "full".
         #[qinvokable]
         #[cxx_name = "changePlayMarks"]
@@ -208,7 +230,7 @@ pub mod qobject {
 
         #[qsignal]
         #[cxx_name = "passComplete"]
-        fn pass_complete(self: Pin<&mut Self>, clean: bool);
+        fn pass_complete(self: Pin<&mut Self>, clean: bool, hit_rate: f64);
 
         #[qsignal]
         fn finished(self: Pin<&mut Self>);
@@ -234,12 +256,19 @@ pub struct ControllerRust {
     artist: QString,
     notes_json: QString,
     bars_json: QString,
+    staff_json: QString,
     string_names_json: QString,
     duration: f64,
     position: f64,
     playing: bool,
     speed: f64,
     loop_start: f64,
+    /// Hit rate of the last loop pass (-1: none yet).
+    pass_rate: f64,
+    /// Loop passes completed since the loop or mode was set.
+    passes: i32,
+    band_low: f64,
+    band_high: f64,
     loop_end: f64,
     mode: QString,
     view: QString,
@@ -249,6 +278,8 @@ pub struct ControllerRust {
     rms_db: f64,
     clipped: bool,
     tuner_note: QString,
+    tuner_midi: f64,
+    tuning_json: QString,
     tuner_cents: f64,
     tuner_active: bool,
     holding_index: i32,
@@ -268,6 +299,8 @@ pub struct ControllerRust {
     reference: bool,
     low_string_on_top: bool,
     play_marks: QString,
+    strictness: QString,
+    pitch_cents: f64,
     latency_ms: f64,
     calibrating: bool,
     calibration_text: QString,
@@ -278,6 +311,7 @@ pub struct ControllerRust {
     setup_done: bool,
     autoplay: bool,
     autocalibrate: bool,
+    start_loop: QString,
     screenshot_path: QString,
     screenshot_after: i32,
     quit_after: i32,
@@ -316,12 +350,17 @@ impl Default for ControllerRust {
             artist: QString::default(),
             notes_json: q("[]"),
             bars_json: q("[]"),
+            staff_json: q(&core.staff_json()),
             string_names_json: q("[]"),
             duration: 0.0,
             position: 0.0,
             playing: false,
             speed: 1.0,
             loop_start: -1.0,
+            pass_rate: -1.0,
+            passes: 0,
+            band_low: kontra_appcore::Core::workshop_band().0,
+            band_high: kontra_appcore::Core::workshop_band().1,
             loop_end: -1.0,
             mode: q(&s.mode),
             view: q(&s.view),
@@ -331,6 +370,8 @@ impl Default for ControllerRust {
             rms_db: -120.0,
             clipped: false,
             tuner_note: QString::default(),
+            tuner_midi: 0.0,
+            tuning_json: q(&core.tuning_json()),
             tuner_cents: 0.0,
             tuner_active: false,
             holding_index: -1,
@@ -350,6 +391,8 @@ impl Default for ControllerRust {
             reference: s.reference_tones,
             low_string_on_top: s.low_string_on_top,
             play_marks: q(&s.play_marks),
+            strictness: q(&s.strictness),
+            pitch_cents: s.pitch_cents,
             latency_ms: s.latency_ms,
             calibrating: false,
             calibration_text: QString::default(),
@@ -360,6 +403,10 @@ impl Default for ControllerRust {
             setup_done: s.setup_done,
             autoplay: args.autoplay,
             autocalibrate: args.calibrate,
+            start_loop: q(&args
+                .loop_bars
+                .map(|(a, b)| format!("{a}-{b}"))
+                .unwrap_or_default()),
             screenshot_path: q(&args
                 .screenshot
                 .as_ref()
@@ -371,6 +418,11 @@ impl Default for ControllerRust {
         };
         if let Some(path) = args.open {
             controller.open_now(&path);
+            // An explicit --view wins over the view remembered for the piece (QA runs).
+            if let Some(view) = &args.view {
+                controller.core.set_view(view);
+                controller.view = q(view);
+            }
         }
         controller
     }
@@ -392,10 +444,15 @@ impl ControllerRust {
                     .map_or(String::new(), |a| a.artist.clone()));
                 self.notes_json = q(&self.core.notes_json());
                 self.bars_json = q(&self.core.bars_json());
+                self.staff_json = q(&self.core.staff_json());
                 self.string_names_json = q(&self.core.string_names_json());
                 self.duration = self.core.duration_s();
                 self.recent_json = q(&self.core.recent_json());
                 self.backing_name = q(&self.core.backing_name());
+                self.view = q(&self.core.view());
+                if let Some(notice) = self.core.take_notice() {
+                    self.message = q(&notice);
+                }
             }
             Ok(Opened::ChooseTrack(names)) => {
                 self.track_choices_json = q(&serde_json::to_string(&names).unwrap_or_default());
@@ -442,15 +499,19 @@ impl qobject::Controller {
             });
         let notes = core.notes_json();
         let bars = core.bars_json();
+        let staff = core.staff_json();
         let names = core.string_names_json();
         let duration = core.duration_s();
         let recent = core.recent_json();
         let loaded = core.arrangement().is_some();
         let backing = core.backing_name();
+        let view = core.view();
+        self.as_mut().set_view(q(&view));
         self.as_mut().set_title(q(&title));
         self.as_mut().set_artist(q(&artist));
         self.as_mut().set_notes_json(q(&notes));
         self.as_mut().set_bars_json(q(&bars));
+        self.as_mut().set_staff_json(q(&staff));
         self.as_mut().set_string_names_json(q(&names));
         self.as_mut().set_duration(duration);
         self.as_mut().set_recent_json(q(&recent));
@@ -472,6 +533,9 @@ impl qobject::Controller {
             Ok(Opened::Ready) => {
                 self.as_mut().set_track_choices_json(q("[]"));
                 self.as_mut().refresh_arrangement();
+                if let Some(notice) = self.as_mut().core().take_notice() {
+                    self.as_mut().set_message(q(&notice));
+                }
                 true
             }
             Ok(Opened::ChooseTrack(names)) => {
@@ -495,6 +559,9 @@ impl qobject::Controller {
         match result {
             Ok(()) => {
                 self.as_mut().refresh_arrangement();
+                if let Some(notice) = self.as_mut().core().take_notice() {
+                    self.as_mut().set_message(q(&notice));
+                }
                 true
             }
             Err(e) => {
@@ -546,14 +613,13 @@ impl qobject::Controller {
         let mode = mode.to_string();
         self.as_mut().core().set_mode(&mode);
         self.as_mut().set_mode(q(&mode));
+        self.as_mut().reset_passes();
         self.as_mut().rewind();
     }
 
     fn change_view(mut self: Pin<&mut Self>, view: &QString) {
         let view = view.to_string();
-        self.as_mut()
-            .core()
-            .update_settings(|s| s.view = view.clone());
+        self.as_mut().core().set_view(&view);
         self.as_mut().set_view(q(&view));
     }
 
@@ -579,12 +645,19 @@ impl qobject::Controller {
         let from = usize::try_from(from).unwrap_or(0);
         let to = usize::try_from(to).unwrap_or(0);
         self.as_mut().core().set_loop(from, to);
+        self.as_mut().reset_passes();
         let (start, end) = self.as_ref().rust().core.loop_seconds();
         self.as_mut().set_loop_start(start);
         self.as_mut().set_loop_end(end);
     }
 
+    fn reset_passes(mut self: Pin<&mut Self>) {
+        self.as_mut().set_passes(0);
+        self.as_mut().set_pass_rate(-1.0);
+    }
+
     fn clear_loop(mut self: Pin<&mut Self>) {
+        self.as_mut().reset_passes();
         self.as_mut().core().clear_loop();
         self.as_mut().set_loop_start(-1.0);
         self.as_mut().set_loop_end(-1.0);
@@ -629,7 +702,12 @@ impl qobject::Controller {
                     self.as_mut().set_holding_text(q(&text));
                 }
                 UiEvent::Released => self.as_mut().set_holding_index(-1),
-                UiEvent::PassComplete { clean } => self.as_mut().pass_complete(clean),
+                UiEvent::PassComplete { clean, hit_rate } => {
+                    let passes = *self.as_ref().passes() + 1;
+                    self.as_mut().set_passes(passes);
+                    self.as_mut().set_pass_rate(hit_rate);
+                    self.as_mut().pass_complete(clean, hit_rate);
+                }
                 UiEvent::SpeedChanged(speed) => self.as_mut().set_speed(speed),
                 UiEvent::Finished { summary_json } => {
                     self.as_mut().set_summary_json(q(&summary_json));
@@ -645,9 +723,10 @@ impl qobject::Controller {
                     self.as_mut().set_rms_db(rms_db);
                     self.as_mut().set_clipped(clipped);
                 }
-                UiEvent::Tuner { note, cents } => {
+                UiEvent::Tuner { note, cents, midi } => {
                     self.as_mut().set_tuner_note(q(&note));
                     self.as_mut().set_tuner_cents(cents);
+                    self.as_mut().set_tuner_midi(midi);
                 }
                 UiEvent::Message(text) => self.as_mut().set_message(q(&text)),
                 UiEvent::Error(text) => self.as_mut().show_error(&text),
@@ -669,6 +748,8 @@ impl qobject::Controller {
 
     fn start_tuner(mut self: Pin<&mut Self>) {
         self.as_mut().set_playing(false);
+        let tuning = self.as_ref().rust().core.tuning_json();
+        self.as_mut().set_tuning_json(q(&tuning));
         match self.as_mut().core().start_tuner() {
             Ok(()) => self.as_mut().set_tuner_active(true),
             Err(e) => self.as_mut().show_error(&e),
@@ -740,6 +821,26 @@ impl qobject::Controller {
         self.as_mut().set_metronome(metronome);
         self.as_mut().set_reference(reference);
         self.as_mut().set_low_string_on_top(low_string_on_top);
+        self.as_mut().set_playing(false);
+    }
+
+    fn progress_json(&self) -> QString {
+        q(&self.rust().core.progress_json())
+    }
+
+    fn change_scoring(mut self: Pin<&mut Self>, strictness: &QString, pitch_cents: f64) {
+        let strictness = strictness.to_string();
+        if !["auto", "loose", "normal", "strict"].contains(&strictness.as_str()) {
+            return;
+        }
+        let cents = pitch_cents.clamp(0.0, 100.0);
+        let value = q(&strictness);
+        self.as_mut().core().reconfigure(|s| {
+            s.strictness = strictness;
+            s.pitch_cents = cents;
+        });
+        self.as_mut().set_strictness(value);
+        self.as_mut().set_pitch_cents(cents);
         self.as_mut().set_playing(false);
     }
 

@@ -95,7 +95,10 @@ den Bass als eigenes Instrument mit Groove-Fokus behandelt und nativ unter Linux
 1. **Zwei Wege, ein Programm.** Wer lernen will, bekommt Übungen, Bewertung und Fortschritt.
    Wer nur spielen will, wählt ein Lied und spielt los: ohne Punkte, ohne Anhalten, ohne Lektion davor.
 2. **Instrument zuerst.** Bass anstecken, Stück wählen, spielen: in unter 60 Sekunden vom Start zum ersten Ton.
-3. **Timing ist so wichtig wie Tonhöhe.** Jede Rückmeldung zeigt beides: richtig/falsch *und* früh/spät in Millisekunden.
+3. **Timing ist so wichtig wie Tonhöhe.** Kontra misst beides: richtig/falsch *und* früh/spät in Millisekunden. Während des
+   Spielens zeigt es dosiert (Zustand als Zeichen, Lage zum Beat als Richtung), Millisekunden, Streuung und Tendenz
+   ausführlich danach in der Auswertung; Werkstatt und Warten-Modus dürfen beim Üben mehr zeigen (Runde 5, nach
+   DIDAKTIK.md These 2: dauernde Echtzeit-Urteile helfen beim Üben, schaden aber dem Behalten).
 4. **Offene Inhalte statt Katalog.** Kontra bringt keine lizenzierten Songs mit; es liest, was der Nutzer hat.
 5. **Lernen, nicht nur Nachspielen.** Neben dem Song-Modus gibt es Module, die Griffbrett, Theorie und Gehör trainieren.
 6. **Lokal und privat.** Kein Konto, keine Telemetrie; Fortschritt liegt als Datei beim Nutzer.
@@ -107,7 +110,7 @@ den Bass als eigenes Instrument mit Groove-Fokus behandelt und nativ unter Linux
 | **Spielen** | Jam-Modus | Lied läuft durch, Noten laufen mit, nichts hält an, keine Punkte (Treffer nur dezent markiert). Mixer für eigenes Instrument, Backing Track und Metronom. Der schnellste Weg vom Start zum Mitspielen. |
 | **Song** | Rocksmith | Stück läuft mit Backing Track, Noten laufen mit, Treffer werden bewertet. Adaptive Schwierigkeit optional. |
 | **Warten** | Synthesia | Stück hält an, bis der richtige Ton kommt. Für Anfänger und zum Erarbeiten neuer Stellen. |
-| **Riff-Werkstatt** | Riff Repeater | Abschnitt markieren, Tempo 25 bis 150 %, automatisch steigern („+5 % nach 3 fehlerfreien Durchläufen“), Schwierigkeit fixieren. |
+| **Riff-Werkstatt** | Riff Repeater | Abschnitt markieren, Tempo 25 bis 150 %, Tempo hält die Trefferquote im Zielband 80–90 % (Runde 5), Schwierigkeit fixieren. |
 | **Groove** | neu | Metronom- und Drum-Patterns, Aufgaben wie „Achtel auf 92 BPM, nur Zählzeit 2 und 4 betont“, Auswertung als Timing-Streuung (Histogramm). Ghost Notes, Pausen, Shuffle. |
 | **Griffbrett** | neu | Töne finden („Zeig mir alle C“), Intervalle, Tonleitern und Arpeggien in Lagen, Quiz mit dem echten Instrument. |
 | **Gehör** | neu | Ton oder Linie hören, nachspielen; Intervalle; Grundton zu einem Akkord finden. |

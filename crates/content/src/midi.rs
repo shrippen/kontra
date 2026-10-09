@@ -2,7 +2,7 @@
 //! ticks are rescaled to 960 per quarter, bars come from the time signature events.
 
 use crate::error::ImportError;
-use crate::score::{BarHead, Part, RawNote, Score, DEFAULT_BPM};
+use crate::score::{self, BarHead, Part, RawNote, Score, DEFAULT_BPM};
 use crate::unroll::MAX_BARS;
 use kontra_model::{Pitch, TimeSignature, TICKS_PER_QUARTER};
 use midly::{MetaMessage, MidiMessage, Smf, Timing, TrackEventKind};
@@ -53,6 +53,7 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
 
     let mut tempos: Vec<(u64, f64)> = Vec::new();
     let mut signatures: Vec<(u64, TimeSignature)> = Vec::new();
+    let mut keys: Vec<(u64, i8)> = Vec::new();
     let mut tracks = Vec::new();
     for events in &smf.tracks {
         let mut track = TrackData::default();
@@ -67,6 +68,9 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
                     midi_event(&mut track, &mut open, channel, message, at);
                 }
                 TrackEventKind::Meta(meta) => {
+                    if let MetaMessage::KeySignature(fifths, _) = meta {
+                        keys.extend(score::key(i32::from(fifths)).map(|k| (at, k)));
+                    }
                     meta_event(&mut track, &mut tempos, &mut signatures, meta, at);
                 }
                 _ => {}
@@ -89,11 +93,12 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
 
     let mut score = Score::new();
     // Type 1 files name the song in the first track, which holds only tempo and meta events.
-    if let Some(first) = tracks
+    if let Some(title) = tracks
         .first()
-        .filter(|t| t.notes.is_empty() && !t.name.is_empty())
+        .filter(|t| t.notes.is_empty())
+        .and_then(|t| song_title(&t.name))
     {
-        score.title = first.name.clone();
+        score.title = title;
     }
     let end = tracks
         .iter()
@@ -103,6 +108,7 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
         .unwrap_or(0);
     let starts = bars(&mut score, &signatures, end)?;
     place_tempos(&mut score, &starts, &tempos);
+    place_keys(&mut score, &starts, &keys);
     parts(&mut score, &starts, &tracks);
     Ok(score)
 }
@@ -200,6 +206,18 @@ fn bars(
     }
 }
 
+/// Key signature events (FF 59) apply to the bar they fall in.
+fn place_keys(score: &mut Score, starts: &[u64], keys: &[(u64, i8)]) {
+    let mut keys = keys.to_vec();
+    keys.sort_by_key(|k| k.0);
+    for (tick, fifths) in keys {
+        let (bar, _) = locate(starts, tick);
+        if let Some(head) = score.bars.get_mut(bar) {
+            head.key = Some(fifths);
+        }
+    }
+}
+
 /// Bar index and offset of `tick`.
 fn locate(starts: &[u64], tick: u64) -> (usize, u64) {
     let bar = starts.partition_point(|s| *s <= tick).saturating_sub(1);
@@ -257,9 +275,36 @@ fn parts(score: &mut Score, starts: &[u64], tracks: &[TrackData]) {
     }
 }
 
+/// The first track's name as song title, unless it is a sequencer's generic name for the tempo
+/// track (QA P2: a song was called "Tempo"); then the app falls back to the file name.
+fn song_title(name: &str) -> Option<String> {
+    const GENERIC: [&str; 6] = [
+        "tempo",
+        "tempo track",
+        "conductor",
+        "untitled",
+        "track 1",
+        "meta",
+    ];
+    let name = name.trim();
+    let generic = GENERIC.iter().any(|g| name.eq_ignore_ascii_case(g));
+    (!name.is_empty() && !generic).then(|| name.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn generic_tempo_track_names_are_no_title() {
+        assert_eq!(song_title("Tempo"), None);
+        assert_eq!(song_title(" Conductor "), None);
+        assert_eq!(song_title(""), None);
+        assert_eq!(
+            song_title("Seven Nation Army"),
+            Some("Seven Nation Army".into())
+        );
+    }
 
     #[test]
     fn locates_ticks() {

@@ -19,6 +19,8 @@
       <li>Offline, no account, no telemetry</li>
     </ul>
   </description>
+  <url type="homepage">https://git.arianw.de/shrippen/Kontra</url>
+  <url type="bugtracker">https://git.arianw.de/shrippen/Kontra/issues</url>
   <launchable type="desktop-id">org.shrippen.Kontra.desktop</launchable>
   <content_rating type="oars-1.1"/>
   <requires>

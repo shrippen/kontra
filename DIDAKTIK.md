@@ -209,6 +209,8 @@ Aufwand: S = Tage, M = ein bis zwei Wochen, L = mehr. Schätzungen ohne Code-Ana
 
 ### I7 Zielband statt „3 fehlerfrei“ (adaptives Tempo)
 
+*Umgesetzt (Runde 5): Werkstatt hält 80–90 % Treffer, zwei Durchläufe darüber +5 %, zwei darunter −5 %.*
+
 - **Beschreibung:** Werkstatt hält die Trefferquote in einem Band (Startwert 80 bis 90 %): darüber Tempo +5 %, darunter −5 %. Änderungen nur zwischen Durchläufen und mit Ansage („Tempo jetzt 75 %“). Am Ende ein Durchlauf im Zieltempo.
 - **These/Quelle:** These 5; Challenge Point (Guadagnoli & Lee 2004); 85-%-Regel (Wilson et al. 2019, nur Modelle); Kritik an Rocksmiths Automatik mitten im Lied; Yousician „Auto-adjust speed“.
 - **Personas:** P2, P3, P1.

@@ -64,6 +64,8 @@ pub struct GpBar {
     /// Total plays; 0 = no repeat close.
     pub repeat_plays: i8,
     pub marker: Option<String>,
+    /// Key change at this bar (fifths).
+    pub key: Option<i8>,
     pub beats: Vec<GpBeat>,
 }
 
@@ -79,6 +81,8 @@ pub struct GpTrack {
 pub struct GpSong {
     pub title: String,
     pub tempo: i32,
+    /// Song key (fifths), used until a bar changes it.
+    pub key: i8,
     /// GP5 direction slots (coda, double coda, segno, ..., da double coda): bar number
     /// (1-based) or -1.
     pub directions: [i16; 19],
@@ -139,7 +143,8 @@ pub fn gp5(song: &GpSong) -> Vec<u8> {
     o.int_byte_string("Moderate");
     o.i32(song.tempo);
     o.u8(0); // hide tempo
-    o.i32(0); // key
+    o.i8(song.key);
+    o.zeros(3); // key padding
     o.u8(0); // octave
     for channel in 0..64 {
         let program = song
@@ -175,6 +180,9 @@ pub fn gp5(song: &GpSong) -> Vec<u8> {
         if head.marker.is_some() {
             flags |= 0x20;
         }
+        if head.key.is_some() {
+            flags |= 0x40;
+        }
         o.u8(flags);
         if i == 0 {
             o.i8(4);
@@ -186,6 +194,10 @@ pub fn gp5(song: &GpSong) -> Vec<u8> {
         if let Some(marker) = &head.marker {
             o.int_byte_string(marker);
             o.zeros(4);
+        }
+        if let Some(key) = head.key {
+            o.i8(key);
+            o.i8(0); // major
         }
         if flags & 0x03 != 0 {
             o.zeros(4); // beams
@@ -325,6 +337,7 @@ pub fn bass_song() -> GpSong {
     GpSong {
         title: "Fixture".to_string(),
         tempo: 120,
+        key: 0,
         directions: [-1; 19],
         heads: vec![
             GpBar {
@@ -374,6 +387,7 @@ pub fn directions_song() -> GpSong {
     GpSong {
         title: "Directions".to_string(),
         tempo: 100,
+        key: 0,
         directions,
         heads,
         tracks: vec![GpTrack {

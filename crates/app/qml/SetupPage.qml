@@ -55,6 +55,7 @@ Kirigami.ScrollablePage {
                 Layout.fillWidth: true
                 title: texts.t("settings.strings")
                 KanteSegmented {
+                    Accessible.name: texts.t("settings.strings")
                     model: ["4", "5", "6"]
                     currentIndex: ctl.strings - 4
                     onActivated: function(index) { ctl.changeInstrument(index + 4, ctl.fretless, ctl.laptopJack) }
@@ -64,6 +65,7 @@ Kirigami.ScrollablePage {
                 Layout.fillWidth: true
                 title: texts.t("settings.fretless")
                 QQC2.Switch {
+                    Accessible.name: texts.t("settings.fretless")
                     checked: ctl.fretless
                     onToggled: ctl.changeInstrument(ctl.strings, checked, ctl.laptopJack)
                 }
@@ -75,6 +77,7 @@ Kirigami.ScrollablePage {
             visible: page.steps[page.step] === "connection"
             Layout.fillWidth: true
             KanteSegmented {
+                Accessible.name: texts.t("settings.connection")
                 model: [texts.t("settings.source.line"), texts.t("settings.source.laptop")]
                 currentIndex: ctl.laptopJack ? 1 : 0
                 onActivated: function(index) { ctl.changeInstrument(ctl.strings, ctl.fretless, index === 1) }
@@ -86,12 +89,20 @@ Kirigami.ScrollablePage {
                 text: texts.t("hint.laptop")
                 autoHide: false
             }
+            KanteCallout {
+                Layout.fillWidth: true
+                kind: KanteCallout.Kind.Info
+                autoHide: false
+                text: texts.t("settings.later")
+            }
             KanteSettingRow {
                 Layout.fillWidth: true
                 title: texts.t("settings.input")
                 QQC2.ComboBox {
+                    Accessible.name: texts.t("settings.input")
                     Layout.fillWidth: true
-                    model: ["—"].concat(page.inputs.map(function(d) { return d.name }))
+                    Layout.preferredWidth: KanteStyle.unit(280)
+                    model: [texts.t("settings.device.default")].concat(page.inputs.map(function(d) { return d.name }))
                     onActivated: function(index) { ctl.chooseInput(index === 0 ? "" : page.inputs[index - 1].id) }
                 }
             }
@@ -114,12 +125,13 @@ Kirigami.ScrollablePage {
                 clipText: texts.t("level.clip")
                 accessibleName: texts.t("level.name")
             }
-            QQC2.Label {
+            LevelAdvice {
                 Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                visible: meter.zone !== "good" && ctl.tunerNote !== ""
-                text: texts.t("level." + meter.zone + ".hint")
-                color: KanteStyle.mutedTextColor
+                peakDb: ctl.peakDb
+                clipped: ctl.clipped
+                listening: page.steps[page.step] === "level"
+                laptopJack: ctl.laptopJack
+                onUseLaptopJack: ctl.changeInstrument(ctl.strings, ctl.fretless, true)
             }
             KanteTunerGauge {
                 Layout.fillWidth: true

@@ -177,6 +177,11 @@ impl ImportResult {
         self.suggested
     }
 
+    /// Whether `track` brings its own tuning; without one the app may use the player's instrument.
+    pub fn has_tuning(&self, track: usize) -> bool {
+        self.score.parts.get(track).is_some_and(build::has_tuning)
+    }
+
     /// Linear arrangement of `track` with repeats unrolled and tab filled in.
     pub fn arrangement(&self, track: usize) -> Result<Arrangement, ImportError> {
         build::arrangement(&self.score, track)

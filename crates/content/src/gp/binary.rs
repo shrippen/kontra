@@ -11,7 +11,7 @@
 use crate::bytes::Reader;
 use crate::error::ImportError;
 use crate::score::{
-    BarHead, Jump, Legato, Part, RawNote, Score, Target, Until, DEFAULT_BPM, WHOLE_TICKS,
+    self, BarHead, Jump, Legato, Part, RawNote, Score, Target, Until, DEFAULT_BPM, WHOLE_TICKS,
 };
 use kontra_model::{Pitch, Technique, TimeSignature};
 
@@ -112,7 +112,8 @@ impl Parser<'_> {
         if self.version >= Version::V510 {
             self.r.skip(1)?; // hide tempo
         }
-        self.r.skip(4)?; // key
+        let song_key = score::key(i32::from(self.r.i8()?));
+        self.r.skip(3)?; // key padding
         if self.version >= Version::V4 {
             self.r.skip(1)?; // octave
         }
@@ -131,6 +132,10 @@ impl Parser<'_> {
         for index in 0..bar_count {
             let head = self.bar_head(index, &score.bars)?;
             score.bars.push(head);
+        }
+        // The song key holds until a bar changes it.
+        if let Some(first) = score.bars.first_mut() {
+            first.key = first.key.or(song_key);
         }
         place_signs(&mut score.bars, &signs);
         for index in 0..track_count {
@@ -247,7 +252,7 @@ impl Parser<'_> {
                 head.marker = Some(self.marker()?);
             }
             if flags & 0x40 != 0 {
-                self.r.skip(2)?; // key
+                head.key = self.key()?;
             }
             return Ok(head);
         }
@@ -256,7 +261,7 @@ impl Parser<'_> {
             head.marker = Some(self.marker()?);
         }
         if flags & 0x40 != 0 {
-            self.r.skip(2)?; // key
+            head.key = self.key()?;
         }
         if flags & 0x10 != 0 {
             head.endings = u32::from(self.r.u8()?);
@@ -269,6 +274,13 @@ impl Parser<'_> {
         }
         self.r.skip(1)?; // triplet feel
         Ok(head)
+    }
+
+    /// Bar key change: fifths, then major/minor (not needed for the signature).
+    fn key(&mut self) -> Result<Option<i8>, ImportError> {
+        let fifths = self.r.i8()?;
+        self.r.skip(1)?;
+        Ok(score::key(i32::from(fifths)))
     }
 
     fn marker(&mut self) -> Result<String, ImportError> {

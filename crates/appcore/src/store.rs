@@ -70,6 +70,10 @@ pub struct Settings {
     pub low_string_on_top: bool,
     /// Note marks in play mode: "quiet" (default), "off" or "full". Other modes always mark fully.
     pub play_marks: String,
+    /// Timing window (LH-BEW-02): "auto" (by input), "loose", "normal" or "strict".
+    pub strictness: String,
+    /// Pitch limit in cents (LH-BEW-05); 0 = by bass kind (50 fretted, 30 fretless).
+    pub pitch_cents: f64,
     /// The first-start assistant was completed or skipped (LH-EIN-01).
     pub setup_done: bool,
 }
@@ -92,6 +96,8 @@ impl Default for Settings {
             style: "kante".into(),
             low_string_on_top: false,
             play_marks: "quiet".into(),
+            strictness: "auto".into(),
+            pitch_cents: 0.0,
             setup_done: false,
         }
     }
@@ -112,6 +118,9 @@ pub struct RecentEntry {
     pub backing: Option<PathBuf>,
     #[serde(default)]
     pub backing_offset_s: f64,
+    /// View last used for this piece (LH-ANZ-04); `None`: the default from the settings.
+    #[serde(default)]
+    pub view: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -127,6 +136,9 @@ impl Library {
             if entry.backing.is_none() {
                 entry.backing = old.backing.clone();
                 entry.backing_offset_s = old.backing_offset_s;
+            }
+            if entry.view.is_none() {
+                entry.view = old.view.clone();
             }
         }
         self.recent.retain(|e| e.path != entry.path);
@@ -176,6 +188,7 @@ mod tests {
             song_id: String::new(),
             backing: None,
             backing_offset_s: 0.0,
+            view: None,
         };
         library.touch(entry("a"));
         library.touch(entry("b"));

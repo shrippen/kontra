@@ -15,6 +15,10 @@ const THRESHOLD: f64 = 0.15;
 const OCTAVE_TOLERANCE: f64 = 0.1;
 /// Low-pass cutoff relative to the coarse estimate for the refining pass.
 const REFINE_CUTOFF: f64 = 1.5;
+/// The refined value replaces the coarse one unless they differ by this much (octaves): a
+/// quarter octave catches octave and fifth slips, but lets the refinement correct a coarse
+/// value that noise pulled off by most of a semitone (a weak note through a laptop jack).
+const REFINE_MAX_OCTAVES: f64 = 0.25;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PitchEstimate {
@@ -122,7 +126,7 @@ impl Yin {
         std::mem::swap(&mut self.filtered, &mut filtered);
         let refined = refined?;
         // Only trust the refinement if it stays near the coarse value (no octave jump).
-        if (refined.hz / coarse.hz).log2().abs() > 0.05 {
+        if (refined.hz / coarse.hz).log2().abs() > REFINE_MAX_OCTAVES {
             return Some(coarse);
         }
         Some(PitchEstimate {

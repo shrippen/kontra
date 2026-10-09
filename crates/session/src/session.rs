@@ -11,20 +11,28 @@ use kontra_model::{Arrangement, DetectedNote};
 /// after their onset (concept 6.3), plus margin.
 const DETECTION_GRACE_S: f64 = 0.25;
 
-/// Riff-Werkstatt: speed up after enough clean passes (LH-MOD-04).
+/// Riff-Werkstatt (LH-MOD-04): keeps the hit rate in a target band (decision round 5, after
+/// DIDAKTIK.md idea I7). Above the band for `passes_needed` passes in a row → one step faster
+/// (up to `target_speed`); below it as often → one step slower (down to `min_speed`); inside it
+/// the tempo stays. Practice that is neither trivial nor overwhelming is where people learn.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Workshop {
     pub target_speed: f64,
+    pub min_speed: f64,
     pub step: f64,
-    pub clean_needed: u32,
+    /// Hit rate band (low, high), e.g. 80–90 %.
+    pub band: (f64, f64),
+    pub passes_needed: u32,
 }
 
 impl Default for Workshop {
     fn default() -> Self {
         Workshop {
             target_speed: 1.0,
+            min_speed: 0.25,
             step: 0.05,
-            clean_needed: 3,
+            band: (0.8, 0.9),
+            passes_needed: 2,
         }
     }
 }
@@ -52,6 +60,8 @@ pub enum SessionEvent {
     PassComplete {
         pass: u32,
         clean: bool,
+        /// Hits among the pass's notes and extra notes (0..=1).
+        hit_rate: f64,
     },
     SpeedChanged(f64),
     Finished,
@@ -68,7 +78,8 @@ pub struct Session {
     events: Vec<SessionEvent>,
     cursor_pass: u32,
     cursor_slot: usize,
-    clean_streak: u32,
+    /// Passes in a row above (positive) or below (negative) the workshop band.
+    band_streak: i32,
     holding: bool,
     finished: bool,
     /// Real time of the last `update`.
@@ -89,7 +100,7 @@ impl Session {
             events: Vec::new(),
             cursor_pass: 0,
             cursor_slot: 0,
-            clean_streak: 0,
+            band_streak: 0,
             holding: false,
             finished: false,
             now_s: 0.0,
@@ -140,7 +151,7 @@ impl Session {
         let (position, pass) = self.transport.position_at(real_s);
         self.cursor_pass = pass;
         self.cursor_slot = self.first_slot_from(position);
-        self.clean_streak = 0;
+        self.band_streak = 0;
     }
 
     /// Jumps to `position_s`; counting restarts at the first note from there.
@@ -159,16 +170,25 @@ impl Session {
             self.wait_note(real_s, note.midi);
             return;
         }
-        let (position, pass) = self.transport.position_at(real_s);
+        let (mut position, mut pass) = self.transport.position_at(real_s);
         let range = self.range();
-        let result = self.matcher.score(
-            pass,
-            position,
-            note.midi,
-            self.transport.speed(),
-            &self.settings,
-            range,
-        );
+        let speed = self.transport.speed();
+        // Just before a loop wraps, a note with nothing to match in this pass is the next pass's
+        // first note played early (QA P2: it was "extra" plus a "missed" first note).
+        if let Some(LoopRange { start_s, end_s }) = self.transport.loop_range() {
+            let window = self.settings.strictness.window_ms() / 1000.0 * speed;
+            let wrapped = start_s - (end_s - position);
+            if end_s - position <= window
+                && !self.matcher.has_candidate(pass, position, window, range)
+                && self.matcher.has_candidate(pass + 1, wrapped, window, range)
+            {
+                position = wrapped;
+                pass += 1;
+            }
+        }
+        let result = self
+            .matcher
+            .score(pass, position, note.midi, speed, &self.settings, range);
         self.record(result);
     }
 
@@ -326,24 +346,45 @@ impl Session {
 
     fn complete_pass(&mut self) {
         let pass = self.cursor_pass;
-        let clean = self
-            .results
-            .iter()
-            .filter(|r| r.pass == pass)
-            .all(NoteResult::is_hit);
-        self.events.push(SessionEvent::PassComplete { pass, clean });
+        let in_pass = || self.results.iter().filter(|r| r.pass == pass);
+        let clean = in_pass().all(NoteResult::is_hit);
+        let judged = in_pass().count();
+        let hit_rate = if judged == 0 {
+            1.0
+        } else {
+            in_pass().filter(|r| r.is_hit()).count() as f64 / judged as f64
+        };
+        self.events.push(SessionEvent::PassComplete {
+            pass,
+            clean,
+            hit_rate,
+        });
         self.cursor_pass += 1;
         self.cursor_slot = self.first_slot_from(self.range().0);
         let Mode::Workshop(workshop) = self.mode else {
             return;
         };
-        self.clean_streak = if clean { self.clean_streak + 1 } else { 0 };
+        let (low, high) = workshop.band;
+        self.band_streak = if hit_rate > high {
+            self.band_streak.max(0) + 1
+        } else if hit_rate < low {
+            self.band_streak.min(0) - 1
+        } else {
+            0
+        };
+        let needed = workshop.passes_needed.max(1) as i32;
         let speed = self.transport.speed();
-        if self.clean_streak < workshop.clean_needed || speed >= workshop.target_speed {
+        let next = if self.band_streak >= needed {
+            (speed + workshop.step).min(workshop.target_speed)
+        } else if self.band_streak <= -needed {
+            (speed - workshop.step).max(workshop.min_speed)
+        } else {
+            return;
+        };
+        self.band_streak = 0;
+        if (next - speed).abs() < 1e-9 {
             return;
         }
-        self.clean_streak = 0;
-        let next = (speed + workshop.step).min(workshop.target_speed);
         // Applies from now; the pass that just started gets the new speed almost from its start.
         self.transport.set_speed(self.now_s, next);
         self.events.push(SessionEvent::SpeedChanged(next));

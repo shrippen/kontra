@@ -7,7 +7,7 @@ use kontra_dsp::synth::laptop_jack;
 use kontra_dsp::{peak_db, rms_db, NoteTracker, TrackerConfig, Tuner};
 use kontra_model::{InputSource, Instrument};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -47,6 +47,8 @@ pub struct Input {
     tuner_on: Arc<AtomicBool>,
     /// Engine time of the first sample (NaN until known).
     started: Arc<AtomicU64>,
+    /// Largest block the device delivered at once: PipeWire's quantum (0 for files).
+    block: Arc<AtomicU32>,
     worker: Option<JoinHandle<()>>,
     _stream: Option<InputStream>,
     pub sample_rate: u32,
@@ -89,6 +91,11 @@ impl Input {
     pub fn started_s(&self) -> Option<f64> {
         let value = f64::from_bits(self.started.load(Ordering::Relaxed));
         (!value.is_nan()).then_some(value)
+    }
+
+    /// Largest device block in frames so far (the audio server's quantum), once a block came.
+    pub fn block_frames(&self) -> Option<u32> {
+        Some(self.block.load(Ordering::Relaxed)).filter(|b| *b > 0)
     }
 
     /// Switches tuner readings on or off.
@@ -179,6 +186,8 @@ fn start_device(
     let started = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
     let started_cb = Arc::clone(&started);
     let started_input = Arc::clone(&started);
+    let block = Arc::new(AtomicU32::new(0));
+    let block_cb = Arc::clone(&block);
     let clock_cb = clock.clone();
     let error_events = events.clone();
     let stream = InputStream::open(
@@ -188,6 +197,10 @@ fn start_device(
                 // First block: the stream started about one block earlier; calibration absorbs the rest.
                 started_cb.store(clock_cb.now_s().to_bits(), Ordering::Relaxed);
             }
+            block_cb.fetch_max(
+                u32::try_from(samples.len()).unwrap_or(u32::MAX),
+                Ordering::Relaxed,
+            );
             for &s in samples {
                 // A full ring means the analysis fell behind; dropping is better than blocking.
                 let _ = producer.push(s);
@@ -230,6 +243,7 @@ fn start_device(
         stop,
         tuner_on,
         started: started_input,
+        block,
         worker: Some(worker),
         _stream: Some(stream),
         sample_rate,
@@ -289,6 +303,7 @@ fn start_file(
         stop,
         tuner_on,
         started: started_flag,
+        block: Arc::new(AtomicU32::new(0)),
         worker: Some(worker),
         _stream: None,
         sample_rate,

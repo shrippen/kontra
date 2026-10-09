@@ -18,6 +18,8 @@ Kirigami.Page {
     // here too, so a view that gets its notes later (view switch) can catch up.
     property var notes: []
     property var bars: JSON.parse(ctl.barsJson)
+    // The notation view: the same notes as written for bass, rests, key signature.
+    property var staff: JSON.parse(ctl.staffJson)
     property var states: ({})
     // Play mode marks quietly or not at all (setting); the other modes mark fully.
     readonly property int marks: ctl.mode !== "play" || ctl.playMarks === "full" ? KanteTabLane.Marks.Full
@@ -33,6 +35,7 @@ Kirigami.Page {
     function reset() {
         notes = JSON.parse(ctl.notesJson)
         bars = JSON.parse(ctl.barsJson)
+        staff = JSON.parse(ctl.staffJson)
         states = {}
     }
 
@@ -56,6 +59,27 @@ Kirigami.Page {
 
     Component.onCompleted: reset()
 
+    // Keyboard (LH-NF-07, QA P7/P2): the transport keys work on the whole page, not only with
+    // focus in the transport bar; modes 1–4, views Alt+1–4. Not while typing in a field.
+    readonly property bool keysFree: {
+        var item = applicationWindow().activeFocusItem
+        return !(item && item.hasOwnProperty("cursorPosition"))
+    }
+    Shortcut { sequence: "K"; enabled: page.keysFree; onActivated: ctl.togglePlay() }
+    Shortcut { sequence: "Home"; enabled: page.keysFree; onActivated: ctl.rewind() }
+    Shortcut { sequence: "L"; enabled: page.keysFree; onActivated: transport.loopToggled() }
+    Shortcut { sequence: "M"; enabled: page.keysFree; onActivated: ctl.changeOptions(!ctl.metronome, ctl.reference, ctl.lowStringOnTop) }
+    Shortcut { sequence: "C"; enabled: page.keysFree; onActivated: ctl.changeCountIn(!ctl.countIn) }
+    Shortcut { sequences: ["+", "="]; enabled: page.keysFree; onActivated: ctl.changeSpeed(Math.min(1.5, ctl.speed + 0.05)) }
+    Shortcut { sequence: "-"; enabled: page.keysFree; onActivated: ctl.changeSpeed(Math.max(0.25, ctl.speed - 0.05)) }
+    Repeater {
+        model: 4
+        delegate: Item {
+            Shortcut { sequence: String(index + 1); enabled: page.keysFree; onActivated: ctl.changeMode(page.modes[index]) }
+            Shortcut { sequence: "Alt+" + (index + 1); onActivated: ctl.changeView(page.views[index]) }
+        }
+    }
+
     Connections {
         target: ctl
         function onArrangementLoaded() { page.reset() }
@@ -73,15 +97,23 @@ Kirigami.Page {
     readonly property int nextIndex: ctl.holdingIndex >= 0 ? ctl.holdingIndex : lane.nextIndex
     readonly property var nextNote: nextIndex >= 0 && nextIndex < notes.length ? notes[nextIndex] : null
 
+    // Small screens and beamers (QA P4: 1280×720 at 150 %): the title gets its own row and the
+    // fretboard and level make room for the notes.
+    readonly property bool narrow: width < KanteStyle.unit(1000)
+    readonly property bool compact: height < KanteStyle.unit(560)
+
     ColumnLayout {
         anchors.fill: parent
         spacing: KanteStyle.unit(10)
 
-        RowLayout {
+        GridLayout {
             Layout.fillWidth: true
-            spacing: KanteStyle.unit(12)
+            columns: page.narrow ? 2 : 3
+            columnSpacing: KanteStyle.unit(12)
+            rowSpacing: KanteStyle.unit(8)
             ColumnLayout {
                 Layout.fillWidth: true
+                Layout.columnSpan: page.narrow ? 2 : 1
                 spacing: 0
                 KanteHeading { text: ctl.title; pageTitle: true; Layout.fillWidth: true; elide: Text.ElideRight }
                 QQC2.Label { text: ctl.artist; visible: ctl.artist !== ""; color: KanteStyle.mutedTextColor }
@@ -123,11 +155,78 @@ Kirigami.Page {
             }
         }
 
-        // Wait mode: what to play next, in words (LH-MOD-03).
-        KanteBanner {
+        // Workshop (LH-MOD-04): which bars, and how the tempo follows the hit rate (target band).
+        RowLayout {
+            id: workshopRow
+            Layout.fillWidth: true
+            visible: ctl.mode === "workshop"
+            spacing: KanteStyle.unit(8)
+            readonly property int fromBar: ctl.loopStart >= 0 ? page.barAt(ctl.loopStart) + 1 : 0
+            readonly property int toBar: ctl.loopEnd >= 0 ? page.barAt(ctl.loopEnd - 0.001) + 1 : 0
+            property string lastChange: ""
+
+            KanteHud { fullText: texts.t("workshop.bars"); color: KanteStyle.mutedTextColor }
+            QQC2.SpinBox {
+                id: fromSpin
+                from: 1
+                to: Math.max(1, page.bars.length)
+                value: Math.max(1, workshopRow.fromBar)
+                editable: true
+                Accessible.name: texts.t("workshop.from")
+                onValueModified: ctl.loopBars(value - 1, Math.max(value, toSpin.value) - 1)
+            }
+            QQC2.Label { text: texts.t("workshop.to"); color: KanteStyle.textColor }
+            QQC2.SpinBox {
+                id: toSpin
+                from: 1
+                to: Math.max(1, page.bars.length)
+                value: Math.max(1, workshopRow.toBar > 0 ? workshopRow.toBar : fromSpin.value)
+                editable: true
+                Accessible.name: texts.t("workshop.until")
+                onValueModified: ctl.loopBars(Math.min(fromSpin.value, value) - 1, value - 1)
+            }
+            QQC2.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: KanteStyle.textColor
+                text: {
+                    var band = texts.t("workshop.band", { low: Math.round(ctl.bandLow * 100), high: Math.round(ctl.bandHigh * 100) })
+                    var speed = texts.t("workshop.speed", { percent: Math.round(ctl.speed * 100) })
+                    if (ctl.loopStart < 0)
+                        return texts.t("workshop.choose") + " · " + band
+                    if (ctl.passRate < 0)
+                        return band + " · " + speed
+                    return texts.t("workshop.pass", { n: ctl.passes, percent: Math.round(ctl.passRate * 100) })
+                        + " · " + band + " · " + speed
+                        + (workshopRow.lastChange !== "" ? " · " + workshopRow.lastChange : "")
+                }
+            }
+            Connections {
+                target: ctl
+                function onPassComplete(clean, hitRate) {
+                    workshopRow.lastChange = hitRate > ctl.bandHigh ? texts.t("workshop.above")
+                        : hitRate < ctl.bandLow ? texts.t("workshop.below") : texts.t("workshop.inside")
+                }
+                function onModeChanged() { workshopRow.lastChange = "" }
+            }
+        }
+
+        // Wait mode: what to play next, in words (LH-MOD-03). An instruction, not a warning (QA
+        // P1: the hazard banner read as an alarm); read out by screen readers when it changes (P7).
+        KanteCallout {
+            id: waitCallout
             Layout.fillWidth: true
             visible: ctl.holdingIndex >= 0
+            kind: KanteCallout.Kind.Info
+            autoHide: false
             title: ctl.holdingText
+        }
+        Connections {
+            target: ctl
+            function onHoldingTextChanged() {
+                if (ctl.holdingIndex >= 0 && ctl.holdingText !== "")
+                    waitCallout.Accessible.announce(ctl.holdingText)
+            }
         }
 
         Item {
@@ -155,6 +254,8 @@ Kirigami.Page {
             KanteTabStaff {
                 id: tabStaff
                 anchors.fill: parent
+                // As many lines as fit (QA P2 R6: one line left the next bars hidden).
+                systems: Math.max(1, Math.floor(height / KanteStyle.unit(170)))
                 visible: ctl.view === "tab"
                 strings: page.stringNames.length
                 stringNames: page.stringNames
@@ -169,7 +270,9 @@ Kirigami.Page {
                 id: bassStaff
                 anchors.fill: parent
                 visible: ctl.view === "notation"
-                notes: visible ? page.notes : []
+                notes: visible ? page.staff.notes : []
+                rests: page.staff.rests
+                keyFifths: page.staff.keyFifths
                 marks: page.marks
                 onNotesChanged: Qt.callLater(function() { page.catchUp(bassStaff) })
                 bars: page.bars
@@ -185,7 +288,9 @@ Kirigami.Page {
                     id: combinedBass
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    notes: combined.visible ? page.notes : []
+                    notes: combined.visible ? page.staff.notes : []
+                    rests: page.staff.rests
+                    keyFifths: page.staff.keyFifths
                     marks: page.marks
                     onNotesChanged: Qt.callLater(function() { page.catchUp(combinedBass) })
                     bars: page.bars
@@ -209,6 +314,7 @@ Kirigami.Page {
 
         RowLayout {
             Layout.fillWidth: true
+            visible: !page.compact
             spacing: KanteStyle.unit(16)
             KanteFretboard {
                 Layout.fillWidth: true
@@ -236,17 +342,19 @@ Kirigami.Page {
                 clipText: texts.t("level.clip")
                 accessibleName: texts.t("level.name")
             }
-            QQC2.Label {
+            LevelAdvice {
                 Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                visible: meter.zone !== "good"
-                text: texts.t("level." + meter.zone + ".hint")
-                color: KanteStyle.mutedTextColor
+                peakDb: ctl.peakDb
+                clipped: ctl.clipped
+                listening: ctl.playing
+                laptopJack: ctl.laptopJack
+                onUseLaptopJack: ctl.changeInstrument(ctl.strings, ctl.fretless, true)
             }
             }
         }
 
         KanteTransportBar {
+            id: transport
             Layout.fillWidth: true
             playing: ctl.playing
             looping: ctl.loopStart >= 0
@@ -284,15 +392,25 @@ Kirigami.Page {
 
     FileDialog {
         id: backingDialog
-        nameFilters: ["Audio (*.wav *.flac *.ogg *.mp3)"]
+        nameFilters: [texts.t("backing.filter") + " (*.wav *.flac *.ogg *.mp3)"]
         onAccepted: ctl.chooseBacking(selectedFile.toString())
+    }
+
+    // The summary covers the notes completely (QA P1/P4: the page showed through the card).
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: -page.padding
+        visible: summary.visible
+        z: 4
+        color: Qt.rgba(KanteStyle.backgroundColor.r, KanteStyle.backgroundColor.g, KanteStyle.backgroundColor.b, 0.92)
+        MouseArea { anchors.fill: parent; onClicked: summary.close() }
     }
 
     SummarySheet {
         id: summary
         anchors.centerIn: parent
         width: Math.min(page.width - KanteStyle.unit(40), KanteStyle.unit(640))
-        height: contentHeight
+        height: Math.min(contentHeight, page.height - KanteStyle.unit(24))
         z: 5
         onPracticeBar: function(bar) {
             ctl.changeMode("workshop")

@@ -37,9 +37,12 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.input")
+            hint: page.inputs.length === 0 ? texts.t("settings.input.none") : ""
             QQC2.ComboBox {
+                Accessible.name: texts.t("settings.input")
                 Layout.fillWidth: true
-                model: ["—"].concat(page.inputs.map(function(d) { return d.name }))
+                Layout.preferredWidth: KanteStyle.unit(280)
+                model: [texts.t("settings.device.default")].concat(page.inputs.map(function(d) { return d.name }))
                 currentIndex: page.deviceIndex(page.inputs, ctl.inputDevice)
                 onActivated: function(index) { ctl.chooseInput(index === 0 ? "" : page.inputs[index - 1].id) }
             }
@@ -48,8 +51,10 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.output")
             QQC2.ComboBox {
+                Accessible.name: texts.t("settings.output")
                 Layout.fillWidth: true
-                model: ["—"].concat(page.outputs.map(function(d) { return d.name }))
+                Layout.preferredWidth: KanteStyle.unit(280)
+                model: [texts.t("settings.device.default")].concat(page.outputs.map(function(d) { return d.name }))
                 currentIndex: page.deviceIndex(page.outputs, ctl.outputDevice)
                 onActivated: function(index) { ctl.chooseOutput(index === 0 ? "" : page.outputs[index - 1].id) }
             }
@@ -59,15 +64,24 @@ Kirigami.ScrollablePage {
             title: texts.t("settings.connection")
             hint: ctl.laptopJack ? texts.t("hint.laptop") : ""
             KanteSegmented {
+                Accessible.name: texts.t("settings.connection")
                 model: [texts.t("settings.source.line"), texts.t("settings.source.laptop")]
                 currentIndex: ctl.laptopJack ? 1 : 0
                 onActivated: function(index) { ctl.changeInstrument(ctl.strings, ctl.fretless, index === 1) }
             }
         }
+        // LH-EIN-10: inputs that come later are named, not left out (QA P5 Aylin, P6 Karl).
+        KanteCallout {
+            Layout.fillWidth: true
+            kind: KanteCallout.Kind.Info
+            autoHide: false
+            text: texts.t("settings.later")
+        }
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.strings")
             KanteSegmented {
+                Accessible.name: texts.t("settings.strings")
                 model: ["4", "5", "6"]
                 currentIndex: ctl.strings - 4
                 onActivated: function(index) { ctl.changeInstrument(index + 4, ctl.fretless, ctl.laptopJack) }
@@ -77,6 +91,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.fretless")
             QQC2.Switch {
+                Accessible.name: texts.t("settings.fretless")
                 checked: ctl.fretless
                 onToggled: ctl.changeInstrument(ctl.strings, checked, ctl.laptopJack)
             }
@@ -86,6 +101,7 @@ Kirigami.ScrollablePage {
             title: texts.t("settings.lowtop")
             hint: texts.t("settings.lowtop.hint")
             QQC2.Switch {
+                Accessible.name: texts.t("settings.lowtop")
                 checked: ctl.lowStringOnTop
                 onToggled: ctl.changeOptions(ctl.metronome, ctl.reference, checked)
             }
@@ -95,6 +111,7 @@ Kirigami.ScrollablePage {
             title: texts.t("settings.playmarks")
             hint: texts.t("settings.playmarks.hint")
             KanteSegmented {
+                Accessible.name: texts.t("settings.playmarks")
                 readonly property var values: ["quiet", "off", "full"]
                 model: [texts.t("settings.playmarks.quiet"), texts.t("settings.playmarks.off"),
                         texts.t("settings.playmarks.full")]
@@ -104,8 +121,34 @@ Kirigami.ScrollablePage {
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            title: texts.t("settings.window")
+            hint: texts.t("settings.window.hint")
+            KanteSegmented {
+                Accessible.name: texts.t("settings.window")
+                readonly property var values: ["auto", "loose", "normal", "strict"]
+                model: [texts.t("settings.auto"), texts.t("settings.window.loose"),
+                        texts.t("settings.window.normal"), texts.t("settings.window.strict")]
+                currentIndex: Math.max(0, values.indexOf(ctl.strictness))
+                onActivated: function(index) { ctl.changeScoring(values[index], ctl.pitchCents) }
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            title: texts.t("settings.cents")
+            hint: texts.t("settings.cents.hint")
+            KanteSegmented {
+                Accessible.name: texts.t("settings.cents")
+                readonly property var values: [0, 10, 20, 30, 50]
+                model: [texts.t("settings.auto"), "10 ct", "20 ct", "30 ct", "50 ct"]
+                currentIndex: Math.max(0, values.indexOf(ctl.pitchCents))
+                onActivated: function(index) { ctl.changeScoring(ctl.strictness, values[index]) }
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
             title: texts.t("transport.metronome")
             QQC2.Switch {
+                Accessible.name: texts.t("transport.metronome")
                 checked: ctl.metronome
                 onToggled: ctl.changeOptions(checked, ctl.reference, ctl.lowStringOnTop)
             }
@@ -114,6 +157,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("transport.reference")
             QQC2.Switch {
+                Accessible.name: texts.t("transport.reference")
                 checked: ctl.reference
                 onToggled: ctl.changeOptions(ctl.metronome, checked, ctl.lowStringOnTop)
             }
@@ -124,6 +168,7 @@ Kirigami.ScrollablePage {
             hint: texts.t("settings.latency.hint")
             RowLayout {
                 QQC2.SpinBox {
+                    Accessible.name: texts.t("settings.latency")
                     from: 0
                     to: 500
                     stepSize: 5
@@ -148,6 +193,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.language")
             KanteSegmented {
+                Accessible.name: texts.t("settings.language")
                 model: ["Deutsch", "English"]
                 currentIndex: texts.t("app.name") !== "" && ctl.language === "en" ? 1 : 0
                 onActivated: function(index) { ctl.changeLanguage(index === 1 ? "en" : "de") }
@@ -157,9 +203,42 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.style")
             KanteSegmented {
+                Accessible.name: texts.t("settings.style")
                 model: ["Kante", "Kante Light", "System"]
                 currentIndex: Math.max(0, page.styles.indexOf(ctl.style))
                 onActivated: function(index) { ctl.changeStyle(page.styles[index]) }
+            }
+        }
+
+        // All keyboard shortcuts in one place (LH-NF-07).
+        KanteSectionLabel { text: texts.t("keys.title"); Layout.topMargin: KanteStyle.unit(12) }
+        GridLayout {
+            Layout.fillWidth: true
+            columns: 2
+            columnSpacing: KanteStyle.unit(16)
+            rowSpacing: KanteStyle.unit(4)
+            Repeater {
+                model: [
+                    ["Space / K", "keys.play"], ["Pos1 / Home", "keys.rewind"], ["L", "keys.loop"],
+                    ["M", "keys.metronome"], ["C", "keys.countin"], ["+ / −", "keys.speed"],
+                    ["1–4", "keys.mode"], ["Alt+1–4", "keys.view"], ["Ctrl+1–6", "keys.pages"]
+                ]
+                delegate: RowLayout {
+                    Layout.columnSpan: 2
+                    spacing: KanteStyle.unit(16)
+                    QQC2.Label {
+                        Layout.preferredWidth: KanteStyle.unit(110)
+                        text: modelData[0]
+                        font: KanteStyle.monoFont(KanteStyle.defaultFont.pointSize, false)
+                        color: KanteStyle.strongTextColor
+                    }
+                    QQC2.Label {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: texts.t(modelData[1])
+                        color: KanteStyle.textColor
+                    }
+                }
             }
         }
     }

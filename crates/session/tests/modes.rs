@@ -112,12 +112,15 @@ fn wait_mode_holds_until_right_note() {
     assert!((s.transport().position_at(3.5).0 - 0.5).abs() < 1e-9);
 }
 
-#[test]
-fn workshop_speeds_up_after_clean_passes() {
+/// Workshop over the whole riff at half speed: one pass is 8 s real, note `i` at `base + i`.
+/// `hits[pass]` is how many of the eight notes are played right in that pass (the rest are missed).
+fn workshop_run(hits: &[usize], until: f64) -> Vec<SessionEvent> {
     let workshop = Workshop {
-        target_speed: 0.7,
-        step: 0.1,
-        clean_needed: 2,
+        target_speed: 1.0,
+        min_speed: 0.25,
+        step: 0.05,
+        band: (0.8, 0.9),
+        passes_needed: 2,
     };
     let mut s = Session::new(riff(), Mode::Workshop(workshop), ScoreSettings::default());
     s.set_speed(0.0, 0.5);
@@ -125,28 +128,97 @@ fn workshop_speeds_up_after_clean_passes() {
         0.0,
         Some(LoopRange {
             start_s: 0.0,
-            end_s: 1.0,
+            end_s: 4.0,
         }),
     );
     s.play(0.0);
-    // At 0.5 speed the loop (two notes at 0.0 and 0.5) lasts 2 s real: notes at real 0 and 1.
+    let pitches = [28.0, 33.0, 38.0, 43.0, 28.0, 33.0, 38.0, 43.0];
     let mut notes = Vec::new();
-    for pass in 0..6 {
-        let base = pass as f64 * 2.0;
-        notes.push(played(base, 28.0));
-        notes.push(played(base + 1.0, 33.0));
+    for (pass, count) in hits.iter().enumerate() {
+        let base = pass as f64 * 8.0;
+        for (i, midi) in pitches.iter().enumerate().take(*count) {
+            notes.push(played(base + i as f64, *midi));
+        }
     }
-    // Only the first passes are exact; after speeding up the real times no longer fit,
-    // but the speed change itself is what we check.
-    let events = run(&mut s, &notes, 4.6);
-    let clean: Vec<_> = events
+    run(&mut s, &notes, until)
+}
+
+/// Speed changes made by the workshop (the first event is the initial `set_speed`).
+fn speed_changes(events: &[SessionEvent]) -> Vec<f64> {
+    events
         .iter()
-        .filter(|e| matches!(e, SessionEvent::PassComplete { clean: true, .. }))
+        .skip(1)
+        .filter_map(|e| match e {
+            SessionEvent::SpeedChanged(v) => Some(*v),
+            _ => None,
+        })
+        .collect()
+}
+
+/// LH-MOD-04, target band (round 5): above 90 % hits in two passes in a row → one step faster.
+#[test]
+fn workshop_speeds_up_above_the_band() {
+    let events = workshop_run(&[8, 8], 17.0);
+    let rates: Vec<f64> = events
+        .iter()
+        .filter_map(|e| match e {
+            SessionEvent::PassComplete { hit_rate, .. } => Some(*hit_rate),
+            _ => None,
+        })
         .collect();
-    assert_eq!(clean.len(), 2, "{events:?}");
-    assert!(events
+    assert_eq!(rates, vec![1.0, 1.0], "{events:?}");
+    let changes = speed_changes(&events);
+    assert_eq!(changes.len(), 1, "{events:?}");
+    assert!((changes[0] - 0.55).abs() < 1e-9, "{changes:?}");
+}
+
+/// Below 80 % in two passes in a row → one step slower.
+#[test]
+fn workshop_slows_down_below_the_band() {
+    let changes = speed_changes(&workshop_run(&[5, 5], 17.0));
+    assert_eq!(changes.len(), 1, "{changes:?}");
+    assert!((changes[0] - 0.45).abs() < 1e-9, "{changes:?}");
+}
+
+/// Inside the band (7 of 8 = 87.5 %) the tempo stays; one good pass alone does not count.
+#[test]
+fn workshop_holds_inside_the_band() {
+    assert!(speed_changes(&workshop_run(&[7, 7, 7], 25.0)).is_empty());
+    assert!(speed_changes(&workshop_run(&[8, 7, 8], 25.0)).is_empty());
+}
+
+/// QA P2 (F2): the first note of a loop pass played a little early falls before the wrap; it
+/// belongs to the next pass's first note, not "extra" plus "missed".
+#[test]
+fn early_note_at_loop_start_counts_for_the_next_pass() {
+    let mut s = Session::new(riff(), Mode::Song, ScoreSettings::default());
+    s.set_loop(
+        0.0,
+        Some(LoopRange {
+            start_s: 0.0,
+            end_s: 2.0,
+        }),
+    );
+    s.play(0.0);
+    // Pass 0: notes at 0, 0.5, 1, 1.5; pass 1 starts at 2.0 – its first note 20 ms early.
+    let notes = [
+        played(0.0, 28.0),
+        played(0.5, 33.0),
+        played(1.0, 38.0),
+        played(1.5, 43.0),
+        played(1.98, 28.0),
+        played(2.5, 33.0),
+    ];
+    run(&mut s, &notes, 3.0);
+    let extras = s.results().iter().filter(|r| r.note.is_none()).count();
+    assert_eq!(extras, 0, "{:?}", s.results());
+    let first = s
+        .results()
         .iter()
-        .any(|e| matches!(e, SessionEvent::SpeedChanged(v) if (v - 0.6).abs() < 1e-9)));
+        .find(|r| r.pass == 1 && r.note == Some(0))
+        .expect("pass 1 first note judged");
+    assert_eq!(first.outcome, Outcome::Hit, "{:?}", s.results());
+    assert!((first.offset_ms.unwrap() + 20.0).abs() < 1.0, "{first:?}");
 }
 
 /// Chords: any tone counts for the whole chord (the detector hears one note), and every chord

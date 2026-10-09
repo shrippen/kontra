@@ -59,6 +59,20 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 - Logo: Claude entwirft 10 Vorschläge zur Auswahl.
 - Didaktik: Bestandsaufnahme jetzt (`DIDAKTIK.md`), Prototypen nach 0.1.
 
+## Entscheidungen Runde 5 (9.10.2026)
+
+- Rückmeldung: während des Spiels dosiert (Zeichen), ausführlich danach (KONZEPT 5.1 angepasst).
+- Adaptive Schwierigkeit (Phase 2): nur zwischen Durchläufen, sichtbar, als Vorschlag (LH-MOD-06).
+- Werkstatt: Zielband 80–90 % Treffer statt „3 fehlerfrei“, umgesetzt.
+- Didaktik-Prototypen nach 0.1: Blind-Probe, Stellen-Wiederholung über Tage, Groove-Start.
+- Testspieler: nur der Eigentümer.
+- Eigene Aufnahmen: teilweise, was vorhanden ist (welche Bässe und Eingänge: offen, Runde 6).
+- 0.1 ist fertig, wenn Phase 1 vollständig ist; der Erkennungsstand wird im Release-Log offen genannt.
+- Zuerst: Werkstatt-Bedienung, Tastatur und Screenreader, Pegel-Assistent (alle drei umgesetzt).
+- Flatpak-Bau in der Gitea-CI.
+- Logo: vereinfachte Kleinversion für 16–24 px (umgesetzt).
+- „Hinweis“ als eigene Gruppe im Änderungsverlauf: Kante-PR #42 (offen).
+
 ## Didaktik: wie Kontra Bass vermittelt (laufend, alle Phasen)
 
 Ziel: nicht nur Noten abfragen, sondern herausfinden, welche Wege zum
@@ -87,6 +101,44 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
       werden Kern von Kontra, welche Lernpfade entstehen daraus (Phase 2/3)
 
 ## QA-Runden
+
+### QA-Runde 9.10.2026 (Personas, headless, erzeugte und echte Aufnahmen)
+
+Drei Durchläufe: P1 Lea + P7 Sam, P2 Jens + P4 Thomas, P3 Mira + P5 Aylin + P6 Karl. Berichte mit Belegen lagen im
+Scratchpad der Sitzung; die Befunde stehen hier vollständig. Klicks und Tasten ließen sich headless nicht bedienen
+(am QML-Code geprüft), kein echter Screenreader, keine Geräte. Ergebnis: keine Journey voll bestanden außer J-C2.
+
+| Journey | Status | Hauptgrund |
+|---|---|---|
+| J-A1 Anstecken und los | teilweise | Assistent-Schritte nur am Code; Pegeltexte (behoben) |
+| J-A2 Stimmen | teilweise | Laptop-Buchse zeigte falsche Richtung (behoben); kein geführter Modus (offen) |
+| J-A3 Latenz | teilweise | 40 ms gemessen, danach pünktlich; PipeWire-Quantum-Hinweis fehlt (offen) |
+| J-A4 MIDI/Mikrofon | nicht bestanden | kein Hinweis „kommt später“ (offen) |
+| J-B1 Lied, Setlist | teilweise | Ordner-Import, Setlisten, Mixer fehlen (offen); Spielen zeigt Punkte (Runde 6) |
+| J-B2 Warten | teilweise | gespielter Ton fehlte, Ansage fehlte (behoben) |
+| J-B3 Werkstatt | teilweise | früher erster Ton blockierte Steigerung (behoben); Bedienung (umgesetzt) |
+| J-B4 Bundlos, tief | teilweise | B0 +8 ct (behoben), Notensatz (behoben), Cent-Werte und „streng“ in der App fehlen (offen) |
+| J-B5 Beamer | nicht erfüllt | Überlappung bei 1280×720/150 %, Auswertung durchscheinend und zu groß (offen) |
+| J-C1 Erste Woche | nicht erfüllt | keine Fortschrittsansicht; „0 min“ nach 22 s (offen) |
+| J-C2 Timing-Tendenz | bestanden | Histogramm ohne Achsentitel (offen) |
+| J-C3 MusicXML | teilweise | Notensatz (behoben); Groove und Generator Phase 2 |
+| J-D1 Backing | nicht prüfbar | Beat-Erkennung Phase 3 |
+
+Behoben (Branch `runde-5`): `--style` startete die UI nicht (jetzt `--theme`); hängender Prozess bei QML-Fehler;
+Stimmgerät an der Laptop-Buchse (50-Hz-Brumm, Notch-Filter); B0 +8 ct im Tracker (`korpus check` prüft jetzt auch
+den größten Cent-Fehler); früher erster Ton im Loop; Warten-Modus (gespielter Ton, Saitenname, H statt B, Ansage,
+Info statt Warnband); Profil 5 Saiten wurde überschrieben; Tonart, Pausen, Haltebögen, Oktavlage in der
+Notenansicht; fehlender Backing-Track stoppte das Lied; Importfehler englisch; MIDI-Titel „Tempo“; Pegel-Assistent;
+Tastatur global; Namen für Screenreader; feste englische Texte.
+
+Offen (Phase 1): Setlisten und Ordner-Import (LH-BIB-04), Mixer (LH-WIE-03, LH-MOD-05), geführtes Stimmen
+(LH-TUN-01/03), Fortschrittsansicht (LH-FOR-01), Hinweis MIDI/Mikrofon (LH-EIN-10), PipeWire-Quantum (LH-EIN-07),
+Zeitfenster und Cent-Grenze einstellbar (LH-BEW-02/05), Cent-Werte für Bundlos, Ansicht pro Lied (LH-ANZ-04),
+Layout bei 1280×720/150 % und Auswertungskarte, Tabulatur nur eine Zeile, Spurwechsel nach Autowahl,
+Desktop-Datei `%f`/MimeType, Hinweis bei automatischem Fünfsaiter, Histogramm-Achsen, Werkstatt mit Backing bei
+60 % (Ursache unklar), Brumm in der Notenerkennung über die Laptop-Buchse, Journey-Tests in `tests/journeys/` und
+fehlendes Testmaterial. Kante-Wünsche: Schalter und Auswahllisten im Kante-Stil (dunkel), Hauptaktion in Kante
+Light, Akkordsymbole, Tonart je Takt, Schreibweise aus der Datei, Assistent-Schritt nicht nur per Farbe.
 
 ### QA-Runde 9.10.2026 (Entwicklung, synthetische Eingaben)
 

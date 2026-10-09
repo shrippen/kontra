@@ -143,6 +143,20 @@ impl ProgressStore {
         serde_json::from_str(&text).ok()
     }
 
+    /// Every recorded song, for the progress view (LH-FOR-01); unreadable files are skipped.
+    pub fn all(&self) -> Vec<SongProgress> {
+        let Ok(entries) = fs::read_dir(&self.dir) else {
+            return Vec::new();
+        };
+        entries
+            .filter_map(Result::ok)
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|x| x == "json"))
+            .filter_map(|p| fs::read_to_string(p).ok())
+            .filter_map(|t| serde_json::from_str(&t).ok())
+            .collect()
+    }
+
     fn path(&self, song_id: &str) -> PathBuf {
         self.dir.join(format!("{song_id}.json"))
     }

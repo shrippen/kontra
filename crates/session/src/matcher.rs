@@ -67,6 +67,22 @@ impl Matcher {
         self.resolved.insert((pass, slot));
     }
 
+    /// Whether an unresolved expected note of `pass` lies within `window` of `position_s`.
+    pub(crate) fn has_candidate(
+        &self,
+        pass: u32,
+        position_s: f64,
+        window: f64,
+        range: (f64, f64),
+    ) -> bool {
+        self.expected.iter().enumerate().any(|(slot, e)| {
+            (e.position_s - position_s).abs() <= window
+                && e.position_s >= range.0
+                && e.position_s < range.1
+                && !self.resolved.contains(&(pass, slot))
+        })
+    }
+
     /// Scores a note played at `position_s` in `pass`. `speed` converts the real timing window
     /// into arrangement seconds; `range` limits candidates to the loop.
     pub(crate) fn score(
