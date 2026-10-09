@@ -72,6 +72,20 @@ pub mod qobject {
         #[qproperty(QString, strictness)]
         #[qproperty(f64, pitch_cents, cxx_name = "pitchCents")]
         #[qproperty(f64, latency_ms, cxx_name = "latencyMs")]
+        /// Tuning of the profile (LH-TUN-02): "standard", "drop", "half-down", "whole-down", "custom".
+        #[qproperty(QString, tuning)]
+        /// The profile's open strings: `[{"name", "full", "midi"}]`, lowest first.
+        #[qproperty(QString, profile_tuning_json, cxx_name = "profileTuningJson")]
+        /// Notes a string of a custom tuning can take: `[{"name", "midi"}]`.
+        #[qproperty(QString, note_choices_json, cxx_name = "noteChoicesJson")]
+        /// Reference pitch of A4 in Hz (LH-TUN-04).
+        #[qproperty(f64, a4_hz, cxx_name = "a4Hz")]
+        /// Free timing window in ms, used with strictness "custom" (LH-BEW-02).
+        #[qproperty(f64, window_ms, cxx_name = "windowMs")]
+        /// String colour preset (LH-ANZ-06): "kante", "mono" or "bright".
+        #[qproperty(QString, string_colors, cxx_name = "stringColors")]
+        /// Mirrored fretboard (LH-ANZ-08).
+        #[qproperty(bool, left_handed, cxx_name = "leftHanded")]
         /// Mixer (LH-WIE-03, LH-MOD-05): volumes 0..1 and input monitoring.
         #[qproperty(f64, backing_volume, cxx_name = "backingVolume")]
         #[qproperty(f64, metronome_volume, cxx_name = "metronomeVolume")]
@@ -231,6 +245,35 @@ pub mod qobject {
         #[cxx_name = "changeScoring"]
         fn change_scoring(self: Pin<&mut Self>, strictness: &QString, pitch_cents: f64);
 
+        /// Tuning by name (see the `tuning` property).
+        #[qinvokable]
+        #[cxx_name = "changeTuning"]
+        fn change_tuning(self: Pin<&mut Self>, name: &QString);
+
+        /// One open string of a custom tuning (0 = lowest) as MIDI note.
+        #[qinvokable]
+        #[cxx_name = "changeCustomString"]
+        fn change_custom_string(self: Pin<&mut Self>, string: i32, midi: i32);
+
+        /// Reference pitch of A4 in Hz (430–450).
+        #[qinvokable]
+        #[cxx_name = "changeReference"]
+        fn change_reference(self: Pin<&mut Self>, a4_hz: f64);
+
+        /// Free timing window in ms (20–150); switches the strictness to "custom".
+        #[qinvokable]
+        #[cxx_name = "changeWindow"]
+        fn change_window(self: Pin<&mut Self>, window_ms: f64);
+
+        /// String colour preset: "kante", "mono" or "bright".
+        #[qinvokable]
+        #[cxx_name = "changeStringColors"]
+        fn change_string_colors(self: Pin<&mut Self>, preset: &QString);
+
+        #[qinvokable]
+        #[cxx_name = "changeLeftHanded"]
+        fn change_left_handed(self: Pin<&mut Self>, on: bool);
+
         /// Note marks in play mode: "quiet", "off" or "full".
         #[qinvokable]
         #[cxx_name = "changePlayMarks"]
@@ -375,6 +418,13 @@ pub struct ControllerRust {
     strictness: QString,
     pitch_cents: f64,
     latency_ms: f64,
+    tuning: QString,
+    profile_tuning_json: QString,
+    note_choices_json: QString,
+    a4_hz: f64,
+    window_ms: f64,
+    string_colors: QString,
+    left_handed: bool,
     backing_volume: f64,
     metronome_volume: f64,
     tone_volume: f64,
@@ -477,6 +527,13 @@ impl Default for ControllerRust {
             strictness: q(&s.strictness),
             pitch_cents: s.pitch_cents,
             latency_ms: s.latency_ms,
+            tuning: q(&s.tuning),
+            profile_tuning_json: q(&core.profile_tuning_json()),
+            note_choices_json: q(&core.note_choices_json()),
+            a4_hz: s.a4_hz,
+            window_ms: s.window_ms,
+            string_colors: q(&s.string_colors),
+            left_handed: s.left_handed,
             backing_volume: s.backing_volume,
             metronome_volume: s.metronome_volume,
             tone_volume: s.tone_volume,
@@ -714,6 +771,8 @@ impl qobject::Controller {
         let texts = self.as_ref().rust().core.texts_json();
         self.as_mut().set_texts(q(&texts));
         self.as_mut().set_language(q(&code));
+        // Note names follow the language (H in German).
+        self.as_mut().refresh_tuning();
     }
 
     fn loop_bars(mut self: Pin<&mut Self>, from: i32, to: i32) {
@@ -867,7 +926,7 @@ impl qobject::Controller {
         laptop_jack: bool,
     ) {
         let count = u8::try_from(strings.clamp(4, 6)).unwrap_or(4);
-        self.as_mut().core().reconfigure(|s| {
+        let result = self.as_mut().core().retune(|s| {
             s.strings = count;
             s.fretless = fretless;
             s.input_kind = if laptop_jack {
@@ -879,7 +938,81 @@ impl qobject::Controller {
         self.as_mut().set_strings(i32::from(count));
         self.as_mut().set_fretless(fretless);
         self.as_mut().set_laptop_jack(laptop_jack);
+        self.as_mut().after_retune(result);
+    }
+
+    /// After an instrument change: new strings everywhere, or the error.
+    fn after_retune(mut self: Pin<&mut Self>, result: Result<(), String>) {
         self.as_mut().set_playing(false);
+        self.as_mut().refresh_tuning();
+        if self.as_ref().rust().core.arrangement().is_some() {
+            self.as_mut().refresh_arrangement();
+        }
+        if let Err(e) = result {
+            self.as_mut().show_error(&e);
+        }
+    }
+
+    fn refresh_tuning(mut self: Pin<&mut Self>) {
+        let (tuning, profile, guided, notes) = {
+            let this = self.as_ref();
+            let core = &this.rust().core;
+            (
+                core.settings().tuning.clone(),
+                core.profile_tuning_json(),
+                core.tuning_json(),
+                core.note_choices_json(),
+            )
+        };
+        self.as_mut().set_tuning(q(&tuning));
+        self.as_mut().set_profile_tuning_json(q(&profile));
+        self.as_mut().set_tuning_json(q(&guided));
+        self.as_mut().set_note_choices_json(q(&notes));
+    }
+
+    fn change_tuning(mut self: Pin<&mut Self>, name: &QString) {
+        let result = self.as_mut().core().set_tuning(&name.to_string());
+        self.as_mut().after_retune(result);
+    }
+
+    fn change_custom_string(mut self: Pin<&mut Self>, string: i32, midi: i32) {
+        let (Ok(string), Ok(midi)) = (usize::try_from(string), u8::try_from(midi)) else {
+            return;
+        };
+        let result = self.as_mut().core().set_custom_string(string, midi);
+        self.as_mut().after_retune(result);
+    }
+
+    fn change_reference(mut self: Pin<&mut Self>, a4_hz: f64) {
+        let result = self.as_mut().core().set_reference(a4_hz);
+        let kept = self.as_ref().rust().core.settings().a4_hz;
+        self.as_mut().set_a4_hz(kept);
+        self.as_mut().after_retune(result.map(|_| ()));
+    }
+
+    fn change_window(mut self: Pin<&mut Self>, window_ms: f64) {
+        let kept = self.as_mut().core().set_window(window_ms);
+        self.as_mut().set_window_ms(kept);
+        self.as_mut().set_strictness(q("custom"));
+        self.as_mut().set_playing(false);
+    }
+
+    fn change_string_colors(mut self: Pin<&mut Self>, preset: &QString) {
+        let preset = preset.to_string();
+        if !["kante", "mono", "bright"].contains(&preset.as_str()) {
+            return;
+        }
+        let value = q(&preset);
+        // Display only: a running take goes on.
+        self.as_mut()
+            .core()
+            .update_settings(|s| s.string_colors = preset);
+        self.as_mut().set_string_colors(value);
+    }
+
+    fn change_left_handed(mut self: Pin<&mut Self>, on: bool) {
+        self.as_mut().core().update_settings(|s| s.left_handed = on);
+        self.as_mut().set_left_handed(on);
     }
 
     fn change_options(
@@ -1010,7 +1143,7 @@ impl qobject::Controller {
 
     fn change_scoring(mut self: Pin<&mut Self>, strictness: &QString, pitch_cents: f64) {
         let strictness = strictness.to_string();
-        if !["auto", "loose", "normal", "strict"].contains(&strictness.as_str()) {
+        if !["auto", "loose", "normal", "strict", "custom"].contains(&strictness.as_str()) {
             return;
         }
         let cents = pitch_cents.clamp(0.0, 100.0);
