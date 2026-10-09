@@ -94,8 +94,10 @@ Kirigami.Page {
         function onArrangementLoaded() { page.reset() }
         function onNoteJudged(index, state, offsetMs, cents) {
             page.states[index] = state
+            // Cents go along in full marks (LH-BEW-05); views that take no third argument ignore it.
+            var shownCents = page.marks === KanteTabLane.Marks.Full && (state === "hit" || state === "offpitch") ? cents : undefined
             for (var i = 0; i < page.noteViews.length; i++) {
-                page.noteViews[i].setNoteState(index, state)
+                page.noteViews[i].setNoteState(index, state, shownCents)
             }
         }
         // Play mode just plays (LH-MOD-01, round 6): the summary only on request.

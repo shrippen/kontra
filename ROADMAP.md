@@ -125,6 +125,9 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 - [x] LH-ANZ-05: Lage je Note aus der Tab-Zuordnung (Zeigefinger-Bund, 4-Bund-Fenster, Wechsel mit
       Vorausschau); unter dem Griffbrett „Lage n“ und ein Lagenwechsel-Hinweis ab einem Takt vorher;
       Fingersatz (Bund − Lage + 1) im Marker der nächsten Note.
+- [x] LH-BEW-01/-05: Auswertung mit jeder Note (Takt, Ton, Zustand, ms früh/spät, Cent) –
+      die schwierigsten fünf sofort, alle auf Knopfdruck; Cent gehen im Modus volle Markierung als
+      drittes Argument an `setNoteState` (wirkt, sobald Kante PR #43 gemergt ist).
 
 ## QA-Runden
 

@@ -245,5 +245,11 @@
   "keys.footswitch": "Foot switch: any pedal that sends keys works without a driver. Most send Page Down (play/pause) and Page Up (back) – that already fits. Otherwise set it to one of the keys above.",
   "fretboard.position": "Position {position}",
   "fretboard.shift": "Position shift: position {position} from bar {bar}",
-  "fretboard.finger": "Finger {finger} (1 index … 4 little finger)"
+  "fretboard.finger": "Finger {finger} (1 index … 4 little finger)",
+  "summary.note.bar": "Bar {bar}",
+  "summary.note.early": "{ms} ms early",
+  "summary.note.late": "{ms} ms late",
+  "summary.note.cents": "{cents} cents",
+  "summary.hardest.notes": "These notes are worth a second look",
+  "summary.all.notes": "All notes ({n})"
 }

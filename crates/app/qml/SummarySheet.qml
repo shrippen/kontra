@@ -90,6 +90,49 @@ KanteCard {
                 }
             }
         }
+
+        // Per note (LH-BEW-01): the hardest notes, and on request every note, with timing and cents.
+        KanteSectionLabel {
+            text: texts.t("summary.hardest.notes")
+            visible: sheet.summary && sheet.summary.hardestNotes.length > 0
+        }
+        Repeater {
+            model: sheet.summary ? sheet.summary.hardestNotes : []
+            delegate: noteRow
+        }
+        KanteButton {
+            id: allNotes
+            visible: sheet.summary && sheet.summary.notes.length > 0
+            checkable: true
+            emphasis: KanteButton.Emphasis.Quiet
+            text: texts.t("summary.all.notes", { n: sheet.summary ? sheet.summary.notes.length : 0 })
+        }
+        Repeater {
+            model: allNotes.checked && sheet.summary ? sheet.summary.notes : []
+            delegate: noteRow
+        }
     }
 }
+
+    Component {
+        id: noteRow
+        RowLayout {
+            required property var modelData
+            Layout.fillWidth: true
+            spacing: KanteStyle.unit(8)
+            Accessible.role: Accessible.StaticText
+            Accessible.name: modelData.text
+            KanteNoteMark {
+                Layout.preferredWidth: KanteStyle.unit(14)
+                Layout.preferredHeight: KanteStyle.unit(14)
+                noteState: modelData.state
+            }
+            QQC2.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: modelData.text
+                color: KanteStyle.textColor
+            }
+        }
+    }
 }

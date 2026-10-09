@@ -14,7 +14,7 @@ pub use store::{data_dir, InputKind, Library, RecentEntry, Setlist, Settings};
 use kontra_model::{Arrangement, BassKind, InputSource};
 use kontra_session::{
     import_file, list_devices, run_from, CalibrationResult, Direction, Gains, ImportResult,
-    InputChoice, Live, LiveCalibration, LiveSetup, LiveTuner, LoopRange, Mode, Outcome,
+    InputChoice, Live, LiveCalibration, LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Outcome,
     PracticeEvent, PracticeOptions, ProgressStore, ScoreSettings, SessionEvent, Summary, Workshop,
 };
 use serde_json::json;
@@ -1151,20 +1151,14 @@ impl Core {
                     return Some(UiEvent::Extra);
                 };
                 let offset = r.offset_ms.unwrap_or(0.0);
-                let window = 25.0;
                 let state = match r.outcome {
-                    Outcome::Hit if offset < -window => "early",
-                    Outcome::Hit if offset > window => "late",
-                    Outcome::Hit => "hit",
                     // In wait mode the note stays open: show what was played instead of marking it.
                     Outcome::WrongPitch { played_midi } if self.settings.mode == "wait" => {
                         let text = self.wait_text(index, Some(played_midi))?;
                         return Some(UiEvent::Holding { index, text });
                     }
-                    Outcome::WrongPitch { .. } => "wrong",
-                    Outcome::OffPitch => "offpitch",
-                    Outcome::Missed => "missed",
                     Outcome::Extra { .. } => return Some(UiEvent::Extra),
+                    outcome => state_of(outcome, offset),
                 };
                 Some(UiEvent::Judged {
                     index,
@@ -1183,16 +1177,73 @@ impl Core {
             } => Some(UiEvent::PassComplete { clean, hit_rate }),
             SessionEvent::SpeedChanged(s) => Some(UiEvent::SpeedChanged(s)),
             SessionEvent::Finished => {
-                let summary = self.live.as_ref()?.practice().session().summary();
+                let session = self.live.as_ref()?.practice().session();
                 Some(UiEvent::Finished {
-                    summary_json: self.summary_json(&summary),
+                    summary_json: self.summary_json(&session.summary(), session.results()),
                 })
             }
         }
     }
 
-    /// Summary with ready-made texts for the evaluation sheet.
-    pub fn summary_json(&self, s: &Summary) -> String {
+    /// Every judged note of the run (LH-BEW-01), the last attempt per pass and note, in order:
+    /// `{index, pass, bar, state, offsetMs, cents, severity, text}`; `text` reads like
+    /// "Takt 3 · G1 · 42 ms zu spät · +12 Cent".
+    fn note_details(&self, results: &[NoteResult]) -> Vec<serde_json::Value> {
+        let Some(a) = self.arrangement() else {
+            return Vec::new();
+        };
+        let mut last = std::collections::BTreeMap::new();
+        for r in results {
+            if let Some(note) = r.note {
+                last.insert((r.pass, note), *r);
+            }
+        }
+        last.into_iter()
+            .filter_map(|((pass, index), r)| {
+                let note = a.notes.get(index)?;
+                let state = state_of(r.outcome, r.offset_ms.unwrap_or(0.0));
+                let bar = r
+                    .bar
+                    .and_then(|b| a.bars.get(b))
+                    .map_or(0, |b| b.source_index + 1);
+                let mut parts = vec![
+                    self.tr("summary.note.bar", &[("bar", bar.to_string())]),
+                    self.note_label(&note.pitch.to_string()),
+                ];
+                // Early and late say it with the milliseconds below.
+                if !matches!(state, "early" | "late") {
+                    parts.push(self.tr(&format!("result.{state}"), &[]));
+                }
+                match r.offset_ms {
+                    Some(ms) if ms <= -1.0 => {
+                        parts.push(self.tr("summary.note.early", &[("ms", format!("{:.0}", -ms))]))
+                    }
+                    Some(ms) if ms >= 1.0 => {
+                        parts.push(self.tr("summary.note.late", &[("ms", format!("{ms:.0}"))]))
+                    }
+                    _ => {}
+                }
+                if let Some(c) = r.cents {
+                    parts.push(self.tr("summary.note.cents", &[("cents", format!("{c:+.0}"))]));
+                }
+                Some(json!({
+                    "index": index,
+                    "pass": pass,
+                    "bar": bar,
+                    "state": state,
+                    "offsetMs": r.offset_ms,
+                    "cents": r.cents,
+                    "severity": severity(state),
+                    "text": parts.join(" · "),
+                }))
+            })
+            .collect()
+    }
+
+    /// Summary with ready-made texts for the evaluation sheet, and every note's result.
+    pub fn summary_json(&self, s: &Summary, results: &[NoteResult]) -> String {
+        let notes = self.note_details(results);
+        let hardest_notes = hardest_notes(&notes);
         let arrangement = self.arrangement();
         let tendency = match s.mean_offset_ms {
             Some(m) if m < -5.0 => self.tr("summary.early", &[("ms", format!("{:.0}", -m))]),
@@ -1234,6 +1285,8 @@ impl Core {
             "firstBinMs": s.histogram.first_bin_ms,
             "binMs": s.histogram.bin_ms,
             "hardestBars": hardest,
+            "notes": notes,
+            "hardestNotes": hardest_notes,
         })
         .to_string()
     }
@@ -1282,6 +1335,50 @@ impl Core {
             .collect();
         serde_json::Value::Array(list).to_string()
     }
+}
+
+/// Hits further off than this show as early or late.
+const TIMING_MARK_MS: f64 = 25.0;
+
+/// How many notes the evaluation lists as hardest.
+const HARDEST_NOTES: usize = 5;
+
+/// The view state of a judged note: "hit", "early", "late", "wrong", "offpitch", "missed".
+fn state_of(outcome: Outcome, offset_ms: f64) -> &'static str {
+    match outcome {
+        Outcome::Hit if offset_ms < -TIMING_MARK_MS => "early",
+        Outcome::Hit if offset_ms > TIMING_MARK_MS => "late",
+        Outcome::Hit => "hit",
+        Outcome::WrongPitch { .. } => "wrong",
+        Outcome::OffPitch => "offpitch",
+        Outcome::Missed | Outcome::Extra { .. } => "missed",
+    }
+}
+
+/// Weight of a state for "hardest notes": a missed or wrong note before an off-pitch one,
+/// before one off in time; a clean hit is 0.
+fn severity(state: &str) -> u8 {
+    match state {
+        "missed" | "wrong" => 3,
+        "offpitch" => 2,
+        "early" | "late" => 1,
+        _ => 0,
+    }
+}
+
+/// The hardest notes of `notes_details`: worst state first, then the largest timing offset.
+fn hardest_notes(notes: &[serde_json::Value]) -> Vec<serde_json::Value> {
+    let key = |n: &serde_json::Value| {
+        let severity = n["severity"].as_u64().unwrap_or(0);
+        let offset = n["offsetMs"].as_f64().map_or(0.0, f64::abs);
+        (severity, offset)
+    };
+    let mut hard: Vec<&serde_json::Value> = notes.iter().filter(|n| key(n).0 > 0).collect();
+    hard.sort_by(|a, b| {
+        let (a, b) = (key(a), key(b));
+        b.0.cmp(&a.0).then(b.1.total_cmp(&a.1))
+    });
+    hard.into_iter().take(HARDEST_NOTES).cloned().collect()
 }
 
 /// Frets one hand covers without shifting: index finger on the position's fret, pinky three up.
@@ -1537,6 +1634,24 @@ mod tests {
         }
         a.normalize();
         a
+    }
+
+    #[test]
+    fn hardest_notes_put_misses_before_timing() {
+        let note = |severity: u8, offset: f64| json!({ "severity": severity, "offsetMs": offset });
+        let notes = [
+            note(0, 5.0),
+            note(1, -40.0),
+            note(3, 0.0),
+            note(1, 60.0),
+            note(2, 10.0),
+        ];
+        let hard = hardest_notes(&notes);
+        let order: Vec<f64> = hard
+            .iter()
+            .map(|n| n["offsetMs"].as_f64().unwrap())
+            .collect();
+        assert_eq!(order, [0.0, 10.0, 60.0, -40.0]);
     }
 
     fn positions_of(frets: &[u8]) -> Vec<u8> {
@@ -2087,6 +2202,17 @@ mod tests {
         }
         // 3.6 s of playing at 0.3 s per note: about 12 hits.
         assert!(hits >= 10, "hits {hits}");
+
+        // The evaluation lists every judged note with its timing (LH-BEW-01).
+        let session = core.live.as_ref().unwrap().practice().session();
+        let summary: serde_json::Value =
+            serde_json::from_str(&core.summary_json(&session.summary(), session.results()))
+                .unwrap();
+        let notes = summary["notes"].as_array().unwrap();
+        assert!(notes.len() >= hits, "{}", notes.len());
+        assert!(notes[0]["offsetMs"].is_f64());
+        let bar = core.tr("summary.note.bar", &[("bar", "1".into())]);
+        assert!(notes[0]["text"].as_str().unwrap().starts_with(&bar));
         std::fs::remove_dir_all(dir).unwrap();
     }
 }
