@@ -1,0 +1,19 @@
+[package]
+name = "kontra-drivers"
+description = "Raw I/O for Kontra: audio devices (cpal), audio file decoding and writing."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+# Audio devices: ALSA (PipeWire and PulseAudio through their ALSA plugins), JACK later.
+cpal = "0.18"
+# Decoders, all permissive: WAV (Apache-2.0), FLAC (Apache-2.0), Ogg Vorbis (MIT/Apache-2.0), MP3 (MIT, CC0 core).
+hound = "3.5"
+claxon = "0.4"
+lewton = "0.10"
+minimp3 = "0.6"
+
+[lints]
+workspace = true
