@@ -170,16 +170,25 @@ impl Session {
             self.wait_note(real_s, note.midi);
             return;
         }
-        let (position, pass) = self.transport.position_at(real_s);
+        let (mut position, mut pass) = self.transport.position_at(real_s);
         let range = self.range();
-        let result = self.matcher.score(
-            pass,
-            position,
-            note.midi,
-            self.transport.speed(),
-            &self.settings,
-            range,
-        );
+        let speed = self.transport.speed();
+        // Just before a loop wraps, a note with nothing to match in this pass is the next pass's
+        // first note played early (QA P2: it was "extra" plus a "missed" first note).
+        if let Some(LoopRange { start_s, end_s }) = self.transport.loop_range() {
+            let window = self.settings.strictness.window_ms() / 1000.0 * speed;
+            let wrapped = start_s - (end_s - position);
+            if end_s - position <= window
+                && !self.matcher.has_candidate(pass, position, window, range)
+                && self.matcher.has_candidate(pass + 1, wrapped, window, range)
+            {
+                position = wrapped;
+                pass += 1;
+            }
+        }
+        let result = self
+            .matcher
+            .score(pass, position, note.midi, speed, &self.settings, range);
         self.record(result);
     }
 

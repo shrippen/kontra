@@ -187,6 +187,40 @@ fn workshop_holds_inside_the_band() {
     assert!(speed_changes(&workshop_run(&[8, 7, 8], 25.0)).is_empty());
 }
 
+/// QA P2 (F2): the first note of a loop pass played a little early falls before the wrap; it
+/// belongs to the next pass's first note, not "extra" plus "missed".
+#[test]
+fn early_note_at_loop_start_counts_for_the_next_pass() {
+    let mut s = Session::new(riff(), Mode::Song, ScoreSettings::default());
+    s.set_loop(
+        0.0,
+        Some(LoopRange {
+            start_s: 0.0,
+            end_s: 2.0,
+        }),
+    );
+    s.play(0.0);
+    // Pass 0: notes at 0, 0.5, 1, 1.5; pass 1 starts at 2.0 – its first note 20 ms early.
+    let notes = [
+        played(0.0, 28.0),
+        played(0.5, 33.0),
+        played(1.0, 38.0),
+        played(1.5, 43.0),
+        played(1.98, 28.0),
+        played(2.5, 33.0),
+    ];
+    run(&mut s, &notes, 3.0);
+    let extras = s.results().iter().filter(|r| r.note.is_none()).count();
+    assert_eq!(extras, 0, "{:?}", s.results());
+    let first = s
+        .results()
+        .iter()
+        .find(|r| r.pass == 1 && r.note == Some(0))
+        .expect("pass 1 first note judged");
+    assert_eq!(first.outcome, Outcome::Hit, "{:?}", s.results());
+    assert!((first.offset_ms.unwrap() + 20.0).abs() < 1.0, "{first:?}");
+}
+
 /// Chords: any tone counts for the whole chord (the detector hears one note), and every chord
 /// tone gets the result.
 #[test]
