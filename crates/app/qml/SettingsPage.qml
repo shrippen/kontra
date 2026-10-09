@@ -18,7 +18,13 @@ Kirigami.ScrollablePage {
     background: Rectangle { color: KanteStyle.backgroundColor }
 
     title: texts.t("nav.settings")
-    Component.onCompleted: ctl.refreshDevices()
+    Component.onCompleted: {
+        ctl.refreshDevices()
+        // QA `--mixer`: scroll to the mixer once the layout is done.
+        if (ctl.showMixer) {
+            Qt.callLater(function() { page.flickable.contentY = mixerLabel.y })
+        }
+    }
 
     function deviceIndex(list, id) {
         for (var i = 0; i < list.length; i++) {
@@ -175,6 +181,8 @@ Kirigami.ScrollablePage {
                 onToggled: ctl.changeOptions(ctl.metronome, checked, ctl.lowStringOnTop)
             }
         }
+        KanteSectionLabel { id: mixerLabel; text: texts.t("mixer.title"); Layout.topMargin: KanteStyle.unit(12) }
+        Mixer { Layout.fillWidth: true }
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.latency")
@@ -233,7 +241,7 @@ Kirigami.ScrollablePage {
             Repeater {
                 model: [
                     ["Space / K", "keys.play"], ["Pos1 / Home", "keys.rewind"], ["L", "keys.loop"],
-                    ["M", "keys.metronome"], ["C", "keys.countin"], ["+ / −", "keys.speed"],
+                    ["M", "keys.metronome"], ["C", "keys.countin"], ["X", "keys.mixer"], ["+ / −", "keys.speed"],
                     ["N", "keys.next"], ["1–4", "keys.mode"], ["Alt+1–4", "keys.view"], ["Ctrl+1–6", "keys.pages"]
                 ]
                 delegate: RowLayout {

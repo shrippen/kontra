@@ -10,7 +10,9 @@
 use crate::session::{Mode, Session, SessionEvent};
 use crate::settings::ScoreSettings;
 use crate::transport::LoopRange;
-use kontra_engine::{Accent, BackingAudio, BackingTrack, Clock, Event, Output, Resolution, Sound};
+use kontra_engine::{
+    Accent, BackingAudio, BackingTrack, Clock, Event, Gains, Output, Resolution, Sound,
+};
 use kontra_model::{Arrangement, TICKS_PER_QUARTER};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -123,6 +125,11 @@ impl<O: Output> Practice<O> {
     pub fn set_backing(&mut self, track: Option<BackingTrack>) {
         self.backing = track;
         self.stretched.clear();
+    }
+
+    /// Sets the mixer's volumes (LH-WIE-03, LH-MOD-05); takes effect at once, also while playing.
+    pub fn set_gains(&mut self, gains: Gains) {
+        self.output.set_gains(gains);
     }
 
     pub fn set_options(&mut self, options: PracticeOptions) {
@@ -434,7 +441,6 @@ fn beats_of(arrangement: &Arrangement) -> Vec<Beat> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kontra_engine::Gains;
     use kontra_model::{Instrument, Note, Pitch, TempoMap};
 
     #[derive(Debug, Default)]
@@ -442,6 +448,7 @@ mod tests {
         sounds: Vec<(f64, Sound)>,
         backings: Vec<(f64, usize)>,
         cleared: Vec<f64>,
+        gains: Option<Gains>,
     }
 
     impl Output for Recorder {
@@ -460,7 +467,9 @@ mod tests {
             self.backings.push((at_s, from_frame));
         }
         fn stop_backing(&mut self, _at_s: f64) {}
-        fn set_gains(&mut self, _gains: Gains) {}
+        fn set_gains(&mut self, gains: Gains) {
+            self.gains = Some(gains);
+        }
     }
 
     fn arrangement() -> Arrangement {
@@ -535,5 +544,23 @@ mod tests {
             assert!(((pair[1] - pair[0]) - 0.25).abs() < 1e-6, "{times:?}");
         }
         assert!(times.len() >= 4);
+    }
+
+    #[test]
+    fn gains_reach_the_output() {
+        let mut p = Practice::new(
+            arrangement(),
+            Mode::Play,
+            ScoreSettings::default(),
+            PracticeOptions::default(),
+            Recorder::default(),
+            Clock::new(),
+        );
+        let gains = Gains {
+            monitor: 0.5,
+            ..Gains::default()
+        };
+        p.set_gains(gains);
+        assert_eq!(p.output().gains, Some(gains));
     }
 }

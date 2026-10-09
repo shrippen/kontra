@@ -13,9 +13,9 @@ pub use store::{data_dir, InputKind, Library, RecentEntry, Setlist, Settings};
 
 use kontra_model::{Arrangement, BassKind, InputSource};
 use kontra_session::{
-    import_file, list_devices, run_from, CalibrationResult, Direction, ImportResult, InputChoice,
-    Live, LiveCalibration, LiveSetup, LiveTuner, LoopRange, Mode, Outcome, PracticeEvent,
-    PracticeOptions, ProgressStore, ScoreSettings, SessionEvent, Summary, Workshop,
+    import_file, list_devices, run_from, CalibrationResult, Direction, Gains, ImportResult,
+    InputChoice, Live, LiveCalibration, LiveSetup, LiveTuner, LoopRange, Mode, Outcome,
+    PracticeEvent, PracticeOptions, ProgressStore, ScoreSettings, SessionEvent, Summary, Workshop,
 };
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -325,6 +325,26 @@ impl Core {
     pub fn reconfigure(&mut self, change: impl FnOnce(&mut Settings)) {
         self.update_settings(change);
         self.stop_live();
+    }
+
+    /// Changes the mixer (volumes, monitoring) and saves; a running practice hears it at once.
+    /// Returns a hint when monitoring is on but cannot work.
+    pub fn remix(&mut self, change: impl FnOnce(&mut Settings)) -> Option<String> {
+        self.update_settings(change);
+        let gains = gains(&self.settings);
+        if let Some(live) = self.live.as_mut() {
+            live.practice_mut().set_gains(gains);
+        }
+        self.monitor_hint()
+    }
+
+    /// Monitoring is on, but the running practice has no output or devices at different rates.
+    fn monitor_hint(&self) -> Option<String> {
+        let live = self.live.as_ref()?;
+        if !self.settings.monitor || live.can_monitor() || live.output_is_silent {
+            return None;
+        }
+        Some(self.tr("hint.monitor.rate", &[]))
     }
 
     pub fn recent_json(&self) -> String {
@@ -728,6 +748,9 @@ impl Core {
         if self.output_is_bluetooth() {
             events.push(UiEvent::Message(self.tr("hint.bluetooth", &[])));
         }
+        if let Some(hint) = self.monitor_hint() {
+            events.push(UiEvent::Message(hint));
+        }
         let aligned = self.qa.input_file.is_some();
         if let Some(live) = self.live.as_mut() {
             if aligned {
@@ -868,6 +891,7 @@ impl Core {
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
         live.practice_mut().set_speed(self.speed);
         live.practice_mut().set_loop(self.loop_range());
+        live.practice_mut().set_gains(gains(&self.settings));
         let silent = live.output_is_silent;
         self.live = Some(live);
         self.run_started = Some(std::time::Instant::now());
@@ -1369,6 +1393,21 @@ fn instrument_from(settings: &Settings) -> kontra_model::Instrument {
 
 /// Block length in ms if it is longer than 512 frames at 48 kHz (10.7 ms): beyond that the
 /// latency target (LH-NF-01) cannot be met.
+/// The mixer's volumes for the player; monitoring off mutes the input.
+fn gains(settings: &Settings) -> Gains {
+    let volume = |v: f64| v.clamp(0.0, 1.0) as f32;
+    Gains {
+        click: volume(settings.metronome_volume),
+        tone: volume(settings.tone_volume),
+        backing: volume(settings.backing_volume),
+        monitor: if settings.monitor {
+            volume(settings.monitor_volume)
+        } else {
+            0.0
+        },
+    }
+}
+
 fn quantum_too_long_ms(frames: u32, rate: u32) -> Option<f64> {
     let ms = f64::from(frames) / f64::from(rate.max(1)) * 1000.0;
     (ms > 512.0 / 48.0 + 0.05).then_some(ms)
@@ -1582,6 +1621,56 @@ mod tests {
                 .any(|e| matches!(e, UiEvent::Message(m) if m.contains("weg.wav"))),
             "{events:?}"
         );
+        core.stop_live();
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn gains_follow_the_mixer() {
+        let mut settings = Settings {
+            backing_volume: 0.25,
+            metronome_volume: 1.5,
+            tone_volume: -1.0,
+            monitor_volume: 0.5,
+            ..Settings::default()
+        };
+        let off = gains(&settings);
+        assert_eq!((off.backing, off.click, off.tone), (0.25, 1.0, 0.0));
+        assert_eq!(off.monitor, 0.0);
+        settings.monitor = true;
+        assert_eq!(gains(&settings).monitor, 0.5);
+    }
+
+    /// LH-WIE-03: mixer changes reach a running practice without restarting it and are saved.
+    #[test]
+    fn mixer_changes_apply_while_playing() {
+        let dir = temp_dir("mixer");
+        let take = dir.join("take.wav");
+        std::fs::create_dir_all(&dir).unwrap();
+        kontra_session::write_mono_wav(&take, &vec![0.0; 48_000], 48_000).unwrap();
+        let mut core = Core::new(
+            &dir,
+            QaOptions {
+                input_file: Some(take),
+                laptop_jack: false,
+            },
+        );
+        core.open(&demo()).unwrap();
+        core.play();
+        assert!(core.live.is_some());
+        let hint = core.remix(|s| {
+            s.monitor = true;
+            s.backing_volume = 0.3;
+        });
+        assert!(core.live.is_some());
+        let silent = core.live.as_ref().is_some_and(|l| l.output_is_silent);
+        assert_eq!(
+            hint.is_some(),
+            !silent && !core.live.as_ref().unwrap().can_monitor()
+        );
+        let saved: Settings = store::load(&dir.join("settings.json"));
+        assert!(saved.monitor);
+        assert_eq!(saved.backing_volume, 0.3);
         core.stop_live();
         let _ = std::fs::remove_dir_all(dir);
     }

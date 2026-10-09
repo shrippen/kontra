@@ -70,7 +70,7 @@ pub fn analyze_file(
         pace: Pace::Fast,
         laptop_jack,
     };
-    let input = Input::start(&kind, instrument, source, &clock, tx)?;
+    let input = Input::start(&kind, instrument, source, &clock, tx, None)?;
     let mut notes = Vec::new();
     for event in rx.iter() {
         match event {

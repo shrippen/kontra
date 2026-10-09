@@ -72,6 +72,12 @@ pub mod qobject {
         #[qproperty(QString, strictness)]
         #[qproperty(f64, pitch_cents, cxx_name = "pitchCents")]
         #[qproperty(f64, latency_ms, cxx_name = "latencyMs")]
+        /// Mixer (LH-WIE-03, LH-MOD-05): volumes 0..1 and input monitoring.
+        #[qproperty(f64, backing_volume, cxx_name = "backingVolume")]
+        #[qproperty(f64, metronome_volume, cxx_name = "metronomeVolume")]
+        #[qproperty(f64, tone_volume, cxx_name = "toneVolume")]
+        #[qproperty(bool, monitor)]
+        #[qproperty(f64, monitor_volume, cxx_name = "monitorVolume")]
         #[qproperty(bool, calibrating)]
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
         #[qproperty(QString, backing_name, cxx_name = "backingName")]
@@ -81,6 +87,8 @@ pub mod qobject {
         #[qproperty(bool, setup_done, cxx_name = "setupDone")]
         #[qproperty(bool, autoplay)]
         #[qproperty(bool, autocalibrate)]
+        /// QA: practice and settings show the mixer from the start.
+        #[qproperty(bool, show_mixer, cxx_name = "showMixer")]
         /// QA: bars to loop at start, 1-based "from-to" ("" = none).
         #[qproperty(QString, start_loop, cxx_name = "startLoop")]
         #[qproperty(QString, screenshot_path, cxx_name = "screenshotPath")]
@@ -241,6 +249,16 @@ pub mod qobject {
         #[cxx_name = "changeLatency"]
         fn change_latency(self: Pin<&mut Self>, latency_ms: f64);
 
+        /// Sets a mixer volume (0..1): `bus` is "backing", "metronome", "tone" or "monitor".
+        #[qinvokable]
+        #[cxx_name = "changeVolume"]
+        fn change_volume(self: Pin<&mut Self>, bus: &QString, value: f64);
+
+        /// Plays the bass input through the output (off by default).
+        #[qinvokable]
+        #[cxx_name = "changeMonitor"]
+        fn change_monitor(self: Pin<&mut Self>, on: bool);
+
         /// Latency calibration "play on the click" (LH-EIN-05).
         #[qinvokable]
         #[cxx_name = "startCalibration"]
@@ -357,6 +375,11 @@ pub struct ControllerRust {
     strictness: QString,
     pitch_cents: f64,
     latency_ms: f64,
+    backing_volume: f64,
+    metronome_volume: f64,
+    tone_volume: f64,
+    monitor: bool,
+    monitor_volume: f64,
     calibrating: bool,
     calibration_text: QString,
     backing_name: QString,
@@ -366,6 +389,7 @@ pub struct ControllerRust {
     setup_done: bool,
     autoplay: bool,
     autocalibrate: bool,
+    show_mixer: bool,
     start_loop: QString,
     screenshot_path: QString,
     screenshot_after: i32,
@@ -453,6 +477,11 @@ impl Default for ControllerRust {
             strictness: q(&s.strictness),
             pitch_cents: s.pitch_cents,
             latency_ms: s.latency_ms,
+            backing_volume: s.backing_volume,
+            metronome_volume: s.metronome_volume,
+            tone_volume: s.tone_volume,
+            monitor: s.monitor,
+            monitor_volume: s.monitor_volume,
             calibrating: false,
             calibration_text: QString::default(),
             backing_name: QString::default(),
@@ -462,6 +491,7 @@ impl Default for ControllerRust {
             setup_done: s.setup_done,
             autoplay: args.autoplay,
             autocalibrate: args.calibrate,
+            show_mixer: args.mixer,
             start_loop: q(&args
                 .loop_bars
                 .map(|(a, b)| format!("{a}-{b}"))
@@ -1036,6 +1066,39 @@ impl qobject::Controller {
         self.as_mut().core().reconfigure(|s| s.latency_ms = value);
         self.as_mut().set_latency_ms(value);
         self.as_mut().set_playing(false);
+    }
+
+    fn change_volume(mut self: Pin<&mut Self>, bus: &QString, value: f64) {
+        let value = value.clamp(0.0, 1.0);
+        let hint = match bus.to_string().as_str() {
+            "backing" => {
+                self.as_mut().set_backing_volume(value);
+                self.as_mut().core().remix(|s| s.backing_volume = value)
+            }
+            "metronome" => {
+                self.as_mut().set_metronome_volume(value);
+                self.as_mut().core().remix(|s| s.metronome_volume = value)
+            }
+            "tone" => {
+                self.as_mut().set_tone_volume(value);
+                self.as_mut().core().remix(|s| s.tone_volume = value)
+            }
+            "monitor" => {
+                self.as_mut().set_monitor_volume(value);
+                self.as_mut().core().remix(|s| s.monitor_volume = value)
+            }
+            _ => None,
+        };
+        if let Some(hint) = hint {
+            self.as_mut().set_message(q(&hint));
+        }
+    }
+
+    fn change_monitor(mut self: Pin<&mut Self>, on: bool) {
+        self.as_mut().set_monitor(on);
+        if let Some(hint) = self.as_mut().core().remix(|s| s.monitor = on) {
+            self.as_mut().set_message(q(&hint));
+        }
     }
 
     fn start_calibration(mut self: Pin<&mut Self>) {

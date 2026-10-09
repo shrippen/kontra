@@ -85,6 +85,8 @@ pub struct Live {
     input: Input,
     events: Receiver<Event>,
     pub output_is_silent: bool,
+    /// The bass input reaches the output (same rate on both devices); the gain decides if heard.
+    can_monitor: bool,
 }
 
 impl Live {
@@ -97,7 +99,7 @@ impl Live {
     ) -> Result<Live, EngineError> {
         let clock = Clock::new();
         let (tx, rx) = channel();
-        let output = open_output(setup.output_device.as_deref(), &clock, tx.clone());
+        let mut output = open_output(setup.output_device.as_deref(), &clock, tx.clone());
         let output_is_silent = matches!(output, LiveOutput::Silent(_));
         let sample_rate = output.sample_rate();
         let backing = setup
@@ -105,22 +107,29 @@ impl Live {
             .as_deref()
             .map(|p| BackingTrack::load(p, sample_rate))
             .transpose()?;
-        let instrument = arrangement.instrument.clone();
-        let mut practice =
-            Practice::new(arrangement, mode, settings, options, output, clock.clone());
-        practice.set_backing(backing);
+        // The input starts before the practice owns the output: it takes the player's monitor ring.
+        let player = match &mut output {
+            LiveOutput::Device(p) => Some(p),
+            LiveOutput::Silent(_) => None,
+        };
         let input = Input::start(
             &input_kind(&setup.input),
-            &instrument,
+            &arrangement.instrument,
             setup.source,
             &clock,
             tx,
+            player,
         )?;
+        let can_monitor = !output_is_silent && input.sample_rate == sample_rate;
+        let mut practice =
+            Practice::new(arrangement, mode, settings, options, output, clock.clone());
+        practice.set_backing(backing);
         Ok(Live {
             practice,
             input,
             events: rx,
             output_is_silent,
+            can_monitor,
         })
     }
 
@@ -129,6 +138,11 @@ impl Live {
         self.input
             .block_frames()
             .map(|b| (b, self.input.sample_rate))
+    }
+
+    /// False when monitoring cannot work: no output, or input and output run at different rates.
+    pub fn can_monitor(&self) -> bool {
+        self.can_monitor
     }
 
     pub fn practice(&self) -> &Practice<LiveOutput> {
@@ -181,7 +195,7 @@ impl LiveTuner {
     ) -> Result<LiveTuner, EngineError> {
         let clock = Clock::new();
         let (tx, rx) = channel();
-        let input = Input::start(&input_kind(input), instrument, source, &clock, tx)?;
+        let input = Input::start(&input_kind(input), instrument, source, &clock, tx, None)?;
         input.set_tuner(true);
         Ok(LiveTuner { input, events: rx })
     }
@@ -275,6 +289,7 @@ impl LiveCalibration {
             setup.source,
             &clock,
             tx,
+            None,
         )?;
         Ok(LiveCalibration {
             clock,

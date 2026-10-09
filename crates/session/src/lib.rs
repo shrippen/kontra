@@ -27,6 +27,7 @@ pub use calibration::{
     CalibrationResult, CLICKS as CALIBRATION_CLICKS, INTERVAL_S as CALIBRATION_INTERVAL_S,
 };
 pub use expected::{expected_notes, ExpectedNote};
+pub use kontra_engine::Gains;
 pub use live::{InputChoice, Live, LiveCalibration, LiveOutput, LiveSetup, LiveTuner};
 pub use matcher::{NoteResult, Outcome};
 pub use practice::{Practice, PracticeEvent, PracticeOptions};

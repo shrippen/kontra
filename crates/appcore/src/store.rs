@@ -1,10 +1,13 @@
 //! Settings and library on disk (LH-ALL-03, LH-FOR-03): JSON in the data directory.
 
+use kontra_session::Gains;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// Pieces the library keeps (LH-BIB-04 asks for 200 with fast search).
 const RECENT_MAX: usize = 2000;
+/// Monitoring volume when first switched on.
+const MONITOR_VOLUME: f64 = 0.8;
 
 /// `KONTRA_DATA_DIR`, else `$XDG_DATA_HOME/kontra`, else `~/.local/share/kontra`.
 pub fn data_dir() -> PathBuf {
@@ -79,10 +82,18 @@ pub struct Settings {
     pub pitch_cents: f64,
     /// The first-start assistant was completed or skipped (LH-EIN-01).
     pub setup_done: bool,
+    /// Mixer volumes, 0..=1 (LH-WIE-03, LH-MOD-05).
+    pub backing_volume: f64,
+    pub metronome_volume: f64,
+    pub tone_volume: f64,
+    /// Play the bass through Kontra (input monitoring); off: the interface monitors directly.
+    pub monitor: bool,
+    pub monitor_volume: f64,
 }
 
 impl Default for Settings {
     fn default() -> Self {
+        let mix = Gains::default();
         Settings {
             language: None,
             strings: 4,
@@ -103,6 +114,11 @@ impl Default for Settings {
             strictness: "auto".into(),
             pitch_cents: 0.0,
             setup_done: false,
+            backing_volume: f64::from(mix.backing),
+            metronome_volume: f64::from(mix.click),
+            tone_volume: f64::from(mix.tone),
+            monitor: false,
+            monitor_volume: MONITOR_VOLUME,
         }
     }
 }
@@ -197,6 +213,22 @@ mod tests {
         std::fs::write(&path, "{ broken").unwrap();
         assert_eq!(load::<Settings>(&path), Settings::default());
         assert!(path.with_extension("json.broken").exists());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// Files from before the mixer load with its defaults: monitoring off, volumes as before.
+    #[test]
+    fn old_settings_get_mixer_defaults() {
+        let dir = std::env::temp_dir().join(format!("kontra-store-old-{}", std::process::id()));
+        let path = dir.join("settings.json");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(&path, r#"{ "strings": 5, "metronome": false }"#).unwrap();
+        let settings: Settings = load(&path);
+        assert_eq!(settings.strings, 5);
+        assert!(!settings.monitor);
+        assert_eq!(settings.backing_volume, f64::from(Gains::default().backing));
+        assert_eq!(settings.metronome_volume, f64::from(Gains::default().click));
+        assert_eq!(settings.tone_volume, f64::from(Gains::default().tone));
         std::fs::remove_dir_all(dir).unwrap();
     }
 
