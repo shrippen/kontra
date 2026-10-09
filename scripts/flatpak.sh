@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds the Flatpak (decision round 5: in CI), exports kontra.flatpak and starts it once headless
-# with a screenshot as a smoke test.
+# in the build sandbox with a screenshot as a smoke test.
 #
 #   scripts/flatpak.sh [OUT_DIR]      (default: flatpak-out)
 #
@@ -22,15 +22,14 @@ cargo vendor --locked --versioned-dirs vendor > packaging/cargo-vendor.toml
 flatpak-builder --user --force-clean --disable-rofiles-fuse --repo=flatpak-repo \
     flatpak-build packaging/$APP.yml
 flatpak build-bundle flatpak-repo "$OUT/kontra.flatpak" $APP
-flatpak install --user -y --noninteractive --reinstall "$OUT/kontra.flatpak"
-
-# Smoke test: start headless, open the bundled demo, screenshot, quit.
-data="$(mktemp -d)"
-QT_QPA_PLATFORM=offscreen timeout 120 flatpak run --user --env=QT_QPA_PLATFORM=offscreen \
-    --env=KONTRA_DATA_DIR=/tmp/kontra-smoke --filesystem="$PWD/$OUT" $APP \
-    --page library --screenshot "$PWD/$OUT/flatpak-library.png" --screenshot-after 2500 --quit-after 4000 \
-    > "$OUT/smoke.log" 2>&1 || true
-rm -rf "$data"
+# Smoke test inside the build sandbox (no D-Bus or portals needed, unlike `flatpak run`): start
+# headless on the library, screenshot, quit. The sandbox sees the work tree, so shoot into it.
+mkdir -p flatpak-out
+QT_QPA_PLATFORM=offscreen timeout 120 flatpak-builder --run flatpak-build packaging/$APP.yml \
+    env QT_QPA_PLATFORM=offscreen KONTRA_DATA_DIR=/tmp/kontra-smoke \
+    kontra --page library --screenshot "$PWD/flatpak-out/flatpak-library.png" \
+    --screenshot-after 2500 --quit-after 4000 > "$OUT/smoke.log" 2>&1 || true
+[ "$OUT" -ef flatpak-out ] || cp -f flatpak-out/flatpak-library.png "$OUT/" 2>/dev/null || true
 if [ ! -s "$OUT/flatpak-library.png" ]; then
     echo "flatpak smoke test: no screenshot" >&2
     tail -20 "$OUT/smoke.log" >&2

@@ -1,0 +1,53 @@
+name: flatpak
+
+# Decision round 5: the Flatpak is built in CI. Runs on main and on pull requests that change the
+# packaging; a full build takes about 20 minutes (the KDE SDK is cached).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - packaging/**
+      - scripts/flatpak.sh
+      - .gitea/workflows/flatpak.yml
+  workflow_dispatch:
+
+concurrency:
+  group: flatpak-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  flatpak:
+    timeout-minutes: 90
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          SUDO=$(command -v sudo || true)
+          $SUDO apt-get update -qq
+          $SUDO apt-get install -y -qq flatpak flatpak-builder librsvg2-common curl build-essential
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.local/share/flatpak
+          key: flatpak-kde-6.10-rust-25.08
+      - name: Sandbox check
+        # flatpak-builder needs user namespaces; an unprivileged container may not allow them.
+        run: |
+          if ! unshare --user --map-root-user true; then
+            echo "::error::no user namespaces - the runner container must allow them (privileged or seccomp unconfined)"
+            exit 1
+          fi
+      - name: Build, bundle, smoke test
+        run: scripts/flatpak.sh flatpak-out
+      - uses: actions/upload-artifact@v3
+        with:
+          name: kontra-flatpak
+          path: |
+            flatpak-out/kontra.flatpak
+            flatpak-out/flatpak-library.png
