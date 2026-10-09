@@ -41,6 +41,9 @@ pub mod qobject {
         #[qproperty(f64, rms_db, cxx_name = "rmsDb")]
         #[qproperty(bool, clipped)]
         #[qproperty(QString, tuner_note, cxx_name = "tunerNote")]
+        #[qproperty(f64, tuner_midi, cxx_name = "tunerMidi")]
+        /// Open strings for guided tuning: `[{"name", "midi"}]`, lowest first.
+        #[qproperty(QString, tuning_json, cxx_name = "tuningJson")]
         #[qproperty(f64, tuner_cents, cxx_name = "tunerCents")]
         #[qproperty(bool, tuner_active, cxx_name = "tunerActive")]
         #[qproperty(i32, holding_index, cxx_name = "holdingIndex")]
@@ -270,6 +273,8 @@ pub struct ControllerRust {
     rms_db: f64,
     clipped: bool,
     tuner_note: QString,
+    tuner_midi: f64,
+    tuning_json: QString,
     tuner_cents: f64,
     tuner_active: bool,
     holding_index: i32,
@@ -360,6 +365,8 @@ impl Default for ControllerRust {
             rms_db: -120.0,
             clipped: false,
             tuner_note: QString::default(),
+            tuner_midi: 0.0,
+            tuning_json: q(&core.tuning_json()),
             tuner_cents: 0.0,
             tuner_active: false,
             holding_index: -1,
@@ -711,9 +718,10 @@ impl qobject::Controller {
                     self.as_mut().set_rms_db(rms_db);
                     self.as_mut().set_clipped(clipped);
                 }
-                UiEvent::Tuner { note, cents } => {
+                UiEvent::Tuner { note, cents, midi } => {
                     self.as_mut().set_tuner_note(q(&note));
                     self.as_mut().set_tuner_cents(cents);
+                    self.as_mut().set_tuner_midi(midi);
                 }
                 UiEvent::Message(text) => self.as_mut().set_message(q(&text)),
                 UiEvent::Error(text) => self.as_mut().show_error(&text),
@@ -735,6 +743,8 @@ impl qobject::Controller {
 
     fn start_tuner(mut self: Pin<&mut Self>) {
         self.as_mut().set_playing(false);
+        let tuning = self.as_ref().rust().core.tuning_json();
+        self.as_mut().set_tuning_json(q(&tuning));
         match self.as_mut().core().start_tuner() {
             Ok(()) => self.as_mut().set_tuner_active(true),
             Err(e) => self.as_mut().show_error(&e),

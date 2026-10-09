@@ -177,5 +177,16 @@
   "settings.window.normal": "Normal ±60 ms",
   "settings.window.strict": "Streng ±25 ms",
   "settings.cents": "Tonhöhen-Grenze",
-  "settings.cents.hint": "Wie weit ein Ton daneben liegen darf. Automatisch: 50 Cent mit Bünden, 30 Cent bundlos."
+  "settings.cents.hint": "Wie weit ein Ton daneben liegen darf. Automatisch: 50 Cent mit Bünden, 30 Cent bundlos.",
+  "tuner.mode": "Stimm-Modus",
+  "tuner.guided": "Geführt",
+  "tuner.chromatic": "Chromatisch",
+  "tuner.string": "{name}-Saite",
+  "tuner.again": "Von vorn",
+  "tuner.alldone": "Alle Saiten gestimmt. Los geht's!",
+  "tuner.pluck": "Schlag die {name}-Saite an.",
+  "tuner.wrongstring": "Das klingt nach einer anderen Saite. Schlag die {name}-Saite an.",
+  "tuner.hold": "Gestimmt – kurz halten …",
+  "tuner.up.string": "{name}-Saite: etwas höher drehen (Wirbel spannen).",
+  "tuner.down.string": "{name}-Saite: etwas tiefer drehen (Wirbel lockern)."
 }

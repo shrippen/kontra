@@ -177,5 +177,16 @@
   "settings.window.normal": "Normal ±60 ms",
   "settings.window.strict": "Strict ±25 ms",
   "settings.cents": "Pitch limit",
-  "settings.cents.hint": "How far off a note may be. Automatic: 50 cents fretted, 30 cents fretless."
+  "settings.cents.hint": "How far off a note may be. Automatic: 50 cents fretted, 30 cents fretless.",
+  "tuner.mode": "Tuning mode",
+  "tuner.guided": "Guided",
+  "tuner.chromatic": "Chromatic",
+  "tuner.string": "{name} string",
+  "tuner.again": "Start again",
+  "tuner.alldone": "All strings in tune. Off you go!",
+  "tuner.pluck": "Pluck the {name} string.",
+  "tuner.wrongstring": "That sounds like another string. Pluck the {name} string.",
+  "tuner.hold": "In tune – hold it …",
+  "tuner.up.string": "{name} string: tune a little higher (tighten the peg).",
+  "tuner.down.string": "{name} string: tune a little lower (loosen the peg)."
 }

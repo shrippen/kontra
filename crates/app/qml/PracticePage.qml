@@ -254,6 +254,8 @@ Kirigami.Page {
             KanteTabStaff {
                 id: tabStaff
                 anchors.fill: parent
+                // As many lines as fit (QA P2 R6: one line left the next bars hidden).
+                systems: Math.max(1, Math.floor(height / KanteStyle.unit(170)))
                 visible: ctl.view === "tab"
                 strings: page.stringNames.length
                 stringNames: page.stringNames

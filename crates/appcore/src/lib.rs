@@ -63,6 +63,8 @@ pub enum UiEvent {
     Tuner {
         note: String,
         cents: f64,
+        /// The heard pitch as fractional MIDI number (guided tuning compares it with a string).
+        midi: f64,
     },
     Message(String),
     Error(String),
@@ -216,6 +218,21 @@ impl Core {
             settings.pitch_cents = self.settings.pitch_cents;
         }
         settings
+    }
+
+    /// Open strings for guided tuning (LH-TUN-03), lowest first: the loaded piece's tuning, else
+    /// the profile's. `[{"name": "E", "midi": 28}, …]`.
+    pub fn tuning_json(&self) -> String {
+        let instrument = self
+            .arrangement()
+            .map_or_else(|| instrument_from(&self.settings), |a| a.instrument.clone());
+        let strings: Vec<serde_json::Value> = instrument
+            .tuning
+            .strings
+            .iter()
+            .map(|p| json!({ "name": self.note_label(&p.name().to_string()), "midi": p.0 }))
+            .collect();
+        serde_json::Value::Array(strings).to_string()
     }
 
     /// The note left by the last `open`, once.
@@ -798,6 +815,8 @@ impl Core {
                 clipped,
             }),
             PracticeEvent::Tuner { note, cents } => Some(UiEvent::Tuner {
+                midi: kontra_model::Pitch::parse(&note)
+                    .map_or(0.0, |p| f64::from(p.0) + cents / 100.0),
                 note: self.note_label(&note),
                 cents,
             }),
@@ -1357,6 +1376,25 @@ mod tests {
         let chosen = core.score_settings(BassKind::Fretless);
         assert_eq!(chosen.strictness.window_ms(), 25.0);
         assert_eq!(chosen.pitch_cents, 20.0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-TUN-03: guided tuning walks the profile's strings, lowest first.
+    #[test]
+    fn tuning_lists_the_profile_strings() {
+        let dir = temp_dir("tuning");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.reconfigure(|s| s.strings = 5);
+        let strings: serde_json::Value = serde_json::from_str(&core.tuning_json()).unwrap();
+        let names: Vec<&str> = strings
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(names, ["H", "E", "A", "D", "G"]);
+        assert_eq!(strings[0]["midi"], 23);
         let _ = std::fs::remove_dir_all(dir);
     }
 
