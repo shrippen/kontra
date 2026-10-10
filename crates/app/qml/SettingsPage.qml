@@ -31,6 +31,16 @@ Kirigami.ScrollablePage {
         sectionTimer.running = ctl.startSection !== ""
     }
 
+    // LH-EIN-02: what "automatic" means right now (an interface before the built-in card).
+    readonly property string autoInput: {
+        for (var i = 0; i < inputs.length; i++) {
+            if (inputs[i].preferred) {
+                return texts.t("settings.device.auto", { name: inputs[i].name })
+            }
+        }
+        return texts.t("settings.device.default")
+    }
+
     function deviceIndex(list, id) {
         for (var i = 0; i < list.length; i++) {
             if (list[i].id === id) {
@@ -53,7 +63,7 @@ Kirigami.ScrollablePage {
                 Accessible.name: texts.t("settings.input")
                 Layout.fillWidth: true
                 Layout.preferredWidth: KanteStyle.unit(280)
-                model: [texts.t("settings.device.default")].concat(page.inputs.map(function(d) { return d.name }))
+                model: [page.autoInput].concat(page.inputs.map(function(d) { return d.name }))
                 currentIndex: page.deviceIndex(page.inputs, ctl.inputDevice)
                 onActivated: function(index) { ctl.chooseInput(index === 0 ? "" : page.inputs[index - 1].id) }
             }
@@ -74,20 +84,10 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.connection")
             hint: ctl.laptopJack ? texts.t("hint.laptop") : ""
-            KanteSegmented {
-                Accessible.name: texts.t("settings.connection")
-                model: [texts.t("settings.source.line"), texts.t("settings.source.laptop")]
-                currentIndex: ctl.laptopJack ? 1 : 0
-                onActivated: function(index) { ctl.changeInstrument(ctl.strings, ctl.fretless, index === 1) }
-            }
+            InfoTip { term: "Hi-Z"; info: texts.t("help.hiz") }
         }
-        // LH-EIN-10: inputs that come later are named, not left out (QA P5 Aylin, P6 Karl).
-        KanteCallout {
-            Layout.fillWidth: true
-            kind: KanteCallout.Kind.Info
-            autoHide: false
-            text: texts.t("settings.later")
-        }
+        // LH-EIN-10: inputs that come later are entries of the choice, not left out (QA P5, P6).
+        ConnectionChoice { Layout.fillWidth: true }
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.strings")
@@ -96,6 +96,27 @@ Kirigami.ScrollablePage {
                 model: ["4", "5", "6"]
                 currentIndex: ctl.strings - 4
                 onActivated: function(index) { ctl.changeInstrument(index + 4, ctl.fretless, ctl.laptopJack) }
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            title: texts.t("settings.tuning")
+            hint: texts.t("settings.tuning.hint")
+            TuningChoice {}
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            title: texts.t("settings.reference")
+            hint: texts.t("settings.reference.hint")
+            QQC2.SpinBox {
+                Accessible.name: texts.t("settings.reference")
+                from: 430
+                to: 450
+                value: Math.round(ctl.a4Hz)
+                editable: true
+                textFromValue: function(value) { return value + " Hz" }
+                valueFromText: function(text) { return parseInt(text) }
+                onValueModified: ctl.changeReference(value)
             }
         }
         KanteSettingRow {
@@ -116,6 +137,50 @@ Kirigami.ScrollablePage {
                 checked: ctl.lowStringOnTop
                 onToggled: ctl.changeOptions(ctl.metronome, ctl.reference, checked)
             }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            title: texts.t("settings.lefthanded")
+            hint: texts.t("settings.lefthanded.hint")
+            QQC2.Switch {
+                Accessible.name: texts.t("settings.lefthanded")
+                checked: ctl.leftHanded
+                onToggled: ctl.changeLeftHanded(checked)
+            }
+        }
+        KanteSettingRow {
+            id: colorsRow
+            Layout.fillWidth: true
+            title: texts.t("settings.colors")
+            hint: texts.t("settings.colors.hint")
+            KanteSegmented {
+                Accessible.name: texts.t("settings.colors")
+                readonly property var values: ["kante", "mono", "bright"]
+                model: [texts.t("settings.colors.kante"), texts.t("settings.colors.mono"),
+                        texts.t("settings.colors.bright")]
+                currentIndex: Math.max(0, values.indexOf(ctl.stringColors))
+                onActivated: function(index) { ctl.changeStringColors(values[index]) }
+            }
+        }
+        // Preview of the string colours with a hit, a wrong and a waiting note.
+        KanteTabLane {
+            Layout.fillWidth: true
+            Layout.preferredHeight: KanteStyle.unit(24) * Math.max(4, ctl.strings)
+            strings: ctl.strings
+            stringNames: JSON.parse(ctl.profileTuningJson).map(function(s) { return s.name })
+            lowStringOnTop: ctl.lowStringOnTop
+            stringColors: applicationWindow().stringColors
+            barNumbers: false
+            playLine: 0.05
+            pixelsPerSecond: KanteStyle.unit(90)
+            notes: [{ time: 0.5, duration: 0.4, string: 0, fret: 3, state: "hit" },
+                    { time: 1.5, duration: 0.4, string: 1, fret: 5, state: "wrong" },
+                    { time: 2.5, duration: 0.4, string: 2, fret: 2, state: "pending" },
+                    { time: 3.5, duration: 0.4, string: 3, fret: 0, state: "pending" },
+                    { time: 4.5, duration: 0.4, string: 4, fret: 7, state: "pending" },
+                    { time: 5.5, duration: 0.4, string: 5, fret: 1, state: "pending" }]
+                .filter(function(n) { return n.string < ctl.strings })
+            accessibleName: texts.t("settings.colors.preview")
         }
         KanteSettingRow {
             Layout.fillWidth: true
@@ -147,13 +212,29 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.window")
             hint: texts.t("settings.window.hint")
-            KanteSegmented {
-                Accessible.name: texts.t("settings.window")
-                readonly property var values: ["auto", "loose", "normal", "strict"]
-                model: [texts.t("settings.auto"), texts.t("settings.window.loose"),
-                        texts.t("settings.window.normal"), texts.t("settings.window.strict")]
-                currentIndex: Math.max(0, values.indexOf(ctl.strictness))
-                onActivated: function(index) { ctl.changeScoring(values[index], ctl.pitchCents) }
+            ColumnLayout {
+                KanteSegmented {
+                    Accessible.name: texts.t("settings.window")
+                    readonly property var values: ["auto", "loose", "normal", "strict", "custom"]
+                    model: [texts.t("settings.auto"), texts.t("settings.window.loose"),
+                            texts.t("settings.window.normal"), texts.t("settings.window.strict"),
+                            texts.t("settings.window.custom")]
+                    currentIndex: Math.max(0, values.indexOf(ctl.strictness))
+                    onActivated: function(index) { ctl.changeScoring(values[index], ctl.pitchCents) }
+                }
+                // Free window in ms (LH-BEW-02), ± around the beat.
+                QQC2.SpinBox {
+                    visible: ctl.strictness === "custom"
+                    Accessible.name: texts.t("settings.window.ms")
+                    from: 20
+                    to: 150
+                    stepSize: 5
+                    editable: true
+                    value: Math.round(ctl.windowMs)
+                    textFromValue: function(value) { return "± " + value + " ms" }
+                    valueFromText: function(text) { return parseInt(text.replace(/[^0-9]/g, "")) }
+                    onValueModified: ctl.changeWindow(value)
+                }
             }
         }
         KanteSettingRow {
@@ -207,6 +288,7 @@ Kirigami.ScrollablePage {
                     enabled: !ctl.calibrating
                     onClicked: ctl.startCalibration()
                 }
+                InfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency") }
             }
         }
         QQC2.Label {

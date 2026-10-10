@@ -54,6 +54,7 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
     let mut tempos: Vec<(u64, f64)> = Vec::new();
     let mut signatures: Vec<(u64, TimeSignature)> = Vec::new();
     let mut keys: Vec<(u64, i8)> = Vec::new();
+    let mut markers: Vec<(u64, String)> = Vec::new();
     let mut tracks = Vec::new();
     for events in &smf.tracks {
         let mut track = TrackData::default();
@@ -70,6 +71,12 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
                 TrackEventKind::Meta(meta) => {
                     if let MetaMessage::KeySignature(fifths, _) = meta {
                         keys.extend(score::key(i32::from(fifths)).map(|k| (at, k)));
+                    }
+                    if let MetaMessage::Marker(text) = meta {
+                        let text = String::from_utf8_lossy(text).trim().to_string();
+                        if !text.is_empty() {
+                            markers.push((at, text));
+                        }
                     }
                     meta_event(&mut track, &mut tempos, &mut signatures, meta, at);
                 }
@@ -109,6 +116,7 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
     let starts = bars(&mut score, &signatures, end)?;
     place_tempos(&mut score, &starts, &tempos);
     place_keys(&mut score, &starts, &keys);
+    place_markers(&mut score, &starts, &markers);
     parts(&mut score, &starts, &tracks);
     Ok(score)
 }
@@ -214,6 +222,16 @@ fn place_keys(score: &mut Score, starts: &[u64], keys: &[(u64, i8)]) {
         let (bar, _) = locate(starts, tick);
         if let Some(head) = score.bars.get_mut(bar) {
             head.key = Some(fifths);
+        }
+    }
+}
+
+/// Marker events name the bar they fall in (rehearsal marks, chord names of exercises).
+fn place_markers(score: &mut Score, starts: &[u64], markers: &[(u64, String)]) {
+    for (tick, text) in markers {
+        let (bar, _) = locate(starts, *tick);
+        if let Some(head) = score.bars.get_mut(bar) {
+            head.marker.get_or_insert_with(|| text.clone());
         }
     }
 }

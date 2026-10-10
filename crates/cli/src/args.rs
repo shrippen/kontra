@@ -34,6 +34,13 @@ pub enum Command {
     Render(RenderArgs),
     /// Endurance test (LH-NF-04): loop a score with time-stretched backing, count dropouts.
     Soak(SoakArgs),
+    /// Write the bundled exercises (one folder per level) as MIDI files.
+    Exercises(ExercisesArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct ExercisesArgs {
+    pub dir: PathBuf,
 }
 
 #[derive(Debug, Args)]

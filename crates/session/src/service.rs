@@ -10,6 +10,7 @@ use kontra_model::{Arrangement, DetectedNote, InputSource, Instrument};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
 
+pub use kontra_content::exercise;
 pub use kontra_content::{
     assign_tab, import_file, read_package, write_package, FileKind, ImportError, ImportResult,
     Manifest, Package, PackageBacking, TrackInfo, PACKAGE_FORMAT, PACKAGE_VERSION,
