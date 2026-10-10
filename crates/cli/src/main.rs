@@ -23,6 +23,7 @@ fn main() -> ExitCode {
         Command::Practice(a) => live::practice(&a),
         Command::Tune(a) => live::tune(&a),
         Command::Render(a) => render(&a),
+        Command::Exercises(a) => exercises(&a),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -124,6 +125,18 @@ fn import(a: &args::ImportArgs) -> CliResult {
         let text = serde_json::to_string_pretty(&arrangement).map_err(|e| e.to_string())?;
         std::fs::write(out, text).map_err(|e| format!("{}: {e}", out.display()))?;
         println!("written: {}", out.display());
+    }
+    Ok(())
+}
+
+/// Writes the bundled exercise set (LH-BIB-08); `testdata/exercises` is its checked-in output.
+fn exercises(a: &args::ExercisesArgs) -> CliResult {
+    for (level, file, exercise) in kontra_session::exercise::bundled() {
+        let dir = a.dir.join(level);
+        std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        let path = dir.join(file);
+        std::fs::write(&path, &exercise.midi).map_err(|e| format!("{}: {e}", path.display()))?;
+        println!("{}", path.display());
     }
     Ok(())
 }

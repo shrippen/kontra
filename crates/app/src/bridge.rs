@@ -317,6 +317,41 @@ pub mod qobject {
         #[cxx_name = "finishSetup"]
         fn finish_setup(self: Pin<&mut Self>);
 
+        /// Bundled exercises by level (LH-BIB-08); see `Core::bundled_json`.
+        #[qinvokable]
+        #[cxx_name = "exercisesJson"]
+        fn exercises_json(self: &Self) -> QString;
+
+        /// Generates an exercise (LH-LRN-04) and opens it; see `Core::exercise_spec`.
+        #[qinvokable]
+        #[cxx_name = "generateExercise"]
+        fn generate_exercise(
+            self: Pin<&mut Self>,
+            kind: &QString,
+            variant: &QString,
+            rhythm: &QString,
+            key: i32,
+            bpm: f64,
+        ) -> bool;
+
+        /// Fretboard quiz (LH-LRN-02): "notes" or "intervals"; returns the question JSON.
+        #[qinvokable]
+        #[cxx_name = "quizStart"]
+        fn quiz_start(self: Pin<&mut Self>, kind: &QString) -> QString;
+
+        #[qinvokable]
+        #[cxx_name = "quizNext"]
+        fn quiz_next(self: Pin<&mut Self>) -> QString;
+
+        /// True when the played pitch answers the question (first time).
+        #[qinvokable]
+        #[cxx_name = "quizAnswer"]
+        fn quiz_answer(self: Pin<&mut Self>, midi: f64) -> bool;
+
+        #[qinvokable]
+        #[cxx_name = "quizJson"]
+        fn quiz_json(self: &Self) -> QString;
+
         /// Opens the bundled first exercise.
         #[qinvokable]
         #[cxx_name = "openDemo"]
@@ -1263,6 +1298,52 @@ impl qobject::Controller {
             .update_settings(|s| s.setup_done = true);
         self.as_mut().set_tuner_active(false);
         self.as_mut().set_setup_done(true);
+    }
+
+    fn quiz_start(mut self: Pin<&mut Self>, kind: &QString) -> QString {
+        q(&self.as_mut().core().quiz_start(&kind.to_string()))
+    }
+
+    fn quiz_next(mut self: Pin<&mut Self>) -> QString {
+        q(&self.as_mut().core().quiz_next())
+    }
+
+    fn quiz_answer(mut self: Pin<&mut Self>, midi: f64) -> bool {
+        self.as_mut().core().quiz_answer(midi)
+    }
+
+    fn quiz_json(&self) -> QString {
+        q(&self.rust().core.quiz_json())
+    }
+
+    fn exercises_json(&self) -> QString {
+        q(&self.rust().core.bundled_json())
+    }
+
+    fn generate_exercise(
+        mut self: Pin<&mut Self>,
+        kind: &QString,
+        variant: &QString,
+        rhythm: &QString,
+        key: i32,
+        bpm: f64,
+    ) -> bool {
+        let Some(spec) = Core::exercise_spec(
+            &kind.to_string(),
+            &variant.to_string(),
+            &rhythm.to_string(),
+            u8::try_from(key.rem_euclid(12)).unwrap_or(0),
+            bpm,
+        ) else {
+            return false;
+        };
+        match self.as_mut().core().generate_exercise(&spec) {
+            Ok(path) => self.as_mut().open_file(&q(&path.to_string_lossy())),
+            Err(e) => {
+                self.as_mut().show_error(&e);
+                false
+            }
+        }
     }
 
     fn open_demo(mut self: Pin<&mut Self>) -> bool {

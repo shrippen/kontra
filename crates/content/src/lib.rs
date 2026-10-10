@@ -10,6 +10,7 @@
 mod build;
 mod bytes;
 mod error;
+pub mod exercise;
 mod gp;
 mod midi;
 mod musicxml;

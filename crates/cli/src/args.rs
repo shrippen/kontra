@@ -32,6 +32,13 @@ pub enum Command {
     Tune(TuneArgs),
     /// Render a synthetic performance of a score (QA input files).
     Render(RenderArgs),
+    /// Write the bundled exercises (one folder per level) as MIDI files.
+    Exercises(ExercisesArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct ExercisesArgs {
+    pub dir: PathBuf,
 }
 
 #[derive(Debug, Args)]
