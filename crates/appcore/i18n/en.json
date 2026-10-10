@@ -264,5 +264,17 @@
   "library.tags": "Tags",
   "library.tags.edit": "Edit tags of {title}",
   "library.tags.add": "Add a tag, e.g. band or slap",
-  "library.tags.remove": "Remove %1"
+  "library.tags.remove": "Remove %1",
+  "density.title": "Note density",
+  "density.sparse": "Few notes",
+  "density.beats": "On the beats",
+  "density.full": "All notes",
+  "density.hint": "Fewer notes to start with: Kontra leaves out the notes in between and suggests more or fewer after a run.",
+  "density.fixed": "Keep for this section",
+  "density.more": "{percent} % hit – strong! Next run with more notes?",
+  "density.fewer": "{percent} % hit. Next run with fewer notes? Then the frame sits first.",
+  "density.accept": "Yes, do it",
+  "density.decline": "No, thanks",
+  "settings.adaptive": "Suggest note density",
+  "settings.adaptive.hint": "After a run in song mode or the workshop, Kontra suggests more or fewer notes. You decide."
 }

@@ -136,6 +136,10 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 - [x] LH-BIB-04: Tags je Stück (in der Bibliothek mit Kantes Tag-Auswahl bearbeitbar, Vorschläge
       aus allen Tags), Suche findet Titel, Interpret und Tags; Sortierung nach zuletzt, Titel und
       Fortschritt.
+- [x] LH-MOD-06 (Soll, Phase 2): Notendichte 1–3 (wenige Noten, auf den Schlägen, alle) je Abschnitt,
+      sichtbar und fixierbar; nach einem Werkstatt-Durchgang oder Song-Lauf ab 90 % Vorschlag „mehr
+      Noten“, unter 60 % „weniger Noten“ – nur als Frage, in den Einstellungen abschaltbar. Die
+      Ansichten zeigen nur die verlangten Noten; Fortschritt zählt für das ganze Stück.
 
 ## QA-Runden
 

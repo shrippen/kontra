@@ -271,6 +271,52 @@ Kirigami.Page {
             }
         }
 
+        // Note density (LH-MOD-06): fewer notes while a part is new; per section, fixable.
+        RowLayout {
+            Layout.fillWidth: true
+            visible: ctl.mode === "song" || ctl.mode === "workshop"
+            spacing: KanteStyle.unit(8)
+            KanteHud { fullText: texts.t("density.title"); color: KanteStyle.mutedTextColor }
+            KanteSegmented {
+                Accessible.name: texts.t("density.title")
+                model: [texts.t("density.sparse"), texts.t("density.beats"), texts.t("density.full")]
+                tooltips: [texts.t("density.hint"), texts.t("density.hint"), texts.t("density.hint")]
+                currentIndex: ctl.density - 1
+                onActivated: function(index) { ctl.changeDensity(index + 1, ctl.densityFixed ? "fixed" : "free") }
+            }
+            QQC2.Switch {
+                checked: ctl.densityFixed
+                Accessible.name: texts.t("density.fixed")
+                onToggled: ctl.changeDensity(ctl.density, checked ? "fixed" : "free")
+            }
+            QQC2.Label { text: texts.t("density.fixed"); color: KanteStyle.textColor }
+            Item { Layout.fillWidth: true }
+        }
+
+        // Between runs only: Kontra suggests, the player decides (round 5).
+        KanteCallout {
+            id: densityCallout
+            Layout.fillWidth: true
+            visible: ctl.densitySuggestion > 0 && !ctl.playing
+            kind: KanteCallout.Kind.Info
+            autoHide: false
+            title: ctl.densityText
+            Accessible.name: ctl.densityText
+            onVisibleChanged: if (visible) Accessible.announce(ctl.densityText)
+            RowLayout {
+                KanteButton {
+                    text: texts.t("density.accept")
+                    emphasis: KanteButton.Emphasis.Primary
+                    onClicked: ctl.changeDensity(ctl.densitySuggestion, "free")
+                }
+                KanteButton {
+                    text: texts.t("density.decline")
+                    emphasis: KanteButton.Emphasis.Quiet
+                    onClicked: ctl.declineDensity()
+                }
+            }
+        }
+
         // Wait mode: what to play next, in words (LH-MOD-03). An instruction, not a warning (QA
         // P1: the hazard banner read as an alarm); read out by screen readers when it changes (P7).
         KanteCallout {

@@ -9,7 +9,10 @@ mod i18n;
 mod store;
 
 pub use i18n::{Catalog, Language};
-pub use store::{data_dir, InputKind, Library, RecentEntry, SectionBars, Setlist, Settings};
+pub use kontra_session::Density;
+pub use store::{
+    data_dir, InputKind, Library, RecentEntry, SectionBars, SectionDensity, Setlist, Settings,
+};
 
 use kontra_model::{Arrangement, BassKind, InputSource};
 use kontra_session::{
@@ -71,11 +74,23 @@ pub enum UiEvent {
     Error(String),
     /// The audio device failed (unplugged); the run was stopped.
     DeviceLost(String),
+    /// Between runs: offer another note density (LH-MOD-06), 1..=3, with the question.
+    DensitySuggestion {
+        level: u8,
+        text: String,
+    },
     /// Calibration finished: new latency (if measured) and a text for the user.
     Calibrated {
         latency_ms: Option<f64>,
         text: String,
     },
+}
+
+/// A fixed note density gets no suggestions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DensityLock {
+    Free,
+    Fixed,
 }
 
 /// Which end of the loop a key sets.
@@ -96,6 +111,8 @@ pub enum Opened {
 #[derive(Debug)]
 struct Loaded {
     path: PathBuf,
+    /// All notes as imported; `arrangement` holds those of the current density (LH-MOD-06).
+    full: Arrangement,
     arrangement: Arrangement,
     /// All tracks of the file and the one played, so the player can switch (QA P2 R9).
     tracks: Vec<String>,
@@ -461,6 +478,7 @@ impl Core {
                         view: None,
                         tags: Vec::new(),
                         sections: Vec::new(),
+                        densities: Vec::new(),
                     });
                     added.push(path);
                 }
@@ -671,10 +689,12 @@ impl Core {
             view: None,
             tags: Vec::new(),
             sections: Vec::new(),
+            densities: Vec::new(),
         });
         let _ = store::save(&self.data_dir.join("library.json"), &self.library);
         self.loaded = Some(Loaded {
             path: path.to_path_buf(),
+            full: arrangement.clone(),
             arrangement,
             tracks: imported
                 .tracks()
@@ -683,6 +703,7 @@ impl Core {
                 .collect(),
             track,
         });
+        self.rethin();
         Ok(())
     }
 
@@ -857,29 +878,32 @@ impl Core {
         Workshop::default().band
     }
 
-    pub fn set_loop(&mut self, from: usize, to: usize) {
+    /// Returns true if the notes changed: the section has another note density (LH-MOD-06).
+    pub fn set_loop(&mut self, from: usize, to: usize) -> bool {
         self.looping = Some((from.min(to), from.max(to)));
         let range = self.loop_range();
         if let Some(live) = self.live.as_mut() {
             live.practice_mut().set_loop(range);
         }
+        self.rethin()
     }
 
     /// Sets one end of the loop to the bar at `position_s` (keys `[` and `]`, LH-MOD-07); the
     /// other end stays where it is unless it would cross, e.g. loop 3–6, `]` in bar 2 → 2–2.
-    pub fn set_loop_edge(&mut self, edge: LoopEdge, position_s: f64) {
+    /// Returns true if the notes changed, as `set_loop`.
+    pub fn set_loop_edge(&mut self, edge: LoopEdge, position_s: f64) -> bool {
         let Some(a) = self.arrangement() else {
-            return;
+            return false;
         };
         let Some(bar) = a.bar_at(a.tempo.tick_at(position_s.max(0.0))) else {
-            return;
+            return false;
         };
         let (from, to) = match (edge, self.looping) {
             (LoopEdge::Start, Some((_, to))) if to >= bar => (bar, to),
             (LoopEdge::End, Some((from, _))) if from <= bar => (from, bar),
             _ => (bar, bar),
         };
-        self.set_loop(from, to);
+        self.set_loop(from, to)
     }
 
     /// Back to the start: the loop's first bar if a loop is set, else the piece's (LH-MOD-07).
@@ -889,11 +913,99 @@ impl Core {
         self.loop_range().map_or(0.0, |r| r.start_s)
     }
 
-    pub fn clear_loop(&mut self) {
+    /// Returns true if the notes changed, as `set_loop`.
+    pub fn clear_loop(&mut self) -> bool {
         self.looping = None;
         if let Some(live) = self.live.as_mut() {
             live.practice_mut().set_loop(None);
         }
+        self.rethin()
+    }
+
+    /// Note density of the current section (the loop, else the whole piece) and its lock.
+    pub fn density(&self) -> (Density, DensityLock) {
+        self.stored_density()
+            .map_or((Density::Full, DensityLock::Free), |d| {
+                let lock = if d.fixed {
+                    DensityLock::Fixed
+                } else {
+                    DensityLock::Free
+                };
+                (Density::from_level(d.level), lock)
+            })
+    }
+
+    /// Sets the note density of the current section (LH-MOD-06); the next run plays it.
+    pub fn set_density(&mut self, density: Density, lock: DensityLock) {
+        let section = self.section_key();
+        let Some(path) = self.loaded_path().map(Path::to_path_buf) else {
+            return;
+        };
+        let Some(entry) = self.library.entry_mut(&path) else {
+            return;
+        };
+        entry.densities.retain(|d| d.section != section);
+        entry.densities.push(SectionDensity {
+            section,
+            level: density.level(),
+            fixed: lock == DensityLock::Fixed,
+        });
+        self.save_library();
+        self.rethin();
+    }
+
+    /// The loop as stored with a section's density.
+    fn section_key(&self) -> Option<(f64, f64)> {
+        self.loop_range().map(|r| (r.start_s, r.end_s))
+    }
+
+    /// The density stored for the current section, else the whole piece's.
+    fn stored_density(&self) -> Option<&SectionDensity> {
+        let section = self.section_key();
+        let entry = self.library.entry(self.loaded_path()?)?;
+        let own = entry.densities.iter().find(|d| match (d.section, section) {
+            (Some((a, b)), Some((c, e))) => (a - c).abs() < 0.01 && (b - e).abs() < 0.01,
+            _ => false,
+        });
+        own.or_else(|| entry.densities.iter().find(|d| d.section.is_none()))
+    }
+
+    /// Thins the loaded notes to the current density; true if they changed, which ends a
+    /// running practice (densities change only between runs).
+    fn rethin(&mut self) -> bool {
+        let (density, _) = self.density();
+        let Some(loaded) = self.loaded.as_mut() else {
+            return false;
+        };
+        let thinned = density.thin(&loaded.full);
+        if thinned.notes == loaded.arrangement.notes {
+            return false;
+        }
+        loaded.arrangement = thinned;
+        self.stop_live();
+        true
+    }
+
+    /// The suggestion after a pass or run with `hit_rate` (LH-MOD-06): song and workshop only,
+    /// not for a fixed section, not when switched off.
+    fn density_hint(&self, hit_rate: f64) -> Option<UiEvent> {
+        if !self.settings.adaptive || !matches!(self.settings.mode.as_str(), "song" | "workshop") {
+            return None;
+        }
+        let (density, lock) = self.density();
+        if lock == DensityLock::Fixed {
+            return None;
+        }
+        let next = density.suggest(hit_rate)?;
+        let key = if next > density {
+            "density.more"
+        } else {
+            "density.fewer"
+        };
+        Some(UiEvent::DensitySuggestion {
+            level: next.level(),
+            text: self.tr(key, &[("percent", format!("{:.0}", hit_rate * 100.0))]),
+        })
     }
 
     /// Loop range in seconds, or (-1, -1).
@@ -1012,7 +1124,19 @@ impl Core {
             self.stop_live();
             self.tuner = None;
         }
-        if events.iter().any(|e| matches!(e, UiEvent::Finished { .. })) {
+        let finished = events.iter().any(|e| matches!(e, UiEvent::Finished { .. }));
+        let rate = events.iter().find_map(|e| match e {
+            UiEvent::PassComplete { hit_rate, .. } => Some(*hit_rate),
+            _ => None,
+        });
+        let rate = rate.or_else(|| {
+            let live = self.live.as_ref().filter(|_| finished)?;
+            Some(live.practice().session().summary().hit_rate)
+        });
+        if let Some(hint) = rate.and_then(|r| self.density_hint(r)) {
+            events.push(hint);
+        }
+        if finished {
             self.record_run();
         }
         if let Some(hint) = self.quantum_check() {
@@ -1130,7 +1254,11 @@ impl Core {
             section,
             unix_now(),
         );
-        let arrangement = session.arrangement().clone();
+        // Progress belongs to the piece, not to a thinned copy (LH-MOD-06).
+        let arrangement = self
+            .loaded
+            .as_ref()
+            .map_or_else(|| session.arrangement().clone(), |l| l.full.clone());
         let _ = self.progress_store().record(&arrangement, run);
         if let (Some((start_s, end_s)), Some((from, to))) = (section, self.looping) {
             self.remember_section(start_s, end_s, from, to);
@@ -1846,6 +1974,7 @@ mod tests {
         let mut core = Core::new(&dir, QaOptions::default());
         core.loaded = Some(Loaded {
             path: dir.join("x.mid"),
+            full: a.clone(),
             arrangement: a,
             tracks: Vec::new(),
             track: 0,
@@ -2177,6 +2306,49 @@ mod tests {
         assert_eq!(p["pieces"][0]["best"], 0.92);
         assert_eq!(p["pieces"][0]["practiceMin"], 20.0);
         assert_eq!(p["runs"].as_array().unwrap().len(), 2);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-MOD-06: density per section, shown in the notes, suggested between runs.
+    #[test]
+    fn density_thins_notes_per_section_and_is_suggested() {
+        let dir = temp_dir("density");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        let count = |core: &Core| {
+            let notes: serde_json::Value = serde_json::from_str(&core.notes_json()).unwrap();
+            notes.as_array().unwrap().len()
+        };
+        assert_eq!(count(&core), 64);
+
+        // Eighth notes: on the beats half of them stay, for the whole piece.
+        core.set_density(Density::Beats, DensityLock::Free);
+        assert_eq!(count(&core), 32);
+
+        // A section starts with the piece's density and can have its own.
+        assert!(!core.set_loop(0, 1));
+        core.set_density(Density::Sparse, DensityLock::Free);
+        assert_eq!(count(&core), 16);
+        assert!(core.clear_loop());
+        assert_eq!(count(&core), 32);
+
+        // Suggestions only in song and workshop mode, not when fixed or switched off.
+        core.update_settings(|s| s.mode = "song".into());
+        assert!(matches!(
+            core.density_hint(0.95),
+            Some(UiEvent::DensitySuggestion { level: 3, .. })
+        ));
+        assert!(core.density_hint(0.75).is_none());
+        core.set_density(Density::Beats, DensityLock::Fixed);
+        assert!(core.density_hint(0.95).is_none());
+        core.set_density(Density::Beats, DensityLock::Free);
+        core.update_settings(|s| s.adaptive = false);
+        assert!(core.density_hint(0.95).is_none());
+
+        // Kept after a restart.
+        let mut again = Core::new(&dir, QaOptions::default());
+        again.open(&demo()).unwrap();
+        assert_eq!(count(&again), 32);
         let _ = std::fs::remove_dir_all(dir);
     }
 

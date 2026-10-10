@@ -264,5 +264,17 @@
   "library.tags": "Tags",
   "library.tags.edit": "Tags von {title} bearbeiten",
   "library.tags.add": "Tag hinzufügen, z. B. Band oder Slap",
-  "library.tags.remove": "%1 entfernen"
+  "library.tags.remove": "%1 entfernen",
+  "density.title": "Notendichte",
+  "density.sparse": "Wenige Noten",
+  "density.beats": "Auf den Schlägen",
+  "density.full": "Alle Noten",
+  "density.hint": "Weniger Noten zum Einstieg: Kontra lässt die Zwischennoten weg und schlägt nach einem Durchlauf mehr oder weniger vor.",
+  "density.fixed": "Für diesen Abschnitt festhalten",
+  "density.more": "{percent} % getroffen – stark! Nächster Durchlauf mit mehr Noten?",
+  "density.fewer": "{percent} % getroffen. Nächster Durchlauf mit weniger Noten? So sitzt das Gerüst zuerst.",
+  "density.accept": "Ja, so machen",
+  "density.decline": "Nein, danke",
+  "settings.adaptive": "Notendichte vorschlagen",
+  "settings.adaptive.hint": "Nach einem Durchlauf im Song-Modus oder in der Werkstatt schlägt Kontra mehr oder weniger Noten vor. Du entscheidest."
 }

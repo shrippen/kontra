@@ -181,6 +181,16 @@ Kirigami.ScrollablePage {
                 onToggled: ctl.changeOptions(ctl.metronome, checked, ctl.lowStringOnTop)
             }
         }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            title: texts.t("settings.adaptive")
+            hint: texts.t("settings.adaptive.hint")
+            QQC2.Switch {
+                Accessible.name: texts.t("settings.adaptive")
+                checked: ctl.adaptive
+                onToggled: ctl.changeAdaptive(checked)
+            }
+        }
         KanteSectionLabel { id: mixerLabel; text: texts.t("mixer.title"); Layout.topMargin: KanteStyle.unit(12) }
         Mixer { Layout.fillWidth: true }
         KanteSettingRow {

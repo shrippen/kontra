@@ -78,6 +78,13 @@ pub mod qobject {
         #[qproperty(f64, tone_volume, cxx_name = "toneVolume")]
         #[qproperty(bool, monitor)]
         #[qproperty(f64, monitor_volume, cxx_name = "monitorVolume")]
+        /// Note density of the current section, 1..=3 (LH-MOD-06), and whether it is fixed.
+        #[qproperty(i32, density)]
+        #[qproperty(bool, density_fixed, cxx_name = "densityFixed")]
+        /// Suggested density after a run (0: none) and the question to show.
+        #[qproperty(i32, density_suggestion, cxx_name = "densitySuggestion")]
+        #[qproperty(QString, density_text, cxx_name = "densityText")]
+        #[qproperty(bool, adaptive)]
         #[qproperty(bool, calibrating)]
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
         #[qproperty(QString, backing_name, cxx_name = "backingName")]
@@ -143,6 +150,21 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "clearLoop"]
         fn clear_loop(self: Pin<&mut Self>);
+
+        /// Note density 1..=3 for the current section; `lock` "fixed" stops suggestions.
+        #[qinvokable]
+        #[cxx_name = "changeDensity"]
+        fn change_density(self: Pin<&mut Self>, level: i32, lock: &QString);
+
+        /// Dismisses the density suggestion.
+        #[qinvokable]
+        #[cxx_name = "declineDensity"]
+        fn decline_density(self: Pin<&mut Self>);
+
+        /// Density suggestions on or off.
+        #[qinvokable]
+        #[cxx_name = "changeAdaptive"]
+        fn change_adaptive(self: Pin<&mut Self>, on: bool);
 
         /// Sets the loop's "start" or "end" to the bar at the current position (LH-MOD-07).
         #[qinvokable]
@@ -330,7 +352,7 @@ use crate::args::AppArgs;
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
-use kontra_appcore::{data_dir, Core, LoopEdge, Opened, QaOptions, UiEvent};
+use kontra_appcore::{data_dir, Core, Density, DensityLock, LoopEdge, Opened, QaOptions, UiEvent};
 use std::path::PathBuf;
 
 pub struct ControllerRust {
@@ -395,6 +417,11 @@ pub struct ControllerRust {
     tone_volume: f64,
     monitor: bool,
     monitor_volume: f64,
+    density: i32,
+    density_fixed: bool,
+    density_suggestion: i32,
+    density_text: QString,
+    adaptive: bool,
     calibrating: bool,
     calibration_text: QString,
     backing_name: QString,
@@ -497,6 +524,11 @@ impl Default for ControllerRust {
             tone_volume: s.tone_volume,
             monitor: s.monitor,
             monitor_volume: s.monitor_volume,
+            density: 3,
+            density_fixed: false,
+            density_suggestion: 0,
+            density_text: QString::default(),
+            adaptive: s.adaptive,
             calibrating: false,
             calibration_text: QString::default(),
             backing_name: QString::default(),
@@ -555,6 +587,9 @@ impl ControllerRust {
                 self.backing_name = q(&self.core.backing_name());
                 self.view = q(&self.core.view());
                 self.tracks_json = q(&self.core.tracks_json());
+                let (density, lock) = self.core.density();
+                self.density = i32::from(density.level());
+                self.density_fixed = lock == DensityLock::Fixed;
                 if let Some(notice) = self.core.take_notice() {
                     self.message = q(&notice);
                 }
@@ -627,7 +662,40 @@ impl qobject::Controller {
         self.as_mut().set_position(0.0);
         self.as_mut().set_summary_json(QString::default());
         self.as_mut().set_holding_index(-1);
+        self.as_mut().refresh_density();
         self.as_mut().arrangement_loaded();
+    }
+
+    /// Density of the current section; a pending suggestion goes (it was for another one).
+    fn refresh_density(mut self: Pin<&mut Self>) {
+        let (density, lock) = self.as_ref().rust().core.density();
+        self.as_mut().set_density(i32::from(density.level()));
+        self.as_mut().set_density_fixed(lock == DensityLock::Fixed);
+        self.as_mut().set_density_suggestion(0);
+    }
+
+    fn change_density(mut self: Pin<&mut Self>, level: i32, lock: &QString) {
+        let density = Density::from_level(u8::try_from(level.clamp(1, 3)).unwrap_or(3));
+        let lock = if lock.to_string() == "fixed" {
+            DensityLock::Fixed
+        } else {
+            DensityLock::Free
+        };
+        self.as_mut().core().set_density(density, lock);
+        self.as_mut().set_playing(false);
+        self.as_mut().refresh_arrangement();
+    }
+
+    fn decline_density(mut self: Pin<&mut Self>) {
+        self.as_mut().set_density_suggestion(0);
+    }
+
+    fn change_adaptive(mut self: Pin<&mut Self>, on: bool) {
+        self.as_mut().core().update_settings(|s| s.adaptive = on);
+        self.as_mut().set_adaptive(on);
+        if !on {
+            self.as_mut().set_density_suggestion(0);
+        }
     }
 
     fn show_error(mut self: Pin<&mut Self>, text: &str) {
@@ -734,7 +802,12 @@ impl qobject::Controller {
     fn loop_bars(mut self: Pin<&mut Self>, from: i32, to: i32) {
         let from = usize::try_from(from).unwrap_or(0);
         let to = usize::try_from(to).unwrap_or(0);
-        self.as_mut().core().set_loop(from, to);
+        let changed = self.as_mut().core().set_loop(from, to);
+        if changed {
+            self.as_mut().set_playing(false);
+            self.as_mut().refresh_arrangement();
+        }
+        self.as_mut().refresh_density();
         self.as_mut().reset_passes();
         let (start, end) = self.as_ref().rust().core.loop_seconds();
         self.as_mut().set_loop_start(start);
@@ -748,7 +821,11 @@ impl qobject::Controller {
             _ => return,
         };
         let position = *self.as_ref().position();
-        self.as_mut().core().set_loop_edge(edge, position);
+        if self.as_mut().core().set_loop_edge(edge, position) {
+            self.as_mut().set_playing(false);
+            self.as_mut().refresh_arrangement();
+        }
+        self.as_mut().refresh_density();
         self.as_mut().reset_passes();
         let (start, end) = self.as_ref().rust().core.loop_seconds();
         self.as_mut().set_loop_start(start);
@@ -762,7 +839,11 @@ impl qobject::Controller {
 
     fn clear_loop(mut self: Pin<&mut Self>) {
         self.as_mut().reset_passes();
-        self.as_mut().core().clear_loop();
+        if self.as_mut().core().clear_loop() {
+            self.as_mut().set_playing(false);
+            self.as_mut().refresh_arrangement();
+        }
+        self.as_mut().refresh_density();
         self.as_mut().set_loop_start(-1.0);
         self.as_mut().set_loop_end(-1.0);
     }
@@ -838,6 +919,10 @@ impl qobject::Controller {
                     self.as_mut().set_playing(false);
                     self.as_mut().set_tuner_active(false);
                     self.as_mut().show_error(&text);
+                }
+                UiEvent::DensitySuggestion { level, text } => {
+                    self.as_mut().set_density_suggestion(i32::from(level));
+                    self.as_mut().set_density_text(q(&text));
                 }
                 UiEvent::Calibrated { latency_ms, text } => {
                     if let Some(latency) = latency_ms {
