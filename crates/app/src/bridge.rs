@@ -90,6 +90,7 @@ pub mod qobject {
         #[qproperty(f64, backing_volume, cxx_name = "backingVolume")]
         #[qproperty(f64, metronome_volume, cxx_name = "metronomeVolume")]
         #[qproperty(f64, tone_volume, cxx_name = "toneVolume")]
+        #[qproperty(f64, drums_volume, cxx_name = "drumsVolume")]
         #[qproperty(bool, monitor)]
         #[qproperty(f64, monitor_volume, cxx_name = "monitorVolume")]
         #[qproperty(bool, calibrating)]
@@ -292,7 +293,8 @@ pub mod qobject {
         #[cxx_name = "changeLatency"]
         fn change_latency(self: Pin<&mut Self>, latency_ms: f64);
 
-        /// Sets a mixer volume (0..1): `bus` is "backing", "metronome", "tone" or "monitor".
+        /// Sets a mixer volume (0..1): `bus` is "backing", "metronome", "tone", "drums"
+        /// or "monitor".
         #[qinvokable]
         #[cxx_name = "changeVolume"]
         fn change_volume(self: Pin<&mut Self>, bus: &QString, value: f64);
@@ -463,6 +465,7 @@ pub struct ControllerRust {
     backing_volume: f64,
     metronome_volume: f64,
     tone_volume: f64,
+    drums_volume: f64,
     monitor: bool,
     monitor_volume: f64,
     calibrating: bool,
@@ -572,6 +575,7 @@ impl Default for ControllerRust {
             backing_volume: s.backing_volume,
             metronome_volume: s.metronome_volume,
             tone_volume: s.tone_volume,
+            drums_volume: s.drums_volume,
             monitor: s.monitor,
             monitor_volume: s.monitor_volume,
             calibrating: false,
@@ -1250,6 +1254,10 @@ impl qobject::Controller {
             "tone" => {
                 self.as_mut().set_tone_volume(value);
                 self.as_mut().core().remix(|s| s.tone_volume = value)
+            }
+            "drums" => {
+                self.as_mut().set_drums_volume(value);
+                self.as_mut().core().remix(|s| s.drums_volume = value)
             }
             "monitor" => {
                 self.as_mut().set_monitor_volume(value);

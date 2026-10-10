@@ -319,6 +319,7 @@ impl<O: Output> Practice<O> {
                 }
             }
         }
+        self.schedule_drums(pass, from, to, origin, speed);
         if !self.options.reference_tones {
             return;
         }
@@ -347,6 +348,27 @@ impl<O: Output> Practice<O> {
             })
             .collect();
         for (key, at, sound) in tones {
+            if self.scheduled.insert((pass, key)) {
+                self.output.schedule(origin + at / speed, sound);
+            }
+        }
+    }
+
+    /// Drum accompaniment of the arrangement (LH-LRN-01); its volume is the mixer's drum bus.
+    fn schedule_drums(&mut self, pass: u32, from: f64, to: f64, origin: f64, speed: f64) {
+        const DRUM_KEYS: u64 = 2 << 40;
+        let arrangement = self.session.arrangement();
+        let first = arrangement
+            .drums
+            .partition_point(|d| arrangement.tempo.seconds_at(d.tick) < from);
+        let due: Vec<(u64, f64, Sound)> = arrangement.drums[first..]
+            .iter()
+            .enumerate()
+            .map(|(i, d)| (first + i, arrangement.tempo.seconds_at(d.tick), d.kind))
+            .take_while(|(_, at, _)| *at < to)
+            .map(|(i, at, kind)| (DRUM_KEYS | i as u64, at, Sound::Drum(kind)))
+            .collect();
+        for (key, at, sound) in due {
             if self.scheduled.insert((pass, key)) {
                 self.output.schedule(origin + at / speed, sound);
             }
@@ -544,6 +566,46 @@ mod tests {
             assert!(((pair[1] - pair[0]) - 0.25).abs() < 1e-6, "{times:?}");
         }
         assert!(times.len() >= 4);
+    }
+
+    #[test]
+    fn drums_play_on_their_ticks() {
+        use kontra_model::{DrumHit, DrumKind};
+        let clock = Clock::new();
+        let mut a = arrangement();
+        a.drums = (0..8)
+            .map(|i| DrumHit {
+                tick: i * TICKS_PER_QUARTER / 2,
+                kind: DrumKind::HiHat,
+            })
+            .collect();
+        let options = PracticeOptions {
+            metronome: false,
+            count_in_bars: 0,
+            ..PracticeOptions::default()
+        };
+        let mut p = Practice::new(
+            a,
+            Mode::Play,
+            ScoreSettings::default(),
+            options,
+            Recorder::default(),
+            clock.clone(),
+        );
+        p.play();
+        run(&mut p, &clock, 0.6);
+        let times: Vec<f64> = p
+            .output()
+            .sounds
+            .iter()
+            .filter(|(_, s)| matches!(s, Sound::Drum(DrumKind::HiHat)))
+            .map(|(t, _)| *t)
+            .collect();
+        // Eighths at 120 BPM: 0.25 s apart, none twice.
+        assert!(times.len() >= 3, "{times:?}");
+        for pair in times.windows(2) {
+            assert!(((pair[1] - pair[0]) - 0.25).abs() < 1e-6, "{times:?}");
+        }
     }
 
     #[test]

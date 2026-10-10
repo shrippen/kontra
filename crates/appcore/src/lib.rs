@@ -1810,6 +1810,7 @@ fn gains(settings: &Settings) -> Gains {
         click: volume(settings.metronome_volume),
         tone: volume(settings.tone_volume),
         backing: volume(settings.backing_volume),
+        drums: volume(settings.drums_volume),
         monitor: if settings.monitor {
             volume(settings.monitor_volume)
         } else {
@@ -2205,14 +2206,14 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// LH-BIB-08: the bundled set lists four levels with at least 30 exercises.
+    /// LH-BIB-08: the bundled set lists five levels with at least 30 exercises.
     #[test]
     fn bundled_exercises_by_level() {
         let dir = temp_dir("bundled");
         let core = Core::new(&dir, QaOptions::default());
         let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
         let levels = levels.as_array().unwrap();
-        assert_eq!(levels.len(), 4);
+        assert_eq!(levels.len(), 5);
         assert_eq!(levels[0]["level"], "Einstieg");
         let total: usize = levels
             .iter()

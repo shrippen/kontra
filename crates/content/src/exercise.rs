@@ -20,6 +20,12 @@ const HIGHEST: i32 = 55;
 /// General MIDI "Electric Bass (finger)".
 const BASS_PROGRAM: u8 = 33;
 const VELOCITY: u8 = 96;
+/// General MIDI drum channel (10) and keys of the accompaniment (LH-LRN-01).
+const DRUM_CHANNEL: u8 = 9;
+const KICK: u8 = 36;
+const SNARE: u8 = 38;
+const HIHAT: u8 = 42;
+const DRUM_VELOCITY: u8 = 90;
 
 /// What to practise.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -271,8 +277,50 @@ pub fn generate(spec: &ExerciseSpec) -> Exercise {
         if minor { "m" } else { "" }
     );
     let title = format!("{label} in {key_name} ({:.0} BPM)", spec.bpm);
-    let midi = write(&title, spec.bpm, fifths, minor, &tones, &markers);
+    let drums = match spec.kind {
+        ExerciseKind::Groove(progression, rhythm) => {
+            let bars = progression.bars().len() as u32 * repeats;
+            (0..bars).flat_map(|b| drum_bar(b * BAR, rhythm)).collect()
+        }
+        _ => Vec::new(),
+    };
+    let line = Line {
+        tones: &tones,
+        markers: &markers,
+        drums: &drums,
+    };
+    let midi = write(&title, spec.bpm, fifths, minor, &line);
     Exercise { title, midi }
+}
+
+/// What `write` puts into the file besides the header data.
+struct Line<'a> {
+    tones: &'a [Tone],
+    markers: &'a [(u32, String)],
+    /// (tick, General MIDI drum key).
+    drums: &'a [(u32, u8)],
+}
+
+/// One bar of drums under a groove: kick on one and three, snare on two and four, hi-hat in
+/// eighths (rock beat), swung for the shuffle.
+fn drum_bar(start: u32, rhythm: Rhythm) -> Vec<(u32, u8)> {
+    let offbeat = if rhythm == Rhythm::Shuffle {
+        QUARTER * 2 / 3
+    } else {
+        EIGHTH
+    };
+    let mut hits = Vec::new();
+    for beat in 0..4 {
+        let at = start + beat * QUARTER;
+        hits.push((at, if beat % 2 == 0 { KICK } else { SNARE }));
+        hits.push((at, HIHAT));
+        hits.push((at + offbeat, HIHAT));
+    }
+    // Rock beat: a second kick on the "and" of three drives the straight grooves.
+    if rhythm != Rhythm::Shuffle {
+        hits.push((start + 2 * QUARTER + EIGHTH, KICK));
+    }
+    hits
 }
 
 fn bars_len(progression: Progression) -> u32 {
@@ -482,15 +530,10 @@ fn walking_line(progression: Progression, key: u8) -> (Vec<Tone>, Vec<(u32, Stri
     (tones, markers)
 }
 
-/// A type 1 file: a conductor track (title, tempo, metre, key, chord markers) and a bass track.
-fn write(
-    title: &str,
-    bpm: f64,
-    fifths: i8,
-    minor: bool,
-    tones: &[Tone],
-    markers: &[(u32, String)],
-) -> Vec<u8> {
+/// A type 1 file: a conductor track (title, tempo, metre, key, chord markers), a bass track and,
+/// for grooves, a drum track on channel 10.
+fn write(title: &str, bpm: f64, fifths: i8, minor: bool, line: &Line) -> Vec<u8> {
+    let (tones, markers) = (line.tones, line.markers);
     let micros = (60_000_000.0 / bpm.clamp(20.0, 300.0)).round() as u32;
     let mut conductor: Vec<(u32, TrackEventKind)> = vec![
         (
@@ -555,9 +598,13 @@ fn write(
             },
         ));
     }
+    let mut tracks = vec![track(conductor, end), track(bass, end)];
+    if !line.drums.is_empty() {
+        tracks.push(track(drum_track(line.drums), end));
+    }
     let smf = Smf {
         header: Header::new(Format::Parallel, Timing::Metrical(u15::new(PPQ as u16))),
-        tracks: vec![track(conductor, end), track(bass, end)],
+        tracks,
     };
     let mut out = Vec::new();
     // Writing into memory only fails on invalid events, which `track` never builds.
@@ -565,6 +612,38 @@ fn write(
         out.clear();
     }
     out
+}
+
+/// Drum strokes as short notes on channel 10.
+fn drum_track(drums: &[(u32, u8)]) -> Vec<(u32, TrackEventKind<'static>)> {
+    let channel = u4::new(DRUM_CHANNEL);
+    let mut events = vec![(0, TrackEventKind::Meta(MetaMessage::TrackName(b"Drums")))];
+    for &(at, key) in drums {
+        let key = u7::new(key);
+        let on = MidiMessage::NoteOn {
+            key,
+            vel: u7::new(DRUM_VELOCITY),
+        };
+        let off = MidiMessage::NoteOff {
+            key,
+            vel: u7::new(0),
+        };
+        events.push((
+            at,
+            TrackEventKind::Midi {
+                channel,
+                message: on,
+            },
+        ));
+        events.push((
+            at + SIXTEENTH / 2,
+            TrackEventKind::Midi {
+                channel,
+                message: off,
+            },
+        ));
+    }
+    events
 }
 
 /// Sorts absolute events (note-offs before note-ons at the same tick) into delta time.
@@ -727,6 +806,23 @@ pub fn bundled() -> Vec<(&'static str, String, Exercise)> {
         ("4 Walking Bass", WalkingBass(P::Blues), 10, 110.0, false, 1),
         ("4 Walking Bass", WalkingBass(P::Blues), 7, 120.0, false, 1),
         ("4 Walking Bass", WalkingBass(P::Minor), 2, 110.0, false, 2),
+        // Groove level (LH-LRN-01): with the two levels above, twenty grooves on drums.
+        ("5 Groove", Groove(P::Minor, Eighths), 2, 90.0, false, 2),
+        ("5 Groove", Groove(P::Blues, Eighths), 7, 95.0, false, 1),
+        ("5 Groove", Groove(P::Tonic, WithRests), 9, 90.0, false, 2),
+        ("5 Groove", Groove(P::Blues, WithRests), 4, 95.0, false, 1),
+        ("5 Groove", Groove(P::Blues, Shuffle), 7, 100.0, false, 1),
+        ("5 Groove", Groove(P::Minor, Shuffle), 9, 100.0, false, 2),
+        ("5 Groove", Groove(P::Tonic, Sixteenths), 4, 90.0, false, 2),
+        ("5 Groove", Groove(P::Minor, Octaves), 2, 100.0, false, 2),
+        (
+            "5 Groove",
+            Groove(P::TwoFiveOne, Sixteenths),
+            5,
+            95.0,
+            false,
+            2,
+        ),
     ];
     plan.into_iter()
         .enumerate()
@@ -826,7 +922,13 @@ mod tests {
         assert!(set.len() >= 30);
         let mut levels: Vec<&str> = set.iter().map(|s| s.0).collect();
         levels.dedup();
-        assert_eq!(levels.len(), 4, "sorted by level: {levels:?}");
+        assert_eq!(levels.len(), 5, "sorted by level: {levels:?}");
+        // LH-LRN-01 asks for twenty groove exercises.
+        let grooves = set
+            .iter()
+            .filter(|s| s.2.title.starts_with("Groove"))
+            .count();
+        assert!(grooves >= 20, "{grooves}");
     }
 
     #[test]
@@ -839,5 +941,33 @@ mod tests {
         let a = imported.arrangement(imported.suggested().unwrap()).unwrap();
         // 960 ticks per quarter in the model: the off-beat lands on the triplet (640).
         assert_eq!(a.notes[1].start_ticks, 640);
+    }
+
+    #[test]
+    fn grooves_bring_a_drum_part() {
+        use kontra_model::DrumKind;
+        let groove = |rhythm| {
+            let e = generate(&spec(ExerciseKind::Groove(Progression::Tonic, rhythm), 4));
+            let imported = import_bytes(&e.midi, FileKind::Midi).unwrap();
+            imported.arrangement(imported.suggested().unwrap()).unwrap()
+        };
+        let rock = groove(Rhythm::Eighths);
+        // The drum track is not offered as the bass and does not add notes to play.
+        assert_eq!(rock.notes.len(), 32);
+        let kind_at = |a: &kontra_model::Arrangement, tick, kind| {
+            a.drums.iter().any(|d| d.tick == tick && d.kind == kind)
+        };
+        assert!(kind_at(&rock, 0, DrumKind::Kick));
+        assert!(kind_at(&rock, 960, DrumKind::Snare));
+        assert!(kind_at(&rock, 480, DrumKind::HiHat));
+        // Shuffle: the hi-hat swings onto the triplet.
+        let shuffle = groove(Rhythm::Shuffle);
+        assert!(kind_at(&shuffle, 640, DrumKind::HiHat));
+        assert!(!kind_at(&shuffle, 480, DrumKind::HiHat));
+        // Scales stay without drums.
+        let scale = generate(&spec(ExerciseKind::Scale(ScaleKind::Major), 0));
+        let imported = import_bytes(&scale.midi, FileKind::Midi).unwrap();
+        let a = imported.arrangement(imported.suggested().unwrap()).unwrap();
+        assert!(a.drums.is_empty());
     }
 }

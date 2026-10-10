@@ -6,8 +6,8 @@ use crate::score::{BarHead, Legato, Part, Score};
 use crate::tab::assign_tab;
 use crate::unroll::unroll;
 use kontra_model::{
-    Arrangement, Bar, BassKind, Instrument, Marker, Note, Pitch, Technique, TempoChange, TempoMap,
-    Tuning,
+    Arrangement, Bar, BassKind, DrumHit, DrumKind, Instrument, Marker, Note, Pitch, Technique,
+    TempoChange, TempoMap, Tuning,
 };
 use std::collections::HashMap;
 
@@ -20,6 +20,7 @@ pub(crate) fn arrangement(score: &Score, index: usize) -> Result<Arrangement, Im
     let order = unroll(&score.bars)?;
     let (instrument, tab) = instrument(part);
     let keys = keys(&score.bars);
+    let drum_parts: Vec<&Part> = score.parts.iter().filter(|p| p.percussion).collect();
 
     let mut arrangement = Arrangement::new(&score.title, instrument);
     arrangement.artist = score.artist.clone();
@@ -58,6 +59,16 @@ pub(crate) fn arrangement(score: &Score, index: usize) -> Result<Arrangement, Im
             note.techniques = raw.techniques.clone();
             notes.push((note, raw.legato));
         }
+        for raw in drum_parts
+            .iter()
+            .filter_map(|p| p.bars.get(source))
+            .flatten()
+        {
+            if let Some(kind) = drum_kind(raw.pitch) {
+                let tick = tick.saturating_add(raw.offset);
+                arrangement.drums.push(DrumHit { tick, kind });
+            }
+        }
         tick = tick.saturating_add(head.signature.bar_ticks());
     }
 
@@ -73,8 +84,20 @@ pub(crate) fn arrangement(score: &Score, index: usize) -> Result<Arrangement, Im
     resolve_legato(&mut notes);
     arrangement.notes = notes.into_iter().map(|(n, _)| n).collect();
     arrangement.normalize();
+    arrangement.drums.sort_by_key(|d| d.tick);
+    arrangement.drums.dedup();
     assign_tab(&mut arrangement);
     Ok(arrangement)
+}
+
+/// General MIDI percussion key as one of the synthesised drums; toms and cymbals are left out.
+fn drum_kind(key: Pitch) -> Option<DrumKind> {
+    match key.0 {
+        35 | 36 => Some(DrumKind::Kick),
+        37..=40 => Some(DrumKind::Snare),
+        42 | 44 | 46 | 51 => Some(DrumKind::HiHat),
+        _ => None,
+    }
 }
 
 /// Key in effect in every bar as written (before unrolling, so a repeat gets the key of
