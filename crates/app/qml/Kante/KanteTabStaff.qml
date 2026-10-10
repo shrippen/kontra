@@ -11,16 +11,17 @@ import "."
  *
  *   strings, stringNames, lowStringOnTop   as KanteTabLane (string 0 = lowest; the
  *                                          highest string on top by default)
- *   notes        [{time, duration, beats, string, fret, state, label}], sorted by time;
+ *   notes        [{time, duration, beats, string, fret, state, label, cents}], sorted by time;
  *                time and duration in seconds, beats = duration in quarter notes (1 a
  *                quarter, 0.5 an eighth, 1.5 a dotted quarter). Notes with the same time
- *                form a chord (one stem)
+ *                form a chord (one stem). state as KanteTabLane, "offpitch" (1.27) with
+ *                its `cents` beside the sign (`showCents`, Full marks)
  *   bars         bar start times in seconds, numbers or {time, repeatStart, repeatEnd}
  *   position     the current time in seconds
  *   barsPerSystem  bars per line, 0 = as many as fit (`minBarWidth` each)
  *   systems      lines shown
  *   marks        Full, Quiet (fret numbers in the text colour, small muted signs) or Off;
- *                setNoteState(index, state) / resetStates() change states without a new
+ *                setNoteState(index, state[, cents]) / resetStates() change states without a new
  *                layout (the layout is computed once per page, the states are read live)
  *
  * The state of a note shows above the staff as a KanteNoteMark and in the colour of
@@ -65,19 +66,45 @@ Item {
     property int revision: 0
     // States set with setNoteState, by note index (plain object, read through stateRevision).
     property var changedStates: ({})
+    // Cents given to setNoteState, by note index.
+    property var changedCents: ({})
+    /** Cents beside the sign of an offpitch note (Kante 1.27), in Full marks. */
+    property bool showCents: true
 
-    /** Sets the state of one note without reassigning `notes` (no new layout, only colours and signs). */
-    function setNoteState(index, state) {
+    /**
+     * Sets the state of one note without reassigning `notes` (no new layout, only colours and
+     * signs). `cents` (optional, 1.27): how far an offpitch note was off; left out, the
+     * note's `cents` in `notes` holds.
+     */
+    function setNoteState(index, state, cents) {
         if (!notes || index < 0 || index >= notes.length) {
             return
         }
         changedStates[index] = String(state)
+        if (cents !== undefined) {
+            changedCents[index] = Number(cents)
+        }
         revision++
     }
     /** Back to the states in `notes`. */
     function resetStates() {
         changedStates = {}
+        changedCents = {}
         revision++
+    }
+    /** The cents of note i (offpitch): as set with setNoteState, else from `notes`; NaN for none. */
+    function centsOf(i) {
+        var c = changedCents[i]
+        if (c !== undefined) {
+            return c
+        }
+        var n = notes && notes[i]
+        return n && n.cents !== undefined && n.cents !== null ? Number(n.cents) : NaN
+    }
+    /** ", +32 ct" for an offpitch note with cents (screen readers), else "". Depends on stateRevision. */
+    function centsSuffix(i, revision) {
+        var t = shownState(i, revision) === "offpitch" ? KanteStyle.centsText(centsOf(i)) : ""
+        return t !== "" ? ", " + t : ""
     }
     /** The state of note i: as set with setNoteState, else from `notes`. */
     function stateOf(i) {
@@ -118,7 +145,7 @@ Item {
         var d = barText.arg(currentBar + 1).arg(barList.length)
         if (currentIndex >= 0) {
             var n = notes[currentIndex]
-            d += ", " + nameOf(Number(n.string) || 0) + " " + n.fret + " (" + KanteStyle.noteStateName(shownState(currentIndex, stateRevision)) + ")"
+            d += ", " + nameOf(Number(n.string) || 0) + " " + n.fret + " (" + KanteStyle.noteStateName(shownState(currentIndex, stateRevision)) + centsSuffix(currentIndex, stateRevision) + ")"
         }
         return d
     }
@@ -484,13 +511,16 @@ Item {
             height: width
             x: modelData.x - width / 2
             y: modelData.y - height / 2
-            noteState: {
+            // The first note of the onset that is not pending speaks for the chord.
+            readonly property int shownIndex: {
                 for (var k = 0; k < modelData.indices.length; k++) {
-                    var s = staff.shownState(modelData.indices[k], staff.stateRevision)
-                    if (s !== "pending") return s
+                    if (staff.shownState(modelData.indices[k], staff.stateRevision) !== "pending") return modelData.indices[k]
                 }
-                return "pending"
+                return -1
             }
+            noteState: shownIndex >= 0 ? staff.shownState(shownIndex, staff.stateRevision) : "pending"
+            cents: shownIndex >= 0 && staff.stateRevision >= 0 ? staff.centsOf(shownIndex) : NaN
+            showCents: staff.showCents && full
             color: full ? KanteStyle.noteStateColor(noteState) : KanteStyle.mutedTextColor
         }
     }

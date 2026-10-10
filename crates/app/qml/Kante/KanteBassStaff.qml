@@ -9,23 +9,38 @@ import "."
  * the middle line, down from it), beams within a beat (eighths and shorter; a dotted
  * quarter in 6/8, 9/8, 12/8), ties and the triplet 3 over a beamed group.
  *
- *   notes      [{time, beats, midi, state, tied}], sorted by time; time in seconds,
+ *   notes      [{time, beats, midi, state, tied, cents}], sorted by time; time in seconds,
  *              beats = duration in quarters (1.5 dotted quarter, 1/3 eighth triplet),
  *              tied: tied to the next note (same pitch), state as KanteTabLane
+ *              ("offpitch" with its `cents` beside the sign, 1.27)
  *   rests      [{time, beats}]
- *   bars       [{time, numerator, denominator}] (numbers or a missing signature keep
- *              the previous one; 4/4 at first); the time signature shows on the first
- *              bar of the page and where it changes
+ *   bars       [{time, numerator, denominator, keyFifths, chord}] (numbers or a missing
+ *              signature keep the previous one; 4/4 at first); the time signature shows
+ *              on the first bar of the page and where it changes.
+ *              keyFifths (1.27, also read as key_fifths): the key from this bar on; a
+ *              new key signature shows where it changes (after a thin double bar line).
+ *              Naturals stand only alone: a change to C shows naturals for the old key;
+ *              any other change shows just the new key, read as a new section without
+ *              cancelling the old one. A change at the start of a line shows at the
+ *              start of that line.
+ *              chord (1.27): a chord symbol at the start of the bar
+ *   chords     (1.27) [{time, text}]: chord symbols at a time in seconds, above the staff
+ *              over the note at that time; with the chords of `bars`, sorted by time.
+ *              "#" shows as ♯, a "b" after a note letter or before a digit as ♭
+ *              ("Bb7" B♭7, "C7b9" C7♭9); the rest is shown as given
  *   keyFifths  key signature: 1..7 sharps, -1..-7 flats; notes are spelled in the key
  *              (else sharps in sharp keys, flats in flat keys), an accidental holds to
- *              the end of the bar
+ *              the end of the bar. The key of the first bar unless it sets its own
  *   position   the current time in seconds
  *   marks      Full, Quiet (notes in the text colour, small muted signs) or Off;
- *              setNoteState(index, state) / resetStates() change states without a new layout
+ *              setNoteState(index, state[, cents]) / resetStates() change states
+ *              without a new layout
+ *   showCents  the cents beside offpitch signs (Full marks only; default true)
  *
  * Pages line by line as KanteTabStaff: the top line holds the current bar, `systems - 1`
  * lines preview. The current note sits on a selection band, states show above the staff
- * (KanteNoteMark) and in the note's colour. Spacing within a bar follows time. Sizes
+ * (KanteNoteMark) and in the note's colour; chord symbols sit between them and the staff
+ * (the staff moves down by their row only when there are chord symbols). Spacing within a bar follows time. Sizes
  * come from `staffSpace` (KanteStyle.unit, so it scales with the platform), readable
  * at 200 %. The layout is computed once per page, not per frame.
  */
@@ -42,6 +57,8 @@ Item {
     property var rests: []
     property var bars: []
     property int keyFifths: 0
+    /** Chord symbols [{time, text}] (Kante 1.27); bars can carry one each as `chord`. */
+    property var chords: []
     property real position: 0
     property int barsPerSystem: 0
     property int systems: 1
@@ -51,6 +68,8 @@ Item {
     property real minBarWidth: staffSpace * 18
     property string accessibleName: "Noten, Bassschlüssel"
     property string barText: "Takt %1 von %2"
+    /** The chord at the position in the screen-reader description; %1 the symbol. */
+    property string chordText: "Akkord %1"
     /** Note names for screen readers (C D E F G A B; German: H for B), and the accidental words. */
     property var letterNames: ["C", "D", "E", "F", "G", "A", "H"]
     property string sharpText: "is"
@@ -66,19 +85,45 @@ Item {
     property int revision: 0
     // States set with setNoteState, by note index (plain object, read through stateRevision).
     property var changedStates: ({})
+    // Cents given to setNoteState, by note index.
+    property var changedCents: ({})
+    /** Cents beside the sign of an offpitch note (Kante 1.27), in Full marks. */
+    property bool showCents: true
 
-    /** Sets the state of one note without reassigning `notes` (no new layout, only colours and signs). */
-    function setNoteState(index, state) {
+    /**
+     * Sets the state of one note without reassigning `notes` (no new layout, only colours and
+     * signs). `cents` (optional, 1.27): how far an offpitch note was off; left out, the
+     * note's `cents` in `notes` holds.
+     */
+    function setNoteState(index, state, cents) {
         if (!notes || index < 0 || index >= notes.length) {
             return
         }
         changedStates[index] = String(state)
+        if (cents !== undefined) {
+            changedCents[index] = Number(cents)
+        }
         revision++
     }
     /** Back to the states in `notes`. */
     function resetStates() {
         changedStates = {}
+        changedCents = {}
         revision++
+    }
+    /** The cents of note i (offpitch): as set with setNoteState, else from `notes`; NaN for none. */
+    function centsOf(i) {
+        var c = changedCents[i]
+        if (c !== undefined) {
+            return c
+        }
+        var n = notes && notes[i]
+        return n && n.cents !== undefined && n.cents !== null ? Number(n.cents) : NaN
+    }
+    /** ", +32 ct" for an offpitch note with cents (screen readers), else "". Depends on stateRevision. */
+    function centsSuffix(i, revision) {
+        var t = shownState(i, revision) === "offpitch" ? KanteStyle.centsText(centsOf(i)) : ""
+        return t !== "" ? ", " + t : ""
     }
     /** The state of note i: as set with setNoteState, else from `notes`. */
     function stateOf(i) {
@@ -93,16 +138,20 @@ Item {
 
     readonly property real sp: Math.max(4, staffSpace)
     readonly property int currentIndex: lastAtOrBefore(position)
-    readonly property var barList: normalizeBars(bars, notes, rests)
+    readonly property var barList: normalizeBars(bars, notes, rests, keyFifths)
+    /** Every chord symbol, from `chords` and the bars: [{time, text}] sorted by time. */
+    readonly property var chordList: collectChords(chords, barList)
+    readonly property bool hasChords: chordList.length > 0
     readonly property int currentBar: barAt(position)
-    readonly property real headerWidth: sp * (4.2 + Math.abs(Math.max(-7, Math.min(7, keyFifths))) * 1.1 + 3.0)
+    // Wide enough for the widest key a line can start with (with the naturals of a change).
+    readonly property real headerWidth: sp * (4.2 + maxHeaderKey(barList) * 1.1 + 3.0)
     readonly property int perSystem: barsPerSystem > 0 ? barsPerSystem
         : Math.max(1, Math.floor((width - headerWidth) / Math.max(1, minBarWidth)))
     readonly property int firstBar: Math.max(0, Math.floor(currentBar / perSystem) * perSystem)
     readonly property real barWidth: (width - headerWidth) / perSystem
-    readonly property real staffTop: sp * 5.5
+    readonly property real staffTop: sp * (hasChords ? 7.5 : 5.5)
     readonly property real systemHeight: staffTop + sp * 4 + sp * 5
-    readonly property var layout: computeLayout(firstBar, perSystem, Math.max(1, systems), width, sp, notes, rests, barList, keyFifths)
+    readonly property var layout: computeLayout(firstBar, perSystem, Math.max(1, systems), width, sp, notes, rests, barList, chordList)
 
     implicitWidth: KanteStyle.unit(720)
     implicitHeight: Math.ceil(systemHeight * Math.max(1, systems))
@@ -111,9 +160,14 @@ Item {
     Accessible.name: accessibleName
     Accessible.description: {
         var d = barText.arg(currentBar + 1).arg(barList.length)
+        var ch = chordAt(position)
+        if (ch !== "") {
+            d += ", " + chordText.arg(ch)
+        }
         if (currentIndex >= 0) {
             var n = notes[currentIndex]
-            d += ", " + pitchName(Number(n.midi)) + " (" + KanteStyle.noteStateName(shownState(currentIndex, stateRevision)) + ")"
+            d += ", " + pitchName(Number(n.midi), barList.length ? barList[currentBar].key : keyFifths)
+                + " (" + KanteStyle.noteStateName(shownState(currentIndex, stateRevision)) + centsSuffix(currentIndex, stateRevision) + ")"
         }
         return d
     }
@@ -156,11 +210,11 @@ Item {
         best.pos = best.octave * 7 + best.letter - 18
         return best
     }
-    function pitchName(midi) {
+    function pitchName(midi, fifths) {
         if (isNaN(midi)) {
             return ""
         }
-        var s = spell(midi, keyFifths)
+        var s = spell(midi, fifths === undefined ? keyFifths : fifths)
         var name = String(letterNames[s.letter])
         return name + (s.alter > 0 ? sharpText : s.alter < 0 ? flatText : "") + s.octave
     }
@@ -190,8 +244,9 @@ Item {
         }
         return a - 1
     }
-    function normalizeBars(list, ns, rs) {
+    function normalizeBars(list, ns, rs, fifths) {
         var out = [], num = 4, den = 4
+        var key = clampKey(fifths)
         for (var i = 0; list && i < list.length; i++) {
             var o = typeof list[i] === "object" && list[i] !== null ? list[i] : { time: list[i] }
             var changed = i === 0
@@ -200,7 +255,15 @@ Item {
                 den = Number(o.denominator)
                 changed = true
             }
-            out.push({ time: Number(o.time) || 0, num: num, den: den, changed: changed })
+            // Key from this bar on (keyFifths, or key_fifths as a Rust or Python app names it).
+            var fromKey = key
+            var k = o.keyFifths !== undefined ? o.keyFifths : o.key_fifths
+            if (k !== undefined && k !== null && k !== "" && !isNaN(Number(k))) {
+                key = clampKey(k)
+            }
+            out.push({ time: Number(o.time) || 0, num: num, den: den, changed: changed,
+                       key: key, fromKey: fromKey, keyChanged: i > 0 && key !== fromKey,
+                       chord: o.chord !== undefined && o.chord !== null ? String(o.chord) : "" })
         }
         // Seconds per quarter, from the notes (median of time step / beats): sizes a bar
         // when none or only the start of the last one is given.
@@ -216,7 +279,7 @@ Item {
         for (var k2 = 0; ns && k2 < ns.length; k2++) lastEnd = Math.max(lastEnd, Number(ns[k2].time) + (Number(ns[k2].beats) || 0) * spq)
         for (var r = 0; rs && r < rs.length; r++) lastEnd = Math.max(lastEnd, Number(rs[r].time) + (Number(rs[r].beats) || 0) * spq)
         if (out.length === 0) {
-            out.push({ time: 0, num: 4, den: 4, changed: true })
+            out.push({ time: 0, num: 4, den: 4, changed: true, key: key, fromKey: key, keyChanged: false, chord: "" })
         }
         for (var j = 0; j < out.length; j++) {
             if (j + 1 < out.length) {
@@ -227,7 +290,8 @@ Item {
                 // More notes after the last given bar: add bars of the same length.
                 while (out[out.length - 1].end < lastEnd - 1e-3 && len > 0) {
                     var prev = out[out.length - 1]
-                    out.push({ time: prev.end, end: prev.end + len, num: prev.num, den: prev.den, changed: false })
+                    out.push({ time: prev.end, end: prev.end + len, num: prev.num, den: prev.den, changed: false,
+                               key: prev.key, fromKey: prev.key, keyChanged: false, chord: "" })
                 }
                 break
             }
@@ -243,13 +307,73 @@ Item {
         }
         return Math.max(0, a - 1)
     }
+    function clampKey(k) {
+        return Math.max(-7, Math.min(7, Math.round(Number(k) || 0)))
+    }
+    /**
+     * The signs of a key signature going from key `from` to `to`, left to right.
+     * [{pos, sign: 1 sharp, -1 flat, 0 natural}], pos as in spell() (0 = bottom line).
+     * Naturals never mix with new signs (owner's rule, 1.27): only a change to C shows
+     * naturals, for all of the old key; every other change shows just the new key.
+     */
+    function keySigns(from, to) {
+        var sharpPos = [6, 3, 7, 4, 1, 5, 2], flatPos = [2, 5, 1, 4, 0, 3, -1]
+        var out = []
+        if (from !== to && from !== 0 && to === 0) {
+            for (var c = 0; c < Math.abs(from); c++) {
+                out.push({ pos: (from > 0 ? sharpPos : flatPos)[c], sign: 0 })
+            }
+        }
+        for (var k = 0; k < Math.abs(to); k++) {
+            out.push({ pos: (to > 0 ? sharpPos : flatPos)[k], sign: to > 0 ? 1 : -1 })
+        }
+        return out
+    }
+    /** The most key signs a line can start with (the header is that wide on every line). */
+    function maxHeaderKey(bl) {
+        var m = 0
+        for (var i = 0; bl && i < bl.length; i++) {
+            m = Math.max(m, bl[i].keyChanged ? keySigns(bl[i].fromKey, bl[i].key).length : Math.abs(bl[i].key))
+        }
+        return m
+    }
+    /** "Bb7" -> "B♭7", "F#m" -> "F♯m", "C7b9" -> "C7♭9". */
+    function chordLabel(t) {
+        return String(t).replace(/#/g, "\u266F").replace(/([A-G])b/g, "$1\u266D").replace(/b(?=\d)/g, "\u266D")
+    }
+    function collectChords(list, bl) {
+        var out = []
+        for (var b = 0; bl && b < bl.length; b++) {
+            if (bl[b].chord !== "") {
+                out.push({ time: bl[b].time, text: bl[b].chord })
+            }
+        }
+        for (var i = 0; list && i < list.length; i++) {
+            var c = list[i]
+            if (c && c.text !== undefined && String(c.text) !== "") {
+                out.push({ time: Number(c.time) || 0, text: String(c.text) })
+            }
+        }
+        out.sort(function (a, b) { return a.time - b.time })
+        return out
+    }
+    /** The chord symbol in force at time t ("" before the first). */
+    function chordAt(t) {
+        var c = ""
+        for (var i = 0; i < chordList.length && chordList[i].time <= t + 1e-6; i++) {
+            c = chordList[i].text
+        }
+        return c
+    }
     function sysOf(b) {
         return Math.floor((b - firstBar) / perSystem)
     }
     function padLeft(b) {
         var bar = barList[b]
-        var showTime = bar.changed && (b - firstBar) % perSystem !== 0 && b !== firstBar
-        return sp * (showTime ? 4.4 : 2.0)
+        var midLine = (b - firstBar) % perSystem !== 0 && b !== firstBar
+        var showTime = bar.changed && midLine
+        var keyCount = bar.keyChanged && midLine ? keySigns(bar.fromKey, bar.key).length : 0
+        return sp * (2.0 + (keyCount > 0 ? keyCount * 1.1 + 1.6 : 0) + (showTime ? 2.4 : 0))
     }
     function xOf(t, b) {
         var bar = barList[b]
@@ -263,7 +387,7 @@ Item {
     }
 
     // ── Layout ───────────────────────────────────────────────────────
-    function computeLayout(first, per, nsys, w, sp, ns, rs, bl, fifths) {
+    function computeLayout(first, per, nsys, w, sp, ns, rs, bl, cl) {
         var L = { glyphs: [], rects: [], polys: [], ties: [], marks: [], boxes: {} }
         if (w <= 0 || bl.length === 0) {
             return L
@@ -272,9 +396,9 @@ Item {
                   heads: ["", "", "", "", "", ""],
                   rests: ["", "", "", "", "", ""],
                   flagsUp: ["", "", "", "", "", ""], flagsDown: ["", "", "", "", "", ""] }
+        function signGlyph(sign) { return sign > 0 ? G.sharp : sign < 0 ? G.flat : G.natural }
         var lineT = Math.max(1, Math.round(sp * 0.13)), stemW = Math.max(1, Math.round(sp * 0.12))
         var ledgerT = Math.max(1, Math.round(sp * 0.16))
-        var f = Math.max(-7, Math.min(7, fifths))
         var last = Math.min(bl.length - 1, first + per * nsys - 1)
         function digits(n, x, y) {
             var s = String(n)
@@ -296,13 +420,15 @@ Item {
             }
             L.rects.push({ x: sp * 0.4, y: yOf(8, s), w: Math.max(1, Math.round(sp * 0.16)), h: sp * 4, ink: "" })
             L.glyphs.push({ x: sp * 0.9, y: yOf(6, s), g: G.clef, ink: "" })
-            var kp = f > 0 ? [6, 3, 7, 4, 1, 5, 2] : [2, 5, 1, 4, 0, 3, -1]
-            for (var k = 0; k < Math.abs(f); k++) {
-                L.glyphs.push({ x: sp * (4.2 + k * 1.1), y: yOf(kp[k], s), g: f > 0 ? G.sharp : G.flat, ink: "" })
-            }
             var firstOfLine = first + s * per
+            // The line's key; a change right here also shows its naturals.
+            var lineBar = bl[firstOfLine]
+            var ks = keySigns(lineBar.keyChanged ? lineBar.fromKey : lineBar.key, lineBar.key)
+            for (var k = 0; k < ks.length; k++) {
+                L.glyphs.push({ x: sp * (4.2 + k * 1.1), y: yOf(ks[k].pos, s), g: signGlyph(ks[k].sign), ink: "" })
+            }
             if (s === 0 || bl[firstOfLine].changed) {
-                timeSig(bl[firstOfLine], sp * (4.2 + Math.abs(f) * 1.1 + 1.3), s)
+                timeSig(bl[firstOfLine], sp * (4.2 + ks.length * 1.1 + 1.3), s)
             }
             for (var c = 0; c < used; c++) {
                 var bi = firstOfLine + c
@@ -313,14 +439,34 @@ Item {
                                w: Math.max(1, Math.round(sp * 0.16)), h: sp * 4, ink: "" })
                 if (finalBar) {
                     L.rects.push({ x: endX - sp * 0.5, y: yOf(8, s), w: sp * 0.5, h: sp * 4, ink: "" })
+                } else if (bl[bi + 1].keyChanged) {
+                    // A thin double bar line before a new key.
+                    L.rects.push({ x: endX - Math.max(1, Math.round(sp * 0.16)) - sp * 0.45, y: yOf(8, s),
+                                   w: Math.max(1, Math.round(sp * 0.16)), h: sp * 4, ink: "" })
                 }
                 L.glyphs.push({ x: bx + sp * 0.2, y: yOf(8, s) - sp * 1.0, g: "", text: String(bi + 1), ink: "muted" })
+                var midKey = c > 0 && bl[bi].keyChanged ? keySigns(bl[bi].fromKey, bl[bi].key) : []
+                for (var mk = 0; mk < midKey.length; mk++) {
+                    L.glyphs.push({ x: bx + sp * (1.2 + mk * 1.1), y: yOf(midKey[mk].pos, s), g: signGlyph(midKey[mk].sign), ink: "" })
+                }
                 if (c > 0 && bl[bi].changed) {
-                    timeSig(bl[bi], bx + sp * 1.6, s)
+                    timeSig(bl[bi], bx + sp * (midKey.length > 0 ? 1.2 + midKey.length * 1.1 + 1.2 : 1.6), s)
                 }
             }
         }
         var from = bl[first].time, to = bl[last].end
+        // Chord symbols: above the staff, left-aligned over the note at their time; one
+        // that would run into the previous one on its line moves right.
+        var chordRight = {}
+        for (var ci = 0; cl && ci < cl.length; ci++) {
+            var ct = cl[ci].time
+            if (ct < from - 1e-6 || ct >= to - 1e-6) continue
+            var cb = barAt(ct), csys = sysOf(cb)
+            var label = chordLabel(cl[ci].text)
+            var cx = Math.max(xOf(ct, cb) - sp * 0.6, (chordRight[csys] || 0) + sp * 0.8)
+            L.glyphs.push({ x: cx, y: csys * systemHeight + sp * 3.2, g: "", text: label, ink: "chord", chord: true })
+            chordRight[csys] = cx + label.length * sp * 0.95
+        }
         // Rests.
         for (var r = 0; rs && r < rs.length; r++) {
             var rt = Number(rs[r].time)
@@ -348,6 +494,7 @@ Item {
                 accBar = b
             }
             var midi = Number(n.midi)
+            var f = bl[b].key
             var sp_ = spell(midi, f)
             var v = valueOf(n.beats)
             var headW = sp * (v.type === 0 ? 1.69 : 1.18)
@@ -491,6 +638,7 @@ Item {
             return st === "pending" || marks !== KanteBassStaff.Marks.Full ? KanteStyle.textColor : KanteStyle.noteStateColor(st)
         }
         if (ink === "line") return KanteStyle.mutedTextColor
+        if (ink === "chord") return KanteStyle.strongTextColor
         if (ink === "muted") return KanteStyle.mutedTextColor
         if (ink === "" || ink === "pending" || ink === undefined) return KanteStyle.textColor
         return KanteStyle.noteStateColor(ink)
@@ -562,8 +710,10 @@ Item {
                 var c = staff.inkColor(modelData.ink, modelData.index, staff.stateRevision)
                 return current && modelData.ink === "note" && staff.shownState(modelData.index, staff.stateRevision) === "pending" ? KanteStyle.strongTextColor : c
             }
-            font.family: glyph ? music.font.family : KanteStyle.monoFont(10, false).family
-            font.pixelSize: glyph ? Math.round(staff.sp * 4) : Math.max(8, Math.round(staff.sp * 0.95))
+            readonly property bool chord: modelData.chord === true
+            font.family: glyph ? music.font.family : chord ? KanteStyle.defaultFont.family : KanteStyle.monoFont(10, false).family
+            font.pixelSize: glyph ? Math.round(staff.sp * 4) : chord ? Math.max(10, Math.round(staff.sp * 1.6)) : Math.max(8, Math.round(staff.sp * 0.95))
+            font.weight: chord ? Font.DemiBold : Font.Normal
             Accessible.ignored: true
         }
     }
@@ -578,6 +728,8 @@ Item {
             x: modelData.x - width / 2
             y: modelData.y - height / 2
             noteState: staff.shownState(modelData.index, staff.stateRevision)
+            cents: staff.stateRevision >= 0 ? staff.centsOf(modelData.index) : NaN
+            showCents: staff.showCents && full
             color: full ? KanteStyle.noteStateColor(noteState) : KanteStyle.mutedTextColor
         }
     }

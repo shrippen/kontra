@@ -74,7 +74,7 @@ Kirigami.ScrollablePage {
             visible: page.kinds[page.kind] === "groove"
             title: texts.t("exercises.rhythm")
             hint: texts.t("exercises.rhythm.hint")
-            QQC2.ComboBox {
+            KanteComboBox {
                 Accessible.name: texts.t("exercises.rhythm")
                 Layout.preferredWidth: KanteStyle.unit(220)
                 model: page.rhythms.map(function(r) { return texts.t("exercises.rhythm." + r) })
@@ -85,7 +85,7 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("exercises.key")
-            QQC2.ComboBox {
+            KanteComboBox {
                 Accessible.name: texts.t("exercises.key")
                 Layout.preferredWidth: KanteStyle.unit(220)
                 model: page.keyNames

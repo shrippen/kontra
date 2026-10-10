@@ -80,7 +80,7 @@ Kirigami.ScrollablePage {
             KanteSettingRow {
                 Layout.fillWidth: true
                 title: texts.t("settings.fretless")
-                QQC2.Switch {
+                KanteSwitch {
                     Accessible.name: texts.t("settings.fretless")
                     checked: ctl.fretless
                     onToggled: ctl.changeInstrument(ctl.strings, checked, ctl.laptopJack)
@@ -108,7 +108,7 @@ Kirigami.ScrollablePage {
             KanteSettingRow {
                 Layout.fillWidth: true
                 title: texts.t("settings.input")
-                QQC2.ComboBox {
+                KanteComboBox {
                     Accessible.name: texts.t("settings.input")
                     Layout.fillWidth: true
                     Layout.preferredWidth: KanteStyle.unit(280)
