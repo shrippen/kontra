@@ -1026,6 +1026,9 @@ impl Core {
                     "repeatStart": b.repeat_open,
                     "repeatEnd": b.repeat_close,
                     "endings": (0..32).filter(|i| b.endings & (1 << i) != 0).map(|i| i + 1).collect::<Vec<u32>>(),
+                    // Key per bar and chord symbols (Kante 1.27 KanteBassStaff).
+                    "keyFifths": b.key_fifths,
+                    "chord": a.markers.iter().find(|m| m.tick == b.start_ticks && is_chord_name(&m.name)).map(|m| m.name.clone()),
                 })
             })
             .collect();
@@ -2461,6 +2464,34 @@ fn split_rest(bar: u64, from: u64, to: u64, out: &mut Vec<(u64, u64)>) {
     }
 }
 
+/// A marker that names a chord ("Am7", "F#m7b5", "Bb/D") rather than a section ("Chorus").
+/// A bare letter ("A", "Bb") counts as a rehearsal mark: Guitar Pro files use those.
+fn is_chord_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    if !matches!(chars.next(), Some('A'..='G')) {
+        return false;
+    }
+    let rest: String = chars.collect();
+    let rest = rest.strip_prefix(['#', 'b']).unwrap_or(&rest);
+    if rest.is_empty() {
+        return false;
+    }
+    const WORDS: [&str; 7] = ["maj", "min", "dim", "aug", "sus", "add", "m"];
+    let mut s = rest;
+    while !s.is_empty() {
+        if let Some(w) = WORDS.iter().find(|w| s.starts_with(**w)) {
+            s = &s[w.len()..];
+        } else if s.starts_with(|c: char| {
+            c.is_ascii_digit() || "#b/+-()°ø".contains(c) || ('A'..='G').contains(&c)
+        }) {
+            s = &s[s.chars().next().map_or(1, char::len_utf8)..];
+        } else {
+            return false;
+        }
+    }
+    true
+}
+
 /// Quarter notes per bar: the beats the tracker follows.
 fn quarters_per_bar(arrangement: &kontra_model::Arrangement) -> Vec<u32> {
     arrangement
@@ -3075,6 +3106,19 @@ mod tests {
         core.backing_clear().unwrap();
         assert_eq!(core.arrangement().unwrap().tempo.bpm_at(0), 100.0);
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Kante 1.27: chord markers become chord symbols, section names do not.
+    #[test]
+    fn chord_names_are_told_from_sections() {
+        for chord in [
+            "Cm", "Am7", "F#m7b5", "Bbmaj7", "G7/B", "Dsus4", "Edim", "C(add9)", "E7",
+        ] {
+            assert!(is_chord_name(chord), "{chord}");
+        }
+        for section in ["Chorus", "Bridge", "A", "Bb", "Intro", "Verse 1", "Coda"] {
+            assert!(!is_chord_name(section), "{section}");
+        }
     }
 
     /// LH-BIB-08: the bundled set lists four levels with at least 30 exercises.

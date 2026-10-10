@@ -63,7 +63,7 @@ ColumnLayout {
         Layout.fillWidth: true
         title: mixer.texts.t("mixer.monitor")
         hint: mixer.texts.t("mixer.monitor.hint")
-        QQC2.Switch {
+        KanteSwitch {
             Accessible.name: mixer.texts.t("mixer.monitor")
             Accessible.description: mixer.texts.t("mixer.monitor.hint")
             focusPolicy: Qt.StrongFocus

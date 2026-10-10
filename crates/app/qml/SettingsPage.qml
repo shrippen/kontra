@@ -59,7 +59,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.input")
             hint: page.inputs.length === 0 ? texts.t("settings.input.none") : ""
-            QQC2.ComboBox {
+            KanteComboBox {
                 Accessible.name: texts.t("settings.input")
                 Layout.fillWidth: true
                 Layout.preferredWidth: KanteStyle.unit(280)
@@ -71,7 +71,7 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.output")
-            QQC2.ComboBox {
+            KanteComboBox {
                 Accessible.name: texts.t("settings.output")
                 Layout.fillWidth: true
                 Layout.preferredWidth: KanteStyle.unit(280)
@@ -122,7 +122,7 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.fretless")
-            QQC2.Switch {
+            KanteSwitch {
                 Accessible.name: texts.t("settings.fretless")
                 checked: ctl.fretless
                 onToggled: ctl.changeInstrument(ctl.strings, checked, ctl.laptopJack)
@@ -132,7 +132,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.lowtop")
             hint: texts.t("settings.lowtop.hint")
-            QQC2.Switch {
+            KanteSwitch {
                 Accessible.name: texts.t("settings.lowtop")
                 checked: ctl.lowStringOnTop
                 onToggled: ctl.changeOptions(ctl.metronome, ctl.reference, checked)
@@ -142,7 +142,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.lefthanded")
             hint: texts.t("settings.lefthanded.hint")
-            QQC2.Switch {
+            KanteSwitch {
                 Accessible.name: texts.t("settings.lefthanded")
                 checked: ctl.leftHanded
                 onToggled: ctl.changeLeftHanded(checked)
@@ -252,7 +252,7 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("transport.metronome")
-            QQC2.Switch {
+            KanteSwitch {
                 Accessible.name: texts.t("transport.metronome")
                 checked: ctl.metronome
                 onToggled: ctl.changeOptions(checked, ctl.reference, ctl.lowStringOnTop)
@@ -261,7 +261,7 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("transport.reference")
-            QQC2.Switch {
+            KanteSwitch {
                 Accessible.name: texts.t("transport.reference")
                 checked: ctl.reference
                 onToggled: ctl.changeOptions(ctl.metronome, checked, ctl.lowStringOnTop)
@@ -271,7 +271,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.adaptive")
             hint: texts.t("settings.adaptive.hint")
-            QQC2.Switch {
+            KanteSwitch {
                 Accessible.name: texts.t("settings.adaptive")
                 checked: ctl.adaptive
                 onToggled: ctl.changeAdaptive(checked)

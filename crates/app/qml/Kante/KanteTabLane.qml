@@ -11,10 +11,13 @@ import "."
  *                             (default) puts the highest string on top, as in a tab
  *   stringColors              optional colour per string (0 = lowest); the string
  *                             palette below where missing
- *   notes                     [{time, duration, string, fret, state, label}], sorted by
- *                             time; seconds. state: "pending", "hit", "wrong", "missed",
- *                             "early", "late". setNoteState(index, state) changes one
- *                             note without reassigning the list; resetStates() undoes it
+ *   notes                     [{time, duration, string, fret, state, label, cents}],
+ *                             sorted by time; seconds. state: "pending", "hit", "wrong",
+ *                             "missed", "early", "late", "offpitch" (1.27). cents: how
+ *                             far an offpitch note was off ("+32 ct" beside its sign).
+ *                             setNoteState(index, state[, cents]) changes one note
+ *                             without reassigning the list; resetStates() undoes it
+ *   showCents                 the cents beside offpitch signs (Full marks only; default true)
  *   bars                      bar start times in seconds (numbers or {time})
  *   position                  the current time in seconds (sits on the play line)
  *   pixelsPerSecond           speed of the highway
@@ -26,7 +29,8 @@ import "."
  * A note is a square head with the fret number at its onset and a tail as long as it
  * lasts. The state shows by shape and colour: pending filled in the string colour,
  * hit filled + check, wrong filled + cross, missed hollow and dashed, early / late
- * filled + arrow (left: before the beat, right: after it). KanteNoteMark draws the signs.
+ * filled + arrow (left: before the beat, right: after it), offpitch filled + wave and
+ * its cents. KanteNoteMark draws the signs.
  *
  * Speed (chosen over a Canvas, which would repaint every note on every frame): the
  * notes are items on one strip at x = time × pixelsPerSecond, and only the strip moves
@@ -67,19 +71,25 @@ Item {
      * mode), Off (no states, every note as pending).
      */
     property int marks: KanteTabLane.Marks.Full
+    /** Cents beside the sign of an offpitch note (Kante 1.27), in Full marks. */
+    property bool showCents: true
     /** Counts state changes made with setNoteState / resetStates (and new note lists). */
     readonly property int stateRevision: revision
     property int revision: 0
     // States set with setNoteState, by note index (plain object: no bindings depend on it).
     property var changedStates: ({})
+    // Cents given to setNoteState, by note index.
+    property var changedCents: ({})
     // Notes per state, kept up to date by setNoteState (the summary stays O(1)).
     property var stateCounts: ({})
 
     /**
      * Sets the state of one note without reassigning `notes`: only that note's visuals
      * change (and the screen-reader summary). Cost: well under 1 ms per call with 3000 notes.
+     * `cents` (optional, 1.27): how far an offpitch note was off; left out, the note's
+     * `cents` in `notes` holds.
      */
-    function setNoteState(index, state) {
+    function setNoteState(index, state, cents) {
         if (!notes || index < 0 || index >= notes.length) {
             return
         }
@@ -87,15 +97,22 @@ Item {
         stateCounts[old] = (stateCounts[old] || 1) - 1
         stateCounts[String(state)] = (stateCounts[String(state)] || 0) + 1
         changedStates[index] = String(state)
+        if (cents !== undefined) {
+            changedCents[index] = Number(cents)
+        }
         var it = noteRepeater.itemAt(index)
         if (it) {
             it.override = String(state)
+            if (cents !== undefined) {
+                it.overrideCents = Number(cents)
+            }
         }
         revision++
     }
     /** Back to the states in `notes` (e.g. a new run of the same song). */
     function resetStates() {
         changedStates = {}
+        changedCents = {}
         var c = {}
         for (var k = 0; notes && k < notes.length; k++) {
             var st = notes[k].state ? String(notes[k].state) : "pending"
@@ -106,6 +123,7 @@ Item {
             var it = noteRepeater.itemAt(i)
             if (it) {
                 it.override = ""
+                it.overrideCents = NaN
             }
         }
         revision++
@@ -114,6 +132,15 @@ Item {
     function stateOf(i) {
         var s = changedStates[i]
         return s !== undefined ? s : (notes[i] && notes[i].state ? String(notes[i].state) : "pending")
+    }
+    /** The cents of note i (offpitch): as set with setNoteState, else from `notes`; NaN for none. */
+    function centsOf(i) {
+        var c = changedCents[i]
+        if (c !== undefined) {
+            return c
+        }
+        var n = notes && notes[i]
+        return n && n.cents !== undefined && n.cents !== null ? Number(n.cents) : NaN
     }
     onNotesChanged: resetStates()
 
@@ -166,7 +193,7 @@ Item {
             var n = list[next]
             parts.push(KanteStyle.noteStateName("pending") + ": " + nameOf(n.string) + " " + n.fret)
         }
-        ["hit", "wrong", "missed", "early", "late"].forEach(function (st) {
+        ["hit", "offpitch", "wrong", "missed", "early", "late"].forEach(function (st) {
             if (counts[st]) {
                 parts.push(KanteStyle.noteStateName(st) + " " + counts[st])
             }
@@ -318,6 +345,10 @@ Item {
                     readonly property int str: Math.max(0, Math.min(lane.strings - 1, Number(n.string) || 0))
                     /** Set by setNoteState; "" = the state in `notes`. */
                     property string override: ""
+                    /** Set by setNoteState with cents; NaN = the cents in `notes`. */
+                    property real overrideCents: NaN
+                    readonly property real cents: !isNaN(overrideCents) ? overrideCents
+                        : (n.cents !== undefined && n.cents !== null ? Number(n.cents) : NaN)
                     readonly property string st: lane.marks === KanteTabLane.Marks.Off ? "pending"
                         : (override !== "" ? override : (n.state ? String(n.state) : "pending"))
                     readonly property bool full: lane.marks === KanteTabLane.Marks.Full
@@ -325,6 +356,8 @@ Item {
                     readonly property color fill: st === "pending" || !full ? lane.stringColor(str) : KanteStyle.noteStateColor(st)
                     readonly property bool near: t + d >= lane.windowFrom - lane.chunk && t <= lane.windowTo + lane.chunk
                     visible: t + d >= lane.windowFrom && t <= lane.windowTo
+                    // A note with a cents label lies over its neighbours, so the label reads.
+                    z: st === "offpitch" && full && lane.showCents && !isNaN(cents) ? 1 : 0
                     x: t * lane.pps
                     y: lane.rowCenter(str)
 
@@ -390,6 +423,8 @@ Item {
                                     height: width
                                     sourceComponent: KanteNoteMark {
                                         noteState: note.st
+                                        cents: note.cents
+                                        showCents: lane.showCents && note.full
                                         badge: note.full
                                         color: note.full ? KanteStyle.noteStateColor(note.st) : KanteStyle.mutedTextColor
                                     }

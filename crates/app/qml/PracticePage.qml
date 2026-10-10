@@ -162,7 +162,7 @@ Kirigami.Page {
                     readonly property var tracks: JSON.parse(ctl.tracksJson)
                     visible: tracks.names.length > 1
                     QQC2.Label { text: texts.t("track.label"); color: KanteStyle.mutedTextColor }
-                    QQC2.ComboBox {
+                    KanteComboBox {
                         Layout.preferredWidth: KanteStyle.unit(220)
                         Accessible.name: texts.t("track.label")
                         model: parent.tracks.names
@@ -297,7 +297,7 @@ Kirigami.Page {
                 currentIndex: ctl.density - 1
                 onActivated: function(index) { ctl.changeDensity(index + 1, ctl.densityFixed ? "fixed" : "free") }
             }
-            QQC2.Switch {
+            KanteSwitch {
                 checked: ctl.densityFixed
                 Accessible.name: texts.t("density.fixed")
                 onToggled: ctl.changeDensity(ctl.density, checked ? "fixed" : "free")
