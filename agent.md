@@ -97,6 +97,26 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
   die Seite hängt ohne Fehlermeldung. Namen wie `summary` verwenden.
 - Die Engine stempelt Noten aus Dateien mit `Pace::Fast` dateirelativ, mit `Pace::RealTime` auf die Engine-Uhr. Eine
   Aufnahme wird über `Input::started_s()` ausgerichtet, nicht über den Zeitpunkt des Aufrufs (Dekodieren dauert).
+- Gitea-Merge per API: `tea api --login arianw -X POST /repos/shrippen/Kontra/pulls/N/merge -d '{"Do":"merge"}'`.
+  „manually-merged“ ist hier nicht erlaubt; „Please try again later“ heißt meist: nichts mehr zu mergen (Inhalt schon in
+  `main`). `scripts/gitea/merge-when-green.sh PR SHA` wartet auf die neuesten core- und app-Läufe und merged nur, wenn
+  beide grün sind und der Kopf unverändert ist. Die Actions-Liste der API zeigt ohne `limit=50` nur 10 Läufe, und ältere
+  abgebrochene Läufe zum selben Commit täuschen: immer nur den neuesten Lauf je Job werten.
+- Der Flatpak-Job scheitert im „Sandbox check“, solange der Runner keine User-Namespaces erlaubt (Runner-Einstellung,
+  nicht der Code). Merge-Kriterium sind die Jobs core und app.
+- Mehrere Arbeitsstände parallel: je Branch ein `git worktree` und ein eigenes `CARGO_TARGET_DIR`, dazu
+  `CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0`, sonst ist die Platte schnell voll. `cargo clippy` baut kein Binary;
+  vor Screenshots `cargo build`.
+- i18n-Konflikte beim Mergen: beide Seiten behalten, Kommas glätten, auf doppelte Schlüssel prüfen (JSON lädt sonst
+  stillschweigend nur einen).
+- Neue Felder in `Library`, `RecentEntry` oder `Run` brechen beim Mergen Struktur-Literale in Tests anderer Branches
+  (`RecentEntry` hat kein `Default`). Nach jedem Merge `cargo test --workspace` laufen lassen.
+- Mitgelieferte Übungen sind generiert (`kontra-cli exercises <dir>`); die CI vergleicht mit `testdata/exercises`.
+  Nach Änderungen am Generator neu erzeugen und einchecken (`README.md` dort ist handgeschrieben).
+- `KanteCallout.Kind` kennt `Ok`, nicht `Success`. Kante-Bauteile ersetzen QQC2 (`KanteSwitch`, `KanteComboBox`),
+  sobald Kante sie hat.
+- Screenshots von Kante-Bauteilen außerhalb der App: Hintergrund-`Rectangle` mit `Kirigami.Theme`-Farben und
+  `Kirigami.Theme.inherit: false` setzen, sonst schwarzer Grund oder falsches Farbschema.
 
 ## Persona rule
 
@@ -157,3 +177,12 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Changes arrive as pull requests: work on a branch, open a PR, merge it on Gitea (the mirror follows).
 - Never merge a PR, push to `main` (or any default branch), push tags or publish releases on GitHub. A merge there is overwritten by the next Gitea push.
 - Never force-push a branch that someone else's PR depends on.
+
+## Entscheidungen mit dem Eigentümer
+
+- Offene Fragen sammeln und als Runde im Entscheidungs-Artefakt stellen (je Frage Kontext, Optionen, Empfehlung);
+  Antworten liegen dort in der Datenbank-Sammlung „antworten“, ein Dokument je Runde. Umgesetzte Entscheidungen
+  kommen ins Lastenheft und in die Roadmap (Abschnitt der jeweiligen Runde).
+- Kontra-PRs merged Claude selbst, wenn core und app grün sind. Kante-PRs prüft und merged der Eigentümer.
+- Jede neue `pub`-Schnittstelle wird in der nächsten Runde zur Freigabe gelistet.
+- Der laufende Arbeitsstand steht in `STAND.md`.
