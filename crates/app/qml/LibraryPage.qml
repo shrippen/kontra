@@ -1,4 +1,5 @@
 import QtQuick
+import QtCore
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import QtQuick.Controls as QQC2
@@ -17,7 +18,7 @@ Kirigami.ScrollablePage {
     readonly property var recent: {
         var list = JSON.parse(ctl.recentJson).filter(function(e) {
             var q = query.trim().toLowerCase()
-            return q === "" || (e.title + " " + e.artist + " " + e.path).toLowerCase().indexOf(q) >= 0
+            return q === "" || (e.title + " " + e.artist + " " + e.path + " " + (e.tags || []).join(" ")).toLowerCase().indexOf(q) >= 0
         })
         if (sort === "title")
             list.sort(function(a, b) { return a.title.localeCompare(b.title) })
@@ -27,6 +28,9 @@ Kirigami.ScrollablePage {
     }
     readonly property var setlists: JSON.parse(ctl.setlistsJson)
     readonly property var tracks: JSON.parse(ctl.trackChoicesJson)
+    // LH-BIB-07: the piece being shared and whether its backing audio goes along.
+    property string sharePath: ""
+    property bool shareAudio: false
 
     // Kirigami pages paint the platform background; Kante's ground replaces it.
     background: Rectangle { color: KanteStyle.backgroundColor }
@@ -51,8 +55,19 @@ Kirigami.ScrollablePage {
     }
 
     FileDialog {
+        id: packageDialog
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "kontra"
+        nameFilters: [texts.t("package.files") + " (*.kontra)"]
+        onAccepted: {
+            ctl.exportPackage(page.sharePath, selectedFile.toString(), page.shareAudio ? "embed" : "link")
+            page.sharePath = ""
+        }
+    }
+
+    FileDialog {
         id: dialog
-        nameFilters: [texts.t("library.formats") + " (*.gp *.gp3 *.gp4 *.gp5 *.gpx *.mid *.midi *.musicxml *.xml *.mxl)"]
+        nameFilters: [texts.t("library.formats") + " (*.gp *.gp3 *.gp4 *.gp5 *.gpx *.mid *.midi *.musicxml *.xml *.mxl *.kontra)"]
         onAccepted: page.open(selectedFile.toString())
     }
 
@@ -217,16 +232,75 @@ Kirigami.ScrollablePage {
             }
             Repeater {
                 model: page.recent
-                delegate: KanteListRow {
+                delegate: ColumnLayout {
+                    id: piece
                     required property var modelData
+                    property bool editing: false
+                    readonly property bool sharing: page.sharePath === String(modelData.path)
                     Layout.fillWidth: true
-                    text: modelData.title
-                    subtitle: modelData.artist
-                    meta: modelData.best !== null && modelData.best !== undefined
-                          ? texts.t("library.best", { percent: Math.round(modelData.best * 100) })
-                            + " · " + (modelData.practiceMin < 1 ? texts.t("library.underminute") : texts.t("library.minutes", { minutes: Math.round(modelData.practiceMin) }))
-                          : String(modelData.path).split("/").pop()
-                    onClicked: page.open(String(modelData.path))
+                    spacing: 0
+                    KanteListRow {
+                        Layout.fillWidth: true
+                        text: piece.modelData.title
+                        // Tags (LH-BIB-04) after the artist; the search finds them too.
+                        subtitle: [piece.modelData.artist].concat(piece.modelData.tags.map(function(t) { return "#" + t }))
+                                  .filter(function(s) { return s !== "" }).join(" · ")
+                        meta: piece.modelData.best !== null && piece.modelData.best !== undefined
+                              ? texts.t("library.best", { percent: Math.round(piece.modelData.best * 100) })
+                                + " · " + (piece.modelData.practiceMin < 1 ? texts.t("library.underminute") : texts.t("library.minutes", { minutes: Math.round(piece.modelData.practiceMin) }))
+                              : String(piece.modelData.path).split("/").pop()
+                        onClicked: page.open(String(piece.modelData.path))
+                        trailing: Row {
+                            spacing: KanteStyle.unit(4)
+                            KanteButton {
+                                text: texts.t("library.tags")
+                                emphasis: KanteButton.Emphasis.Quiet
+                                checkable: true
+                                checked: piece.editing
+                                Accessible.name: texts.t("library.tags.edit", { title: piece.modelData.title })
+                                onClicked: piece.editing = !piece.editing
+                            }
+                            // LH-BIB-07: share the piece as a .kontra package.
+                            KanteButton {
+                                text: texts.t("package.share")
+                                emphasis: KanteButton.Emphasis.Quiet
+                                Accessible.name: texts.t("package.share.name", { title: piece.modelData.title })
+                                onClicked: page.sharePath = piece.sharing ? "" : String(piece.modelData.path)
+                            }
+                        }
+                    }
+                    KanteTagPicker {
+                        Layout.fillWidth: true
+                        visible: piece.editing
+                        tags: piece.modelData.tags
+                        suggestions: piece.editing ? JSON.parse(ctl.tagsJson()) : []
+                        placeholderText: texts.t("library.tags.add")
+                        removeText: texts.t("library.tags.remove")
+                        Accessible.name: texts.t("library.tags.edit", { title: piece.modelData.title })
+                        onEdited: function(tags) { ctl.setTags(String(piece.modelData.path), JSON.stringify(tags)) }
+                    }
+                    // Audio goes along only when chosen here (J-D2).
+                    RowLayout {
+                        visible: piece.sharing
+                        Layout.fillWidth: true
+                        Layout.leftMargin: KanteStyle.unit(16)
+                        QQC2.CheckBox {
+                            id: withAudio
+                            enabled: piece.modelData.hasBacking === true
+                            text: piece.modelData.hasBacking === true ? texts.t("package.audio") : texts.t("package.audio.none")
+                            Accessible.name: text
+                        }
+                        Item { Layout.fillWidth: true }
+                        KanteButton {
+                            text: texts.t("package.save")
+                            emphasis: KanteButton.Emphasis.Primary
+                            onClicked: {
+                                page.shareAudio = withAudio.checked
+                                packageDialog.currentFile = StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + String(piece.modelData.title).replace(/[\/:*?"<>|]+/g, "-") + ".kontra"
+                                packageDialog.open()
+                            }
+                        }
+                    }
                 }
             }
         }

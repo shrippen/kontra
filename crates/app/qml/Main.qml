@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import Kante
@@ -111,6 +112,25 @@ Kirigami.ApplicationWindow {
         running: true
         repeat: true
         onTriggered: ctl.tick()
+    }
+
+    // LH-ALL-04: the interface was unplugged; another input can stand in until it is back.
+    RowLayout {
+        anchors { left: parent.left; right: parent.right; bottom: notice.visible ? notice.top : parent.bottom; margins: KanteStyle.unit(12) }
+        z: 10
+        visible: ctl.offerInput !== ""
+        KanteCallout {
+            Layout.fillWidth: true
+            kind: KanteCallout.Kind.Info
+            text: ctl.offerText
+            autoHide: false
+        }
+        KanteButton {
+            text: texts.t("unplug.use")
+            emphasis: KanteButton.Emphasis.Primary
+            Accessible.name: texts.t("unplug.use")
+            onClicked: ctl.useOfferedInput()
+        }
     }
 
     KanteCallout {

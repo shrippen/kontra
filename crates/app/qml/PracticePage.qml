@@ -68,9 +68,13 @@ Kirigami.Page {
         var item = applicationWindow().activeFocusItem
         return !(item && item.hasOwnProperty("cursorPosition"))
     }
-    Shortcut { sequence: "K"; enabled: page.keysFree; onActivated: ctl.togglePlay() }
+    // Foot switches emulate a keyboard and mostly send PageDown/PageUp: play and rewind.
+    Shortcut { sequences: ["K", "PgDown"]; enabled: page.keysFree; onActivated: ctl.togglePlay() }
     Shortcut { sequence: "N"; enabled: page.keysFree && ctl.nextTitle !== ""; onActivated: ctl.openNext() }
-    Shortcut { sequence: "Home"; enabled: page.keysFree; onActivated: ctl.rewind() }
+    Shortcut { sequences: ["Home", "PgUp"]; enabled: page.keysFree; onActivated: ctl.rewind() }
+    // Loop start and end at the current bar; "," and "." for layouts where brackets need AltGr.
+    Shortcut { sequences: ["[", ","]; enabled: page.keysFree; onActivated: ctl.loopEdge("start") }
+    Shortcut { sequences: ["]", "."]; enabled: page.keysFree; onActivated: ctl.loopEdge("end") }
     Shortcut { sequence: "L"; enabled: page.keysFree; onActivated: transport.loopToggled() }
     Shortcut { sequence: "M"; enabled: page.keysFree; onActivated: ctl.changeOptions(!ctl.metronome, ctl.reference, ctl.lowStringOnTop) }
     Shortcut { sequence: "C"; enabled: page.keysFree; onActivated: ctl.changeCountIn(!ctl.countIn) }
@@ -90,8 +94,10 @@ Kirigami.Page {
         function onArrangementLoaded() { page.reset() }
         function onNoteJudged(index, state, offsetMs, cents) {
             page.states[index] = state
+            // Cents go along in full marks (LH-BEW-05); views that take no third argument ignore it.
+            var shownCents = page.marks === KanteTabLane.Marks.Full && (state === "hit" || state === "offpitch") ? cents : undefined
             for (var i = 0; i < page.noteViews.length; i++) {
-                page.noteViews[i].setNoteState(index, state)
+                page.noteViews[i].setNoteState(index, state, shownCents)
             }
         }
         // Play mode just plays (LH-MOD-01, round 6): the summary only on request.
@@ -111,6 +117,25 @@ Kirigami.Page {
     readonly property var stringNames: JSON.parse(ctl.stringNamesJson)
     readonly property int nextIndex: ctl.holdingIndex >= 0 ? ctl.holdingIndex : lane.nextIndex
     readonly property var nextNote: nextIndex >= 0 && nextIndex < notes.length ? notes[nextIndex] : null
+    // Hand position (LH-ANZ-05) and the next change of it, shown at least one bar ahead.
+    readonly property int handPosition: nextNote ? nextNote.position : 0
+    readonly property var shift: positionShift(nextIndex, ctl.position)
+
+    // The first note from `from` on whose position differs, if it starts within a bar from `now`.
+    function positionShift(from, now) {
+        if (from < 0 || from >= notes.length || bars.length === 0) {
+            return null
+        }
+        var bar = barAt(now)
+        var length = bar + 1 < bars.length ? bars[bar + 1].time - bars[bar].time : bars[bar].time - (bar > 0 ? bars[bar - 1].time : 0)
+        var horizon = Math.max(now, notes[from].time) + Math.max(length, 0.5)
+        for (var i = from + 1; i < notes.length && notes[i].time <= horizon; i++) {
+            if (notes[i].position !== notes[from].position) {
+                return { position: notes[i].position, bar: bars[barAt(notes[i].time)].number }
+            }
+        }
+        return null
+    }
 
     // Small screens and beamers (QA P4: 1280×720 at 150 %): the title gets its own row and the
     // fretboard and level make room for the notes.
@@ -259,6 +284,52 @@ Kirigami.Page {
             }
         }
 
+        // Note density (LH-MOD-06): fewer notes while a part is new; per section, fixable.
+        RowLayout {
+            Layout.fillWidth: true
+            visible: ctl.mode === "song" || ctl.mode === "workshop"
+            spacing: KanteStyle.unit(8)
+            KanteHud { fullText: texts.t("density.title"); color: KanteStyle.mutedTextColor }
+            KanteSegmented {
+                Accessible.name: texts.t("density.title")
+                model: [texts.t("density.sparse"), texts.t("density.beats"), texts.t("density.full")]
+                tooltips: [texts.t("density.hint"), texts.t("density.hint"), texts.t("density.hint")]
+                currentIndex: ctl.density - 1
+                onActivated: function(index) { ctl.changeDensity(index + 1, ctl.densityFixed ? "fixed" : "free") }
+            }
+            QQC2.Switch {
+                checked: ctl.densityFixed
+                Accessible.name: texts.t("density.fixed")
+                onToggled: ctl.changeDensity(ctl.density, checked ? "fixed" : "free")
+            }
+            QQC2.Label { text: texts.t("density.fixed"); color: KanteStyle.textColor }
+            Item { Layout.fillWidth: true }
+        }
+
+        // Between runs only: Kontra suggests, the player decides (round 5).
+        KanteCallout {
+            id: densityCallout
+            Layout.fillWidth: true
+            visible: ctl.densitySuggestion > 0 && !ctl.playing
+            kind: KanteCallout.Kind.Info
+            autoHide: false
+            title: ctl.densityText
+            Accessible.name: ctl.densityText
+            onVisibleChanged: if (visible) Accessible.announce(ctl.densityText)
+            RowLayout {
+                KanteButton {
+                    text: texts.t("density.accept")
+                    emphasis: KanteButton.Emphasis.Primary
+                    onClicked: ctl.changeDensity(ctl.densitySuggestion, "free")
+                }
+                KanteButton {
+                    text: texts.t("density.decline")
+                    emphasis: KanteButton.Emphasis.Quiet
+                    onClicked: ctl.declineDensity()
+                }
+            }
+        }
+
         // Wait mode: what to play next, in words (LH-MOD-03). An instruction, not a warning (QA
         // P1: the hazard banner read as an alarm); read out by screen readers when it changes (P7).
         KanteCallout {
@@ -381,6 +452,9 @@ Kirigami.Page {
             Layout.fillWidth: true
             visible: !page.compact
             spacing: KanteStyle.unit(16)
+            ColumnLayout {
+            Layout.fillWidth: true
+            spacing: KanteStyle.unit(4)
             KanteFretboard {
                 Layout.fillWidth: true
                 Layout.preferredHeight: KanteStyle.unit(120)
@@ -389,9 +463,34 @@ Kirigami.Page {
                 frets: 15
                 lowStringOnTop: ctl.lowStringOnTop
                 leftHanded: ctl.leftHanded
-                markers: page.nextNote ? [{ string: page.nextNote.string, fret: page.nextNote.fret, role: "next" }] : []
+                // The finger the position suggests is written in the marker (1 index … 4 pinky).
+                markers: page.nextNote ? [{ string: page.nextNote.string, fret: page.nextNote.fret, role: "next",
+                                            label: page.nextNote.finger > 0 ? String(page.nextNote.finger) : "" }] : []
                 accessibleName: texts.t("fretboard.name")
                 markerText: texts.t("fretboard.marker")
+            }
+            RowLayout {
+                spacing: KanteStyle.unit(8)
+                visible: page.handPosition > 0
+                KantePill {
+                    status: KantePill.State.Off
+                    text: texts.t("fretboard.position", { position: page.handPosition })
+                    Accessible.name: text
+                }
+                KantePill {
+                    id: shiftPill
+                    visible: page.shift !== null
+                    status: KantePill.State.Locked
+                    text: page.shift ? texts.t("fretboard.shift", { position: page.shift.position, bar: page.shift.bar }) : ""
+                    Accessible.name: text
+                    onTextChanged: if (text !== "") Accessible.announce(text)
+                }
+                QQC2.Label {
+                    visible: page.nextNote !== null && page.nextNote.finger > 0
+                    text: page.nextNote ? texts.t("fretboard.finger", { finger: page.nextNote.finger }) : ""
+                    color: KanteStyle.mutedTextColor
+                }
+            }
             }
             ColumnLayout {
             Layout.preferredWidth: meter.implicitWidth

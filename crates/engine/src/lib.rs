@@ -21,7 +21,7 @@ pub use clock::Clock;
 pub use input::{Input, InputKind, Pace};
 pub use kontra_drivers::{
     list_devices, read_audio, write_wav, AudioBuffer, Connection, DeviceInfo, Direction,
-    StreamConfig,
+    StreamConfig, NULL_DEVICE,
 };
 pub use kontra_dsp::{track_beats, BeatGrid};
 pub use korpus::{

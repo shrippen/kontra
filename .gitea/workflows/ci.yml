@@ -37,10 +37,16 @@ jobs:
             target
           key: core-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
       - run: cargo fmt --all --check
+      - name: Design tokens only (LH-NF-10)
+        run: scripts/check-design.sh
       - run: cargo clippy --workspace --exclude kontra-app --all-targets -- -D warnings
+      # Includes the journey tests (tests/journeys, QA.md ⚙): recordings rendered on the fly,
+      # played in real time through the app core without a sound card.
       - run: cargo test --workspace --exclude kontra-app
       - run: command -v cargo-deny || cargo install --locked cargo-deny
       - run: cargo deny check licenses bans sources
+      - name: Licence list in the program is current (LH-NF-11)
+        run: python3 scripts/licences.py --check
       - name: Bundled exercises are up to date (LH-BIB-08)
         run: |
           rm -rf /tmp/exercises

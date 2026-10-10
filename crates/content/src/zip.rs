@@ -1,5 +1,6 @@
 //! Minimal zip reader for `.gp` (Guitar Pro 7/8) and `.mxl` (compressed MusicXML):
 //! central directory, stored and deflated entries, CRC check. No zip64, no encryption.
+//! The writer (`.kontra` packages) stores deflated entries the same way.
 //!
 //! ```text
 //! [local header + data]... │ central directory entries │ end of central directory (EOCD)
@@ -90,6 +91,70 @@ impl<'a> Zip<'a> {
     }
 }
 
+/// Deflate level for written entries (miniz: 0–10).
+const DEFLATE_LEVEL: u8 = 6;
+/// Version 2.0: deflate; the same for "made by" and "needed to extract".
+const ZIP_VERSION: u16 = 20;
+/// Bit 11: names are UTF-8.
+const UTF8_NAMES: u16 = 1 << 11;
+
+/// Writes `entries` (name, content) as a zip archive with deflated entries, no zip64: every
+/// entry and the archive must stay below 4 GiB, and at most 65535 entries.
+pub(crate) fn write(entries: &[(&str, &[u8])]) -> Result<Vec<u8>, ImportError> {
+    let too_large = |n: usize| ImportError::TooLarge(n as u64);
+    let mut out = Vec::new();
+    let mut central = Vec::new();
+    for (name, content) in entries {
+        let packed = miniz_oxide::deflate::compress_to_vec(content, DEFLATE_LEVEL);
+        let local = u32::try_from(out.len()).map_err(|_| too_large(out.len()))?;
+        let size = u32::try_from(content.len()).map_err(|_| too_large(content.len()))?;
+        let packed_len = u32::try_from(packed.len()).map_err(|_| too_large(packed.len()))?;
+        let name_len =
+            u16::try_from(name.len()).map_err(|_| ImportError::bad("zip name too long"))?;
+        let crc = crc32(content);
+
+        // Local header: signature, version, flags, method, time, date, crc, sizes, name.
+        out.extend(LOCAL_SIG.to_le_bytes());
+        for v in [ZIP_VERSION, UTF8_NAMES, DEFLATED, 0, 0] {
+            out.extend(v.to_le_bytes());
+        }
+        for v in [crc, packed_len, size] {
+            out.extend(v.to_le_bytes());
+        }
+        out.extend(name_len.to_le_bytes());
+        out.extend(0u16.to_le_bytes());
+        out.extend(name.as_bytes());
+        out.extend(&packed);
+
+        // Central entry: as above plus made-by, comment, disk, attributes and the offset.
+        central.extend(CENTRAL_SIG.to_le_bytes());
+        for v in [ZIP_VERSION, ZIP_VERSION, UTF8_NAMES, DEFLATED, 0, 0] {
+            central.extend(v.to_le_bytes());
+        }
+        for v in [crc, packed_len, size] {
+            central.extend(v.to_le_bytes());
+        }
+        for v in [name_len, 0, 0, 0, 0] {
+            central.extend(v.to_le_bytes());
+        }
+        central.extend(0u32.to_le_bytes());
+        central.extend(local.to_le_bytes());
+        central.extend(name.as_bytes());
+    }
+    let count = u16::try_from(entries.len()).map_err(|_| ImportError::bad("too many entries"))?;
+    let central_at = u32::try_from(out.len()).map_err(|_| too_large(out.len()))?;
+    let central_len = u32::try_from(central.len()).map_err(|_| too_large(central.len()))?;
+    out.extend(central);
+    out.extend(EOCD_SIG.to_le_bytes());
+    for v in [0, 0, count, count] {
+        out.extend(v.to_le_bytes());
+    }
+    out.extend(central_len.to_le_bytes());
+    out.extend(central_at.to_le_bytes());
+    out.extend(0u16.to_le_bytes());
+    Ok(out)
+}
+
 fn inflate(packed: &[u8], size: usize) -> Result<Vec<u8>, ImportError> {
     let limit = size.min(MAX_ENTRY);
     miniz_oxide::inflate::decompress_to_vec_with_limit(packed, limit)
@@ -161,6 +226,20 @@ mod tests {
     #[test]
     fn crc_of_check_string() {
         assert_eq!(crc32(b"123456789"), 0xcbf4_3926);
+    }
+
+    #[test]
+    fn written_archive_reads_back() {
+        let big = vec![7u8; 100_000];
+        let data = write(&[("manifest.json", b"{}"), ("audio/ü.wav", &big)]).unwrap();
+        let zip = Zip::open(&data).unwrap();
+        assert_eq!(
+            zip.names().collect::<Vec<_>>(),
+            ["manifest.json", "audio/ü.wav"]
+        );
+        assert_eq!(zip.read("manifest.json").unwrap(), b"{}");
+        assert_eq!(zip.read("audio/ü.wav").unwrap(), big);
+        assert!(data.len() < 10_000, "deflated");
     }
 
     #[test]

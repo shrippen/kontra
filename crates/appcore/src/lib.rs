@@ -5,23 +5,34 @@
 //!     ◄──properties/signals── bridge ◄── UiEvent
 //! ```
 
+mod data;
 mod i18n;
+mod package;
 pub mod quiz;
+mod report;
 mod store;
+mod unplug;
 
+pub use data::DataImport;
 pub use i18n::{Catalog, Language};
-pub use kontra_session::exercise;
-pub use store::{data_dir, InputKind, Library, RecentEntry, Setlist, Settings};
+pub use kontra_session::{exercise, Density};
+pub use package::PackageAudio;
+pub use store::{
+    data_dir, InputKind, Library, RecentEntry, SectionBars, SectionDensity, Setlist, Settings,
+};
 
 use kontra_model::{Arrangement, BassKind, InputSource, Tuning};
 use kontra_session::{
     import_file, list_devices, run_from, CalibrationResult, Connection, DeviceInfo, Direction,
     Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveSetup, LiveTuner, LoopRange, Mode,
-    Outcome, PracticeEvent, PracticeOptions, ProgressStore, ScoreSettings, SessionEvent, Summary,
-    Workshop,
+    NoteResult, Outcome, PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings,
+    SessionEvent, Summary, Workshop,
 };
 use serde_json::json;
 use std::path::{Path, PathBuf};
+
+/// Crates linked into the app and their licences, from `scripts/licences.py` (LH-NF-11).
+const LICENCES: &str = include_str!("../licences.json");
 
 /// Seconds from the input's start to the first calibration click.
 const CALIBRATION_LEAD_S: f64 = 1.0;
@@ -83,11 +94,37 @@ pub enum UiEvent {
     Error(String),
     /// The audio device failed (unplugged); the run was stopped.
     DeviceLost(String),
+    /// Between runs: offer another note density (LH-MOD-06), 1..=3, with the question.
+    DensitySuggestion {
+        level: u8,
+        text: String,
+    },
+    /// Another input could be used meanwhile (LH-ALL-04): its id and a question for the user.
+    InputOffer {
+        id: String,
+        text: String,
+    },
+    /// The lost input is back and used again.
+    InputBack(String),
     /// Calibration finished: new latency (if measured) and a text for the user.
     Calibrated {
         latency_ms: Option<f64>,
         text: String,
     },
+}
+
+/// A fixed note density gets no suggestions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DensityLock {
+    Free,
+    Fixed,
+}
+
+/// Which end of the loop a key sets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LoopEdge {
+    Start,
+    End,
 }
 
 /// Result of opening a file.
@@ -101,6 +138,8 @@ pub enum Opened {
 #[derive(Debug)]
 struct Loaded {
     path: PathBuf,
+    /// All notes as imported; `arrangement` holds those of the current density (LH-MOD-06).
+    full: Arrangement,
     arrangement: Arrangement,
     /// All tracks of the file and the one played, so the player can switch (QA P2 R9).
     tracks: Vec<String>,
@@ -129,6 +168,12 @@ pub struct Core {
     notice: Option<String>,
     /// The setlist being played and the position in it (LH-BIB-04).
     active_setlist: Option<(String, usize)>,
+    /// The input that went away, watched until it is back (LH-ALL-04).
+    lost: Option<unplug::Lost>,
+    /// Input used instead of the lost one; never saved.
+    fallback_input: Option<String>,
+    /// Dropouts of finished runs since the start (LH-NF-04).
+    xruns_done: u64,
     /// Fretboard quiz in progress (LH-LRN-02).
     quiz: Option<quiz::Quiz>,
 }
@@ -145,6 +190,9 @@ impl Core {
             quiz: None,
             notice: None,
             active_setlist: None,
+            lost: None,
+            fallback_input: None,
+            xruns_done: 0,
             catalog: Catalog::new(language),
             settings,
             library,
@@ -298,12 +346,26 @@ impl Core {
     /// Progress over all pieces (LH-FOR-01): per piece best result, best tempo and time, and
     /// every run's time stamp and length so the view can sum days in local time.
     pub fn progress_json(&self) -> String {
+        self.progress_json_at(unix_now())
+    }
+
+    /// Bars of the sections practised in the piece with `song_id`, as the library knows them.
+    fn section_names(&self, song_id: &str) -> &[SectionBars] {
+        self.library
+            .recent
+            .iter()
+            .find(|e| e.song_id == song_id)
+            .map_or(&[], |e| e.sections.as_slice())
+    }
+
+    fn progress_json_at(&self, now: u64) -> String {
         let mut songs = self.progress_store().all();
         songs.sort_by_key(|p| std::cmp::Reverse(p.runs.iter().map(|r| r.finished_unix).max()));
         let pieces: Vec<serde_json::Value> = songs
             .iter()
             .map(|p| {
                 json!({
+                    "songId": p.song_id,
                     "title": p.title,
                     "artist": p.artist,
                     "best": p.best_hit_rate(),
@@ -311,6 +373,7 @@ impl Core {
                     "practiceMin": p.practice_s() / 60.0,
                     "runs": p.runs.len(),
                     "lastUnix": p.runs.iter().map(|r| r.finished_unix).max(),
+                    "sections": self.sections_json(&p.runs, self.section_names(&p.song_id), now),
                 })
             })
             .collect();
@@ -320,6 +383,104 @@ impl Core {
             .map(|r| json!({ "unix": r.finished_unix, "s": r.practice_s }))
             .collect();
         json!({ "pieces": pieces, "runs": runs }).to_string()
+    }
+
+    /// Writes settings, library and progress as one JSON file (LH-FOR-03); returns what was
+    /// saved, as a text for the user.
+    pub fn export_data(&self, path: &Path) -> Result<String, String> {
+        let bundle = data::Bundle {
+            format: data::FORMAT.into(),
+            version: data::VERSION,
+            exported_unix: unix_now(),
+            settings: self.settings.clone(),
+            library: self.library.clone(),
+            progress: self.progress_store().all(),
+        };
+        store::save(path, &bundle)
+            .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
+        let runs = bundle.progress.iter().map(|p| p.runs.len()).sum::<usize>();
+        Ok(self.tr(
+            "data.exported",
+            &[
+                ("pieces", bundle.library.recent.len().to_string()),
+                ("setlists", bundle.library.setlists.len().to_string()),
+                ("runs", runs.to_string()),
+                ("name", file_name(path)),
+            ],
+        ))
+    }
+
+    /// Reads a file written by `export_data`: merges it into the own data or replaces them.
+    /// Nothing changes if the file is not valid. Returns a report for the user.
+    pub fn import_data(&mut self, path: &Path, how: DataImport) -> Result<String, String> {
+        let text = std::fs::read_to_string(path).map_err(|_| self.tr("data.error.read", &[]))?;
+        let bundle = data::Bundle::parse(&text).map_err(|e| match e {
+            data::BundleError::Newer(v) => {
+                self.tr("data.error.newer", &[("version", v.to_string())])
+            }
+            data::BundleError::Unreadable | data::BundleError::BadSongId => {
+                self.tr("data.error.format", &[])
+            }
+        })?;
+        self.stop_live();
+        let store = self.progress_store();
+        let mut merged = data::Merged::default();
+        match how {
+            DataImport::Replace => {
+                merged.pieces = bundle.library.recent.len();
+                merged.setlists = bundle.library.setlists.len();
+                self.library = bundle.library;
+                for old in store.all() {
+                    let _ = std::fs::remove_file(
+                        self.data_dir
+                            .join("progress")
+                            .join(format!("{}.json", old.song_id)),
+                    );
+                }
+                self.update_settings(|s| *s = bundle.settings);
+            }
+            DataImport::Merge => merged = data::merge_library(&mut self.library, bundle.library),
+        }
+        for incoming in bundle.progress {
+            let mut song = match how {
+                DataImport::Merge => store.load_id(&incoming.song_id),
+                DataImport::Replace => None,
+            }
+            .unwrap_or_else(|| kontra_session::SongProgress {
+                runs: Vec::new(),
+                ..incoming.clone()
+            });
+            merged.runs += data::merge_runs(&mut song, incoming);
+            store
+                .save(&song)
+                .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
+        }
+        self.save_library();
+        let key = match how {
+            DataImport::Merge => "data.merged",
+            DataImport::Replace => "data.replaced",
+        };
+        Ok(self.tr(
+            key,
+            &[
+                ("pieces", merged.pieces.to_string()),
+                ("setlists", merged.setlists.to_string()),
+                ("runs", merged.runs.to_string()),
+                ("name", file_name(path)),
+            ],
+        ))
+    }
+
+    /// The About section's licence list (LH-NF-11): Kontra, the dynamically linked Qt and KDE
+    /// Frameworks, then every crate: `[{"name", "version", "license"}, …]`.
+    pub fn licences_json(&self) -> String {
+        let crates: Vec<serde_json::Value> = serde_json::from_str(LICENCES).unwrap_or_default();
+        let own = [
+            json!({ "name": "Kontra", "version": env!("CARGO_PKG_VERSION"), "license": env!("CARGO_PKG_LICENSE") }),
+            json!({ "name": "Qt 6", "version": "", "license": self.tr("about.lgpl", &[]) }),
+            json!({ "name": "KDE Frameworks 6 (Kirigami)", "version": "", "license": self.tr("about.lgpl", &[]) }),
+        ];
+        serde_json::Value::Array(own.into_iter().chain(crates).collect()).to_string()
     }
 
     /// Tracks of the loaded file and the one played: `{"names": [...], "current": i}`.
@@ -478,10 +639,33 @@ impl Core {
                 let progress = store.load_id(&e.song_id);
                 let best = progress.as_ref().and_then(|p| p.best_hit_rate());
                 let minutes = progress.as_ref().map_or(0.0, |p| p.practice_s() / 60.0);
-                json!({ "path": e.path, "title": e.title, "artist": e.artist, "best": best, "practiceMin": minutes, "lastUnix": e.last_unix })
+                json!({ "path": e.path, "title": e.title, "artist": e.artist, "best": best, "practiceMin": minutes, "lastUnix": e.last_unix, "tags": e.tags, "hasBacking": e.backing.is_some() })
             })
             .collect();
         serde_json::Value::Array(list).to_string()
+    }
+
+    /// Sets the tags of the piece at `path` (LH-BIB-04): trimmed, without empty or repeated ones.
+    pub fn set_tags(&mut self, path: &Path, tags: &[String]) {
+        let mut clean: Vec<String> = Vec::new();
+        for tag in tags.iter().map(|t| t.trim()) {
+            if !tag.is_empty() && !clean.iter().any(|c| c.eq_ignore_ascii_case(tag)) {
+                clean.push(tag.to_string());
+            }
+        }
+        let Some(entry) = self.library.entry_mut(path) else {
+            return;
+        };
+        entry.tags = clean;
+        self.save_library();
+    }
+
+    /// Every tag in the library, sorted, for suggestions.
+    pub fn tags_json(&self) -> String {
+        let mut tags: Vec<&String> = self.library.recent.iter().flat_map(|e| &e.tags).collect();
+        tags.sort_by_key(|t| t.to_lowercase());
+        tags.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
+        json!(tags).to_string()
     }
 
     /// Adds every score in `dir` to the library without playing it (LH-BIB-04, J-B1); with
@@ -535,6 +719,9 @@ impl Core {
                         backing: None,
                         backing_offset_s: 0.0,
                         view: None,
+                        tags: Vec::new(),
+                        sections: Vec::new(),
+                        densities: Vec::new(),
                     });
                     added.push(path);
                 }
@@ -669,6 +856,9 @@ impl Core {
     /// Imports a score; picks the bass track or asks.
     pub fn open(&mut self, path: &Path) -> Result<Opened, String> {
         self.active_setlist = None;
+        if package::is_package(path) {
+            return self.open_package(path).map(|()| Opened::Ready);
+        }
         let imported = import_file(path).map_err(|e| self.import_error(&e))?;
         if let Some(track) = imported.suggested() {
             return self.load(path, &imported, track).map(|()| Opened::Ready);
@@ -744,6 +934,9 @@ impl Core {
             backing: None,
             backing_offset_s: 0.0,
             view: None,
+            tags: Vec::new(),
+            sections: Vec::new(),
+            densities: Vec::new(),
         });
         // A backing track with a beat map: the bars follow the band (LH-BIB-06).
         if self
@@ -764,6 +957,7 @@ impl Core {
         let _ = store::save(&self.data_dir.join("library.json"), &self.library);
         self.loaded = Some(Loaded {
             path: path.to_path_buf(),
+            full: arrangement.clone(),
             arrangement,
             tracks: imported
                 .tracks()
@@ -772,6 +966,7 @@ impl Core {
                 .collect(),
             track,
         });
+        self.rethin();
         Ok(())
     }
 
@@ -788,11 +983,14 @@ impl Core {
         let Some(a) = self.arrangement() else {
             return "[]".into();
         };
+        let positions = hand_positions(&a.notes);
         let notes: Vec<_> = a
             .notes
             .iter()
-            .map(|n| {
+            .zip(positions)
+            .map(|(n, position)| {
                 let time = a.tempo.seconds_at(n.start_ticks);
+                let fret = n.fret.unwrap_or(0);
                 json!({
                     "time": time,
                     "duration": a.tempo.seconds_at(n.end_ticks()) - time,
@@ -802,6 +1000,9 @@ impl Core {
                     "beats": written_beats(n.duration_ticks),
                     "tied": n.tied,
                     "state": "pending",
+                    // Hand position (LH-ANZ-05) and the finger it suggests (0 = open string).
+                    "position": position,
+                    "finger": if fret == 0 { 0 } else { fret + 1 - position.min(fret) },
                 })
             })
             .collect();
@@ -821,6 +1022,10 @@ impl Core {
                     "number": b.source_index + 1,
                     "numerator": b.signature.numerator,
                     "denominator": b.signature.denominator,
+                    // Written repeat signs and volta numbers (LH-ANZ-02), e.g. "endings": [1, 2].
+                    "repeatStart": b.repeat_open,
+                    "repeatEnd": b.repeat_close,
+                    "endings": (0..32).filter(|i| b.endings & (1 << i) != 0).map(|i| i + 1).collect::<Vec<u32>>(),
                 })
             })
             .collect();
@@ -912,7 +1117,14 @@ impl Core {
         if self.run_started.is_some() {
             self.record_run();
         }
-        self.live = None;
+        if let Some(live) = self.live.take() {
+            self.xruns_done += live.xruns();
+        }
+    }
+
+    /// Audio dropouts since Kontra started, over all runs (LH-NF-04).
+    pub fn xruns(&self) -> u64 {
+        self.xruns_done + self.live.as_ref().map_or(0, Live::xruns)
     }
 
     pub fn set_speed(&mut self, speed: f64) {
@@ -936,19 +1148,134 @@ impl Core {
         Workshop::default().band
     }
 
-    pub fn set_loop(&mut self, from: usize, to: usize) {
+    /// Returns true if the notes changed: the section has another note density (LH-MOD-06).
+    pub fn set_loop(&mut self, from: usize, to: usize) -> bool {
         self.looping = Some((from.min(to), from.max(to)));
         let range = self.loop_range();
         if let Some(live) = self.live.as_mut() {
             live.practice_mut().set_loop(range);
         }
+        self.rethin()
     }
 
-    pub fn clear_loop(&mut self) {
+    /// Sets one end of the loop to the bar at `position_s` (keys `[` and `]`, LH-MOD-07); the
+    /// other end stays where it is unless it would cross, e.g. loop 3–6, `]` in bar 2 → 2–2.
+    /// Returns true if the notes changed, as `set_loop`.
+    pub fn set_loop_edge(&mut self, edge: LoopEdge, position_s: f64) -> bool {
+        let Some(a) = self.arrangement() else {
+            return false;
+        };
+        let Some(bar) = a.bar_at(a.tempo.tick_at(position_s.max(0.0))) else {
+            return false;
+        };
+        let (from, to) = match (edge, self.looping) {
+            (LoopEdge::Start, Some((_, to))) if to >= bar => (bar, to),
+            (LoopEdge::End, Some((from, _))) if from <= bar => (from, bar),
+            _ => (bar, bar),
+        };
+        self.set_loop(from, to)
+    }
+
+    /// Back to the start: the loop's first bar if a loop is set, else the piece's (LH-MOD-07).
+    /// Ends the run; returns the position the next `play` starts from.
+    pub fn rewind(&mut self) -> f64 {
+        self.stop_live();
+        self.loop_range().map_or(0.0, |r| r.start_s)
+    }
+
+    /// Returns true if the notes changed, as `set_loop`.
+    pub fn clear_loop(&mut self) -> bool {
         self.looping = None;
         if let Some(live) = self.live.as_mut() {
             live.practice_mut().set_loop(None);
         }
+        self.rethin()
+    }
+
+    /// Note density of the current section (the loop, else the whole piece) and its lock.
+    pub fn density(&self) -> (Density, DensityLock) {
+        self.stored_density()
+            .map_or((Density::Full, DensityLock::Free), |d| {
+                let lock = if d.fixed {
+                    DensityLock::Fixed
+                } else {
+                    DensityLock::Free
+                };
+                (Density::from_level(d.level), lock)
+            })
+    }
+
+    /// Sets the note density of the current section (LH-MOD-06); the next run plays it.
+    pub fn set_density(&mut self, density: Density, lock: DensityLock) {
+        let section = self.section_key();
+        let Some(path) = self.loaded_path().map(Path::to_path_buf) else {
+            return;
+        };
+        let Some(entry) = self.library.entry_mut(&path) else {
+            return;
+        };
+        entry.densities.retain(|d| d.section != section);
+        entry.densities.push(SectionDensity {
+            section,
+            level: density.level(),
+            fixed: lock == DensityLock::Fixed,
+        });
+        self.save_library();
+        self.rethin();
+    }
+
+    /// The loop as stored with a section's density.
+    fn section_key(&self) -> Option<(f64, f64)> {
+        self.loop_range().map(|r| (r.start_s, r.end_s))
+    }
+
+    /// The density stored for the current section, else the whole piece's.
+    fn stored_density(&self) -> Option<&SectionDensity> {
+        let section = self.section_key();
+        let entry = self.library.entry(self.loaded_path()?)?;
+        let own = entry.densities.iter().find(|d| match (d.section, section) {
+            (Some((a, b)), Some((c, e))) => (a - c).abs() < 0.01 && (b - e).abs() < 0.01,
+            _ => false,
+        });
+        own.or_else(|| entry.densities.iter().find(|d| d.section.is_none()))
+    }
+
+    /// Thins the loaded notes to the current density; true if they changed, which ends a
+    /// running practice (densities change only between runs).
+    fn rethin(&mut self) -> bool {
+        let (density, _) = self.density();
+        let Some(loaded) = self.loaded.as_mut() else {
+            return false;
+        };
+        let thinned = density.thin(&loaded.full);
+        if thinned.notes == loaded.arrangement.notes {
+            return false;
+        }
+        loaded.arrangement = thinned;
+        self.stop_live();
+        true
+    }
+
+    /// The suggestion after a pass or run with `hit_rate` (LH-MOD-06): song and workshop only,
+    /// not for a fixed section, not when switched off.
+    fn density_hint(&self, hit_rate: f64) -> Option<UiEvent> {
+        if !self.settings.adaptive || !matches!(self.settings.mode.as_str(), "song" | "workshop") {
+            return None;
+        }
+        let (density, lock) = self.density();
+        if lock == DensityLock::Fixed {
+            return None;
+        }
+        let next = density.suggest(hit_rate)?;
+        let key = if next > density {
+            "density.more"
+        } else {
+            "density.fewer"
+        };
+        Some(UiEvent::DensitySuggestion {
+            level: next.level(),
+            text: self.tr(key, &[("percent", format!("{:.0}", hit_rate * 100.0))]),
+        })
     }
 
     /// Loop range in seconds, or (-1, -1).
@@ -998,7 +1325,7 @@ impl Core {
                 laptop_jack: self.qa.laptop_jack,
             },
             None => InputChoice::Device {
-                id: self.input_device(),
+                id: self.fallback_input.clone().or_else(|| self.input_device()),
                 channel: None,
             },
         }
@@ -1071,8 +1398,22 @@ impl Core {
         if events.iter().any(|e| matches!(e, UiEvent::DeviceLost(_))) {
             self.stop_live();
             self.tuner = None;
+            events.extend(self.input_lost());
         }
-        if events.iter().any(|e| matches!(e, UiEvent::Finished { .. })) {
+        events.extend(self.watch_lost());
+        let finished = events.iter().any(|e| matches!(e, UiEvent::Finished { .. }));
+        let rate = events.iter().find_map(|e| match e {
+            UiEvent::PassComplete { hit_rate, .. } => Some(*hit_rate),
+            _ => None,
+        });
+        let rate = rate.or_else(|| {
+            let live = self.live.as_ref().filter(|_| finished)?;
+            Some(live.practice().session().summary().hit_rate)
+        });
+        if let Some(hint) = rate.and_then(|r| self.density_hint(r)) {
+            events.push(hint);
+        }
+        if finished {
             self.record_run();
         }
         if let Some(hint) = self.quantum_check() {
@@ -1178,16 +1519,134 @@ impl Core {
             .transport()
             .loop_range()
             .map(|l| (l.start_s, l.end_s));
-        let run = run_from(
+        // The session's speed: the workshop changes it on its own (LH-FOR-02 charts it).
+        let mut run = run_from(
             &summary,
             practice_s,
-            self.speed,
+            session.transport().speed(),
             &self.settings.mode,
             section,
             unix_now(),
         );
-        let arrangement = session.arrangement().clone();
+        // Progress belongs to the piece, not to a thinned copy (LH-MOD-06).
+        let arrangement = self
+            .loaded
+            .as_ref()
+            .map_or_else(|| session.arrangement().clone(), |l| l.full.clone());
+        // Bar numbers as printed in the score (repeats are unrolled into more bars).
+        run.hardest_bars = summary
+            .hardest_bars
+            .iter()
+            .filter_map(|b| arrangement.bars.get(*b))
+            .map(|bar| bar.source_index + 1)
+            .collect();
         let _ = self.progress_store().record(&arrangement, run);
+        if let (Some((start_s, end_s)), Some((from, to))) = (section, self.looping) {
+            self.remember_section(start_s, end_s, from, to);
+        }
+    }
+
+    /// Keeps the written bar numbers of a practised section with the piece (LH-FOR-01).
+    fn remember_section(&mut self, start_s: f64, end_s: f64, from: usize, to: usize) {
+        let Some(a) = self.arrangement() else {
+            return;
+        };
+        let number = |i: usize| a.bars.get(i).map_or(0, |b| b.source_index + 1);
+        let section = SectionBars {
+            start_s,
+            end_s,
+            from_bar: number(from),
+            to_bar: number(to),
+        };
+        let Some(path) = self.loaded_path().map(Path::to_path_buf) else {
+            return;
+        };
+        let Some(entry) = self.library.entry_mut(&path) else {
+            return;
+        };
+        if entry
+            .sections
+            .iter()
+            .any(|s| same_section(s, start_s, end_s))
+        {
+            return;
+        }
+        entry.sections.push(section);
+        self.save_library();
+    }
+
+    /// Per section of a piece (LH-FOR-01): the best run with its tempo and date, and the
+    /// workshop runs of the last 30 days for the tempo chart (LH-FOR-02). The whole piece
+    /// comes first, then sections by start.
+    fn sections_json(
+        &self,
+        runs: &[Run],
+        names: &[SectionBars],
+        now_unix: u64,
+    ) -> Vec<serde_json::Value> {
+        // Sections as centiseconds, so float noise does not split them.
+        let key = |r: &Run| {
+            r.section
+                .map(|(a, b)| ((a * 100.0).round() as i64, (b * 100.0).round() as i64))
+        };
+        let mut groups: std::collections::BTreeMap<Option<(i64, i64)>, Vec<&Run>> =
+            std::collections::BTreeMap::new();
+        for run in runs {
+            groups.entry(key(run)).or_default().push(run);
+        }
+        let since = now_unix.saturating_sub(HISTORY_DAYS * SECONDS_PER_DAY);
+        groups
+            .into_values()
+            .filter_map(|runs| {
+                let best = runs.iter().max_by(|a, b| {
+                    a.hit_rate.total_cmp(&b.hit_rate).then(a.speed.total_cmp(&b.speed))
+                })?;
+                let mut history: Vec<&&Run> = runs
+                    .iter()
+                    .filter(|r| r.mode == "workshop" && r.finished_unix >= since)
+                    .collect();
+                history.sort_by_key(|r| r.finished_unix);
+                let history: Vec<serde_json::Value> = history
+                    .iter()
+                    .map(|r| json!({ "unix": r.finished_unix, "speed": r.speed, "hitRate": r.hit_rate }))
+                    .collect();
+                Some(json!({
+                    "label": self.section_label(best.section, names),
+                    "best": best.hit_rate,
+                    "speed": best.speed,
+                    "unix": best.finished_unix,
+                    "runs": runs.len(),
+                    "history": history,
+                }))
+            })
+            .collect()
+    }
+
+    /// "Ganzes Stück", "Takt 5–8" or, for a section without known bars, "0:12–0:24".
+    fn section_label(&self, section: Option<(f64, f64)>, names: &[SectionBars]) -> String {
+        let Some((start_s, end_s)) = section else {
+            return self.tr("progress.section.whole", &[]);
+        };
+        let Some(bars) = names.iter().find(|s| same_section(s, start_s, end_s)) else {
+            let clock = |s: f64| format!("{}:{:02}", (s / 60.0) as u32, (s % 60.0) as u32);
+            return self.tr(
+                "progress.section.time",
+                &[("from", clock(start_s)), ("to", clock(end_s))],
+            );
+        };
+        if bars.from_bar == bars.to_bar {
+            return self.tr(
+                "progress.section.bar",
+                &[("bar", bars.from_bar.to_string())],
+            );
+        }
+        self.tr(
+            "progress.section.bars",
+            &[
+                ("from", bars.from_bar.to_string()),
+                ("to", bars.to_bar.to_string()),
+            ],
+        )
     }
 
     /// Detects the beats of the backing track and lines the bars up with them (LH-BIB-06).
@@ -1347,20 +1806,14 @@ impl Core {
                     return Some(UiEvent::Extra);
                 };
                 let offset = r.offset_ms.unwrap_or(0.0);
-                let window = 25.0;
                 let state = match r.outcome {
-                    Outcome::Hit if offset < -window => "early",
-                    Outcome::Hit if offset > window => "late",
-                    Outcome::Hit => "hit",
                     // In wait mode the note stays open: show what was played instead of marking it.
                     Outcome::WrongPitch { played_midi } if self.settings.mode == "wait" => {
                         let text = self.wait_text(index, Some(played_midi))?;
                         return Some(UiEvent::Holding { index, text });
                     }
-                    Outcome::WrongPitch { .. } => "wrong",
-                    Outcome::OffPitch => "offpitch",
-                    Outcome::Missed => "missed",
                     Outcome::Extra { .. } => return Some(UiEvent::Extra),
+                    outcome => state_of(outcome, offset),
                 };
                 Some(UiEvent::Judged {
                     index,
@@ -1379,16 +1832,73 @@ impl Core {
             } => Some(UiEvent::PassComplete { clean, hit_rate }),
             SessionEvent::SpeedChanged(s) => Some(UiEvent::SpeedChanged(s)),
             SessionEvent::Finished => {
-                let summary = self.live.as_ref()?.practice().session().summary();
+                let session = self.live.as_ref()?.practice().session();
                 Some(UiEvent::Finished {
-                    summary_json: self.summary_json(&summary),
+                    summary_json: self.summary_json(&session.summary(), session.results()),
                 })
             }
         }
     }
 
-    /// Summary with ready-made texts for the evaluation sheet.
-    pub fn summary_json(&self, s: &Summary) -> String {
+    /// Every judged note of the run (LH-BEW-01), the last attempt per pass and note, in order:
+    /// `{index, pass, bar, state, offsetMs, cents, severity, text}`; `text` reads like
+    /// "Takt 3 · G1 · 42 ms zu spät · +12 Cent".
+    fn note_details(&self, results: &[NoteResult]) -> Vec<serde_json::Value> {
+        let Some(a) = self.arrangement() else {
+            return Vec::new();
+        };
+        let mut last = std::collections::BTreeMap::new();
+        for r in results {
+            if let Some(note) = r.note {
+                last.insert((r.pass, note), *r);
+            }
+        }
+        last.into_iter()
+            .filter_map(|((pass, index), r)| {
+                let note = a.notes.get(index)?;
+                let state = state_of(r.outcome, r.offset_ms.unwrap_or(0.0));
+                let bar = r
+                    .bar
+                    .and_then(|b| a.bars.get(b))
+                    .map_or(0, |b| b.source_index + 1);
+                let mut parts = vec![
+                    self.tr("summary.note.bar", &[("bar", bar.to_string())]),
+                    self.note_label(&note.pitch.to_string()),
+                ];
+                // Early and late say it with the milliseconds below.
+                if !matches!(state, "early" | "late") {
+                    parts.push(self.tr(&format!("result.{state}"), &[]));
+                }
+                match r.offset_ms {
+                    Some(ms) if ms <= -1.0 => {
+                        parts.push(self.tr("summary.note.early", &[("ms", format!("{:.0}", -ms))]))
+                    }
+                    Some(ms) if ms >= 1.0 => {
+                        parts.push(self.tr("summary.note.late", &[("ms", format!("{ms:.0}"))]))
+                    }
+                    _ => {}
+                }
+                if let Some(c) = r.cents {
+                    parts.push(self.tr("summary.note.cents", &[("cents", format!("{c:+.0}"))]));
+                }
+                Some(json!({
+                    "index": index,
+                    "pass": pass,
+                    "bar": bar,
+                    "state": state,
+                    "offsetMs": r.offset_ms,
+                    "cents": r.cents,
+                    "severity": severity(state),
+                    "text": parts.join(" · "),
+                }))
+            })
+            .collect()
+    }
+
+    /// Summary with ready-made texts for the evaluation sheet, and every note's result.
+    pub fn summary_json(&self, s: &Summary, results: &[NoteResult]) -> String {
+        let notes = self.note_details(results);
+        let hardest_notes = hardest_notes(&notes);
         let arrangement = self.arrangement();
         let tendency = match s.mean_offset_ms {
             Some(m) if m < -5.0 => self.tr("summary.early", &[("ms", format!("{:.0}", -m))]),
@@ -1430,6 +1940,8 @@ impl Core {
             "firstBinMs": s.histogram.first_bin_ms,
             "binMs": s.histogram.bin_ms,
             "hardestBars": hardest,
+            "notes": notes,
+            "hardestNotes": hardest_notes,
         })
         .to_string()
     }
@@ -1721,6 +2233,101 @@ impl Core {
     }
 }
 
+/// Days of workshop history in the tempo chart (LH-FOR-02).
+const HISTORY_DAYS: u64 = 30;
+
+const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
+
+/// True if `bars` names the section `start_s..end_s` (stored times, to the centisecond).
+fn same_section(bars: &SectionBars, start_s: f64, end_s: f64) -> bool {
+    (bars.start_s - start_s).abs() < 0.01 && (bars.end_s - end_s).abs() < 0.01
+}
+
+/// Hits further off than this show as early or late.
+const TIMING_MARK_MS: f64 = 25.0;
+
+/// How many notes the evaluation lists as hardest.
+const HARDEST_NOTES: usize = 5;
+
+/// The view state of a judged note: "hit", "early", "late", "wrong", "offpitch", "missed".
+fn state_of(outcome: Outcome, offset_ms: f64) -> &'static str {
+    match outcome {
+        Outcome::Hit if offset_ms < -TIMING_MARK_MS => "early",
+        Outcome::Hit if offset_ms > TIMING_MARK_MS => "late",
+        Outcome::Hit => "hit",
+        Outcome::WrongPitch { .. } => "wrong",
+        Outcome::OffPitch => "offpitch",
+        Outcome::Missed | Outcome::Extra { .. } => "missed",
+    }
+}
+
+/// Weight of a state for "hardest notes": a missed or wrong note before an off-pitch one,
+/// before one off in time; a clean hit is 0.
+fn severity(state: &str) -> u8 {
+    match state {
+        "missed" | "wrong" => 3,
+        "offpitch" => 2,
+        "early" | "late" => 1,
+        _ => 0,
+    }
+}
+
+/// The hardest notes of `notes_details`: worst state first, then the largest timing offset.
+fn hardest_notes(notes: &[serde_json::Value]) -> Vec<serde_json::Value> {
+    let key = |n: &serde_json::Value| {
+        let severity = n["severity"].as_u64().unwrap_or(0);
+        let offset = n["offsetMs"].as_f64().map_or(0.0, f64::abs);
+        (severity, offset)
+    };
+    let mut hard: Vec<&serde_json::Value> = notes.iter().filter(|n| key(n).0 > 0).collect();
+    hard.sort_by(|a, b| {
+        let (a, b) = (key(a), key(b));
+        b.0.cmp(&a.0).then(b.1.total_cmp(&a.1))
+    });
+    hard.into_iter().take(HARDEST_NOTES).cloned().collect()
+}
+
+/// Frets one hand covers without shifting: index finger on the position's fret, pinky three up.
+const HAND_SPAN: u8 = 3;
+
+/// Hand position (Lage: the index finger's fret, at least 1) for every note, from the tab.
+/// The hand stays while notes fit; a note outside moves it to the position, among those
+/// holding that note, that also holds the most notes after it. Open strings fit anywhere.
+///
+/// ```text
+/// frets 3 5 7 9 7      positions 3 3 6 6 6    (7 needs a shift; 6–9 holds 7, 9 and 7)
+/// ```
+fn hand_positions(notes: &[kontra_model::Note]) -> Vec<u8> {
+    let frets: Vec<u8> = notes.iter().map(|n| n.fret.unwrap_or(0)).collect();
+    let fits =
+        |position: u8, fret: u8| fret == 0 || (position..=position + HAND_SPAN).contains(&fret);
+    let mut out = Vec::with_capacity(frets.len());
+    let mut position = 0u8;
+    for (index, &fret) in frets.iter().enumerate() {
+        if position == 0 || !fits(position, fret) {
+            position = best_position(&frets[index..], position, fits);
+        }
+        out.push(position.max(1));
+    }
+    out
+}
+
+/// The position for `frets[0]` that holds the longest run of the following notes; ties keep
+/// the hand nearer to `from`.
+fn best_position(frets: &[u8], from: u8, fits: impl Fn(u8, u8) -> bool) -> u8 {
+    let Some(&first) = frets.iter().find(|f| **f > 0) else {
+        return from;
+    };
+    // The first position puts the index finger on the first note when nothing else decides.
+    let from = if from == 0 { first } else { from };
+    let candidates = first.saturating_sub(HAND_SPAN).max(1)..=first;
+    let reach = |p: u8| frets.iter().take_while(|f| fits(p, **f)).count();
+    candidates
+        .map(|p| (reach(p), std::cmp::Reverse(p.abs_diff(from)), p))
+        .max()
+        .map_or(first, |(_, _, p)| p)
+}
+
 /// Written length in quarter notes, rounded to the nearest sixteenth: played (MIDI) notes are
 /// often a little shorter than written (staccato), and notation must not turn eighths into
 /// sixteenths.
@@ -1973,6 +2580,11 @@ fn quantum_too_long_ms(frames: u32, rate: u32) -> Option<f64> {
     (ms > 512.0 / 48.0 + 0.05).then_some(ms)
 }
 
+fn file_name(path: &Path) -> String {
+    path.file_name()
+        .map_or_else(String::new, |n| n.to_string_lossy().into())
+}
+
 fn unix_now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -2015,6 +2627,69 @@ mod tests {
         }
         a.normalize();
         a
+    }
+
+    #[test]
+    fn hardest_notes_put_misses_before_timing() {
+        let note = |severity: u8, offset: f64| json!({ "severity": severity, "offsetMs": offset });
+        let notes = [
+            note(0, 5.0),
+            note(1, -40.0),
+            note(3, 0.0),
+            note(1, 60.0),
+            note(2, 10.0),
+        ];
+        let hard = hardest_notes(&notes);
+        let order: Vec<f64> = hard
+            .iter()
+            .map(|n| n["offsetMs"].as_f64().unwrap())
+            .collect();
+        assert_eq!(order, [0.0, 10.0, 60.0, -40.0]);
+    }
+
+    fn positions_of(frets: &[u8]) -> Vec<u8> {
+        let notes: Vec<_> = frets
+            .iter()
+            .enumerate()
+            .map(|(i, f)| {
+                let mut n = kontra_model::Note::new(i as u64 * Q, Q, kontra_model::Pitch(40));
+                n.fret = Some(*f);
+                n
+            })
+            .collect();
+        hand_positions(&notes)
+    }
+
+    #[test]
+    fn hand_stays_while_notes_fit_and_shifts_ahead() {
+        assert_eq!(positions_of(&[3, 5, 0, 6]), [3, 3, 3, 3]);
+        // 7 does not fit 3–6; 6–9 holds it and the notes after it.
+        assert_eq!(positions_of(&[3, 5, 7, 9, 7]), [3, 3, 6, 6, 6]);
+        // Open strings first: the hand waits for the first fretted note.
+        assert_eq!(positions_of(&[0, 0, 2, 4]), [2, 2, 2, 2]);
+        assert_eq!(positions_of(&[0, 0]), [1, 1]);
+    }
+
+    #[test]
+    fn bars_carry_repeat_signs_and_endings() {
+        let mut a = arrangement(&[(0, 4 * Q, 34), (4 * Q, 4 * Q, 34)]);
+        a.bars[0].repeat_open = true;
+        a.bars[1].repeat_close = true;
+        a.bars[1].endings = 0b11;
+        let dir = temp_dir("repeats");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.loaded = Some(Loaded {
+            path: dir.join("x.mid"),
+            full: a.clone(),
+            arrangement: a,
+            tracks: Vec::new(),
+            track: 0,
+        });
+        let bars: serde_json::Value = serde_json::from_str(&core.bars_json()).unwrap();
+        assert_eq!(bars[0]["repeatStart"], true);
+        assert_eq!(bars[0]["repeatEnd"], false);
+        assert_eq!(bars[1]["repeatEnd"], true);
+        assert_eq!(bars[1]["endings"], json!([1, 2]));
     }
 
     #[test]
@@ -2550,6 +3225,7 @@ mod tests {
                 hit_rate: rate,
                 mode: "song".into(),
                 section: None,
+                hardest_bars: Vec::new(),
             };
             core.progress_store().record(&a, run).unwrap();
         }
@@ -2558,6 +3234,129 @@ mod tests {
         assert_eq!(p["pieces"][0]["best"], 0.92);
         assert_eq!(p["pieces"][0]["practiceMin"], 20.0);
         assert_eq!(p["runs"].as_array().unwrap().len(), 2);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-MOD-06: density per section, shown in the notes, suggested between runs.
+    #[test]
+    fn density_thins_notes_per_section_and_is_suggested() {
+        let dir = temp_dir("density");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        let count = |core: &Core| {
+            let notes: serde_json::Value = serde_json::from_str(&core.notes_json()).unwrap();
+            notes.as_array().unwrap().len()
+        };
+        assert_eq!(count(&core), 64);
+
+        // Eighth notes: on the beats half of them stay, for the whole piece.
+        core.set_density(Density::Beats, DensityLock::Free);
+        assert_eq!(count(&core), 32);
+
+        // A section starts with the piece's density and can have its own.
+        assert!(!core.set_loop(0, 1));
+        core.set_density(Density::Sparse, DensityLock::Free);
+        assert_eq!(count(&core), 16);
+        assert!(core.clear_loop());
+        assert_eq!(count(&core), 32);
+
+        // Suggestions only in song and workshop mode, not when fixed or switched off.
+        core.update_settings(|s| s.mode = "song".into());
+        assert!(matches!(
+            core.density_hint(0.95),
+            Some(UiEvent::DensitySuggestion { level: 3, .. })
+        ));
+        assert!(core.density_hint(0.75).is_none());
+        core.set_density(Density::Beats, DensityLock::Fixed);
+        assert!(core.density_hint(0.95).is_none());
+        core.set_density(Density::Beats, DensityLock::Free);
+        core.update_settings(|s| s.adaptive = false);
+        assert!(core.density_hint(0.95).is_none());
+
+        // Kept after a restart.
+        let mut again = Core::new(&dir, QaOptions::default());
+        again.open(&demo()).unwrap();
+        assert_eq!(count(&again), 32);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn tags_are_cleaned_listed_and_kept() {
+        let dir = temp_dir("tags");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        let tags = [
+            " Band ".to_string(),
+            "slap".into(),
+            "band".into(),
+            String::new(),
+        ];
+        core.set_tags(&demo(), &tags);
+        let recent: serde_json::Value = serde_json::from_str(&core.recent_json()).unwrap();
+        assert_eq!(recent[0]["tags"], json!(["Band", "slap"]));
+        assert_eq!(core.tags_json(), r#"["Band","slap"]"#);
+
+        // Opening again keeps them.
+        core.open(&demo()).unwrap();
+        let again = Core::new(&dir, QaOptions::default());
+        assert!(again.recent_json().contains("\"slap\""));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-FOR-01/-02: per section the best run (rate, tempo, date) and the workshop tempo of the
+    /// last 30 days; sections are named by their bars.
+    #[test]
+    fn progress_per_section_with_history() {
+        let dir = temp_dir("sections");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        core.set_loop(4, 7);
+        let (start, end) = core.loop_seconds();
+        core.remember_section(start, end, 4, 7);
+        let a = core.arrangement().unwrap().clone();
+        let day = SECONDS_PER_DAY;
+        let now = 100 * day;
+        let runs = [
+            (now - 40 * day, 0.95, 0.5, Some((start, end))),
+            (now - 2 * day, 0.8, 0.6, Some((start, end))),
+            (now - day, 0.85, 0.7, Some((start, end))),
+            (now - day, 0.9, 1.0, None),
+        ];
+        for (unix, rate, speed, section) in runs {
+            let run = Run {
+                finished_unix: unix,
+                practice_s: 60.0,
+                speed,
+                hit_rate: rate,
+                mode: if section.is_some() {
+                    "workshop"
+                } else {
+                    "song"
+                }
+                .into(),
+                section,
+                hardest_bars: Vec::new(),
+            };
+            core.progress_store().record(&a, run).unwrap();
+        }
+        let p: serde_json::Value = serde_json::from_str(&core.progress_json_at(now)).unwrap();
+        let sections = p["pieces"][0]["sections"].as_array().unwrap();
+        assert_eq!(sections.len(), 2);
+        assert_eq!(sections[0]["label"], core.tr("progress.section.whole", &[]));
+        let bars = core.tr(
+            "progress.section.bars",
+            &[("from", "5".into()), ("to", "8".into())],
+        );
+        assert_eq!(sections[1]["label"], bars);
+        assert_eq!(sections[1]["best"], 0.95);
+        assert_eq!(sections[1]["unix"], now - 40 * day);
+        let speeds: Vec<f64> = sections[1]["history"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|h| h["speed"].as_f64().unwrap())
+            .collect();
+        assert_eq!(speeds, [0.6, 0.7]);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -2606,6 +3405,176 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// LH-FOR-03: an export loaded on a second profile gives the same state (replace), or adds
+    /// to an existing one without doubling runs (merge); a foreign file changes nothing.
+    #[test]
+    fn data_export_and_import() {
+        let dir = temp_dir("data");
+        let mut first = Core::new(&dir.join("a"), QaOptions::default());
+        first.update_settings(|s| s.language = Some("de".into()));
+        first.reconfigure(|s| s.strings = 5);
+        first.open(&demo()).unwrap();
+        first.setlist_create("Freitag");
+        first.setlist_add_loaded("Freitag");
+        let a = first.arrangement().unwrap().clone();
+        let run = kontra_session::Run {
+            finished_unix: 7,
+            practice_s: 300.0,
+            speed: 0.8,
+            hit_rate: 0.75,
+            mode: "song".into(),
+            section: None,
+            hardest_bars: Vec::new(),
+        };
+        first.progress_store().record(&a, run).unwrap();
+        let file = dir.join("sicherung.json");
+        let text = first.export_data(&file).unwrap();
+        assert!(
+            text.contains("1 Durchläufe") || text.contains("1 Durchl"),
+            "{text}"
+        );
+
+        let mut second = Core::new(&dir.join("b"), QaOptions::default());
+        let report = second.import_data(&file, DataImport::Replace).unwrap();
+        assert!(report.contains("sicherung.json"), "{report}");
+        assert_eq!(second.settings(), first.settings());
+        assert_eq!(second.setlists_json(), first.setlists_json());
+        assert_eq!(second.recent_json(), first.recent_json());
+        assert_eq!(second.progress_json(), first.progress_json());
+
+        // Merging the same file again adds nothing and keeps the own settings.
+        second.update_settings(|s| s.strings = 4);
+        let report = second.import_data(&file, DataImport::Merge).unwrap();
+        assert!(
+            report.contains("0 neue Stücke, 0 neue Setlisten, 0 neue Durchläufe"),
+            "{report}"
+        );
+        assert_eq!(second.settings().strings, 4);
+        assert_eq!(second.progress_json(), first.progress_json());
+
+        std::fs::write(&file, r#"{"format": "something else"}"#).unwrap();
+        assert!(second.import_data(&file, DataImport::Replace).is_err());
+        assert_eq!(second.progress_json(), first.progress_json());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-FOR-04: the report is one HTML file with Kante's styles inside, the piece's figures,
+    /// a chart and every run with its hardest bars.
+    #[test]
+    fn progress_report_is_self_contained() {
+        let dir = temp_dir("report");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&demo()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        for (unix, rate) in [(1_791_504_000, 0.7), (1_791_590_400, 0.95)] {
+            let run = kontra_session::Run {
+                finished_unix: unix,
+                practice_s: 600.0,
+                speed: 0.8,
+                hit_rate: rate,
+                mode: "workshop".into(),
+                section: None,
+                hardest_bars: vec![3, 7],
+            };
+            core.progress_store().record(&a, run).unwrap();
+        }
+        let p: serde_json::Value = serde_json::from_str(&core.progress_json()).unwrap();
+        let id = p["pieces"][0]["songId"].as_str().unwrap().to_string();
+        let file = dir.join("bericht.html");
+        let text = core.export_report(&id, &file).unwrap();
+        assert!(text.contains("bericht.html"), "{text}");
+        let html = std::fs::read_to_string(&file).unwrap();
+        assert!(html.starts_with("<!doctype html>"));
+        assert!(html.contains("Übungsbericht: Etude 1"));
+        assert!(html.contains("<svg class=\"chart\""));
+        assert!(html.contains("2026-10-10") && html.contains("Werkstatt") && html.contains("3, 7"));
+        assert!(html.contains("<b>20</b>"), "20 minutes");
+        assert!(
+            !html.contains("<link") && !html.contains("<script"),
+            "no outside files"
+        );
+        assert!(core.export_report("0000000000000000", &file).is_err());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-BIB-07 / J-D2: a piece shared as `.kontra` opens on a second profile with the same
+    /// notes, track, backing (only if embedded) and progress; opening it twice adds no runs.
+    #[test]
+    fn package_moves_a_piece_to_another_profile() {
+        let dir = temp_dir("package");
+        std::fs::create_dir_all(&dir).unwrap();
+        let backing = dir.join("song.wav");
+        kontra_session::write_mono_wav(&backing, &vec![0.0; 4_800], 48_000).unwrap();
+        let mut teacher = Core::new(&dir.join("thomas"), QaOptions::default());
+        teacher.open(&demo()).unwrap();
+        teacher.set_backing(Some(backing.clone()), 0.5);
+        let a = teacher.arrangement().unwrap().clone();
+        let run = kontra_session::Run {
+            finished_unix: 9,
+            practice_s: 120.0,
+            speed: 0.7,
+            hit_rate: 0.85,
+            mode: "workshop".into(),
+            section: None,
+            hardest_bars: vec![2],
+        };
+        teacher.progress_store().record(&a, run).unwrap();
+        let linked = dir.join("etude-link.kontra");
+        let embedded = dir.join("etude.kontra");
+        teacher
+            .export_package(&demo(), &linked, PackageAudio::Link)
+            .unwrap();
+        teacher
+            .export_package(&demo(), &embedded, PackageAudio::Embed)
+            .unwrap();
+        assert!(
+            std::fs::metadata(&embedded).unwrap().len() > std::fs::metadata(&linked).unwrap().len()
+        );
+
+        let mut student = Core::new(&dir.join("schueler"), QaOptions::default());
+        assert_eq!(student.open(&embedded).unwrap(), Opened::Ready);
+        assert_eq!(student.notes_json(), teacher.notes_json());
+        assert_eq!(student.bars_json(), teacher.bars_json());
+        assert_eq!(student.backing_name(), "song.wav");
+        assert!(student.take_notice().is_some());
+        let p: serde_json::Value = serde_json::from_str(&student.progress_json()).unwrap();
+        assert_eq!(p["pieces"][0]["runs"], 1);
+        student.open(&embedded).unwrap();
+        let p: serde_json::Value = serde_json::from_str(&student.progress_json()).unwrap();
+        assert_eq!(p["pieces"][0]["runs"], 1, "no doubled runs");
+
+        std::fs::write(&linked, b"PK\x03\x04 broken").unwrap();
+        assert!(student.open(&linked).is_err());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-NF-11: the licence list names Kontra (MIT) and only permissive crate licences.
+    #[test]
+    fn licence_list_is_complete_and_permissive() {
+        let core = Core::new(&temp_dir("licences"), QaOptions::default());
+        let list: serde_json::Value = serde_json::from_str(&core.licences_json()).unwrap();
+        let list = list.as_array().unwrap();
+        assert_eq!(list[0]["name"], "Kontra");
+        assert_eq!(list[0]["license"], "MIT");
+        assert!(list.iter().any(|c| c["name"] == "cpal"));
+        let permissive = [
+            "MIT",
+            "Apache-2.0",
+            "BSD",
+            "ISC",
+            "Zlib",
+            "Unlicense",
+            "0BSD",
+            "Unicode",
+        ];
+        for c in &list[3..] {
+            let licence = c["license"].as_str().unwrap();
+            assert!(permissive.iter().any(|p| licence.contains(p)), "{c}");
+            assert!(!licence.contains("GPL"), "{c}");
+        }
+    }
+
     /// QA P2 (R9): another track of the file can be chosen after Kontra's own choice.
     #[test]
     fn switches_to_another_track() {
@@ -2630,6 +3599,27 @@ mod tests {
         assert_eq!(bars[1]["number"], 2);
         let again = Core::new(&dir, QaOptions::default());
         assert!(again.recent_json().contains("Etude 1"));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn loop_keys_set_edges_and_rewind_to_loop_start() {
+        let dir = temp_dir("loopkeys");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        let bars: serde_json::Value = serde_json::from_str(&core.bars_json()).unwrap();
+        let start = |i: usize| bars[i]["time"].as_f64().unwrap();
+        assert_eq!(core.rewind(), 0.0);
+
+        // `[` in bar 3, `]` in bar 5 → bars 3–5; rewind goes to bar 3.
+        core.set_loop_edge(LoopEdge::Start, start(2) + 0.1);
+        core.set_loop_edge(LoopEdge::End, start(4) + 0.1);
+        assert_eq!(core.loop_seconds(), (start(2), start(5)));
+        assert_eq!(core.rewind(), start(2));
+
+        // An end before the start starts over in that bar.
+        core.set_loop_edge(LoopEdge::End, start(1));
+        assert_eq!(core.loop_seconds(), (start(1), start(2)));
         std::fs::remove_dir_all(dir).unwrap();
     }
 
@@ -2721,6 +3711,17 @@ mod tests {
         }
         // 3.6 s of playing at 0.3 s per note: about 12 hits.
         assert!(hits >= 10, "hits {hits}");
+
+        // The evaluation lists every judged note with its timing (LH-BEW-01).
+        let session = core.live.as_ref().unwrap().practice().session();
+        let summary: serde_json::Value =
+            serde_json::from_str(&core.summary_json(&session.summary(), session.results()))
+                .unwrap();
+        let notes = summary["notes"].as_array().unwrap();
+        assert!(notes.len() >= hits, "{}", notes.len());
+        assert!(notes[0]["offsetMs"].is_f64());
+        let bar = core.tr("summary.note.bar", &[("bar", "1".into())]);
+        assert!(notes[0]["text"].as_str().unwrap().starts_with(&bar));
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

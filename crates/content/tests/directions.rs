@@ -124,3 +124,32 @@ fn musicxml_da_capo_al_fine_with_repeat() {
     ]);
     assert_eq!(order, [0, 1, 0, 1, 2, 0, 1]);
 }
+
+#[test]
+fn musicxml_bars_keep_written_repeat_signs_and_endings() {
+    // |: A | B(1.) :| C(2.) |  → played A B A C; every played bar shows its written signs.
+    let text = common::musicxml_bars(&[
+        r#"<barline location="left"><repeat direction="forward"/></barline>"#,
+        r#"<barline location="left"><ending number="1" type="start"/></barline><barline location="right"><ending number="1" type="stop"/><repeat direction="backward"/></barline>"#,
+        r#"<barline location="left"><ending number="2" type="start"/></barline><barline location="right"><ending number="2" type="stop"/></barline>"#,
+    ]);
+    let a = import_bytes(text.as_bytes(), FileKind::MusicXml)
+        .unwrap()
+        .arrangement(0)
+        .unwrap();
+    assert_eq!(order(&a), [0, 1, 0, 2]);
+    let signs: Vec<(bool, bool, u32)> = a
+        .bars
+        .iter()
+        .map(|b| (b.repeat_open, b.repeat_close, b.endings))
+        .collect();
+    assert_eq!(
+        signs,
+        [
+            (true, false, 0),
+            (false, true, 1),
+            (true, false, 0),
+            (false, false, 2)
+        ]
+    );
+}

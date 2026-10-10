@@ -92,6 +92,8 @@ pub struct Settings {
     /// Play the bass through Kontra (input monitoring); off: the interface monitors directly.
     pub monitor: bool,
     pub monitor_volume: f64,
+    /// Suggest more or fewer notes between runs (LH-MOD-06).
+    pub adaptive: bool,
     /// Tuning (LH-TUN-02): "standard", "drop" (lowest string a whole step down),
     /// "half-down", "whole-down" or "custom".
     pub tuning: String,
@@ -135,6 +137,7 @@ impl Default for Settings {
             tone_volume: f64::from(mix.tone),
             monitor: false,
             monitor_volume: MONITOR_VOLUME,
+            adaptive: true,
             tuning: "standard".into(),
             custom_tuning: Vec::new(),
             a4_hz: A4_HZ,
@@ -163,6 +166,33 @@ pub struct RecentEntry {
     /// View last used for this piece (LH-ANZ-04); `None`: the default from the settings.
     #[serde(default)]
     pub view: Option<String>,
+    /// Own tags for search (LH-BIB-04), e.g. "Band", "Slap".
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// Bars of the sections practised, so progress can name them (LH-FOR-01).
+    #[serde(default)]
+    pub sections: Vec<SectionBars>,
+    /// Note density per section (LH-MOD-06); none stored: all notes.
+    #[serde(default)]
+    pub densities: Vec<SectionDensity>,
+}
+
+/// Note density chosen for a section (`None`: the whole piece), 1 (few notes) to 3 (all).
+/// A fixed one gets no suggestions.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SectionDensity {
+    pub section: Option<(f64, f64)>,
+    pub level: u8,
+    pub fixed: bool,
+}
+
+/// A practised section: its time range (as a progress run stores it) and its bars as written.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SectionBars {
+    pub start_s: f64,
+    pub end_s: f64,
+    pub from_bar: u32,
+    pub to_bar: u32,
 }
 
 /// Where the bars of a piece fall in its backing track (LH-BIB-06): the detected beats, which
@@ -225,6 +255,15 @@ impl Library {
             }
             if entry.view.is_none() {
                 entry.view = old.view.clone();
+            }
+            if entry.tags.is_empty() {
+                entry.tags = old.tags.clone();
+            }
+            if entry.sections.is_empty() {
+                entry.sections = old.sections.clone();
+            }
+            if entry.densities.is_empty() {
+                entry.densities = old.densities.clone();
             }
         }
         self.recent.retain(|e| e.path != entry.path);
@@ -321,6 +360,9 @@ mod tests {
             backing: None,
             backing_offset_s: 0.0,
             view: None,
+            tags: Vec::new(),
+            sections: Vec::new(),
+            densities: Vec::new(),
         };
         library.touch(entry("a"));
         library.touch(entry("b"));

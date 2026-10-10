@@ -5,6 +5,6 @@ mod file;
 
 pub use audio::{
     list_devices, AudioError, Connection, DeviceInfo, Direction, InputStream, OutputStream,
-    StreamConfig,
+    StreamConfig, NULL_DEVICE,
 };
 pub use file::{read_audio, write_wav, AudioBuffer, FileError};
