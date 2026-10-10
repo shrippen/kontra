@@ -384,5 +384,19 @@
   "help.hiz": "Hi-Z means high impedance: an input for instruments like the electric bass. Often marked “Inst” or with a guitar on the interface. On a normal line or microphone input the bass sounds thin and quiet.",
   "help.latency": "Latency is the delay between your pluck and the moment Kontra hears it. Kontra subtracts it when scoring, so notes on time do not count as late. The easiest way is to measure it: play on the click.",
   "help.band.term": "target band",
-  "help.band": "The workshop keeps your hit rate between {low} and {high} %: above it gets a little faster, below a little slower. So you always practise just at your limit."
+  "help.band": "The workshop keeps your hit rate between {low} and {high} %: above it gets a little faster, below a little slower. So you always practise just at your limit.",
+  "backing.align": "Align …",
+  "backing.align.title": "Align the backing track",
+  "backing.align.hint": "Kontra finds the beats in your recording and puts the bars on them, even when the band speeds up or slows down. If bar 1 is wrong, move it by a beat.",
+  "backing.analyse": "Find beats",
+  "backing.nobacking": "Choose a backing track first.",
+  "backing.nobeats": "Kontra found no clear beats in this recording. You can still use it at a fixed tempo.",
+  "backing.aligned": "Found: {bpm} BPM · bar 1 at {first} s · {mapped} of {bars} bars follow the recording",
+  "backing.notaligned": "Not aligned yet: the piece runs at its own tempo.",
+  "backing.earlier": "Bar 1 one beat earlier",
+  "backing.later": "Bar 1 one beat later",
+  "backing.shift": "Move all bars",
+  "backing.bar": "Move one bar",
+  "backing.barnumber": "Bar",
+  "backing.clear": "Piece's own tempo"
 }

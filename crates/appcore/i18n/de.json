@@ -384,5 +384,19 @@
   "help.hiz": "Hi-Z heißt hochohmig: ein Eingang für Instrumente wie den E-Bass. Am Interface oft mit „Inst“ oder einem Gitarrensymbol markiert. An einem normalen Line- oder Mikrofoneingang klingt der Bass dünn und leise.",
   "help.latency": "Latenz ist die Verzögerung zwischen deinem Anschlag und dem Moment, in dem Kontra ihn hört. Kontra zieht sie bei der Bewertung ab, damit pünktliche Töne nicht als zu spät zählen. Am einfachsten misst du sie: Auf den Klick spielen.",
   "help.band.term": "Zielband",
-  "help.band": "Die Werkstatt hält deine Trefferquote zwischen {low} und {high} %: Liegst du darüber, wird es etwas schneller, darunter etwas langsamer. So übst du immer knapp an deiner Grenze."
+  "help.band": "Die Werkstatt hält deine Trefferquote zwischen {low} und {high} %: Liegst du darüber, wird es etwas schneller, darunter etwas langsamer. So übst du immer knapp an deiner Grenze.",
+  "backing.align": "Abgleichen …",
+  "backing.align.title": "Backing-Track abgleichen",
+  "backing.align.hint": "Kontra sucht die Schläge in deiner Aufnahme und legt die Takte darauf, auch wenn die Band etwas schneller oder langsamer wird. Stimmt Takt 1 nicht, schieb ihn um einen Schlag.",
+  "backing.analyse": "Schläge erkennen",
+  "backing.nobacking": "Wähle zuerst einen Backing-Track.",
+  "backing.nobeats": "In dieser Aufnahme hat Kontra keine klaren Schläge gefunden. Du kannst sie trotzdem mit festem Tempo nutzen.",
+  "backing.aligned": "Erkannt: {bpm} BPM · Takt 1 bei {first} s · {mapped} von {bars} Takten folgen der Aufnahme",
+  "backing.notaligned": "Noch nicht abgeglichen: das Stück läuft mit seinem eigenen Tempo.",
+  "backing.earlier": "Takt 1 einen Schlag früher",
+  "backing.later": "Takt 1 einen Schlag später",
+  "backing.shift": "Alle Takte verschieben",
+  "backing.bar": "Einzelnen Takt verschieben",
+  "backing.barnumber": "Takt",
+  "backing.clear": "Eigenes Tempo des Stücks"
 }

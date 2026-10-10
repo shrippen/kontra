@@ -872,6 +872,22 @@ impl Core {
             backing_offset_s: 0.0,
             view: None,
         });
+        // A backing track with a beat map: the bars follow the band (LH-BIB-06).
+        if self
+            .library
+            .entry(path)
+            .is_some_and(|e| e.backing.is_some())
+        {
+            if let Some(map) = self.library.beat_maps.get(path) {
+                let times = map.bar_times(&quarters_per_bar(&arrangement));
+                if times.len() >= 2 {
+                    arrangement.tempo = tempo_from_bars(&arrangement, &times);
+                    if let Some(entry) = self.library.entry_mut(path) {
+                        entry.backing_offset_s = times[0];
+                    }
+                }
+            }
+        }
         let _ = store::save(&self.data_dir.join("library.json"), &self.library);
         self.loaded = Some(Loaded {
             path: path.to_path_buf(),
@@ -1315,6 +1331,103 @@ impl Core {
             .map(|bar| bar.source_index + 1)
             .collect();
         let _ = self.progress_store().record(&arrangement, run);
+    }
+
+    /// Detects the beats of the backing track and lines the bars up with them (LH-BIB-06).
+    pub fn backing_analyse(&mut self) -> Result<(), String> {
+        let (backing, _) = self
+            .backing()
+            .ok_or_else(|| self.tr("backing.nobacking", &[]))?;
+        let audio =
+            kontra_session::BackingTrack::load(&backing, 44_100).map_err(|e| e.to_string())?;
+        let mono: Vec<f32> = audio
+            .left
+            .iter()
+            .zip(&audio.right)
+            .map(|(l, r)| 0.5 * (l + r))
+            .collect();
+        let grid = kontra_session::track_beats(&mono, audio.sample_rate);
+        if grid.beats.len() < 4 {
+            return Err(self.tr("backing.nobeats", &[]));
+        }
+        let path = self.loaded_path().ok_or("nothing loaded")?.to_path_buf();
+        self.library.beat_maps.insert(
+            path,
+            store::BeatMap {
+                beats: grid.beats,
+                bpm: grid.bpm,
+                ..store::BeatMap::default()
+            },
+        );
+        self.apply_beat_map()
+    }
+
+    /// Changes the beat map of the loaded piece: `downbeat` beats later (negative: earlier),
+    /// every bar by `shift_ms`, or one bar by `bar_ms`.
+    pub fn backing_adjust(
+        &mut self,
+        downbeat: i32,
+        shift_ms: f64,
+        bar: Option<(usize, f64)>,
+    ) -> Result<(), String> {
+        let path = self.loaded_path().ok_or("nothing loaded")?.to_path_buf();
+        let Some(map) = self.library.beat_maps.get_mut(&path) else {
+            return Ok(());
+        };
+        let last = map.beats.len().saturating_sub(2) as i64;
+        map.first = (map.first as i64 + i64::from(downbeat)).clamp(0, last.max(0)) as usize;
+        map.shift_ms += shift_ms;
+        if let Some((bar, ms)) = bar {
+            *map.nudges.entry(bar).or_insert(0.0) += ms;
+        }
+        self.apply_beat_map()
+    }
+
+    /// Back to the piece's own tempo, the backing starting at its old offset.
+    pub fn backing_clear(&mut self) -> Result<(), String> {
+        let path = self.loaded_path().ok_or("nothing loaded")?.to_path_buf();
+        self.library.beat_maps.remove(&path);
+        if let Some(entry) = self.library.entry_mut(&path) {
+            entry.backing_offset_s = 0.0;
+        }
+        self.apply_beat_map()
+    }
+
+    fn apply_beat_map(&mut self) -> Result<(), String> {
+        let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+        let track = self.loaded.as_ref().map_or(0, |l| l.track);
+        self.reload(track)
+    }
+
+    /// The beat map in words for the alignment sheet:
+    /// `{"analysed", "bpm", "firstS", "mapped", "bars", "text"}`.
+    pub fn backing_json(&self) -> String {
+        let Some(path) = self.loaded_path() else {
+            return "{}".into();
+        };
+        let bars = self.arrangement().map_or(0, |a| a.bars.len());
+        let Some(map) = self.library.beat_maps.get(path) else {
+            return json!({ "analysed": false, "bars": bars }).to_string();
+        };
+        let times = self
+            .arrangement()
+            .map(|a| map.bar_times(&quarters_per_bar(a)))
+            .unwrap_or_default();
+        let first = times.first().copied().unwrap_or(0.0);
+        json!({
+            "analysed": true,
+            "bpm": map.bpm,
+            "firstS": first,
+            "mapped": times.len(),
+            "bars": bars,
+            "text": self.tr("backing.aligned", &[
+                ("bpm", format!("{:.0}", map.bpm)),
+                ("first", format!("{first:.2}")),
+                ("mapped", times.len().to_string()),
+                ("bars", bars.to_string()),
+            ]),
+        })
+        .to_string()
     }
 
     /// Backing track of the loaded piece and its offset.
@@ -1884,6 +1997,43 @@ fn split_rest(bar: u64, from: u64, to: u64, out: &mut Vec<(u64, u64)>) {
     }
 }
 
+/// Quarter notes per bar: the beats the tracker follows.
+fn quarters_per_bar(arrangement: &kontra_model::Arrangement) -> Vec<u32> {
+    arrangement
+        .bars
+        .iter()
+        .map(|b| {
+            let quarters = b.signature.bar_ticks() as f64 / kontra_model::TICKS_PER_QUARTER as f64;
+            quarters.round().max(1.0) as u32
+        })
+        .collect()
+}
+
+/// A tempo map that puts bar `i` at `times[i] - times[0]` seconds.
+fn tempo_from_bars(
+    arrangement: &kontra_model::Arrangement,
+    times: &[f64],
+) -> kontra_model::TempoMap {
+    let mut changes = Vec::new();
+    for (i, pair) in times.windows(2).enumerate() {
+        let (Some(bar), seconds) = (arrangement.bars.get(i), pair[1] - pair[0]) else {
+            continue;
+        };
+        if seconds <= 0.05 {
+            continue;
+        }
+        let quarters = bar.signature.bar_ticks() as f64 / kontra_model::TICKS_PER_QUARTER as f64;
+        changes.push(kontra_model::TempoChange {
+            tick: bar.start_ticks,
+            bpm: (quarters * 60.0 / seconds).clamp(20.0, 400.0),
+        });
+    }
+    if changes.is_empty() {
+        return arrangement.tempo.clone();
+    }
+    kontra_model::TempoMap::from_changes(changes)
+}
+
 fn instrument_from(settings: &Settings) -> kontra_model::Instrument {
     let kind = if settings.fretless {
         BassKind::Fretless
@@ -2350,6 +2500,53 @@ mod tests {
             (q["asked"].as_u64(), q["solved"].as_bool()),
             (Some(2), Some(false))
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-BIB-06: the beats of a backing track become the piece's tempo map and offset; bar 1
+    /// can be moved by a beat.
+    #[test]
+    fn backing_beats_set_the_tempo() {
+        let dir = temp_dir("beats");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        // Clicks at 105 BPM from 1.0 s: a band a little faster than the score's 100 BPM.
+        let rate = 44_100u32;
+        let mut audio = vec![0.0f32; rate as usize * 22];
+        let mut noise = 1u32;
+        for beat in 0..36 {
+            let start = ((1.0 + f64::from(beat) * 60.0 / 105.0) * f64::from(rate)) as usize;
+            for i in 0..1500 {
+                noise = noise.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let n = (noise >> 9) as f32 / (1u32 << 23) as f32 - 0.5;
+                if let Some(s) = audio.get_mut(start + i) {
+                    *s += n * (-(i as f32) / 600.0).exp();
+                }
+            }
+        }
+        let wav = dir.join("band.wav");
+        kontra_session::write_mono_wav(&wav, &audio, rate).unwrap();
+        core.set_backing(Some(wav), 0.0);
+        core.backing_analyse().unwrap();
+        let info: serde_json::Value = serde_json::from_str(&core.backing_json()).unwrap();
+        assert!(
+            (info["bpm"].as_f64().unwrap() - 105.0).abs() < 2.0,
+            "{info}"
+        );
+        assert!(
+            (info["firstS"].as_f64().unwrap() - 1.0).abs() < 0.02,
+            "{info}"
+        );
+        let bpm = core.arrangement().unwrap().tempo.bpm_at(0);
+        assert!((bpm - 105.0).abs() < 2.0, "tempo follows the band: {bpm}");
+        core.backing_adjust(1, 0.0, None).unwrap();
+        let info: serde_json::Value = serde_json::from_str(&core.backing_json()).unwrap();
+        assert!(
+            (info["firstS"].as_f64().unwrap() - (1.0 + 60.0 / 105.0)).abs() < 0.02,
+            "{info}"
+        );
+        core.backing_clear().unwrap();
+        assert_eq!(core.arrangement().unwrap().tempo.bpm_at(0), 100.0);
         let _ = std::fs::remove_dir_all(dir);
     }
 

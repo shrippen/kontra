@@ -184,6 +184,12 @@ Kirigami.Page {
             }
             KanteButton {
                 visible: ctl.backingName !== ""
+                text: texts.t("backing.align")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: alignSheet.open()
+            }
+            KanteButton {
+                visible: ctl.backingName !== ""
                 text: texts.t("backing.remove")
                 emphasis: KanteButton.Emphasis.Quiet
                 onClicked: ctl.chooseBacking("")
@@ -482,6 +488,14 @@ Kirigami.Page {
                 TextMetrics { id: mixerWords; font: mixerButton.font; text: mixerButton.text }
             }
         }
+    }
+
+    BackingAlign {
+        id: alignSheet
+        anchors.centerIn: parent
+        width: Math.min(page.width - KanteStyle.unit(40), KanteStyle.unit(640))
+        z: 5
+        Component.onCompleted: if (ctl.showAlign) open()
     }
 
     FileDialog {

@@ -87,6 +87,10 @@ pub fn merge_library(into: &mut Library, from: Library) -> Merged {
             merged.setlists += 1;
         }
     }
+    // Beat maps of backing tracks (LH-BIB-06) come along where the own library has none.
+    for (path, map) in from.beat_maps {
+        into.beat_maps.entry(path).or_insert(map);
+    }
     merged
 }
 
@@ -173,6 +177,7 @@ mod tests {
     #[test]
     fn merge_adds_only_unknown_pieces_lists_and_runs() {
         let mut own = Library {
+            beat_maps: Default::default(),
             recent: vec![entry("a")],
             setlists: vec![Setlist {
                 name: "Freitag".into(),
@@ -180,6 +185,7 @@ mod tests {
             }],
         };
         let other = Library {
+            beat_maps: Default::default(),
             recent: vec![entry("a"), entry("b")],
             setlists: vec![
                 Setlist {
