@@ -148,9 +148,10 @@ fn dynamic_beats(strength: &[f64], period: f64) -> Vec<usize> {
         let mut best = 0.0;
         let mut best_p = usize::MAX;
         if t >= lo {
-            for p in t.saturating_sub(hi)..=t - lo {
+            let first = t.saturating_sub(hi);
+            for (p, previous) in score.iter().enumerate().take(t - lo + 1).skip(first) {
                 let gap = (t - p) as f64 / period;
-                let s = score[p] - TIGHTNESS * gap.ln().powi(2);
+                let s = previous - TIGHTNESS * gap.ln().powi(2);
                 if best_p == usize::MAX || s > best {
                     best = s;
                     best_p = p;
