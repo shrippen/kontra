@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import Kante
@@ -19,6 +20,8 @@ Kirigami.ApplicationWindow {
     readonly property var pages: ({
         setup: Qt.resolvedUrl("SetupPage.qml"),
         progress: Qt.resolvedUrl("ProgressPage.qml"),
+        exercises: Qt.resolvedUrl("ExercisePage.qml"),
+        quiz: Qt.resolvedUrl("QuizPage.qml"),
         library: Qt.resolvedUrl("LibraryPage.qml"),
         practice: Qt.resolvedUrl("PracticePage.qml"),
         tuner: Qt.resolvedUrl("TunerPage.qml"),
@@ -54,6 +57,20 @@ Kirigami.ApplicationWindow {
             late: texts.t("result.late")
         })
     }
+    // String colours (LH-ANZ-06), Kante tokens only: [] keeps Kante's string palette; "mono"
+    // draws every string alike (the lane and fret number carry the meaning), "bright" uses the
+    // strong signal colours. States keep their own colours and shapes.
+    readonly property var stringColors: {
+        if (ctl.stringColors === "mono") {
+            var one = KanteStyle.strongTextColor
+            return [one, one, one, one, one, one]
+        }
+        if (ctl.stringColors === "bright") {
+            return [KanteStyle.warningColor, KanteStyle.infoColor, KanteStyle.accentTextColor,
+                    KanteStyle.tagColor, KanteStyle.focusColor, KanteStyle.strongTextColor]
+        }
+        return []
+    }
     // Round 6: follow the desktop (animations off there means durations 0), or the own switch.
     readonly property bool systemReducesMotion: Kirigami.Units.longDuration === 0
     Binding { target: KanteStyle; property: "motion"; value: ctl.motion !== "reduce" }
@@ -61,7 +78,7 @@ Kirigami.ApplicationWindow {
     color: KanteStyle.themed ? KanteStyle.backgroundColor : Kirigami.Theme.backgroundColor
 
     function show(name) {
-        if ((current === "tuner" || current === "setup") && name !== current) {
+        if ((current === "tuner" || current === "setup" || current === "quiz") && name !== current) {
             ctl.stopTuner()
         }
         current = name
@@ -83,7 +100,9 @@ Kirigami.ApplicationWindow {
             Kirigami.Action { text: texts.t("nav.tuner"); icon.name: "audio-input-line"; checked: root.current === "tuner"; shortcut: "Ctrl+3"; onTriggered: root.show("tuner") },
             Kirigami.Action { text: texts.t("nav.settings"); icon.name: "settings-configure"; checked: root.current === "settings"; shortcut: "Ctrl+4"; onTriggered: root.show("settings") },
             Kirigami.Action { text: texts.t("nav.setup"); icon.name: "tools-wizard"; checked: root.current === "setup"; shortcut: "Ctrl+5"; onTriggered: root.show("setup") },
-            Kirigami.Action { text: texts.t("nav.progress"); icon.name: "view-statistics"; checked: root.current === "progress"; shortcut: "Ctrl+6"; onTriggered: root.show("progress") }
+            Kirigami.Action { text: texts.t("nav.progress"); icon.name: "view-statistics"; checked: root.current === "progress"; shortcut: "Ctrl+6"; onTriggered: root.show("progress") },
+            Kirigami.Action { text: texts.t("nav.exercises"); icon.name: "view-media-playlist"; checked: root.current === "exercises"; shortcut: "Ctrl+7"; onTriggered: root.show("exercises") },
+            Kirigami.Action { text: texts.t("nav.quiz"); icon.name: "games-config-board"; checked: root.current === "quiz"; shortcut: "Ctrl+8"; onTriggered: root.show("quiz") }
         ]
     }
 
@@ -93,6 +112,25 @@ Kirigami.ApplicationWindow {
         running: true
         repeat: true
         onTriggered: ctl.tick()
+    }
+
+    // LH-ALL-04: the interface was unplugged; another input can stand in until it is back.
+    RowLayout {
+        anchors { left: parent.left; right: parent.right; bottom: notice.visible ? notice.top : parent.bottom; margins: KanteStyle.unit(12) }
+        z: 10
+        visible: ctl.offerInput !== ""
+        KanteCallout {
+            Layout.fillWidth: true
+            kind: KanteCallout.Kind.Info
+            text: ctl.offerText
+            autoHide: false
+        }
+        KanteButton {
+            text: texts.t("unplug.use")
+            emphasis: KanteButton.Emphasis.Primary
+            Accessible.name: texts.t("unplug.use")
+            onClicked: ctl.useOfferedInput()
+        }
     }
 
     KanteCallout {

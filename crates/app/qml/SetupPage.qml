@@ -28,6 +28,16 @@ Kirigami.ScrollablePage {
         }
     }
 
+    // LH-EIN-02: what "automatic" means right now (an interface before the built-in card).
+    readonly property string autoInput: {
+        for (var i = 0; i < inputs.length; i++) {
+            if (inputs[i].preferred) {
+                return texts.t("settings.device.auto", { name: inputs[i].name })
+            }
+        }
+        return texts.t("settings.device.default")
+    }
+
     function next() { step = Math.min(step + 1, steps.length - 1) }
 
     ColumnLayout {
@@ -63,6 +73,12 @@ Kirigami.ScrollablePage {
             }
             KanteSettingRow {
                 Layout.fillWidth: true
+                title: texts.t("settings.tuning")
+                hint: texts.t("settings.tuning.hint")
+                TuningChoice {}
+            }
+            KanteSettingRow {
+                Layout.fillWidth: true
                 title: texts.t("settings.fretless")
                 QQC2.Switch {
                     Accessible.name: texts.t("settings.fretless")
@@ -76,24 +92,18 @@ Kirigami.ScrollablePage {
         ColumnLayout {
             visible: page.steps[page.step] === "connection"
             Layout.fillWidth: true
-            KanteSegmented {
-                Accessible.name: texts.t("settings.connection")
-                model: [texts.t("settings.source.line"), texts.t("settings.source.laptop")]
-                currentIndex: ctl.laptopJack ? 1 : 0
-                onActivated: function(index) { ctl.changeInstrument(ctl.strings, ctl.fretless, index === 1) }
+            RowLayout {
+                KanteSectionLabel { text: texts.t("settings.connection") }
+                InfoTip { term: "Hi-Z"; info: texts.t("help.hiz") }
             }
+            // LH-EIN-10: MIDI and microphone are entries marked as coming later.
+            ConnectionChoice { Layout.fillWidth: true }
             KanteCallout {
                 Layout.fillWidth: true
                 visible: ctl.laptopJack
                 kind: KanteCallout.Kind.Info
                 text: texts.t("hint.laptop")
                 autoHide: false
-            }
-            KanteCallout {
-                Layout.fillWidth: true
-                kind: KanteCallout.Kind.Info
-                autoHide: false
-                text: texts.t("settings.later")
             }
             KanteSettingRow {
                 Layout.fillWidth: true
@@ -102,7 +112,15 @@ Kirigami.ScrollablePage {
                     Accessible.name: texts.t("settings.input")
                     Layout.fillWidth: true
                     Layout.preferredWidth: KanteStyle.unit(280)
-                    model: [texts.t("settings.device.default")].concat(page.inputs.map(function(d) { return d.name }))
+                    model: [page.autoInput].concat(page.inputs.map(function(d) { return d.name }))
+                    currentIndex: {
+                        for (var i = 0; i < page.inputs.length; i++) {
+                            if (page.inputs[i].id === ctl.inputDevice) {
+                                return i + 1
+                            }
+                        }
+                        return 0
+                    }
                     onActivated: function(index) { ctl.chooseInput(index === 0 ? "" : page.inputs[index - 1].id) }
                 }
             }
@@ -152,7 +170,11 @@ Kirigami.ScrollablePage {
         ColumnLayout {
             visible: page.steps[page.step] === "latency"
             Layout.fillWidth: true
-            QQC2.Label { text: texts.t("calibration.hint"); wrapMode: Text.WordWrap; Layout.fillWidth: true; color: KanteStyle.textColor }
+            RowLayout {
+                Layout.fillWidth: true
+                QQC2.Label { text: texts.t("calibration.hint"); wrapMode: Text.WordWrap; Layout.fillWidth: true; color: KanteStyle.textColor }
+                InfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency") }
+            }
             RowLayout {
                 KanteButton {
                     text: texts.t("calibration.start")

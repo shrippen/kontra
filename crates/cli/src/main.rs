@@ -23,6 +23,8 @@ fn main() -> ExitCode {
         Command::Practice(a) => live::practice(&a),
         Command::Tune(a) => live::tune(&a),
         Command::Render(a) => render(&a),
+        Command::Soak(a) => soak(&a),
+        Command::Exercises(a) => exercises(&a),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -128,6 +130,18 @@ fn import(a: &args::ImportArgs) -> CliResult {
     Ok(())
 }
 
+/// Writes the bundled exercise set (LH-BIB-08); `testdata/exercises` is its checked-in output.
+fn exercises(a: &args::ExercisesArgs) -> CliResult {
+    for (level, file, exercise) in kontra_session::exercise::bundled() {
+        let dir = a.dir.join(level);
+        std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        let path = dir.join(file);
+        std::fs::write(&path, &exercise.midi).map_err(|e| format!("{}: {e}", path.display()))?;
+        println!("{}", path.display());
+    }
+    Ok(())
+}
+
 fn render(a: &args::RenderArgs) -> CliResult {
     let arrangement = load_arrangement(&a.score, a.track)?;
     let mistakes = session::Mistakes {
@@ -143,6 +157,55 @@ fn render(a: &args::RenderArgs) -> CliResult {
         a.out.display(),
         samples.len() as f64 / 48_000.0
     );
+    Ok(())
+}
+
+/// LH-NF-04: plays for `minutes` and fails above `max_xruns` dropouts.
+fn soak(a: &args::SoakArgs) -> CliResult {
+    const RATE: u32 = 48_000;
+    let arrangement = load_arrangement(&a.score, None)?;
+    let generated = std::env::temp_dir().join(format!("kontra-soak-{}.wav", std::process::id()));
+    let backing = match &a.backing {
+        Some(path) => path.clone(),
+        None => {
+            let samples = session::render_performance(
+                &arrangement,
+                1.0,
+                0.0,
+                session::Mistakes::default(),
+                RATE,
+            );
+            session::write_mono_wav(&generated, &samples, RATE).map_err(|e| e.to_string())?;
+            generated.clone()
+        }
+    };
+    let output = match a.output.as_str() {
+        "null" => session::NULL_DEVICE,
+        id => id,
+    };
+    println!(
+        "soak: {:.1} min at {:.0} % on {output} …",
+        a.minutes,
+        a.speed * 100.0
+    );
+    let report = session::soak(
+        arrangement,
+        Some(&backing),
+        a.speed,
+        a.minutes * 60.0,
+        Some(output),
+    );
+    let _ = std::fs::remove_file(&generated);
+    let report = report.map_err(|e| e.to_string())?;
+    println!(
+        "xruns: {} in {:.1} min ({} passes)",
+        report.xruns,
+        report.seconds / 60.0,
+        report.passes
+    );
+    if report.xruns > a.max_xruns {
+        return Err(format!("{} xruns (allowed {})", report.xruns, a.max_xruns));
+    }
     Ok(())
 }
 

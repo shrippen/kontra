@@ -670,6 +670,8 @@ dependencies = [
  "midly",
  "miniz_oxide",
  "quick-xml",
+ "serde",
+ "serde_json",
  "thiserror 2.0.21",
 ]
 

@@ -209,6 +209,12 @@ Kirigami.Page {
             }
             KanteButton {
                 visible: ctl.backingName !== ""
+                text: texts.t("backing.align")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: alignSheet.open()
+            }
+            KanteButton {
+                visible: ctl.backingName !== ""
                 text: texts.t("backing.remove")
                 emphasis: KanteButton.Emphasis.Quiet
                 onClicked: ctl.chooseBacking("")
@@ -247,6 +253,8 @@ Kirigami.Page {
             }
             QQC2.Label {
                 Layout.fillWidth: true
+                // As wide as the text, so the info button sits right after it.
+                Layout.maximumWidth: implicitWidth
                 wrapMode: Text.WordWrap
                 color: KanteStyle.textColor
                 text: {
@@ -261,6 +269,11 @@ Kirigami.Page {
                         + (workshopRow.lastChange !== "" ? " · " + workshopRow.lastChange : "")
                 }
             }
+            InfoTip {
+                term: texts.t("help.band.term")
+                info: texts.t("help.band", { low: Math.round(ctl.bandLow * 100), high: Math.round(ctl.bandHigh * 100) })
+            }
+            Item { Layout.fillWidth: true }
             Connections {
                 target: ctl
                 function onPassComplete(clean, hitRate) {
@@ -362,6 +375,7 @@ Kirigami.Page {
                 strings: page.stringNames.length
                 stringNames: page.stringNames
                 lowStringOnTop: ctl.lowStringOnTop
+                stringColors: applicationWindow().stringColors
                 notes: page.notes
                 marks: page.marks
                 onNotesChanged: Qt.callLater(function() { page.catchUp(lane) })
@@ -448,6 +462,7 @@ Kirigami.Page {
                 stringNames: page.stringNames
                 frets: 15
                 lowStringOnTop: ctl.lowStringOnTop
+                leftHanded: ctl.leftHanded
                 // The finger the position suggests is written in the marker (1 index … 4 pinky).
                 markers: page.nextNote ? [{ string: page.nextNote.string, fret: page.nextNote.fret, role: "next",
                                             label: page.nextNote.finger > 0 ? String(page.nextNote.finger) : "" }] : []
@@ -572,6 +587,14 @@ Kirigami.Page {
                 TextMetrics { id: mixerWords; font: mixerButton.font; text: mixerButton.text }
             }
         }
+    }
+
+    BackingAlign {
+        id: alignSheet
+        anchors.centerIn: parent
+        width: Math.min(page.width - KanteStyle.unit(40), KanteStyle.unit(640))
+        z: 5
+        Component.onCompleted: if (ctl.showAlign) open()
     }
 
     FileDialog {

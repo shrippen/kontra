@@ -122,6 +122,11 @@ impl Input {
         (!value.is_nan()).then_some(value)
     }
 
+    /// Input dropouts since the start (LH-NF-04); files have none.
+    pub fn xruns(&self) -> u64 {
+        self._stream.as_ref().map_or(0, InputStream::xruns)
+    }
+
     /// Largest device block in frames so far (the audio server's quantum), once a block came.
     pub fn block_frames(&self) -> Option<u32> {
         Some(self.block.load(Ordering::Relaxed)).filter(|b| *b > 0)

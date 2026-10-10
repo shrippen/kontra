@@ -72,6 +72,20 @@ pub mod qobject {
         #[qproperty(QString, strictness)]
         #[qproperty(f64, pitch_cents, cxx_name = "pitchCents")]
         #[qproperty(f64, latency_ms, cxx_name = "latencyMs")]
+        /// Tuning of the profile (LH-TUN-02): "standard", "drop", "half-down", "whole-down", "custom".
+        #[qproperty(QString, tuning)]
+        /// The profile's open strings: `[{"name", "full", "midi"}]`, lowest first.
+        #[qproperty(QString, profile_tuning_json, cxx_name = "profileTuningJson")]
+        /// Notes a string of a custom tuning can take: `[{"name", "midi"}]`.
+        #[qproperty(QString, note_choices_json, cxx_name = "noteChoicesJson")]
+        /// Reference pitch of A4 in Hz (LH-TUN-04).
+        #[qproperty(f64, a4_hz, cxx_name = "a4Hz")]
+        /// Free timing window in ms, used with strictness "custom" (LH-BEW-02).
+        #[qproperty(f64, window_ms, cxx_name = "windowMs")]
+        /// String colour preset (LH-ANZ-06): "kante", "mono" or "bright".
+        #[qproperty(QString, string_colors, cxx_name = "stringColors")]
+        /// Mirrored fretboard (LH-ANZ-08).
+        #[qproperty(bool, left_handed, cxx_name = "leftHanded")]
         /// Mixer (LH-WIE-03, LH-MOD-05): volumes 0..1 and input monitoring.
         #[qproperty(f64, backing_volume, cxx_name = "backingVolume")]
         #[qproperty(f64, metronome_volume, cxx_name = "metronomeVolume")]
@@ -89,6 +103,9 @@ pub mod qobject {
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
         #[qproperty(QString, backing_name, cxx_name = "backingName")]
         #[qproperty(QString, message)]
+        #[qproperty(i32, xruns)]
+        #[qproperty(QString, offer_input, cxx_name = "offerInput")]
+        #[qproperty(QString, offer_text, cxx_name = "offerText")]
         #[qproperty(QString, error_text, cxx_name = "errorText")]
         #[qproperty(QString, start_page, cxx_name = "startPage")]
         #[qproperty(bool, setup_done, cxx_name = "setupDone")]
@@ -96,6 +113,9 @@ pub mod qobject {
         #[qproperty(bool, autocalibrate)]
         /// QA: practice and settings show the mixer from the start.
         #[qproperty(bool, show_mixer, cxx_name = "showMixer")]
+        /// QA: the settings section to scroll to ("data", "about").
+        #[qproperty(QString, start_section, cxx_name = "startSection")]
+        #[qproperty(bool, show_align, cxx_name = "showAlign")]
         /// QA: bars to loop at start, 1-based "from-to" ("" = none).
         #[qproperty(QString, start_loop, cxx_name = "startLoop")]
         #[qproperty(QString, screenshot_path, cxx_name = "screenshotPath")]
@@ -268,6 +288,35 @@ pub mod qobject {
         #[cxx_name = "changeScoring"]
         fn change_scoring(self: Pin<&mut Self>, strictness: &QString, pitch_cents: f64);
 
+        /// Tuning by name (see the `tuning` property).
+        #[qinvokable]
+        #[cxx_name = "changeTuning"]
+        fn change_tuning(self: Pin<&mut Self>, name: &QString);
+
+        /// One open string of a custom tuning (0 = lowest) as MIDI note.
+        #[qinvokable]
+        #[cxx_name = "changeCustomString"]
+        fn change_custom_string(self: Pin<&mut Self>, string: i32, midi: i32);
+
+        /// Reference pitch of A4 in Hz (430–450).
+        #[qinvokable]
+        #[cxx_name = "changeReference"]
+        fn change_reference(self: Pin<&mut Self>, a4_hz: f64);
+
+        /// Free timing window in ms (20–150); switches the strictness to "custom".
+        #[qinvokable]
+        #[cxx_name = "changeWindow"]
+        fn change_window(self: Pin<&mut Self>, window_ms: f64);
+
+        /// String colour preset: "kante", "mono" or "bright".
+        #[qinvokable]
+        #[cxx_name = "changeStringColors"]
+        fn change_string_colors(self: Pin<&mut Self>, preset: &QString);
+
+        #[qinvokable]
+        #[cxx_name = "changeLeftHanded"]
+        fn change_left_handed(self: Pin<&mut Self>, on: bool);
+
         /// Note marks in play mode: "quiet", "off" or "full".
         #[qinvokable]
         #[cxx_name = "changePlayMarks"]
@@ -311,14 +360,103 @@ pub mod qobject {
         #[cxx_name = "finishSetup"]
         fn finish_setup(self: Pin<&mut Self>);
 
+        /// Bundled exercises by level (LH-BIB-08); see `Core::bundled_json`.
+        #[qinvokable]
+        #[cxx_name = "exercisesJson"]
+        fn exercises_json(self: &Self) -> QString;
+
+        /// Generates an exercise (LH-LRN-04) and opens it; see `Core::exercise_spec`.
+        #[qinvokable]
+        #[cxx_name = "generateExercise"]
+        fn generate_exercise(
+            self: Pin<&mut Self>,
+            kind: &QString,
+            variant: &QString,
+            rhythm: &QString,
+            key: i32,
+            bpm: f64,
+        ) -> bool;
+
+        /// Fretboard quiz (LH-LRN-02): "notes" or "intervals"; returns the question JSON.
+        #[qinvokable]
+        #[cxx_name = "quizStart"]
+        fn quiz_start(self: Pin<&mut Self>, kind: &QString) -> QString;
+
+        #[qinvokable]
+        #[cxx_name = "quizNext"]
+        fn quiz_next(self: Pin<&mut Self>) -> QString;
+
+        /// True when the played pitch answers the question (first time).
+        #[qinvokable]
+        #[cxx_name = "quizAnswer"]
+        fn quiz_answer(self: Pin<&mut Self>, midi: f64) -> bool;
+
+        #[qinvokable]
+        #[cxx_name = "quizJson"]
+        fn quiz_json(self: &Self) -> QString;
+
+        /// Backing-track beat map (LH-BIB-06); see `Core::backing_json`.
+        #[qinvokable]
+        #[cxx_name = "backingJson"]
+        fn backing_json(self: &Self) -> QString;
+
+        #[qinvokable]
+        #[cxx_name = "backingAnalyse"]
+        fn backing_analyse(self: Pin<&mut Self>);
+
+        /// Bar 1 by `downbeat` beats, all bars by `shift_ms`, bar `bar` (>= 0) by `bar_ms`.
+        #[qinvokable]
+        #[cxx_name = "backingAdjust"]
+        fn backing_adjust(
+            self: Pin<&mut Self>,
+            downbeat: i32,
+            shift_ms: f64,
+            bar: i32,
+            bar_ms: f64,
+        );
+
+        #[qinvokable]
+        #[cxx_name = "backingClear"]
+        fn backing_clear(self: Pin<&mut Self>);
+
         /// Opens the bundled first exercise.
         #[qinvokable]
         #[cxx_name = "openDemo"]
         fn open_demo(self: Pin<&mut Self>) -> bool;
 
+        /// All user data as one JSON file (LH-FOR-03).
+        #[qinvokable]
+        #[cxx_name = "exportData"]
+        fn export_data(self: Pin<&mut Self>, url: &QString);
+
+        /// Loads a data file; `how` is "merge" or "replace".
+        #[qinvokable]
+        #[cxx_name = "importData"]
+        fn import_data(self: Pin<&mut Self>, url: &QString, how: &QString);
+
+        /// Progress report of one piece as HTML (LH-FOR-04).
+        #[qinvokable]
+        #[cxx_name = "exportReport"]
+        fn export_report(self: Pin<&mut Self>, song_id: &QString, url: &QString);
+
+        /// Shares a library piece as `.kontra` (LH-BIB-07); `audio` is "embed" or "link".
+        #[qinvokable]
+        #[cxx_name = "exportPackage"]
+        fn export_package(self: Pin<&mut Self>, piece: &QString, url: &QString, audio: &QString);
+
+        /// Licences for the About section (LH-NF-11).
+        #[qinvokable]
+        #[cxx_name = "licencesJson"]
+        fn licences_json(self: &Self) -> QString;
+
         #[qinvokable]
         #[cxx_name = "dismissMessage"]
         fn dismiss_message(self: Pin<&mut Self>);
+
+        /// Takes the input offered after a device was lost (LH-ALL-04).
+        #[qinvokable]
+        #[cxx_name = "useOfferedInput"]
+        fn use_offered_input(self: Pin<&mut Self>);
 
         #[qsignal]
         #[cxx_name = "noteJudged"]
@@ -352,7 +490,10 @@ use crate::args::AppArgs;
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
-use kontra_appcore::{data_dir, Core, Density, DensityLock, LoopEdge, Opened, QaOptions, UiEvent};
+use kontra_appcore::{
+    data_dir, Core, DataImport, Density, DensityLock, LoopEdge, Opened, PackageAudio, QaOptions,
+    UiEvent,
+};
 use std::path::PathBuf;
 
 pub struct ControllerRust {
@@ -412,6 +553,13 @@ pub struct ControllerRust {
     strictness: QString,
     pitch_cents: f64,
     latency_ms: f64,
+    tuning: QString,
+    profile_tuning_json: QString,
+    note_choices_json: QString,
+    a4_hz: f64,
+    window_ms: f64,
+    string_colors: QString,
+    left_handed: bool,
     backing_volume: f64,
     metronome_volume: f64,
     tone_volume: f64,
@@ -426,12 +574,17 @@ pub struct ControllerRust {
     calibration_text: QString,
     backing_name: QString,
     message: QString,
+    xruns: i32,
+    offer_input: QString,
+    offer_text: QString,
     error_text: QString,
     start_page: QString,
     setup_done: bool,
     autoplay: bool,
     autocalibrate: bool,
     show_mixer: bool,
+    start_section: QString,
+    show_align: bool,
     start_loop: QString,
     screenshot_path: QString,
     screenshot_after: i32,
@@ -519,6 +672,13 @@ impl Default for ControllerRust {
             strictness: q(&s.strictness),
             pitch_cents: s.pitch_cents,
             latency_ms: s.latency_ms,
+            tuning: q(&s.tuning),
+            profile_tuning_json: q(&core.profile_tuning_json()),
+            note_choices_json: q(&core.note_choices_json()),
+            a4_hz: s.a4_hz,
+            window_ms: s.window_ms,
+            string_colors: q(&s.string_colors),
+            left_handed: s.left_handed,
             backing_volume: s.backing_volume,
             metronome_volume: s.metronome_volume,
             tone_volume: s.tone_volume,
@@ -533,12 +693,17 @@ impl Default for ControllerRust {
             calibration_text: QString::default(),
             backing_name: QString::default(),
             message: QString::default(),
+            xruns: 0,
+            offer_input: QString::default(),
+            offer_text: QString::default(),
             error_text: QString::default(),
             start_page: q(args.page.as_deref().unwrap_or("")),
             setup_done: s.setup_done,
             autoplay: args.autoplay,
             autocalibrate: args.calibrate,
             show_mixer: args.mixer,
+            start_section: q(args.section.as_deref().unwrap_or("")),
+            show_align: args.align,
             start_loop: q(&args
                 .loop_bars
                 .map(|(a, b)| format!("{a}-{b}"))
@@ -797,6 +962,8 @@ impl qobject::Controller {
         let texts = self.as_ref().rust().core.texts_json();
         self.as_mut().set_texts(q(&texts));
         self.as_mut().set_language(q(&code));
+        // Note names follow the language (H in German).
+        self.as_mut().refresh_tuning();
     }
 
     fn loop_bars(mut self: Pin<&mut Self>, from: i32, to: i32) {
@@ -862,6 +1029,10 @@ impl qobject::Controller {
         if playing != *self.as_ref().playing() {
             self.as_mut().set_playing(playing);
         }
+        let xruns = i32::try_from(self.as_ref().rust().core.xruns()).unwrap_or(i32::MAX);
+        if xruns != *self.as_ref().xruns() {
+            self.as_mut().set_xruns(xruns);
+        }
     }
 
     fn apply(mut self: Pin<&mut Self>, events: Vec<UiEvent>) {
@@ -915,6 +1086,17 @@ impl qobject::Controller {
                 }
                 UiEvent::Message(text) => self.as_mut().set_message(q(&text)),
                 UiEvent::Error(text) => self.as_mut().show_error(&text),
+                UiEvent::InputOffer { id, text } => {
+                    self.as_mut().set_offer_input(q(&id));
+                    self.as_mut().set_offer_text(q(&text));
+                }
+                UiEvent::InputBack(text) => {
+                    self.as_mut().set_offer_input(QString::default());
+                    self.as_mut().set_offer_text(QString::default());
+                    self.as_mut().set_error_text(QString::default());
+                    self.as_mut().set_playing(false);
+                    self.as_mut().set_message(q(&text));
+                }
                 UiEvent::DeviceLost(text) => {
                     self.as_mut().set_playing(false);
                     self.as_mut().set_tuner_active(false);
@@ -981,7 +1163,7 @@ impl qobject::Controller {
         laptop_jack: bool,
     ) {
         let count = u8::try_from(strings.clamp(4, 6)).unwrap_or(4);
-        self.as_mut().core().reconfigure(|s| {
+        let result = self.as_mut().core().retune(|s| {
             s.strings = count;
             s.fretless = fretless;
             s.input_kind = if laptop_jack {
@@ -993,7 +1175,81 @@ impl qobject::Controller {
         self.as_mut().set_strings(i32::from(count));
         self.as_mut().set_fretless(fretless);
         self.as_mut().set_laptop_jack(laptop_jack);
+        self.as_mut().after_retune(result);
+    }
+
+    /// After an instrument change: new strings everywhere, or the error.
+    fn after_retune(mut self: Pin<&mut Self>, result: Result<(), String>) {
         self.as_mut().set_playing(false);
+        self.as_mut().refresh_tuning();
+        if self.as_ref().rust().core.arrangement().is_some() {
+            self.as_mut().refresh_arrangement();
+        }
+        if let Err(e) = result {
+            self.as_mut().show_error(&e);
+        }
+    }
+
+    fn refresh_tuning(mut self: Pin<&mut Self>) {
+        let (tuning, profile, guided, notes) = {
+            let this = self.as_ref();
+            let core = &this.rust().core;
+            (
+                core.settings().tuning.clone(),
+                core.profile_tuning_json(),
+                core.tuning_json(),
+                core.note_choices_json(),
+            )
+        };
+        self.as_mut().set_tuning(q(&tuning));
+        self.as_mut().set_profile_tuning_json(q(&profile));
+        self.as_mut().set_tuning_json(q(&guided));
+        self.as_mut().set_note_choices_json(q(&notes));
+    }
+
+    fn change_tuning(mut self: Pin<&mut Self>, name: &QString) {
+        let result = self.as_mut().core().set_tuning(&name.to_string());
+        self.as_mut().after_retune(result);
+    }
+
+    fn change_custom_string(mut self: Pin<&mut Self>, string: i32, midi: i32) {
+        let (Ok(string), Ok(midi)) = (usize::try_from(string), u8::try_from(midi)) else {
+            return;
+        };
+        let result = self.as_mut().core().set_custom_string(string, midi);
+        self.as_mut().after_retune(result);
+    }
+
+    fn change_reference(mut self: Pin<&mut Self>, a4_hz: f64) {
+        let result = self.as_mut().core().set_reference(a4_hz);
+        let kept = self.as_ref().rust().core.settings().a4_hz;
+        self.as_mut().set_a4_hz(kept);
+        self.as_mut().after_retune(result.map(|_| ()));
+    }
+
+    fn change_window(mut self: Pin<&mut Self>, window_ms: f64) {
+        let kept = self.as_mut().core().set_window(window_ms);
+        self.as_mut().set_window_ms(kept);
+        self.as_mut().set_strictness(q("custom"));
+        self.as_mut().set_playing(false);
+    }
+
+    fn change_string_colors(mut self: Pin<&mut Self>, preset: &QString) {
+        let preset = preset.to_string();
+        if !["kante", "mono", "bright"].contains(&preset.as_str()) {
+            return;
+        }
+        let value = q(&preset);
+        // Display only: a running take goes on.
+        self.as_mut()
+            .core()
+            .update_settings(|s| s.string_colors = preset);
+        self.as_mut().set_string_colors(value);
+    }
+
+    fn change_left_handed(mut self: Pin<&mut Self>, on: bool) {
+        self.as_mut().core().update_settings(|s| s.left_handed = on);
+        self.as_mut().set_left_handed(on);
     }
 
     fn change_options(
@@ -1131,13 +1387,17 @@ impl qobject::Controller {
         q(&self.rust().core.tags_json())
     }
 
+    fn licences_json(&self) -> QString {
+        q(&self.rust().core.licences_json())
+    }
+
     fn progress_json(&self) -> QString {
         q(&self.rust().core.progress_json())
     }
 
     fn change_scoring(mut self: Pin<&mut Self>, strictness: &QString, pitch_cents: f64) {
         let strictness = strictness.to_string();
-        if !["auto", "loose", "normal", "strict"].contains(&strictness.as_str()) {
+        if !["auto", "loose", "normal", "strict", "custom"].contains(&strictness.as_str()) {
             return;
         }
         let cents = pitch_cents.clamp(0.0, 100.0);
@@ -1259,9 +1519,190 @@ impl qobject::Controller {
         self.as_mut().set_setup_done(true);
     }
 
+    fn quiz_start(mut self: Pin<&mut Self>, kind: &QString) -> QString {
+        q(&self.as_mut().core().quiz_start(&kind.to_string()))
+    }
+
+    fn quiz_next(mut self: Pin<&mut Self>) -> QString {
+        q(&self.as_mut().core().quiz_next())
+    }
+
+    fn quiz_answer(mut self: Pin<&mut Self>, midi: f64) -> bool {
+        self.as_mut().core().quiz_answer(midi)
+    }
+
+    fn quiz_json(&self) -> QString {
+        q(&self.rust().core.quiz_json())
+    }
+
+    fn backing_json(&self) -> QString {
+        q(&self.rust().core.backing_json())
+    }
+
+    fn backing_analyse(mut self: Pin<&mut Self>) {
+        let result = self.as_mut().core().backing_analyse();
+        self.as_mut().after_retune(result);
+    }
+
+    fn backing_adjust(
+        mut self: Pin<&mut Self>,
+        downbeat: i32,
+        shift_ms: f64,
+        bar: i32,
+        bar_ms: f64,
+    ) {
+        let bar = usize::try_from(bar).ok().map(|b| (b, bar_ms));
+        let result = self.as_mut().core().backing_adjust(downbeat, shift_ms, bar);
+        self.as_mut().after_retune(result);
+    }
+
+    fn backing_clear(mut self: Pin<&mut Self>) {
+        let result = self.as_mut().core().backing_clear();
+        self.as_mut().after_retune(result);
+    }
+
+    fn exercises_json(&self) -> QString {
+        q(&self.rust().core.bundled_json())
+    }
+
+    fn generate_exercise(
+        mut self: Pin<&mut Self>,
+        kind: &QString,
+        variant: &QString,
+        rhythm: &QString,
+        key: i32,
+        bpm: f64,
+    ) -> bool {
+        let Some(spec) = Core::exercise_spec(
+            &kind.to_string(),
+            &variant.to_string(),
+            &rhythm.to_string(),
+            u8::try_from(key.rem_euclid(12)).unwrap_or(0),
+            bpm,
+        ) else {
+            return false;
+        };
+        match self.as_mut().core().generate_exercise(&spec) {
+            Ok(path) => self.as_mut().open_file(&q(&path.to_string_lossy())),
+            Err(e) => {
+                self.as_mut().show_error(&e);
+                false
+            }
+        }
+    }
+
     fn open_demo(mut self: Pin<&mut Self>) -> bool {
         let path = Core::demo_path();
         self.as_mut().open_file(&q(&path.to_string_lossy()))
+    }
+
+    fn export_data(mut self: Pin<&mut Self>, url: &QString) {
+        let path = local_path(&url.to_string());
+        match self.as_ref().rust().core.export_data(&path) {
+            Ok(text) => self.as_mut().set_message(q(&text)),
+            Err(e) => self.as_mut().show_error(&e),
+        }
+    }
+
+    fn import_data(mut self: Pin<&mut Self>, url: &QString, how: &QString) {
+        let path = local_path(&url.to_string());
+        let how = match how.to_string().as_str() {
+            "replace" => DataImport::Replace,
+            _ => DataImport::Merge,
+        };
+        match self.as_mut().core().import_data(&path, how) {
+            Ok(text) => {
+                self.as_mut().sync_settings();
+                self.as_mut().set_message(q(&text));
+            }
+            Err(e) => self.as_mut().show_error(&e),
+        }
+    }
+
+    /// Every settings property and list from the core, after the data changed underneath.
+    fn sync_settings(mut self: Pin<&mut Self>) {
+        let (s, texts, recent, tuning) = {
+            let this = self.as_ref();
+            let core = &this.rust().core;
+            (
+                core.settings().clone(),
+                core.texts_json(),
+                core.recent_json(),
+                core.tuning_json(),
+            )
+        };
+        self.as_mut().set_texts(q(&texts));
+        self.as_mut().set_recent_json(q(&recent));
+        self.as_mut().set_tuning_json(q(&tuning));
+        self.as_mut().refresh_setlists();
+        self.as_mut().set_mode(q(&s.mode));
+        self.as_mut().set_view(q(&s.view));
+        self.as_mut().set_style(q(&s.style));
+        self.as_mut()
+            .set_language(q(s.language.as_deref().unwrap_or("")));
+        self.as_mut()
+            .set_input_device(q(s.input_device.as_deref().unwrap_or("")));
+        self.as_mut()
+            .set_output_device(q(s.output_device.as_deref().unwrap_or("")));
+        self.as_mut().set_strings(i32::from(s.strings));
+        self.as_mut().set_fretless(s.fretless);
+        self.as_mut()
+            .set_laptop_jack(s.input_kind == kontra_appcore::InputKind::LaptopJack);
+        self.as_mut().set_metronome(s.metronome);
+        self.as_mut().set_count_in(s.count_in_bars > 0);
+        self.as_mut().set_reference(s.reference_tones);
+        self.as_mut().set_low_string_on_top(s.low_string_on_top);
+        self.as_mut().set_play_marks(q(&s.play_marks));
+        self.as_mut().set_motion(q(&s.motion));
+        self.as_mut().set_strictness(q(&s.strictness));
+        self.as_mut().set_pitch_cents(s.pitch_cents);
+        self.as_mut().set_latency_ms(s.latency_ms);
+        self.as_mut().set_backing_volume(s.backing_volume);
+        self.as_mut().set_metronome_volume(s.metronome_volume);
+        self.as_mut().set_tone_volume(s.tone_volume);
+        self.as_mut().set_monitor(s.monitor);
+        self.as_mut().set_monitor_volume(s.monitor_volume);
+        self.as_mut().set_setup_done(s.setup_done);
+        self.as_mut().set_playing(false);
+    }
+
+    fn export_report(mut self: Pin<&mut Self>, song_id: &QString, url: &QString) {
+        let path = local_path(&url.to_string());
+        let result = self
+            .as_ref()
+            .rust()
+            .core
+            .export_report(&song_id.to_string(), &path);
+        match result {
+            Ok(text) => self.as_mut().set_message(q(&text)),
+            Err(e) => self.as_mut().show_error(&e),
+        }
+    }
+
+    fn export_package(mut self: Pin<&mut Self>, piece: &QString, url: &QString, audio: &QString) {
+        let piece = local_path(&piece.to_string());
+        let out = local_path(&url.to_string());
+        let audio = match audio.to_string().as_str() {
+            "embed" => PackageAudio::Embed,
+            _ => PackageAudio::Link,
+        };
+        let result = self
+            .as_ref()
+            .rust()
+            .core
+            .export_package(&piece, &out, audio);
+        match result {
+            Ok(text) => self.as_mut().set_message(q(&text)),
+            Err(e) => self.as_mut().show_error(&e),
+        }
+    }
+
+    fn use_offered_input(mut self: Pin<&mut Self>) {
+        let id = self.as_ref().offer_input().to_string();
+        self.as_mut().core().use_offered_input(&id);
+        self.as_mut().set_offer_input(QString::default());
+        self.as_mut().set_offer_text(QString::default());
+        self.as_mut().set_error_text(QString::default());
     }
 
     fn dismiss_message(mut self: Pin<&mut Self>) {

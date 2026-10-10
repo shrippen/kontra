@@ -1,5 +1,6 @@
 //! Settings and library on disk (LH-ALL-03, LH-FOR-03): JSON in the data directory.
 
+use kontra_model::A4_HZ;
 use kontra_session::Gains;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -8,6 +9,8 @@ use std::path::{Path, PathBuf};
 const RECENT_MAX: usize = 2000;
 /// Monitoring volume when first switched on.
 const MONITOR_VOLUME: f64 = 0.8;
+/// Free timing window before the user picks one (LH-BEW-02): as "normal".
+const WINDOW_DEFAULT_MS: f64 = 60.0;
 
 /// `KONTRA_DATA_DIR`, else `$XDG_DATA_HOME/kontra`, else `~/.local/share/kontra`.
 pub fn data_dir() -> PathBuf {
@@ -91,6 +94,19 @@ pub struct Settings {
     pub monitor_volume: f64,
     /// Suggest more or fewer notes between runs (LH-MOD-06).
     pub adaptive: bool,
+    /// Tuning (LH-TUN-02): "standard", "drop" (lowest string a whole step down),
+    /// "half-down", "whole-down" or "custom".
+    pub tuning: String,
+    /// Open strings of the custom tuning, lowest first, e.g. `["C1", "G1", "C2", "F2"]`.
+    pub custom_tuning: Vec<String>,
+    /// Reference pitch of A4 in Hz (LH-TUN-04), 430..=450.
+    pub a4_hz: f64,
+    /// Timing window half width in ms when `strictness` is "custom" (LH-BEW-02).
+    pub window_ms: f64,
+    /// String colours (LH-ANZ-06): "kante" or a preset name the UI knows.
+    pub string_colors: String,
+    /// Mirrored fretboard, nut on the right (LH-ANZ-08).
+    pub left_handed: bool,
 }
 
 impl Default for Settings {
@@ -122,6 +138,12 @@ impl Default for Settings {
             monitor: false,
             monitor_volume: MONITOR_VOLUME,
             adaptive: true,
+            tuning: "standard".into(),
+            custom_tuning: Vec::new(),
+            a4_hz: A4_HZ,
+            window_ms: WINDOW_DEFAULT_MS,
+            string_colors: "kante".into(),
+            left_handed: false,
         }
     }
 }
@@ -173,6 +195,39 @@ pub struct SectionBars {
     pub to_bar: u32,
 }
 
+/// Where the bars of a piece fall in its backing track (LH-BIB-06): the detected beats, which
+/// of them is the first downbeat, and the user's corrections.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BeatMap {
+    /// Beat times in the audio, seconds.
+    pub beats: Vec<f64>,
+    pub bpm: f64,
+    /// Index into `beats` of bar 1's downbeat.
+    pub first: usize,
+    /// Shift of every bar, ms (fine alignment).
+    pub shift_ms: f64,
+    /// Per-bar corrections, ms: bar index → shift of that bar's start.
+    pub nudges: std::collections::BTreeMap<usize, f64>,
+}
+
+impl BeatMap {
+    /// Audio time of each bar start, for bars of `beats_per_bar` beats; as far as beats reach.
+    pub fn bar_times(&self, beats_per_bar: &[u32]) -> Vec<f64> {
+        let mut out = Vec::new();
+        let mut beat = self.first;
+        for (bar, n) in beats_per_bar.iter().enumerate() {
+            let Some(t) = self.beats.get(beat) else {
+                break;
+            };
+            let nudge = self.nudges.get(&bar).copied().unwrap_or(0.0);
+            out.push(t + (self.shift_ms + nudge) / 1000.0);
+            beat += (*n).max(1) as usize;
+        }
+        out
+    }
+}
+
 /// A named order of pieces for a gig or rehearsal (LH-BIB-04).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Setlist {
@@ -185,6 +240,8 @@ pub struct Setlist {
 pub struct Library {
     /// Every known piece; the most recently played first, imported but unplayed ones after.
     pub recent: Vec<RecentEntry>,
+    /// Backing-track beat maps per piece (LH-BIB-06).
+    pub beat_maps: std::collections::BTreeMap<PathBuf, BeatMap>,
     pub setlists: Vec<Setlist>,
 }
 
@@ -268,6 +325,25 @@ mod tests {
         assert_eq!(settings.backing_volume, f64::from(Gains::default().backing));
         assert_eq!(settings.metronome_volume, f64::from(Gains::default().click));
         assert_eq!(settings.tone_volume, f64::from(Gains::default().tone));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// Files from before tunings, reference pitch and display options load with defaults.
+    #[test]
+    fn old_settings_get_tuning_defaults() {
+        let dir = std::env::temp_dir().join(format!("kontra-store-tun-{}", std::process::id()));
+        let path = dir.join("settings.json");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(&path, r#"{ "strings": 5, "strictness": "strict" }"#).unwrap();
+        let settings: Settings = load(&path);
+        assert_eq!(settings.strings, 5);
+        assert_eq!(settings.strictness, "strict");
+        assert_eq!(settings.tuning, "standard");
+        assert!(settings.custom_tuning.is_empty());
+        assert_eq!(settings.a4_hz, A4_HZ);
+        assert_eq!(settings.window_ms, WINDOW_DEFAULT_MS);
+        assert_eq!(settings.string_colors, "kante");
+        assert!(!settings.left_handed);
         std::fs::remove_dir_all(dir).unwrap();
     }
 

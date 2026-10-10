@@ -196,3 +196,27 @@ Durchgespielt mit gerenderten Aufnahmen (`kontra-cli render`) und Screenshots al
 - J-A1 (P1) Erster Start: Assistent erscheint, alle Schritte überspringbar, endet in der ersten Übung. Fehler: Hinweistext dunkel auf dunkel – behoben.
 - J-F1 (P7) 200 % Skalierung: Üben und Einstellungen ohne Abschneiden. Kosmetisch: in Kantes Einstellungszeile ist der Hinweis größer gesetzt als der Titel (an Kante melden).
 - Nicht getestet: echte Geräte, Tastaturdurchlauf, Screenreader, Farbfilter.
+
+## Lastenheft-Umsetzung (10.10.2026)
+
+- [x] LH-LRN-04: Übungs-Generator (Tonleitern, Arpeggien, Walking Bass, Grooves) in jeder Tonart und jedem Tempo, Seite „Übungen“ (Strg+7).
+- [x] LH-BIB-08: 34 mitgelieferte Übungen in vier Stufen (`testdata/exercises`, von `kontra-cli exercises` erzeugt, CI prüft den Stand).
+- [x] LH-LRN-02: Griffbrett-Quiz mit dem echten Bass (Töne auf einer Saite finden, Intervalle), Seite „Griffbrett“ (Strg+8); nach dem richtigen Ton zeigt das Griffbrett alle Lagen.
+- [x] LH-BIB-06: Backing-Track abgleichen: Kontra erkennt die Schläge der Aufnahme (Spektralfluss, Tempo per Autokorrelation, Beat-Tracking nach Ellis) und legt die Takte darauf (Tempo-Karte je Takt); Takt 1 um einen Schlag, alle Takte oder ein einzelner Takt in 10-ms-Schritten korrigierbar.
+- [ ] LH-LRN-01 (Teil): Grooves auf dem Grundton (Viertel bis Sechzehntel, Pausen, Shuffle, Oktaven); Schlagzeug-Begleitung fehlt noch.
+- [x] LH-TUN-02 / LH-EIN-01: Stimmung im Profil (Standard, Drop D bzw. Drop A bei 5/6 Saiten, ½ und 1 Ton tiefer, eigene mit Notenwahl je Saite) in Einstellungen und Assistent; Stimmgerät (geführt) und Tab-Zuordnung von Dateien ohne Stimmung (MIDI, MusicXML) nutzen sie, ein Wechsel ordnet das geladene Stück sofort neu zu.
+- [x] LH-TUN-04: Kammerton A 430–450 Hz (Standard 440) für Stimmgerät, Erkennung und Bewertung.
+- [x] LH-BEW-02: Zeitfenster „Eigene“ mit ±20–150 ms.
+- [x] LH-ANZ-06: Saitenfarben Kante / Einfarbig / Kräftig (nur Kante-Farben) mit Vorschau; wirkt auf die Tab-Lane (Tabulatur und Griffbrett haben in Kante keine Saitenfarben).
+- [x] LH-ANZ-08: Linkshänder-Griffbrett (Sattel rechts).
+- [x] LH-EIN-02: ohne gewählten Eingang nimmt Kontra ein USB-Interface vor der internen Karte; „Automatisch: <Gerät>“ zeigt, welches.
+- [x] LH-EIN-10: MIDI und Mikrofon stehen als deaktivierte Einträge „Kommt später“ in der Anschluss-Auswahl.
+- [x] LH-ALL-05: Info-Knöpfe für Hi-Z, Latenz und das Werkstatt-Zielband; Zeitfenster, Kammerton, Stimmung und Quantum-Hinweis erklären sich im Text. „Lage“ kommt in der Oberfläche nicht vor.
+- [x] LH-NF-13: Journey-Tests in `tests/journeys/` (J-A2, J-B1, J-B2, J-B3, J-C2, Neustart) als Test `journeys` von `kontra-appcore`, laufen im CI-Job `core`; Aufnahmen, MIDI-Dateien und `stimmen-e-30c.wav` erzeugt der Test.
+- [x] LH-FOR-03: Einstellungen → „Deine Daten“: alles als eine JSON-Datei sichern (`kontra-data`, Version 1) und laden; beim Laden „Ergänzen“ (eigene Einstellungen bleiben, neue Stücke, Setlisten, Durchläufe dazu) oder „Ersetzen“; ungültige Dateien ändern nichts; Bericht als Meldung.
+- [x] LH-FOR-04: Fortschritt → „Bericht …“ je Stück: eine HTML-Datei mit Kante-Stil eingebettet (offline lesbar), Kennzahlen, Verlauf Trefferquote/Tempo, Tabelle aller Durchläufe mit schwierigsten Takten (neu im Durchlauf gespeichert).
+- [x] LH-BIB-07: Paketformat `.kontra` (Zip mit `manifest.json`, Original-Notendatei, Fortschritt, Begleitspur nur auf Wunsch eingebettet, sonst als Pfad), beschrieben in `FORMAT.md`; Bibliothek → „Teilen …“ je Stück; Öffnen über die Bibliothek, `kontra datei.kontra` und Dateimanager (MIME `application/x-kontra-package`); eigener Zip-Schreiber in `content`, keine neue Abhängigkeit.
+- [x] LH-ALL-04: Gerät weg → Lauf endet mit Meldung, Kontra bietet den nächsten Eingang an (Standard, sonst der erste andere; Hinweis mit Knopf „Diesen Eingang nehmen“, nur vorübergehend, nicht gespeichert); alle 2 s wird die Geräteliste geprüft, ist das eigene Gerät zurück, nimmt Kontra es wieder. Auswahl mit Geräteliste-Attrappe getestet. Mit echtem Interface nicht geprüft.
+- [x] LH-NF-04: Xrun-Zähler: Treiber zählt Xrun-Meldungen des Audio-Backends und verspätete Callbacks (> 2 Blocklängen + 2 ms) für Ein- und Ausgang; Xruns gelten nicht mehr als „Gerät weg“. Summe seit dem Start in den Einstellungen (Debug-Zeile). Dauertest `kontra-cli soak <stück> --minutes 60 [--speed 0.8] [--output null|<id>] [--max-xruns 0]`: Schleife mit gestreckter Begleitspur, Metronom und Referenztönen auf einem zeitgesteuerten Null-Ausgang oder Gerät. Der 60-Minuten-Lauf auf Mindest-Hardware steht aus; nicht in CI (Dauer).
+- [x] LH-NF-10: `scripts/check-design.sh` (in `make check` und CI) bricht ab bei Hex-Farben, px-Angaben, Zahlen für Größen (außer 0 und 1 für Haarlinien) und Schriftfamilien in `crates/app/qml/*.qml`; die Kante-Kopie wird nicht geprüft. Stand: sauber.
+- [x] LH-NF-11: Einstellungen → „Über Kontra“: Kontra (MIT), Qt und KDE Frameworks (LGPL, dynamisch) und alle 64 eingebundenen Crates mit Version und Lizenz aus `crates/appcore/licences.json`; erzeugt von `scripts/licences.py` (`make licences`), CI prüft mit `--check`, dass die Liste zum `Cargo.lock` passt.

@@ -10,12 +10,16 @@ use kontra_model::{Arrangement, DetectedNote, InputSource, Instrument};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
 
-pub use kontra_content::{assign_tab, import_file, FileKind, ImportError, ImportResult, TrackInfo};
+pub use kontra_content::exercise;
+pub use kontra_content::{
+    assign_tab, import_file, read_package, write_package, FileKind, ImportError, ImportResult,
+    Manifest, Package, PackageBacking, TrackInfo, PACKAGE_FORMAT, PACKAGE_VERSION,
+};
 pub use kontra_engine::{
     evaluate as evaluate_korpus, evaluate_with as evaluate_korpus_with,
     generate as generate_korpus, list_devices, render_performance, simulate_laptop_jack,
-    Annotation, BackingTrack, Connection, DeviceInfo, Direction, Evaluation, KorpusItem, KorpusSet,
-    Matching, Mistakes, StreamConfig,
+    track_beats, Annotation, BackingTrack, BeatGrid, Connection, DeviceInfo, Direction, Evaluation,
+    KorpusItem, KorpusSet, Matching, Mistakes, StreamConfig, NULL_DEVICE,
 };
 
 /// Writes mono audio as WAV (corpus export).

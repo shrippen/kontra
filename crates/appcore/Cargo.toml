@@ -14,3 +14,8 @@ serde_json.workspace = true
 
 [lints]
 workspace = true
+
+# Journey tests from QA.md (⚙), kept at the repository root next to the journeys.
+[[test]]
+name = "journeys"
+path = "../../tests/journeys/main.rs"

@@ -5,27 +5,47 @@
 //!     ◄──properties/signals── bridge ◄── UiEvent
 //! ```
 
+mod data;
 mod i18n;
+mod package;
+pub mod quiz;
+mod report;
 mod store;
+mod unplug;
 
+pub use data::DataImport;
 pub use i18n::{Catalog, Language};
-pub use kontra_session::Density;
+pub use kontra_session::{exercise, Density};
+pub use package::PackageAudio;
 pub use store::{
     data_dir, InputKind, Library, RecentEntry, SectionBars, SectionDensity, Setlist, Settings,
 };
 
-use kontra_model::{Arrangement, BassKind, InputSource};
+use kontra_model::{Arrangement, BassKind, InputSource, Tuning};
 use kontra_session::{
-    import_file, list_devices, run_from, CalibrationResult, Direction, Gains, ImportResult,
-    InputChoice, Live, LiveCalibration, LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Outcome,
-    PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings, SessionEvent, Summary,
-    Workshop,
+    import_file, list_devices, run_from, CalibrationResult, Connection, DeviceInfo, Direction,
+    Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveSetup, LiveTuner, LoopRange, Mode,
+    NoteResult, Outcome, PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings,
+    SessionEvent, Summary, Workshop,
 };
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
+/// Crates linked into the app and their licences, from `scripts/licences.py` (LH-NF-11).
+const LICENCES: &str = include_str!("../licences.json");
+
 /// Seconds from the input's start to the first calibration click.
 const CALIBRATION_LEAD_S: f64 = 1.0;
+/// Reference pitch range for A4 (LH-TUN-04).
+const A4_MIN_HZ: f64 = 430.0;
+const A4_MAX_HZ: f64 = 450.0;
+/// Range of the free timing window (LH-BEW-02).
+const WINDOW_MIN_MS: f64 = 20.0;
+const WINDOW_MAX_MS: f64 = 150.0;
+/// Notes a string of a custom tuning may have: G0 (MIDI 19) to G3 (MIDI 55).
+const CUSTOM_NOTES: std::ops::RangeInclusive<u8> = 19..=55;
+/// Tunings the settings offer (LH-TUN-02); "drop" lowers the lowest string a whole step.
+const TUNINGS: [&str; 5] = ["standard", "drop", "half-down", "whole-down", "custom"];
 
 /// Options for QA runs (QA.md): a recording instead of the audio input.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -79,6 +99,13 @@ pub enum UiEvent {
         level: u8,
         text: String,
     },
+    /// Another input could be used meanwhile (LH-ALL-04): its id and a question for the user.
+    InputOffer {
+        id: String,
+        text: String,
+    },
+    /// The lost input is back and used again.
+    InputBack(String),
     /// Calibration finished: new latency (if measured) and a text for the user.
     Calibrated {
         latency_ms: Option<f64>,
@@ -141,6 +168,14 @@ pub struct Core {
     notice: Option<String>,
     /// The setlist being played and the position in it (LH-BIB-04).
     active_setlist: Option<(String, usize)>,
+    /// The input that went away, watched until it is back (LH-ALL-04).
+    lost: Option<unplug::Lost>,
+    /// Input used instead of the lost one; never saved.
+    fallback_input: Option<String>,
+    /// Dropouts of finished runs since the start (LH-NF-04).
+    xruns_done: u64,
+    /// Fretboard quiz in progress (LH-LRN-02).
+    quiz: Option<quiz::Quiz>,
 }
 
 impl Core {
@@ -152,8 +187,12 @@ impl Core {
             .as_deref()
             .map_or_else(Language::from_environment, Language::from_code);
         Core {
+            quiz: None,
             notice: None,
             active_setlist: None,
+            lost: None,
+            fallback_input: None,
+            xruns_done: 0,
             catalog: Catalog::new(language),
             settings,
             library,
@@ -243,6 +282,9 @@ impl Core {
             "loose" => kontra_session::Strictness::Loose,
             "normal" => kontra_session::Strictness::Normal,
             "strict" => kontra_session::Strictness::Strict,
+            "custom" => kontra_session::Strictness::Custom {
+                window_ms: self.settings.window_ms.clamp(WINDOW_MIN_MS, WINDOW_MAX_MS),
+            },
             _ => settings.strictness,
         };
         if self.settings.pitch_cents > 0.0 {
@@ -254,16 +296,51 @@ impl Core {
     /// Open strings for guided tuning (LH-TUN-03), lowest first: the loaded piece's tuning, else
     /// the profile's. `[{"name": "E", "midi": 28}, …]`.
     pub fn tuning_json(&self) -> String {
-        let instrument = self
-            .arrangement()
-            .map_or_else(|| instrument_from(&self.settings), |a| a.instrument.clone());
-        let strings: Vec<serde_json::Value> = instrument
-            .tuning
+        self.strings_json(&self.instrument().tuning)
+    }
+
+    /// The profile's open strings (LH-TUN-02), as `tuning_json`; for the settings.
+    pub fn profile_tuning_json(&self) -> String {
+        self.strings_json(&instrument_from(&self.settings).tuning)
+    }
+
+    /// Notes a string of a custom tuning can take, lowest first: `[{"name": "G0", "midi": 19}, …]`.
+    pub fn note_choices_json(&self) -> String {
+        let notes: Vec<serde_json::Value> = CUSTOM_NOTES
+            .map(|m| json!({ "name": self.note_label(&kontra_model::Pitch(m).to_string()), "midi": m }))
+            .collect();
+        serde_json::Value::Array(notes).to_string()
+    }
+
+    /// `[{"name": "E", "octave": "E1", "midi": 28}, …]`: the name for the tuner, with octave
+    /// where open strings share a name (drop D: D1 and D2).
+    fn strings_json(&self, tuning: &kontra_model::Tuning) -> String {
+        let strings: Vec<serde_json::Value> = tuning
             .strings
             .iter()
-            .map(|p| json!({ "name": self.note_label(&p.name().to_string()), "midi": p.0 }))
+            .map(|p| {
+                json!({
+                    "name": self.note_label(&p.name().to_string()),
+                    "full": self.note_label(&p.to_string()),
+                    "midi": p.0,
+                })
+            })
             .collect();
         serde_json::Value::Array(strings).to_string()
+    }
+
+    /// The instrument to listen for: the loaded piece's, else the profile; with the reference
+    /// pitch from the settings (LH-TUN-04).
+    fn instrument(&self) -> kontra_model::Instrument {
+        let mut instrument = self
+            .arrangement()
+            .map_or_else(|| instrument_from(&self.settings), |a| a.instrument.clone());
+        instrument.a4_hz = self.a4_hz();
+        instrument
+    }
+
+    fn a4_hz(&self) -> f64 {
+        self.settings.a4_hz.clamp(A4_MIN_HZ, A4_MAX_HZ)
     }
 
     /// Progress over all pieces (LH-FOR-01): per piece best result, best tempo and time, and
@@ -288,6 +365,7 @@ impl Core {
             .iter()
             .map(|p| {
                 json!({
+                    "songId": p.song_id,
                     "title": p.title,
                     "artist": p.artist,
                     "best": p.best_hit_rate(),
@@ -307,6 +385,104 @@ impl Core {
         json!({ "pieces": pieces, "runs": runs }).to_string()
     }
 
+    /// Writes settings, library and progress as one JSON file (LH-FOR-03); returns what was
+    /// saved, as a text for the user.
+    pub fn export_data(&self, path: &Path) -> Result<String, String> {
+        let bundle = data::Bundle {
+            format: data::FORMAT.into(),
+            version: data::VERSION,
+            exported_unix: unix_now(),
+            settings: self.settings.clone(),
+            library: self.library.clone(),
+            progress: self.progress_store().all(),
+        };
+        store::save(path, &bundle)
+            .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
+        let runs = bundle.progress.iter().map(|p| p.runs.len()).sum::<usize>();
+        Ok(self.tr(
+            "data.exported",
+            &[
+                ("pieces", bundle.library.recent.len().to_string()),
+                ("setlists", bundle.library.setlists.len().to_string()),
+                ("runs", runs.to_string()),
+                ("name", file_name(path)),
+            ],
+        ))
+    }
+
+    /// Reads a file written by `export_data`: merges it into the own data or replaces them.
+    /// Nothing changes if the file is not valid. Returns a report for the user.
+    pub fn import_data(&mut self, path: &Path, how: DataImport) -> Result<String, String> {
+        let text = std::fs::read_to_string(path).map_err(|_| self.tr("data.error.read", &[]))?;
+        let bundle = data::Bundle::parse(&text).map_err(|e| match e {
+            data::BundleError::Newer(v) => {
+                self.tr("data.error.newer", &[("version", v.to_string())])
+            }
+            data::BundleError::Unreadable | data::BundleError::BadSongId => {
+                self.tr("data.error.format", &[])
+            }
+        })?;
+        self.stop_live();
+        let store = self.progress_store();
+        let mut merged = data::Merged::default();
+        match how {
+            DataImport::Replace => {
+                merged.pieces = bundle.library.recent.len();
+                merged.setlists = bundle.library.setlists.len();
+                self.library = bundle.library;
+                for old in store.all() {
+                    let _ = std::fs::remove_file(
+                        self.data_dir
+                            .join("progress")
+                            .join(format!("{}.json", old.song_id)),
+                    );
+                }
+                self.update_settings(|s| *s = bundle.settings);
+            }
+            DataImport::Merge => merged = data::merge_library(&mut self.library, bundle.library),
+        }
+        for incoming in bundle.progress {
+            let mut song = match how {
+                DataImport::Merge => store.load_id(&incoming.song_id),
+                DataImport::Replace => None,
+            }
+            .unwrap_or_else(|| kontra_session::SongProgress {
+                runs: Vec::new(),
+                ..incoming.clone()
+            });
+            merged.runs += data::merge_runs(&mut song, incoming);
+            store
+                .save(&song)
+                .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
+        }
+        self.save_library();
+        let key = match how {
+            DataImport::Merge => "data.merged",
+            DataImport::Replace => "data.replaced",
+        };
+        Ok(self.tr(
+            key,
+            &[
+                ("pieces", merged.pieces.to_string()),
+                ("setlists", merged.setlists.to_string()),
+                ("runs", merged.runs.to_string()),
+                ("name", file_name(path)),
+            ],
+        ))
+    }
+
+    /// The About section's licence list (LH-NF-11): Kontra, the dynamically linked Qt and KDE
+    /// Frameworks, then every crate: `[{"name", "version", "license"}, …]`.
+    pub fn licences_json(&self) -> String {
+        let crates: Vec<serde_json::Value> = serde_json::from_str(LICENCES).unwrap_or_default();
+        let own = [
+            json!({ "name": "Kontra", "version": env!("CARGO_PKG_VERSION"), "license": env!("CARGO_PKG_LICENSE") }),
+            json!({ "name": "Qt 6", "version": "", "license": self.tr("about.lgpl", &[]) }),
+            json!({ "name": "KDE Frameworks 6 (Kirigami)", "version": "", "license": self.tr("about.lgpl", &[]) }),
+        ];
+        serde_json::Value::Array(own.into_iter().chain(crates).collect()).to_string()
+    }
+
     /// Tracks of the loaded file and the one played: `{"names": [...], "current": i}`.
     pub fn tracks_json(&self) -> String {
         let (names, current) = self
@@ -318,6 +494,11 @@ impl Core {
 
     /// Plays another track of the loaded file (Kontra's guess may be the wrong one).
     pub fn switch_track(&mut self, track: usize) -> Result<(), String> {
+        self.reload(track)
+    }
+
+    /// Imports the loaded file again and plays `track`; keeps the setlist position.
+    fn reload(&mut self, track: usize) -> Result<(), String> {
         let path = self.loaded_path().ok_or("nothing loaded")?.to_path_buf();
         let imported = import_file(&path).map_err(|e| self.import_error(&e))?;
         let setlist = self.active_setlist.clone();
@@ -366,6 +547,68 @@ impl Core {
         self.stop_live();
     }
 
+    /// Changes the instrument profile (strings, tuning, reference pitch) so that it acts at once:
+    /// a loaded piece without its own tuning is laid out on the new strings again (LH-TUN-02) and
+    /// a running tuner listens with the new strings and reference.
+    pub fn retune(&mut self, change: impl FnOnce(&mut Settings)) -> Result<(), String> {
+        let tuner_running = self.tuner.is_some();
+        self.reconfigure(change);
+        if let Some(track) = self.loaded.as_ref().map(|l| l.track) {
+            self.reload(track)?;
+        }
+        if tuner_running {
+            self.start_tuner()?;
+        }
+        Ok(())
+    }
+
+    /// Chooses a tuning by name (`TUNINGS`); "custom" starts from the strings in use.
+    pub fn set_tuning(&mut self, name: &str) -> Result<(), String> {
+        if !TUNINGS.contains(&name) {
+            return Ok(());
+        }
+        let current = names_of(&tuning_from(&self.settings));
+        self.retune(|s| {
+            if name == "custom" && s.custom_tuning.len() != current.len() {
+                s.custom_tuning = current;
+            }
+            s.tuning = name.to_string();
+        })
+    }
+
+    /// Sets one open string (0 = lowest) to `midi` and makes the result the custom tuning.
+    pub fn set_custom_string(&mut self, string: usize, midi: u8) -> Result<(), String> {
+        let mut names = names_of(&tuning_from(&self.settings));
+        let Some(slot) = names.get_mut(string) else {
+            return Ok(());
+        };
+        if !CUSTOM_NOTES.contains(&midi) {
+            return Ok(());
+        }
+        *slot = kontra_model::Pitch(midi).to_string();
+        self.retune(|s| {
+            s.custom_tuning = names;
+            s.tuning = "custom".into();
+        })
+    }
+
+    /// Reference pitch of A4 (LH-TUN-04), clamped to 430–450 Hz; returns the value kept.
+    pub fn set_reference(&mut self, a4_hz: f64) -> Result<f64, String> {
+        let hz = a4_hz.clamp(A4_MIN_HZ, A4_MAX_HZ);
+        self.retune(|s| s.a4_hz = hz)?;
+        Ok(hz)
+    }
+
+    /// Free timing window (LH-BEW-02), clamped to 20–150 ms; returns the value kept.
+    pub fn set_window(&mut self, window_ms: f64) -> f64 {
+        let ms = window_ms.clamp(WINDOW_MIN_MS, WINDOW_MAX_MS).round();
+        self.reconfigure(|s| {
+            s.window_ms = ms;
+            s.strictness = "custom".into();
+        });
+        ms
+    }
+
     /// Changes the mixer (volumes, monitoring) and saves; a running practice hears it at once.
     /// Returns a hint when monitoring is on but cannot work.
     pub fn remix(&mut self, change: impl FnOnce(&mut Settings)) -> Option<String> {
@@ -396,7 +639,7 @@ impl Core {
                 let progress = store.load_id(&e.song_id);
                 let best = progress.as_ref().and_then(|p| p.best_hit_rate());
                 let minutes = progress.as_ref().map_or(0.0, |p| p.practice_s() / 60.0);
-                json!({ "path": e.path, "title": e.title, "artist": e.artist, "best": best, "practiceMin": minutes, "lastUnix": e.last_unix, "tags": e.tags })
+                json!({ "path": e.path, "title": e.title, "artist": e.artist, "best": best, "practiceMin": minutes, "lastUnix": e.last_unix, "tags": e.tags, "hasBacking": e.backing.is_some() })
             })
             .collect();
         serde_json::Value::Array(list).to_string()
@@ -613,6 +856,9 @@ impl Core {
     /// Imports a score; picks the bass track or asks.
     pub fn open(&mut self, path: &Path) -> Result<Opened, String> {
         self.active_setlist = None;
+        if package::is_package(path) {
+            return self.open_package(path).map(|()| Opened::Ready);
+        }
         let imported = import_file(path).map_err(|e| self.import_error(&e))?;
         if let Some(track) = imported.suggested() {
             return self.load(path, &imported, track).map(|()| Opened::Ready);
@@ -675,6 +921,7 @@ impl Core {
         if self.settings.fretless {
             arrangement.instrument.kind = BassKind::Fretless;
         }
+        arrangement.instrument.a4_hz = self.a4_hz();
         self.stop_live();
         self.looping = None;
         self.library.touch(RecentEntry {
@@ -691,6 +938,22 @@ impl Core {
             sections: Vec::new(),
             densities: Vec::new(),
         });
+        // A backing track with a beat map: the bars follow the band (LH-BIB-06).
+        if self
+            .library
+            .entry(path)
+            .is_some_and(|e| e.backing.is_some())
+        {
+            if let Some(map) = self.library.beat_maps.get(path) {
+                let times = map.bar_times(&quarters_per_bar(&arrangement));
+                if times.len() >= 2 {
+                    arrangement.tempo = tempo_from_bars(&arrangement, &times);
+                    if let Some(entry) = self.library.entry_mut(path) {
+                        entry.backing_offset_s = times[0];
+                    }
+                }
+            }
+        }
         let _ = store::save(&self.data_dir.join("library.json"), &self.library);
         self.loaded = Some(Loaded {
             path: path.to_path_buf(),
@@ -854,7 +1117,14 @@ impl Core {
         if self.run_started.is_some() {
             self.record_run();
         }
-        self.live = None;
+        if let Some(live) = self.live.take() {
+            self.xruns_done += live.xruns();
+        }
+    }
+
+    /// Audio dropouts since Kontra started, over all runs (LH-NF-04).
+    pub fn xruns(&self) -> u64 {
+        self.xruns_done + self.live.as_ref().map_or(0, Live::xruns)
     }
 
     pub fn set_speed(&mut self, speed: f64) {
@@ -1055,10 +1325,18 @@ impl Core {
                 laptop_jack: self.qa.laptop_jack,
             },
             None => InputChoice::Device {
-                id: self.settings.input_device.clone(),
+                id: self.fallback_input.clone().or_else(|| self.input_device()),
                 channel: None,
             },
         }
+    }
+
+    /// The chosen input, else an interface before the built-in card (LH-EIN-02).
+    fn input_device(&self) -> Option<String> {
+        if self.settings.input_device.is_some() {
+            return self.settings.input_device.clone();
+        }
+        preferred_input(&list_devices(Direction::Input)).map(|d| d.id.clone())
     }
 
     /// Starts audio for the loaded arrangement; true if there is no sound output.
@@ -1096,10 +1374,7 @@ impl Core {
 
     pub fn start_tuner(&mut self) -> Result<(), String> {
         self.stop_live();
-        let instrument = match self.arrangement() {
-            Some(a) => a.instrument.clone(),
-            None => instrument_from(&self.settings),
-        };
+        let instrument = self.instrument();
         let tuner = LiveTuner::start(&self.input_choice(), &instrument, self.source())
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
         self.tuner = Some(tuner);
@@ -1123,7 +1398,9 @@ impl Core {
         if events.iter().any(|e| matches!(e, UiEvent::DeviceLost(_))) {
             self.stop_live();
             self.tuner = None;
+            events.extend(self.input_lost());
         }
+        events.extend(self.watch_lost());
         let finished = events.iter().any(|e| matches!(e, UiEvent::Finished { .. }));
         let rate = events.iter().find_map(|e| match e {
             UiEvent::PassComplete { hit_rate, .. } => Some(*hit_rate),
@@ -1172,10 +1449,7 @@ impl Core {
     pub fn start_calibration(&mut self) -> Result<(), String> {
         self.stop_live();
         self.tuner = None;
-        let instrument = match self.arrangement() {
-            Some(a) => a.instrument.clone(),
-            None => instrument_from(&self.settings),
-        };
+        let instrument = self.instrument();
         let setup = LiveSetup {
             input: self.input_choice(),
             output_device: self.settings.output_device.clone(),
@@ -1246,7 +1520,7 @@ impl Core {
             .loop_range()
             .map(|l| (l.start_s, l.end_s));
         // The session's speed: the workshop changes it on its own (LH-FOR-02 charts it).
-        let run = run_from(
+        let mut run = run_from(
             &summary,
             practice_s,
             session.transport().speed(),
@@ -1259,6 +1533,13 @@ impl Core {
             .loaded
             .as_ref()
             .map_or_else(|| session.arrangement().clone(), |l| l.full.clone());
+        // Bar numbers as printed in the score (repeats are unrolled into more bars).
+        run.hardest_bars = summary
+            .hardest_bars
+            .iter()
+            .filter_map(|b| arrangement.bars.get(*b))
+            .map(|bar| bar.source_index + 1)
+            .collect();
         let _ = self.progress_store().record(&arrangement, run);
         if let (Some((start_s, end_s)), Some((from, to))) = (section, self.looping) {
             self.remember_section(start_s, end_s, from, to);
@@ -1366,6 +1647,103 @@ impl Core {
                 ("to", bars.to_bar.to_string()),
             ],
         )
+    }
+
+    /// Detects the beats of the backing track and lines the bars up with them (LH-BIB-06).
+    pub fn backing_analyse(&mut self) -> Result<(), String> {
+        let (backing, _) = self
+            .backing()
+            .ok_or_else(|| self.tr("backing.nobacking", &[]))?;
+        let audio =
+            kontra_session::BackingTrack::load(&backing, 44_100).map_err(|e| e.to_string())?;
+        let mono: Vec<f32> = audio
+            .left
+            .iter()
+            .zip(&audio.right)
+            .map(|(l, r)| 0.5 * (l + r))
+            .collect();
+        let grid = kontra_session::track_beats(&mono, audio.sample_rate);
+        if grid.beats.len() < 4 {
+            return Err(self.tr("backing.nobeats", &[]));
+        }
+        let path = self.loaded_path().ok_or("nothing loaded")?.to_path_buf();
+        self.library.beat_maps.insert(
+            path,
+            store::BeatMap {
+                beats: grid.beats,
+                bpm: grid.bpm,
+                ..store::BeatMap::default()
+            },
+        );
+        self.apply_beat_map()
+    }
+
+    /// Changes the beat map of the loaded piece: `downbeat` beats later (negative: earlier),
+    /// every bar by `shift_ms`, or one bar by `bar_ms`.
+    pub fn backing_adjust(
+        &mut self,
+        downbeat: i32,
+        shift_ms: f64,
+        bar: Option<(usize, f64)>,
+    ) -> Result<(), String> {
+        let path = self.loaded_path().ok_or("nothing loaded")?.to_path_buf();
+        let Some(map) = self.library.beat_maps.get_mut(&path) else {
+            return Ok(());
+        };
+        let last = map.beats.len().saturating_sub(2) as i64;
+        map.first = (map.first as i64 + i64::from(downbeat)).clamp(0, last.max(0)) as usize;
+        map.shift_ms += shift_ms;
+        if let Some((bar, ms)) = bar {
+            *map.nudges.entry(bar).or_insert(0.0) += ms;
+        }
+        self.apply_beat_map()
+    }
+
+    /// Back to the piece's own tempo, the backing starting at its old offset.
+    pub fn backing_clear(&mut self) -> Result<(), String> {
+        let path = self.loaded_path().ok_or("nothing loaded")?.to_path_buf();
+        self.library.beat_maps.remove(&path);
+        if let Some(entry) = self.library.entry_mut(&path) {
+            entry.backing_offset_s = 0.0;
+        }
+        self.apply_beat_map()
+    }
+
+    fn apply_beat_map(&mut self) -> Result<(), String> {
+        let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+        let track = self.loaded.as_ref().map_or(0, |l| l.track);
+        self.reload(track)
+    }
+
+    /// The beat map in words for the alignment sheet:
+    /// `{"analysed", "bpm", "firstS", "mapped", "bars", "text"}`.
+    pub fn backing_json(&self) -> String {
+        let Some(path) = self.loaded_path() else {
+            return "{}".into();
+        };
+        let bars = self.arrangement().map_or(0, |a| a.bars.len());
+        let Some(map) = self.library.beat_maps.get(path) else {
+            return json!({ "analysed": false, "bars": bars }).to_string();
+        };
+        let times = self
+            .arrangement()
+            .map(|a| map.bar_times(&quarters_per_bar(a)))
+            .unwrap_or_default();
+        let first = times.first().copied().unwrap_or(0.0);
+        json!({
+            "analysed": true,
+            "bpm": map.bpm,
+            "firstS": first,
+            "mapped": times.len(),
+            "bars": bars,
+            "text": self.tr("backing.aligned", &[
+                ("bpm", format!("{:.0}", map.bpm)),
+                ("first", format!("{first:.2}")),
+                ("mapped", times.len().to_string()),
+                ("bars", bars.to_string()),
+            ]),
+        })
+        .to_string()
     }
 
     /// Backing track of the loaded piece and its offset.
@@ -1588,6 +1966,242 @@ impl Core {
         })
     }
 
+    /// Folder of the bundled exercises (LH-BIB-08): installed share dir, else the repo's.
+    pub fn exercises_dir() -> PathBuf {
+        let installed = std::env::current_exe()
+            .ok()
+            .and_then(|e| e.parent().map(|p| p.join("../share/kontra/exercises")));
+        match installed {
+            Some(path) if path.is_dir() => path,
+            _ => PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/exercises"),
+        }
+    }
+
+    /// Bundled exercises by level: `[{"level": "1 Einstieg", "items": [{"title", "path", "best"}]}]`.
+    pub fn bundled_json(&self) -> String {
+        let mut levels: Vec<PathBuf> = std::fs::read_dir(Self::exercises_dir())
+            .map(|d| {
+                d.flatten()
+                    .map(|e| e.path())
+                    .filter(|p| p.is_dir())
+                    .collect()
+            })
+            .unwrap_or_default();
+        levels.sort();
+        let list: Vec<_> = levels
+            .iter()
+            .map(|dir| {
+                let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
+                    .map(|d| {
+                        d.flatten()
+                            .map(|e| e.path())
+                            .filter(|p| p.extension().is_some_and(|x| x == "mid"))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                files.sort();
+                let items: Vec<_> = files
+                    .iter()
+                    .map(|f| {
+                        let stem = f
+                            .file_stem()
+                            .map_or(String::new(), |s| s.to_string_lossy().into_owned());
+                        // "07 Dur-Tonleiter in G (60 BPM)": the number only sorts.
+                        let title = stem
+                            .split_once(' ')
+                            .map_or(stem.clone(), |(_, t)| t.to_string());
+                        let best = self.best_rate(f);
+                        json!({ "title": title, "path": f.to_string_lossy(), "best": best })
+                    })
+                    .collect();
+                let name = dir
+                    .file_name()
+                    .map_or(String::new(), |n| n.to_string_lossy().into_owned());
+                let level = name
+                    .split_once(' ')
+                    .map_or(name.clone(), |(_, l)| l.to_string());
+                json!({ "level": level, "items": items })
+            })
+            .collect();
+        json!(list).to_string()
+    }
+
+    /// Best hit rate (0..1) of a piece, or -1 when never played.
+    fn best_rate(&self, path: &Path) -> f64 {
+        self.library
+            .entry(path)
+            .and_then(|e| self.progress_store().load_id(&e.song_id))
+            .and_then(|p| p.best_hit_rate())
+            .unwrap_or(-1.0)
+    }
+
+    /// An exercise from the UI's choice: `kind` "scale" | "arpeggio" | "walking" | "groove",
+    /// `variant` the scale ("major", "minor", "majorpenta", "minorpenta", "blues") or the
+    /// progression ("tonic", "251", "blues", "minor"), `rhythm` for grooves.
+    pub fn exercise_spec(
+        kind: &str,
+        variant: &str,
+        rhythm: &str,
+        key: u8,
+        bpm: f64,
+    ) -> Option<exercise::ExerciseSpec> {
+        use exercise::{ExerciseKind, Progression, Rhythm, ScaleKind};
+        let progression = || match variant {
+            "tonic" => Some(Progression::Tonic),
+            "251" => Some(Progression::TwoFiveOne),
+            "blues" => Some(Progression::Blues),
+            "minor" => Some(Progression::Minor),
+            _ => None,
+        };
+        let kind = match kind {
+            "scale" => ExerciseKind::Scale(match variant {
+                "major" => ScaleKind::Major,
+                "minor" => ScaleKind::Minor,
+                "majorpenta" => ScaleKind::MajorPentatonic,
+                "minorpenta" => ScaleKind::MinorPentatonic,
+                "blues" => ScaleKind::Blues,
+                _ => return None,
+            }),
+            "arpeggio" => ExerciseKind::Arpeggio(progression()?),
+            "walking" => ExerciseKind::WalkingBass(progression()?),
+            "groove" => ExerciseKind::Groove(
+                progression()?,
+                match rhythm {
+                    "quarters" => Rhythm::Quarters,
+                    "eighths" => Rhythm::Eighths,
+                    "sixteenths" => Rhythm::Sixteenths,
+                    "rests" => Rhythm::WithRests,
+                    "shuffle" => Rhythm::Shuffle,
+                    "octaves" => Rhythm::Octaves,
+                    _ => return None,
+                },
+            ),
+            _ => return None,
+        };
+        Some(exercise::ExerciseSpec {
+            kind,
+            key: key % 12,
+            bpm: bpm.clamp(40.0, 200.0),
+            slow: false,
+            // Short patterns (scales, two-bar grooves) get more passes than a 12-bar blues.
+            repeats: if matches!(variant, "blues") { 1 } else { 2 },
+        })
+    }
+
+    /// Starts the fretboard quiz ("notes" or "intervals") and returns `quiz_json`.
+    pub fn quiz_start(&mut self, kind: &str) -> String {
+        let kind = match kind {
+            "intervals" => quiz::QuizKind::Intervals,
+            _ => quiz::QuizKind::Notes,
+        };
+        let seed = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(1, |d| d.as_nanos() as u64);
+        self.quiz = Some(quiz::Quiz::new(
+            kind,
+            &instrument_from(&self.settings),
+            seed,
+        ));
+        self.quiz_json()
+    }
+
+    /// Next question.
+    pub fn quiz_next(&mut self) -> String {
+        let instrument = instrument_from(&self.settings);
+        if let Some(q) = &mut self.quiz {
+            q.next(&instrument);
+        }
+        self.quiz_json()
+    }
+
+    /// Answers with a played pitch; true when it was the first right answer.
+    pub fn quiz_answer(&mut self, midi: f64) -> bool {
+        let instrument = instrument_from(&self.settings);
+        self.quiz
+            .as_mut()
+            .is_some_and(|q| q.answer(midi, &instrument))
+    }
+
+    /// The question in words, the score, and once solved where the answer lies:
+    /// `{"prompt", "right", "asked", "solved", "positions": [{string, fret, role}]}`.
+    pub fn quiz_json(&self) -> String {
+        let Some(q) = &self.quiz else {
+            return String::new();
+        };
+        let instrument = instrument_from(&self.settings);
+        let string_name = |s: usize| {
+            instrument
+                .tuning
+                .strings
+                .get(s)
+                .map_or(String::new(), |p| self.note_label(&p.name().to_string()))
+        };
+        let question = &q.question;
+        let prompt = match q.kind {
+            quiz::QuizKind::Notes => self.tr(
+                "quiz.notes.prompt",
+                &[
+                    ("note", self.note_label(&quiz::note_name(question.target))),
+                    ("string", string_name(question.string)),
+                ],
+            ),
+            quiz::QuizKind::Intervals => {
+                let (_, fret) = q.root_position(&instrument).unwrap_or((0, 0));
+                self.tr(
+                    "quiz.intervals.prompt",
+                    &[
+                        (
+                            "interval",
+                            self.tr(
+                                &format!("quiz.interval.{}", question.interval.unwrap_or("p5")),
+                                &[],
+                            ),
+                        ),
+                        (
+                            "note",
+                            self.note_label(&quiz::note_name(question.root.unwrap_or(0))),
+                        ),
+                        ("string", string_name(question.string)),
+                        ("fret", fret.to_string()),
+                    ],
+                )
+            }
+        };
+        let mut positions: Vec<serde_json::Value> = Vec::new();
+        if let Some((string, fret)) = q.root_position(&instrument) {
+            positions.push(json!({ "string": string, "fret": fret, "role": "root" }));
+        }
+        if q.solved {
+            positions.extend(q.positions(&instrument).into_iter().map(
+                |(string, fret)| json!({ "string": string, "fret": fret, "role": "current" }),
+            ));
+        }
+        json!({
+            "prompt": prompt,
+            "right": q.right,
+            "asked": q.asked,
+            "solved": q.solved,
+            "score": self.tr("quiz.score", &[("right", q.right.to_string()), ("asked", q.asked.to_string())]),
+            "positions": positions,
+        })
+        .to_string()
+    }
+
+    /// Writes a generated exercise (LH-LRN-04) into the data folder and returns its path.
+    pub fn generate_exercise(&mut self, spec: &exercise::ExerciseSpec) -> Result<PathBuf, String> {
+        let generated = exercise::generate(spec);
+        let dir = self.data_dir.join("exercises");
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let name: String = generated
+            .title
+            .chars()
+            .map(|c| if matches!(c, '/' | ':' | '#') { '-' } else { c })
+            .collect();
+        let path = dir.join(format!("{name}.mid"));
+        std::fs::write(&path, &generated.midi).map_err(|e| e.to_string())?;
+        Ok(path)
+    }
+
     /// Path of the bundled first exercise: next to the binary when installed, else in the repo.
     pub fn demo_path() -> PathBuf {
         let installed = std::env::current_exe().ok().and_then(|e| {
@@ -1606,9 +2220,14 @@ impl Core {
         } else {
             Direction::Output
         };
-        let list: Vec<_> = list_devices(direction)
-            .into_iter()
-            .map(|d| json!({ "id": d.id, "name": d.name, "default": d.is_default, "connection": format!("{:?}", d.connection) }))
+        let devices = list_devices(direction);
+        // Input: the one Kontra takes when none is chosen (LH-EIN-02).
+        let preferred = preferred_input(&devices)
+            .filter(|_| input)
+            .map(|d| d.id.clone());
+        let list: Vec<_> = devices
+            .iter()
+            .map(|d| json!({ "id": d.id, "name": d.name, "default": d.is_default, "connection": format!("{:?}", d.connection), "preferred": preferred.as_ref() == Some(&d.id) }))
             .collect();
         serde_json::Value::Array(list).to_string()
     }
@@ -1842,19 +2461,101 @@ fn split_rest(bar: u64, from: u64, to: u64, out: &mut Vec<(u64, u64)>) {
     }
 }
 
+/// Quarter notes per bar: the beats the tracker follows.
+fn quarters_per_bar(arrangement: &kontra_model::Arrangement) -> Vec<u32> {
+    arrangement
+        .bars
+        .iter()
+        .map(|b| {
+            let quarters = b.signature.bar_ticks() as f64 / kontra_model::TICKS_PER_QUARTER as f64;
+            quarters.round().max(1.0) as u32
+        })
+        .collect()
+}
+
+/// A tempo map that puts bar `i` at `times[i] - times[0]` seconds.
+fn tempo_from_bars(
+    arrangement: &kontra_model::Arrangement,
+    times: &[f64],
+) -> kontra_model::TempoMap {
+    let mut changes = Vec::new();
+    for (i, pair) in times.windows(2).enumerate() {
+        let (Some(bar), seconds) = (arrangement.bars.get(i), pair[1] - pair[0]) else {
+            continue;
+        };
+        if seconds <= 0.05 {
+            continue;
+        }
+        let quarters = bar.signature.bar_ticks() as f64 / kontra_model::TICKS_PER_QUARTER as f64;
+        changes.push(kontra_model::TempoChange {
+            tick: bar.start_ticks,
+            bpm: (quarters * 60.0 / seconds).clamp(20.0, 400.0),
+        });
+    }
+    if changes.is_empty() {
+        return arrangement.tempo.clone();
+    }
+    kontra_model::TempoMap::from_changes(changes)
+}
+
 fn instrument_from(settings: &Settings) -> kontra_model::Instrument {
-    let tuning = match settings.strings {
-        5 => kontra_model::Tuning::bass5_standard(),
-        6 => kontra_model::Tuning::bass6_standard(),
-        _ => kontra_model::Tuning::bass4_standard(),
-    };
     let kind = if settings.fretless {
         BassKind::Fretless
     } else {
         BassKind::Fretted
     };
-    kontra_model::Instrument::new(kind, tuning, 24)
-        .unwrap_or_else(|_| kontra_model::Instrument::default_bass())
+    let mut instrument = kontra_model::Instrument::new(kind, tuning_from(settings), 24)
+        .unwrap_or_else(|_| kontra_model::Instrument::default_bass());
+    instrument.a4_hz = settings.a4_hz.clamp(A4_MIN_HZ, A4_MAX_HZ);
+    instrument
+}
+
+/// The profile's tuning (LH-TUN-02): standard for the string count, changed as chosen. A custom
+/// tuning for another string count falls back to standard.
+fn tuning_from(settings: &Settings) -> Tuning {
+    let standard = match settings.strings {
+        5 => Tuning::bass5_standard(),
+        6 => Tuning::bass6_standard(),
+        _ => Tuning::bass4_standard(),
+    };
+    let chosen = match settings.tuning.as_str() {
+        "drop" => drop_lowest(&standard),
+        "half-down" => standard.shifted("half-down", -1),
+        "whole-down" => standard.shifted("whole-down", -2),
+        "custom" if settings.custom_tuning.len() == standard.string_count() => {
+            let names: Vec<&str> = settings.custom_tuning.iter().map(String::as_str).collect();
+            Tuning::from_names("custom", &names).ok()
+        }
+        _ => None,
+    };
+    chosen.unwrap_or(standard)
+}
+
+/// The lowest string a whole step down: E A D G → D A D G, B E A D G → A E A D G.
+fn drop_lowest(standard: &Tuning) -> Option<Tuning> {
+    let mut strings = standard.strings.clone();
+    let lowest = strings.first_mut()?;
+    *lowest = lowest.transposed(-2)?;
+    Some(Tuning {
+        name: "drop".into(),
+        strings,
+    })
+}
+
+/// Note names of a tuning's open strings, lowest first ("D1", "A1", …).
+fn names_of(tuning: &Tuning) -> Vec<String> {
+    tuning.strings.iter().map(ToString::to_string).collect()
+}
+
+/// LH-EIN-02: with no input chosen, an interface (USB) before the built-in card, the system's
+/// default first if it is one. `None`: no interface, the system decides.
+fn preferred_input(devices: &[DeviceInfo]) -> Option<&DeviceInfo> {
+    let usb = |d: &&DeviceInfo| d.connection == Connection::Usb;
+    devices
+        .iter()
+        .filter(usb)
+        .find(|d| d.is_default)
+        .or_else(|| devices.iter().find(usb))
 }
 
 /// Block length in ms if it is longer than 512 frames at 48 kHz (10.7 ms): beyond that the
@@ -1877,6 +2578,11 @@ fn gains(settings: &Settings) -> Gains {
 fn quantum_too_long_ms(frames: u32, rate: u32) -> Option<f64> {
     let ms = f64::from(frames) / f64::from(rate.max(1)) * 1000.0;
     (ms > 512.0 / 48.0 + 0.05).then_some(ms)
+}
+
+fn file_name(path: &Path) -> String {
+    path.file_name()
+        .map_or_else(String::new, |n| n.to_string_lossy().into())
 }
 
 fn unix_now() -> u64 {
@@ -2283,6 +2989,227 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// LH-LRN-04: a generated exercise is written to the data folder and opens like a piece.
+    #[test]
+    fn generated_exercise_opens() {
+        let dir = temp_dir("exercise");
+        let mut core = Core::new(&dir, QaOptions::default());
+        assert!(Core::exercise_spec("groove", "251", "nope", 0, 90.0).is_none());
+        let spec = Core::exercise_spec("walking", "blues", "", 5, 110.0).unwrap();
+        let path = core.generate_exercise(&spec).unwrap();
+        assert!(path.starts_with(dir.join("exercises")));
+        assert!(matches!(core.open(&path), Ok(Opened::Ready)));
+        let a = core.arrangement().unwrap();
+        assert_eq!(a.notes.len(), 48);
+        assert_eq!(a.markers[0].name, "F7");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-LRN-02: the quiz asks in words, counts a right answer once and then shows the places.
+    #[test]
+    fn quiz_asks_and_shows_the_answer() {
+        let dir = temp_dir("quiz");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_start("notes")).unwrap();
+        assert!(
+            q["prompt"].as_str().unwrap().contains("-Saite")
+                || q["prompt"].as_str().unwrap().contains("string")
+        );
+        assert_eq!(q["positions"].as_array().unwrap().len(), 0);
+        // Play every pitch of the neck until one answers.
+        let solved = (28..=55).any(|m| core.quiz_answer(f64::from(m)));
+        assert!(solved);
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_json()).unwrap();
+        assert_eq!(q["right"], 1);
+        assert!(!q["positions"].as_array().unwrap().is_empty());
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_next()).unwrap();
+        assert_eq!(
+            (q["asked"].as_u64(), q["solved"].as_bool()),
+            (Some(2), Some(false))
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-BIB-06: the beats of a backing track become the piece's tempo map and offset; bar 1
+    /// can be moved by a beat.
+    #[test]
+    fn backing_beats_set_the_tempo() {
+        let dir = temp_dir("beats");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        // Clicks at 105 BPM from 1.0 s: a band a little faster than the score's 100 BPM.
+        let rate = 44_100u32;
+        let mut audio = vec![0.0f32; rate as usize * 22];
+        let mut noise = 1u32;
+        for beat in 0..36 {
+            let start = ((1.0 + f64::from(beat) * 60.0 / 105.0) * f64::from(rate)) as usize;
+            for i in 0..1500 {
+                noise = noise.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let n = (noise >> 9) as f32 / (1u32 << 23) as f32 - 0.5;
+                if let Some(s) = audio.get_mut(start + i) {
+                    *s += n * (-(i as f32) / 600.0).exp();
+                }
+            }
+        }
+        let wav = dir.join("band.wav");
+        kontra_session::write_mono_wav(&wav, &audio, rate).unwrap();
+        core.set_backing(Some(wav), 0.0);
+        core.backing_analyse().unwrap();
+        let info: serde_json::Value = serde_json::from_str(&core.backing_json()).unwrap();
+        assert!(
+            (info["bpm"].as_f64().unwrap() - 105.0).abs() < 2.0,
+            "{info}"
+        );
+        assert!(
+            (info["firstS"].as_f64().unwrap() - 1.0).abs() < 0.02,
+            "{info}"
+        );
+        let bpm = core.arrangement().unwrap().tempo.bpm_at(0);
+        assert!((bpm - 105.0).abs() < 2.0, "tempo follows the band: {bpm}");
+        core.backing_adjust(1, 0.0, None).unwrap();
+        let info: serde_json::Value = serde_json::from_str(&core.backing_json()).unwrap();
+        assert!(
+            (info["firstS"].as_f64().unwrap() - (1.0 + 60.0 / 105.0)).abs() < 0.02,
+            "{info}"
+        );
+        core.backing_clear().unwrap();
+        assert_eq!(core.arrangement().unwrap().tempo.bpm_at(0), 100.0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-BIB-08: the bundled set lists four levels with at least 30 exercises.
+    #[test]
+    fn bundled_exercises_by_level() {
+        let dir = temp_dir("bundled");
+        let core = Core::new(&dir, QaOptions::default());
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let levels = levels.as_array().unwrap();
+        assert_eq!(levels.len(), 4);
+        assert_eq!(levels[0]["level"], "Einstieg");
+        let total: usize = levels
+            .iter()
+            .map(|l| l["items"].as_array().unwrap().len())
+            .sum();
+        assert!(total >= 30);
+        assert_eq!(levels[0]["items"][0]["best"], -1.0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    fn open_strings(core: &Core) -> Vec<String> {
+        let strings: Vec<serde_json::Value> = serde_json::from_str(&core.tuning_json()).unwrap();
+        strings
+            .iter()
+            .map(|s| s["full"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    /// LH-TUN-02: the presets for four and five strings, and a custom tuning that only fits its
+    /// string count.
+    #[test]
+    fn tunings_follow_the_settings() {
+        let names = |strings: u8, tuning: &str| {
+            let settings = Settings {
+                strings,
+                tuning: tuning.into(),
+                custom_tuning: vec!["C1".into(), "G1".into(), "C2".into(), "F2".into()],
+                ..Settings::default()
+            };
+            names_of(&tuning_from(&settings)).join(" ")
+        };
+        assert_eq!(names(4, "standard"), "E1 A1 D2 G2");
+        assert_eq!(names(4, "drop"), "D1 A1 D2 G2");
+        assert_eq!(names(5, "drop"), "A0 E1 A1 D2 G2");
+        assert_eq!(names(4, "half-down"), "D#1 G#1 C#2 F#2");
+        assert_eq!(names(4, "whole-down"), "D1 G1 C2 F2");
+        assert_eq!(names(4, "custom"), "C1 G1 C2 F2");
+        assert_eq!(names(5, "custom"), "B0 E1 A1 D2 G2");
+    }
+
+    /// LH-TUN-02 acceptance: a custom tuning is used by the tuner and for the tab of a MIDI file
+    /// (no tuning of its own), and survives a restart.
+    #[test]
+    fn custom_tuning_reaches_tuner_and_tab() {
+        let dir = temp_dir("custom-tuning");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        core.set_tuning("drop").unwrap();
+        assert_eq!(open_strings(&core), ["D1", "A1", "D2", "G2"]);
+        core.set_custom_string(3, 41).unwrap(); // G2 → F2
+        assert_eq!(core.settings().tuning, "custom");
+        assert_eq!(open_strings(&core), ["D1", "A1", "D2", "F2"]);
+
+        // Every note sits on a string and fret that sound its pitch in the new tuning.
+        let a = core.arrangement().unwrap();
+        assert_eq!(a.instrument.tuning.strings[3].0, 41);
+        for n in &a.notes {
+            let (string, fret) = (n.string.unwrap(), n.fret.unwrap());
+            assert_eq!(a.instrument.pitch_at(string, fret), Some(n.pitch));
+        }
+
+        let again = Core::new(&dir, QaOptions::default());
+        assert_eq!(open_strings(&again), ["D1", "A1", "D2", "F2"]);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-TUN-04: the reference pitch reaches the instrument the tuner and scoring listen with.
+    #[test]
+    fn reference_pitch_is_used() {
+        let dir = temp_dir("reference");
+        let mut core = Core::new(&dir, QaOptions::default());
+        assert_eq!(core.instrument().a4_hz, 440.0);
+        assert_eq!(core.set_reference(442.0).unwrap(), 442.0);
+        assert_eq!(core.instrument().a4_hz, 442.0);
+        core.open(&demo()).unwrap();
+        assert_eq!(core.arrangement().unwrap().instrument.a4_hz, 442.0);
+        assert_eq!(core.set_reference(470.0).unwrap(), 450.0);
+        assert_eq!(core.arrangement().unwrap().instrument.a4_hz, 450.0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-BEW-02: a free window in ms, kept within 20–150 ms.
+    #[test]
+    fn free_timing_window() {
+        let dir = temp_dir("window");
+        let mut core = Core::new(&dir, QaOptions::default());
+        assert_eq!(core.set_window(35.0), 35.0);
+        assert_eq!(core.settings().strictness, "custom");
+        let settings = core.score_settings(BassKind::Fretted);
+        assert_eq!(settings.strictness.window_ms(), 35.0);
+        assert_eq!(core.set_window(5.0), 20.0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-EIN-02: Scarlett Solo and the internal card → the interface, default or not.
+    #[test]
+    fn interface_before_internal_card() {
+        let device = |id: &str, connection: Connection, is_default: bool| DeviceInfo {
+            id: id.into(),
+            name: id.into(),
+            direction: Direction::Input,
+            is_default,
+            connection,
+            sample_rate: 48_000,
+            channels: 2,
+        };
+        let internal = device("hda", Connection::BuiltIn, true);
+        let scarlett = device("scarlett", Connection::Usb, false);
+        let list = [internal.clone(), scarlett.clone()];
+        assert_eq!(
+            preferred_input(&list).map(|d| d.id.as_str()),
+            Some("scarlett")
+        );
+
+        let usb_default = device("usb-default", Connection::Usb, true);
+        let list = [scarlett, internal.clone(), usb_default];
+        assert_eq!(
+            preferred_input(&list).map(|d| d.id.as_str()),
+            Some("usb-default")
+        );
+
+        let list = [internal, device("pipewire", Connection::Other, false)];
+        assert_eq!(preferred_input(&list), None);
+    }
+
     /// LH-FOR-01 / J-C1: recorded runs show up per piece and with their time for the day view.
     #[test]
     fn progress_lists_pieces_and_runs() {
@@ -2298,6 +3225,7 @@ mod tests {
                 hit_rate: rate,
                 mode: "song".into(),
                 section: None,
+                hardest_bars: Vec::new(),
             };
             core.progress_store().record(&a, run).unwrap();
         }
@@ -2407,6 +3335,7 @@ mod tests {
                 }
                 .into(),
                 section,
+                hardest_bars: Vec::new(),
             };
             core.progress_store().record(&a, run).unwrap();
         }
@@ -2474,6 +3403,176 @@ mod tests {
         let again = Core::new(&dir, QaOptions::default());
         assert!(again.setlists_json().contains("Freitag"));
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-FOR-03: an export loaded on a second profile gives the same state (replace), or adds
+    /// to an existing one without doubling runs (merge); a foreign file changes nothing.
+    #[test]
+    fn data_export_and_import() {
+        let dir = temp_dir("data");
+        let mut first = Core::new(&dir.join("a"), QaOptions::default());
+        first.update_settings(|s| s.language = Some("de".into()));
+        first.reconfigure(|s| s.strings = 5);
+        first.open(&demo()).unwrap();
+        first.setlist_create("Freitag");
+        first.setlist_add_loaded("Freitag");
+        let a = first.arrangement().unwrap().clone();
+        let run = kontra_session::Run {
+            finished_unix: 7,
+            practice_s: 300.0,
+            speed: 0.8,
+            hit_rate: 0.75,
+            mode: "song".into(),
+            section: None,
+            hardest_bars: Vec::new(),
+        };
+        first.progress_store().record(&a, run).unwrap();
+        let file = dir.join("sicherung.json");
+        let text = first.export_data(&file).unwrap();
+        assert!(
+            text.contains("1 Durchläufe") || text.contains("1 Durchl"),
+            "{text}"
+        );
+
+        let mut second = Core::new(&dir.join("b"), QaOptions::default());
+        let report = second.import_data(&file, DataImport::Replace).unwrap();
+        assert!(report.contains("sicherung.json"), "{report}");
+        assert_eq!(second.settings(), first.settings());
+        assert_eq!(second.setlists_json(), first.setlists_json());
+        assert_eq!(second.recent_json(), first.recent_json());
+        assert_eq!(second.progress_json(), first.progress_json());
+
+        // Merging the same file again adds nothing and keeps the own settings.
+        second.update_settings(|s| s.strings = 4);
+        let report = second.import_data(&file, DataImport::Merge).unwrap();
+        assert!(
+            report.contains("0 neue Stücke, 0 neue Setlisten, 0 neue Durchläufe"),
+            "{report}"
+        );
+        assert_eq!(second.settings().strings, 4);
+        assert_eq!(second.progress_json(), first.progress_json());
+
+        std::fs::write(&file, r#"{"format": "something else"}"#).unwrap();
+        assert!(second.import_data(&file, DataImport::Replace).is_err());
+        assert_eq!(second.progress_json(), first.progress_json());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-FOR-04: the report is one HTML file with Kante's styles inside, the piece's figures,
+    /// a chart and every run with its hardest bars.
+    #[test]
+    fn progress_report_is_self_contained() {
+        let dir = temp_dir("report");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&demo()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        for (unix, rate) in [(1_791_504_000, 0.7), (1_791_590_400, 0.95)] {
+            let run = kontra_session::Run {
+                finished_unix: unix,
+                practice_s: 600.0,
+                speed: 0.8,
+                hit_rate: rate,
+                mode: "workshop".into(),
+                section: None,
+                hardest_bars: vec![3, 7],
+            };
+            core.progress_store().record(&a, run).unwrap();
+        }
+        let p: serde_json::Value = serde_json::from_str(&core.progress_json()).unwrap();
+        let id = p["pieces"][0]["songId"].as_str().unwrap().to_string();
+        let file = dir.join("bericht.html");
+        let text = core.export_report(&id, &file).unwrap();
+        assert!(text.contains("bericht.html"), "{text}");
+        let html = std::fs::read_to_string(&file).unwrap();
+        assert!(html.starts_with("<!doctype html>"));
+        assert!(html.contains("Übungsbericht: Etude 1"));
+        assert!(html.contains("<svg class=\"chart\""));
+        assert!(html.contains("2026-10-10") && html.contains("Werkstatt") && html.contains("3, 7"));
+        assert!(html.contains("<b>20</b>"), "20 minutes");
+        assert!(
+            !html.contains("<link") && !html.contains("<script"),
+            "no outside files"
+        );
+        assert!(core.export_report("0000000000000000", &file).is_err());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-BIB-07 / J-D2: a piece shared as `.kontra` opens on a second profile with the same
+    /// notes, track, backing (only if embedded) and progress; opening it twice adds no runs.
+    #[test]
+    fn package_moves_a_piece_to_another_profile() {
+        let dir = temp_dir("package");
+        std::fs::create_dir_all(&dir).unwrap();
+        let backing = dir.join("song.wav");
+        kontra_session::write_mono_wav(&backing, &vec![0.0; 4_800], 48_000).unwrap();
+        let mut teacher = Core::new(&dir.join("thomas"), QaOptions::default());
+        teacher.open(&demo()).unwrap();
+        teacher.set_backing(Some(backing.clone()), 0.5);
+        let a = teacher.arrangement().unwrap().clone();
+        let run = kontra_session::Run {
+            finished_unix: 9,
+            practice_s: 120.0,
+            speed: 0.7,
+            hit_rate: 0.85,
+            mode: "workshop".into(),
+            section: None,
+            hardest_bars: vec![2],
+        };
+        teacher.progress_store().record(&a, run).unwrap();
+        let linked = dir.join("etude-link.kontra");
+        let embedded = dir.join("etude.kontra");
+        teacher
+            .export_package(&demo(), &linked, PackageAudio::Link)
+            .unwrap();
+        teacher
+            .export_package(&demo(), &embedded, PackageAudio::Embed)
+            .unwrap();
+        assert!(
+            std::fs::metadata(&embedded).unwrap().len() > std::fs::metadata(&linked).unwrap().len()
+        );
+
+        let mut student = Core::new(&dir.join("schueler"), QaOptions::default());
+        assert_eq!(student.open(&embedded).unwrap(), Opened::Ready);
+        assert_eq!(student.notes_json(), teacher.notes_json());
+        assert_eq!(student.bars_json(), teacher.bars_json());
+        assert_eq!(student.backing_name(), "song.wav");
+        assert!(student.take_notice().is_some());
+        let p: serde_json::Value = serde_json::from_str(&student.progress_json()).unwrap();
+        assert_eq!(p["pieces"][0]["runs"], 1);
+        student.open(&embedded).unwrap();
+        let p: serde_json::Value = serde_json::from_str(&student.progress_json()).unwrap();
+        assert_eq!(p["pieces"][0]["runs"], 1, "no doubled runs");
+
+        std::fs::write(&linked, b"PK\x03\x04 broken").unwrap();
+        assert!(student.open(&linked).is_err());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-NF-11: the licence list names Kontra (MIT) and only permissive crate licences.
+    #[test]
+    fn licence_list_is_complete_and_permissive() {
+        let core = Core::new(&temp_dir("licences"), QaOptions::default());
+        let list: serde_json::Value = serde_json::from_str(&core.licences_json()).unwrap();
+        let list = list.as_array().unwrap();
+        assert_eq!(list[0]["name"], "Kontra");
+        assert_eq!(list[0]["license"], "MIT");
+        assert!(list.iter().any(|c| c["name"] == "cpal"));
+        let permissive = [
+            "MIT",
+            "Apache-2.0",
+            "BSD",
+            "ISC",
+            "Zlib",
+            "Unlicense",
+            "0BSD",
+            "Unicode",
+        ];
+        for c in &list[3..] {
+            let licence = c["license"].as_str().unwrap();
+            assert!(permissive.iter().any(|p| licence.contains(p)), "{c}");
+            assert!(!licence.contains("GPL"), "{c}");
+        }
     }
 
     /// QA P2 (R9): another track of the file can be chosen after Kontra's own choice.
