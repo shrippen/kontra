@@ -32,6 +32,8 @@ pub enum Command {
     Tune(TuneArgs),
     /// Render a synthetic performance of a score (QA input files).
     Render(RenderArgs),
+    /// Endurance test (LH-NF-04): loop a score with time-stretched backing, count dropouts.
+    Soak(SoakArgs),
     /// Write the bundled exercises (one folder per level) as MIDI files.
     Exercises(ExercisesArgs),
 }
@@ -39,6 +41,25 @@ pub enum Command {
 #[derive(Debug, Args)]
 pub struct ExercisesArgs {
     pub dir: PathBuf,
+}
+
+#[derive(Debug, Args)]
+pub struct SoakArgs {
+    pub score: PathBuf,
+    #[arg(long, default_value_t = 60.0)]
+    pub minutes: f64,
+    /// Playback speed; anything but 1 time-stretches the backing.
+    #[arg(long, default_value_t = 0.8)]
+    pub speed: f64,
+    /// Backing track (default: a synthetic performance of the score).
+    #[arg(long)]
+    pub backing: Option<PathBuf>,
+    /// Output device id (see `devices`); `null` = a timer instead of a sound card.
+    #[arg(long, default_value = "null")]
+    pub output: String,
+    /// Fail when more dropouts than this are counted.
+    #[arg(long, default_value_t = 0)]
+    pub max_xruns: u64,
 }
 
 #[derive(Debug, Args)]

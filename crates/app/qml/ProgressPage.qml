@@ -1,5 +1,7 @@
 import QtQuick
+import QtCore
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import Kante
@@ -13,6 +15,8 @@ Kirigami.ScrollablePage {
     readonly property var texts: applicationWindow().texts
     property var data: ({ pieces: [], runs: [] })
     readonly property int dayCount: 14
+    // LH-FOR-04: the piece whose report is being saved.
+    property string reportSongId: ""
 
     // Minutes per local day, oldest first, the last entry is today.
     readonly property var days: {
@@ -40,6 +44,10 @@ Kirigami.ScrollablePage {
     readonly property int weekDays: lastWeek.filter(function(d) { return d.minutes > 0.5 }).length
 
     function reload() { data = JSON.parse(ctl.progressJson()) }
+    function dateText(unix) {
+        var date = new Date(unix * 1000)
+        return date.getDate() + "." + (date.getMonth() + 1) + "."
+    }
 
     background: Rectangle { color: KanteStyle.backgroundColor }
     title: texts.t("progress.title")
@@ -97,12 +105,26 @@ Kirigami.ScrollablePage {
                     required property var modelData
                     Layout.fillWidth: true
                     spacing: KanteStyle.unit(2)
-                    QQC2.Label {
+                    RowLayout {
                         Layout.fillWidth: true
-                        elide: Text.ElideRight
-                        text: modelData.title + (modelData.artist ? " · " + modelData.artist : "")
-                        color: KanteStyle.strongTextColor
-                        font.bold: true
+                        QQC2.Label {
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                            text: modelData.title + (modelData.artist ? " · " + modelData.artist : "")
+                            color: KanteStyle.strongTextColor
+                            font.bold: true
+                        }
+                        // LH-FOR-04: a report for the teacher, one HTML file.
+                        KanteButton {
+                            text: texts.t("report.export")
+                            emphasis: KanteButton.Emphasis.Quiet
+                            Accessible.name: texts.t("report.export.name", { title: modelData.title })
+                            onClicked: {
+                                page.reportSongId = modelData.songId
+                                reportDialog.currentFile = StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + "kontra-" + modelData.title.replace(/[^A-Za-z0-9äöüÄÖÜß-]+/g, "-") + ".html"
+                                reportDialog.open()
+                            }
+                        }
                     }
                     QQC2.Label {
                         Layout.fillWidth: true
@@ -115,9 +137,86 @@ Kirigami.ScrollablePage {
                             texts.t("progress.runs", { n: modelData.runs })
                         ].filter(function(s) { return s !== "" }).join(" · ")
                     }
+                    // Per section (LH-FOR-01): best hit rate, its tempo and its date.
+                    Repeater {
+                        model: modelData.sections
+                        delegate: QQC2.Label {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            color: KanteStyle.mutedTextColor
+                            text: texts.t("progress.section.best", {
+                                label: modelData.label,
+                                percent: Math.round(modelData.best * 100),
+                                speed: Math.round(modelData.speed * 100),
+                                date: page.dateText(modelData.unix)
+                            })
+                        }
+                    }
+                    // Workshop tempo over the last 30 days (LH-FOR-02), per section with two runs or more.
+                    Repeater {
+                        model: modelData.sections.filter(function(sec) { return sec.history.length > 1 })
+                        delegate: ColumnLayout {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            Layout.topMargin: KanteStyle.unit(8)
+                            spacing: KanteStyle.unit(4)
+                            QQC2.Label {
+                                text: texts.t("progress.history") + " · " + modelData.label
+                                color: KanteStyle.textColor
+                            }
+                            KanteLineChart {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: KanteStyle.unit(140)
+                                axis: true
+                                unit: "%"
+                                minValue: 0
+                                series: [
+                                    modelData.history.map(function(h) { return Math.round(h.speed * 100) }),
+                                    modelData.history.map(function(h) { return Math.round(h.hitRate * 100) })
+                                ]
+                                labels: modelData.history.map(function(h) { return page.dateText(h.unix) })
+                                Accessible.name: texts.t("progress.history") + " · " + modelData.label
+                                Accessible.description: modelData.history.map(function(h) {
+                                    return page.dateText(h.unix) + ": " + Math.round(h.speed * 100) + " %, " + Math.round(h.hitRate * 100) + " %"
+                                }).join("; ")
+                            }
+                            // x axis: first and last run; legend for the two lines.
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: KanteStyle.unit(12)
+                                QQC2.Label {
+                                    Layout.fillWidth: true
+                                    color: KanteStyle.mutedTextColor
+                                    text: texts.t("progress.history.axis", {
+                                        from: page.dateText(modelData.history[0].unix),
+                                        to: page.dateText(modelData.history[modelData.history.length - 1].unix)
+                                    })
+                                }
+                                Repeater {
+                                    model: ["progress.history.speed", "progress.history.rate"]
+                                    delegate: RowLayout {
+                                        required property int index
+                                        required property string modelData
+                                        spacing: KanteStyle.unit(4)
+                                        KanteSwatch { swatchColor: KanteStyle.dataColor(index); size: KanteSwatch.Size.Small }
+                                        QQC2.Label { text: texts.t(modelData); color: KanteStyle.textColor }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     Rectangle { Layout.fillWidth: true; Layout.topMargin: KanteStyle.unit(8); height: 1; color: KanteStyle.frameColor }
                 }
             }
         }
+    }
+
+    FileDialog {
+        id: reportDialog
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "html"
+        nameFilters: [texts.t("report.files") + " (*.html)"]
+        onAccepted: ctl.exportReport(page.reportSongId, selectedFile.toString())
     }
 }

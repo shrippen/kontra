@@ -4,10 +4,79 @@
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::fmt;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 use thiserror::Error;
 
 /// Largest block a callback receives at once; bigger device buffers are split.
 const MAX_BLOCK: usize = 8192;
+/// Output device id of a timer-driven output without sound (endurance tests, LH-NF-04).
+pub const NULL_DEVICE: &str = "kontra:null";
+/// The null output's block and rate: a typical PipeWire quantum.
+const NULL_BLOCK: usize = 256;
+const NULL_RATE: u32 = 48_000;
+const NULL_CHANNELS: u16 = 2;
+/// A callback this much later than one block after the previous one means the device ran dry
+/// (with the usual two periods of buffer); the slack absorbs scheduler jitter.
+const LATE_BLOCKS: f64 = 2.0;
+const LATE_SLACK: Duration = Duration::from_millis(2);
+
+/// Counts dropouts (LH-NF-04): xruns the audio backend reports and callbacks that came so
+/// late that the buffer must have run empty. Lives in the callback: no allocation, no lock.
+#[derive(Debug, Clone, Default)]
+struct XrunCounter {
+    count: Arc<AtomicU64>,
+}
+
+impl XrunCounter {
+    fn add(&self) {
+        self.count.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn get(&self) -> u64 {
+        self.count.load(Ordering::Relaxed)
+    }
+
+    /// Wraps the error callback: xruns are counted (the backend recovers by itself), route
+    /// changes and refused real-time priority are not errors; everything else is reported.
+    fn errors<E: FnMut(String)>(&self, mut on_error: E) -> impl FnMut(cpal::Error) {
+        let counter = self.clone();
+        move |e: cpal::Error| match e.kind() {
+            cpal::ErrorKind::Xrun => counter.add(),
+            cpal::ErrorKind::DeviceChanged | cpal::ErrorKind::RealtimeDenied => {}
+            _ => on_error(e.to_string()),
+        }
+    }
+}
+
+/// Measures the gap between callbacks against the previous block's length.
+#[derive(Debug)]
+struct LateCheck {
+    counter: XrunCounter,
+    last: Option<(Instant, Duration)>,
+}
+
+impl LateCheck {
+    fn new(counter: &XrunCounter) -> LateCheck {
+        LateCheck {
+            counter: counter.clone(),
+            last: None,
+        }
+    }
+
+    /// Call at the start of every callback with the block's length in frames.
+    fn block(&mut self, frames: usize, sample_rate: u32) {
+        let now = Instant::now();
+        if let Some((at, length)) = self.last {
+            if now.duration_since(at) > length.mul_f64(LATE_BLOCKS) + LATE_SLACK {
+                self.counter.add();
+            }
+        }
+        let length = Duration::from_secs_f64(frames as f64 / f64::from(sample_rate.max(1)));
+        self.last = Some((now, length));
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum AudioError {
@@ -171,6 +240,7 @@ fn stream_config(
 /// A running input stream; dropping it stops capture.
 pub struct InputStream {
     _stream: cpal::Stream,
+    xruns: XrunCounter,
     pub sample_rate: u32,
     pub channels: u16,
     pub device_name: String,
@@ -191,7 +261,7 @@ impl InputStream {
     pub fn open<F, E>(
         config: &StreamConfig,
         mut on_samples: F,
-        mut on_error: E,
+        on_error: E,
     ) -> Result<InputStream, AudioError>
     where
         F: FnMut(&[f32]) + Send + 'static,
@@ -205,7 +275,11 @@ impl InputStream {
             .map(usize::from)
             .filter(|c| *c < channels);
         let mut mono = vec![0.0f32; MAX_BLOCK];
+        let xruns = XrunCounter::default();
+        let mut late = LateCheck::new(&xruns);
+        let rate = stream_config.sample_rate;
         let callback = move |data: &[f32], _: &cpal::InputCallbackInfo| {
+            late.block(data.len() / channels, rate);
             for chunk in data.chunks(MAX_BLOCK * channels) {
                 let frames = chunk.len() / channels;
                 for (i, frame) in chunk.chunks_exact(channels).enumerate() {
@@ -218,16 +292,12 @@ impl InputStream {
             }
         };
         let stream = device
-            .build_input_stream(
-                stream_config,
-                callback,
-                move |e| on_error(e.to_string()),
-                None,
-            )
+            .build_input_stream(stream_config, callback, xruns.errors(on_error), None)
             .map_err(|e| device_error(&device, e))?;
         stream.play().map_err(|e| device_error(&device, e))?;
         Ok(InputStream {
             _stream: stream,
+            xruns,
             sample_rate: stream_config.sample_rate,
             channels: stream_config.channels,
             device_name: device
@@ -238,9 +308,39 @@ impl InputStream {
     }
 }
 
+impl InputStream {
+    /// Dropouts since the stream started (LH-NF-04).
+    pub fn xruns(&self) -> u64 {
+        self.xruns.get()
+    }
+}
+
+/// Where an output's callbacks come from.
+enum Backend {
+    /// Kept only so the stream lives as long as the `OutputStream`.
+    Device(#[allow(dead_code)] cpal::Stream),
+    /// A thread calling the fill function on a timer; stops when dropped.
+    Null {
+        stop: Arc<AtomicBool>,
+        thread: Option<std::thread::JoinHandle<()>>,
+    },
+}
+
+impl Drop for Backend {
+    fn drop(&mut self) {
+        if let Backend::Null { stop, thread } = self {
+            stop.store(true, Ordering::Relaxed);
+            if let Some(t) = thread.take() {
+                let _ = t.join();
+            }
+        }
+    }
+}
+
 /// A running output stream; dropping it stops playback.
 pub struct OutputStream {
-    _stream: cpal::Stream,
+    _stream: Backend,
+    xruns: XrunCounter,
     pub sample_rate: u32,
     pub channels: u16,
     pub device_name: String,
@@ -260,27 +360,32 @@ impl OutputStream {
     pub fn open<F, E>(
         config: &StreamConfig,
         mut fill: F,
-        mut on_error: E,
+        on_error: E,
     ) -> Result<OutputStream, AudioError>
     where
         F: FnMut(&mut [f32], usize) + Send + 'static,
         E: FnMut(String) + Send + 'static,
     {
+        if config.device_id.as_deref() == Some(NULL_DEVICE) {
+            return Ok(Self::open_null(fill));
+        }
         let device = find_device(Direction::Output, config.device_id.as_deref())?;
         let stream_config = stream_config(&device, Direction::Output, config)?;
         let channels = usize::from(stream_config.channels.max(1));
-        let callback = move |data: &mut [f32], _: &cpal::OutputCallbackInfo| fill(data, channels);
+        let xruns = XrunCounter::default();
+        let mut late = LateCheck::new(&xruns);
+        let rate = stream_config.sample_rate;
+        let callback = move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+            late.block(data.len() / channels, rate);
+            fill(data, channels);
+        };
         let stream = device
-            .build_output_stream(
-                stream_config,
-                callback,
-                move |e| on_error(e.to_string()),
-                None,
-            )
+            .build_output_stream(stream_config, callback, xruns.errors(on_error), None)
             .map_err(|e| device_error(&device, e))?;
         stream.play().map_err(|e| device_error(&device, e))?;
         Ok(OutputStream {
-            _stream: stream,
+            _stream: Backend::Device(stream),
+            xruns,
             sample_rate: stream_config.sample_rate,
             channels: stream_config.channels,
             device_name: device
@@ -288,6 +393,50 @@ impl OutputStream {
                 .map(|d| d.name().to_string())
                 .unwrap_or_default(),
         })
+    }
+
+    /// Output without a device: a thread asks for a block every block length, like a sound
+    /// card. A block that is ready later than its deadline counts as a dropout.
+    fn open_null<F>(mut fill: F) -> OutputStream
+    where
+        F: FnMut(&mut [f32], usize) + Send + 'static,
+    {
+        let xruns = XrunCounter::default();
+        let counter = xruns.clone();
+        let stop = Arc::new(AtomicBool::new(false));
+        let stop_thread = Arc::clone(&stop);
+        let channels = usize::from(NULL_CHANNELS);
+        let block = Duration::from_secs_f64(NULL_BLOCK as f64 / f64::from(NULL_RATE));
+        let thread = std::thread::spawn(move || {
+            let mut buffer = vec![0.0f32; NULL_BLOCK * channels];
+            let mut deadline = Instant::now() + block;
+            while !stop_thread.load(Ordering::Relaxed) {
+                fill(&mut buffer, channels);
+                let now = Instant::now();
+                if now > deadline + LATE_SLACK {
+                    counter.add();
+                    // Start over from now, as a device does after an xrun.
+                    deadline = now;
+                }
+                std::thread::sleep(deadline.saturating_duration_since(Instant::now()));
+                deadline += block;
+            }
+        });
+        OutputStream {
+            _stream: Backend::Null {
+                stop,
+                thread: Some(thread),
+            },
+            xruns,
+            sample_rate: NULL_RATE,
+            channels: NULL_CHANNELS,
+            device_name: NULL_DEVICE.to_string(),
+        }
+    }
+
+    /// Dropouts since the stream started (LH-NF-04).
+    pub fn xruns(&self) -> u64 {
+        self.xruns.get()
     }
 }
 
@@ -303,6 +452,44 @@ mod tests {
         );
         assert_eq!(guess_connection("Scarlett Solo USB"), Connection::Usb);
         assert_eq!(guess_connection("HDA Intel HDMI 0"), Connection::Hdmi);
+    }
+
+    #[test]
+    fn late_callbacks_count_as_xruns() {
+        let counter = XrunCounter::default();
+        let mut late = LateCheck::new(&counter);
+        // 480 frames at 48 kHz = 10 ms; 12 ms later is fine, 40 ms later is a dropout.
+        late.block(480, 48_000);
+        std::thread::sleep(Duration::from_millis(12));
+        late.block(480, 48_000);
+        assert_eq!(counter.get(), 0);
+        std::thread::sleep(Duration::from_millis(40));
+        late.block(480, 48_000);
+        assert_eq!(counter.get(), 1);
+    }
+
+    #[test]
+    fn null_output_runs_on_time() {
+        let blocks = Arc::new(AtomicU64::new(0));
+        let seen = Arc::clone(&blocks);
+        let config = StreamConfig {
+            device_id: Some(NULL_DEVICE.into()),
+            ..StreamConfig::default()
+        };
+        let stream = OutputStream::open(
+            &config,
+            move |data: &mut [f32], _| {
+                data.fill(0.0);
+                seen.fetch_add(1, Ordering::Relaxed);
+            },
+            |_| {},
+        )
+        .unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+        drop(stream);
+        // 200 ms in 5.3 ms blocks: about 37.
+        let n = blocks.load(Ordering::Relaxed);
+        assert!((25..=45).contains(&n), "{n}");
     }
 
     #[test]

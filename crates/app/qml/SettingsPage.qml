@@ -1,5 +1,7 @@
 import QtQuick
+import QtCore
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import Kante
@@ -13,6 +15,8 @@ Kirigami.ScrollablePage {
     readonly property var inputs: JSON.parse(ctl.inputDevicesJson)
     readonly property var outputs: JSON.parse(ctl.outputDevicesJson)
     readonly property var styles: ["kante", "kante-light", "system"]
+    // LH-FOR-03: how a loaded backup is taken over.
+    property string dataHow: "merge"
 
     // Kirigami pages paint the platform background; Kante's ground replaces it.
     background: Rectangle { color: KanteStyle.backgroundColor }
@@ -24,6 +28,7 @@ Kirigami.ScrollablePage {
         if (ctl.showMixer) {
             Qt.callLater(function() { page.flickable.contentY = mixerLabel.y })
         }
+        sectionTimer.running = ctl.startSection !== ""
     }
 
     // LH-EIN-02: what "automatic" means right now (an interface before the built-in card).
@@ -54,7 +59,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.input")
             hint: page.inputs.length === 0 ? texts.t("settings.input.none") : ""
-            QQC2.ComboBox {
+            KanteComboBox {
                 Accessible.name: texts.t("settings.input")
                 Layout.fillWidth: true
                 Layout.preferredWidth: KanteStyle.unit(280)
@@ -66,7 +71,7 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.output")
-            QQC2.ComboBox {
+            KanteComboBox {
                 Accessible.name: texts.t("settings.output")
                 Layout.fillWidth: true
                 Layout.preferredWidth: KanteStyle.unit(280)
@@ -117,7 +122,7 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.fretless")
-            QQC2.Switch {
+            KanteSwitch {
                 Accessible.name: texts.t("settings.fretless")
                 checked: ctl.fretless
                 onToggled: ctl.changeInstrument(ctl.strings, checked, ctl.laptopJack)
@@ -127,7 +132,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.lowtop")
             hint: texts.t("settings.lowtop.hint")
-            QQC2.Switch {
+            KanteSwitch {
                 Accessible.name: texts.t("settings.lowtop")
                 checked: ctl.lowStringOnTop
                 onToggled: ctl.changeOptions(ctl.metronome, ctl.reference, checked)
@@ -137,7 +142,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.lefthanded")
             hint: texts.t("settings.lefthanded.hint")
-            QQC2.Switch {
+            KanteSwitch {
                 Accessible.name: texts.t("settings.lefthanded")
                 checked: ctl.leftHanded
                 onToggled: ctl.changeLeftHanded(checked)
@@ -247,7 +252,7 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("transport.metronome")
-            QQC2.Switch {
+            KanteSwitch {
                 Accessible.name: texts.t("transport.metronome")
                 checked: ctl.metronome
                 onToggled: ctl.changeOptions(checked, ctl.reference, ctl.lowStringOnTop)
@@ -256,10 +261,20 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("transport.reference")
-            QQC2.Switch {
+            KanteSwitch {
                 Accessible.name: texts.t("transport.reference")
                 checked: ctl.reference
                 onToggled: ctl.changeOptions(ctl.metronome, checked, ctl.lowStringOnTop)
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            title: texts.t("settings.adaptive")
+            hint: texts.t("settings.adaptive.hint")
+            KanteSwitch {
+                Accessible.name: texts.t("settings.adaptive")
+                checked: ctl.adaptive
+                onToggled: ctl.changeAdaptive(checked)
             }
         }
         KanteSectionLabel { id: mixerLabel; text: texts.t("mixer.title"); Layout.topMargin: KanteStyle.unit(12) }
@@ -313,6 +328,87 @@ Kirigami.ScrollablePage {
             }
         }
 
+        // LH-FOR-03: all user data as one open JSON file (backup, second computer).
+        KanteSectionLabel { id: dataLabel; text: texts.t("data.title"); Layout.topMargin: KanteStyle.unit(12) }
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: KanteStyle.mutedTextColor
+            text: texts.t("data.hint")
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            title: texts.t("data.import.how")
+            hint: page.dataHow === "replace" ? texts.t("data.replace.hint") : texts.t("data.merge.hint")
+            KanteSegmented {
+                Accessible.name: texts.t("data.import.how")
+                readonly property var values: ["merge", "replace"]
+                model: [texts.t("data.merge"), texts.t("data.replace")]
+                currentIndex: Math.max(0, values.indexOf(page.dataHow))
+                onActivated: function(index) { page.dataHow = values[index] }
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            KanteButton {
+                text: texts.t("data.export")
+                Accessible.name: texts.t("data.export")
+                onClicked: exportDialog.open()
+            }
+            KanteButton {
+                text: texts.t("data.import")
+                Accessible.name: texts.t("data.import")
+                onClicked: importDialog.open()
+            }
+        }
+
+        // LH-NF-04: audio dropouts since the start, for bug reports.
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: KanteStyle.mutedTextColor
+            font: KanteStyle.monoFont(KanteStyle.defaultFont.pointSize, false)
+            text: texts.t("settings.xruns", { n: ctl.xruns })
+            Accessible.name: text
+        }
+
+        // LH-NF-11: Kontra's licence and every library inside it.
+        KanteSectionLabel { id: aboutLabel; text: texts.t("about.title"); Layout.topMargin: KanteStyle.unit(12) }
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: KanteStyle.textColor
+            text: texts.t("about.text")
+        }
+        GridLayout {
+            Layout.fillWidth: true
+            columns: 2
+            columnSpacing: KanteStyle.unit(16)
+            rowSpacing: KanteStyle.unit(2)
+            Accessible.name: texts.t("about.title")
+            Repeater {
+                model: JSON.parse(ctl.licencesJson())
+                delegate: RowLayout {
+                    required property var modelData
+                    Layout.columnSpan: 2
+                    spacing: KanteStyle.unit(16)
+                    QQC2.Label {
+                        Layout.preferredWidth: KanteStyle.unit(220)
+                        elide: Text.ElideRight
+                        text: modelData.name + (modelData.version !== "" ? " " + modelData.version : "")
+                        font: KanteStyle.monoFont(KanteStyle.defaultFont.pointSize, false)
+                        color: KanteStyle.strongTextColor
+                    }
+                    QQC2.Label {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: modelData.license
+                        color: KanteStyle.textColor
+                    }
+                }
+            }
+        }
+
         // All keyboard shortcuts in one place (LH-NF-07).
         KanteSectionLabel { text: texts.t("keys.title"); Layout.topMargin: KanteStyle.unit(12) }
         GridLayout {
@@ -322,7 +418,8 @@ Kirigami.ScrollablePage {
             rowSpacing: KanteStyle.unit(4)
             Repeater {
                 model: [
-                    ["Space / K", "keys.play"], ["Pos1 / Home", "keys.rewind"], ["L", "keys.loop"],
+                    ["Space / K / PgDn", "keys.play"], ["Pos1 / Home / PgUp", "keys.rewind"], ["L", "keys.loop"],
+                    ["[ / ,", "keys.loopstart"], ["] / .", "keys.loopend"],
                     ["M", "keys.metronome"], ["C", "keys.countin"], ["X", "keys.mixer"], ["+ / −", "keys.speed"],
                     ["N", "keys.next"], ["1–4", "keys.mode"], ["Alt+1–4", "keys.view"], ["Ctrl+1–6", "keys.pages"]
                 ]
@@ -330,7 +427,7 @@ Kirigami.ScrollablePage {
                     Layout.columnSpan: 2
                     spacing: KanteStyle.unit(16)
                     QQC2.Label {
-                        Layout.preferredWidth: KanteStyle.unit(110)
+                        Layout.preferredWidth: KanteStyle.unit(150)
                         text: modelData[0]
                         font: KanteStyle.monoFont(KanteStyle.defaultFont.pointSize, false)
                         color: KanteStyle.strongTextColor
@@ -344,5 +441,38 @@ Kirigami.ScrollablePage {
                 }
             }
         }
+        // Foot switch (LH-MOD-07): any pedal that types keys works, no driver needed.
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            text: texts.t("keys.footswitch")
+            color: KanteStyle.mutedTextColor
+        }
+    }
+
+    // QA `--section data|about`: screenshots of the lower sections, once the layout settled.
+    Timer {
+        id: sectionTimer
+        interval: 500
+        onTriggered: {
+            var target = ({ data: dataLabel, about: aboutLabel })[ctl.startSection]
+            if (target) {
+                page.flickable.contentY = target.mapToItem(page.flickable.contentItem, 0, 0).y
+            }
+        }
+    }
+
+    FileDialog {
+        id: exportDialog
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "json"
+        currentFile: StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + "kontra-daten.json"
+        nameFilters: [texts.t("data.files") + " (*.json)"]
+        onAccepted: ctl.exportData(selectedFile.toString())
+    }
+    FileDialog {
+        id: importDialog
+        nameFilters: [texts.t("data.files") + " (*.json)"]
+        onAccepted: ctl.importData(selectedFile.toString(), page.dataHow)
     }
 }

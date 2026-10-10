@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Shapes
 import org.kde.kirigami as Kirigami
 import "."
 
@@ -7,6 +8,9 @@ import "."
  * combo box, text area): place inside the control. Hides the style's
  * background and draws a square sunken box with a 2 px bottom edge that
  * turns cyan on focus. Nothing in the System style.
+ *
+ * The open list of a combo box stays the style's here; KanteComboBox (1.27) is a combo
+ * box with this skin whose list is Kante too.
  */
 Item {
     id: skin
@@ -55,8 +59,9 @@ Item {
 
     Text {
         visible: KanteStyle.themed && skin.comboBox && skin.control.contentItem !== null
-        x: skin.control && skin.control.contentItem ? skin.control.contentItem.x + (skin.control.contentItem.leftPadding || 0) : 0
-        width: skin.control && skin.control.contentItem ? skin.control.contentItem.width - (skin.control.contentItem.leftPadding || 0) : 0
+        // At least 8 px in from the frame (some styles put the text flush to it), clear of the arrow.
+        x: Math.max(KanteStyle.unit(8), skin.control && skin.control.contentItem ? skin.control.contentItem.x + (skin.control.contentItem.leftPadding || 0) : 0)
+        width: Math.max(0, skin.width - x - KanteStyle.unit(30))
         anchors.verticalCenter: parent.verticalCenter
         text: skin.comboBox ? skin.control.displayText : ""
         font: skin.control ? skin.control.font : KanteStyle.defaultFont
@@ -66,16 +71,26 @@ Item {
 
     // The style's arrow lives in the indicator or, with desktop styles, in the
     // hidden background: hide the indicator and always draw one.
-    Kirigami.Icon {
+    // Drawn, not an icon: an app without an icon theme (offscreen, Android) showed none (1.27).
+    Shape {
+        id: arrow
         visible: KanteStyle.themed && skin.comboBox
-        width: Kirigami.Units.iconSizes.small
-        height: width
+        width: KanteStyle.unit(10)
+        height: KanteStyle.unit(6)
         anchors.right: parent.right
-        anchors.rightMargin: Kirigami.Units.smallSpacing
+        anchors.rightMargin: KanteStyle.unit(12)
         anchors.verticalCenter: parent.verticalCenter
-        source: "arrow-down"
-        isMask: true
-        color: KanteStyle.mutedTextColor
+        antialiasing: true
+        ShapePath {
+            strokeColor: skin.control && skin.control.popup && skin.control.popup.visible ? KanteStyle.focusColor : KanteStyle.mutedTextColor
+            strokeWidth: Math.max(1.5, KanteStyle.unit(2))
+            fillColor: "transparent"
+            capStyle: ShapePath.SquareCap
+            joinStyle: ShapePath.MiterJoin
+            startX: 0; startY: 0
+            PathLine { x: arrow.width / 2; y: arrow.height }
+            PathLine { x: arrow.width; y: 0 }
+        }
     }
 
     Binding {

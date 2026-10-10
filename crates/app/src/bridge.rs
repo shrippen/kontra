@@ -93,10 +93,20 @@ pub mod qobject {
         #[qproperty(f64, drums_volume, cxx_name = "drumsVolume")]
         #[qproperty(bool, monitor)]
         #[qproperty(f64, monitor_volume, cxx_name = "monitorVolume")]
+        /// Note density of the current section, 1..=3 (LH-MOD-06), and whether it is fixed.
+        #[qproperty(i32, density)]
+        #[qproperty(bool, density_fixed, cxx_name = "densityFixed")]
+        /// Suggested density after a run (0: none) and the question to show.
+        #[qproperty(i32, density_suggestion, cxx_name = "densitySuggestion")]
+        #[qproperty(QString, density_text, cxx_name = "densityText")]
+        #[qproperty(bool, adaptive)]
         #[qproperty(bool, calibrating)]
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
         #[qproperty(QString, backing_name, cxx_name = "backingName")]
         #[qproperty(QString, message)]
+        #[qproperty(i32, xruns)]
+        #[qproperty(QString, offer_input, cxx_name = "offerInput")]
+        #[qproperty(QString, offer_text, cxx_name = "offerText")]
         #[qproperty(QString, error_text, cxx_name = "errorText")]
         #[qproperty(QString, start_page, cxx_name = "startPage")]
         #[qproperty(bool, setup_done, cxx_name = "setupDone")]
@@ -104,6 +114,9 @@ pub mod qobject {
         #[qproperty(bool, autocalibrate)]
         /// QA: practice and settings show the mixer from the start.
         #[qproperty(bool, show_mixer, cxx_name = "showMixer")]
+        /// QA: the settings section to scroll to ("data", "about").
+        #[qproperty(QString, start_section, cxx_name = "startSection")]
+        #[qproperty(bool, show_align, cxx_name = "showAlign")]
         /// QA: bars to loop at start, 1-based "from-to" ("" = none).
         #[qproperty(QString, start_loop, cxx_name = "startLoop")]
         #[qproperty(QString, screenshot_path, cxx_name = "screenshotPath")]
@@ -158,6 +171,26 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "clearLoop"]
         fn clear_loop(self: Pin<&mut Self>);
+
+        /// Note density 1..=3 for the current section; `lock` "fixed" stops suggestions.
+        #[qinvokable]
+        #[cxx_name = "changeDensity"]
+        fn change_density(self: Pin<&mut Self>, level: i32, lock: &QString);
+
+        /// Dismisses the density suggestion.
+        #[qinvokable]
+        #[cxx_name = "declineDensity"]
+        fn decline_density(self: Pin<&mut Self>);
+
+        /// Density suggestions on or off.
+        #[qinvokable]
+        #[cxx_name = "changeAdaptive"]
+        fn change_adaptive(self: Pin<&mut Self>, on: bool);
+
+        /// Sets the loop's "start" or "end" to the bar at the current position (LH-MOD-07).
+        #[qinvokable]
+        #[cxx_name = "loopEdge"]
+        fn loop_edge(self: Pin<&mut Self>, edge: &QString);
 
         /// Polls audio and session; QML calls it from a 16 ms timer.
         #[qinvokable]
@@ -235,6 +268,16 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "openNext"]
         fn open_next(self: Pin<&mut Self>) -> bool;
+
+        /// Sets a library piece's tags from a JSON list of strings (LH-BIB-04).
+        #[qinvokable]
+        #[cxx_name = "setTags"]
+        fn set_tags(self: Pin<&mut Self>, path: &QString, tags_json: &QString);
+
+        /// Every tag in the library as a JSON list, for suggestions.
+        #[qinvokable]
+        #[cxx_name = "tagsJson"]
+        fn tags_json(self: &Self) -> QString;
 
         /// Progress over all pieces as JSON (LH-FOR-01), read when the page opens.
         #[qinvokable]
@@ -354,14 +397,68 @@ pub mod qobject {
         #[cxx_name = "quizJson"]
         fn quiz_json(self: &Self) -> QString;
 
+        /// Backing-track beat map (LH-BIB-06); see `Core::backing_json`.
+        #[qinvokable]
+        #[cxx_name = "backingJson"]
+        fn backing_json(self: &Self) -> QString;
+
+        #[qinvokable]
+        #[cxx_name = "backingAnalyse"]
+        fn backing_analyse(self: Pin<&mut Self>);
+
+        /// Bar 1 by `downbeat` beats, all bars by `shift_ms`, bar `bar` (>= 0) by `bar_ms`.
+        #[qinvokable]
+        #[cxx_name = "backingAdjust"]
+        fn backing_adjust(
+            self: Pin<&mut Self>,
+            downbeat: i32,
+            shift_ms: f64,
+            bar: i32,
+            bar_ms: f64,
+        );
+
+        #[qinvokable]
+        #[cxx_name = "backingClear"]
+        fn backing_clear(self: Pin<&mut Self>);
+
         /// Opens the bundled first exercise.
         #[qinvokable]
         #[cxx_name = "openDemo"]
         fn open_demo(self: Pin<&mut Self>) -> bool;
 
+        /// All user data as one JSON file (LH-FOR-03).
+        #[qinvokable]
+        #[cxx_name = "exportData"]
+        fn export_data(self: Pin<&mut Self>, url: &QString);
+
+        /// Loads a data file; `how` is "merge" or "replace".
+        #[qinvokable]
+        #[cxx_name = "importData"]
+        fn import_data(self: Pin<&mut Self>, url: &QString, how: &QString);
+
+        /// Progress report of one piece as HTML (LH-FOR-04).
+        #[qinvokable]
+        #[cxx_name = "exportReport"]
+        fn export_report(self: Pin<&mut Self>, song_id: &QString, url: &QString);
+
+        /// Shares a library piece as `.kontra` (LH-BIB-07); `audio` is "embed" or "link".
+        #[qinvokable]
+        #[cxx_name = "exportPackage"]
+        fn export_package(self: Pin<&mut Self>, piece: &QString, url: &QString, audio: &QString);
+
+        /// Licences for the About section (LH-NF-11).
+        #[qinvokable]
+        #[cxx_name = "licencesJson"]
+        fn licences_json(self: &Self) -> QString;
+
         #[qinvokable]
         #[cxx_name = "dismissMessage"]
         fn dismiss_message(self: Pin<&mut Self>);
+
+        /// Takes the input offered after a device was lost (LH-ALL-04).
+        #[qinvokable]
+        #[cxx_name = "useOfferedInput"]
+        fn use_offered_input(self: Pin<&mut Self>);
 
         #[qsignal]
         #[cxx_name = "noteJudged"]
@@ -395,7 +492,10 @@ use crate::args::AppArgs;
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
-use kontra_appcore::{data_dir, Core, Opened, QaOptions, UiEvent};
+use kontra_appcore::{
+    data_dir, Core, DataImport, Density, DensityLock, LoopEdge, Opened, PackageAudio, QaOptions,
+    UiEvent,
+};
 use std::path::PathBuf;
 
 pub struct ControllerRust {
@@ -468,16 +568,26 @@ pub struct ControllerRust {
     drums_volume: f64,
     monitor: bool,
     monitor_volume: f64,
+    density: i32,
+    density_fixed: bool,
+    density_suggestion: i32,
+    density_text: QString,
+    adaptive: bool,
     calibrating: bool,
     calibration_text: QString,
     backing_name: QString,
     message: QString,
+    xruns: i32,
+    offer_input: QString,
+    offer_text: QString,
     error_text: QString,
     start_page: QString,
     setup_done: bool,
     autoplay: bool,
     autocalibrate: bool,
     show_mixer: bool,
+    start_section: QString,
+    show_align: bool,
     start_loop: QString,
     screenshot_path: QString,
     screenshot_after: i32,
@@ -578,16 +688,26 @@ impl Default for ControllerRust {
             drums_volume: s.drums_volume,
             monitor: s.monitor,
             monitor_volume: s.monitor_volume,
+            density: 3,
+            density_fixed: false,
+            density_suggestion: 0,
+            density_text: QString::default(),
+            adaptive: s.adaptive,
             calibrating: false,
             calibration_text: QString::default(),
             backing_name: QString::default(),
             message: QString::default(),
+            xruns: 0,
+            offer_input: QString::default(),
+            offer_text: QString::default(),
             error_text: QString::default(),
             start_page: q(args.page.as_deref().unwrap_or("")),
             setup_done: s.setup_done,
             autoplay: args.autoplay,
             autocalibrate: args.calibrate,
             show_mixer: args.mixer,
+            start_section: q(args.section.as_deref().unwrap_or("")),
+            show_align: args.align,
             start_loop: q(&args
                 .loop_bars
                 .map(|(a, b)| format!("{a}-{b}"))
@@ -636,6 +756,9 @@ impl ControllerRust {
                 self.backing_name = q(&self.core.backing_name());
                 self.view = q(&self.core.view());
                 self.tracks_json = q(&self.core.tracks_json());
+                let (density, lock) = self.core.density();
+                self.density = i32::from(density.level());
+                self.density_fixed = lock == DensityLock::Fixed;
                 if let Some(notice) = self.core.take_notice() {
                     self.message = q(&notice);
                 }
@@ -708,7 +831,40 @@ impl qobject::Controller {
         self.as_mut().set_position(0.0);
         self.as_mut().set_summary_json(QString::default());
         self.as_mut().set_holding_index(-1);
+        self.as_mut().refresh_density();
         self.as_mut().arrangement_loaded();
+    }
+
+    /// Density of the current section; a pending suggestion goes (it was for another one).
+    fn refresh_density(mut self: Pin<&mut Self>) {
+        let (density, lock) = self.as_ref().rust().core.density();
+        self.as_mut().set_density(i32::from(density.level()));
+        self.as_mut().set_density_fixed(lock == DensityLock::Fixed);
+        self.as_mut().set_density_suggestion(0);
+    }
+
+    fn change_density(mut self: Pin<&mut Self>, level: i32, lock: &QString) {
+        let density = Density::from_level(u8::try_from(level.clamp(1, 3)).unwrap_or(3));
+        let lock = if lock.to_string() == "fixed" {
+            DensityLock::Fixed
+        } else {
+            DensityLock::Free
+        };
+        self.as_mut().core().set_density(density, lock);
+        self.as_mut().set_playing(false);
+        self.as_mut().refresh_arrangement();
+    }
+
+    fn decline_density(mut self: Pin<&mut Self>) {
+        self.as_mut().set_density_suggestion(0);
+    }
+
+    fn change_adaptive(mut self: Pin<&mut Self>, on: bool) {
+        self.as_mut().core().update_settings(|s| s.adaptive = on);
+        self.as_mut().set_adaptive(on);
+        if !on {
+            self.as_mut().set_density_suggestion(0);
+        }
     }
 
     fn show_error(mut self: Pin<&mut Self>, text: &str) {
@@ -766,9 +922,9 @@ impl qobject::Controller {
     }
 
     fn rewind(mut self: Pin<&mut Self>) {
-        self.as_mut().core().stop_live();
+        let start = self.as_mut().core().rewind();
         self.as_mut().set_playing(false);
-        self.as_mut().set_position(0.0);
+        self.as_mut().set_position(start);
         self.as_mut().set_summary_json(QString::default());
         self.as_mut().set_holding_index(-1);
         self.as_mut().arrangement_loaded();
@@ -817,7 +973,30 @@ impl qobject::Controller {
     fn loop_bars(mut self: Pin<&mut Self>, from: i32, to: i32) {
         let from = usize::try_from(from).unwrap_or(0);
         let to = usize::try_from(to).unwrap_or(0);
-        self.as_mut().core().set_loop(from, to);
+        let changed = self.as_mut().core().set_loop(from, to);
+        if changed {
+            self.as_mut().set_playing(false);
+            self.as_mut().refresh_arrangement();
+        }
+        self.as_mut().refresh_density();
+        self.as_mut().reset_passes();
+        let (start, end) = self.as_ref().rust().core.loop_seconds();
+        self.as_mut().set_loop_start(start);
+        self.as_mut().set_loop_end(end);
+    }
+
+    fn loop_edge(mut self: Pin<&mut Self>, edge: &QString) {
+        let edge = match edge.to_string().as_str() {
+            "start" => LoopEdge::Start,
+            "end" => LoopEdge::End,
+            _ => return,
+        };
+        let position = *self.as_ref().position();
+        if self.as_mut().core().set_loop_edge(edge, position) {
+            self.as_mut().set_playing(false);
+            self.as_mut().refresh_arrangement();
+        }
+        self.as_mut().refresh_density();
         self.as_mut().reset_passes();
         let (start, end) = self.as_ref().rust().core.loop_seconds();
         self.as_mut().set_loop_start(start);
@@ -831,7 +1010,11 @@ impl qobject::Controller {
 
     fn clear_loop(mut self: Pin<&mut Self>) {
         self.as_mut().reset_passes();
-        self.as_mut().core().clear_loop();
+        if self.as_mut().core().clear_loop() {
+            self.as_mut().set_playing(false);
+            self.as_mut().refresh_arrangement();
+        }
+        self.as_mut().refresh_density();
         self.as_mut().set_loop_start(-1.0);
         self.as_mut().set_loop_end(-1.0);
     }
@@ -849,6 +1032,10 @@ impl qobject::Controller {
         }
         if playing != *self.as_ref().playing() {
             self.as_mut().set_playing(playing);
+        }
+        let xruns = i32::try_from(self.as_ref().rust().core.xruns()).unwrap_or(i32::MAX);
+        if xruns != *self.as_ref().xruns() {
+            self.as_mut().set_xruns(xruns);
         }
     }
 
@@ -903,10 +1090,25 @@ impl qobject::Controller {
                 }
                 UiEvent::Message(text) => self.as_mut().set_message(q(&text)),
                 UiEvent::Error(text) => self.as_mut().show_error(&text),
+                UiEvent::InputOffer { id, text } => {
+                    self.as_mut().set_offer_input(q(&id));
+                    self.as_mut().set_offer_text(q(&text));
+                }
+                UiEvent::InputBack(text) => {
+                    self.as_mut().set_offer_input(QString::default());
+                    self.as_mut().set_offer_text(QString::default());
+                    self.as_mut().set_error_text(QString::default());
+                    self.as_mut().set_playing(false);
+                    self.as_mut().set_message(q(&text));
+                }
                 UiEvent::DeviceLost(text) => {
                     self.as_mut().set_playing(false);
                     self.as_mut().set_tuner_active(false);
                     self.as_mut().show_error(&text);
+                }
+                UiEvent::DensitySuggestion { level, text } => {
+                    self.as_mut().set_density_suggestion(i32::from(level));
+                    self.as_mut().set_density_text(q(&text));
                 }
                 UiEvent::Calibrated { latency_ms, text } => {
                     if let Some(latency) = latency_ms {
@@ -1176,6 +1378,23 @@ impl qobject::Controller {
         ready
     }
 
+    fn set_tags(mut self: Pin<&mut Self>, path: &QString, tags_json: &QString) {
+        let tags: Vec<String> = serde_json::from_str(&tags_json.to_string()).unwrap_or_default();
+        self.as_mut()
+            .core()
+            .set_tags(&local_path(&path.to_string()), &tags);
+        let recent = self.as_ref().rust().core.recent_json();
+        self.as_mut().set_recent_json(q(&recent));
+    }
+
+    fn tags_json(&self) -> QString {
+        q(&self.rust().core.tags_json())
+    }
+
+    fn licences_json(&self) -> QString {
+        q(&self.rust().core.licences_json())
+    }
+
     fn progress_json(&self) -> QString {
         q(&self.rust().core.progress_json())
     }
@@ -1324,6 +1543,32 @@ impl qobject::Controller {
         q(&self.rust().core.quiz_json())
     }
 
+    fn backing_json(&self) -> QString {
+        q(&self.rust().core.backing_json())
+    }
+
+    fn backing_analyse(mut self: Pin<&mut Self>) {
+        let result = self.as_mut().core().backing_analyse();
+        self.as_mut().after_retune(result);
+    }
+
+    fn backing_adjust(
+        mut self: Pin<&mut Self>,
+        downbeat: i32,
+        shift_ms: f64,
+        bar: i32,
+        bar_ms: f64,
+    ) {
+        let bar = usize::try_from(bar).ok().map(|b| (b, bar_ms));
+        let result = self.as_mut().core().backing_adjust(downbeat, shift_ms, bar);
+        self.as_mut().after_retune(result);
+    }
+
+    fn backing_clear(mut self: Pin<&mut Self>) {
+        let result = self.as_mut().core().backing_clear();
+        self.as_mut().after_retune(result);
+    }
+
     fn exercises_json(&self) -> QString {
         q(&self.rust().core.bundled_json())
     }
@@ -1357,6 +1602,115 @@ impl qobject::Controller {
     fn open_demo(mut self: Pin<&mut Self>) -> bool {
         let path = Core::demo_path();
         self.as_mut().open_file(&q(&path.to_string_lossy()))
+    }
+
+    fn export_data(mut self: Pin<&mut Self>, url: &QString) {
+        let path = local_path(&url.to_string());
+        match self.as_ref().rust().core.export_data(&path) {
+            Ok(text) => self.as_mut().set_message(q(&text)),
+            Err(e) => self.as_mut().show_error(&e),
+        }
+    }
+
+    fn import_data(mut self: Pin<&mut Self>, url: &QString, how: &QString) {
+        let path = local_path(&url.to_string());
+        let how = match how.to_string().as_str() {
+            "replace" => DataImport::Replace,
+            _ => DataImport::Merge,
+        };
+        match self.as_mut().core().import_data(&path, how) {
+            Ok(text) => {
+                self.as_mut().sync_settings();
+                self.as_mut().set_message(q(&text));
+            }
+            Err(e) => self.as_mut().show_error(&e),
+        }
+    }
+
+    /// Every settings property and list from the core, after the data changed underneath.
+    fn sync_settings(mut self: Pin<&mut Self>) {
+        let (s, texts, recent, tuning) = {
+            let this = self.as_ref();
+            let core = &this.rust().core;
+            (
+                core.settings().clone(),
+                core.texts_json(),
+                core.recent_json(),
+                core.tuning_json(),
+            )
+        };
+        self.as_mut().set_texts(q(&texts));
+        self.as_mut().set_recent_json(q(&recent));
+        self.as_mut().set_tuning_json(q(&tuning));
+        self.as_mut().refresh_setlists();
+        self.as_mut().set_mode(q(&s.mode));
+        self.as_mut().set_view(q(&s.view));
+        self.as_mut().set_style(q(&s.style));
+        self.as_mut()
+            .set_language(q(s.language.as_deref().unwrap_or("")));
+        self.as_mut()
+            .set_input_device(q(s.input_device.as_deref().unwrap_or("")));
+        self.as_mut()
+            .set_output_device(q(s.output_device.as_deref().unwrap_or("")));
+        self.as_mut().set_strings(i32::from(s.strings));
+        self.as_mut().set_fretless(s.fretless);
+        self.as_mut()
+            .set_laptop_jack(s.input_kind == kontra_appcore::InputKind::LaptopJack);
+        self.as_mut().set_metronome(s.metronome);
+        self.as_mut().set_count_in(s.count_in_bars > 0);
+        self.as_mut().set_reference(s.reference_tones);
+        self.as_mut().set_low_string_on_top(s.low_string_on_top);
+        self.as_mut().set_play_marks(q(&s.play_marks));
+        self.as_mut().set_motion(q(&s.motion));
+        self.as_mut().set_strictness(q(&s.strictness));
+        self.as_mut().set_pitch_cents(s.pitch_cents);
+        self.as_mut().set_latency_ms(s.latency_ms);
+        self.as_mut().set_backing_volume(s.backing_volume);
+        self.as_mut().set_metronome_volume(s.metronome_volume);
+        self.as_mut().set_tone_volume(s.tone_volume);
+        self.as_mut().set_monitor(s.monitor);
+        self.as_mut().set_monitor_volume(s.monitor_volume);
+        self.as_mut().set_setup_done(s.setup_done);
+        self.as_mut().set_playing(false);
+    }
+
+    fn export_report(mut self: Pin<&mut Self>, song_id: &QString, url: &QString) {
+        let path = local_path(&url.to_string());
+        let result = self
+            .as_ref()
+            .rust()
+            .core
+            .export_report(&song_id.to_string(), &path);
+        match result {
+            Ok(text) => self.as_mut().set_message(q(&text)),
+            Err(e) => self.as_mut().show_error(&e),
+        }
+    }
+
+    fn export_package(mut self: Pin<&mut Self>, piece: &QString, url: &QString, audio: &QString) {
+        let piece = local_path(&piece.to_string());
+        let out = local_path(&url.to_string());
+        let audio = match audio.to_string().as_str() {
+            "embed" => PackageAudio::Embed,
+            _ => PackageAudio::Link,
+        };
+        let result = self
+            .as_ref()
+            .rust()
+            .core
+            .export_package(&piece, &out, audio);
+        match result {
+            Ok(text) => self.as_mut().set_message(q(&text)),
+            Err(e) => self.as_mut().show_error(&e),
+        }
+    }
+
+    fn use_offered_input(mut self: Pin<&mut Self>) {
+        let id = self.as_ref().offer_input().to_string();
+        self.as_mut().core().use_offered_input(&id);
+        self.as_mut().set_offer_input(QString::default());
+        self.as_mut().set_offer_text(QString::default());
+        self.as_mut().set_error_text(QString::default());
     }
 
     fn dismiss_message(mut self: Pin<&mut Self>) {

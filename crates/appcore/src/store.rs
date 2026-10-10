@@ -94,6 +94,8 @@ pub struct Settings {
     /// Play the bass through Kontra (input monitoring); off: the interface monitors directly.
     pub monitor: bool,
     pub monitor_volume: f64,
+    /// Suggest more or fewer notes between runs (LH-MOD-06).
+    pub adaptive: bool,
     /// Tuning (LH-TUN-02): "standard", "drop" (lowest string a whole step down),
     /// "half-down", "whole-down" or "custom".
     pub tuning: String,
@@ -138,6 +140,7 @@ impl Default for Settings {
             drums_volume: f64::from(mix.drums),
             monitor: false,
             monitor_volume: MONITOR_VOLUME,
+            adaptive: true,
             tuning: "standard".into(),
             custom_tuning: Vec::new(),
             a4_hz: A4_HZ,
@@ -166,6 +169,66 @@ pub struct RecentEntry {
     /// View last used for this piece (LH-ANZ-04); `None`: the default from the settings.
     #[serde(default)]
     pub view: Option<String>,
+    /// Own tags for search (LH-BIB-04), e.g. "Band", "Slap".
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// Bars of the sections practised, so progress can name them (LH-FOR-01).
+    #[serde(default)]
+    pub sections: Vec<SectionBars>,
+    /// Note density per section (LH-MOD-06); none stored: all notes.
+    #[serde(default)]
+    pub densities: Vec<SectionDensity>,
+}
+
+/// Note density chosen for a section (`None`: the whole piece), 1 (few notes) to 3 (all).
+/// A fixed one gets no suggestions.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SectionDensity {
+    pub section: Option<(f64, f64)>,
+    pub level: u8,
+    pub fixed: bool,
+}
+
+/// A practised section: its time range (as a progress run stores it) and its bars as written.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SectionBars {
+    pub start_s: f64,
+    pub end_s: f64,
+    pub from_bar: u32,
+    pub to_bar: u32,
+}
+
+/// Where the bars of a piece fall in its backing track (LH-BIB-06): the detected beats, which
+/// of them is the first downbeat, and the user's corrections.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BeatMap {
+    /// Beat times in the audio, seconds.
+    pub beats: Vec<f64>,
+    pub bpm: f64,
+    /// Index into `beats` of bar 1's downbeat.
+    pub first: usize,
+    /// Shift of every bar, ms (fine alignment).
+    pub shift_ms: f64,
+    /// Per-bar corrections, ms: bar index → shift of that bar's start.
+    pub nudges: std::collections::BTreeMap<usize, f64>,
+}
+
+impl BeatMap {
+    /// Audio time of each bar start, for bars of `beats_per_bar` beats; as far as beats reach.
+    pub fn bar_times(&self, beats_per_bar: &[u32]) -> Vec<f64> {
+        let mut out = Vec::new();
+        let mut beat = self.first;
+        for (bar, n) in beats_per_bar.iter().enumerate() {
+            let Some(t) = self.beats.get(beat) else {
+                break;
+            };
+            let nudge = self.nudges.get(&bar).copied().unwrap_or(0.0);
+            out.push(t + (self.shift_ms + nudge) / 1000.0);
+            beat += (*n).max(1) as usize;
+        }
+        out
+    }
 }
 
 /// A named order of pieces for a gig or rehearsal (LH-BIB-04).
@@ -180,6 +243,8 @@ pub struct Setlist {
 pub struct Library {
     /// Every known piece; the most recently played first, imported but unplayed ones after.
     pub recent: Vec<RecentEntry>,
+    /// Backing-track beat maps per piece (LH-BIB-06).
+    pub beat_maps: std::collections::BTreeMap<PathBuf, BeatMap>,
     pub setlists: Vec<Setlist>,
 }
 
@@ -193,6 +258,15 @@ impl Library {
             }
             if entry.view.is_none() {
                 entry.view = old.view.clone();
+            }
+            if entry.tags.is_empty() {
+                entry.tags = old.tags.clone();
+            }
+            if entry.sections.is_empty() {
+                entry.sections = old.sections.clone();
+            }
+            if entry.densities.is_empty() {
+                entry.densities = old.densities.clone();
             }
         }
         self.recent.retain(|e| e.path != entry.path);
@@ -289,6 +363,9 @@ mod tests {
             backing: None,
             backing_offset_s: 0.0,
             view: None,
+            tags: Vec::new(),
+            sections: Vec::new(),
+            densities: Vec::new(),
         };
         library.touch(entry("a"));
         library.touch(entry("b"));

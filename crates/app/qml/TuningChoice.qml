@@ -41,7 +41,7 @@ ColumnLayout {
         spacing: KanteStyle.unit(8)
         Repeater {
             model: choice.strings
-            delegate: QQC2.ComboBox {
+            delegate: KanteComboBox {
                 required property var modelData
                 required property int index
                 Accessible.name: texts.t("settings.tuning.string", { n: choice.strings.length - index })

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Guitar Pro files are not in shared-mime-info; MIDI and MusicXML are. -->
+<!-- Guitar Pro files are not in shared-mime-info; MIDI and MusicXML are. Kontra packages (FORMAT.md) are zips. -->
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
   <mime-type type="application/x-guitar-pro">
     <comment>Guitar Pro tablature</comment>
@@ -9,5 +9,11 @@
     <glob pattern="*.gp5"/>
     <glob pattern="*.gpx"/>
     <glob pattern="*.gp"/>
+  </mime-type>
+  <mime-type type="application/x-kontra-package">
+    <comment>Kontra package</comment>
+    <comment xml:lang="de">Kontra-Paket</comment>
+    <sub-class-of type="application/zip"/>
+    <glob pattern="*.kontra"/>
   </mime-type>
 </mime-info>
