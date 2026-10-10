@@ -69,7 +69,7 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 - Eigene Aufnahmen: teilweise, was vorhanden ist (welche Bässe und Eingänge: Runde 6).
 - 0.1 ist fertig, wenn Phase 1 vollständig ist; der Erkennungsstand wird im Release-Log offen genannt.
 - Zuerst: Werkstatt-Bedienung, Tastatur und Screenreader, Pegel-Assistent (alle drei umgesetzt).
-- Flatpak-Bau in der Gitea-CI.
+- Flatpak-Bau in der Gitea-CI (geändert: Entscheidungen 10.10.2026).
 - Logo: vereinfachte Kleinversion für 16–24 px (umgesetzt).
 - „Hinweis“ als eigene Gruppe im Änderungsverlauf: Kante-PR #42 (offen).
 
@@ -86,6 +86,13 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 - Kante-Wünsche aus der QA-Runde: ein Kante-PR mit allem, der Eigentümer prüft und merged.
 - Neue öffentliche Felder freigegeben: `Bar.key_fifths`, `Evaluation.p95_abs_cents`, `Evaluation.max_abs_cents`.
 - Kante-PR #42 („Hinweis“): der Eigentümer prüft und merged.
+
+## Entscheidungen 10.10.2026
+
+- Flatpak-Bau auf GitHub statt in der Gitea-CI: der Gitea-Runner erlaubt in Job-Containern keine
+  User-Namespaces, die flatpak-builder braucht (`.github/workflows/flatpak.yml`).
+- Mit 1.0 kommt Kontra als öffentliches Repo auf GitHub (Push-Mirror von Gitea); erst dann läuft der
+  Flatpak-Bau dort. Bis dahin lokal mit `scripts/flatpak.sh`.
 
 ## Didaktik: wie Kontra Bass vermittelt (laufend, alle Phasen)
 
