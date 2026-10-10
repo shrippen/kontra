@@ -54,6 +54,20 @@ Kirigami.ApplicationWindow {
             late: texts.t("result.late")
         })
     }
+    // String colours (LH-ANZ-06), Kante tokens only: [] keeps Kante's string palette; "mono"
+    // draws every string alike (the lane and fret number carry the meaning), "bright" uses the
+    // strong signal colours. States keep their own colours and shapes.
+    readonly property var stringColors: {
+        if (ctl.stringColors === "mono") {
+            var one = KanteStyle.strongTextColor
+            return [one, one, one, one, one, one]
+        }
+        if (ctl.stringColors === "bright") {
+            return [KanteStyle.warningColor, KanteStyle.infoColor, KanteStyle.accentTextColor,
+                    KanteStyle.tagColor, KanteStyle.focusColor, KanteStyle.strongTextColor]
+        }
+        return []
+    }
     // Round 6: follow the desktop (animations off there means durations 0), or the own switch.
     readonly property bool systemReducesMotion: Kirigami.Units.longDuration === 0
     Binding { target: KanteStyle; property: "motion"; value: ctl.motion !== "reduce" }
