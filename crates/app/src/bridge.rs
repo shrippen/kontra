@@ -1765,15 +1765,20 @@ impl qobject::Controller {
         // The run goes on in the new key: what waits and where it is stay as they are.
         let kept = self.as_ref().rust().core.has_run();
         let holding = *self.as_ref().holding_index();
-        let holding_text = self.as_ref().holding_text().clone();
         self.as_mut().set_run_kept(kept);
         self.as_mut().refresh_arrangement();
         self.as_mut().set_run_kept(false);
         if kept {
             let position = self.as_ref().rust().core.position_s();
             self.as_mut().set_position(position);
-            self.as_mut().set_holding_index(holding);
-            self.as_mut().set_holding_text(holding_text);
+            // The note waited for is the same, its name and fret are the new key's.
+            let text = usize::try_from(holding)
+                .ok()
+                .and_then(|index| self.as_ref().rust().core.wait_text(index, None));
+            if let Some(text) = text {
+                self.as_mut().set_holding_index(holding);
+                self.as_mut().set_holding_text(q(&text));
+            }
         }
     }
 

@@ -290,22 +290,25 @@ impl Session {
         else {
             return;
         };
-        let last = self
+        // The earlier result is replaced, not followed: a pass counts every result it holds.
+        let Some(at) = self
             .results
             .iter()
-            .rev()
-            .find(|r| r.pass == pass && r.note == Some(note))
-            .copied();
-        let Some(last) =
-            last.filter(|r| matches!(r.outcome, Outcome::WrongPitch { .. } | Outcome::OffPitch))
+            .rposition(|r| r.pass == pass && r.note == Some(note))
         else {
             return;
         };
-        self.record(NoteResult {
+        let last = self.results[at];
+        if !matches!(last.outcome, Outcome::WrongPitch { .. } | Outcome::OffPitch) {
+            return;
+        }
+        let hit = NoteResult {
             outcome: Outcome::Hit,
             cents: None,
             ..last
-        });
+        };
+        self.results[at] = hit;
+        self.events.push(SessionEvent::Result(hit));
         if !matches!(self.mode, Mode::Wait) || self.cursor_slot != slot {
             return;
         }

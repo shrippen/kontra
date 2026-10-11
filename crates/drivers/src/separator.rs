@@ -31,6 +31,9 @@ const PERMILLE: f64 = 1000.0;
 /// After the program exited, its output is read this long at most (a child it left behind may
 /// keep the pipe open).
 const READER_GRACE: Duration = Duration::from_secs(2);
+/// Cancelling waits this long for the program to end on SIGTERM before SIGKILL.
+const STOP_GRACE: Duration = Duration::from_millis(300);
+const STOP_POLL: Duration = Duration::from_millis(10);
 /// Last bytes of stderr kept for an error message.
 const TAIL_BYTES: usize = 600;
 
@@ -191,6 +194,10 @@ impl SeparationJob {
         if reading && exited_at.elapsed() < READER_GRACE {
             return None;
         }
+        // Something the program started still holds its output: it goes with the group.
+        if reading {
+            self.stop_group();
+        }
         if let Some(reader) = self.reader.take().filter(|r| r.is_finished()) {
             let _ = reader.join();
         }
@@ -209,15 +216,27 @@ impl SeparationJob {
         self.stop();
     }
 
-    /// Ends the program's whole process group, then the program itself.
+    /// Ends the program's whole process group, then the program itself if it did not end
+    /// (a wrapper like flatpak-spawn needs a moment to pass the signal on).
     fn stop(&mut self) {
+        self.stop_group();
+        let deadline = Instant::now() + STOP_GRACE;
+        while Instant::now() < deadline {
+            if !matches!(self.child.try_wait(), Ok(None)) {
+                return;
+            }
+            std::thread::sleep(STOP_POLL);
+        }
+        let _ = self.child.kill();
+    }
+
+    fn stop_group(&self) {
         let group = format!("-{}", self.child.id());
         let _ = Command::new("kill")
             .args(["-TERM", "--", &group])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status();
-        let _ = self.child.kill();
     }
 }
 
@@ -226,6 +245,9 @@ impl Drop for SeparationJob {
         if matches!(self.child.try_wait(), Ok(None)) {
             self.stop();
             let _ = self.child.wait();
+        } else if self.reader.as_ref().is_some_and(|r| !r.is_finished()) {
+            // Gone, but something it started still runs (it holds the output).
+            self.stop_group();
         }
     }
 }
