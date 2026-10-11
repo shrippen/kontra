@@ -97,13 +97,13 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
   die Seite hängt ohne Fehlermeldung. Namen wie `summary` verwenden.
 - Die Engine stempelt Noten aus Dateien mit `Pace::Fast` dateirelativ, mit `Pace::RealTime` auf die Engine-Uhr. Eine
   Aufnahme wird über `Input::started_s()` ausgerichtet, nicht über den Zeitpunkt des Aufrufs (Dekodieren dauert).
-- Gitea-Merge per API: `tea api --login arianw -X POST /repos/shrippen/Kontra/pulls/N/merge -d '{"Do":"merge"}'`.
+- Gitea-Merge per API: `tea api -X POST /repos/shrippen/Kontra/pulls/N/merge -d '{"Do":"merge"}'`.
   „manually-merged“ ist hier nicht erlaubt; „Please try again later“ heißt meist: nichts mehr zu mergen (Inhalt schon in
   `main`). `scripts/gitea/merge-when-green.sh PR SHA` wartet auf die neuesten core- und app-Läufe und merged nur, wenn
   beide grün sind und der Kopf unverändert ist. Die Actions-Liste der API zeigt ohne `limit=50` nur 10 Läufe, und ältere
   abgebrochene Läufe zum selben Commit täuschen: immer nur den neuesten Lauf je Job werten.
-- Der Flatpak-Job scheitert im „Sandbox check“, solange der Runner keine User-Namespaces erlaubt (Runner-Einstellung,
-  nicht der Code). Merge-Kriterium sind die Jobs core und app.
+- Flatpak baut nur GitHub (`.github/workflows/flatpak.yml`): Die Job-Container des Gitea-Runners erlauben keine
+  User-Namespaces. Merge-Kriterium auf Gitea sind die Jobs core und app.
 - Mehrere Arbeitsstände parallel: je Branch ein `git worktree` und ein eigenes `CARGO_TARGET_DIR`, dazu
   `CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0`, sonst ist die Platte schnell voll. `cargo clippy` baut kein Binary;
   vor Screenshots `cargo build`.
@@ -177,12 +177,13 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Changes arrive as pull requests: work on a branch, open a PR, merge it on Gitea (the mirror follows).
 - Never merge a PR, push to `main` (or any default branch), push tags or publish releases on GitHub. A merge there is overwritten by the next Gitea push.
 - Never force-push a branch that someone else's PR depends on.
+- PR-Agent (`.gitea/workflows/pr-agent.yml`) reviews every PR before it is merged. Wait for its comment on the PR's latest commit; after further pushes, ask for a new one with a `/review` comment. Fix or answer each finding in the PR, then merge. Without a review (the run skipped for lack of `PR_AGENT_LLM_KEY` or `PR_AGENT_MODEL`, or it failed), do not merge: ask the owner.
 
 ## Entscheidungen mit dem Eigentümer
 
 - Offene Fragen sammeln und als Runde im Entscheidungs-Artefakt stellen (je Frage Kontext, Optionen, Empfehlung);
   Antworten liegen dort in der Datenbank-Sammlung „antworten“, ein Dokument je Runde. Umgesetzte Entscheidungen
   kommen ins Lastenheft und in die Roadmap (Abschnitt der jeweiligen Runde).
-- Kontra-PRs merged Claude selbst, wenn core und app grün sind. Kante-PRs prüft und merged der Eigentümer.
+- Kontra-PRs merged Claude selbst, wenn core und app grün sind und das PR-Agent-Review abgearbeitet ist. Kante-PRs prüft und merged der Eigentümer.
 - Jede neue `pub`-Schnittstelle wird in der nächsten Runde zur Freigabe gelistet.
 - Der laufende Arbeitsstand steht in `STAND.md`.

@@ -9,6 +9,7 @@ Bässen stehen aus.
 ## Bauen
 
 ```sh
+./start.sh                                       # App bauen und starten (System-Qt oder /opt/qt)
 cargo test --workspace --exclude kontra-app      # Kern, ohne Qt
 cargo run -p kontra-cli -- korpus check          # Erkennungsqualität (LH-NF-02/03)
 sudo scripts/setup-qt-env.sh && . scripts/qt-env.sh

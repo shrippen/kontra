@@ -9,6 +9,6 @@ for i in $(seq 200); do
 done
 echo "$core"; echo "$app"
 if echo "$core" | grep -q "completed success" && echo "$app" | grep -q "completed success"; then
-  head=$(tea api --login arianw /repos/shrippen/Kontra/pulls/$1 | python3 -c "import json,sys;print(json.load(sys.stdin)['head']['sha'])")
-  case "$head" in $2*) tea api --login arianw -X POST /repos/shrippen/Kontra/pulls/$1/merge -d '{"Do":"merge"}'; echo "MERGED $1";; *) echo "head moved: $head";; esac
+  head=$(tea api /repos/shrippen/Kontra/pulls/$1 | python3 -c "import json,sys;print(json.load(sys.stdin)['head']['sha'])")
+  case "$head" in $2*) tea api -X POST /repos/shrippen/Kontra/pulls/$1/merge -d '{"Do":"merge"}'; echo "MERGED $1";; *) echo "head moved: $head";; esac
 else echo "NOT GREEN"; fi

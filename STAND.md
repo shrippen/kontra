@@ -16,7 +16,7 @@ was gerade offen ist und wo es liegt.
 | Kante-Wünsche 2 | Claude legt Kante-PR an, Eigentümer merged |
 | Als Nächstes | Klangformung fürs Mithören, Gehörbildung, Backing transponieren |
 
-Diese Antworten sind noch nicht in Lastenheft und Roadmap eingetragen.
+Eingetragen in `ROADMAP.md` (Entscheidungen Runde 7) und `LASTENHEFT.md`.
 
 ## Offene Branches
 
@@ -26,7 +26,7 @@ Diese Antworten sind noch nicht in Lastenheft und Roadmap eingetragen.
   Hash über den Titel in der MIDI-Datei und die Noten (`session/src/progress.rs`). Deshalb bleiben Dateinamen, Titel in
   den Dateien und Stufenordner deutsch; übersetzt wird nur die Anzeige. Plan: `ExerciseSpec` je mitgelieferter Übung
   abrufbar machen (Nummer „NN“ im Dateinamen), Titel und Stufennamen in `bundled_json` aus i18n-Schlüsseln bauen,
-  `generate_exercise` benennt neue Dateien in der Oberflächensprache. Dazu Runde 7 eintragen.
+  `generate_exercise` benennt neue Dateien in der Oberflächensprache.
 - **Kante `kontra-wuensche-2`** (nur leerer WIP-Commit, kein PR): Kante 1.28.
   - Saitenfarben: Nur `KanteTabLane` hat `stringColors` (Saite 0 = tiefste, eingebaute Palette). Gleicher Name für
     `KanteTabStaff` und `KanteFretboard`, leer als Vorgabe. Vorschlag: Palette nach `KanteStyle` verschieben
@@ -57,6 +57,5 @@ Diese Antworten sind noch nicht in Lastenheft und Roadmap eingetragen.
 
 ## Für den Eigentümer
 
-- Runner: User-Namespaces erlauben, damit der Flatpak-Job grün werden kann.
 - Cloud-Umgebung: `GITEA_TOKEN` und Setup-Skript.
 - Hardware-Tests vor 0.1 (siehe Tabelle).

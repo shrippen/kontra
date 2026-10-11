@@ -2,7 +2,7 @@
 import json, subprocess, sys
 sha = sys.argv[1]
 def api(path):
-    return json.loads(subprocess.run(["tea","api","--login","arianw",path],capture_output=True,text=True).stdout or "{}")
+    return json.loads(subprocess.run(["tea","api",path],capture_output=True,text=True).stdout or "{}")
 runs = [r for r in api("/repos/shrippen/Kontra/actions/runs?limit=50").get("workflow_runs", []) if r.get("head_sha","").startswith(sha)]
 done = bool(runs)
 for r in runs:
