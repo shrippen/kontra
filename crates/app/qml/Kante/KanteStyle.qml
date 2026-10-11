@@ -192,6 +192,35 @@ QtObject {
         var n = noteStateNames && noteStateNames[state]
         return n !== undefined ? String(n) : String(noteStateNames && noteStateNames.pending || "")
     }
+    /**
+     * String colours (Kante 1.28), one per string, string 0 = the lowest, kept apart from the
+     * note state colours. Presets (`stringPalettes`): "kante" six roles that differ in hue
+     * (purple, cyan, yellow, strong text, muted, info), "mono" every string in the strong
+     * text colour, "bright" the strong signal colours (orange, info, yellow, purple, cyan,
+     * strong text). `stringPalette` is the app's choice, set once; KanteTabLane, KanteTabStaff
+     * and KanteFretboard follow it where their `stringColors` leave a string out. Colour is
+     * never the only sign: strings keep their names and rows.
+     */
+    readonly property var stringPalettes: ["kante", "mono", "bright"]
+    property string stringPalette: "kante"
+    /** Colour of string s (0 = lowest) in `preset` (default `stringPalette`); repeats after six. */
+    function stringColor(s, preset) {
+        var p = preset !== undefined && preset !== null && preset !== "" ? String(preset) : stringPalette
+        var list = p === "mono" ? [strongTextColor]
+            : p === "bright" ? [warningColor, infoColor, accentTextColor, tagColor, focusColor, strongTextColor]
+            : [tagColor, focusColor, accentTextColor, strongTextColor, mutedTextColor, infoColor]
+        var i = Math.max(0, Math.floor(Number(s) || 0))
+        return list[i % list.length]
+    }
+    /** The colours of `count` strings (default 6) in `preset`, e.g. for `stringColors`. */
+    function stringColors(count, preset) {
+        var out = []
+        var n = count === undefined ? 6 : Math.max(0, Number(count) || 0)
+        for (var s = 0; s < n; s++) {
+            out.push(stringColor(s, preset))
+        }
+        return out
+    }
     /** Text colour for a label on a filled `fill`: the ground or the strong text, whichever reads better. */
     function inkOn(fill) {
         var a = Qt.rgba(backgroundColor.r, backgroundColor.g, backgroundColor.b, 1)

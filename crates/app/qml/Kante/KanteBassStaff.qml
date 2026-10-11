@@ -14,7 +14,7 @@ import "."
  *              tied: tied to the next note (same pitch), state as KanteTabLane
  *              ("offpitch" with its `cents` beside the sign, 1.27)
  *   rests      [{time, beats}]
- *   bars       [{time, numerator, denominator, keyFifths, chord}] (numbers or a missing
+ *   bars       [{time, number, numerator, denominator, keyFifths, chord}] (numbers or a missing
  *              signature keep the previous one; 4/4 at first); the time signature shows
  *              on the first bar of the page and where it changes.
  *              keyFifths (1.27, also read as key_fifths): the key from this bar on; a
@@ -24,6 +24,8 @@ import "."
  *              cancelling the old one. A change at the start of a line shows at the
  *              start of that line.
  *              chord (1.27): a chord symbol at the start of the bar
+ *              number (1.28): the bar's label, e.g. the written bar number (unrolled
+ *              repeats read "5, 6, 5, 6"); a number or a string, left out: index + 1
  *   chords     (1.27) [{time, text}]: chord symbols at a time in seconds, above the staff
  *              over the note at that time; with the chords of `bars`, sorted by time.
  *              "#" shows as ♯, a "b" after a note letter or before a digit as ♭
@@ -159,7 +161,7 @@ Item {
     Accessible.role: Accessible.Chart
     Accessible.name: accessibleName
     Accessible.description: {
-        var d = barText.arg(currentBar + 1).arg(barList.length)
+        var d = barText.arg(barList.length ? barList[currentBar].number : 1).arg(barList.length)
         var ch = chordAt(position)
         if (ch !== "") {
             d += ", " + chordText.arg(ch)
@@ -244,6 +246,11 @@ Item {
         }
         return a - 1
     }
+    /** Label of a bar (1.28): its `number` as sent (written bar number), else index + 1. */
+    function barLabel(o, i) {
+        var n = typeof o === "object" && o !== null ? o.number : undefined
+        return n === undefined || n === null || String(n) === "" ? String(i + 1) : String(n)
+    }
     function normalizeBars(list, ns, rs, fifths) {
         var out = [], num = 4, den = 4
         var key = clampKey(fifths)
@@ -263,7 +270,8 @@ Item {
             }
             out.push({ time: Number(o.time) || 0, num: num, den: den, changed: changed,
                        key: key, fromKey: fromKey, keyChanged: i > 0 && key !== fromKey,
-                       chord: o.chord !== undefined && o.chord !== null ? String(o.chord) : "" })
+                       chord: o.chord !== undefined && o.chord !== null ? String(o.chord) : "",
+                       number: barLabel(o, i) })
         }
         // Seconds per quarter, from the notes (median of time step / beats): sizes a bar
         // when none or only the start of the last one is given.
@@ -279,7 +287,7 @@ Item {
         for (var k2 = 0; ns && k2 < ns.length; k2++) lastEnd = Math.max(lastEnd, Number(ns[k2].time) + (Number(ns[k2].beats) || 0) * spq)
         for (var r = 0; rs && r < rs.length; r++) lastEnd = Math.max(lastEnd, Number(rs[r].time) + (Number(rs[r].beats) || 0) * spq)
         if (out.length === 0) {
-            out.push({ time: 0, num: 4, den: 4, changed: true, key: key, fromKey: key, keyChanged: false, chord: "" })
+            out.push({ time: 0, num: 4, den: 4, changed: true, key: key, fromKey: key, keyChanged: false, chord: "", number: "1" })
         }
         for (var j = 0; j < out.length; j++) {
             if (j + 1 < out.length) {
@@ -291,7 +299,8 @@ Item {
                 while (out[out.length - 1].end < lastEnd - 1e-3 && len > 0) {
                     var prev = out[out.length - 1]
                     out.push({ time: prev.end, end: prev.end + len, num: prev.num, den: prev.den, changed: false,
-                               key: prev.key, fromKey: prev.key, keyChanged: false, chord: "" })
+                               key: prev.key, fromKey: prev.key, keyChanged: false, chord: "",
+                               number: isNaN(Number(prev.number)) ? String(out.length + 1) : String(Number(prev.number) + 1) })
                 }
                 break
             }
@@ -444,7 +453,7 @@ Item {
                     L.rects.push({ x: endX - Math.max(1, Math.round(sp * 0.16)) - sp * 0.45, y: yOf(8, s),
                                    w: Math.max(1, Math.round(sp * 0.16)), h: sp * 4, ink: "" })
                 }
-                L.glyphs.push({ x: bx + sp * 0.2, y: yOf(8, s) - sp * 1.0, g: "", text: String(bi + 1), ink: "muted" })
+                L.glyphs.push({ x: bx + sp * 0.2, y: yOf(8, s) - sp * 1.0, g: "", text: bl[bi].number, ink: "muted" })
                 var midKey = c > 0 && bl[bi].keyChanged ? keySigns(bl[bi].fromKey, bl[bi].key) : []
                 for (var mk = 0; mk < midKey.length; mk++) {
                     L.glyphs.push({ x: bx + sp * (1.2 + mk * 1.1), y: yOf(midKey[mk].pos, s), g: signGlyph(midKey[mk].sign), ink: "" })

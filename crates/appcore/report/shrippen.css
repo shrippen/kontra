@@ -793,6 +793,8 @@ textarea.input{min-height:5.5rem;line-height:1.5;resize:vertical}
 .seg{display:inline-flex;border:1px solid var(--bg2);flex-wrap:wrap}
 .seg button{background:none;border:0;min-height:calc(var(--h-m) - 2px);padding:0 .9rem;font-family:var(--font-mono);font-size:.72rem;letter-spacing:.1em;color:var(--fg3);cursor:pointer}
 .seg button:hover{color:var(--fg0)}.seg button[aria-pressed="true"]{background:var(--primary);color:var(--on-primary)}
+/* A segment that cannot be chosen (1.28): muted and struck through, not colour alone; title= can say why */
+.seg button:is(:disabled,[aria-disabled="true"]),.seg button:is(:disabled,[aria-disabled="true"]):hover{color:var(--fg3);opacity:.6;text-decoration:line-through;cursor:not-allowed}
 /* .seg-fill: segments share the full width in one row (narrow side panels); a label that does not fit ends in … */
 .seg.seg-fill{display:flex;flex-wrap:nowrap}.seg-fill button{flex:1 1 auto;min-width:0;padding:0 .5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .range{--zones:var(--bg2);display:flex;flex-direction:column;gap:.4rem}

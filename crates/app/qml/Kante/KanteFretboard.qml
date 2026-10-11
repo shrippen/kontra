@@ -6,6 +6,9 @@ import "."
  * notes and positions. Presentational: the app sets the markers.
  *
  *   strings, stringNames, lowStringOnTop  as KanteTabLane (string 0 = lowest)
+ *   stringColors         as KanteTabLane (1.28): colours the string lines; where missing
+ *                        KanteStyle.stringColor (the app's `stringPalette`). Markers keep
+ *                        their role colours and shapes
  *   frets, firstFret     frets shown: firstFret + 1 .. firstFret + frets; with
  *                        firstFret 0 the nut and a column for open strings (fret 0)
  *   markers              [{string, fret, role, label}]; role:
@@ -28,6 +31,8 @@ Item {
     property int firstFret: 0
     property var markers: []
     property bool lowStringOnTop: false
+    /** Colour per string, 0 = lowest (1.28); where missing KanteStyle.stringColor. */
+    property var stringColors: []
     property bool leftHanded: false
     property bool evenFrets: false
     property var inlays: [3, 5, 7, 9, 12, 15, 17, 19, 21, 24]
@@ -83,6 +88,12 @@ Item {
         text: "24"
     }
 
+    function stringColor(s) {
+        if (stringColors && s < stringColors.length && stringColors[s] !== undefined) {
+            return stringColors[s]
+        }
+        return KanteStyle.stringColor(s)
+    }
     function nameOf(s) {
         return stringNames && s < stringNames.length ? String(stringNames[s]) : String(s + 1)
     }
@@ -172,7 +183,7 @@ Item {
                                         : board.fretX(board.firstFret + board.frets) - x
                 height: Math.max(1, Math.round(KanteStyle.unit(1) + (board.strings - 1 - parent.index) * KanteStyle.unit(1) * 0.6))
                 y: -height / 2
-                color: KanteStyle.mutedTextColor
+                color: board.stringColor(parent.index)
             }
             Text {
                 x: board.leftHanded ? board.width - width - KanteStyle.unit(4) : KanteStyle.unit(4)

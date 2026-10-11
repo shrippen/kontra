@@ -9,8 +9,8 @@ import "."
  *
  *   strings, stringNames      lanes; string 0 is the lowest. `lowStringOnTop` false
  *                             (default) puts the highest string on top, as in a tab
- *   stringColors              optional colour per string (0 = lowest); the string
- *                             palette below where missing
+ *   stringColors              optional colour per string (0 = lowest); where missing
+ *                             KanteStyle.stringColor (the app's `stringPalette`, 1.28)
  *   notes                     [{time, duration, string, fret, state, label, cents}],
  *                             sorted by time; seconds. state: "pending", "hit", "wrong",
  *                             "missed", "early", "late", "offpitch" (1.27). cents: how
@@ -18,7 +18,9 @@ import "."
  *                             setNoteState(index, state[, cents]) changes one note
  *                             without reassigning the list; resetStates() undoes it
  *   showCents                 the cents beside offpitch signs (Full marks only; default true)
- *   bars                      bar start times in seconds (numbers or {time})
+ *   bars                      bar start times in seconds (numbers or {time, number}); number
+ *                             (1.28): the bar's label, e.g. the written bar number, so
+ *                             unrolled repeats read "5, 6, 5, 6"; left out: index + 1
  *   position                  the current time in seconds (sits on the play line)
  *   pixelsPerSecond           speed of the highway
  *   playLine                  where the play line is, 0..1 of the width from the left
@@ -205,15 +207,18 @@ Item {
         if (stringColors && s < stringColors.length && stringColors[s] !== undefined) {
             return stringColors[s]
         }
-        var p = [KanteStyle.tagColor, KanteStyle.focusColor, KanteStyle.accentTextColor,
-                 KanteStyle.strongTextColor, KanteStyle.mutedTextColor, KanteStyle.infoColor]
-        return p[s % p.length]
+        return KanteStyle.stringColor(s)
     }
     function rowOf(s) {
         return lowStringOnTop ? s : strings - 1 - s
     }
     function rowCenter(s) {
         return topPad + (rowOf(s) + 0.5) * laneHeight
+    }
+    /** Label of a bar (1.28): its `number` as sent (written bar number), else index + 1. */
+    function barLabel(o, i) {
+        var n = typeof o === "object" && o !== null ? o.number : undefined
+        return n === undefined || n === null || String(n) === "" ? String(i + 1) : String(n)
     }
     function barTime(b) {
         return typeof b === "object" && b !== null ? Number(b.time) : Number(b)
@@ -326,7 +331,7 @@ Item {
                     Text {
                         visible: lane.barNumbers
                         x: KanteStyle.unit(3)
-                        text: parent.index + 1
+                        text: lane.barLabel(lane.bars[parent.index], parent.index)
                         color: KanteStyle.mutedTextColor
                         font: labelMetrics.font
                     }
