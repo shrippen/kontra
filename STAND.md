@@ -10,8 +10,7 @@ steht nur, was offen ist und wo es liegt.
 - **Techniken an echten Aufnahmen** (LH-BEW-06): Slap/Pop/Ghost an IDMT 79/70/96 %, an denselben Aufnahmen
   abgestimmt; eigene Aufnahmen fehlen. Slides an echten Aufnahmen 0 von 20: Beim Gleiten meldet der Onset-Detektor
   neue Anschläge, schnelle Slides kommen als Hammer-on an; braucht eine Slide-Erkennung über die Tonhöhenkurve.
-- **Flageoletts**: natürliche am Teilton (GP binär, GPIF); künstliche Flageoletts und MusicXML-Flageoletts fehlen,
-  das binäre GP-Format hat dafür keinen Fixture-Test.
+- **Flageoletts**: natürliche am Teilton (GP binär, GPIF); künstliche Flageoletts und MusicXML-Flageoletts fehlen.
 - **Stem-Trennung** (LH-BIB-09): mit Ersatz-Programm getestet; mit echtem Demucs nicht gelaufen (Abnahme
   „4-Minuten-Song < 3 min“ offen). Im Flatpak ausgegraut (Erlaubnis fehlt bewusst).
 - **MIDI-Auswahl** (LH-EIN-12): mit zwei echten Keyboards nicht geprüft (nur Unit-Test).
