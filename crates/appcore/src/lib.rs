@@ -1400,7 +1400,7 @@ impl Core {
                 laptop_jack: self.qa.laptop_jack,
             },
             None if self.settings.input_kind == InputKind::Midi => InputChoice::Midi {
-                port: self.settings.midi_port.clone(),
+                port: self.midi_port().map(|p| p.id),
             },
             None => InputChoice::Device {
                 id: self.fallback_input.clone().or_else(|| self.input_device()),
@@ -1411,12 +1411,48 @@ impl Core {
 
     /// Name of the MIDI input Kontra uses (the chosen one, else the first), or "" if none.
     pub fn midi_port_name(&self) -> String {
+        self.midi_port().map_or_else(String::new, |p| p.name)
+    }
+
+    /// The MIDI input to use: the chosen device if connected, else the first (LH-EIN-12).
+    fn midi_port(&self) -> Option<kontra_session::MidiPort> {
         let ports = kontra_session::list_midi_inputs();
-        let chosen = self.settings.midi_port.as_ref();
-        ports
+        let (index, _) = pick_midi(&ports, self.settings.midi_port.as_deref());
+        index.and_then(|i| ports.into_iter().nth(i))
+    }
+
+    /// MIDI devices for the connection settings (LH-EIN-12, round 9):
+    /// `{"ports": [{"name", "chosen"}], "missingText"}`; `missingText` says when the chosen
+    /// device is not connected and which one Kontra takes instead.
+    pub fn midi_ports_json(&self) -> String {
+        let ports = kontra_session::list_midi_inputs();
+        let chosen = self.settings.midi_port.as_deref();
+        let (index, missing) = pick_midi(&ports, chosen);
+        let list: Vec<_> = ports
             .iter()
-            .find(|p| chosen.is_none_or(|id| &p.id == id))
-            .map_or_else(String::new, |p| p.name.clone())
+            .enumerate()
+            .map(|(i, p)| json!({ "name": p.name, "chosen": Some(i) == index }))
+            .collect();
+        let missing_text = match (missing, chosen) {
+            (MidiChoice::Missing, Some(name)) => {
+                let instead = index.and_then(|i| ports.get(i)).map(|p| p.name.clone());
+                match instead {
+                    Some(instead) => self.tr(
+                        "settings.midi.missing",
+                        &[("name", name.to_string()), ("instead", instead)],
+                    ),
+                    None => self.tr("settings.midi.missing.none", &[("name", name.to_string())]),
+                }
+            }
+            _ => String::new(),
+        };
+        json!({ "ports": list, "missingText": missing_text }).to_string()
+    }
+
+    /// Chooses the MIDI device by name; "" goes back to the first one. Ends a running practice.
+    pub fn choose_midi(&mut self, name: &str) {
+        let value = (!name.is_empty()).then(|| name.to_string());
+        self.reconfigure(|s| s.midi_port = value);
     }
 
     /// The chosen input, else an interface before the built-in card (LH-EIN-02).
@@ -2656,6 +2692,30 @@ fn state_of(outcome: Outcome, offset_ms: f64) -> &'static str {
     }
 }
 
+/// Whether the chosen MIDI device is connected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MidiChoice {
+    /// Chosen and connected, or none chosen.
+    Found,
+    /// Chosen, but not connected: the first device stands in.
+    Missing,
+}
+
+/// Index of the MIDI port to use: the one named `chosen`, else the first.
+fn pick_midi(
+    ports: &[kontra_session::MidiPort],
+    chosen: Option<&str>,
+) -> (Option<usize>, MidiChoice) {
+    let first = (!ports.is_empty()).then_some(0);
+    let Some(name) = chosen else {
+        return (first, MidiChoice::Found);
+    };
+    match ports.iter().position(|p| p.name == name) {
+        Some(i) => (Some(i), MidiChoice::Found),
+        None => (first, MidiChoice::Missing),
+    }
+}
+
 /// Weight of a state for "hardest notes": a missed or wrong note before an off-pitch one,
 /// before one off in time; a clean hit is 0.
 fn severity(state: &str) -> u8 {
@@ -3043,6 +3103,28 @@ fn unix_now() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn midi_choice_by_name_falls_back_to_the_first() {
+        let port = |id: &str, name: &str| kontra_session::MidiPort {
+            id: id.into(),
+            name: name.into(),
+        };
+        let ports = [port("20:0", "Keystation 49"), port("24:0", "Launchkey")];
+        assert_eq!(pick_midi(&ports, None), (Some(0), MidiChoice::Found));
+        assert_eq!(
+            pick_midi(&ports, Some("Launchkey")),
+            (Some(1), MidiChoice::Found)
+        );
+        assert_eq!(
+            pick_midi(&ports, Some("MPK mini")),
+            (Some(0), MidiChoice::Missing)
+        );
+        assert_eq!(
+            pick_midi(&[], Some("MPK mini")),
+            (None, MidiChoice::Missing)
+        );
+    }
 
     fn demo() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/demo/etude-1.mid")

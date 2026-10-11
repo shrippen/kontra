@@ -517,5 +517,8 @@
   "backing.shift": "Move all bars",
   "backing.bar": "Move one bar",
   "backing.barnumber": "Bar",
-  "backing.clear": "Piece's own tempo"
+  "backing.clear": "Piece's own tempo",
+  "settings.midi.device": "MIDI device",
+  "settings.midi.missing": "“{name}” is not connected. Kontra uses “{instead}”.",
+  "settings.midi.missing.none": "“{name}” is not connected, and no other MIDI device is."
 }

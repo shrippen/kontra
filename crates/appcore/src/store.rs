@@ -70,7 +70,8 @@ pub struct Settings {
     pub fretless: bool,
     pub input_kind: InputKind,
     pub input_device: Option<String>,
-    /// MIDI port id when `input_kind` is MIDI; `None`: the first one.
+    /// MIDI device by name when `input_kind` is MIDI (port ids change when it is plugged in
+    /// again); `None` or not connected: the first one.
     pub midi_port: Option<String>,
     pub output_device: Option<String>,
     pub latency_ms: f64,

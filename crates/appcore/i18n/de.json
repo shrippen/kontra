@@ -517,5 +517,8 @@
   "backing.shift": "Alle Takte verschieben",
   "backing.bar": "Einzelnen Takt verschieben",
   "backing.barnumber": "Takt",
-  "backing.clear": "Eigenes Tempo des Stücks"
+  "backing.clear": "Eigenes Tempo des Stücks",
+  "settings.midi.device": "MIDI-Gerät",
+  "settings.midi.missing": "„{name}“ ist nicht angeschlossen. Kontra nimmt „{instead}“.",
+  "settings.midi.missing.none": "„{name}“ ist nicht angeschlossen, und kein anderes MIDI-Gerät."
 }
