@@ -202,6 +202,7 @@ mod tests {
                 bar: Some(0),
                 chord: ChordTones::default(),
                 ghost: false,
+                harmonic: false,
             },
             ExpectedNote {
                 index: 1,
@@ -210,6 +211,7 @@ mod tests {
                 bar: Some(0),
                 chord: ChordTones::default(),
                 ghost: false,
+                harmonic: false,
             },
             ExpectedNote {
                 index: 2,
@@ -218,6 +220,7 @@ mod tests {
                 bar: Some(1),
                 chord: ChordTones::default(),
                 ghost: false,
+                harmonic: false,
             },
         ])
     }
@@ -267,6 +270,7 @@ mod tests {
             bar: Some(0),
             chord: ChordTones::default(),
             ghost: true,
+            harmonic: false,
         }]);
         let settings = ScoreSettings::default();
         let r = m.score(0, 1.0, 0.0, Some(Technique::Ghost), 1.0, &settings, ALL);

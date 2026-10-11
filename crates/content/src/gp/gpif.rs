@@ -365,7 +365,9 @@ fn note(element: &Element, tuning: &[Pitch], offset: u64, duration: u64) -> Opti
         _ => None,
     };
     let pitch = match tab {
-        Some((s, f)) => tuning[s].transposed(i32::from(f)),
+        Some((s, f)) => {
+            natural_harmonic(element, tuning[s], f).or_else(|| tuning[s].transposed(i32::from(f)))
+        }
         None => midi.filter(|m| *m <= 127).map(Pitch),
     }?;
 
@@ -379,6 +381,20 @@ fn note(element: &Element, tuning: &[Pitch], offset: u64, duration: u64) -> Opti
         .is_some_and(|t| t.attr("destination") == Some("true"));
     techniques(element, &mut note);
     Some(note)
+}
+
+/// The sounding pitch of a natural harmonic on the string tuned to `open` (`HarmonicFret`, or
+/// the note's fret); `None` for any other note.
+fn natural_harmonic(element: &Element, open: Pitch, fret: u8) -> Option<Pitch> {
+    let kind = property(element, "HarmonicType")?.value("HType")?;
+    if kind.trim() != "Natural" {
+        return None;
+    }
+    let at: f64 = property(element, "HarmonicFret")
+        .and_then(|p| p.value("HFret"))
+        .and_then(|f| f.trim().parse().ok())
+        .unwrap_or(f64::from(fret));
+    crate::harmonic::natural_harmonic(open, at)
 }
 
 const GPIF_SLIDE_SHIFT: u32 = 1;

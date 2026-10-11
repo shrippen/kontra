@@ -201,8 +201,9 @@ def read_midi_notes(path):
 
 
 # IDMT styles as Kontra's techniques (LH-BEW-06): slap thumb, slap pluck (pop), dead note (ghost),
-# slide. Finger, pick and palm mute are plain plucks; vibrato, bend and harmonics are not told.
-IDMT_TECHNIQUES = {"ST": "Slap", "SP": "Pop", "DN": "Ghost", "SL": "Slide"}
+# slide, harmonic (its pitch counts in any octave). Finger, pick and palm mute are plain plucks;
+# vibrato and bend are not told.
+IDMT_TECHNIQUES = {"ST": "Slap", "SP": "Pop", "DN": "Ghost", "SL": "Slide", "HA": "Harmonic"}
 
 
 def import_idmt_st(src, out, args):

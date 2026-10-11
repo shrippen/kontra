@@ -181,3 +181,17 @@ fn technique_told_later_judges_again() {
         .find(|t| t.technique == Technique::Slap);
     assert_eq!(slap.map(|t| (t.played, t.judged)), Some((1, 1)));
 }
+
+/// A harmonic sounds high and the tracker often hears it an octave or two lower (IDMT): its
+/// pitch counts in any octave.
+#[test]
+fn harmonic_counts_in_any_octave() {
+    let mut a = piece();
+    a.notes[0].pitch = kontra_model::Pitch(52);
+    a.notes[0].techniques = vec![Technique::Harmonic];
+    let mut s = Session::new(a, Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    run(&mut s, &[played(0.0, 28.02, None)], 0.6);
+    let first = s.results().iter().find(|r| r.note == Some(0)).unwrap();
+    assert!(first.is_hit(), "{first:?}");
+}

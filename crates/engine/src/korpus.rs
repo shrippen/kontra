@@ -450,6 +450,24 @@ pub fn simulate_laptop_jack(samples: &[f32], sample_rate: u32) -> Vec<f32> {
     laptop_jack(samples, f64::from(sample_rate), 3)
 }
 
+/// A harmonic counts in any octave, as in the session (the tracker often hears it lower).
+fn cents_off(note: &Annotation, midi: f64) -> f64 {
+    let cents = (midi - note.midi) * 100.0;
+    if note.technique != Some(Technique::Harmonic) {
+        return cents;
+    }
+    cents - (cents / 1200.0).round() * 1200.0
+}
+
+/// The right note: the same rounded pitch, for a harmonic in any octave.
+pub fn same_pitch(note: &Annotation, midi: f64) -> bool {
+    let semitones = midi.round() - note.midi.round();
+    if note.technique == Some(Technique::Harmonic) {
+        return semitones.rem_euclid(12.0) == 0.0;
+    }
+    semitones == 0.0
+}
+
 fn compare(
     set: KorpusSet,
     notes: &[Annotation],
@@ -468,7 +486,7 @@ fn compare(
             .filter(|(i, d)| {
                 !used[*i]
                     && (d.onset_s - note.onset_s).abs() <= matching.window_s
-                    && (!matching.require_pitch || d.midi.round() == note.midi.round())
+                    && (!matching.require_pitch || same_pitch(note, d.midi))
             })
             .min_by(|a, b| {
                 (a.1.onset_s - note.onset_s)
@@ -488,8 +506,8 @@ fn compare(
             pitch_correct += 1;
             continue;
         }
-        cents_errors.push(((d.midi - note.midi) * 100.0).abs());
-        if d.midi.round() == note.midi.round() {
+        cents_errors.push(cents_off(note, d.midi).abs());
+        if same_pitch(note, d.midi) {
             pitch_correct += 1;
         }
     }

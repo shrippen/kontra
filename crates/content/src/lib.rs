@@ -12,6 +12,7 @@ mod bytes;
 mod error;
 pub mod exercise;
 mod gp;
+mod harmonic;
 mod midi;
 mod musicxml;
 mod package;
