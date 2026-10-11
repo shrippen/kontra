@@ -94,7 +94,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | ID | Anforderung | Prio | Ph. | Personas | Abnahme |
 |---|---|---|---|---|---|
 | LH-EIN-01 | Beim ersten Start führt ein Assistent durch Instrument (Saitenzahl, Stimmung, bundlos ja/nein), Eingang und Kalibrierung. Jeder Schritt lässt sich überspringen und später wiederholen. | Muss | 1 | P1, P2, P3 | J-A1 ist in ≤ 60 s bis zum ersten bewerteten Ton durchspielbar. |
-| LH-EIN-02 | Kontra listet alle Audio-Eingänge mit verständlichem Namen und wählt einen sinnvollen vor (Interface vor interner Buchse). | Muss | 1 | P1, P2 | Mit Scarlett Solo und interner Soundkarte ist das Interface vorgewählt. |
+| LH-EIN-02 | Kontra listet alle Audio-Eingänge mit verständlichem Namen und wählt einen sinnvollen vor (Interface vor interner Buchse). | Muss | 1 | P1, P2 | Mit Scarlett Solo und interner Soundkarte ist das Interface vorgewählt; die automatische Wahl fällt bei jedem Start neu. |
 | LH-EIN-03 | Pegelmessung mit Anzeige (zu leise, gut, übersteuert) und konkretem Hinweis, was zu tun ist (Gain, Lautstärkeregler am Bass). | Muss | 1 | P1 | Übersteuertes Testsignal führt zu Warnung mit Handlungsanweisung. |
 | LH-EIN-04 | Erkennt Kontra ein schwaches oder verrauschtes Signal (typisch Laptop-Kombibuchse), erklärt es den Grund in einem Satz und empfiehlt Hi-Z-Interface oder USB-Kabel, ohne die Nutzung zu verweigern. | Muss | 1 | P1 | Testaufnahme aus der Laptop-Buchse: Hinweis erscheint, Spielen bleibt möglich. |
 | LH-EIN-05 | Latenz-Kalibrierung: „Spiel auf den Klick“ (8 Anschläge) oder Loopback; Ergebnis in ms sichtbar, wird bei der Bewertung abgezogen. | Muss | 1 | P3, P2 | Künstlich verzögertes Testsignal (+40 ms) wird nach Kalibrierung als pünktlich bewertet (±5 ms). |
@@ -126,7 +126,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-BIB-05 | Fehlerhafte oder nicht unterstützte Dateien werden mit Grund gemeldet; der Rest des Imports läuft weiter. | Muss | 1 | P2, P4 | Ordner mit einer defekten Datei: 1 Meldung, alle anderen importiert. |
 | LH-BIB-06 | Eigene Audiodatei (MP3, FLAC, OGG, WAV) an ein Arrangement koppeln; Tempo-Map automatisch (Beat-Erkennung), von Hand korrigierbar (Taktanfänge verschieben). | Muss | 3 | P2 | Gekoppelter Song läuft über 4 Minuten ohne hörbaren Versatz > 20 ms. |
 | LH-BIB-07 | Offenes Paketformat `.kontra` (Arrangement, Übungsdaten, Verweis auf oder Einbettung der Audiodatei); Import und Export. | Muss | 3 | P4 | Paket auf zweitem Rechner importiert: identische Darstellung. |
-| LH-BIB-08 | Mitgelieferte, frei lizenzierte Übungen und Grooves (mind. 30 bis 1.0), nach Niveau sortiert. | Soll | 3 | P1 | Liste vorhanden, Lizenz je Übung dokumentiert. |
+| LH-BIB-08 | Mitgelieferte, frei lizenzierte Übungen und Grooves (mind. 30 bis 1.0), nach Niveau sortiert. | Soll | 3 | P1 | Liste vorhanden, Lizenz je Übung dokumentiert; Titel in der Oberflächensprache. |
 | LH-BIB-09 | Optionale lokale Stem-Trennung, um den Bass aus einer Audiodatei zu entfernen; separater Download, Ergebnis wird zwischengespeichert. | Kann | 4 | P2 | 4-Minuten-Song wird auf Empfehlungs-Hardware in < 3 min getrennt. |
 
 ### 4.4 Darstellung (ANZ)
@@ -190,7 +190,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 |---|---|---|---|---|---|
 | LH-FOR-01 | Fortschritt pro Lied und Abschnitt (beste Trefferquote, Tempo, Datum), Übungszeit pro Tag. | Muss | 1 | P1, P2 | Nach Neustart vorhanden. |
 | LH-FOR-02 | Verlauf in der Riff-Werkstatt (Tempo über Zeit) als Diagramm mit Achsen und Legende. | Soll | 2 | P3 | Diagramm zeigt die letzten 30 Tage. |
-| LH-FOR-03 | Daten lokal als offene Dateien (JSON oder SQLite), Export und Import. | Muss | 1 | P4 | Export auf zweitem Rechner importiert: gleicher Stand. |
+| LH-FOR-03 | Daten lokal als offene Dateien (JSON oder SQLite), Export und Import. | Muss | 1 | P4 | Export auf zweitem Rechner importiert: gleicher Stand; Import bietet Ergänzen (vorgewählt) und Ersetzen. |
 | LH-FOR-04 | Fortschritt einer Übung als Bericht exportieren (für Unterricht). | Kann | 3 | P4 | PDF oder HTML mit Datum, Tempo, Trefferquote. |
 
 ### 4.10 Allgemein (ALL)
