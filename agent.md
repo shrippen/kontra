@@ -97,6 +97,29 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
   die Seite hängt ohne Fehlermeldung. Namen wie `summary` verwenden.
 - Die Engine stempelt Noten aus Dateien mit `Pace::Fast` dateirelativ, mit `Pace::RealTime` auf die Engine-Uhr. Eine
   Aufnahme wird über `Input::started_s()` ausgerichtet, nicht über den Zeitpunkt des Aufrufs (Dekodieren dauert).
+- Gitea-Merge per API: `tea api -X POST /repos/shrippen/Kontra/pulls/N/merge -d '{"Do":"merge"}'`.
+  „manually-merged“ ist hier nicht erlaubt; „Please try again later“ heißt meist: nichts mehr zu mergen (Inhalt schon in
+  `main`). `scripts/gitea/merge-when-green.sh PR SHA` wartet auf die neuesten core- und app-Läufe und merged nur, wenn
+  beide grün sind und der Kopf unverändert ist. Die Actions-Liste der API zeigt ohne `limit=50` nur 10 Läufe, und ältere
+  abgebrochene Läufe zum selben Commit täuschen: immer nur den neuesten Lauf je Job werten.
+- PR-Agent schreibt sein Review einmal und aktualisiert danach denselben Kommentar („Review updated until
+  commit <sha>“, neues `updated_at`, altes `created_at`). Ein neues Review erkennt man am Commit im Text, nicht am
+  Erstellungsdatum. Kommentare, die nicht mit `/` beginnen, starten keinen Lauf (Status „skipped“).
+- Flatpak baut nur GitHub (`.github/workflows/flatpak.yml`): Die Job-Container des Gitea-Runners erlauben keine
+  User-Namespaces. Merge-Kriterium auf Gitea sind die Jobs core und app.
+- Mehrere Arbeitsstände parallel: je Branch ein `git worktree` und ein eigenes `CARGO_TARGET_DIR`, dazu
+  `CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0`, sonst ist die Platte schnell voll. `cargo clippy` baut kein Binary;
+  vor Screenshots `cargo build`.
+- i18n-Konflikte beim Mergen: beide Seiten behalten, Kommas glätten, auf doppelte Schlüssel prüfen (JSON lädt sonst
+  stillschweigend nur einen).
+- Neue Felder in `Library`, `RecentEntry` oder `Run` brechen beim Mergen Struktur-Literale in Tests anderer Branches
+  (`RecentEntry` hat kein `Default`). Nach jedem Merge `cargo test --workspace` laufen lassen.
+- Mitgelieferte Übungen sind generiert (`kontra-cli exercises <dir>`); die CI vergleicht mit `testdata/exercises`.
+  Nach Änderungen am Generator neu erzeugen und einchecken (`README.md` dort ist handgeschrieben).
+- `KanteCallout.Kind` kennt `Ok`, nicht `Success`. Kante-Bauteile ersetzen QQC2 (`KanteSwitch`, `KanteComboBox`),
+  sobald Kante sie hat.
+- Screenshots von Kante-Bauteilen außerhalb der App: Hintergrund-`Rectangle` mit `Kirigami.Theme`-Farben und
+  `Kirigami.Theme.inherit: false` setzen, sonst schwarzer Grund oder falsches Farbschema.
 
 ## Persona rule
 
@@ -157,4 +180,14 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Changes arrive as pull requests: work on a branch, open a PR, merge it on Gitea (the mirror follows).
 - Never merge a PR, push to `main` (or any default branch), push tags or publish releases on GitHub. A merge there is overwritten by the next Gitea push.
 - Never force-push a branch that someone else's PR depends on.
-- PR-Agent (`.gitea/workflows/pr-agent.yml`) reviews every PR before it is merged. Wait for its comment on the PR's latest commit; after further pushes, ask for a new one with a `/review` comment. Fix or answer each finding in the PR, then merge. Without a review (the run skipped for lack of `PR_AGENT_LLM_KEY` or `PR_AGENT_MODEL`, or it failed), do not merge: ask the owner.
+- PR-Agent (`.gitea/workflows/pr-agent.yml`) reviews every PR before it is merged. Wait for its comment on the PR's latest commit; after further pushes, ask for a new one with a `/review` comment. Fix or answer each finding in the PR, then merge. If the review fails (an error, no result, e.g. a key or cost limit), ask for it once more with `/review`; if that fails too, green CI is enough to merge (owner, 11.10.2026). Plain comments (no leading `/`) on a PR cancel a running review until #25 is merged: post `/review` last.
+
+## Entscheidungen mit dem Eigentümer
+
+- Offene Fragen sammeln und als Runde im Entscheidungs-Artefakt stellen (je Frage Kontext, Optionen, Empfehlung);
+  Antworten liegen dort in der Datenbank-Sammlung „antworten“, ein Dokument je Runde. Umgesetzte Entscheidungen
+  kommen ins Lastenheft und in die Roadmap (Abschnitt der jeweiligen Runde).
+- Kontra-PRs merged Claude selbst, wenn core und app grün sind und das PR-Agent-Review abgearbeitet ist (gescheitertes
+  Review: einmal `/review` wiederholen, scheitert es erneut, genügt grüne CI). Kante-PRs prüft und merged der Eigentümer.
+- Jede neue `pub`-Schnittstelle wird in der nächsten Runde zur Freigabe gelistet.
+- Der laufende Arbeitsstand steht in `STAND.md`.
