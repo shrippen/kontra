@@ -1797,6 +1797,13 @@ impl qobject::Controller {
         self.as_mut().set_backing_volume(s.backing_volume);
         self.as_mut().set_metronome_volume(s.metronome_volume);
         self.as_mut().set_tone_volume(s.tone_volume);
+        self.as_mut().set_drums_volume(s.drums_volume);
+        self.as_mut().set_adaptive(s.adaptive);
+        self.as_mut().set_tuning(q(&s.tuning));
+        self.as_mut().set_a4_hz(s.a4_hz);
+        self.as_mut().set_window_ms(s.window_ms);
+        self.as_mut().set_string_colors(q(&s.string_colors));
+        self.as_mut().set_left_handed(s.left_handed);
         self.as_mut().set_monitor(s.monitor);
         self.as_mut().set_monitor_volume(s.monitor_volume);
         self.as_mut().set_monitor_low_db(s.monitor_low_db);
