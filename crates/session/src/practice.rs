@@ -129,11 +129,12 @@ impl<O: Output> Practice<O> {
     }
 
     /// Sets the backing track (Wait mode never plays it: the clock stops at every note),
-    /// transposed as the options say.
+    /// sounding transposed as the options say.
     pub fn set_backing(&mut self, track: Option<BackingTrack>) {
-        let semitones = self.options.transpose_semitones;
-        let resolution = self.stretch_resolution();
-        self.backing = track.map(|t| t.transposed(semitones, resolution));
+        self.backing = track;
+        // The mixer shifts the pitch while it plays (round 8: no rendering ahead).
+        self.output
+            .set_transpose(self.options.transpose_semitones as f32);
         self.stretched.clear();
     }
 
