@@ -36,10 +36,13 @@ fn play_through_a_setlist() {
     );
     let mut events = run_until(&mut core, Duration::from_secs(3), |_| false);
 
-    // Mixer and view while playing: no restart.
+    // Mixer and view while playing: no restart. Shaping the monitored bass leaves detection alone.
     let hint = core.remix(|s| {
         s.backing_volume = 0.3;
         s.metronome_volume = 1.0;
+        s.monitor = true;
+        s.monitor_low_db = 4.0;
+        s.monitor_compress = 0.5;
     });
     assert!(hint.is_none(), "{hint:?}");
     core.set_view("tab");

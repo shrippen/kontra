@@ -26,7 +26,7 @@ use kontra_session::{
     import_file, list_devices, run_from, CalibrationResult, Connection, DeviceInfo, Direction,
     Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveSetup, LiveTuner, LoopRange, Mode,
     NoteResult, Outcome, PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings,
-    SessionEvent, Summary, Workshop,
+    SessionEvent, Shaping, Summary, Workshop,
 };
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -1149,6 +1149,11 @@ impl Core {
     /// The workshop's hit-rate band (low, high), for the UI.
     pub fn workshop_band() -> (f64, f64) {
         Workshop::default().band
+    }
+
+    /// Largest boost or cut of a monitor tone band in dB (LH-EIN-08), for the UI.
+    pub fn shaping_range_db() -> f64 {
+        f64::from(kontra_session::SHAPING_RANGE_DB)
     }
 
     /// Returns true if the notes changed: the section has another note density (LH-MOD-06).
@@ -2604,6 +2609,13 @@ fn gains(settings: &Settings) -> Gains {
         } else {
             0.0
         },
+        // The shaper clamps the ranges itself.
+        shaping: Shaping {
+            low_db: settings.monitor_low_db as f32,
+            mid_db: settings.monitor_mid_db as f32,
+            high_db: settings.monitor_high_db as f32,
+            compress: settings.monitor_compress as f32,
+        },
     }
 }
 
@@ -2906,6 +2918,12 @@ mod tests {
         assert_eq!(off.monitor, 0.0);
         settings.monitor = true;
         assert_eq!(gains(&settings).monitor, 0.5);
+
+        assert_eq!(off.shaping, Shaping::FLAT);
+        settings.monitor_low_db = 3.0;
+        settings.monitor_compress = 0.5;
+        let shaped = gains(&settings).shaping;
+        assert_eq!((shaped.low_db, shaped.compress), (3.0, 0.5));
     }
 
     /// LH-WIE-03: mixer changes reach a running practice without restarting it and are saved.

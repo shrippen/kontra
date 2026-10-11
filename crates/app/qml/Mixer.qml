@@ -5,7 +5,8 @@ import Kante
 
 // Mixer (LH-WIE-03, LH-MOD-05): volumes of backing track, metronome, reference tone and drums
 // (LH-LRN-01), and the bass played through Kontra (off by default: the interface's direct
-// monitoring has no delay).
+// monitoring has no delay). While it plays, three tone bands and a compressor shape it
+// (LH-EIN-08); "Neutral" resets them.
 // Changes apply at once, also while playing. On the practice page and in the settings.
 ColumnLayout {
     id: mixer
@@ -60,6 +61,42 @@ ColumnLayout {
         bus: "tone"
         value: mixer.ctl.toneVolume
     }
+    // One tone band of the monitored bass in whole dB, or the compressor in percent.
+    component Shaping: KanteSettingRow {
+        id: shapingRow
+        property string band
+        property real value
+        readonly property bool isCompressor: band === "compress"
+        readonly property real range: mixer.ctl.shapingRangeDb
+        Layout.fillWidth: true
+        visible: mixer.ctl.monitor
+        RowLayout {
+            spacing: KanteStyle.unit(8)
+            QQC2.Slider {
+                id: shapingSlider
+                Layout.fillWidth: true
+                Layout.preferredWidth: KanteStyle.unit(220)
+                from: shapingRow.isCompressor ? 0 : -shapingRow.range
+                to: shapingRow.isCompressor ? 1 : shapingRow.range
+                stepSize: shapingRow.isCompressor ? 0.05 : 1
+                value: shapingRow.value
+                focusPolicy: Qt.StrongFocus
+                Accessible.name: shapingRow.title
+                onMoved: mixer.ctl.changeShaping(shapingRow.band, value)
+                KanteSliderSkin { control: shapingSlider }
+            }
+            QQC2.Label {
+                Layout.preferredWidth: KanteStyle.unit(48)
+                horizontalAlignment: Text.AlignRight
+                color: KanteStyle.textColor
+                text: shapingRow.isCompressor
+                    ? (shapingSlider.value === 0 ? mixer.texts.t("mixer.shaping.off")
+                        : mixer.texts.t("mixer.percent", { percent: Math.round(shapingSlider.value * 100) }))
+                    : mixer.texts.t("mixer.shaping.db", { db: (shapingSlider.value > 0 ? "+" : "") + Math.round(shapingSlider.value) })
+            }
+        }
+    }
+
     Volume {
         title: mixer.texts.t("mixer.drums")
         bus: "drums"
@@ -82,5 +119,40 @@ ColumnLayout {
         title: mixer.texts.t("mixer.monitor.volume")
         bus: "monitor"
         value: mixer.ctl.monitorVolume
+    }
+    Shaping {
+        section: mixer.texts.t("mixer.shaping")
+        title: mixer.texts.t("mixer.shaping.low")
+        hint: mixer.texts.t("mixer.shaping.hint")
+        band: "low"
+        value: mixer.ctl.monitorLowDb
+    }
+    Shaping {
+        title: mixer.texts.t("mixer.shaping.mid")
+        band: "mid"
+        value: mixer.ctl.monitorMidDb
+    }
+    Shaping {
+        title: mixer.texts.t("mixer.shaping.high")
+        band: "high"
+        value: mixer.ctl.monitorHighDb
+    }
+    Shaping {
+        title: mixer.texts.t("mixer.shaping.compress")
+        hint: mixer.texts.t("mixer.shaping.compress.hint")
+        band: "compress"
+        value: mixer.ctl.monitorCompress
+    }
+    KanteSettingRow {
+        Layout.fillWidth: true
+        visible: mixer.ctl.monitor
+        title: mixer.texts.t("mixer.shaping.neutral.title")
+        KanteButton {
+            text: mixer.texts.t("mixer.shaping.neutral")
+            Accessible.name: mixer.texts.t("mixer.shaping.neutral.title")
+            enabled: mixer.ctl.monitorLowDb !== 0 || mixer.ctl.monitorMidDb !== 0
+                || mixer.ctl.monitorHighDb !== 0 || mixer.ctl.monitorCompress !== 0
+            onClicked: mixer.ctl.resetShaping()
+        }
     }
 }
