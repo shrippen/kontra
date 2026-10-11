@@ -221,6 +221,30 @@ Kirigami.Page {
             }
         }
 
+        // Transpose (LH-WIE-02): piece and backing move together; the notes are laid out again.
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: KanteStyle.unit(8)
+            KanteHud { fullText: texts.t("transpose.title"); color: KanteStyle.mutedTextColor }
+            QQC2.SpinBox {
+                from: -ctl.transposeMax
+                to: ctl.transposeMax
+                value: ctl.transpose
+                Accessible.name: texts.t("transpose.title")
+                textFromValue: function(value) {
+                    return value === 0 ? texts.t("transpose.none")
+                        : texts.t("transpose.semitones", { n: (value > 0 ? "+" : "") + value })
+                }
+                onValueModified: ctl.changeTranspose(value)
+            }
+            QQC2.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: KanteStyle.mutedTextColor
+                text: texts.t("transpose.hint")
+            }
+        }
+
         // Workshop (LH-MOD-04): which bars, and how the tempo follows the hit rate (target band).
         RowLayout {
             id: workshopRow

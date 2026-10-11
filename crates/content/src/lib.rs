@@ -17,6 +17,7 @@ mod musicxml;
 mod package;
 mod score;
 mod tab;
+mod transpose;
 mod unroll;
 mod xml;
 mod zip;
@@ -26,6 +27,7 @@ pub use package::{
     read_package, write_package, Manifest, Package, PackageBacking, PACKAGE_FORMAT, PACKAGE_VERSION,
 };
 pub use tab::assign_tab;
+pub use transpose::{transpose, TRANSPOSE_MAX};
 
 use kontra_model::Arrangement;
 use score::Score;

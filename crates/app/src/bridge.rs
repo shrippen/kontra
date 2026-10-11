@@ -113,6 +113,9 @@ pub mod qobject {
         #[qproperty(bool, calibrating)]
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
         #[qproperty(QString, backing_name, cxx_name = "backingName")]
+        /// Piece and backing moved by semitones (LH-WIE-02), −`transposeMax`..=`transposeMax`.
+        #[qproperty(i32, transpose)]
+        #[qproperty(i32, transpose_max, cxx_name = "transposeMax")]
         #[qproperty(QString, message)]
         #[qproperty(i32, xruns)]
         #[qproperty(QString, offer_input, cxx_name = "offerInput")]
@@ -378,6 +381,11 @@ pub mod qobject {
         #[cxx_name = "chooseBacking"]
         fn choose_backing(self: Pin<&mut Self>, url: &QString);
 
+        /// Moves the piece and its backing by `semitones` and lays the notes out again.
+        #[qinvokable]
+        #[cxx_name = "changeTranspose"]
+        fn change_transpose(self: Pin<&mut Self>, semitones: i32);
+
         /// Marks the first-start assistant as done (or skipped).
         #[qinvokable]
         #[cxx_name = "finishSetup"]
@@ -623,6 +631,8 @@ pub struct ControllerRust {
     calibrating: bool,
     calibration_text: QString,
     backing_name: QString,
+    transpose: i32,
+    transpose_max: i32,
     message: QString,
     xruns: i32,
     offer_input: QString,
@@ -750,6 +760,8 @@ impl Default for ControllerRust {
             calibrating: false,
             calibration_text: QString::default(),
             backing_name: QString::default(),
+            transpose: 0,
+            transpose_max: kontra_appcore::Core::transpose_max(),
             message: QString::default(),
             xruns: 0,
             offer_input: QString::default(),
@@ -808,6 +820,7 @@ impl ControllerRust {
                 self.duration = self.core.duration_s();
                 self.recent_json = q(&self.core.recent_json());
                 self.backing_name = q(&self.core.backing_name());
+                self.transpose = self.core.transpose();
                 self.view = q(&self.core.view());
                 self.tracks_json = q(&self.core.tracks_json());
                 let (density, lock) = self.core.density();
@@ -868,6 +881,7 @@ impl qobject::Controller {
         let recent = core.recent_json();
         let loaded = core.arrangement().is_some();
         let backing = core.backing_name();
+        let transpose = core.transpose();
         let view = core.view();
         let tracks = core.tracks_json();
         self.as_mut().set_view(q(&view));
@@ -882,6 +896,7 @@ impl qobject::Controller {
         self.as_mut().set_recent_json(q(&recent));
         self.as_mut().set_loaded(loaded);
         self.as_mut().set_backing_name(q(&backing));
+        self.as_mut().set_transpose(transpose);
         self.as_mut().set_position(0.0);
         self.as_mut().set_summary_json(QString::default());
         self.as_mut().set_holding_index(-1);
@@ -1613,6 +1628,14 @@ impl qobject::Controller {
             }
             Err(e) => self.as_mut().show_error(&e),
         }
+    }
+
+    fn change_transpose(mut self: Pin<&mut Self>, semitones: i32) {
+        self.as_mut().set_playing(false);
+        if let Err(text) = self.as_mut().core().set_transpose(semitones) {
+            self.as_mut().show_error(&text);
+        }
+        self.as_mut().refresh_arrangement();
     }
 
     fn choose_backing(mut self: Pin<&mut Self>, url: &QString) {

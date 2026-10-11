@@ -122,11 +122,12 @@ Erwartet: Töne während der Vorgabe zählen nicht; jeder gespielte Ton hat Hake
 
 ## D. Inhalte teilen (ab Phase 3)
 
-**J-D1 Original-Song als Backing Track** ⚙ · Persona: P2 Jens · Phase 3 · LH-BIB-06, LH-WIE-01
+**J-D1 Original-Song als Backing Track** ⚙ · Persona: P2 Jens · Phase 3 · LH-BIB-06, LH-WIE-01, LH-WIE-02
 1. MP3 an das Guitar-Pro-Arrangement koppeln, Beat-Erkennung.
 2. Zwei Taktanfänge von Hand korrigieren.
 3. Bei 75 % Tempo durchspielen.
-Erwartet: kein hörbarer Versatz > 20 ms über 4 Minuten.
+4. Die Sängerin will es einen Ganzton höher: „Transponieren“ +2, noch einmal durchspielen; Kontra neu starten.
+Erwartet: kein hörbarer Versatz > 20 ms über 4 Minuten; transponiert passen Tab und Audio zusammen (gleiche Tonart, gleiche Takte), Bünde aus der Datei bleiben, wo es geht; die Einstellung bleibt beim Stück, der Fortschritt auch.
 
 **J-D2 Übung an Schüler geben** · Persona: P4 Thomas · Phase 3 · LH-BIB-07, LH-FOR-04
 1. Übung aus Guitar Pro importieren, Loop-Bereiche und Zieltempo festlegen, als `.kontra` exportieren.

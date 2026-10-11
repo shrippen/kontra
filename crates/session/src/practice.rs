@@ -30,6 +30,8 @@ pub struct PracticeOptions {
     pub reference_tones: bool,
     /// Where arrangement time 0 lies in the backing file, in seconds.
     pub backing_offset_s: f64,
+    /// Backing track pitch in semitones (LH-WIE-02); the notes are transposed by `content`.
+    pub transpose_semitones: i32,
 }
 
 impl Default for PracticeOptions {
@@ -39,6 +41,7 @@ impl Default for PracticeOptions {
             count_in_bars: 1,
             reference_tones: false,
             backing_offset_s: 0.0,
+            transpose_semitones: 0,
         }
     }
 }
@@ -125,9 +128,12 @@ impl<O: Output> Practice<O> {
         &self.output
     }
 
-    /// Sets the backing track (Wait mode never plays it: the clock stops at every note).
+    /// Sets the backing track (Wait mode never plays it: the clock stops at every note),
+    /// transposed as the options say.
     pub fn set_backing(&mut self, track: Option<BackingTrack>) {
-        self.backing = track;
+        let semitones = self.options.transpose_semitones;
+        let resolution = self.stretch_resolution();
+        self.backing = track.map(|t| t.transposed(semitones, resolution));
         self.stretched.clear();
     }
 

@@ -111,6 +111,8 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 
 ## Entscheidungen 11.10.2026
 
+- Neue `pub`-Schnittstellen sind für Kontra generell freigegeben (Eigentümer im Gespräch, 11.10.2026): keine
+  Rückfrage mehr, jede neue Schnittstelle wird im PR genannt (`agent.md`, Schichten).
 - Neue `pub`-Schnittstellen der Klangformung freigegeben: `dsp::{EqKind, Shaper, Shaping, SHAPING_RANGE_DB}`,
   `Biquad::{eq, retune, response_db}`, `Gains::shaping` (mit Re-Exporten), `Core::shaping_range_db`,
   `Settings::monitor_{low,mid,high}_db`, `monitor_compress`.
@@ -263,3 +265,4 @@ Durchgespielt mit gerenderten Aufnahmen (`kontra-cli render`) und Screenshots al
 - [x] LH-NF-11: Einstellungen → „Über Kontra“: Kontra (MIT), Qt und KDE Frameworks (LGPL, dynamisch) und alle 64 eingebundenen Crates mit Version und Lizenz aus `crates/appcore/licences.json`; erzeugt von `scripts/licences.py` (`make licences`), CI prüft mit `--check`, dass die Liste zum `Cargo.lock` passt.
 - [x] LH-EIN-08: Klang fürs Mithören: Tiefen (Shelf 100 Hz), Mitten (Glocke 800 Hz), Höhen (Shelf 4 kHz) je ±12 dB, ein Kompressor (0–100 %, automatische Aufholverstärkung) und „Wärme“ (weiche tanh-Sättigung bei doppelter Abtastrate, Aliasing unter −50 dB statt −34 dB ohne) im Mixer, solange Mithören an ist; „Neutral“ setzt zurück. Änderungen gleiten in 32-Sample-Schritten (kein Knacken), die Erkennung hört das trockene Signal. Keine Vorausschau-Puffer; die Filter gegen Aliasing verzögern um etwa 0,1 ms. Rechenzeit 144 ns je Sample (0,7 % eines 256er-Blocks). Die Bandfrequenzen kommen aus dem Instrument-Profil (`Instrument::tone_bands`), ein weiteres Instrument bringt eigene mit.
 - [x] LH-LRN-03: Gehörbildung, Seite „Gehör“ (Strg+9): Ton oder Linie nachspielen (die Linie wächst nach drei fehlerfreien Antworten bis vier Töne und schrumpft nach einer mit Fehler), Intervall (Grundton genannt, zweiten Ton spielen), Grundton eines Dur- oder Moll-Dreiklangs in zufälliger Umkehrung (jede Oktave zählt). Jeder gespielte Ton bekommt Haken oder Kreuz (Kante-Notenzeichen), falsche Töne „zu hoch“ oder „zu tief“; Töne, die während der Vorgabe beginnen, zählen nicht (Anschlagzeit gegen das Ende der Vorgabe, J-C4 ⚙). Nur Tonhöhen zählen, keine Saiten: offen für weitere Instrumente.
+- [x] LH-WIE-02: Transponieren je Stück ±6 Halbtöne (Übungsseite): Backing-Track per Strecken und Umrechnen (Länge und Beat-Karte bleiben, Tonhöhe auf 5 Cent genau), Noten und Tonart mit; Bünde aus der Datei bleiben, wo sie auf derselben Saite passen, sonst neue Zuordnung; Töne außerhalb des Instruments rücken eine Oktave. Fortschritt bleibt beim Stück. Mit echter Aufnahme nicht gehört.

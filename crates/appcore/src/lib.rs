@@ -736,6 +736,7 @@ impl Core {
                         tags: Vec::new(),
                         sections: Vec::new(),
                         densities: Vec::new(),
+                        transpose_semitones: 0,
                     });
                     added.push(path);
                 }
@@ -951,6 +952,7 @@ impl Core {
             tags: Vec::new(),
             sections: Vec::new(),
             densities: Vec::new(),
+            transpose_semitones: 0,
         });
         // A backing track with a beat map: the bars follow the band (LH-BIB-06).
         if self
@@ -969,6 +971,12 @@ impl Core {
             }
         }
         let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+        // After the progress key: a transposed piece keeps its progress (LH-WIE-02).
+        let semitones = self
+            .library
+            .entry(path)
+            .map_or(0, |e| e.transpose_semitones);
+        kontra_session::transpose(&mut arrangement, semitones);
         self.loaded = Some(Loaded {
             path: path.to_path_buf(),
             full: arrangement.clone(),
@@ -1375,6 +1383,7 @@ impl Core {
             count_in_bars: self.settings.count_in_bars,
             reference_tones: self.settings.reference_tones,
             backing_offset_s: self.backing().map_or(0.0, |(_, offset)| offset),
+            transpose_semitones: self.transpose(),
         };
         let setup = LiveSetup {
             input: self.input_choice(),
@@ -1788,6 +1797,33 @@ impl Core {
         self.backing()
             .and_then(|(p, _)| p.file_name().map(|n| n.to_string_lossy().to_string()))
             .unwrap_or_default()
+    }
+
+    /// Largest transposition offered, for the UI.
+    pub fn transpose_max() -> i32 {
+        kontra_session::TRANSPOSE_MAX
+    }
+
+    /// Semitones the loaded piece and its backing track are moved by (LH-WIE-02).
+    pub fn transpose(&self) -> i32 {
+        self.loaded_path()
+            .and_then(|p| self.library.entry(p))
+            .map_or(0, |e| e.transpose_semitones)
+    }
+
+    /// Moves the loaded piece and its backing by `semitones` (±6) and lays out the notes again;
+    /// a running practice ends, the next play sounds transposed.
+    pub fn set_transpose(&mut self, semitones: i32) -> Result<(), String> {
+        let Some(loaded) = self.loaded.as_ref().map(|l| (l.path.clone(), l.track)) else {
+            return Ok(());
+        };
+        let max = kontra_session::TRANSPOSE_MAX;
+        if let Some(entry) = self.library.entry_mut(&loaded.0) {
+            entry.transpose_semitones = semitones.clamp(-max, max);
+        }
+        let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+        self.stop_live();
+        self.reload(loaded.1)
     }
 
     /// Sets (or with `None` removes) the backing track of the loaded piece.
@@ -3586,6 +3622,50 @@ mod tests {
         core.open(&demo()).unwrap();
         let again = Core::new(&dir, QaOptions::default());
         assert!(again.recent_json().contains("\"slap\""));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-WIE-02: transposing moves every note, is kept for the piece and keeps its progress.
+    #[test]
+    fn transpose_moves_notes_and_is_kept() {
+        let dir = temp_dir("transpose");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        let pitches = |core: &Core| -> Vec<u8> {
+            core.arrangement()
+                .unwrap()
+                .notes
+                .iter()
+                .map(|n| n.pitch.0)
+                .collect()
+        };
+        let before = pitches(&core);
+        let song = core.library.entry(&demo()).unwrap().song_id.clone();
+
+        core.set_transpose(2).unwrap();
+        assert_eq!(core.transpose(), 2);
+        let after = pitches(&core);
+        assert!(
+            before.iter().zip(&after).all(|(b, a)| {
+                let d = i32::from(*a) - i32::from(*b);
+                d == 2 || d == 2 - 12
+            }),
+            "{before:?} → {after:?}"
+        );
+        assert!(core
+            .arrangement()
+            .unwrap()
+            .notes
+            .iter()
+            .all(|n| n.fret.is_some()));
+        assert_eq!(core.library.entry(&demo()).unwrap().song_id, song);
+
+        // A new start opens it transposed; 0 goes back.
+        let mut again = Core::new(&dir, QaOptions::default());
+        again.open(&demo()).unwrap();
+        assert_eq!(pitches(&again), after);
+        again.set_transpose(0).unwrap();
+        assert_eq!(pitches(&again), before);
         let _ = std::fs::remove_dir_all(dir);
     }
 
