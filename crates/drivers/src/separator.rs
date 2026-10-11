@@ -124,10 +124,10 @@ impl Separator {
             })?;
         let progress = Arc::new(AtomicU32::new(0));
         let tail = Arc::new(Mutex::new(String::new()));
-        if let Some(stderr) = child.stderr.take() {
+        let reader = child.stderr.take().map(|stderr| {
             let (progress, tail) = (Arc::clone(&progress), Arc::clone(&tail));
-            std::thread::spawn(move || read_progress(stderr, &progress, &tail));
-        }
+            std::thread::spawn(move || read_progress(stderr, &progress, &tail))
+        });
         let stem = input
             .file_stem()
             .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
@@ -135,6 +135,7 @@ impl Separator {
             child,
             progress,
             tail,
+            reader,
             result: out_dir.join(MODEL).join(stem).join(RESULT_FILE),
             cancelled: false,
         })
@@ -147,6 +148,9 @@ pub struct SeparationJob {
     child: Child,
     progress: Arc<AtomicU32>,
     tail: Arc<Mutex<String>>,
+    /// Reads the program's output until it ends; joined once the program exited, so the
+    /// last progress and error lines are in.
+    reader: Option<std::thread::JoinHandle<()>>,
     result: PathBuf,
     cancelled: bool,
 }
@@ -165,6 +169,14 @@ impl SeparationJob {
             Ok(Some(status)) => status,
             Err(e) => return Some(Err(SeparatorError::Failed(e.to_string()))),
         };
+        // The pipe closes with the program and the reader ends after its last line; until then
+        // the job counts as running (never block the caller, e.g. the UI's tick).
+        if self.reader.as_ref().is_some_and(|r| !r.is_finished()) {
+            return None;
+        }
+        if let Some(reader) = self.reader.take() {
+            let _ = reader.join();
+        }
         if self.cancelled {
             return Some(Err(SeparatorError::Cancelled));
         }
