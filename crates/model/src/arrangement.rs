@@ -117,6 +117,21 @@ pub struct Marker {
     pub name: String,
 }
 
+/// Drum sounds the player synthesises for an accompaniment (LH-LRN-01).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DrumKind {
+    Kick,
+    Snare,
+    HiHat,
+}
+
+/// One drum stroke of the accompaniment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DrumHit {
+    pub tick: u64,
+    pub kind: DrumKind,
+}
+
 /// A bass part ready to be played and scored.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Arrangement {
@@ -128,6 +143,9 @@ pub struct Arrangement {
     pub markers: Vec<Marker>,
     /// Sorted by `start_ticks`.
     pub notes: Vec<Note>,
+    /// Drum accompaniment, sorted by `tick`; not scored.
+    #[serde(default)]
+    pub drums: Vec<DrumHit>,
 }
 
 impl Arrangement {
@@ -140,6 +158,7 @@ impl Arrangement {
             bars: Vec::new(),
             markers: Vec::new(),
             notes: Vec::new(),
+            drums: Vec::new(),
         }
     }
 

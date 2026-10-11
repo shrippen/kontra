@@ -13,6 +13,8 @@
 use crate::clock::Clock;
 use crate::{EngineError, Event};
 use kontra_drivers::{OutputStream, StreamConfig};
+use kontra_dsp::synth::Noise;
+use kontra_model::DrumKind;
 use std::f32::consts::TAU;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
@@ -21,6 +23,10 @@ use std::sync::Arc;
 const COMMANDS: usize = 1024;
 const VOICES: usize = 48;
 const CLICK_S: f32 = 0.02;
+/// Drum voices: length, decay time constant of the body.
+const KICK_S: f32 = 0.35;
+const SNARE_S: f32 = 0.2;
+const HIHAT_S: f32 = 0.08;
 /// Monitor ring: half a second at the highest supported rate.
 const MONITOR_RING: usize = 96_000;
 /// More queued monitor audio than this means the clocks drifted apart; the excess is dropped
@@ -44,6 +50,8 @@ pub enum Sound {
         duration_s: f32,
         velocity: f32,
     },
+    /// Accompaniment drum stroke (LH-LRN-01).
+    Drum(DrumKind),
 }
 
 /// Interleaved stereo audio at the output's sample rate.
@@ -70,6 +78,8 @@ pub struct Gains {
     pub click: f32,
     pub tone: f32,
     pub backing: f32,
+    /// Synthesised drum accompaniment (LH-LRN-01).
+    pub drums: f32,
     /// The bass input played back (input monitoring); 0 = off.
     pub monitor: f32,
 }
@@ -80,6 +90,7 @@ impl Default for Gains {
             click: 0.8,
             tone: 0.6,
             backing: 0.8,
+            drums: 0.7,
             monitor: 0.0,
         }
     }
@@ -119,6 +130,8 @@ struct Voice {
     start_s: f64,
     sound: Sound,
     phase: f32,
+    /// Filter state of noise-based drums.
+    memory: f32,
     active: bool,
 }
 
@@ -126,6 +139,7 @@ const IDLE_VOICE: Voice = Voice {
     start_s: 0.0,
     sound: Sound::Click(Accent::Beat),
     phase: 0.0,
+    memory: 0.0,
     active: false,
 };
 
@@ -157,6 +171,7 @@ impl Player {
             backing: None,
             next: None,
             monitor: Some(monitor_rx),
+            noise: Noise::new(1),
         };
         let mut frame: u64 = 0;
         let mut first_block = true;
@@ -281,6 +296,8 @@ struct Mixer {
     next: Option<Backing>,
     /// Read end of the monitor ring (mono input samples at the output rate).
     monitor: Option<rtrb::Consumer<f32>>,
+    /// Source of snare and hi-hat noise.
+    noise: Noise,
 }
 
 impl Mixer {
@@ -292,6 +309,7 @@ impl Mixer {
                         start_s: at_s,
                         sound,
                         phase: 0.0,
+                        memory: 0.0,
                         active: true,
                     };
                 }
@@ -351,7 +369,13 @@ impl Mixer {
 
     /// One stereo frame at engine time `now`.
     fn render(&mut self, now: f64, sr: f64) -> (f32, f32) {
-        let mono = render(&mut self.voices, now, sr as f32, self.gains);
+        let mono = render(
+            &mut self.voices,
+            now,
+            sr as f32,
+            self.gains,
+            &mut self.noise,
+        );
         let (mut left, mut right) = (mono, mono);
         if self.next.as_ref().is_some_and(|n| now >= n.at_s) {
             // The control side still holds the old Arc, so this drop frees nothing here.
@@ -377,7 +401,7 @@ impl Mixer {
 }
 
 /// Mixes all voices for one frame at engine time `now`.
-fn render(voices: &mut [Voice; VOICES], now: f64, sr: f32, gains: Gains) -> f32 {
+fn render(voices: &mut [Voice; VOICES], now: f64, sr: f32, gains: Gains, noise: &mut Noise) -> f32 {
     let mut mix = 0.0;
     for v in voices.iter_mut().filter(|v| v.active && v.start_s <= now) {
         let t = (now - v.start_s) as f32;
@@ -413,9 +437,51 @@ fn render(voices: &mut [Voice; VOICES], now: f64, sr: f32, gains: Gains) -> f32 
                 let release = ((duration_s - t) / 0.01).min(1.0);
                 mix += gains.tone * velocity * 0.25 * wave * (-t / 1.2).exp() * release;
             }
+            Sound::Drum(kind) => {
+                if t > drum_length_s(kind) {
+                    v.active = false;
+                    continue;
+                }
+                mix += gains.drums * drum(v, kind, t, sr, noise.sample());
+            }
         }
     }
     mix
+}
+
+fn drum_length_s(kind: DrumKind) -> f32 {
+    match kind {
+        DrumKind::Kick => KICK_S,
+        DrumKind::Snare => SNARE_S,
+        DrumKind::HiHat => HIHAT_S,
+    }
+}
+
+/// One sample of a drum voice `t` seconds after its start; `white` is fresh noise in [-1, 1).
+///
+/// Kick: a sine falling from 150 Hz to 50 Hz. Snare: a 190 Hz body plus noise. Hi-hat: noise
+/// through a first-difference high-pass (only the sizzle stays).
+fn drum(v: &mut Voice, kind: DrumKind, t: f32, sr: f32, white: f32) -> f32 {
+    // A short fade at the end: no click when the voice stops.
+    let fade = ((drum_length_s(kind) - t) / 0.01).min(1.0);
+    match kind {
+        DrumKind::Kick => {
+            let hz = 50.0 + 100.0 * (-t / 0.03).exp();
+            v.phase = (v.phase + hz / sr).fract();
+            0.8 * (TAU * v.phase).sin() * (-t / 0.12).exp() * fade
+        }
+        DrumKind::Snare => {
+            v.phase = (v.phase + 190.0 / sr).fract();
+            let body = 0.3 * (TAU * v.phase).sin() * (-t / 0.03).exp();
+            let rattle = 0.35 * white * (-t / 0.05).exp();
+            (body + rattle) * fade
+        }
+        DrumKind::HiHat => {
+            let high = white - v.memory;
+            v.memory = white;
+            0.12 * high * (-t / 0.015).exp() * fade
+        }
+    }
 }
 
 #[cfg(test)]
@@ -429,11 +495,13 @@ mod tests {
                 click: 1.0,
                 tone: 1.0,
                 backing: 1.0,
+                drums: 1.0,
                 monitor: 1.0,
             },
             backing: None,
             next: None,
             monitor: None,
+            noise: Noise::new(1),
         }
     }
 
@@ -453,6 +521,30 @@ mod tests {
         assert!(during > 1.0);
         m.render(1.0, sr);
         assert!(m.voices.iter().all(|v| !v.active));
+    }
+
+    #[test]
+    fn drums_sound_and_end() {
+        let sr = 48_000.0;
+        for kind in [DrumKind::Kick, DrumKind::Snare, DrumKind::HiHat] {
+            let mut m = mixer();
+            m.apply(Command::Schedule {
+                at_s: 0.0,
+                sound: Sound::Drum(kind),
+            });
+            let energy: f32 = (0..2400).map(|i| m.render(i as f64 / sr, sr).0.abs()).sum();
+            assert!(energy > 1.0, "{kind:?}: {energy}");
+            m.render(1.0, sr);
+            assert!(m.voices.iter().all(|v| !v.active), "{kind:?}");
+        }
+        // The drum bus has its own volume.
+        let mut m = mixer();
+        m.gains.drums = 0.0;
+        m.apply(Command::Schedule {
+            at_s: 0.0,
+            sound: Sound::Drum(DrumKind::Kick),
+        });
+        assert_eq!(m.render(0.001, sr), (0.0, 0.0));
     }
 
     #[test]

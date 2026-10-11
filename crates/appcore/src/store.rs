@@ -89,6 +89,8 @@ pub struct Settings {
     pub backing_volume: f64,
     pub metronome_volume: f64,
     pub tone_volume: f64,
+    /// Drum accompaniment of grooves and imported drum tracks (LH-LRN-01).
+    pub drums_volume: f64,
     /// Play the bass through Kontra (input monitoring); off: the interface monitors directly.
     pub monitor: bool,
     pub monitor_volume: f64,
@@ -135,6 +137,7 @@ impl Default for Settings {
             backing_volume: f64::from(mix.backing),
             metronome_volume: f64::from(mix.click),
             tone_volume: f64::from(mix.tone),
+            drums_volume: f64::from(mix.drums),
             monitor: false,
             monitor_volume: MONITOR_VOLUME,
             adaptive: true,

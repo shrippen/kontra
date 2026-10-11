@@ -3,8 +3,9 @@ import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import Kante
 
-// Mixer (LH-WIE-03, LH-MOD-05): volumes of backing track, metronome and reference tone, and the
-// bass played through Kontra (off by default: the interface's direct monitoring has no delay).
+// Mixer (LH-WIE-03, LH-MOD-05): volumes of backing track, metronome, reference tone and drums
+// (LH-LRN-01), and the bass played through Kontra (off by default: the interface's direct
+// monitoring has no delay).
 // Changes apply at once, also while playing. On the practice page and in the settings.
 ColumnLayout {
     id: mixer
@@ -58,6 +59,11 @@ ColumnLayout {
         title: mixer.texts.t("mixer.tone")
         bus: "tone"
         value: mixer.ctl.toneVolume
+    }
+    Volume {
+        title: mixer.texts.t("mixer.drums")
+        bus: "drums"
+        value: mixer.ctl.drumsVolume
     }
     KanteSettingRow {
         Layout.fillWidth: true
