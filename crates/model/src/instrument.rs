@@ -1,4 +1,11 @@
-//! Instrument profiles. Until 1.0 only basses; the type is open for more.
+//! Instrument profiles. Until 1.0 only basses; the type is open for more: string instruments
+//! (a tuning and frets) and keyboards (a key range, no strings).
+//!
+//! ```text
+//! Instrument ─┬─ strings: tuning (1–12 strings) + frets ─► tab, fretboard, positions
+//!             └─ keys: lowest..=highest key, no strings ─► notes only, no tab
+//!   range() and detection_range_hz() come from whichever the profile has.
+//! ```
 
 use crate::pitch::{Pitch, A4_HZ};
 use crate::tuning::Tuning;
@@ -7,15 +14,18 @@ use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum InstrumentError {
-    #[error("tuning has {0} strings, supported are 4 to 6")]
+    #[error("tuning has {0} strings, supported are 1 to 12")]
     StringCount(usize),
+    #[error("key range {0}..{1} is empty")]
+    Keys(u8, u8),
     #[error("fret count {0} out of range 1..=36")]
     Frets(u8),
 }
 
-/// What kind of bass, which decides detection range and scoring defaults.
+/// What kind of instrument, which decides scoring defaults (fretless and double bass score
+/// intonation). Until 1.0 these are basses; guitars and keyboards add kinds here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum BassKind {
+pub enum InstrumentKind {
     /// Electric bass with frets.
     Fretted,
     /// Electric bass without frets: intonation in cents matters.
@@ -47,19 +57,36 @@ impl ToneBands {
     };
 }
 
-/// An instrument profile: kind, tuning, frets and reference pitch.
+/// The keys of a keyboard profile, lowest and highest.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeyRange {
+    pub low: Pitch,
+    pub high: Pitch,
+}
+
+/// Fewest and most strings of a string profile (ukulele to twelve-string).
+const STRINGS: std::ops::RangeInclusive<usize> = 1..=12;
+
+/// An instrument profile: kind, strings (tuning and frets) or keys, and reference pitch.
+/// A keyboard has an empty tuning and `keys`; a string instrument has no `keys`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Instrument {
-    pub kind: BassKind,
+    pub kind: InstrumentKind,
     pub tuning: Tuning,
     pub frets: u8,
     pub a4_hz: f64,
+    #[serde(default)]
+    pub keys: Option<KeyRange>,
 }
 
 impl Instrument {
-    pub fn new(kind: BassKind, tuning: Tuning, frets: u8) -> Result<Instrument, InstrumentError> {
+    pub fn new(
+        kind: InstrumentKind,
+        tuning: Tuning,
+        frets: u8,
+    ) -> Result<Instrument, InstrumentError> {
         let strings = tuning.string_count();
-        if !(4..=6).contains(&strings) {
+        if !STRINGS.contains(&strings) {
             return Err(InstrumentError::StringCount(strings));
         }
         if !(1..=36).contains(&frets) {
@@ -70,16 +97,44 @@ impl Instrument {
             tuning,
             frets,
             a4_hz: A4_HZ,
+            keys: None,
         })
+    }
+
+    /// A keyboard with keys `low..=high` (no strings, no tab).
+    pub fn keyboard(
+        kind: InstrumentKind,
+        low: Pitch,
+        high: Pitch,
+    ) -> Result<Instrument, InstrumentError> {
+        if low > high {
+            return Err(InstrumentError::Keys(low.0, high.0));
+        }
+        Ok(Instrument {
+            kind,
+            tuning: Tuning {
+                name: "keys".into(),
+                strings: Vec::new(),
+            },
+            frets: 0,
+            a4_hz: A4_HZ,
+            keys: Some(KeyRange { low, high }),
+        })
+    }
+
+    /// True for string instruments (tab, fretboard), false for keyboards.
+    pub fn has_strings(&self) -> bool {
+        self.keys.is_none() && !self.tuning.strings.is_empty()
     }
 
     /// Four-string fretted bass in standard tuning, 20 frets.
     pub fn default_bass() -> Instrument {
         Instrument {
-            kind: BassKind::Fretted,
+            kind: InstrumentKind::Fretted,
             tuning: Tuning::bass4_standard(),
             frets: 20,
             a4_hz: A4_HZ,
+            keys: None,
         }
     }
 
@@ -90,6 +145,9 @@ impl Instrument {
 
     /// Lowest and highest playable pitch.
     pub fn range(&self) -> Option<(Pitch, Pitch)> {
+        if let Some(keys) = self.keys {
+            return Some((keys.low, keys.high));
+        }
         let low = self.tuning.lowest()?;
         let high = self.tuning.highest()?.transposed(i32::from(self.frets))?;
         Some((low, high))
@@ -133,6 +191,31 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_keyboard_has_a_range_but_no_strings() {
+        let keys = Instrument::keyboard(InstrumentKind::Keys, Pitch(28), Pitch(67)).unwrap();
+        assert!(!keys.has_strings());
+        assert_eq!(keys.range(), Some((Pitch(28), Pitch(67))));
+        assert!(keys.positions(Pitch(40)).is_empty());
+        assert!(keys.detection_range_hz().is_some());
+        assert!(Instrument::keyboard(InstrumentKind::Keys, Pitch(60), Pitch(40)).is_err());
+        assert!(Instrument::default_bass().has_strings());
+    }
+
+    #[test]
+    fn string_counts_from_one_to_twelve() {
+        let ukulele = Tuning::from_names("ukulele", &["G4", "C4", "E4", "A4"]).unwrap();
+        assert!(Instrument::new(InstrumentKind::Fretted, ukulele, 15).is_ok());
+        let none = Tuning {
+            name: "none".into(),
+            strings: Vec::new(),
+        };
+        assert_eq!(
+            Instrument::new(InstrumentKind::Fretted, none, 20),
+            Err(InstrumentError::StringCount(0))
+        );
+    }
+
+    #[test]
     fn positions_of_a1_on_four_string() {
         let bass = Instrument::default_bass();
         let a1 = Pitch::parse("A1").unwrap();
@@ -141,7 +224,7 @@ mod tests {
 
     #[test]
     fn range_and_detection() {
-        let bass = Instrument::new(BassKind::Fretless, Tuning::bass5_standard(), 24).unwrap();
+        let bass = Instrument::new(InstrumentKind::Fretless, Tuning::bass5_standard(), 24).unwrap();
         let (low, high) = bass.range().unwrap();
         assert_eq!(low.to_string(), "B0");
         assert_eq!(high.to_string(), "G4");
@@ -151,10 +234,16 @@ mod tests {
 
     #[test]
     fn validates() {
+        let names = ["E1"; 13];
+        let t = Tuning::from_names("x", &names).unwrap();
+        assert_eq!(
+            Instrument::new(InstrumentKind::Fretted, t, 20),
+            Err(InstrumentError::StringCount(13))
+        );
         let t = Tuning::from_names("x", &["E1", "A1"]).unwrap();
         assert_eq!(
-            Instrument::new(BassKind::Fretted, t, 20),
-            Err(InstrumentError::StringCount(2))
+            Instrument::new(InstrumentKind::Fretted, t, 0),
+            Err(InstrumentError::Frets(0))
         );
     }
 }

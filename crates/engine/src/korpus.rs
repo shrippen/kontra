@@ -5,7 +5,9 @@
 
 use crate::offline::analyze;
 use kontra_dsp::synth::{laptop_jack, render, Noise, SynthNote, ToneShape};
-use kontra_model::{hz_to_midi, BassKind, DetectedNote, InputSource, Instrument, Tuning, A4_HZ};
+use kontra_model::{
+    hz_to_midi, DetectedNote, InputSource, Instrument, InstrumentKind, Tuning, A4_HZ,
+};
 use serde::{Deserialize, Serialize};
 
 pub const SAMPLE_RATE: u32 = 48_000;
@@ -56,10 +58,10 @@ impl KorpusSet {
     pub fn instrument(self) -> Instrument {
         let (kind, tuning) = match self {
             KorpusSet::Line4 | KorpusSet::LaptopJack4 | KorpusSet::Sixteenths => {
-                (BassKind::Fretted, Tuning::bass4_standard())
+                (InstrumentKind::Fretted, Tuning::bass4_standard())
             }
-            KorpusSet::Line5 => (BassKind::Fretted, Tuning::bass5_standard()),
-            KorpusSet::Fretless5 => (BassKind::Fretless, Tuning::bass5_standard()),
+            KorpusSet::Line5 => (InstrumentKind::Fretted, Tuning::bass5_standard()),
+            KorpusSet::Fretless5 => (InstrumentKind::Fretless, Tuning::bass5_standard()),
         };
         Instrument::new(kind, tuning, 24).unwrap_or_else(|_| Instrument::default_bass())
     }

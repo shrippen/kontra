@@ -23,7 +23,7 @@ pub use store::{
     data_dir, InputKind, Library, RecentEntry, SectionBars, SectionDensity, Setlist, Settings,
 };
 
-use kontra_model::{Arrangement, BassKind, InputSource, Tuning};
+use kontra_model::{Arrangement, InputSource, InstrumentKind, Tuning};
 use kontra_session::{
     import_file, list_devices, run_from, CalibrationResult, Connection, DeviceInfo, Direction,
     Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveEar, LiveSetup, LiveTuner,
@@ -302,7 +302,7 @@ impl Core {
     }
 
     /// Scoring from the instrument, the input and the user's choices (LH-BEW-02, -05).
-    pub fn score_settings(&self, kind: BassKind) -> ScoreSettings {
+    pub fn score_settings(&self, kind: InstrumentKind) -> ScoreSettings {
         let mut settings = ScoreSettings::defaults(kind, self.source());
         settings.latency_ms = self.settings.latency_ms;
         settings.strictness = match self.settings.strictness.as_str() {
@@ -951,7 +951,7 @@ impl Core {
             }
         }
         if self.settings.fretless {
-            arrangement.instrument.kind = BassKind::Fretless;
+            arrangement.instrument.kind = InstrumentKind::Fretless;
         }
         arrangement.instrument.a4_hz = self.a4_hz();
         self.stop_live();
@@ -2906,9 +2906,9 @@ fn tempo_from_bars(
 fn instrument_from(settings: &Settings) -> kontra_model::Instrument {
     // Bass over MIDI (P5): the same strings for tab and range, scored as keys.
     let kind = match (settings.input_kind, settings.fretless) {
-        (InputKind::Midi, _) => BassKind::Keys,
-        (_, true) => BassKind::Fretless,
-        (_, false) => BassKind::Fretted,
+        (InputKind::Midi, _) => InstrumentKind::Keys,
+        (_, true) => InstrumentKind::Fretless,
+        (_, false) => InstrumentKind::Fretted,
     };
     let mut instrument = kontra_model::Instrument::new(kind, tuning_from(settings), 24)
         .unwrap_or_else(|_| kontra_model::Instrument::default_bass());
@@ -3398,14 +3398,14 @@ mod tests {
     fn scoring_follows_the_settings() {
         let dir = temp_dir("scoring");
         let mut core = Core::new(&dir, QaOptions::default());
-        let auto = core.score_settings(BassKind::Fretless);
+        let auto = core.score_settings(InstrumentKind::Fretless);
         assert_eq!(auto.pitch_cents, 30.0);
         assert_eq!(auto.strictness.window_ms(), 60.0);
         core.reconfigure(|s| {
             s.strictness = "strict".into();
             s.pitch_cents = 20.0;
         });
-        let chosen = core.score_settings(BassKind::Fretless);
+        let chosen = core.score_settings(InstrumentKind::Fretless);
         assert_eq!(chosen.strictness.window_ms(), 25.0);
         assert_eq!(chosen.pitch_cents, 20.0);
         let _ = std::fs::remove_dir_all(dir);
@@ -3629,7 +3629,7 @@ mod tests {
         let mut core = Core::new(&dir, QaOptions::default());
         assert_eq!(core.set_window(35.0), 35.0);
         assert_eq!(core.settings().strictness, "custom");
-        let settings = core.score_settings(BassKind::Fretted);
+        let settings = core.score_settings(InstrumentKind::Fretted);
         assert_eq!(settings.strictness.window_ms(), 35.0);
         assert_eq!(core.set_window(5.0), 20.0);
         let _ = std::fs::remove_dir_all(dir);
