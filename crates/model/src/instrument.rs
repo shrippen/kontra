@@ -26,6 +26,27 @@ pub enum BassKind {
     Keys,
 }
 
+/// Corner frequencies of the monitor tone bands (LH-EIN-08), chosen per instrument so that
+/// "low", "mid" and "high" mean the same to the player on every instrument.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct ToneBands {
+    /// Low shelf: below this the instrument's body.
+    pub low_hz: f64,
+    /// Mid bell: the growl or honk of the instrument.
+    pub mid_hz: f64,
+    /// High shelf: string noise and attack.
+    pub high_hz: f64,
+}
+
+impl ToneBands {
+    /// Bass: lowest strings' fundamental, growl around 800 Hz, string attack.
+    pub const BASS: ToneBands = ToneBands {
+        low_hz: 100.0,
+        mid_hz: 800.0,
+        high_hz: 4000.0,
+    };
+}
+
 /// An instrument profile: kind, tuning, frets and reference pitch.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Instrument {
@@ -60,6 +81,11 @@ impl Instrument {
             frets: 20,
             a4_hz: A4_HZ,
         }
+    }
+
+    /// Tone bands for monitoring; a guitar or keyboard profile brings its own.
+    pub fn tone_bands(&self) -> ToneBands {
+        ToneBands::BASS
     }
 
     /// Lowest and highest playable pitch.

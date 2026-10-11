@@ -93,6 +93,14 @@ pub mod qobject {
         #[qproperty(f64, drums_volume, cxx_name = "drumsVolume")]
         #[qproperty(bool, monitor)]
         #[qproperty(f64, monitor_volume, cxx_name = "monitorVolume")]
+        /// Tone shaping of the monitored bass (LH-EIN-08): bands in dB within
+        /// ±`shapingRangeDb`, compressor and warmth 0..1.
+        #[qproperty(f64, monitor_low_db, cxx_name = "monitorLowDb")]
+        #[qproperty(f64, monitor_mid_db, cxx_name = "monitorMidDb")]
+        #[qproperty(f64, monitor_high_db, cxx_name = "monitorHighDb")]
+        #[qproperty(f64, monitor_compress, cxx_name = "monitorCompress")]
+        #[qproperty(f64, monitor_warmth, cxx_name = "monitorWarmth")]
+        #[qproperty(f64, shaping_range_db, cxx_name = "shapingRangeDb")]
         /// Note density of the current section, 1..=3 (LH-MOD-06), and whether it is fixed.
         #[qproperty(i32, density)]
         #[qproperty(bool, density_fixed, cxx_name = "densityFixed")]
@@ -347,6 +355,17 @@ pub mod qobject {
         #[cxx_name = "changeMonitor"]
         fn change_monitor(self: Pin<&mut Self>, on: bool);
 
+        /// Sets a tone band of the monitored bass in dB (`band` "low", "mid", "high") or the
+        /// compressor or warmth 0..1 (`band` "compress", "warmth").
+        #[qinvokable]
+        #[cxx_name = "changeShaping"]
+        fn change_shaping(self: Pin<&mut Self>, band: &QString, value: f64);
+
+        /// Back to the unshaped bass.
+        #[qinvokable]
+        #[cxx_name = "resetShaping"]
+        fn reset_shaping(self: Pin<&mut Self>);
+
         /// Latency calibration "play on the click" (LH-EIN-05).
         #[qinvokable]
         #[cxx_name = "startCalibration"]
@@ -568,6 +587,12 @@ pub struct ControllerRust {
     drums_volume: f64,
     monitor: bool,
     monitor_volume: f64,
+    monitor_low_db: f64,
+    monitor_mid_db: f64,
+    monitor_high_db: f64,
+    monitor_compress: f64,
+    monitor_warmth: f64,
+    shaping_range_db: f64,
     density: i32,
     density_fixed: bool,
     density_suggestion: i32,
@@ -688,6 +713,12 @@ impl Default for ControllerRust {
             drums_volume: s.drums_volume,
             monitor: s.monitor,
             monitor_volume: s.monitor_volume,
+            monitor_low_db: s.monitor_low_db,
+            monitor_mid_db: s.monitor_mid_db,
+            monitor_high_db: s.monitor_high_db,
+            monitor_compress: s.monitor_compress,
+            monitor_warmth: s.monitor_warmth,
+            shaping_range_db: kontra_appcore::Core::shaping_range_db(),
             density: 3,
             density_fixed: false,
             density_suggestion: 0,
@@ -1496,6 +1527,57 @@ impl qobject::Controller {
         }
     }
 
+    fn change_shaping(mut self: Pin<&mut Self>, band: &QString, value: f64) {
+        let range = kontra_appcore::Core::shaping_range_db();
+        let db = value.clamp(-range, range);
+        let hint = match band.to_string().as_str() {
+            "low" => {
+                self.as_mut().set_monitor_low_db(db);
+                self.as_mut().core().remix(|s| s.monitor_low_db = db)
+            }
+            "mid" => {
+                self.as_mut().set_monitor_mid_db(db);
+                self.as_mut().core().remix(|s| s.monitor_mid_db = db)
+            }
+            "high" => {
+                self.as_mut().set_monitor_high_db(db);
+                self.as_mut().core().remix(|s| s.monitor_high_db = db)
+            }
+            "compress" => {
+                let amount = value.clamp(0.0, 1.0);
+                self.as_mut().set_monitor_compress(amount);
+                self.as_mut().core().remix(|s| s.monitor_compress = amount)
+            }
+            "warmth" => {
+                let amount = value.clamp(0.0, 1.0);
+                self.as_mut().set_monitor_warmth(amount);
+                self.as_mut().core().remix(|s| s.monitor_warmth = amount)
+            }
+            _ => None,
+        };
+        if let Some(hint) = hint {
+            self.as_mut().set_message(q(&hint));
+        }
+    }
+
+    fn reset_shaping(mut self: Pin<&mut Self>) {
+        self.as_mut().set_monitor_low_db(0.0);
+        self.as_mut().set_monitor_mid_db(0.0);
+        self.as_mut().set_monitor_high_db(0.0);
+        self.as_mut().set_monitor_compress(0.0);
+        self.as_mut().set_monitor_warmth(0.0);
+        let hint = self.as_mut().core().remix(|s| {
+            s.monitor_low_db = 0.0;
+            s.monitor_mid_db = 0.0;
+            s.monitor_high_db = 0.0;
+            s.monitor_compress = 0.0;
+            s.monitor_warmth = 0.0;
+        });
+        if let Some(hint) = hint {
+            self.as_mut().set_message(q(&hint));
+        }
+    }
+
     fn start_calibration(mut self: Pin<&mut Self>) {
         self.as_mut().set_playing(false);
         self.as_mut().set_tuner_active(false);
@@ -1670,6 +1752,11 @@ impl qobject::Controller {
         self.as_mut().set_tone_volume(s.tone_volume);
         self.as_mut().set_monitor(s.monitor);
         self.as_mut().set_monitor_volume(s.monitor_volume);
+        self.as_mut().set_monitor_low_db(s.monitor_low_db);
+        self.as_mut().set_monitor_mid_db(s.monitor_mid_db);
+        self.as_mut().set_monitor_high_db(s.monitor_high_db);
+        self.as_mut().set_monitor_compress(s.monitor_compress);
+        self.as_mut().set_monitor_warmth(s.monitor_warmth);
         self.as_mut().set_setup_done(s.setup_done);
         self.as_mut().set_playing(false);
     }

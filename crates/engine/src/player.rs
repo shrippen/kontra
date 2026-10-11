@@ -14,6 +14,7 @@ use crate::clock::Clock;
 use crate::{EngineError, Event};
 use kontra_drivers::{OutputStream, StreamConfig};
 use kontra_dsp::synth::Noise;
+use kontra_dsp::{Shaper, Shaping};
 use kontra_model::DrumKind;
 use std::f32::consts::TAU;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -82,6 +83,8 @@ pub struct Gains {
     pub drums: f32,
     /// The bass input played back (input monitoring); 0 = off.
     pub monitor: f32,
+    /// Tone shaping of the monitored bass (LH-EIN-08); detection hears the dry input.
+    pub shaping: Shaping,
 }
 
 impl Default for Gains {
@@ -92,6 +95,7 @@ impl Default for Gains {
             backing: 0.8,
             drums: 0.7,
             monitor: 0.0,
+            shaping: Shaping::FLAT,
         }
     }
 }
@@ -171,6 +175,7 @@ impl Player {
             backing: None,
             next: None,
             monitor: Some(monitor_rx),
+            shaper: Shaper::new(48_000.0),
             noise: Noise::new(1),
         };
         let mut frame: u64 = 0;
@@ -296,6 +301,8 @@ struct Mixer {
     next: Option<Backing>,
     /// Read end of the monitor ring (mono input samples at the output rate).
     monitor: Option<rtrb::Consumer<f32>>,
+    /// Shapes the monitored bass.
+    shaper: Shaper,
     /// Source of snare and hi-hat noise.
     noise: Noise,
 }
@@ -343,7 +350,10 @@ impl Mixer {
                     self.next = None;
                 }
             }
-            Command::Gains(gains) => self.gains = gains,
+            Command::Gains(gains) => {
+                self.gains = gains;
+                self.shaper.set(gains.shaping);
+            }
         }
     }
 
@@ -392,7 +402,8 @@ impl Mixer {
         }
         // Monitoring: one input sample per frame; an empty ring (underrun) stays silent.
         if let Some(ring) = self.monitor.as_mut() {
-            let sample = ring.pop().unwrap_or(0.0) * self.gains.monitor;
+            let dry = ring.pop().unwrap_or(0.0);
+            let sample = self.shaper.process(dry, sr) * self.gains.monitor;
             left += sample;
             right += sample;
         }
@@ -497,10 +508,12 @@ mod tests {
                 backing: 1.0,
                 drums: 1.0,
                 monitor: 1.0,
+                shaping: Shaping::FLAT,
             },
             backing: None,
             next: None,
             monitor: None,
+            shaper: Shaper::new(48_000.0),
             noise: Noise::new(1),
         }
     }
@@ -615,6 +628,26 @@ mod tests {
             m.render(f64::from(i) / sr, sr);
         }
         assert_eq!(m.render(1.0, sr), (0.0, 0.0));
+    }
+
+    #[test]
+    fn monitor_is_shaped() {
+        // A 6 dB low boost doubles a slow ramp (low frequency) once the change has glided in.
+        let (mut m, mut tx) = monitored(1.0);
+        m.apply(Command::Gains(Gains {
+            shaping: Shaping {
+                low_db: 6.0,
+                ..Shaping::FLAT
+            },
+            ..m.gains
+        }));
+        let sr = 48_000.0;
+        let mut last = 0.0;
+        for i in 0..4000 {
+            tx.push(0.1).unwrap();
+            last = m.render(f64::from(i) / sr, sr).0;
+        }
+        assert!((last - 0.2).abs() < 0.01, "{last}");
     }
 
     #[test]

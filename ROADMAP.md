@@ -109,6 +109,12 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 - Kante-Wünsche 2: Claude legt den Kante-PR an, der Eigentümer merged.
 - Als Nächstes: Klangformung fürs Mithören (LH-EIN-08), Gehörbildung (LH-LRN-03), Backing transponieren (LH-WIE-02).
 
+## Entscheidungen 11.10.2026
+
+- Neue `pub`-Schnittstellen der Klangformung freigegeben: `dsp::{EqKind, Shaper, Shaping, SHAPING_RANGE_DB}`,
+  `Biquad::{eq, retune, response_db}`, `Gains::shaping` (mit Re-Exporten), `Core::shaping_range_db`,
+  `Settings::monitor_{low,mid,high}_db`, `monitor_compress`.
+
 ## Entscheidungen Runde 8 (11.10.2026)
 
 - Transponieren: eigener Pitch-Shifter in `dsp` (Echtzeit, Wechsel ohne Neustart) statt Strecken und Umrechnen im
@@ -255,3 +261,4 @@ Durchgespielt mit gerenderten Aufnahmen (`kontra-cli render`) und Screenshots al
 - [x] LH-NF-04: Xrun-Zähler: Treiber zählt Xrun-Meldungen des Audio-Backends und verspätete Callbacks (> 2 Blocklängen + 2 ms) für Ein- und Ausgang; Xruns gelten nicht mehr als „Gerät weg“. Summe seit dem Start in den Einstellungen (Debug-Zeile). Dauertest `kontra-cli soak <stück> --minutes 60 [--speed 0.8] [--output null|<id>] [--max-xruns 0]`: Schleife mit gestreckter Begleitspur, Metronom und Referenztönen auf einem zeitgesteuerten Null-Ausgang oder Gerät. Der 60-Minuten-Lauf auf Mindest-Hardware steht aus; nicht in CI (Dauer).
 - [x] LH-NF-10: `scripts/check-design.sh` (in `make check` und CI) bricht ab bei Hex-Farben, px-Angaben, Zahlen für Größen (außer 0 und 1 für Haarlinien) und Schriftfamilien in `crates/app/qml/*.qml`; die Kante-Kopie wird nicht geprüft. Stand: sauber.
 - [x] LH-NF-11: Einstellungen → „Über Kontra“: Kontra (MIT), Qt und KDE Frameworks (LGPL, dynamisch) und alle 64 eingebundenen Crates mit Version und Lizenz aus `crates/appcore/licences.json`; erzeugt von `scripts/licences.py` (`make licences`), CI prüft mit `--check`, dass die Liste zum `Cargo.lock` passt.
+- [x] LH-EIN-08: Klang fürs Mithören: Tiefen (Shelf 100 Hz), Mitten (Glocke 800 Hz), Höhen (Shelf 4 kHz) je ±12 dB, ein Kompressor (0–100 %, automatische Aufholverstärkung) und „Wärme“ (weiche tanh-Sättigung bei doppelter Abtastrate, Aliasing unter −50 dB statt −34 dB ohne) im Mixer, solange Mithören an ist; „Neutral“ setzt zurück. Änderungen gleiten in 32-Sample-Schritten (kein Knacken), die Erkennung hört das trockene Signal. Keine Vorausschau-Puffer; die Filter gegen Aliasing verzögern um etwa 0,1 ms. Rechenzeit 144 ns je Sample (0,7 % eines 256er-Blocks). Die Bandfrequenzen kommen aus dem Instrument-Profil (`Instrument::tone_bands`), ein weiteres Instrument bringt eigene mit.
