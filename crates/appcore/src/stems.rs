@@ -59,7 +59,14 @@ impl Core {
         let sandboxed = self.separator().sandboxed();
         let backing = self.backing_file();
         let on = self.loaded_entry().is_some_and(|e| e.backing_without_bass);
-        let running = self.stems.job.as_ref().map(|(_, _, job)| job.progress());
+        // A separation started for another piece goes on, but is not this piece's state.
+        let piece = self.loaded_path().map(Path::to_path_buf);
+        let running = self
+            .stems
+            .job
+            .as_ref()
+            .filter(|(of, _, _)| piece.as_ref() == Some(of))
+            .map(|(_, _, job)| job.progress());
         let (state, text) = match (&backing, running, &self.stems.failed) {
             (None, _, _) => ("none", String::new()),
             (Some(_), Some(p), _) => (
