@@ -133,8 +133,8 @@ Erwartet: jede Technik-Note hat ein Zeichen (h, p, sl, Klammer) und danach ein E
 1. MP3 an das Guitar-Pro-Arrangement koppeln, Beat-Erkennung.
 2. Zwei Taktanfänge von Hand korrigieren.
 3. Bei 75 % Tempo durchspielen.
-4. Die Sängerin will es einen Ganzton höher: „Transponieren“ +2, noch einmal durchspielen; Kontra neu starten.
-Erwartet: kein hörbarer Versatz > 20 ms über 4 Minuten; transponiert passen Tab und Audio zusammen (gleiche Tonart, gleiche Takte), Bünde aus der Datei bleiben, wo es geht; die Einstellung bleibt beim Stück, der Fortschritt auch.
+4. Die Sängerin will es einen Ganzton höher: „Transponieren“ +2 mitten im Lied, weiterspielen; Kontra neu starten.
+Erwartet: kein hörbarer Versatz > 20 ms über 4 Minuten; der Wechsel hält das Lied nicht an, Bewertetes bleibt; transponiert passen Tab und Audio zusammen (gleiche Tonart, gleiche Takte), Bünde aus der Datei bleiben, wo es geht; die Einstellung bleibt beim Stück, der Fortschritt auch.
 
 **J-D2 Übung an Schüler geben** · Persona: P4 Thomas · Phase 3 · LH-BIB-07, LH-FOR-04
 1. Übung aus Guitar Pro importieren, Loop-Bereiche und Zieltempo festlegen, als `.kontra` exportieren.

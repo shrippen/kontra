@@ -36,13 +36,17 @@ Kirigami.Page {
 
     property bool summaryReady: false
 
+    // While playing a new layout is the same run transposed (LH-WIE-02): the states stay and
+    // the views catch up with them; otherwise a new piece or run starts clean.
     function reset() {
         summaryReady = false
         notes = JSON.parse(ctl.notesJson)
         bars = JSON.parse(ctl.barsJson)
         staff = JSON.parse(ctl.staffJson)
-        states = {}
-        techniques = {}
+        if (!ctl.playing) {
+            states = {}
+            techniques = {}
+        }
     }
 
     // Re-applies the live states after `view` got a new notes list (which clears them).

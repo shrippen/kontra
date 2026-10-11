@@ -154,6 +154,14 @@ impl TechniqueJudge {
         &self.results
     }
 
+    /// The same piece transposed while playing: targets get their new pitches, what was judged
+    /// stays.
+    pub(crate) fn retarget(&mut self, arrangement: &Arrangement, source: InputSource) {
+        let fresh = TechniqueJudge::new(arrangement, source);
+        self.struck = fresh.struck;
+        self.legato = fresh.legato;
+    }
+
     pub(crate) fn untold(&self) -> &[Technique] {
         &self.untold
     }
