@@ -3485,7 +3485,9 @@ mod tests {
     #[test]
     fn bundled_exercises_by_level() {
         let dir = temp_dir("bundled");
-        let core = Core::new(&dir, QaOptions::default());
+        let mut core = Core::new(&dir, QaOptions::default());
+        // Level names follow the UI language; the test must not depend on the machine's.
+        core.update_settings(|s| s.language = Some("de".into()));
         let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
         let levels = levels.as_array().unwrap();
         assert_eq!(levels.len(), 5);
