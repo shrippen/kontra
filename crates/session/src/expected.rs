@@ -1,6 +1,6 @@
 //! Notes the player is expected to strike, in arrangement seconds.
 
-use kontra_model::Arrangement;
+use kontra_model::{Arrangement, Technique};
 use serde::{Deserialize, Serialize};
 
 const CENTS_PER_OCTAVE: f64 = 1200.0;
@@ -16,7 +16,7 @@ pub struct ExpectedNote {
     pub bar: Option<usize>,
     /// Further notes struck together with this one (a chord); `midi` is the lowest.
     pub chord: ChordTones,
-    /// A ghost note: muted, without a pitch to judge (LH-BEW-06).
+    /// A ghost or dead note: muted, without a pitch to judge (LH-BEW-06).
     #[serde(default)]
     pub ghost: bool,
     /// A harmonic: its pitch counts in any octave (the tracker often hears it lower).
@@ -103,8 +103,11 @@ pub fn expected_notes(arrangement: &Arrangement) -> Vec<ExpectedNote> {
             midi: n.pitch.0,
             bar: arrangement.bar_at(n.start_ticks),
             chord: ChordTones::default(),
-            ghost: n.techniques.contains(&kontra_model::Technique::Ghost),
-            harmonic: n.techniques.contains(&kontra_model::Technique::Harmonic),
+            ghost: n
+                .techniques
+                .iter()
+                .any(|t| matches!(t, Technique::Ghost | Technique::Muted)),
+            harmonic: n.techniques.contains(&Technique::Harmonic),
         });
     }
     out

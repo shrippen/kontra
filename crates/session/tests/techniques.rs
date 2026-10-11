@@ -195,3 +195,15 @@ fn harmonic_counts_in_any_octave() {
     let first = s.results().iter().find(|r| r.note == Some(0)).unwrap();
     assert!(first.is_hit(), "{first:?}");
 }
+
+/// A dead note (x in the tab, `Muted`) has no pitch either: played as one, it hits.
+#[test]
+fn dead_note_played_muted_hits() {
+    let mut a = piece();
+    a.notes[0].techniques = vec![Technique::Muted];
+    let mut s = Session::new(a, Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    run(&mut s, &[played(0.0, 0.0, Some(Technique::Ghost))], 0.6);
+    let first = s.results().iter().find(|r| r.note == Some(0)).unwrap();
+    assert!(first.is_hit(), "{first:?}");
+}
