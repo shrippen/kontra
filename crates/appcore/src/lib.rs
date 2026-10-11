@@ -645,7 +645,7 @@ impl Core {
             live.practice_mut().set_gains(gains);
         }
         if let Some(live_ear) = self.live_ear.as_mut() {
-            live_ear.set_gains(gains);
+            live_ear.set_gains(ear_gains(&self.settings));
         }
         self.monitor_hint()
     }
@@ -2373,7 +2373,7 @@ impl Core {
         };
         let mut live_ear = LiveEar::start(&setup, &instrument)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
-        live_ear.set_gains(gains(&self.settings));
+        live_ear.set_gains(ear_gains(&self.settings));
         self.live_ear = Some(live_ear);
         self.ear = Some(ear::EarQuiz::new(kind, &instrument, time_seed()));
         self.ear_play();
@@ -2988,6 +2988,14 @@ fn gains(settings: &Settings) -> Gains {
             warmth: settings.monitor_warmth as f32,
             bands: instrument_from(settings).tone_bands(),
         },
+    }
+}
+
+/// Ear training plays its prompts as tones at the "Vorspielen" volume (round 8).
+fn ear_gains(settings: &Settings) -> Gains {
+    Gains {
+        tone: settings.prompt_volume.clamp(0.0, 1.0) as f32,
+        ..gains(settings)
     }
 }
 
@@ -3815,6 +3823,18 @@ mod tests {
         core.update_settings(|s| s.language = Some("en".into()));
         assert_eq!(core.note_label("Bb"), "Bb");
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Round 8: ear training prompts sound at their own volume, not the reference tone's.
+    #[test]
+    fn ear_prompts_have_their_own_volume() {
+        let settings = Settings {
+            tone_volume: 0.2,
+            prompt_volume: 0.9,
+            ..Settings::default()
+        };
+        assert_eq!(ear_gains(&settings).tone, 0.9);
+        assert_eq!(gains(&settings).tone, 0.2);
     }
 
     /// LH-WIE-02: transposing moves every note, is kept for the piece and keeps its progress.
