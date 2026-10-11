@@ -120,7 +120,10 @@ mod tests {
         for source in [DE, EN] {
             let mut seen = std::collections::HashSet::new();
             for line in source.lines() {
-                let Some(key) = line.trim().strip_prefix('"').and_then(|l| l.split('"').next())
+                let Some(key) = line
+                    .trim()
+                    .strip_prefix('"')
+                    .and_then(|l| l.split('"').next())
                 else {
                     continue;
                 };
