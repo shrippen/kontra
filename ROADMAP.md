@@ -94,11 +94,39 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 - Mit 1.0 kommt Kontra als öffentliches Repo auf GitHub (Push-Mirror von Gitea); erst dann läuft der
   Flatpak-Bau dort. Bis dahin lokal mit `scripts/flatpak.sh`.
 
+## Entscheidungen Runde 7 (10.10.2026)
+
+- Neue `pub`-Schnittstellen freigegeben: `OffPitch`, `off_pitch`, `Gains::monitor`, `Input::start` mit Mithören,
+  `Practice::set_gains`, `Live::can_monitor`, `content::exercise`, `dsp::{track_beats, BeatGrid}`, `.kontra`-Pakete,
+  `Density`, `Run::hardest_bars`, `Arrangement::drums`.
+- Prüfung mit echter Hardware (Mithör-Latenz, Interface abziehen, 60-Minuten-Soak, Beat-Erkennung an Bandaufnahmen):
+  später, vor 0.1.
+- Drop bei 5/6 Saiten bleibt Drop A.
+- Automatische Eingangswahl: bei jedem Start neu, nichts gespeichert (LH-EIN-02, so umgesetzt).
+- Daten laden: Ergänzen und Ersetzen, Ergänzen vorausgewählt (LH-FOR-03, so umgesetzt).
+- Übungstitel in der Oberflächensprache (LH-BIB-08); Dateinamen und Titel in den Dateien bleiben, weil der
+  Fortschritt an `song_id` hängt.
+- Kante-Wünsche 2: Claude legt den Kante-PR an, der Eigentümer merged.
+- Als Nächstes: Klangformung fürs Mithören (LH-EIN-08), Gehörbildung (LH-LRN-03), Backing transponieren (LH-WIE-02).
+
 ## Entscheidungen 11.10.2026
 
 - Neue `pub`-Schnittstellen der Klangformung freigegeben: `dsp::{EqKind, Shaper, Shaping, SHAPING_RANGE_DB}`,
   `Biquad::{eq, retune, response_db}`, `Gains::shaping` (mit Re-Exporten), `Core::shaping_range_db`,
   `Settings::monitor_{low,mid,high}_db`, `monitor_compress`.
+
+## Entscheidungen Runde 8 (11.10.2026)
+
+- Transponieren: eigener Pitch-Shifter in `dsp` (Echtzeit, Wechsel ohne Neustart) statt Strecken und Umrechnen im
+  Engine-Backing (#21 wird umgebaut).
+- Transponieren: Töne außerhalb des Instruments rücken eine Oktave (so umgesetzt).
+- „Lage“ in der Oberfläche wird „Zeigefinger am n. Bund“ (LH-ALL-05 gilt weiter).
+- Saitenfarben: Palette in `KanteStyle`, Tab-Lane, Tabulatur und Griffbrett nutzen sie (Kante-PR).
+- Gehörbildung: eigener Regler „Vorspielen“ statt des Referenzton-Reglers.
+- Tasteninstrumente jetzt im Modell: `BassKind` wird `InstrumentKind`, ein Instrument hat Saiten oder einen
+  Tastenumfang; Test mit Dummy-Keyboard.
+- PR-Agent: scheitert das Review, einmal `/review` wiederholen; scheitert es erneut, genügt grüne CI (in allen
+  `agent.md`).
 
 ## Didaktik: wie Kontra Bass vermittelt (laufend, alle Phasen)
 
