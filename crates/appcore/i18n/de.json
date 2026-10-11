@@ -245,6 +245,8 @@
   "mixer.shaping.high": "Höhen",
   "mixer.shaping.compress": "Kompressor",
   "mixer.shaping.compress.hint": "Gleicht laute und leise Anschläge an.",
+  "mixer.shaping.warmth": "Wärme",
+  "mixer.shaping.warmth.hint": "Rundet laute Anschläge weich ab wie ein etwas stärker aufgedrehter Verstärker.",
   "mixer.shaping.db": "{db} dB",
   "mixer.shaping.neutral": "Neutral",
   "mixer.shaping.neutral.title": "Klang zurücksetzen",

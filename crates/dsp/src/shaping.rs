@@ -1,20 +1,23 @@
-//! Tone shaping for input monitoring (LH-EIN-08): three equaliser bands and a compressor.
+//! Tone shaping for input monitoring (LH-EIN-08): three equaliser bands, a compressor and
+//! warmth (light saturation, like an amp driven a little harder).
 //!
 //! ```text
-//! bass ─► low shelf 100 Hz ─► peak 800 Hz ─► high shelf 4 kHz ─► compressor ─► monitor
+//! input ─► low shelf ─► mid bell ─► high shelf ─► compressor ─► warmth ─► monitor
+//!                                                                  │
+//!                         2× rate: up ─► tanh ─► anti-alias ─► down
+//!
+//! The band frequencies come from the instrument profile (`ToneBands`; bass: 100 Hz,
+//! 800 Hz, 4 kHz), so another instrument needs no change here.
 //! ```
 //!
 //! Runs in the audio callback: no allocation, one sample at a time. Changed settings glide
 //! towards their target in small steps every 32 samples, so moving a slider does not click.
 
-use crate::biquad::{Biquad, EqKind};
+use crate::biquad::{Biquad, EqKind, FilterKind};
+use kontra_model::ToneBands;
 
 /// Largest boost or cut of a band, in dB.
 pub const SHAPING_RANGE_DB: f32 = 12.0;
-
-const LOW_HZ: f64 = 100.0;
-const MID_HZ: f64 = 800.0;
-const HIGH_HZ: f64 = 4000.0;
 
 /// Samples between two steps towards the target settings.
 const RAMP_FRAMES: u32 = 32;
@@ -22,6 +25,15 @@ const RAMP_FRAMES: u32 = 32;
 const RAMP_DB: f32 = 0.25;
 /// Largest compressor change per step.
 const RAMP_COMPRESS: f32 = 0.02;
+
+/// Drive of the saturation at full warmth: small signals pass at unity, peaks round off.
+/// Example: a 0.5 peak comes out at 0.24 (−6 dB), a 0.05 peak almost unchanged.
+const WARMTH_DRIVE: f32 = 3.0;
+/// Below this warmth the saturated path fades in from the dry signal (no click when switched on).
+const WARMTH_FADE: f32 = 0.1;
+/// Anti-alias cutoff relative to the base rate (20 kHz at 48 kHz); four Butterworth sections.
+const ALIAS_CUTOFF: f64 = 0.42;
+const ALIAS_SECTIONS: usize = 4;
 
 const ATTACK_S: f64 = 0.010;
 const RELEASE_S: f64 = 0.150;
@@ -40,6 +52,10 @@ pub struct Shaping {
     pub high_db: f32,
     /// Compressor amount, 0 (off) to 1 (strong).
     pub compress: f32,
+    /// Saturation, 0 (off) to 1 (warm).
+    pub warmth: f32,
+    /// Where the bands sit, from the instrument profile; changes at once, not gliding.
+    pub bands: ToneBands,
 }
 
 impl Shaping {
@@ -48,6 +64,8 @@ impl Shaping {
         mid_db: 0.0,
         high_db: 0.0,
         compress: 0.0,
+        warmth: 0.0,
+        bands: ToneBands::BASS,
     };
 
     fn clamped(self) -> Shaping {
@@ -57,6 +75,8 @@ impl Shaping {
             mid_db: band(self.mid_db),
             high_db: band(self.high_db),
             compress: self.compress.clamp(0.0, 1.0),
+            warmth: self.warmth.clamp(0.0, 1.0),
+            bands: self.bands,
         }
     }
 }
@@ -81,15 +101,16 @@ pub struct Shaper {
     envelope: f32,
     attack: f32,
     release: f32,
+    warmth: Saturator,
 }
 
 impl Shaper {
     pub fn new(sample_rate: f64) -> Shaper {
         let flat = Shaping::FLAT;
         let mut shaper = Shaper {
-            low: Biquad::eq(EqKind::LowShelf, sample_rate, LOW_HZ, 0.0),
-            mid: Biquad::eq(EqKind::Peak, sample_rate, MID_HZ, 0.0),
-            high: Biquad::eq(EqKind::HighShelf, sample_rate, HIGH_HZ, 0.0),
+            low: Biquad::eq(EqKind::LowShelf, sample_rate, flat.bands.low_hz, 0.0),
+            mid: Biquad::eq(EqKind::Peak, sample_rate, flat.bands.mid_hz, 0.0),
+            high: Biquad::eq(EqKind::HighShelf, sample_rate, flat.bands.high_hz, 0.0),
             current: flat,
             target: flat,
             sample_rate,
@@ -97,6 +118,7 @@ impl Shaper {
             envelope: 0.0,
             attack: 0.0,
             release: 0.0,
+            warmth: Saturator::new(sample_rate),
         };
         shaper.retime(sample_rate);
         shaper
@@ -112,6 +134,7 @@ impl Shaper {
         if sample_rate != self.sample_rate {
             self.retime(sample_rate);
             self.retune();
+            self.warmth = Saturator::new(sample_rate);
         }
         if self.countdown == 0 {
             self.countdown = RAMP_FRAMES;
@@ -125,7 +148,8 @@ impl Shaper {
         let c = self.current;
         let flat = c.low_db == 0.0 && c.mid_db == 0.0 && c.high_db == 0.0;
         let y = if flat { x } else { shaped };
-        self.compress(y)
+        let y = self.compress(y);
+        self.warmth.process(y, self.current.warmth)
     }
 
     /// Moves `current` one step towards `target` and recomputes the filters if it moved.
@@ -140,18 +164,21 @@ impl Shaper {
             mid_db: toward(c.mid_db, t.mid_db, RAMP_DB),
             high_db: toward(c.high_db, t.high_db, RAMP_DB),
             compress: toward(c.compress, t.compress, RAMP_COMPRESS),
+            warmth: toward(c.warmth, t.warmth, RAMP_COMPRESS),
+            bands: t.bands,
         };
         self.retune();
     }
 
     fn retune(&mut self) {
         let (sr, c) = (self.sample_rate, self.current);
+        let b = c.bands;
         self.low
-            .retune(EqKind::LowShelf, sr, LOW_HZ, f64::from(c.low_db));
+            .retune(EqKind::LowShelf, sr, b.low_hz, f64::from(c.low_db));
         self.mid
-            .retune(EqKind::Peak, sr, MID_HZ, f64::from(c.mid_db));
+            .retune(EqKind::Peak, sr, b.mid_hz, f64::from(c.mid_db));
         self.high
-            .retune(EqKind::HighShelf, sr, HIGH_HZ, f64::from(c.high_db));
+            .retune(EqKind::HighShelf, sr, b.high_hz, f64::from(c.high_db));
     }
 
     fn retime(&mut self, sample_rate: f64) {
@@ -181,6 +208,50 @@ impl Shaper {
         let over_db = crate::amplitude_to_db(self.envelope) - threshold_db;
         let reduction_db = over_db.max(0.0) * slope;
         y * 10f32.powf((makeup_db - reduction_db) / 20.0)
+    }
+}
+
+/// Soft clipping at twice the sample rate, so the harmonics it adds above the base Nyquist
+/// are filtered out instead of folding back as inharmonic tones.
+#[derive(Debug, Clone)]
+struct Saturator {
+    up: [Biquad; ALIAS_SECTIONS],
+    down: [Biquad; ALIAS_SECTIONS],
+}
+
+impl Saturator {
+    fn new(sample_rate: f64) -> Saturator {
+        let section = || {
+            Biquad::new(
+                FilterKind::LowPass,
+                2.0 * sample_rate,
+                ALIAS_CUTOFF * sample_rate,
+            )
+        };
+        Saturator {
+            up: std::array::from_fn(|_| section()),
+            down: std::array::from_fn(|_| section()),
+        }
+    }
+
+    /// One base-rate sample; `warmth` 0 returns `x` unchanged. The filters always run, so
+    /// their state is current when warmth comes on.
+    fn process(&mut self, x: f32, warmth: f32) -> f32 {
+        let drive = 1.0 + (WARMTH_DRIVE - 1.0) * warmth;
+        let saturate = |v: f32| (drive * v).tanh() / drive;
+
+        // Zero-stuffing doubles the rate; the factor 2 keeps the level.
+        let mut wet = 0.0;
+        for input in [2.0 * x, 0.0] {
+            let up = self.up.iter_mut().fold(input, |v, f| f.process(v));
+            wet = self.down.iter_mut().fold(saturate(up), |v, f| f.process(v));
+        }
+
+        if warmth <= 0.0 {
+            return x;
+        }
+        let mix = (warmth / WARMTH_FADE).min(1.0);
+        x + (wet - x) * mix
     }
 }
 
@@ -229,6 +300,28 @@ mod tests {
     }
 
     #[test]
+    fn bands_follow_the_profile() {
+        // Another instrument with its low shelf at 400 Hz: a 6 dB lift reaches 200 Hz,
+        // which the bass shelf at 100 Hz leaves almost untouched.
+        let lift = |low_hz: f64| {
+            let mut shaper = Shaper::new(SR);
+            shaper.set(Shaping {
+                low_db: 6.0,
+                bands: ToneBands {
+                    low_hz,
+                    ..ToneBands::BASS
+                },
+                ..Shaping::FLAT
+            });
+            let input = sine(200.0, 0.25, 48_000);
+            let out = run(&mut shaper, &input);
+            rms_db(&out[24_000..]) - rms_db(&input[24_000..])
+        };
+        assert!(lift(400.0) > 4.5);
+        assert!(lift(ToneBands::BASS.low_hz) < 1.5);
+    }
+
+    #[test]
     fn compressor_narrows_dynamics() {
         let mut shaper = Shaper::new(SR);
         shaper.set(Shaping {
@@ -274,9 +367,64 @@ mod tests {
             mid_db: -40.0,
             high_db: 0.0,
             compress: 3.0,
+            warmth: -1.0,
+            ..Shaping::FLAT
         });
         assert_eq!(shaper.target.low_db, SHAPING_RANGE_DB);
         assert_eq!(shaper.target.mid_db, -SHAPING_RANGE_DB);
         assert_eq!(shaper.target.compress, 1.0);
+        assert_eq!(shaper.target.warmth, 0.0);
+    }
+
+    /// Level of `hz` in `signal`, in dB relative to a full-scale sine (Goertzel).
+    fn tone_db(signal: &[f32], hz: f64) -> f32 {
+        let w = 2.0 * PI * hz / SR;
+        let (mut s1, mut s2) = (0.0f64, 0.0f64);
+        for &x in signal {
+            let s0 = f64::from(x) + 2.0 * w.cos() * s1 - s2;
+            s2 = s1;
+            s1 = s0;
+        }
+        let power = s1 * s1 + s2 * s2 - 2.0 * w.cos() * s1 * s2;
+        let amplitude = 2.0 * power.sqrt() / signal.len() as f64;
+        crate::amplitude_to_db(amplitude as f32)
+    }
+
+    fn warm(input: &[f32]) -> Vec<f32> {
+        let mut shaper = Shaper::new(SR);
+        shaper.set(Shaping {
+            warmth: 1.0,
+            ..Shaping::FLAT
+        });
+        run(&mut shaper, input)
+    }
+
+    #[test]
+    fn warmth_adds_harmonics() {
+        // 110 Hz (A string): the third harmonic at 330 Hz appears.
+        let input = sine(110.0, 0.5, 48_000);
+        let out = warm(&input);
+        let tail = &out[24_000..];
+        assert!(tone_db(&input[24_000..], 330.0) < -80.0);
+        assert!(tone_db(tail, 330.0) - tone_db(tail, 110.0) > -30.0);
+    }
+
+    #[test]
+    fn warmth_does_not_alias() {
+        // 7 kHz: the fifth harmonic (35 kHz) would fold back to 13 kHz at the base rate.
+        let input = sine(7000.0, 0.5, 48_000);
+        let out = warm(&input);
+        let tail = &out[24_000..];
+        let alias = tone_db(tail, 13_000.0) - tone_db(tail, 7000.0);
+        assert!(alias < -50.0, "alias {alias} dB");
+    }
+
+    #[test]
+    fn warmth_keeps_quiet_notes() {
+        // A soft note passes almost unchanged, so the bass does not get quieter overall.
+        let input = sine(55.0, 0.05, 48_000);
+        let out = warm(&input);
+        let change = rms_db(&out[24_000..]) - rms_db(&input[24_000..]);
+        assert!(change.abs() < 0.5, "{change} dB");
     }
 }

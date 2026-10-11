@@ -94,11 +94,12 @@ pub struct Settings {
     /// Play the bass through Kontra (input monitoring); off: the interface monitors directly.
     pub monitor: bool,
     pub monitor_volume: f64,
-    /// Tone shaping of the monitored bass (LH-EIN-08): bands in dB, compressor 0..=1.
+    /// Tone shaping of the monitored bass (LH-EIN-08): bands in dB, compressor and warmth 0..=1.
     pub monitor_low_db: f64,
     pub monitor_mid_db: f64,
     pub monitor_high_db: f64,
     pub monitor_compress: f64,
+    pub monitor_warmth: f64,
     /// Suggest more or fewer notes between runs (LH-MOD-06).
     pub adaptive: bool,
     /// Tuning (LH-TUN-02): "standard", "drop" (lowest string a whole step down),
@@ -149,6 +150,7 @@ impl Default for Settings {
             monitor_mid_db: 0.0,
             monitor_high_db: 0.0,
             monitor_compress: 0.0,
+            monitor_warmth: 0.0,
             adaptive: true,
             tuning: "standard".into(),
             custom_tuning: Vec::new(),

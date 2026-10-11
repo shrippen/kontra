@@ -245,6 +245,8 @@
   "mixer.shaping.high": "High",
   "mixer.shaping.compress": "Compressor",
   "mixer.shaping.compress.hint": "Evens out loud and soft notes.",
+  "mixer.shaping.warmth": "Warmth",
+  "mixer.shaping.warmth.hint": "Rounds off loud notes softly, like an amp turned up a little.",
   "mixer.shaping.db": "{db} dB",
   "mixer.shaping.neutral": "Neutral",
   "mixer.shaping.neutral.title": "Reset sound",

@@ -2615,6 +2615,8 @@ fn gains(settings: &Settings) -> Gains {
             mid_db: settings.monitor_mid_db as f32,
             high_db: settings.monitor_high_db as f32,
             compress: settings.monitor_compress as f32,
+            warmth: settings.monitor_warmth as f32,
+            bands: instrument_from(settings).tone_bands(),
         },
     }
 }
@@ -2922,8 +2924,12 @@ mod tests {
         assert_eq!(off.shaping, Shaping::FLAT);
         settings.monitor_low_db = 3.0;
         settings.monitor_compress = 0.5;
+        settings.monitor_warmth = 0.25;
         let shaped = gains(&settings).shaping;
-        assert_eq!((shaped.low_db, shaped.compress), (3.0, 0.5));
+        assert_eq!(
+            (shaped.low_db, shaped.compress, shaped.warmth),
+            (3.0, 0.5, 0.25)
+        );
     }
 
     /// LH-WIE-03: mixer changes reach a running practice without restarting it and are saved.

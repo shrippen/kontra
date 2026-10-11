@@ -94,11 +94,12 @@ pub mod qobject {
         #[qproperty(bool, monitor)]
         #[qproperty(f64, monitor_volume, cxx_name = "monitorVolume")]
         /// Tone shaping of the monitored bass (LH-EIN-08): bands in dB within
-        /// ±`shapingRangeDb`, compressor 0..1.
+        /// ±`shapingRangeDb`, compressor and warmth 0..1.
         #[qproperty(f64, monitor_low_db, cxx_name = "monitorLowDb")]
         #[qproperty(f64, monitor_mid_db, cxx_name = "monitorMidDb")]
         #[qproperty(f64, monitor_high_db, cxx_name = "monitorHighDb")]
         #[qproperty(f64, monitor_compress, cxx_name = "monitorCompress")]
+        #[qproperty(f64, monitor_warmth, cxx_name = "monitorWarmth")]
         #[qproperty(f64, shaping_range_db, cxx_name = "shapingRangeDb")]
         /// Note density of the current section, 1..=3 (LH-MOD-06), and whether it is fixed.
         #[qproperty(i32, density)]
@@ -355,7 +356,7 @@ pub mod qobject {
         fn change_monitor(self: Pin<&mut Self>, on: bool);
 
         /// Sets a tone band of the monitored bass in dB (`band` "low", "mid", "high") or the
-        /// compressor 0..1 (`band` "compress").
+        /// compressor or warmth 0..1 (`band` "compress", "warmth").
         #[qinvokable]
         #[cxx_name = "changeShaping"]
         fn change_shaping(self: Pin<&mut Self>, band: &QString, value: f64);
@@ -590,6 +591,7 @@ pub struct ControllerRust {
     monitor_mid_db: f64,
     monitor_high_db: f64,
     monitor_compress: f64,
+    monitor_warmth: f64,
     shaping_range_db: f64,
     density: i32,
     density_fixed: bool,
@@ -715,6 +717,7 @@ impl Default for ControllerRust {
             monitor_mid_db: s.monitor_mid_db,
             monitor_high_db: s.monitor_high_db,
             monitor_compress: s.monitor_compress,
+            monitor_warmth: s.monitor_warmth,
             shaping_range_db: kontra_appcore::Core::shaping_range_db(),
             density: 3,
             density_fixed: false,
@@ -1545,6 +1548,11 @@ impl qobject::Controller {
                 self.as_mut().set_monitor_compress(amount);
                 self.as_mut().core().remix(|s| s.monitor_compress = amount)
             }
+            "warmth" => {
+                let amount = value.clamp(0.0, 1.0);
+                self.as_mut().set_monitor_warmth(amount);
+                self.as_mut().core().remix(|s| s.monitor_warmth = amount)
+            }
             _ => None,
         };
         if let Some(hint) = hint {
@@ -1557,11 +1565,13 @@ impl qobject::Controller {
         self.as_mut().set_monitor_mid_db(0.0);
         self.as_mut().set_monitor_high_db(0.0);
         self.as_mut().set_monitor_compress(0.0);
+        self.as_mut().set_monitor_warmth(0.0);
         let hint = self.as_mut().core().remix(|s| {
             s.monitor_low_db = 0.0;
             s.monitor_mid_db = 0.0;
             s.monitor_high_db = 0.0;
             s.monitor_compress = 0.0;
+            s.monitor_warmth = 0.0;
         });
         if let Some(hint) = hint {
             self.as_mut().set_message(q(&hint));
@@ -1746,6 +1756,7 @@ impl qobject::Controller {
         self.as_mut().set_monitor_mid_db(s.monitor_mid_db);
         self.as_mut().set_monitor_high_db(s.monitor_high_db);
         self.as_mut().set_monitor_compress(s.monitor_compress);
+        self.as_mut().set_monitor_warmth(s.monitor_warmth);
         self.as_mut().set_setup_done(s.setup_done);
         self.as_mut().set_playing(false);
     }

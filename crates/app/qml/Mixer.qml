@@ -6,7 +6,7 @@ import Kante
 // Mixer (LH-WIE-03, LH-MOD-05): volumes of backing track, metronome, reference tone and drums
 // (LH-LRN-01), and the bass played through Kontra (off by default: the interface's direct
 // monitoring has no delay). While it plays, three tone bands and a compressor shape it
-// (LH-EIN-08); "Neutral" resets them.
+// and warmth (LH-EIN-08); "Neutral" resets them.
 // Changes apply at once, also while playing. On the practice page and in the settings.
 ColumnLayout {
     id: mixer
@@ -61,12 +61,12 @@ ColumnLayout {
         bus: "tone"
         value: mixer.ctl.toneVolume
     }
-    // One tone band of the monitored bass in whole dB, or the compressor in percent.
+    // One tone band of the monitored bass in whole dB, or compressor and warmth in percent.
     component Shaping: KanteSettingRow {
         id: shapingRow
         property string band
         property real value
-        readonly property bool isCompressor: band === "compress"
+        readonly property bool isAmount: band === "compress" || band === "warmth"
         readonly property real range: mixer.ctl.shapingRangeDb
         Layout.fillWidth: true
         visible: mixer.ctl.monitor
@@ -76,9 +76,9 @@ ColumnLayout {
                 id: shapingSlider
                 Layout.fillWidth: true
                 Layout.preferredWidth: KanteStyle.unit(220)
-                from: shapingRow.isCompressor ? 0 : -shapingRow.range
-                to: shapingRow.isCompressor ? 1 : shapingRow.range
-                stepSize: shapingRow.isCompressor ? 0.05 : 1
+                from: shapingRow.isAmount ? 0 : -shapingRow.range
+                to: shapingRow.isAmount ? 1 : shapingRow.range
+                stepSize: shapingRow.isAmount ? 0.05 : 1
                 value: shapingRow.value
                 focusPolicy: Qt.StrongFocus
                 Accessible.name: shapingRow.title
@@ -89,7 +89,7 @@ ColumnLayout {
                 Layout.preferredWidth: KanteStyle.unit(48)
                 horizontalAlignment: Text.AlignRight
                 color: KanteStyle.textColor
-                text: shapingRow.isCompressor
+                text: shapingRow.isAmount
                     ? (shapingSlider.value === 0 ? mixer.texts.t("mixer.shaping.off")
                         : mixer.texts.t("mixer.percent", { percent: Math.round(shapingSlider.value * 100) }))
                     : mixer.texts.t("mixer.shaping.db", { db: (shapingSlider.value > 0 ? "+" : "") + Math.round(shapingSlider.value) })
@@ -143,6 +143,12 @@ ColumnLayout {
         band: "compress"
         value: mixer.ctl.monitorCompress
     }
+    Shaping {
+        title: mixer.texts.t("mixer.shaping.warmth")
+        hint: mixer.texts.t("mixer.shaping.warmth.hint")
+        band: "warmth"
+        value: mixer.ctl.monitorWarmth
+    }
     KanteSettingRow {
         Layout.fillWidth: true
         visible: mixer.ctl.monitor
@@ -152,6 +158,7 @@ ColumnLayout {
             Accessible.name: mixer.texts.t("mixer.shaping.neutral.title")
             enabled: mixer.ctl.monitorLowDb !== 0 || mixer.ctl.monitorMidDb !== 0
                 || mixer.ctl.monitorHighDb !== 0 || mixer.ctl.monitorCompress !== 0
+                || mixer.ctl.monitorWarmth !== 0
             onClicked: mixer.ctl.resetShaping()
         }
     }
