@@ -227,13 +227,9 @@ fn late_ghost_verdict_fixes_the_pitch() {
             onset_s: 1.0,
             technique: Technique::Ghost,
         });
-        let last = s
-            .results()
-            .iter()
-            .rev()
-            .find(|r| r.note == Some(2))
-            .unwrap();
-        assert!(last.is_hit(), "{mode:?}: {last:?}");
+        // Replaced, not followed by a hit: a pass counts every result it holds.
+        let of_note: Vec<_> = s.results().iter().filter(|r| r.note == Some(2)).collect();
+        assert!(of_note.iter().all(|r| r.is_hit()), "{mode:?}: {of_note:?}");
         if mode == Mode::Wait {
             assert!(
                 s.is_finished() || s.next_expected().is_none(),

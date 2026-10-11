@@ -1963,12 +1963,12 @@ impl Core {
         let live = self.live.take();
         let looping = self.looping;
         let reloaded = self.reload(loaded.1);
+        // The loop stays, and its own note density (LH-MOD-06) needs it back before thinning.
+        self.looping = looping;
+        self.rethin();
         let Some(mut live) = live else {
             return reloaded;
         };
-        // The section's own note density (LH-MOD-06) needs the loop back before thinning.
-        self.looping = looping;
-        self.rethin();
         let moved = self.arrangement().cloned();
         let goes_on = reloaded.is_ok()
             && moved.is_some_and(|a| live.practice_mut().retarget(a, self.transpose()));
@@ -2843,7 +2843,12 @@ fn pick_midi(
     let Some(name) = chosen else {
         return (first, MidiChoice::Found);
     };
-    match ports.iter().position(|p| p.name == name || p.id == name) {
+    // A name first; ALSA hands old ids out again, so an id only when no name fits.
+    let found = ports
+        .iter()
+        .position(|p| p.name == name)
+        .or_else(|| ports.iter().position(|p| p.id == name));
+    match found {
         Some(i) => (Some(i), MidiChoice::Found),
         None => (first, MidiChoice::Missing),
     }
