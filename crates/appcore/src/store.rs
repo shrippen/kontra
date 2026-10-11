@@ -58,6 +58,8 @@ pub enum InputKind {
     LaptopJack,
     /// MIDI keyboard playing the bass line (LH-EIN-12).
     Midi,
+    /// Microphone in the room, e.g. at a double bass (LH-EIN-11).
+    Microphone,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

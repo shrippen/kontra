@@ -56,6 +56,15 @@ pub struct TrackerConfig {
 impl TrackerConfig {
     pub fn for_instrument(instrument: &Instrument, source: InputSource) -> TrackerConfig {
         let (min_hz, max_hz) = instrument.detection_range_hz().unwrap_or((27.0, 420.0));
+        // Noise gate at a microphone (LH-EIN-11): an attack must stand out of the room's
+        // noise (fan, street at about −50 dBFS), not only out of silence.
+        let onset = match source {
+            InputSource::Microphone => OnsetConfig {
+                gate_db: MICROPHONE_GATE_DB,
+                ..OnsetConfig::default()
+            },
+            _ => OnsetConfig::default(),
+        };
         TrackerConfig {
             min_hz,
             max_hz,
@@ -65,10 +74,13 @@ impl TrackerConfig {
             timeout_s: 0.15,
             min_confidence: 0.6,
             source,
-            onset: OnsetConfig::default(),
+            onset,
         }
     }
 }
+
+/// Attacks at a microphone must reach this level (dBFS) in the high band.
+const MICROPHONE_GATE_DB: f32 = -48.0;
 
 #[derive(Debug, Clone, Copy)]
 struct Pending {

@@ -1368,10 +1368,11 @@ impl Core {
         {
             return InputSource::Midi;
         }
-        if self.qa.laptop_jack || self.settings.input_kind == InputKind::LaptopJack {
-            InputSource::LaptopJack
-        } else {
-            InputSource::Line
+        match self.settings.input_kind {
+            _ if self.qa.laptop_jack => InputSource::LaptopJack,
+            InputKind::LaptopJack => InputSource::LaptopJack,
+            InputKind::Microphone => InputSource::Microphone,
+            InputKind::Line | InputKind::Midi => InputSource::Line,
         }
     }
 

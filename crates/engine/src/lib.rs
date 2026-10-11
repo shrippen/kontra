@@ -26,10 +26,10 @@ pub use kontra_drivers::{
 };
 pub use kontra_dsp::{track_beats, BeatGrid, Shaping, SHAPING_RANGE_DB};
 pub use korpus::{
-    evaluate, evaluate_with, generate, render_performance, simulate_laptop_jack, Annotation,
+    band, evaluate, evaluate_with, generate, render_performance, simulate_laptop_jack, Annotation,
     Evaluation, KorpusItem, KorpusSet, Matching, Mistakes,
 };
-pub use offline::analyze;
+pub use offline::{analyze, analyze_without};
 pub use player::{Accent, BackingAudio, Gains, NullOutput, Output, Player, Sound};
 
 use kontra_dsp::TunerReading;

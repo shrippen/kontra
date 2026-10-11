@@ -68,7 +68,7 @@ pub mod qobject {
         #[qproperty(i32, strings)]
         #[qproperty(bool, fretless)]
         #[qproperty(bool, laptop_jack, cxx_name = "laptopJack")]
-        /// How the bass arrives: "line", "laptop" or "midi" (LH-EIN-12).
+        /// How the bass arrives: "line", "laptop", "midi" (LH-EIN-12) or "mic" (LH-EIN-11).
         #[qproperty(QString, connection)]
         /// The MIDI input Kontra would use, "" if none is connected.
         #[qproperty(QString, midi_port_name, cxx_name = "midiPortName")]
@@ -893,6 +893,7 @@ fn connection_key(kind: kontra_appcore::InputKind) -> &'static str {
         kontra_appcore::InputKind::Line => "line",
         kontra_appcore::InputKind::LaptopJack => "laptop",
         kontra_appcore::InputKind::Midi => "midi",
+        kontra_appcore::InputKind::Microphone => "mic",
     }
 }
 
@@ -1254,6 +1255,7 @@ impl qobject::Controller {
         let kind = match key.to_string().as_str() {
             "laptop" => kontra_appcore::InputKind::LaptopJack,
             "midi" => kontra_appcore::InputKind::Midi,
+            "mic" => kontra_appcore::InputKind::Microphone,
             _ => kontra_appcore::InputKind::Line,
         };
         let result = self.as_mut().core().retune(|s| s.input_kind = kind);
