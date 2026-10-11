@@ -114,6 +114,21 @@ mod tests {
         }
     }
 
+    /// JSON keeps only the last of two equal keys, silently (agent.md, i18n conflicts).
+    #[test]
+    fn catalogs_have_no_key_twice() {
+        for source in [DE, EN] {
+            let mut seen = std::collections::HashSet::new();
+            for line in source.lines() {
+                let Some(key) = line.trim().strip_prefix('"').and_then(|l| l.split('"').next())
+                else {
+                    continue;
+                };
+                assert!(seen.insert(key.to_string()), "{key} twice");
+            }
+        }
+    }
+
     #[test]
     fn fills_placeholders() {
         let de = Catalog::new(Language::German);
