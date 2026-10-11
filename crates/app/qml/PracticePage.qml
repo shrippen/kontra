@@ -60,7 +60,12 @@ Kirigami.Page {
         return index
     }
 
-    Component.onCompleted: reset()
+    Component.onCompleted: {
+        reset()
+        if (ctl.startPresenting) {
+            present(true)
+        }
+    }
 
     // Keyboard (LH-NF-07, QA P7/P2): the transport keys work on the whole page, not only with
     // focus in the transport bar; modes 1–4, views Alt+1–4. Not while typing in a field.
@@ -142,6 +147,15 @@ Kirigami.Page {
     readonly property bool narrow: width < KanteStyle.unit(1000)
     readonly property bool compact: height < KanteStyle.unit(560)
 
+    // Presentation (LH-ANZ-09, P4 at the beamer): full screen, only title, notes and transport;
+    // staff lines half as large again, the lane grows with the room. F5 toggles, Esc ends.
+    readonly property bool presenting: applicationWindow().presenting
+    readonly property real presentScale: presenting ? 1.5 : 1
+    function present(on) { applicationWindow().presenting = on }
+    Shortcut { sequence: "F5"; onActivated: page.present(!page.presenting) }
+    Shortcut { sequence: "Escape"; enabled: page.presenting; onActivated: page.present(false) }
+    Component.onDestruction: present(false)
+
     ColumnLayout {
         anchors.fill: parent
         spacing: KanteStyle.unit(10)
@@ -160,7 +174,7 @@ Kirigami.Page {
                 // Kontra picks the bass track itself; another can be chosen (QA P2 R9).
                 RowLayout {
                     readonly property var tracks: JSON.parse(ctl.tracksJson)
-                    visible: tracks.names.length > 1
+                    visible: tracks.names.length > 1 && !page.presenting
                     QQC2.Label { text: texts.t("track.label"); color: KanteStyle.mutedTextColor }
                     KanteComboBox {
                         Layout.preferredWidth: KanteStyle.unit(220)
@@ -172,12 +186,14 @@ Kirigami.Page {
                 }
             }
             KanteSegmented {
+                visible: !page.presenting
                 model: page.modes.map(function(m) { return texts.t("mode." + m) })
                 tooltips: page.modes.map(function(m) { return texts.t("mode." + m + ".hint") })
                 currentIndex: Math.max(0, page.modes.indexOf(ctl.mode))
                 onActivated: function(index) { ctl.changeMode(page.modes[index]) }
             }
             KanteSegmented {
+                visible: !page.presenting
                 model: page.views.map(function(v) { return texts.t("view." + v) })
                 currentIndex: Math.max(0, page.views.indexOf(ctl.view))
                 onActivated: function(index) { ctl.changeView(page.views[index]) }
@@ -187,6 +203,7 @@ Kirigami.Page {
         // Backing track (LH-WIE-01): chosen per piece, stretched with the speed.
         RowLayout {
             Layout.fillWidth: true
+            visible: !page.presenting
             spacing: KanteStyle.unit(8)
             KanteHud { fullText: texts.t("backing.title"); color: KanteStyle.mutedTextColor }
             QQC2.Label {
@@ -224,6 +241,7 @@ Kirigami.Page {
         // Transpose (LH-WIE-02): piece and backing move together; the notes are laid out again.
         RowLayout {
             Layout.fillWidth: true
+            visible: !page.presenting
             spacing: KanteStyle.unit(8)
             KanteHud { fullText: texts.t("transpose.title"); color: KanteStyle.mutedTextColor }
             QQC2.SpinBox {
@@ -249,7 +267,7 @@ Kirigami.Page {
         RowLayout {
             id: workshopRow
             Layout.fillWidth: true
-            visible: ctl.mode === "workshop"
+            visible: ctl.mode === "workshop" && !page.presenting
             spacing: KanteStyle.unit(8)
             readonly property int fromBar: ctl.loopStart >= 0 ? page.barAt(ctl.loopStart) + 1 : 0
             readonly property int toBar: ctl.loopEnd >= 0 ? page.barAt(ctl.loopEnd - 0.001) + 1 : 0
@@ -415,7 +433,8 @@ Kirigami.Page {
                 id: tabStaff
                 anchors.fill: parent
                 // As many lines as fit (QA P2 R6: one line left the next bars hidden).
-                systems: Math.max(1, Math.floor(height / KanteStyle.unit(170)))
+                systems: Math.max(1, Math.floor(height / (KanteStyle.unit(170) * page.presentScale)))
+                lineSpacing: KanteStyle.unit(14) * page.presentScale
                 visible: ctl.view === "tab"
                 strings: page.stringNames.length
                 stringNames: page.stringNames
@@ -429,6 +448,7 @@ Kirigami.Page {
             KanteBassStaff {
                 id: bassStaff
                 anchors.fill: parent
+                staffSpace: KanteStyle.unit(10) * page.presentScale
                 visible: ctl.view === "notation"
                 notes: visible ? page.staff.notes : []
                 rests: page.staff.rests
@@ -448,6 +468,7 @@ Kirigami.Page {
                     id: combinedBass
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    staffSpace: KanteStyle.unit(10) * page.presentScale
                     notes: combined.visible ? page.staff.notes : []
                     rests: page.staff.rests
                     keyFifths: page.staff.keyFifths
@@ -460,6 +481,7 @@ Kirigami.Page {
                     id: combinedTab
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    lineSpacing: KanteStyle.unit(14) * page.presentScale
                     strings: page.stringNames.length
                     stringNames: page.stringNames
                     lowStringOnTop: ctl.lowStringOnTop
@@ -474,7 +496,7 @@ Kirigami.Page {
 
         RowLayout {
             Layout.fillWidth: true
-            visible: !page.compact
+            visible: !page.compact && !page.presenting
             spacing: KanteStyle.unit(16)
             ColumnLayout {
             Layout.fillWidth: true
@@ -596,7 +618,22 @@ Kirigami.Page {
                 }
             }
             KanteToolButton {
+                id: presentButton
+                Layout.alignment: Qt.AlignTop
+                Layout.preferredHeight: KanteStyle.heightMedium
+                text: page.presenting ? texts.t("present.end") : texts.t("present.start")
+                display: QQC2.AbstractButton.TextOnly
+                implicitWidth: Math.ceil(leftPadding + presentWords.advanceWidth + rightPadding + KanteStyle.unit(2))
+                focusPolicy: Qt.StrongFocus
+                Accessible.name: text
+                QQC2.ToolTip.text: texts.t("present.hint")
+                QQC2.ToolTip.visible: hovered
+                onClicked: page.present(!page.presenting)
+                TextMetrics { id: presentWords; font: presentButton.font; text: presentButton.text }
+            }
+            KanteToolButton {
                 id: mixerButton
+                visible: !page.presenting
                 Layout.alignment: Qt.AlignTop
                 Layout.preferredHeight: KanteStyle.heightMedium
                 text: texts.t("mixer.title")

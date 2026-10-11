@@ -127,6 +127,8 @@ pub mod qobject {
         #[qproperty(bool, autocalibrate)]
         /// QA: practice and settings show the mixer from the start.
         #[qproperty(bool, show_mixer, cxx_name = "showMixer")]
+        /// QA: practice opens in presentation mode.
+        #[qproperty(bool, start_presenting, cxx_name = "startPresenting")]
         /// QA: the settings section to scroll to ("data", "about").
         #[qproperty(QString, start_section, cxx_name = "startSection")]
         #[qproperty(bool, show_align, cxx_name = "showAlign")]
@@ -643,6 +645,7 @@ pub struct ControllerRust {
     autoplay: bool,
     autocalibrate: bool,
     show_mixer: bool,
+    start_presenting: bool,
     start_section: QString,
     show_align: bool,
     start_loop: QString,
@@ -772,6 +775,7 @@ impl Default for ControllerRust {
             autoplay: args.autoplay,
             autocalibrate: args.calibrate,
             show_mixer: args.mixer,
+            start_presenting: args.present,
             start_section: q(args.section.as_deref().unwrap_or("")),
             show_align: args.align,
             start_loop: q(&args
