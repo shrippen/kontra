@@ -122,6 +122,7 @@ pub mod qobject {
         #[qproperty(bool, calibrating)]
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
         #[qproperty(QString, backing_name, cxx_name = "backingName")]
+        #[qproperty(QString, stems_json, cxx_name = "stemsJson")]
         /// Piece and backing moved by semitones (LH-WIE-02), −`transposeMax`..=`transposeMax`.
         #[qproperty(i32, transpose)]
         #[qproperty(i32, transpose_max, cxx_name = "transposeMax")]
@@ -397,6 +398,20 @@ pub mod qobject {
         #[cxx_name = "chooseBacking"]
         fn choose_backing(self: Pin<&mut Self>, url: &QString);
 
+        /// Backing track without (true) or with its bass (LH-BIB-09); separates it when needed.
+        #[qinvokable]
+        #[cxx_name = "removeBass"]
+        fn remove_bass(self: Pin<&mut Self>, on: bool);
+
+        #[qinvokable]
+        #[cxx_name = "cancelStems"]
+        fn cancel_stems(self: Pin<&mut Self>);
+
+        /// Looks for the separator again (after installing it).
+        #[qinvokable]
+        #[cxx_name = "refreshStems"]
+        fn refresh_stems(self: Pin<&mut Self>);
+
         /// Moves the piece and its backing by `semitones` and lays the notes out again.
         #[qinvokable]
         #[cxx_name = "changeTranspose"]
@@ -653,6 +668,7 @@ pub struct ControllerRust {
     calibrating: bool,
     calibration_text: QString,
     backing_name: QString,
+    stems_json: QString,
     transpose: i32,
     transpose_max: i32,
     message: QString,
@@ -789,6 +805,7 @@ impl Default for ControllerRust {
             calibrating: false,
             calibration_text: QString::default(),
             backing_name: QString::default(),
+            stems_json: QString::default(),
             transpose: 0,
             transpose_max: kontra_appcore::Core::transpose_max(),
             message: QString::default(),
@@ -851,6 +868,7 @@ impl ControllerRust {
                 self.duration = self.core.duration_s();
                 self.recent_json = q(&self.core.recent_json());
                 self.backing_name = q(&self.core.backing_name());
+                self.stems_json = q(&self.core.stems_json());
                 self.transpose = self.core.transpose();
                 self.view = q(&self.core.view());
                 self.tracks_json = q(&self.core.tracks_json());
@@ -939,6 +957,7 @@ impl qobject::Controller {
         self.as_mut().set_recent_json(q(&recent));
         self.as_mut().set_loaded(loaded);
         self.as_mut().set_backing_name(q(&backing));
+        self.as_mut().refresh_stems();
         self.as_mut().set_transpose(transpose);
         self.as_mut().set_position(0.0);
         self.as_mut().set_summary_json(QString::default());
@@ -1230,6 +1249,7 @@ impl qobject::Controller {
                     self.as_mut().set_density_suggestion(i32::from(level));
                     self.as_mut().set_density_text(q(&text));
                 }
+                UiEvent::Stems(state) => self.as_mut().set_stems_json(q(&state)),
                 UiEvent::Calibrated { latency_ms, text } => {
                     if let Some(latency) = latency_ms {
                         self.as_mut().set_latency_ms(latency);
@@ -1716,7 +1736,24 @@ impl qobject::Controller {
         self.as_mut().core().set_backing(path, 0.0);
         let name = self.as_ref().rust().core.backing_name();
         self.as_mut().set_backing_name(q(&name));
+        self.as_mut().refresh_stems();
         self.as_mut().set_playing(false);
+    }
+
+    fn remove_bass(mut self: Pin<&mut Self>, on: bool) {
+        self.as_mut().core().remove_bass(on);
+        self.as_mut().refresh_stems();
+        self.as_mut().set_playing(false);
+    }
+
+    fn cancel_stems(mut self: Pin<&mut Self>) {
+        self.as_mut().core().cancel_stems();
+        self.as_mut().refresh_stems();
+    }
+
+    fn refresh_stems(mut self: Pin<&mut Self>) {
+        let state = self.as_mut().core().stems_json();
+        self.as_mut().set_stems_json(q(&state));
     }
 
     fn finish_setup(mut self: Pin<&mut Self>) {

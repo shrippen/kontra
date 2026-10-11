@@ -128,7 +128,8 @@ Erwartet: Töne während der Vorgabe zählen nicht; jeder gespielte Ton hat Hake
 2. Zwei Taktanfänge von Hand korrigieren.
 3. Bei 75 % Tempo durchspielen.
 4. Die Sängerin will es einen Ganzton höher: „Transponieren“ +2, noch einmal durchspielen; Kontra neu starten.
-Erwartet: kein hörbarer Versatz > 20 ms über 4 Minuten; transponiert passen Tab und Audio zusammen (gleiche Tonart, gleiche Takte), Bünde aus der Datei bleiben, wo es geht; die Einstellung bleibt beim Stück, der Fortschritt auch.
+5. „Bass der Aufnahme entfernen“ einschalten (erst ohne Demucs, dann mit), nach der Trennung durchspielen.
+Erwartet: kein hörbarer Versatz > 20 ms über 4 Minuten; transponiert passen Tab und Audio zusammen (gleiche Tonart, gleiche Takte), Bünde aus der Datei bleiben, wo es geht; die Einstellung bleibt beim Stück, der Fortschritt auch. Ohne Demucs ist der Schalter ausgegraut und „?“ sagt, wie man es installiert; mit Demucs läuft die Trennung im Hintergrund mit Prozent und Abbrechen, danach spielt der Backing-Track ohne Bass, im selben Abgleich, und beim nächsten Mal ohne neue Trennung.
 
 **J-D2 Übung an Schüler geben** · Persona: P4 Thomas · Phase 3 · LH-BIB-07, LH-FOR-04
 1. Übung aus Guitar Pro importieren, Loop-Bereiche und Zieltempo festlegen, als `.kontra` exportieren.

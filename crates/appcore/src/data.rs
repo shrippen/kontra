@@ -133,6 +133,7 @@ mod tests {
             sections: Default::default(),
             densities: Default::default(),
             transpose_semitones: 0,
+            backing_without_bass: false,
         }
     }
 

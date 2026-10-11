@@ -517,5 +517,17 @@
   "backing.shift": "Alle Takte verschieben",
   "backing.bar": "Einzelnen Takt verschieben",
   "backing.barnumber": "Takt",
-  "backing.clear": "Eigenes Tempo des Stücks"
+  "backing.clear": "Eigenes Tempo des Stücks",
+  "stems.title": "Ohne Bass",
+  "stems.switch": "Bass der Aufnahme entfernen",
+  "stems.hint": "Kontra entfernt den Bass einmal mit Demucs und merkt sich das Ergebnis. Dauert bei einem Song einige Minuten.",
+  "stems.missing": "Dafür braucht Kontra das Programm Demucs, es ist nicht installiert.",
+  "stems.install": "Demucs installieren: im Terminal „pipx install demucs“ (oder „pip install --user demucs“). Beim ersten Lauf lädt es sein Modell, rund 80 MB. Danach hier noch einmal versuchen, ein Neustart ist nicht nötig.",
+  "stems.install.title": "So installierst du Demucs",
+  "stems.running": "Bass wird entfernt … {percent} %",
+  "stems.cancel": "Abbrechen",
+  "stems.on": "Der Backing-Track spielt ohne Bass.",
+  "stems.failed": "Bass entfernen ging nicht: {reason}",
+  "stems.done": "Bass aus „{name}“ entfernt.",
+  "stems.retry": "Erneut prüfen"
 }

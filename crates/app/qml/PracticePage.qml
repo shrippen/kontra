@@ -122,6 +122,8 @@ Kirigami.Page {
     readonly property var stringNames: JSON.parse(ctl.stringNamesJson)
     // Keyboard view (J-E1): the instrument's range and the note names in the user's language.
     readonly property var keys: JSON.parse(ctl.keyRangeJson)
+    // Backing track without bass (LH-BIB-09): {available, state, progress, text, installText}.
+    readonly property var stems: ctl.stemsJson !== "" ? JSON.parse(ctl.stemsJson) : ({ state: "none" })
     readonly property int nextIndex: ctl.holdingIndex >= 0 ? ctl.holdingIndex : lane.nextIndex
     readonly property var nextNote: nextIndex >= 0 && nextIndex < notes.length ? notes[nextIndex] : null
     // Hand position (LH-ANZ-05) and the next change of it, shown at least one bar ahead.
@@ -237,6 +239,51 @@ Kirigami.Page {
                 text: texts.t("backing.remove")
                 emphasis: KanteButton.Emphasis.Quiet
                 onClicked: ctl.chooseBacking("")
+            }
+        }
+
+        // Without the recording's bass (LH-BIB-09, round 9): Demucs does it once, if installed;
+        // without it the switch is greyed out and the tip says how to install it.
+        RowLayout {
+            Layout.fillWidth: true
+            visible: !page.presenting && page.stems.state !== "none"
+            spacing: KanteStyle.unit(8)
+            readonly property bool running: page.stems.state === "running"
+            KanteHud { fullText: texts.t("stems.title"); color: KanteStyle.mutedTextColor }
+            KanteSwitch {
+                text: texts.t("stems.switch")
+                enabled: page.stems.available && !parent.running
+                checked: page.stems.state === "on" || parent.running
+                onToggled: ctl.removeBass(checked)
+            }
+            KanteProgressBar {
+                visible: parent.running
+                Layout.preferredWidth: KanteStyle.unit(120)
+                value: page.stems.progress || 0
+            }
+            QQC2.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                text: page.stems.text || ""
+                color: page.stems.state === "failed" ? KanteStyle.negativeTextColor : KanteStyle.mutedTextColor
+            }
+            KanteInfoTip {
+                visible: !page.stems.available
+                term: texts.t("stems.install.title")
+                info: page.stems.installText || ""
+                accessibleName: texts.t("stems.install.title")
+            }
+            KanteButton {
+                visible: !page.stems.available
+                text: texts.t("stems.retry")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: ctl.refreshStems()
+            }
+            KanteButton {
+                visible: parent.running
+                text: texts.t("stems.cancel")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: ctl.cancelStems()
             }
         }
 

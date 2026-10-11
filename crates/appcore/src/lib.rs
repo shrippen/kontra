@@ -12,6 +12,7 @@ pub mod level;
 mod package;
 pub mod quiz;
 mod report;
+mod stems;
 mod store;
 mod unplug;
 
@@ -118,6 +119,8 @@ pub enum UiEvent {
     },
     /// The lost input is back and used again.
     InputBack(String),
+    /// Bass removal of the backing track changed (`Core::stems_json`).
+    Stems(String),
     /// Calibration finished: new latency (if measured) and a text for the user.
     Calibrated {
         latency_ms: Option<f64>,
@@ -197,6 +200,8 @@ pub struct Core {
     level: level::LevelAdvisor,
     level_told: (level::LevelState, bool),
     started_at: std::time::Instant,
+    /// Backing tracks without bass (LH-BIB-09).
+    stems: stems::Stems,
 }
 
 impl Core {
@@ -215,6 +220,7 @@ impl Core {
             level: level::LevelAdvisor::default(),
             level_told: (level::LevelState::Waiting, false),
             started_at: std::time::Instant::now(),
+            stems: stems::Stems::default(),
             notice: None,
             active_setlist: None,
             lost: None,
@@ -756,6 +762,7 @@ impl Core {
                         sections: Vec::new(),
                         densities: Vec::new(),
                         transpose_semitones: 0,
+                        backing_without_bass: false,
                     });
                     added.push(path);
                 }
@@ -972,6 +979,7 @@ impl Core {
             sections: Vec::new(),
             densities: Vec::new(),
             transpose_semitones: 0,
+            backing_without_bass: false,
         });
         // A backing track with a beat map: the bars follow the band (LH-BIB-06).
         if self
@@ -1523,6 +1531,7 @@ impl Core {
             self.calibration = None;
             events.push(self.calibrated(result));
         }
+        events.extend(self.poll_stems());
         events
     }
 
@@ -1848,16 +1857,26 @@ impl Core {
         .to_string()
     }
 
-    /// Backing track of the loaded piece and its offset.
+    /// Backing track of the loaded piece and its offset; without its bass when chosen and
+    /// separated (LH-BIB-09).
     fn backing(&self) -> Option<(PathBuf, f64)> {
         let path = self.loaded_path()?;
         let entry = self.library.entry(path)?;
-        entry.backing.clone().map(|b| (b, entry.backing_offset_s))
+        let song = entry.backing.clone()?;
+        let separated = entry
+            .backing_without_bass
+            .then(|| self.without_bass(&song))
+            .flatten();
+        let played = separated.unwrap_or(song);
+        Some((played, entry.backing_offset_s))
     }
 
+    /// File name of the chosen backing track (also when it plays without its bass).
     pub fn backing_name(&self) -> String {
-        self.backing()
-            .and_then(|(p, _)| p.file_name().map(|n| n.to_string_lossy().to_string()))
+        let path = self.loaded_path();
+        path.and_then(|p| self.library.entry(p))
+            .and_then(|e| e.backing.as_ref())
+            .and_then(|p| p.file_name().map(|n| n.to_string_lossy().to_string()))
             .unwrap_or_default()
     }
 
@@ -1896,6 +1915,7 @@ impl Core {
         if let Some(entry) = self.library.entry_mut(&loaded) {
             entry.backing = path;
             entry.backing_offset_s = offset_s;
+            entry.backing_without_bass = false;
         }
         let _ = store::save(&self.data_dir.join("library.json"), &self.library);
         self.stop_live();

@@ -127,7 +127,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-BIB-06 | Eigene Audiodatei (MP3, FLAC, OGG, WAV) an ein Arrangement koppeln; Tempo-Map automatisch (Beat-Erkennung), von Hand korrigierbar (Taktanfänge verschieben). | Muss | 3 | P2 | Gekoppelter Song läuft über 4 Minuten ohne hörbaren Versatz > 20 ms. |
 | LH-BIB-07 | Offenes Paketformat `.kontra` (Arrangement, Übungsdaten, Verweis auf oder Einbettung der Audiodatei); Import und Export. | Muss | 3 | P4 | Paket auf zweitem Rechner importiert: identische Darstellung. |
 | LH-BIB-08 | Mitgelieferte, frei lizenzierte Übungen und Grooves (mind. 30 bis 1.0), nach Niveau sortiert. | Soll | 3 | P1 | Liste vorhanden, Lizenz je Übung dokumentiert; Titel in der Oberflächensprache. |
-| LH-BIB-09 | Optionale lokale Stem-Trennung, um den Bass aus einer Audiodatei zu entfernen; separater Download, Ergebnis wird zwischengespeichert. | Kann | 4 | P2 | 4-Minuten-Song wird auf Empfehlungs-Hardware in < 3 min getrennt. |
+| LH-BIB-09 | Optionale lokale Stem-Trennung, um den Bass aus einer Audiodatei zu entfernen: über ein externes Programm (Demucs), wenn installiert; Kontra liefert nichts davon mit (Runde 9). Ohne das Programm ist die Funktion ausgegraut und sagt, wie man es installiert. Läuft im Hintergrund mit Fortschritt und Abbrechen, Ergebnis wird zwischengespeichert. | Kann | 4 | P2 | 4-Minuten-Song wird auf Empfehlungs-Hardware in < 3 min getrennt. |
 
 ### 4.4 Darstellung (ANZ)
 
