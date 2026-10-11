@@ -2,6 +2,9 @@
 //! guitar (E2–E4, an octave above the bass) runs through tab assignment, detection and scoring
 //! without any change to session or scoring: only the profile differs.
 
+// Test set-up may fail loudly.
+#![allow(clippy::unwrap_used)]
+
 use kontra_model::{
     Arrangement, BassKind, InputSource, Instrument, Note, Pitch, TempoMap, Tuning,
     TICKS_PER_QUARTER,
