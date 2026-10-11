@@ -1,0 +1,44 @@
+# PR-Agent settings for Kontra (.gitea/workflows/pr-agent.yml); the rest
+# are PR-Agent's defaults.
+[config]
+git_provider = "gitea"
+response_language = "de-DE"
+max_model_tokens = 128000
+fallback_models = []
+publish_output_progress = false
+# The repository rules go along as context.
+repo_context_files = ["agent.md"]
+
+[pr_reviewer]
+num_max_findings = 5
+require_can_be_split_review = true
+enable_review_labels_effort = false
+enable_review_labels_security = false
+extra_instructions = """
+You review pull requests of Kontra, a bass trainer for KDE Plasma:
+Rust workspace (crates app, appcore, cli, session, engine, content, dsp,
+stretch, drivers, model), UI in QML (Kirigami, Kante) via cxx-qt, audio
+via cpal. The PRs are written by an AI agent; review them as a careful
+second reader, not as their author.
+
+Report only findings that matter:
+- Bugs: a concrete input or state and the wrong result or crash it gives.
+  Name file and line.
+- Audio path: allocation, locks or waiting in the audio callback; timing
+  in the wrong clock; units that do not match their names (ms, cent, Hz).
+- Layering: a crate calling past its neighbour below, new `pub`, `unsafe`
+  outside drivers and the cxx-qt bridge, `unwrap`/`expect` outside tests.
+- New dependencies without a reason or under a licence agent.md forbids.
+- Missing tests for new behaviour, and docs (LASTENHEFT, ROADMAP, QA,
+  KONZEPT) that the change made wrong.
+- Other breaches of the repository rules (agent.md).
+
+Skip style, naming and formatting (rustfmt and clippy run separately),
+praise, and guesses you cannot back with the diff. When you find
+nothing that matters, say so in one line.
+"""
+
+[pr_code_suggestions]
+extra_instructions = """
+Only suggestions that fix a bug or a missing check; no style.
+"""
