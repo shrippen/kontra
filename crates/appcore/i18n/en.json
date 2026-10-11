@@ -462,6 +462,8 @@
   "settings.source.line.hint": "Cable from the bass into an audio interface or a USB instrument cable. Sounds best.",
   "settings.source.laptop.hint": "Cable into the laptop's headphone/microphone jack. Works, but sounds duller.",
   "settings.source.midi": "MIDI instrument",
+  "settings.source.midi.found": "Play bass lines on a MIDI keyboard. Found: {name}.",
+  "settings.source.midi.none": "Play bass lines on a MIDI keyboard. None is connected right now.",
   "settings.source.midi.hint": "Play bass lines on a MIDI keyboard.",
   "settings.source.mic": "Microphone",
   "settings.source.mic.hint": "For double bass and acoustic bass.",

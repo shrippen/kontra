@@ -462,6 +462,8 @@
   "settings.source.line.hint": "Kabel vom Bass in ein Audio-Interface oder ein USB-Instrumentenkabel. Klingt am besten.",
   "settings.source.laptop.hint": "Kabel in die Kopfhörer-/Mikrofonbuchse des Laptops. Geht, klingt aber dumpfer.",
   "settings.source.midi": "MIDI-Instrument",
+  "settings.source.midi.found": "Basslinien auf dem MIDI-Keyboard spielen. Erkannt: {name}.",
+  "settings.source.midi.none": "Basslinien auf einem MIDI-Keyboard spielen. Gerade ist keins angeschlossen.",
   "settings.source.midi.hint": "Basslinien auf einem MIDI-Keyboard spielen.",
   "settings.source.mic": "Mikrofon",
   "settings.source.mic.hint": "Für Kontrabass und Akustikbass.",

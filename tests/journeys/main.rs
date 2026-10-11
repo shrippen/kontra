@@ -17,4 +17,5 @@ mod b4_fretless;
 mod c2_tendency;
 mod c4_ear;
 mod d1_backing;
+mod e1_midi;
 mod f_restart;

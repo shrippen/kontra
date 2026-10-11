@@ -1,13 +1,15 @@
 //! Input: a sound device or a file, analyzed on a worker thread and optionally monitored
-//! (copied to a player's output).
+//! (copied to a player's output); or MIDI (LH-EIN-12), whose note-ons are the notes as played.
 
 use crate::clock::Clock;
 use crate::player::Player;
 use crate::{EngineError, Event};
-use kontra_drivers::{read_audio, InputStream, StreamConfig};
+use kontra_drivers::{
+    open_midi, read_audio, read_midi_notes, InputStream, MidiConnection, MidiNote, StreamConfig,
+};
 use kontra_dsp::synth::laptop_jack;
 use kontra_dsp::{peak_db, rms_db, NoteTracker, TrackerConfig, Tuner};
-use kontra_model::{InputSource, Instrument};
+use kontra_model::{DetectedNote, InputSource, Instrument};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
@@ -20,6 +22,9 @@ const LEVEL_S: f64 = 0.05;
 const BLOCK: usize = 480;
 const IDLE: Duration = Duration::from_millis(2);
 const CLIP_DB: f32 = -0.5;
+/// MIDI velocity of a full-scale note.
+const VELOCITY_MAX: f32 = 127.0;
+const US_PER_S: f64 = 1e6;
 
 /// How fast a file is fed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,6 +44,14 @@ pub enum InputKind {
         pace: Pace,
         /// Simulate a laptop combo jack (QA `--input-profile laptop-jack`).
         laptop_jack: bool,
+    },
+    /// A MIDI input port (`None`: the first).
+    Midi {
+        port: Option<String>,
+    },
+    /// A MIDI file played as if from a keyboard, in real time (QA journeys).
+    MidiFile {
+        path: PathBuf,
     },
 }
 
@@ -75,6 +88,7 @@ pub struct Input {
     block: Arc<AtomicU32>,
     worker: Option<JoinHandle<()>>,
     _stream: Option<InputStream>,
+    _midi: Option<MidiConnection>,
     pub sample_rate: u32,
 }
 
@@ -112,6 +126,8 @@ impl Input {
                 tuner_on,
                 tap.filter(|_| *pace == Pace::RealTime),
             ),
+            InputKind::Midi { port } => start_midi(port.as_deref(), clock, events, stop, tuner_on),
+            InputKind::MidiFile { path } => start_midi_file(path, clock, events, stop, tuner_on),
         }
     }
 
@@ -292,6 +308,7 @@ fn start_device(
         block,
         worker: Some(worker),
         _stream: Some(stream),
+        _midi: None,
         sample_rate,
     })
 }
@@ -357,7 +374,94 @@ fn start_file(
         block: Arc::new(AtomicU32::new(0)),
         worker: Some(worker),
         _stream: None,
+        _midi: None,
         sample_rate,
+    })
+}
+
+/// A key going down as a detected note: exact pitch, sure, level from the velocity.
+fn midi_note(onset_s: f64, note: MidiNote) -> Option<DetectedNote> {
+    (note.velocity > 0).then(|| DetectedNote {
+        onset_s,
+        midi: f64::from(note.key),
+        confidence: 1.0,
+        level_db: kontra_dsp::amplitude_to_db(f32::from(note.velocity) / VELOCITY_MAX),
+        source: InputSource::Midi,
+    })
+}
+
+/// A keyboard: midir's timestamps (µs, its own epoch) are put on the engine clock at the first
+/// message, so the spacing of notes is the keyboard's, not that of thread wake-ups.
+fn start_midi(
+    port: Option<&str>,
+    clock: &Clock,
+    events: Sender<Event>,
+    stop: Arc<AtomicBool>,
+    tuner_on: Arc<AtomicBool>,
+) -> Result<Input, EngineError> {
+    let clock = clock.clone();
+    let started = Arc::new(AtomicU64::new(clock.now_s().to_bits()));
+    let mut offset_s: Option<f64> = None;
+    let connection = open_midi(port, move |stamp_us, note| {
+        let stamp_s = stamp_us as f64 / US_PER_S;
+        let offset = *offset_s.get_or_insert_with(|| clock.now_s() - stamp_s);
+        if let Some(detected) = midi_note(stamp_s + offset, note) {
+            let _ = events.send(Event::Note(detected));
+        }
+    })?;
+    Ok(Input {
+        stop,
+        tuner_on,
+        started,
+        block: Arc::new(AtomicU32::new(0)),
+        worker: None,
+        _stream: None,
+        _midi: Some(connection),
+        sample_rate: 0,
+    })
+}
+
+/// A MIDI file played in real time from now, as a keyboard would send it.
+fn start_midi_file(
+    path: &std::path::Path,
+    clock: &Clock,
+    events: Sender<Event>,
+    stop: Arc<AtomicBool>,
+    tuner_on: Arc<AtomicBool>,
+) -> Result<Input, EngineError> {
+    let notes = read_midi_notes(path)?;
+    let clock = clock.clone();
+    let started_flag = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
+    let started_worker = Arc::clone(&started_flag);
+    let stop_worker = Arc::clone(&stop);
+    let worker = std::thread::Builder::new()
+        .name("kontra-midi-file".into())
+        .spawn(move || {
+            let started = clock.now_s();
+            started_worker.store(started.to_bits(), Ordering::Relaxed);
+            for (at_s, note) in notes {
+                while clock.now_s() < started + at_s {
+                    if stop_worker.load(Ordering::Relaxed) {
+                        return;
+                    }
+                    std::thread::sleep(IDLE);
+                }
+                if let Some(detected) = midi_note(started + at_s, note) {
+                    let _ = events.send(Event::Note(detected));
+                }
+            }
+            let _ = events.send(Event::Ended);
+        })
+        .map_err(EngineError::Thread)?;
+    Ok(Input {
+        stop,
+        tuner_on,
+        started: started_flag,
+        block: Arc::new(AtomicU32::new(0)),
+        worker: Some(worker),
+        _stream: None,
+        _midi: None,
+        sample_rate: 0,
     })
 }
 
@@ -365,6 +469,54 @@ fn start_file(
 mod tests {
     use super::*;
     use kontra_drivers::{write_wav, AudioBuffer};
+
+    /// LH-EIN-12: a MIDI file plays like a keyboard: note-ons at their times on the engine
+    /// clock, exact pitch, note-offs dropped.
+    #[test]
+    fn midi_file_plays_its_notes_in_real_time() {
+        // 480 ticks per quarter at 120 BPM: E2 at 0 s, G2 at 0.25 s (240 ticks = varlen 0x81 0x70).
+        let track: Vec<u8> = vec![
+            0x00, 0x90, 40, 100, 0x81, 0x70, 0x80, 40, 0, 0x00, 0x90, 43, 64, 0x81, 0x70, 0x80, 43,
+            0, 0x00, 0xff, 0x2f, 0x00,
+        ];
+        let mut file = b"MThd".to_vec();
+        file.extend(6u32.to_be_bytes());
+        file.extend([0, 0, 0, 1, 0x01, 0xe0]);
+        file.extend(b"MTrk");
+        file.extend((track.len() as u32).to_be_bytes());
+        file.extend(track);
+        let path = std::env::temp_dir().join(format!("kontra-midi-in-{}.mid", std::process::id()));
+        std::fs::write(&path, file).unwrap();
+
+        let clock = Clock::new();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let kind = InputKind::MidiFile { path: path.clone() };
+        let input = Input::start(
+            &kind,
+            &Instrument::default_bass(),
+            InputSource::Midi,
+            &clock,
+            tx,
+            None,
+        )
+        .unwrap();
+        let mut notes = Vec::new();
+        for event in rx.iter() {
+            match event {
+                Event::Note(n) => notes.push(n),
+                Event::Ended => break,
+                _ => {}
+            }
+        }
+        let started = input.started_s().unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(notes.len(), 2, "{notes:?}");
+        assert_eq!((notes[0].midi, notes[1].midi), (40.0, 43.0));
+        assert!((notes[0].onset_s - started).abs() < 1e-9);
+        assert!((notes[1].onset_s - started - 0.25).abs() < 1e-9);
+        assert!(notes[1].level_db < notes[0].level_db, "softer velocity");
+        assert!(notes.iter().all(|n| n.source == InputSource::Midi));
+    }
 
     /// Feeds a 0.1 s real-time file at `file_rate` into a tap at `tap_rate`; returns what
     /// reached the monitor ring.

@@ -15,6 +15,10 @@ hound = "3.5"
 claxon = "0.4"
 lewton = "0.10"
 minimp3 = "0.6"
+# MIDI input (LH-EIN-12): ALSA sequencer through the same alsa bindings as cpal (MIT).
+midir = "0.11"
+# MIDI files as recorded input for QA journeys (Unlicense; content uses it for import).
+midly = { version = "0.5.3", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true

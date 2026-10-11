@@ -1344,6 +1344,16 @@ impl Core {
     }
 
     fn source(&self) -> InputSource {
+        let midi_take = self
+            .qa
+            .input_file
+            .as_deref()
+            .is_some_and(kontra_session::is_midi_file);
+        if midi_take
+            || (self.qa.input_file.is_none() && self.settings.input_kind == InputKind::Midi)
+        {
+            return InputSource::Midi;
+        }
         if self.qa.laptop_jack || self.settings.input_kind == InputKind::LaptopJack {
             InputSource::LaptopJack
         } else {
@@ -1357,11 +1367,24 @@ impl Core {
                 path: path.clone(),
                 laptop_jack: self.qa.laptop_jack,
             },
+            None if self.settings.input_kind == InputKind::Midi => InputChoice::Midi {
+                port: self.settings.midi_port.clone(),
+            },
             None => InputChoice::Device {
                 id: self.fallback_input.clone().or_else(|| self.input_device()),
                 channel: None,
             },
         }
+    }
+
+    /// Name of the MIDI input Kontra uses (the chosen one, else the first), or "" if none.
+    pub fn midi_port_name(&self) -> String {
+        let ports = kontra_session::list_midi_inputs();
+        let chosen = self.settings.midi_port.as_ref();
+        ports
+            .iter()
+            .find(|p| chosen.is_none_or(|id| &p.id == id))
+            .map_or_else(String::new, |p| p.name.clone())
     }
 
     /// The chosen input, else an interface before the built-in card (LH-EIN-02).
@@ -2839,10 +2862,11 @@ fn tempo_from_bars(
 }
 
 fn instrument_from(settings: &Settings) -> kontra_model::Instrument {
-    let kind = if settings.fretless {
-        BassKind::Fretless
-    } else {
-        BassKind::Fretted
+    // Bass over MIDI (P5): the same strings for tab and range, scored as keys.
+    let kind = match (settings.input_kind, settings.fretless) {
+        (InputKind::Midi, _) => BassKind::Keys,
+        (_, true) => BassKind::Fretless,
+        (_, false) => BassKind::Fretted,
     };
     let mut instrument = kontra_model::Instrument::new(kind, tuning_from(settings), 24)
         .unwrap_or_else(|_| kontra_model::Instrument::default_bass());

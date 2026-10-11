@@ -19,8 +19,11 @@ pub enum InputChoice {
         id: Option<String>,
         channel: Option<u16>,
     },
-    /// A recording fed in real time (QA journeys). `laptop_jack` simulates the combo jack.
+    /// A recording fed in real time (QA journeys). `laptop_jack` simulates the combo jack; a
+    /// MIDI file (`.mid`) plays like a keyboard.
     File { path: PathBuf, laptop_jack: bool },
+    /// A MIDI keyboard (LH-EIN-12); `None`: the first port.
+    Midi { port: Option<String> },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -365,12 +368,23 @@ fn input_kind(choice: &InputChoice) -> InputKind {
             input_channel: *channel,
             ..StreamConfig::default()
         }),
+        InputChoice::File { path, .. } if is_midi_file(path) => {
+            InputKind::MidiFile { path: path.clone() }
+        }
         InputChoice::File { path, laptop_jack } => InputKind::File {
             path: path.clone(),
             pace: Pace::RealTime,
             laptop_jack: *laptop_jack,
         },
+        InputChoice::Midi { port } => InputKind::Midi { port: port.clone() },
     }
+}
+
+/// `.mid` / `.midi`: a MIDI recording, not audio.
+pub fn is_midi_file(path: &std::path::Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("mid") || e.eq_ignore_ascii_case("midi"))
 }
 
 fn open_output(

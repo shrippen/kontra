@@ -4,6 +4,7 @@
 //! device / file ─► input callback ─► ring ─► analysis thread ─┬─ NoteTracker ─► Event::Note
 //!                                                             ├─ Tuner ───────► Event::Tuner
 //!                                                             └─ level ───────► Event::Level
+//! MIDI keyboard / .mid ─► note-on (exact, no analysis) ─────────────────────────► Event::Note
 //! control ─► command ring ─► output callback (clicks, reference tones) ─► device
 //! ```
 //!
@@ -20,8 +21,8 @@ pub use backing::{BackingTrack, Resolution};
 pub use clock::Clock;
 pub use input::{Input, InputKind, Pace};
 pub use kontra_drivers::{
-    list_devices, read_audio, write_wav, AudioBuffer, Connection, DeviceInfo, Direction,
-    StreamConfig, NULL_DEVICE,
+    list_devices, list_midi_inputs, read_audio, write_wav, AudioBuffer, Connection, DeviceInfo,
+    Direction, MidiPort, StreamConfig, NULL_DEVICE,
 };
 pub use kontra_dsp::{track_beats, BeatGrid, Shaping, SHAPING_RANGE_DB};
 pub use korpus::{
@@ -57,6 +58,8 @@ pub enum EngineError {
     Audio(#[from] kontra_drivers::AudioError),
     #[error(transparent)]
     File(#[from] kontra_drivers::FileError),
+    #[error(transparent)]
+    Midi(#[from] kontra_drivers::MidiError),
     #[error("cannot start the analysis thread: {0}")]
     Thread(std::io::Error),
 }

@@ -55,8 +55,10 @@ Kirigami.ScrollablePage {
 
         KanteHeading { text: texts.t("nav.settings"); pageTitle: true }
 
+        // The audio input only matters while the bass comes as audio (not over MIDI).
         KanteSettingRow {
             Layout.fillWidth: true
+            visible: ctl.connection !== "midi"
             title: texts.t("settings.input")
             hint: page.inputs.length === 0 ? texts.t("settings.input.none") : ""
             KanteComboBox {
