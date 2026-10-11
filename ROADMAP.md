@@ -198,6 +198,34 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 
 ## QA-Runden
 
+### QA-Runde 12.10.2026 (Nacht: Techniken, MIDI, Stems, Transponieren; synthetisch und IDMT)
+
+Gespielt headless mit erzeugten Aufnahmen (`kontra-cli render --techniques`) und den echten IDMT-Aufnahmen; ohne
+echten Bass, ohne zwei MIDI-Keyboards, ohne installiertes Demucs.
+
+- **P3 Mira, P4 Thomas (J-C5 ⚙, neu): bestanden nach Befunden.**
+  - F1 (hoch, behoben #35): Eine richtig gespielte Ghost Note galt als falscher Ton (−3300 Cent, keine Tonhöhe).
+  - F2 (mittel, behoben #35): Hammer-on- und Pull-off-Töne zählten als zusätzliche Noten.
+  - F3 (mittel, behoben #35): Slide-in/-out wurde als Slide importiert, MusicXML markierte beide Noten.
+  - F4 (hoch, behoben #41): An echten Aufnahmen erkannte Kontra 0 % der Slaps, 2 % der Pops, 14 % der Dead Notes;
+    jetzt 79/70/96 %.
+  - F5 (hoch, behoben #42): Flageoletts wurden an der gegriffenen statt der klingenden Tonhöhe bewertet.
+  - F6 (mittel, behoben #42): Eine gedämpft gespielte Dead Note (x) galt als falscher Ton.
+  - F7 (niedrig, Runde 10): „6 von 6“ bei 8 Noten (Hammer-on-Töne nur in der Technik-Auswertung).
+  - F8 (niedrig): Ghost Note in Tab-Lane und Tabulatur doppelt geklammert (Bund „(0)“ und Zeichen „( )“).
+  - F9 (Runde 10): x- und ( )-Noten meinen musikalisch etwas anderes, als Kontra bewertet.
+  - Offen: Slides an echten Aufnahmen 0 von 20 (Onsets beim Gleiten; ein Versuch mit strengerem Anstieg brachte
+    +0,6 Punkte Präzision, verworfen).
+- **P1 Lea (Warten-Modus): F10 (mittel, behoben #38):** Ein Hammer-on vor der erwarteten Note zählte als falscher Ton.
+- **P2 Jens (J-D1 ⚙):** Transponieren mitten im Lied hält das Lied nicht mehr an (#39). Stem-Trennung ohne Demucs
+  ausgegraut mit Anleitung (Screenshot); F11 (mittel, behoben #37): Beim Öffnen per Start fehlte der Stem-Zustand;
+  F12 (niedrig, behoben #37): Eine laufende Trennung erschien an jedem Stück; F13 (mittel, behoben #37): Fehlermeldung
+  des Programms konnte fehlen (Rennen beim Lesen). Mit echtem Demucs nicht geprüft (Runde 10).
+- **P5 Aylin (J-E1 ⚙):** bestanden. F14 (mittel, behoben #40): Die Klaviatur beschriftete die nächste Taste mit
+  „Nächstes Stück der Setliste“ (doppelter Text-Schlüssel). MIDI-Auswahl nur per Unit-Test.
+- **P7 Sam:** Technik-Ergebnisse unterscheiden sich durch Form (Rahmen, Strich, gestrichelt); Namen für Screenreader
+  aus i18n.
+
 ### QA-Runde 9.10.2026 (Personas, headless, erzeugte und echte Aufnahmen)
 
 Drei Durchläufe: P1 Lea + P7 Sam, P2 Jens + P4 Thomas, P3 Mira + P5 Aylin + P6 Karl. Berichte mit Belegen lagen im

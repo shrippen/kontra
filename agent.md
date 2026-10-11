@@ -130,7 +130,15 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Gitea-Merge „Please try again later“ bei sauberem Merge: die Mergebarkeit ist veraltet;
   `POST pulls/<n>/update?style=merge` stößt die Prüfung neu an.
 - Korpus: Synthetische Sätze messen nur, was die Synthese modelliert; Änderungen an der Erkennung immer auch gegen die
-  echten IDMT-Aufnahmen messen (`kontra-cli korpus measure`, wie die CI).
+  echten IDMT-Aufnahmen messen (`kontra-cli korpus measure`, wie die CI). Techniken genauso: `kontra-cli korpus
+  techniques` (12.10.: 91,7 % synthetisch, aber 0 % echte Slaps).
+- Neue i18n-Schlüssel nicht in einem fremden Namensraum anlegen (`keys.*` ist die Tastenkürzel-Liste): `keys.next` stand
+  doppelt, JSON behielt still den letzten. Ein Test prüft jetzt auf doppelte Schlüssel.
+- Prüfkette vor einem Commit mit `&&` oder `set -e`, nicht mit `;`: sonst wird trotz rotem Test committet und gepusht.
+- Gestapelte PRs bei einem Runner: Konflikte (i18n-Enden, Importlisten) vorab lösen, indem die untere Branch in die
+  obere gemerged wird; bleibt die untere unverändert, ist die obere nach deren Merge ohne neue CI mergebar.
+- Seit dem 11.10. abends startet ein `/review`-Kommentar auf Kontra keinen PR-Agent-Lauf mehr (kein Lauf, auch kein
+  „skipped“); zweimal fragen und dann nach grüner CI mergen (Regel vom 11.10.).
 
 ## Persona rule
 
