@@ -384,6 +384,9 @@ pub struct Mistakes {
     pub miss_every: usize,
     /// Detuning in cents for every note (fretless intonation tests).
     pub detune_cents: f64,
+    /// More detuning per note, repeating: `[12.0, -25.0]` makes note 1 +12, note 2 −25,
+    /// note 3 +12 … cents (on top of `detune_cents`).
+    pub detune_cycle_cents: &'static [f64],
 }
 
 /// Renders an arrangement as a synthetic bass performance at `speed`, starting `lead_in_s` into
@@ -408,8 +411,13 @@ pub fn render_performance(
             continue;
         }
         let wrong = mistakes.wrong_every > 0 && n % mistakes.wrong_every == 0;
-        let midi =
-            f64::from(note.pitch.0) + if wrong { 1.0 } else { 0.0 } + mistakes.detune_cents / 100.0;
+        let cycle = mistakes
+            .detune_cycle_cents
+            .get(i % mistakes.detune_cycle_cents.len().max(1))
+            .copied()
+            .unwrap_or(0.0);
+        let cents = mistakes.detune_cents + cycle;
+        let midi = f64::from(note.pitch.0) + if wrong { 1.0 } else { 0.0 } + cents / 100.0;
         let start = arrangement.tempo.seconds_at(note.start_ticks) / speed;
         let end = arrangement.tempo.seconds_at(note.end_ticks()) / speed;
         notes.push(SynthNote {

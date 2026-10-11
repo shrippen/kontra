@@ -149,6 +149,7 @@ fn render(a: &args::RenderArgs) -> CliResult {
         wrong_every: a.wrong_every,
         miss_every: a.miss_every,
         detune_cents: a.detune_cents,
+        ..Default::default()
     };
     let samples = session::render_performance(&arrangement, a.speed, a.lead_in, mistakes, 48_000);
     session::write_mono_wav(&a.out, &samples, 48_000).map_err(|e| e.to_string())?;

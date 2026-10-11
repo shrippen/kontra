@@ -7,10 +7,13 @@
 
 mod common;
 
+mod a1_first_start;
 mod a2_tuning;
+mod a3_latency;
 mod b1_song;
 mod b2_wait;
 mod b3_workshop;
+mod b4_fretless;
 mod c2_tendency;
 mod c4_ear;
 mod d1_backing;
