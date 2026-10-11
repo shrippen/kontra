@@ -102,6 +102,11 @@ ColumnLayout {
         bus: "drums"
         value: mixer.ctl.drumsVolume
     }
+    Volume {
+        title: mixer.texts.t("mixer.prompt")
+        bus: "prompt"
+        value: mixer.ctl.promptVolume
+    }
     KanteSettingRow {
         Layout.fillWidth: true
         title: mixer.texts.t("mixer.monitor")

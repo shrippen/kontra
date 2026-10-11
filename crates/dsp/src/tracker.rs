@@ -323,12 +323,12 @@ impl NoteTracker {
 mod tests {
     use super::*;
     use crate::synth::{bass_tone, laptop_jack, render, SynthNote, ToneShape};
-    use kontra_model::{BassKind, Pitch, Tuning, A4_HZ};
+    use kontra_model::{InstrumentKind, Pitch, Tuning, A4_HZ};
 
     const SR: f64 = 48_000.0;
 
     fn bass5() -> Instrument {
-        Instrument::new(BassKind::Fretted, Tuning::bass5_standard(), 24).unwrap()
+        Instrument::new(InstrumentKind::Fretted, Tuning::bass5_standard(), 24).unwrap()
     }
 
     fn line(names: &[&str], spacing_s: f64) -> Vec<SynthNote> {

@@ -116,6 +116,31 @@ Kirigami.Page {
             }
         }
 
+        // Prompt volume (round 8: its own slider, also in the mixer).
+        KanteSettingRow {
+            Layout.fillWidth: true
+            title: texts.t("mixer.prompt")
+            RowLayout {
+                spacing: KanteStyle.unit(8)
+                QQC2.Slider {
+                    id: promptSlider
+                    Layout.preferredWidth: KanteStyle.unit(220)
+                    from: 0
+                    to: 1
+                    stepSize: 0.05
+                    value: ctl.promptVolume
+                    focusPolicy: Qt.StrongFocus
+                    Accessible.name: texts.t("mixer.prompt")
+                    onMoved: ctl.changeVolume("prompt", value)
+                    KanteSliderSkin { control: promptSlider }
+                }
+                QQC2.Label {
+                    color: KanteStyle.textColor
+                    text: texts.t("mixer.percent", { percent: Math.round(promptSlider.value * 100) })
+                }
+            }
+        }
+
         KanteFretboard {
             Layout.fillWidth: true
             Layout.preferredHeight: KanteStyle.unit(160)

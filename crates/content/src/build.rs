@@ -6,8 +6,8 @@ use crate::score::{BarHead, Legato, Part, Score};
 use crate::tab::assign_tab;
 use crate::unroll::unroll;
 use kontra_model::{
-    Arrangement, Bar, BassKind, DrumHit, DrumKind, Instrument, Marker, Note, Pitch, Technique,
-    TempoChange, TempoMap, Tuning,
+    Arrangement, Bar, DrumHit, DrumKind, Instrument, InstrumentKind, Marker, Note, Pitch,
+    Technique, TempoChange, TempoMap, Tuning,
 };
 use std::collections::HashMap;
 
@@ -136,7 +136,7 @@ fn instrument(part: &Part) -> (Instrument, TabSource) {
         name: tuning_name(&part.tuning),
         strings: part.tuning.clone(),
     };
-    if let Ok(found) = Instrument::new(BassKind::Fretted, tuning, frets) {
+    if let Ok(found) = Instrument::new(InstrumentKind::Fretted, tuning, frets) {
         return (found, TabSource::File);
     }
 
@@ -146,7 +146,7 @@ fn instrument(part: &Part) -> (Instrument, TabSource) {
     if !five {
         return (Instrument::default_bass(), TabSource::Generated);
     }
-    let bass5 = Instrument::new(BassKind::Fretted, Tuning::bass5_standard(), 24);
+    let bass5 = Instrument::new(InstrumentKind::Fretted, Tuning::bass5_standard(), 24);
     (
         bass5.unwrap_or_else(|_| Instrument::default_bass()),
         TabSource::Generated,

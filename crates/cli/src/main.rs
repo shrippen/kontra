@@ -8,7 +8,7 @@ mod tab;
 
 use args::{Cli, Command};
 use clap::Parser;
-use kontra_model::{BassKind, InputSource, Instrument, Tuning};
+use kontra_model::{InputSource, Instrument, InstrumentKind, Tuning};
 use kontra_session as session;
 use std::process::ExitCode;
 
@@ -64,9 +64,9 @@ pub(crate) fn instrument(strings: u8, fretless: bool) -> Result<Instrument, Stri
         other => return Err(format!("{other} strings are not supported (4, 5 or 6)")),
     };
     let kind = if fretless {
-        BassKind::Fretless
+        InstrumentKind::Fretless
     } else {
-        BassKind::Fretted
+        InstrumentKind::Fretted
     };
     Instrument::new(kind, tuning, 24).map_err(|e| e.to_string())
 }

@@ -1,6 +1,6 @@
 //! Scoring tolerances (LH-BEW-02, LH-BEW-05).
 
-use kontra_model::{BassKind, InputSource};
+use kontra_model::{InputSource, InstrumentKind};
 use serde::{Deserialize, Serialize};
 
 /// How strict the timing window is.
@@ -36,10 +36,10 @@ pub struct ScoreSettings {
 impl ScoreSettings {
     /// Defaults for an instrument kind and input. Fretted basses only need the right semitone;
     /// fretless intonation is scored (±30 cents); microphones get wider windows (LH-EIN-11).
-    pub fn defaults(kind: BassKind, source: InputSource) -> ScoreSettings {
+    pub fn defaults(kind: InstrumentKind, source: InputSource) -> ScoreSettings {
         let pitch_cents = match kind {
-            BassKind::Fretless | BassKind::Double => 30.0,
-            BassKind::Fretted | BassKind::Keys => 50.0,
+            InstrumentKind::Fretless | InstrumentKind::Double => 30.0,
+            InstrumentKind::Fretted | InstrumentKind::Keys => 50.0,
         };
         let strictness = match source {
             InputSource::Microphone => Strictness::Loose,
@@ -55,6 +55,6 @@ impl ScoreSettings {
 
 impl Default for ScoreSettings {
     fn default() -> Self {
-        ScoreSettings::defaults(BassKind::Fretted, InputSource::Line)
+        ScoreSettings::defaults(InstrumentKind::Fretted, InputSource::Line)
     }
 }

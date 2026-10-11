@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 const RECENT_MAX: usize = 2000;
 /// Monitoring volume when first switched on.
 const MONITOR_VOLUME: f64 = 0.8;
+const PROMPT_VOLUME: f64 = 0.8;
 /// Free timing window before the user picks one (LH-BEW-02): as "normal".
 const WINDOW_DEFAULT_MS: f64 = 60.0;
 
@@ -95,6 +96,8 @@ pub struct Settings {
     pub tone_volume: f64,
     /// Drum accompaniment of grooves and imported drum tracks (LH-LRN-01).
     pub drums_volume: f64,
+    /// Ear training prompts (LH-LRN-03, round 8: its own slider, not the reference tone's).
+    pub prompt_volume: f64,
     /// Play the bass through Kontra (input monitoring); off: the interface monitors directly.
     pub monitor: bool,
     pub monitor_volume: f64,
@@ -149,6 +152,7 @@ impl Default for Settings {
             metronome_volume: f64::from(mix.click),
             tone_volume: f64::from(mix.tone),
             drums_volume: f64::from(mix.drums),
+            prompt_volume: PROMPT_VOLUME,
             monitor: false,
             monitor_volume: MONITOR_VOLUME,
             monitor_low_db: 0.0,

@@ -23,7 +23,7 @@ pub use store::{
     data_dir, InputKind, Library, RecentEntry, SectionBars, SectionDensity, Setlist, Settings,
 };
 
-use kontra_model::{Arrangement, BassKind, InputSource, Tuning};
+use kontra_model::{Arrangement, InputSource, InstrumentKind, Tuning};
 use kontra_session::{
     import_file, list_devices, run_from, CalibrationResult, Connection, DeviceInfo, Direction,
     Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveEar, LiveSetup, LiveTuner,
@@ -302,7 +302,7 @@ impl Core {
     }
 
     /// Scoring from the instrument, the input and the user's choices (LH-BEW-02, -05).
-    pub fn score_settings(&self, kind: BassKind) -> ScoreSettings {
+    pub fn score_settings(&self, kind: InstrumentKind) -> ScoreSettings {
         let mut settings = ScoreSettings::defaults(kind, self.source());
         settings.latency_ms = self.settings.latency_ms;
         settings.strictness = match self.settings.strictness.as_str() {
@@ -645,7 +645,7 @@ impl Core {
             live.practice_mut().set_gains(gains);
         }
         if let Some(live_ear) = self.live_ear.as_mut() {
-            live_ear.set_gains(gains);
+            live_ear.set_gains(ear_gains(&self.settings));
         }
         self.monitor_hint()
     }
@@ -951,7 +951,7 @@ impl Core {
             }
         }
         if self.settings.fretless {
-            arrangement.instrument.kind = BassKind::Fretless;
+            arrangement.instrument.kind = InstrumentKind::Fretless;
         }
         arrangement.instrument.a4_hz = self.a4_hz();
         self.stop_live();
@@ -2373,7 +2373,7 @@ impl Core {
         };
         let mut live_ear = LiveEar::start(&setup, &instrument)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
-        live_ear.set_gains(gains(&self.settings));
+        live_ear.set_gains(ear_gains(&self.settings));
         self.live_ear = Some(live_ear);
         self.ear = Some(ear::EarQuiz::new(kind, &instrument, time_seed()));
         self.ear_play();
@@ -2906,9 +2906,9 @@ fn tempo_from_bars(
 fn instrument_from(settings: &Settings) -> kontra_model::Instrument {
     // Bass over MIDI (P5): the same strings for tab and range, scored as keys.
     let kind = match (settings.input_kind, settings.fretless) {
-        (InputKind::Midi, _) => BassKind::Keys,
-        (_, true) => BassKind::Fretless,
-        (_, false) => BassKind::Fretted,
+        (InputKind::Midi, _) => InstrumentKind::Keys,
+        (_, true) => InstrumentKind::Fretless,
+        (_, false) => InstrumentKind::Fretted,
     };
     let mut instrument = kontra_model::Instrument::new(kind, tuning_from(settings), 24)
         .unwrap_or_else(|_| kontra_model::Instrument::default_bass());
@@ -2988,6 +2988,14 @@ fn gains(settings: &Settings) -> Gains {
             warmth: settings.monitor_warmth as f32,
             bands: instrument_from(settings).tone_bands(),
         },
+    }
+}
+
+/// Ear training plays its prompts as tones at the "Vorspielen" volume (round 8).
+fn ear_gains(settings: &Settings) -> Gains {
+    Gains {
+        tone: settings.prompt_volume.clamp(0.0, 1.0) as f32,
+        ..gains(settings)
     }
 }
 
@@ -3390,14 +3398,14 @@ mod tests {
     fn scoring_follows_the_settings() {
         let dir = temp_dir("scoring");
         let mut core = Core::new(&dir, QaOptions::default());
-        let auto = core.score_settings(BassKind::Fretless);
+        let auto = core.score_settings(InstrumentKind::Fretless);
         assert_eq!(auto.pitch_cents, 30.0);
         assert_eq!(auto.strictness.window_ms(), 60.0);
         core.reconfigure(|s| {
             s.strictness = "strict".into();
             s.pitch_cents = 20.0;
         });
-        let chosen = core.score_settings(BassKind::Fretless);
+        let chosen = core.score_settings(InstrumentKind::Fretless);
         assert_eq!(chosen.strictness.window_ms(), 25.0);
         assert_eq!(chosen.pitch_cents, 20.0);
         let _ = std::fs::remove_dir_all(dir);
@@ -3621,7 +3629,7 @@ mod tests {
         let mut core = Core::new(&dir, QaOptions::default());
         assert_eq!(core.set_window(35.0), 35.0);
         assert_eq!(core.settings().strictness, "custom");
-        let settings = core.score_settings(BassKind::Fretted);
+        let settings = core.score_settings(InstrumentKind::Fretted);
         assert_eq!(settings.strictness.window_ms(), 35.0);
         assert_eq!(core.set_window(5.0), 20.0);
         let _ = std::fs::remove_dir_all(dir);
@@ -3815,6 +3823,18 @@ mod tests {
         core.update_settings(|s| s.language = Some("en".into()));
         assert_eq!(core.note_label("Bb"), "Bb");
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Round 8: ear training prompts sound at their own volume, not the reference tone's.
+    #[test]
+    fn ear_prompts_have_their_own_volume() {
+        let settings = Settings {
+            tone_volume: 0.2,
+            prompt_volume: 0.9,
+            ..Settings::default()
+        };
+        assert_eq!(ear_gains(&settings).tone, 0.9);
+        assert_eq!(gains(&settings).tone, 0.2);
     }
 
     /// LH-WIE-02: transposing moves every note, is kept for the piece and keeps its progress.

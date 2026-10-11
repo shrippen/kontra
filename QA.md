@@ -118,7 +118,7 @@ Erwartet: Notensatz wie in MuseScore; Streuung in ms; generierte Übung speicher
 **J-C4 Hören und nachspielen** ⚙ · Personas: P1 Lea, P3 Mira · Phase 3 · LH-LRN-03, LH-BEW-01
 1. Lea: Seite „Gehör“ (Strg+9), „Nachspielen“; den Ton noch während der Vorgabe mitspielen, dann einen falschen, dann den richtigen.
 2. Drei Fragen in Folge ohne Fehler; die nächste Linie hat zwei Töne. Ein Fehler, die Linie wird wieder kürzer.
-3. Mira: „Intervalle“ und „Grundton“ je fünf Fragen, einmal „Nochmal hören“.
+3. Mira: „Intervalle“ und „Grundton“ je fünf Fragen, einmal „Nochmal hören“, „Vorspielen“ leiser stellen.
 Erwartet: Töne während der Vorgabe zählen nicht; jeder gespielte Ton hat Haken oder Kreuz, ein falscher sagt „zu hoch“ oder „zu tief“; gelöst nennt Kontra, was es war (Töne, Intervall, Akkord) und zeigt, wo es am Griffbrett liegt; beim Grundton zählt jede Oktave; ohne Ausgang ein Hinweis statt Stille.
 
 ## D. Inhalte teilen (ab Phase 3)
