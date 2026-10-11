@@ -30,4 +30,8 @@ pub struct DetectedNote {
     /// Peak level in dBFS around the onset.
     pub level_db: f32,
     pub source: InputSource,
+    /// How it was played, if the tracker recognised a technique (LH-BEW-06); `None`: a plain
+    /// pluck or not known.
+    #[serde(default)]
+    pub technique: Option<crate::Technique>,
 }

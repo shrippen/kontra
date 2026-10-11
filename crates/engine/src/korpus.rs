@@ -4,9 +4,12 @@
 //! Each set is a WAV plus an annotation with the true onset and pitch of every note.
 
 use crate::offline::{analyze, analyze_without};
-use kontra_dsp::synth::{laptop_jack, render, room, Noise, SynthNote, ToneShape};
+use kontra_dsp::synth::{
+    laptop_jack, render, render_articulated, room, Articulation, Noise, Played, SynthNote,
+    ToneShape,
+};
 use kontra_model::{
-    hz_to_midi, DetectedNote, InputSource, Instrument, InstrumentKind, Tuning, A4_HZ,
+    hz_to_midi, DetectedNote, InputSource, Instrument, InstrumentKind, Technique, Tuning, A4_HZ,
 };
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +23,9 @@ pub struct Annotation {
     pub onset_s: f64,
     /// Fractional MIDI number including any detuning.
     pub midi: f64,
+    /// How it is played (LH-BEW-06); `None`: a plain pluck.
+    #[serde(default)]
+    pub technique: Option<Technique>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -39,10 +45,12 @@ pub enum KorpusSet {
     /// The same with a band from the speakers in the room (no headphones): kick, snare,
     /// chords and its own bass line, as Kontra plays it.
     RoomDoubleBacking,
+    /// Hammer-on, pull-off, slide, slap, pop and ghost notes among plucks (LH-BEW-06).
+    Techniques,
 }
 
 impl KorpusSet {
-    pub const ALL: [KorpusSet; 7] = [
+    pub const ALL: [KorpusSet; 8] = [
         KorpusSet::Line4,
         KorpusSet::Line5,
         KorpusSet::LaptopJack4,
@@ -50,6 +58,7 @@ impl KorpusSet {
         KorpusSet::Sixteenths,
         KorpusSet::RoomDouble,
         KorpusSet::RoomDoubleBacking,
+        KorpusSet::Techniques,
     ];
 
     pub fn name(self) -> &'static str {
@@ -61,14 +70,16 @@ impl KorpusSet {
             KorpusSet::Sixteenths => "sixteenths",
             KorpusSet::RoomDouble => "room-double",
             KorpusSet::RoomDoubleBacking => "room-double-backing",
+            KorpusSet::Techniques => "techniques",
         }
     }
 
     pub fn instrument(self) -> Instrument {
         let (kind, tuning) = match self {
-            KorpusSet::Line4 | KorpusSet::LaptopJack4 | KorpusSet::Sixteenths => {
-                (InstrumentKind::Fretted, Tuning::bass4_standard())
-            }
+            KorpusSet::Line4
+            | KorpusSet::LaptopJack4
+            | KorpusSet::Sixteenths
+            | KorpusSet::Techniques => (InstrumentKind::Fretted, Tuning::bass4_standard()),
             KorpusSet::Line5 => (InstrumentKind::Fretted, Tuning::bass5_standard()),
             KorpusSet::Fretless5 => (InstrumentKind::Fretless, Tuning::bass5_standard()),
             KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking => {
@@ -168,8 +179,80 @@ pub struct KorpusItem {
     pub samples: Vec<f32>,
 }
 
+/// The technique set: on each open string a pluck, a hammer-on (+2), a pull-off back, a slide
+/// (+5), a slap (low strings) or pop (high strings, an octave up) and a ghost note.
+fn techniques() -> KorpusItem {
+    use Articulation as A;
+    let sr = f64::from(SAMPLE_RATE);
+    let hz = |midi: f64| A4_HZ * 2f64.powf((midi - 69.0) / 12.0);
+    let mut line = Vec::new();
+    let mut notes = Vec::new();
+    let mut t = 0.3;
+    for velocity in [0.5f32, 0.8] {
+        for root in [28.0, 33.0, 38.0, 43.0] {
+            let (strike, strike_midi) = if root < 38.0 {
+                (A::Slap, root)
+            } else {
+                (A::Pop, root + 12.0)
+            };
+            let steps: [(f64, A, Option<Technique>); 6] = [
+                (root, A::Pluck, None),
+                (root + 2.0, A::Legato, Some(Technique::HammerOn)),
+                (root, A::Legato, Some(Technique::PullOff)),
+                (
+                    root + 5.0,
+                    A::Slide {
+                        glide_s: TECHNIQUE_GLIDE_S,
+                    },
+                    Some(Technique::Slide),
+                ),
+                (
+                    strike_midi,
+                    strike,
+                    Some(if root < 38.0 {
+                        Technique::Slap
+                    } else {
+                        Technique::Pop
+                    }),
+                ),
+                (root, A::Ghost, Some(Technique::Ghost)),
+            ];
+            for (midi, how, technique) in steps {
+                line.push(Played {
+                    note: SynthNote {
+                        onset_s: t,
+                        hz: hz(midi),
+                        duration_s: TECHNIQUE_STEP_S * 0.9,
+                        velocity,
+                    },
+                    how,
+                });
+                notes.push(Annotation {
+                    onset_s: t,
+                    midi,
+                    technique,
+                });
+                t += TECHNIQUE_STEP_S;
+            }
+        }
+    }
+    KorpusItem {
+        set: KorpusSet::Techniques,
+        sample_rate: SAMPLE_RATE,
+        notes,
+        samples: render_articulated(&line, sr, t + 0.5, 21),
+    }
+}
+
+/// Spacing of the technique set and the glide of its slides.
+const TECHNIQUE_STEP_S: f64 = 0.4;
+const TECHNIQUE_GLIDE_S: f64 = 0.08;
+
 /// Renders one set (deterministic).
 pub fn generate(set: KorpusSet) -> KorpusItem {
+    if set == KorpusSet::Techniques {
+        return techniques();
+    }
     let instrument = set.instrument();
     let sr = f64::from(SAMPLE_RATE);
     let mut noise = Noise::new(set as u64 + 1);
@@ -244,6 +327,7 @@ pub fn generate(set: KorpusSet) -> KorpusItem {
         .map(|n| Annotation {
             onset_s: n.onset_s,
             midi: hz_to_midi(n.hz, A4_HZ),
+            technique: None,
         })
         .collect();
     KorpusItem {
@@ -264,6 +348,9 @@ pub struct Evaluation {
     pub matched: usize,
     /// Matched notes whose rounded pitch is right.
     pub pitch_correct: usize,
+    /// Matched notes whose technique (or plain pluck) is recognised (LH-BEW-06).
+    #[serde(default)]
+    pub technique_correct: usize,
     pub mean_abs_onset_ms: f64,
     pub p95_abs_onset_ms: f64,
     pub max_abs_onset_ms: f64,
@@ -286,6 +373,11 @@ impl Evaluation {
 
     pub fn pitch_accuracy(&self) -> f64 {
         ratio(self.pitch_correct, self.matched)
+    }
+
+    /// Share of all annotated notes found with the right technique.
+    pub fn technique_accuracy(&self) -> f64 {
+        ratio(self.technique_correct, self.annotated)
     }
 }
 
@@ -368,6 +460,7 @@ fn compare(
     let mut onset_errors = Vec::new();
     let mut cents_errors = Vec::new();
     let mut pitch_correct = 0;
+    let mut technique_correct = 0;
     for note in notes {
         let best = detected
             .iter()
@@ -387,6 +480,14 @@ fn compare(
         };
         used[index] = true;
         onset_errors.push(((d.onset_s - note.onset_s) * 1000.0).abs());
+        if d.technique == note.technique {
+            technique_correct += 1;
+        }
+        // A ghost note has no pitch to get right.
+        if note.technique == Some(Technique::Ghost) {
+            pitch_correct += 1;
+            continue;
+        }
         cents_errors.push(((d.midi - note.midi) * 100.0).abs());
         if d.midi.round() == note.midi.round() {
             pitch_correct += 1;
@@ -414,6 +515,7 @@ fn compare(
         detected: detected.len(),
         matched: onset_errors.len(),
         pitch_correct,
+        technique_correct,
         mean_abs_onset_ms: mean(&onset_errors),
         p95_abs_onset_ms: p95(&onset_errors),
         max_abs_onset_ms: onset_errors.last().copied().unwrap_or(0.0),
@@ -450,8 +552,14 @@ mod tests {
                 set.name(),
                 e.precision()
             );
+            // Legato notes have no attack: their time comes from the pitch window (±30 ms).
+            let onset_ms = if set == KorpusSet::Techniques {
+                30.0
+            } else {
+                10.0
+            };
             assert!(
-                e.p95_abs_onset_ms < 10.0,
+                e.p95_abs_onset_ms < onset_ms,
                 "{}: p95 onset {:.1} ms",
                 set.name(),
                 e.p95_abs_onset_ms
@@ -467,6 +575,18 @@ mod tests {
                 "{}: pitch {:.3}",
                 set.name(),
                 e.pitch_accuracy()
+            );
+            // LH-BEW-06: ≥ 85 % of the technique set recognised; elsewhere none invented.
+            let technique_needed = if set == KorpusSet::Techniques {
+                0.85
+            } else {
+                0.95
+            };
+            assert!(
+                e.technique_accuracy() >= technique_needed,
+                "{}: technique {:.3}",
+                set.name(),
+                e.technique_accuracy()
             );
             if set == KorpusSet::Fretless5 {
                 assert!(

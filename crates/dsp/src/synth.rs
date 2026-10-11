@@ -177,6 +177,150 @@ pub fn laptop_jack(signal: &[f32], sample_rate: f64, seed: u64) -> Vec<f32> {
         .collect()
 }
 
+/// How a note is played, for the technique corpus (LH-BEW-06).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Articulation {
+    /// Plucked with a finger (as `render`).
+    Pluck,
+    /// Thumb slap: a hard broadband thump and a brighter tone.
+    Slap,
+    /// Finger pop: a sharp, bright snap.
+    Pop,
+    /// Muted: a short thump without a clear pitch.
+    Ghost,
+    /// The pitch changes on the ringing string without a new attack (hammer-on, pull-off).
+    Legato,
+    /// The pitch glides from the note before over `glide_s`.
+    Slide { glide_s: f64 },
+}
+
+/// One played note of an articulated line.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Played {
+    pub note: SynthNote,
+    pub how: Articulation,
+}
+
+/// Slap and pop transients: (length s, high-pass Hz, level).
+const SLAP_THUMP: (f64, f64, f32) = (0.006, 120.0, 0.9);
+const POP_SNAP: (f64, f64, f32) = (0.003, 2500.0, 0.8);
+/// A muted note sounds this long and decays this fast.
+const GHOST_S: f64 = 0.04;
+const GHOST_DECAY_S: f64 = 0.012;
+
+/// Renders an articulated line: legato notes and slides continue the oscillator of the note
+/// before (no new attack, phases run on), the others start fresh. One voice, like a bassist on
+/// one string at a time.
+pub fn render_articulated(line: &[Played], sample_rate: f64, total_s: f64, seed: u64) -> Vec<f32> {
+    let len = (total_s * sample_rate).ceil() as usize;
+    let mut out = vec![0.0f32; len];
+    let mut noise = Noise::new(seed);
+    let mut i = 0;
+    while i < line.len() {
+        // A phrase: one attacked note and the legato and slide notes that follow it.
+        let mut end = i + 1;
+        while end < line.len()
+            && matches!(
+                line[end].how,
+                Articulation::Legato | Articulation::Slide { .. }
+            )
+        {
+            end += 1;
+        }
+        phrase(&mut out, &line[i..end], sample_rate, &mut noise);
+        i = end;
+    }
+    out
+}
+
+/// One attacked note and its legato continuation, as a single oscillator bank whose frequency
+/// follows the notes (gliding for slides).
+fn phrase(out: &mut [f32], notes: &[Played], sr: f64, noise: &mut Noise) {
+    let Some(first) = notes.first() else {
+        return;
+    };
+    let start = (first.note.onset_s * sr).round() as usize;
+    let last = notes.last().map_or(first.note, |p| p.note);
+    let end = (((last.onset_s + last.duration_s) * sr).round() as usize).min(out.len());
+    if start >= end {
+        return;
+    }
+    let (count, tilt) = match first.how {
+        Articulation::Slap | Articulation::Pop => (24, 0.8),
+        _ => (24, 1.1),
+    };
+    let ghost = first.how == Articulation::Ghost;
+    let end = if ghost {
+        (start + (GHOST_S * sr) as usize).min(out.len())
+    } else {
+        end
+    };
+    let mut phases = vec![0.0f64; count];
+    let gain = f64::from(first.note.velocity) * 0.5;
+    let fade = (0.015 * sr) as usize;
+    let mut transient = match first.how {
+        Articulation::Slap => Some((
+            SLAP_THUMP,
+            Biquad::new(FilterKind::HighPass, sr, SLAP_THUMP.1),
+        )),
+        Articulation::Pop => Some((POP_SNAP, Biquad::new(FilterKind::HighPass, sr, POP_SNAP.1))),
+        _ => None,
+    };
+    let mut burst = Biquad::new(FilterKind::HighPass, sr, 800.0);
+    let attack = (ATTACK_NOISE_S * sr) as usize;
+    for (k, slot) in out.iter_mut().enumerate().take(end).skip(start) {
+        let t_abs = k as f64 / sr;
+        let t = (k - start) as f64 / sr;
+        // The note sounding now, and the frequency (gliding during a slide).
+        let idx = notes
+            .iter()
+            .rposition(|p| p.note.onset_s <= t_abs)
+            .unwrap_or(0);
+        let hz = match notes[idx].how {
+            Articulation::Slide { glide_s } if idx > 0 => {
+                let from = notes[idx - 1].note.hz;
+                let x = ((t_abs - notes[idx].note.onset_s) / glide_s).clamp(0.0, 1.0);
+                from * (notes[idx].note.hz / from).powf(x)
+            }
+            _ => notes[idx].note.hz,
+        };
+        let mut v = 0.0;
+        for (n, phase) in phases.iter_mut().enumerate() {
+            let n_f = (n + 1) as f64;
+            let f = n_f * hz * (1.0 + INHARMONICITY * n_f * n_f).sqrt();
+            if f > sr * 0.45 {
+                break;
+            }
+            *phase += 2.0 * PI * f / sr;
+            let boost = if n == 1 { 1.4 } else { 1.0 };
+            let decay = if ghost {
+                GHOST_DECAY_S
+            } else {
+                2.5 / (1.0 + 0.35 * n_f)
+            };
+            v += boost / n_f.powf(tilt) * (-t / decay).exp() * (*phase + 0.3 * n_f).sin();
+        }
+        let mut sample = (v * gain) as f32;
+        if k - start < attack && !matches!(first.how, Articulation::Slap | Articulation::Pop) {
+            let env = 1.0 - (k - start) as f32 / attack as f32;
+            sample += burst.process(noise.sample()) * env * first.note.velocity * 0.25;
+        }
+        if let Some(((len_s, _, level), filter)) = transient.as_mut() {
+            let len = (*len_s * sr) as usize;
+            if k - start < len {
+                let env = 1.0 - (k - start) as f32 / len as f32;
+                sample += filter.process(noise.sample()) * env * *level * first.note.velocity;
+            }
+        }
+        let remaining = end - k;
+        if remaining < fade {
+            let x = remaining as f32 / fade as f32;
+            sample *= 0.5 - 0.5 * (std::f32::consts::PI * x).cos();
+        }
+        *slot += sample;
+    }
+}
+
 /// Comb delays of the room's tail in ms (Schroeder; mutually prime-ish, as in Freeverb).
 const ROOM_COMBS_MS: [f64; 4] = [29.7, 37.1, 41.1, 43.7];
 /// All-pass delays that smear the tail's echoes, in ms.

@@ -508,6 +508,7 @@ fn midi_note(onset_s: f64, note: MidiNote) -> Option<DetectedNote> {
         confidence: 1.0,
         level_db: kontra_dsp::amplitude_to_db(f32::from(note.velocity) / VELOCITY_MAX),
         source: InputSource::Midi,
+        technique: None,
     })
 }
 
