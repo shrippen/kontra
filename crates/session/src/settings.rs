@@ -3,6 +3,9 @@
 use kontra_model::{InputSource, InstrumentKind};
 use serde::{Deserialize, Serialize};
 
+/// Pitch limit at a microphone, whatever the instrument.
+pub const MICROPHONE_PITCH_CENTS: f64 = 50.0;
+
 /// How strict the timing window is.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum Strictness {
@@ -35,11 +38,14 @@ pub struct ScoreSettings {
 
 impl ScoreSettings {
     /// Defaults for an instrument kind and input. Fretted basses only need the right semitone;
-    /// fretless intonation is scored (±30 cents); microphones get wider windows (LH-EIN-11).
+    /// fretless intonation is scored (±30 cents); microphones get wider windows and pitch limits
+    /// (LH-EIN-11): the room's reverb pulls each estimate towards the note before (corpus
+    /// "room-double": p95 44 ct on notes played in tune).
     pub fn defaults(kind: InstrumentKind, source: InputSource) -> ScoreSettings {
-        let pitch_cents = match kind {
-            InstrumentKind::Fretless | InstrumentKind::Double => 30.0,
-            InstrumentKind::Fretted | InstrumentKind::Keys => 50.0,
+        let pitch_cents = match (kind, source) {
+            (_, InputSource::Microphone) => MICROPHONE_PITCH_CENTS,
+            (InstrumentKind::Fretless | InstrumentKind::Double, _) => 30.0,
+            (InstrumentKind::Fretted | InstrumentKind::Keys, _) => 50.0,
         };
         let strictness = match source {
             InputSource::Microphone => Strictness::Loose,

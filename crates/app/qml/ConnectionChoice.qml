@@ -2,15 +2,15 @@ import QtQuick
 import QtQuick.Layouts
 import Kante
 
-// How the bass reaches Kontra (LH-EIN-01, LH-EIN-10, LH-EIN-12): cable through an interface,
-// the laptop jack, or a MIDI keyboard (P5); the microphone is listed as coming later (P6).
+// How the bass reaches Kontra (LH-EIN-01, LH-EIN-11, LH-EIN-12): cable through an interface,
+// the laptop jack, a MIDI keyboard (P5) or a microphone (P6, wider tolerances, said here).
 ColumnLayout {
     id: choice
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
     // [key, available]
-    readonly property var entries: [["line", true], ["laptop", true], ["midi", true], ["mic", false]]
+    readonly property var entries: [["line", true], ["laptop", true], ["midi", true], ["mic", true]]
 
     spacing: 0
     Accessible.role: Accessible.List

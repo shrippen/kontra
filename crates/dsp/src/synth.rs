@@ -177,6 +177,78 @@ pub fn laptop_jack(signal: &[f32], sample_rate: f64, seed: u64) -> Vec<f32> {
         .collect()
 }
 
+/// Comb delays of the room's tail in ms (Schroeder; mutually prime-ish, as in Freeverb).
+const ROOM_COMBS_MS: [f64; 4] = [29.7, 37.1, 41.1, 43.7];
+/// All-pass delays that smear the tail's echoes, in ms.
+const ROOM_ALLPASS_MS: [f64; 2] = [5.0, 1.7];
+/// Early reflections: (delay ms, gain) from floor, near wall and ceiling.
+const ROOM_EARLY: [(f64, f32); 3] = [(7.0, 0.5), (13.0, 0.35), (23.0, 0.25)];
+/// Reverberation time of a furnished living room.
+const ROOM_RT60_S: f64 = 0.45;
+/// How much of the tail reaches the microphone.
+const ROOM_WET: f32 = 0.35;
+/// A small microphone loses the deepest lows.
+const MIC_LOW_CUT_HZ: f64 = 50.0;
+/// Fan and street, peak level.
+const ROOM_NOISE_DB: f32 = -50.0;
+
+/// A double bass in a living room through a microphone (QA corpus "Kontrabass Raum",
+/// LH-EIN-11): early reflections, a Schroeder tail of `ROOM_RT60_S`, a low cut at
+/// `MIC_LOW_CUT_HZ` and room noise. Deterministic for a given `seed`.
+///
+/// ```text
+/// dry ─┬────────────────────────────────────────────┐
+///      ├─ early reflections (7, 13, 23 ms) ──────────┤
+///      └─ 4 combs ─► 2 all-passes ─► × wet ──────────┴─► low cut ─► + noise
+/// ```
+pub fn room(signal: &[f32], sample_rate: f64, seed: u64) -> Vec<f32> {
+    let delay = |ms: f64| ((ms / 1000.0) * sample_rate).round() as usize;
+    let mut combs: Vec<(Vec<f32>, usize, f32)> = ROOM_COMBS_MS
+        .iter()
+        .map(|&ms| {
+            let d = delay(ms);
+            // Feedback for a 60 dB decay over RT60.
+            let g = 10f64.powf(-3.0 * ms / 1000.0 / ROOM_RT60_S) as f32;
+            (vec![0.0; d], 0, g)
+        })
+        .collect();
+    let mut allpasses: Vec<(Vec<f32>, usize)> = ROOM_ALLPASS_MS
+        .iter()
+        .map(|&ms| (vec![0.0; delay(ms)], 0))
+        .collect();
+    let mut low_cut = Biquad::new(FilterKind::HighPass, sample_rate, MIC_LOW_CUT_HZ);
+    let mut noise = Noise::new(seed);
+    let noise_amp = 10f32.powf(ROOM_NOISE_DB / 20.0);
+    let early: Vec<(usize, f32)> = ROOM_EARLY.iter().map(|&(ms, g)| (delay(ms), g)).collect();
+
+    (0..signal.len())
+        .map(|i| {
+            let x = signal[i];
+            let reflections: f32 = early
+                .iter()
+                .filter_map(|&(d, g)| i.checked_sub(d).map(|j| signal[j] * g))
+                .sum();
+            let mut tail = 0.0;
+            for (buf, pos, g) in combs.iter_mut() {
+                let out = buf[*pos];
+                buf[*pos] = x + out * *g;
+                *pos = (*pos + 1) % buf.len();
+                tail += out;
+            }
+            tail /= ROOM_COMBS_MS.len() as f32;
+            for (buf, pos) in allpasses.iter_mut() {
+                let delayed = buf[*pos];
+                let input = tail;
+                buf[*pos] = input + delayed * 0.5;
+                tail = delayed - input * 0.5;
+                *pos = (*pos + 1) % buf.len();
+            }
+            let wet = x + reflections + tail * ROOM_WET;
+            low_cut.process(wet) + noise.sample() * noise_amp
+        })
+        .collect()
+}
+
 /// Adds white noise at `level_db` dBFS (peak).
 pub fn add_noise(signal: &mut [f32], level_db: f32, seed: u64) {
     let amp = 10f32.powf(level_db / 20.0);

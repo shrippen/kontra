@@ -70,18 +70,22 @@ fn check(dir: Option<&Path>) -> CliResult {
             None => session::generate_korpus(set),
         };
         let e = session::evaluate_korpus(set, &item.samples, item.sample_rate, &item.notes);
-        let needed = if set == KorpusSet::LaptopJack4 {
-            0.95
-        } else {
-            0.98
+        // LH-EIN-11: a room through a microphone needs ≥ 90 % (acceptance of J-E2).
+        let room = matches!(set, KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking);
+        let needed = match set {
+            KorpusSet::LaptopJack4 => 0.95,
+            KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking => 0.9,
+            _ => 0.98,
         };
+        let found = if room { 0.9 } else { 0.99 };
+        let onset_ms = if room { 30.0 } else { 10.0 };
         // A mean hides one note that is always off (B0 +8 ct, J-B4): check p95 and max too.
         let cents_ok = set != KorpusSet::Fretless5
             || (e.p95_abs_cents <= FRETLESS_MAX_CENTS && e.max_abs_cents <= FRETLESS_MAX_CENTS);
-        let ok = e.recall() >= 0.99
-            && e.precision() >= 0.99
+        let ok = e.recall() >= found
+            && e.precision() >= found
             && e.pitch_accuracy() >= needed
-            && e.p95_abs_onset_ms < 10.0
+            && e.p95_abs_onset_ms < onset_ms
             && cents_ok;
         failed |= !ok;
         println!(

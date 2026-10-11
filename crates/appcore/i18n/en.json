@@ -467,7 +467,7 @@
   "settings.source.midi.none": "Play bass lines on a MIDI keyboard. None is connected right now.",
   "settings.source.midi.hint": "Play bass lines on a MIDI keyboard.",
   "settings.source.mic": "Microphone",
-  "settings.source.mic.hint": "For double bass and acoustic bass.",
+  "settings.source.mic.hint": "For double bass and acoustic bass. Room and reverb come along, so Kontra judges more loosely (window ±90 ms, pitch ±50 cents). With headphones the microphone hears only your bass.",
   "settings.later.short": "Coming later.",
   "settings.device.auto": "Automatic: {name}",
   "settings.tuning": "Tuning",

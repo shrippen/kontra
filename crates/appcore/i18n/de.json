@@ -467,7 +467,7 @@
   "settings.source.midi.none": "Basslinien auf einem MIDI-Keyboard spielen. Gerade ist keins angeschlossen.",
   "settings.source.midi.hint": "Basslinien auf einem MIDI-Keyboard spielen.",
   "settings.source.mic": "Mikrofon",
-  "settings.source.mic.hint": "Für Kontrabass und Akustikbass.",
+  "settings.source.mic.hint": "Für Kontrabass und Akustikbass. Raum und Hall klingen mit, deshalb wertet Kontra großzügiger (Zeitfenster ±90 ms, Tonhöhe ±50 Cent). Mit Kopfhörern hört das Mikrofon nur deinen Bass.",
   "settings.later.short": "Kommt später.",
   "settings.device.auto": "Automatisch: {name}",
   "settings.tuning": "Stimmung",

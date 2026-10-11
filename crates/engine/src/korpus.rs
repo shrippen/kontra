@@ -3,8 +3,8 @@
 //! Real recordings go to `testdata/korpus/local/` later; until then these generated sets stand in.
 //! Each set is a WAV plus an annotation with the true onset and pitch of every note.
 
-use crate::offline::analyze;
-use kontra_dsp::synth::{laptop_jack, render, Noise, SynthNote, ToneShape};
+use crate::offline::{analyze, analyze_without};
+use kontra_dsp::synth::{laptop_jack, render, room, Noise, SynthNote, ToneShape};
 use kontra_model::{
     hz_to_midi, DetectedNote, InputSource, Instrument, InstrumentKind, Tuning, A4_HZ,
 };
@@ -34,15 +34,22 @@ pub enum KorpusSet {
     Fretless5,
     /// Sixteenth notes at 120 BPM with repeated pitches.
     Sixteenths,
+    /// Double bass pizzicato in a living room through a microphone (LH-EIN-11, P6).
+    RoomDouble,
+    /// The same with a band from the speakers in the room (no headphones): kick, snare,
+    /// chords and its own bass line, as Kontra plays it.
+    RoomDoubleBacking,
 }
 
 impl KorpusSet {
-    pub const ALL: [KorpusSet; 5] = [
+    pub const ALL: [KorpusSet; 7] = [
         KorpusSet::Line4,
         KorpusSet::Line5,
         KorpusSet::LaptopJack4,
         KorpusSet::Fretless5,
         KorpusSet::Sixteenths,
+        KorpusSet::RoomDouble,
+        KorpusSet::RoomDoubleBacking,
     ];
 
     pub fn name(self) -> &'static str {
@@ -52,6 +59,8 @@ impl KorpusSet {
             KorpusSet::LaptopJack4 => "laptop-jack-4",
             KorpusSet::Fretless5 => "fretless-5",
             KorpusSet::Sixteenths => "sixteenths",
+            KorpusSet::RoomDouble => "room-double",
+            KorpusSet::RoomDoubleBacking => "room-double-backing",
         }
     }
 
@@ -62,6 +71,9 @@ impl KorpusSet {
             }
             KorpusSet::Line5 => (InstrumentKind::Fretted, Tuning::bass5_standard()),
             KorpusSet::Fretless5 => (InstrumentKind::Fretless, Tuning::bass5_standard()),
+            KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking => {
+                (InstrumentKind::Double, Tuning::bass4_standard())
+            }
         };
         Instrument::new(kind, tuning, 24).unwrap_or_else(|_| Instrument::default_bass())
     }
@@ -69,9 +81,81 @@ impl KorpusSet {
     pub fn source(self) -> InputSource {
         match self {
             KorpusSet::LaptopJack4 => InputSource::LaptopJack,
+            KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking => InputSource::Microphone,
             _ => InputSource::Line,
         }
     }
+}
+
+/// The band in the room, relative to the double bass at the microphone: speakers about as loud
+/// as the instrument (a living room, no headphones).
+const BAND_IN_ROOM: f32 = 0.8;
+const BAND_BPM: f64 = 100.0;
+
+/// What Kontra plays to the speakers for `RoomDoubleBacking` (mono, dry): kick on 1 and 3,
+/// snare on 2 and 4, a chord per bar and the band's own bass line, an octave apart from the
+/// player's notes. Deterministic; the same length as the take.
+pub fn band(len: usize, sample_rate: f64) -> Vec<f32> {
+    let beat_s = 60.0 / BAND_BPM;
+    let total_s = len as f64 / sample_rate;
+    let beats = (total_s / beat_s) as usize;
+    let mut out = vec![0.0f32; len];
+    let mut noise = Noise::new(11);
+
+    // Drums: a falling sine for the kick, a noise burst over 190 Hz for the snare.
+    for b in 0..beats {
+        let start = (b as f64 * beat_s * sample_rate) as usize;
+        let kick = b % 2 == 0;
+        for i in 0..(0.15 * sample_rate) as usize {
+            let Some(s) = out.get_mut(start + i) else {
+                break;
+            };
+            let t = i as f64 / sample_rate;
+            let decay = (-t / 0.05).exp() as f32;
+            *s += if kick {
+                let hz = 50.0 + 70.0 * (-t / 0.03).exp();
+                0.6 * decay * (std::f64::consts::TAU * hz * t).sin() as f32
+            } else {
+                0.25 * decay * (noise.sample() + (std::f64::consts::TAU * 190.0 * t).sin() as f32)
+            };
+        }
+    }
+
+    // Chords (A minor, F, C, G; one per bar) and the band's bass on each beat.
+    const CHORDS: [[f64; 3]; 4] = [
+        [57.0, 60.0, 64.0],
+        [53.0, 57.0, 60.0],
+        [48.0, 52.0, 55.0],
+        [55.0, 59.0, 62.0],
+    ];
+    const ROOTS: [f64; 4] = [45.0, 41.0, 48.0, 43.0];
+    let hz = |midi: f64| A4_HZ * 2f64.powf((midi - 69.0) / 12.0);
+    let mut notes = Vec::new();
+    for bar in 0..beats / 4 {
+        let at = bar as f64 * 4.0 * beat_s;
+        for &midi in &CHORDS[bar % 4] {
+            notes.push(SynthNote {
+                onset_s: at,
+                hz: hz(midi),
+                duration_s: 4.0 * beat_s * 0.95,
+                velocity: 0.25,
+            });
+        }
+    }
+    let chords = render(&notes, sample_rate, total_s, ToneShape::Dull, 12);
+    let bass_notes: Vec<SynthNote> = (0..beats)
+        .map(|b| SynthNote {
+            onset_s: b as f64 * beat_s,
+            hz: hz(ROOTS[(b / 4) % 4]),
+            duration_s: beat_s * 0.8,
+            velocity: 0.5,
+        })
+        .collect();
+    let bass = render(&bass_notes, sample_rate, total_s, ToneShape::Rich, 13);
+    for (i, s) in out.iter_mut().enumerate() {
+        *s += chords.get(i).copied().unwrap_or(0.0) + bass.get(i).copied().unwrap_or(0.0);
+    }
+    out
 }
 
 /// Generated audio with its annotation.
@@ -134,14 +218,26 @@ pub fn generate(set: KorpusSet) -> KorpusItem {
             }
         }
     }
-    let shape = if set == KorpusSet::LaptopJack4 {
-        ToneShape::Dull
-    } else {
-        ToneShape::Rich
+    let shape = match set {
+        KorpusSet::LaptopJack4 | KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking => {
+            ToneShape::Dull
+        }
+        _ => ToneShape::Rich,
     };
     let mut samples = render(&synth, sr, t + 0.5, shape, set as u64 + 7);
-    if set == KorpusSet::LaptopJack4 {
-        samples = laptop_jack(&samples, sr, 3);
+    match set {
+        KorpusSet::LaptopJack4 => samples = laptop_jack(&samples, sr, 3),
+        KorpusSet::RoomDouble => samples = room(&samples, sr, 5),
+        KorpusSet::RoomDoubleBacking => {
+            let band = band(samples.len(), sr);
+            let mixed: Vec<f32> = samples
+                .iter()
+                .zip(&band)
+                .map(|(bass, band)| bass + band * BAND_IN_ROOM)
+                .collect();
+            samples = room(&mixed, sr, 5);
+        }
+        _ => {}
     }
     let notes = synth
         .iter()
@@ -237,12 +333,22 @@ pub fn evaluate_with(
     notes: &[Annotation],
     matching: Matching,
 ) -> (Evaluation, Vec<DetectedNote>) {
-    let detected = analyze(
-        samples,
-        f64::from(sample_rate),
-        &set.instrument(),
-        set.source(),
-    );
+    // With a band in the room, Kontra subtracts what it played (the band) first.
+    let detected = match set {
+        KorpusSet::RoomDoubleBacking => analyze_without(
+            samples,
+            &band(samples.len(), f64::from(sample_rate)),
+            f64::from(sample_rate),
+            &set.instrument(),
+            set.source(),
+        ),
+        _ => analyze(
+            samples,
+            f64::from(sample_rate),
+            &set.instrument(),
+            set.source(),
+        ),
+    };
     let evaluation = compare(set, notes, &detected, matching);
     (evaluation, detected)
 }
@@ -321,21 +427,25 @@ fn compare(
 mod tests {
     use super::*;
 
-    /// Lastenheft LH-NF-02 (onset < 10 ms) and LH-NF-03 (pitch ≥ 98 % line, ≥ 95 % laptop jack).
+    /// Lastenheft LH-NF-02 (onset < 10 ms) and LH-NF-03 (pitch ≥ 98 % line, ≥ 95 % laptop jack,
+    /// ≥ 90 % at a microphone in a room, LH-EIN-11).
     #[test]
     fn corpus_meets_requirements() {
         for set in KorpusSet::ALL {
             let item = generate(set);
             let e = evaluate(set, &item.samples, item.sample_rate, &item.notes);
             eprintln!("{e:?}");
+            // LH-EIN-11: a microphone in a room needs ≥ 90 %.
+            let room = matches!(set, KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking);
+            let found = if room { 0.9 } else { 0.99 };
             assert!(
-                e.recall() >= 0.99,
+                e.recall() >= found,
                 "{}: recall {:.3}",
                 set.name(),
                 e.recall()
             );
             assert!(
-                e.precision() >= 0.99,
+                e.precision() >= found,
                 "{}: precision {:.3}",
                 set.name(),
                 e.precision()
@@ -346,10 +456,11 @@ mod tests {
                 set.name(),
                 e.p95_abs_onset_ms
             );
-            let needed = if set == KorpusSet::LaptopJack4 {
-                0.95
-            } else {
-                0.98
+            let needed = match set {
+                KorpusSet::LaptopJack4 => 0.95,
+                // LH-EIN-11: ≥ 90 % at a microphone in a room.
+                KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking => 0.9,
+                _ => 0.98,
             };
             assert!(
                 e.pitch_accuracy() >= needed,
