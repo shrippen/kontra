@@ -96,6 +96,8 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 
 ## Entscheidungen 11.10.2026
 
+- Neue `pub`-Schnittstellen sind für Kontra generell freigegeben (Eigentümer im Gespräch, 11.10.2026): keine
+  Rückfrage mehr, jede neue Schnittstelle wird im PR genannt (`agent.md`, Schichten).
 - Neue `pub`-Schnittstellen der Klangformung freigegeben: `dsp::{EqKind, Shaper, Shaping, SHAPING_RANGE_DB}`,
   `Biquad::{eq, retune, response_db}`, `Gains::shaping` (mit Re-Exporten), `Core::shaping_range_db`,
   `Settings::monitor_{low,mid,high}_db`, `monitor_compress`.
