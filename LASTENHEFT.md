@@ -104,7 +104,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-EIN-09 | Instrument und Eingang sind getrennte, austauschbare Profile (Datenmodell und Oberfläche), damit spätere Instrumente und Eingänge kein Umbau sind. | Muss | 1 | P5, P6 | Architektur-Review: neues Profil ohne Änderung an Session und Bewertung möglich (Test mit Dummy-Profil). |
 | LH-EIN-10 | Nicht unterstützte Eingänge (MIDI, Mikrofon vor Phase 4) werden in der Auswahl als „kommt später“ gezeigt, nicht stillschweigend weggelassen oder als defekt gemeldet. | Soll | 1 | P5, P6 | MIDI-Keyboard angesteckt → klare Meldung. |
 | LH-EIN-11 | Mikrofon-Eingang mit Rauschsperre und Abzug des eigenen Backing Tracks; Toleranzen werden weiter und die Oberfläche sagt das. | Muss | 4 | P6 | J-E2 ohne Kopfhörer: Trefferquote ≥ 90 % auf dem Testkorpus „Kontrabass Raum“. |
-| LH-EIN-12 | MIDI-Eingang (USB, ALSA-Seq) als Bass-Eingang: Note-On/Off werden wie erkannte Töne bewertet. | Muss | 4 | P5 | J-E1 durchspielbar, Timing aus MIDI-Zeitstempeln. |
+| LH-EIN-12 | MIDI-Eingang (USB, ALSA-Seq) als Bass-Eingang: Note-On/Off werden wie erkannte Töne bewertet. Bei mehreren Geräten Auswahl unter Anschluss, die Wahl bleibt gespeichert; fehlt das gewählte, nimmt Kontra das erste und sagt es (Runde 9). | Muss | 4 | P5 | J-E1 durchspielbar, Timing aus MIDI-Zeitstempeln. |
 
 ### 4.2 Stimmgerät (TUN)
 
