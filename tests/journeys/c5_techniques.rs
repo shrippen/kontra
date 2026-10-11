@@ -53,6 +53,14 @@ fn techniques_are_judged_apart_from_the_hit_rate() {
         ["", "hammer", "pull", "", "slide", "ghost", "", "ghost"],
         "a slide is marked where it arrives"
     );
+    let staff: serde_json::Value = serde_json::from_str(&core.staff_json()).unwrap();
+    let written: Vec<&str> = staff["notes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["technique"].as_str().unwrap())
+        .collect();
+    assert_eq!(written, signs, "the notation shows the same signs");
     let a = core.arrangement().unwrap().clone();
     let mistakes = kontra_session::Mistakes {
         playing: kontra_session::Playing::Articulated {

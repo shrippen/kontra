@@ -2865,17 +2865,22 @@ fn empty_staff() -> serde_json::Value {
 
 /// `staff_json` for an arrangement. The staff shows one key; it is the first bar's.
 fn staff(a: &Arrangement) -> serde_json::Value {
+    let techniques: std::collections::HashMap<usize, Technique> =
+        technique_targets(a).into_iter().collect();
     let notes: Vec<_> = a
         .notes
         .iter()
         .zip(ties_forward(&a.notes))
-        .map(|(n, tied)| {
+        .enumerate()
+        .map(|(i, (n, tied))| {
             json!({
                 "time": a.tempo.seconds_at(n.start_ticks),
                 "beats": written_beats(n.duration_ticks),
                 "midi": n.pitch.0.saturating_add(WRITTEN_OCTAVE_UP),
                 "tied": tied,
                 "state": "pending",
+                "technique": techniques.get(&i).map_or("", |t| technique_key(*t)),
+                "techniqueResult": "",
             })
         })
         .collect();
