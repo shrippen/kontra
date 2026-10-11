@@ -399,16 +399,27 @@ Item {
             }
             Repeater {
                 model: box.visible ? box.parts.length : 0
-                delegate: Text {
+                // The text keeps the text colour (a part colour can be unreadable on the box);
+                // a square in the part's colour says which part a line is.
+                delegate: Row {
                     required property int index
                     readonly property int part: box.parts.length - 1 - index
                     readonly property string name: chart.partNames && part < chart.partNames.length ? chart.partNames[part] : ""
                     // Empty parts of a stack are not listed ("Ops 0:00" says nothing).
                     visible: !box.stacked || box.parts[part] !== 0
-                    text: (name !== "" ? name + "  " : "") + chart.format(box.parts[part])
-                    color: box.stacked ? chart.partColor(part)
-                         : (chart.hoverIndex === chart.highlight ? KanteStyle.accentTextColor : KanteStyle.dataColor(chart.series))
-                    font: KanteStyle.monoFont(KanteStyle.labelFont().pointSize, !box.stacked || chart.hoverPart === part)
+                    spacing: KanteStyle.unit(5)
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: KanteStyle.unit(8)
+                        height: width
+                        color: box.stacked ? chart.partColor(part)
+                             : (chart.hoverIndex === chart.highlight ? KanteStyle.accentColor : KanteStyle.dataColor(chart.series))
+                    }
+                    Text {
+                        text: (parent.name !== "" ? parent.name + "  " : "") + chart.format(box.parts[parent.part])
+                        color: !box.stacked || chart.hoverPart === parent.part ? KanteStyle.strongTextColor : KanteStyle.textColor
+                        font: KanteStyle.monoFont(KanteStyle.labelFont().pointSize, !box.stacked || chart.hoverPart === parent.part)
+                    }
                 }
             }
             Text {

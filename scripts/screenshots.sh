@@ -47,6 +47,7 @@ for lang in de en; do
     shot practice-tab "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --view tab
     shot practice-notation "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --view notation
     shot practice-combined "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --view combined
+    shot practice-keys "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --view keys
     shot practice-wait "$lang" 5000 --open "$DEMO" --mode wait --view lane --autoplay
     shot practice-mixer "$lang" 3000 --open "$DEMO" --view lane --mixer
     shot settings-mixer "$lang" 2000 --page settings --mixer

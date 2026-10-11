@@ -12,7 +12,7 @@ Kirigami.Page {
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
     readonly property var modes: ["play", "song", "wait", "workshop"]
-    readonly property var views: ["lane", "tab", "notation", "combined"]
+    readonly property var views: ["lane", "tab", "notation", "combined", "keys"]
 
     // The notes as loaded; live states go to the views one by one (setNoteState) and are kept
     // here too, so a view that gets its notes later (view switch) can catch up.
@@ -24,7 +24,7 @@ Kirigami.Page {
     // Play mode marks quietly or not at all (setting); the other modes mark fully.
     readonly property int marks: ctl.mode !== "play" || ctl.playMarks === "full" ? KanteTabLane.Marks.Full
                                : ctl.playMarks === "off" ? KanteTabLane.Marks.Off : KanteTabLane.Marks.Quiet
-    readonly property var noteViews: [lane, tabStaff, bassStaff, combinedBass, combinedTab]
+    readonly property var noteViews: [lane, tabStaff, bassStaff, combinedBass, combinedTab, keyLane]
 
     // Kirigami pages paint the platform background; Kante's ground replaces it.
     background: Rectangle { color: KanteStyle.backgroundColor }
@@ -120,6 +120,8 @@ Kirigami.Page {
 
     readonly property var times: bars.map(function(b) { return b.time })
     readonly property var stringNames: JSON.parse(ctl.stringNamesJson)
+    // Keyboard view (J-E1): the instrument's range and the note names in the user's language.
+    readonly property var keys: JSON.parse(ctl.keyRangeJson)
     readonly property int nextIndex: ctl.holdingIndex >= 0 ? ctl.holdingIndex : lane.nextIndex
     readonly property var nextNote: nextIndex >= 0 && nextIndex < notes.length ? notes[nextIndex] : null
     // Hand position (LH-ANZ-05) and the next change of it, shown at least one bar ahead.
@@ -492,6 +494,42 @@ Kirigami.Page {
                     position: ctl.position
                 }
             }
+            // Bass over MIDI (J-E1, P5): the notes fall onto the keys to play.
+            ColumnLayout {
+                id: keysView
+                anchors.fill: parent
+                visible: ctl.view === "keys"
+                spacing: 0
+                KanteKeyLane {
+                    id: keyLane
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    low: page.keys.low
+                    high: page.keys.high
+                    noteNames: page.keys.names
+                    notes: keysView.visible ? page.notes : []
+                    marks: page.marks
+                    onNotesChanged: Qt.callLater(function() { page.catchUp(keyLane) })
+                    bars: page.bars
+                    position: ctl.position
+                    pixelsPerSecond: Math.max(KanteStyle.unit(240), height * 1.2) * Math.max(0.5, ctl.speed)
+                    accessibleName: texts.t("keys.lane")
+                    loopStart: ctl.loopStart
+                    loopEnd: ctl.loopEnd
+                }
+                KanteKeyboard {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: KanteStyle.unit(90)
+                    low: page.keys.low
+                    high: page.keys.high
+                    noteNames: page.keys.names
+                    markers: page.nextNote ? [{ midi: page.nextNote.midi, role: "next" }] : []
+                    accessibleName: texts.t("keys.name")
+                    roleNames: ({ current: texts.t("keys.current"), next: texts.t("keys.next"),
+                                  root: texts.t("keys.root"), scale: texts.t("keys.scale") })
+                    markerText: texts.t("keys.marker")
+                }
+            }
         }
 
         RowLayout {
@@ -500,6 +538,8 @@ Kirigami.Page {
             spacing: KanteStyle.unit(16)
             ColumnLayout {
             Layout.fillWidth: true
+            // The keyboard view has its own keys; a fretboard beside them would only distract.
+            visible: ctl.view !== "keys"
             spacing: KanteStyle.unit(4)
             KanteFretboard {
                 Layout.fillWidth: true

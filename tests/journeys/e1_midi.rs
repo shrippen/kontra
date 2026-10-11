@@ -1,7 +1,7 @@
 //! J-E1 Synth-Bass über MIDI (P5 Aylin): a MIDI keyboard as input, a groove in song mode. The
 //! take is a MIDI file played in real time like a keyboard; every second note comes 10 ms late,
 //! and the judged offsets must show exactly that (timing from MIDI timestamps, not detection).
-//! The keyboard view needs a Kante component and is not part of this test.
+//! The keyboard view (Klaviatur) shows every note of the riff on its keys.
 
 use crate::common::{run_until, write_midi, Profile, BPM, COUNT_IN_S};
 use kontra_appcore::{Core, InputKind, QaOptions, UiEvent};
@@ -70,9 +70,20 @@ fn midi_keyboard_is_judged_like_a_bass() {
     core.update_settings(|s| s.language = Some("de".into()));
     core.reconfigure(|s| s.input_kind = InputKind::Midi);
 
-    // Step 2: the groove in song mode.
+    // Step 2: the groove in song mode, keyboard view: every note lies on a shown key.
     core.open(&score).unwrap();
     core.set_mode("song");
+    core.set_view("keys");
+    let keys: serde_json::Value = serde_json::from_str(&core.key_range_json()).unwrap();
+    let (low, high) = (
+        keys["low"].as_u64().unwrap(),
+        keys["high"].as_u64().unwrap(),
+    );
+    assert!(
+        RIFF.iter().all(|k| (low..=high).contains(&u64::from(*k))),
+        "keys {low}..{high}"
+    );
+    assert_eq!(core.view(), "keys");
     core.play();
     let events = run_until(&mut core, Duration::from_secs(9), |e| {
         matches!(e, UiEvent::Finished { .. })

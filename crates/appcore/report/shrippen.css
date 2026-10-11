@@ -717,6 +717,7 @@ a.feat:focus-visible::after{inset:6px;background:var(--brk)}
 :is(.tile,.band,.strip button)[data-label="green"]{--tier:var(--aqua)}:is(.tile,.band,.strip button)[data-label="yellow"]{--tier:var(--yellow)}
 :is(.tile,.band,.strip button)[data-label="red"]{--tier:var(--red)}:is(.tile,.band,.strip button)[data-label="blue"]{--tier:var(--blue)}
 :is(.tile,.band,.strip button)[data-label="purple"]{--tier:var(--purple)}
+:is(.tile,.band,.strip button)[data-label="orange"]{--tier:var(--orange)}:is(.tile,.band,.strip button)[data-label="cyan"]{--tier:var(--cyan)}
 .tile::after{content:"";position:absolute;inset:0;border:2px solid transparent;pointer-events:none;transition:border-color .12s}
 .tile:hover::after{border-color:var(--bg2)}
 .tile:focus-visible{outline:0}.tile:focus-visible::after{border-color:transparent;inset:5px;background:var(--brk)}
@@ -1131,6 +1132,7 @@ label.field{font-family:var(--font-mono);font-size:.68rem;letter-spacing:.14em;t
 :is(.fact,.progress-bar>i)[data-label="green"]{--l:var(--aqua)}:is(.fact,.progress-bar>i)[data-label="yellow"]{--l:var(--yellow)}
 :is(.fact,.progress-bar>i)[data-label="red"]{--l:var(--red)}:is(.fact,.progress-bar>i)[data-label="blue"]{--l:var(--blue)}
 :is(.fact,.progress-bar>i)[data-label="purple"]{--l:var(--purple)}
+:is(.fact,.progress-bar>i)[data-label="orange"]{--l:var(--orange)}:is(.fact,.progress-bar>i)[data-label="cyan"]{--l:var(--cyan)}
 /* Swatch: entity colours are squares; the ring tells where the colour comes from */
 .swatch{--c:var(--cyan);--ring:color-mix(in srgb,var(--c) 55%,var(--fg0));display:inline-block;width:18px;height:18px;background:var(--c);flex:none;box-shadow:inset 0 0 0 1px var(--bg2)}
 .swatch[data-src="own"]{outline:2px solid var(--ring);outline-offset:2px}
