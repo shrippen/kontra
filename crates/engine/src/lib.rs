@@ -21,8 +21,9 @@ pub use backing::{BackingTrack, Resolution};
 pub use clock::Clock;
 pub use input::{Input, InputKind, Pace};
 pub use kontra_drivers::{
-    list_devices, list_midi_inputs, read_audio, write_wav, AudioBuffer, Connection, DeviceInfo,
-    Direction, MidiPort, StreamConfig, NULL_DEVICE,
+    find_separator, in_sandbox, list_devices, list_midi_inputs, read_audio, write_wav, AudioBuffer,
+    Connection, DeviceInfo, Direction, MidiPort, SeparationJob, Separator, SeparatorError,
+    StreamConfig, NULL_DEVICE,
 };
 pub use kontra_dsp::{track_beats, BeatGrid, Shaping, SHAPING_RANGE_DB};
 pub use korpus::{

@@ -21,6 +21,7 @@ mod progress;
 mod service;
 mod session;
 mod settings;
+mod stems;
 mod summary;
 mod technique;
 mod transport;
@@ -30,7 +31,8 @@ pub use calibration::{
 };
 pub use density::Density;
 pub use expected::{expected_notes, ExpectedNote};
-pub use kontra_engine::{Gains, Shaping, SHAPING_RANGE_DB};
+pub use kontra_engine::Separator;
+pub use kontra_engine::{Gains, SeparatorError, Shaping, SHAPING_RANGE_DB};
 pub use live::{
     is_midi_file, soak, InputChoice, Live, LiveCalibration, LiveEar, LiveOutput, LiveSetup,
     LiveTuner, PromptTone, SoakReport,
@@ -41,6 +43,7 @@ pub use progress::{run_from, ProgressError, ProgressStore, Run, SongProgress};
 pub use service::*;
 pub use session::{Mode, Session, SessionEvent, Workshop};
 pub use settings::{ScoreSettings, Strictness};
+pub use stems::{BassRemoval, StemJob};
 pub use summary::{Summary, TimingHistogram};
 pub use technique::{
     technique_targets, told_techniques, TechniqueOutcome, TechniqueResult, TechniqueTally,

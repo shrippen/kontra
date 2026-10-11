@@ -23,6 +23,19 @@ kontra-cli render testdata/demo/etude-1.mid take.wav --lead-in 2.4 --wrong-every
 kontra --open testdata/demo/etude-1.mid --input-file take.wav --autoplay --mode song
 ```
 
+## Bass aus einem Song entfernen (optional)
+
+Kontra kann den Bass aus einem Backing-Track entfernen, wenn [Demucs](https://github.com/adefossez/demucs) (MIT)
+installiert ist. Kontra liefert nichts davon mit und ruft nur das Programm auf.
+
+```sh
+pipx install demucs          # oder: pip install --user demucs
+```
+
+Beim ersten Lauf lädt Demucs sein Modell (rund 80 MB). Danach auf der Übungsseite „Bass der Aufnahme entfernen“
+einschalten; das Ergebnis wird zwischengespeichert. Liegt Demucs außerhalb von `PATH` und `~/.local/bin`, zeigt
+`KONTRA_DEMUCS=/pfad/zu/demucs` darauf.
+
 ## Aufbau
 
 ```text

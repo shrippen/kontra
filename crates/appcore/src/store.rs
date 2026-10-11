@@ -204,6 +204,9 @@ pub struct RecentEntry {
     /// Piece and backing track moved by semitones (LH-WIE-02), −6..=6.
     #[serde(default)]
     pub transpose_semitones: i32,
+    /// Play the backing track with its bass removed (LH-BIB-09), once separated.
+    #[serde(default)]
+    pub backing_without_bass: bool,
 }
 
 /// Note density chosen for a section (`None`: the whole piece), 1 (few notes) to 3 (all).
@@ -297,6 +300,7 @@ impl Library {
             if entry.transpose_semitones == 0 {
                 entry.transpose_semitones = old.transpose_semitones;
             }
+            entry.backing_without_bass |= old.backing_without_bass;
         }
         self.recent.retain(|e| e.path != entry.path);
         self.recent.insert(0, entry);
@@ -396,6 +400,7 @@ mod tests {
             sections: Vec::new(),
             densities: Vec::new(),
             transpose_semitones: 0,
+            backing_without_bass: false,
         };
         library.touch(entry("a"));
         library.touch(entry("b"));
