@@ -25,8 +25,11 @@
 use crate::intonation::refine_hz;
 use crate::level::amplitude_to_db;
 use crate::onset::{OnsetConfig, OnsetDetector};
+use crate::strike::{verdict_after_s, Strike};
 use crate::yin::{PitchEstimate, Yin};
-use kontra_model::{cents_between, hz_to_midi, DetectedNote, InputSource, Instrument, Technique};
+use kontra_model::{
+    cents_between, hz_to_midi, DetectedNote, InputSource, Instrument, Technique, TechniqueRevision,
+};
 
 const RETRY_S: f64 = 0.005;
 const LEVEL_SPAN_S: f64 = 0.02;
@@ -45,9 +48,6 @@ const RISE_FACTOR: f32 = 1.1;
 const SILENCE: f32 = 1e-4;
 /// A second onset this soon after one without pitch belongs to the same attack.
 const MERGE_S: f64 = 0.08;
-/// A ghost note has nearly gone (below this share of its attack) this soon after it.
-const GHOST_AFTER_S: f64 = 0.06;
-const GHOST_LEFT: f32 = 0.1;
 /// How often a ringing note's pitch is checked.
 const FOLLOW_STEP_S: f64 = 0.01;
 /// A ringing note is followed while its level stays above this share of its start (−26 dB).
@@ -117,13 +117,9 @@ impl TrackerConfig {
     }
 }
 
-/// Attack brightness (energy of the first difference over the energy, first 8 ms) above which
-/// the attack was slapped or popped (LH-BEW-06). Technique corpus: plucks ≤ 0.077 (also on line
-/// sets), pops ≥ 0.14, slaps ≥ 0.42.
-const STRIKE_BRIGHTNESS: f32 = 0.12;
-const BRIGHTNESS_S: f64 = 0.008;
-/// From here up a bright attack is a pop (index finger on the high strings), below a slap.
-const POP_FROM_MIDI: f64 = 38.0;
+/// Notes emitted before their attack could be judged (`Strike`), waiting for the audio; more at
+/// once would mean notes closer than 15 ms.
+const STRIKES_WAITING: usize = 8;
 
 /// Attacks at a microphone must reach this level (dBFS) in the high band.
 const MICROPHONE_GATE_DB: f32 = -48.0;
@@ -159,6 +155,13 @@ struct Change {
     between: usize,
 }
 
+/// Whether waiting attacks wait for their audio or are judged on what exists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Waiting {
+    ForAudio,
+    No,
+}
+
 /// Streaming note tracker; allocation-free after `new`.
 #[derive(Debug)]
 pub struct NoteTracker {
@@ -176,6 +179,9 @@ pub struct NoteTracker {
     /// A legato note waiting for `LEGATO_HOLD_S`, and the sample it is due at.
     legato: Option<(DetectedNote, u64)>,
     out: Vec<DetectedNote>,
+    /// Onsets (samples) of emitted notes whose attack is judged once its audio is there.
+    strikes: [Option<u64>; STRIKES_WAITING],
+    revised: Vec<TechniqueRevision>,
 }
 
 impl NoteTracker {
@@ -199,6 +205,8 @@ impl NoteTracker {
             sounding: None,
             legato: None,
             out: Vec::with_capacity(16),
+            strikes: [None; STRIKES_WAITING],
+            revised: Vec::with_capacity(STRIKES_WAITING),
         }
     }
 
@@ -212,9 +220,16 @@ impl NoteTracker {
             + (self.yin.needed() as f64 + RETRY_S * self.sample_rate) / self.sample_rate
     }
 
+    /// Techniques told in the last `push` or `flush` for notes emitted earlier (their attack
+    /// needed more audio, `Strike`); valid until the next call.
+    pub fn revised(&self) -> &[TechniqueRevision] {
+        &self.revised
+    }
+
     /// Feeds samples; returns notes completed in this call (valid until the next call).
     pub fn push(&mut self, samples: &[f32]) -> &[DetectedNote] {
         self.out.clear();
+        self.revised.clear();
         let block = (RETRY_S * self.sample_rate) as usize;
         for chunk in samples.chunks(block.max(1)) {
             self.store(chunk);
@@ -231,6 +246,7 @@ impl NoteTracker {
             self.advance();
             self.follow();
             self.release_legato();
+            self.judge_strikes(Waiting::ForAudio);
         }
         &self.out
     }
@@ -238,6 +254,7 @@ impl NoteTracker {
     /// Emits a pending note now, e.g. at the end of a file.
     pub fn flush(&mut self) -> &[DetectedNote] {
         self.out.clear();
+        self.revised.clear();
         if let Some((note, _)) = self.legato.take() {
             self.out.push(note);
         }
@@ -247,6 +264,7 @@ impl NoteTracker {
         if let Some(p) = self.pending.take() {
             self.emit(p);
         }
+        self.judge_strikes(Waiting::No);
         &self.out
     }
 
@@ -399,23 +417,17 @@ impl NoteTracker {
                 change: None,
             });
         }
+        // An attack without a pitch is a muted (ghost) note; one with a pitch is judged on its
+        // attack, now or, when its audio is not there yet, by a revision later.
         let technique = match p.best {
-            // An attack without a pitch, or one that dies at once: a muted (ghost) note.
             None => Some(Technique::Ghost),
-            Some(_) if self.dies_at_once(p.report) => Some(Technique::Ghost),
-            // At a microphone room noise brightens soft plucks (corpus "room-double": up to
-            // 0.4); slaps and pops are told only on a cable.
-            Some(_)
-                if self.config.source != InputSource::Microphone
-                    && self.brightness(p.report) > STRIKE_BRIGHTNESS =>
-            {
-                Some(if midi >= POP_FROM_MIDI {
-                    Technique::Pop
-                } else {
-                    Technique::Slap
-                })
-            }
-            Some(_) => None,
+            Some(_) => match self.strike(p.report) {
+                Some(strike) => strike.technique(self.config.source),
+                None => {
+                    self.wait_for_strike(p.report);
+                    None
+                }
+            },
         };
         self.out.push(DetectedNote {
             onset_s: p.report as f64 / self.sample_rate,
@@ -427,15 +439,50 @@ impl NoteTracker {
         });
     }
 
-    /// True if the note at `onset` has nearly gone `GHOST_AFTER_S` later (a muted string).
-    fn dies_at_once(&self, onset: u64) -> bool {
-        let sr = self.sample_rate;
-        let attack = self.peak(onset, onset + (LEVEL_SPAN_S * sr) as u64);
-        let at = onset + (GHOST_AFTER_S * sr) as u64;
-        if self.pushed < at + (LEVEL_SPAN_S * sr) as u64 {
-            return false;
+    /// The attack at `onset` measured, if the ring holds its audio.
+    fn strike(&self, onset: u64) -> Option<Strike> {
+        let len = self.ring.len() as u64;
+        let available = self.pushed.saturating_sub(len)..self.pushed;
+        Strike::measure(onset, self.sample_rate, available, |i| {
+            self.ring[(i % len) as usize]
+        })
+    }
+
+    /// Keeps `onset` until its attack can be judged; the oldest waiting one gives way.
+    fn wait_for_strike(&mut self, onset: u64) {
+        let slot = self
+            .strikes
+            .iter()
+            .position(Option::is_none)
+            .unwrap_or_else(|| {
+                let oldest = self.strikes.iter().flatten().min().copied();
+                self.strikes.iter().position(|s| *s == oldest).unwrap_or(0)
+            });
+        self.strikes[slot] = Some(onset);
+    }
+
+    /// Judges waiting attacks whose audio is there (`ForAudio`), or all on what exists (`No`,
+    /// at the end of a file); a technique found becomes a revision.
+    fn judge_strikes(&mut self, waiting: Waiting) {
+        let due = (verdict_after_s() * self.sample_rate) as u64;
+        for i in 0..STRIKES_WAITING {
+            let Some(onset) = self.strikes[i] else {
+                continue;
+            };
+            if waiting == Waiting::ForAudio && self.pushed < onset + due {
+                continue;
+            }
+            self.strikes[i] = None;
+            let technique = self
+                .strike(onset)
+                .and_then(|s| s.technique(self.config.source));
+            if let Some(technique) = technique {
+                self.revised.push(TechniqueRevision {
+                    onset_s: onset as f64 / self.sample_rate,
+                    technique,
+                });
+            }
         }
-        self.peak(at, at + (LEVEL_SPAN_S * sr) as u64) < attack * GHOST_LEFT
     }
 
     /// Follows the ringing note's pitch; emits a legato note when it moves to a new one.
@@ -538,26 +585,6 @@ impl NoteTracker {
         self.copy_out(from, count);
         let estimate = self.yin.estimate(&self.scratch[..count])?;
         (estimate.confidence >= self.config.min_confidence).then_some(estimate)
-    }
-
-    /// How bright the attack at `onset` is: energy of the first difference over the energy in
-    /// the first `BRIGHTNESS_S`. A slap or pop has a hard transient, a finger pluck does not.
-    fn brightness(&self, onset: u64) -> f32 {
-        let len = self.ring.len() as u64;
-        let span = (BRIGHTNESS_S * self.sample_rate) as u64;
-        let start = onset.max(self.pushed.saturating_sub(len));
-        let end = (onset + span).min(self.pushed);
-        let (mut energy, mut change, mut previous) = (0.0f32, 0.0f32, None);
-        for s in start..end {
-            let x = self.ring[(s % len) as usize];
-            energy += x * x;
-            if let Some(p) = previous {
-                let d: f32 = x - p;
-                change += d * d;
-            }
-            previous = Some(x);
-        }
-        change / energy.max(f32::MIN_POSITIVE)
     }
 
     fn level_after(&self, onset: u64) -> f32 {

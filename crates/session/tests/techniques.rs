@@ -156,3 +156,28 @@ fn wait_mode_takes_a_hammer_on_as_such() {
         vec![(1, TechniqueOutcome::Played), (2, TechniqueOutcome::Played)]
     );
 }
+
+/// A technique told after its note (the attack needed more audio): the note is judged again,
+/// and the evaluation counts the later verdict.
+#[test]
+fn technique_told_later_judges_again() {
+    let mut s = Session::new(piece(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    let take = [
+        played(0.0, 28.0, None),
+        played(0.5, 33.0, Some(Technique::HammerOn)),
+        played(1.0, 31.0, None),
+    ];
+    run(&mut s, &take, 1.2);
+    s.on_revision(&kontra_model::TechniqueRevision {
+        onset_s: 1.0,
+        technique: Technique::Slap,
+    });
+    run(&mut s, &[], 2.0);
+    let slap = s
+        .summary()
+        .techniques
+        .into_iter()
+        .find(|t| t.technique == Technique::Slap);
+    assert_eq!(slap.map(|t| (t.played, t.judged)), Some((1, 1)));
+}

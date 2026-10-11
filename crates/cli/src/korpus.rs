@@ -35,7 +35,97 @@ pub fn run(a: &KorpusArgs) -> CliResult {
             }
             Ok(())
         }
+        KorpusCommand::Techniques { dirs, window_ms } => techniques(dirs, window_ms / 1000.0),
     }
+}
+
+/// Rows and columns of the technique table: a plain pluck, then Kontra's techniques.
+const TOLD: [Option<kontra_model::Technique>; 7] = {
+    use kontra_model::Technique as T;
+    [
+        None,
+        Some(T::Slide),
+        Some(T::HammerOn),
+        Some(T::PullOff),
+        Some(T::Slap),
+        Some(T::Pop),
+        Some(T::Ghost),
+    ]
+};
+
+fn technique_name(t: Option<kontra_model::Technique>) -> String {
+    t.map_or_else(|| "plain".to_string(), |t| format!("{t:?}"))
+}
+
+/// Per annotated technique (rows) how the nearest detection within `window_s` was told
+/// (columns), or missed. The diagonal is right; the rest is what the technique evaluation would
+/// count as "another technique".
+fn techniques(dirs: &[std::path::PathBuf], window_s: f64) -> CliResult {
+    let mut table = vec![[0usize; TOLD.len() + 1]; TOLD.len()];
+    for dir in dirs {
+        let entries = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        let mut files: Vec<_> = entries
+            .filter_map(Result::ok)
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|x| x == "json"))
+            .collect();
+        files.sort();
+        for json in files {
+            let item = session::read_korpus_file(&json)?;
+            let matching = session::Matching {
+                window_s,
+                require_pitch: false,
+            };
+            let (_, found) = session::evaluate_korpus_with(
+                item.set,
+                &item.samples,
+                item.sample_rate,
+                &item.notes,
+                matching,
+            );
+            let mut used = vec![false; found.len()];
+            for note in &item.notes {
+                let Some(row) = TOLD.iter().position(|t| *t == note.technique) else {
+                    continue;
+                };
+                let best = found
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, d)| !used[*i] && (d.onset_s - note.onset_s).abs() <= window_s)
+                    .min_by(|a, b| {
+                        (a.1.onset_s - note.onset_s)
+                            .abs()
+                            .total_cmp(&(b.1.onset_s - note.onset_s).abs())
+                    });
+                let column = match best {
+                    None => TOLD.len(),
+                    Some((i, d)) => {
+                        used[i] = true;
+                        TOLD.iter().position(|t| *t == d.technique).unwrap_or(0)
+                    }
+                };
+                table[row][column] += 1;
+            }
+        }
+    }
+    print!("{:<10} {:>6}", "annotated", "notes");
+    for t in TOLD {
+        print!(" {:>8}", technique_name(t));
+    }
+    println!(" {:>8} {:>7}", "missed", "right");
+    for (row, counts) in table.iter().enumerate() {
+        let total: usize = counts.iter().sum();
+        if total == 0 {
+            continue;
+        }
+        print!("{:<10} {:>6}", technique_name(TOLD[row]), total);
+        for count in counts {
+            print!(" {count:>8}");
+        }
+        let right = counts[row] as f64 / total as f64 * 100.0;
+        println!(" {right:>6.1}%");
+    }
+    Ok(())
 }
 
 fn write(dir: &Path) -> CliResult {

@@ -201,9 +201,14 @@ pub struct Played {
     pub how: Articulation,
 }
 
-/// Slap and pop transients: (length s, high-pass Hz, level).
-const SLAP_THUMP: (f64, f64, f32) = (0.006, 120.0, 0.9);
+/// Slap and pop transients: (length s, filter Hz, level); the slap's is low-passed, the pop's
+/// high-passed.
+const SLAP_THUMP: (f64, f64, f32) = (0.006, 3500.0, 0.9);
 const POP_SNAP: (f64, f64, f32) = (0.003, 2500.0, 0.8);
+/// Level a slap and a pop fall back to after their strike, and how fast.
+const SLAP_SUSTAIN: f64 = 0.35;
+const POP_SUSTAIN: f64 = 0.5;
+const STRIKE_FALL_S: f64 = 0.03;
 /// A muted note sounds this long and decays this fast.
 const GHOST_S: f64 = 0.04;
 const GHOST_DECAY_S: f64 = 0.012;
@@ -259,9 +264,10 @@ fn phrase(out: &mut [f32], notes: &[Played], sr: f64, noise: &mut Noise) {
     let gain = f64::from(first.note.velocity) * 0.5;
     let fade = (0.015 * sr) as usize;
     let mut transient = match first.how {
+        // The thumb's thump is low and mid; real slaps carry 1–3 % of the attack above 1.5 kHz.
         Articulation::Slap => Some((
             SLAP_THUMP,
-            Biquad::new(FilterKind::HighPass, sr, SLAP_THUMP.1),
+            Biquad::new(FilterKind::LowPass, sr, SLAP_THUMP.1),
         )),
         Articulation::Pop => Some((POP_SNAP, Biquad::new(FilterKind::HighPass, sr, POP_SNAP.1))),
         _ => None,
@@ -300,7 +306,14 @@ fn phrase(out: &mut [f32], notes: &[Played], sr: f64, noise: &mut Noise) {
             };
             v += boost / n_f.powf(tilt) * (-t / decay).exp() * (*phase + 0.3 * n_f).sin();
         }
-        let mut sample = (v * gain) as f32;
+        // A slap or pop strikes hard and falls back fast to a softer ring (IDMT: 40–60 % of
+        // the attack's level is left after 60–80 ms; a finger pluck keeps 85 %).
+        let strike = match first.how {
+            Articulation::Slap => SLAP_SUSTAIN + (1.0 - SLAP_SUSTAIN) * (-t / STRIKE_FALL_S).exp(),
+            Articulation::Pop => POP_SUSTAIN + (1.0 - POP_SUSTAIN) * (-t / STRIKE_FALL_S).exp(),
+            _ => 1.0,
+        };
+        let mut sample = (v * gain * strike) as f32;
         if k - start < attack && !matches!(first.how, Articulation::Slap | Articulation::Pop) {
             let env = 1.0 - (k - start) as f32 / attack as f32;
             sample += burst.process(noise.sample()) * env * first.note.velocity * 0.25;
