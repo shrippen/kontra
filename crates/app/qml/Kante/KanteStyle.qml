@@ -211,6 +211,40 @@ QtObject {
         return n !== undefined ? String(n) : String(noteStateNames && noteStateNames.pending || "")
     }
     /**
+     * Words for playing techniques (Kante 1.31, KanteTechniqueMark): keys slide, hammer, pull,
+     * slap, pop, ghost. An app sets its translations once, like noteStateNames.
+     */
+    property var techniqueNames: ({
+        slide: "Slide", hammer: "Hammer-on", pull: "Pull-off", slap: "Slap", pop: "Pop", ghost: "Ghost Note"
+    })
+    /** Name of a technique key; "" for an unknown key. */
+    function techniqueName(key) {
+        var n = techniqueNames && techniqueNames[key]
+        return n !== undefined ? String(n) : ""
+    }
+    /** Words for how a technique was played (1.31): played, other, unheard. */
+    property var techniqueResultNames: ({
+        played: "Technik gespielt", other: "Andere Technik", unheard: "Technik nicht gehört"
+    })
+    /** Name of a technique result; "" for none or an unknown one. */
+    function techniqueResultName(r) {
+        var n = techniqueResultNames && techniqueResultNames[r]
+        return n !== undefined ? String(n) : ""
+    }
+    /**
+     * Screen-reader text of technique results (1.31): "Technik gespielt 3, Andere Technik 1"
+     * from counts by result; "" when there are none.
+     */
+    function techniqueCountsText(counts) {
+        var parts = []
+        ;["played", "other", "unheard"].forEach(function (r) {
+            if (counts && counts[r]) {
+                parts.push(techniqueResultName(r) + " " + counts[r])
+            }
+        })
+        return parts.join(", ")
+    }
+    /**
      * String colours (Kante 1.28), one per string, string 0 = the lowest, kept apart from the
      * note state colours. Presets (`stringPalettes`): "kante" six roles that differ in hue
      * (purple, cyan, yellow, strong text, muted, info), "mono" every string in the strong

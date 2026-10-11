@@ -250,4 +250,10 @@ pub struct RenderArgs {
     pub miss_every: usize,
     #[arg(long, default_value_t = 0.0, allow_negative_numbers = true)]
     pub detune_cents: f64,
+    /// Play the score's techniques (slides, hammer-ons, slaps, ghost notes, LH-BEW-06).
+    #[arg(long)]
+    pub techniques: bool,
+    /// With `--techniques`: every n-th technique note plucked instead (0 = never).
+    #[arg(long, default_value_t = 0)]
+    pub plain_every: usize,
 }

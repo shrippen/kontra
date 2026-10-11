@@ -21,6 +21,8 @@ Kirigami.Page {
     // The notation view: the same notes as written for bass, rests, key signature.
     property var staff: JSON.parse(ctl.staffJson)
     property var states: ({})
+    // Technique results by note (LH-BEW-06), kept like `states` for views that load later.
+    property var techniques: ({})
     // Play mode marks quietly or not at all (setting); the other modes mark fully.
     readonly property int marks: ctl.mode !== "play" || ctl.playMarks === "full" ? KanteTabLane.Marks.Full
                                : ctl.playMarks === "off" ? KanteTabLane.Marks.Off : KanteTabLane.Marks.Quiet
@@ -40,6 +42,7 @@ Kirigami.Page {
         bars = JSON.parse(ctl.barsJson)
         staff = JSON.parse(ctl.staffJson)
         states = {}
+        techniques = {}
     }
 
     // Re-applies the live states after `view` got a new notes list (which clears them).
@@ -47,6 +50,17 @@ Kirigami.Page {
     function catchUp(view) {
         for (var key in states) {
             view.setNoteState(Number(key), states[key])
+        }
+        page.showTechniques(view)
+    }
+
+    // Technique results onto a view that draws technique signs (tab lane, tab, notation).
+    function showTechniques(view) {
+        if (typeof view.setTechniqueResult !== "function") {
+            return
+        }
+        for (var key in techniques) {
+            view.setTechniqueResult(Number(key), techniques[key])
         }
     }
 
@@ -103,6 +117,15 @@ Kirigami.Page {
             var shownCents = page.marks === KanteTabLane.Marks.Full && (state === "hit" || state === "offpitch") ? cents : undefined
             for (var i = 0; i < page.noteViews.length; i++) {
                 page.noteViews[i].setNoteState(index, state, shownCents)
+            }
+        }
+        function onNoteTechnique(index, technique, result) {
+            page.techniques[index] = result
+            for (var i = 0; i < page.noteViews.length; i++) {
+                var view = page.noteViews[i]
+                if (typeof view.setTechniqueResult === "function") {
+                    view.setTechniqueResult(index, result)
+                }
             }
         }
         // Play mode just plays (LH-MOD-01, round 6): the summary only on request.
