@@ -22,6 +22,7 @@ mod service;
 mod session;
 mod settings;
 mod summary;
+mod technique;
 mod transport;
 
 pub use calibration::{
@@ -41,4 +42,7 @@ pub use service::*;
 pub use session::{Mode, Session, SessionEvent, Workshop};
 pub use settings::{ScoreSettings, Strictness};
 pub use summary::{Summary, TimingHistogram};
+pub use technique::{
+    technique_targets, told_techniques, TechniqueOutcome, TechniqueResult, TechniqueTally,
+};
 pub use transport::{LoopRange, Transport};

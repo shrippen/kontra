@@ -1,7 +1,8 @@
 //! Evaluation after a run (LH-BEW-03): hit rate, timing histogram and tendency, hardest bars.
 
 use crate::matcher::{NoteResult, Outcome};
-use kontra_model::Arrangement;
+use crate::technique::TechniqueTally;
+use kontra_model::{Arrangement, Technique};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -56,6 +57,12 @@ pub struct Summary {
     pub histogram: TimingHistogram,
     /// Bars with the lowest hit rate, worst first (index into `Arrangement::bars`).
     pub hardest_bars: Vec<usize>,
+    /// Techniques apart from the hit rate (LH-BEW-06): "Slides 8 of 10".
+    #[serde(default)]
+    pub techniques: Vec<TechniqueTally>,
+    /// Techniques in the score this input cannot tell (slap and pop at a microphone).
+    #[serde(default)]
+    pub untold_techniques: Vec<Technique>,
 }
 
 impl Summary {
@@ -103,6 +110,8 @@ impl Summary {
             mean_abs_cents: mean(&cents),
             histogram: TimingHistogram::from_offsets(&offsets),
             hardest_bars: hardest_bars(&final_results, arrangement),
+            techniques: Vec::new(),
+            untold_techniques: Vec::new(),
         }
     }
 }

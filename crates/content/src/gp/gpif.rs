@@ -381,11 +381,13 @@ fn note(element: &Element, tuning: &[Pitch], offset: u64, duration: u64) -> Opti
     Some(note)
 }
 
+const GPIF_SLIDE_SHIFT: u32 = 1;
+const GPIF_SLIDE_LEGATO: u32 = 2;
+
 fn techniques(element: &Element, note: &mut RawNote) {
     let flags = [
         ("Muted", Technique::Muted),
         ("PalmMuted", Technique::Muted),
-        ("Slide", Technique::Slide),
         ("HarmonicType", Technique::Harmonic),
         ("Bended", Technique::Bend),
     ];
@@ -393,6 +395,15 @@ fn techniques(element: &Element, note: &mut RawNote) {
         if property(element, name).is_some() {
             note.add(technique);
         }
+    }
+    // Slide flags: 1 shift, 2 legato slide go to the next note; the others slide into the note
+    // or out into nothing (LH-BEW-06 judges a slide where it arrives).
+    let slide_flags = property(element, "Slide")
+        .and_then(|p| p.value("Flags"))
+        .and_then(|f| f.trim().parse::<u32>().ok())
+        .unwrap_or(0);
+    if slide_flags & (GPIF_SLIDE_SHIFT | GPIF_SLIDE_LEGATO) != 0 {
+        note.add(Technique::Slide);
     }
     if property(element, "HopoDestination").is_some() {
         note.legato = Legato::Target;

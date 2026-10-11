@@ -34,6 +34,13 @@ pub struct ScoreSettings {
     pub pitch_cents: f64,
     /// Measured input latency, subtracted from every detected onset (LH-EIN-05).
     pub latency_ms: f64,
+    /// The input: decides which techniques can be judged (LH-BEW-06).
+    #[serde(default = "line")]
+    pub source: InputSource,
+}
+
+fn line() -> InputSource {
+    InputSource::Line
 }
 
 impl ScoreSettings {
@@ -55,6 +62,7 @@ impl ScoreSettings {
             strictness,
             pitch_cents,
             latency_ms: 0.0,
+            source,
         }
     }
 }

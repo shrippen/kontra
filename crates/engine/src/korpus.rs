@@ -620,6 +620,19 @@ pub struct Mistakes {
     /// More detuning per note, repeating: `[12.0, -25.0]` makes note 1 +12, note 2 −25,
     /// note 3 +12 … cents (on top of `detune_cents`).
     pub detune_cycle_cents: &'static [f64],
+    /// How the notes are played: all plucked, or with the score's techniques.
+    pub playing: Playing,
+}
+
+/// Articulation of a rendered performance (LH-BEW-06 journeys).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum Playing {
+    /// Every note plucked; hammer-on and pull-off targets are left out (no attack).
+    #[default]
+    Plucked,
+    /// Slaps, pops, ghost notes, hammer-ons, pull-offs and slides as the score says; every
+    /// `plain_every`-th note with a technique plucked instead (0 = never).
+    Articulated { plain_every: usize },
 }
 
 /// Renders an arrangement as a synthetic bass performance at `speed`, starting `lead_in_s` into
@@ -632,6 +645,9 @@ pub fn render_performance(
     sample_rate: u32,
 ) -> Vec<f32> {
     let speed = speed.clamp(0.1, 2.0);
+    if let Playing::Articulated { plain_every } = mistakes.playing {
+        return render_techniques(arrangement, speed, lead_in_s, plain_every, sample_rate);
+    }
     let mut notes = Vec::new();
     for (i, note) in arrangement
         .notes
@@ -662,4 +678,71 @@ pub fn render_performance(
     }
     let total = lead_in_s + arrangement.duration_s() / speed + 1.0;
     render(&notes, f64::from(sample_rate), total, ToneShape::Rich, 42)
+}
+
+/// Every note with its technique: a slide marked on a note glides into the next one on its
+/// string, a hammer-on or pull-off target changes the ringing pitch without an attack.
+fn render_techniques(
+    arrangement: &kontra_model::Arrangement,
+    speed: f64,
+    lead_in_s: f64,
+    plain_every: usize,
+    sample_rate: u32,
+) -> Vec<f32> {
+    use Articulation as A;
+    let notes = &arrangement.notes;
+    let slid_into: Vec<bool> = (0..notes.len())
+        .map(|j| {
+            notes[..j].iter().rev().any(|n| {
+                n.techniques.contains(&Technique::Slide)
+                    && n.string == notes[j].string
+                    && n.end_ticks() <= notes[j].start_ticks + 1
+                    && notes[j].start_ticks <= n.end_ticks() + kontra_model::TICKS_PER_QUARTER
+            })
+        })
+        .collect();
+    let mut line = Vec::new();
+    let mut with_technique = 0;
+    for (i, note) in notes.iter().enumerate() {
+        let has = |t: Technique| note.techniques.contains(&t);
+        let how = if slid_into[i] {
+            A::Slide {
+                glide_s: TECHNIQUE_GLIDE_S,
+            }
+        } else if has(Technique::HammerOn) || has(Technique::PullOff) {
+            A::Legato
+        } else if has(Technique::Slap) {
+            A::Slap
+        } else if has(Technique::Pop) {
+            A::Pop
+        } else if has(Technique::Ghost) {
+            A::Ghost
+        } else {
+            A::Pluck
+        };
+        let how = if how == A::Pluck {
+            how
+        } else {
+            with_technique += 1;
+            if plain_every > 0 && with_technique % plain_every == 0 {
+                A::Pluck
+            } else {
+                how
+            }
+        };
+        let start = arrangement.tempo.seconds_at(note.start_ticks) / speed;
+        let end = arrangement.tempo.seconds_at(note.end_ticks()) / speed;
+        line.push(Played {
+            note: SynthNote {
+                onset_s: lead_in_s + start,
+                hz: arrangement.instrument.a4_hz
+                    * 2f64.powf((f64::from(note.pitch.0) - 69.0) / 12.0),
+                duration_s: (end - start).max(0.05) * 0.9,
+                velocity: 0.7,
+            },
+            how,
+        });
+    }
+    let total = lead_in_s + arrangement.duration_s() / speed + 1.0;
+    render_articulated(&line, f64::from(sample_rate), total, 42)
 }

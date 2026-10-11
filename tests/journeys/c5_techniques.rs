@@ -1,0 +1,131 @@
+//! J-C5 Techniken üben (P3 Mira, P4 Thomas): a MusicXML groove with a hammer-on, a pull-off, a
+//! slide and ghost notes, played with those techniques; every fourth technique note is plucked
+//! instead. The techniques are told apart from the hit rate: each note gets a technique result,
+//! the evaluation counts them per technique ("Hammer-on: 1 von 1"), and a plucked technique note
+//! still counts as a hit.
+
+use crate::common::{run_until, Profile, COUNT_IN_S, RATE};
+use kontra_appcore::UiEvent;
+use std::time::Duration;
+
+/// E1 h F♯1 p E1, A1 sl B1, then ghost E1 and A1 plucked, ghost A1; 120 BPM quarters on the E
+/// and A strings (two bars).
+const GROOVE: &str = r#"<?xml version="1.0"?>
+<score-partwise><part-list><score-part id="P1"><part-name>Bass</part-name></score-part></part-list>
+<part id="P1">
+<measure number="1"><attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+<sound tempo="120"/>
+<note><pitch><step>E</step><octave>1</octave></pitch><duration>1</duration><notations><technical><hammer-on type="start"/><string>4</string><fret>0</fret></technical></notations></note>
+<note><pitch><step>F</step><alter>1</alter><octave>1</octave></pitch><duration>1</duration><notations><technical><hammer-on type="stop"/><pull-off type="start"/><string>4</string><fret>2</fret></technical></notations></note>
+<note><pitch><step>E</step><octave>1</octave></pitch><duration>1</duration><notations><technical><pull-off type="stop"/><string>4</string><fret>0</fret></technical></notations></note>
+<note><pitch><step>A</step><octave>1</octave></pitch><duration>1</duration><notations><slide type="start"/><technical><string>4</string><fret>5</fret></technical></notations></note>
+</measure>
+<measure number="2">
+<note><pitch><step>B</step><octave>1</octave></pitch><duration>1</duration><notations><slide type="stop"/><technical><string>4</string><fret>7</fret></technical></notations></note>
+<note><pitch><step>E</step><octave>1</octave></pitch><duration>1</duration><notehead parentheses="yes">normal</notehead><notations><technical><string>4</string><fret>0</fret></technical></notations></note>
+<note><pitch><step>A</step><octave>1</octave></pitch><duration>1</duration><notations><technical><string>3</string><fret>0</fret></technical></notations></note>
+<note><pitch><step>A</step><octave>1</octave></pitch><duration>1</duration><notehead parentheses="yes">normal</notehead><notations><technical><string>3</string><fret>0</fret></technical></notations></note>
+</measure>
+</part></score-partwise>"#;
+
+/// Five technique notes: hammer-on, pull-off, slide, ghost, ghost. The fourth is plucked.
+const PLAIN_EVERY: usize = 4;
+
+#[test]
+fn techniques_are_judged_apart_from_the_hit_rate() {
+    let profile = Profile::new("c5");
+    let score = profile.dir.join("Groove.musicxml");
+    std::fs::write(&score, GROOVE).unwrap();
+    let take = profile.dir.join("techniken.wav");
+
+    // Step 1: the groove; the views get a sign per technique note.
+    let mut core = profile.core(None);
+    core.open(&score).unwrap();
+    let notes: serde_json::Value = serde_json::from_str(&core.notes_json()).unwrap();
+    let signs: Vec<&str> = notes
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["technique"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        signs,
+        ["", "hammer", "pull", "", "slide", "ghost", "", "ghost"],
+        "a slide is marked where it arrives"
+    );
+    let a = core.arrangement().unwrap().clone();
+    let mistakes = kontra_session::Mistakes {
+        playing: kontra_session::Playing::Articulated {
+            plain_every: PLAIN_EVERY,
+        },
+        ..Default::default()
+    };
+    let samples = kontra_session::render_performance(&a, 1.0, COUNT_IN_S, mistakes, RATE);
+    kontra_session::write_mono_wav(&take, &samples, RATE).unwrap();
+
+    // Step 2: played in song mode with the techniques.
+    let mut core = profile.core(Some(&take));
+    core.open(&score).unwrap();
+    core.set_mode("song");
+    core.play();
+    let events = run_until(&mut core, Duration::from_secs(10), |e| {
+        matches!(e, UiEvent::Finished { .. })
+    });
+    let mut told: Vec<(usize, &str, &str)> = events
+        .iter()
+        .filter_map(|e| match e {
+            UiEvent::Technique {
+                index,
+                technique,
+                result,
+            } => Some((*index, *technique, *result)),
+            _ => None,
+        })
+        .collect();
+    told.sort();
+    assert_eq!(
+        told,
+        [
+            (1, "hammer", "played"),
+            (2, "pull", "played"),
+            (4, "slide", "played"),
+            (5, "ghost", "other"),
+            (7, "ghost", "played"),
+        ],
+        "one result per technique note; the plucked ghost note is another technique"
+    );
+    assert!(
+        !events.iter().any(|e| matches!(e, UiEvent::Extra)),
+        "hammer-on and pull-off targets are no extra notes"
+    );
+
+    // Step 3: the evaluation counts them apart; the hit rate is unchanged.
+    let summary = events
+        .iter()
+        .find_map(|e| match e {
+            UiEvent::Finished { summary_json } => Some(summary_json.clone()),
+            _ => None,
+        })
+        .unwrap();
+    let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
+    let texts: Vec<&str> = summary["techniques"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["text"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        texts,
+        [
+            "Slide: 1 von 1",
+            "Hammer-on: 1 von 1",
+            "Pull-off: 1 von 1",
+            "Ghost Note: 1 von 2"
+        ]
+    );
+    assert_eq!(
+        summary["hitRate"], 1.0,
+        "a plucked ghost note hits, and a ghost note is not judged by its pitch"
+    );
+    assert_eq!(summary["untoldText"], "");
+}
