@@ -236,7 +236,9 @@ impl Core {
     /// A note name as the user's language writes it: German says H for B (B is B♭ there).
     pub fn note_label(&self, name: &str) -> String {
         match (self.catalog.language(), name.strip_prefix('B')) {
-            (Language::German, Some(rest)) if !rest.starts_with('#') => format!("H{rest}"),
+            // B♭ (spelled "Bb") is German B: "Bb2" → "B2", "Bbm" → "Bm".
+            (Language::German, Some(rest)) if rest.starts_with('b') => format!("B{}", &rest[1..]),
+            (Language::German, Some(rest)) => format!("H{rest}"),
             _ => name.to_string(),
         }
     }
@@ -653,7 +655,8 @@ impl Core {
                 let progress = store.load_id(&e.song_id);
                 let best = progress.as_ref().and_then(|p| p.best_hit_rate());
                 let minutes = progress.as_ref().map_or(0.0, |p| p.practice_s() / 60.0);
-                json!({ "path": e.path, "title": e.title, "artist": e.artist, "best": best, "practiceMin": minutes, "lastUnix": e.last_unix, "tags": e.tags, "hasBacking": e.backing.is_some() })
+                let title = self.library_title(e);
+                json!({ "path": e.path, "title": title, "artist": e.artist, "best": best, "practiceMin": minutes, "lastUnix": e.last_unix, "tags": e.tags, "hasBacking": e.backing.is_some() })
             })
             .collect();
         serde_json::Value::Array(list).to_string()
@@ -2073,10 +2076,12 @@ impl Core {
                         let stem = f
                             .file_stem()
                             .map_or(String::new(), |s| s.to_string_lossy().into_owned());
-                        // "07 Dur-Tonleiter in G (60 BPM)": the number only sorts.
-                        let title = stem
-                            .split_once(' ')
-                            .map_or(stem.clone(), |(_, t)| t.to_string());
+                        // "07 Dur-Tonleiter in G (60 BPM)": the number picks the plan entry,
+                        // whose title is told in the UI's language.
+                        let title = self.bundled_title(&stem).unwrap_or_else(|| {
+                            stem.split_once(' ')
+                                .map_or(stem.clone(), |(_, t)| t.to_string())
+                        });
                         let best = self.best_rate(f);
                         json!({ "title": title, "path": f.to_string_lossy(), "best": best })
                     })
@@ -2084,13 +2089,65 @@ impl Core {
                 let name = dir
                     .file_name()
                     .map_or(String::new(), |n| n.to_string_lossy().into_owned());
-                let level = name
-                    .split_once(' ')
-                    .map_or(name.clone(), |(_, l)| l.to_string());
+                // "1 Einstieg": the number names the level in the UI's language.
+                let level = name.split_once(' ').map_or(name.clone(), |(n, _)| {
+                    self.tr(&format!("exercise.level.{n}"), &[])
+                });
                 json!({ "level": level, "items": items })
             })
             .collect();
         json!(list).to_string()
+    }
+
+    /// A library entry's title; bundled exercises in the UI's language.
+    fn library_title(&self, entry: &RecentEntry) -> String {
+        let bundled = entry
+            .path
+            .parent()
+            .and_then(Path::parent)
+            .is_some_and(|dir| dir == Self::exercises_dir());
+        let stem = entry
+            .path
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned());
+        bundled
+            .then_some(stem)
+            .flatten()
+            .and_then(|s| self.bundled_title(&s))
+            .unwrap_or_else(|| entry.title.clone())
+    }
+
+    /// The title of bundled exercise "NN …" in the UI's language, from its plan entry.
+    fn bundled_title(&self, stem: &str) -> Option<String> {
+        let number: usize = stem.split_once(' ')?.0.parse().ok()?;
+        let (_, spec) = exercise::bundled_specs()
+            .into_iter()
+            .nth(number.checked_sub(1)?)?;
+        Some(self.exercise_title(&exercise::describe(&spec)))
+    }
+
+    /// "Dur-Tonleiter in G (60 BPM)" / "Major scale in G (60 BPM)".
+    pub fn exercise_title(&self, d: &exercise::Description) -> String {
+        let key = self.note_label(&format!("{}{}", d.key, if d.minor { "m" } else { "" }));
+        let bpm = format!("{:.0}", d.bpm);
+        let part = |group: &str, key: &str| self.tr(&format!("exercise.name.{group}.{key}"), &[]);
+        let name = match d.kind {
+            "scale" => part("scale", d.variant),
+            _ => self.tr(
+                &format!("exercise.name.{}", d.kind),
+                &[
+                    ("progression", part("progression", d.variant)),
+                    (
+                        "rhythm",
+                        d.rhythm.map(|r| part("rhythm", r)).unwrap_or_default(),
+                    ),
+                ],
+            ),
+        };
+        self.tr(
+            "exercise.title",
+            &[("name", name), ("key", key), ("bpm", bpm)],
+        )
     }
 
     /// Best hit rate (0..1) of a piece, or -1 when never played.
@@ -2446,8 +2503,9 @@ impl Core {
         let generated = exercise::generate(spec);
         let dir = self.data_dir.join("exercises");
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let name: String = generated
-            .title
+        // The file is named in the UI's language; the title inside stays German (progress key).
+        let name: String = self
+            .exercise_title(&exercise::describe(spec))
             .chars()
             .map(|c| if matches!(c, '/' | ':' | '#') { '-' } else { c })
             .collect();
@@ -3403,7 +3461,9 @@ mod tests {
     #[test]
     fn bundled_exercises_by_level() {
         let dir = temp_dir("bundled");
-        let core = Core::new(&dir, QaOptions::default());
+        let mut core = Core::new(&dir, QaOptions::default());
+        // Level names follow the UI language; the test must not depend on the machine's.
+        core.update_settings(|s| s.language = Some("de".into()));
         let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
         let levels = levels.as_array().unwrap();
         assert_eq!(levels.len(), 5);
@@ -3622,6 +3682,72 @@ mod tests {
         core.open(&demo()).unwrap();
         let again = Core::new(&dir, QaOptions::default());
         assert!(again.recent_json().contains("\"slap\""));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Bundled exercises and their levels are named in the UI's language; German matches the
+    /// titles in the files, so nothing changes for German players but the spelling of B♭.
+    #[test]
+    fn exercise_titles_follow_the_language() {
+        let dir = temp_dir("titles");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let titles = |core: &Core| -> (Vec<String>, Vec<String>) {
+            let list: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+            let levels = list.as_array().unwrap();
+            let names = levels
+                .iter()
+                .map(|l| l["level"].as_str().unwrap().to_string())
+                .collect();
+            let items = levels
+                .iter()
+                .flat_map(|l| l["items"].as_array().unwrap().iter())
+                .map(|i| i["title"].as_str().unwrap().to_string())
+                .collect();
+            (names, items)
+        };
+        core.update_settings(|s| s.language = Some("en".into()));
+        let (levels, items) = titles(&core);
+        assert_eq!(levels[0], "Getting started");
+        assert!(
+            items.contains(&"Major scale in G (60 BPM)".to_string()),
+            "{items:?}"
+        );
+        assert!(items.iter().all(|t| !t.contains("exercise.")), "{items:?}");
+
+        core.update_settings(|s| s.language = Some("de".into()));
+        let (levels, items) = titles(&core);
+        assert_eq!(
+            levels.len(),
+            exercise::bundled_specs()
+                .iter()
+                .map(|(l, _)| l)
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+        );
+        assert!(
+            levels.iter().all(|l| !l.starts_with("exercise.")),
+            "{levels:?}"
+        );
+        for ((_, file, ex), title) in exercise::bundled().iter().zip(&items) {
+            let german = ex.title.replace("in Bb", "in B");
+            assert_eq!(title, &german, "{file}");
+        }
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// German writes B for B♭ and H for B: "Bb" must become "B", not "Hb".
+    #[test]
+    fn german_note_names() {
+        let dir = temp_dir("names");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        let names: Vec<String> = ["B1", "Bb", "B#", "A#2", "Bbm"]
+            .iter()
+            .map(|n| core.note_label(n))
+            .collect();
+        assert_eq!(names, ["H1", "B", "H#", "A#2", "Bm"]);
+        core.update_settings(|s| s.language = Some("en".into()));
+        assert_eq!(core.note_label("Bb"), "Bb");
         let _ = std::fs::remove_dir_all(dir);
     }
 

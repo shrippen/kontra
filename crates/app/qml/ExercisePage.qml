@@ -125,7 +125,10 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             color: KanteStyle.textColor
-            text: texts.t("exercises.bundled.hint")
+            text: texts.t("exercises.bundled.hint", {
+                count: page.levels.reduce(function(n, l) { return n + l.items.length }, 0),
+                levels: page.levels.length
+            })
         }
         Repeater {
             model: page.levels
