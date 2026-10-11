@@ -65,6 +65,10 @@ pub mod qobject {
         #[qproperty(i32, strings)]
         #[qproperty(bool, fretless)]
         #[qproperty(bool, laptop_jack, cxx_name = "laptopJack")]
+        /// How the bass arrives: "line", "laptop" or "midi" (LH-EIN-12).
+        #[qproperty(QString, connection)]
+        /// The MIDI input Kontra would use, "" if none is connected.
+        #[qproperty(QString, midi_port_name, cxx_name = "midiPortName")]
         #[qproperty(bool, metronome)]
         #[qproperty(bool, count_in, cxx_name = "countIn")]
         #[qproperty(bool, reference)]
@@ -234,6 +238,11 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "changeInstrument"]
         fn change_instrument(self: Pin<&mut Self>, strings: i32, fretless: bool, laptop_jack: bool);
+
+        /// Chooses how the bass arrives: "line", "laptop" or "midi".
+        #[qinvokable]
+        #[cxx_name = "changeConnection"]
+        fn change_connection(self: Pin<&mut Self>, key: &QString);
 
         #[qinvokable]
         #[cxx_name = "changeOptions"]
@@ -597,6 +606,8 @@ pub struct ControllerRust {
     strings: i32,
     fretless: bool,
     laptop_jack: bool,
+    connection: QString,
+    midi_port_name: QString,
     metronome: bool,
     count_in: bool,
     reference: bool,
@@ -727,6 +738,8 @@ impl Default for ControllerRust {
             strings: i32::from(s.strings),
             fretless: s.fretless,
             laptop_jack: s.input_kind == kontra_appcore::InputKind::LaptopJack || args.laptop_jack,
+            connection: q(connection_key(s.input_kind)),
+            midi_port_name: QString::default(),
             metronome: s.metronome,
             count_in: s.count_in_bars > 0,
             reference: s.reference_tones,
@@ -862,6 +875,15 @@ fn local_path(url: &str) -> PathBuf {
         i += 1;
     }
     PathBuf::from(String::from_utf8_lossy(&out).to_string())
+}
+
+/// The connection's key for QML: "line", "laptop" or "midi".
+fn connection_key(kind: kontra_appcore::InputKind) -> &'static str {
+    match kind {
+        kontra_appcore::InputKind::Line => "line",
+        kontra_appcore::InputKind::LaptopJack => "laptop",
+        kontra_appcore::InputKind::Midi => "midi",
+    }
 }
 
 impl qobject::Controller {
@@ -1211,7 +1233,23 @@ impl qobject::Controller {
         self.as_mut().set_tuner_note(QString::default());
     }
 
+    fn change_connection(mut self: Pin<&mut Self>, key: &QString) {
+        let kind = match key.to_string().as_str() {
+            "laptop" => kontra_appcore::InputKind::LaptopJack,
+            "midi" => kontra_appcore::InputKind::Midi,
+            _ => kontra_appcore::InputKind::Line,
+        };
+        let result = self.as_mut().core().retune(|s| s.input_kind = kind);
+        self.as_mut().set_connection(q(connection_key(kind)));
+        self.as_mut()
+            .set_laptop_jack(kind == kontra_appcore::InputKind::LaptopJack);
+        self.as_mut().refresh_devices();
+        self.as_mut().after_retune(result);
+    }
+
     fn refresh_devices(mut self: Pin<&mut Self>) {
+        let midi = self.as_ref().rust().core.midi_port_name();
+        self.as_mut().set_midi_port_name(q(&midi));
         let inputs = self.as_ref().rust().core.devices_json(true);
         let outputs = self.as_ref().rust().core.devices_json(false);
         self.as_mut().set_input_devices_json(q(&inputs));
@@ -1244,10 +1282,11 @@ impl qobject::Controller {
         let result = self.as_mut().core().retune(|s| {
             s.strings = count;
             s.fretless = fretless;
-            s.input_kind = if laptop_jack {
-                kontra_appcore::InputKind::LaptopJack
-            } else {
-                kontra_appcore::InputKind::Line
+            // A MIDI keyboard stays chosen when only the strings change.
+            s.input_kind = match (laptop_jack, s.input_kind) {
+                (true, _) => kontra_appcore::InputKind::LaptopJack,
+                (false, kontra_appcore::InputKind::Midi) => kontra_appcore::InputKind::Midi,
+                (false, _) => kontra_appcore::InputKind::Line,
             };
         });
         self.as_mut().set_strings(i32::from(count));
@@ -1812,6 +1851,8 @@ impl qobject::Controller {
         self.as_mut().set_fretless(s.fretless);
         self.as_mut()
             .set_laptop_jack(s.input_kind == kontra_appcore::InputKind::LaptopJack);
+        self.as_mut()
+            .set_connection(q(connection_key(s.input_kind)));
         self.as_mut().set_metronome(s.metronome);
         self.as_mut().set_count_in(s.count_in_bars > 0);
         self.as_mut().set_reference(s.reference_tones);

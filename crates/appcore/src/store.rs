@@ -55,6 +55,8 @@ pub enum InputKind {
     Line,
     /// Laptop combo jack.
     LaptopJack,
+    /// MIDI keyboard playing the bass line (LH-EIN-12).
+    Midi,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -65,6 +67,8 @@ pub struct Settings {
     pub fretless: bool,
     pub input_kind: InputKind,
     pub input_device: Option<String>,
+    /// MIDI port id when `input_kind` is MIDI; `None`: the first one.
+    pub midi_port: Option<String>,
     pub output_device: Option<String>,
     pub latency_ms: f64,
     pub metronome: bool,
@@ -126,6 +130,7 @@ impl Default for Settings {
             fretless: false,
             input_kind: InputKind::Line,
             input_device: None,
+            midi_port: None,
             output_device: None,
             latency_ms: 0.0,
             metronome: true,

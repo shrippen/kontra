@@ -55,9 +55,9 @@ Erwartet: Anweisung in Worten („etwas höher drehen“) und Symbol; Erfolg pro
 4. PipeWire-Quantum auf 2048 setzen, Kontra neu starten.
 Erwartet: gemessene Latenz ≈ 40 ms angezeigt; danach Bewertung pünktlich (±5 ms); bei Quantum 2048 Hinweis mit Wert und Anleitung.
 
-**J-A4 Eingang, den es noch nicht gibt** · Personas: P5 Aylin, P6 Karl · Phase 1 bis 3 · LH-EIN-09, -10
-1. MIDI-Keyboard anstecken, Kontra starten (P5). Danach USB-Mikrofon als Eingang wählen wollen (P6).
-Erwartet: beide Eingänge erscheinen als „kommt in einer späteren Version“ mit einem Satz Erklärung; kein Absturz, keine leere Liste, kein „Gerät defekt“.
+**J-A4 Eingang, den es noch nicht gibt** · Personas: P5 Aylin, P6 Karl · Phase 1 bis 3 · LH-EIN-09, -10, -12
+1. MIDI-Keyboard anstecken, Kontra starten, Einstellungen → Anschluss (P5). Danach USB-Mikrofon als Eingang wählen wollen (P6).
+Erwartet: „MIDI-Instrument“ ist wählbar und nennt das erkannte Keyboard (ohne Keyboard: „gerade ist keins angeschlossen“); das Mikrofon erscheint als „kommt in einer späteren Version“ mit einem Satz Erklärung; kein Absturz, keine leere Liste, kein „Gerät defekt“.
 
 ## B. Spielen und Üben
 
@@ -139,9 +139,9 @@ Erwartet: identische Darstellung und Loop-Bereiche; Audio wird nur mitgegeben, w
 ## E. Weitere Bass-Eingänge (ab Phase 4)
 
 **J-E1 Synth-Bass über MIDI** ⚙ · Persona: P5 Aylin · Phase 4 · LH-EIN-12
-1. MIDI-Keyboard als Eingang, Instrument „Bass über MIDI“.
-2. Funk-Groove im Song-Modus, Ansicht Klaviatur.
-Erwartet: Timing aus MIDI-Zeitstempeln, gleiche Auswertung wie beim E-Bass.
+1. MIDI-Keyboard als Eingang (Einstellungen → Anschluss „MIDI-Instrument“), Instrument „Bass über MIDI“.
+2. Funk-Groove im Song-Modus, Ansicht Klaviatur (Klaviatur fehlt noch in Kante; bis dahin Noten).
+Erwartet: Timing aus MIDI-Zeitstempeln, gleiche Auswertung wie beim E-Bass. Der automatische Test spielt eine MIDI-Datei wie ein Keyboard ein.
 
 **J-E2 Kontrabass im Wohnzimmer** ⚙ 🔍 · Persona: P6 Karl · Phase 4 · LH-EIN-11, LH-NF-03, LH-NF-06
 1. USB-Mikrofon, Instrument Kontrabass, keine Kopfhörer, Backing Track über Lautsprecher.

@@ -2,16 +2,15 @@ import QtQuick
 import QtQuick.Layouts
 import Kante
 
-// How the bass reaches Kontra (LH-EIN-01, LH-EIN-10): cable through an interface or the laptop
-// jack; MIDI and microphone are listed as coming later (QA P5, P6), not left out.
+// How the bass reaches Kontra (LH-EIN-01, LH-EIN-10, LH-EIN-12): cable through an interface,
+// the laptop jack, or a MIDI keyboard (P5); the microphone is listed as coming later (P6).
 ColumnLayout {
     id: choice
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
-    // [key, laptop jack, available]
-    readonly property var entries: [["line", false, true], ["laptop", true, true],
-                                    ["midi", false, false], ["mic", false, false]]
+    // [key, available]
+    readonly property var entries: [["line", true], ["laptop", true], ["midi", true], ["mic", false]]
 
     spacing: 0
     Accessible.role: Accessible.List
@@ -22,12 +21,15 @@ ColumnLayout {
         delegate: KanteListRow {
             required property var modelData
             Layout.fillWidth: true
-            enabled: modelData[2]
-            selected: enabled && ctl.laptopJack === modelData[1]
+            enabled: modelData[1]
+            selected: enabled && ctl.connection === modelData[0]
             text: texts.t("settings.source." + modelData[0])
-            subtitle: texts.t("settings.source." + modelData[0] + ".hint")
+            // MIDI says which keyboard it found, or that none is connected.
+            subtitle: modelData[0] !== "midi" ? texts.t("settings.source." + modelData[0] + ".hint")
+                : ctl.midiPortName !== "" ? texts.t("settings.source.midi.found", { name: ctl.midiPortName })
+                : texts.t("settings.source.midi.none")
             disabledReason: texts.t("settings.later.short") + " " + texts.t("settings.source." + modelData[0] + ".hint")
-            onClicked: ctl.changeInstrument(ctl.strings, ctl.fretless, modelData[1])
+            onClicked: ctl.changeConnection(modelData[0])
         }
     }
 }
