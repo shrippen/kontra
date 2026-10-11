@@ -529,5 +529,6 @@
   "stems.on": "The backing track plays without bass.",
   "stems.failed": "Removing the bass failed: {reason}",
   "stems.done": "Removed the bass from “{name}”.",
-  "stems.retry": "Check again"
+  "stems.retry": "Check again",
+  "stems.sandbox": "This needs Demucs on the system. As a Flatpak Kontra may not start programs of the system; install Kontra without Flatpak for this."
 }

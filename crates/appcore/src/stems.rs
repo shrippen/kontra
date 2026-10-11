@@ -56,6 +56,7 @@ impl Core {
     /// track), "off", "running", "on" or "failed".
     pub fn stems_json(&mut self) -> String {
         let available = self.separator().available();
+        let sandboxed = self.separator().sandboxed();
         let backing = self.backing_file();
         let on = self.loaded_entry().is_some_and(|e| e.backing_without_bass);
         let running = self.stems.job.as_ref().map(|(_, _, job)| job.progress());
@@ -73,6 +74,7 @@ impl Core {
                 ("on", self.tr("stems.on", &[]))
             }
             (Some(_), None, None) if available => ("off", self.tr("stems.hint", &[])),
+            (Some(_), None, None) if sandboxed => ("off", self.tr("stems.sandbox", &[])),
             (Some(_), None, None) => ("off", self.tr("stems.missing", &[])),
         };
         json!({
@@ -80,7 +82,11 @@ impl Core {
             "state": state,
             "progress": running.unwrap_or(0.0),
             "text": text,
-            "installText": if available { String::new() } else { self.tr("stems.install", &[]) },
+            "installText": match (available, sandboxed) {
+                (true, _) => String::new(),
+                (false, true) => self.tr("stems.sandbox", &[]),
+                (false, false) => self.tr("stems.install", &[]),
+            },
         })
         .to_string()
     }

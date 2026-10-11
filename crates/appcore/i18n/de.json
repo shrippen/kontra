@@ -529,5 +529,6 @@
   "stems.on": "Der Backing-Track spielt ohne Bass.",
   "stems.failed": "Bass entfernen ging nicht: {reason}",
   "stems.done": "Bass aus „{name}“ entfernt.",
-  "stems.retry": "Erneut prüfen"
+  "stems.retry": "Erneut prüfen",
+  "stems.sandbox": "Dafür braucht Kontra Demucs auf dem System. Als Flatpak darf Kontra keine Programme des Systems starten; dafür Kontra ohne Flatpak installieren."
 }

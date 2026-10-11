@@ -54,7 +54,7 @@ pub fn find_separator() -> Option<Separator> {
         let path = PathBuf::from(path);
         return is_executable(&path).then(|| Separator::with_program(&path));
     }
-    if Path::new("/.flatpak-info").exists() {
+    if in_sandbox() {
         return host_separator();
     }
     let home_bin = std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/bin"));
@@ -81,6 +81,11 @@ fn host_separator() -> Option<Separator> {
     found.then(|| Separator {
         command: vec!["flatpak-spawn".into(), "--host".into(), PROGRAM.into()],
     })
+}
+
+/// True inside a Flatpak: programs of the system are reached only through `flatpak-spawn`.
+pub fn in_sandbox() -> bool {
+    Path::new("/.flatpak-info").exists()
 }
 
 fn is_executable(path: &Path) -> bool {

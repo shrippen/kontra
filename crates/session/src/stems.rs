@@ -8,7 +8,7 @@
 //! The key changes with the file's path, size and modification time, so an edited song is
 //! separated again.
 
-use kontra_engine::{find_separator, SeparationJob, Separator, SeparatorError};
+use kontra_engine::{find_separator, in_sandbox, SeparationJob, Separator, SeparatorError};
 use std::path::{Path, PathBuf};
 
 const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
@@ -39,6 +39,12 @@ impl BassRemoval {
     /// True if the separator is installed.
     pub fn available(&self) -> bool {
         self.separator.is_some()
+    }
+
+    /// True inside a Flatpak, which may not start programs of the system (then installing the
+    /// separator alone does not help).
+    pub fn sandboxed(&self) -> bool {
+        in_sandbox()
     }
 
     /// The song without bass, if it was separated before.
