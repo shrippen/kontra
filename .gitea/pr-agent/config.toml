@@ -3,7 +3,9 @@
 [config]
 git_provider = "gitea"
 response_language = "de-DE"
-max_model_tokens = 128000
+# Input budget: PR-Agent shortens larger diffs to fit. 128000 left the model no room to
+# answer on stacked PRs (#15, #19: "Empty content in model response (finish_reason: length)").
+max_model_tokens = 64000
 fallback_models = []
 publish_output_progress = false
 # The repository rules go along as context.
