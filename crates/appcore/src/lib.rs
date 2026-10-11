@@ -1146,6 +1146,11 @@ impl Core {
             .map_or(0.0, |l| l.practice().position_s())
     }
 
+    /// True while a run exists, playing or paused (it goes on after a change of key).
+    pub fn has_run(&self) -> bool {
+        self.live.is_some()
+    }
+
     pub fn is_playing(&self) -> bool {
         self.live
             .as_ref()
@@ -1961,13 +1966,14 @@ impl Core {
         let Some(mut live) = live else {
             return reloaded;
         };
+        // The section's own note density (LH-MOD-06) needs the loop back before thinning.
+        self.looping = looping;
+        self.rethin();
         let moved = self.arrangement().cloned();
         let goes_on = reloaded.is_ok()
             && moved.is_some_and(|a| live.practice_mut().retarget(a, self.transpose()));
         self.live = Some(live);
-        if goes_on {
-            self.looping = looping;
-        } else {
+        if !goes_on {
             self.stop_live();
         }
         reloaded
@@ -2827,7 +2833,8 @@ enum MidiChoice {
     Missing,
 }
 
-/// Index of the MIDI port to use: the one named `chosen`, else the first.
+/// Index of the MIDI port to use: the one named `chosen`, else the first. Settings from before
+/// held the port id ("20:0"); it still finds its port.
 fn pick_midi(
     ports: &[kontra_session::MidiPort],
     chosen: Option<&str>,
@@ -2836,7 +2843,7 @@ fn pick_midi(
     let Some(name) = chosen else {
         return (first, MidiChoice::Found);
     };
-    match ports.iter().position(|p| p.name == name) {
+    match ports.iter().position(|p| p.name == name || p.id == name) {
         Some(i) => (Some(i), MidiChoice::Found),
         None => (first, MidiChoice::Missing),
     }
@@ -3273,6 +3280,11 @@ mod tests {
         assert_eq!(
             pick_midi(&ports, Some("Launchkey")),
             (Some(1), MidiChoice::Found)
+        );
+        assert_eq!(
+            pick_midi(&ports, Some("24:0")),
+            (Some(1), MidiChoice::Found),
+            "an id stored before"
         );
         assert_eq!(
             pick_midi(&ports, Some("MPK mini")),

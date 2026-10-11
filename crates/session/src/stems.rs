@@ -57,7 +57,11 @@ impl BassRemoval {
     pub fn start(&self, song: &Path) -> Option<Result<StemJob, SeparatorError>> {
         let separator = self.separator.as_ref()?;
         let target = self.target(song)?;
-        let work = self.cache_dir.join(WORK_DIR);
+        // One folder per song: a cancelled run elsewhere cannot write into this one.
+        let key = target
+            .file_stem()
+            .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+        let work = self.cache_dir.join(WORK_DIR).join(key);
         let _ = std::fs::remove_dir_all(&work);
         Some(
             separator
@@ -148,7 +152,8 @@ mod tests {
         };
         assert_eq!(stems.cached(&song), Some(result.clone()));
         assert_eq!(std::fs::read(result).unwrap(), b"RIFF");
-        assert!(!cache.join(WORK_DIR).exists(), "the work folder is cleared");
+        let leftover = std::fs::read_dir(cache.join(WORK_DIR)).map_or(0, |d| d.count());
+        assert_eq!(leftover, 0, "the work folder is cleared");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

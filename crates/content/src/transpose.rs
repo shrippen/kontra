@@ -7,7 +7,7 @@
 //! ```
 
 use crate::tab::assign_tab;
-use kontra_model::{Arrangement, Pitch};
+use kontra_model::{Arrangement, Pitch, Technique};
 
 /// Largest transposition offered, in semitones up or down.
 pub const TRANSPOSE_MAX: i32 = 6;
@@ -39,6 +39,18 @@ pub fn transpose(arrangement: &mut Arrangement, semitones: i32) {
         let moved = i32::from(note.pitch.0) + n == pitch;
         note.pitch = Pitch(pitch.clamp(0, 127) as u8);
 
+        // A harmonic moved by n is no node any more: it becomes a fretted note at its pitch.
+        if let Some(i) = note
+            .techniques
+            .iter()
+            .position(|t| *t == Technique::Harmonic)
+        {
+            note.techniques.remove(i);
+            note.string = None;
+            note.fret = None;
+            lost_tab = true;
+            continue;
+        }
         let fret = note.fret.map(|f| i32::from(f) + n);
         match fret {
             Some(f) if moved && (0..=frets).contains(&f) => note.fret = Some(f as u8),
@@ -79,6 +91,21 @@ mod tests {
             a.notes.push(note);
         }
         a
+    }
+
+    #[test]
+    fn a_moved_harmonic_is_fretted() {
+        // E3 as a harmonic at fret 5 of the E string, moved up a whole step.
+        let mut a = piece(&[(52, 0, 5)]);
+        a.notes[0].techniques = vec![Technique::Harmonic];
+        transpose(&mut a, 2);
+        assert_eq!(a.notes[0].pitch, Pitch(54));
+        assert!(a.notes[0].techniques.is_empty());
+        assert_ne!(
+            a.notes[0].fret,
+            Some(7),
+            "fret 7 would sound another harmonic"
+        );
     }
 
     #[test]
