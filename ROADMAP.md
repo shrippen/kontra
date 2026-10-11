@@ -109,6 +109,19 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 - Kante-Wünsche 2: Claude legt den Kante-PR an, der Eigentümer merged.
 - Als Nächstes: Klangformung fürs Mithören (LH-EIN-08), Gehörbildung (LH-LRN-03), Backing transponieren (LH-WIE-02).
 
+## Entscheidungen Runde 8 (11.10.2026)
+
+- Transponieren: eigener Pitch-Shifter in `dsp` (Echtzeit, Wechsel ohne Neustart) statt Strecken und Umrechnen im
+  Engine-Backing (#21 wird umgebaut).
+- Transponieren: Töne außerhalb des Instruments rücken eine Oktave (so umgesetzt).
+- „Lage“ in der Oberfläche wird „Zeigefinger am n. Bund“ (LH-ALL-05 gilt weiter).
+- Saitenfarben: Palette in `KanteStyle`, Tab-Lane, Tabulatur und Griffbrett nutzen sie (Kante-PR).
+- Gehörbildung: eigener Regler „Vorspielen“ statt des Referenzton-Reglers.
+- Tasteninstrumente jetzt im Modell: `BassKind` wird `InstrumentKind`, ein Instrument hat Saiten oder einen
+  Tastenumfang; Test mit Dummy-Keyboard.
+- PR-Agent: scheitert das Review, einmal `/review` wiederholen; scheitert es erneut, genügt grüne CI (in allen
+  `agent.md`).
+
 ## Didaktik: wie Kontra Bass vermittelt (laufend, alle Phasen)
 
 Ziel: nicht nur Noten abfragen, sondern herausfinden, welche Wege zum

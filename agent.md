@@ -180,13 +180,14 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Changes arrive as pull requests: work on a branch, open a PR, merge it on Gitea (the mirror follows).
 - Never merge a PR, push to `main` (or any default branch), push tags or publish releases on GitHub. A merge there is overwritten by the next Gitea push.
 - Never force-push a branch that someone else's PR depends on.
-- PR-Agent (`.gitea/workflows/pr-agent.yml`) reviews every PR before it is merged. Wait for its comment on the PR's latest commit; after further pushes, ask for a new one with a `/review` comment. Fix or answer each finding in the PR, then merge. Without a review (the run skipped for lack of `PR_AGENT_LLM_KEY` or `PR_AGENT_MODEL`, or it failed), do not merge: ask the owner.
+- PR-Agent (`.gitea/workflows/pr-agent.yml`) reviews every PR before it is merged. Wait for its comment on the PR's latest commit; after further pushes, ask for a new one with a `/review` comment. Fix or answer each finding in the PR, then merge. If the review fails (an error, no result, e.g. a key or cost limit), ask for it once more with `/review`; if that fails too, green CI is enough to merge (owner, 11.10.2026). Plain comments (no leading `/`) on a PR cancel a running review until #25 is merged: post `/review` last.
 
 ## Entscheidungen mit dem Eigentümer
 
 - Offene Fragen sammeln und als Runde im Entscheidungs-Artefakt stellen (je Frage Kontext, Optionen, Empfehlung);
   Antworten liegen dort in der Datenbank-Sammlung „antworten“, ein Dokument je Runde. Umgesetzte Entscheidungen
   kommen ins Lastenheft und in die Roadmap (Abschnitt der jeweiligen Runde).
-- Kontra-PRs merged Claude selbst, wenn core und app grün sind und das PR-Agent-Review abgearbeitet ist. Kante-PRs prüft und merged der Eigentümer.
+- Kontra-PRs merged Claude selbst, wenn core und app grün sind und das PR-Agent-Review abgearbeitet ist (gescheitertes
+  Review: einmal `/review` wiederholen, scheitert es erneut, genügt grüne CI). Kante-PRs prüft und merged der Eigentümer.
 - Jede neue `pub`-Schnittstelle wird in der nächsten Runde zur Freigabe gelistet.
 - Der laufende Arbeitsstand steht in `STAND.md`.
