@@ -20,7 +20,7 @@ case "$head" in $2*) ;; *) echo "head moved: $head"; exit 1;; esac
 # A PR-Agent review of the head commit: a review comment posted after it, or the persistent
 # review (one comment, edited in place) saying "updated until commit <head>".
 reviewed=$(python3 - "$1" "$head" <<'EOF'
-import json, subprocess, sys
+import json, re, subprocess, sys
 from datetime import datetime
 pr, sha = sys.argv[1], sys.argv[2]
 # Commits carry the committer's zone (+02:00), comments UTC (Z): compare instants, not text.
@@ -30,9 +30,15 @@ def api(path):
     return json.loads(subprocess.run(["tea", "api", path], capture_output=True, text=True).stdout or "null")
 commit = api(f"/repos/shrippen/Kontra/git/commits/{sha}") or {}
 since = at(commit.get("created") or commit["commit"]["committer"]["date"])
+# A review naming a commit counts only for that commit; one naming none (the first) counts if
+# posted after the head commit.
+def reviews_head(c):
+    named = re.search(r"updated until commit \S*/commit/([0-9a-f]+)", c["body"])
+    if named:
+        return sha.startswith(named.group(1)) or named.group(1).startswith(sha)
+    return at(c["created_at"]) >= since
 reviews = [c for c in api(f"/repos/shrippen/Kontra/issues/{pr}/comments") or []
-           if "PR Reviewer Guide" in c.get("body", "")
-           and (sha in c["body"] or at(c["created_at"]) >= since)]
+           if "PR Reviewer Guide" in c.get("body", "") and reviews_head(c)]
 print("yes" if reviews else "no")
 EOF
 )
