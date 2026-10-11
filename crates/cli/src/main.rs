@@ -149,6 +149,13 @@ fn render(a: &args::RenderArgs) -> CliResult {
         wrong_every: a.wrong_every,
         miss_every: a.miss_every,
         detune_cents: a.detune_cents,
+        playing: if a.techniques {
+            session::Playing::Articulated {
+                plain_every: a.plain_every,
+            }
+        } else {
+            session::Playing::Plucked
+        },
         ..Default::default()
     };
     let samples = session::render_performance(&arrangement, a.speed, a.lead_in, mistakes, 48_000);

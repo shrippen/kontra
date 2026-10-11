@@ -20,7 +20,8 @@ pub use kontra_engine::{
     evaluate as evaluate_korpus, evaluate_with as evaluate_korpus_with,
     generate as generate_korpus, list_devices, list_midi_inputs, render_performance,
     simulate_laptop_jack, track_beats, Annotation, BackingTrack, BeatGrid, Connection, DeviceInfo,
-    Direction, Evaluation, KorpusItem, KorpusSet, Matching, Mistakes, StreamConfig, NULL_DEVICE,
+    Direction, Evaluation, KorpusItem, KorpusSet, Matching, MidiPort, Mistakes, Playing,
+    StreamConfig, NULL_DEVICE,
 };
 
 /// Writes mono audio as WAV (corpus export).

@@ -121,15 +121,21 @@ Erwartet: Notensatz wie in MuseScore; Streuung in ms; generierte Übung speicher
 3. Mira: „Intervalle“ und „Grundton“ je fünf Fragen, einmal „Nochmal hören“, „Vorspielen“ leiser stellen.
 Erwartet: Töne während der Vorgabe zählen nicht; jeder gespielte Ton hat Haken oder Kreuz, ein falscher sagt „zu hoch“ oder „zu tief“; gelöst nennt Kontra, was es war (Töne, Intervall, Akkord) und zeigt, wo es am Griffbrett liegt; beim Grundton zählt jede Oktave; ohne Ausgang ein Hinweis statt Stille.
 
+**J-C5 Techniken üben** ⚙ · Personas: P3 Mira, P4 Thomas · Phase 4 · LH-BEW-06
+1. Mira: Groove aus MuseScore (MusicXML) mit Hammer-on, Pull-off, Slide und Ghost Notes, Song-Modus.
+2. Mit den Techniken spielen, eine Ghost Note aber normal anschlagen.
+3. Auswertung lesen; Thomas zeigt sie am Beamer, Tab-Lane und Tabulatur.
+Erwartet: jede Technik-Note hat ein Zeichen (h, p, sl, Klammer) und danach ein Ergebnis in Form, nicht nur Farbe; die Auswertung zählt je Technik („Ghost Note: 1 von 2“), die Trefferquote bleibt davon unberührt (die normal angeschlagene Ghost Note trifft, eine als Ghost Note gespielte auch, ohne Tonhöhe); Hammer-on- und Pull-off-Töne sind keine zusätzlichen Noten; am Mikrofon sagt die Auswertung, dass Slap und Pop nicht bewertet werden.
+
 ## D. Inhalte teilen (ab Phase 3)
 
 **J-D1 Original-Song als Backing Track** ⚙ · Persona: P2 Jens · Phase 3 · LH-BIB-06, LH-WIE-01, LH-WIE-02
 1. MP3 an das Guitar-Pro-Arrangement koppeln, Beat-Erkennung.
 2. Zwei Taktanfänge von Hand korrigieren.
 3. Bei 75 % Tempo durchspielen.
-4. Die Sängerin will es einen Ganzton höher: „Transponieren“ +2, noch einmal durchspielen; Kontra neu starten.
+4. Die Sängerin will es einen Ganzton höher: „Transponieren“ +2 mitten im Lied, weiterspielen; Kontra neu starten.
 5. „Bass der Aufnahme entfernen“ einschalten (erst ohne Demucs, dann mit), nach der Trennung durchspielen.
-Erwartet: kein hörbarer Versatz > 20 ms über 4 Minuten; transponiert passen Tab und Audio zusammen (gleiche Tonart, gleiche Takte), Bünde aus der Datei bleiben, wo es geht; die Einstellung bleibt beim Stück, der Fortschritt auch. Ohne Demucs ist der Schalter ausgegraut und „?“ sagt, wie man es installiert; mit Demucs läuft die Trennung im Hintergrund mit Prozent und Abbrechen, danach spielt der Backing-Track ohne Bass, im selben Abgleich, und beim nächsten Mal ohne neue Trennung.
+Erwartet: kein hörbarer Versatz > 20 ms über 4 Minuten; der Wechsel hält das Lied nicht an, Bewertetes bleibt; transponiert passen Tab und Audio zusammen (gleiche Tonart, gleiche Takte), Bünde aus der Datei bleiben, wo es geht; die Einstellung bleibt beim Stück, der Fortschritt auch. Ohne Demucs ist der Schalter ausgegraut und „?“ sagt, wie man es installiert; mit Demucs läuft die Trennung im Hintergrund mit Prozent und Abbrechen, danach spielt der Backing-Track ohne Bass, im selben Abgleich, und beim nächsten Mal ohne neue Trennung.
 
 **J-D2 Übung an Schüler geben** · Persona: P4 Thomas · Phase 3 · LH-BIB-07, LH-FOR-04
 1. Übung aus Guitar Pro importieren, Loop-Bereiche und Zieltempo festlegen, als `.kontra` exportieren.
@@ -140,9 +146,9 @@ Erwartet: identische Darstellung und Loop-Bereiche; Audio wird nur mitgegeben, w
 ## E. Weitere Bass-Eingänge (ab Phase 4)
 
 **J-E1 Synth-Bass über MIDI** ⚙ · Persona: P5 Aylin · Phase 4 · LH-EIN-12
-1. MIDI-Keyboard als Eingang (Einstellungen → Anschluss „MIDI-Instrument“), Instrument „Bass über MIDI“.
+1. MIDI-Keyboard als Eingang (Einstellungen → Anschluss „MIDI-Instrument“), Instrument „Bass über MIDI“. Zwei Keyboards angesteckt: unter „MIDI-Gerät“ das zweite wählen, Kontra neu starten, dann das zweite abziehen.
 2. Funk-Groove im Song-Modus, Ansicht Klaviatur (Alt+5).
-Erwartet: Timing aus MIDI-Zeitstempeln, gleiche Auswertung wie beim E-Bass. Die Noten fallen auf die Tasten, die nächste ist auf der Klaviatur markiert; die Tasten reichen über den Umfang des Basses (4 Saiten: E1–G4), Tastennamen in der Oberflächensprache (H statt B). Der automatische Test spielt eine MIDI-Datei wie ein Keyboard ein und prüft, dass jede Note auf einer gezeigten Taste liegt.
+Erwartet: Timing aus MIDI-Zeitstempeln, gleiche Auswertung wie beim E-Bass. Die Wahl des Keyboards bleibt nach dem Neustart; fehlt es, nennt Anschluss das Keyboard, das Kontra stattdessen nimmt. Die Noten fallen auf die Tasten, die nächste ist auf der Klaviatur markiert; die Tasten reichen über den Umfang des Basses (4 Saiten: E1–G4), Tastennamen in der Oberflächensprache (H statt B). Der automatische Test spielt eine MIDI-Datei wie ein Keyboard ein und prüft, dass jede Note auf einer gezeigten Taste liegt.
 
 **J-E2 Kontrabass im Wohnzimmer** ⚙ 🔍 · Persona: P6 Karl · Phase 4 · LH-EIN-11, LH-NF-03, LH-NF-06
 1. USB-Mikrofon, Instrument Kontrabass, keine Kopfhörer, Backing Track über Lautsprecher.

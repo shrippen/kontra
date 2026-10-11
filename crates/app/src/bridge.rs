@@ -73,6 +73,7 @@ pub mod qobject {
         #[qproperty(QString, connection)]
         /// The MIDI input Kontra would use, "" if none is connected.
         #[qproperty(QString, midi_port_name, cxx_name = "midiPortName")]
+        #[qproperty(QString, midi_ports_json, cxx_name = "midiPortsJson")]
         #[qproperty(bool, metronome)]
         #[qproperty(bool, count_in, cxx_name = "countIn")]
         #[qproperty(bool, reference)]
@@ -236,6 +237,11 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "chooseInput"]
         fn choose_input(self: Pin<&mut Self>, id: &QString);
+
+        /// The MIDI device by name ("" = the first one), LH-EIN-12.
+        #[qinvokable]
+        #[cxx_name = "chooseMidi"]
+        fn choose_midi(self: Pin<&mut Self>, name: &QString);
 
         #[qinvokable]
         #[cxx_name = "chooseOutput"]
@@ -553,6 +559,11 @@ pub mod qobject {
         #[cxx_name = "extraNote"]
         fn extra_note(self: Pin<&mut Self>);
 
+        /// How a note's technique was played (LH-BEW-06): Kante's keys, e.g. "slide", "played".
+        #[qsignal]
+        #[cxx_name = "noteTechnique"]
+        fn note_technique(self: Pin<&mut Self>, index: i32, technique: QString, result: QString);
+
         #[qsignal]
         #[cxx_name = "passComplete"]
         fn pass_complete(self: Pin<&mut Self>, clean: bool, hit_rate: f64);
@@ -631,6 +642,7 @@ pub struct ControllerRust {
     laptop_jack: bool,
     connection: QString,
     midi_port_name: QString,
+    midi_ports_json: QString,
     metronome: bool,
     count_in: bool,
     reference: bool,
@@ -768,6 +780,7 @@ impl Default for ControllerRust {
             laptop_jack: s.input_kind == kontra_appcore::InputKind::LaptopJack || args.laptop_jack,
             connection: q(connection_key(s.input_kind)),
             midi_port_name: QString::default(),
+            midi_ports_json: QString::default(),
             metronome: s.metronome,
             count_in: s.count_in_bars > 0,
             reference: s.reference_tones,
@@ -1187,6 +1200,17 @@ impl qobject::Controller {
                     );
                 }
                 UiEvent::Extra => self.as_mut().extra_note(),
+                UiEvent::Technique {
+                    index,
+                    technique,
+                    result,
+                } => {
+                    self.as_mut().note_technique(
+                        i32::try_from(index).unwrap_or(-1),
+                        q(technique),
+                        q(result),
+                    );
+                }
                 UiEvent::Holding { index, text } => {
                     self.as_mut()
                         .set_holding_index(i32::try_from(index).unwrap_or(-1));
@@ -1295,6 +1319,8 @@ impl qobject::Controller {
     fn refresh_devices(mut self: Pin<&mut Self>) {
         let midi = self.as_ref().rust().core.midi_port_name();
         self.as_mut().set_midi_port_name(q(&midi));
+        let ports = self.as_ref().rust().core.midi_ports_json();
+        self.as_mut().set_midi_ports_json(q(&ports));
         let inputs = self.as_ref().rust().core.devices_json(true);
         let outputs = self.as_ref().rust().core.devices_json(false);
         self.as_mut().set_input_devices_json(q(&inputs));
@@ -1306,6 +1332,11 @@ impl qobject::Controller {
         let value = (!id.is_empty()).then(|| id.clone());
         self.as_mut().core().reconfigure(|s| s.input_device = value);
         self.as_mut().set_input_device(q(&id));
+    }
+
+    fn choose_midi(mut self: Pin<&mut Self>, name: &QString) {
+        self.as_mut().core().choose_midi(&name.to_string());
+        self.as_mut().refresh_devices();
     }
 
     fn choose_output(mut self: Pin<&mut Self>, id: &QString) {
@@ -1723,7 +1754,6 @@ impl qobject::Controller {
     }
 
     fn change_transpose(mut self: Pin<&mut Self>, semitones: i32) {
-        self.as_mut().set_playing(false);
         if let Err(text) = self.as_mut().core().set_transpose(semitones) {
             self.as_mut().show_error(&text);
         }

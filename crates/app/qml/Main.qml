@@ -69,6 +69,28 @@ Kirigami.ApplicationWindow {
             late: texts.t("result.late")
         })
     }
+    // Technique signs (LH-BEW-06, Kante 1.31): names for screen readers and legends.
+    Binding {
+        target: KanteStyle
+        property: "techniqueNames"
+        value: ({
+            slide: texts.t("technique.slide"),
+            hammer: texts.t("technique.hammer"),
+            pull: texts.t("technique.pull"),
+            slap: texts.t("technique.slap"),
+            pop: texts.t("technique.pop"),
+            ghost: texts.t("technique.ghost")
+        })
+    }
+    Binding {
+        target: KanteStyle
+        property: "techniqueResultNames"
+        value: ({
+            played: texts.t("technique.result.played"),
+            other: texts.t("technique.result.other"),
+            unheard: texts.t("technique.result.unheard")
+        })
+    }
     // String colours (LH-ANZ-06): Kante's palettes ("kante", "mono", "bright"); lane, staff and
     // fretboard take them from KanteStyle (Kante 1.28). States keep their own colours and shapes.
     Binding { target: KanteStyle; property: "stringPalette"; value: ctl.stringColors }

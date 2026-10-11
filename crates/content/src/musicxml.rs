@@ -319,6 +319,13 @@ impl PartReader {
         if element.value("notehead") == Some("x") {
             note.add(Technique::Muted);
         }
+        // A note head in parentheses: a ghost note (MuseScore, Guitar Pro export).
+        if element
+            .child("notehead")
+            .is_some_and(|h| h.attr("parentheses") == Some("yes"))
+        {
+            note.add(Technique::Ghost);
+        }
         if let Some(notations) = element.child("notations") {
             self.notations(notations, &mut note);
         }
@@ -326,7 +333,12 @@ impl PartReader {
     }
 
     fn notations(&self, notations: &Element, note: &mut RawNote) {
-        if notations.child("slide").is_some() || notations.child("glissando").is_some() {
+        // A slide is marked where it starts, as in Guitar Pro; its stop is the next note.
+        let slide_starts = ["slide", "glissando"]
+            .iter()
+            .filter_map(|name| notations.child(name))
+            .any(|s| s.attr("type") != Some("stop"));
+        if slide_starts {
             note.add(Technique::Slide);
         }
         if let Some(articulations) = notations.child("articulations") {

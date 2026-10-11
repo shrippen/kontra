@@ -11,6 +11,8 @@ ColumnLayout {
     readonly property var texts: applicationWindow().texts
     // [key, available]
     readonly property var entries: [["line", true], ["laptop", true], ["midi", true], ["mic", true]]
+    // MIDI devices (LH-EIN-12, round 9): {ports: [{name, chosen}], missingText}.
+    readonly property var midi: ctl.midiPortsJson !== "" ? JSON.parse(ctl.midiPortsJson) : ({ ports: [], missingText: "" })
 
     spacing: 0
     Accessible.role: Accessible.List
@@ -30,6 +32,21 @@ ColumnLayout {
                 : texts.t("settings.source.midi.none")
             disabledReason: texts.t("settings.later.short") + " " + texts.t("settings.source." + modelData[0] + ".hint")
             onClicked: ctl.changeConnection(modelData[0])
+        }
+    }
+
+    // Which keyboard, when several are connected; a chosen one that is missing is said here.
+    KanteSettingRow {
+        visible: ctl.connection === "midi" && (choice.midi.ports.length > 1 || choice.midi.missingText !== "")
+        Layout.fillWidth: true
+        title: texts.t("settings.midi.device")
+        hint: choice.midi.missingText
+        KanteComboBox {
+            visible: choice.midi.ports.length > 0
+            Accessible.name: texts.t("settings.midi.device")
+            model: choice.midi.ports.map(function(p) { return p.name })
+            currentIndex: choice.midi.ports.findIndex(function(p) { return p.chosen })
+            onActivated: function(index) { ctl.chooseMidi(choice.midi.ports[index].name) }
         }
     }
 }
