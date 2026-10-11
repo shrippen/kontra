@@ -227,8 +227,9 @@ echten Bass, ohne zwei MIDI-Keyboards, ohne installiertes Demucs.
   aus i18n.
 - **Zweiter Leser** (PR-Agent fällt aus; Review-Agent über #36–#42): 12 Befunde, 11 behoben in #43, darunter Dead
   Notes mit hörbarer Tonhöhe (Warten-Modus hing), eine fertige Trennung beendete den Lauf eines anderen Stücks,
-  Abbrechen traf im Flatpak nur den Wrapper, Marken verschwanden beim Transponieren in der Pause. Offen: ein Neu-Layout
-  bei anderer Stimmung behält das Flageolett-Zeichen an einer gegriffenen Stelle.
+  Abbrechen traf im Flatpak nur den Wrapper, Marken verschwanden beim Transponieren in der Pause. Der zwölfte (Neu-Layout
+  bei anderer Stimmung legt ein Flageolett als gegriffene Note) zeigt kein falsches Zeichen (Kante hat keins für
+  Flageoletts); die Note wird weiter oktavtolerant bewertet.
 
 ### QA-Runde 9.10.2026 (Personas, headless, erzeugte und echte Aufnahmen)
 
