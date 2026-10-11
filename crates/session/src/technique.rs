@@ -155,11 +155,23 @@ impl TechniqueJudge {
     }
 
     /// The same piece transposed while playing: targets get their new pitches, what was judged
-    /// stays.
-    pub(crate) fn retarget(&mut self, arrangement: &Arrangement, source: InputSource) {
+    /// stays (it is kept by target slot). False, and nothing changed, if the transposed piece
+    /// has its techniques on other notes (a slide's arrival moved to another string).
+    pub(crate) fn retarget(&mut self, arrangement: &Arrangement, source: InputSource) -> bool {
         let fresh = TechniqueJudge::new(arrangement, source);
+        let notes = |j: &TechniqueJudge| -> Vec<usize> {
+            j.struck
+                .keys()
+                .chain(j.legato.iter().map(|t| &t.note))
+                .copied()
+                .collect()
+        };
+        if notes(&fresh) != notes(self) {
+            return false;
+        }
         self.struck = fresh.struck;
         self.legato = fresh.legato;
+        true
     }
 
     pub(crate) fn untold(&self) -> &[Technique] {

@@ -547,5 +547,6 @@
   "summary.technique": "{technique}: {played} of {judged}",
   "summary.techniques.untold": "Not judged with this input: {techniques}",
   "summary.techniques.note": "Does not count towards the hit rate.",
-  "summary.note.technique": "{technique}: {result}"
+  "summary.note.technique": "{technique}: {result}",
+  "stems.error.start": "Demucs could not be started."
 }

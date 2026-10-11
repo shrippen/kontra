@@ -13,10 +13,12 @@
 //! sandbox allows it.
 
 use std::io::Read;
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use thiserror::Error;
 
 const PROGRAM: &str = "demucs";
@@ -26,6 +28,9 @@ const MODEL: &str = "htdemucs";
 const RESULT_FILE: &str = "no_bass.wav";
 /// Progress is kept in permille.
 const PERMILLE: f64 = 1000.0;
+/// After the program exited, its output is read this long at most (a child it left behind may
+/// keep the pipe open).
+const READER_GRACE: Duration = Duration::from_secs(2);
 /// Last bytes of stderr kept for an error message.
 const TAIL_BYTES: usize = 600;
 
@@ -79,7 +84,13 @@ fn host_separator() -> Option<Separator> {
         .status()
         .is_ok_and(|s| s.success());
     found.then(|| Separator {
-        command: vec!["flatpak-spawn".into(), "--host".into(), PROGRAM.into()],
+        // --watch-bus: the host program ends when Kontra (and so flatpak-spawn) is gone.
+        command: vec![
+            "flatpak-spawn".into(),
+            "--host".into(),
+            "--watch-bus".into(),
+            PROGRAM.into(),
+        ],
     })
 }
 
@@ -109,7 +120,9 @@ impl Separator {
                 return Err(SeparatorError::Failed("no program".into()));
             }
         };
+        // Its own process group: cancelling also stops what a wrapper (conda, a script) started.
         let mut child = Command::new(program)
+            .process_group(0)
             .args(prefix)
             .args(["--two-stems", "bass", "-n", MODEL, "-o"])
             .arg(out_dir)
@@ -136,6 +149,7 @@ impl Separator {
             progress,
             tail,
             reader,
+            exited_at: None,
             result: out_dir.join(MODEL).join(stem).join(RESULT_FILE),
             cancelled: false,
         })
@@ -151,6 +165,7 @@ pub struct SeparationJob {
     /// Reads the program's output until it ends; joined once the program exited, so the
     /// last progress and error lines are in.
     reader: Option<std::thread::JoinHandle<()>>,
+    exited_at: Option<Instant>,
     result: PathBuf,
     cancelled: bool,
 }
@@ -171,10 +186,12 @@ impl SeparationJob {
         };
         // The pipe closes with the program and the reader ends after its last line; until then
         // the job counts as running (never block the caller, e.g. the UI's tick).
-        if self.reader.as_ref().is_some_and(|r| !r.is_finished()) {
+        let exited_at = *self.exited_at.get_or_insert_with(Instant::now);
+        let reading = self.reader.as_ref().is_some_and(|r| !r.is_finished());
+        if reading && exited_at.elapsed() < READER_GRACE {
             return None;
         }
-        if let Some(reader) = self.reader.take() {
+        if let Some(reader) = self.reader.take().filter(|r| r.is_finished()) {
             let _ = reader.join();
         }
         if self.cancelled {
@@ -189,6 +206,17 @@ impl SeparationJob {
 
     pub fn cancel(&mut self) {
         self.cancelled = true;
+        self.stop();
+    }
+
+    /// Ends the program's whole process group, then the program itself.
+    fn stop(&mut self) {
+        let group = format!("-{}", self.child.id());
+        let _ = Command::new("kill")
+            .args(["-TERM", "--", &group])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
         let _ = self.child.kill();
     }
 }
@@ -196,7 +224,7 @@ impl SeparationJob {
 impl Drop for SeparationJob {
     fn drop(&mut self) {
         if matches!(self.child.try_wait(), Ok(None)) {
-            let _ = self.child.kill();
+            self.stop();
             let _ = self.child.wait();
         }
     }
@@ -313,6 +341,38 @@ mod tests {
             Err(SeparatorError::Failed(m)) => assert_eq!(m, "broken model"),
             other => panic!("{other:?}"),
         }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cancel_stops_what_a_wrapper_started() {
+        let dir =
+            std::env::temp_dir().join(format!("kontra-separator-cancel-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        // A wrapper (like `conda run`) whose child keeps the output pipe open.
+        let script = dir.join("demucs");
+        std::fs::write(&script, "#!/bin/sh\nsleep 30 &\nwait\n").unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let song = dir.join("Song.wav");
+        std::fs::write(&song, b"RIFF").unwrap();
+
+        let mut job = Separator::with_program(&script)
+            .start(&song, &dir.join("out"))
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(100));
+        job.cancel();
+        let started = Instant::now();
+        let result = wait(&mut job);
+        assert!(
+            matches!(result, Err(SeparatorError::Cancelled)),
+            "{result:?}"
+        );
+        assert!(
+            started.elapsed() < READER_GRACE,
+            "the child went with the wrapper"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
