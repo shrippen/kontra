@@ -95,6 +95,24 @@ pub struct Exercise {
     pub midi: Vec<u8>,
 }
 
+/// What an exercise is, as text keys, so the UI can name it in its language; the file keeps
+/// its German title (progress is keyed by it). Example: `Groove` over `blues` in `shuffle`,
+/// key `E`, 90 BPM → "Groove Shuffle 12-Takt-Blues in E (90 BPM)" / "Groove shuffle 12-bar
+/// blues in E (90 BPM)".
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Description {
+    /// "scale", "arpeggio", "walking" or "groove".
+    pub kind: &'static str,
+    /// Scale ("major", "minorpenta" …) or progression ("tonic", "251", "blues", "minor").
+    pub variant: &'static str,
+    /// Grooves only: "quarters", "eighths", "sixteenths", "rests", "shuffle", "octaves".
+    pub rhythm: Option<&'static str>,
+    /// Key root spelled for its signature ("Bb", "F#") with "m" for minor.
+    pub key: &'static str,
+    pub minor: bool,
+    pub bpm: f64,
+}
+
 /// One note of the generated line, in file ticks.
 #[derive(Debug, Clone, Copy)]
 struct Tone {
@@ -355,6 +373,47 @@ fn rhythm_label(rhythm: Rhythm) -> &'static str {
         Rhythm::WithRests => "mit Pausen",
         Rhythm::Shuffle => "Shuffle",
         Rhythm::Octaves => "Oktaven",
+    }
+}
+
+/// Text keys for `spec` (see `Description`).
+pub fn describe(spec: &ExerciseSpec) -> Description {
+    let scale_key = |scale| match scale {
+        ScaleKind::Major => "major",
+        ScaleKind::Minor => "minor",
+        ScaleKind::MajorPentatonic => "majorpenta",
+        ScaleKind::MinorPentatonic => "minorpenta",
+        ScaleKind::Blues => "blues",
+    };
+    let progression_key = |progression| match progression {
+        Progression::Tonic => "tonic",
+        Progression::TwoFiveOne => "251",
+        Progression::Blues => "blues",
+        Progression::Minor => "minor",
+    };
+    let rhythm_key = |rhythm| match rhythm {
+        Rhythm::Quarters => "quarters",
+        Rhythm::Eighths => "eighths",
+        Rhythm::Sixteenths => "sixteenths",
+        Rhythm::WithRests => "rests",
+        Rhythm::Shuffle => "shuffle",
+        Rhythm::Octaves => "octaves",
+    };
+    let (kind, variant, rhythm, minor) = match spec.kind {
+        ExerciseKind::Scale(s) => ("scale", scale_key(s), None, s.minor()),
+        ExerciseKind::Arpeggio(p) => ("arpeggio", progression_key(p), None, p.minor()),
+        ExerciseKind::WalkingBass(p) => ("walking", progression_key(p), None, p.minor()),
+        ExerciseKind::Groove(p, r) => {
+            ("groove", progression_key(p), Some(rhythm_key(r)), p.minor())
+        }
+    };
+    Description {
+        kind,
+        variant,
+        rhythm,
+        key: name(i32::from(spec.key), key_fifths(spec.key, minor)),
+        minor,
+        bpm: spec.bpm,
     }
 }
 
@@ -675,6 +734,19 @@ fn track(mut events: Vec<(u32, TrackEventKind)>, end: u32) -> Vec<TrackEvent> {
 
 /// The bundled set (LH-BIB-08): (level folder, file name, exercise), easiest first.
 pub fn bundled() -> Vec<(&'static str, String, Exercise)> {
+    bundled_specs()
+        .into_iter()
+        .enumerate()
+        .map(|(i, (level, spec))| {
+            let exercise = generate(&spec);
+            let file = format!("{:02} {}.mid", i + 1, file_name(&exercise.title));
+            (level, file, exercise)
+        })
+        .collect()
+}
+
+/// The plan of the bundled set: (level folder, spec); file "NN …" is entry NN − 1.
+pub fn bundled_specs() -> Vec<(&'static str, ExerciseSpec)> {
     use ExerciseKind::*;
     use Progression as P;
     use Rhythm::*;
@@ -825,17 +897,15 @@ pub fn bundled() -> Vec<(&'static str, String, Exercise)> {
         ),
     ];
     plan.into_iter()
-        .enumerate()
-        .map(|(i, (level, kind, key, bpm, slow, repeats))| {
-            let exercise = generate(&ExerciseSpec {
+        .map(|(level, kind, key, bpm, slow, repeats)| {
+            let spec = ExerciseSpec {
                 kind,
                 key,
                 bpm,
                 slow,
                 repeats,
-            });
-            let file = format!("{:02} {}.mid", i + 1, file_name(&exercise.title));
-            (level, file, exercise)
+            };
+            (level, spec)
         })
         .collect()
 }
