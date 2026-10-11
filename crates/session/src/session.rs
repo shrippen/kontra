@@ -133,6 +133,28 @@ impl Session {
         &self.results
     }
 
+    /// Swaps in the same piece transposed (LH-WIE-02 while playing): with the same attacks at
+    /// the same times, clock, loop and results go on and only the pitches change. Returns false
+    /// (nothing changed) when the notes differ in more than pitch.
+    pub fn retarget(&mut self, arrangement: Arrangement) -> bool {
+        let same_times = arrangement.notes.len() == self.arrangement.notes.len()
+            && arrangement
+                .notes
+                .iter()
+                .zip(&self.arrangement.notes)
+                .all(|(a, b)| {
+                    a.start_ticks == b.start_ticks && a.duration_ticks == b.duration_ticks
+                })
+            && arrangement.tempo == self.arrangement.tempo;
+        if !same_times {
+            return false;
+        }
+        self.matcher.retarget(expected_notes(&arrangement));
+        self.techniques.retarget(&arrangement, self.settings.source);
+        self.arrangement = arrangement;
+        true
+    }
+
     /// Technique results so far (LH-BEW-06), in the order they were judged.
     pub fn technique_results(&self) -> &[TechniqueResult] {
         self.techniques.results()

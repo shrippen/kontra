@@ -63,6 +63,11 @@ impl Matcher {
         &self.expected
     }
 
+    /// The same attacks with other pitches (transposed while playing); what was judged stays.
+    pub(crate) fn retarget(&mut self, expected: Vec<ExpectedNote>) {
+        self.expected = expected;
+    }
+
     pub(crate) fn is_resolved(&self, pass: u32, slot: usize) -> bool {
         self.resolved.contains(&(pass, slot))
     }

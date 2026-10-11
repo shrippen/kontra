@@ -1887,8 +1887,9 @@ impl Core {
             .map_or(0, |e| e.transpose_semitones)
     }
 
-    /// Moves the loaded piece and its backing by `semitones` (±6) and lays out the notes again;
-    /// a running practice ends, the next play sounds transposed.
+    /// Moves the loaded piece and its backing by `semitones` (±6) and lays out the notes again.
+    /// A running practice goes on with the moved notes: what was judged stays, the backing
+    /// shifts in the mixer. Only if the notes changed in more than pitch does the run end.
     pub fn set_transpose(&mut self, semitones: i32) -> Result<(), String> {
         let Some(loaded) = self.loaded.as_ref().map(|l| (l.path.clone(), l.track)) else {
             return Ok(());
@@ -1898,8 +1899,23 @@ impl Core {
             entry.transpose_semitones = semitones.clamp(-max, max);
         }
         let _ = store::save(&self.data_dir.join("library.json"), &self.library);
-        self.stop_live();
-        self.reload(loaded.1)
+        // Kept out of `reload`, which would end it.
+        let live = self.live.take();
+        let looping = self.looping;
+        let reloaded = self.reload(loaded.1);
+        let Some(mut live) = live else {
+            return reloaded;
+        };
+        let moved = self.arrangement().cloned();
+        let goes_on = reloaded.is_ok()
+            && moved.is_some_and(|a| live.practice_mut().retarget(a, self.transpose()));
+        self.live = Some(live);
+        if goes_on {
+            self.looping = looping;
+        } else {
+            self.stop_live();
+        }
+        reloaded
     }
 
     /// Sets (or with `None` removes) the backing track of the loaded piece.
@@ -4403,6 +4419,66 @@ mod tests {
         let latency = result.flatten().expect("measured");
         assert!((latency - 45.0).abs() <= 3.0, "{latency}");
         assert_eq!(core.settings().latency_ms, latency);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// LH-WIE-02 while playing: a whole step up mid-run, the run goes on and the notes after it
+    /// are judged against the new pitches (the take changes key at the same moment).
+    #[test]
+    fn transposing_mid_run_keeps_playing() {
+        let dir = temp_dir("transpose-live");
+        let take = dir.join("take.wav");
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut core = Core::new(
+            &dir,
+            QaOptions {
+                input_file: Some(take.clone()),
+                laptop_jack: false,
+            },
+        );
+        core.open(&demo()).unwrap();
+        let mut played = core.arrangement().unwrap().clone();
+        // Halfway between the fourth and fifth note.
+        let times: Vec<f64> = played
+            .notes
+            .iter()
+            .map(|n| played.tempo.seconds_at(n.start_ticks))
+            .collect();
+        let switch_s = (times[3] + times[4]) / 2.0;
+        for (n, t) in played.notes.iter_mut().zip(&times) {
+            if *t > switch_s {
+                n.pitch = kontra_model::Pitch(n.pitch.0 + 2);
+            }
+        }
+        let samples = kontra_session::render_performance(
+            &played,
+            1.0,
+            2.4,
+            kontra_session::Mistakes::default(),
+            48_000,
+        );
+        kontra_session::write_mono_wav(&take, &samples[..(48_000.0 * 6.0) as usize], 48_000)
+            .unwrap();
+        core.play();
+        let (mut hits, mut wrong, mut switched) = (0, 0, false);
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(7);
+        while std::time::Instant::now() < end {
+            if !switched && core.position_s() >= switch_s {
+                core.set_transpose(2).unwrap();
+                assert!(core.is_playing(), "the run goes on");
+                switched = true;
+            }
+            for e in core.tick() {
+                match e {
+                    UiEvent::Judged { state: "hit", .. } => hits += 1,
+                    UiEvent::Judged { state: "wrong", .. } => wrong += 1,
+                    _ => {}
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert!(switched);
+        assert!(hits >= 10 && wrong == 0, "hits {hits}, wrong {wrong}");
         std::fs::remove_dir_all(dir).unwrap();
     }
 

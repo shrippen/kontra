@@ -1719,7 +1719,6 @@ impl qobject::Controller {
     }
 
     fn change_transpose(mut self: Pin<&mut Self>, semitones: i32) {
-        self.as_mut().set_playing(false);
         if let Err(text) = self.as_mut().core().set_transpose(semitones) {
             self.as_mut().show_error(&text);
         }
