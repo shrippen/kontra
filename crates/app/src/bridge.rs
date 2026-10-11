@@ -23,6 +23,7 @@ pub mod qobject {
         #[qproperty(QString, bars_json, cxx_name = "barsJson")]
         #[qproperty(QString, staff_json, cxx_name = "staffJson")]
         #[qproperty(QString, string_names_json, cxx_name = "stringNamesJson")]
+        #[qproperty(QString, key_range_json, cxx_name = "keyRangeJson")]
         #[qproperty(f64, duration)]
         #[qproperty(f64, position)]
         #[qproperty(bool, playing)]
@@ -570,6 +571,7 @@ pub struct ControllerRust {
     bars_json: QString,
     staff_json: QString,
     string_names_json: QString,
+    key_range_json: QString,
     duration: f64,
     position: f64,
     playing: bool,
@@ -707,6 +709,7 @@ impl Default for ControllerRust {
             bars_json: q("[]"),
             staff_json: q(&core.staff_json()),
             string_names_json: q("[]"),
+            key_range_json: q(&core.key_range_json()),
             duration: 0.0,
             position: 0.0,
             playing: false,
@@ -844,6 +847,7 @@ impl ControllerRust {
                 self.bars_json = q(&self.core.bars_json());
                 self.staff_json = q(&self.core.staff_json());
                 self.string_names_json = q(&self.core.string_names_json());
+                self.key_range_json = q(&self.core.key_range_json());
                 self.duration = self.core.duration_s();
                 self.recent_json = q(&self.core.recent_json());
                 self.backing_name = q(&self.core.backing_name());
@@ -914,6 +918,7 @@ impl qobject::Controller {
         let bars = core.bars_json();
         let staff = core.staff_json();
         let names = core.string_names_json();
+        let keys = core.key_range_json();
         let duration = core.duration_s();
         let recent = core.recent_json();
         let loaded = core.arrangement().is_some();
@@ -929,6 +934,7 @@ impl qobject::Controller {
         self.as_mut().set_bars_json(q(&bars));
         self.as_mut().set_staff_json(q(&staff));
         self.as_mut().set_string_names_json(q(&names));
+        self.as_mut().set_key_range_json(q(&keys));
         self.as_mut().set_duration(duration);
         self.as_mut().set_recent_json(q(&recent));
         self.as_mut().set_loaded(loaded);
@@ -1847,7 +1853,7 @@ impl qobject::Controller {
 
     /// Every settings property and list from the core, after the data changed underneath.
     fn sync_settings(mut self: Pin<&mut Self>) {
-        let (s, texts, recent, tuning) = {
+        let (s, texts, recent, tuning, keys) = {
             let this = self.as_ref();
             let core = &this.rust().core;
             (
@@ -1855,11 +1861,13 @@ impl qobject::Controller {
                 core.texts_json(),
                 core.recent_json(),
                 core.tuning_json(),
+                core.key_range_json(),
             )
         };
         self.as_mut().set_texts(q(&texts));
         self.as_mut().set_recent_json(q(&recent));
         self.as_mut().set_tuning_json(q(&tuning));
+        self.as_mut().set_key_range_json(q(&keys));
         self.as_mut().refresh_setlists();
         self.as_mut().set_mode(q(&s.mode));
         self.as_mut().set_view(q(&s.view));

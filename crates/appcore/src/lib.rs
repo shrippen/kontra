@@ -46,6 +46,8 @@ const WINDOW_MIN_MS: f64 = 20.0;
 const WINDOW_MAX_MS: f64 = 150.0;
 /// Notes a string of a custom tuning may have: G0 (MIDI 19) to G3 (MIDI 55).
 const CUSTOM_NOTES: std::ops::RangeInclusive<u8> = 19..=55;
+/// Keyboard view without an instrument range: E1 to G4, a four-string bass.
+const DEFAULT_KEYS: (u8, u8) = (28, 67);
 /// Tunings the settings offer (LH-TUN-02); "drop" lowers the lowest string a whole step.
 const TUNINGS: [&str; 5] = ["standard", "drop", "half-down", "whole-down", "custom"];
 
@@ -1095,6 +1097,21 @@ impl Core {
             })
             .unwrap_or_default();
         serde_json::to_string(&names).unwrap_or_else(|_| "[]".into())
+    }
+
+    /// Keys of the keyboard view (J-E1): the instrument's range as MIDI numbers and the
+    /// twelve note names in the user's language, e.g. {"low": 28, "high": 67, "names":
+    /// ["C", "C#", …, "H"]} for a four-string bass with 24 frets, in German.
+    pub fn key_range_json(&self) -> String {
+        let (low, high) = self
+            .instrument()
+            .range()
+            .map_or(DEFAULT_KEYS, |(low, high)| (low.0, high.0));
+        let names: Vec<String> = kontra_model::NoteName::ALL
+            .iter()
+            .map(|n| self.note_label(&n.to_string()))
+            .collect();
+        json!({ "low": low, "high": high, "names": names }).to_string()
     }
 
     pub fn duration_s(&self) -> f64 {
@@ -3256,6 +3273,24 @@ mod tests {
         assert_eq!(names.len(), 5, "{names:?}");
         let a = core.arrangement().unwrap();
         assert!(a.notes.iter().all(|n| n.string.is_some_and(|s| s < 5)));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// J-E1 (P5): the keyboard view spans what the bass plays, E1 (28) to G4 (67) on a
+    /// four-string with 24 frets; a five-string reaches down to B0 (23).
+    #[test]
+    fn key_range_follows_the_instrument() {
+        let dir = temp_dir("keys");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let range: serde_json::Value = serde_json::from_str(&core.key_range_json()).unwrap();
+        assert_eq!(
+            (range["low"].as_u64(), range["high"].as_u64()),
+            (Some(28), Some(67))
+        );
+        core.reconfigure(|s| s.strings = 5);
+        let range: serde_json::Value = serde_json::from_str(&core.key_range_json()).unwrap();
+        assert_eq!(range["low"].as_u64(), Some(23));
+        assert_eq!(range["names"].as_array().map(Vec::len), Some(12));
         let _ = std::fs::remove_dir_all(dir);
     }
 

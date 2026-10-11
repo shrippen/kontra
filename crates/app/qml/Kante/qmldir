@@ -3,6 +3,7 @@ singleton KanteStyle 1.0 KanteStyle.qml
 singleton KantePalette 1.0 KantePalette.qml
 KanteAgenda 1.0 KanteAgenda.qml
 KanteAppear 1.0 KanteAppear.qml
+KanteAudioMeter 1.0 KanteAudioMeter.qml
 KanteBandEditor 1.0 KanteBandEditor.qml
 KanteBanner 1.0 KanteBanner.qml
 KanteBarChart 1.0 KanteBarChart.qml
@@ -37,6 +38,9 @@ KanteHeatmap 1.0 KanteHeatmap.qml
 KanteHintCard 1.0 KanteHintCard.qml
 KanteHud 1.0 KanteHud.qml
 KanteInfoTip 1.0 KanteInfoTip.qml
+KanteKeyLane 1.0 KanteKeyLane.qml
+KanteKeyLayout 1.0 KanteKeyLayout.qml
+KanteKeyboard 1.0 KanteKeyboard.qml
 KanteKpi 1.0 KanteKpi.qml
 KanteLamp 1.0 KanteLamp.qml
 KanteLevelMeter 1.0 KanteLevelMeter.qml
