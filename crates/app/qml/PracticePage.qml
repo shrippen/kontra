@@ -587,7 +587,7 @@ Kirigami.Page {
                     bars: page.bars
                     position: ctl.position
                     pixelsPerSecond: Math.max(KanteStyle.unit(240), height * 1.2) * Math.max(0.5, ctl.speed)
-                    accessibleName: texts.t("keys.lane")
+                    accessibleName: texts.t("keyboard.lane")
                     loopStart: ctl.loopStart
                     loopEnd: ctl.loopEnd
                 }
@@ -598,10 +598,10 @@ Kirigami.Page {
                     high: page.keys.high
                     noteNames: page.keys.names
                     markers: page.nextNote ? [{ midi: page.nextNote.midi, role: "next" }] : []
-                    accessibleName: texts.t("keys.name")
-                    roleNames: ({ current: texts.t("keys.current"), next: texts.t("keys.next"),
-                                  root: texts.t("keys.root"), scale: texts.t("keys.scale") })
-                    markerText: texts.t("keys.marker")
+                    accessibleName: texts.t("keyboard.name")
+                    roleNames: ({ current: texts.t("keyboard.current"), next: texts.t("keyboard.next"),
+                                  root: texts.t("keyboard.root"), scale: texts.t("keyboard.scale") })
+                    markerText: texts.t("keyboard.marker")
                 }
             }
         }
