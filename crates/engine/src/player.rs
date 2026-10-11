@@ -17,7 +17,7 @@ use kontra_dsp::synth::Noise;
 use kontra_dsp::{PitchShifter, Shaper, Shaping, PITCH_LATENCY};
 use kontra_model::DrumKind;
 use std::f32::consts::TAU;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
@@ -30,6 +30,8 @@ const SNARE_S: f32 = 0.2;
 const HIHAT_S: f32 = 0.08;
 /// Monitor ring: half a second at the highest supported rate.
 const MONITOR_RING: usize = 96_000;
+/// What played, for a microphone input to subtract (LH-EIN-11): two seconds at 48 kHz.
+const REFERENCE_RING: usize = 96_000;
 /// More queued monitor audio than this means the clocks drifted apart; the excess is dropped
 /// down to `MONITOR_KEEP_S`, so the bass never lags further behind.
 const MONITOR_MAX_S: f64 = 0.08;
@@ -159,7 +161,23 @@ pub struct Player {
     started: Arc<AtomicU64>,
     /// Write end of the monitor ring, until an input takes it.
     monitor: Option<rtrb::Producer<f32>>,
+    /// Read end of what played, until a microphone input takes it (boxed: rarely used).
+    reference: Option<Box<Reference>>,
     pub sample_rate: u32,
+}
+
+/// What the mixer played (without the monitored bass), for echo removal at a microphone. The
+/// mixer writes only while `armed`; `start_s` is the engine time of its first sample then.
+pub struct Reference {
+    pub samples: rtrb::Consumer<f32>,
+    pub armed: Arc<AtomicBool>,
+    pub start_s: Arc<AtomicU64>,
+}
+
+impl std::fmt::Debug for Reference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Reference")
+    }
 }
 
 impl Player {
@@ -170,6 +188,9 @@ impl Player {
     ) -> Result<Player, EngineError> {
         let (producer, mut consumer) = rtrb::RingBuffer::<Command>::new(COMMANDS);
         let (monitor, monitor_rx) = rtrb::RingBuffer::<f32>::new(MONITOR_RING);
+        let (reference_tx, reference_rx) = rtrb::RingBuffer::<f32>::new(REFERENCE_RING);
+        let armed = Arc::new(AtomicBool::new(false));
+        let reference_start = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
         let started = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
         let started_cb = Arc::clone(&started);
         let clock = clock.clone();
@@ -182,6 +203,11 @@ impl Player {
             shaper: Shaper::new(48_000.0),
             shifter: Box::new(PitchShifter::new()),
             shift_next: None,
+            reference: Some(ReferenceTap {
+                samples: reference_tx,
+                armed: Arc::clone(&armed),
+                start_s: Arc::clone(&reference_start),
+            }),
             noise: Noise::new(1),
         };
         let mut frame: u64 = 0;
@@ -228,7 +254,17 @@ impl Player {
             _stream: stream,
             started,
             monitor: Some(monitor),
+            reference: Some(Box::new(Reference {
+                samples: reference_rx,
+                armed,
+                start_s: reference_start,
+            })),
         })
+    }
+
+    /// Hands what plays to a microphone input (once); it starts flowing when armed.
+    pub fn take_reference(&mut self) -> Option<Reference> {
+        self.reference.take().map(|r| *r)
     }
 
     /// Hands the monitor ring's write end to an input (once).
@@ -302,6 +338,26 @@ impl Output for NullOutput {
     fn set_gains(&mut self, _gains: Gains) {}
 }
 
+/// The mixer's end of `Reference`.
+struct ReferenceTap {
+    samples: rtrb::Producer<f32>,
+    armed: Arc<AtomicBool>,
+    start_s: Arc<AtomicU64>,
+}
+
+impl ReferenceTap {
+    /// One played frame at engine time `now`; a full ring (no reader) drops it.
+    fn push(&mut self, now: f64, sample: f32) {
+        if !self.armed.load(Ordering::Relaxed) {
+            return;
+        }
+        if f64::from_bits(self.start_s.load(Ordering::Relaxed)).is_nan() {
+            self.start_s.store(now.to_bits(), Ordering::Relaxed);
+        }
+        let _ = self.samples.push(sample);
+    }
+}
+
 /// State owned by the audio callback.
 struct Mixer {
     voices: [Voice; VOICES],
@@ -313,6 +369,8 @@ struct Mixer {
     monitor: Option<rtrb::Consumer<f32>>,
     /// Shapes the monitored bass.
     shaper: Shaper,
+    /// Write side of `Reference`.
+    reference: Option<ReferenceTap>,
     /// Transposes the backing track (made with the mixer: no allocation in the callback).
     shifter: Box<PitchShifter>,
     /// The backing frame the shifter expects next; `None`: start over (seek, loop, new shift).
@@ -422,6 +480,10 @@ impl Mixer {
                 left += l * self.gains.backing;
                 right += r * self.gains.backing;
             }
+        }
+        // What plays from the speakers, before the monitored bass (that one the mic hears anyway).
+        if let Some(tap) = self.reference.as_mut() {
+            tap.push(now, 0.5 * (left + right));
         }
         // Monitoring: one input sample per frame; an empty ring (underrun) stays silent.
         if let Some(ring) = self.monitor.as_mut() {
@@ -567,6 +629,7 @@ mod tests {
             shaper: Shaper::new(48_000.0),
             shifter: Box::new(PitchShifter::new()),
             shift_next: None,
+            reference: None,
             noise: Noise::new(1),
         }
     }

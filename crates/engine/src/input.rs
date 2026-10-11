@@ -2,13 +2,13 @@
 //! (copied to a player's output); or MIDI (LH-EIN-12), whose note-ons are the notes as played.
 
 use crate::clock::Clock;
-use crate::player::Player;
+use crate::player::{Player, Reference};
 use crate::{EngineError, Event};
 use kontra_drivers::{
     open_midi, read_audio, read_midi_notes, InputStream, MidiConnection, MidiNote, StreamConfig,
 };
 use kontra_dsp::synth::laptop_jack;
-use kontra_dsp::{peak_db, rms_db, NoteTracker, TrackerConfig, Tuner};
+use kontra_dsp::{peak_db, rms_db, EchoCanceller, NoteTracker, TrackerConfig, Tuner, ECHO_BLOCK};
 use kontra_model::{DetectedNote, InputSource, Instrument};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
@@ -105,10 +105,19 @@ impl Input {
     ) -> Result<Input, EngineError> {
         let stop = Arc::new(AtomicBool::new(false));
         let tuner_on = Arc::new(AtomicBool::new(false));
-        let tap = Tap::from_player(monitor);
+        // A microphone also hears the speakers: it takes what plays, to subtract it (LH-EIN-11).
+        let (tap, reference) = match monitor {
+            Some(player) => {
+                let reference = (source == InputSource::Microphone)
+                    .then(|| player.take_reference().map(|r| (r, player.sample_rate)))
+                    .flatten();
+                (Tap::from_player(Some(player)), reference)
+            }
+            None => (None, None),
+        };
         match kind {
             InputKind::Device(config) => start_device(
-                config, instrument, source, clock, events, stop, tuner_on, tap,
+                config, instrument, source, clock, events, stop, tuner_on, tap, reference,
             ),
             InputKind::File {
                 path,
@@ -232,6 +241,7 @@ fn start_device(
     stop: Arc<AtomicBool>,
     tuner_on: Arc<AtomicBool>,
     tap: Option<Tap>,
+    reference: Option<(Reference, u32)>,
 ) -> Result<Input, EngineError> {
     // The ring size depends on the sample rate, which we only know after opening; 192 kHz is the cap.
     let (mut producer, mut consumer) = rtrb::RingBuffer::<f32>::new((RING_S * 192_000.0) as usize);
@@ -274,6 +284,10 @@ fn start_device(
     let sample_rate = stream.sample_rate;
     monitor_on.store(tap_rate == sample_rate, Ordering::Relaxed);
     let mut analysis = Analysis::new(f64::from(sample_rate), instrument, source);
+    // Echo removal only when input and output run at the same rate (as monitoring).
+    let mut echo = reference
+        .filter(|(_, rate)| *rate == sample_rate)
+        .map(|(reference, _)| EchoStage::new(reference, f64::from(sample_rate)));
     let stop_worker = Arc::clone(&stop);
     let tuner_worker = Arc::clone(&tuner_on);
     let worker = std::thread::Builder::new()
@@ -293,11 +307,13 @@ fn start_device(
                 for slot in block.iter_mut().take(available) {
                     *slot = consumer.pop().unwrap_or(0.0);
                 }
-                analysis.process(
-                    &block[..available],
-                    tuner_worker.load(Ordering::Relaxed),
-                    &events,
-                );
+                let tuner = tuner_worker.load(Ordering::Relaxed);
+                match echo.as_mut() {
+                    Some(stage) => stage.push(&block[..available], analysis.start_s, |cleaned| {
+                        analysis.process(cleaned, tuner, &events)
+                    }),
+                    None => analysis.process(&block[..available], tuner, &events),
+                }
             }
         })
         .map_err(EngineError::Thread)?;
@@ -377,6 +393,111 @@ fn start_file(
         _midi: None,
         sample_rate,
     })
+}
+
+/// Removes what played from a microphone signal before analysis (LH-EIN-11). The reference
+/// starts at the mixer's `start_s`, the microphone at the input's start: the difference is
+/// dropped from (or padded to) the reference once, the remaining delay (buffers, room) the
+/// canceller learns.
+///
+/// ```text
+/// mic ─► blocks of 512 ──────────────► EchoCanceller ─► analysis
+/// reference ─► align once ─► 512 ─────────┘
+/// ```
+struct EchoStage {
+    canceller: EchoCanceller,
+    reference: Reference,
+    sample_rate: f64,
+    /// Zeros still owed to the reference (it started after the microphone).
+    pad: usize,
+    aligned: bool,
+    mic: Vec<f32>,
+    played: Vec<f32>,
+    filled: usize,
+    /// Microphone samples taken so far.
+    taken: u64,
+}
+
+impl EchoStage {
+    fn new(reference: Reference, sample_rate: f64) -> EchoStage {
+        reference.armed.store(true, Ordering::Relaxed);
+        EchoStage {
+            canceller: EchoCanceller::new(),
+            reference,
+            sample_rate,
+            pad: 0,
+            aligned: false,
+            mic: vec![0.0; ECHO_BLOCK],
+            played: vec![0.0; ECHO_BLOCK],
+            filled: 0,
+            taken: 0,
+        }
+    }
+
+    /// Feeds microphone samples (input started at `mic_start_s`); calls `out` with each
+    /// cleaned block.
+    fn push(&mut self, samples: &[f32], mic_start_s: f64, mut out: impl FnMut(&[f32])) {
+        for &s in samples {
+            self.mic[self.filled] = s;
+            self.filled += 1;
+            self.taken += 1;
+            if self.filled < ECHO_BLOCK {
+                continue;
+            }
+            self.filled = 0;
+            let block_start_s =
+                mic_start_s + (self.taken - ECHO_BLOCK as u64) as f64 / self.sample_rate;
+            if self.align(block_start_s) {
+                self.fill_played();
+                self.canceller.process(&mut self.mic, &self.played);
+            }
+            out(&self.mic);
+        }
+    }
+
+    /// Lines the reference up with the microphone once its start is known; false until then.
+    fn align(&mut self, block_start_s: f64) -> bool {
+        if self.aligned {
+            return true;
+        }
+        let ref_start = f64::from_bits(self.reference.start_s.load(Ordering::Relaxed));
+        if ref_start.is_nan() {
+            return false;
+        }
+        let offset = align_frames(block_start_s - ref_start, self.sample_rate);
+        if offset >= 0 {
+            for _ in 0..offset {
+                let _ = self.reference.samples.pop();
+            }
+        } else {
+            self.pad = usize::try_from(offset.unsigned_abs()).unwrap_or(usize::MAX);
+        }
+        self.aligned = true;
+        true
+    }
+
+    fn fill_played(&mut self) {
+        for slot in self.played.iter_mut() {
+            *slot = if self.pad > 0 {
+                self.pad -= 1;
+                0.0
+            } else {
+                self.reference.samples.pop().unwrap_or(0.0)
+            };
+        }
+    }
+}
+
+impl Drop for EchoStage {
+    fn drop(&mut self) {
+        self.reference.armed.store(false, Ordering::Relaxed);
+    }
+}
+
+/// Reference frames to drop (positive: it started earlier) or to pad (negative) for a
+/// microphone that started `mic_minus_ref_s` after the reference.
+fn align_frames(mic_minus_ref_s: f64, sample_rate: f64) -> i64 {
+    (mic_minus_ref_s * sample_rate).round() as i64
 }
 
 /// A key going down as a detected note: exact pitch, sure, level from the velocity.
@@ -472,6 +593,41 @@ mod tests {
 
     /// LH-EIN-12: a MIDI file plays like a keyboard: note-ons at their times on the engine
     /// clock, exact pitch, note-offs dropped.
+    #[test]
+    fn reference_lines_up_by_start_times() {
+        // Microphone 0.1 s after the reference: drop 4800 reference frames at 48 kHz.
+        assert_eq!(align_frames(0.1, 48_000.0), 4800);
+        assert_eq!(align_frames(-0.02, 48_000.0), -960);
+    }
+
+    /// LH-EIN-11: a played signal in the reference is removed from the microphone once the
+    /// stage has learnt the way; what the reference does not hold stays.
+    #[test]
+    fn echo_stage_removes_what_played() {
+        let (mut tx, rx) = rtrb::RingBuffer::<f32>::new(96_000 * 2);
+        let reference = Reference {
+            samples: rx,
+            armed: Arc::new(AtomicBool::new(false)),
+            start_s: Arc::new(AtomicU64::new(0.0f64.to_bits())),
+        };
+        let mut stage = EchoStage::new(reference, 48_000.0);
+        let mut noise = kontra_dsp::synth::Noise::new(9);
+        let band: Vec<f32> = (0..48_000 * 4).map(|_| noise.sample() * 0.3).collect();
+        for &s in &band {
+            tx.push(s).unwrap();
+        }
+        // The microphone hears the band 2 ms late at 0.5.
+        let mic: Vec<f32> = (0..band.len())
+            .map(|i| i.checked_sub(96).map_or(0.0, |j| band[j] * 0.5))
+            .collect();
+        let mut cleaned = Vec::new();
+        stage.push(&mic, 0.0, |b| cleaned.extend_from_slice(b));
+        let energy = |s: &[f32]| s.iter().map(|x| x * x).sum::<f32>();
+        let late = 48_000 * 3..cleaned.len();
+        let drop = 10.0 * (energy(&cleaned[late.clone()]) / energy(&mic[late])).log10();
+        assert!(drop < -30.0, "{drop} dB");
+    }
+
     #[test]
     fn midi_file_plays_its_notes_in_real_time() {
         // 480 ticks per quarter at 120 BPM: E2 at 0 s, G2 at 0.25 s (240 ticks = varlen 0x81 0x70).
