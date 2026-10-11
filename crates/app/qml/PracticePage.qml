@@ -555,11 +555,8 @@ Kirigami.Page {
             }
             LevelAdvice {
                 Layout.fillWidth: true
-                peakDb: ctl.peakDb
-                clipped: ctl.clipped
                 listening: ctl.playing
-                laptopJack: ctl.laptopJack
-                onUseLaptopJack: ctl.changeInstrument(ctl.strings, ctl.fretless, true)
+                onUseLaptopJack: ctl.changeConnection("laptop")
             }
             }
         }

@@ -8,6 +8,7 @@
 mod data;
 pub mod ear;
 mod i18n;
+pub mod level;
 mod package;
 pub mod quiz;
 mod report;
@@ -95,6 +96,12 @@ pub enum UiEvent {
     Error(String),
     /// Ear training changed: a note was judged or the prompt ended (`Core::ear_json`).
     Ear(String),
+    /// Level advice changed (LH-EIN-03/04): "", "silent", "quiet", "good", "loud" or "clip",
+    /// and whether to offer the laptop-jack profile.
+    LevelAdvice {
+        state: &'static str,
+        suggest_laptop: bool,
+    },
     /// The audio device failed (unplugged); the run was stopped.
     DeviceLost(String),
     /// Between runs: offer another note density (LH-MOD-06), 1..=3, with the question.
@@ -184,6 +191,10 @@ pub struct Core {
     live_ear: Option<LiveEar>,
     /// The prompt sounded at the last tick (the UI learns when it may answer).
     ear_prompting: bool,
+    /// Level advice of the running input (LH-EIN-03/04) and what the UI was told last.
+    level: level::LevelAdvisor,
+    level_told: (level::LevelState, bool),
+    started_at: std::time::Instant,
 }
 
 impl Core {
@@ -199,6 +210,9 @@ impl Core {
             ear: None,
             live_ear: None,
             ear_prompting: false,
+            level: level::LevelAdvisor::default(),
+            level_told: (level::LevelState::Waiting, false),
+            started_at: std::time::Instant::now(),
             notice: None,
             active_setlist: None,
             lost: None,
@@ -1402,6 +1416,7 @@ impl Core {
         };
         self.tuner = None;
         self.live_ear = None;
+        self.level.reset();
         let arrangement = loaded.arrangement.clone();
         let settings = self.score_settings(arrangement.instrument.kind);
         let options = PracticeOptions {
@@ -1433,6 +1448,7 @@ impl Core {
     pub fn start_tuner(&mut self) -> Result<(), String> {
         self.stop_live();
         self.live_ear = None;
+        self.level.reset();
         let instrument = self.instrument();
         let tuner = LiveTuner::start(&self.input_choice(), &instrument, self.source())
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
@@ -1459,6 +1475,7 @@ impl Core {
         let ear_event = self.ear_heard(&mut raw);
         let mut events: Vec<UiEvent> = raw.into_iter().filter_map(|e| self.translate(e)).collect();
         events.extend(ear_event);
+        events.extend(self.advise_level(&events));
         if events.iter().any(|e| matches!(e, UiEvent::DeviceLost(_))) {
             self.stop_live();
             self.tuner = None;
@@ -1515,6 +1532,7 @@ impl Core {
         self.stop_live();
         self.tuner = None;
         self.live_ear = None;
+        self.level.reset();
         let instrument = self.instrument();
         let setup = LiveSetup {
             input: self.input_choice(),
@@ -2345,6 +2363,7 @@ impl Core {
         self.stop_live();
         self.tuner = None;
         self.live_ear = None;
+        self.level.reset();
         let instrument = self.instrument();
         let setup = LiveSetup {
             input: self.input_choice(),
@@ -2392,6 +2411,29 @@ impl Core {
             quiz.answer(midi);
         }
         self.ear_json()
+    }
+
+    /// Feeds the level readings of `events` to the advisor; returns the advice when it changed.
+    fn advise_level(&mut self, events: &[UiEvent]) -> Option<UiEvent> {
+        let now = self.started_at.elapsed().as_secs_f64();
+        for event in events {
+            if let UiEvent::Level {
+                peak_db, clipped, ..
+            } = event
+            {
+                self.level.push(now, *peak_db as f32, *clipped);
+            }
+        }
+        let laptop = self.source() == InputSource::Line && self.level.suggests_laptop();
+        let told = (self.level.state(), laptop);
+        if told == self.level_told {
+            return None;
+        }
+        self.level_told = told;
+        Some(UiEvent::LevelAdvice {
+            state: told.0.key(),
+            suggest_laptop: laptop,
+        })
     }
 
     /// Takes the answers out of `raw` and judges them; returns the new state when it changed
