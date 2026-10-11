@@ -331,6 +331,23 @@ impl Session {
         let Some(target) = self.matcher.expected().get(self.cursor_slot).copied() else {
             return;
         };
+        // A hammer-on or pull-off before the note we wait for is that legato note, not a wrong
+        // attempt at the next one: judged between the last struck note and this one.
+        let pass = self.transport.pass();
+        let from = self
+            .cursor_slot
+            .checked_sub(1)
+            .and_then(|slot| self.matcher.expected().get(slot))
+            .map_or(0.0, |e| e.position_s);
+        let middle = (from + target.position_s) / 2.0;
+        let half = (target.position_s - from) / 2.0;
+        if let Some(t) = self
+            .techniques
+            .judge_legato(pass, middle, midi, note.technique, half)
+        {
+            self.events.push(SessionEvent::Technique(t));
+            return;
+        }
         // A ghost note played as one is right whatever its pitch (a muted string has none).
         let muted = target.ghost && note.technique == Some(kontra_model::Technique::Ghost);
         let cents = target.cents_from(midi);
@@ -341,7 +358,6 @@ impl Session {
         };
         // An off-pitch note is still the right note: the wait is over.
         let in_tune = !matches!(outcome, Outcome::WrongPitch { .. });
-        let pass = self.transport.pass();
         self.record(NoteResult {
             pass,
             note: Some(target.index),
