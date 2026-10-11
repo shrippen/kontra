@@ -14,7 +14,7 @@ use crate::clock::Clock;
 use crate::{EngineError, Event};
 use kontra_drivers::{OutputStream, StreamConfig};
 use kontra_dsp::synth::Noise;
-use kontra_dsp::{Shaper, Shaping};
+use kontra_dsp::{PitchShifter, Shaper, Shaping, PITCH_LATENCY};
 use kontra_model::DrumKind;
 use std::f32::consts::TAU;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -71,6 +71,9 @@ pub trait Output {
     fn play_backing(&mut self, audio: BackingAudio, at_s: f64, from_frame: usize);
     fn stop_backing(&mut self, at_s: f64);
     fn set_gains(&mut self, gains: Gains);
+    /// Pitch of the backing track in semitones (LH-WIE-02), changed while it plays; outputs
+    /// without sound ignore it.
+    fn set_transpose(&mut self, _semitones: f32) {}
 }
 
 /// Bus volumes, 0..=1.
@@ -119,6 +122,7 @@ enum Command {
         at_s: f64,
     },
     Gains(Gains),
+    Transpose(f32),
 }
 
 #[derive(Debug, Clone)]
@@ -176,6 +180,8 @@ impl Player {
             next: None,
             monitor: Some(monitor_rx),
             shaper: Shaper::new(48_000.0),
+            shifter: Box::new(PitchShifter::new()),
+            shift_next: None,
             noise: Noise::new(1),
         };
         let mut frame: u64 = 0;
@@ -271,6 +277,10 @@ impl Output for Player {
     fn set_gains(&mut self, gains: Gains) {
         let _ = self.commands.push(Command::Gains(gains));
     }
+
+    fn set_transpose(&mut self, semitones: f32) {
+        let _ = self.commands.push(Command::Transpose(semitones));
+    }
 }
 
 /// Output that plays nothing (no device, CI, file-only QA runs).
@@ -303,6 +313,10 @@ struct Mixer {
     monitor: Option<rtrb::Consumer<f32>>,
     /// Shapes the monitored bass.
     shaper: Shaper,
+    /// Transposes the backing track (made with the mixer: no allocation in the callback).
+    shifter: Box<PitchShifter>,
+    /// The backing frame the shifter expects next; `None`: start over (seek, loop, new shift).
+    shift_next: Option<usize>,
     /// Source of snare and hi-hat noise.
     noise: Noise,
 }
@@ -354,6 +368,12 @@ impl Mixer {
                 self.gains = gains;
                 self.shaper.set(gains.shaping);
             }
+            Command::Transpose(semitones) => {
+                if self.shifter.semitones() == 0.0 {
+                    self.shift_next = None;
+                }
+                self.shifter.set_semitones(semitones);
+            }
         }
     }
 
@@ -394,10 +414,13 @@ impl Mixer {
         if let Some(b) = &self.backing {
             if now >= b.at_s && now < b.stop_s {
                 let frame = b.from_frame + ((now - b.at_s) * sr) as usize;
-                if let Some(pair) = b.audio.get(frame * 2..frame * 2 + 2) {
-                    left += pair[0] * self.gains.backing;
-                    right += pair[1] * self.gains.backing;
-                }
+                let (l, r) = if self.shifter.semitones() == 0.0 {
+                    backing_frame(&b.audio, frame)
+                } else {
+                    shifted_frame(&mut self.shifter, &mut self.shift_next, &b.audio, frame)
+                };
+                left += l * self.gains.backing;
+                right += r * self.gains.backing;
             }
         }
         // Monitoring: one input sample per frame; an empty ring (underrun) stays silent.
@@ -409,6 +432,34 @@ impl Mixer {
         }
         (left.clamp(-1.0, 1.0), right.clamp(-1.0, 1.0))
     }
+}
+
+/// Stereo frame `frame` of interleaved `audio`, silence past its end.
+fn backing_frame(audio: &[f32], frame: usize) -> (f32, f32) {
+    audio
+        .get(frame * 2..frame * 2 + 2)
+        .map_or((0.0, 0.0), |pair| (pair[0], pair[1]))
+}
+
+/// Backing frame `frame`, transposed. The shifter delays by `PITCH_LATENCY`, so it is fed that
+/// far ahead; after a jump (seek, loop start) it is filled again first, which costs one
+/// window of work once. Frames one off (rounding of the clock) count as continuous.
+fn shifted_frame(
+    shifter: &mut PitchShifter,
+    next: &mut Option<usize>,
+    audio: &[f32],
+    frame: usize,
+) -> (f32, f32) {
+    if !next.is_some_and(|n| n.abs_diff(frame) <= 1) {
+        shifter.reset();
+        for f in frame..frame + PITCH_LATENCY {
+            let (l, r) = backing_frame(audio, f);
+            shifter.process(l, r);
+        }
+    }
+    *next = Some(frame + 1);
+    let (l, r) = backing_frame(audio, frame + PITCH_LATENCY);
+    shifter.process(l, r)
 }
 
 /// Mixes all voices for one frame at engine time `now`.
@@ -514,6 +565,8 @@ mod tests {
             next: None,
             monitor: None,
             shaper: Shaper::new(48_000.0),
+            shifter: Box::new(PitchShifter::new()),
+            shift_next: None,
             noise: Noise::new(1),
         }
     }
@@ -628,6 +681,39 @@ mod tests {
             m.render(f64::from(i) / sr, sr);
         }
         assert_eq!(m.render(1.0, sr), (0.0, 0.0));
+    }
+
+    /// LH-WIE-02 (round 8): the mixer transposes the backing while it plays; a note in the
+    /// backing still sounds at its own time (the shifter is fed ahead by its latency).
+    #[test]
+    fn backing_is_transposed_in_time() {
+        use kontra_dsp::Yin;
+        let sr = 48_000.0;
+        // Silence, then A2 from 0.5 s, as interleaved stereo.
+        let mut audio = vec![0.0f32; 2 * 24_000];
+        for i in 0..48_000 {
+            let x = 0.5 * (std::f64::consts::TAU * 110.0 * f64::from(i) / sr).sin() as f32;
+            audio.extend([x, x]);
+        }
+        let mut m = mixer();
+        m.gains.click = 0.0;
+        m.apply(Command::Backing {
+            audio: Arc::new(audio),
+            at_s: 0.0,
+            from_frame: 0,
+        });
+        m.apply(Command::Transpose(3.0));
+        let out: Vec<f32> = (0..72_000)
+            .map(|i| m.render(f64::from(i) / sr, sr).0)
+            .collect();
+
+        let peak = out.iter().fold(0.0f32, |p, s| p.max(s.abs()));
+        let onset = out.iter().position(|s| s.abs() > peak * 0.3).unwrap_or(0);
+        assert!(onset.abs_diff(24_000) < 240, "starts at {onset}, not 24000");
+        let mut yin = Yin::new(sr, 40.0, 800.0, 0.04);
+        let hz = yin.estimate(&out[40_000..64_000]).map_or(0.0, |e| e.hz);
+        let cents = 1200.0 * (hz / (110.0 * 2f64.powf(3.0 / 12.0))).log2();
+        assert!(cents.abs() < 5.0, "{hz} Hz, {cents} cents");
     }
 
     #[test]

@@ -79,6 +79,11 @@ impl Output for LiveOutput {
             LiveOutput::Silent(n) => n.set_gains(gains),
         }
     }
+    fn set_transpose(&mut self, semitones: f32) {
+        if let LiveOutput::Device(p) = self {
+            p.set_transpose(semitones);
+        }
+    }
 }
 
 impl LiveOutput {
