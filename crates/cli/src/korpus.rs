@@ -60,8 +60,17 @@ fn write(dir: &Path) -> CliResult {
 
 fn check(dir: Option<&Path>) -> CliResult {
     println!(
-        "{:<14} {:>6} {:>8} {:>9} {:>7} {:>9} {:>8} {:>8} {:>8}",
-        "set", "notes", "recall", "precision", "pitch", "p95 ms", "cents", "p95 ct", "max ct"
+        "{:<14} {:>6} {:>8} {:>9} {:>7} {:>7} {:>9} {:>8} {:>8} {:>8}",
+        "set",
+        "notes",
+        "recall",
+        "precision",
+        "pitch",
+        "techn.",
+        "p95 ms",
+        "cents",
+        "p95 ct",
+        "max ct"
     );
     let mut failed = false;
     for set in KorpusSet::ALL {
@@ -78,23 +87,36 @@ fn check(dir: Option<&Path>) -> CliResult {
             _ => 0.98,
         };
         let found = if room { 0.9 } else { 0.99 };
-        let onset_ms = if room { 30.0 } else { 10.0 };
+        // Legato notes have no attack: their time comes from the pitch window (±30 ms).
+        let onset_ms = if room || set == KorpusSet::Techniques {
+            30.0
+        } else {
+            10.0
+        };
         // A mean hides one note that is always off (B0 +8 ct, J-B4): check p95 and max too.
         let cents_ok = set != KorpusSet::Fretless5
             || (e.p95_abs_cents <= FRETLESS_MAX_CENTS && e.max_abs_cents <= FRETLESS_MAX_CENTS);
+        // LH-BEW-06: ≥ 85 % of the technique set recognised; elsewhere no technique invented.
+        let technique_needed = if set == KorpusSet::Techniques {
+            0.85
+        } else {
+            0.95
+        };
         let ok = e.recall() >= found
             && e.precision() >= found
             && e.pitch_accuracy() >= needed
+            && e.technique_accuracy() >= technique_needed
             && e.p95_abs_onset_ms < onset_ms
             && cents_ok;
         failed |= !ok;
         println!(
-            "{:<14} {:>6} {:>7.1}% {:>8.1}% {:>6.1}% {:>9.2} {:>8.2} {:>8.2} {:>8.2} {}",
+            "{:<14} {:>6} {:>7.1}% {:>8.1}% {:>6.1}% {:>6.1}% {:>9.2} {:>8.2} {:>8.2} {:>8.2} {}",
             set.name(),
             e.annotated,
             e.recall() * 100.0,
             e.precision() * 100.0,
             e.pitch_accuracy() * 100.0,
+            e.technique_accuracy() * 100.0,
             e.p95_abs_onset_ms,
             e.mean_abs_cents,
             e.p95_abs_cents,

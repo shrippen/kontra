@@ -109,6 +109,7 @@ fn a_keyboard_profile_needs_no_strings() {
             confidence: 1.0,
             level_db: -6.0,
             source: InputSource::Midi,
+            technique: None,
         })
         .collect();
     let mut session = Session::new(a, Mode::Song, ScoreSettings::default());

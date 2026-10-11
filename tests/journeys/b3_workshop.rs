@@ -47,6 +47,7 @@ fn play_clean(session: &mut Session, range: LoopRange, until_s: f64) -> Vec<Sess
                     confidence: 0.9,
                     level_db: -12.0,
                     source: InputSource::Line,
+                    technique: None,
                 });
             }
         }
