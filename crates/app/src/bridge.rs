@@ -42,6 +42,9 @@ pub mod qobject {
         #[qproperty(bool, clipped)]
         #[qproperty(QString, tuner_note, cxx_name = "tunerNote")]
         #[qproperty(f64, tuner_midi, cxx_name = "tunerMidi")]
+        /// Level advice (LH-EIN-03/04): "", "silent", "quiet", "good", "loud", "clip".
+        #[qproperty(QString, level_state, cxx_name = "levelState")]
+        #[qproperty(bool, suggest_laptop, cxx_name = "suggestLaptop")]
         /// Ear training state (LH-LRN-03), see `Core::ear_json`; "" when none runs.
         #[qproperty(QString, ear_state, cxx_name = "earState")]
         /// Open strings for guided tuning: `[{"name", "midi"}]`, lowest first.
@@ -587,6 +590,8 @@ pub struct ControllerRust {
     clipped: bool,
     tuner_note: QString,
     tuner_midi: f64,
+    level_state: QString,
+    suggest_laptop: bool,
     ear_state: QString,
     tuning_json: QString,
     tuner_cents: f64,
@@ -719,6 +724,8 @@ impl Default for ControllerRust {
             clipped: false,
             tuner_note: QString::default(),
             ear_state: QString::default(),
+            level_state: QString::default(),
+            suggest_laptop: false,
             tuner_midi: 0.0,
             tuning_json: q(&core.tuning_json()),
             tuner_cents: 0.0,
@@ -1184,6 +1191,13 @@ impl qobject::Controller {
                     self.as_mut().set_tuner_midi(midi);
                 }
                 UiEvent::Ear(state) => self.as_mut().set_ear_state(q(&state)),
+                UiEvent::LevelAdvice {
+                    state,
+                    suggest_laptop,
+                } => {
+                    self.as_mut().set_level_state(q(state));
+                    self.as_mut().set_suggest_laptop(suggest_laptop);
+                }
                 UiEvent::Message(text) => self.as_mut().set_message(q(&text)),
                 UiEvent::Error(text) => self.as_mut().show_error(&text),
                 UiEvent::InputOffer { id, text } => {
