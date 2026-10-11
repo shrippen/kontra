@@ -93,7 +93,8 @@ pub(crate) fn arrangement(score: &Score, index: usize) -> Result<Arrangement, Im
     Ok(arrangement)
 }
 
-/// General MIDI percussion key as one of the synthesised drums; toms and cymbals are left out.
+/// General MIDI percussion key as one of the synthesised drums; toms and crashes are left out,
+/// the ride (51) keeps time like a hi-hat and plays as one.
 fn drum_kind(key: Pitch) -> Option<DrumKind> {
     match key.0 {
         35 | 36 => Some(DrumKind::Kick),
