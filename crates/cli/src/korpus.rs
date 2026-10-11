@@ -87,10 +87,7 @@ fn check(dir: Option<&Path>) -> CliResult {
             && e.pitch_accuracy() >= needed
             && e.p95_abs_onset_ms < onset_ms
             && cents_ok;
-        // Goals not reached yet are shown, not enforced (ROADMAP: LH-EIN-11, backing in the
-        // room); the CI fails only on sets that have reached their target.
-        let goal = set == KorpusSet::RoomDoubleBacking;
-        failed |= !ok && !goal;
+        failed |= !ok;
         println!(
             "{:<14} {:>6} {:>7.1}% {:>8.1}% {:>6.1}% {:>9.2} {:>8.2} {:>8.2} {:>8.2} {}",
             set.name(),
@@ -102,11 +99,7 @@ fn check(dir: Option<&Path>) -> CliResult {
             e.mean_abs_cents,
             e.p95_abs_cents,
             e.max_abs_cents,
-            match (ok, goal) {
-                (true, _) => "ok",
-                (false, true) => "goal not yet reached",
-                (false, false) => "FAILED",
-            }
+            if ok { "ok" } else { "FAILED" }
         );
     }
     if failed {

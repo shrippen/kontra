@@ -604,7 +604,7 @@ mod tests {
     /// stage has learnt the way; what the reference does not hold stays.
     #[test]
     fn echo_stage_removes_what_played() {
-        let (mut tx, rx) = rtrb::RingBuffer::<f32>::new(96_000 * 2);
+        let (mut tx, rx) = rtrb::RingBuffer::<f32>::new(48_000 * 10);
         let reference = Reference {
             samples: rx,
             armed: Arc::new(AtomicBool::new(false)),
@@ -612,7 +612,7 @@ mod tests {
         };
         let mut stage = EchoStage::new(reference, 48_000.0);
         let mut noise = kontra_dsp::synth::Noise::new(9);
-        let band: Vec<f32> = (0..48_000 * 4).map(|_| noise.sample() * 0.3).collect();
+        let band: Vec<f32> = (0..48_000 * 10).map(|_| noise.sample() * 0.3).collect();
         for &s in &band {
             tx.push(s).unwrap();
         }
@@ -623,7 +623,7 @@ mod tests {
         let mut cleaned = Vec::new();
         stage.push(&mic, 0.0, |b| cleaned.extend_from_slice(b));
         let energy = |s: &[f32]| s.iter().map(|x| x * x).sum::<f32>();
-        let late = 48_000 * 3..cleaned.len();
+        let late = 48_000 * 7..cleaned.len();
         let drop = 10.0 * (energy(&cleaned[late.clone()]) / energy(&mic[late])).log10();
         assert!(drop < -30.0, "{drop} dB");
     }

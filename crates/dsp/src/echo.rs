@@ -27,8 +27,9 @@ const FFT: usize = 2 * ECHO_BLOCK;
 /// Filter length in blocks.
 const PARTITIONS: usize = 16;
 /// Step size of the normalised update; small, because the bass plays all the time ("double
-/// talk") and would otherwise pull the filter away.
-const STEP: f32 = 1.0;
+/// talk") and would otherwise pull the filter away. Corpus "room-double-backing": 0.2 gives
+/// 92.9 % right pitch, 1.0 only 84.7 % (it learns faster but follows the bass).
+const STEP: f32 = 0.2;
 /// Smoothing of the reference and error power per bin (per block).
 const POWER_SMOOTHING: f32 = 0.9;
 /// Keeps the update finite in silent bins.
@@ -218,7 +219,7 @@ mod tests {
     #[test]
     fn learns_the_room_and_removes_the_band() {
         let mut noise = Noise::new(3);
-        let band: Vec<f32> = (0..48_000 * 6).map(|_| noise.sample() * 0.3).collect();
+        let band: Vec<f32> = (0..48_000 * 10).map(|_| noise.sample() * 0.3).collect();
         let heard = through_room(&band);
         let mut canceller = EchoCanceller::new();
         let mut cleaned = Vec::new();
@@ -228,8 +229,8 @@ mod tests {
             canceller.process(&mut block, reference);
             cleaned.extend(block);
         }
-        // After 3 s the band is 30 dB down.
-        let tail = 48_000 * 3..cleaned.len().min(heard.len());
+        // After 7 s the band is 30 dB down.
+        let tail = 48_000 * 7..cleaned.len().min(heard.len());
         let drop = 10.0 * (energy(&cleaned[tail.clone()]) / energy(&heard[tail])).log10();
         assert!(drop < -30.0, "{drop} dB");
     }
@@ -238,7 +239,7 @@ mod tests {
     fn keeps_what_the_band_did_not_play() {
         // The bass (a sine nobody sent to the speakers) survives while the band goes.
         let mut noise = Noise::new(5);
-        let band: Vec<f32> = (0..48_000 * 6).map(|_| noise.sample() * 0.3).collect();
+        let band: Vec<f32> = (0..48_000 * 10).map(|_| noise.sample() * 0.3).collect();
         let bass: Vec<f32> = (0..band.len())
             .map(|i| 0.3 * (std::f32::consts::TAU * 55.0 * i as f32 / 48_000.0).sin())
             .collect();
@@ -255,7 +256,7 @@ mod tests {
             canceller.process(&mut block, reference);
             cleaned.extend(block);
         }
-        let tail = 48_000 * 4..cleaned.len().min(heard.len());
+        let tail = 48_000 * 7..cleaned.len().min(heard.len());
         let residue: Vec<f32> = cleaned[tail.clone()]
             .iter()
             .zip(&bass[tail.clone()])
