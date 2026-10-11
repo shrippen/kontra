@@ -544,6 +544,11 @@ pub mod qobject {
         #[cxx_name = "extraNote"]
         fn extra_note(self: Pin<&mut Self>);
 
+        /// How a note's technique was played (LH-BEW-06): Kante's keys, e.g. "slide", "played".
+        #[qsignal]
+        #[cxx_name = "noteTechnique"]
+        fn note_technique(self: Pin<&mut Self>, index: i32, technique: QString, result: QString);
+
         #[qsignal]
         #[cxx_name = "passComplete"]
         fn pass_complete(self: Pin<&mut Self>, clean: bool, hit_rate: f64);
@@ -1176,6 +1181,17 @@ impl qobject::Controller {
                     );
                 }
                 UiEvent::Extra => self.as_mut().extra_note(),
+                UiEvent::Technique {
+                    index,
+                    technique,
+                    result,
+                } => {
+                    self.as_mut().note_technique(
+                        i32::try_from(index).unwrap_or(-1),
+                        q(technique),
+                        q(result),
+                    );
+                }
                 UiEvent::Holding { index, text } => {
                     self.as_mut()
                         .set_holding_index(i32::try_from(index).unwrap_or(-1));
@@ -1718,7 +1734,6 @@ impl qobject::Controller {
     }
 
     fn change_transpose(mut self: Pin<&mut Self>, semitones: i32) {
-        self.as_mut().set_playing(false);
         if let Err(text) = self.as_mut().core().set_transpose(semitones) {
             self.as_mut().show_error(&text);
         }

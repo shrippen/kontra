@@ -4,6 +4,7 @@
 use crate::expected::ChordTones;
 use crate::expected::ExpectedNote;
 use crate::settings::ScoreSettings;
+use kontra_model::Technique;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -62,6 +63,11 @@ impl Matcher {
         &self.expected
     }
 
+    /// The same attacks with other pitches (transposed while playing); what was judged stays.
+    pub(crate) fn retarget(&mut self, expected: Vec<ExpectedNote>) {
+        self.expected = expected;
+    }
+
     pub(crate) fn is_resolved(&self, pass: u32, slot: usize) -> bool {
         self.resolved.contains(&(pass, slot))
     }
@@ -87,12 +93,15 @@ impl Matcher {
     }
 
     /// Scores a note played at `position_s` in `pass`. `speed` converts the real timing window
-    /// into arrangement seconds; `range` limits candidates to the loop.
+    /// into arrangement seconds; `range` limits candidates to the loop. A ghost note played as
+    /// one hits a ghost note of the score whatever its pitch: a muted string has none.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn score(
         &mut self,
         pass: u32,
         position_s: f64,
         midi: f64,
+        technique: Option<Technique>,
         speed: f64,
         settings: &ScoreSettings,
         range: (f64, f64),
@@ -105,10 +114,15 @@ impl Matcher {
                 && !self.resolved.contains(&(pass, *slot))
         });
         let cents_of = |e: &ExpectedNote| e.cents_from(midi);
+        let muted = |e: &ExpectedNote| e.ghost && technique == Some(Technique::Ghost);
         // Rank candidates: in tune before off pitch before wrong, then by distance.
         let mut best: Option<(usize, u8, f64)> = None;
         for (slot, e) in candidates {
-            let rank = pitch_rank(cents_of(e), settings.pitch_cents);
+            let rank = if muted(e) {
+                0
+            } else {
+                pitch_rank(cents_of(e), settings.pitch_cents)
+            };
             let distance = (e.position_s - position_s).abs();
             let better = match best {
                 None => true,
@@ -133,14 +147,22 @@ impl Matcher {
         };
         self.resolved.insert((pass, slot));
         let e = self.expected[slot];
-        let outcome = pitch_outcome(cents_of(&e), settings.pitch_cents, midi);
+        let (outcome, cents) = if muted(&e) {
+            (Outcome::Hit, None)
+        } else {
+            let cents = cents_of(&e);
+            (
+                pitch_outcome(cents, settings.pitch_cents, midi),
+                Some(cents),
+            )
+        };
         NoteResult {
             pass,
             note: Some(e.index),
             bar: e.bar,
             outcome,
             offset_ms: Some((position_s - e.position_s) / speed * 1000.0),
-            cents: Some(cents_of(&e)),
+            cents,
             position_s: e.position_s,
         }
     }
@@ -179,6 +201,7 @@ mod tests {
                 midi: 28,
                 bar: Some(0),
                 chord: ChordTones::default(),
+                ghost: false,
             },
             ExpectedNote {
                 index: 1,
@@ -186,6 +209,7 @@ mod tests {
                 midi: 33,
                 bar: Some(0),
                 chord: ChordTones::default(),
+                ghost: false,
             },
             ExpectedNote {
                 index: 2,
@@ -193,6 +217,7 @@ mod tests {
                 midi: 28,
                 bar: Some(1),
                 chord: ChordTones::default(),
+                ghost: false,
             },
         ])
     }
@@ -202,7 +227,7 @@ mod tests {
     #[test]
     fn prefers_in_tune_candidate() {
         let mut m = matcher();
-        let r = m.score(0, 1.02, 33.1, 1.0, &ScoreSettings::default(), ALL);
+        let r = m.score(0, 1.02, 33.1, None, 1.0, &ScoreSettings::default(), ALL);
         assert_eq!(r.note, Some(1));
         assert!(r.is_hit());
         assert!((r.offset_ms.unwrap() + 30.0).abs() < 1e-6);
@@ -215,29 +240,45 @@ mod tests {
             pitch_cents: 30.0,
             ..ScoreSettings::default()
         };
-        let r = m.score(0, 2.0, 28.4, 1.0, &tight, ALL);
+        let r = m.score(0, 2.0, 28.4, None, 1.0, &tight, ALL);
         assert_eq!(r.outcome, Outcome::OffPitch);
         assert!((r.cents.unwrap() - 40.0).abs() < 1e-6);
-        let r = m.score(0, 1.0, 28.2, 1.0, &tight, ALL);
+        let r = m.score(0, 1.0, 28.2, None, 1.0, &tight, ALL);
         assert!(r.is_hit());
-        let r = m.score(0, 1.05, 33.6, 1.0, &tight, ALL);
+        let r = m.score(0, 1.05, 33.6, None, 1.0, &tight, ALL);
         assert!(matches!(r.outcome, Outcome::WrongPitch { .. }));
     }
 
     #[test]
     fn wrong_pitch_and_extra() {
         let mut m = matcher();
-        let r = m.score(0, 2.01, 30.0, 1.0, &ScoreSettings::default(), ALL);
+        let r = m.score(0, 2.01, 30.0, None, 1.0, &ScoreSettings::default(), ALL);
         assert!(matches!(r.outcome, Outcome::WrongPitch { .. }));
-        let r = m.score(0, 3.0, 30.0, 1.0, &ScoreSettings::default(), ALL);
+        let r = m.score(0, 3.0, 30.0, None, 1.0, &ScoreSettings::default(), ALL);
         assert!(matches!(r.outcome, Outcome::Extra { .. }));
+    }
+
+    #[test]
+    fn ghost_note_is_not_judged_by_pitch() {
+        let mut m = Matcher::new(vec![ExpectedNote {
+            index: 0,
+            position_s: 1.0,
+            midi: 28,
+            bar: Some(0),
+            chord: ChordTones::default(),
+            ghost: true,
+        }]);
+        let settings = ScoreSettings::default();
+        let r = m.score(0, 1.0, 0.0, Some(Technique::Ghost), 1.0, &settings, ALL);
+        assert!(r.is_hit());
+        assert_eq!(r.cents, None);
     }
 
     #[test]
     fn window_scales_with_speed() {
         let mut m = matcher();
         // 50 ms real at half speed is 25 ms of arrangement time.
-        let r = m.score(0, 2.025, 28.0, 0.5, &ScoreSettings::default(), ALL);
+        let r = m.score(0, 2.025, 28.0, None, 0.5, &ScoreSettings::default(), ALL);
         assert!(r.is_hit());
         assert!((r.offset_ms.unwrap() - 50.0).abs() < 1e-6);
     }

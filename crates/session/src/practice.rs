@@ -148,6 +148,20 @@ impl<O: Output> Practice<O> {
         self.reschedule();
     }
 
+    /// Transposes while playing (LH-WIE-02): `arrangement` is the piece moved by `semitones`
+    /// (notes laid out again by `content`). The run goes on; the backing shifts in the mixer
+    /// and the reference tones follow from now. False when the notes differ in more than
+    /// pitch: then nothing changed.
+    pub fn retarget(&mut self, arrangement: Arrangement, semitones: i32) -> bool {
+        if !self.session.retarget(arrangement) {
+            return false;
+        }
+        self.options.transpose_semitones = semitones;
+        self.output.set_transpose(semitones as f32);
+        self.reschedule();
+        true
+    }
+
     /// Starts after the count-in.
     pub fn play(&mut self) {
         let start = self.clock.now_s() + START_LEAD_S;

@@ -74,6 +74,44 @@ KanteCard {
             countText: texts.t("histogram.count")
             accessibleName: texts.t("histogram.name")
         }
+        // Techniques apart from the hit rate (LH-BEW-06, round 9): sign and count per technique;
+        // all played shows a framed sign, otherwise a struck one (shape, not colour alone).
+        readonly property var techniques: sheet.summary && sheet.summary.techniques ? sheet.summary.techniques : []
+        readonly property string untold: sheet.summary && sheet.summary.untoldText ? sheet.summary.untoldText : ""
+        KanteSectionLabel {
+            text: texts.t("summary.techniques")
+            visible: content.techniques.length > 0 || content.untold !== ""
+        }
+        Flow {
+            Layout.fillWidth: true
+            visible: content.techniques.length > 0
+            spacing: KanteStyle.unit(16)
+            Repeater {
+                model: content.techniques
+                delegate: RowLayout {
+                    required property var modelData
+                    spacing: KanteStyle.unit(6)
+                    KanteTechniqueMark {
+                        Layout.preferredHeight: KanteStyle.unit(18)
+                        Layout.preferredWidth: implicitWidth
+                        technique: modelData.technique
+                        result: modelData.played === modelData.judged ? "played" : "other"
+                    }
+                    QQC2.Label {
+                        text: modelData.text
+                        color: KanteStyle.textColor
+                    }
+                }
+            }
+        }
+        QQC2.Label {
+            Layout.fillWidth: true
+            visible: content.techniques.length > 0 || content.untold !== ""
+            wrapMode: Text.WordWrap
+            text: [content.techniques.length > 0 ? texts.t("summary.techniques.note") : "", content.untold].filter(function(t) { return t !== "" }).join(" ")
+            color: KanteStyle.mutedTextColor
+        }
+
         KanteSectionLabel {
             text: texts.t("summary.hardest")
             visible: sheet.summary && sheet.summary.hardestBars.length > 0

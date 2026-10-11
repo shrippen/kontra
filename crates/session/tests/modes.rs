@@ -301,3 +301,46 @@ fn off_pitch_is_its_own_outcome() {
     assert_eq!((summary.off_pitch, summary.wrong, summary.hits), (1, 0, 0));
     assert!((summary.mean_abs_cents.unwrap() - 40.0).abs() < 1e-6);
 }
+
+/// LH-WIE-02 while playing: transposed by +2 after the second note, the run goes on; the two
+/// notes before stay hits, the rest are judged against the new pitches.
+#[test]
+fn transposing_while_playing_keeps_the_run() {
+    let mut s = Session::new(riff(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    run_from(&mut s, &[played(0.0, 28.0), played(0.5, 33.0)], 0.0, 0.8);
+    let mut up = riff();
+    for n in &mut up.notes {
+        n.pitch = Pitch(n.pitch.0 + 2);
+    }
+    assert!(s.retarget(up));
+    let later: Vec<DetectedNote> = [38u8, 43, 28, 33, 38, 43]
+        .iter()
+        .enumerate()
+        .map(|(i, m)| played(1.0 + i as f64 * 0.5, f64::from(*m + 2)))
+        .collect();
+    run_from(&mut s, &later, 0.81, 4.5);
+    let summary = s.summary();
+    assert_eq!((summary.hits, summary.judged), (8, 8), "{:?}", s.results());
+
+    let mut shorter = riff();
+    shorter.notes.pop();
+    assert!(!s.retarget(shorter), "other notes: no swap");
+}
+
+/// Like `run`, from `from` (the clock already ran to there).
+fn run_from(session: &mut Session, notes: &[DetectedNote], from: f64, until: f64) {
+    let mut pending: Vec<DetectedNote> = notes.to_vec();
+    let mut t = from;
+    while t <= until {
+        pending.retain(|n| {
+            if n.onset_s + 0.08 <= t {
+                session.on_note(n);
+                return false;
+            }
+            true
+        });
+        session.update(t);
+        t += 0.01;
+    }
+}

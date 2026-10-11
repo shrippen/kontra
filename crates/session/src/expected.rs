@@ -14,6 +14,9 @@ pub struct ExpectedNote {
     pub bar: Option<usize>,
     /// Further notes struck together with this one (a chord); `midi` is the lowest.
     pub chord: ChordTones,
+    /// A ghost note: muted, without a pitch to judge (LH-BEW-06).
+    #[serde(default)]
+    pub ghost: bool,
 }
 
 impl ExpectedNote {
@@ -87,6 +90,7 @@ pub fn expected_notes(arrangement: &Arrangement) -> Vec<ExpectedNote> {
             midi: n.pitch.0,
             bar: arrangement.bar_at(n.start_ticks),
             chord: ChordTones::default(),
+            ghost: n.techniques.contains(&kontra_model::Technique::Ghost),
         });
     }
     out

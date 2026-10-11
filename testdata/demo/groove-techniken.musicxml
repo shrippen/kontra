@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<score-partwise><part-list><score-part id="P1"><part-name>Bass</part-name></score-part></part-list>
+<part id="P1">
+<measure number="1"><attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+<sound tempo="120"/>
+<note><pitch><step>E</step><octave>1</octave></pitch><duration>1</duration><notations><technical><hammer-on type="start"/><string>4</string><fret>0</fret></technical></notations></note>
+<note><pitch><step>F</step><alter>1</alter><octave>1</octave></pitch><duration>1</duration><notations><technical><hammer-on type="stop"/><pull-off type="start"/><string>4</string><fret>2</fret></technical></notations></note>
+<note><pitch><step>E</step><octave>1</octave></pitch><duration>1</duration><notations><technical><pull-off type="stop"/><string>4</string><fret>0</fret></technical></notations></note>
+<note><pitch><step>A</step><octave>1</octave></pitch><duration>1</duration><notations><slide type="start"/><technical><string>4</string><fret>5</fret></technical></notations></note>
+</measure>
+<measure number="2">
+<note><pitch><step>B</step><octave>1</octave></pitch><duration>1</duration><notations><slide type="stop"/><technical><string>4</string><fret>7</fret></technical></notations></note>
+<note><pitch><step>E</step><octave>1</octave></pitch><duration>1</duration><notehead parentheses="yes">normal</notehead><notations><technical><string>4</string><fret>0</fret></technical></notations></note>
+<note><pitch><step>A</step><octave>1</octave></pitch><duration>1</duration><notations><technical><string>3</string><fret>0</fret></technical></notations></note>
+<note><pitch><step>A</step><octave>1</octave></pitch><duration>1</duration><notehead parentheses="yes">normal</notehead><notations><technical><string>3</string><fret>0</fret></technical></notations></note>
+</measure>
+</part></score-partwise>

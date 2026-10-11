@@ -520,5 +520,19 @@
   "backing.clear": "Piece's own tempo",
   "settings.midi.device": "MIDI device",
   "settings.midi.missing": "“{name}” is not connected. Kontra uses “{instead}”.",
-  "settings.midi.missing.none": "“{name}” is not connected, and no other MIDI device is."
+  "settings.midi.missing.none": "“{name}” is not connected, and no other MIDI device is.",
+  "technique.slide": "Slide",
+  "technique.hammer": "Hammer-on",
+  "technique.pull": "Pull-off",
+  "technique.slap": "Slap",
+  "technique.pop": "Pop",
+  "technique.ghost": "Ghost note",
+  "technique.result.played": "technique played",
+  "technique.result.other": "other technique",
+  "technique.result.unheard": "technique not heard",
+  "summary.techniques": "Techniques",
+  "summary.technique": "{technique}: {played} of {judged}",
+  "summary.techniques.untold": "Not judged with this input: {techniques}",
+  "summary.techniques.note": "Does not count towards the hit rate.",
+  "summary.note.technique": "{technique}: {result}"
 }

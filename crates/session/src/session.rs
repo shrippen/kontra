@@ -4,6 +4,7 @@ use crate::expected::expected_notes;
 use crate::matcher::{Matcher, NoteResult, Outcome};
 use crate::settings::ScoreSettings;
 use crate::summary::Summary;
+use crate::technique::{TechniqueJudge, TechniqueResult};
 use crate::transport::{LoopRange, Transport};
 use kontra_model::{Arrangement, DetectedNote};
 
@@ -52,6 +53,8 @@ pub enum Mode {
 #[derive(Debug, Clone, PartialEq)]
 pub enum SessionEvent {
     Result(NoteResult),
+    /// How a note's technique was played (LH-BEW-06); apart from its `Result`.
+    Technique(TechniqueResult),
     /// Wait mode: holding before this note (index into `Arrangement::notes`).
     Holding {
         note: usize,
@@ -74,6 +77,7 @@ pub struct Session {
     settings: ScoreSettings,
     transport: Transport,
     matcher: Matcher,
+    techniques: TechniqueJudge,
     results: Vec<NoteResult>,
     events: Vec<SessionEvent>,
     cursor_pass: u32,
@@ -89,6 +93,7 @@ pub struct Session {
 impl Session {
     pub fn new(arrangement: Arrangement, mode: Mode, settings: ScoreSettings) -> Session {
         let matcher = Matcher::new(expected_notes(&arrangement));
+        let techniques = TechniqueJudge::new(&arrangement, settings.source);
         let transport = Transport::new(arrangement.duration_s());
         Session {
             arrangement,
@@ -96,6 +101,7 @@ impl Session {
             settings,
             transport,
             matcher,
+            techniques,
             results: Vec::new(),
             events: Vec::new(),
             cursor_pass: 0,
@@ -127,6 +133,33 @@ impl Session {
         &self.results
     }
 
+    /// Swaps in the same piece transposed (LH-WIE-02 while playing): with the same attacks at
+    /// the same times, clock, loop and results go on and only the pitches change. Returns false
+    /// (nothing changed) when the notes differ in more than pitch.
+    pub fn retarget(&mut self, arrangement: Arrangement) -> bool {
+        let same_times = arrangement.notes.len() == self.arrangement.notes.len()
+            && arrangement
+                .notes
+                .iter()
+                .zip(&self.arrangement.notes)
+                .all(|(a, b)| {
+                    a.start_ticks == b.start_ticks && a.duration_ticks == b.duration_ticks
+                })
+            && arrangement.tempo == self.arrangement.tempo;
+        if !same_times {
+            return false;
+        }
+        self.matcher.retarget(expected_notes(&arrangement));
+        self.techniques.retarget(&arrangement, self.settings.source);
+        self.arrangement = arrangement;
+        true
+    }
+
+    /// Technique results so far (LH-BEW-06), in the order they were judged.
+    pub fn technique_results(&self) -> &[TechniqueResult] {
+        self.techniques.results()
+    }
+
     pub fn is_finished(&self) -> bool {
         self.finished
     }
@@ -151,6 +184,7 @@ impl Session {
         let (position, pass) = self.transport.position_at(real_s);
         self.cursor_pass = pass;
         self.cursor_slot = self.first_slot_from(position);
+        self.techniques.rewind(pass, position);
         self.band_streak = 0;
     }
 
@@ -160,6 +194,7 @@ impl Session {
         let (position, pass) = self.transport.position_at(real_s);
         self.cursor_pass = pass;
         self.cursor_slot = self.first_slot_from(position);
+        self.techniques.rewind(pass, position);
         self.holding = false;
     }
 
@@ -167,7 +202,7 @@ impl Session {
     pub fn on_note(&mut self, note: &DetectedNote) {
         let real_s = note.onset_s - self.settings.latency_ms / 1000.0;
         if matches!(self.mode, Mode::Wait) {
-            self.wait_note(real_s, note.midi);
+            self.wait_note(real_s, note);
             return;
         }
         let (mut position, mut pass) = self.transport.position_at(real_s);
@@ -186,10 +221,27 @@ impl Session {
                 pass += 1;
             }
         }
-        let result = self
-            .matcher
-            .score(pass, position, note.midi, speed, &self.settings, range);
+        // A hammer-on or pull-off target has no attack: a note there is judged for its technique
+        // only, and is not an extra note.
+        let window = self.settings.strictness.window_ms() / 1000.0 * speed;
+        let legato =
+            self.techniques
+                .judge_legato(pass, position, note.midi, note.technique, window);
+        if let Some(t) = legato {
+            self.events.push(SessionEvent::Technique(t));
+            return;
+        }
+        let result = self.matcher.score(
+            pass,
+            position,
+            note.midi,
+            note.technique,
+            speed,
+            &self.settings,
+            range,
+        );
         self.record(result);
+        self.judge_struck(&result, Some(note.technique));
     }
 
     /// Advances the clock to `real_s`; returns what happened since the last call.
@@ -216,7 +268,30 @@ impl Session {
     }
 
     pub fn summary(&self) -> Summary {
-        Summary::from_results(&self.results, &self.arrangement)
+        let mut summary = Summary::from_results(&self.results, &self.arrangement);
+        summary.techniques = self.techniques.tally();
+        summary.untold_techniques = self.techniques.untold().to_vec();
+        summary
+    }
+
+    /// The technique of a struck note, judged with the matcher's result; `played`: the detected
+    /// technique, `None` for a missed note.
+    fn judge_struck(
+        &mut self,
+        result: &NoteResult,
+        played: Option<Option<kontra_model::Technique>>,
+    ) {
+        let Some(note) = result.note else {
+            return;
+        };
+        let played = if matches!(result.outcome, Outcome::Missed) {
+            None
+        } else {
+            played
+        };
+        if let Some(t) = self.techniques.judge_struck(result.pass, note, played) {
+            self.events.push(SessionEvent::Technique(t));
+        }
     }
 
     fn range(&self) -> (f64, f64) {
@@ -273,26 +348,55 @@ impl Session {
     }
 
     /// Wait mode: compare with the note we wait for, whenever it is played.
-    fn wait_note(&mut self, real_s: f64, midi: f64) {
+    fn wait_note(&mut self, real_s: f64, note: &DetectedNote) {
+        let midi = note.midi;
         let Some(target) = self.matcher.expected().get(self.cursor_slot).copied() else {
             return;
         };
+        // A hammer-on or pull-off before the note we wait for is that legato note, not a wrong
+        // attempt at the next one: judged between the last struck note and this one.
+        let pass = self.transport.pass();
+        let from = self
+            .cursor_slot
+            .checked_sub(1)
+            .and_then(|slot| self.matcher.expected().get(slot))
+            .map_or(0.0, |e| e.position_s);
+        let middle = (from + target.position_s) / 2.0;
+        let half = (target.position_s - from) / 2.0;
+        if let Some(t) = self
+            .techniques
+            .judge_legato(pass, middle, midi, note.technique, half)
+        {
+            self.events.push(SessionEvent::Technique(t));
+            return;
+        }
+        // A ghost note played as one is right whatever its pitch (a muted string has none).
+        let muted = target.ghost && note.technique == Some(kontra_model::Technique::Ghost);
         let cents = target.cents_from(midi);
-        let outcome = crate::matcher::pitch_outcome(cents, self.settings.pitch_cents, midi);
+        let outcome = if muted {
+            Outcome::Hit
+        } else {
+            crate::matcher::pitch_outcome(cents, self.settings.pitch_cents, midi)
+        };
         // An off-pitch note is still the right note: the wait is over.
         let in_tune = !matches!(outcome, Outcome::WrongPitch { .. });
-        let pass = self.transport.pass();
         self.record(NoteResult {
             pass,
             note: Some(target.index),
             bar: target.bar,
             outcome,
             offset_ms: None,
-            cents: Some(cents),
+            cents: (!muted).then_some(cents),
             position_s: target.position_s,
         });
         if !in_tune {
             return;
+        }
+        if let Some(t) = self
+            .techniques
+            .judge_struck(pass, target.index, Some(note.technique))
+        {
+            self.events.push(SessionEvent::Technique(t));
         }
         self.matcher.resolve(pass, self.cursor_slot);
         self.cursor_slot += 1;
@@ -308,6 +412,10 @@ impl Session {
     fn expire(&mut self, real_cutoff: f64) {
         let (position, pass) = self.transport.position_at(real_cutoff);
         let window = self.settings.strictness.window_ms() / 1000.0 * self.transport.speed();
+        let range = self.range();
+        for t in self.techniques.expire(pass, position, window, range) {
+            self.events.push(SessionEvent::Technique(t));
+        }
         loop {
             if self.cursor_pass > pass {
                 return;
@@ -327,7 +435,7 @@ impl Session {
             }
             if !self.matcher.is_resolved(self.cursor_pass, self.cursor_slot) {
                 self.matcher.resolve(self.cursor_pass, self.cursor_slot);
-                self.record(NoteResult {
+                let missed = NoteResult {
                     pass: self.cursor_pass,
                     note: Some(e.index),
                     bar: e.bar,
@@ -335,7 +443,9 @@ impl Session {
                     offset_ms: None,
                     cents: None,
                     position_s: e.position_s,
-                });
+                };
+                self.record(missed);
+                self.judge_struck(&missed, None);
             }
             self.cursor_slot += 1;
         }
