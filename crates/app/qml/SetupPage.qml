@@ -94,7 +94,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             RowLayout {
                 KanteSectionLabel { text: texts.t("settings.connection") }
-                InfoTip { term: "Hi-Z"; info: texts.t("help.hiz") }
+                KanteInfoTip { term: "Hi-Z"; info: texts.t("help.hiz"); accessibleName: texts.t("help.about", { term: "Hi-Z" }) }
             }
             // LH-EIN-10: MIDI and microphone are entries marked as coming later.
             ConnectionChoice { Layout.fillWidth: true }
@@ -170,7 +170,7 @@ Kirigami.ScrollablePage {
             RowLayout {
                 Layout.fillWidth: true
                 QQC2.Label { text: texts.t("calibration.hint"); wrapMode: Text.WordWrap; Layout.fillWidth: true; color: KanteStyle.textColor }
-                InfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency") }
+                KanteInfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency"); accessibleName: texts.t("help.about", { term: texts.t("settings.latency") }) }
             }
             RowLayout {
                 KanteButton {

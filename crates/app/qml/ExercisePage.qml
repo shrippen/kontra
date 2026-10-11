@@ -96,7 +96,7 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("exercises.tempo")
-            QQC2.SpinBox {
+            KanteSpinBox {
                 Accessible.name: texts.t("exercises.tempo")
                 from: 40
                 to: 200

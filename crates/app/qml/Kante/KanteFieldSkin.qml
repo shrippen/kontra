@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Shapes
-import org.kde.kirigami as Kirigami
 import "."
 
 /**
@@ -133,6 +132,23 @@ Item {
     readonly property bool spinBox: control !== null && control.up !== undefined && control.down !== undefined
         && control.up.indicator !== undefined && control.down.indicator !== undefined
 
+    // A spin box at its upper (dir 1) or lower (dir -1) limit, or disabled: + or − does nothing (1.28).
+    function atLimit(dir) {
+        if (!spinBox) {
+            return false
+        }
+        var c = control
+        if (!c.enabled) {
+            return true
+        }
+        if (c.wrap) {
+            return false
+        }
+        var top = Math.max(c.from, c.to), bottom = Math.min(c.from, c.to)
+        var up = c.from <= c.to ? dir > 0 : dir < 0
+        return up ? c.value >= top : c.value <= bottom
+    }
+
     // The desktop style gives a spin box the View colour set, so its text takes the
     // platform's text colour (dark on Kante dark under Breeze Light): bind Kante's.
     Binding {
@@ -165,6 +181,7 @@ Item {
         text: "+"
         font: KanteStyle.monoFont(KanteStyle.defaultFont.pointSize, true)
         color: skin.spinBox && skin.control.up.pressed ? KanteStyle.accentTextColor : KanteStyle.mutedTextColor
+        opacity: skin.atLimit(1) ? 0.4 : 1
     }
     Text {
         visible: KanteStyle.themed && skin.spinBox && skin.control.down.indicator !== null
@@ -173,5 +190,6 @@ Item {
         text: "−"
         font: KanteStyle.monoFont(KanteStyle.defaultFont.pointSize, true)
         color: skin.spinBox && skin.control.down.pressed ? KanteStyle.accentTextColor : KanteStyle.mutedTextColor
+        opacity: skin.atLimit(-1) ? 0.4 : 1
     }
 }

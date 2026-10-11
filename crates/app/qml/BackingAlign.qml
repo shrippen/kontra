@@ -83,7 +83,7 @@ KanteCard {
                 Layout.fillWidth: true
                 title: texts.t("backing.bar")
                 RowLayout {
-                    QQC2.SpinBox {
+                    KanteSpinBox {
                         Accessible.name: texts.t("backing.barnumber")
                         from: 1
                         to: Math.max(1, sheet.info.bars || 1)

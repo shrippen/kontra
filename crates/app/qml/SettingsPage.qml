@@ -86,7 +86,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.connection")
             hint: ctl.laptopJack ? texts.t("hint.laptop") : ""
-            InfoTip { term: "Hi-Z"; info: texts.t("help.hiz") }
+            KanteInfoTip { term: "Hi-Z"; info: texts.t("help.hiz"); accessibleName: texts.t("help.about", { term: "Hi-Z" }) }
         }
         // LH-EIN-10: inputs that come later are entries of the choice, not left out (QA P5, P6).
         ConnectionChoice { Layout.fillWidth: true }
@@ -110,7 +110,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("settings.reference")
             hint: texts.t("settings.reference.hint")
-            QQC2.SpinBox {
+            KanteSpinBox {
                 Accessible.name: texts.t("settings.reference")
                 from: 430
                 to: 450
@@ -171,7 +171,6 @@ Kirigami.ScrollablePage {
             strings: ctl.strings
             stringNames: JSON.parse(ctl.profileTuningJson).map(function(s) { return s.name })
             lowStringOnTop: ctl.lowStringOnTop
-            stringColors: applicationWindow().stringColors
             barNumbers: false
             playLine: 0.05
             pixelsPerSecond: KanteStyle.unit(90)
@@ -225,7 +224,7 @@ Kirigami.ScrollablePage {
                     onActivated: function(index) { ctl.changeScoring(values[index], ctl.pitchCents) }
                 }
                 // Free window in ms (LH-BEW-02), ± around the beat.
-                QQC2.SpinBox {
+                KanteSpinBox {
                     visible: ctl.strictness === "custom"
                     Accessible.name: texts.t("settings.window.ms")
                     from: 20
@@ -286,7 +285,7 @@ Kirigami.ScrollablePage {
             title: texts.t("settings.latency")
             hint: texts.t("settings.latency.hint")
             RowLayout {
-                QQC2.SpinBox {
+                KanteSpinBox {
                     Accessible.name: texts.t("settings.latency")
                     from: 0
                     to: 500
@@ -300,7 +299,7 @@ Kirigami.ScrollablePage {
                     enabled: !ctl.calibrating
                     onClicked: ctl.startCalibration()
                 }
-                InfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency") }
+                KanteInfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency"); accessibleName: texts.t("help.about", { term: texts.t("settings.latency") }) }
             }
         }
         QQC2.Label {

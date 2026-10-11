@@ -36,6 +36,7 @@ KanteHeardLine 1.0 KanteHeardLine.qml
 KanteHeatmap 1.0 KanteHeatmap.qml
 KanteHintCard 1.0 KanteHintCard.qml
 KanteHud 1.0 KanteHud.qml
+KanteInfoTip 1.0 KanteInfoTip.qml
 KanteKpi 1.0 KanteKpi.qml
 KanteLamp 1.0 KanteLamp.qml
 KanteLevelMeter 1.0 KanteLevelMeter.qml
@@ -70,6 +71,7 @@ KanteSheetSkin 1.0 KanteSheetSkin.qml
 KanteSkeleton 1.0 KanteSkeleton.qml
 KanteSliderSkin 1.0 KanteSliderSkin.qml
 KanteSparkline 1.0 KanteSparkline.qml
+KanteSpinBox 1.0 KanteSpinBox.qml
 KanteStatusLight 1.0 KanteStatusLight.qml
 KanteSteps 1.0 KanteSteps.qml
 KanteSticker 1.0 KanteSticker.qml

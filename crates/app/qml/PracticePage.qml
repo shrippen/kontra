@@ -244,7 +244,7 @@ Kirigami.Page {
             visible: !page.presenting
             spacing: KanteStyle.unit(8)
             KanteHud { fullText: texts.t("transpose.title"); color: KanteStyle.mutedTextColor }
-            QQC2.SpinBox {
+            KanteSpinBox {
                 from: -ctl.transposeMax
                 to: ctl.transposeMax
                 value: ctl.transpose
@@ -274,7 +274,7 @@ Kirigami.Page {
             property string lastChange: ""
 
             KanteHud { fullText: texts.t("workshop.bars"); color: KanteStyle.mutedTextColor }
-            QQC2.SpinBox {
+            KanteSpinBox {
                 id: fromSpin
                 from: 1
                 to: Math.max(1, page.bars.length)
@@ -284,7 +284,7 @@ Kirigami.Page {
                 onValueModified: ctl.loopBars(value - 1, Math.max(value, toSpin.value) - 1)
             }
             QQC2.Label { text: texts.t("workshop.to"); color: KanteStyle.textColor }
-            QQC2.SpinBox {
+            KanteSpinBox {
                 id: toSpin
                 from: 1
                 to: Math.max(1, page.bars.length)
@@ -311,8 +311,9 @@ Kirigami.Page {
                         + (workshopRow.lastChange !== "" ? " · " + workshopRow.lastChange : "")
                 }
             }
-            InfoTip {
+            KanteInfoTip {
                 term: texts.t("help.band.term")
+                accessibleName: texts.t("help.about", { term: texts.t("help.band.term") })
                 info: texts.t("help.band", { low: Math.round(ctl.bandLow * 100), high: Math.round(ctl.bandHigh * 100) })
             }
             Item { Layout.fillWidth: true }
@@ -417,7 +418,6 @@ Kirigami.Page {
                 strings: page.stringNames.length
                 stringNames: page.stringNames
                 lowStringOnTop: ctl.lowStringOnTop
-                stringColors: applicationWindow().stringColors
                 notes: page.notes
                 marks: page.marks
                 onNotesChanged: Qt.callLater(function() { page.catchUp(lane) })
