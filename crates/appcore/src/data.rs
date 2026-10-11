@@ -132,6 +132,7 @@ mod tests {
             tags: Vec::new(),
             sections: Default::default(),
             densities: Default::default(),
+            transpose_semitones: 0,
         }
     }
 

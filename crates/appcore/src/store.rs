@@ -189,6 +189,9 @@ pub struct RecentEntry {
     /// Note density per section (LH-MOD-06); none stored: all notes.
     #[serde(default)]
     pub densities: Vec<SectionDensity>,
+    /// Piece and backing track moved by semitones (LH-WIE-02), −6..=6.
+    #[serde(default)]
+    pub transpose_semitones: i32,
 }
 
 /// Note density chosen for a section (`None`: the whole piece), 1 (few notes) to 3 (all).
@@ -278,6 +281,9 @@ impl Library {
             }
             if entry.densities.is_empty() {
                 entry.densities = old.densities.clone();
+            }
+            if entry.transpose_semitones == 0 {
+                entry.transpose_semitones = old.transpose_semitones;
             }
         }
         self.recent.retain(|e| e.path != entry.path);
@@ -377,6 +383,7 @@ mod tests {
             tags: Vec::new(),
             sections: Vec::new(),
             densities: Vec::new(),
+            transpose_semitones: 0,
         };
         library.touch(entry("a"));
         library.touch(entry("b"));
