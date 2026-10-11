@@ -102,6 +102,9 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
   `main`). `scripts/gitea/merge-when-green.sh PR SHA` wartet auf die neuesten core- und app-Läufe und merged nur, wenn
   beide grün sind und der Kopf unverändert ist. Die Actions-Liste der API zeigt ohne `limit=50` nur 10 Läufe, und ältere
   abgebrochene Läufe zum selben Commit täuschen: immer nur den neuesten Lauf je Job werten.
+- PR-Agent schreibt sein Review einmal und aktualisiert danach denselben Kommentar („Review updated until
+  commit <sha>“, neues `updated_at`, altes `created_at`). Ein neues Review erkennt man am Commit im Text, nicht am
+  Erstellungsdatum. Kommentare, die nicht mit `/` beginnen, starten keinen Lauf (Status „skipped“).
 - Flatpak baut nur GitHub (`.github/workflows/flatpak.yml`): Die Job-Container des Gitea-Runners erlauben keine
   User-Namespaces. Merge-Kriterium auf Gitea sind die Jobs core und app.
 - Mehrere Arbeitsstände parallel: je Branch ein `git worktree` und ein eigenes `CARGO_TARGET_DIR`, dazu

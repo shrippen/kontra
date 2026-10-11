@@ -17,7 +17,8 @@ fi
 head=$(tea api /repos/shrippen/Kontra/pulls/$1 | python3 -c "import json,sys;print(json.load(sys.stdin)['head']['sha'])")
 case "$head" in $2*) ;; *) echo "head moved: $head"; exit 1;; esac
 
-# A PR-Agent review newer than the head commit.
+# A PR-Agent review of the head commit: a review comment posted after it, or the persistent
+# review (one comment, edited in place) saying "updated until commit <head>".
 reviewed=$(python3 - "$1" "$head" <<'EOF'
 import json, subprocess, sys
 from datetime import datetime
@@ -30,12 +31,14 @@ def api(path):
 commit = api(f"/repos/shrippen/Kontra/git/commits/{sha}") or {}
 since = at(commit.get("created") or commit["commit"]["committer"]["date"])
 reviews = [c for c in api(f"/repos/shrippen/Kontra/issues/{pr}/comments") or []
-           if "PR Reviewer Guide" in c.get("body", "") and at(c["created_at"]) >= since]
+           if "PR Reviewer Guide" in c.get("body", "")
+           and (sha in c["body"] or at(c["created_at"]) >= since)]
 print("yes" if reviews else "no")
 EOF
 )
 if [ "$reviewed" != "yes" ]; then echo "NO REVIEW for $head"; exit 1; fi
 
-tea api -X POST /repos/shrippen/Kontra/pulls/$1/merge -d '{"Do":"merge"}'
+# head_commit_id: Gitea refuses the merge if a push moved the head since the checks above.
+tea api -X POST /repos/shrippen/Kontra/pulls/$1/merge -d "{\"Do\":\"merge\",\"head_commit_id\":\"$head\"}"
 merged=$(tea api /repos/shrippen/Kontra/pulls/$1 | python3 -c "import json,sys;print(json.load(sys.stdin).get('merged'))")
 if [ "$merged" = "True" ]; then echo "MERGED $1"; else echo "MERGE FAILED $1"; exit 1; fi
