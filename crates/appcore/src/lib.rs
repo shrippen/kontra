@@ -6,6 +6,7 @@
 //! ```
 
 mod data;
+pub mod ear;
 mod i18n;
 mod package;
 pub mod quiz;
@@ -24,9 +25,9 @@ pub use store::{
 use kontra_model::{Arrangement, BassKind, InputSource, Tuning};
 use kontra_session::{
     import_file, list_devices, run_from, CalibrationResult, Connection, DeviceInfo, Direction,
-    Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveSetup, LiveTuner, LoopRange, Mode,
-    NoteResult, Outcome, PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings,
-    SessionEvent, Shaping, Summary, Workshop,
+    Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveEar, LiveSetup, LiveTuner,
+    LoopRange, Mode, NoteResult, Outcome, PracticeEvent, PracticeOptions, ProgressStore, Run,
+    ScoreSettings, SessionEvent, Shaping, Summary, Workshop,
 };
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -92,6 +93,8 @@ pub enum UiEvent {
     },
     Message(String),
     Error(String),
+    /// Ear training changed: a note was judged or the prompt ended (`Core::ear_json`).
+    Ear(String),
     /// The audio device failed (unplugged); the run was stopped.
     DeviceLost(String),
     /// Between runs: offer another note density (LH-MOD-06), 1..=3, with the question.
@@ -176,6 +179,11 @@ pub struct Core {
     xruns_done: u64,
     /// Fretboard quiz in progress (LH-LRN-02).
     quiz: Option<quiz::Quiz>,
+    /// Ear training (LH-LRN-03): the round and its audio.
+    ear: Option<ear::EarQuiz>,
+    live_ear: Option<LiveEar>,
+    /// The prompt sounded at the last tick (the UI learns when it may answer).
+    ear_prompting: bool,
 }
 
 impl Core {
@@ -188,6 +196,9 @@ impl Core {
             .map_or_else(Language::from_environment, Language::from_code);
         Core {
             quiz: None,
+            ear: None,
+            live_ear: None,
+            ear_prompting: false,
             notice: None,
             active_setlist: None,
             lost: None,
@@ -616,6 +627,9 @@ impl Core {
         let gains = gains(&self.settings);
         if let Some(live) = self.live.as_mut() {
             live.practice_mut().set_gains(gains);
+        }
+        if let Some(live_ear) = self.live_ear.as_mut() {
+            live_ear.set_gains(gains);
         }
         self.monitor_hint()
     }
@@ -1353,6 +1367,7 @@ impl Core {
             return Err(self.tr("library.empty.hint", &[]));
         };
         self.tuner = None;
+        self.live_ear = None;
         let arrangement = loaded.arrangement.clone();
         let settings = self.score_settings(arrangement.instrument.kind);
         let options = PracticeOptions {
@@ -1382,6 +1397,7 @@ impl Core {
 
     pub fn start_tuner(&mut self) -> Result<(), String> {
         self.stop_live();
+        self.live_ear = None;
         let instrument = self.instrument();
         let tuner = LiveTuner::start(&self.input_choice(), &instrument, self.source())
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
@@ -1402,10 +1418,16 @@ impl Core {
         if let Some(tuner) = self.tuner.as_mut() {
             raw.extend(tuner.poll());
         }
+        if let Some(live_ear) = self.live_ear.as_mut() {
+            raw.extend(live_ear.poll());
+        }
+        let ear_event = self.ear_heard(&mut raw);
         let mut events: Vec<UiEvent> = raw.into_iter().filter_map(|e| self.translate(e)).collect();
+        events.extend(ear_event);
         if events.iter().any(|e| matches!(e, UiEvent::DeviceLost(_))) {
             self.stop_live();
             self.tuner = None;
+            self.live_ear = None;
             events.extend(self.input_lost());
         }
         events.extend(self.watch_lost());
@@ -1457,6 +1479,7 @@ impl Core {
     pub fn start_calibration(&mut self) -> Result<(), String> {
         self.stop_live();
         self.tuner = None;
+        self.live_ear = None;
         let instrument = self.instrument();
         let setup = LiveSetup {
             input: self.input_choice(),
@@ -1802,7 +1825,7 @@ impl Core {
             PracticeEvent::Error(m) => Some(UiEvent::DeviceLost(
                 self.tr("error.device.lost", &[("reason", m)]),
             )),
-            PracticeEvent::InputEnded => None,
+            PracticeEvent::InputEnded | PracticeEvent::Heard { .. } => None,
             PracticeEvent::Session(e) => self.session_event(e),
         }
     }
@@ -2191,6 +2214,193 @@ impl Core {
             "solved": q.solved,
             "score": self.tr("quiz.score", &[("right", q.right.to_string()), ("asked", q.asked.to_string())]),
             "positions": positions,
+        })
+        .to_string()
+    }
+
+    /// Starts ear training ("echo", "interval" or "chord"), plays the first prompt and returns
+    /// `ear_json`.
+    pub fn ear_start(&mut self, kind: &str) -> Result<String, String> {
+        let kind = match kind {
+            "interval" => ear::EarKind::Interval,
+            "chord" => ear::EarKind::ChordRoot,
+            _ => ear::EarKind::Echo,
+        };
+        self.stop_live();
+        self.tuner = None;
+        self.live_ear = None;
+        let instrument = self.instrument();
+        let setup = LiveSetup {
+            input: self.input_choice(),
+            output_device: self.settings.output_device.clone(),
+            source: self.source(),
+            backing: None,
+        };
+        let mut live_ear = LiveEar::start(&setup, &instrument)
+            .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
+        live_ear.set_gains(gains(&self.settings));
+        self.live_ear = Some(live_ear);
+        self.ear = Some(ear::EarQuiz::new(kind, &instrument, time_seed()));
+        self.ear_play();
+        Ok(self.ear_json())
+    }
+
+    pub fn ear_stop(&mut self) {
+        self.live_ear = None;
+        self.ear = None;
+        self.ear_prompting = false;
+    }
+
+    /// Plays the current prompt (again).
+    pub fn ear_play(&mut self) -> String {
+        let (Some(quiz), Some(live_ear)) = (&self.ear, self.live_ear.as_mut()) else {
+            return self.ear_json();
+        };
+        live_ear.play(&quiz.question.tones);
+        self.ear_prompting = live_ear.is_prompting();
+        self.ear_json()
+    }
+
+    /// Next question, played at once.
+    pub fn ear_next(&mut self) -> String {
+        let instrument = self.instrument();
+        if let Some(quiz) = self.ear.as_mut() {
+            quiz.next(&instrument);
+        }
+        self.ear_play()
+    }
+
+    /// Judges a played note (fractional MIDI); the UI gets the new state.
+    pub fn ear_answer(&mut self, midi: f64) -> String {
+        if let Some(quiz) = self.ear.as_mut() {
+            quiz.answer(midi);
+        }
+        self.ear_json()
+    }
+
+    /// Takes the answers out of `raw` and judges them; returns the new state when it changed
+    /// (a note was judged or the prompt has ended).
+    fn ear_heard(&mut self, raw: &mut Vec<PracticeEvent>) -> Option<UiEvent> {
+        let mut changed = false;
+        raw.retain(|event| {
+            let PracticeEvent::Heard { midi } = event else {
+                return true;
+            };
+            if let Some(quiz) = self.ear.as_mut() {
+                changed |= quiz.answer(*midi) != ear::Verdict::Ignored;
+            }
+            false
+        });
+        let prompting = self.live_ear.as_ref().is_some_and(LiveEar::is_prompting);
+        changed |= prompting != self.ear_prompting;
+        self.ear_prompting = prompting;
+        changed.then(|| UiEvent::Ear(self.ear_json()))
+    }
+
+    /// The question in words, the notes played so far and, once solved, what it was and where
+    /// it lies: `{"prompt", "prompting", "solved", "progress", "total", "played": [{note,
+    /// right, direction ("high", "low" or "")}], "reveal", "score", "positions": [{string, fret,
+    /// role}], "silent"}`.
+    pub fn ear_json(&self) -> String {
+        let Some(q) = &self.ear else {
+            return String::new();
+        };
+        let name = |p: kontra_model::Pitch| self.note_label(&p.to_string());
+        let question = &q.question;
+        let prompt = match q.kind {
+            ear::EarKind::Echo if question.answer.len() == 1 => self.tr("ear.echo.prompt.one", &[]),
+            ear::EarKind::Echo => self.tr(
+                "ear.echo.prompt.many",
+                &[("count", question.answer.len().to_string())],
+            ),
+            ear::EarKind::Interval => self.tr(
+                "ear.interval.prompt",
+                &[("note", question.root.map(name).unwrap_or_default())],
+            ),
+            ear::EarKind::ChordRoot => self.tr("ear.chord.prompt", &[]),
+        };
+        let reveal = match q.kind {
+            _ if !q.solved => String::new(),
+            ear::EarKind::Echo => {
+                let notes: Vec<String> = question.answer.iter().map(|&p| name(p)).collect();
+                self.tr("ear.reveal.echo", &[("notes", notes.join(" – "))])
+            }
+            ear::EarKind::Interval => self.tr(
+                "ear.reveal.interval",
+                &[
+                    (
+                        "interval",
+                        self.tr(
+                            &format!("quiz.interval.{}", question.interval.unwrap_or("p5")),
+                            &[],
+                        ),
+                    ),
+                    ("note", question.root.map(name).unwrap_or_default()),
+                ],
+            ),
+            ear::EarKind::ChordRoot => self.tr(
+                "ear.reveal.chord",
+                &[
+                    (
+                        "note",
+                        question
+                            .answer
+                            .first()
+                            .map(|&p| name(p))
+                            .unwrap_or_default(),
+                    ),
+                    (
+                        "quality",
+                        self.tr(
+                            &format!("ear.chord.{}", question.chord.unwrap_or("major")),
+                            &[],
+                        ),
+                    ),
+                ],
+            ),
+        };
+        let played: Vec<serde_json::Value> = q
+            .played
+            .iter()
+            .map(|p| {
+                let direction = match p.offset {
+                    o if o > 0 => "high",
+                    o if o < 0 => "low",
+                    _ => "",
+                };
+                json!({ "note": name(p.pitch), "right": p.right, "direction": direction })
+            })
+            .collect();
+
+        // Once solved, where the answer lies; any octave for a chord's root.
+        let instrument = self.instrument();
+        let mut positions: Vec<serde_json::Value> = Vec::new();
+        if q.solved {
+            let wanted: Vec<kontra_model::Pitch> = match question.matching {
+                ear::Match::Exact => question.answer.clone(),
+                ear::Match::AnyOctave => question
+                    .answer
+                    .iter()
+                    .flat_map(|p| (0..4).filter_map(move |o| p.transposed(12 * o - 12)))
+                    .collect(),
+            };
+            for pitch in wanted {
+                for (string, fret) in instrument.positions(pitch) {
+                    positions.push(json!({ "string": string, "fret": fret, "role": "current" }));
+                }
+            }
+        }
+        json!({
+            "prompt": prompt,
+            "prompting": self.ear_prompting,
+            "solved": q.solved,
+            "progress": q.progress,
+            "total": question.answer.len(),
+            "played": played,
+            "reveal": reveal,
+            "score": self.tr("quiz.score", &[("right", q.right.to_string()), ("asked", q.asked.to_string())]),
+            "positions": positions,
+            "silent": self.live_ear.as_ref().is_some_and(LiveEar::output_is_silent),
         })
         .to_string()
     }
@@ -2619,6 +2829,13 @@ fn gains(settings: &Settings) -> Gains {
             bands: instrument_from(settings).tone_bands(),
         },
     }
+}
+
+/// A seed that differs between rounds (quiz and ear training questions).
+fn time_seed() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(1, |d| d.as_nanos() as u64)
 }
 
 fn quantum_too_long_ms(frames: u32, rate: u32) -> Option<f64> {

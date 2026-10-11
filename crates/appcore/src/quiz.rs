@@ -13,7 +13,7 @@ pub enum QuizKind {
 }
 
 /// Intervals asked, in semitones, with their text key suffix.
-const INTERVALS: [(i32, &str); 7] = [
+pub(crate) const INTERVALS: [(i32, &str); 7] = [
     (3, "m3"),
     (4, "M3"),
     (5, "p4"),

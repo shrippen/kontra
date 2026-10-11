@@ -12,4 +12,5 @@ mod b1_song;
 mod b2_wait;
 mod b3_workshop;
 mod c2_tendency;
+mod c4_ear;
 mod f_restart;

@@ -42,6 +42,8 @@ pub mod qobject {
         #[qproperty(bool, clipped)]
         #[qproperty(QString, tuner_note, cxx_name = "tunerNote")]
         #[qproperty(f64, tuner_midi, cxx_name = "tunerMidi")]
+        /// Ear training state (LH-LRN-03), see `Core::ear_json`; "" when none runs.
+        #[qproperty(QString, ear_state, cxx_name = "earState")]
         /// Open strings for guided tuning: `[{"name", "midi"}]`, lowest first.
         #[qproperty(QString, tuning_json, cxx_name = "tuningJson")]
         #[qproperty(f64, tuner_cents, cxx_name = "tunerCents")]
@@ -416,6 +418,25 @@ pub mod qobject {
         #[cxx_name = "quizJson"]
         fn quiz_json(self: &Self) -> QString;
 
+        /// Ear training (LH-LRN-03): "echo", "interval" or "chord"; plays the first prompt.
+        /// Answers come from the bass and update `earState`.
+        #[qinvokable]
+        #[cxx_name = "earStart"]
+        fn ear_start(self: Pin<&mut Self>, kind: &QString);
+
+        /// Plays the prompt again.
+        #[qinvokable]
+        #[cxx_name = "earPlay"]
+        fn ear_play(self: Pin<&mut Self>);
+
+        #[qinvokable]
+        #[cxx_name = "earNext"]
+        fn ear_next(self: Pin<&mut Self>);
+
+        #[qinvokable]
+        #[cxx_name = "earStop"]
+        fn ear_stop(self: Pin<&mut Self>);
+
         /// Backing-track beat map (LH-BIB-06); see `Core::backing_json`.
         #[qinvokable]
         #[cxx_name = "backingJson"]
@@ -547,6 +568,7 @@ pub struct ControllerRust {
     clipped: bool,
     tuner_note: QString,
     tuner_midi: f64,
+    ear_state: QString,
     tuning_json: QString,
     tuner_cents: f64,
     tuner_active: bool,
@@ -672,6 +694,7 @@ impl Default for ControllerRust {
             rms_db: -120.0,
             clipped: false,
             tuner_note: QString::default(),
+            ear_state: QString::default(),
             tuner_midi: 0.0,
             tuning_json: q(&core.tuning_json()),
             tuner_cents: 0.0,
@@ -1119,6 +1142,7 @@ impl qobject::Controller {
                     self.as_mut().set_tuner_cents(cents);
                     self.as_mut().set_tuner_midi(midi);
                 }
+                UiEvent::Ear(state) => self.as_mut().set_ear_state(q(&state)),
                 UiEvent::Message(text) => self.as_mut().set_message(q(&text)),
                 UiEvent::Error(text) => self.as_mut().show_error(&text),
                 UiEvent::InputOffer { id, text } => {
@@ -1619,6 +1643,29 @@ impl qobject::Controller {
 
     fn quiz_answer(mut self: Pin<&mut Self>, midi: f64) -> bool {
         self.as_mut().core().quiz_answer(midi)
+    }
+
+    fn ear_start(mut self: Pin<&mut Self>, kind: &QString) {
+        self.as_mut().set_playing(false);
+        match self.as_mut().core().ear_start(&kind.to_string()) {
+            Ok(state) => self.as_mut().set_ear_state(q(&state)),
+            Err(text) => self.as_mut().show_error(&text),
+        }
+    }
+
+    fn ear_play(mut self: Pin<&mut Self>) {
+        let state = self.as_mut().core().ear_play();
+        self.as_mut().set_ear_state(q(&state));
+    }
+
+    fn ear_next(mut self: Pin<&mut Self>) {
+        let state = self.as_mut().core().ear_next();
+        self.as_mut().set_ear_state(q(&state));
+    }
+
+    fn ear_stop(mut self: Pin<&mut Self>) {
+        self.as_mut().core().ear_stop();
+        self.as_mut().set_ear_state(QString::default());
     }
 
     fn quiz_json(&self) -> QString {
