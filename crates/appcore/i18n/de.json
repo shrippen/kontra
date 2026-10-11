@@ -517,5 +517,19 @@
   "backing.shift": "Alle Takte verschieben",
   "backing.bar": "Einzelnen Takt verschieben",
   "backing.barnumber": "Takt",
-  "backing.clear": "Eigenes Tempo des Stücks"
+  "backing.clear": "Eigenes Tempo des Stücks",
+  "technique.slide": "Slide",
+  "technique.hammer": "Hammer-on",
+  "technique.pull": "Pull-off",
+  "technique.slap": "Slap",
+  "technique.pop": "Pop",
+  "technique.ghost": "Ghost Note",
+  "technique.result.played": "Technik gespielt",
+  "technique.result.other": "andere Technik",
+  "technique.result.unheard": "Technik nicht gehört",
+  "summary.techniques": "Techniken",
+  "summary.technique": "{technique}: {played} von {judged}",
+  "summary.techniques.untold": "Mit diesem Eingang nicht bewertet: {techniques}",
+  "summary.techniques.note": "Zählt nicht zur Trefferquote.",
+  "summary.note.technique": "{technique}: {result}"
 }

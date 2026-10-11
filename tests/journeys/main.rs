@@ -16,6 +16,7 @@ mod b3_workshop;
 mod b4_fretless;
 mod c2_tendency;
 mod c4_ear;
+mod c5_techniques;
 mod d1_backing;
 mod e1_midi;
 mod f_restart;

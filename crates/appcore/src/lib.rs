@@ -23,12 +23,13 @@ pub use store::{
     data_dir, InputKind, Library, RecentEntry, SectionBars, SectionDensity, Setlist, Settings,
 };
 
-use kontra_model::{Arrangement, InputSource, InstrumentKind, Tuning};
+use kontra_model::{Arrangement, InputSource, InstrumentKind, Technique, Tuning};
 use kontra_session::{
-    import_file, list_devices, run_from, CalibrationResult, Connection, DeviceInfo, Direction,
-    Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveEar, LiveSetup, LiveTuner,
-    LoopRange, Mode, NoteResult, Outcome, PracticeEvent, PracticeOptions, ProgressStore, Run,
-    ScoreSettings, SessionEvent, Shaping, Summary, Workshop,
+    import_file, list_devices, run_from, technique_targets, CalibrationResult, Connection,
+    DeviceInfo, Direction, Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveEar,
+    LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Outcome, PracticeEvent, PracticeOptions,
+    ProgressStore, Run, ScoreSettings, SessionEvent, Shaping, Summary, TechniqueOutcome,
+    TechniqueResult, Workshop,
 };
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -69,6 +70,13 @@ pub enum UiEvent {
         cents: f64,
     },
     Extra,
+    /// How a note's technique was played (LH-BEW-06): Kante's technique key and result
+    /// ("played", "other", "unheard"); apart from `Judged`.
+    Technique {
+        index: usize,
+        technique: &'static str,
+        result: &'static str,
+    },
     Holding {
         index: usize,
         text: String,
@@ -1025,11 +1033,14 @@ impl Core {
             return "[]".into();
         };
         let positions = hand_positions(&a.notes);
+        let techniques: std::collections::HashMap<usize, Technique> =
+            technique_targets(a).into_iter().collect();
         let notes: Vec<_> = a
             .notes
             .iter()
             .zip(positions)
-            .map(|(n, position)| {
+            .enumerate()
+            .map(|(i, (n, position))| {
                 let time = a.tempo.seconds_at(n.start_ticks);
                 let fret = n.fret.unwrap_or(0);
                 json!({
@@ -1044,6 +1055,9 @@ impl Core {
                     // Hand position (LH-ANZ-05) and the finger it suggests (0 = open string).
                     "position": position,
                     "finger": if fret == 0 { 0 } else { fret + 1 - position.min(fret) },
+                    // Kante's technique sign (LH-BEW-06); a slide shows where it arrives.
+                    "technique": techniques.get(&i).map_or("", |t| technique_key(*t)),
+                    "techniqueResult": "",
                 })
             })
             .collect();
@@ -1951,6 +1965,11 @@ impl Core {
                     cents: r.cents.unwrap_or(0.0),
                 })
             }
+            SessionEvent::Technique(t) => Some(UiEvent::Technique {
+                index: t.note,
+                technique: technique_key(t.expected),
+                result: technique_result_key(t.outcome),
+            }),
             SessionEvent::Holding { note } => {
                 let text = self.wait_text(note, None)?;
                 Some(UiEvent::Holding { index: note, text })
@@ -1963,16 +1982,24 @@ impl Core {
             SessionEvent::Finished => {
                 let session = self.live.as_ref()?.practice().session();
                 Some(UiEvent::Finished {
-                    summary_json: self.summary_json(&session.summary(), session.results()),
+                    summary_json: self.summary_json(
+                        &session.summary(),
+                        session.results(),
+                        session.technique_results(),
+                    ),
                 })
             }
         }
     }
 
     /// Every judged note of the run (LH-BEW-01), the last attempt per pass and note, in order:
-    /// `{index, pass, bar, state, offsetMs, cents, severity, text}`; `text` reads like
-    /// "Takt 3 · G1 · 42 ms zu spät · +12 Cent".
-    fn note_details(&self, results: &[NoteResult]) -> Vec<serde_json::Value> {
+    /// `{index, pass, bar, state, offsetMs, cents, severity, technique, techniqueResult, text}`;
+    /// `text` reads like "Takt 3 · G1 · 42 ms zu spät · +12 Cent · Slap: andere Technik".
+    fn note_details(
+        &self,
+        results: &[NoteResult],
+        techniques: &[TechniqueResult],
+    ) -> Vec<serde_json::Value> {
         let Some(a) = self.arrangement() else {
             return Vec::new();
         };
@@ -1981,6 +2008,10 @@ impl Core {
             if let Some(note) = r.note {
                 last.insert((r.pass, note), *r);
             }
+        }
+        let mut technique_of = std::collections::BTreeMap::new();
+        for t in techniques {
+            technique_of.insert((t.pass, t.note), *t);
         }
         last.into_iter()
             .filter_map(|((pass, index), r)| {
@@ -2010,6 +2041,25 @@ impl Core {
                 if let Some(c) = r.cents {
                     parts.push(self.tr("summary.note.cents", &[("cents", format!("{c:+.0}"))]));
                 }
+                let technique = technique_of.get(&(pass, index));
+                if let Some(t) = technique {
+                    parts.push(self.tr(
+                        "summary.note.technique",
+                        &[
+                            ("technique", self.technique_name(t.expected)),
+                            (
+                                "result",
+                                self.tr(
+                                    &format!(
+                                        "technique.result.{}",
+                                        technique_result_key(t.outcome)
+                                    ),
+                                    &[],
+                                ),
+                            ),
+                        ],
+                    ));
+                }
                 Some(json!({
                     "index": index,
                     "pass": pass,
@@ -2018,6 +2068,8 @@ impl Core {
                     "offsetMs": r.offset_ms,
                     "cents": r.cents,
                     "severity": severity(state),
+                    "technique": technique.map_or("", |t| technique_key(t.expected)),
+                    "techniqueResult": technique.map_or("", |t| technique_result_key(t.outcome)),
                     "text": parts.join(" · "),
                 }))
             })
@@ -2025,8 +2077,35 @@ impl Core {
     }
 
     /// Summary with ready-made texts for the evaluation sheet, and every note's result.
-    pub fn summary_json(&self, s: &Summary, results: &[NoteResult]) -> String {
-        let notes = self.note_details(results);
+    pub fn summary_json(
+        &self,
+        s: &Summary,
+        results: &[NoteResult],
+        techniques: &[TechniqueResult],
+    ) -> String {
+        let notes = self.note_details(results, techniques);
+        // Techniques apart from the hit rate (round 9): "Slide: 8 von 10".
+        let technique_list: Vec<_> = s
+            .techniques
+            .iter()
+            .map(|t| {
+                json!({
+                    "technique": technique_key(t.technique),
+                    "played": t.played,
+                    "judged": t.judged,
+                    "text": self.tr("summary.technique", &[
+                        ("technique", self.technique_name(t.technique)),
+                        ("played", t.played.to_string()),
+                        ("judged", t.judged.to_string()),
+                    ]),
+                })
+            })
+            .collect();
+        let untold: Vec<String> = s
+            .untold_techniques
+            .iter()
+            .map(|t| self.technique_name(*t))
+            .collect();
         let hardest_notes = hardest_notes(&notes);
         let arrangement = self.arrangement();
         let tendency = match s.mean_offset_ms {
@@ -2071,8 +2150,19 @@ impl Core {
             "hardestBars": hardest,
             "notes": notes,
             "hardestNotes": hardest_notes,
+            "techniques": technique_list,
+            "untoldText": if untold.is_empty() {
+                String::new()
+            } else {
+                self.tr("summary.techniques.untold", &[("techniques", untold.join(", "))])
+            },
         })
         .to_string()
+    }
+
+    /// A technique's name in the UI's language ("Hammer-on").
+    fn technique_name(&self, technique: Technique) -> String {
+        self.tr(&format!("technique.{}", technique_key(technique)), &[])
     }
 
     /// Intonation is part of the score for fretless and double basses (pitch limit below 50 ct).
@@ -2653,6 +2743,33 @@ fn state_of(outcome: Outcome, offset_ms: f64) -> &'static str {
         Outcome::WrongPitch { .. } => "wrong",
         Outcome::OffPitch => "offpitch",
         Outcome::Missed | Outcome::Extra { .. } => "missed",
+    }
+}
+
+/// Kante's key for a technique sign (KanteTechniqueMark); "" for those Kontra does not judge.
+fn technique_key(technique: Technique) -> &'static str {
+    match technique {
+        Technique::Slide => "slide",
+        Technique::HammerOn => "hammer",
+        Technique::PullOff => "pull",
+        Technique::Slap => "slap",
+        Technique::Pop => "pop",
+        Technique::Ghost => "ghost",
+        Technique::Harmonic
+        | Technique::Muted
+        | Technique::Vibrato
+        | Technique::Bend
+        | Technique::Staccato
+        | Technique::Accent => "",
+    }
+}
+
+/// Kante's key for a technique result.
+fn technique_result_key(outcome: TechniqueOutcome) -> &'static str {
+    match outcome {
+        TechniqueOutcome::Played => "played",
+        TechniqueOutcome::Other(_) => "other",
+        TechniqueOutcome::NotHeard => "unheard",
     }
 }
 
@@ -4328,9 +4445,12 @@ mod tests {
 
         // The evaluation lists every judged note with its timing (LH-BEW-01).
         let session = core.live.as_ref().unwrap().practice().session();
-        let summary: serde_json::Value =
-            serde_json::from_str(&core.summary_json(&session.summary(), session.results()))
-                .unwrap();
+        let summary: serde_json::Value = serde_json::from_str(&core.summary_json(
+            &session.summary(),
+            session.results(),
+            session.technique_results(),
+        ))
+        .unwrap();
         let notes = summary["notes"].as_array().unwrap();
         assert!(notes.len() >= hits, "{}", notes.len());
         assert!(notes[0]["offsetMs"].is_f64());

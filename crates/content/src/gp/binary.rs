@@ -15,6 +15,12 @@ use crate::score::{
 };
 use kontra_model::{Pitch, Technique, TimeSignature};
 
+/// Slide types that go to the next note: GP4 stores a number, GP5 bit flags.
+const GP4_SLIDE_SHIFT: u8 = 1;
+const GP4_SLIDE_LEGATO: u8 = 2;
+const GP5_SLIDE_SHIFT: u8 = 0x01;
+const GP5_SLIDE_LEGATO: u8 = 0x02;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Version {
     V3,
@@ -614,8 +620,17 @@ impl Parser<'_> {
             self.r.skip(1)?; // tremolo picking
         }
         if flags2 & 0x08 != 0 {
-            self.r.skip(1)?; // slide type
-            fx.techniques.push(Technique::Slide);
+            // Only a shift or legato slide goes to the next note; slides into the note or out
+            // into nothing are not marked (LH-BEW-06 judges a slide where it arrives).
+            let kind = self.r.u8()?;
+            let to_next = if self.version == Version::V4 {
+                matches!(kind, GP4_SLIDE_SHIFT | GP4_SLIDE_LEGATO)
+            } else {
+                kind & (GP5_SLIDE_SHIFT | GP5_SLIDE_LEGATO) != 0
+            };
+            if to_next {
+                fx.techniques.push(Technique::Slide);
+            }
         }
         if flags2 & 0x10 != 0 {
             self.harmonic()?;
