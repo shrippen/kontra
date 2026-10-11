@@ -90,11 +90,12 @@ Erwartet: Bereich und Tempo stimmen; Backing Track bei 60 % ohne metallischen Kl
 3. Aufnahme mit absichtlichen Intonationsfehlern (±10 bis ±40 Cent) und tiefen Tönen auf der B-Saite einspeisen.
 Erwartet: Cent-Werte pro Note weichen ≤ 3 Cent vom annotierten Wert ab; B0 bis D1 sicher erkannt; Noten im Bassschlüssel korrekt.
 
-**J-B5 Unterricht am Beamer** 📽 🔍 · Persona: P4 Thomas · Phase 1 (Präsentationsmodus Phase 2) · LH-ANZ-02, -04, -09, LH-ALL-02
+**J-B5 Unterricht am Beamer** 📽 🔍 · Persona: P4 Thomas · Phase 1 (Präsentationsmodus Phase 2) · LH-ANZ-02, -04, -09, LH-ALL-02, LH-MOD-07
 1. Auflösung 1280×720, Schrift 150 %.
 2. Übung öffnen, kombinierte Ansicht Noten über Tab, Spielen-Modus.
 3. Stil auf Kante Light wechseln (heller Raum).
-Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreichend.
+4. Präsentation (F5 oder Knopf neben dem Mixer), durchspielen, mit Esc beenden.
+Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreichend; in der Präsentation Vollbild ohne Seitenleiste, nur Titel, Noten und Transport, Notenlinien größer; Esc stellt das Fenster wieder her wie vorher.
 
 ## C. Lernen und Fortschritt
 

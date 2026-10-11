@@ -17,6 +17,17 @@ Kirigami.ApplicationWindow {
     property alias ctl: ctl
     property alias texts: texts
     property string current: ""
+    // Presentation mode of the practice page (LH-ANZ-09): full screen, no sidebar.
+    property bool presenting: false
+    property int visibilityBefore: Window.Windowed
+    onPresentingChanged: {
+        if (presenting) {
+            visibilityBefore = visibility
+            showFullScreen()
+            return
+        }
+        visibility = visibilityBefore === Window.FullScreen ? Window.Windowed : visibilityBefore
+    }
     readonly property var pages: ({
         setup: Qt.resolvedUrl("SetupPage.qml"),
         progress: Qt.resolvedUrl("ProgressPage.qml"),
@@ -91,6 +102,7 @@ Kirigami.ApplicationWindow {
     }
 
     globalDrawer: Kirigami.GlobalDrawer {
+        visible: !root.presenting
         isMenu: false
         modal: !root.wideScreen
         collapsible: true

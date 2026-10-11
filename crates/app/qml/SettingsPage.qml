@@ -421,7 +421,7 @@ Kirigami.ScrollablePage {
                     ["Space / K / PgDn", "keys.play"], ["Pos1 / Home / PgUp", "keys.rewind"], ["L", "keys.loop"],
                     ["[ / ,", "keys.loopstart"], ["] / .", "keys.loopend"],
                     ["M", "keys.metronome"], ["C", "keys.countin"], ["X", "keys.mixer"], ["+ / −", "keys.speed"],
-                    ["N", "keys.next"], ["1–4", "keys.mode"], ["Alt+1–4", "keys.view"], ["Ctrl+1–6", "keys.pages"]
+                    ["N", "keys.next"], ["1–4", "keys.mode"], ["Alt+1–4", "keys.view"], ["Ctrl+1–9", "keys.pages"], ["F5 / Esc", "keys.present"]
                 ]
                 delegate: RowLayout {
                     Layout.columnSpan: 2

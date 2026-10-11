@@ -19,6 +19,8 @@ pub struct AppArgs {
     pub calibrate: bool,
     /// `--mixer`: practice and settings open with the mixer in view (screenshots).
     pub mixer: bool,
+    /// `--present`: the practice page opens in presentation mode (screenshots, LH-ANZ-09).
+    pub present: bool,
     /// `--section data|about`: the settings page opens scrolled to that section (screenshots).
     pub section: Option<String>,
     /// `--align`: practice opens the backing-track alignment (screenshots).
@@ -57,6 +59,7 @@ impl AppArgs {
                 "--view" => out.view = Some(value()),
                 "--calibrate" => out.calibrate = true,
                 "--mixer" => out.mixer = true,
+                "--present" => out.present = true,
                 "--section" => out.section = Some(value()),
                 "--align" => out.align = true,
                 "--loop-bars" => {
