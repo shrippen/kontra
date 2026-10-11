@@ -13,6 +13,7 @@
 
 mod args;
 mod bridge;
+mod sync_check;
 
 use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QString, QUrl};
 use std::path::PathBuf;

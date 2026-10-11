@@ -42,6 +42,7 @@ for lang in de en; do
     shot library "$lang" 1500 --page library
     shot settings "$lang" 1500 --page settings
     shot tuner "$lang" 4000 --page tuner --input-file "$WORK/take.wav"
+    shot ear "$lang" 3800 --page ear --input-file "$WORK/take.wav"
     shot calibration "$lang" 7500 --page settings --input-file "$WORK/clicks.wav" --calibrate
     shot practice-tab "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --view tab
     shot practice-notation "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --view notation

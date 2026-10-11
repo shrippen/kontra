@@ -64,7 +64,8 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - UI ruft nie Engine oder Treiber direkt auf.
 - Instrument und Eingang sind getrennte Profile/Adapter; ein neues Instrument ändert weder Session noch Bewertung.
 - Jede Schicht ist ein eigenes Crate; Abhängigkeiten nur zum Nachbarn darunter (in `Cargo.toml` sichtbar).
-- Alles privat; `pub` (auch `pub(crate)`) nur mit Rückfrage.
+- Alles privat; `pub` (auch `pub(crate)`) nur, wo das Design es braucht. Für Kontra generell freigegeben
+  (Eigentümer, 11.10.2026): keine Rückfrage, aber jede neue Schnittstelle im PR nennen.
 
 ## Konventionen
 - Rust (stable), cargo fmt, clippy ohne Warnungen. `make check` vor jedem Commit

@@ -58,6 +58,10 @@ pub enum PracticeEvent {
     },
     Error(String),
     InputEnded,
+    /// Ear training: a note played as an answer, fractional MIDI.
+    Heard {
+        midi: f64,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

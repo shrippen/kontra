@@ -8,7 +8,7 @@ use kontra_engine::{
     BackingTrack, Clock, EngineError, Event, Input, InputKind, NullOutput, Output, Pace, Player,
     Sound, StreamConfig,
 };
-use kontra_model::{Arrangement, InputSource, Instrument};
+use kontra_model::{Arrangement, InputSource, Instrument, Pitch};
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver};
 
@@ -237,6 +237,121 @@ impl LiveTuner {
                 Event::Error(m) => out.push(PracticeEvent::Error(m)),
                 Event::Ended => out.push(PracticeEvent::InputEnded),
                 Event::Note(_) => {}
+            }
+        }
+        out
+    }
+}
+
+/// One tone of an ear-training prompt: pitch, start after the prompt begins, length.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PromptTone {
+    pub pitch: Pitch,
+    pub at_s: f64,
+    pub duration_s: f64,
+}
+
+/// Time between asking to play a prompt and its first tone (the output needs a block or two).
+const PROMPT_LEAD_S: f64 = 0.15;
+/// After the prompt the bass may still ring through the room or the pickup: notes starting
+/// earlier than this after its end are not answers.
+const PROMPT_TAIL_S: f64 = 0.1;
+
+/// Ear training (LH-LRN-03): plays prompts on the output and hears the answers as notes.
+///
+/// ```text
+/// play(prompt) ─► output ──► ear of the player ──► bass ──► input ─► Heard { midi }
+///                  └─ notes before the prompt's end + tail are dropped
+/// ```
+#[derive(Debug)]
+pub struct LiveEar {
+    clock: Clock,
+    output: LiveOutput,
+    input: Input,
+    events: Receiver<Event>,
+    a4_hz: f64,
+    /// Engine time from which notes count as answers.
+    listen_from_s: f64,
+}
+
+impl LiveEar {
+    pub fn start(setup: &LiveSetup, instrument: &Instrument) -> Result<LiveEar, EngineError> {
+        let clock = Clock::new();
+        let (tx, rx) = channel();
+        let output = open_output(setup.output_device.as_deref(), &clock, tx.clone());
+        let input = Input::start(
+            &input_kind(&setup.input),
+            instrument,
+            setup.source,
+            &clock,
+            tx,
+            None,
+        )?;
+        Ok(LiveEar {
+            clock,
+            output,
+            input,
+            events: rx,
+            a4_hz: instrument.a4_hz,
+            listen_from_s: 0.0,
+        })
+    }
+
+    pub fn set_gains(&mut self, gains: kontra_engine::Gains) {
+        self.output.set_gains(gains);
+    }
+
+    /// Plays `tones` now (replacing a prompt still sounding); returns its length in seconds.
+    pub fn play(&mut self, tones: &[PromptTone]) -> f64 {
+        let start_s = self.clock.now_s() + PROMPT_LEAD_S;
+        self.output.clear_from(0.0);
+        let mut end_s = start_s;
+        for tone in tones {
+            let at_s = start_s + tone.at_s;
+            self.output.schedule(
+                at_s,
+                Sound::Tone {
+                    hz: tone.pitch.hz(self.a4_hz) as f32,
+                    duration_s: tone.duration_s as f32,
+                    velocity: 1.0,
+                },
+            );
+            end_s = end_s.max(at_s + tone.duration_s);
+        }
+        self.listen_from_s = end_s + PROMPT_TAIL_S;
+        end_s - self.clock.now_s()
+    }
+
+    /// Whether the prompt still sounds (answers are not heard yet).
+    pub fn is_prompting(&self) -> bool {
+        self.clock.now_s() < self.listen_from_s
+    }
+
+    pub fn output_is_silent(&self) -> bool {
+        matches!(self.output, LiveOutput::Silent(_))
+    }
+
+    /// Answers and levels since the last call.
+    pub fn poll(&mut self) -> Vec<PracticeEvent> {
+        let _ = &self.input;
+        let mut out = Vec::new();
+        while let Ok(event) = self.events.try_recv() {
+            match event {
+                Event::Note(n) if n.onset_s >= self.listen_from_s => {
+                    out.push(PracticeEvent::Heard { midi: n.midi })
+                }
+                Event::Level {
+                    peak_db,
+                    rms_db,
+                    clipped,
+                } => out.push(PracticeEvent::Level {
+                    peak_db,
+                    rms_db,
+                    clipped,
+                }),
+                Event::Error(m) => out.push(PracticeEvent::Error(m)),
+                Event::Ended => out.push(PracticeEvent::InputEnded),
+                Event::Note(_) | Event::Tuner(_) => {}
             }
         }
         out

@@ -31,7 +31,8 @@ pub use density::Density;
 pub use expected::{expected_notes, ExpectedNote};
 pub use kontra_engine::{Gains, Shaping, SHAPING_RANGE_DB};
 pub use live::{
-    soak, InputChoice, Live, LiveCalibration, LiveOutput, LiveSetup, LiveTuner, SoakReport,
+    soak, InputChoice, Live, LiveCalibration, LiveEar, LiveOutput, LiveSetup, LiveTuner,
+    PromptTone, SoakReport,
 };
 pub use matcher::{NoteResult, Outcome};
 pub use practice::{Practice, PracticeEvent, PracticeOptions};
