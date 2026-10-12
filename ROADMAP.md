@@ -142,6 +142,17 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 - Kante 1.31 (Technik-Zeichen) darf Claude nach grüner CI und sauberem `./build.sh` selbst mergen (Plan vom 11.10.,
   abgenommen).
 
+## Entscheidungen Runde 10 (12.10.2026)
+
+- Nächster Schwerpunkt: Hardware-Prüfungen vor Release 0.1, mit einem Prüfmodus, der jede Messung aufzeichnet
+  (Latenz per Loopback, Aufnahmen für den Korpus, Soak).
+- Ghost Notes und Hammer-on-/Pull-off-Töne in der Trefferquote: bleibt wie umgesetzt (LH-BEW-06).
+- Slide-Zeichen und sein Ergebnis an der Ausgangsnote, wie in gedruckter Tabulatur; bewertet wird weiter an der
+  Zielnote (LH-BEW-06, LH-ANZ-01).
+- Dead Notes (x) werden als gedämpft bewertet; Ghost Notes ( ) bekommen nur ihr Zeichen (Kante 1.32 „x“).
+- Stem-Trennung im Flatpak: später anders lösen (z. B. eigene Erweiterung); bis dahin ausgegraut (LH-BIB-09).
+- Demucs installiert der Eigentümer; Claude misst.
+
 ## Didaktik: wie Kontra Bass vermittelt (laufend, alle Phasen)
 
 Ziel: nicht nur Noten abfragen, sondern herausfinden, welche Wege zum
@@ -291,7 +302,7 @@ Durchgespielt mit gerenderten Aufnahmen (`kontra-cli render`) und Screenshots al
 - [x] LH-BIB-08: 34 mitgelieferte Übungen in vier Stufen (`testdata/exercises`, von `kontra-cli exercises` erzeugt, CI prüft den Stand).
 - [x] LH-LRN-02: Griffbrett-Quiz mit dem echten Bass (Töne auf einer Saite finden, Intervalle), Seite „Griffbrett“ (Strg+8); nach dem richtigen Ton zeigt das Griffbrett alle Lagen.
 - [x] LH-BIB-06: Backing-Track abgleichen: Kontra erkennt die Schläge der Aufnahme (Spektralfluss, Tempo per Autokorrelation, Beat-Tracking nach Ellis) und legt die Takte darauf (Tempo-Karte je Takt); Takt 1 um einen Schlag, alle Takte oder ein einzelner Takt in 10-ms-Schritten korrigierbar.
-- [x] LH-BIB-09 (Kann, Runde 9): Bass aus dem Backing-Track entfernen über Demucs, wenn installiert (`drivers::separator`: `KONTRA_DEMUCS`, `PATH`, `~/.local/bin`; im Flatpak `flatpak-spawn --host`, braucht eine Erlaubnis, die das Manifest noch nicht hat). `demucs --two-stems bass -n htdemucs`, Fortschritt aus dem Fortschrittsbalken auf stderr, Abbrechen beendet den Prozess. Ergebnis im Cache je Datei (Pfad, Größe, Änderungszeit); der Abgleich bleibt. Übungsseite „Ohne Bass“: ohne Demucs ausgegraut mit Erklärung, Anleitung („?“) und „Erneut prüfen“. Getestet mit einem Ersatz-Programm; mit echtem Demucs noch nicht gelaufen (Messung LH-BIB-09 offen).
+- [x] LH-BIB-09 (Kann, Runde 9): Bass aus dem Backing-Track entfernen über Demucs, wenn installiert (`drivers::separator`: `KONTRA_DEMUCS`, `PATH`, `~/.local/bin`; im Flatpak `flatpak-spawn --host`, braucht eine Erlaubnis, die das Manifest noch nicht hat). `demucs --two-stems bass -n htdemucs`, Fortschritt aus dem Fortschrittsbalken auf stderr, Abbrechen beendet den Prozess. Ergebnis im Cache je Datei (Pfad, Größe, Änderungszeit); der Abgleich bleibt. Übungsseite „Ohne Bass“: ohne Demucs ausgegraut mit Erklärung, Anleitung („?“) und „Erneut prüfen“. Getestet mit einem Ersatz-Programm; mit echtem Demucs 4.1.0 gemessen (12.10.): Song von 4:11 in 17 s (RTX 3090) bzw. 92 s nur auf dem Prozessor (24 Threads); `pipx install demucs` bringt numpy nicht mit (Anleitung ergänzt). Messung auf Mindest-Hardware (Laptop) offen.
 - [ ] LH-LRN-01 (Teil): Grooves auf dem Grundton (Viertel bis Sechzehntel, Pausen, Shuffle, Oktaven); Schlagzeug-Begleitung fehlt noch.
 - [x] LH-TUN-02 / LH-EIN-01: Stimmung im Profil (Standard, Drop D bzw. Drop A bei 5/6 Saiten, ½ und 1 Ton tiefer, eigene mit Notenwahl je Saite) in Einstellungen und Assistent; Stimmgerät (geführt) und Tab-Zuordnung von Dateien ohne Stimmung (MIDI, MusicXML) nutzen sie, ein Wechsel ordnet das geladene Stück sofort neu zu.
 - [x] LH-TUN-04: Kammerton A 430–450 Hz (Standard 440) für Stimmgerät, Erkennung und Bewertung.

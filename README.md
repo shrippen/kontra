@@ -30,7 +30,11 @@ installiert ist. Kontra liefert nichts davon mit und ruft nur das Programm auf.
 
 ```sh
 pipx install demucs          # oder: pip install --user demucs
+pipx inject demucs numpy     # Demucs braucht numpy, zieht es aber nicht mit (12.10.2026)
 ```
+
+Gemessen (12.10.2026, Demucs 4.1.0, Song von 4:11): 17 s mit Grafikkarte (RTX 3090), 92 s nur auf dem Prozessor
+(24 Threads).
 
 Beim ersten Lauf lädt Demucs sein Modell (rund 80 MB). Danach auf der Übungsseite „Bass der Aufnahme entfernen“
 einschalten; das Ergebnis wird zwischengespeichert. Liegt Demucs außerhalb von `PATH` und `~/.local/bin`, zeigt

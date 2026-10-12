@@ -46,6 +46,7 @@ pub use settings::{ScoreSettings, Strictness};
 pub use stems::{BassRemoval, StemJob};
 pub use summary::{Summary, TimingHistogram};
 pub use technique::{
-    technique_targets, told_techniques, TechniqueOutcome, TechniqueResult, TechniqueTally,
+    technique_signs, technique_targets, told_techniques, TechniqueOutcome, TechniqueResult,
+    TechniqueTally, TechniqueTarget,
 };
 pub use transport::{LoopRange, Transport};

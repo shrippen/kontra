@@ -79,7 +79,8 @@ Kirigami.ApplicationWindow {
             pull: texts.t("technique.pull"),
             slap: texts.t("technique.slap"),
             pop: texts.t("technique.pop"),
-            ghost: texts.t("technique.ghost")
+            ghost: texts.t("technique.ghost"),
+            dead: texts.t("technique.dead")
         })
     }
     Binding {

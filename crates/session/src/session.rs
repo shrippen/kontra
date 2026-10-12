@@ -274,7 +274,7 @@ impl Session {
         {
             self.events.push(SessionEvent::Technique(t));
         }
-        if revision.technique == kontra_model::Technique::Ghost {
+        if revision.technique == kontra_model::Technique::Muted {
             self.unmute(pass, note);
         }
     }
@@ -456,7 +456,7 @@ impl Session {
             return;
         }
         // A ghost note played as one is right whatever its pitch (a muted string has none).
-        let muted = target.ghost && note.technique == Some(kontra_model::Technique::Ghost);
+        let muted = target.ghost && note.technique == Some(kontra_model::Technique::Muted);
         let cents = target.cents_from(midi);
         let outcome = if muted {
             Outcome::Hit

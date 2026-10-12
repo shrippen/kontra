@@ -18,7 +18,10 @@ pub enum Technique {
     Pop,
     Ghost,
     Harmonic,
+    /// A dead note (x): muted by the fretting hand, no pitch.
     Muted,
+    /// Muted by the picking hand's palm, the pitch still sounds.
+    PalmMute,
     Vibrato,
     Bend,
     Staccato,
