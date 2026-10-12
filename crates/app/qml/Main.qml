@@ -105,10 +105,23 @@ Kirigami.ApplicationWindow {
             ctl.stopTuner()
         }
         current = name
+        // Kirigami creates pages from a URL without a visual parent, and Qt 6.12 warns ("not
+        // placed in the graphics scene"); a page created here has one. Pages pushed as objects
+        // are not destroyed by the page row, so the old one is.
+        var old = pageStack.currentItem
+        var component = Qt.createComponent(pages[name])
+        if (component.status !== Component.Ready) {
+            console.warn(component.errorString())
+            return
+        }
+        var page = component.createObject(pageStack)
         if (pageStack.depth === 0) {
-            pageStack.push(pages[name])
+            pageStack.push(page)
         } else {
-            pageStack.replace(pages[name])
+            pageStack.replace(page)
+        }
+        if (old) {
+            old.destroy()
         }
     }
 
