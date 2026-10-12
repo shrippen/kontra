@@ -1,22 +1,26 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-10-11 (Abend). Was erledigt ist, steht in Lastenheft und Roadmap; hier
+Übergabe zwischen Sitzungen. Stand: 2026-10-12 (Morgen). Was erledigt ist, steht in Lastenheft und Roadmap; hier
 steht nur, was offen ist und wo es liegt.
 
 ## Offen
 
-- **Klaviatur-Ansicht** (J-E1, P5): PR #33 (Kante 1.30, Ansicht „Klaviatur“, Alt+5). Profilwahl „Keyboard“
-  (`Instrument::keyboard`) erst mit den Tasteninstrumenten nach 1.0.
-- **Techniken anzeigen und bewerten** (LH-BEW-06, Teil 2): `DetectedNote::technique` ist da; Session (Soll-Technik
-  aus GP gegen erkannte), Auswertung („Slides 8 von 10“) und Kennzeichnung in Tab-Lane/Noten fehlen.
-- **Transponieren mitten im Spiel**: der Backing-Track kann es (Pitch-Shifter im Mixer), die Session baut ihren
-  Abgleicher aber beim Start; ein Wechsel beendet den Lauf.
-- **MIDI**: bei mehreren Keyboards nimmt Kontra das erste; Port-Auswahl fehlt.
-- **Stem-Trennung** (LH-BIB-09, Kann): nicht begonnen (bräuchte ein ML-Modell als Download).
-- **Hardware-Prüfungen vor 0.1**: Klang (EQ, Wärme), Transponieren mit Bandaufnahme, Beamer 1280×720/150 %, echtes
-  MIDI-Keyboard (bisher ALSA „Midi Through“), Mikrofon mit Lautsprechern (J-E2), 60-min-Soak, Mithör-Latenz.
+- **Runde 10** (Entscheidungs-Artefakt): nächster Schwerpunkt, Ghost Notes und Hammer-on-Töne in der Trefferquote,
+  Ort des Slide-Zeichens, Stem-Trennung im Flatpak, Demucs-Messung, Dead Notes (x) und Ghost Notes ( ).
+- **Techniken an echten Aufnahmen** (LH-BEW-06): Slap/Pop/Ghost an IDMT 79/70/96 %, an denselben Aufnahmen
+  abgestimmt; eigene Aufnahmen fehlen. Slides an echten Aufnahmen 0 von 20: Beim Gleiten meldet der Onset-Detektor
+  neue Anschläge, schnelle Slides kommen als Hammer-on an; braucht eine Slide-Erkennung über die Tonhöhenkurve.
+- **Flageoletts**: natürliche am Teilton (GP binär, GPIF); künstliche Flageoletts und MusicXML-Flageoletts fehlen.
+- **Stem-Trennung** (LH-BIB-09): mit Ersatz-Programm getestet; mit echtem Demucs nicht gelaufen (Abnahme
+  „4-Minuten-Song < 3 min“ offen). Im Flatpak ausgegraut (Erlaubnis fehlt bewusst).
+- **MIDI-Auswahl** (LH-EIN-12): mit zwei echten Keyboards nicht geprüft (nur Unit-Test).
+- **Hardware-Prüfungen vor 0.1** (zurückgestellt, Runde 9): Klang (EQ, Wärme), Transponieren mit Bandaufnahme,
+  Beamer 1280×720/150 %, echtes MIDI-Keyboard, Mikrofon mit Lautsprechern (J-E2), 60-min-Soak, Mithör-Latenz,
+  Techniken am echten Bass.
+- **Profilwahl „Keyboard“** (`Instrument::keyboard`) erst mit den Tasteninstrumenten nach 1.0.
 
 ## Für den Eigentümer
 
-- OpenRouter-Schlüssel von PR-Agent: Monatslimit erreicht (Reset 1.11.); bis dahin scheitert jedes Review, es gilt
-  „zweimal gescheitert, grüne CI genügt“.
+- OpenRouter-Schlüssel von PR-Agent: Monatslimit erreicht (Reset 1.11.). Seit dem 11.10. abends startet ein
+  `/review`-Kommentar auf Kontra gar keinen Lauf mehr (auch kein „skipped“); es gilt „zweimal gescheitert, grüne CI
+  genügt“.
