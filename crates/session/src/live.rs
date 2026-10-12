@@ -366,7 +366,7 @@ impl LiveEar {
     }
 }
 
-fn input_kind(choice: &InputChoice) -> InputKind {
+pub(crate) fn input_kind(choice: &InputChoice) -> InputKind {
     match choice {
         InputChoice::Device { id, channel } => InputKind::Device(StreamConfig {
             device_id: id.clone(),
@@ -392,7 +392,7 @@ pub fn is_midi_file(path: &std::path::Path) -> bool {
         .is_some_and(|e| e.eq_ignore_ascii_case("mid") || e.eq_ignore_ascii_case("midi"))
 }
 
-fn open_output(
+pub(crate) fn open_output(
     device: Option<&str>,
     clock: &Clock,
     events: std::sync::mpsc::Sender<Event>,
