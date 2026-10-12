@@ -156,6 +156,14 @@ pub enum KorpusCommand {
         #[arg(long)]
         verbose: bool,
     },
+    /// How the techniques of real recordings are told apart (LH-BEW-06): per annotated
+    /// technique, what the tracker said. Needs annotations with techniques (IDMT import).
+    Techniques {
+        dirs: Vec<PathBuf>,
+        /// Matching window in ms (score-grid annotations need 50–80).
+        #[arg(long, default_value_t = 80.0)]
+        window_ms: f64,
+    },
 }
 
 #[derive(Debug, Args)]

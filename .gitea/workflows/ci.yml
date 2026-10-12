@@ -76,6 +76,8 @@ jobs:
           # notes found since LH-BEW-06).
           cargo run -q -p kontra-cli --release -- korpus measure $L/conv/idmt-st \
             --window-ms 80 --pitch --min-recall 86 --min-precision 77
+          # Techniques on real slaps, pops and dead notes (LH-BEW-06); reported, no floor yet.
+          cargo run -q -p kontra-cli --release -- korpus techniques $L/conv/idmt-st
 
   app:
     # The Qt app: Qt 6.10 and Kirigami from scripts/setup-qt-env.sh (cached), headless screenshots.

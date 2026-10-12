@@ -105,7 +105,13 @@ def write_item(out_dir, name, samples, sr, notes, set_name, meta, pad_s=0.0):
     body = {
         "set": set_name,
         "sample_rate": sr,
-        "notes": [{"onset_s": round(n["onset_s"] + pad_s, 6), "midi": float(n["midi"])} for n in notes],
+        "notes": [
+            dict(
+                {"onset_s": round(n["onset_s"] + pad_s, 6), "midi": float(n["midi"])},
+                **({"technique": n["technique"]} if n.get("technique") else {}),
+            )
+            for n in notes
+        ],
         "meta": dict(meta, pad_s=pad_s, note_meta=[n.get("meta", {}) for n in notes]),
     }
     os.makedirs(out_dir, exist_ok=True)
@@ -194,6 +200,11 @@ def read_midi_notes(path):
 # --- datasets ----------------------------------------------------------------------------------
 
 
+# IDMT styles as Kontra's techniques (LH-BEW-06): slap thumb, slap pluck (pop), dead note (ghost),
+# slide. Finger, pick and palm mute are plain plucks; vibrato, bend and harmonics are not told.
+IDMT_TECHNIQUES = {"ST": "Slap", "SP": "Pop", "DN": "Ghost", "SL": "Slide"}
+
+
 def import_idmt_st(src, out, args):
     """IDMT-SMT-Bass-Single-Track: 17 lines, 4-string electric bass, XML note annotations."""
     for fn in sorted(os.listdir(os.path.join(src, "annotation"))):
@@ -203,10 +214,12 @@ def import_idmt_st(src, out, args):
         g = root.find("globalParameter")
         notes = []
         for e in root.findall("transcription/event"):
+            pluck, expr = e.findtext("excitationStyle"), e.findtext("expressionStyle")
             notes.append(
                 {
                     "onset_s": float(e.findtext("onsetSec")),
                     "midi": float(e.findtext("pitch")),
+                    "technique": IDMT_TECHNIQUES.get(expr) or IDMT_TECHNIQUES.get(pluck),
                     "meta": {
                         "offset_s": float(e.findtext("offsetSec")),
                         "string": int(e.findtext("stringNumber")),

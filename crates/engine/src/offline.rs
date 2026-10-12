@@ -1,7 +1,7 @@
 //! Whole-buffer analysis for the CLI, tests and the synthetic corpus.
 
 use kontra_dsp::{EchoCanceller, NoteTracker, TrackerConfig, ECHO_BLOCK};
-use kontra_model::{DetectedNote, InputSource, Instrument};
+use kontra_model::{DetectedNote, InputSource, Instrument, TechniqueRevision};
 
 /// Detects all notes in `samples` (mono); onset times are seconds from the buffer start.
 pub fn analyze(
@@ -17,9 +17,24 @@ pub fn analyze(
     let mut notes = Vec::new();
     for block in samples.chunks(512) {
         notes.extend_from_slice(tracker.push(block));
+        revise(&mut notes, tracker.revised());
     }
     notes.extend_from_slice(tracker.flush());
+    revise(&mut notes, tracker.revised());
     notes
+}
+
+/// Applies techniques told late to the notes they belong to (same onset).
+pub fn revise(notes: &mut [DetectedNote], revisions: &[TechniqueRevision]) {
+    for r in revisions {
+        if let Some(n) = notes
+            .iter_mut()
+            .rev()
+            .find(|n| (n.onset_s - r.onset_s).abs() < 1e-9)
+        {
+            n.technique = Some(r.technique);
+        }
+    }
 }
 
 /// Like `analyze`, after removing `reference` (what played from the speakers at the same time)

@@ -6,11 +6,16 @@ use crate::settings::ScoreSettings;
 use crate::summary::Summary;
 use crate::technique::{TechniqueJudge, TechniqueResult};
 use crate::transport::{LoopRange, Transport};
-use kontra_model::{Arrangement, DetectedNote};
+use kontra_model::{Arrangement, DetectedNote, TechniqueRevision};
 
 /// Real seconds to wait before declaring a note missed: detected notes arrive up to ~150 ms
 /// after their onset (concept 6.3), plus margin.
 const DETECTION_GRACE_S: f64 = 0.25;
+
+/// Struck notes kept for techniques told later (they come within about 110 ms of the note).
+const STRUCK_KEPT: usize = 16;
+/// A revision belongs to the note detected at the same onset (the engine's clock, exact).
+const REVISION_MATCH_S: f64 = 1e-6;
 
 /// Riff-Werkstatt (LH-MOD-04): keeps the hit rate in a target band (decision round 5, after
 /// DIDAKTIK.md idea I7). Above the band for `passes_needed` passes in a row → one step faster
@@ -78,6 +83,9 @@ pub struct Session {
     transport: Transport,
     matcher: Matcher,
     techniques: TechniqueJudge,
+    /// Struck notes judged lately: (detected onset, pass, note), so a technique told later can
+    /// be judged again (`on_revision`).
+    struck: Vec<(f64, u32, usize)>,
     results: Vec<NoteResult>,
     events: Vec<SessionEvent>,
     cursor_pass: u32,
@@ -102,6 +110,7 @@ impl Session {
             transport,
             matcher,
             techniques,
+            struck: Vec::new(),
             results: Vec::new(),
             events: Vec::new(),
             cursor_pass: 0,
@@ -242,6 +251,35 @@ impl Session {
         );
         self.record(result);
         self.judge_struck(&result, Some(note.technique));
+        if let Some(index) = result.note {
+            self.remember_struck(note.onset_s, result.pass, index);
+        }
+    }
+
+    /// A technique told after its note (LH-BEW-06): the note it belongs to is judged again.
+    pub fn on_revision(&mut self, revision: &TechniqueRevision) {
+        let Some(&(_, pass, note)) = self
+            .struck
+            .iter()
+            .rev()
+            .find(|(onset, _, _)| (onset - revision.onset_s).abs() < REVISION_MATCH_S)
+        else {
+            return;
+        };
+        if let Some(t) = self
+            .techniques
+            .judge_struck(pass, note, Some(Some(revision.technique)))
+        {
+            self.events.push(SessionEvent::Technique(t));
+        }
+    }
+
+    /// Keeps the last struck notes for `on_revision`.
+    fn remember_struck(&mut self, onset_s: f64, pass: u32, note: usize) {
+        if self.struck.len() >= STRUCK_KEPT {
+            self.struck.remove(0);
+        }
+        self.struck.push((onset_s, pass, note));
     }
 
     /// Advances the clock to `real_s`; returns what happened since the last call.
@@ -398,6 +436,7 @@ impl Session {
         {
             self.events.push(SessionEvent::Technique(t));
         }
+        self.remember_struck(note.onset_s, pass, target.index);
         self.matcher.resolve(pass, self.cursor_slot);
         self.cursor_slot += 1;
         if self.holding {

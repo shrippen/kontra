@@ -19,6 +19,7 @@ mod onset;
 mod pitch;
 mod resample;
 mod shaping;
+mod strike;
 mod tracker;
 mod tuner;
 mod yin;

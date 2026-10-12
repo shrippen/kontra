@@ -35,3 +35,11 @@ pub struct DetectedNote {
     #[serde(default)]
     pub technique: Option<crate::Technique>,
 }
+
+/// A technique told after its note was emitted (LH-BEW-06): judging an attack needs about 110 ms
+/// of it, more than the note waits for its pitch. Matches the note by its `onset_s`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct TechniqueRevision {
+    pub onset_s: f64,
+    pub technique: crate::Technique,
+}

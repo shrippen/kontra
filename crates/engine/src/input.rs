@@ -202,6 +202,7 @@ impl Analysis {
             note.onset_s += self.start_s;
             let _ = events.send(Event::Note(note));
         }
+        self.send_revisions(events);
         if tuner_on {
             if let Some(reading) = self.tuner.push(block) {
                 let _ = events.send(Event::Tuner(reading));
@@ -227,6 +228,16 @@ impl Analysis {
             let mut note = *note;
             note.onset_s += self.start_s;
             let _ = events.send(Event::Note(note));
+        }
+        self.send_revisions(events);
+    }
+
+    /// Techniques told late, on the same clock as the notes.
+    fn send_revisions(&self, events: &Sender<Event>) {
+        for revision in self.tracker.revised() {
+            let mut revision = *revision;
+            revision.onset_s += self.start_s;
+            let _ = events.send(Event::Technique(revision));
         }
     }
 }

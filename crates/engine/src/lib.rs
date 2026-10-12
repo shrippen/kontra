@@ -30,16 +30,18 @@ pub use korpus::{
     band, evaluate, evaluate_with, generate, render_performance, simulate_laptop_jack, Annotation,
     Evaluation, KorpusItem, KorpusSet, Matching, Mistakes, Playing,
 };
-pub use offline::{analyze, analyze_without};
+pub use offline::{analyze, analyze_without, revise};
 pub use player::{Accent, BackingAudio, Gains, NullOutput, Output, Player, Sound};
 
 use kontra_dsp::TunerReading;
-use kontra_model::DetectedNote;
+use kontra_model::{DetectedNote, TechniqueRevision};
 
 /// What the engine reports to the layer above.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Event {
     Note(DetectedNote),
+    /// A technique told after its note (the attack needed more audio, LH-BEW-06).
+    Technique(TechniqueRevision),
     /// Input level over the last 50 ms.
     Level {
         peak_db: f32,

@@ -234,6 +234,10 @@ impl<O: Output> Practice<O> {
                 self.session.on_note(&note);
                 None
             }
+            Event::Technique(revision) => {
+                self.session.on_revision(&revision);
+                None
+            }
             Event::Level {
                 peak_db,
                 rms_db,
