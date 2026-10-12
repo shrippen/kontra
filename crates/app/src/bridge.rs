@@ -124,6 +124,9 @@ pub mod qobject {
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
         #[qproperty(QString, backing_name, cxx_name = "backingName")]
         #[qproperty(QString, stems_json, cxx_name = "stemsJson")]
+        /// While the arrangement is laid out again: the run goes on (a change of key), so the
+        /// page keeps the marks.
+        #[qproperty(bool, run_kept, cxx_name = "runKept")]
         /// Piece and backing moved by semitones (LH-WIE-02), −`transposeMax`..=`transposeMax`.
         #[qproperty(i32, transpose)]
         #[qproperty(i32, transpose_max, cxx_name = "transposeMax")]
@@ -413,7 +416,7 @@ pub mod qobject {
         #[cxx_name = "cancelStems"]
         fn cancel_stems(self: Pin<&mut Self>);
 
-        /// Looks for the separator again (after installing it).
+        /// Looks for the separator again (after installing it) and shows the state.
         #[qinvokable]
         #[cxx_name = "refreshStems"]
         fn refresh_stems(self: Pin<&mut Self>);
@@ -681,6 +684,7 @@ pub struct ControllerRust {
     calibration_text: QString,
     backing_name: QString,
     stems_json: QString,
+    run_kept: bool,
     transpose: i32,
     transpose_max: i32,
     message: QString,
@@ -819,6 +823,7 @@ impl Default for ControllerRust {
             calibration_text: QString::default(),
             backing_name: QString::default(),
             stems_json: QString::default(),
+            run_kept: false,
             transpose: 0,
             transpose_max: kontra_appcore::Core::transpose_max(),
             message: QString::default(),
@@ -970,7 +975,7 @@ impl qobject::Controller {
         self.as_mut().set_recent_json(q(&recent));
         self.as_mut().set_loaded(loaded);
         self.as_mut().set_backing_name(q(&backing));
-        self.as_mut().refresh_stems();
+        self.as_mut().show_stems();
         self.as_mut().set_transpose(transpose);
         self.as_mut().set_position(0.0);
         self.as_mut().set_summary_json(QString::default());
@@ -1757,7 +1762,24 @@ impl qobject::Controller {
         if let Err(text) = self.as_mut().core().set_transpose(semitones) {
             self.as_mut().show_error(&text);
         }
+        // The run goes on in the new key: what waits and where it is stay as they are.
+        let kept = self.as_ref().rust().core.has_run();
+        let holding = *self.as_ref().holding_index();
+        self.as_mut().set_run_kept(kept);
         self.as_mut().refresh_arrangement();
+        self.as_mut().set_run_kept(false);
+        if kept {
+            let position = self.as_ref().rust().core.position_s();
+            self.as_mut().set_position(position);
+            // The note waited for is the same, its name and fret are the new key's.
+            let text = usize::try_from(holding)
+                .ok()
+                .and_then(|index| self.as_ref().rust().core.wait_text(index, None));
+            if let Some(text) = text {
+                self.as_mut().set_holding_index(holding);
+                self.as_mut().set_holding_text(q(&text));
+            }
+        }
     }
 
     fn choose_backing(mut self: Pin<&mut Self>, url: &QString) {
@@ -1766,22 +1788,27 @@ impl qobject::Controller {
         self.as_mut().core().set_backing(path, 0.0);
         let name = self.as_ref().rust().core.backing_name();
         self.as_mut().set_backing_name(q(&name));
-        self.as_mut().refresh_stems();
+        self.as_mut().show_stems();
         self.as_mut().set_playing(false);
     }
 
     fn remove_bass(mut self: Pin<&mut Self>, on: bool) {
         self.as_mut().core().remove_bass(on);
-        self.as_mut().refresh_stems();
+        self.as_mut().show_stems();
         self.as_mut().set_playing(false);
     }
 
     fn cancel_stems(mut self: Pin<&mut Self>) {
         self.as_mut().core().cancel_stems();
-        self.as_mut().refresh_stems();
+        self.as_mut().show_stems();
     }
 
     fn refresh_stems(mut self: Pin<&mut Self>) {
+        self.as_mut().core().recheck_stems();
+        self.as_mut().show_stems();
+    }
+
+    fn show_stems(mut self: Pin<&mut Self>) {
         let state = self.as_mut().core().stems_json();
         self.as_mut().set_stems_json(q(&state));
     }

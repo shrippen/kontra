@@ -158,8 +158,10 @@ impl Session {
         if !same_times {
             return false;
         }
+        if !self.techniques.retarget(&arrangement, self.settings.source) {
+            return false;
+        }
         self.matcher.retarget(expected_notes(&arrangement));
-        self.techniques.retarget(&arrangement, self.settings.source);
         self.arrangement = arrangement;
         true
     }
@@ -271,6 +273,51 @@ impl Session {
             .judge_struck(pass, note, Some(Some(revision.technique)))
         {
             self.events.push(SessionEvent::Technique(t));
+        }
+        if revision.technique == kontra_model::Technique::Ghost {
+            self.unmute(pass, note);
+        }
+    }
+
+    /// A ghost or dead note judged by a pitch it does not have (its muted verdict came later):
+    /// it hits after all, and in Wait mode the wait is over.
+    fn unmute(&mut self, pass: u32, note: usize) {
+        let Some(slot) = self
+            .matcher
+            .expected()
+            .iter()
+            .position(|e| e.index == note && e.ghost)
+        else {
+            return;
+        };
+        // The earlier result is replaced, not followed: a pass counts every result it holds.
+        let Some(at) = self
+            .results
+            .iter()
+            .rposition(|r| r.pass == pass && r.note == Some(note))
+        else {
+            return;
+        };
+        let last = self.results[at];
+        if !matches!(last.outcome, Outcome::WrongPitch { .. } | Outcome::OffPitch) {
+            return;
+        }
+        let hit = NoteResult {
+            outcome: Outcome::Hit,
+            cents: None,
+            ..last
+        };
+        self.results[at] = hit;
+        self.events.push(SessionEvent::Result(hit));
+        if !matches!(self.mode, Mode::Wait) || self.cursor_slot != slot {
+            return;
+        }
+        self.matcher.resolve(pass, slot);
+        self.cursor_slot += 1;
+        if self.holding {
+            self.holding = false;
+            self.transport.release(self.now_s);
+            self.events.push(SessionEvent::Released);
         }
     }
 
@@ -428,6 +475,10 @@ impl Session {
             position_s: target.position_s,
         });
         if !in_tune {
+            // A dead note heard with a pitch may still be told muted later (`on_revision`).
+            if target.ghost {
+                self.remember_struck(note.onset_s, pass, target.index);
+            }
             return;
         }
         if let Some(t) = self

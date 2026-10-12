@@ -547,5 +547,6 @@
   "summary.technique": "{technique}: {played} von {judged}",
   "summary.techniques.untold": "Mit diesem Eingang nicht bewertet: {techniques}",
   "summary.techniques.note": "Zählt nicht zur Trefferquote.",
-  "summary.note.technique": "{technique}: {result}"
+  "summary.note.technique": "{technique}: {result}",
+  "stems.error.start": "Demucs ließ sich nicht starten."
 }

@@ -207,3 +207,34 @@ fn dead_note_played_muted_hits() {
     let first = s.results().iter().find(|r| r.note == Some(0)).unwrap();
     assert!(first.is_hit(), "{first:?}");
 }
+
+/// A dead note heard with a pitch is told muted only later (the attack needs more audio): the
+/// revision turns its wrong pitch into a hit, in song mode and while waiting.
+#[test]
+fn late_ghost_verdict_fixes_the_pitch() {
+    let mut dead = piece();
+    dead.notes[2].techniques = vec![Technique::Muted];
+    for mode in [Mode::Song, Mode::Wait] {
+        let mut s = Session::new(dead.clone(), mode, ScoreSettings::default());
+        s.play(0.0);
+        let take = [
+            played(0.0, 28.0, None),
+            played(0.5, 33.0, Some(Technique::HammerOn)),
+            played(1.0, 36.0, None),
+        ];
+        run(&mut s, &take, 1.15);
+        s.on_revision(&kontra_model::TechniqueRevision {
+            onset_s: 1.0,
+            technique: Technique::Ghost,
+        });
+        // Replaced, not followed by a hit: a pass counts every result it holds.
+        let of_note: Vec<_> = s.results().iter().filter(|r| r.note == Some(2)).collect();
+        assert!(of_note.iter().all(|r| r.is_hit()), "{mode:?}: {of_note:?}");
+        if mode == Mode::Wait {
+            assert!(
+                s.is_finished() || s.next_expected().is_none(),
+                "the wait is over"
+            );
+        }
+    }
+}

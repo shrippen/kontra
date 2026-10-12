@@ -7,7 +7,7 @@
 //! ```
 
 use crate::{file_name, store, Core, UiEvent};
-use kontra_session::{BassRemoval, StemJob};
+use kontra_session::{BassRemoval, SeparatorError, StemJob};
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
@@ -21,8 +21,36 @@ const PERMILLE: f64 = 1000.0;
 pub(crate) struct Stems {
     removal: Option<BassRemoval>,
     job: Option<(PathBuf, PathBuf, StemJob)>,
-    failed: Option<String>,
+    failed: Option<Failure>,
     told_permille: u32,
+}
+
+/// Why a separation failed; the UI says it in its language.
+#[derive(Debug, Clone, PartialEq)]
+enum Failure {
+    /// The program did not start.
+    Start,
+    /// It ran and failed; its last line of output (Demucs' own words).
+    Program(String),
+}
+
+impl Failure {
+    fn of(error: &SeparatorError) -> Option<Failure> {
+        match error {
+            SeparatorError::Start { .. } => Some(Failure::Start),
+            SeparatorError::Failed(line) => Some(Failure::Program(line.clone())),
+            SeparatorError::Cancelled => None,
+        }
+    }
+}
+
+/// Whether choosing with or without bass ends a running practice.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Running {
+    /// The player chose: the next play uses it.
+    End,
+    /// A separation finished on its own: the run goes on, the next play uses it.
+    Keep,
 }
 
 impl Core {
@@ -35,20 +63,18 @@ impl Core {
         BassRemoval::with_separator(None, &self.stems_cache()).cached(song)
     }
 
-    /// Looks for the separator again unless it was found (installing it needs no restart).
+    /// The separator, looked for once (inside a Flatpak that asks the host, which takes a
+    /// moment); `recheck_stems` looks again.
     fn separator(&mut self) -> &BassRemoval {
         let cache = self.stems_cache();
-        let found = self
-            .stems
-            .removal
-            .as_ref()
-            .is_some_and(BassRemoval::available);
-        if !found {
-            self.stems.removal = Some(BassRemoval::new(&cache));
-        }
         self.stems
             .removal
-            .get_or_insert_with(|| BassRemoval::with_separator(None, &cache))
+            .get_or_insert_with(|| BassRemoval::new(&cache))
+    }
+
+    /// Looks for the separator again, e.g. after installing it (no restart needed).
+    pub fn recheck_stems(&mut self) {
+        self.stems.removal = None;
     }
 
     /// State of the bass removal for the loaded piece's backing track:
@@ -73,9 +99,10 @@ impl Core {
                 "running",
                 self.tr("stems.running", &[("percent", format!("{:.0}", p * 100.0))]),
             ),
-            (Some(_), None, Some(reason)) => (
+            (Some(_), None, Some(Failure::Start)) => ("failed", self.tr("stems.error.start", &[])),
+            (Some(_), None, Some(Failure::Program(line))) => (
                 "failed",
-                self.tr("stems.failed", &[("reason", reason.clone())]),
+                self.tr("stems.failed", &[("reason", line.clone())]),
             ),
             (Some(song), None, None) if on && self.without_bass(song).is_some() => {
                 ("on", self.tr("stems.on", &[]))
@@ -117,12 +144,12 @@ impl Core {
                     self.stems.told_permille = 0;
                     self.stems.job = Some((piece, song, job));
                 }
-                Some(Err(e)) => self.stems.failed = Some(e.to_string()),
+                Some(Err(e)) => self.stems.failed = Failure::of(&e),
                 None => {}
             }
             return;
         }
-        self.set_without_bass(&piece, on);
+        self.set_without_bass(&piece, on, Running::End);
     }
 
     /// Stops a running separation.
@@ -151,24 +178,25 @@ impl Core {
         let mut events = Vec::new();
         match result {
             Ok(_) => {
-                self.set_without_bass(&piece, true);
+                self.set_without_bass(&piece, true, Running::Keep);
                 events.push(UiEvent::Message(
                     self.tr("stems.done", &[("name", file_name(&song))]),
                 ));
             }
-            Err(kontra_session::SeparatorError::Cancelled) => {}
-            Err(e) => self.stems.failed = Some(e.to_string()),
+            Err(e) => self.stems.failed = Failure::of(&e),
         }
         events.push(UiEvent::Stems(self.stems_json()));
         events
     }
 
-    fn set_without_bass(&mut self, piece: &Path, on: bool) {
+    fn set_without_bass(&mut self, piece: &Path, on: bool, running: Running) {
         if let Some(entry) = self.library.entry_mut(piece) {
             entry.backing_without_bass = on;
         }
         let _ = store::save(&self.data_dir.join("library.json"), &self.library);
-        self.stop_live();
+        if running == Running::End {
+            self.stop_live();
+        }
     }
 
     fn loaded_entry(&self) -> Option<&store::RecentEntry> {
