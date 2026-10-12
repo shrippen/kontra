@@ -15,6 +15,9 @@ use crate::score::{
 };
 use kontra_model::{Pitch, Technique, TimeSignature};
 
+/// Harmonic kind of GP4 and GP5 that sounds at a partial of the string.
+const HARMONIC_NATURAL: u8 = 1;
+
 /// Slide types that go to the next note: GP4 stores a number, GP5 bit flags.
 const GP4_SLIDE_SHIFT: u8 = 1;
 const GP4_SLIDE_LEGATO: u8 = 2;
@@ -88,6 +91,8 @@ struct BeatFx {
 struct NoteFx {
     techniques: Vec<Technique>,
     hammer: bool,
+    /// A natural harmonic: it sounds at a partial of the string, not at the fret.
+    natural_harmonic: bool,
 }
 
 #[derive(Debug)]
@@ -567,7 +572,12 @@ impl Parser<'_> {
         let Ok(fret) = u8::try_from(fret) else {
             return Ok(None);
         };
-        let Some(pitch) = tuning[string].transposed(i32::from(fret)) else {
+        let fretted = tuning[string].transposed(i32::from(fret));
+        let sounding = fx
+            .natural_harmonic
+            .then(|| crate::harmonic::natural_harmonic(tuning[string], f64::from(fret)))
+            .flatten();
+        let Some(pitch) = sounding.or(fretted) else {
             return Ok(None);
         };
         let mut note = RawNote::new(offset, duration, pitch);
@@ -633,7 +643,7 @@ impl Parser<'_> {
             }
         }
         if flags2 & 0x10 != 0 {
-            self.harmonic()?;
+            fx.natural_harmonic = self.harmonic()? == HARMONIC_NATURAL;
             fx.techniques.push(Technique::Harmonic);
         }
         if flags2 & 0x20 != 0 {
@@ -651,16 +661,18 @@ impl Parser<'_> {
         Ok(fx)
     }
 
-    fn harmonic(&mut self) -> Result<(), ImportError> {
+    /// Reads a harmonic and returns its kind (`HARMONIC_NATURAL`, …).
+    fn harmonic(&mut self) -> Result<u8, ImportError> {
         let kind = self.r.u8()?;
         if self.version < Version::V500 {
-            return Ok(());
+            return Ok(kind);
         }
         match kind {
-            2 => self.r.skip(3), // artificial: semitone, accidental, octave
-            3 => self.r.skip(1), // tapped: fret
-            _ => Ok(()),
+            2 => self.r.skip(3)?, // artificial: semitone, accidental, octave
+            3 => self.r.skip(1)?, // tapped: fret
+            _ => {}
         }
+        Ok(kind)
     }
 
     /// Bend or tremolo bar: type, value, points of 9 bytes.

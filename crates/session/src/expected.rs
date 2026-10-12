@@ -1,7 +1,9 @@
 //! Notes the player is expected to strike, in arrangement seconds.
 
-use kontra_model::Arrangement;
+use kontra_model::{Arrangement, Technique};
 use serde::{Deserialize, Serialize};
+
+const CENTS_PER_OCTAVE: f64 = 1200.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ExpectedNote {
@@ -14,9 +16,12 @@ pub struct ExpectedNote {
     pub bar: Option<usize>,
     /// Further notes struck together with this one (a chord); `midi` is the lowest.
     pub chord: ChordTones,
-    /// A ghost note: muted, without a pitch to judge (LH-BEW-06).
+    /// A ghost or dead note: muted, without a pitch to judge (LH-BEW-06).
     #[serde(default)]
     pub ghost: bool,
+    /// A harmonic: its pitch counts in any octave (the tracker often hears it lower).
+    #[serde(default)]
+    pub harmonic: bool,
 }
 
 impl ExpectedNote {
@@ -25,10 +30,18 @@ impl ExpectedNote {
         std::iter::once(self.midi).chain(self.chord.iter().map(|(_, midi)| midi))
     }
 
-    /// Cents from `midi` to the nearest accepted pitch.
+    /// Cents from `midi` to the nearest accepted pitch (for a harmonic: in any octave).
     pub fn cents_from(&self, midi: f64) -> f64 {
+        let harmonic = self.harmonic;
         self.pitches()
             .map(|p| (midi - f64::from(p)) * 100.0)
+            .map(|c| {
+                if harmonic {
+                    c - (c / CENTS_PER_OCTAVE).round() * CENTS_PER_OCTAVE
+                } else {
+                    c
+                }
+            })
             .fold(
                 f64::INFINITY,
                 |best, c| if c.abs() < best.abs() { c } else { best },
@@ -90,7 +103,11 @@ pub fn expected_notes(arrangement: &Arrangement) -> Vec<ExpectedNote> {
             midi: n.pitch.0,
             bar: arrangement.bar_at(n.start_ticks),
             chord: ChordTones::default(),
-            ghost: n.techniques.contains(&kontra_model::Technique::Ghost),
+            ghost: n
+                .techniques
+                .iter()
+                .any(|t| matches!(t, Technique::Ghost | Technique::Muted)),
+            harmonic: n.techniques.contains(&Technique::Harmonic),
         });
     }
     out

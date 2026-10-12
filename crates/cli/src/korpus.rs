@@ -311,7 +311,7 @@ fn report(
             .filter(|(i, d)| {
                 !used[*i]
                     && (d.onset_s - n.onset_s).abs() <= window_s
-                    && (!matching.require_pitch || d.midi.round() == n.midi.round())
+                    && (!matching.require_pitch || session::same_pitch(n, d.midi))
             })
             .min_by(|a, b| {
                 (a.1.onset_s - n.onset_s)
@@ -322,7 +322,7 @@ fn report(
             None => println!("    miss   {:>9.3} s  midi {:>6.2}", n.onset_s, n.midi),
             Some((i, d)) => {
                 used[i] = true;
-                if d.midi.round() != n.midi.round() {
+                if !session::same_pitch(n, d.midi) {
                     println!(
                         "    pitch  {:>9.3} s  midi {:>6.2} -> {:>6.2}",
                         n.onset_s, n.midi, d.midi
