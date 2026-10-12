@@ -313,8 +313,18 @@ fn takes(
             report.line(format!("| {} | skipped | | | | | |", take.name));
             continue;
         }
-        let heard = record(setup, instrument, take.plan(), take.length_s())?;
-        rows.push(judge(report, &take, &heard, dir, latency_ms)?);
+        // Recorded until kept; a redo overwrites the files.
+        loop {
+            let heard = record(setup, instrument, take.plan(), take.length_s())?;
+            let (line, row) = judge(&take, &heard, dir, latency_ms)?;
+            println!("{line}");
+            if !a.yes && again() {
+                continue;
+            }
+            report.md.push(line);
+            rows.push(row);
+            break;
+        }
     }
     report.json.insert("takes".into(), Value::Array(rows));
     Ok(())
@@ -322,12 +332,11 @@ fn takes(
 
 /// Writes a take as a corpus pair and measures detection on it, as `korpus measure` does.
 fn judge(
-    report: &mut Report,
     take: &session::CheckTake,
     heard: &session::Take,
     dir: &Path,
     latency_ms: f64,
-) -> Result<Value, String> {
+) -> Result<(String, Value), String> {
     let notes = take.annotate(heard, latency_ms);
     let wav = dir.join(format!("{}.wav", take.name));
     session::write_mono_wav(&wav, &heard.samples, heard.sample_rate).map_err(|e| e.to_string())?;
@@ -363,7 +372,7 @@ fn judge(
     } else {
         "–".into()
     };
-    report.line(format!(
+    let line = format!(
         "| {} | {} | {} | {}/{} | {technique} | {peak:.0} dBFS{quiet} | {} |",
         take.name,
         e.annotated,
@@ -371,8 +380,8 @@ fn judge(
         e.pitch_correct,
         e.matched,
         wav.display()
-    ));
-    Ok(json!({
+    );
+    let row = json!({
         "name": take.name,
         "annotated": e.annotated,
         "detected": e.detected,
@@ -383,7 +392,16 @@ fn judge(
         "peakDbfs": peak,
         "xruns": heard.xruns,
         "file": wav,
-    }))
+    });
+    Ok((line, row))
+}
+
+/// After a take: Enter keeps it, "r" records it again.
+fn again() -> bool {
+    println!("  Enter: keep, r: record again");
+    let mut line = String::new();
+    let _ = std::io::stdin().lock().read_line(&mut line);
+    line.trim().eq_ignore_ascii_case("r")
 }
 
 /// What to play, as tab: "A0 hA2 A0 hA2 …" (string letter, fret; h, p, sl, S, P, x).
