@@ -16,6 +16,9 @@ Merges per `tea api …/merge` blockiert der Auto-Modus seit dem 13.10.; Eigent�
 6. #51 künstliche, getippte und MusicXML-Flageoletts.
 7. #53 Halbtonfehler Kontrabass (nur Doku), nach #52.
 8. #54 Laptop-Buchse: Brummfilter und Onset-Schwelle im Profil `laptop-jack` (IDMT-Simulation 37,9 → 87,7 % Recall), auf #52.
+- Probe-Merge aller PRs in dieser Reihenfolge (13.10., `../Kontra-integ`): grün. Konflikte nur in Doku: STAND.md
+  in #50–#52 (Fassung aus #49 nehmen), QUELLEN.md zwischen #53 und #54 (beide Abschnitte behalten). #50 enthält #46
+  (wegen `slide_cents`).
 - Kante #58 (1.35, Loop in Tabulatur und Noten): Eigentümer merged. Danach `scripts/sync-kante.sh` und `loopStart`/
   `loopEnd` in `PracticePage.qml` an tabStaff, bassStaff, combinedBass, combinedTab binden (G9).
 
