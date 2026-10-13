@@ -146,6 +146,27 @@ Kirigami.Page {
     }
 
     readonly property var times: bars.map(function(b) { return b.time })
+    // Most onsets in one bar: tablature gives dense bars room (sixteenths with ghost notes ran
+    // together, QA 13.10.). Chords count once.
+    readonly property int densestBar: {
+        var most = 0, bar = 0, count = 0, last = -1
+        for (var i = 0; i < notes.length; i++) {
+            var t = notes[i].time
+            while (bar + 1 < times.length && times[bar + 1] <= t) {
+                bar++
+                count = 0
+            }
+            if (t === last) {
+                continue
+            }
+            last = t
+            count++
+            most = Math.max(most, count)
+        }
+        return most
+    }
+    // Room per onset in the tablature, ghost note brackets included.
+    readonly property real tabNoteWidth: KanteStyle.unit(26) * presentScale
     readonly property var stringNames: JSON.parse(ctl.stringNamesJson)
     // Keyboard view (J-E1): the instrument's range and the note names in the user's language.
     readonly property var keys: JSON.parse(ctl.keyRangeJson)
@@ -528,6 +549,7 @@ Kirigami.Page {
                 // As many lines as fit (QA P2 R6: one line left the next bars hidden).
                 systems: Math.max(1, Math.floor(height / (KanteStyle.unit(170) * page.presentScale)))
                 lineSpacing: KanteStyle.unit(14) * page.presentScale
+                minBarWidth: Math.max(KanteStyle.unit(200), page.densestBar * page.tabNoteWidth)
                 visible: ctl.view === "tab"
                 strings: page.stringNames.length
                 stringNames: page.stringNames
@@ -585,6 +607,7 @@ Kirigami.Page {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     lineSpacing: KanteStyle.unit(14) * page.presentScale
+                    minBarWidth: Math.max(KanteStyle.unit(200), page.densestBar * page.tabNoteWidth)
                     strings: page.stringNames.length
                     stringNames: page.stringNames
                     lowStringOnTop: ctl.lowStringOnTop

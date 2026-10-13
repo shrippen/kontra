@@ -11,7 +11,7 @@ Merges per `tea api …/merge` blockiert der Auto-Modus seit dem 13.10.; Eigent�
 1. #55 Kante 1.34 übernehmen (Dead-Note-Zeichen x, das #45 braucht).
 2. #45, #46, #47 (vom 12.10.).
 3. #48 Startseite, Navigation nach Tätigkeit (LH-ALL-06).
-4. #49 GUI-Runde 13.10. (G3–G20), baut auf #48.
+4. #49 GUI-Runde 13.10. (G3–G21), baut auf #48.
 5. #50 Slides an echten Aufnahmen; #52 Oktavfehler Kontrabass baut auf #50.
 6. #51 künstliche, getippte und MusicXML-Flageoletts.
 7. #53 Halbtonfehler Kontrabass (nur Doku), nach #52.
@@ -27,8 +27,8 @@ Merges per `tea api …/merge` blockiert der Auto-Modus seit dem 13.10.; Eigent�
 
 - **Runde 11** (Entscheidungs-Artefakt): Merge-Erlaubnis, Modusnamen „Spielen“/„Song“, Ghost-Zeichen (F8), Startseite
   „nächste Übung“, Tastenkürzel, Slides über einen Bund, Termin Hardware-Prüfung.
-- **F8 bei Sechzehnteln** (#56): In der Tabulatur verschmelzen „(0)“ und „( )“ der Ghost Notes zu „(0(0(0“;
-  Entscheidung Ghost-Zeichen in Runde 11.
+- **F8 bei Sechzehnteln** (#56): „(0)“ und „( )“ der Ghost Notes verschmolzen zu „(0(0(0“; Breite je Takt jetzt nach
+  Dichte (G21, #49), mit #49 und #56 zusammen lesbar (Probe-Merge); das doppelte Zeichen bleibt Entscheidung Runde 11.
 - **Slides über einen Bund** sind von Hammer-ons nicht zu trennen (#50); Entscheidung Runde 11.
 - **Oktavfehler** (#52): 30 FiloBass-Noten noch eine Oktave tief; 88 Noten einen Halbton tief: Ton steigt in den ersten 100 ms, Kontra entscheidet zu früh (#53, Doku); Korrektur nach dem Einschwingen = Runde 11.
 - **Flageoletts** (#51): Bewertung oktavtolerant; künstliche ohne eigenes Zeichen in Kante. GP4-Arten 15/17 mit echter

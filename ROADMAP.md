@@ -255,6 +255,8 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
     nachgewiesen mit `grabToImage`). Jetzt wird der Linienabstand kleiner, bis eine Zeile passt.
   - G20 (niedrig, behoben #49, P4): „Noten + Tab“ im Beamer-Format: Notenzeile ragte in die Tabulatur; Noten haben
     jetzt die halbe Höhe und so viele Takte je Zeile wie die Tabulatur darunter.
+  - G21 (mittel, behoben #49, P2/P3): Tabulatur gab jedem Takt dieselbe Mindestbreite; Sechzehntel (Ghost-Groove #56)
+    liefen ineinander. Jetzt richtet sich die Breite nach dem dichtesten Takt (Achtel: weiter fünf Takte je Zeile).
   - Offen (Kante #61): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 
