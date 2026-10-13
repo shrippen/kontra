@@ -10,6 +10,8 @@ steht nur, was offen ist und wo es liegt.
 - **Techniken an echten Aufnahmen** (LH-BEW-06): Slap/Pop/Ghost an IDMT 79/70/96 %, an denselben Aufnahmen
   abgestimmt; eigene Aufnahmen fehlen. Slides an IDMT 3 von 20 (über zwei Bünde, PR slide-erkennung); Ein-Bund-Slides
   springen wie Hammer-ons (0–22 ms) und gelten als Hammer-on; trennen braucht echte Hammer-on-Aufnahmen.
+- **Oktavfehler Kontrabass** (Phase 0, PR oktavfehler): FiloBass 81 → 30 Noten eine Oktave zu tief (Wummern beim
+  Anschlag); die übrigen 30 gleichen im ersten Fenster gespielten A1, Analyse in `testdata/korpus/QUELLEN.md`.
 - **Flageoletts**: natürliche am Teilton (GP binär, GPIF); künstliche Flageoletts und MusicXML-Flageoletts fehlen.
 - **Stem-Trennung** (LH-BIB-09): mit Ersatz-Programm getestet; mit echtem Demucs nicht gelaufen (Abnahme
   „4-Minuten-Song < 3 min“ offen). Im Flatpak ausgegraut (Erlaubnis fehlt bewusst).
