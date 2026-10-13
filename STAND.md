@@ -48,6 +48,12 @@ Merges per `tea api …/merge` blockiert der Auto-Modus seit dem 13.10.; Eigent�
   Gerät.
 - **Profilwahl „Keyboard“** erst mit den Tasteninstrumenten nach 1.0.
 
+## Neue pub-Schnittstellen (nächste Runde zur Freigabe)
+
+- #48/#49: `Core::home_json`, `Core::loaded_title`, `Library::plain_paths`.
+- #50: `TechniqueTarget`, `technique_signs`, `TechniqueResult::sign`, `Annotation::slide_cents`.
+- #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
+
 ## Für den Eigentümer
 
 - Runde 11 beantworten: https://claude.ai/artifact/EsQvZ5epqB3WeBgFEhytpN
