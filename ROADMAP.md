@@ -261,7 +261,7 @@ stummer Ausgang, Aufnahmen als Eingang; Fokuswege mit `--focus-log`. Befunde des
     Takte ab der Position.
   - H10 (niedrig, behoben): Dateidialoge öffneten im Arbeitsordner des Programms; jetzt letzter Ordner bzw. Downloads,
     Begleitspuren in Musik.
-- **P4 Thomas (J-B4, Beamer 853×533 bei 150 %): bestanden nach Befunden.**
+- **P4 Thomas (J-B5, Beamer 853×533 bei 150 %): bestanden nach Befunden.**
   - H11 (hoch, behoben): In der Präsentation blieb die Seitenleiste, ihr Griff lag über der Zeit; die Noten zeigten eine
     Zeile mit zwei Takten und ein Drittel leer. Jetzt ohne Seitenleiste, zwei Zeilen.
   - H12 (mittel, behoben): Titel wurde neben Modi und Ansichten abgeschnitten; leere Kirigami-Titelleiste kostete 45 px.
