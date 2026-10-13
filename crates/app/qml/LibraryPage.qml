@@ -89,92 +89,6 @@ Kirigami.ScrollablePage {
             }
         }
 
-        // Setlists (LH-BIB-04, J-B1): an order of pieces for a gig; playing one offers the next.
-        KanteSectionLabel { text: texts.t("setlist.title"); Layout.fillWidth: true }
-        Repeater {
-            model: page.setlists
-            delegate: ColumnLayout {
-                id: list
-                required property var modelData
-                Layout.fillWidth: true
-                spacing: 0
-                RowLayout {
-                    Layout.fillWidth: true
-                    QQC2.Label {
-                        Layout.fillWidth: true
-                        text: list.modelData.name + " · " + texts.t("setlist.count", { n: list.modelData.pieces.length })
-                        color: KanteStyle.strongTextColor
-                        font.bold: true
-                    }
-                    KanteButton {
-                        visible: ctl.loaded
-                        text: texts.t("setlist.addloaded")
-                        emphasis: KanteButton.Emphasis.Quiet
-                        onClicked: ctl.setlistAddLoaded(list.modelData.name)
-                    }
-                    // Two steps: a setlist is gone for good (the pieces stay in the library).
-                    KanteButton {
-                        property bool armed: false
-                        text: armed ? texts.t("setlist.delete.sure") : texts.t("setlist.delete")
-                        emphasis: armed ? KanteButton.Emphasis.Primary : KanteButton.Emphasis.Quiet
-                        onClicked: armed ? ctl.setlistDelete(list.modelData.name) : armed = true
-                        onActiveFocusChanged: if (!activeFocus) armed = false
-                        Timer { running: parent.armed; interval: 4000; onTriggered: parent.armed = false }
-                    }
-                }
-                Repeater {
-                    model: list.modelData.pieces
-                    delegate: RowLayout {
-                        required property var modelData
-                        required property int index
-                        Layout.fillWidth: true
-                        KanteListRow {
-                            Layout.fillWidth: true
-                            leadingText: String(index + 1)
-                            text: modelData.title
-                            subtitle: modelData.artist
-                            disabledReason: modelData.missing ? texts.t("setlist.missing") : ""
-                            enabled: !modelData.missing
-                            onClicked: page.openFromSetlist(list.modelData.name, index)
-                        }
-                        KanteButton {
-                            Layout.preferredWidth: KanteStyle.unit(44)
-                            text: "↑"; emphasis: KanteButton.Emphasis.Quiet; enabled: index > 0
-                            Accessible.name: texts.t("setlist.up")
-                            onClicked: ctl.setlistMove(list.modelData.name, index, -1)
-                        }
-                        KanteButton {
-                            Layout.preferredWidth: KanteStyle.unit(44)
-                            text: "↓"; emphasis: KanteButton.Emphasis.Quiet; enabled: index < list.modelData.pieces.length - 1
-                            Accessible.name: texts.t("setlist.down")
-                            onClicked: ctl.setlistMove(list.modelData.name, index, 1)
-                        }
-                        KanteButton {
-                            Layout.preferredWidth: KanteStyle.unit(44)
-                            text: "×"; emphasis: KanteButton.Emphasis.Quiet
-                            Accessible.name: texts.t("setlist.remove")
-                            onClicked: ctl.setlistRemove(list.modelData.name, index)
-                        }
-                    }
-                }
-            }
-        }
-        RowLayout {
-            Layout.fillWidth: true
-            KanteTextField {
-                id: newSetlist
-                Layout.fillWidth: true
-                placeholderText: texts.t("setlist.new")
-                Accessible.name: texts.t("setlist.new")
-                onAccepted: { ctl.setlistCreate(text); text = "" }
-            }
-            KanteButton {
-                text: texts.t("setlist.create")
-                enabled: newSetlist.text.trim() !== ""
-                onClicked: { ctl.setlistCreate(newSetlist.text); newSetlist.text = "" }
-            }
-        }
-
         // No bass track recognized: the user chooses (bass guess below 3 points).
         ColumnLayout {
             visible: page.tracks.length > 0
@@ -248,7 +162,7 @@ Kirigami.ScrollablePage {
                         meta: piece.modelData.best !== null && piece.modelData.best !== undefined
                               ? texts.t("library.best", { percent: Math.round(piece.modelData.best * 100) })
                                 + " · " + (piece.modelData.practiceMin < 1 ? texts.t("library.underminute") : texts.t("library.minutes", { minutes: Math.round(piece.modelData.practiceMin) }))
-                              : String(piece.modelData.path).split("/").pop()
+                              : texts.t("library.unplayed")
                         onClicked: page.open(String(piece.modelData.path))
                         trailing: Row {
                             spacing: KanteStyle.unit(4)
@@ -303,6 +217,94 @@ Kirigami.ScrollablePage {
                     }
                 }
             }
+        }
+    
+        // Setlists (LH-BIB-04, J-B1): an order of pieces for a gig; playing one offers the next.
+        // Below the pieces: those are what most players come for (QA 13.10.).
+        KanteSectionLabel { text: texts.t("setlist.title"); Layout.fillWidth: true; Layout.topMargin: KanteStyle.unit(16) }
+        Repeater {
+            model: page.setlists
+            delegate: ColumnLayout {
+                id: list
+                required property var modelData
+                Layout.fillWidth: true
+                spacing: 0
+                RowLayout {
+                    Layout.fillWidth: true
+                    QQC2.Label {
+                        Layout.fillWidth: true
+                        text: list.modelData.name + " · " + texts.t("setlist.count", { n: list.modelData.pieces.length })
+                        color: KanteStyle.strongTextColor
+                        font.bold: true
+                    }
+                    KanteButton {
+                        visible: ctl.loaded
+                        text: texts.t("setlist.addloaded")
+                        emphasis: KanteButton.Emphasis.Quiet
+                        onClicked: ctl.setlistAddLoaded(list.modelData.name)
+                    }
+                    // Two steps: a setlist is gone for good (the pieces stay in the library).
+                    KanteButton {
+                        property bool armed: false
+                        text: armed ? texts.t("setlist.delete.sure") : texts.t("setlist.delete")
+                        emphasis: armed ? KanteButton.Emphasis.Primary : KanteButton.Emphasis.Quiet
+                        onClicked: armed ? ctl.setlistDelete(list.modelData.name) : armed = true
+                        onActiveFocusChanged: if (!activeFocus) armed = false
+                        Timer { running: parent.armed; interval: 4000; onTriggered: parent.armed = false }
+                    }
+                }
+                Repeater {
+                    model: list.modelData.pieces
+                    delegate: RowLayout {
+                        required property var modelData
+                        required property int index
+                        Layout.fillWidth: true
+                        KanteListRow {
+                            Layout.fillWidth: true
+                            leadingText: String(index + 1)
+                            text: modelData.title
+                            subtitle: modelData.artist
+                            disabledReason: modelData.missing ? texts.t("setlist.missing") : ""
+                            enabled: !modelData.missing
+                            onClicked: page.openFromSetlist(list.modelData.name, index)
+                        }
+                        KanteButton {
+                            Layout.preferredWidth: KanteStyle.unit(44)
+                            text: "↑"; emphasis: KanteButton.Emphasis.Quiet; enabled: index > 0
+                            Accessible.name: texts.t("setlist.up")
+                            onClicked: ctl.setlistMove(list.modelData.name, index, -1)
+                        }
+                        KanteButton {
+                            Layout.preferredWidth: KanteStyle.unit(44)
+                            text: "↓"; emphasis: KanteButton.Emphasis.Quiet; enabled: index < list.modelData.pieces.length - 1
+                            Accessible.name: texts.t("setlist.down")
+                            onClicked: ctl.setlistMove(list.modelData.name, index, 1)
+                        }
+                        KanteButton {
+                            Layout.preferredWidth: KanteStyle.unit(44)
+                            text: "×"; emphasis: KanteButton.Emphasis.Quiet
+                            Accessible.name: texts.t("setlist.remove")
+                            onClicked: ctl.setlistRemove(list.modelData.name, index)
+                        }
+                    }
+                }
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            KanteTextField {
+                id: newSetlist
+                Layout.preferredWidth: KanteStyle.unit(320)
+                placeholderText: texts.t("setlist.new")
+                Accessible.name: texts.t("setlist.new")
+                onAccepted: { ctl.setlistCreate(text); text = "" }
+            }
+            KanteButton {
+                text: texts.t("setlist.create")
+                enabled: newSetlist.text.trim() !== ""
+                onClicked: { ctl.setlistCreate(newSetlist.text); newSetlist.text = "" }
+            }
+            Item { Layout.fillWidth: true }
         }
     }
 }

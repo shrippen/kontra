@@ -267,6 +267,30 @@ Kirigami.Page {
                 emphasis: KanteButton.Emphasis.Quiet
                 onClicked: ctl.chooseBacking("")
             }
+
+            // Transpose (LH-WIE-02): piece and backing move together; the notes are laid out
+            // again. In the backing's row, so the notes keep the height (QA 13.10.).
+            KanteHud {
+                Layout.leftMargin: KanteStyle.unit(16)
+                fullText: texts.t("transpose.title")
+                color: KanteStyle.mutedTextColor
+            }
+            KanteSpinBox {
+                from: -ctl.transposeMax
+                to: ctl.transposeMax
+                value: ctl.transpose
+                Accessible.name: texts.t("transpose.title")
+                textFromValue: function(value) {
+                    return value === 0 ? texts.t("transpose.none")
+                        : texts.t("transpose.semitones", { n: (value > 0 ? "+" : "") + value })
+                }
+                onValueModified: ctl.changeTranspose(value)
+            }
+            KanteInfoTip {
+                term: texts.t("transpose.title")
+                info: texts.t("transpose.hint")
+                accessibleName: texts.t("help.about", { term: texts.t("transpose.title") })
+            }
         }
 
         // Without the recording's bass (LH-BIB-09, round 9): Demucs does it once, if installed;
@@ -315,31 +339,6 @@ Kirigami.Page {
                 text: texts.t("stems.cancel")
                 emphasis: KanteButton.Emphasis.Quiet
                 onClicked: ctl.cancelStems()
-            }
-        }
-
-        // Transpose (LH-WIE-02): piece and backing move together; the notes are laid out again.
-        RowLayout {
-            Layout.fillWidth: true
-            visible: !page.presenting
-            spacing: KanteStyle.unit(8)
-            KanteHud { fullText: texts.t("transpose.title"); color: KanteStyle.mutedTextColor }
-            KanteSpinBox {
-                from: -ctl.transposeMax
-                to: ctl.transposeMax
-                value: ctl.transpose
-                Accessible.name: texts.t("transpose.title")
-                textFromValue: function(value) {
-                    return value === 0 ? texts.t("transpose.none")
-                        : texts.t("transpose.semitones", { n: (value > 0 ? "+" : "") + value })
-                }
-                onValueModified: ctl.changeTranspose(value)
-            }
-            QQC2.Label {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                color: KanteStyle.mutedTextColor
-                text: texts.t("transpose.hint")
             }
         }
 

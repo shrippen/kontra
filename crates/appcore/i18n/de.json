@@ -581,5 +581,6 @@
   "settings.section.display": "Anzeige",
   "settings.section.scoring": "Bewertung",
   "settings.section.practice": "Üben",
-  "settings.section.language": "Sprache und Stil"
+  "settings.section.language": "Sprache und Stil",
+  "library.unplayed": "noch nicht gespielt"
 }

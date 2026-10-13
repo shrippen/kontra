@@ -2529,6 +2529,19 @@ impl Core {
             .is_some_and(|q| q.answer(midi, &instrument))
     }
 
+    /// "3 of 4 found" over finished questions only: the open one is not lost yet (QA 13.10.: it
+    /// read "0 of 1 found" before the first answer). Nothing before the first one is finished.
+    fn quiz_score(&self, right: u32, asked: u32, solved: bool) -> String {
+        let done = asked - u32::from(!solved && asked > 0);
+        if done == 0 {
+            return String::new();
+        }
+        self.tr(
+            "quiz.score",
+            &[("right", right.to_string()), ("asked", done.to_string())],
+        )
+    }
+
     /// The question in words, the score, and once solved where the answer lies:
     /// `{"prompt", "right", "asked", "solved", "positions": [{string, fret, role}]}`.
     pub fn quiz_json(&self) -> String {
@@ -2588,7 +2601,7 @@ impl Core {
             "right": q.right,
             "asked": q.asked,
             "solved": q.solved,
-            "score": self.tr("quiz.score", &[("right", q.right.to_string()), ("asked", q.asked.to_string())]),
+            "score": self.quiz_score(q.right, q.asked, q.solved),
             "positions": positions,
         })
         .to_string()
@@ -2798,7 +2811,7 @@ impl Core {
             "total": question.answer.len(),
             "played": played,
             "reveal": reveal,
-            "score": self.tr("quiz.score", &[("right", q.right.to_string()), ("asked", q.asked.to_string())]),
+            "score": self.quiz_score(q.right, q.asked, q.solved),
             "positions": positions,
             "silent": self.live_ear.as_ref().is_some_and(LiveEar::output_is_silent),
         })
@@ -3821,6 +3834,24 @@ mod tests {
             (q["asked"].as_u64(), q["solved"].as_bool()),
             (Some(2), Some(false))
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA 13.10.: the open question is not counted. Before any answer there is no score (it read
+    /// "0 of 1 found"); a solved question counts, a skipped one counts once the next is asked.
+    #[test]
+    fn quiz_score_counts_finished_questions() {
+        let dir = temp_dir("quiz-score");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("en".into()));
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_start("notes")).unwrap();
+        assert_eq!(q["score"], "");
+        assert!((28..=55).any(|m| core.quiz_answer(f64::from(m))));
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_json()).unwrap();
+        assert_eq!(q["score"], "1 of 1 found");
+        core.quiz_next();
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_next()).unwrap();
+        assert_eq!(q["score"], "1 of 2 found");
         let _ = std::fs::remove_dir_all(dir);
     }
 
