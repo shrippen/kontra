@@ -246,6 +246,8 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
   - G15 (niedrig, behoben #49): Kreuz und b als „#“ und „b“ (Quiz, Stimmgerät, Übungstitel); jetzt ♯ und ♭.
   - G16 (mittel, behoben #49, P1): Leere Bibliothek und leerer Fortschritt endeten ohne Weg; jetzt „Mit einer Übung
     anfangen“.
+  - G17 (mittel, behoben #49, P4): Auswertung im Beamer-Format: Bildlaufleiste über „Schließen“, Histogramm schob die
+    schwierigsten Takte aus dem Bild.
   - Offen (Kante): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 
