@@ -353,3 +353,68 @@ fn palm_mute_is_no_dead_note() {
         .unwrap();
     assert!(!has(&a.notes[10], Technique::Muted));
 }
+
+fn check_mscx(imported: &kontra_content::ImportResult) {
+    assert_eq!(imported.title(), "Tab & Test");
+    assert_eq!(imported.artist(), "Kontra");
+    let names: Vec<&str> = imported.tracks().iter().map(|t| t.name()).collect();
+    assert_eq!(names, ["Flute", "Bass"]);
+    assert_eq!(imported.suggested(), Some(1));
+    assert_eq!(imported.tracks()[1].strings(), 5);
+
+    let a = imported.arrangement(1).unwrap();
+    assert_eq!(a.instrument.tuning.strings.len(), 5);
+    assert_eq!(a.instrument.tuning.strings[0], Pitch(23));
+    // Pickup, three passes of the repeat, last bar.
+    assert_eq!(order(&a), [0, 1, 2, 1, 2, 1, 2, 3]);
+    assert_eq!(tempos(&a), [(0, 100.0), (24000, 120.0)]);
+    let pass: Vec<Row> = vec![
+        (960, 1440, 28, Some(1), Some(0), false),
+        (2400, 480, 31, Some(1), Some(3), false),
+        (2880, 320, 33, Some(2), Some(0), false),
+        (3200, 320, 34, Some(2), Some(1), false),
+        (3520, 320, 35, Some(2), Some(2), false),
+        (3840, 960, 38, Some(3), Some(0), false),
+        (4800, 1920, 38, Some(3), Some(0), true),
+        (7680, 960, 41, None, None, false),
+    ];
+    let bars = 7680;
+    let mut expected: Vec<Row> = vec![(0, 960, 23, Some(0), Some(0), false)];
+    for repeat in 0..3 {
+        expected.extend(
+            pass.iter()
+                .map(|r| (r.0 + repeat * bars, r.1, r.2, r.3, r.4, r.5)),
+        );
+    }
+    expected.push((960 + 3 * bars, 3840, 43, Some(4), Some(0), false));
+    let mut found = rows(&a);
+    // Tab generated where the file has none (the ghost note).
+    for row in found.iter_mut().filter(|r| r.2 == 41) {
+        (row.3, row.4) = (None, None);
+    }
+    assert_eq!(found, expected);
+    assert!(has(&a.notes[6], Technique::Staccato));
+    assert!(has(&a.notes[8], Technique::Ghost));
+}
+
+#[test]
+fn musescore_plain_and_zipped() {
+    check_mscx(&import_bytes(common::mscx().as_bytes(), FileKind::MuseScore).unwrap());
+    check_mscx(&import_bytes(&common::mscz(), FileKind::MuseScoreZip).unwrap());
+    check_mscx(&import_bytes(common::mscx3().as_bytes(), FileKind::MuseScore).unwrap());
+}
+
+#[test]
+fn musescore_file_detected_by_content() {
+    let dir = std::env::temp_dir().join(format!("kontra-mscz-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    for (name, data) in [
+        ("a.zip", common::mscz()),
+        ("b.txt", common::mscx().into_bytes()),
+    ] {
+        let path = dir.join(name);
+        std::fs::write(&path, data).unwrap();
+        check_mscx(&import_file(&path).unwrap());
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}

@@ -18,7 +18,7 @@ pub struct Cli {
 pub enum Command {
     /// List audio devices.
     Devices,
-    /// Import a Guitar Pro, MIDI or MusicXML file and show the bass part.
+    /// Import a Guitar Pro, MIDI, MusicXML or MuseScore file and show the bass part.
     Import(ImportArgs),
     /// Detect notes in an audio recording.
     Analyze(AnalyzeArgs),

@@ -12,6 +12,7 @@ pub mod level;
 mod package;
 pub mod quiz;
 mod report;
+mod sources;
 mod stems;
 mod store;
 mod unplug;
@@ -212,6 +213,8 @@ pub struct Core {
     started_at: std::time::Instant,
     /// Backing tracks without bass (LH-BIB-09).
     stems: stems::Stems,
+    /// Where the browser saves downloads (LH-BIB-11).
+    downloads: Option<PathBuf>,
 }
 
 impl Core {
@@ -232,6 +235,7 @@ impl Core {
             level_told: (level::LevelState::Waiting, false),
             started_at: std::time::Instant::now(),
             stems: stems::Stems::default(),
+            downloads: kontra_session::download_dir(),
             notice: None,
             active_setlist: None,
             lost: None,
@@ -866,8 +870,8 @@ impl Core {
         dir: &Path,
         as_setlist: bool,
     ) -> (usize, Vec<(String, String)>) {
-        const EXTENSIONS: [&str; 9] = [
-            "gp", "gp3", "gp4", "gp5", "gpx", "mid", "midi", "musicxml", "mxl",
+        const EXTENSIONS: [&str; 11] = [
+            "gp", "gp3", "gp4", "gp5", "gpx", "mid", "midi", "musicxml", "mxl", "mscz", "mscx",
         ];
         let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
             .map(|entries| entries.filter_map(Result::ok).map(|e| e.path()).collect())
@@ -879,9 +883,27 @@ impl Core {
             })
         });
         files.sort();
+        let (added, failed) = self.add_files(&files);
+        if as_setlist && !added.is_empty() {
+            let name = dir
+                .file_name()
+                .map_or_else(|| "Setlist".into(), |n| n.to_string_lossy().into());
+            self.library.setlists.retain(|s| s.name != name);
+            self.library.setlists.push(Setlist {
+                name,
+                pieces: added.clone(),
+            });
+        }
+        self.save_library();
+        (added.len(), failed)
+    }
+
+    /// Adds scores to the library without playing them; returns the added paths and, per
+    /// failed file, its name and the reason in the user's language.
+    fn add_files(&mut self, files: &[PathBuf]) -> (Vec<PathBuf>, Vec<(String, String)>) {
         let mut added = Vec::new();
         let mut failed = Vec::new();
-        for path in files {
+        for path in files.iter().cloned() {
             let name = path
                 .file_name()
                 .map_or_else(String::new, |n| n.to_string_lossy().into());
@@ -920,18 +942,7 @@ impl Core {
                 Err(reason) => failed.push((name, reason)),
             }
         }
-        if as_setlist && !added.is_empty() {
-            let name = dir
-                .file_name()
-                .map_or_else(|| "Setlist".into(), |n| n.to_string_lossy().into());
-            self.library.setlists.retain(|s| s.name != name);
-            self.library.setlists.push(Setlist {
-                name,
-                pieces: added.clone(),
-            });
-        }
-        self.save_library();
-        (added.len(), failed)
+        (added, failed)
     }
 
     pub fn setlist_create(&mut self, name: &str) {

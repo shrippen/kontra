@@ -8,13 +8,15 @@ mod common;
 use common::{Method, Noise};
 use kontra_content::{import_bytes, FileKind};
 
-const ALL: [FileKind; 6] = [
+const ALL: [FileKind; 8] = [
     FileKind::GuitarPro,
     FileKind::GuitarPro6,
     FileKind::GuitarPro7,
     FileKind::Midi,
     FileKind::MusicXml,
     FileKind::MusicXmlZip,
+    FileKind::MuseScore,
+    FileKind::MuseScoreZip,
 ];
 
 /// Imports and builds every track; only panics matter here.
@@ -45,6 +47,8 @@ fn fixtures() -> Vec<(FileKind, Vec<u8>)> {
         (FileKind::Midi, common::midi()),
         (FileKind::MusicXml, common::musicxml().into_bytes()),
         (FileKind::MusicXmlZip, common::mxl()),
+        (FileKind::MuseScore, common::mscx().into_bytes()),
+        (FileKind::MuseScoreZip, common::mscz()),
     ]
 }
 

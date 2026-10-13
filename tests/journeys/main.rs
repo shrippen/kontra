@@ -14,6 +14,7 @@ mod b1_song;
 mod b2_wait;
 mod b3_workshop;
 mod b4_fretless;
+mod b6_downloads;
 mod c2_tendency;
 mod c4_ear;
 mod c5_techniques;
