@@ -443,6 +443,10 @@ pub fn evaluate_laptop_jack(
     notes: &[Annotation],
     matching: Matching,
 ) -> (Evaluation, Vec<DetectedNote>) {
+    // Only a line recording goes through the jack; the others were heard through theirs.
+    if set.source() != InputSource::Line {
+        return evaluate_as(set, set.source(), samples, sample_rate, notes, matching);
+    }
     let heard = laptop_jack(samples, f64::from(sample_rate), 3);
     evaluate_as(
         set,
@@ -573,6 +577,30 @@ fn compare(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Sets already heard through another input keep it: `korpus measure --laptop-jack` over a
+    /// `korpus write` folder simulated laptop-jack-4 twice (second reader, 13.10.).
+    #[test]
+    fn laptop_jack_keeps_other_inputs() {
+        for set in [KorpusSet::LaptopJack4, KorpusSet::RoomDoubleBacking] {
+            let item = generate(set);
+            let simulated = evaluate_laptop_jack(
+                set,
+                &item.samples,
+                item.sample_rate,
+                &item.notes,
+                Matching::default(),
+            )
+            .0;
+            let own = evaluate(set, &item.samples, item.sample_rate, &item.notes);
+            assert_eq!(
+                format!("{simulated:?}"),
+                format!("{own:?}"),
+                "{}",
+                set.name()
+            );
+        }
+    }
 
     /// Lastenheft LH-NF-02 (onset < 10 ms) and LH-NF-03 (pitch ≥ 98 % line, ≥ 95 % laptop jack,
     /// ≥ 90 % at a microphone in a room, LH-EIN-11).
