@@ -2424,6 +2424,7 @@ impl Core {
                     "rests" => Rhythm::WithRests,
                     "shuffle" => Rhythm::Shuffle,
                     "octaves" => Rhythm::Octaves,
+                    "ghost" => Rhythm::Ghost,
                     _ => return None,
                 },
             ),

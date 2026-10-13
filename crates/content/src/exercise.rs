@@ -20,6 +20,8 @@ const HIGHEST: i32 = 55;
 /// General MIDI "Electric Bass (finger)".
 const BASS_PROGRAM: u8 = 33;
 const VELOCITY: u8 = 96;
+/// Ghost notes are muted, so they sound quieter than the line around them.
+const GHOST_VELOCITY: u8 = 40;
 /// General MIDI drum channel (10) and keys of the accompaniment (LH-LRN-01).
 const DRUM_CHANNEL: u8 = 9;
 const KICK: u8 = 36;
@@ -73,6 +75,8 @@ pub enum Rhythm {
     Shuffle,
     /// Root and octave alternating in eighths.
     Octaves,
+    /// Sixteenths on the root, the "e" and "a" of each beat as ghost notes (funk).
+    Ghost,
 }
 
 /// One exercise to generate.
@@ -105,7 +109,8 @@ pub struct Description {
     pub kind: &'static str,
     /// Scale ("major", "minorpenta" …) or progression ("tonic", "251", "blues", "minor").
     pub variant: &'static str,
-    /// Grooves only: "quarters", "eighths", "sixteenths", "rests", "shuffle", "octaves".
+    /// Grooves only: "quarters", "eighths", "sixteenths", "rests", "shuffle", "octaves",
+    /// "ghost".
     pub rhythm: Option<&'static str>,
     /// Key root spelled for its signature ("Bb", "F#") with "m" for minor.
     pub key: &'static str,
@@ -119,7 +124,19 @@ struct Tone {
     start: u32,
     length: u32,
     key: i32,
+    stroke: Stroke,
 }
+
+/// How a tone is struck.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Stroke {
+    Plain,
+    /// Muted with the fretting hand: a percussive click without pitch (LH-BEW-06).
+    Ghost,
+}
+
+/// Text event that marks the notes starting at its tick as ghost notes (see `midi.rs`).
+pub(crate) const GHOST_TEXT: &str = "ghost";
 
 const MAJOR: [i32; 8] = [0, 2, 4, 5, 7, 9, 11, 12];
 const MINOR: [i32; 8] = [0, 2, 3, 5, 7, 8, 10, 12];
@@ -373,6 +390,7 @@ fn rhythm_label(rhythm: Rhythm) -> &'static str {
         Rhythm::WithRests => "mit Pausen",
         Rhythm::Shuffle => "Shuffle",
         Rhythm::Octaves => "Oktaven",
+        Rhythm::Ghost => "Ghost Notes",
     }
 }
 
@@ -398,6 +416,7 @@ pub fn describe(spec: &ExerciseSpec) -> Description {
         Rhythm::WithRests => "rests",
         Rhythm::Shuffle => "shuffle",
         Rhythm::Octaves => "octaves",
+        Rhythm::Ghost => "ghost",
     };
     let (kind, variant, rhythm, minor) = match spec.kind {
         ExerciseKind::Scale(s) => ("scale", scale_key(s), None, s.minor()),
@@ -455,6 +474,7 @@ fn scale_line(scale: ScaleKind, key: u8, slow: bool) -> (Vec<Tone>, u32) {
             start: i as u32 * step,
             length: step,
             key: root + d,
+            stroke: Stroke::Plain,
         })
         .collect();
     let end = tones.len() as u32 * step;
@@ -496,6 +516,7 @@ fn arpeggio_bar(start: u32, root: i32, quality: Quality) -> Vec<Tone> {
             start: start + i as u32 * QUARTER,
             length: QUARTER,
             key: fit(root + t),
+            stroke: Stroke::Plain,
         })
         .collect()
 }
@@ -514,6 +535,7 @@ fn groove_bar(start: u32, root: i32, rhythm: Rhythm) -> Vec<Tone> {
         start: start + at,
         length,
         key,
+        stroke: Stroke::Plain,
     };
     match rhythm {
         Rhythm::Quarters => (0..4).map(|b| note(b * QUARTER, QUARTER, root)).collect(),
@@ -547,6 +569,19 @@ fn groove_bar(start: u32, root: i32, rhythm: Rhythm) -> Vec<Tone> {
             .map(|e| {
                 let key = if e % 2 == 0 { root } else { fit(root + 12) };
                 note(e * EIGHTH, EIGHTH, key)
+            })
+            .collect(),
+        // 1 e & a: root on the beat and the "and", muted on the sixteenths between.
+        Rhythm::Ghost => (0..16)
+            .map(|s| {
+                let tone = note(s * SIXTEENTH, SIXTEENTH, root);
+                if s % 2 == 0 {
+                    return tone;
+                }
+                Tone {
+                    stroke: Stroke::Ghost,
+                    ..tone
+                }
             })
             .collect(),
     }
@@ -583,6 +618,7 @@ fn walking_line(progression: Progression, key: u8) -> (Vec<Tone>, Vec<(u32, Stri
                 start: start + beat as u32 * QUARTER,
                 length: QUARTER,
                 key: (*key).clamp(LOWEST, HIGHEST),
+                stroke: Stroke::Plain,
             });
         }
     }
@@ -634,13 +670,24 @@ fn write(title: &str, bpm: f64, fifths: i8, minor: bool, line: &Line) -> Vec<u8>
     ];
     for t in tones {
         let key = u7::new(t.key.clamp(0, 127) as u8);
+        let velocity = match t.stroke {
+            Stroke::Plain => VELOCITY,
+            Stroke::Ghost => GHOST_VELOCITY,
+        };
+        // MIDI has no ghost note: a text event at the note's tick tells the importer.
+        if t.stroke == Stroke::Ghost {
+            bass.push((
+                t.start,
+                TrackEventKind::Meta(MetaMessage::Text(GHOST_TEXT.as_bytes())),
+            ));
+        }
         bass.push((
             t.start,
             TrackEventKind::Midi {
                 channel,
                 message: MidiMessage::NoteOn {
                     key,
-                    vel: u7::new(VELOCITY),
+                    vel: u7::new(velocity),
                 },
             },
         ));
@@ -895,6 +942,8 @@ pub fn bundled_specs() -> Vec<(&'static str, ExerciseSpec)> {
             false,
             2,
         ),
+        ("5 Groove", Groove(P::Tonic, Ghost), 4, 80.0, false, 2),
+        ("5 Groove", Groove(P::Minor, Ghost), 9, 85.0, false, 2),
     ];
     plan.into_iter()
         .map(|(level, kind, key, bpm, slow, repeats)| {
@@ -1039,5 +1088,33 @@ mod tests {
         let imported = import_bytes(&scale.midi, FileKind::Midi).unwrap();
         let a = imported.arrangement(imported.suggested().unwrap()).unwrap();
         assert!(a.drums.is_empty());
+    }
+
+    #[test]
+    fn ghost_groove_mutes_the_offbeat_sixteenths() {
+        use kontra_model::Technique;
+        let e = generate(&spec(
+            ExerciseKind::Groove(Progression::Tonic, Rhythm::Ghost),
+            4,
+        ));
+        let imported = import_bytes(&e.midi, FileKind::Midi).unwrap();
+        let a = imported.arrangement(imported.suggested().unwrap()).unwrap();
+        assert_eq!(a.notes.len(), 64);
+        // 240 model ticks per sixteenth: "e" and "a" are odd sixteenths.
+        for n in &a.notes {
+            let offbeat = (n.start_ticks / 240) % 2 == 1;
+            let ghost = n.techniques.contains(&Technique::Ghost);
+            assert_eq!(ghost, offbeat, "tick {}", n.start_ticks);
+            assert_eq!(n.pitch.0, 28, "root E1 at tick {}", n.start_ticks);
+        }
+        assert!(!a.drums.is_empty());
+        // Other grooves stay without ghost notes.
+        let plain = generate(&spec(
+            ExerciseKind::Groove(Progression::Tonic, Rhythm::Sixteenths),
+            4,
+        ));
+        let imported = import_bytes(&plain.midi, FileKind::Midi).unwrap();
+        let a = imported.arrangement(imported.suggested().unwrap()).unwrap();
+        assert!(a.notes.iter().all(|n| n.techniques.is_empty()));
     }
 }
