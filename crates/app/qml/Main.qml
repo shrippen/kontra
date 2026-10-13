@@ -29,6 +29,7 @@ Kirigami.ApplicationWindow {
         visibility = visibilityBefore === Window.FullScreen ? Window.Windowed : visibilityBefore
     }
     readonly property var pages: ({
+        home: Qt.resolvedUrl("StartPage.qml"),
         setup: Qt.resolvedUrl("SetupPage.qml"),
         progress: Qt.resolvedUrl("ProgressPage.qml"),
         exercises: Qt.resolvedUrl("ExercisePage.qml"),
@@ -105,11 +106,25 @@ Kirigami.ApplicationWindow {
         if ((current === "tuner" || current === "setup" || current === "quiz") && name !== current) {
             ctl.stopTuner()
         }
+        // Kirigami creates pages from a URL without a visual parent, and Qt 6.12 warns ("not
+        // placed in the graphics scene"); a page created here has one. Pages pushed as objects
+        // are not destroyed by the page row, so the old one is.
+        var old = pageStack.currentItem
+        var component = Qt.createComponent(pages[name])
+        if (component.status !== Component.Ready) {
+            console.warn(component.errorString())
+            return
+        }
+        // Only now: on a load error the drawer kept marking a page that never showed.
         current = name
+        var page = component.createObject(pageStack)
         if (pageStack.depth === 0) {
-            pageStack.push(pages[name])
+            pageStack.push(page)
         } else {
-            pageStack.replace(pages[name])
+            pageStack.replace(page)
+        }
+        if (old) {
+            old.destroy()
         }
     }
 
@@ -119,16 +134,22 @@ Kirigami.ApplicationWindow {
         modal: !root.wideScreen
         collapsible: true
         collapsed: !root.wideScreen
+        // Grouped by what the player does: start; play pieces; learn; look back; tools. Setup lives
+        // in the settings and on the start page.
         actions: [
-            Kirigami.Action { text: texts.t("nav.library"); icon.name: "folder-music"; checked: root.current === "library"; shortcut: "Ctrl+1"; onTriggered: root.show("library") },
-            Kirigami.Action { text: texts.t("nav.practice"); icon.name: "media-playback-start"; enabled: ctl.loaded; checked: root.current === "practice"; shortcut: "Ctrl+2"; onTriggered: root.show("practice") },
-            Kirigami.Action { text: texts.t("nav.tuner"); icon.name: "audio-input-line"; checked: root.current === "tuner"; shortcut: "Ctrl+3"; onTriggered: root.show("tuner") },
-            Kirigami.Action { text: texts.t("nav.settings"); icon.name: "settings-configure"; checked: root.current === "settings"; shortcut: "Ctrl+4"; onTriggered: root.show("settings") },
-            Kirigami.Action { text: texts.t("nav.setup"); icon.name: "tools-wizard"; checked: root.current === "setup"; shortcut: "Ctrl+5"; onTriggered: root.show("setup") },
-            Kirigami.Action { text: texts.t("nav.progress"); icon.name: "view-statistics"; checked: root.current === "progress"; shortcut: "Ctrl+6"; onTriggered: root.show("progress") },
-            Kirigami.Action { text: texts.t("nav.exercises"); icon.name: "view-media-playlist"; checked: root.current === "exercises"; shortcut: "Ctrl+7"; onTriggered: root.show("exercises") },
-            Kirigami.Action { text: texts.t("nav.quiz"); icon.name: "games-config-board"; checked: root.current === "quiz"; shortcut: "Ctrl+8"; onTriggered: root.show("quiz") },
-            Kirigami.Action { text: texts.t("nav.ear"); icon.name: "audio-headphones"; checked: root.current === "ear"; shortcut: "Ctrl+9"; onTriggered: root.show("ear") }
+            Kirigami.Action { text: texts.t("nav.home"); icon.name: "go-home"; checked: root.current === "home"; shortcut: "Ctrl+1"; onTriggered: root.show("home") },
+            Kirigami.Action { separator: true },
+            Kirigami.Action { text: texts.t("nav.library"); icon.name: "folder-music"; checked: root.current === "library"; shortcut: "Ctrl+2"; onTriggered: root.show("library") },
+            Kirigami.Action { text: texts.t("nav.practice"); icon.name: "media-playback-start"; enabled: ctl.loaded; checked: root.current === "practice"; shortcut: "Ctrl+3"; onTriggered: root.show("practice") },
+            Kirigami.Action { text: texts.t("nav.exercises"); icon.name: "view-media-playlist"; checked: root.current === "exercises"; shortcut: "Ctrl+4"; onTriggered: root.show("exercises") },
+            Kirigami.Action { separator: true },
+            Kirigami.Action { text: texts.t("nav.quiz"); icon.name: "games-config-board"; checked: root.current === "quiz"; shortcut: "Ctrl+5"; onTriggered: root.show("quiz") },
+            Kirigami.Action { text: texts.t("nav.ear"); icon.name: "audio-headphones"; checked: root.current === "ear"; shortcut: "Ctrl+6"; onTriggered: root.show("ear") },
+            Kirigami.Action { separator: true },
+            Kirigami.Action { text: texts.t("nav.progress"); icon.name: "view-statistics"; checked: root.current === "progress"; shortcut: "Ctrl+7"; onTriggered: root.show("progress") },
+            Kirigami.Action { separator: true },
+            Kirigami.Action { text: texts.t("nav.tuner"); icon.name: "audio-input-line"; checked: root.current === "tuner"; shortcut: "Ctrl+8"; onTriggered: root.show("tuner") },
+            Kirigami.Action { text: texts.t("nav.settings"); icon.name: "settings-configure"; checked: root.current === "settings" || root.current === "setup"; shortcut: "Ctrl+9"; onTriggered: root.show("settings") }
         ]
     }
 
@@ -199,10 +220,10 @@ Kirigami.ApplicationWindow {
     }
 
     Component.onCompleted: {
-        // No --page: the assistant on first start, else practice for an opened file or the library.
+        // No --page: the assistant on first start, else practice for an opened file or the start page.
         var first = ctl.startPage
         if (first === "") {
-            first = !ctl.setupDone && !ctl.loaded ? "setup" : (ctl.loaded ? "practice" : "library")
+            first = !ctl.setupDone && !ctl.loaded ? "setup" : (ctl.loaded ? "practice" : "home")
         }
         // First start with animations off on the desktop: the page-wise tab, not the lane.
         if (!ctl.setupDone && ctl.motion === "system" && systemReducesMotion && ctl.view === "lane")

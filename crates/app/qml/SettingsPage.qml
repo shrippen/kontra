@@ -12,6 +12,9 @@ Kirigami.ScrollablePage {
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
+    readonly property var licences: JSON.parse(ctl.licencesJson())
+    // Kontra, Qt and KDE Frameworks: the first entries of the licence list.
+    readonly property int mainLicences: 3
     readonly property var inputs: JSON.parse(ctl.inputDevicesJson)
     readonly property var outputs: JSON.parse(ctl.outputDevicesJson)
     readonly property var styles: ["kante", "kante-light", "system"]
@@ -55,16 +58,27 @@ Kirigami.ScrollablePage {
 
         KanteHeading { text: texts.t("nav.settings"); pageTitle: true }
 
+        // The setup assistant lives here (and on the start page), not in the navigation.
+        KanteSettingRow {
+            Layout.fillWidth: true
+            title: texts.t("settings.setup")
+            hint: texts.t("settings.setup.hint")
+            KanteButton {
+                text: texts.t("settings.setup.start")
+                onClicked: applicationWindow().show("setup")
+            }
+        }
         // The audio input only matters while the bass comes as audio (not over MIDI).
         KanteSettingRow {
             Layout.fillWidth: true
+            section: texts.t("settings.section.connection")
             visible: ctl.connection !== "midi"
             title: texts.t("settings.input")
             hint: page.inputs.length === 0 ? texts.t("settings.input.none") : ""
             KanteComboBox {
                 Accessible.name: texts.t("settings.input")
-                Layout.fillWidth: true
-                Layout.preferredWidth: KanteStyle.unit(280)
+                // The setting row sizes its control by the control, not by Layout (names were cut).
+                width: KanteStyle.unit(280)
                 model: [page.autoInput].concat(page.inputs.map(function(d) { return d.name }))
                 currentIndex: page.deviceIndex(page.inputs, ctl.inputDevice)
                 onActivated: function(index) { ctl.chooseInput(index === 0 ? "" : page.inputs[index - 1].id) }
@@ -72,11 +86,13 @@ Kirigami.ScrollablePage {
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            // Over MIDI the input row is hidden; the section starts here then.
+            section: ctl.connection === "midi" ? texts.t("settings.section.connection") : ""
             title: texts.t("settings.output")
             KanteComboBox {
                 Accessible.name: texts.t("settings.output")
-                Layout.fillWidth: true
-                Layout.preferredWidth: KanteStyle.unit(280)
+                // The setting row sizes its control by the control, not by Layout (names were cut).
+                width: KanteStyle.unit(280)
                 model: [texts.t("settings.device.default")].concat(page.outputs.map(function(d) { return d.name }))
                 currentIndex: page.deviceIndex(page.outputs, ctl.outputDevice)
                 onActivated: function(index) { ctl.chooseOutput(index === 0 ? "" : page.outputs[index - 1].id) }
@@ -92,6 +108,35 @@ Kirigami.ScrollablePage {
         ConnectionChoice { Layout.fillWidth: true }
         KanteSettingRow {
             Layout.fillWidth: true
+            title: texts.t("settings.latency")
+            hint: texts.t("settings.latency.hint")
+            RowLayout {
+                KanteSpinBox {
+                    Accessible.name: texts.t("settings.latency")
+                    from: 0
+                    to: 500
+                    stepSize: 5
+                    value: Math.round(ctl.latencyMs)
+                    onValueModified: ctl.changeLatency(value)
+                }
+                KanteButton {
+                    text: texts.t("calibration.start")
+                    busy: ctl.calibrating
+                    enabled: !ctl.calibrating
+                    onClicked: ctl.startCalibration()
+                }
+                KanteInfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency"); accessibleName: texts.t("help.about", { term: texts.t("settings.latency") }) }
+            }
+        }
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: KanteStyle.mutedTextColor
+            text: ctl.calibrationText !== "" ? ctl.calibrationText : texts.t("calibration.hint")
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            section: texts.t("settings.section.instrument")
             title: texts.t("settings.strings")
             KanteSegmented {
                 Accessible.name: texts.t("settings.strings")
@@ -132,6 +177,7 @@ Kirigami.ScrollablePage {
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            section: texts.t("settings.section.display")
             title: texts.t("settings.lowtop")
             hint: texts.t("settings.lowtop.hint")
             KanteSwitch {
@@ -211,6 +257,7 @@ Kirigami.ScrollablePage {
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            section: texts.t("settings.section.scoring")
             title: texts.t("settings.window")
             hint: texts.t("settings.window.hint")
             ColumnLayout {
@@ -252,6 +299,7 @@ Kirigami.ScrollablePage {
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            section: texts.t("settings.section.practice")
             title: texts.t("transport.metronome")
             KanteSwitch {
                 Accessible.name: texts.t("transport.metronome")
@@ -282,34 +330,7 @@ Kirigami.ScrollablePage {
         Mixer { Layout.fillWidth: true }
         KanteSettingRow {
             Layout.fillWidth: true
-            title: texts.t("settings.latency")
-            hint: texts.t("settings.latency.hint")
-            RowLayout {
-                KanteSpinBox {
-                    Accessible.name: texts.t("settings.latency")
-                    from: 0
-                    to: 500
-                    stepSize: 5
-                    value: Math.round(ctl.latencyMs)
-                    onValueModified: ctl.changeLatency(value)
-                }
-                KanteButton {
-                    text: texts.t("calibration.start")
-                    busy: ctl.calibrating
-                    enabled: !ctl.calibrating
-                    onClicked: ctl.startCalibration()
-                }
-                KanteInfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency"); accessibleName: texts.t("help.about", { term: texts.t("settings.latency") }) }
-            }
-        }
-        QQC2.Label {
-            Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            color: KanteStyle.mutedTextColor
-            text: ctl.calibrationText !== "" ? ctl.calibrationText : texts.t("calibration.hint")
-        }
-        KanteSettingRow {
-            Layout.fillWidth: true
+            section: texts.t("settings.section.language")
             title: texts.t("settings.language")
             KanteSegmented {
                 Accessible.name: texts.t("settings.language")
@@ -388,7 +409,9 @@ Kirigami.ScrollablePage {
             rowSpacing: KanteStyle.unit(2)
             Accessible.name: texts.t("about.title")
             Repeater {
-                model: JSON.parse(ctl.licencesJson())
+                // Kontra, Qt and KDE Frameworks first; the libraries on request (about 70 lines
+                // pushed the shortcuts out of reach, QA 13.10.).
+                model: allLicences.checked ? page.licences : page.licences.slice(0, page.mainLicences)
                 delegate: RowLayout {
                     required property var modelData
                     Layout.columnSpan: 2
@@ -408,6 +431,13 @@ Kirigami.ScrollablePage {
                     }
                 }
             }
+        }
+
+        KanteButton {
+            id: allLicences
+            checkable: true
+            emphasis: KanteButton.Emphasis.Quiet
+            text: texts.t("about.all", { n: page.licences.length - page.mainLicences })
         }
 
         // All keyboard shortcuts in one place (LH-NF-07).

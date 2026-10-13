@@ -280,6 +280,7 @@ pub struct Library {
 impl Library {
     /// Moves or adds `entry` to the top; keeps a backing track chosen earlier.
     pub fn touch(&mut self, mut entry: RecentEntry) {
+        entry.path = plain(&entry.path);
         if let Some(old) = self.recent.iter().find(|e| e.path == entry.path) {
             if entry.backing.is_none() {
                 entry.backing = old.backing.clone();
@@ -308,9 +309,26 @@ impl Library {
     }
 
     /// Adds a piece without playing it (folder import): after the played ones, nothing moves.
-    pub fn add_known(&mut self, entry: RecentEntry) {
+    pub fn add_known(&mut self, mut entry: RecentEntry) {
+        entry.path = plain(&entry.path);
         if self.entry(&entry.path).is_none() && self.recent.len() < RECENT_MAX {
             self.recent.push(entry);
+        }
+    }
+
+    /// Paths through ".." (bundled files before 13.10.: `bin/../share`, `appcore/../..`) become
+    /// plain, as the plan names them now; a duplicate this makes keeps the newer entry, which
+    /// comes first. Other paths stay as stored (a symlink the user chose stays).
+    pub fn plain_paths(&mut self) {
+        for entry in &mut self.recent {
+            entry.path = plain(&entry.path);
+        }
+        let mut seen = std::collections::HashSet::new();
+        self.recent.retain(|e| seen.insert(e.path.clone()));
+        for setlist in &mut self.setlists {
+            for piece in &mut setlist.pieces {
+                *piece = plain(piece);
+            }
         }
     }
 
@@ -319,12 +337,25 @@ impl Library {
     }
 
     pub fn entry_mut(&mut self, path: &Path) -> Option<&mut RecentEntry> {
+        let path = plain(path);
         self.recent.iter_mut().find(|e| e.path == path)
     }
 
     pub fn entry(&self, path: &Path) -> Option<&RecentEntry> {
+        let path = plain(path);
         self.recent.iter().find(|e| e.path == path)
     }
+}
+
+/// `path` without ".." if it has some and exists; else as it is.
+fn plain(path: &Path) -> PathBuf {
+    let dotted = path
+        .components()
+        .any(|c| c == std::path::Component::ParentDir);
+    if !dotted {
+        return path.to_path_buf();
+    }
+    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
 
 #[cfg(test)]
@@ -380,6 +411,34 @@ mod tests {
         assert_eq!(settings.window_ms, WINDOW_DEFAULT_MS);
         assert_eq!(settings.string_colors, "kante");
         assert!(!settings.left_handed);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// Entries stored before 13.10. name bundled files through "../.."; they keep their place
+    /// and progress under the plain path, a duplicate collapses into the newer one.
+    #[test]
+    fn library_paths_become_plain() {
+        let dir = std::env::temp_dir().join(format!("kontra-store-plain-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("a")).unwrap();
+        let file = dir.join("f.mid");
+        std::fs::write(&file, b"MThd").unwrap();
+        let plain = std::fs::canonicalize(&file).unwrap();
+        let old = dir.join("a/../f.mid");
+        let text = serde_json::json!({
+            "recent": [
+                { "path": plain, "title": "new", "artist": "", "track": 0, "last_unix": 2 },
+                { "path": old, "title": "old", "artist": "", "track": 0, "last_unix": 1 },
+            ],
+            "setlists": [{ "name": "Probe", "pieces": [old] }],
+        });
+        let path = dir.join("library.json");
+        std::fs::write(&path, text.to_string()).unwrap();
+
+        let mut library: Library = load(&path);
+        library.plain_paths();
+        assert_eq!(library.recent.len(), 1);
+        assert_eq!(library.recent[0].title, "new");
+        assert_eq!(library.setlists[0].pieces, vec![plain]);
         std::fs::remove_dir_all(dir).unwrap();
     }
 

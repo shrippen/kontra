@@ -79,8 +79,10 @@ fn laptop_jack_to_first_note() {
     // Step 4: calibration skipped, the assistant is done.
     core.update_settings(|s| s.setup_done = true);
 
-    // Step 5: the first exercise, first note judged.
-    core.open(&Core::demo_path()).unwrap();
+    // Step 5: the start page's next exercise, first note judged.
+    let home: serde_json::Value = serde_json::from_str(&core.home_json()).unwrap();
+    let next = home["next"]["path"].as_str().expect("a next exercise");
+    core.open(Path::new(next)).unwrap();
     core.set_mode("play");
     core.play();
     let events = run_until(&mut core, Duration::from_secs(10), |e| {
