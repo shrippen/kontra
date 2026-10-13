@@ -104,7 +104,13 @@ mod tests {
     // QA 14.10.: "-qwindowgeometry 1280x800" opened a file "1280x800" (an error on every start).
     #[test]
     fn qt_options_keep_their_values() {
-        let args = ["-qwindowgeometry", "1280x800+0+0", "-platform", "xcb", "song.gp5"];
+        let args = [
+            "-qwindowgeometry",
+            "1280x800+0+0",
+            "-platform",
+            "xcb",
+            "song.gp5",
+        ];
         let parsed = AppArgs::parse(args.iter().map(|s| s.to_string()));
         assert_eq!(parsed.open, Some(PathBuf::from("song.gp5")));
     }

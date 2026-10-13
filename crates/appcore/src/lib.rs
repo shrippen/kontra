@@ -3548,9 +3548,15 @@ mod tests {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/demo/etude-1.mid")
     }
 
+    /// A fresh data folder whose settings play to the engine's timer, never to the speakers of
+    /// whoever runs the tests (QA 14.10.: test runs clicked on the default output).
     fn temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("kontra-core-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        // The engine's NULL_DEVICE: a timer instead of a sound card.
+        let silent = serde_json::json!({ "output_device": "kontra:null" });
+        let _ = std::fs::write(dir.join("settings.json"), silent.to_string());
         dir
     }
 

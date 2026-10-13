@@ -6,6 +6,9 @@ use kontra_model::{Arrangement, Instrument, Note, Pitch, TempoMap, TICKS_PER_QUA
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+/// The engine's timer output instead of a sound card (`kontra_engine::NULL_DEVICE`).
+const SILENT_OUTPUT: &str = "kontra:null";
+
 pub const RATE: u32 = 48_000;
 /// Tempo of every generated piece; one 4/4 count-in bar lasts 2 s.
 pub const BPM: f64 = 120.0;
@@ -35,7 +38,11 @@ impl Profile {
             laptop_jack: false,
         };
         let mut core = Core::new(&self.dir, qa);
-        core.update_settings(|s| s.language = Some("de".into()));
+        // Never the speakers of whoever runs the tests (clicks at night, QA 14.10.).
+        core.update_settings(|s| {
+            s.language = Some("de".into());
+            s.output_device = Some(SILENT_OUTPUT.into());
+        });
         core
     }
 }
