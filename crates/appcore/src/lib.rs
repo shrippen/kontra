@@ -2870,10 +2870,12 @@ impl Core {
             e.parent()
                 .map(|p| p.join("../share/kontra/demo/etude-1.mid"))
         });
-        match installed {
+        let path = match installed {
             Some(path) if path.exists() => path,
             _ => PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/demo/etude-1.mid"),
-        }
+        };
+        // Without "..", as `exercises_dir`: progress is keyed by the path.
+        std::fs::canonicalize(&path).unwrap_or(path)
     }
 
     pub fn devices_json(&self, input: bool) -> String {
@@ -4379,6 +4381,13 @@ mod tests {
         assert_eq!(first_level["items"][0]["mastered"], true);
         assert_eq!(first_level["items"][1]["mastered"], false);
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The demo the assistant opens has its plain path too (same file, same progress).
+    #[test]
+    fn demo_path_is_plain() {
+        let demo = Core::demo_path();
+        assert_eq!(std::fs::canonicalize(&demo).unwrap(), demo);
     }
 
     /// An exercise opened by its plain path (file manager, library) counts in the plan too: the
