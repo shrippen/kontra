@@ -24,6 +24,10 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
       `kontra-cli korpus measure`); erste Korrekturen: F1 IDMT 66,6 → 80,8, NSynth 76,5 → 85,7
 - [x] IDMT als Regressionsprüfung in der CI (Untergrenzen Recall 81 %, Präzision 77 %, mit Tonhöhe)
 - [ ] Oktavfehler bei Kontrabass (FiloBass rund 100 von 842 Noten), leise Töne nach lauten, Laptop-Pegel
+      13.10.: Wummern eine Oktave unter dem Ton beim Anschlag erkannt (`Yin::estimate_attack`); FiloBass Oktave zu
+      tief 81 → 30, Tonhöhe 57,2 → 64,3 %, IDMT (CI) 89,6/79,7 → 90,3/80,4 %, NSynth Tonhöhe 90,4 → 92,4 %,
+      synthetisch unverändert (`testdata/korpus/QUELLEN.md`). Offen: 30 Oktavfehler, leise Töne nach lauten,
+      Laptop-Pegel
 - [ ] Latenz Anschlag → Anzeige am echten Gerät messen
 - [x] Eigener Time-Stretch (Phasen-Vocoder), Tests synthetisch; Hörvergleich mit Signalsmith offen
 - [x] Kante-Bauteile als PR in Kante (#37): Tab-Lane, Tabulatur, Notenzeile, Griffbrett, Stimmgerät, Pegel, Histogramm, Transport

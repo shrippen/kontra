@@ -436,8 +436,9 @@ impl NoteTracker {
 
     /// YIN over the newest `needed()` samples before `until` (all after the attack).
     ///
-    /// The plain estimate is used, not `estimate_fundamental` (its low-pass needs warm-up audio a
-    /// fresh note does not have), then `refine_hz` removes the stiff-string bias for intonation.
+    /// `estimate_attack` is used (a fading thump does not count), not `estimate_fundamental` (its
+    /// low-pass needs warm-up audio a fresh note does not have), then `refine_hz` removes the
+    /// stiff-string bias for intonation.
     /// `refine_hz` gets all audio since the attack (up to the scratch length): it needs 2.25
     /// periods, more than `needed()` holds for notes near `min_hz` (B0 −20 ct on a 5-string),
     /// which then kept the bias (+8 ct).
@@ -447,7 +448,7 @@ impl NoteTracker {
         let count = (until - from) as usize;
         self.copy_out(from, count);
         let yin_from = count.saturating_sub(self.yin.needed());
-        let mut estimate = self.yin.estimate(&self.scratch[yin_from..count])?;
+        let mut estimate = self.yin.estimate_attack(&self.scratch[yin_from..count])?;
         if estimate.confidence < self.config.min_confidence {
             return None;
         }

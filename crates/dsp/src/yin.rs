@@ -19,6 +19,27 @@ const REFINE_CUTOFF: f64 = 1.5;
 /// quarter octave catches octave and fifth slips, but lets the refinement correct a coarse
 /// value that noise pulled off by most of a semitone (a weak note through a laptop jack).
 const REFINE_MAX_OCTAVES: f64 = 0.25;
+/// A thump an octave below the note (kick drum in a separated stem, a double bass's body) makes
+/// the signal repeat at twice the note's period. All three must hold to halve the period:
+/// the half period repeats this well (normalized difference; FiloBass notes over a thump
+/// 0.1–0.5; 0.6 and more took room-double notes an octave up) …
+const THUMP_DIP: f64 = 0.5;
+/// … the odd harmonics 3, 5, 7 of the long period carry less than this share of the power of
+/// the even ones 2, 4, 6 (the note's own harmonics; over a thump mostly below 0.03) …
+const THUMP_ODD_SHARE: f64 = 0.15;
+/// … and the lowest partial fades against the note's: its power ratio from the first to the
+/// last period of the window, over the same ratio of the 2nd harmonic. FiloBass: a thump
+/// mostly below 0.25, a played low note mostly above 0.5 (its fundamental rings longest).
+const THUMP_FADE: f64 = 0.5;
+/// Highest harmonic compared for `THUMP_ODD_SHARE`.
+const THUMP_TOP: usize = 7;
+
+/// Whether a fading thump an octave below may be taken for the note (`THUMP_*`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Thump {
+    Counts,
+    Ignored,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PitchEstimate {
@@ -88,6 +109,17 @@ impl Yin {
 
     /// Estimates the pitch of the first `needed()` samples; `None` if too short, silent or aperiodic.
     pub fn estimate(&mut self, samples: &[f32]) -> Option<PitchEstimate> {
+        self.estimate_with(samples, Thump::Counts)
+    }
+
+    /// Like `estimate`, for audio right after an attack: a thump an octave below that fades (kick
+    /// drum, a double bass's body) is not taken for the note. Only there: on a ringing note the
+    /// check would follow other low sounds (a band's bass line from the speakers).
+    pub fn estimate_attack(&mut self, samples: &[f32]) -> Option<PitchEstimate> {
+        self.estimate_with(samples, Thump::Ignored)
+    }
+
+    fn estimate_with(&mut self, samples: &[f32], thump: Thump) -> Option<PitchEstimate> {
         let needed = self.needed();
         if samples.len() < needed {
             return None;
@@ -95,7 +127,10 @@ impl Yin {
         let samples = &samples[..needed];
         self.difference(samples)?;
         self.normalize();
-        let (tau, value) = self.pick()?;
+        let (mut tau, mut value) = self.pick()?;
+        if thump == Thump::Ignored {
+            (tau, value) = self.above_thump(samples, tau, value);
+        }
         let refined = self.interpolate(tau);
         Some(PitchEstimate {
             hz: self.sample_rate / refined,
@@ -214,6 +249,74 @@ impl Yin {
         Some((best, self.diff[best]))
     }
 
+    /// Half the period `tau` when `tau` only repeats because of a thump an octave below the
+    /// note. A played low note sounds odd and even harmonics and its fundamental rings on; the
+    /// note over a thump has only the even ones, and the lowest partial fades.
+    ///
+    /// ```text
+    /// harmonic of tau:  1   2   3   4   5   6   7
+    /// G1 played:        G1  ·   ·   ·   ·   ·   ·     odd ones there, 1 rings  → G1
+    /// G2 over a thump:  ∿   G2      ·       ·         odd ones missing, ∿ fades → G2
+    /// ```
+    fn above_thump(&self, samples: &[f32], tau: usize, value: f64) -> (usize, f64) {
+        let Some(half) = self.dip_near(tau / 2) else {
+            return (tau, value);
+        };
+        if self.diff[half] > THUMP_DIP || !self.odd_missing(samples, tau) {
+            return (tau, value);
+        }
+        if !self.lowest_fades(samples, tau) {
+            return (tau, value);
+        }
+        (half, self.diff[half])
+    }
+
+    /// Whether the odd harmonics of period `tau` are missing (`THUMP_ODD_SHARE`). Measured over
+    /// whole periods, so the harmonics do not leak into each other.
+    fn odd_missing(&self, samples: &[f32], tau: usize) -> bool {
+        let whole = &samples[..samples.len() / tau * tau];
+        let f0 = self.sample_rate / tau as f64;
+        let (mut odd, mut even) = (0.0, 0.0);
+        for k in 2..=THUMP_TOP {
+            let hz = f0 * k as f64;
+            if hz >= self.sample_rate / 2.0 {
+                break;
+            }
+            let power = self.power_at(whole, hz);
+            if k % 2 == 0 {
+                even += power;
+            } else {
+                odd += power;
+            }
+        }
+        odd < even * THUMP_ODD_SHARE
+    }
+
+    /// Whether the lowest partial of period `tau` fades against the 2nd harmonic between the
+    /// first and the last period of `samples` (`THUMP_FADE`).
+    fn lowest_fades(&self, samples: &[f32], tau: usize) -> bool {
+        let f0 = self.sample_rate / tau as f64;
+        let (first, last) = (&samples[..tau], &samples[samples.len() - tau..]);
+        let lowest = (self.power_at(first, f0), self.power_at(last, f0));
+        let note = (
+            self.power_at(first, 2.0 * f0),
+            self.power_at(last, 2.0 * f0),
+        );
+        lowest.1 * note.0 < THUMP_FADE * lowest.0 * note.1
+    }
+
+    /// Power at `hz` over `samples` (Goertzel).
+    fn power_at(&self, samples: &[f32], hz: f64) -> f64 {
+        let coeff = 2.0 * (std::f64::consts::TAU * hz / self.sample_rate).cos();
+        let (mut s1, mut s2) = (0.0, 0.0);
+        for x in samples {
+            let s = f64::from(*x) + coeff * s1 - s2;
+            s2 = s1;
+            s1 = s;
+        }
+        s1 * s1 + s2 * s2 - coeff * s1 * s2
+    }
+
     /// The local minimum within ±3 % of `tau`, if that range lies inside the search range.
     fn dip_near(&self, tau: usize) -> Option<usize> {
         let spread = (tau / 33).max(1);
@@ -277,6 +380,32 @@ mod tests {
             let tone = bass_tone(hz, SR, 0.3, ToneShape::Rich, 3);
             let est = yin.estimate_fundamental(&tone[2400..]).unwrap();
             assert!((cents_between(base, est.hz) - offset).abs() < 1.5);
+        }
+    }
+
+    /// The thump fades within the first YIN window, the note rings on.
+    const THUMP_DECAY_S: f64 = 0.03;
+
+    /// A thump an octave below the note, as at a double bass (FiloBass, "All the Things You
+    /// Are" 4.876 s: G2 at 96.7 Hz, 48 Hz at −6…−11 dB in the first 55 ms, likely the kick
+    /// drum left in the stem or the body's resonance). It makes the signal repeat at twice the
+    /// period: YIN heard G1.
+    #[test]
+    fn thump_an_octave_below_keeps_the_note() {
+        let mut yin = yin();
+        let skip = (0.012 * SR) as usize;
+        for midi in [38u8, 43, 45] {
+            let hz = Pitch(midi).hz(A4_HZ);
+            let mut tone = bass_tone(hz, SR, 0.3, ToneShape::Rich, 5);
+            let peak = tone.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+            for (i, s) in tone.iter_mut().enumerate() {
+                let t = i as f64 / SR;
+                let thump = f64::from(peak) * (-t / THUMP_DECAY_S).exp();
+                *s += (thump * (std::f64::consts::TAU * hz / 2.0 * t).sin()) as f32;
+            }
+            let est = yin.estimate_attack(&tone[skip..]).unwrap();
+            let cents = cents_between(hz, est.hz);
+            assert!(cents.abs() < 20.0, "midi {midi}: {cents} cents");
         }
     }
 

@@ -105,8 +105,47 @@ Töne 52–60 ms neben dem Partitur-Raster als Fehler). F1 = harmonisches Mittel
   behält 90 % der richtigen, verwirft 62 % der falschen. Strengere Faktoren (1,25/1,5) verwerfen kaum mehr falsche,
   aber mehr leise Töne nach lauten; reine Pegelmerkmale kommen nicht über 90 % der richtigen hinaus.
 - Befund 3 nur teilweise: YIN prüft ohne klaren Einbruch unter der Schwelle jetzt die halbe Periode (NSynth +2,5
-  Punkte Tonhöhe); FiloBass hat weiter rund 100 Noten eine Oktave zu tief. Offen.
+  Punkte Tonhöhe); FiloBass hat weiter rund 100 Noten eine Oktave zu tief. Siehe „Oktavfehler am Kontrabass“.
 - Synthetischer Korpus unverändert 100 %.
+
+### Oktavfehler am Kontrabass (Branch `oktavfehler`, 13.10.)
+
+FiloBass ±50 ms, Erkennung je annotierter Note gegen die Annotation, Stimmton je Stück abgezogen (Median, +4 bis
+−21 Cent). Vorher: 81 Noten eine Oktave zu tief, 6 zu hoch, 15 eine Oktave plus Quinte zu tief.
+
+- Betroffen sind D2–A#2 (38–46), nicht die tiefen Töne; 57 der 81 in „All the Things You Are“. Nicht nach lauten
+  Tönen (10 % der Fehler, 26 % der richtigen folgen einem um 3 dB lauteren Ton): „leise nach laut“ ist eine andere
+  Baustelle.
+- Ursache: In den ersten 55 ms nach dem Anschlag liegt ein Anteil eine Oktave unter dem Ton (G2 bei 96,7 Hz: 48 Hz
+  mit −6…−11 dB), der binnen rund 50 ms verklingt; über 200 ms gemessen liegt er bei −25 dB. Vermutlich die Bassdrum
+  im Demucs-Stem (Jazz spielt sie auf jedem Viertel) oder der Korpus. Das Signal wiederholt sich dann nach der
+  doppelten Periode besser (YIN-Differenz 0,10) als nach der einfachen (0,19–0,47); die Schwelle 0,15 nimmt die
+  doppelte, zwei Schätzungen im Abstand von 5 ms stimmen überein, die Note geht eine Oktave zu tief hinaus.
+- Korrektur (`Yin::estimate_attack`, nur für die Schätzungen nach einem Anschlag): die halbe Periode gilt, wenn
+  sie sich ordentlich wiederholt (Differenz ≤ 0,5), die ungeraden Harmonischen 3, 5, 7 der langen Periode unter 15 %
+  der geraden liegen und der tiefste Teilton im Fenster gegen den 2. verklingt (Leistung erste/letzte Periode
+  < 0,5). Das Verklingen trennt: gespielte A1 (leere A-Saite) haben auf diesen Stems ebenfalls schwache ungerade
+  Harmonische, ihr Grundton klingt aber weiter. Am klingenden Ton (Legato-Verfolgung) und im Stimmgerät bleibt YIN
+  unverändert, sonst folgte die Prüfung dem Bass der Band aus den Lautsprechern (`room-double-backing`).
+
+| Material | vorher | nachher |
+|---|---|---|
+| FiloBass Oktave zu tief / zu hoch | 81 / 6 | 30 / 8 |
+| FiloBass ±50 ms R / P / Tonhöhe | 68,8 / 70,2 / 57,2 % | 68,9 / 70,1 / 64,3 % |
+| IDMT wie CI (±80 ms, mit Tonhöhe) R / P | 89,6 / 79,7 % | 90,3 / 80,4 % |
+| IDMT Laptop-Simulation (±80 ms, mit Tonhöhe) R / P | 37,3 / 62,8 % | 37,9 / 63,8 % |
+| NSynth ±30 ms R / P / Tonhöhe | 100 / 95,7 / 90,4 % | 100 / 95,7 / 92,4 % |
+| NSynth Laptop-Simulation R / P / Tonhöhe | 87,3 / 47,1 / 88,3 % | 87,3 / 46,8 / 90,5 % |
+| Synthetischer Korpus (`korpus check`), Techniken (`korpus techniques`) | | unverändert |
+
+NSynth Laptop: zwei zusätzliche Erkennungen im Netzbrummen nach einem ausklingenden Ton (`bass_electronic_027`,
+200,8 s), drei Oktavfehler weniger (`018`). Rechenzeit der Analyse unverändert (±1 %), Wartezeit bis zur Note nur
+bei Noten mit Wummern eine Schätzung (5 ms) länger.
+
+Offen: 30 Noten bleiben eine Oktave zu tief. Dort wiederholt sich die halbe Periode schlechter als 0,5 oder der
+tiefe Anteil klingt im ersten Fenster nicht hörbar ab; 0,6 und mehr kosteten an `room-double` Tonhöhe (98,1 →
+94,2 %). Im ersten Fenster gleichen sie gespielten A1; trennen ließe sich das erst mit mehr Audio (Latenz) oder einer
+späteren Korrektur der Tonhöhe.
 
 ## Befunde
 
