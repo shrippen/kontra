@@ -36,6 +36,57 @@ pub enum Command {
     Soak(SoakArgs),
     /// Write the bundled exercises (one folder per level) as MIDI files.
     Exercises(ExercisesArgs),
+    /// Hardware check (round 10): loopback latency, play on the click, bass takes for the
+    /// corpus, optionally soak and stem timing; every measurement goes into a report.
+    Check(CheckArgs),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum CheckStep {
+    Loopback,
+    Calibrate,
+    Takes,
+    Soak,
+    Stems,
+}
+
+#[derive(Debug, Args)]
+pub struct CheckArgs {
+    /// Folder for the report and takes (default: testdata/korpus/local/own/check-<date>).
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+    /// Input device id (see `devices`).
+    #[arg(long)]
+    pub input: Option<String>,
+    /// Output device id (see `devices`).
+    #[arg(long)]
+    pub output: Option<String>,
+    /// The bass goes into a laptop combo jack.
+    #[arg(long)]
+    pub laptop_jack: bool,
+    /// Steps in order (default: loopback, calibrate, takes).
+    #[arg(long, value_delimiter = ',')]
+    pub steps: Vec<CheckStep>,
+    /// Takes to record by name (default: all; see the list when it starts).
+    #[arg(long, value_delimiter = ',')]
+    pub takes: Vec<String>,
+    /// Soak: minutes and the score it loops.
+    #[arg(long, default_value_t = 60.0)]
+    pub soak_minutes: f64,
+    #[arg(long, default_value = "testdata/demo/groove-techniken.musicxml")]
+    pub soak_score: PathBuf,
+    /// Stems: the song Demucs separates (LH-BIB-09: a 4-minute song in under 3 min).
+    #[arg(long)]
+    pub song: Option<PathBuf>,
+    /// Latency for the take annotations when `calibrate` is not run.
+    #[arg(long, default_value_t = 0.0)]
+    pub latency_ms: f64,
+    /// Do not wait for Enter (scripted runs).
+    #[arg(long)]
+    pub yes: bool,
+    /// A recording instead of the audio input (checks the check itself).
+    #[arg(long)]
+    pub input_file: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]
