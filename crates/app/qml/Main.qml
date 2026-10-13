@@ -161,35 +161,49 @@ Kirigami.ApplicationWindow {
         onTriggered: ctl.tick()
     }
 
-    // LH-ALL-04: the interface was unplugged; another input can stand in until it is back.
-    RowLayout {
-        anchors { left: parent.left; right: parent.right; bottom: notice.visible ? notice.top : parent.bottom; margins: KanteStyle.unit(12) }
-        z: 10
-        visible: ctl.offerInput !== ""
-        KanteCallout {
-            Layout.fillWidth: true
-            kind: KanteCallout.Kind.Info
-            text: ctl.offerText
-            autoHide: false
-        }
-        KanteButton {
-            text: texts.t("unplug.use")
-            emphasis: KanteButton.Emphasis.Primary
-            Accessible.name: texts.t("unplug.use")
-            onClicked: ctl.useOfferedInput()
-        }
-    }
+    // Notes for the user sit in a bar under the page, not over it: the page gets shorter, nothing
+    // is hidden or clickable behind a note (QA 14.10.: the latency note covered the transport bar
+    // and was see-through).
+    footer: Rectangle {
+        color: KanteStyle.backgroundColor
+        visible: offer.visible || notice.visible
+        implicitHeight: notes.implicitHeight + KanteStyle.unit(24)
 
-    KanteCallout {
-        id: notice
-        anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: KanteStyle.unit(12) }
-        z: 10
-        visible: text !== ""
-        kind: ctl.errorText !== "" ? KanteCallout.Kind.Danger : KanteCallout.Kind.Info
-        text: ctl.errorText !== "" ? ctl.errorText : ctl.message
-        dismissible: true
-        autoHide: false
-        onDismissed: ctl.dismissMessage()
+        ColumnLayout {
+            id: notes
+            anchors { left: parent.left; right: parent.right; top: parent.top; margins: KanteStyle.unit(12) }
+            spacing: KanteStyle.unit(8)
+
+            // LH-ALL-04: the interface was unplugged; another input can stand in until it is back.
+            RowLayout {
+                id: offer
+                Layout.fillWidth: true
+                visible: ctl.offerInput !== ""
+                KanteCallout {
+                    Layout.fillWidth: true
+                    kind: KanteCallout.Kind.Info
+                    text: ctl.offerText
+                    autoHide: false
+                }
+                KanteButton {
+                    text: texts.t("unplug.use")
+                    emphasis: KanteButton.Emphasis.Primary
+                    Accessible.name: texts.t("unplug.use")
+                    onClicked: ctl.useOfferedInput()
+                }
+            }
+
+            KanteCallout {
+                id: notice
+                Layout.fillWidth: true
+                visible: text !== ""
+                kind: ctl.errorText !== "" ? KanteCallout.Kind.Danger : KanteCallout.Kind.Info
+                text: ctl.errorText !== "" ? ctl.errorText : ctl.message
+                dismissible: true
+                autoHide: false
+                onDismissed: ctl.dismissMessage()
+            }
+        }
     }
 
     // QA and release screenshots: --screenshot PATH [--screenshot-after MS].
@@ -197,7 +211,10 @@ Kirigami.ApplicationWindow {
         interval: Math.max(100, ctl.screenshotAfter)
         running: ctl.screenshotPath !== ""
         onTriggered: {
-            var item = root.pageStack.currentItem || root.contentItem
+            // --screenshot-notes: the note bar under the page instead (QA; the window itself cannot
+            // be grabbed).
+            var notes = Qt.application.arguments.indexOf("--screenshot-notes") >= 0
+            var item = notes ? root.footer : (root.pageStack.currentItem || root.contentItem)
             item.grabToImage(function(result) {
                 result.saveToFile(ctl.screenshotPath)
                 if (ctl.quitAfter <= 0) {

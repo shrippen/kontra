@@ -186,6 +186,8 @@ pub struct Core {
     run_started: Option<std::time::Instant>,
     /// The audio server's block size was checked for this run (LH-EIN-07).
     quantum_checked: bool,
+    /// When the current live input (practice or tuner) started.
+    input_since: Option<std::time::Instant>,
     speed: f64,
     looping: Option<(usize, usize)>,
     /// A note for the user from the last `open` (e.g. a five-string bass was chosen).
@@ -248,6 +250,7 @@ impl Core {
             calibration: None,
             run_started: None,
             quantum_checked: false,
+            input_since: None,
             speed: 1.0,
             looping: None,
         }
@@ -1682,7 +1685,7 @@ impl Core {
         let silent = live.output_is_silent;
         self.live = Some(live);
         self.run_started = Some(std::time::Instant::now());
-        self.quantum_checked = false;
+        self.input_since = self.run_started;
         Ok(silent)
     }
 
@@ -1694,6 +1697,7 @@ impl Core {
         let tuner = LiveTuner::start(&self.input_choice(), &instrument, self.source())
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
         self.tuner = Some(tuner);
+        self.input_since = Some(std::time::Instant::now());
         Ok(())
     }
 
@@ -1750,18 +1754,24 @@ impl Core {
         events
     }
 
-    /// LH-EIN-07: once per run, a second after the start, a hint if the audio server's block is
-    /// too long for the latency target.
+    /// LH-EIN-07: once per program run, a second after a live input started (tuner, setup or a
+    /// run), a hint if the input's block is too long for the latency target. Before the first
+    /// note where possible, not again on every run (QA 14.10.).
     fn quantum_check(&mut self) -> Option<String> {
         if self.quantum_checked {
             return None;
         }
-        let started = self.run_started?;
-        if started.elapsed() < std::time::Duration::from_secs(1) {
+        let since = self.input_since?;
+        if since.elapsed() < std::time::Duration::from_secs(1) {
             return None;
         }
+        let block = match (&self.live, &self.tuner) {
+            (Some(live), _) => live.input_block(),
+            (None, Some(tuner)) => tuner.input_block(),
+            (None, None) => None,
+        };
+        let (frames, rate) = block?;
         self.quantum_checked = true;
-        let (frames, rate) = self.live.as_ref()?.input_block()?;
         let ms = quantum_too_long_ms(frames, rate)?;
         Some(self.tr(
             "hint.quantum",
