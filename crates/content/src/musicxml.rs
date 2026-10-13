@@ -1,6 +1,8 @@
 //! MusicXML (`score-partwise`; uncompressed or `.mxl`). Bars, repeats, endings and tempo
 //! come from the first part; notes from every part, chords included;
 //! `<technical><string>/<fret>` is used when the part declares a staff tuning.
+//! Harmonics sound at their partial (`<harmonic>` or a diamond head): a chord of base,
+//! touched and sounding pitch becomes one note at the sounding pitch.
 
 use crate::error::ImportError;
 use crate::score::{self, BarHead, Jump, Legato, Part, RawNote, Score, Target, Until, WHOLE_TICKS};
@@ -189,7 +191,8 @@ impl PartReader {
             score.bars.push(BarHead::new(self.signature));
         }
         let mut head = BarHead::new(self.signature);
-        let mut notes: Vec<RawNote> = Vec::new();
+        let mut parsed: Vec<Parsed> = Vec::new();
+        let mut chords = 0usize;
         let mut position = 0u64;
         let mut furthest = 0u64;
         let mut last_start = 0u64;
@@ -201,11 +204,22 @@ impl PartReader {
                     let chord = child.child("chord").is_some();
                     let start = if chord { last_start } else { position };
                     let ticks = self.ticks(child);
+                    if !chord {
+                        chords += 1;
+                    }
                     if child.child("grace").is_some() || child.child("cue").is_some() {
                         continue;
                     }
-                    if let Some(note) = self.note(child, start, ticks) {
-                        notes.push(note);
+                    if let Some(mut note) = self.note(child, start, ticks) {
+                        let harmonic = self.harmonic(child, &note);
+                        if harmonic.is_some() {
+                            note.add(Technique::Harmonic);
+                        }
+                        parsed.push(Parsed {
+                            note,
+                            chord: chords,
+                            harmonic,
+                        });
                     }
                     if !chord {
                         last_start = position;
@@ -233,6 +247,7 @@ impl PartReader {
                 head.signature = short;
             }
         }
+        let mut notes = harmonics(&parsed);
         notes.sort_by_key(|n| (n.offset, n.pitch));
         part.bar_mut(index).extend(notes);
 
@@ -332,6 +347,33 @@ impl PartReader {
         Some(note)
     }
 
+    /// Harmonic marks of a note: `<technical><harmonic>`, or a diamond head alone (some
+    /// exporters). A natural harmonic with string and fret sounds at that string's partial.
+    fn harmonic(&self, element: &Element, note: &RawNote) -> Option<Harmonic> {
+        let mark = element.path(&["notations", "technical", "harmonic"]);
+        let diamond = element.value("notehead") == Some("diamond");
+        if mark.is_none() && !diamond {
+            return None;
+        }
+        let written = match mark {
+            Some(m) if m.child("sounding-pitch").is_some() => Written::Sounding,
+            Some(m) if m.child("base-pitch").is_some() => Written::Base,
+            Some(m) if m.child("touching-pitch").is_some() => Written::Touching,
+            _ => Written::Unspecified,
+        };
+
+        // An artificial harmonic's fret is the stopped one: where it is touched is unknown.
+        let natural = mark.is_none_or(|m| m.child("artificial").is_none());
+        let from_tab = match (natural, note.string, note.fret) {
+            (true, Some(string), Some(fret)) => self
+                .tuning
+                .get(usize::from(string))
+                .and_then(|open| crate::harmonic::natural_harmonic(*open, f64::from(fret))),
+            _ => None,
+        };
+        Some(Harmonic { written, from_tab })
+    }
+
     fn notations(&self, notations: &Element, note: &mut RawNote) {
         // A slide is marked where it starts, as in Guitar Pro; its stop is the next note.
         let slide_starts = ["slide", "glissando"]
@@ -360,9 +402,6 @@ impl PartReader {
             .any(|t| t.attr("type") == Some("stop"));
         if legato {
             note.legato = Legato::Target;
-        }
-        if technical.child("harmonic").is_some() {
-            note.add(Technique::Harmonic);
         }
         if technical.child("bend").is_some() {
             note.add(Technique::Bend);
@@ -444,6 +483,91 @@ impl PartReader {
             self.ending = 0;
         }
     }
+}
+
+/// A note as read, with its chord and harmonic marks.
+#[derive(Debug)]
+struct Parsed {
+    note: RawNote,
+    /// Notes joined by `<chord/>` share this number.
+    chord: usize,
+    harmonic: Option<Harmonic>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Harmonic {
+    written: Written,
+    /// Sounding pitch of a natural harmonic from string and fret, if the tab gives them.
+    from_tab: Option<Pitch>,
+}
+
+/// What the `<pitch>` of a harmonic note stands for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Written {
+    Sounding,
+    /// The pitch played before touching: the open string or the stopped note.
+    Base,
+    /// The touched pitch, often a diamond head.
+    Touching,
+    Unspecified,
+}
+
+/// One note per harmonic. MusicXML may write it as a chord:
+///
+/// ```text
+/// base A1 (fret 5) + touching D2 (◇) + sounding A3 (hidden) → A3 on fret 5
+/// base A1 (fret 5) + touching D2 (◇)                       → A3 (touched a fourth up)
+/// touching A1 (◇, fret 5 of the E string, natural)         → E3 (partial of the string)
+/// ```
+///
+/// What cannot be told (e.g. an artificial harmonic with its base only) keeps its pitch and is
+/// judged in any octave.
+fn harmonics(parsed: &[Parsed]) -> Vec<RawNote> {
+    let mut notes = Vec::new();
+    for chord in parsed.chunk_by(|a, b| a.chord == b.chord) {
+        let find = |written: Written| {
+            chord
+                .iter()
+                .find(|p| p.harmonic.is_some_and(|h| h.written == written))
+        };
+        let (base, touching) = (find(Written::Base), find(Written::Touching));
+        let sounding = find(Written::Sounding).is_some();
+        let tab = base
+            .or(touching)
+            .filter(|p| p.note.fret.is_some())
+            .map(|p| (p.note.string, p.note.fret));
+
+        for p in chord {
+            let mut note = p.note.clone();
+            let Some(harmonic) = p.harmonic else {
+                notes.push(note);
+                continue;
+            };
+            match harmonic.written {
+                Written::Sounding => {
+                    if let (None, Some((string, fret))) = (note.fret, tab) {
+                        note.string = string;
+                        note.fret = fret;
+                    }
+                }
+                Written::Base | Written::Touching if sounding => continue,
+                Written::Touching if base.is_some() => continue,
+                Written::Base => {
+                    let touched = touching
+                        .map(|t| i32::from(t.note.pitch.0) - i32::from(note.pitch.0))
+                        .and_then(|frets| {
+                            crate::harmonic::natural_harmonic(note.pitch, f64::from(frets))
+                        });
+                    note.pitch = touched.or(harmonic.from_tab).unwrap_or(note.pitch);
+                }
+                Written::Touching | Written::Unspecified => {
+                    note.pitch = harmonic.from_tab.unwrap_or(note.pitch);
+                }
+            }
+            notes.push(note);
+        }
+    }
+    notes
 }
 
 /// Key of a part written `transpose` semitones away from concert pitch, e.g. a B♭ clarinet

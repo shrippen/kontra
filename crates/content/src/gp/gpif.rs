@@ -366,7 +366,7 @@ fn note(element: &Element, tuning: &[Pitch], offset: u64, duration: u64) -> Opti
     };
     let pitch = match tab {
         Some((s, f)) => {
-            natural_harmonic(element, tuning[s], f).or_else(|| tuning[s].transposed(i32::from(f)))
+            harmonic(element, tuning[s], f).or_else(|| tuning[s].transposed(i32::from(f)))
         }
         None => midi.filter(|m| *m <= 127).map(Pitch),
     }?;
@@ -383,18 +383,23 @@ fn note(element: &Element, tuning: &[Pitch], offset: u64, duration: u64) -> Opti
     Some(note)
 }
 
-/// The sounding pitch of a natural harmonic on the string tuned to `open` (`HarmonicFret`, or
-/// the note's fret); `None` for any other note.
-fn natural_harmonic(element: &Element, open: Pitch, fret: u8) -> Option<Pitch> {
+/// The sounding pitch of a harmonic at `fret` of the string tuned to `open`; `None` for any
+/// other note and where it is unknown. `HarmonicFret` is the touched fret of a natural
+/// harmonic, the distance above the fretted note of an artificial or tapped one. Pinch, semi
+/// and feedback harmonics sound where the pick touches: not stored.
+fn harmonic(element: &Element, open: Pitch, fret: u8) -> Option<Pitch> {
     let kind = property(element, "HarmonicType")?.value("HType")?;
-    if kind.trim() != "Natural" {
-        return None;
-    }
-    let at: f64 = property(element, "HarmonicFret")
+    let at: Option<f64> = property(element, "HarmonicFret")
         .and_then(|p| p.value("HFret"))
-        .and_then(|f| f.trim().parse().ok())
-        .unwrap_or(f64::from(fret));
-    crate::harmonic::natural_harmonic(open, at)
+        .and_then(|f| f.trim().parse().ok());
+    match kind.trim() {
+        "Natural" => crate::harmonic::natural_harmonic(open, at.unwrap_or(f64::from(fret))),
+        "Artificial" | "Tap" => {
+            let fretted = open.transposed(i32::from(fret))?;
+            crate::harmonic::natural_harmonic(fretted, at?)
+        }
+        _ => None,
+    }
 }
 
 const GPIF_SLIDE_SHIFT: u32 = 1;

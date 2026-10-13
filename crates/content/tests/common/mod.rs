@@ -16,8 +16,8 @@ pub struct GpNote {
     pub fret: i8,
     pub kind: u8, // 1 normal, 2 tie, 3 dead
     pub hammer: bool,
-    /// A natural harmonic at this fret.
-    pub harmonic: bool,
+    /// Harmonic bytes as stored: kind, then its data (e.g. `[1]` natural); empty for none.
+    pub harmonic: &'static [u8],
 }
 
 pub const NORMAL: u8 = 1;
@@ -30,7 +30,7 @@ pub fn note(string: u8, fret: i8) -> GpNote {
         fret,
         kind: NORMAL,
         hammer: false,
-        harmonic: false,
+        harmonic: &[],
     }
 }
 
@@ -284,18 +284,19 @@ fn write_beat(o: &mut Out, beat: &GpBeat, strings: usize) {
             continue;
         };
         let mut nflags = 0x20u8;
-        if n.hammer || n.harmonic {
+        let harmonic = !n.harmonic.is_empty();
+        if n.hammer || harmonic {
             nflags |= 0x08;
         }
         o.u8(nflags);
         o.u8(n.kind);
         o.i8(n.fret);
         o.u8(0); // flags2
-        if n.hammer || n.harmonic {
+        if n.hammer || harmonic {
             o.u8(if n.hammer { 0x02 } else { 0 });
-            o.u8(if n.harmonic { 0x10 } else { 0 });
-            if n.harmonic {
-                o.u8(1); // natural
+            o.u8(if harmonic { 0x10 } else { 0 });
+            for byte in n.harmonic {
+                o.u8(*byte);
             }
         }
     }
