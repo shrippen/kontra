@@ -8,8 +8,8 @@ steht nur, was offen ist und wo es liegt.
 - **Runde 10** (Entscheidungs-Artefakt): nächster Schwerpunkt, Ghost Notes und Hammer-on-Töne in der Trefferquote,
   Ort des Slide-Zeichens, Stem-Trennung im Flatpak, Demucs-Messung, Dead Notes (x) und Ghost Notes ( ).
 - **Techniken an echten Aufnahmen** (LH-BEW-06): Slap/Pop/Ghost an IDMT 79/70/96 %, an denselben Aufnahmen
-  abgestimmt; eigene Aufnahmen fehlen. Slides an echten Aufnahmen 0 von 20: Beim Gleiten meldet der Onset-Detektor
-  neue Anschläge, schnelle Slides kommen als Hammer-on an; braucht eine Slide-Erkennung über die Tonhöhenkurve.
+  abgestimmt; eigene Aufnahmen fehlen. Slides an IDMT 3 von 20 (über zwei Bünde, PR slide-erkennung); Ein-Bund-Slides
+  springen wie Hammer-ons (0–22 ms) und gelten als Hammer-on; trennen braucht echte Hammer-on-Aufnahmen.
 - **Flageoletts**: natürliche am Teilton (GP binär, GPIF); künstliche Flageoletts und MusicXML-Flageoletts fehlen.
 - **Stem-Trennung** (LH-BIB-09): mit Ersatz-Programm getestet; mit echtem Demucs nicht gelaufen (Abnahme
   „4-Minuten-Song < 3 min“ offen). Im Flatpak ausgegraut (Erlaubnis fehlt bewusst).
