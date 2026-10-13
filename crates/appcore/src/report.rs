@@ -51,7 +51,10 @@ impl Core {
         ];
         let mut html = String::new();
         let lang = self.catalog.language().code();
-        let title = self.tr("report.title", &[("title", p.title.clone())]);
+        let title = self.tr(
+            "report.title",
+            &[("title", self.song_title(&p.song_id, &p.title))],
+        );
         let _ = write!(
             html,
             "<!doctype html>\n<html lang=\"{lang}\" data-theme=\"light\">\n<head>\n<meta charset=\"utf-8\">\n\

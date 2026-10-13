@@ -20,5 +20,10 @@ midir = "0.11"
 # MIDI files as recorded input for QA journeys (Unlicense; content uses it for import).
 midly = { version = "0.5.3", default-features = false, features = ["std"] }
 
+# alsa-lib's own error print, silenced while probing devices (MIT; already in the tree under
+# cpal and midir, same version).
+[target.'cfg(target_os = "linux")'.dependencies]
+alsa-sys = "0.4"
+
 [lints]
 workspace = true

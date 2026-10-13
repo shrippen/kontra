@@ -38,7 +38,7 @@ Markierungen: ⚙ automatisiert · 🔍 auch mit 200 % Skalierung und Farbfilter
 2. Assistent: Instrument „E-Bass, 4 Saiten“, Stimmung „Standard“; Anschluss „Klinke direkt in den Laptop“ (MIDI und Mikrofon stehen als „kommt später“ in der Liste); Eingang wählen (ein Interface ist vorgewählt). Pegel ist zu leise.
 3. Den Hinweis lesen und befolgen (Lautstärke am Bass auf, Gain im Assistenten).
 4. Kalibrierung überspringen.
-5. Erste Übung aus „Erste Schritte“ wählen, ersten Ton spielen.
+5. Erste Übung wählen: von der Startseite („Nächste Übung“) oder aus der leeren Bibliothek („Mit einer Übung anfangen“), ersten Ton spielen.
 Erwartet: ≤ 60 s bis zum ersten bewerteten Ton; der Hinweis zur Laptop-Buchse erklärt in einem Satz, warum es dumpf klingt, und verweigert nichts; kein Fachbegriff ohne Erklärung.
 
 **J-A2 Stimmen ohne Vorwissen** ⚙ 🔍 · Persona: P1 Lea · Phase 1 · LH-TUN-01, -02, -03, -04
@@ -101,8 +101,12 @@ Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreich
 
 **J-C1 Erste Woche** · Persona: P1 Lea · Phase 1 (adaptive Schwierigkeit Phase 2) · LH-FOR-01, LH-MOD-06, LH-BEW-04
 1. An fünf Tagen je zehn Minuten üben (simuliert über Datumsfortschreibung).
-2. Fortschrittsansicht öffnen.
-Erwartet: Übungszeit und Verbesserung sichtbar; Formulierungen ermutigend, keine Rangliste.
+2. Kontra öffnen: die Startseite nennt das zuletzt gespielte Stück, die nächste Übung, die noch nicht sitzt, und die
+   Minuten der letzten sieben Tage; jedes mit einem Klick erreichbar.
+3. Fortschrittsansicht öffnen.
+Erwartet: Übungszeit und Verbesserung sichtbar; Formulierungen ermutigend, keine Rangliste; ohne Suchen weiterüben.
+Liegt eine Übung nach dem Lauf über 90 %, bietet die Auswertung die nächste im Plan an; die Übungsliste zeigt sie mit
+Häkchen.
 
 **J-C2 Timing-Tendenz** ⚙ · Persona: P3 Mira · Phase 1 · LH-BEW-03, LH-FOR-02
 1. Aufnahme mit konstanter Tendenz „18 ms zu früh“ im Song-Modus.
@@ -160,7 +164,7 @@ Erwartet: Hinweis, dass die Toleranzen weiter sind; Trefferquote ≥ 90 % auf de
 
 **J-F1 Barrierefreiheit** 🔍 · Persona: P7 Sam · Phase 1 · LH-ANZ-06, LH-MOD-07, LH-NF-07, LH-ALL-02
 1. Skalierung 200 %, Farbfilter Deuteranopie, „Bewegung reduzieren“ an.
-2. J-A1 und J-B3 nur mit Tastatur.
+2. J-A1 und J-B3 nur mit Tastatur, dazu Saitenwahl im Stimmgerät und Auswertung schließen (Esc).
 3. Mit Orca: Bibliothek, Einstellungen und Auswertung vorlesen lassen.
 Erwartet: Fokus immer sichtbar; Treffer/Fehler/früh/spät ohne Farbe unterscheidbar; alle Bedienelemente haben Namen; keine abgeschnittenen Texte; Animationen reduziert.
 

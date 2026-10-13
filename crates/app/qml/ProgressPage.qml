@@ -40,8 +40,12 @@ Kirigami.ScrollablePage {
         return out
     }
     readonly property var lastWeek: days.slice(dayCount - 7)
-    readonly property int weekMinutes: Math.round(lastWeek.reduce(function(s, d) { return s + d.minutes }, 0))
-    readonly property int weekDays: lastWeek.filter(function(d) { return d.minutes > 0.5 }).length
+    // Unrounded: a first run of 20 s is practice too (QA 13.10.: "not practised this week").
+    readonly property real weekTime: lastWeek.reduce(function(s, d) { return s + d.minutes }, 0)
+    readonly property int weekMinutes: Math.max(1, Math.round(weekTime))
+    readonly property int weekDays: lastWeek.filter(function(d) { return d.minutes > 0 }).length
+    readonly property string weekText: texts.t(weekDays === 1 ? "progress.week.oneday" : "progress.week",
+                                               { minutes: weekMinutes, days: weekDays })
 
     function reload() { data = JSON.parse(ctl.progressJson()) }
     function dateText(unix) {
@@ -65,6 +69,10 @@ Kirigami.ScrollablePage {
             visible: page.data.pieces.length === 0
             title: texts.t("progress.empty.title")
             text: texts.t("progress.empty.text")
+            KanteButton {
+                text: texts.t("progress.empty.start")
+                onClicked: applicationWindow().show("exercises")
+            }
         }
 
         ColumnLayout {
@@ -77,16 +85,15 @@ Kirigami.ScrollablePage {
                 wrapMode: Text.WordWrap
                 color: KanteStyle.strongTextColor
                 font.pointSize: KanteStyle.defaultFont.pointSize * 1.3
-                text: page.weekMinutes > 0
-                    ? texts.t("progress.week", { minutes: page.weekMinutes, days: page.weekDays })
-                    : texts.t("progress.week.none")
+                text: page.weekTime > 0 ? page.weekText : texts.t("progress.week.none")
             }
 
             KanteSectionLabel { text: texts.t("progress.days") }
             KanteBarChart {
                 Layout.fillWidth: true
                 Layout.preferredHeight: KanteStyle.unit(180)
-                values: page.days.map(function(d) { return Math.round(d.minutes) })
+                // Tenths: short days stay visible as bars.
+                values: page.days.map(function(d) { return Math.round(d.minutes * 10) / 10 })
                 labels: page.days.map(function(d) {
                     var date = new Date(d.start)
                     return date.getDate() + "." + (date.getMonth() + 1) + "."
@@ -95,7 +102,7 @@ Kirigami.ScrollablePage {
                 axis: true
                 unit: "min"
                 Accessible.name: texts.t("progress.days")
-                Accessible.description: texts.t("progress.week", { minutes: page.weekMinutes, days: page.weekDays })
+                Accessible.description: page.weekText
             }
 
             KanteSectionLabel { text: texts.t("progress.pieces") }
@@ -134,7 +141,7 @@ Kirigami.ScrollablePage {
                             modelData.best !== null ? texts.t("library.best", { percent: Math.round(modelData.best * 100) }) : "",
                             modelData.bestSpeed !== null ? texts.t("progress.speed", { percent: Math.round(modelData.bestSpeed * 100) }) : "",
                             modelData.practiceMin < 1 ? texts.t("library.underminute") : texts.t("library.minutes", { minutes: Math.round(modelData.practiceMin) }),
-                            texts.t("progress.runs", { n: modelData.runs })
+                            texts.t(modelData.runs === 1 ? "progress.runs.one" : "progress.runs", { n: modelData.runs })
                         ].filter(function(s) { return s !== "" }).join(" · ")
                     }
                     // Per section (LH-FOR-01): best hit rate, its tempo and its date.
