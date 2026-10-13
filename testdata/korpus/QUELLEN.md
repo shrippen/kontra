@@ -197,6 +197,27 @@ keine zusätzliche Wartezeit.
 Offen: echte Aufnahme aus einer Laptop-Buchse (`AUFNAHME.md`); die Simulation hat genau 50 Hz, das Netz schwankt
 um ±0,05 Hz (Kerbe dort noch −14 dB).
 
+### Halbton zu tief am Kontrabass (Branch `halbton`, 13.10.)
+
+Stand `oktavfehler`, FiloBass ±50 ms, nächste Erkennung je Note, Stimmton je Stück abgezogen (Median der auf ±50 Cent
+gefalteten Abweichungen: +3 bis −12 Cent). 88 von 571 zugeordneten Noten einen Halbton zu tief (376 richtig).
+
+- Weder Stimmung noch Annotation: Die Fehler verteilen sich auf vier Stücke (19–23 je Stück, Apple Jump 3, All the
+  Things You Are 4). Abweichung gleitend, keine Häufung bei −100: 65 zwischen −60 und −99 Cent, 23 bei −100…−150.
+  D2 (38) gehäuft: 29 der 88, unter allen zugeordneten 15 %.
+- Ursache: Der Ton beginnt zu tief und steigt in rund 100 ms auf die Annotation (eigenes YIN, 120-ms-Fenster ab
+  Anschlag, Median gegen Annotation): 0–60 ms −52 Cent, 40–100 ms −18, 80–140 ms −5, ab 150 ms −3. Bei richtigen
+  Noten −15, −4, −2, −1. Die Erkennung entscheidet im ersten Fenster (12–66 ms nach dem Einsatz, D1 als tiefster Ton)
+  auf zwei Schätzungen im Abstand von 5 ms; die stimmen auch mitten im Anstieg überein. Herkunft offen (Hineingleiten,
+  Saite, Quellentrennung); ein tiefer Anteil unter dem Grundton ist es nicht (gleich stark wie bei richtigen Noten).
+- Folgen: 25 der 88 bekommen zusätzlich eine Legato-Note (Hammer-on/Slide) mit dem richtigen Ton, sobald der Anstieg
+  80 Cent erreicht; die übrigen bleiben einen Halbton zu tief.
+- Korrektur nur nach der Ausgabe, sonst wartet jede Note länger: Die Tonhöhe des klingenden Tons 90–160 ms nach dem
+  Einsatz (Median der Verfolgungs-Schätzungen) rundet bei 75 von 83 auf die Annotation und kippt 11 richtige. IDMT
+  (±80 ms) ebenso: 17 Halbton- und 13 Oktavfehler richtig, 9 richtige falsch. Braucht eine Tonhöhen-Revision wie
+  `TechniqueRevision` bis in die Bewertung (Note neu werten); offen als Entscheidung.
+- Stimmton in `korpus measure`: bringt bei höchstens 12 Cent wenig, nicht umgesetzt.
+
 ## Befunde
 
 1. **Einsatz ohne Tonhöhe plus zweite Note.** Bei tiefen Tönen meldet die Erkennung am Anschlag eine Note mit

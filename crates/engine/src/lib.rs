@@ -19,7 +19,7 @@ mod player;
 
 pub use backing::{BackingTrack, Resolution};
 pub use clock::Clock;
-pub use input::{Input, InputKind, Pace};
+pub use input::{Input, InputKind, Pace, Recording};
 pub use kontra_drivers::{
     find_separator, in_sandbox, list_devices, list_midi_inputs, read_audio, write_wav, AudioBuffer,
     Connection, DeviceInfo, Direction, MidiPort, SeparationJob, Separator, SeparatorError,

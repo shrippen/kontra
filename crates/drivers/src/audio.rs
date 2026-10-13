@@ -125,6 +125,7 @@ pub struct StreamConfig {
 
 /// Lists input or output devices of the default host.
 pub fn list_devices(direction: Direction) -> Vec<DeviceInfo> {
+    let _quiet = QuietAlsa::new();
     let host = cpal::default_host();
     let default_id = match direction {
         Direction::Input => host.default_input_device(),
@@ -141,6 +142,65 @@ pub fn list_devices(direction: Direction) -> Vec<DeviceInfo> {
         .iter()
         .filter_map(|d| describe(d, direction, default_id.as_deref()))
         .collect()
+}
+
+/// Probing every ALSA device makes alsa-lib print to stderr for those that cannot open (the
+/// "oss" plugin without /dev/dsp, a card's dmix while PipeWire holds the card); they are left
+/// out of the list anyway. Silenced on this thread while it lives; errors still reach cpal.
+#[cfg(target_os = "linux")]
+#[allow(unsafe_code)]
+mod quiet_alsa {
+    use std::ffi::{c_char, c_int};
+
+    pub(super) struct QuietAlsa(alsa_sys::snd_local_error_handler_t);
+
+    impl std::fmt::Debug for QuietAlsa {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("QuietAlsa")
+        }
+    }
+
+    unsafe extern "C" fn ignore(
+        _file: *const c_char,
+        _line: c_int,
+        _function: *const c_char,
+        _err: c_int,
+        _fmt: *const c_char,
+        _args: *mut alsa_sys::__va_list_tag,
+    ) {
+    }
+
+    impl QuietAlsa {
+        pub(super) fn new() -> QuietAlsa {
+            // SAFETY: sets this thread's alsa-lib error handler to a function of the declared
+            // signature that touches none of its arguments; the previous one is kept to restore.
+            QuietAlsa(unsafe { alsa_sys::snd_lib_error_set_local(Some(ignore)) })
+        }
+    }
+
+    impl Drop for QuietAlsa {
+        fn drop(&mut self) {
+            // SAFETY: restores the handler this thread had before (`None` is alsa-lib's default).
+            unsafe {
+                alsa_sys::snd_lib_error_set_local(self.0);
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+use quiet_alsa::QuietAlsa;
+
+/// Elsewhere there is no alsa-lib to silence.
+#[cfg(not(target_os = "linux"))]
+#[derive(Debug)]
+struct QuietAlsa;
+
+#[cfg(not(target_os = "linux"))]
+impl QuietAlsa {
+    fn new() -> QuietAlsa {
+        QuietAlsa
+    }
 }
 
 fn describe(

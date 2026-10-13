@@ -18,8 +18,9 @@ import "."
  *                             setNoteState(index, state[, cents]) changes one note
  *                             without reassigning the list; resetStates() undoes it
  *                             technique (1.31): "slide", "hammer", "pull", "slap", "pop" or
- *                             "ghost", its tab sign above the head (KanteTechniqueMark); a
- *                             ghost note shows its fret in parentheses. techniqueResult
+ *                             "ghost" or "dead" (1.32), its tab sign above the head
+ *                             (KanteTechniqueMark); a ghost note shows its fret in
+ *                             parentheses, a dead note x. techniqueResult
  *                             (1.31): "", "played", "other", "unheard";
  *                             setTechniqueResult(index, result) changes one, resetStates()
  *                             undoes them too
@@ -469,8 +470,10 @@ Item {
                                 Text {
                                     anchors.centerIn: headBox
                                     readonly property string fretText: note.n.fret !== undefined ? String(note.n.fret) : ""
-                                    // A ghost note's fret in parentheses, as written in tab (1.31).
-                                    text: note.technique === "ghost" && fretText !== "" ? "(" + fretText + ")" : fretText
+                                    // A ghost note's fret in parentheses, as written in tab (1.31); a
+                                    // dead note's as x (1.32).
+                                    text: note.technique === "dead" ? "x"
+                                        : note.technique === "ghost" && fretText !== "" ? "(" + fretText + ")" : fretText
                                     color: note.hollow ? KanteStyle.textColor : KanteStyle.inkOn(note.fill)
                                     font.family: nameMetrics.font.family
                                     font.weight: Font.Medium

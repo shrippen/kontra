@@ -20,7 +20,8 @@ import "."
  *                form a chord (one stem). state as KanteTabLane, "offpitch" (1.27) with
  *                its `cents` beside the sign (`showCents`, Full marks)
  *                technique, techniqueResult (1.31) as KanteTabLane: the tab sign beside the
- *                fret number (KanteTechniqueMark), a ghost note's fret in parentheses;
+ *                fret number (KanteTechniqueMark), a ghost note's fret in parentheses,
+ *                a dead note's (1.32, "dead") as x;
  *                setTechniqueResult(index, result) changes a result without a new layout
  *   bars         bar start times in seconds, numbers or {time, number, repeatStart, repeatEnd,
  *                endings}; number (Kante 1.28): the bar's label, e.g. the written bar number,
@@ -418,6 +419,10 @@ Item {
             // A ghost note's fret in parentheses, as written in tab (1.31).
             if (technique === "ghost" && fretText !== "") {
                 fretText = "(" + fretText + ")"
+            }
+            // A dead note reads x instead of its fret (1.32).
+            if (technique === "dead") {
+                fretText = "x"
             }
             L.frets.push({ x: x, y: y, text: fretText, index: i, label: n.label || "", str: str, technique: technique })
             L.boxes[i] = { x: x, sys: sys }
