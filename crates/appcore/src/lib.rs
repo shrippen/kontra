@@ -1722,6 +1722,13 @@ impl Core {
         let mut events: Vec<UiEvent> = raw.into_iter().filter_map(|e| self.translate(e)).collect();
         events.extend(ear_event);
         events.extend(self.advise_level(&events));
+        // The meter holds the peak the advice judges, so both say the same.
+        let held = f64::from(self.level.held_peak_db());
+        for event in &mut events {
+            if let UiEvent::Level { peak_db, .. } = event {
+                *peak_db = held;
+            }
+        }
         if events.iter().any(|e| matches!(e, UiEvent::DeviceLost(_))) {
             self.stop_live();
             self.tuner = None;
