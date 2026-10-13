@@ -8,6 +8,7 @@ steht nur, was offen ist und wo es liegt.
 Merges per `tea api …/merge` blockiert der Auto-Modus seit dem 13.10.; Eigentümer merged oder erlaubt es (Runde 11).
 `/review` zweimal gefragt (PR-Agent bis 1.11. aus): grüne CI genügt.
 
+0. #57 CI: Cache-Ausfall nicht als Fehler werten (unabhängig, zuerst).
 1. #55 Kante 1.34 übernehmen (Dead-Note-Zeichen x, das #45 braucht).
 2. #45, #46, #47 (vom 12.10.).
 3. #48 Startseite, Navigation nach Tätigkeit (LH-ALL-06).
@@ -37,7 +38,8 @@ Merges per `tea api …/merge` blockiert der Auto-Modus seit dem 13.10.; Eigent�
   Einschwingen der Brummfilter (~0,6 s ab Start des Eingangs, der mit dem Lauf startet; der Einzähler deckt es, ohne
   Einzähler die ersten Töne) am Gerät prüfen.
 - **Zweiter Leser #48/#49** (13.10.): alle Befunde behoben, Antworten in den PRs.
-- **CI:** `actions/cache@v4` im app-Job scheiterte zweimal nach 7 s ohne Meldung (`<nil>`); neuer Push half.
+- **CI:** `actions/cache@v4` im app-Job scheiterte dreimal nach 7 s ohne Meldung (`<nil>`); #57 wertet das nicht mehr
+  als Fehler (früh mergen, entlastet alle PRs).
 - **KanteKpi** ohne Namen für Screenreader: Kante #61 (1.36, nach #58); danach Kante synchronisieren.
 - **Stem-Trennung** (LH-BIB-09): mit echtem Demucs nicht gelaufen; im Flatpak ausgegraut.
 - **MIDI-Auswahl** (LH-EIN-12): mit zwei echten Keyboards nicht geprüft.
