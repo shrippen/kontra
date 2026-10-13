@@ -70,6 +70,7 @@ Kirigami.ScrollablePage {
                 text: page.summary.last
                     ? (page.summary.last.artist !== "" ? page.summary.last.artist + " · " : "")
                       + (page.summary.last.best === null ? texts.t("library.unplayed")
+                         : page.summary.last.practiceMin < 1 ? texts.t("library.underminute")
                          : texts.t("library.minutes", { minutes: Math.round(page.summary.last.practiceMin) }))
                     : texts.t("home.last.none.text")
                 KanteButton {
@@ -117,7 +118,10 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             spacing: KanteStyle.unit(32)
             KanteKpi {
-                value: texts.t("home.week.minutes", { minutes: Math.round(page.summary.week.minutes) })
+                // Under a minute is not nothing: "< 1 min" once anything was played.
+                value: page.summary.week.minutes > 0 && page.summary.week.minutes < 1
+                    ? texts.t("home.week.under")
+                    : texts.t("home.week.minutes", { minutes: Math.round(page.summary.week.minutes) })
                 label: texts.t("home.week.minutes.label")
             }
             KanteKpi {

@@ -584,5 +584,8 @@
   "settings.section.language": "Sprache und Stil",
   "library.unplayed": "noch nicht gespielt",
   "view.title": "Ansicht",
-  "summary.note.played": "{played} gespielt"
+  "summary.note.played": "{played} gespielt",
+  "progress.week.oneday": "Diese Woche: {minutes} min an einem Tag. Weiter so!",
+  "progress.runs.one": "1 Lauf",
+  "home.week.under": "< 1 min"
 }
