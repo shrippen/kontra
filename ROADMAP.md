@@ -240,7 +240,12 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
     dem Fenster. Notenbereich beschnitten, Ansichten als Liste, Transponieren in der Backing-Zeile.
   - G11 (mittel, behoben #49): Im Stimmgerät lief der Cent-Wert in die Pegelanzeige; Pegel steht jetzt daneben.
 - **P7 Sam (J-F1):** Startseite in allen drei Stilen lesbar; Zustände der Karten mit Zeichen und Wort.
-- Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11); Kreuz als „#“ statt „♯“ in Quiz-Fragen (niedrig).
+  - G12 (mittel, behoben #49): Saitenwahl im Stimmgerät nur per Maus; jetzt Tab, Leertaste, Eingabe.
+  - G13 (niedrig, behoben #49): Auswertung schloss nicht mit Esc.
+  - G14 (niedrig, behoben #49): „Nächste Übung“ trug Kantes Häkchen (grüne Stufe) und las sich wie erledigt.
+  - G15 (niedrig, behoben #49): Kreuz und b als „#“ und „b“ (Quiz, Stimmgerät, Übungstitel); jetzt ♯ und ♭.
+  - Offen (Kante): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
+- Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 
 ### QA-Runde 12.10.2026 (Nacht: Techniken, MIDI, Stems, Transponieren; synthetisch und IDMT)
 
