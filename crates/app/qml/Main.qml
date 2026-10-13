@@ -217,6 +217,16 @@ Kirigami.ApplicationWindow {
         }
     }
 
+    // QA (P7): --focus-log writes each keyboard focus change, to find stops nobody can see.
+    onActiveFocusItemChanged: {
+        if (Qt.application.arguments.indexOf("--focus-log") < 0 || !activeFocusItem)
+            return
+        var it = activeFocusItem
+        var r = it.mapToItem(null, 0, 0)
+        console.warn("focus", it, it.Accessible.name || it.text || "", Math.round(r.x), Math.round(r.y),
+                    Math.round(it.width), Math.round(it.height), it.visible)
+    }
+
     // QA and release screenshots: --screenshot PATH [--screenshot-after MS].
     Timer {
         interval: Math.max(100, ctl.screenshotAfter)
