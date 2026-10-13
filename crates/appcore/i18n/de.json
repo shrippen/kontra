@@ -583,5 +583,6 @@
   "settings.section.practice": "Üben",
   "settings.section.language": "Sprache und Stil",
   "library.unplayed": "noch nicht gespielt",
-  "view.title": "Ansicht"
+  "view.title": "Ansicht",
+  "summary.note.played": "{played} gespielt"
 }

@@ -2168,8 +2168,18 @@ impl Core {
                     }
                     _ => {}
                 }
-                if let Some(c) = r.cents {
-                    parts.push(self.tr("summary.note.cents", &[("cents", format!("{c:+.0}"))]));
+                // A wrong note names what was played; cents only for the right note's intonation.
+                match (r.outcome, r.cents) {
+                    (Outcome::WrongPitch { played_midi }, _) => {
+                        let played =
+                            kontra_model::Pitch(played_midi.round().clamp(0.0, 127.0) as u8);
+                        let played = self.note_label(&played.to_string());
+                        parts.push(self.tr("summary.note.played", &[("played", played)]));
+                    }
+                    (_, Some(c)) => {
+                        parts.push(self.tr("summary.note.cents", &[("cents", format!("{c:+.0}"))]));
+                    }
+                    _ => {}
                 }
                 let technique = technique_of.get(&(pass, index));
                 if let Some(t) = technique {
@@ -3834,6 +3844,38 @@ mod tests {
             (q["asked"].as_u64(), q["solved"].as_bool()),
             (Some(2), Some(false))
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA 13.10.: a wrong note says which note was played ("C2 gespielt"), not "+100 Cent":
+    /// the semitone distance read like an intonation error.
+    #[test]
+    fn wrong_note_names_the_played_note() {
+        let dir = temp_dir("wrong-note");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&demo()).unwrap();
+        let expected = core.arrangement().unwrap().notes[0].pitch;
+        let played = kontra_model::Pitch(expected.0 + 1);
+        let result = NoteResult {
+            pass: 0,
+            note: Some(0),
+            bar: Some(0),
+            outcome: Outcome::WrongPitch {
+                played_midi: f64::from(played.0) + 0.1,
+            },
+            offset_ms: Some(0.0),
+            cents: Some(110.0),
+            position_s: 0.0,
+        };
+        let notes = core.note_details(&[result], &[]);
+        let text = notes[0]["text"].as_str().unwrap();
+        let name = core.note_label(&played.to_string());
+        assert!(
+            text.contains(&core.tr("summary.note.played", &[("played", name)])),
+            "{text}"
+        );
+        assert!(!text.contains("Cent"), "{text}");
         let _ = std::fs::remove_dir_all(dir);
     }
 
