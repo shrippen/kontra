@@ -237,6 +237,9 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
   mit falscher Tonhöhe belegt (Achtel, Sechzehntel). Ein reiner Pegelfilter scheidet aus: ein echter leiser Ton lag
   26 dB unter dem davor.
 - H6 (hoch, offen): Slap 8 von 8 als Dead Note, Pop 6 von 8 als normaler Ton (ohne Übersteuern). Hammer-on 4/4.
+  Messung (`dsp::strike`): die Slaps sind hell (Höhenanteil 1,5–3 %), aber nach 60 ms fast still (Rest 4–15 %; IDMT-Slaps
+  ≥ 28 %); die Pops nicht heller als Zupfen (0,3–0,9 %). „Hell und kurz = Slap“ bringt 7 von 8 Slaps, kostet aber IDMT-
+  Dead-Notes (27 → 21 von 28, auch sie sind hell); verworfen. Braucht Aufnahmen weiterer Spieler, geübt und ungeübt.
 - H7 (mittel, offen): Slide über zwei Bünde als Hammer-on gehört; Runde 11 „legato“ deckt nur einen Bund.
 - H8 (mittel, offen): Ein bestimmtes Interface neben anderem Standardausgang geht nur über `PIPEWIRE_NODE`; die
   Geräteliste zeigt das Solo nur als `hw:`/`sysdefault:`, die PipeWire belegt hält.
