@@ -237,6 +237,32 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 
 ## QA-Runden
 
+### Hardware-Prüfung 13.10.2026 (Eigentümer: E-Bass, Scarlett Solo, PipeWire)
+
+`kontra-cli check`, geführt; Aufnahmen in `testdata/korpus/local/own/check-2026-10-13/` (lokal). Betrifft P1, P2, P3.
+
+- H1 (hoch, behoben): Rundlauf 41–45 ms, über den 30 ms von LH-NF-01. Kontra forderte keinen Puffer an, PipeWire
+  blieb bei 1024 Frames; erzwungenes Quantum 256/128/64: 28/20/16 ms, keine Xruns. Live-Streams fordern 128 an.
+- H2 (hoch, behoben): Bass auf Eingang 2, Eingang 1 leer: der Mittelwert halbierte den Pegel, Übersteuern (0,2 s je
+  Pop) blieb unter der Clip-Marke (LH-EIN-03). Der Eingang folgt jetzt dem lautesten Kanal.
+- H3 (mittel, behoben, Test zuerst): Kalibrierung ohne Vorzähler; der Spieler wartete vier Klicks (4 von 8), die App
+  riet „lauter spielen“. Jetzt vier Klicks Vorzähler, Hinweis nennt ihn.
+- H4 (mittel, behoben): Mit Vorzähler spielte der Spieler 75–95 ms früh; der Korpus maß den Spieler (3 von 8). `check`
+  schätzt den Versatz je Aufnahme; Bericht markiert Übersteuern.
+- H5 (mittel, offen): Fehlalarme am echten Bass, etwa einer je Ton (Precision 50 %), meist 0,2–0,5 s nach dem Anschlag
+  und 20–35 dB leiser (Finger heben: leere Saite klingt kurz an; Saitenwechsel). IDMT hat nur einzeln abklingende Töne.
+  Angezeigt werden sie nicht (Extra); schaden nur, wenn einer vor dem nächsten Ton in dessen Zeitfenster fällt und ihn
+  mit falscher Tonhöhe belegt (Achtel, Sechzehntel). Ein reiner Pegelfilter scheidet aus: ein echter leiser Ton lag
+  26 dB unter dem davor.
+- H6 (hoch, offen): Slap 8 von 8 als Dead Note, Pop 6 von 8 als normaler Ton (ohne Übersteuern). Hammer-on 4/4.
+  Messung (`dsp::strike`): die Slaps sind hell (Höhenanteil 1,5–3 %), aber nach 60 ms fast still (Rest 4–15 %; IDMT-Slaps
+  ≥ 28 %); die Pops nicht heller als Zupfen (0,3–0,9 %). „Hell und kurz = Slap“ bringt 7 von 8 Slaps, kostet aber IDMT-
+  Dead-Notes (27 → 21 von 28, auch sie sind hell); verworfen. Braucht Aufnahmen weiterer Spieler, geübt und ungeübt.
+- H7 (mittel, offen): Slide über zwei Bünde als Hammer-on gehört; Runde 11 „legato“ deckt nur einen Bund.
+- H8 (mittel, offen): Ein bestimmtes Interface neben anderem Standardausgang geht nur über `PIPEWIRE_NODE`; die
+  Geräteliste zeigt das Solo nur als `hw:`/`sysdefault:`, die PipeWire belegt hält.
+- Tonhöhe: 100 % der gefundenen Noten. Kalibrierung 43,7 ms (±19,8 ms). Pegelring „grün“ trotz Übersteuern.
+
 ### QA-Runde 13.10.2026 (GUI und Bedienung; Demo-Stück, gerenderte Aufnahmen)
 
 Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beamer-Format 1280×720 bei 150 %

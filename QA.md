@@ -50,7 +50,7 @@ Erwartet: Anweisung in Worten („etwas höher drehen“) und Symbol; Erfolg pro
 
 **J-A3 Latenz kalibrieren** ⚙ · Persona: P3 Mira · Phase 1 · LH-EIN-05, -07
 1. Einstellungen → Eingang → Kalibrieren, „Spiel auf den Klick“.
-2. Acht Anschläge mit +40 ms Versatz einspeisen.
+2. Nach vier Klicks Vorzähler acht Anschläge mit +40 ms Versatz einspeisen.
 3. Modus „Durchlauf“, pünktlich gespielte Aufnahme einspeisen.
 4. PipeWire-Quantum auf 2048 setzen, Kontra neu starten.
 Erwartet: gemessene Latenz ≈ 40 ms angezeigt; danach Bewertung pünktlich (±5 ms); bei Quantum 2048 Hinweis mit Wert und Anleitung.

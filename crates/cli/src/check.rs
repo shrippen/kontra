@@ -25,11 +25,15 @@ const MATCH_WINDOW_S: f64 = 0.08;
 const INTERFACE_LIMIT_MS: f64 = 30.0;
 /// Below this peak a take is too quiet to judge (gain too low).
 const QUIET_DBFS: f32 = -30.0;
+/// Above this peak a take clipped (hardware check 13.10.: pops cut off for 0.2 s).
+const CLIP_DBFS: f32 = -0.5;
 /// LH-BIB-09: a 4-minute song separated in under 3 minutes.
 const STEMS_LIMIT_S: f64 = 180.0;
 /// Soak speed: time-stretched like a slowed-down practice (as `soak`).
 const SOAK_SPEED: f64 = 0.8;
 const SECONDS_PER_DAY: u64 = 86_400;
+/// First measured click of "play on the click", after the count-in (as in the app).
+const CALIBRATION_LEAD_S: f64 = 3.0;
 
 /// What only a person can check; listed in the report to be ticked off by hand.
 const MANUAL: [&str; 7] = [
@@ -253,13 +257,14 @@ fn calibrate(
     instrument: &Instrument,
 ) -> Result<Option<f64>, String> {
     report.section("Play on the click (LH-EIN-05)");
-    let prompt = "Bass into the input. Play an open string on each of the 8 clicks.";
+    let prompt =
+        "Bass into the input. After 4 clicks count-in, play an open string on each of the next 8.";
     if ask(a, prompt) == Answer::Skip {
         report.line("skipped".into());
         return Ok(None);
     }
-    let mut live =
-        session::LiveCalibration::start(setup, instrument, 1.0).map_err(|e| e.to_string())?;
+    let mut live = session::LiveCalibration::start(setup, instrument, CALIBRATION_LEAD_S)
+        .map_err(|e| e.to_string())?;
     let result = loop {
         if let Some(result) = live.poll() {
             break result;
@@ -296,13 +301,13 @@ fn takes(
 ) -> CliResult {
     report.section("Bass takes (corpus, LH-BEW-06)");
     report.line(format!(
-        "{:.0} BPM, 4 clicks count-in; annotations at the beat + {latency_ms:.1} ms; ±{:.0} ms",
+        "{:.0} BPM, 4 clicks count-in; annotations at the beat + {latency_ms:.1} ms + the player's offset; ±{:.0} ms",
         session::CHECK_BPM,
         MATCH_WINDOW_S * 1000.0
     ));
     report.line(String::new());
-    report.line("| take | notes | found | pitch | technique | peak | file |".into());
-    report.line("|---|---|---|---|---|---|---|".into());
+    report.line("| take | notes | found | pitch | technique | offset | peak | file |".into());
+    report.line("|---|---|---|---|---|---|---|---|".into());
     let mut rows = Vec::new();
     for take in session::check_takes() {
         if !a.takes.is_empty() && !a.takes.iter().any(|t| t == take.name) {
@@ -310,7 +315,7 @@ fn takes(
         }
         let prompt = format!("\n{}: {}", take.name, describe(&take));
         if ask(a, &prompt) == Answer::Skip {
-            report.line(format!("| {} | skipped | | | | | |", take.name));
+            report.line(format!("| {} | skipped | | | | | | |", take.name));
             continue;
         }
         // Recorded until kept; a redo overwrites the files.
@@ -362,18 +367,22 @@ fn judge(
         matching,
     );
     let peak = peak_dbfs(&heard.samples);
-    let quiet = if peak < QUIET_DBFS {
+    let level = if peak < QUIET_DBFS {
         " (too quiet)"
+    } else if peak > CLIP_DBFS {
+        " (clipped: gain down)"
     } else {
         ""
     };
+    let offset_ms = take.player_offset_ms(heard, latency_ms);
+    let offset = offset_ms.map_or("–".into(), |ms| format!("{ms:+.0} ms"));
     let technique = if take.notes.iter().any(|n| n.technique.is_some()) {
         format!("{}/{}", e.technique_correct, e.matched)
     } else {
         "–".into()
     };
     let line = format!(
-        "| {} | {} | {} | {}/{} | {technique} | {peak:.0} dBFS{quiet} | {} |",
+        "| {} | {} | {} | {}/{} | {technique} | {offset} | {peak:.0} dBFS{level} | {} |",
         take.name,
         e.annotated,
         e.matched,
@@ -389,6 +398,7 @@ fn judge(
         "pitchCorrect": e.pitch_correct,
         "techniqueCorrect": e.technique_correct,
         "meanAbsOnsetMs": e.mean_abs_onset_ms,
+        "playerOffsetMs": offset_ms,
         "peakDbfs": peak,
         "xruns": heard.xruns,
         "file": wav,
