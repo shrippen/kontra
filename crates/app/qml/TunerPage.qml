@@ -103,10 +103,18 @@ Kirigami.Page {
                     Layout.preferredHeight: KanteStyle.unit(56)
                     color: isTarget ? KanteStyle.cardColor : "transparent"
                     border.width: isTarget ? 2 : 1
-                    border.color: isTarget ? KanteStyle.accentColor : KanteStyle.frameColor
+                    border.color: activeFocus ? KanteStyle.focusColor
+                        : isTarget ? KanteStyle.accentColor : KanteStyle.frameColor
                     Accessible.role: Accessible.Button
                     Accessible.name: texts.t("tuner.string", { name: modelData.name })
                         + (isDone ? ", " + texts.t("tuner.ok") : "")
+                    // Keyboard too (QA 13.10.: only the mouse chose a string).
+                    function choose() { page.target = index; page.inTuneMs = 0 }
+                    activeFocusOnTab: true
+                    Keys.onReturnPressed: choose()
+                    Keys.onSpacePressed: choose()
+                    Accessible.onPressAction: choose()
+                    KanteBrackets { anchors.fill: parent; active: parent.activeFocus }
                     Row {
                         anchors.centerIn: parent
                         spacing: KanteStyle.unit(6)
@@ -117,7 +125,7 @@ Kirigami.Page {
                         }
                         KanteNoteMark { visible: isDone; noteState: "hit"; width: KanteStyle.unit(18); height: width; anchors.verticalCenter: parent.verticalCenter }
                     }
-                    MouseArea { anchors.fill: parent; onClicked: { page.target = index; page.inTuneMs = 0 } }
+                    MouseArea { anchors.fill: parent; onClicked: parent.choose() }
                 }
             }
             Item { Layout.fillWidth: true }
