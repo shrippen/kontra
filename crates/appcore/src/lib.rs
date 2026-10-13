@@ -1130,13 +1130,15 @@ impl Core {
         arrangement.instrument.a4_hz = self.a4_hz();
         self.stop_live();
         self.looping = None;
+        let song_id = ProgressStore::song_id(&arrangement);
+        self.adopt_progress(path, &song_id);
         self.library.touch(RecentEntry {
             path: path.to_path_buf(),
             title: arrangement.title.clone(),
             artist: arrangement.artist.clone(),
             track,
             last_unix: unix_now(),
-            song_id: ProgressStore::song_id(&arrangement),
+            song_id,
             backing: None,
             backing_offset_s: 0.0,
             view: None,
@@ -1824,6 +1826,28 @@ impl Core {
 
     fn progress_store(&self) -> ProgressStore {
         ProgressStore::new(&self.data_dir.join("progress"))
+    }
+
+    /// The file at `path` changed (a regenerated exercise, an edited score): its runs move from
+    /// the id the library knew to `song_id`, unless another entry still uses the old one.
+    fn adopt_progress(&self, path: &Path, song_id: &str) {
+        let Some((known, old)) = self
+            .library
+            .entry(path)
+            .map(|e| (e.path.clone(), e.song_id.clone()))
+        else {
+            return;
+        };
+        let shared = self
+            .library
+            .recent
+            .iter()
+            .any(|e| e.path != known && e.song_id == old);
+        if shared {
+            return;
+        }
+        // Progress is a convenience here: a failed move leaves the old runs where they were.
+        let _ = self.progress_store().adopt(&old, song_id);
     }
 
     /// Saves the finished run (LH-FOR-01).
@@ -4736,6 +4760,49 @@ mod tests {
         core.progress_store().record(&a, run).unwrap();
         let progress: serde_json::Value = serde_json::from_str(&core.progress_json()).unwrap();
         assert_eq!(progress["pieces"][0]["title"], item["title"]);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A regenerated exercise keeps its progress: the file at the same path has new notes, so a
+    /// new song id; the runs of the old id move over (review #62: 19 files got a closing bar).
+    #[test]
+    fn regenerated_exercise_keeps_its_progress() {
+        let dir = temp_dir("regenerated");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let path = PathBuf::from(levels[0]["items"][0]["path"].as_str().unwrap());
+        core.open(&path).unwrap();
+
+        // The version before: one note less, played well, and the library knows its id.
+        let mut before = core.arrangement().unwrap().clone();
+        before.notes.pop();
+        let old_id = ProgressStore::song_id(&before);
+        let run = Run {
+            finished_unix: 1,
+            practice_s: 60.0,
+            speed: 1.0,
+            hit_rate: 0.95,
+            mode: "song".into(),
+            section: None,
+            hardest_bars: Vec::new(),
+        };
+        core.progress_store().record(&before, run).unwrap();
+        core.library.entry_mut(&path).unwrap().song_id = old_id.clone();
+        let mastered = |core: &Core| {
+            let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+            levels[0]["items"][0]["mastered"] == true
+        };
+        assert!(mastered(&core));
+
+        // Opening the new file must not lose it.
+        core.open(&path).unwrap();
+        assert!(mastered(&core), "progress lost after regeneration");
+        let home: serde_json::Value = serde_json::from_str(&core.home_json()).unwrap();
+        assert_ne!(home["next"]["path"], path.to_string_lossy().as_ref());
+        assert!(
+            core.progress_store().load_id(&old_id).is_none(),
+            "old id moved"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 

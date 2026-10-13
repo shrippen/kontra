@@ -301,9 +301,19 @@ fn parts(score: &mut Score, starts: &[u64], tracks: &[TrackData]) {
                 .or_else(|| global.get(&channel))
                 .copied();
             part.percussion = channel == DRUM_CHANNEL;
-            // Placed notes bring their instrument: the tab keeps their strings.
-            if !track.positions.is_empty() {
-                part.tuning = Tuning::bass4_standard().strings;
+            // Placed notes bring their instrument: the tab keeps their strings. A place that
+            // does not give the note's pitch on a four-string bass is ignored.
+            let open = Tuning::bass4_standard().strings;
+            let place = |start: &u64, key: u8| {
+                let &(string, fret) = track.positions.get(start)?;
+                let pitch = open.get(usize::from(string))?.0.checked_add(fret)?;
+                (fret <= POSITION_FRETS && pitch == key).then_some((string, fret))
+            };
+            if notes
+                .iter()
+                .any(|(start, _, key)| place(start, *key).is_some())
+            {
+                part.tuning = open.clone();
                 part.frets = POSITION_FRETS;
             }
             for &(start, end, key) in notes {
@@ -312,7 +322,7 @@ fn parts(score: &mut Score, starts: &[u64], tracks: &[TrackData]) {
                 if let Some(technique) = track.techniques.get(&start) {
                     note.add(*technique);
                 }
-                if let Some(&(string, fret)) = track.positions.get(&start) {
+                if let Some((string, fret)) = place(&start, key) {
                     note.string = Some(string);
                     note.fret = Some(fret);
                 }
@@ -369,6 +379,76 @@ mod tests {
         assert_eq!(locate(&starts, 0), (0, 0));
         assert_eq!(locate(&starts, 4000), (1, 160));
         assert_eq!(locate(&starts, 9000), (2, 2280));
+    }
+
+    /// One note per (text, key) a quarter apart, each with its text event, as a type 0 file.
+    fn with_texts(notes: &[(&str, u8)]) -> Vec<u8> {
+        use midly::num::{u15, u28, u4, u7};
+        use midly::{Format, Header, Smf, TrackEvent};
+        let event = |delta: u32, kind| TrackEvent {
+            delta: u28::new(delta),
+            kind,
+        };
+        let channel = u4::new(0);
+        let mut track = Vec::new();
+        for (text, key) in notes {
+            let key = u7::new(*key);
+            track.push(event(
+                0,
+                TrackEventKind::Meta(MetaMessage::Text(text.as_bytes())),
+            ));
+            let on = MidiMessage::NoteOn {
+                key,
+                vel: u7::new(90),
+            };
+            track.push(event(
+                0,
+                TrackEventKind::Midi {
+                    channel,
+                    message: on,
+                },
+            ));
+            let off = MidiMessage::NoteOff {
+                key,
+                vel: u7::new(0),
+            };
+            track.push(event(
+                480,
+                TrackEventKind::Midi {
+                    channel,
+                    message: off,
+                },
+            ));
+        }
+        track.push(event(0, TrackEventKind::Meta(MetaMessage::EndOfTrack)));
+        let smf = Smf {
+            header: Header::new(Format::SingleTrack, Timing::Metrical(u15::new(480))),
+            tracks: vec![track],
+        };
+        let mut out = Vec::new();
+        smf.write_std(&mut out).unwrap();
+        out
+    }
+
+    /// "pos" text events place only notes they fit: a string the bass has, a fret on it that
+    /// gives the note's pitch (review #62: any file could set strings up to 255).
+    #[test]
+    fn positions_must_fit_the_note() {
+        // A2 on the A string at fret 12; E2 claimed for E fret 3 (that is G1); string 9.
+        let bytes = with_texts(&[("pos 1 12", 45), ("pos 0 3", 40), ("pos 9 2", 38)]);
+        let imported = crate::import_bytes(&bytes, crate::FileKind::Midi).unwrap();
+        let a = imported.arrangement(0).unwrap();
+        let places: Vec<(Option<u8>, Option<u8>)> =
+            a.notes.iter().map(|n| (n.string, n.fret)).collect();
+        assert_eq!(places[0], (Some(1), Some(12)));
+        assert_ne!(places[1], (Some(0), Some(3)), "wrong pitch for the place");
+        for n in &a.notes {
+            let (Some(string), Some(fret)) = (n.string, n.fret) else {
+                continue;
+            };
+            let open = a.instrument.tuning.strings[usize::from(string)].0;
+            assert_eq!(open + fret, n.pitch.0, "{n:?}");
+        }
     }
 
     #[test]

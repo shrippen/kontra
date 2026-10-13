@@ -296,6 +296,13 @@ const HARMONIC_MINOR: [i32; 8] = [0, 2, 3, 5, 7, 8, 11, 12];
 /// Semitones from a minor root up to its relative major (A minor → C major).
 const RELATIVE_MAJOR: u8 = 3;
 
+/// How the chords of an exercise are named: as played (triads) or as seventh chords.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Voicing {
+    Seventh,
+    Triad,
+}
+
 /// Chord quality of a progression step.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Quality {
@@ -313,6 +320,18 @@ impl Quality {
             Quality::Minor7 => [0, 3, 7, 10],
             Quality::Dominant7 => [0, 4, 7, 10],
             Quality::HalfDiminished => [0, 3, 6, 10],
+        }
+    }
+
+    /// Chord symbol suffix: "maj7" as a seventh chord, "" as its triad.
+    fn suffix_for(self, voicing: Voicing) -> &'static str {
+        if voicing == Voicing::Seventh {
+            return self.suffix();
+        }
+        match self {
+            Quality::Major7 | Quality::Dominant7 => "",
+            Quality::Minor7 => "m",
+            Quality::HalfDiminished => "dim",
         }
     }
 
@@ -841,7 +860,8 @@ pub fn generate(spec: &ExerciseSpec) -> Exercise {
         let (offset, quality) = progression.bars()[0];
         let root = nearest(i32::from(spec.key) + offset, low_root(spec.key));
         let fifths = key_fifths(spec.key, progression.minor());
-        markers.push((end, format!("{}{}", name(root, fifths), quality.suffix())));
+        let suffix = quality.suffix_for(spec.voicing());
+        markers.push((end, format!("{}{}", name(root, fifths), suffix)));
         tones.push(Tone {
             start: end,
             length: meter.bar(),
@@ -890,6 +910,13 @@ impl ExerciseSpec {
             | ExerciseKind::Groove(p, _)
             | ExerciseKind::Triads(p) => Some(p),
             _ => None,
+        }
+    }
+
+    fn voicing(&self) -> Voicing {
+        match self.kind {
+            ExerciseKind::Triads(_) => Voicing::Triad,
+            _ => Voicing::Seventh,
         }
     }
 
@@ -954,12 +981,24 @@ fn one_pass(spec: &ExerciseSpec) -> Pass {
             scale_pass(scale, tones, length, label)
         }
         ExerciseKind::Arpeggio(progression) => {
-            let (tones, markers) = chords_line(progression, spec.key, Meter::Common, arpeggio_bar);
+            let (tones, markers) = chords_line(
+                progression,
+                spec.key,
+                Voicing::Seventh,
+                Meter::Common,
+                arpeggio_bar,
+            );
             let label = format!("Arpeggios {}", progression_label(progression));
             chords(progression, label, tones, markers)
         }
         ExerciseKind::Triads(progression) => {
-            let (tones, markers) = chords_line(progression, spec.key, Meter::Common, triad_bar);
+            let (tones, markers) = chords_line(
+                progression,
+                spec.key,
+                Voicing::Triad,
+                Meter::Common,
+                triad_bar,
+            );
             let label = format!("Dreiklänge {}", progression_label(progression));
             chords(progression, label, tones, markers)
         }
@@ -970,9 +1009,13 @@ fn one_pass(spec: &ExerciseSpec) -> Pass {
         }
         ExerciseKind::Groove(progression, rhythm) => {
             let meter = rhythm.meter();
-            let (tones, markers) = chords_line(progression, spec.key, meter, |start, root, q| {
-                groove_bar(start, root, q, rhythm)
-            });
+            let (tones, markers) = chords_line(
+                progression,
+                spec.key,
+                Voicing::Seventh,
+                meter,
+                |start, root, q| groove_bar(start, root, q, rhythm),
+            );
             Pass {
                 length: bars_len(progression, meter),
                 ..chords(
@@ -1236,10 +1279,10 @@ fn sequence_line(scale: ScaleKind, sequence: Sequence, key: u8) -> (Vec<Tone>, u
             for i in 0..n {
                 degrees.extend([degree(i), degree(i + 2)]);
             }
+            // Down from the octave; the last pair ends on the root.
             for i in (2..=n).rev() {
                 degrees.extend([degree(i), degree(i - 2)]);
             }
-            degrees.push(degree(0));
         }
         Sequence::Fours => {
             for i in 0..=n - 3 {
@@ -1286,6 +1329,7 @@ fn chromatic_line(fingers: Fingers, fret: u8, slow: bool) -> (Vec<Tone>, u32) {
 fn chords_line(
     progression: Progression,
     key: u8,
+    voicing: Voicing,
     meter: Meter,
     bar: impl Fn(u32, i32, Quality) -> Vec<Tone>,
 ) -> (Vec<Tone>, Vec<(u32, String)>) {
@@ -1296,7 +1340,7 @@ fn chords_line(
     for (i, (offset, quality)) in progression.bars().into_iter().enumerate() {
         let start = i as u32 * meter.bar();
         let root = nearest(i32::from(key) + offset, base);
-        let chord = format!("{}{}", name(root, fifths), quality.suffix());
+        let chord = format!("{}{}", name(root, fifths), quality.suffix_for(voicing));
         markers.push((start, chord));
         tones.extend(bar(start, root, quality));
     }
@@ -1772,8 +1816,27 @@ mod tests {
         let line = notes(&e);
         // C2 E2, D2 F2, E2 G2 … up, then down from the octave, ending on the root.
         assert_eq!(line[..6], [36, 40, 38, 41, 40, 43]);
-        assert_eq!(line.last(), Some(&36));
+        // Down in thirds to the root, which comes once (review #62: twice before).
+        assert_eq!(line[line.len() - 4..], [41, 38, 40, 36]);
         assert_eq!(e.title, "Dur-Tonleiter in Terzen in C (90 BPM)");
+    }
+
+    #[test]
+    fn triads_are_named_as_triads() {
+        let names = |progression, key| {
+            let a = arrangement(&generate(&spec(ExerciseKind::Triads(progression), key)));
+            a.markers.iter().map(|m| m.name.clone()).collect::<Vec<_>>()
+        };
+        assert_eq!(
+            names(Progression::OneFourFive, 7)[..4],
+            ["G", "C", "D", "G"]
+        );
+        assert_eq!(
+            names(Progression::MinorTwoFiveOne, 9)[..4],
+            ["Bdim", "E", "Am", "Am"]
+        );
+        // A closing bar is named as a triad too.
+        assert_eq!(names(Progression::Minor, 9).last().unwrap(), "Am");
     }
 
     #[test]
