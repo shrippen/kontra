@@ -15,6 +15,7 @@ const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
 const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
 /// Folder of a running separation inside the cache.
 const WORK_DIR: &str = "work";
+const RESULT_EXT: &str = "wav";
 
 #[derive(Debug, Clone)]
 pub struct BassRemoval {
@@ -53,6 +54,30 @@ impl BassRemoval {
         path.is_file().then_some(path)
     }
 
+    /// Bytes of the song's separated file; `None` if it was not separated.
+    pub fn size(&self, song: &Path) -> Option<u64> {
+        std::fs::metadata(self.cached(song)?).ok().map(|m| m.len())
+    }
+
+    /// Deletes the song's separated file (it plays with its bass again); false if there was
+    /// none.
+    pub fn remove(&self, song: &Path) -> bool {
+        self.cached(song)
+            .is_some_and(|path| std::fs::remove_file(path).is_ok())
+    }
+
+    /// Separated files in the cache and their bytes, of every song.
+    pub fn usage(&self) -> (usize, u64) {
+        let Ok(entries) = std::fs::read_dir(&self.cache_dir) else {
+            return (0, 0);
+        };
+        entries
+            .flatten()
+            .filter(|e| e.path().extension().is_some_and(|x| x == RESULT_EXT))
+            .filter_map(|e| e.metadata().ok())
+            .fold((0, 0), |(n, bytes), m| (n + 1, bytes + m.len()))
+    }
+
     /// Starts separating `song`; `None` when no separator is installed.
     pub fn start(&self, song: &Path) -> Option<Result<StemJob, SeparatorError>> {
         let separator = self.separator.as_ref()?;
@@ -63,11 +88,12 @@ impl BassRemoval {
             .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
         let work = self.cache_dir.join(WORK_DIR).join(key);
         let _ = std::fs::remove_dir_all(&work);
-        Some(
-            separator
-                .start(song, &work)
-                .map(|job| StemJob { job, target, work }),
-        )
+        Some(separator.start(song, &work).map(|job| StemJob {
+            job,
+            target,
+            work,
+            done: false,
+        }))
     }
 
     fn target(&self, song: &Path) -> Option<PathBuf> {
@@ -82,7 +108,7 @@ impl BassRemoval {
         for byte in key.bytes() {
             hash = (hash ^ u64::from(byte)).wrapping_mul(FNV_PRIME);
         }
-        Some(self.cache_dir.join(format!("{hash:016x}.wav")))
+        Some(self.cache_dir.join(format!("{hash:016x}.{RESULT_EXT}")))
     }
 }
 
@@ -92,12 +118,18 @@ pub struct StemJob {
     job: SeparationJob,
     target: PathBuf,
     work: PathBuf,
+    done: bool,
 }
 
 impl StemJob {
     /// 0..=1 of the separator's current pass.
     pub fn progress(&self) -> f64 {
         self.job.progress()
+    }
+
+    /// Time left, as the separator estimates it; `None` until it does.
+    pub fn remaining(&self) -> Option<std::time::Duration> {
+        self.job.remaining()
     }
 
     /// `None` while it runs; the cached file without bass when done.
@@ -107,12 +139,34 @@ impl StemJob {
                 .map(|()| self.target.clone())
                 .map_err(|e| SeparatorError::Failed(e.to_string()))
         });
-        let _ = std::fs::remove_dir_all(&self.work);
+        self.done = true;
+        self.clear();
         Some(result)
     }
 
+    /// Stops it; what the separator wrote so far goes with it.
     pub fn cancel(&mut self) {
+        if self.done {
+            return;
+        }
         self.job.cancel();
+        self.done = true;
+        self.clear();
+    }
+
+    /// Removes the work folder, and the folder of all work folders once empty.
+    fn clear(&self) {
+        let _ = std::fs::remove_dir_all(&self.work);
+        if let Some(parent) = self.work.parent() {
+            let _ = std::fs::remove_dir(parent);
+        }
+    }
+}
+
+impl Drop for StemJob {
+    /// Kontra quits or the piece changes while it runs.
+    fn drop(&mut self) {
+        self.cancel();
     }
 }
 
@@ -151,9 +205,48 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(5));
         };
         assert_eq!(stems.cached(&song), Some(result.clone()));
-        assert_eq!(std::fs::read(result).unwrap(), b"RIFF");
+        assert_eq!(std::fs::read(&result).unwrap(), b"RIFF");
+        assert_eq!(stems.size(&song), Some(4));
+        assert_eq!(stems.usage(), (1, 4));
         let leftover = std::fs::read_dir(cache.join(WORK_DIR)).map_or(0, |d| d.count());
         assert_eq!(leftover, 0, "the work folder is cleared");
+
+        // Deleted: it plays with its bass again and the space is free.
+        assert!(stems.remove(&song));
+        assert_eq!((stems.cached(&song), stems.usage()), (None, (0, 0)));
+        assert!(!stems.remove(&song));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA P2 (J-D1, 14.10.): a cancelled separation left Demucs' half-written files behind.
+    #[test]
+    fn cancel_leaves_nothing_behind() {
+        let dir = std::env::temp_dir().join(format!("kontra-stems-cancel-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let script = dir.join("demucs");
+        std::fs::write(
+            &script,
+            "#!/bin/sh\nmkdir -p \"$6/htdemucs/x\" && echo half > \"$6/htdemucs/x/no_bass.wav\"\nsleep 30\n",
+        )
+        .unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let song = dir.join("Song.wav");
+        std::fs::write(&song, b"RIFF").unwrap();
+        let cache = dir.join("cache");
+
+        let stems = BassRemoval::with_separator(Some(Separator::with_program(&script)), &cache);
+        let mut job = stems.start(&song).unwrap().unwrap();
+        let work = cache.join(WORK_DIR);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        let started = |w: &Path| std::fs::read_dir(w).is_ok_and(|mut d| d.next().is_some());
+        while !started(&work) && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        job.cancel();
+        drop(job);
+        assert!(!work.exists(), "work folder left: {work:?}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
