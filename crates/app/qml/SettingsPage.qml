@@ -65,17 +65,17 @@ Kirigami.ScrollablePage {
                 onClicked: applicationWindow().show("setup")
             }
         }
-        KanteSectionLabel { text: texts.t("settings.section.connection"); Layout.topMargin: KanteStyle.unit(12) }
         // The audio input only matters while the bass comes as audio (not over MIDI).
         KanteSettingRow {
             Layout.fillWidth: true
+            section: texts.t("settings.section.connection")
             visible: ctl.connection !== "midi"
             title: texts.t("settings.input")
             hint: page.inputs.length === 0 ? texts.t("settings.input.none") : ""
             KanteComboBox {
                 Accessible.name: texts.t("settings.input")
-                Layout.fillWidth: true
-                Layout.preferredWidth: KanteStyle.unit(280)
+                // The setting row sizes its control by the control, not by Layout (names were cut).
+                width: KanteStyle.unit(280)
                 model: [page.autoInput].concat(page.inputs.map(function(d) { return d.name }))
                 currentIndex: page.deviceIndex(page.inputs, ctl.inputDevice)
                 onActivated: function(index) { ctl.chooseInput(index === 0 ? "" : page.inputs[index - 1].id) }
@@ -83,11 +83,13 @@ Kirigami.ScrollablePage {
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            // Over MIDI the input row is hidden; the section starts here then.
+            section: ctl.connection === "midi" ? texts.t("settings.section.connection") : ""
             title: texts.t("settings.output")
             KanteComboBox {
                 Accessible.name: texts.t("settings.output")
-                Layout.fillWidth: true
-                Layout.preferredWidth: KanteStyle.unit(280)
+                // The setting row sizes its control by the control, not by Layout (names were cut).
+                width: KanteStyle.unit(280)
                 model: [texts.t("settings.device.default")].concat(page.outputs.map(function(d) { return d.name }))
                 currentIndex: page.deviceIndex(page.outputs, ctl.outputDevice)
                 onActivated: function(index) { ctl.chooseOutput(index === 0 ? "" : page.outputs[index - 1].id) }
@@ -129,9 +131,9 @@ Kirigami.ScrollablePage {
             color: KanteStyle.mutedTextColor
             text: ctl.calibrationText !== "" ? ctl.calibrationText : texts.t("calibration.hint")
         }
-        KanteSectionLabel { text: texts.t("settings.section.instrument"); Layout.topMargin: KanteStyle.unit(12) }
         KanteSettingRow {
             Layout.fillWidth: true
+            section: texts.t("settings.section.instrument")
             title: texts.t("settings.strings")
             KanteSegmented {
                 Accessible.name: texts.t("settings.strings")
@@ -170,9 +172,9 @@ Kirigami.ScrollablePage {
                 onToggled: ctl.changeInstrument(ctl.strings, checked, ctl.laptopJack)
             }
         }
-        KanteSectionLabel { text: texts.t("settings.section.display"); Layout.topMargin: KanteStyle.unit(12) }
         KanteSettingRow {
             Layout.fillWidth: true
+            section: texts.t("settings.section.display")
             title: texts.t("settings.lowtop")
             hint: texts.t("settings.lowtop.hint")
             KanteSwitch {
@@ -250,9 +252,9 @@ Kirigami.ScrollablePage {
                 onActivated: function(index) { ctl.changeMotion(values[index]) }
             }
         }
-        KanteSectionLabel { text: texts.t("settings.section.scoring"); Layout.topMargin: KanteStyle.unit(12) }
         KanteSettingRow {
             Layout.fillWidth: true
+            section: texts.t("settings.section.scoring")
             title: texts.t("settings.window")
             hint: texts.t("settings.window.hint")
             ColumnLayout {
@@ -292,9 +294,9 @@ Kirigami.ScrollablePage {
                 onActivated: function(index) { ctl.changeScoring(ctl.strictness, values[index]) }
             }
         }
-        KanteSectionLabel { text: texts.t("settings.section.practice"); Layout.topMargin: KanteStyle.unit(12) }
         KanteSettingRow {
             Layout.fillWidth: true
+            section: texts.t("settings.section.practice")
             title: texts.t("transport.metronome")
             KanteSwitch {
                 Accessible.name: texts.t("transport.metronome")
@@ -323,9 +325,9 @@ Kirigami.ScrollablePage {
         }
         KanteSectionLabel { id: mixerLabel; text: texts.t("mixer.title"); Layout.topMargin: KanteStyle.unit(12) }
         Mixer { Layout.fillWidth: true }
-        KanteSectionLabel { text: texts.t("settings.section.language"); Layout.topMargin: KanteStyle.unit(12) }
         KanteSettingRow {
             Layout.fillWidth: true
+            section: texts.t("settings.section.language")
             title: texts.t("settings.language")
             KanteSegmented {
                 Accessible.name: texts.t("settings.language")

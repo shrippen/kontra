@@ -110,8 +110,8 @@ Kirigami.ScrollablePage {
                 title: texts.t("settings.input")
                 KanteComboBox {
                     Accessible.name: texts.t("settings.input")
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: KanteStyle.unit(280)
+                    // The setting row sizes its control by the control, not by Layout (names were cut).
+                    width: KanteStyle.unit(280)
                     model: [page.autoInput].concat(page.inputs.map(function(d) { return d.name }))
                     currentIndex: {
                         for (var i = 0; i < page.inputs.length; i++) {
