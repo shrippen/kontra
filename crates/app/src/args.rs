@@ -27,6 +27,9 @@ pub struct AppArgs {
     pub align: bool,
     /// `--loop-bars 3-4`: loop these bars (1-based) before autoplay.
     pub loop_bars: Option<(i32, i32)>,
+    /// `--remove-bass`: the backing track plays without its bass, separated first if needed
+    /// (screenshots of J-D1).
+    pub remove_bass: bool,
 }
 
 impl AppArgs {
@@ -62,6 +65,7 @@ impl AppArgs {
                 "--present" => out.present = true,
                 "--section" => out.section = Some(value()),
                 "--align" => out.align = true,
+                "--remove-bass" => out.remove_bass = true,
                 "--loop-bars" => {
                     let v = value();
                     let mut parts = v.split('-').map(|p| p.trim().parse::<i32>());

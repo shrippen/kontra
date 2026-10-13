@@ -421,6 +421,11 @@ pub mod qobject {
         #[cxx_name = "cancelStems"]
         fn cancel_stems(self: Pin<&mut Self>);
 
+        /// Deletes the backing track's separated file; it plays with its bass again.
+        #[qinvokable]
+        #[cxx_name = "forgetStems"]
+        fn forget_stems(self: Pin<&mut Self>);
+
         /// Looks for the separator again (after installing it) and shows the state.
         #[qinvokable]
         #[cxx_name = "refreshStems"]
@@ -863,6 +868,10 @@ impl Default for ControllerRust {
             if let Some(view) = &args.view {
                 controller.core.set_view(view);
                 controller.view = q(view);
+            }
+            if args.remove_bass {
+                controller.core.remove_bass(true);
+                controller.stems_json = q(&controller.core.stems_json());
             }
         }
         controller
@@ -1806,6 +1815,12 @@ impl qobject::Controller {
     fn cancel_stems(mut self: Pin<&mut Self>) {
         self.as_mut().core().cancel_stems();
         self.as_mut().show_stems();
+    }
+
+    fn forget_stems(mut self: Pin<&mut Self>) {
+        self.as_mut().core().forget_stems();
+        self.as_mut().show_stems();
+        self.as_mut().set_playing(false);
     }
 
     fn refresh_stems(mut self: Pin<&mut Self>) {

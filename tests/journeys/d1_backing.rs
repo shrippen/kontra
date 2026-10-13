@@ -141,3 +141,105 @@ fn backing_beats_slow_and_transposed() {
     );
     play_all_hit(&mut again, 9);
 }
+
+/// A stand-in for Demucs (`--two-stems bass -n htdemucs -o OUT SONG`): its progress bar with the
+/// time left, then the song as "no_bass.wav" after `seconds`.
+fn fake_demucs(dir: &Path, seconds: &str) -> std::path::PathBuf {
+    let script = dir.join("demucs");
+    let body = format!(
+        "#!/bin/sh\n\
+         printf '  0%%| | 0.0/9.0 [00:00<?, ?seconds/s]\\r' >&2\n\
+         printf ' 50%%|#  | 4.5/9.0 [00:01<00:42, 1s/seconds]\\r' >&2\n\
+         sleep {seconds}\n\
+         name=$(basename \"$7\"); name=\"${{name%.*}}\"\n\
+         mkdir -p \"$6/htdemucs/$name\" && cp \"$7\" \"$6/htdemucs/$name/no_bass.wav\"\n\
+         printf '100%%|###| 9.0/9.0 [00:02<00:00, 1s/seconds]\\n' >&2\n"
+    );
+    std::fs::write(&script, body).unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    script
+}
+
+fn stems(core: &mut kontra_appcore::Core) -> serde_json::Value {
+    serde_json::from_str(&core.stems_json()).unwrap()
+}
+
+/// Step 5: the recording's bass removed (first without Demucs, then with), cancelled once,
+/// kept for the next start, deleted again.
+#[test]
+fn bass_removed_once_and_kept() {
+    let profile = Profile::new("d1-stems");
+    let score = profile.dir.join("Riff.mid");
+    write_midi(&score, "Riff", &RIFF);
+    let wav = profile.dir.join("band.wav");
+    band(&wav);
+    let mut core = profile.core(None);
+    core.open(&score).unwrap();
+    core.set_backing(Some(wav.clone()), 0.0);
+
+    // Without Demucs: greyed out, and it says how to install it.
+    core.qa_separator(None);
+    let state = stems(&mut core);
+    assert_eq!(state["available"], false);
+    assert!(state["installText"]
+        .as_str()
+        .unwrap()
+        .contains("pipx install demucs"));
+
+    // Cancelled halfway: nothing stays behind, the original plays.
+    core.qa_separator(Some(&fake_demucs(&profile.dir, "30")));
+    core.remove_bass(true);
+    run_until(&mut core, Duration::from_millis(300), |_| false);
+    let state = stems(&mut core);
+    assert_eq!(state["state"], "running", "{state}");
+    assert!(
+        state["text"]
+            .as_str()
+            .unwrap()
+            .contains("50\u{a0}%, noch etwa 42\u{a0}s"),
+        "{state}"
+    );
+    core.cancel_stems();
+    let state = stems(&mut core);
+    assert_eq!(
+        (&state["state"], &state["cached"]),
+        (&"off".into(), &false.into())
+    );
+
+    // Separated in the background, then played without bass.
+    core.qa_separator(Some(&fake_demucs(&profile.dir, "0.1")));
+    core.remove_bass(true);
+    let events = run_until(
+        &mut core,
+        Duration::from_secs(10),
+        |e| matches!(e, UiEvent::Message(m) if m.contains("entfernt")),
+    );
+    assert!(
+        events.iter().any(|e| matches!(e, UiEvent::Message(_))),
+        "{events:?}"
+    );
+    assert_eq!(stems(&mut core)["state"], "on");
+    assert!(core.play().iter().all(|e| !matches!(e, UiEvent::Error(_))));
+    core.stop_live();
+
+    // Next start: no new separation, it plays without bass at once.
+    let mut again = profile.core(None);
+    again.open(&score).unwrap();
+    again.qa_separator(None);
+    let state = stems(&mut again);
+    assert_eq!(state["state"], "on", "{state}");
+    assert!(state["text"].as_str().unwrap().contains("MB"), "{state}");
+
+    // Deleted: the original again, the space is free.
+    again.forget_stems();
+    let state = stems(&mut again);
+    assert_eq!(
+        (&state["state"], &state["cached"]),
+        (&"off".into(), &false.into())
+    );
+    assert!(
+        state["cacheText"].as_str().unwrap().contains("0 Dateien"),
+        "{state}"
+    );
+}

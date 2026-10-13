@@ -41,7 +41,8 @@ Merges per `tea api …/merge` blockiert der Auto-Modus seit dem 13.10.; Eigent�
 - **CI:** `actions/cache@v4` im app-Job scheiterte dreimal nach 7 s ohne Meldung (`<nil>`); #57 wertet das nicht mehr
   als Fehler (früh mergen, entlastet alle PRs).
 - **KanteKpi** ohne Namen für Screenreader: Kante #61 (1.36, nach #58); danach Kante synchronisieren.
-- **Stem-Trennung** (LH-BIB-09): mit echtem Demucs nicht gelaufen; im Flatpak ausgegraut.
+- **Stem-Trennung** (LH-BIB-09): mit echtem Demucs gespielt und gemessen (QA-Runde 14.10., PR demucs-gui); im Flatpak
+  ausgegraut; offen: Regler für den Original-Bass im Mixer.
 - **MIDI-Auswahl** (LH-EIN-12): mit zwei echten Keyboards nicht geprüft.
 - **Hardware-Prüfungen vor 0.1** (Runde 10: zuerst): Klang, Transponieren mit Bandaufnahme, echtes MIDI-Keyboard,
   Mikrofon mit Lautsprechern (J-E2), 60-min-Soak, Mithör-Latenz, Techniken am echten Bass, Tastatur/Screenreader am

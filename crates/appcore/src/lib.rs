@@ -2144,6 +2144,7 @@ impl Core {
         let Some(loaded) = self.loaded_path().map(Path::to_path_buf) else {
             return;
         };
+        self.cancel_stems_of(&loaded);
         if let Some(entry) = self.library.entry_mut(&loaded) {
             entry.backing = path;
             entry.backing_offset_s = offset_s;
