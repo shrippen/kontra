@@ -14,6 +14,10 @@ Kirigami.ApplicationWindow {
     minimumWidth: Kirigami.Units.gridUnit * 26
     minimumHeight: Kirigami.Units.gridUnit * 22
 
+    // Every page has its own heading; Kirigami's title bar above it was empty or said the same
+    // again and took 45 px (QA 14.10., a beamer at 150 % has 480).
+    pageStack.globalToolBar.style: Kirigami.ApplicationHeaderStyle.None
+
     property alias ctl: ctl
     property alias texts: texts
     property string current: ""
@@ -164,10 +168,17 @@ Kirigami.ApplicationWindow {
     // Notes for the user sit in a bar under the page, not over it: the page gets shorter, nothing
     // is hidden or clickable behind a note (QA 14.10.: the latency note covered the transport bar
     // and was see-through).
-    footer: Rectangle {
+    // In the content area beside the sidebar (a window footer started under the sidebar); the
+    // page stack ends above it.
+    Binding { target: root.pageStack; property: "anchors.bottomMargin"; value: noteBar.visible ? noteBar.height : 0 }
+    Rectangle {
+        id: noteBar
+        parent: root.pageStack.parent
+        anchors { left: root.pageStack.left; right: root.pageStack.right; bottom: parent.bottom }
+        z: 10
         color: KanteStyle.backgroundColor
         visible: offer.visible || notice.visible
-        implicitHeight: notes.implicitHeight + KanteStyle.unit(24)
+        height: notes.implicitHeight + KanteStyle.unit(24)
 
         ColumnLayout {
             id: notes
@@ -214,7 +225,7 @@ Kirigami.ApplicationWindow {
             // --screenshot-notes: the note bar under the page instead (QA; the window itself cannot
             // be grabbed).
             var notes = Qt.application.arguments.indexOf("--screenshot-notes") >= 0
-            var item = notes ? root.footer : (root.pageStack.currentItem || root.contentItem)
+            var item = notes ? noteBar : (root.pageStack.currentItem || root.contentItem)
             item.grabToImage(function(result) {
                 result.saveToFile(ctl.screenshotPath)
                 if (ctl.quitAfter <= 0) {

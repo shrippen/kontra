@@ -70,6 +70,12 @@ impl AppArgs {
                         out.loop_bars = Some((a.min(b), a.max(b)));
                     }
                 }
+                // Qt's own options with a value (QGuiApplication reads them too): the value is
+                // not a file to open.
+                "-qwindowgeometry" | "-geometry" | "-platform" | "-platformtheme" | "-plugin"
+                | "-qwindowtitle" | "-qwindowicon" | "-style" | "-stylesheet" | "-display" => {
+                    let _ = value();
+                }
                 // A file from the file manager (desktop file `%f`).
                 other if !other.starts_with('-') && out.open.is_none() => {
                     out.open = Some(PathBuf::from(other));
@@ -93,6 +99,14 @@ mod tests {
             Some("kante-light".into())
         );
         assert_eq!(parse(&["--style", "kante-light"]), None);
+    }
+
+    // QA 14.10.: "-qwindowgeometry 1280x800" opened a file "1280x800" (an error on every start).
+    #[test]
+    fn qt_options_keep_their_values() {
+        let args = ["-qwindowgeometry", "1280x800+0+0", "-platform", "xcb", "song.gp5"];
+        let parsed = AppArgs::parse(args.iter().map(|s| s.to_string()));
+        assert_eq!(parsed.open, Some(PathBuf::from("song.gp5")));
     }
 
     #[test]

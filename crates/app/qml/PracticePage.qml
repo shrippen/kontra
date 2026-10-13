@@ -200,6 +200,9 @@ Kirigami.Page {
     // Half a laptop screen (beside a video or a tab): one column, no fretboard (QA 13.10.).
     readonly property bool slim: width < KanteStyle.unit(700)
     readonly property bool compact: height < KanteStyle.unit(560)
+    // Five views as buttons need about 470 px: below this width a list, so modes, view and
+    // transposing share one row (QA 14.10., 1280 px with the sidebar).
+    readonly property bool viewsAsList: width < KanteStyle.unit(1300)
 
     // Presentation (LH-ANZ-09, P4 at the beamer): full screen, only title, notes and transport;
     // staff lines half as large again, the lane grows with the room. F5 toggles, Esc ends.
@@ -337,14 +340,14 @@ Kirigami.Page {
                 onActivated: function(index) { ctl.changeMode(page.modes[index]) }
             }
             KanteSegmented {
-                visible: !page.narrow
+                visible: !page.viewsAsList
                 model: page.views.map(function(v) { return texts.t("view." + v) })
                 currentIndex: Math.max(0, page.views.indexOf(ctl.view))
                 onActivated: function(index) { ctl.changeView(page.views[index]) }
             }
             // Narrow windows (P4 at 1280×720, 150 %): five views do not fit next to the modes.
             KanteComboBox {
-                visible: page.narrow
+                visible: page.viewsAsList
                 width: KanteStyle.unit(200)
                 Accessible.name: texts.t("view.title")
                 model: page.views.map(function(v) { return texts.t("view." + v) })
