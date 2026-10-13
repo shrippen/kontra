@@ -24,6 +24,9 @@ midly = { version = "0.5.3", default-features = false, features = ["std"] }
 # cpal and midir, same version).
 [target.'cfg(target_os = "linux")'.dependencies]
 alsa-sys = "0.4"
+# prctl(PR_SET_PDEATHSIG) for the stem separator: Demucs ends with Kontra, also after a crash
+# (MIT/Apache-2.0; already in the tree under cpal, same version).
+libc = "0.2"
 
 [lints]
 workspace = true

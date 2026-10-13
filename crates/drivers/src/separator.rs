@@ -155,7 +155,9 @@ impl Separator {
             }
         };
         // Its own process group: cancelling also stops what a wrapper (conda, a script) started.
-        let mut child = Command::new(program)
+        let mut command = Command::new(program);
+        orphan::end_with_parent(&mut command);
+        let mut child = command
             .process_group(0)
             .args(prefix)
             .args(["--two-stems", "bass", "-n", MODEL, "-o"])
@@ -261,24 +263,28 @@ impl SeparationJob {
         self.stop();
     }
 
-    /// Ends the program's whole process group, then the program itself if it did not end
-    /// (a wrapper like flatpak-spawn needs a moment to pass the signal on).
+    /// Asks the program's whole process group to end (a wrapper like flatpak-spawn needs a
+    /// moment to pass the signal on), then kills what is left of it, so nothing writes into
+    /// its folder afterwards.
     fn stop(&mut self) {
         self.stop_group();
         let deadline = Instant::now() + STOP_GRACE;
-        while Instant::now() < deadline {
-            if !matches!(self.child.try_wait(), Ok(None)) {
-                return;
-            }
+        while Instant::now() < deadline && matches!(self.child.try_wait(), Ok(None)) {
             std::thread::sleep(STOP_POLL);
         }
+        self.signal_group("-KILL");
         let _ = self.child.kill();
+        let _ = self.child.wait();
     }
 
     fn stop_group(&self) {
+        self.signal_group("-TERM");
+    }
+
+    fn signal_group(&self, signal: &str) {
         let group = format!("-{}", self.child.id());
         let _ = Command::new("kill")
-            .args(["-TERM", "--", &group])
+            .args([signal, "--", &group])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status();
@@ -293,6 +299,34 @@ impl Drop for SeparationJob {
         } else if self.reader.as_ref().is_some_and(|r| !r.is_finished()) {
             // Gone, but something it started still runs (it holds the output).
             self.stop_group();
+        }
+    }
+}
+
+/// Demucs must not outlive Kontra: in its own process group it misses the terminal's hang-up,
+/// and after a crash it would keep every core busy for minutes.
+#[allow(unsafe_code)]
+mod orphan {
+    use std::os::unix::process::CommandExt;
+    use std::process::Command;
+
+    /// The child gets SIGKILL when the thread that started it ends (in Kontra the UI thread,
+    /// so: when Kontra ends, also by a crash).
+    pub(super) fn end_with_parent(command: &mut Command) {
+        let parent = std::process::id();
+        // SAFETY: runs in the forked child before exec; prctl and getppid are async-signal-safe
+        // and the closure neither allocates nor takes locks.
+        unsafe {
+            command.pre_exec(move || {
+                if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) != 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                // Kontra died between fork and prctl: the signal will not come.
+                if u32::try_from(libc::getppid()) != Ok(parent) {
+                    libc::_exit(1);
+                }
+                Ok(())
+            });
         }
     }
 }
@@ -450,7 +484,98 @@ mod tests {
             Err(SeparatorError::Failed(line)) => line.parse::<i32>().unwrap(),
             other => panic!("{other:?}"),
         };
-        assert!(niceness >= 10, "{niceness}");
+        // Ten below the caller (a test may itself run under `nice`), at most 19.
+        let own = Command::new("nice").output().unwrap();
+        let own: i32 = String::from_utf8_lossy(&own.stdout).trim().parse().unwrap();
+        assert_eq!(niceness, (own + 10).min(19));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn niced_starts_through_nice() {
+        let command = Separator::with_program(Path::new("/opt/demucs"))
+            .niced()
+            .command;
+        assert!(command[0].ends_with("/nice"), "{command:?}");
+        assert_eq!(command[1..], ["-n", NICENESS, "/opt/demucs"]);
+    }
+
+    /// Second reader #64: a grandchild that ignores SIGTERM outlived the cancel and could write
+    /// into the work folder after it was cleared.
+    #[test]
+    fn cancel_kills_the_whole_group() {
+        let _scripts = scripts();
+        let dir =
+            std::env::temp_dir().join(format!("kontra-separator-group-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let alive = dir.join("alive");
+        let script = dir.join("demucs");
+        let body = format!(
+            "#!/bin/sh\nsh -c 'trap \"\" TERM; while true; do touch {}; sleep 0.02; done' &\nwait\n",
+            alive.display()
+        );
+        std::fs::write(&script, body).unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let song = dir.join("Song.wav");
+        std::fs::write(&song, b"RIFF").unwrap();
+
+        let mut job = Separator::with_program(&script)
+            .start(&song, &dir.join("out"))
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+        job.cancel();
+        drop(job);
+        let _ = std::fs::remove_file(&alive);
+        std::thread::sleep(Duration::from_millis(200));
+        assert!(!alive.exists(), "the grandchild still runs");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Second reader #64: Demucs outlived a crashed Kontra and kept every core busy. It ends with
+    /// the thread that started it (in Kontra the UI thread).
+    #[test]
+    fn ends_with_its_starter() {
+        let _scripts = scripts();
+        let dir =
+            std::env::temp_dir().join(format!("kontra-separator-orphan-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let pid_file = dir.join("pid");
+        let script = dir.join("demucs");
+        let body = format!(
+            "#!/bin/sh\necho $$ > {}\nexec sleep 30\n",
+            pid_file.display()
+        );
+        std::fs::write(&script, body).unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let song = dir.join("Song.wav");
+        std::fs::write(&song, b"RIFF").unwrap();
+
+        let (script2, song2, out) = (script.clone(), song.clone(), dir.join("out"));
+        std::thread::spawn(move || {
+            let job = Separator::with_program(&script2)
+                .start(&song2, &out)
+                .unwrap();
+            // As if Kontra died: nothing stops it.
+            std::mem::forget(job);
+            std::thread::sleep(Duration::from_millis(200));
+        })
+        .join()
+        .unwrap();
+        let pid = std::fs::read_to_string(&pid_file).unwrap();
+        let running = || {
+            let stat = std::fs::read_to_string(format!("/proc/{}/stat", pid.trim()));
+            // A killed child stays a zombie (state Z) until reaped.
+            stat.is_ok_and(|s| !s.contains(") Z "))
+        };
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while running() && Instant::now() < deadline {
+            std::thread::sleep(STOP_POLL);
+        }
+        assert!(!running(), "Demucs outlived its starter");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

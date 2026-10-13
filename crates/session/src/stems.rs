@@ -82,12 +82,12 @@ impl BassRemoval {
     pub fn start(&self, song: &Path) -> Option<Result<StemJob, SeparatorError>> {
         let separator = self.separator.as_ref()?;
         let target = self.target(song)?;
-        // One folder per song: a cancelled run elsewhere cannot write into this one.
         let key = target
             .file_stem()
             .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+        // One separation at a time: what lies in the work folder is left from a crash.
+        let _ = std::fs::remove_dir_all(self.cache_dir.join(WORK_DIR));
         let work = self.cache_dir.join(WORK_DIR).join(key);
-        let _ = std::fs::remove_dir_all(&work);
         Some(separator.start(song, &work).map(|job| StemJob {
             job,
             target,
@@ -215,6 +215,28 @@ mod tests {
         assert!(stems.remove(&song));
         assert_eq!((stems.cached(&song), stems.usage()), (None, (0, 0)));
         assert!(!stems.remove(&song));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Second reader #64: work folders of an earlier run (crash, killed) stayed for good.
+    #[test]
+    fn start_clears_old_work() {
+        let dir = std::env::temp_dir().join(format!("kontra-stems-stale-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let cache = dir.join("cache");
+        let stale = cache.join(WORK_DIR).join("0000000000000000/htdemucs");
+        std::fs::create_dir_all(&stale).unwrap();
+        let script = dir.join("demucs");
+        std::fs::write(&script, "#!/bin/sh\nsleep 30\n").unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let song = dir.join("Song.wav");
+        std::fs::write(&song, b"RIFF").unwrap();
+
+        let stems = BassRemoval::with_separator(Some(Separator::with_program(&script)), &cache);
+        let job = stems.start(&song).unwrap().unwrap();
+        assert!(!stale.exists());
+        drop(job);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

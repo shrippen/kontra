@@ -70,7 +70,10 @@ impl Core {
             if let Some(parent) = cache.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
-            let _ = std::fs::rename(&old, &cache);
+            // `~/.cache` may be another file system (tmpfs): then copy.
+            if std::fs::rename(&old, &cache).is_err() {
+                let _ = copy_over(&old, &cache);
+            }
         }
         cache
     }
@@ -344,6 +347,18 @@ impl Core {
     }
 }
 
+/// Copies every file of `from` into `to`, then removes `from`; on an error `from` stays whole.
+fn copy_over(from: &Path, to: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        if entry.file_type()?.is_file() {
+            std::fs::copy(entry.path(), to.join(entry.file_name()))?;
+        }
+    }
+    std::fs::remove_dir_all(from)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -514,6 +529,23 @@ mod tests {
         let mut core = Core::new(&dir.join("jens"), QaOptions::default());
         core.stems_json();
         assert!(dir.join("jens/cache/stems/0123456789abcdef.wav").is_file());
+        assert!(!old.exists());
+    }
+
+    /// Second reader #64: `~/.cache` on another file system (tmpfs) cannot take a rename;
+    /// the old separations were lost.
+    #[test]
+    fn moves_by_copy_across_file_systems() {
+        let dir = temp_dir("stems-copy");
+        let old = dir.join("old");
+        std::fs::create_dir_all(&old).unwrap();
+        std::fs::write(old.join("0123456789abcdef.wav"), b"RIFF").unwrap();
+        let new = dir.join("cache/stems");
+        copy_over(&old, &new).unwrap();
+        assert_eq!(
+            std::fs::read(new.join("0123456789abcdef.wav")).unwrap(),
+            b"RIFF"
+        );
         assert!(!old.exists());
     }
 
