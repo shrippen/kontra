@@ -276,6 +276,9 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
 - **P2 Jens (J-B3, Setliste):** G28 (niedrig, behoben #49, Test zuerst): Mitgelieferte Übungen standen in Setlisten und
   bei „Nächstes Stück“ mit Dateinamen („09 Groove Achtel …“); jetzt mit dem Titel aus dem Plan in der Oberflächensprache.
   Zweiter Leser über #48/#49: sieben Befunde, alle behoben (u. a. gewählte Spur bleibt, alte „..“-Pfade wandern).
+- **P5 Aylin (J-E1):** G29 (hoch, behoben #49): In der Klaviatur-Ansicht schrumpften Spur und Tasten auf einen Streifen;
+  die Zeile mit Griffbrett und Pegel nahm die Höhe (eine verschachtelte Qt-Layout füllt von sich aus). In allen
+  Ansichten bekommen die Noten jetzt die freie Höhe.
   - Offen (Kante #61): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 

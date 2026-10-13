@@ -658,6 +658,9 @@ Kirigami.Page {
 
         RowLayout {
             Layout.fillWidth: true
+            // Only as high as its content: a nested layout fills by default, and in the keyboard
+            // view (no fretboard) it took the notes' room (QA 13.10.).
+            Layout.fillHeight: false
             visible: !page.compact && !page.presenting
             spacing: KanteStyle.unit(16)
             ColumnLayout {
