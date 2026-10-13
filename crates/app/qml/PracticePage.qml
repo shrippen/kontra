@@ -212,18 +212,44 @@ Kirigami.Page {
     Shortcut { sequence: "Escape"; enabled: summary.visible; onActivated: summary.close() }
     Component.onDestruction: present(false)
 
+    // Nothing open yet (QA 14.10.: an empty lane with live buttons): the ways to a piece.
     ColumnLayout {
         anchors.fill: parent
+        visible: !ctl.loaded
+        spacing: KanteStyle.unit(16)
+        KanteHeading { text: texts.t("nav.practice"); pageTitle: true }
+        KanteEmptyState {
+            Layout.fillWidth: true
+            title: texts.t("practice.empty.title")
+            text: texts.t("practice.empty.text")
+            Row {
+                spacing: KanteStyle.unit(8)
+                KanteButton {
+                    text: texts.t("practice.empty.exercises")
+                    emphasis: KanteButton.Emphasis.Primary
+                    onClicked: applicationWindow().show("exercises")
+                }
+                KanteButton {
+                    text: texts.t("practice.empty.library")
+                    onClicked: applicationWindow().show("library")
+                }
+            }
+        }
+        Item { Layout.fillHeight: true }
+    }
+
+    ColumnLayout {
+        anchors.fill: parent
+        visible: ctl.loaded
         spacing: KanteStyle.unit(10)
 
-        GridLayout {
+        // The piece's title on a row of its own (QA 14.10.: beside modes and views it was cut
+        // to "Groove Viertel auf einem Akkord in…"); the page's own actions beside it.
+        RowLayout {
             Layout.fillWidth: true
-            columns: page.slim ? 1 : page.narrow ? 2 : 3
-            columnSpacing: KanteStyle.unit(12)
-            rowSpacing: KanteStyle.unit(8)
+            spacing: KanteStyle.unit(8)
             ColumnLayout {
                 Layout.fillWidth: true
-                Layout.columnSpan: page.slim ? 1 : page.narrow ? 2 : 1
                 spacing: 0
                 KanteHeading { text: ctl.title; pageTitle: true; Layout.fillWidth: true; elide: Text.ElideRight }
                 QQC2.Label { text: ctl.artist; visible: ctl.artist !== ""; color: KanteStyle.mutedTextColor }
@@ -241,34 +267,125 @@ Kirigami.Page {
                     }
                 }
             }
-            KanteSegmented {
+            // Setlist (LH-BIB-04, J-B1: next song in at most two clicks; also the N key).
+            KanteButton {
+                visible: ctl.nextTitle !== "" && !page.presenting
+                Layout.alignment: Qt.AlignTop
+                text: texts.t("setlist.next", { title: ctl.nextTitle })
+                emphasis: KanteButton.Emphasis.Primary
+                onClicked: ctl.openNext()
+            }
+            // A backing track is for some (P2); without one its row stays away (QA 14.10.).
+            KanteToolButton {
+                id: backingButton
+                visible: ctl.backingName === "" && !page.presenting
+                Layout.alignment: Qt.AlignTop
+                Layout.preferredHeight: KanteStyle.heightMedium
+                text: texts.t("backing.choose")
+                display: QQC2.AbstractButton.TextOnly
+                implicitWidth: Math.ceil(leftPadding + backingWords.advanceWidth + rightPadding + KanteStyle.unit(2))
+                focusPolicy: Qt.StrongFocus
+                Accessible.name: text
+                QQC2.ToolTip.text: texts.t("backing.hint")
+                QQC2.ToolTip.visible: hovered
+                onClicked: backingDialog.open()
+                TextMetrics { id: backingWords; font: backingButton.font; text: backingButton.text }
+            }
+            KanteToolButton {
+                id: presentButton
+                // Not in a slim window (F5 still works).
+                visible: !page.slim || page.presenting
+                Layout.alignment: Qt.AlignTop
+                Layout.preferredHeight: KanteStyle.heightMedium
+                text: page.presenting ? texts.t("present.end") : texts.t("present.start")
+                display: QQC2.AbstractButton.TextOnly
+                implicitWidth: Math.ceil(leftPadding + presentWords.advanceWidth + rightPadding + KanteStyle.unit(2))
+                focusPolicy: Qt.StrongFocus
+                Accessible.name: text
+                QQC2.ToolTip.text: texts.t("present.hint")
+                QQC2.ToolTip.visible: hovered
+                onClicked: page.present(!page.presenting)
+                TextMetrics { id: presentWords; font: presentButton.font; text: presentButton.text }
+            }
+            KanteToolButton {
+                id: mixerButton
                 visible: !page.presenting
+                Layout.alignment: Qt.AlignTop
+                Layout.preferredHeight: KanteStyle.heightMedium
+                text: texts.t("mixer.title")
+                display: QQC2.AbstractButton.TextOnly
+                implicitWidth: Math.ceil(leftPadding + mixerWords.advanceWidth + rightPadding + KanteStyle.unit(2))
+                checkable: true
+                checked: ctl.showMixer
+                focusPolicy: Qt.StrongFocus
+                Accessible.name: text
+                QQC2.ToolTip.text: texts.t("keys.mixer")
+                QQC2.ToolTip.visible: hovered
+                TextMetrics { id: mixerWords; font: mixerButton.font; text: mixerButton.text }
+            }
+        }
+
+        // How to play and what to see: modes, then views (a list where five do not fit).
+        Flow {
+            Layout.fillWidth: true
+            visible: !page.presenting
+            spacing: KanteStyle.unit(12)
+            KanteSegmented {
                 model: page.modes.map(function(m) { return texts.t("mode." + m) })
                 tooltips: page.modes.map(function(m) { return texts.t("mode." + m + ".hint") })
                 currentIndex: Math.max(0, page.modes.indexOf(ctl.mode))
                 onActivated: function(index) { ctl.changeMode(page.modes[index]) }
             }
             KanteSegmented {
-                visible: !page.presenting && !page.narrow
+                visible: !page.narrow
                 model: page.views.map(function(v) { return texts.t("view." + v) })
                 currentIndex: Math.max(0, page.views.indexOf(ctl.view))
                 onActivated: function(index) { ctl.changeView(page.views[index]) }
             }
             // Narrow windows (P4 at 1280×720, 150 %): five views do not fit next to the modes.
             KanteComboBox {
-                visible: !page.presenting && page.narrow
-                Layout.preferredWidth: KanteStyle.unit(200)
+                visible: page.narrow
+                width: KanteStyle.unit(200)
                 Accessible.name: texts.t("view.title")
                 model: page.views.map(function(v) { return texts.t("view." + v) })
                 currentIndex: Math.max(0, page.views.indexOf(ctl.view))
                 onActivated: function(index) { ctl.changeView(page.views[index]) }
+            }
+            // Transpose (LH-WIE-02): piece and backing move together; the notes are laid out
+            // again. Beside modes and views, so the notes keep the height (QA 13.10.).
+            Row {
+            spacing: KanteStyle.unit(8)
+            height: KanteStyle.heightMedium
+            KanteHud {
+                anchors.verticalCenter: parent.verticalCenter
+                fullText: texts.t("transpose.title")
+                color: KanteStyle.mutedTextColor
+            }
+            KanteSpinBox {
+                anchors.verticalCenter: parent.verticalCenter
+                from: -ctl.transposeMax
+                to: ctl.transposeMax
+                value: ctl.transpose
+                Accessible.name: texts.t("transpose.title")
+                textFromValue: function(value) {
+                    return value === 0 ? texts.t("transpose.none")
+                        : texts.t("transpose.semitones", { n: (value > 0 ? "+" : "") + value })
+                }
+                onValueModified: ctl.changeTranspose(value)
+            }
+            KanteInfoTip {
+                anchors.verticalCenter: parent.verticalCenter
+                term: texts.t("transpose.title")
+                info: texts.t("transpose.hint")
+                accessibleName: texts.t("help.about", { term: texts.t("transpose.title") })
+            }
             }
         }
 
         // Backing track (LH-WIE-01): chosen per piece, stretched with the speed.
         RowLayout {
             Layout.fillWidth: true
-            visible: !page.presenting
+            visible: !page.presenting && ctl.backingName !== ""
             spacing: KanteStyle.unit(8)
             KanteHud { fullText: texts.t("backing.title"); color: KanteStyle.mutedTextColor }
             QQC2.Label {
@@ -278,16 +395,9 @@ Kirigami.Page {
                 color: ctl.backingName !== "" ? KanteStyle.textColor : KanteStyle.mutedTextColor
             }
             KanteButton {
-                text: texts.t("backing.choose")
+                text: texts.t("backing.other")
                 emphasis: KanteButton.Emphasis.Quiet
                 onClicked: backingDialog.open()
-            }
-            // Setlist (LH-BIB-04, J-B1: next song in at most two clicks; also the N key).
-            KanteButton {
-                visible: ctl.nextTitle !== ""
-                text: texts.t("setlist.next", { title: ctl.nextTitle })
-                emphasis: KanteButton.Emphasis.Primary
-                onClicked: ctl.openNext()
             }
             KanteButton {
                 visible: ctl.backingName !== ""
@@ -302,30 +412,6 @@ Kirigami.Page {
                 onClicked: ctl.chooseBacking("")
             }
 
-            // Transpose (LH-WIE-02): piece and backing move together; the notes are laid out
-            // again. In the backing's row, so the notes keep the height (QA 13.10.).
-            KanteHud {
-                visible: !page.narrow
-                Layout.leftMargin: KanteStyle.unit(16)
-                fullText: texts.t("transpose.title")
-                color: KanteStyle.mutedTextColor
-            }
-            KanteSpinBox {
-                from: -ctl.transposeMax
-                to: ctl.transposeMax
-                value: ctl.transpose
-                Accessible.name: texts.t("transpose.title")
-                textFromValue: function(value) {
-                    return value === 0 ? texts.t("transpose.none")
-                        : texts.t("transpose.semitones", { n: (value > 0 ? "+" : "") + value })
-                }
-                onValueModified: ctl.changeTranspose(value)
-            }
-            KanteInfoTip {
-                term: texts.t("transpose.title")
-                info: texts.t("transpose.hint")
-                accessibleName: texts.t("help.about", { term: texts.t("transpose.title") })
-            }
         }
 
         // Without the recording's bass (LH-BIB-09, round 9): Demucs does it once, if installed;
@@ -711,8 +797,20 @@ Kirigami.Page {
             Layout.preferredWidth: meter.implicitWidth
             // Alone in the row (keyboard view, slim window): the whole width.
             Layout.fillWidth: ctl.view === "keys" || page.slim
+            // Kontra listens only while playing; before, "−∞ dB · too quiet" read as a fault
+            // (QA 14.10.). The meter's place keeps a line saying when it shows.
+            QQC2.Label {
+                visible: !ctl.playing
+                Layout.fillWidth: true
+                Layout.preferredHeight: meter.implicitHeight
+                verticalAlignment: Text.AlignVCenter
+                wrapMode: Text.WordWrap
+                text: texts.t("level.idle")
+                color: KanteStyle.mutedTextColor
+            }
             KanteLevelMeter {
                 id: meter
+                visible: ctl.playing
                 Layout.fillWidth: true
                 peakDb: ctl.peakDb
                 rmsDb: ctl.rmsDb
@@ -785,38 +883,6 @@ Kirigami.Page {
                     var bar = page.barAt(ctl.position)
                     ctl.loopBars(bar, Math.min(bar + 1, page.bars.length - 1))
                 }
-            }
-            KanteToolButton {
-                id: presentButton
-                // Not in a slim window (F5 still works): room for the mixer.
-                visible: !page.slim || page.presenting
-                Layout.alignment: Qt.AlignTop
-                Layout.preferredHeight: KanteStyle.heightMedium
-                text: page.presenting ? texts.t("present.end") : texts.t("present.start")
-                display: QQC2.AbstractButton.TextOnly
-                implicitWidth: Math.ceil(leftPadding + presentWords.advanceWidth + rightPadding + KanteStyle.unit(2))
-                focusPolicy: Qt.StrongFocus
-                Accessible.name: text
-                QQC2.ToolTip.text: texts.t("present.hint")
-                QQC2.ToolTip.visible: hovered
-                onClicked: page.present(!page.presenting)
-                TextMetrics { id: presentWords; font: presentButton.font; text: presentButton.text }
-            }
-            KanteToolButton {
-                id: mixerButton
-                visible: !page.presenting
-                Layout.alignment: Qt.AlignTop
-                Layout.preferredHeight: KanteStyle.heightMedium
-                text: texts.t("mixer.title")
-                display: QQC2.AbstractButton.TextOnly
-                implicitWidth: Math.ceil(leftPadding + mixerWords.advanceWidth + rightPadding + KanteStyle.unit(2))
-                checkable: true
-                checked: ctl.showMixer
-                focusPolicy: Qt.StrongFocus
-                Accessible.name: text
-                QQC2.ToolTip.text: texts.t("keys.mixer")
-                QQC2.ToolTip.visible: hovered
-                TextMetrics { id: mixerWords; font: mixerButton.font; text: mixerButton.text }
             }
         }
     }
