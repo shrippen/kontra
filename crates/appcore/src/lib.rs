@@ -265,12 +265,22 @@ impl Core {
 
     /// A note name as the user's language writes it: German says H for B (B is B♭ there).
     pub fn note_label(&self, name: &str) -> String {
-        match (self.catalog.language(), name.strip_prefix('B')) {
+        let name = match (self.catalog.language(), name.strip_prefix('B')) {
             // B♭ (spelled "Bb") is German B: "Bb2" → "B2", "Bbm" → "Bm".
             (Language::German, Some(rest)) if rest.starts_with('b') => format!("B{}", &rest[1..]),
             (Language::German, Some(rest)) => format!("H{rest}"),
             _ => name.to_string(),
-        }
+        };
+
+        // Printed signs, as in the notation: "A#2" → "A♯2", "Ebm" → "E♭m" (QA 13.10.).
+        name.chars()
+            .enumerate()
+            .map(|(i, c)| match (i, c) {
+                (_, '#') => '♯',
+                (1, 'b') => '♭',
+                _ => c,
+            })
+            .collect()
     }
 
     /// An import error in the user's language (QA P2: the English reason showed in German).
@@ -3567,7 +3577,7 @@ mod tests {
         let mut core = Core::new(&dir, QaOptions::default());
         core.update_settings(|s| s.language = Some("de".into()));
         assert_eq!(core.note_label("B1"), "H1");
-        assert_eq!(core.note_label("A#1"), "A#1");
+        assert_eq!(core.note_label("A#1"), "A♯1");
         assert_eq!(core.note_label("E2"), "E2");
         core.update_settings(|s| s.language = Some("en".into()));
         assert_eq!(core.note_label("B1"), "B1");
@@ -4229,7 +4239,12 @@ mod tests {
             "{levels:?}"
         );
         for ((_, file, ex), title) in exercise::bundled().iter().zip(&items) {
-            let german = ex.title.replace("in Bb", "in B");
+            let german = ["Eb", "Ab", "Db", "Gb"]
+                .iter()
+                .fold(ex.title.replace("in Bb", "in B"), |t, k| {
+                    t.replace(&format!("in {k}"), &format!("in {}♭", &k[..1]))
+                })
+                .replace('#', "♯");
             assert_eq!(title, &german, "{file}");
         }
         let _ = std::fs::remove_dir_all(dir);
@@ -4245,9 +4260,10 @@ mod tests {
             .iter()
             .map(|n| core.note_label(n))
             .collect();
-        assert_eq!(names, ["H1", "B", "H#", "A#2", "Bm"]);
+        assert_eq!(names, ["H1", "B", "H♯", "A♯2", "Bm"]);
         core.update_settings(|s| s.language = Some("en".into()));
-        assert_eq!(core.note_label("Bb"), "Bb");
+        assert_eq!(core.note_label("Bb"), "B♭");
+        assert_eq!(core.note_label("Ebm"), "E♭m");
         let _ = std::fs::remove_dir_all(dir);
     }
 
