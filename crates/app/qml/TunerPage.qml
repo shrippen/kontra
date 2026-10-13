@@ -146,39 +146,52 @@ Kirigami.Page {
             Accessible.name: text
         }
 
-        KanteTunerGauge {
+        // Low windows (beamer, 1280×720 at 150 %): level and advice beside the gauge; below its own
+        // height the gauge's cent value ran into the level meter (QA 13.10.).
+        GridLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            noteName: page.guided && page.targetString && page.hearing && !page.wrongString ? page.targetString.name : page.noteName
-            octave: page.guided && page.targetString && page.hearing && !page.wrongString ? Math.floor(page.targetString.midi / 12) - 1 : page.octave
-            cents: page.guided && page.hearing && !page.wrongString ? Math.max(-50, Math.min(50, page.targetCents)) : ctl.tunerCents
-            active: page.hearing
-            readonly property real shownCents: page.guided && !page.wrongString ? page.targetCents : ctl.tunerCents
-            hint: !page.hearing ? texts.t("tuner.silent")
-                : shownCents < -3 ? texts.t("tuner.up")
-                : shownCents > 3 ? texts.t("tuner.down")
-                : texts.t("tuner.ok") + (!page.guided && page.ringing !== "" ? " · " + texts.t("tuner.string", { name: page.ringing }) : "")
-            inTuneText: texts.t("tuner.ok")
-            accessibleName: texts.t("tuner.name")
-        }
+            columns: page.height < KanteStyle.unit(560) ? 2 : 1
+            columnSpacing: KanteStyle.unit(16)
+            KanteTunerGauge {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.minimumHeight: implicitHeight
+                noteName: page.guided && page.targetString && page.hearing && !page.wrongString ? page.targetString.name : page.noteName
+                octave: page.guided && page.targetString && page.hearing && !page.wrongString ? Math.floor(page.targetString.midi / 12) - 1 : page.octave
+                cents: page.guided && page.hearing && !page.wrongString ? Math.max(-50, Math.min(50, page.targetCents)) : ctl.tunerCents
+                active: page.hearing
+                readonly property real shownCents: page.guided && !page.wrongString ? page.targetCents : ctl.tunerCents
+                hint: !page.hearing ? texts.t("tuner.silent")
+                    : shownCents < -3 ? texts.t("tuner.up")
+                    : shownCents > 3 ? texts.t("tuner.down")
+                    : texts.t("tuner.ok") + (!page.guided && page.ringing !== "" ? " · " + texts.t("tuner.string", { name: page.ringing }) : "")
+                inTuneText: texts.t("tuner.ok")
+                accessibleName: texts.t("tuner.name")
+            }
 
-        KanteLevelMeter {
-            id: meter
-            Layout.fillWidth: true
-            peakDb: ctl.peakDb
-            rmsDb: ctl.rmsDb
-            clipped: ctl.clipped
-            quietText: texts.t("level.quiet")
-            goodText: texts.t("level.good")
-            loudText: texts.t("level.loud")
-            clipText: texts.t("level.clip")
-            title: texts.t("level.title")
-            accessibleName: texts.t("level.name")
-        }
-        LevelAdvice {
-            Layout.fillWidth: true
-            listening: ctl.tunerActive
-            onUseLaptopJack: ctl.changeConnection("laptop")
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignBottom
+                KanteLevelMeter {
+                    id: meter
+                    Layout.fillWidth: true
+                    peakDb: ctl.peakDb
+                    rmsDb: ctl.rmsDb
+                    clipped: ctl.clipped
+                    quietText: texts.t("level.quiet")
+                    goodText: texts.t("level.good")
+                    loudText: texts.t("level.loud")
+                    clipText: texts.t("level.clip")
+                    title: texts.t("level.title")
+                    accessibleName: texts.t("level.name")
+                }
+                LevelAdvice {
+                    Layout.fillWidth: true
+                    listening: ctl.tunerActive
+                    onUseLaptopJack: ctl.changeConnection("laptop")
+                }
+            }
         }
     }
 }
