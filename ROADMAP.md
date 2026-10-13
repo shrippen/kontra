@@ -266,6 +266,8 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
     je Stufe.
   - G24 (mittel, behoben #49, Test zuerst, P1): Nach einer Übung, die jetzt sitzt, endete die Auswertung ohne Weg nach
     vorn; jetzt „Sitzt“ mit der nächsten Übung im Plan, ein Klick.
+  - G25 (niedrig, behoben #49): Der Mixer der Übungsseite zeigte die Lautstärke fürs Vorspielen der Gehörbildung, die
+    dort nie klingt; nur noch in Einstellungen und auf der Gehör-Seite.
   - Offen (Kante #61): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 

@@ -734,6 +734,7 @@ Kirigami.Page {
             borderColor: KanteStyle.frameColor
             Mixer {
                 id: pageMixer
+                practice: true
                 x: KanteStyle.unit(12)
                 y: KanteStyle.unit(8)
                 width: parent.width - KanteStyle.unit(24)
