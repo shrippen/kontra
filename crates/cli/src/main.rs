@@ -2,6 +2,7 @@
 //! Talks only to `kontra-session` (the layer below the UI).
 
 mod args;
+mod check;
 mod korpus;
 mod live;
 mod tab;
@@ -25,6 +26,7 @@ fn main() -> ExitCode {
         Command::Render(a) => render(&a),
         Command::Soak(a) => soak(&a),
         Command::Exercises(a) => exercises(&a),
+        Command::Check(a) => check::run(&a),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -170,11 +172,48 @@ fn render(a: &args::RenderArgs) -> CliResult {
 
 /// LH-NF-04: plays for `minutes` and fails above `max_xruns` dropouts.
 fn soak(a: &args::SoakArgs) -> CliResult {
-    const RATE: u32 = 48_000;
     let arrangement = load_arrangement(&a.score, None)?;
+    let output = match a.output.as_str() {
+        "null" => session::NULL_DEVICE,
+        id => id,
+    };
+    println!(
+        "soak: {:.1} min at {:.0} % on {output} …",
+        a.minutes,
+        a.speed * 100.0
+    );
+    let report = run_soak(
+        arrangement,
+        a.backing.as_deref(),
+        a.speed,
+        a.minutes,
+        Some(output),
+    )?;
+    println!(
+        "xruns: {} in {:.1} min ({} passes)",
+        report.xruns,
+        report.seconds / 60.0,
+        report.passes
+    );
+    if report.xruns > a.max_xruns {
+        return Err(format!("{} xruns (allowed {})", report.xruns, a.max_xruns));
+    }
+    Ok(())
+}
+
+/// Loops `arrangement` for `minutes` with a backing (default: a synthetic performance of it)
+/// on `output` (`None`: the default device).
+pub(crate) fn run_soak(
+    arrangement: kontra_model::Arrangement,
+    backing: Option<&std::path::Path>,
+    speed: f64,
+    minutes: f64,
+    output: Option<&str>,
+) -> Result<session::SoakReport, String> {
+    const RATE: u32 = 48_000;
     let generated = std::env::temp_dir().join(format!("kontra-soak-{}.wav", std::process::id()));
-    let backing = match &a.backing {
-        Some(path) => path.clone(),
+    let backing = match backing {
+        Some(path) => path.to_path_buf(),
         None => {
             let samples = session::render_performance(
                 &arrangement,
@@ -187,34 +226,9 @@ fn soak(a: &args::SoakArgs) -> CliResult {
             generated.clone()
         }
     };
-    let output = match a.output.as_str() {
-        "null" => session::NULL_DEVICE,
-        id => id,
-    };
-    println!(
-        "soak: {:.1} min at {:.0} % on {output} …",
-        a.minutes,
-        a.speed * 100.0
-    );
-    let report = session::soak(
-        arrangement,
-        Some(&backing),
-        a.speed,
-        a.minutes * 60.0,
-        Some(output),
-    );
+    let report = session::soak(arrangement, Some(&backing), speed, minutes * 60.0, output);
     let _ = std::fs::remove_file(&generated);
-    let report = report.map_err(|e| e.to_string())?;
-    println!(
-        "xruns: {} in {:.1} min ({} passes)",
-        report.xruns,
-        report.seconds / 60.0,
-        report.passes
-    );
-    if report.xruns > a.max_xruns {
-        return Err(format!("{} xruns (allowed {})", report.xruns, a.max_xruns));
-    }
-    Ok(())
+    report.map_err(|e| e.to_string())
 }
 
 fn analyze(a: &args::AnalyzeArgs) -> CliResult {

@@ -152,6 +152,9 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 - Dead Notes (x) werden als gedämpft bewertet; Ghost Notes ( ) bekommen nur ihr Zeichen (Kante 1.32 „x“).
 - Stem-Trennung im Flatpak: später anders lösen (z. B. eigene Erweiterung); bis dahin ausgegraut (LH-BIB-09).
 - Demucs installiert der Eigentümer; Claude misst.
+- Umgesetzt: Prüfmodus `kontra-cli check` (Loopback-Latenz, „auf den Klick“, geführte Aufnahmen als Korpus-Paare mit
+  sofortiger Messung, Soak, Demucs-Zeit, Bericht mit Handprüfliste; `testdata/korpus/AUFNAHME.md`). Software-Schleife
+  über PipeWire (Null-Senke): 26,9 ms Rundlauf, 12 von 12 Tönen. Die Prüfungen am echten Bass macht der Eigentümer.
 
 ## Didaktik: wie Kontra Bass vermittelt (laufend, alle Phasen)
 
