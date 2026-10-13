@@ -138,7 +138,8 @@ den Bass als eigenes Instrument mit Groove-Fokus behandelt und nativ unter Linux
 | Quelle | Weg in Kontra |
 |---|---|
 | Guitar Pro (`.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`) | Import, Bassspur wählen. Riesige Community-Bestände. |
-| MusicXML | Import (z. B. aus MuseScore). |
+| MusicXML, MuseScore (`.mscz`) | Import. |
+| Songsterr, MuseScore.com | Suche öffnet im Browser; selbst heruntergeladene Dateien zeigt die Bibliothek unter „Neu in Downloads“. Kein Abruf durch Kontra (Nutzungsbedingungen, [`QUELLEN-SONGS.md`](QUELLEN-SONGS.md)). |
 | MIDI | Import; Tab wird automatisch erzeugt (Lagen-Optimierung). |
 | Eigene Audiodatei (MP3, FLAC, OGG) | Als Backing Track an ein Arrangement koppeln; Tempo-Map über Beat-Erkennung, von Hand korrigierbar. |
 | Bass aus Audio entfernen | Optional, lokal über ein Stem-Trennungsmodell (z. B. Demucs als ONNX). Separater Download, nicht im Kern. |
@@ -346,6 +347,7 @@ Nicht im Umfang: Online-Konten, Song-Shop, Multiplayer übers Netz.
 - [`LASTENHEFT.md`](LASTENHEFT.md): nummerierte Anforderungen mit Priorität, Phase und Abnahmekriterium.
 - [`PERSONAS.md`](PERSONAS.md): sieben Personas mit Ausrüstung, Zielen, Frust und Prüfschwerpunkt.
 - [`QA.md`](QA.md): User Journeys je Persona für explorative QA und automatisierte Journey-Tests.
+- [`QUELLEN-SONGS.md`](QUELLEN-SONGS.md): was Kontra mit Songsterr und MuseScore.com darf (Nutzungsbedingungen).
 - [`agent.md`](agent.md): Arbeitsregeln für das künftige Repo, inklusive Persona- und QA-Regel.
 
 ---
