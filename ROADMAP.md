@@ -248,7 +248,7 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
     anfangen“.
   - G17 (mittel, behoben #49, P4): Auswertung im Beamer-Format: Bildlaufleiste über „Schließen“, Histogramm schob die
     schwierigsten Takte aus dem Bild.
-  - Offen (Kante): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
+  - Offen (Kante #61): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 
 ### QA-Runde 12.10.2026 (Nacht: Techniken, MIDI, Stems, Transponieren; synthetisch und IDMT)

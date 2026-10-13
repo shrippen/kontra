@@ -24,7 +24,7 @@ Merges per `tea api …/merge` blockiert der Auto-Modus seit dem 13.10.; Eigent�
 - **Slides über einen Bund** sind von Hammer-ons nicht zu trennen (#50); Entscheidung Runde 11.
 - **Oktavfehler** (#52): 30 FiloBass-Noten noch eine Oktave tief; 88 Noten einen Halbton tief: Ton steigt in den ersten 100 ms, Kontra entscheidet zu früh (#53, Doku); Korrektur nach dem Einschwingen = Runde 11.
 - **Flageoletts** (#51): Bewertung oktavtolerant; künstliche ohne eigenes Zeichen in Kante.
-- **KanteKpi** ohne Namen für Screenreader: in Kante ergänzen, nach #58 (sonst Konflikt in README/Changelog).
+- **KanteKpi** ohne Namen für Screenreader: Kante #61 (1.36, nach #58); danach Kante synchronisieren.
 - **Stem-Trennung** (LH-BIB-09): mit echtem Demucs nicht gelaufen; im Flatpak ausgegraut.
 - **MIDI-Auswahl** (LH-EIN-12): mit zwei echten Keyboards nicht geprüft.
 - **Hardware-Prüfungen vor 0.1** (Runde 10: zuerst): Klang, Transponieren mit Bandaufnahme, echtes MIDI-Keyboard,
