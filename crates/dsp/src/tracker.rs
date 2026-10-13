@@ -13,13 +13,15 @@
 //! `MERGE_S`) is one note: the first onset with the pitch measured after the second.
 //!
 //! While a note rings, its pitch is followed (LH-BEW-06): a new pitch without a new attack is a
-//! hammer-on (up) or pull-off (down), one reached through pitches in between a slide.
+//! hammer-on (up) or pull-off (down), one reached through pitches in between a slide. A slide
+//! over one fret is a step like a hammer-on (IDMT: 0–22 ms, a synthetic one 2–24 ms) and is
+//! told as one; over several frets the pitch rests on each fret on the way.
 //!
 //! ```text
 //! emitted note ─► every 10 ms: level still ≥ −26 dB of its start? ─► YIN ─► ≥ 80 ct away,
 //!                                                                          stable twice
-//!                                          in-between pitches seen? ─ yes: Slide ─┐
-//!                                                                     no: up/down ┴► emit
+//!              in-between pitches seen or a fret rested on? ─ yes: Slide ─┐
+//!                                                             no: up/down ┴► emit
 //! ```
 
 use crate::intonation::refine_hz;
@@ -62,6 +64,12 @@ const OCTAVE_SLACK_CENTS: f64 = 100.0;
 /// pitches of a hammer-on for a few estimates too: technique corpus 1–4 for hammer-ons and
 /// pull-offs, 7–9 for 80 ms slides.
 const SLIDE_BETWEEN: usize = 6;
+/// Agreeing estimates (≥ 80 ct away) that make a resting point on the way a fret passed. IDMT
+/// slides over two frets rest 20–40 ms on the fret between (2–4 estimates); a hammer-on over two
+/// frets passes it in one.
+const FRET_STEP_AGREE: usize = 2;
+/// How far the pitch must move on from a resting point to have passed a fret (half a fret).
+const FRET_STEP_CENTS: f64 = 50.0;
 /// At a microphone reverb and the band let the pitch wander for a moment: the new pitch must
 /// hold longer there.
 /// At a microphone reverb and the band let the pitch wander for a moment: the new pitch must
@@ -153,6 +161,61 @@ struct Change {
     agreeing: usize,
     /// Estimates between the old and the new pitch.
     between: usize,
+    /// Where the pitch last rested on the way (`FRET_STEP_AGREE` estimates) …
+    rest: Option<f64>,
+    /// … and moved on from by half a fret or more: a fret passed, a slide over several frets.
+    stepped: bool,
+}
+
+impl Change {
+    fn new(first: u64, midi: f64) -> Change {
+        Change {
+            first,
+            midi,
+            agreeing: 0,
+            between: 0,
+            rest: None,
+            stepped: false,
+        }
+    }
+
+    /// Takes the next estimate (≥ `GLIDE_CENTS` away from the ringing pitch `from`).
+    fn hear(&mut self, midi: f64, from: f64, agree_cents: f64) {
+        if (midi - from).abs() * 100.0 < LEGATO_CENTS {
+            self.between += 1;
+            self.midi = midi;
+            self.agreeing = 0;
+            return;
+        }
+        if (midi - self.midi).abs() * 100.0 < agree_cents {
+            self.agreeing += 1;
+            return;
+        }
+
+        // Still moving: a slide on its way. Moving on by half a fret or more after resting is a
+        // fret passed (fretted slides step fret by fret, they do not glide).
+        if self.agreeing >= FRET_STEP_AGREE {
+            self.rest = Some(self.midi);
+        }
+        let cents_from = |m: f64| (m - from).abs() * 100.0;
+        self.stepped |= self
+            .rest
+            .is_some_and(|rest| cents_from(midi) >= cents_from(rest) + FRET_STEP_CENTS);
+        self.between += 1;
+        self.midi = midi;
+        self.agreeing = 1;
+    }
+
+    /// A slide when pitches or a fret lay on the way, else a hammer-on (up) or pull-off (down).
+    fn technique(&self, from: f64) -> Technique {
+        if self.between >= SLIDE_BETWEEN || self.stepped {
+            return Technique::Slide;
+        }
+        if self.midi > from {
+            return Technique::HammerOn;
+        }
+        Technique::PullOff
+    }
 }
 
 /// Whether waiting attacks wait for their audio or are judged on what exists.
@@ -517,37 +580,12 @@ impl NoteTracker {
                 s.change = None;
                 continue;
             }
-            let far = away >= LEGATO_CENTS;
-            let change = s.change.get_or_insert(Change {
-                first: until,
-                midi,
-                agreeing: 0,
-                between: 0,
-            });
-            if !far {
-                change.between += 1;
-                change.midi = midi;
-                change.agreeing = 0;
-                continue;
-            }
-            if (midi - change.midi).abs() * 100.0 < self.config.agree_cents {
-                change.agreeing += 1;
-            } else {
-                // Still moving: a slide on its way.
-                change.between += 1;
-                change.midi = midi;
-                change.agreeing = 1;
-            }
+            let change = s.change.get_or_insert(Change::new(until, midi));
+            change.hear(midi, s.midi, self.config.agree_cents);
             if change.agreeing < LEGATO_AGREE {
                 continue;
             }
-            let technique = if change.between >= SLIDE_BETWEEN {
-                Technique::Slide
-            } else if midi > s.midi {
-                Technique::HammerOn
-            } else {
-                Technique::PullOff
-            };
+            let technique = change.technique(s.midi);
             let onset = change.first.saturating_sub(window / 2);
             let level_db = self.level_after(until.saturating_sub(span));
             // Held back: an attack right after it means a plucked note, not a legato one.
@@ -602,7 +640,10 @@ impl NoteTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::synth::{bass_tone, laptop_jack, render, SynthNote, ToneShape};
+    use crate::synth::{
+        bass_tone, laptop_jack, render, render_articulated, Articulation, Played, SynthNote,
+        ToneShape,
+    };
     use kontra_model::{InstrumentKind, Pitch, Tuning, A4_HZ};
 
     const SR: f64 = 48_000.0;
@@ -722,6 +763,81 @@ mod tests {
             (found[0].midi - hz_to_midi(hz, A4_HZ)).abs() < 0.1,
             "{found:?}"
         );
+    }
+
+    /// A pluck and legato notes after it on the same string (one phrase).
+    fn phrase(steps: &[(&str, f64, Articulation)]) -> Vec<f32> {
+        let played: Vec<Played> = steps
+            .iter()
+            .enumerate()
+            .map(|(i, (name, onset_s, how))| {
+                let end = steps.get(i + 1).map_or(onset_s + 0.5, |s| s.1);
+                Played {
+                    note: SynthNote {
+                        onset_s: *onset_s,
+                        hz: Pitch::parse(name).unwrap().hz(A4_HZ),
+                        duration_s: end - onset_s,
+                        velocity: 0.7,
+                    },
+                    how: *how,
+                }
+            })
+            .collect();
+        render_articulated(&played, SR, 1.5, 13)
+    }
+
+    /// What `follow` makes of these estimates after the ringing pitch `from`.
+    fn heard(from: f64, estimates: &[f64]) -> Option<Technique> {
+        let mut change: Option<Change> = None;
+        for &midi in estimates {
+            if (midi - from).abs() * 100.0 < GLIDE_CENTS {
+                change = None;
+                continue;
+            }
+            let c = change.get_or_insert(Change::new(0, midi));
+            c.hear(midi, from, 20.0);
+            if c.agreeing >= LEGATO_AGREE {
+                return Some(c.technique(from));
+            }
+        }
+        None
+    }
+
+    #[test]
+    fn slide_over_two_frets_is_a_slide() {
+        // Kontra's estimates every 10 ms at two IDMT slides (005 at 9.2 s, 012 at 18.5 s): the
+        // pitch rests on the fret between for 20–30 ms. Too few pitches in between for a glide
+        // (5 of `SLIDE_BETWEEN`); the rest on the way makes them slides, not hammer-ons.
+        let idmt_005 = [
+            45.41, 45.80, 46.00, 46.04, 46.04, 46.12, 46.41, 46.86, 47.01, 47.00, 47.01, 47.02,
+            47.04, 47.04, 47.04, 47.02, 47.02, 47.03,
+        ];
+        let idmt_012 = [
+            48.12, 48.58, 48.88, 48.95, 49.12, 49.66, 49.91, 49.94, 49.93, 49.93, 49.93, 49.96,
+            49.97, 49.98, 49.98, 49.99, 49.99,
+        ];
+        assert_eq!(heard(45.05, &idmt_005), Some(Technique::Slide));
+        assert_eq!(heard(47.95, &idmt_012), Some(Technique::Slide));
+    }
+
+    #[test]
+    fn settling_hammer_on_passes_no_fret() {
+        // A synthetic hammer-on A2 to B2: the estimate passes A#2 once and settles on B2.
+        let estimates = [
+            45.26, 46.04, 46.81, 47.00, 47.04, 47.05, 47.04, 47.04, 47.04, 47.04, 47.04, 47.04,
+        ];
+        assert_eq!(heard(45.05, &estimates), Some(Technique::HammerOn));
+    }
+
+    #[test]
+    fn hammer_on_over_two_frets_stays_one() {
+        let signal = phrase(&[
+            ("A2", 0.2, Articulation::Pluck),
+            ("B2", 0.5, Articulation::Legato),
+        ]);
+        let found = track(&signal, InputSource::Line);
+        assert_eq!(found.len(), 2, "found {found:?}");
+        assert_eq!(found[1].technique, Some(Technique::HammerOn), "{found:?}");
     }
 
     #[test]

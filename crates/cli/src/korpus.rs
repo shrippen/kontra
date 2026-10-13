@@ -9,6 +9,8 @@ use std::path::Path;
 /// LH-BEW-05: fretless intonation within 3 cents of the reference, per note.
 const FRETLESS_MAX_CENTS: f64 = 3.0;
 
+const CENTS_PER_SEMITONE: f64 = 100.0;
+
 pub fn run(a: &KorpusArgs) -> CliResult {
     match &a.command {
         KorpusCommand::Write { dir } => write(dir),
@@ -61,7 +63,7 @@ fn technique_name(t: Option<kontra_model::Technique>) -> String {
 /// (columns), or missed. The diagonal is right; the rest is what the technique evaluation would
 /// count as "another technique".
 fn techniques(dirs: &[std::path::PathBuf], window_s: f64) -> CliResult {
-    let mut table = vec![[0usize; TOLD.len() + 1]; TOLD.len()];
+    let mut table: Table = vec![[0; TOLD.len() + 1]; TOLD.len()];
     for dir in dirs {
         let entries = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         let mut files: Vec<_> = entries
@@ -83,29 +85,7 @@ fn techniques(dirs: &[std::path::PathBuf], window_s: f64) -> CliResult {
                 &item.notes,
                 matching,
             );
-            let mut used = vec![false; found.len()];
-            for note in &item.notes {
-                let Some(row) = TOLD.iter().position(|t| *t == note.technique) else {
-                    continue;
-                };
-                let best = found
-                    .iter()
-                    .enumerate()
-                    .filter(|(i, d)| !used[*i] && (d.onset_s - note.onset_s).abs() <= window_s)
-                    .min_by(|a, b| {
-                        (a.1.onset_s - note.onset_s)
-                            .abs()
-                            .total_cmp(&(b.1.onset_s - note.onset_s).abs())
-                    });
-                let column = match best {
-                    None => TOLD.len(),
-                    Some((i, d)) => {
-                        used[i] = true;
-                        TOLD.iter().position(|t| *t == d.technique).unwrap_or(0)
-                    }
-                };
-                table[row][column] += 1;
-            }
+            tally(&item.notes, &found, window_s, &mut table);
         }
     }
     print!("{:<10} {:>6}", "annotated", "notes");
@@ -126,6 +106,69 @@ fn techniques(dirs: &[std::path::PathBuf], window_s: f64) -> CliResult {
         println!(" {right:>6.1}%");
     }
     Ok(())
+}
+
+/// Counts per annotated technique (rows) and told technique (columns, the last: missed).
+type Table = Vec<[usize; TOLD.len() + 1]>;
+
+/// Adds one recording to `table`. A note that slides later (`slide_cents`, IDMT) also counts a
+/// `Slide` row: Kontra reports a slide where it arrives, so the first detection after the
+/// note's own one, before the next note, `slide_cents` away from it.
+///
+/// ```text
+/// annotated:  A2 (slides +100 ct) ─────────────────── next note
+/// detected:   A2 plain ✓          A#2 Slide ✓ (row Slide)
+/// ```
+fn tally(
+    notes: &[session::Annotation],
+    found: &[kontra_model::DetectedNote],
+    window_s: f64,
+    table: &mut Table,
+) {
+    let mut used = vec![false; found.len()];
+    let column = |d: Option<&kontra_model::DetectedNote>| match d {
+        None => TOLD.len(),
+        Some(d) => TOLD.iter().position(|t| *t == d.technique).unwrap_or(0),
+    };
+    let slide = Some(kontra_model::Technique::Slide);
+    let slide_row = TOLD.iter().position(|t| *t == slide).unwrap_or(0);
+    for (i, note) in notes.iter().enumerate() {
+        // Harmonics and others Kontra does not tell are left out.
+        let Some(row) = TOLD.iter().position(|t| *t == note.technique) else {
+            continue;
+        };
+        let best = found
+            .iter()
+            .enumerate()
+            .filter(|(k, d)| !used[*k] && (d.onset_s - note.onset_s).abs() <= window_s)
+            .min_by(|a, b| {
+                (a.1.onset_s - note.onset_s)
+                    .abs()
+                    .total_cmp(&(b.1.onset_s - note.onset_s).abs())
+            });
+        if let Some((k, _)) = best {
+            used[k] = true;
+        }
+        table[row][column(best.map(|(_, d)| d))] += 1;
+
+        // The slide's arrival, between this note and the next.
+        let Some(cents) = note.slide_cents else {
+            continue;
+        };
+        let until = notes
+            .get(i + 1)
+            .map_or(f64::INFINITY, |n| n.onset_s - window_s);
+        let arrival = found.iter().enumerate().find(|(k, d)| {
+            !used[*k]
+                && d.onset_s > note.onset_s + window_s
+                && d.onset_s < until
+                && ((d.midi - note.midi).abs() - cents / CENTS_PER_SEMITONE).abs() < 0.5
+        });
+        if let Some((k, _)) = arrival {
+            used[k] = true;
+        }
+        table[slide_row][column(arrival.map(|(_, d)| d))] += 1;
+    }
 }
 
 fn write(dir: &Path) -> CliResult {
@@ -333,5 +376,48 @@ fn report(
     }
     for (d, _) in found.iter().zip(&used).filter(|(_, u)| !**u) {
         println!("    extra  {:>9.3} s  midi {:>6.2}", d.onset_s, d.midi);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kontra_model::{DetectedNote, InputSource, Technique};
+
+    fn heard(onset_s: f64, midi: f64, technique: Option<Technique>) -> DetectedNote {
+        DetectedNote {
+            onset_s,
+            midi,
+            confidence: 1.0,
+            level_db: -20.0,
+            source: InputSource::Line,
+            technique,
+        }
+    }
+
+    #[test]
+    fn slide_counts_where_it_arrives() {
+        // IDMT: A2 plucked, slides a fret up 250 ms later, then the next note at 0.6 s.
+        let note = |onset_s, midi, slide_cents| session::Annotation {
+            onset_s,
+            midi,
+            technique: None,
+            slide_cents,
+        };
+        let notes = [note(0.0, 45.0, Some(100.0)), note(0.6, 40.0, None)];
+        let found = [
+            heard(0.01, 45.0, None),
+            heard(0.25, 46.0, Some(Technique::Slide)),
+            heard(0.6, 40.0, None),
+        ];
+        let mut table: Table = vec![[0; TOLD.len() + 1]; TOLD.len()];
+        tally(&notes, &found, 0.08, &mut table);
+        let plain = 0;
+        let slide = TOLD
+            .iter()
+            .position(|t| *t == Some(Technique::Slide))
+            .unwrap();
+        assert_eq!(table[plain][plain], 2);
+        assert_eq!(table[slide][slide], 1);
     }
 }

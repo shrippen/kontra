@@ -288,6 +288,8 @@ impl CheckTake {
                 onset_s: (COUNT_IN_BEATS + n.beat) * beat_s + latency_ms / MS_PER_S - take.start_s,
                 midi: f64::from(n.midi),
                 technique: n.technique,
+                // Each slide's arrival is a note of its own here, not IDMT's unannotated target.
+                slide_cents: None,
             })
             .collect()
     }
