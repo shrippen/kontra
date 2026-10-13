@@ -288,11 +288,41 @@ fn stream_config(
         Direction::Output => device.default_output_config(),
     }
     .map_err(|e| device_error(device, e))?;
-    Ok(cpal::StreamConfig {
+    let mut config = cpal::StreamConfig {
         channels: default.channels(),
         sample_rate: wanted.sample_rate.unwrap_or(default.sample_rate()),
         buffer_size: buffer_size(wanted.buffer_frames, default.buffer_size()),
-    })
+    };
+    if config.buffer_size != cpal::BufferSize::Default && !accepts(device, direction, &config) {
+        config.buffer_size = cpal::BufferSize::Default;
+    }
+    Ok(config)
+}
+
+/// Whether the device opens with this config. Devices may report wider limits than they take:
+/// ALSA's `sysdefault` of a Scarlett Solo (dsnoop) says 85..91 M frames and opens only 1024
+/// ("Buffer size 128 is not in the supported range", 14.10.). A stream that is never started
+/// is built and dropped, so the real one can fall back to the default block.
+fn accepts(device: &cpal::Device, direction: Direction, config: &cpal::StreamConfig) -> bool {
+    let quiet = |_: cpal::Error| {};
+    match direction {
+        Direction::Input => device
+            .build_input_stream(
+                *config,
+                |_: &[f32], _: &cpal::InputCallbackInfo| {},
+                quiet,
+                None,
+            )
+            .is_ok(),
+        Direction::Output => device
+            .build_output_stream(
+                *config,
+                |_: &mut [f32], _: &cpal::OutputCallbackInfo| {},
+                quiet,
+                None,
+            )
+            .is_ok(),
+    }
 }
 
 /// The wanted block, clamped to what the device takes; unknown limits keep the default (a
