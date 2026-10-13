@@ -291,10 +291,17 @@ fn stream_config(
     Ok(cpal::StreamConfig {
         channels: default.channels(),
         sample_rate: wanted.sample_rate.unwrap_or(default.sample_rate()),
-        buffer_size: wanted
-            .buffer_frames
-            .map_or(cpal::BufferSize::Default, cpal::BufferSize::Fixed),
+        buffer_size: buffer_size(wanted.buffer_frames, default.buffer_size()),
     })
+}
+
+/// The wanted block, clamped to what the device takes; unknown limits keep the default (a
+/// fixed size outside them makes opening fail).
+fn buffer_size(wanted: Option<u32>, supported: &cpal::SupportedBufferSize) -> cpal::BufferSize {
+    let (Some(frames), cpal::SupportedBufferSize::Range { min, max }) = (wanted, supported) else {
+        return cpal::BufferSize::Default;
+    };
+    cpal::BufferSize::Fixed(frames.clamp(*min, *max))
 }
 
 /// A running input stream; dropping it stops capture.
@@ -503,6 +510,20 @@ impl OutputStream {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // A device that cannot take the wanted block would refuse to open; it gets the nearest one.
+    #[test]
+    fn buffer_fits_the_device() {
+        let range = cpal::SupportedBufferSize::Range {
+            min: 256,
+            max: 4096,
+        };
+        assert_eq!(buffer_size(Some(128), &range), cpal::BufferSize::Fixed(256));
+        assert_eq!(buffer_size(Some(512), &range), cpal::BufferSize::Fixed(512));
+        assert_eq!(buffer_size(None, &range), cpal::BufferSize::Default);
+        let unknown = cpal::SupportedBufferSize::Unknown;
+        assert_eq!(buffer_size(Some(128), &unknown), cpal::BufferSize::Default);
+    }
 
     #[test]
     fn guesses_connections() {
