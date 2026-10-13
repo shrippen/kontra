@@ -184,7 +184,9 @@ Kirigami.Page {
     readonly property real presentScale: presenting ? 1.5 : 1
     function present(on) { applicationWindow().presenting = on }
     Shortcut { sequence: "F5"; onActivated: page.present(!page.presenting) }
-    Shortcut { sequence: "Escape"; enabled: page.presenting; onActivated: page.present(false) }
+    Shortcut { sequence: "Escape"; enabled: page.presenting && !summary.visible; onActivated: page.present(false) }
+    // The summary closes like a dialog (QA 13.10.: only a click closed it).
+    Shortcut { sequence: "Escape"; enabled: summary.visible; onActivated: summary.close() }
     Component.onDestruction: present(false)
 
     ColumnLayout {
