@@ -13,6 +13,8 @@ ColumnLayout {
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
+    // On the practice page: without the ear training's prompt, which plays only there (QA 13.10.).
+    property bool practice: false
 
     spacing: 0
 
@@ -103,6 +105,7 @@ ColumnLayout {
         value: mixer.ctl.drumsVolume
     }
     Volume {
+        visible: !mixer.practice
         title: mixer.texts.t("mixer.prompt")
         bus: "prompt"
         value: mixer.ctl.promptVolume

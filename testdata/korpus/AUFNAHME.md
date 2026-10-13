@@ -3,7 +3,32 @@
 Die Erkennung ist bisher nur mit synthetischen Bässen geprüft (`kontra-cli korpus check`). Für LH-NF-02/03 braucht es
 echte Aufnahmen. Sie liegen in `testdata/korpus/local/` (nicht in Git) und werden mit derselben Prüfung ausgewertet.
 
-## Aufnehmen
+## Prüfmodus (Runde 10)
+
+Am einfachsten mit dem Prüfmodus: Er spielt den Klick, nimmt den Bass direkt in Kontra auf und schreibt jede Aufnahme
+mit Annotation als Paar nach `testdata/korpus/local/own/check-<datum>/takes/`, dazu `report.md` und `report.json`.
+
+```sh
+kontra-cli devices                                   # Ein- und Ausgang wählen (id in eckigen Klammern)
+kontra-cli check --input <id> --output <id>          # Loopback, „auf den Klick“, Aufnahmen
+kontra-cli check --steps soak --soak-minutes 60      # Dauertest (LH-NF-04)
+kontra-cli check --steps stems --song lied.mp3       # Demucs-Zeit (LH-BIB-09)
+kontra-cli check --laptop-jack --takes open-strings,fretted   # dasselbe an der Laptop-Buchse
+```
+
+1. **Loopback:** Ausgang des Interfaces per Kabel in den Eingang, Mithören aus. Kontra spielt zwölf Töne und misst
+   die Rundlaufzeit (Ausgang + Eingang + Erkennung).
+2. **Auf den Klick:** Bass einstecken, auf jeden der acht Klicks eine leere Saite. Die gemessene Latenz legt die
+   Annotationen der Aufnahmen auf den Anschlag.
+3. **Aufnahmen** (80 BPM, vier Klicks vorweg, 4-Saiter in Standardstimmung): leere Saiten, gegriffene Töne, Slap, Pop,
+   Dead Notes, Hammer-on, Pull-off, Slide. Kontra zeigt, was zu spielen ist, als Tab (`hA2` = Hammer-on auf A-Saite
+   Bund 2, `xA0` = Dead Note) und misst danach gleich, wie viele Noten, Töne und Techniken es gefunden hat.
+4. Am Ende listet der Bericht, was nur von Hand geht (Klang, Beamer, zwei MIDI-Keyboards, Mikrofon mit Lautsprechern).
+
+Auswerten wie die IDMT-Aufnahmen: `kontra-cli korpus measure <ordner>/takes --window-ms 80 --pitch` und
+`kontra-cli korpus techniques <ordner>/takes`.
+
+## Aufnehmen (von Hand)
 
 Format: WAV, 48 kHz, Mono, 24 Bit oder Float, Pegel so, dass die lautesten Töne bei etwa −6 dBFS liegen.
 

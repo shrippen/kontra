@@ -12,6 +12,7 @@
 //! arrangement at original tempo). At speed 0.5 the position advances half as fast.
 
 mod calibration;
+mod check;
 mod density;
 mod expected;
 mod live;
@@ -28,6 +29,10 @@ mod transport;
 
 pub use calibration::{
     CalibrationResult, CLICKS as CALIBRATION_CLICKS, INTERVAL_S as CALIBRATION_INTERVAL_S,
+};
+pub use check::{
+    check_takes, loopback_length_s, loopback_plan, round_trip, CheckNote, CheckTake, LiveTake,
+    RoundTrip, Take, TakeSound, CHECK_BPM,
 };
 pub use density::Density;
 pub use expected::{expected_notes, ExpectedNote};
@@ -46,6 +51,7 @@ pub use settings::{ScoreSettings, Strictness};
 pub use stems::{BassRemoval, StemJob};
 pub use summary::{Summary, TimingHistogram};
 pub use technique::{
-    technique_targets, told_techniques, TechniqueOutcome, TechniqueResult, TechniqueTally,
+    technique_signs, technique_targets, told_techniques, TechniqueOutcome, TechniqueResult,
+    TechniqueTally, TechniqueTarget,
 };
 pub use transport::{LoopRange, Transport};

@@ -203,7 +203,7 @@ fn dead_note_played_muted_hits() {
     a.notes[0].techniques = vec![Technique::Muted];
     let mut s = Session::new(a, Mode::Song, ScoreSettings::default());
     s.play(0.0);
-    run(&mut s, &[played(0.0, 0.0, Some(Technique::Ghost))], 0.6);
+    run(&mut s, &[played(0.0, 0.0, Some(Technique::Muted))], 0.6);
     let first = s.results().iter().find(|r| r.note == Some(0)).unwrap();
     assert!(first.is_hit(), "{first:?}");
 }
@@ -225,7 +225,7 @@ fn late_ghost_verdict_fixes_the_pitch() {
         run(&mut s, &take, 1.15);
         s.on_revision(&kontra_model::TechniqueRevision {
             onset_s: 1.0,
-            technique: Technique::Ghost,
+            technique: Technique::Muted,
         });
         // Replaced, not followed by a hit: a pass counts every result it holds.
         let of_note: Vec<_> = s.results().iter().filter(|r| r.note == Some(2)).collect();

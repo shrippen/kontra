@@ -323,6 +323,11 @@ pub mod qobject {
         #[cxx_name = "progressJson"]
         fn progress_json(self: &Self) -> QString;
 
+        /// Start page: last piece, next exercise, the week's practice (JSON).
+        #[qinvokable]
+        #[cxx_name = "homeJson"]
+        fn home_json(self: &Self) -> QString;
+
         /// Timing window ("auto", "loose", "normal", "strict") and pitch limit (0 = auto).
         #[qinvokable]
         #[cxx_name = "changeScoring"]
@@ -870,10 +875,7 @@ impl ControllerRust {
         match self.core.open(path) {
             Ok(Opened::Ready) => {
                 self.loaded = true;
-                self.title = q(&self
-                    .core
-                    .arrangement()
-                    .map_or(String::new(), |a| a.title.clone()));
+                self.title = q(&self.core.loaded_title());
                 self.artist = q(&self
                     .core
                     .arrangement()
@@ -945,11 +947,10 @@ impl qobject::Controller {
     fn refresh_arrangement(mut self: Pin<&mut Self>) {
         let this = self.as_ref();
         let core = &this.rust().core;
-        let (title, artist) = core
+        let title = core.loaded_title();
+        let artist = core
             .arrangement()
-            .map_or((String::new(), String::new()), |a| {
-                (a.title.clone(), a.artist.clone())
-            });
+            .map_or(String::new(), |a| a.artist.clone());
         let notes = core.notes_json();
         let bars = core.bars_json();
         let staff = core.staff_json();
@@ -1591,6 +1592,10 @@ impl qobject::Controller {
 
     fn progress_json(&self) -> QString {
         q(&self.rust().core.progress_json())
+    }
+
+    fn home_json(&self) -> QString {
+        q(&self.rust().core.home_json())
     }
 
     fn change_scoring(mut self: Pin<&mut Self>, strictness: &QString, pitch_cents: f64) {

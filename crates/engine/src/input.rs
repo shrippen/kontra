@@ -13,7 +13,7 @@ use kontra_model::{DetectedNote, InputSource, Instrument};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -77,6 +77,43 @@ impl Tap {
     }
 }
 
+/// Raw input kept for a take (hardware checks): the analysis thread, not the audio callback,
+/// appends while it is on.
+#[derive(Debug, Default)]
+struct Recorder {
+    on: AtomicBool,
+    /// Samples analysed since the start.
+    position: AtomicU64,
+    take: Mutex<Option<Recording>>,
+}
+
+/// A stretch of raw input; `first_sample` counts from the input's first sample (`started_s`).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Recording {
+    pub first_sample: u64,
+    pub samples: Vec<f32>,
+}
+
+impl Recorder {
+    fn feed(&self, block: &[f32]) {
+        let position = self
+            .position
+            .fetch_add(block.len() as u64, Ordering::Relaxed);
+        if !self.on.load(Ordering::Relaxed) {
+            return;
+        }
+        let Ok(mut take) = self.take.lock() else {
+            return;
+        };
+        take.get_or_insert_with(|| Recording {
+            first_sample: position,
+            samples: Vec::new(),
+        })
+        .samples
+        .extend_from_slice(block);
+    }
+}
+
 /// Running input; dropping it stops the threads.
 #[derive(Debug)]
 pub struct Input {
@@ -89,6 +126,7 @@ pub struct Input {
     worker: Option<JoinHandle<()>>,
     _stream: Option<InputStream>,
     _midi: Option<MidiConnection>,
+    recorder: Arc<Recorder>,
     pub sample_rate: u32,
 }
 
@@ -160,6 +198,20 @@ impl Input {
     /// Switches tuner readings on or off.
     pub fn set_tuner(&self, on: bool) {
         self.tuner_on.store(on, Ordering::Relaxed);
+    }
+
+    /// Starts keeping the raw input from the next analysed block (audio devices and files).
+    pub fn record(&self) {
+        if let Ok(mut take) = self.recorder.take.lock() {
+            *take = None;
+        }
+        self.recorder.on.store(true, Ordering::Relaxed);
+    }
+
+    /// Stops keeping the input and hands over what was kept; `None` if nothing came.
+    pub fn stop_recording(&self) -> Option<Recording> {
+        self.recorder.on.store(false, Ordering::Relaxed);
+        self.recorder.take.lock().ok()?.take()
     }
 }
 
@@ -301,6 +353,8 @@ fn start_device(
         .map(|(reference, _)| EchoStage::new(reference, f64::from(sample_rate)));
     let stop_worker = Arc::clone(&stop);
     let tuner_worker = Arc::clone(&tuner_on);
+    let recorder = Arc::new(Recorder::default());
+    let recorder_worker = Arc::clone(&recorder);
     let worker = std::thread::Builder::new()
         .name("kontra-analysis".into())
         .spawn(move || {
@@ -318,6 +372,7 @@ fn start_device(
                 for slot in block.iter_mut().take(available) {
                     *slot = consumer.pop().unwrap_or(0.0);
                 }
+                recorder_worker.feed(&block[..available]);
                 let tuner = tuner_worker.load(Ordering::Relaxed);
                 match echo.as_mut() {
                     Some(stage) => stage.push(&block[..available], analysis.start_s, |cleaned| {
@@ -336,6 +391,7 @@ fn start_device(
         worker: Some(worker),
         _stream: Some(stream),
         _midi: None,
+        recorder,
         sample_rate,
     })
 }
@@ -367,6 +423,8 @@ fn start_file(
     let started_worker = Arc::clone(&started_flag);
     let stop_worker = Arc::clone(&stop);
     let tuner_worker = Arc::clone(&tuner_on);
+    let recorder = Arc::new(Recorder::default());
+    let recorder_worker = Arc::clone(&recorder);
     let worker = std::thread::Builder::new()
         .name("kontra-file-input".into())
         .spawn(move || {
@@ -388,6 +446,7 @@ fn start_file(
                 if let Some(tap) = tap.as_mut() {
                     tap.push(block);
                 }
+                recorder_worker.feed(block);
                 analysis.process(block, tuner_worker.load(Ordering::Relaxed), &events);
             }
             analysis.finish(&events);
@@ -402,6 +461,7 @@ fn start_file(
         worker: Some(worker),
         _stream: None,
         _midi: None,
+        recorder,
         sample_rate,
     })
 }
@@ -550,6 +610,7 @@ fn start_midi(
         worker: None,
         _stream: None,
         _midi: Some(connection),
+        recorder: Arc::default(),
         sample_rate: 0,
     })
 }
@@ -594,6 +655,7 @@ fn start_midi_file(
         worker: Some(worker),
         _stream: None,
         _midi: None,
+        recorder: Arc::default(),
         sample_rate: 0,
     })
 }
@@ -733,5 +795,41 @@ mod tests {
     #[test]
     fn other_rate_is_not_monitored() {
         assert!(monitored(44_100, 48_000, "monitor-other").is_empty());
+    }
+
+    /// A take keeps the raw input from where recording began, with its place in the input.
+    #[test]
+    fn recording_keeps_the_raw_input() {
+        let samples: Vec<f32> = (0..24_000).map(|i| (i % 100) as f32 / 100.0).collect();
+        let path = std::env::temp_dir().join(format!("kontra-rec-{}.wav", std::process::id()));
+        let buffer = AudioBuffer {
+            sample_rate: 48_000,
+            channels: vec![samples.clone()],
+        };
+        write_wav(&path, &buffer).unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let kind = InputKind::File {
+            path: path.clone(),
+            pace: Pace::RealTime,
+            laptop_jack: false,
+        };
+        let clock = Clock::new();
+        let input = Input::start(
+            &kind,
+            &Instrument::default_bass(),
+            InputSource::Line,
+            &clock,
+            tx,
+            None,
+        )
+        .unwrap();
+        input.record();
+        while !matches!(rx.recv(), Ok(Event::Ended) | Err(_)) {}
+        let take = input.stop_recording().unwrap();
+        let _ = std::fs::remove_file(&path);
+        let first = take.first_sample as usize;
+        assert!(first < 4 * BLOCK, "began at once: {first}");
+        assert_eq!(take.samples, samples[first..]);
+        assert_eq!(input.stop_recording(), None, "handed over once");
     }
 }

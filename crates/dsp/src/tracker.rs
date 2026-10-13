@@ -417,10 +417,10 @@ impl NoteTracker {
                 change: None,
             });
         }
-        // An attack without a pitch is a muted (ghost) note; one with a pitch is judged on its
+        // An attack without a pitch is a dead (muted) note; one with a pitch is judged on its
         // attack, now or, when its audio is not there yet, by a revision later.
         let technique = match p.best {
-            None => Some(Technique::Ghost),
+            None => Some(Technique::Muted),
             Some(_) => match self.strike(p.report) {
                 Some(strike) => strike.technique(self.config.source),
                 None => {

@@ -146,6 +146,27 @@ Kirigami.Page {
     }
 
     readonly property var times: bars.map(function(b) { return b.time })
+    // Most onsets in one bar: tablature gives dense bars room (sixteenths with ghost notes ran
+    // together, QA 13.10.). Chords count once.
+    readonly property int densestBar: {
+        var most = 0, bar = 0, count = 0, last = -1
+        for (var i = 0; i < notes.length; i++) {
+            var t = notes[i].time
+            while (bar + 1 < times.length && times[bar + 1] <= t) {
+                bar++
+                count = 0
+            }
+            if (t === last) {
+                continue
+            }
+            last = t
+            count++
+            most = Math.max(most, count)
+        }
+        return most
+    }
+    // Room per onset in the tablature, ghost note brackets included.
+    readonly property real tabNoteWidth: KanteStyle.unit(26) * presentScale
     readonly property var stringNames: JSON.parse(ctl.stringNamesJson)
     // Keyboard view (J-E1): the instrument's range and the note names in the user's language.
     readonly property var keys: JSON.parse(ctl.keyRangeJson)
@@ -176,6 +197,8 @@ Kirigami.Page {
     // Small screens and beamers (QA P4: 1280×720 at 150 %): the title gets its own row and the
     // fretboard and level make room for the notes.
     readonly property bool narrow: width < KanteStyle.unit(1000)
+    // Half a laptop screen (beside a video or a tab): one column, no fretboard (QA 13.10.).
+    readonly property bool slim: width < KanteStyle.unit(700)
     readonly property bool compact: height < KanteStyle.unit(560)
 
     // Presentation (LH-ANZ-09, P4 at the beamer): full screen, only title, notes and transport;
@@ -184,7 +207,9 @@ Kirigami.Page {
     readonly property real presentScale: presenting ? 1.5 : 1
     function present(on) { applicationWindow().presenting = on }
     Shortcut { sequence: "F5"; onActivated: page.present(!page.presenting) }
-    Shortcut { sequence: "Escape"; enabled: page.presenting; onActivated: page.present(false) }
+    Shortcut { sequence: "Escape"; enabled: page.presenting && !summary.visible; onActivated: page.present(false) }
+    // The summary closes like a dialog (QA 13.10.: only a click closed it).
+    Shortcut { sequence: "Escape"; enabled: summary.visible; onActivated: summary.close() }
     Component.onDestruction: present(false)
 
     ColumnLayout {
@@ -193,12 +218,12 @@ Kirigami.Page {
 
         GridLayout {
             Layout.fillWidth: true
-            columns: page.narrow ? 2 : 3
+            columns: page.slim ? 1 : page.narrow ? 2 : 3
             columnSpacing: KanteStyle.unit(12)
             rowSpacing: KanteStyle.unit(8)
             ColumnLayout {
                 Layout.fillWidth: true
-                Layout.columnSpan: page.narrow ? 2 : 1
+                Layout.columnSpan: page.slim ? 1 : page.narrow ? 2 : 1
                 spacing: 0
                 KanteHeading { text: ctl.title; pageTitle: true; Layout.fillWidth: true; elide: Text.ElideRight }
                 QQC2.Label { text: ctl.artist; visible: ctl.artist !== ""; color: KanteStyle.mutedTextColor }
@@ -224,7 +249,16 @@ Kirigami.Page {
                 onActivated: function(index) { ctl.changeMode(page.modes[index]) }
             }
             KanteSegmented {
-                visible: !page.presenting
+                visible: !page.presenting && !page.narrow
+                model: page.views.map(function(v) { return texts.t("view." + v) })
+                currentIndex: Math.max(0, page.views.indexOf(ctl.view))
+                onActivated: function(index) { ctl.changeView(page.views[index]) }
+            }
+            // Narrow windows (P4 at 1280×720, 150 %): five views do not fit next to the modes.
+            KanteComboBox {
+                visible: !page.presenting && page.narrow
+                Layout.preferredWidth: KanteStyle.unit(200)
+                Accessible.name: texts.t("view.title")
                 model: page.views.map(function(v) { return texts.t("view." + v) })
                 currentIndex: Math.max(0, page.views.indexOf(ctl.view))
                 onActivated: function(index) { ctl.changeView(page.views[index]) }
@@ -266,6 +300,31 @@ Kirigami.Page {
                 text: texts.t("backing.remove")
                 emphasis: KanteButton.Emphasis.Quiet
                 onClicked: ctl.chooseBacking("")
+            }
+
+            // Transpose (LH-WIE-02): piece and backing move together; the notes are laid out
+            // again. In the backing's row, so the notes keep the height (QA 13.10.).
+            KanteHud {
+                visible: !page.narrow
+                Layout.leftMargin: KanteStyle.unit(16)
+                fullText: texts.t("transpose.title")
+                color: KanteStyle.mutedTextColor
+            }
+            KanteSpinBox {
+                from: -ctl.transposeMax
+                to: ctl.transposeMax
+                value: ctl.transpose
+                Accessible.name: texts.t("transpose.title")
+                textFromValue: function(value) {
+                    return value === 0 ? texts.t("transpose.none")
+                        : texts.t("transpose.semitones", { n: (value > 0 ? "+" : "") + value })
+                }
+                onValueModified: ctl.changeTranspose(value)
+            }
+            KanteInfoTip {
+                term: texts.t("transpose.title")
+                info: texts.t("transpose.hint")
+                accessibleName: texts.t("help.about", { term: texts.t("transpose.title") })
             }
         }
 
@@ -315,31 +374,6 @@ Kirigami.Page {
                 text: texts.t("stems.cancel")
                 emphasis: KanteButton.Emphasis.Quiet
                 onClicked: ctl.cancelStems()
-            }
-        }
-
-        // Transpose (LH-WIE-02): piece and backing move together; the notes are laid out again.
-        RowLayout {
-            Layout.fillWidth: true
-            visible: !page.presenting
-            spacing: KanteStyle.unit(8)
-            KanteHud { fullText: texts.t("transpose.title"); color: KanteStyle.mutedTextColor }
-            KanteSpinBox {
-                from: -ctl.transposeMax
-                to: ctl.transposeMax
-                value: ctl.transpose
-                Accessible.name: texts.t("transpose.title")
-                textFromValue: function(value) {
-                    return value === 0 ? texts.t("transpose.none")
-                        : texts.t("transpose.semitones", { n: (value > 0 ? "+" : "") + value })
-                }
-                onValueModified: ctl.changeTranspose(value)
-            }
-            QQC2.Label {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                color: KanteStyle.mutedTextColor
-                text: texts.t("transpose.hint")
             }
         }
 
@@ -487,9 +521,11 @@ Kirigami.Page {
             }
         }
 
+        // Clipped: on small screens a staff taller than its room drew over the transport (QA 13.10.).
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            clip: true
 
             KanteTabLane {
                 id: lane
@@ -515,6 +551,7 @@ Kirigami.Page {
                 // As many lines as fit (QA P2 R6: one line left the next bars hidden).
                 systems: Math.max(1, Math.floor(height / (KanteStyle.unit(170) * page.presentScale)))
                 lineSpacing: KanteStyle.unit(14) * page.presentScale
+                minBarWidth: Math.max(KanteStyle.unit(200), page.densestBar * page.tabNoteWidth)
                 visible: ctl.view === "tab"
                 strings: page.stringNames.length
                 stringNames: page.stringNames
@@ -528,7 +565,12 @@ Kirigami.Page {
             KanteBassStaff {
                 id: bassStaff
                 anchors.fill: parent
-                staffSpace: KanteStyle.unit(10) * page.presentScale
+                // Smaller where one line does not fit (beamer at 150 %): cut off, its beams ran
+                // over the transport (G18). A KanteBassStaff line is 14.5 staff spaces, 16.5 with
+                // chord symbols.
+                staffSpace: Math.min(KanteStyle.unit(10) * page.presentScale, height / (hasChords ? 16.5 : 14.5))
+                // As many lines as fit, as in the tablature (QA 13.10.: one line, the rest empty).
+                systems: Math.max(1, Math.floor(height / systemHeight))
                 visible: ctl.view === "notation"
                 notes: visible ? page.staff.notes : []
                 rests: page.staff.rests
@@ -548,7 +590,12 @@ Kirigami.Page {
                     id: combinedBass
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    staffSpace: KanteStyle.unit(10) * page.presentScale
+                    // Half the room is the staff's (G18); from the column, not its own height,
+                    // which follows its size.
+                    staffSpace: Math.min(KanteStyle.unit(10) * page.presentScale,
+                                         (combined.height - combined.spacing) / 2 / (hasChords ? 16.5 : 14.5))
+                    // The same bars as the tablature below, so each bar sits over its tab.
+                    barsPerSystem: combinedTab.perSystem
                     notes: combined.visible ? page.staff.notes : []
                     rests: page.staff.rests
                     keyFifths: page.staff.keyFifths
@@ -562,6 +609,7 @@ Kirigami.Page {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     lineSpacing: KanteStyle.unit(14) * page.presentScale
+                    minBarWidth: Math.max(KanteStyle.unit(200), page.densestBar * page.tabNoteWidth)
                     strings: page.stringNames.length
                     stringNames: page.stringNames
                     lowStringOnTop: ctl.lowStringOnTop
@@ -612,12 +660,15 @@ Kirigami.Page {
 
         RowLayout {
             Layout.fillWidth: true
+            // Only as high as its content: a nested layout fills by default, and in the keyboard
+            // view (no fretboard) it took the notes' room (QA 13.10.).
+            Layout.fillHeight: false
             visible: !page.compact && !page.presenting
             spacing: KanteStyle.unit(16)
             ColumnLayout {
             Layout.fillWidth: true
             // The keyboard view has its own keys; a fretboard beside them would only distract.
-            visible: ctl.view !== "keys"
+            visible: ctl.view !== "keys" && !page.slim
             spacing: KanteStyle.unit(4)
             KanteFretboard {
                 Layout.fillWidth: true
@@ -658,6 +709,8 @@ Kirigami.Page {
             }
             ColumnLayout {
             Layout.preferredWidth: meter.implicitWidth
+            // Alone in the row (keyboard view, slim window): the whole width.
+            Layout.fillWidth: ctl.view === "keys" || page.slim
             KanteLevelMeter {
                 id: meter
                 Layout.fillWidth: true
@@ -688,6 +741,7 @@ Kirigami.Page {
             borderColor: KanteStyle.frameColor
             Mixer {
                 id: pageMixer
+                practice: true
                 x: KanteStyle.unit(12)
                 y: KanteStyle.unit(8)
                 width: parent.width - KanteStyle.unit(24)
@@ -734,6 +788,8 @@ Kirigami.Page {
             }
             KanteToolButton {
                 id: presentButton
+                // Not in a slim window (F5 still works): room for the mixer.
+                visible: !page.slim || page.presenting
                 Layout.alignment: Qt.AlignTop
                 Layout.preferredHeight: KanteStyle.heightMedium
                 text: page.presenting ? texts.t("present.end") : texts.t("present.start")

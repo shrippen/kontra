@@ -215,7 +215,7 @@ fn techniques() -> KorpusItem {
                         Technique::Pop
                     }),
                 ),
-                (root, A::Ghost, Some(Technique::Ghost)),
+                (root, A::Ghost, Some(Technique::Muted)),
             ];
             for (midi, how, technique) in steps {
                 line.push(Played {
@@ -502,7 +502,7 @@ fn compare(
             technique_correct += 1;
         }
         // A ghost note has no pitch to get right.
-        if note.technique == Some(Technique::Ghost) {
+        if note.technique == Some(Technique::Muted) {
             pitch_correct += 1;
             continue;
         }
@@ -733,7 +733,7 @@ fn render_techniques(
             A::Slap
         } else if has(Technique::Pop) {
             A::Pop
-        } else if has(Technique::Ghost) {
+        } else if has(Technique::Muted) {
             A::Ghost
         } else {
             A::Pluck

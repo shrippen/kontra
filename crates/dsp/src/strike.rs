@@ -101,7 +101,7 @@ impl Strike {
     pub(crate) fn technique(self, source: InputSource) -> Option<Technique> {
         let muted = self.decay < MUTED_DECAY;
         if muted || (self.decay < GHOST_DECAY && self.high_share < STRIKE_HIGH) {
-            return Some(Technique::Ghost);
+            return Some(Technique::Muted);
         }
         if source == InputSource::Microphone {
             return None;
@@ -158,7 +158,7 @@ mod tests {
         let ghost = strike(&note(55.0, 1e-12, 0.0));
         assert_eq!(
             ghost.technique(InputSource::Line),
-            Some(Technique::Ghost),
+            Some(Technique::Muted),
             "{ghost:?}"
         );
         let slap = strike(&note(55.0, 0.0001, 0.6));

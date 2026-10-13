@@ -114,7 +114,7 @@ impl Matcher {
                 && !self.resolved.contains(&(pass, *slot))
         });
         let cents_of = |e: &ExpectedNote| e.cents_from(midi);
-        let muted = |e: &ExpectedNote| e.ghost && technique == Some(Technique::Ghost);
+        let muted = |e: &ExpectedNote| e.ghost && technique == Some(Technique::Muted);
         // Rank candidates: in tune before off pitch before wrong, then by distance.
         let mut best: Option<(usize, u8, f64)> = None;
         for (slot, e) in candidates {
@@ -273,7 +273,7 @@ mod tests {
             harmonic: false,
         }]);
         let settings = ScoreSettings::default();
-        let r = m.score(0, 1.0, 0.0, Some(Technique::Ghost), 1.0, &settings, ALL);
+        let r = m.score(0, 1.0, 0.0, Some(Technique::Muted), 1.0, &settings, ALL);
         assert!(r.is_hit());
         assert_eq!(r.cents, None);
     }

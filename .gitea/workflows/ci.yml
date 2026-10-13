@@ -30,6 +30,9 @@ jobs:
           curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal -c rustfmt,clippy
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
       - uses: actions/cache@v4
+        # The runner's cache server sometimes fails within seconds ("<nil>"); without the cache
+        # the job only takes longer (13.10.2026: three app jobs lost this way).
+        continue-on-error: true
         with:
           path: |
             ~/.cargo/registry
@@ -57,6 +60,9 @@ jobs:
       # Real recordings as a regression guard (testdata/korpus/QUELLEN.md): IDMT-SMT-Bass-Single-Track,
       # 17 electric-bass lines, released for this use by the owner. Audio is never committed.
       - uses: actions/cache@v4
+        # The runner's cache server sometimes fails within seconds ("<nil>"); without the cache
+        # the job only takes longer (13.10.2026: three app jobs lost this way).
+        continue-on-error: true
         with:
           path: testdata/korpus/local/dl/idmt-st
           key: idmt-st-7544099
@@ -86,6 +92,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
+        # The runner's cache server sometimes fails within seconds ("<nil>"); without the cache
+        # the job only takes longer (13.10.2026: three app jobs lost this way).
+        continue-on-error: true
         with:
           path: |
             /opt/qt

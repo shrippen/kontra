@@ -408,7 +408,7 @@ const GPIF_SLIDE_LEGATO: u32 = 2;
 fn techniques(element: &Element, note: &mut RawNote) {
     let flags = [
         ("Muted", Technique::Muted),
-        ("PalmMuted", Technique::Muted),
+        ("PalmMuted", Technique::PalmMute),
         ("HarmonicType", Technique::Harmonic),
         ("Bended", Technique::Bend),
     ];

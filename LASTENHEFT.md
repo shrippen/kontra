@@ -165,7 +165,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-BEW-03 | Auswertung nach dem Durchlauf: Trefferquote, Timing-Histogramm mit Achse und Legende, Tendenz („meist 18 ms zu früh“), schwierigste Takte als Sprung in die Riff-Werkstatt. | Muss | 1 | P2, P3 | Klick auf schwierigsten Takt öffnet Werkstatt mit diesem Bereich. |
 | LH-BEW-04 | Ton der Rückmeldung ermutigend; keine Strafen, keine Ranglisten. Punkte und Streaks abschaltbar. | Muss | 1 | P1 | Text-Review aller Meldungen gegen die Sprachregeln. |
 | LH-BEW-05 | Bundlos-Modus: Intonation in Cent sichtbar, Treffergrenze für Tonhöhe einstellbar (Standard ±30 Cent, streng ±10). Der richtige Ton außerhalb der Grenze ist „unsauber“ (eigener Zustand mit eigener Form, nicht „falsch“). | Muss | 1 | P3 | Testkorpus bundlos: Anzeige weicht ≤ 3 Cent vom Referenzwert ab. |
-| LH-BEW-06 | Techniken erkennen: Slides, Hammer-on/Pull-off, Slap/Pop, Ghost Notes. Soll-Technik aus der Partitur wird mit der erkannten verglichen und in einer eigenen Auswertung gezählt („Slide: 8 von 10“), getrennt von der Trefferquote (Runde 9); Zeichen und Ergebnis an der Note in Tab-Lane, Tabulatur und Noten. Was der Eingang nicht erkennen kann (Slap/Pop am Mikrofon, alles über MIDI), wird nicht bewertet und so genannt. | Soll | 4 | P2, P3, P4 | Testkorpus Techniken: ≥ 85 % korrekt klassifiziert; J-C5. |
+| LH-BEW-06 | Techniken erkennen: Slides, Hammer-on/Pull-off, Slap/Pop, Ghost Notes. Soll-Technik aus der Partitur wird mit der erkannten verglichen und in einer eigenen Auswertung gezählt („Slide: 8 von 10“), getrennt von der Trefferquote (Runde 9); Zeichen und Ergebnis an der Note in Tab-Lane, Tabulatur und Noten, ein Slide an der Ausgangsnote (Runde 10). Dead Notes (x) werden als gedämpft bewertet, Ghost Notes ( ) nur angezeigt; Palm Mute behält die Tonhöhe (Runde 10). Was der Eingang nicht erkennen kann (Slap/Pop am Mikrofon, alles über MIDI), wird nicht bewertet und so genannt. | Soll | 4 | P2, P3, P4 | Testkorpus Techniken: ≥ 85 % korrekt klassifiziert; J-C5. |
 
 ### 4.7 Lernmodule (LRN)
 
@@ -202,6 +202,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-ALL-03 | Alle Einstellungen wirken sofort und überstehen einen Neustart. | Muss | 1 | alle | – |
 | LH-ALL-04 | Kontra stürzt bei abgezogenem Interface nicht ab; meldet es und bietet den nächsten Eingang an; beim Wiederanstecken wird das Interface wieder genutzt. | Muss | 1 | P2 | Ab- und Anstecken während des Spiels, 10-mal. |
 | LH-ALL-05 | Hilfe im Programm: kurze Erklärungen an Ort und Stelle (Latenz, Hi-Z, Zeitfenster), keine Pflichtlektüre. | Soll | 1 | P1, P6 | Jeder Fachbegriff in der Oberfläche hat eine Erklärung per Tooltip oder Info-Knopf. |
+| LH-ALL-06 | Startseite: zuletzt gespieltes Stück, nächste mitgelieferte Übung, die noch nicht sitzt (über 90 %), Übungszeit der letzten sieben Tage, Einstieg in Stimmgerät, Griffbrett und Gehör; solange die Einrichtung fehlt, bietet sie sie an. Navigation nach Tätigkeit gruppiert, Einrichtung unter Einstellungen. | Soll | 1 | P1, P2, P3 | Vom Programmstart zum Weiterüben ein Klick (J-C1). |
 
 ---
 
