@@ -12,7 +12,7 @@ Merges per `tea api …/merge` blockiert der Auto-Modus seit dem 13.10.; Eigent�
 1. #55 Kante 1.34 übernehmen (Dead-Note-Zeichen x, das #45 braucht).
 2. #45, #46, #47 (vom 12.10.).
 3. #48 Startseite, Navigation nach Tätigkeit (LH-ALL-06).
-4. #49 GUI-Runde 13.10. (G3–G31), baut auf #48.
+4. #49 GUI-Runde 13.10. (G3–G32), baut auf #48.
 5. #50 Slides an echten Aufnahmen; #52 Oktavfehler Kontrabass baut auf #50.
 6. #51 künstliche, getippte und MusicXML-Flageoletts.
 7. #53 Halbtonfehler Kontrabass (nur Doku), nach #52.
@@ -50,7 +50,7 @@ Merges per `tea api …/merge` blockiert der Auto-Modus seit dem 13.10.; Eigent�
 
 ## Neue pub-Schnittstellen (nächste Runde zur Freigabe)
 
-- #48/#49: `Core::home_json`, `Core::loaded_title`, `Library::plain_paths`.
+- #48/#49: `Core::home_json`, `Core::loaded_title`, `Library::plain_paths`, `TrackInfo::is_percussion`.
 - #50: `TechniqueTarget`, `technique_signs`, `TechniqueResult::sign`, `Annotation::slide_cents`.
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 

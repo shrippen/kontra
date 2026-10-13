@@ -164,8 +164,9 @@ struct Loaded {
     /// All notes as imported; `arrangement` holds those of the current density (LH-MOD-06).
     full: Arrangement,
     arrangement: Arrangement,
-    /// All tracks of the file and the one played, so the player can switch (QA P2 R9).
-    tracks: Vec<String>,
+    /// The file's tracks a bass can play (index in the file, name) and the one played, so the
+    /// player can switch (QA P2 R9).
+    tracks: Vec<(usize, String)>,
     track: usize,
 }
 
@@ -608,15 +609,23 @@ impl Core {
 
     /// Tracks of the loaded file and the one played: `{"names": [...], "current": i}`.
     pub fn tracks_json(&self) -> String {
-        let (names, current) = self
-            .loaded
-            .as_ref()
-            .map_or((Vec::new(), 0), |l| (l.tracks.clone(), l.track));
+        let (names, current) = self.loaded.as_ref().map_or((Vec::new(), 0), |l| {
+            let names: Vec<&String> = l.tracks.iter().map(|(_, n)| n).collect();
+            let current = l.tracks.iter().position(|(i, _)| *i == l.track);
+            (names, current.unwrap_or(0))
+        });
         json!({ "names": names, "current": current }).to_string()
     }
 
-    /// Plays another track of the loaded file (Kontra's guess may be the wrong one).
-    pub fn switch_track(&mut self, track: usize) -> Result<(), String> {
+    /// Plays another track of the loaded file (Kontra's guess may be the wrong one); `choice`
+    /// counts the tracks of `tracks_json`.
+    pub fn switch_track(&mut self, choice: usize) -> Result<(), String> {
+        let track = self
+            .loaded
+            .as_ref()
+            .and_then(|l| l.tracks.get(choice))
+            .map(|(i, _)| *i)
+            .ok_or("no such track")?;
         self.reload(track)
     }
 
@@ -1006,17 +1015,18 @@ impl Core {
         if let Some(track) = imported.suggested().or(chosen) {
             return self.load(path, &imported, track).map(|()| Opened::Ready);
         }
-        let names = imported
-            .tracks()
-            .iter()
-            .map(|t| t.name().to_string())
-            .collect();
+        let names = playable(&imported).map(|(_, n)| n).collect();
         self.pending = Some((path.to_path_buf(), imported));
         Ok(Opened::ChooseTrack(names))
     }
 
-    pub fn choose_track(&mut self, track: usize) -> Result<(), String> {
+    /// Loads the pending file's track `choice`, counted as in `Opened::ChooseTrack`.
+    pub fn choose_track(&mut self, choice: usize) -> Result<(), String> {
         let (path, imported) = self.pending.take().ok_or("nothing to choose from")?;
+        let track = playable(&imported)
+            .nth(choice)
+            .map(|(i, _)| i)
+            .ok_or("no such track")?;
         self.load(&path, &imported, track)
     }
 
@@ -1110,11 +1120,7 @@ impl Core {
             path: path.to_path_buf(),
             full: arrangement.clone(),
             arrangement,
-            tracks: imported
-                .tracks()
-                .iter()
-                .map(|t| t.name().to_string())
-                .collect(),
+            tracks: playable(imported).collect(),
             track,
         });
         self.rethin();
@@ -3012,6 +3018,16 @@ fn pick_midi(
 }
 
 /// Kante's key for a technique sign (KanteTechniqueMark); "" for those Kontra does not judge.
+/// The tracks a bass can play, as (index in the file, name): drum parts are no choice.
+fn playable(imported: &ImportResult) -> impl Iterator<Item = (usize, String)> + '_ {
+    imported
+        .tracks()
+        .iter()
+        .enumerate()
+        .filter(|(_, t)| !t.is_percussion())
+        .map(|(i, t)| (i, t.name().to_string()))
+}
+
 fn technique_key(technique: Technique) -> &'static str {
     match technique {
         Technique::Slide => "slide",
@@ -4524,6 +4540,21 @@ mod tests {
         assert_eq!(core.loaded_title(), item["title"].as_str().unwrap());
         core.open(&Core::demo_path()).unwrap();
         assert_eq!(core.loaded_title(), core.arrangement().unwrap().title);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The track choice offers what a bass can play: an exercise's drum track is not one
+    /// (QA 13.10.: "Bass" and the drums in the choice).
+    #[test]
+    fn track_choice_leaves_out_drums() {
+        let dir = temp_dir("drumtrack");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        core.open(Path::new(levels[0]["items"][0]["path"].as_str().unwrap()))
+            .unwrap();
+        let tracks: serde_json::Value = serde_json::from_str(&core.tracks_json()).unwrap();
+        assert_eq!(tracks["names"].as_array().unwrap().len(), 1, "{tracks}");
+        assert_eq!(tracks["current"], 0);
         let _ = std::fs::remove_dir_all(dir);
     }
 
