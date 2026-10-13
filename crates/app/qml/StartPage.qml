@@ -69,7 +69,8 @@ Kirigami.ScrollablePage {
                 titleText: page.summary.last ? page.summary.last.title : texts.t("home.last.none")
                 text: page.summary.last
                     ? (page.summary.last.artist !== "" ? page.summary.last.artist + " · " : "")
-                      + texts.t("library.minutes", { minutes: Math.round(page.summary.last.practiceMin) })
+                      + (page.summary.last.best === null ? texts.t("library.unplayed")
+                         : texts.t("library.minutes", { minutes: Math.round(page.summary.last.practiceMin) }))
                     : texts.t("home.last.none.text")
                 KanteButton {
                     visible: page.summary.last !== null
