@@ -126,7 +126,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-BIB-05 | Fehlerhafte oder nicht unterstützte Dateien werden mit Grund gemeldet; der Rest des Imports läuft weiter. | Muss | 1 | P2, P4 | Ordner mit einer defekten Datei: 1 Meldung, alle anderen importiert. |
 | LH-BIB-06 | Eigene Audiodatei (MP3, FLAC, OGG, WAV) an ein Arrangement koppeln; Tempo-Map automatisch (Beat-Erkennung), von Hand korrigierbar (Taktanfänge verschieben). | Muss | 3 | P2 | Gekoppelter Song läuft über 4 Minuten ohne hörbaren Versatz > 20 ms. |
 | LH-BIB-07 | Offenes Paketformat `.kontra` (Arrangement, Übungsdaten, Verweis auf oder Einbettung der Audiodatei); Import und Export. | Muss | 3 | P4 | Paket auf zweitem Rechner importiert: identische Darstellung. |
-| LH-BIB-08 | Mitgelieferte, frei lizenzierte Übungen und Grooves (mind. 30 bis 1.0), nach Niveau sortiert. | Soll | 3 | P1 | Liste vorhanden, Lizenz je Übung dokumentiert; Titel in der Oberflächensprache. |
+| LH-BIB-08 | Mitgelieferte, frei lizenzierte Übungen und Grooves (mind. 30 bis 1.0), nach Niveau sortiert. | Soll | 3 | P1 | Liste vorhanden, Lizenz je Übung dokumentiert; Titel und Ziel der Übung in der Oberflächensprache. |
 | LH-BIB-09 | Optionale lokale Stem-Trennung, um den Bass aus einer Audiodatei zu entfernen: über ein externes Programm (Demucs), wenn installiert; Kontra liefert nichts davon mit (Runde 9). Ohne das Programm ist die Funktion ausgegraut und sagt, wie man es installiert. Läuft im Hintergrund mit Fortschritt, Restzeit und Abbrechen, Ergebnis wird im Cache-Ordner zwischengespeichert und ist je Song löschbar (14.10.). | Kann | 4 | P2 | 4-Minuten-Song wird auf Empfehlungs-Hardware in < 3 min getrennt. |
 | LH-BIB-10 | Import MuseScore 3 und 4 (`.mscz`, `.mscx`) direkt, ohne Export nach MusicXML: Stimmen, Tab-Saiten/Bünde, Wiederholungen, Volten, Triolen, Haltebögen, Tempo. | Soll | 2 | P3, P4 | Mit MuseScore 4 gespeicherter Fünfsaiter-Tab mit Wiederholung und Triole: gleiche Noten und Bünde wie in MuseScore. |
 | LH-BIB-11 | Songs aus dem Netz, soweit die Seiten es erlauben ([`QUELLEN-SONGS.md`](QUELLEN-SONGS.md)): Suche bei Songsterr und MuseScore.com öffnet im Browser; Dateien, die der Nutzer dort selbst herunterlädt, zeigt die Bibliothek unter „Neu in Downloads“ (14 Tage, ein Klick öffnet); Dateien lassen sich auf die Bibliothek ziehen. Kontra ruft die Seiten nie selbst ab. | Soll | 2 | P2, P3, P1, P7 | J-B6: heruntergeladene Datei erscheint binnen 5 s und öffnet mit einem Klick; offline bleibt alles außer dem Browser bedienbar. |
@@ -174,10 +174,10 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 
 | ID | Anforderung | Prio | Ph. | Personas | Abnahme |
 |---|---|---|---|---|---|
-| LH-LRN-01 | **Groove:** Rhythmusübungen auf Drum-Patterns (Viertel, Achtel, Sechzehntel, Pausen, Shuffle, Ghost Notes), Auswertung als Timing-Streuung. | Muss | 2 | P2, P3, P5 | 20 Übungen vorhanden; Streuung in ms sichtbar. |
+| LH-LRN-01 | **Groove:** Rhythmusübungen auf Drum-Patterns (Viertel, Achtel, Sechzehntel, Pausen, Shuffle, Ghost Notes; seit 14.10. auch Dead Notes, Offbeat, Tresillo, Triolen, Funk, Slap und die Taktarten 3/4, 6/8, 5/4, 7/8), Auswertung als Timing-Streuung. | Muss | 2 | P2, P3, P5 | 20 Übungen vorhanden; Streuung in ms sichtbar. |
 | LH-LRN-02 | **Griffbrett:** Töne finden, Intervalle, Tonleitern und Arpeggien in Lagen, Quiz mit dem echten Instrument. | Muss | 2 | P1, P3 | Quiz „alle C auf dem Griffbrett“ funktioniert mit 4 und 5 Saiten. |
 | LH-LRN-03 | **Gehör:** Ton oder kurze Linie hören und nachspielen; Intervalle; Grundton zu einem Akkord. | Soll | 3 | P1, P3 | 3 Übungstypen, Bewertung wie LH-BEW-01. |
-| LH-LRN-04 | Generierte Übungen (Tonleitern, Arpeggien, Walking-Bass-Muster über Akkordfolgen) in wählbarer Tonart und Tempo. | Soll | 2 | P3, P4 | Tonart und Tempo wirken; Ergebnis als Arrangement speicherbar. |
+| LH-LRN-04 | Generierte Übungen (Tonleitern und Modi, auch in Terzen und Vierergruppen; Dreiklänge, Arpeggien, Walking-Bass-Muster über Akkordfolgen; Fingerübungen ab einem Bund) in wählbarer Tonart und Tempo. | Soll | 2 | P1, P3, P4 | Tonart und Tempo wirken; Ergebnis als Arrangement speicherbar. |
 
 ### 4.8 Wiedergabe (WIE)
 

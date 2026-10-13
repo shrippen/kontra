@@ -21,7 +21,8 @@ pub struct AppArgs {
     pub mixer: bool,
     /// `--present`: the practice page opens in presentation mode (screenshots, LH-ANZ-09).
     pub present: bool,
-    /// `--section data|about`: the settings page opens scrolled to that section (screenshots).
+    /// `--section data|about|make`: settings or exercises open scrolled to that section
+    /// (screenshots).
     pub section: Option<String>,
     /// `--align`: practice opens the backing-track alignment (screenshots).
     pub align: bool,
