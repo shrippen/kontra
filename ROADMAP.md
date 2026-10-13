@@ -282,6 +282,8 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
 - **Halbes Fenster (≈ 500 px, neben Video oder Tab):** G30 (mittel, behoben #49): Kopfzeile, Pegel und Transportleiste
   liefen rechts hinaus. Unter 700 px: Kopf einspaltig, Pegel über die ganze Breite, ohne Griffbrett und
   Präsentationsknopf (F5 bleibt); in der Bibliothek rückt das Ergebnis unter den Titel.
+- **Sprache (J-F2):** G31 (mittel, behoben #49, Test zuerst): Fortschritt und Bericht nannten mitgelieferte Übungen
+  auf Deutsch, auch in der englischen Oberfläche (der gespeicherte Titel ist der deutsche Schlüssel).
   - Offen (Kante #61): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 

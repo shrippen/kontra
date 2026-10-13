@@ -471,6 +471,16 @@ impl Core {
             .map_or(&[], |e| e.sections.as_slice())
     }
 
+    /// A piece's title for progress and report: a bundled exercise in the UI's language (the
+    /// stored `title` is the German progress key), else as stored.
+    fn song_title(&self, song_id: &str, title: &str) -> String {
+        self.library
+            .recent
+            .iter()
+            .find(|e| e.song_id == song_id)
+            .map_or_else(|| title.to_string(), |e| self.library_title(e))
+    }
+
     fn progress_json_at(&self, now: u64) -> String {
         let mut songs = self.progress_store().all();
         songs.sort_by_key(|p| std::cmp::Reverse(p.runs.iter().map(|r| r.finished_unix).max()));
@@ -479,7 +489,7 @@ impl Core {
             .map(|p| {
                 json!({
                     "songId": p.song_id,
-                    "title": p.title,
+                    "title": self.song_title(&p.song_id, &p.title),
                     "artist": p.artist,
                     "best": p.best_hit_rate(),
                     "bestSpeed": p.best_speed(0.9),
@@ -4463,6 +4473,33 @@ mod tests {
             .push(PathBuf::from(item["path"].as_str().unwrap()));
         let lists: serde_json::Value = serde_json::from_str(&core.setlists_json()).unwrap();
         assert_eq!(lists[0]["pieces"][0]["title"], item["title"]);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Progress names a bundled exercise in the UI's language: its stored title is the German
+    /// progress key (QA 13.10.: German titles on the English progress page).
+    #[test]
+    fn progress_titles_follow_the_language() {
+        let dir = temp_dir("progresstitle");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("en".into()));
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let item = &levels[0]["items"][0];
+        core.open(Path::new(item["path"].as_str().unwrap()))
+            .unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let run = Run {
+            finished_unix: 1,
+            practice_s: 60.0,
+            speed: 1.0,
+            hit_rate: 0.5,
+            mode: "song".into(),
+            section: None,
+            hardest_bars: Vec::new(),
+        };
+        core.progress_store().record(&a, run).unwrap();
+        let progress: serde_json::Value = serde_json::from_str(&core.progress_json()).unwrap();
+        assert_eq!(progress["pieces"][0]["title"], item["title"]);
         let _ = std::fs::remove_dir_all(dir);
     }
 
