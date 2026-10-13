@@ -1,8 +1,9 @@
-//! Lowest layer: talks to sound and MIDI devices, reads/writes audio and MIDI files and runs the
-//! external stem separator. No music logic here.
+//! Lowest layer: talks to sound and MIDI devices, reads/writes audio and MIDI files, lists the
+//! download folder and runs the external stem separator. No music logic here.
 
 mod audio;
 mod file;
+mod folder;
 mod midi;
 mod separator;
 
@@ -11,6 +12,7 @@ pub use audio::{
     StreamConfig, NULL_DEVICE,
 };
 pub use file::{read_audio, write_wav, AudioBuffer, FileError};
+pub use folder::{download_dir, recent_files, RecentFile};
 pub use midi::{
     list_midi_inputs, open_midi, read_midi_notes, MidiConnection, MidiError, MidiNote, MidiPort,
 };

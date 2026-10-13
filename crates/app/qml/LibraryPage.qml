@@ -72,6 +72,34 @@ Kirigami.ScrollablePage {
         onAccepted: page.open(selectedFile.toString())
     }
 
+    // Files dragged onto the page: one opens, several go into the library (LH-BIB-11).
+    DropArea {
+        id: drop
+        parent: page
+        anchors.fill: parent
+        keys: ["text/uri-list"]
+        onDropped: function(event) {
+            var urls = event.urls.map(String)
+            event.accept(Qt.CopyAction)
+            if (urls.length === 1)
+                page.open(urls[0])
+            else
+                ctl.importFiles(JSON.stringify(urls))
+        }
+    }
+    KanteDropZone {
+        parent: page
+        anchors.fill: parent
+        anchors.margins: KanteStyle.unit(8)
+        visible: drop.containsDrag
+        kind: KanteDropZone.Kind.Cell
+        QQC2.Label {
+            anchors.centerIn: parent
+            text: texts.t("search.drop")
+            color: KanteStyle.strongTextColor
+        }
+    }
+
     ColumnLayout {
         spacing: KanteStyle.unit(16)
 
@@ -232,7 +260,17 @@ Kirigami.ScrollablePage {
                 }
             }
         }
-    
+
+        // Songs from Songsterr and MuseScore via the browser, new downloads (LH-BIB-11, J-B6).
+        SongSources {
+            Layout.fillWidth: true
+            Layout.topMargin: KanteStyle.unit(16)
+            ctl: page.ctl
+            texts: page.texts
+            active: page.visible
+            onOpenPath: function(path) { page.open(path) }
+        }
+
         // Setlists (LH-BIB-04, J-B1): an order of pieces for a gig; playing one offers the next.
         // Below the pieces: those are what most players come for (QA 13.10.).
         KanteSectionLabel { text: texts.t("setlist.title"); Layout.fillWidth: true; Layout.topMargin: KanteStyle.unit(16) }
