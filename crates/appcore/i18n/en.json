@@ -570,6 +570,7 @@
   "home.library": "Library",
   "home.next.tier": "Next exercise",
   "home.next.text": "mastered at 90 %",
+  "home.next.same": "That is the piece to continue; it is mastered at 90 %.",
   "home.next.play": "Go",
   "home.next.done": "All exercises mastered",
   "home.next.done.text": "Every bundled exercise went above 90 %. The generator makes new ones in any key.",

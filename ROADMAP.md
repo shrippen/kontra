@@ -268,6 +268,8 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
     vorn; jetzt „Sitzt“ mit der nächsten Übung im Plan, ein Klick.
   - G25 (niedrig, behoben #49): Der Mixer der Übungsseite zeigte die Lautstärke fürs Vorspielen der Gehörbildung, die
     dort nie klingt; nur noch in Einstellungen und auf der Gehör-Seite.
+  - G26 (niedrig, behoben #49, P1): Startseite zeigte dieselbe Übung zweimal mit zwei Knöpfen, wenn die nächste Übung
+    auch das zuletzt gespielte Stück war; jetzt ein Knopf und ein Satz dazu.
   - Offen (Kante #61): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 

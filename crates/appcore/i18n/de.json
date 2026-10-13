@@ -570,6 +570,7 @@
   "home.library": "Bibliothek",
   "home.next.tier": "Nächste Übung",
   "home.next.text": "sitzt ab 90 %",
+  "home.next.same": "Das ist das Stück zum Weiterspielen; es sitzt ab 90 %.",
   "home.next.play": "Los",
   "home.next.done": "Alle Übungen sitzen",
   "home.next.done.text": "Jede mitgelieferte Übung lag über 90 %. Der Generator macht dir neue in jeder Tonart.",
