@@ -442,6 +442,8 @@
   "exercises.new": "neu",
   "exercises.mastered": "sitzt",
   "exercises.level.mastered": "{done} von {count} sitzen",
+  "exercises.fold": "Einklappen",
+  "exercises.unfold": "Anzeigen",
   "exercise.title.fret": "{name} ab Bund {fret} ({bpm} BPM)",
   "exercise.name.triads": "Dreiklänge {progression}",
   "exercise.name.sequence": "{scale} {sequence}",

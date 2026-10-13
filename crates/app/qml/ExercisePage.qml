@@ -36,6 +36,23 @@ Kirigami.ScrollablePage {
     readonly property bool isFingers: kinds[kind] === "chromatic"
 
     function reload() { levels = JSON.parse(ctl.exercisesJson()) }
+    // The level being worked on (the first with an exercise that does not sit yet) stands open;
+    // the others fold to their heading and count (QA 14.10.: 144 exercises in one list).
+    readonly property int currentLevel: {
+        for (var i = 0; i < levels.length; i++) {
+            if (levels[i].mastered < levels[i].items.length)
+                return i
+        }
+        return levels.length - 1
+    }
+    // Levels opened or closed by hand: index → bool.
+    property var folded: ({})
+    function isOpen(i) { return folded[i] !== undefined ? folded[i] : i === currentLevel }
+    function toggle(i) {
+        var f = Object.assign({}, folded)
+        f[i] = !isOpen(i)
+        folded = f
+    }
 
     background: Rectangle { color: KanteStyle.backgroundColor }
     title: texts.t("exercises.title")
@@ -75,6 +92,8 @@ Kirigami.ScrollablePage {
             delegate: ColumnLayout {
                 id: level
                 required property var modelData
+                required property int index
+                readonly property bool open: page.isOpen(index)
                 Layout.fillWidth: true
                 spacing: 0
                 RowLayout {
@@ -89,9 +108,19 @@ Kirigami.ScrollablePage {
                         color: KanteStyle.mutedTextColor
                         font: KanteStyle.labelFont()
                     }
+                    KanteToolButton {
+                        id: foldButton
+                        text: level.open ? texts.t("exercises.fold") : texts.t("exercises.unfold")
+                        display: QQC2.AbstractButton.TextOnly
+                        implicitWidth: Math.ceil(leftPadding + foldWords.advanceWidth + rightPadding + KanteStyle.unit(2))
+                        focusPolicy: Qt.StrongFocus
+                        Accessible.name: text + ": " + level.modelData.level
+                        onClicked: page.toggle(level.index)
+                        TextMetrics { id: foldWords; font: foldButton.font; text: foldButton.text }
+                    }
                 }
                 Repeater {
-                    model: level.modelData.items
+                    model: level.open ? level.modelData.items : []
                     delegate: KanteListRow {
                         required property var modelData
                         Layout.fillWidth: true

@@ -442,6 +442,8 @@
   "exercises.new": "new",
   "exercises.mastered": "mastered",
   "exercises.level.mastered": "{done} of {count} mastered",
+  "exercises.fold": "Fold",
+  "exercises.unfold": "Show",
   "exercise.title.fret": "{name} from fret {fret} ({bpm} BPM)",
   "exercise.name.triads": "Triads, {progression}",
   "exercise.name.sequence": "{scale} {sequence}",
