@@ -279,6 +279,9 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
 - **P5 Aylin (J-E1):** G29 (hoch, behoben #49): In der Klaviatur-Ansicht schrumpften Spur und Tasten auf einen Streifen;
   die Zeile mit Griffbrett und Pegel nahm die Höhe (eine verschachtelte Qt-Layout füllt von sich aus). In allen
   Ansichten bekommen die Noten jetzt die freie Höhe.
+- **Halbes Fenster (≈ 500 px, neben Video oder Tab):** G30 (mittel, behoben #49): Kopfzeile, Pegel und Transportleiste
+  liefen rechts hinaus. Unter 700 px: Kopf einspaltig, Pegel über die ganze Breite, ohne Griffbrett und
+  Präsentationsknopf (F5 bleibt).
   - Offen (Kante #61): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 

@@ -197,6 +197,8 @@ Kirigami.Page {
     // Small screens and beamers (QA P4: 1280×720 at 150 %): the title gets its own row and the
     // fretboard and level make room for the notes.
     readonly property bool narrow: width < KanteStyle.unit(1000)
+    // Half a laptop screen (beside a video or a tab): one column, no fretboard (QA 13.10.).
+    readonly property bool slim: width < KanteStyle.unit(700)
     readonly property bool compact: height < KanteStyle.unit(560)
 
     // Presentation (LH-ANZ-09, P4 at the beamer): full screen, only title, notes and transport;
@@ -216,12 +218,12 @@ Kirigami.Page {
 
         GridLayout {
             Layout.fillWidth: true
-            columns: page.narrow ? 2 : 3
+            columns: page.slim ? 1 : page.narrow ? 2 : 3
             columnSpacing: KanteStyle.unit(12)
             rowSpacing: KanteStyle.unit(8)
             ColumnLayout {
                 Layout.fillWidth: true
-                Layout.columnSpan: page.narrow ? 2 : 1
+                Layout.columnSpan: page.slim ? 1 : page.narrow ? 2 : 1
                 spacing: 0
                 KanteHeading { text: ctl.title; pageTitle: true; Layout.fillWidth: true; elide: Text.ElideRight }
                 QQC2.Label { text: ctl.artist; visible: ctl.artist !== ""; color: KanteStyle.mutedTextColor }
@@ -666,7 +668,7 @@ Kirigami.Page {
             ColumnLayout {
             Layout.fillWidth: true
             // The keyboard view has its own keys; a fretboard beside them would only distract.
-            visible: ctl.view !== "keys"
+            visible: ctl.view !== "keys" && !page.slim
             spacing: KanteStyle.unit(4)
             KanteFretboard {
                 Layout.fillWidth: true
@@ -707,6 +709,8 @@ Kirigami.Page {
             }
             ColumnLayout {
             Layout.preferredWidth: meter.implicitWidth
+            // Alone in the row (keyboard view, slim window): the whole width.
+            Layout.fillWidth: ctl.view === "keys" || page.slim
             KanteLevelMeter {
                 id: meter
                 Layout.fillWidth: true
@@ -784,6 +788,8 @@ Kirigami.Page {
             }
             KanteToolButton {
                 id: presentButton
+                // Not in a slim window (F5 still works): room for the mixer.
+                visible: !page.slim || page.presenting
                 Layout.alignment: Qt.AlignTop
                 Layout.preferredHeight: KanteStyle.heightMedium
                 text: page.presenting ? texts.t("present.end") : texts.t("present.start")
