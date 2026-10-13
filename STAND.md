@@ -36,8 +36,7 @@ Merges per `tea api …/merge` blockiert der Auto-Modus seit dem 13.10.; Eigent�
 - **Zweiter Leser 13.10.** (#50–#54): Befunde und Antworten in den PRs; offen: `heard()`-Testkopie (#50),
   Einschwingen der Brummfilter (~0,6 s ab Start des Eingangs, der mit dem Lauf startet; der Einzähler deckt es, ohne
   Einzähler die ersten Töne) am Gerät prüfen.
-- **Zweiter Leser #48/#49** (13.10.): bis auf einen Befund behoben; offen (niedrig): ungespielte Stücke gleichen Titels
-  in der Bibliothek nicht unterscheidbar (Meta „noch nicht gespielt“ statt Dateiname).
+- **Zweiter Leser #48/#49** (13.10.): alle Befunde behoben, Antworten in den PRs.
 - **CI:** `actions/cache@v4` im app-Job scheiterte zweimal nach 7 s ohne Meldung (`<nil>`); neuer Push half.
 - **KanteKpi** ohne Namen für Screenreader: Kante #61 (1.36, nach #58); danach Kante synchronisieren.
 - **Stem-Trennung** (LH-BIB-09): mit echtem Demucs nicht gelaufen; im Flatpak ausgegraut.

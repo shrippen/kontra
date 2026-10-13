@@ -162,7 +162,12 @@ Kirigami.ScrollablePage {
                         Layout.fillWidth: true
                         text: piece.modelData.title
                         // Tags (LH-BIB-04) after the artist; the search finds them too.
-                        subtitle: [piece.modelData.artist].concat(piece.modelData.tags.map(function(t) { return "#" + t }))
+                        // Two pieces of one title: the file name tells them apart (QA 13.10.).
+                        readonly property bool twin: page.recent.filter(function(r) {
+                            return r.title === piece.modelData.title }).length > 1
+                        subtitle: [piece.modelData.artist]
+                                  .concat(twin ? [String(piece.modelData.path).split("/").pop()] : [])
+                                  .concat(piece.modelData.tags.map(function(t) { return "#" + t }))
                                   .filter(function(s) { return s !== "" }).join(" · ")
                         meta: piece.modelData.best !== null && piece.modelData.best !== undefined
                               ? texts.t("library.best", { percent: Math.round(piece.modelData.best * 100) })
