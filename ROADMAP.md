@@ -237,6 +237,40 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 
 ## QA-Runden
 
+### QA-Runde 14.10.2026 (GUI, ganze Abläufe im echten Fenster)
+
+Erstmals im echten X-Fenster gespielt (Xvfb, `xdotool` klickt und tippt, `import` nimmt den ganzen Bildschirm auf),
+stummer Ausgang, Aufnahmen als Eingang; Fokuswege mit `--focus-log`. Befunde des Eigentümers vorab: der Latenz-Hinweis.
+
+- **P1 Lea (J-A1, J-A3, J-C1): bestanden nach Befunden.**
+  - H1 (hoch, behoben): Hinweise schwebten über der Seite, im Systemschema durchsichtig, Knöpfe dahinter blieben
+    klickbar; der Latenz-Hinweis kam eine Sekunde nach Songbeginn, bei jedem Lauf. Jetzt Leiste unter der Seite (neben
+    der Seitenleiste), Prüfung einmal je Start, sobald ein Eingang läuft (Stimmgerät, Einrichtung, Üben).
+  - H2 (hoch, behoben): „Erste Übung starten“ öffnete die Demo-Etüde statt der ersten Übung des Plans; der Text nannte
+    „ein Riff in e-Moll“, „Später, zur Bibliothek“ führte zur Startseite.
+  - H3 (mittel, behoben, Test zuerst): Pegel „−7 dB · gut“ über dem Rat „etwas zu laut“; die Anzeige hält jetzt die Spitze
+    der letzten 3 s wie der Rat.
+  - H4 (mittel, behoben): Üben ohne Stück zeigte eine leere Lane mit bedienbaren Knöpfen; jetzt Leerzustand mit Wegen.
+  - H5 (mittel, behoben): Pegel vor dem Spielen „−∞ dB · zu leise“, obwohl Kontra nicht zuhörte.
+  - H6 (mittel, behoben): Latenzmessung ohne Anzeige; jetzt „Vorzähler 3“, „Schlag 4 von 8“ mit Balken.
+  - H7 (niedrig, behoben): „Durchlauf beendet“ nach „Frei spielen“ (seit Runde 11 ein Modusname).
+- **P2 Jens (J-B1, J-B3, J-D1): bestanden nach Befunden.**
+  - H8 (hoch, behoben #65): Seit #58 startete die Wiedergabe mit dem Scarlett Solo nicht (ALSA meldet falsche Puffer-
+    grenzen); Probe-Stream, sonst Standardblock.
+  - H9 (mittel, behoben): Werkstatt zeigte „Takte 1 bis 1“ ohne Schleife, Abspielen lief das ganze Stück; jetzt zwei
+    Takte ab der Position.
+  - H10 (niedrig, behoben): Dateidialoge öffneten im Arbeitsordner des Programms; jetzt letzter Ordner bzw. Downloads,
+    Begleitspuren in Musik.
+- **P4 Thomas (J-B4, Beamer 853×533 bei 150 %): bestanden nach Befunden.**
+  - H11 (hoch, behoben): In der Präsentation blieb die Seitenleiste, ihr Griff lag über der Zeit; die Noten zeigten eine
+    Zeile mit zwei Takten und ein Drittel leer. Jetzt ohne Seitenleiste, zwei Zeilen.
+  - H12 (mittel, behoben): Titel wurde neben Modi und Ansichten abgeschnitten; leere Kirigami-Titelleiste kostete 45 px.
+- **P7 Sam (Tastatur): bestanden.** Fokusweg der Übungsseite logisch (Kopf, Modi, Ansicht, Transponieren, Dichte,
+  Transport), Fokusrahmen überall sichtbar. Offen (niedrig): Kirigamis „Close Sidebar“ folgt der Systemsprache.
+- Weiter behoben: Qt-Optionen mit Wert (`-qwindowgeometry`) wurden als Datei geöffnet (Test zuerst); Tests spielten auf
+  den Standardausgang (jetzt Timer-Ausgang); Stimmungs-Presets als Text, Latenz mit „ms“, Fortschritt „20 s“ statt
+  „0.4min“; Metronom/Einzähler als Kästchen statt gelber Knöpfe (Kante 1.38, PR in Kante).
+
 ### Hardware-Prüfung 13.10.2026 (Eigentümer: E-Bass, Scarlett Solo, PipeWire)
 
 `kontra-cli check`, geführt; Aufnahmen in `testdata/korpus/local/own/check-2026-10-13/` (lokal). Betrifft P1, P2, P3.
