@@ -82,6 +82,7 @@ pub fn analyze_file(
         match event {
             Event::Note(n) => notes.push(n),
             Event::Technique(r) => kontra_engine::revise(&mut notes, &[r]),
+            Event::Pitch(r) => kontra_engine::revise_pitch(&mut notes, &[r]),
             Event::Ended => break,
             _ => {}
         }

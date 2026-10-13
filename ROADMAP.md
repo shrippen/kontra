@@ -175,7 +175,10 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 - Tastenkürzel Strg+1…9 in der Reihenfolge der Navigation: bleibt.
 - Slide über einen Bund, als Hammer-on gehört: zählt als gespielt, wenn die Partitur Slide sagt, und umgekehrt
   (LH-BEW-06). Am echten Bass auch über zwei Bünde (Hardware-Prüfung H7): Frage für Runde 12.
-- Tonhöhe nachträglich korrigieren, sobald der Ton steht (#53): neues Engine-Ereignis, Neubewertung in der Session.
+- Tonhöhe nach dem Einschwingen korrigieren (`pitch_revision = revise`): umgesetzt (LH-BEW-07, J-E3 ⚙). Anzeige so
+  schnell wie bisher, die Note wird bis etwa 160 ms nach dem Anschlag neu bewertet, nur nach oben. FiloBass: Halbton
+  zu tief 88 → 37, Oktave zu tief 29 → 14, keine richtige gekippt, Tonhöhe 64,3 → 75,1 %; IDMT ±80 ms R/P 90,3/80,4 →
+  91,2/81,2 %; eigene Aufnahmen unverändert (testdata/korpus/QUELLEN.md, „Tonhöhen-Revision“).
 - Hardware-Prüfung gemeinsam: am 13.10. begonnen (Abschnitt Hardware-Prüfung unter QA-Runden).
 
 ## Didaktik: wie Kontra Bass vermittelt (laufend, alle Phasen)
