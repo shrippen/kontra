@@ -68,7 +68,7 @@ Kirigami.ScrollablePage {
 
     FileDialog {
         id: dialog
-        nameFilters: [texts.t("library.formats") + " (*.gp *.gp3 *.gp4 *.gp5 *.gpx *.mid *.midi *.musicxml *.xml *.mxl *.kontra)"]
+        nameFilters: [texts.t("library.formats") + " (*.gp *.gp3 *.gp4 *.gp5 *.gpx *.mid *.midi *.musicxml *.xml *.mxl *.mscz *.mscx *.kontra)"]
         onAccepted: page.open(selectedFile.toString())
     }
 

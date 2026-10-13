@@ -865,8 +865,8 @@ impl Core {
         dir: &Path,
         as_setlist: bool,
     ) -> (usize, Vec<(String, String)>) {
-        const EXTENSIONS: [&str; 9] = [
-            "gp", "gp3", "gp4", "gp5", "gpx", "mid", "midi", "musicxml", "mxl",
+        const EXTENSIONS: [&str; 11] = [
+            "gp", "gp3", "gp4", "gp5", "gpx", "mid", "midi", "musicxml", "mxl", "mscz", "mscx",
         ];
         let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
             .map(|entries| entries.filter_map(Result::ok).map(|e| e.path()).collect())

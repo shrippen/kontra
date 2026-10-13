@@ -5,7 +5,8 @@
 //! .gp3-5 ─┐
 //! .gpx/.gp┤
 //! .mid ───┼─→ Score ─→ build (unroll, tempo, ties, legato) ─→ Arrangement ─→ assign_tab
-//! .musicxml┘
+//! .musicxml┤
+//! .mscx/z ─┘
 //! ```
 
 use kontra_model::{Pitch, Technique, TimeSignature};

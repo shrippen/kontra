@@ -601,7 +601,7 @@ fn pick<T>(names: &mut Vec<String>, name: &str, first: T, second: T) -> T {
 }
 
 /// "1, 2" → bits 0 and 1.
-fn ending_mask(numbers: &str) -> u32 {
+pub(crate) fn ending_mask(numbers: &str) -> u32 {
     numbers
         .split(|c: char| !c.is_ascii_digit())
         .filter_map(|n| n.parse::<u32>().ok())
