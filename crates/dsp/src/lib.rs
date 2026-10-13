@@ -13,6 +13,7 @@
 mod beats;
 mod biquad;
 mod echo;
+mod hum;
 mod intonation;
 mod level;
 mod onset;

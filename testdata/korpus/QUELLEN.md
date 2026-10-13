@@ -147,6 +147,56 @@ tiefe Anteil klingt im ersten Fenster nicht hörbar ab; 0,6 und mehr kosteten an
 94,2 %). Im ersten Fenster gleichen sie gespielten A1; trennen ließe sich das erst mit mehr Audio (Latenz) oder einer
 späteren Korrektur der Tonhöhe.
 
+### Laptop-Pegel (Branch `laptop-pegel`, 13.10.)
+
+Simulation (`synth::laptop_jack`): −15 dB, Tiefpass 2,5 kHz (Impedanz), Brummen 50 Hz −60 dBFS und 150 Hz −66 dBFS
+Spitze, Rauschen −71 dBFS RMS. IDMT (Spitzen −15…−26 dBFS) liegt danach bei −30…−40 dBFS, 20–30 dB über dem
+Brummen: ein ungünstiger, aber üblicher Fall (Eingang leise gestellt, Netzteil steckt). Mehr Verstärkung hebt Brummen
+und Rauschen mit; entscheidend ist der Abstand, nicht der Pegel.
+
+Zerlegt (IDMT, ±80 ms mit Tonhöhe, vorher 37,9 / 63,8 %):
+
+| Simulation nur mit | R / P |
+|---|---|
+| −15 dB | 86,8 / 86,4 % |
+| −15 dB + Tiefpass | 84,7 / 86,3 % |
+| −15 dB + Rauschen, ohne Brummen | 56,2 / 81,6 % |
+| −15 dB + Brummen 50 Hz, ohne Rauschen | 68,8 / 66,2 % |
+
+Ursachen:
+
+- **Messung:** `korpus measure --laptop-jack` wertete mit dem Profil `Line` aus; P1 spielt mit `laptop-jack`. Das
+  Profil änderte an der Erkennung ohnehin nichts.
+- **Brummen:** Von 204 Fehlerkennungen lagen 94 bei 49–52 Hz (MIDI 31/32), 61 eine Oktave und 10 eine Oktave plus
+  Quinte unter dem Ton: YIN rastet auf 50 Hz ein (G2, D3 sind fast ganzzahlige Vielfache).
+- **Einsatzschwelle:** Der Fluss-Abstand 8 ist absolut. Mit Rauschboden und ohne Höhen steigt ein leiser Anschlag nur in
+  wenigen Bändern (IDMT 004, A1 bei 0,5 s: Fluss 3,2 statt 10,7); in 004, 009, 010 und 012 keine einzige Note.
+
+Korrektur, nur im Profil `laptop-jack`:
+
+- Brumm-Kerben (50/60 Hz und Harmonische, wie im Stimmgerät) vor Einsatz und YIN, 0,5 Hz breit. 3 Hz (Stimmgerät)
+  und 1 Hz klingen nach dem Anschlag bei 50 Hz nach und zogen G2/C2 eine Oktave tiefer. Die Feinbestimmung
+  (`refine_hz`) liest das ungefilterte Signal: mit Kerben stiegen die Cent-Fehler am synthetischen Laptop-Satz
+  (p95 4,6 → 18,7 ct).
+- Fluss-Abstand 2 statt 8. Am Line-Eingang bliebe 8: dort kostete 2 fünf Punkte Präzision.
+
+| Material (Profil laptop-jack) | vorher | nachher |
+|---|---|---|
+| IDMT Laptop-Simulation ±80 ms mit Tonhöhe, R / P | 37,9 / 63,8 % | 87,7 / 89,5 % |
+| NSynth Laptop-Simulation ±30 ms, R / P / Tonhöhe | 87,3 / 46,8 / 90,5 % | 100 / 94,0 / 93,6 % |
+| NSynth Laptop-Simulation ±30 ms mit Tonhöhe, R / P | 79,0 / 42,3 % | 93,6 / 88,0 % |
+| FiloBass Laptop-Simulation ±50 ms mit Tonhöhe, R / P | 36,3 / 46,8 % | 48,5 / 44,0 % |
+| Synthetischer Laptop-Satz, Cent mittel / p95 / max | 1,34 / 4,6 / 10,1 | 1,31 / 4,7 / 9,6 |
+| IDMT wie CI, NSynth, FiloBass (Line), `korpus check`, `korpus techniques` | | unverändert |
+
+Robustheit (IDMT, nachher): ohne Absenkung 89,6 / 80,5 %, −6 dB 89,8 / 84,3 %, doppeltes Brummen 82,2 / 86,7 %,
+dreifaches Rauschen 78,2 / 85,2 %. Ein sauberes Line-Signal mit Profil laptop-jack: 91,1 / 74,7 % (Line-Profil
+89,8 / 79,7 %). Rechenzeit der Laptop-Messung +25 % (mehr erkannte Noten, sechs Kerben), Line unverändert;
+keine zusätzliche Wartezeit.
+
+Offen: echte Aufnahme aus einer Laptop-Buchse (`AUFNAHME.md`); die Simulation hat genau 50 Hz, das Netz schwankt
+um ±0,05 Hz (Kerbe dort noch −14 dB).
+
 ## Befunde
 
 1. **Einsatz ohne Tonhöhe plus zweite Note.** Bei tiefen Tönen meldet die Erkennung am Anschlag eine Note mit
@@ -162,7 +212,8 @@ späteren Korrektur der Tonhöhe.
    werden Töne unter dem tiefsten Ton des Instruments (E1 = 28 beim 4-Saiter). NSynth 018: 33 → 20,98, 35 → 22,99.
    FiloBass: 118 von 506 zugeordneten Noten eine Oktave zu tief.
 4. **Leises Signal über die Laptop-Buchse fällt aus.** IDMT im Originalpegel mit Simulation (−15 dB): Recall 36 %.
-   Ein passiver Bass an einer Kombibuchse ist ähnlich leise.
+   Ein passiver Bass an einer Kombibuchse ist ähnlich leise. Behoben am 13.10. (Brumm-Kerben, niedrigere Einsatzschwelle im
+   Profil laptop-jack): 87,7 % bei 89,5 % Präzision, siehe „Laptop-Pegel“.
 5. **Techniken.** Flageolett (IDMT 017) wird als Grundton erkannt (erwartet 67, erkannt 32,88), Dead Notes bekommen
    eine Tonhöhe; Slap-Pluck nur 63 % richtige Tonhöhe. Gehört zu Phase 4.
 6. **Annotationen.** IDMT-Onsets sind Partiturzeiten (IDMT 008: Abstände genau 0,2308 s, Linien 002/016/017 auf 0,1 s
