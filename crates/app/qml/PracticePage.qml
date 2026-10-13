@@ -1,4 +1,5 @@
 import QtQuick
+import QtCore
 import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import QtQuick.Dialogs
@@ -475,6 +476,15 @@ Kirigami.Page {
             readonly property int fromBar: ctl.loopStart >= 0 ? page.barAt(ctl.loopStart) + 1 : 0
             readonly property int toBar: ctl.loopEnd >= 0 ? page.barAt(ctl.loopEnd - 0.001) + 1 : 0
             property string lastChange: ""
+            // The workshop always works on bars: without a chosen part it starts with the two at
+            // the play position (QA 14.10.: "bars 1 to 1" showed, yet play ran the whole piece).
+            function chooseLoop() {
+                if (ctl.mode !== "workshop" || ctl.loopStart >= 0 || page.bars.length === 0)
+                    return
+                var bar = page.barAt(ctl.position)
+                ctl.loopBars(bar, Math.min(bar + 1, page.bars.length - 1))
+            }
+            Component.onCompleted: chooseLoop()
 
             KanteHud { fullText: texts.t("workshop.bars"); color: KanteStyle.mutedTextColor }
             KanteSpinBox {
@@ -497,9 +507,9 @@ Kirigami.Page {
                 onValueModified: ctl.loopBars(Math.min(fromSpin.value, value) - 1, value - 1)
             }
             QQC2.Label {
+                // Fills the row: tied to its own width it wrapped "Tempo 100 / %" after the
+                // text grew (QA 14.10.).
                 Layout.fillWidth: true
-                // As wide as the text, so the info button sits right after it.
-                Layout.maximumWidth: implicitWidth
                 wrapMode: Text.WordWrap
                 color: KanteStyle.textColor
                 text: {
@@ -526,7 +536,11 @@ Kirigami.Page {
                     workshopRow.lastChange = hitRate > ctl.bandHigh ? texts.t("workshop.above")
                         : hitRate < ctl.bandLow ? texts.t("workshop.below") : texts.t("workshop.inside")
                 }
-                function onModeChanged() { workshopRow.lastChange = "" }
+                function onModeChanged() {
+                    workshopRow.lastChange = ""
+                    workshopRow.chooseLoop()
+                }
+                function onArrangementLoaded() { workshopRow.chooseLoop() }
             }
         }
 
@@ -900,6 +914,8 @@ Kirigami.Page {
 
     FileDialog {
         id: backingDialog
+        // Recordings of songs usually live in Music (QA 14.10.: it opened in the working folder).
+        currentFolder: StandardPaths.writableLocation(StandardPaths.MusicLocation)
         nameFilters: [texts.t("backing.filter") + " (*.wav *.flac *.ogg *.mp3)"]
         onAccepted: ctl.chooseBacking(selectedFile.toString())
     }
