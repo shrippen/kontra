@@ -572,28 +572,37 @@ Kirigami.Page {
             }
         }
 
-        // Note density (LH-MOD-06): fewer notes while a part is new; per section, fixable.
-        RowLayout {
+        // Note density (LH-MOD-06): fewer notes while a part is new; per section, fixable. A Flow:
+        // as one row its width pushed the whole page past a narrow window (QA 14.10., 700 px).
+        Flow {
+            id: densityRow
             Layout.fillWidth: true
-            visible: ctl.mode === "song" || ctl.mode === "workshop"
+            visible: (ctl.mode === "song" || ctl.mode === "workshop") && !page.presenting
             spacing: KanteStyle.unit(8)
-            KanteHud { fullText: texts.t("density.title"); color: KanteStyle.mutedTextColor }
-            KanteSegmented {
-                Accessible.name: texts.t("density.title")
-                model: [texts.t("density.sparse"), texts.t("density.beats"), texts.t("density.full")]
-                tooltips: [texts.t("density.hint"), texts.t("density.hint"), texts.t("density.hint")]
-                currentIndex: ctl.density - 1
-                onActivated: function(index) { ctl.changeDensity(index + 1, ctl.densityFixed ? "fixed" : "free") }
-            }
             // In a run-through the part is the whole piece (QA 14.10.: "this section" without one).
             readonly property string fixedText: ctl.mode === "workshop" ? texts.t("density.fixed") : texts.t("density.fixed.piece")
-            KanteSwitch {
-                checked: ctl.densityFixed
-                Accessible.name: parent.fixedText
-                onToggled: ctl.changeDensity(ctl.density, checked ? "fixed" : "free")
+            Row {
+                spacing: KanteStyle.unit(8)
+                KanteHud { anchors.verticalCenter: parent.verticalCenter; fullText: texts.t("density.title"); color: KanteStyle.mutedTextColor }
+                KanteSegmented {
+                    Accessible.name: texts.t("density.title")
+                    model: [texts.t("density.sparse"), texts.t("density.beats"), texts.t("density.full")]
+                    tooltips: [texts.t("density.hint"), texts.t("density.hint"), texts.t("density.hint")]
+                    currentIndex: ctl.density - 1
+                    onActivated: function(index) { ctl.changeDensity(index + 1, ctl.densityFixed ? "fixed" : "free") }
+                }
             }
-            QQC2.Label { text: parent.fixedText; color: KanteStyle.textColor }
-            Item { Layout.fillWidth: true }
+            Row {
+                spacing: KanteStyle.unit(8)
+                height: KanteStyle.heightMedium
+                KanteSwitch {
+                    anchors.verticalCenter: parent.verticalCenter
+                    checked: ctl.densityFixed
+                    Accessible.name: densityRow.fixedText
+                    onToggled: ctl.changeDensity(ctl.density, checked ? "fixed" : "free")
+                }
+                QQC2.Label { anchors.verticalCenter: parent.verticalCenter; text: densityRow.fixedText; color: KanteStyle.textColor }
+            }
         }
 
         // Between runs only: Kontra suggests, the player decides (round 5).

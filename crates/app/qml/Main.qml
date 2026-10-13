@@ -24,7 +24,11 @@ Kirigami.ApplicationWindow {
     // Presentation mode of the practice page (LH-ANZ-09): full screen, no sidebar.
     property bool presenting: false
     property int visibilityBefore: Window.Windowed
-    onPresentingChanged: {
+    // Narrow windows take the sidebar as an overlay; it starts closed (QA 14.10.: at 700 px it
+    // stayed open over the page, whose right side ran off the window).
+    onWideScreenChanged: if (!wideScreen) globalDrawer.close()
+
+        onPresentingChanged: {
         if (presenting) {
             globalDrawer.close()
             visibilityBefore = visibility
@@ -262,6 +266,8 @@ Kirigami.ApplicationWindow {
     }
 
     Component.onCompleted: {
+        if (!wideScreen)
+            globalDrawer.close()
         // No --page: the assistant on first start, else practice for an opened file or the start page.
         var first = ctl.startPage
         if (first === "") {
