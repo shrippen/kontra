@@ -459,9 +459,62 @@ impl Core {
         json!({
             "last": last,
             "next": next,
+            "spots": self.hard_spots(&store, now),
             "week": { "minutes": minutes, "runs": week.len() },
         })
         .to_string()
+    }
+
+    /// "Spots from yesterday" (round 11, DIDAKTIK: places come back over days): from the piece
+    /// practised last in the recent days, the bars that were among the hardest most often (ties:
+    /// the later one). Runs of the last hours wait; a place comes back after a night.
+    ///
+    /// ```text
+    /// now − 3 days ─────────── runs that count ─────────── now − 8 h ── today's runs ── now
+    /// ```
+    fn hard_spots(&self, store: &ProgressStore, now: u64) -> Option<serde_json::Value> {
+        let from = now.saturating_sub(SPOT_DAYS * SECONDS_PER_DAY);
+        let until = now.saturating_sub(SPOT_REST_S);
+        let counts = |r: &Run| r.finished_unix > from && r.finished_unix <= until;
+        let (song, runs) = store
+            .all()
+            .into_iter()
+            .filter_map(|p| {
+                let runs: Vec<Run> = p
+                    .runs
+                    .into_iter()
+                    .filter(|r| counts(r) && !r.hardest_bars.is_empty())
+                    .collect();
+                let latest = runs.iter().map(|r| r.finished_unix).max()?;
+                Some((latest, p.song_id, runs))
+            })
+            .max_by_key(|(latest, _, _)| *latest)
+            .map(|(_, song, runs)| (song, runs))?;
+        let entry = self.library.recent.iter().find(|e| e.song_id == song)?;
+        if !entry.path.exists() {
+            return None;
+        }
+
+        // Per bar: how often it was among the hardest, and when last.
+        let mut bars: Vec<(u32, usize, u64)> = Vec::new();
+        for run in &runs {
+            for bar in &run.hardest_bars {
+                match bars.iter_mut().find(|(b, _, _)| b == bar) {
+                    Some(seen) => {
+                        seen.1 += 1;
+                        seen.2 = seen.2.max(run.finished_unix);
+                    }
+                    None => bars.push((*bar, 1, run.finished_unix)),
+                }
+            }
+        }
+        bars.sort_by_key(|(_, n, last)| std::cmp::Reverse((*n, *last)));
+        let picked: Vec<u32> = bars.iter().take(SPOTS).map(|(b, _, _)| *b).collect();
+        Some(json!({
+            "path": entry.path,
+            "title": self.library_title(entry),
+            "bars": picked,
+        }))
     }
 
     /// Bars of the sections practised in the piece with `song_id`, as the library knows them.
@@ -2961,6 +3014,11 @@ impl Core {
 const HISTORY_DAYS: u64 = 30;
 /// Days the start page sums up as "this week".
 const WEEK_DAYS: u64 = 7;
+/// "Spots from yesterday": runs of the last days count, the last hours wait (one night).
+const SPOT_DAYS: u64 = 3;
+const SPOT_REST_S: u64 = 8 * 60 * 60;
+/// Bars on the card.
+const SPOTS: usize = 2;
 /// A bundled exercise sits above the workshop's target band (80–90 %, round 5).
 const MASTERED_RATE: f64 = 0.9;
 
@@ -4450,6 +4508,49 @@ mod tests {
         assert_eq!(first_level["mastered"], 1);
         assert_eq!(first_level["items"][0]["mastered"], true);
         assert_eq!(first_level["items"][1]["mastered"], false);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// "Spots from yesterday" (round 11): the two bars hardest most often in the last days, from
+    /// the piece practised last; today's runs wait for a night, older ones are gone.
+    #[test]
+    fn home_offers_yesterdays_spots() {
+        let dir = temp_dir("spots");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let day = SECONDS_PER_DAY;
+        let now = 100 * day;
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let path = levels[0]["items"][0]["path"].as_str().unwrap().to_string();
+        core.open(Path::new(&path)).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let run = |unix, bars: &[u32]| Run {
+            finished_unix: unix,
+            practice_s: 60.0,
+            speed: 1.0,
+            hit_rate: 0.6,
+            mode: "song".into(),
+            section: None,
+            hardest_bars: bars.to_vec(),
+        };
+        let spots = |core: &Core| {
+            let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
+            home["spots"].clone()
+        };
+        assert!(spots(&core).is_null(), "no runs");
+
+        let store = core.progress_store();
+        store.record(&a, run(now - 2 * day, &[3, 5])).unwrap();
+        store.record(&a, run(now - day, &[5, 2])).unwrap();
+        store.record(&a, run(now - 10 * day, &[7, 7])).unwrap();
+        store.record(&a, run(now - 3600, &[9, 9])).unwrap();
+        let found = spots(&core);
+        assert_eq!(found["path"], path.as_str());
+        assert_eq!(
+            found["bars"],
+            serde_json::json!([5, 2]),
+            "most often, then latest"
+        );
+        assert!(!found["title"].as_str().unwrap().is_empty());
         let _ = std::fs::remove_dir_all(dir);
     }
 

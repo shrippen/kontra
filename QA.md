@@ -51,7 +51,7 @@ Erwartet: Anweisung in Worten („etwas höher drehen“) und Symbol; Erfolg pro
 **J-A3 Latenz kalibrieren** ⚙ · Persona: P3 Mira · Phase 1 · LH-EIN-05, -07
 1. Einstellungen → Eingang → Kalibrieren, „Spiel auf den Klick“.
 2. Nach vier Klicks Vorzähler acht Anschläge mit +40 ms Versatz einspeisen.
-3. Song-Modus, pünktlich gespielte Aufnahme einspeisen.
+3. Modus „Durchlauf“, pünktlich gespielte Aufnahme einspeisen.
 4. PipeWire-Quantum auf 2048 setzen, Kontra neu starten.
 Erwartet: gemessene Latenz ≈ 40 ms angezeigt; danach Bewertung pünktlich (±5 ms); bei Quantum 2048 Hinweis mit Wert und Anleitung.
 
@@ -64,7 +64,7 @@ Erwartet: „MIDI-Instrument“ ist wählbar und nennt das erkannte Keyboard (oh
 **J-B1 Lied durchspielen** ⚙ 📽 · Persona: P2 Jens · Phase 1 · LH-BIB-01, -04, LH-MOD-01, LH-WIE-03, LH-EIN-08, LH-ANZ-01, -02
 1. Ordner mit vier Guitar-Pro-Dateien der Setlist importieren (eine davon defekt).
 2. Setlist „Freitag“ anlegen, erstes Lied, Bassspur wählen.
-3. Modus Spielen, Backing Track (synthetisch bzw. ab Phase 3 eigene MP3), durchspielen; im Mixer (X) Backing leiser, Metronom lauter, Mithören an, Tiefen +4 dB, Kompressor und Wärme halb, „Neutral“, Mithören aus.
+3. Modus „Frei spielen“, Backing Track (synthetisch bzw. ab Phase 3 eigene MP3), durchspielen; im Mixer (X) Backing leiser, Metronom lauter, Mithören an, Tiefen +4 dB, Kompressor und Wärme halb, „Neutral“, Mithören aus.
 4. Mitten im Lied von Tab-Lane auf Tabulatur umschalten.
 5. Nächstes Lied der Setlist.
 Erwartet: eine verständliche Meldung zur defekten Datei, drei Lieder importiert; kein Anhalten, keine Punkte; Mixer wirkt sofort ohne Neustart, Mithören nennt die Latenz; Klangregler knacken nicht und ändern die Bewertung nicht; Umschalten ohne Aussetzer; Liedwechsel in ≤ 2 Klicks.
@@ -76,7 +76,7 @@ Erwartet: eine verständliche Meldung zur defekten Datei, drei Lieder importiert
 Erwartet: Lied wartet ohne Zeitdruck; falscher Ton wird freundlich angezeigt (welcher Ton gespielt, welcher erwartet, in Worten und Symbol); nach der Pause kein Abbruch.
 
 **J-B3 Refrain sitzt bis Freitag** ⚙ · Persona: P2 Jens · Phase 1 · LH-MOD-04, -05, -06, -07, LH-WIE-01, LH-BEW-03
-1. Song-Modus, Lied 3 durchspielen; Auswertung zeigt schwierigste Takte.
+1. Modus „Durchlauf“, Lied 3 durchspielen; Auswertung zeigt schwierigste Takte.
 2. Auf den schwierigsten Takt klicken → Riff-Werkstatt mit diesem Bereich.
 3. Tempo 60 %, automatische Anpassung an das Zielband 80–90 % Treffer, Vorzähler an.
 4. Fehlerfreie Durchläufe einspeisen bis 100 %.
@@ -92,7 +92,7 @@ Erwartet: Cent-Werte pro Note weichen ≤ 3 Cent vom annotierten Wert ab; B0 bis
 
 **J-B5 Unterricht am Beamer** 📽 🔍 · Persona: P4 Thomas · Phase 1 (Präsentationsmodus Phase 2) · LH-ANZ-02, -04, -09, LH-ALL-02, LH-MOD-07
 1. Auflösung 1280×720, Schrift 150 %.
-2. Übung öffnen, kombinierte Ansicht Noten über Tab, Spielen-Modus.
+2. Übung öffnen, kombinierte Ansicht Noten über Tab, Modus „Frei spielen“.
 3. Stil auf Kante Light wechseln (heller Raum).
 4. Präsentation (F5 oder Knopf neben dem Mixer), durchspielen, mit Esc beenden.
 Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreichend; in der Präsentation Vollbild ohne Seitenleiste, nur Titel, Noten und Transport, Notenlinien größer; Esc stellt das Fenster wieder her wie vorher.
@@ -102,14 +102,15 @@ Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreich
 **J-C1 Erste Woche** · Persona: P1 Lea · Phase 1 (adaptive Schwierigkeit Phase 2) · LH-FOR-01, LH-MOD-06, LH-BEW-04
 1. An fünf Tagen je zehn Minuten üben (simuliert über Datumsfortschreibung).
 2. Kontra öffnen: die Startseite nennt das zuletzt gespielte Stück, die nächste Übung, die noch nicht sitzt, und die
-   Minuten der letzten sieben Tage; jedes mit einem Klick erreichbar.
+   Minuten der letzten sieben Tage; jedes mit einem Klick erreichbar. Nach einer Nacht zeigt „Wiederholen“ die zwei
+   Takte, die in den letzten drei Tagen am häufigsten am schwersten waren; ein Klick öffnet den Takt in der Werkstatt.
 3. Fortschrittsansicht öffnen.
 Erwartet: Übungszeit und Verbesserung sichtbar; Formulierungen ermutigend, keine Rangliste; ohne Suchen weiterüben.
 Liegt eine Übung nach dem Lauf über 90 %, bietet die Auswertung die nächste im Plan an; die Übungsliste zeigt sie mit
 Häkchen.
 
 **J-C2 Timing-Tendenz** ⚙ · Persona: P3 Mira · Phase 1 · LH-BEW-03, LH-FOR-02
-1. Aufnahme mit konstanter Tendenz „18 ms zu früh“ im Song-Modus.
+1. Aufnahme mit konstanter Tendenz „18 ms zu früh“ im Modus „Durchlauf“.
 2. Auswertung lesen.
 Erwartet: Histogramm mit Achse und Legende; Tendenz in Worten („meist 18 ms zu früh“).
 
@@ -126,7 +127,7 @@ Erwartet: Notensatz wie in MuseScore; Streuung in ms; generierte Übung speicher
 Erwartet: Töne während der Vorgabe zählen nicht; jeder gespielte Ton hat Haken oder Kreuz, ein falscher sagt „zu hoch“ oder „zu tief“; gelöst nennt Kontra, was es war (Töne, Intervall, Akkord) und zeigt, wo es am Griffbrett liegt; beim Grundton zählt jede Oktave; ohne Ausgang ein Hinweis statt Stille.
 
 **J-C5 Techniken üben** ⚙ · Personas: P3 Mira, P4 Thomas · Phase 4 · LH-BEW-06
-1. Mira: Groove aus MuseScore (MusicXML) mit Hammer-on, Pull-off, Slide, Dead Notes (x) und einer Ghost Note ( ), Song-Modus.
+1. Mira: Groove aus MuseScore (MusicXML) mit Hammer-on, Pull-off, Slide, Dead Notes (x) und einer Ghost Note ( ), Modus „Durchlauf“.
 2. Mit den Techniken spielen, eine Dead Note aber normal anschlagen.
 3. Auswertung lesen; Thomas zeigt sie am Beamer, Tab-Lane und Tabulatur.
 Erwartet: jede Technik-Note hat ein Zeichen (h, p, sl, x, Klammer) und danach ein Ergebnis in Form, nicht nur Farbe; das Slide-Zeichen und sein Ergebnis stehen an der Ausgangsnote wie in gedruckter Tabulatur; die Ghost Note ( ) hat nur ihr Zeichen, kein Technik-Ergebnis; die Auswertung zählt je Technik („Dead Note: 1 von 2“), die Trefferquote bleibt davon unberührt (die normal angeschlagene Dead Note trifft, eine gedämpft gespielte auch, ohne Tonhöhe; Palm Mute hat eine Tonhöhe und wird an ihr gemessen); Hammer-on- und Pull-off-Töne sind keine zusätzlichen Noten; am Mikrofon sagt die Auswertung, dass Slap und Pop nicht bewertet werden.
@@ -151,12 +152,12 @@ Erwartet: identische Darstellung und Loop-Bereiche; Audio wird nur mitgegeben, w
 
 **J-E1 Synth-Bass über MIDI** ⚙ · Persona: P5 Aylin · Phase 4 · LH-EIN-12
 1. MIDI-Keyboard als Eingang (Einstellungen → Anschluss „MIDI-Instrument“), Instrument „Bass über MIDI“. Zwei Keyboards angesteckt: unter „MIDI-Gerät“ das zweite wählen, Kontra neu starten, dann das zweite abziehen.
-2. Funk-Groove im Song-Modus, Ansicht Klaviatur (Alt+5).
+2. Funk-Groove im Modus „Durchlauf“, Ansicht Klaviatur (Alt+5).
 Erwartet: Timing aus MIDI-Zeitstempeln, gleiche Auswertung wie beim E-Bass. Die Wahl des Keyboards bleibt nach dem Neustart; fehlt es, nennt Anschluss das Keyboard, das Kontra stattdessen nimmt. Die Noten fallen auf die Tasten, die nächste ist auf der Klaviatur markiert; die Tasten reichen über den Umfang des Basses (4 Saiten: E1–G4), Tastennamen in der Oberflächensprache (H statt B). Der automatische Test spielt eine MIDI-Datei wie ein Keyboard ein und prüft, dass jede Note auf einer gezeigten Taste liegt.
 
 **J-E2 Kontrabass im Wohnzimmer** ⚙ 🔍 · Persona: P6 Karl · Phase 4 · LH-EIN-11, LH-NF-03, LH-NF-06
 1. USB-Mikrofon, Instrument Kontrabass, keine Kopfhörer, Backing Track über Lautsprecher.
-2. Standard im Spielen-Modus, Notenansicht, Schrift 150 %.
+2. Standard im Modus „Frei spielen“, Notenansicht, Schrift 150 %.
 3. Auf Mindest-Hardware.
 Erwartet: Hinweis, dass die Toleranzen weiter sind; Trefferquote ≥ 90 % auf dem Testkorpus; Lane flüssig. Testkorpus: `room-double` (ohne Band, erfüllt) und `room-double-backing` (Band aus den Lautsprechern, mit Abzug erfüllt).
 
@@ -175,5 +176,5 @@ Erwartet: keine rohen Schlüssel, kein Sprachmix, Fachbegriffe in beiden Sprache
 
 **J-F3 Störungen** · Persona: P2 Jens · Phase 1 · LH-ALL-04, LH-NF-04
 1. Während des Spielens das Interface abziehen, wieder anstecken (10-mal).
-2. 60 Minuten Spielen-Modus mit Time-Stretch auf Mindest-Hardware.
+2. 60 Minuten Modus „Frei spielen“ mit Time-Stretch auf Mindest-Hardware.
 Erwartet: kein Absturz, klare Meldung, Interface wird wieder genutzt; Xrun-Zähler 0.

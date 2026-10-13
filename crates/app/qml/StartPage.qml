@@ -12,7 +12,7 @@ Kirigami.ScrollablePage {
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
-    property var summary: ({ last: null, next: null, week: { minutes: 0, runs: 0 } })
+    property var summary: ({ last: null, next: null, spots: null, week: { minutes: 0, runs: 0 } })
     readonly property bool sameAsLast: summary.next !== null && summary.last !== null
         && summary.next.path === summary.last.path
 
@@ -24,6 +24,17 @@ Kirigami.ScrollablePage {
             // No clear bass track: the library asks which one (it shows the choice).
             applicationWindow().show("library")
         }
+    }
+    // A spot from the last days: the piece in the workshop, looping that bar.
+    function practise(path, bar) {
+        if (!ctl.openFile(path)) {
+            if (JSON.parse(ctl.trackChoicesJson).length > 0)
+                applicationWindow().show("library")
+            return
+        }
+        ctl.changeMode("workshop")
+        ctl.loopBars(bar - 1, bar - 1)
+        applicationWindow().show("practice")
     }
     function bestText(best) {
         return best !== null && best >= 0
@@ -114,6 +125,27 @@ Kirigami.ScrollablePage {
                     text: texts.t("home.exercises")
                     emphasis: KanteButton.Emphasis.Quiet
                     onClicked: applicationWindow().show("exercises")
+                }
+            }
+        }
+
+        // Round 11, "spots from yesterday": the bars that were hardest in the last days come back
+        // after a night (DIDAKTIK: spaced repetition), each one click from the workshop.
+        KanteHintCard {
+            Layout.fillWidth: true
+            visible: page.summary.spots !== null
+            tier: KanteHintCard.Tier.Blue
+            tierText: texts.t("home.spots.tier")
+            titleText: page.summary.spots ? page.summary.spots.title : ""
+            text: texts.t("home.spots.text")
+            Repeater {
+                model: page.summary.spots ? page.summary.spots.bars : []
+                delegate: KanteButton {
+                    required property int modelData
+                    required property int index
+                    text: texts.t("home.spots.bar", { bar: modelData })
+                    emphasis: index === 0 ? KanteButton.Emphasis.Normal : KanteButton.Emphasis.Quiet
+                    onClicked: page.practise(page.summary.spots.path, modelData)
                 }
             }
         }
