@@ -4,7 +4,8 @@ import "."
 
 /**
  * The sign of a playing technique (Kante 1.31, for Kontra), as written in bass tab: slide
- * "sl", hammer-on "h", pull-off "p", slap "S", pop "P", ghost note "( )". With a `result`
+ * "sl", hammer-on "h", pull-off "p", slap "S", pop "P", ghost note "( )", dead note "x"
+ * (1.32: muted, no pitch; the tab writes x for its fret). With a `result`
  * it also says how the technique was played, by shape and not by colour alone:
  *
  *   ""         the sign alone (what the score asks for), muted
@@ -12,7 +13,7 @@ import "."
  *   "other"    a solid frame, the sign struck through by a diagonal (another technique)
  *   "unheard"  a dashed frame, the sign struck through (nothing heard for the note)
  *
- *   technique  key: "slide", "hammer", "pull", "slap", "pop", "ghost"; anything else
+ *   technique  key: "slide", "hammer", "pull", "slap", "pop", "ghost", "dead"; anything else
  *              draws nothing (`drawn` false)
  *   result     "", "played", "other", "unheard"
  *   color      `resultColor` by default: played as a hit, other as a wrong note, unheard
@@ -43,6 +44,7 @@ Item {
         case "slap": return "S"
         case "pop": return "P"
         case "ghost": return "( )"
+        case "dead": return "x"
         default: return ""
         }
     }
