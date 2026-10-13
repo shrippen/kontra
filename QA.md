@@ -50,7 +50,7 @@ Erwartet: Anweisung in Worten („etwas höher drehen“) und Symbol; Erfolg pro
 
 **J-A3 Latenz kalibrieren** ⚙ · Persona: P3 Mira · Phase 1 · LH-EIN-05, -07
 1. Einstellungen → Eingang → Kalibrieren, „Spiel auf den Klick“.
-2. Acht Anschläge mit +40 ms Versatz einspeisen.
+2. Nach vier Klicks Vorzähler acht Anschläge mit +40 ms Versatz einspeisen.
 3. Modus „Durchlauf“, pünktlich gespielte Aufnahme einspeisen.
 4. PipeWire-Quantum auf 2048 setzen, Kontra neu starten.
 Erwartet: gemessene Latenz ≈ 40 ms angezeigt; danach Bewertung pünktlich (±5 ms); bei Quantum 2048 Hinweis mit Wert und Anleitung.
@@ -160,6 +160,10 @@ Erwartet: Timing aus MIDI-Zeitstempeln, gleiche Auswertung wie beim E-Bass. Die 
 2. Standard im Modus „Frei spielen“, Notenansicht, Schrift 150 %.
 3. Auf Mindest-Hardware.
 Erwartet: Hinweis, dass die Toleranzen weiter sind; Trefferquote ≥ 90 % auf dem Testkorpus; Lane flüssig. Testkorpus: `room-double` (ohne Band, erfüllt) und `room-double-backing` (Band aus den Lautsprechern, mit Abzug erfüllt).
+
+**J-E3 Ton schwingt ein** ⚙ · Personas: P6 Karl, P3 Mira · Phase 4 · LH-BEW-07
+1. Walking-Linie im Song-Modus auf einem Kontrabass, dessen Töne zu tief beginnen und in rund 100 ms auf ihre Tonhöhe steigen.
+Erwartet: Jede Note wird so schnell markiert wie sonst; eine Note, die beim Anschlag als falscher Ton gilt, wird binnen etwa 0,2 s zum Treffer. Keine zusätzlichen Noten (Hammer-on) für das Einschwingen. Der automatische Test spielt eine synthetische Linie (D2 E2 F2 G2, 140 Cent zu tief, 120 ms Anstieg).
 
 ## F. Querschnitt
 

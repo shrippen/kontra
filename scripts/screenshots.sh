@@ -26,8 +26,9 @@ DEMO=testdata/demo/etude-1.mid
 "$CLI" render "$DEMO" "$WORK/take.wav" --lead-in 2.4 --offset-ms 20 --wrong-every 7 > /dev/null
 # The technique groove (LH-BEW-06) played with its techniques, every fourth one plucked.
 "$CLI" render testdata/demo/groove-techniken.musicxml "$WORK/techniques.wav" --lead-in 2.0 --techniques --plain-every 4 > /dev/null
-# Eight plucks on the calibration clicks (1 s after the input starts, 0.6 s apart), 40 ms late.
-"$CLI" render testdata/demo/clicks.mid "$WORK/clicks.wav" --lead-in 1.0 --offset-ms 40 > /dev/null
+# Eight plucks on the calibration clicks (3 s after the input starts, after the count-in, 0.6 s
+# apart), 40 ms late.
+"$CLI" render testdata/demo/clicks.mid "$WORK/clicks.wav" --lead-in 3.0 --offset-ms 40 > /dev/null
 
 shot() {
     local name="$1" lang="$2" after="$3"
@@ -45,7 +46,7 @@ for lang in de en; do
     shot settings "$lang" 1500 --page settings
     shot tuner "$lang" 4000 --page tuner --input-file "$WORK/take.wav"
     shot ear "$lang" 3800 --page ear --input-file "$WORK/take.wav"
-    shot calibration "$lang" 7500 --page settings --input-file "$WORK/clicks.wav" --calibrate
+    shot calibration "$lang" 9500 --page settings --input-file "$WORK/clicks.wav" --calibrate
     shot practice-tab "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --view tab
     shot practice-notation "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --view notation
     shot practice-combined "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay --view combined

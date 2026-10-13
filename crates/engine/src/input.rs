@@ -284,12 +284,17 @@ impl Analysis {
         self.send_revisions(events);
     }
 
-    /// Techniques told late, on the same clock as the notes.
+    /// Techniques and pitches told late, on the same clock as the notes.
     fn send_revisions(&self, events: &Sender<Event>) {
         for revision in self.tracker.revised() {
             let mut revision = *revision;
             revision.onset_s += self.start_s;
             let _ = events.send(Event::Technique(revision));
+        }
+        for revision in self.tracker.pitch_revised() {
+            let mut revision = *revision;
+            revision.onset_s += self.start_s;
+            let _ = events.send(Event::Pitch(revision));
         }
     }
 }

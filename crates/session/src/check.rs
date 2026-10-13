@@ -25,6 +25,8 @@ const COUNT_IN_BEATS: f64 = 4.0;
 /// Silence kept after the last note, for its decay.
 const TAIL_BEATS: f64 = 2.0;
 const MS_PER_S: f64 = 1000.0;
+/// A heard note counts for the player's offset this close to its beat (a third of a beat).
+const PLAYER_WINDOW_S: f64 = 0.25;
 /// Concert pitch of the planned tones.
 const A4_HZ: f64 = 440.0;
 
@@ -279,19 +281,53 @@ impl CheckTake {
     }
 
     /// The corpus annotation of a take: each note at its beat plus the player's latency (what
-    /// "play on the click" measured), in seconds from the take's first sample.
+    /// "play on the click" measured) and the player's own offset in this take, in seconds from
+    /// the take's first sample.
     pub fn annotate(&self, take: &Take, latency_ms: f64) -> Vec<Annotation> {
-        let beat_s = 60.0 / CHECK_BPM;
-        self.notes
-            .iter()
-            .map(|n| Annotation {
-                onset_s: (COUNT_IN_BEATS + n.beat) * beat_s + latency_ms / MS_PER_S - take.start_s,
+        let shift_s = self.player_offset_ms(take, latency_ms).unwrap_or(0.0) / MS_PER_S;
+        self.planned_s(latency_ms)
+            .zip(&self.notes)
+            .map(|(at_s, n)| Annotation {
+                onset_s: at_s + shift_s - take.start_s,
                 midi: f64::from(n.midi),
                 technique: n.technique,
                 // Each slide's arrival is a note of its own here, not IDMT's unannotated target.
                 slide_cents: None,
             })
             .collect()
+    }
+
+    /// How far the player was off the beat in this take: the median distance from each note to
+    /// the nearest heard note of its pitch class. Without it a player 95 ms early (hardware check
+    /// 13.10., with a count-in, while the calibration had none) halves the measured recall, and
+    /// the corpus measures the player instead of the detection. `None`: under half the notes
+    /// heard.
+    pub fn player_offset_ms(&self, take: &Take, latency_ms: f64) -> Option<f64> {
+        let mut offsets: Vec<f64> = self
+            .planned_s(latency_ms)
+            .zip(&self.notes)
+            .filter_map(|(at_s, n)| {
+                take.notes
+                    .iter()
+                    .filter(|h| same_pitch_class(h.midi, n.midi))
+                    .map(|h| h.onset_s - at_s)
+                    .filter(|d| d.abs() <= PLAYER_WINDOW_S)
+                    .min_by(|a, b| a.abs().total_cmp(&b.abs()))
+            })
+            .collect();
+        if offsets.len() * 2 < self.notes.len() {
+            return None;
+        }
+        offsets.sort_by(f64::total_cmp);
+        Some(offsets[offsets.len() / 2] * MS_PER_S)
+    }
+
+    /// Plan time of each note: its beat after the count-in plus the latency.
+    fn planned_s(&self, latency_ms: f64) -> impl Iterator<Item = f64> + '_ {
+        let beat_s = 60.0 / CHECK_BPM;
+        self.notes
+            .iter()
+            .map(move |n| (COUNT_IN_BEATS + n.beat) * beat_s + latency_ms / MS_PER_S)
     }
 }
 
@@ -465,5 +501,26 @@ mod tests {
             (35.0, Some(Technique::HammerOn))
         );
         assert_eq!(takes[3].notes[0].midi, 50, "pop: D3 on the G string");
+    }
+
+    // Hardware check 13.10.: with a count-in the player came 95 ms early on every note.
+    #[test]
+    fn annotation_follows_the_players_offset() {
+        let open = &check_takes()[0];
+        let early: Vec<_> = open
+            .notes
+            .iter()
+            .map(|n| {
+                let mut h = heard((COUNT_IN_BEATS + n.beat) * 0.75 + 0.020 - 0.095);
+                h.midi = f64::from(n.midi);
+                h
+            })
+            .collect();
+        let played = take(early, -1.0);
+        let offset = open.player_offset_ms(&played, 20.0).unwrap();
+        assert!((offset + 95.0).abs() < 1e-6, "{offset}");
+        let a = open.annotate(&played, 20.0);
+        assert!((a[0].onset_s - (4.02 - 0.095)).abs() < 1e-9, "{:?}", a[0]);
+        assert_eq!(open.player_offset_ms(&take(Vec::new(), -1.0), 20.0), None);
     }
 }

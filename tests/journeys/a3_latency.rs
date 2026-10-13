@@ -8,10 +8,11 @@ use kontra_model::{Arrangement, Instrument, Note, Pitch, TempoMap, TICKS_PER_QUA
 use std::time::Duration;
 
 const LATENCY_MS: f64 = 40.0;
-/// The calibration's clicks: eight quarters at 100 BPM, one second after the input starts.
+/// The calibration's measured clicks: eight quarters at 100 BPM, 3 s after the input starts
+/// (after the count-in).
 const CLICK_BPM: f64 = 100.0;
 const CLICKS: u64 = 8;
-const CLICK_LEAD_S: f64 = 1.0;
+const CLICK_LEAD_S: f64 = 3.0;
 const RIFF: [u8; 8] = [28, 33, 38, 43, 28, 33, 38, 43];
 
 fn late(ms: f64) -> kontra_session::Mistakes {
@@ -43,7 +44,7 @@ fn calibrated_latency_makes_late_notes_on_time() {
 
     let mut core = profile.core(Some(&plucks));
     core.start_calibration().unwrap();
-    let events = run_until(&mut core, Duration::from_secs(8), |e| {
+    let events = run_until(&mut core, Duration::from_secs(12), |e| {
         matches!(e, UiEvent::Calibrated { .. })
     });
     let measured = events.iter().find_map(|e| match e {

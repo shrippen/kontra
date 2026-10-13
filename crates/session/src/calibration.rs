@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 
 pub const CLICKS: usize = 8;
 pub const INTERVAL_S: f64 = 0.6;
+/// Clicks before the measured ones: musicians wait for a count-in.
+pub const COUNT_IN: usize = 4;
 /// A detection belongs to the nearest click within this distance.
 const MATCH_S: f64 = 0.25;
 /// At least this many plucks must be matched.
@@ -43,6 +45,14 @@ impl Calibration {
 
     pub fn clicks(&self) -> &[f64] {
         &self.clicks
+    }
+
+    /// The count-in, one bar before the first measured click; plucks there are not measured.
+    pub fn count_in(&self) -> Vec<f64> {
+        let first = self.clicks.first().copied().unwrap_or(0.0);
+        (0..COUNT_IN)
+            .map(|i| first - (COUNT_IN - i) as f64 * INTERVAL_S)
+            .collect()
     }
 
     /// When the last pluck can have arrived.
@@ -118,6 +128,16 @@ mod tests {
         };
         assert!((latency_ms - 40.5).abs() < 1.0, "{latency_ms}");
         assert!(spread_ms < 3.0);
+    }
+
+    // Hardware check 13.10.: without a count-in the player waited four clicks and missed half.
+    #[test]
+    fn count_in_comes_before_the_measured_clicks() {
+        let c = Calibration::new(3.0);
+        let count_in = c.count_in();
+        assert_eq!(count_in.len(), COUNT_IN);
+        assert!((count_in[0] - (3.0 - COUNT_IN as f64 * INTERVAL_S)).abs() < 1e-9);
+        assert!((c.clicks()[0] - count_in[COUNT_IN - 1] - INTERVAL_S).abs() < 1e-9);
     }
 
     #[test]

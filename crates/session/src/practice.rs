@@ -238,6 +238,10 @@ impl<O: Output> Practice<O> {
                 self.session.on_revision(&revision);
                 None
             }
+            Event::Pitch(revision) => {
+                self.session.on_pitch_revision(&revision);
+                None
+            }
             Event::Level {
                 peak_db,
                 rms_db,
