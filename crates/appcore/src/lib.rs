@@ -1125,6 +1125,14 @@ impl Core {
         self.loaded.as_ref().map(|l| &l.arrangement)
     }
 
+    /// Title of the loaded piece: a bundled exercise in the UI's language, else as in the file.
+    pub fn loaded_title(&self) -> String {
+        self.loaded_path()
+            .and_then(|p| self.plan_title(p))
+            .or_else(|| self.arrangement().map(|a| a.title.clone()))
+            .unwrap_or_default()
+    }
+
     pub fn loaded_path(&self) -> Option<&Path> {
         self.loaded.as_ref().map(|l| l.path.as_path())
     }
@@ -4500,6 +4508,22 @@ mod tests {
         core.progress_store().record(&a, run).unwrap();
         let progress: serde_json::Value = serde_json::from_str(&core.progress_json()).unwrap();
         assert_eq!(progress["pieces"][0]["title"], item["title"]);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The practice page's heading names a bundled exercise in the UI's language too.
+    #[test]
+    fn loaded_title_follows_the_language() {
+        let dir = temp_dir("loadedtitle");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("en".into()));
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let item = &levels[0]["items"][0];
+        core.open(Path::new(item["path"].as_str().unwrap()))
+            .unwrap();
+        assert_eq!(core.loaded_title(), item["title"].as_str().unwrap());
+        core.open(&Core::demo_path()).unwrap();
+        assert_eq!(core.loaded_title(), core.arrangement().unwrap().title);
         let _ = std::fs::remove_dir_all(dir);
     }
 
