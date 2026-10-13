@@ -26,6 +26,7 @@ Kirigami.ApplicationWindow {
     property int visibilityBefore: Window.Windowed
     onPresentingChanged: {
         if (presenting) {
+            globalDrawer.close()
             visibilityBefore = visibility
             showFullScreen()
             return
@@ -133,9 +134,12 @@ Kirigami.ApplicationWindow {
     }
 
     globalDrawer: Kirigami.GlobalDrawer {
-        visible: !root.presenting
+        // In the presentation the sidebar leaves: "visible: false" alone kept its room and
+        // showed it (QA 14.10., P4 at the beamer). Modal and closed, it takes none.
         isMenu: false
-        modal: !root.wideScreen
+        modal: !root.wideScreen || root.presenting
+        // Its handle lay over the transport's time in the presentation.
+        handleVisible: !root.presenting && modal
         collapsible: true
         collapsed: !root.wideScreen
         // Grouped by what the player does: start; play pieces; learn; look back; tools. Setup lives

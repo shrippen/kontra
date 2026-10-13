@@ -671,7 +671,14 @@ Kirigami.Page {
                 // Smaller where one line does not fit (beamer at 150 %): cut off, its beams ran
                 // over the transport (G18). A KanteBassStaff line is 14.5 staff spaces, 16.5 with
                 // chord symbols.
-                staffSpace: Math.min(KanteStyle.unit(10) * page.presentScale, height / (hasChords ? 16.5 : 14.5))
+                // Two lines rather than one with room left under it, as long as their staff space
+                // keeps three quarters of the wanted one (QA 14.10., presentation at the beamer:
+                // two bars and a third of the screen empty).
+                staffSpace: {
+                    var wanted = KanteStyle.unit(10) * page.presentScale
+                    var line = height / (hasChords ? 16.5 : 14.5)
+                    return Math.min(wanted, line / 2 >= wanted * 0.75 ? line / 2 : line)
+                }
                 // As many lines as fit, as in the tablature (QA 13.10.: one line, the rest empty).
                 systems: Math.max(1, Math.floor(height / systemHeight))
                 visible: ctl.view === "notation"
