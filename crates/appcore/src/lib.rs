@@ -164,8 +164,9 @@ struct Loaded {
     /// All notes as imported; `arrangement` holds those of the current density (LH-MOD-06).
     full: Arrangement,
     arrangement: Arrangement,
-    /// All tracks of the file and the one played, so the player can switch (QA P2 R9).
-    tracks: Vec<String>,
+    /// The file's tracks a bass can play (index in the file, name) and the one played, so the
+    /// player can switch (QA P2 R9).
+    tracks: Vec<(usize, String)>,
     track: usize,
 }
 
@@ -215,7 +216,8 @@ pub struct Core {
 impl Core {
     pub fn new(data_dir: &Path, qa: QaOptions) -> Core {
         let settings: Settings = store::load(&data_dir.join("settings.json"));
-        let library: Library = store::load(&data_dir.join("library.json"));
+        let mut library: Library = store::load(&data_dir.join("library.json"));
+        library.plain_paths();
         let language = settings
             .language
             .as_deref()
@@ -265,12 +267,22 @@ impl Core {
 
     /// A note name as the user's language writes it: German says H for B (B is B♭ there).
     pub fn note_label(&self, name: &str) -> String {
-        match (self.catalog.language(), name.strip_prefix('B')) {
+        let name = match (self.catalog.language(), name.strip_prefix('B')) {
             // B♭ (spelled "Bb") is German B: "Bb2" → "B2", "Bbm" → "Bm".
             (Language::German, Some(rest)) if rest.starts_with('b') => format!("B{}", &rest[1..]),
             (Language::German, Some(rest)) => format!("H{rest}"),
             _ => name.to_string(),
-        }
+        };
+
+        // Printed signs, as in the notation: "A#2" → "A♯2", "Ebm" → "E♭m" (QA 13.10.).
+        name.chars()
+            .enumerate()
+            .map(|(i, c)| match (i, c) {
+                (_, '#') => '♯',
+                (1, 'b') => '♭',
+                _ => c,
+            })
+            .collect()
     }
 
     /// An import error in the user's language (QA P2: the English reason showed in German).
@@ -392,6 +404,65 @@ impl Core {
         self.progress_json_at(unix_now())
     }
 
+    /// In level order, the first bundled exercise whose best run is not above the workshop band,
+    /// apart from `skip` (the one just played): `{title, path, best, mastered, level}`.
+    fn next_exercise(&self, skip: Option<&Path>) -> Option<serde_json::Value> {
+        self.bundled_levels().into_iter().find_map(|level| {
+            let mut item = level["items"]
+                .as_array()?
+                .iter()
+                .filter(|i| skip.is_none_or(|p| i["path"].as_str() != p.to_str()))
+                .find(|i| i["best"].as_f64().unwrap_or(-1.0) < MASTERED_RATE)?
+                .clone();
+            item["level"] = level["level"].clone();
+            Some(item)
+        })
+    }
+
+    /// Start page: the last piece played, the first bundled exercise that does not sit yet
+    /// and the practice of the last seven days.
+    /// `{"last": {path, title, artist, best, practiceMin} | null,
+    ///   "next": {title, path, best, level} | null, "week": {minutes, runs}}`
+    pub fn home_json(&self) -> String {
+        self.home_json_at(unix_now())
+    }
+
+    fn home_json_at(&self, now: u64) -> String {
+        let store = self.progress_store();
+        let last = self
+            .library
+            .recent
+            .iter()
+            .max_by_key(|e| e.last_unix)
+            .map(|e| {
+                let progress = store.load_id(&e.song_id);
+                json!({
+                    "path": e.path,
+                    "title": self.library_title(e),
+                    "artist": e.artist,
+                    "best": progress.as_ref().and_then(|p| p.best_hit_rate()),
+                    "practiceMin": progress.as_ref().map_or(0.0, |p| p.practice_s() / 60.0),
+                })
+            });
+
+        let next = self.next_exercise(None);
+
+        let since = now.saturating_sub(WEEK_DAYS * SECONDS_PER_DAY);
+        let week: Vec<_> = store
+            .all()
+            .into_iter()
+            .flat_map(|p| p.runs)
+            .filter(|r| r.finished_unix > since)
+            .collect();
+        let minutes = week.iter().map(|r| r.practice_s).sum::<f64>() / 60.0;
+        json!({
+            "last": last,
+            "next": next,
+            "week": { "minutes": minutes, "runs": week.len() },
+        })
+        .to_string()
+    }
+
     /// Bars of the sections practised in the piece with `song_id`, as the library knows them.
     fn section_names(&self, song_id: &str) -> &[SectionBars] {
         self.library
@@ -399,6 +470,16 @@ impl Core {
             .iter()
             .find(|e| e.song_id == song_id)
             .map_or(&[], |e| e.sections.as_slice())
+    }
+
+    /// A piece's title for progress and report: a bundled exercise in the UI's language (the
+    /// stored `title` is the German progress key), else as stored.
+    fn song_title(&self, song_id: &str, title: &str) -> String {
+        self.library
+            .recent
+            .iter()
+            .find(|e| e.song_id == song_id)
+            .map_or_else(|| title.to_string(), |e| self.library_title(e))
     }
 
     fn progress_json_at(&self, now: u64) -> String {
@@ -409,7 +490,7 @@ impl Core {
             .map(|p| {
                 json!({
                     "songId": p.song_id,
-                    "title": p.title,
+                    "title": self.song_title(&p.song_id, &p.title),
                     "artist": p.artist,
                     "best": p.best_hit_rate(),
                     "bestSpeed": p.best_speed(0.9),
@@ -528,15 +609,23 @@ impl Core {
 
     /// Tracks of the loaded file and the one played: `{"names": [...], "current": i}`.
     pub fn tracks_json(&self) -> String {
-        let (names, current) = self
-            .loaded
-            .as_ref()
-            .map_or((Vec::new(), 0), |l| (l.tracks.clone(), l.track));
+        let (names, current) = self.loaded.as_ref().map_or((Vec::new(), 0), |l| {
+            let names: Vec<&String> = l.tracks.iter().map(|(_, n)| n).collect();
+            let current = l.tracks.iter().position(|(i, _)| *i == l.track);
+            (names, current.unwrap_or(0))
+        });
         json!({ "names": names, "current": current }).to_string()
     }
 
-    /// Plays another track of the loaded file (Kontra's guess may be the wrong one).
-    pub fn switch_track(&mut self, track: usize) -> Result<(), String> {
+    /// Plays another track of the loaded file (Kontra's guess may be the wrong one); `choice`
+    /// counts the tracks of `tracks_json`.
+    pub fn switch_track(&mut self, choice: usize) -> Result<(), String> {
+        let track = self
+            .loaded
+            .as_ref()
+            .and_then(|l| l.tracks.get(choice))
+            .map(|(i, _)| *i)
+            .ok_or("no such track")?;
         self.reload(track)
     }
 
@@ -858,13 +947,21 @@ impl Core {
         let (name, index) = self.active_setlist.as_ref()?;
         let list = self.library.setlists.iter().find(|s| &s.name == name)?;
         let path = list.pieces.get(index + 1)?;
-        Some(self.library.entry(path).map_or_else(
-            || {
-                path.file_stem()
-                    .map_or_else(String::new, |s| s.to_string_lossy().into())
-            },
-            |e| e.title.clone(),
-        ))
+        Some(self.piece_title(path))
+    }
+
+    /// A setlist piece's title: a bundled exercise as in the plan, else the library's title or
+    /// the file name.
+    fn piece_title(&self, path: &Path) -> String {
+        self.plan_title(path).unwrap_or_else(|| {
+            self.library.entry(path).map_or_else(
+                || {
+                    path.file_stem()
+                        .map_or_else(String::new, |s| s.to_string_lossy().into())
+                },
+                |e| e.title.clone(),
+            )
+        })
     }
 
     /// Opens the next piece of the active setlist.
@@ -886,7 +983,7 @@ impl Core {
                         let e = self.library.entry(p);
                         json!({
                             "path": p,
-                            "title": e.map_or_else(|| p.file_stem().map_or_else(String::new, |s| s.to_string_lossy().into()), |e| e.title.clone()),
+                            "title": self.piece_title(p),
                             "artist": e.map_or_else(String::new, |e| e.artist.clone()),
                             "missing": !p.exists(),
                         })
@@ -909,20 +1006,27 @@ impl Core {
             return self.open_package(path).map(|()| Opened::Ready);
         }
         let imported = import_file(path).map_err(|e| self.import_error(&e))?;
-        if let Some(track) = imported.suggested() {
+        // Without a clear bass track, the one chosen last time (still in the file) counts.
+        let chosen = self
+            .library
+            .entry(path)
+            .map(|e| e.track)
+            .filter(|t| *t < imported.tracks().len());
+        if let Some(track) = imported.suggested().or(chosen) {
             return self.load(path, &imported, track).map(|()| Opened::Ready);
         }
-        let names = imported
-            .tracks()
-            .iter()
-            .map(|t| t.name().to_string())
-            .collect();
+        let names = playable(&imported).map(|(_, n)| n).collect();
         self.pending = Some((path.to_path_buf(), imported));
         Ok(Opened::ChooseTrack(names))
     }
 
-    pub fn choose_track(&mut self, track: usize) -> Result<(), String> {
+    /// Loads the pending file's track `choice`, counted as in `Opened::ChooseTrack`.
+    pub fn choose_track(&mut self, choice: usize) -> Result<(), String> {
         let (path, imported) = self.pending.take().ok_or("nothing to choose from")?;
+        let track = playable(&imported)
+            .nth(choice)
+            .map(|(i, _)| i)
+            .ok_or("no such track")?;
         self.load(&path, &imported, track)
     }
 
@@ -1016,11 +1120,7 @@ impl Core {
             path: path.to_path_buf(),
             full: arrangement.clone(),
             arrangement,
-            tracks: imported
-                .tracks()
-                .iter()
-                .map(|t| t.name().to_string())
-                .collect(),
+            tracks: playable(imported).collect(),
             track,
         });
         self.rethin();
@@ -1029,6 +1129,14 @@ impl Core {
 
     pub fn arrangement(&self) -> Option<&Arrangement> {
         self.loaded.as_ref().map(|l| &l.arrangement)
+    }
+
+    /// Title of the loaded piece: a bundled exercise in the UI's language, else as in the file.
+    pub fn loaded_title(&self) -> String {
+        self.loaded_path()
+            .and_then(|p| self.plan_title(p))
+            .or_else(|| self.arrangement().map(|a| a.title.clone()))
+            .unwrap_or_default()
     }
 
     pub fn loaded_path(&self) -> Option<&Path> {
@@ -2115,8 +2223,18 @@ impl Core {
                     }
                     _ => {}
                 }
-                if let Some(c) = r.cents {
-                    parts.push(self.tr("summary.note.cents", &[("cents", format!("{c:+.0}"))]));
+                // A wrong note names what was played; cents only for the right note's intonation.
+                match (r.outcome, r.cents) {
+                    (Outcome::WrongPitch { played_midi }, _) => {
+                        let played =
+                            kontra_model::Pitch(played_midi.round().clamp(0.0, 127.0) as u8);
+                        let played = self.note_label(&played.to_string());
+                        parts.push(self.tr("summary.note.played", &[("played", played)]));
+                    }
+                    (_, Some(c)) => {
+                        parts.push(self.tr("summary.note.cents", &[("cents", format!("{c:+.0}"))]));
+                    }
+                    _ => {}
                 }
                 let technique = technique_of.get(&(pass, index));
                 if let Some(t) = technique {
@@ -2201,7 +2319,14 @@ impl Core {
                 json!({ "index": b, "number": number })
             })
             .collect();
+        // A bundled exercise that now sits: the next one is one click away.
+        let next = self
+            .loaded_path()
+            .filter(|p| p.parent().and_then(Path::parent) == Some(Self::exercises_dir().as_path()))
+            .filter(|_| s.hit_rate >= MASTERED_RATE)
+            .and_then(|p| self.next_exercise(Some(p)));
         json!({
+            "next": next,
             "hitRate": s.hit_rate,
             "hitRateText": self.tr("summary.hitrate", &[("percent", format!("{:.0}", s.hit_rate * 100.0))]),
             "countsText": self.tr("summary.counts", &[
@@ -2267,14 +2392,22 @@ impl Core {
         let installed = std::env::current_exe()
             .ok()
             .and_then(|e| e.parent().map(|p| p.join("../share/kontra/exercises")));
-        match installed {
+        let dir = match installed {
             Some(path) if path.is_dir() => path,
             _ => PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/exercises"),
-        }
+        };
+        // Without "..": progress is keyed by the path, and the same file opened from the file
+        // manager has its plain one.
+        std::fs::canonicalize(&dir).unwrap_or(dir)
     }
 
-    /// Bundled exercises by level: `[{"level": "1 Einstieg", "items": [{"title", "path", "best"}]}]`.
+    /// Bundled exercises by level: `[{"level", "mastered": 3, "items": [{"title", "path", "best",
+    /// "mastered"}]}]`; mastered: best above the workshop band (`MASTERED_RATE`).
     pub fn bundled_json(&self) -> String {
+        json!(self.bundled_levels()).to_string()
+    }
+
+    fn bundled_levels(&self) -> Vec<serde_json::Value> {
         let mut levels: Vec<PathBuf> = std::fs::read_dir(Self::exercises_dir())
             .map(|d| {
                 d.flatten()
@@ -2309,9 +2442,15 @@ impl Core {
                                 .map_or(stem.clone(), |(_, t)| t.to_string())
                         });
                         let best = self.best_rate(f);
-                        json!({ "title": title, "path": f.to_string_lossy(), "best": best })
+                        json!({
+                            "title": title,
+                            "path": f.to_string_lossy(),
+                            "best": best,
+                            "mastered": best >= MASTERED_RATE,
+                        })
                     })
                     .collect();
+                let mastered = items.iter().filter(|i| i["mastered"] == true).count();
                 let name = dir
                     .file_name()
                     .map_or(String::new(), |n| n.to_string_lossy().into_owned());
@@ -2319,28 +2458,29 @@ impl Core {
                 let level = name.split_once(' ').map_or(name.clone(), |(n, _)| {
                     self.tr(&format!("exercise.level.{n}"), &[])
                 });
-                json!({ "level": level, "items": items })
+                json!({ "level": level, "items": items, "mastered": mastered })
             })
             .collect();
-        json!(list).to_string()
+        list
     }
 
     /// A library entry's title; bundled exercises in the UI's language.
     fn library_title(&self, entry: &RecentEntry) -> String {
-        let bundled = entry
-            .path
+        self.plan_title(&entry.path)
+            .unwrap_or_else(|| entry.title.clone())
+    }
+
+    /// The title of a bundled exercise in the UI's language; `None` for any other file.
+    fn plan_title(&self, path: &Path) -> Option<String> {
+        let bundled = path
             .parent()
             .and_then(Path::parent)
             .is_some_and(|dir| dir == Self::exercises_dir());
-        let stem = entry
-            .path
-            .file_stem()
-            .map(|s| s.to_string_lossy().into_owned());
+        let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned());
         bundled
             .then_some(stem)
             .flatten()
             .and_then(|s| self.bundled_title(&s))
-            .unwrap_or_else(|| entry.title.clone())
     }
 
     /// The title of bundled exercise "NN …" in the UI's language, from its plan entry.
@@ -2472,6 +2612,19 @@ impl Core {
             .is_some_and(|q| q.answer(midi, &instrument))
     }
 
+    /// "3 of 4 found" over finished questions only: the open one is not lost yet (QA 13.10.: it
+    /// read "0 of 1 found" before the first answer). Nothing before the first one is finished.
+    fn quiz_score(&self, right: u32, asked: u32, solved: bool) -> String {
+        let done = asked - u32::from(!solved && asked > 0);
+        if done == 0 {
+            return String::new();
+        }
+        self.tr(
+            "quiz.score",
+            &[("right", right.to_string()), ("asked", done.to_string())],
+        )
+    }
+
     /// The question in words, the score, and once solved where the answer lies:
     /// `{"prompt", "right", "asked", "solved", "positions": [{string, fret, role}]}`.
     pub fn quiz_json(&self) -> String {
@@ -2531,7 +2684,7 @@ impl Core {
             "right": q.right,
             "asked": q.asked,
             "solved": q.solved,
-            "score": self.tr("quiz.score", &[("right", q.right.to_string()), ("asked", q.asked.to_string())]),
+            "score": self.quiz_score(q.right, q.asked, q.solved),
             "positions": positions,
         })
         .to_string()
@@ -2741,7 +2894,7 @@ impl Core {
             "total": question.answer.len(),
             "played": played,
             "reveal": reveal,
-            "score": self.tr("quiz.score", &[("right", q.right.to_string()), ("asked", q.asked.to_string())]),
+            "score": self.quiz_score(q.right, q.asked, q.solved),
             "positions": positions,
             "silent": self.live_ear.as_ref().is_some_and(LiveEar::output_is_silent),
         })
@@ -2757,7 +2910,12 @@ impl Core {
         let name: String = self
             .exercise_title(&exercise::describe(spec))
             .chars()
-            .map(|c| if matches!(c, '/' | ':' | '#') { '-' } else { c })
+            // ♯ and ♭ as before the printed signs, so a file made again keeps its name.
+            .map(|c| match c {
+                '/' | ':' | '#' | '♯' => '-',
+                '♭' => 'b',
+                _ => c,
+            })
             .collect();
         let path = dir.join(format!("{name}.mid"));
         std::fs::write(&path, &generated.midi).map_err(|e| e.to_string())?;
@@ -2770,10 +2928,12 @@ impl Core {
             e.parent()
                 .map(|p| p.join("../share/kontra/demo/etude-1.mid"))
         });
-        match installed {
+        let path = match installed {
             Some(path) if path.exists() => path,
             _ => PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/demo/etude-1.mid"),
-        }
+        };
+        // Without "..", as `exercises_dir`: progress is keyed by the path.
+        std::fs::canonicalize(&path).unwrap_or(path)
     }
 
     pub fn devices_json(&self, input: bool) -> String {
@@ -2797,6 +2957,10 @@ impl Core {
 
 /// Days of workshop history in the tempo chart (LH-FOR-02).
 const HISTORY_DAYS: u64 = 30;
+/// Days the start page sums up as "this week".
+const WEEK_DAYS: u64 = 7;
+/// A bundled exercise sits above the workshop's target band (80–90 %, round 5).
+const MASTERED_RATE: f64 = 0.9;
 
 const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
 
@@ -2854,6 +3018,16 @@ fn pick_midi(
 }
 
 /// Kante's key for a technique sign (KanteTechniqueMark); "" for those Kontra does not judge.
+/// The tracks a bass can play, as (index in the file, name): drum parts are no choice.
+fn playable(imported: &ImportResult) -> impl Iterator<Item = (usize, String)> + '_ {
+    imported
+        .tracks()
+        .iter()
+        .enumerate()
+        .filter(|(_, t)| !t.is_percussion())
+        .map(|(i, t)| (i, t.name().to_string()))
+}
+
 fn technique_key(technique: Technique) -> &'static str {
     match technique {
         Technique::Slide => "slide",
@@ -3483,7 +3657,7 @@ mod tests {
         let mut core = Core::new(&dir, QaOptions::default());
         core.update_settings(|s| s.language = Some("de".into()));
         assert_eq!(core.note_label("B1"), "H1");
-        assert_eq!(core.note_label("A#1"), "A#1");
+        assert_eq!(core.note_label("A#1"), "A♯1");
         assert_eq!(core.note_label("E2"), "E2");
         core.update_settings(|s| s.language = Some("en".into()));
         assert_eq!(core.note_label("B1"), "B1");
@@ -3760,6 +3934,56 @@ mod tests {
             (q["asked"].as_u64(), q["solved"].as_bool()),
             (Some(2), Some(false))
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA 13.10.: a wrong note says which note was played ("C2 gespielt"), not "+100 Cent":
+    /// the semitone distance read like an intonation error.
+    #[test]
+    fn wrong_note_names_the_played_note() {
+        let dir = temp_dir("wrong-note");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&demo()).unwrap();
+        let expected = core.arrangement().unwrap().notes[0].pitch;
+        let played = kontra_model::Pitch(expected.0 + 1);
+        let result = NoteResult {
+            pass: 0,
+            note: Some(0),
+            bar: Some(0),
+            outcome: Outcome::WrongPitch {
+                played_midi: f64::from(played.0) + 0.1,
+            },
+            offset_ms: Some(0.0),
+            cents: Some(110.0),
+            position_s: 0.0,
+        };
+        let notes = core.note_details(&[result], &[]);
+        let text = notes[0]["text"].as_str().unwrap();
+        let name = core.note_label(&played.to_string());
+        assert!(
+            text.contains(&core.tr("summary.note.played", &[("played", name)])),
+            "{text}"
+        );
+        assert!(!text.contains("Cent"), "{text}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA 13.10.: the open question is not counted. Before any answer there is no score (it read
+    /// "0 of 1 found"); a solved question counts, a skipped one counts once the next is asked.
+    #[test]
+    fn quiz_score_counts_finished_questions() {
+        let dir = temp_dir("quiz-score");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("en".into()));
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_start("notes")).unwrap();
+        assert_eq!(q["score"], "");
+        assert!((28..=55).any(|m| core.quiz_answer(f64::from(m))));
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_json()).unwrap();
+        assert_eq!(q["score"], "1 of 1 found");
+        core.quiz_next();
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_next()).unwrap();
+        assert_eq!(q["score"], "1 of 2 found");
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -4095,7 +4319,12 @@ mod tests {
             "{levels:?}"
         );
         for ((_, file, ex), title) in exercise::bundled().iter().zip(&items) {
-            let german = ex.title.replace("in Bb", "in B");
+            let german = ["Eb", "Ab", "Db", "Gb"]
+                .iter()
+                .fold(ex.title.replace("in Bb", "in B"), |t, k| {
+                    t.replace(&format!("in {k}"), &format!("in {}♭", &k[..1]))
+                })
+                .replace('#', "♯");
             assert_eq!(title, &german, "{file}");
         }
         let _ = std::fs::remove_dir_all(dir);
@@ -4111,9 +4340,10 @@ mod tests {
             .iter()
             .map(|n| core.note_label(n))
             .collect();
-        assert_eq!(names, ["H1", "B", "H#", "A#2", "Bm"]);
+        assert_eq!(names, ["H1", "B", "H♯", "A♯2", "Bm"]);
         core.update_settings(|s| s.language = Some("en".into()));
-        assert_eq!(core.note_label("Bb"), "Bb");
+        assert_eq!(core.note_label("Bb"), "B♭");
+        assert_eq!(core.note_label("Ebm"), "E♭m");
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -4170,6 +4400,226 @@ mod tests {
         assert_eq!(pitches(&again), after);
         again.set_transpose(0).unwrap();
         assert_eq!(pitches(&again), before);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Start page: the last piece, the first bundled exercise that does not sit yet, and the
+    /// practice of the last seven days. Empty on a first start.
+    #[test]
+    fn home_summary() {
+        let dir = temp_dir("home");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let day = SECONDS_PER_DAY;
+        let now = 100 * day;
+        let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
+        assert!(home["last"].is_null());
+        let first = home["next"]["path"].as_str().unwrap().to_string();
+        assert_eq!(home["week"]["minutes"], 0.0);
+
+        // The first exercise sits (above the workshop band): the next one is offered.
+        core.open(Path::new(&first)).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let run = |unix, rate| Run {
+            finished_unix: unix,
+            practice_s: 120.0,
+            speed: 1.0,
+            hit_rate: rate,
+            mode: "song".into(),
+            section: None,
+            hardest_bars: Vec::new(),
+        };
+        core.progress_store()
+            .record(&a, run(now - 10 * day, 0.95))
+            .unwrap();
+        core.progress_store()
+            .record(&a, run(now - day, 0.5))
+            .unwrap();
+        let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
+        assert_ne!(home["next"]["path"], first.as_str());
+        assert_eq!(home["last"]["path"], first.as_str());
+        assert_eq!(home["last"]["best"], 0.95);
+        // Only the run of the last seven days counts for the week.
+        assert_eq!(home["week"]["minutes"], 2.0);
+        assert_eq!(home["week"]["runs"], 1);
+
+        // The plan marks it as sitting and counts it in its level.
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let first_level = &levels[0];
+        assert_eq!(first_level["mastered"], 1);
+        assert_eq!(first_level["items"][0]["mastered"], true);
+        assert_eq!(first_level["items"][1]["mastered"], false);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A bundled exercise that sits after the run offers the next one in the summary; a run below
+    /// the band or a piece of one's own does not (P1: one step on, QA 13.10.).
+    #[test]
+    fn summary_offers_the_next_exercise() {
+        let dir = temp_dir("summarynext");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let first = levels[0]["items"][0]["path"].as_str().unwrap().to_string();
+        let second = levels[0]["items"][1]["path"].as_str().unwrap().to_string();
+        core.open(Path::new(&first)).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        let next = |core: &Core, s: &kontra_session::Summary| {
+            let v: serde_json::Value =
+                serde_json::from_str(&core.summary_json(s, &[], &[])).unwrap();
+            v["next"].clone()
+        };
+
+        s.hit_rate = 0.95;
+        assert_eq!(next(&core, &s)["path"], second.as_str());
+        s.hit_rate = 0.5;
+        assert!(next(&core, &s).is_null());
+
+        core.open(&Core::demo_path()).unwrap();
+        s.hit_rate = 0.95;
+        assert!(next(&core, &s).is_null());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A bundled exercise in a setlist reads as in the plan: its title in the UI's language, not
+    /// "09 Groove Achtel …" from the file name (QA 13.10., P2).
+    #[test]
+    fn setlist_names_exercises_like_the_plan() {
+        let dir = temp_dir("setlisttitle");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("en".into()));
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let item = &levels[0]["items"][0];
+        core.setlist_create("Probe");
+        core.library
+            .setlist_mut("Probe")
+            .unwrap()
+            .pieces
+            .push(PathBuf::from(item["path"].as_str().unwrap()));
+        let lists: serde_json::Value = serde_json::from_str(&core.setlists_json()).unwrap();
+        assert_eq!(lists[0]["pieces"][0]["title"], item["title"]);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Progress names a bundled exercise in the UI's language: its stored title is the German
+    /// progress key (QA 13.10.: German titles on the English progress page).
+    #[test]
+    fn progress_titles_follow_the_language() {
+        let dir = temp_dir("progresstitle");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("en".into()));
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let item = &levels[0]["items"][0];
+        core.open(Path::new(item["path"].as_str().unwrap()))
+            .unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let run = Run {
+            finished_unix: 1,
+            practice_s: 60.0,
+            speed: 1.0,
+            hit_rate: 0.5,
+            mode: "song".into(),
+            section: None,
+            hardest_bars: Vec::new(),
+        };
+        core.progress_store().record(&a, run).unwrap();
+        let progress: serde_json::Value = serde_json::from_str(&core.progress_json()).unwrap();
+        assert_eq!(progress["pieces"][0]["title"], item["title"]);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The practice page's heading names a bundled exercise in the UI's language too.
+    #[test]
+    fn loaded_title_follows_the_language() {
+        let dir = temp_dir("loadedtitle");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("en".into()));
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let item = &levels[0]["items"][0];
+        core.open(Path::new(item["path"].as_str().unwrap()))
+            .unwrap();
+        assert_eq!(core.loaded_title(), item["title"].as_str().unwrap());
+        core.open(&Core::demo_path()).unwrap();
+        assert_eq!(core.loaded_title(), core.arrangement().unwrap().title);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The track choice offers what a bass can play: an exercise's drum track is not one
+    /// (QA 13.10.: "Bass" and the drums in the choice).
+    #[test]
+    fn track_choice_leaves_out_drums() {
+        let dir = temp_dir("drumtrack");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        core.open(Path::new(levels[0]["items"][0]["path"].as_str().unwrap()))
+            .unwrap();
+        let tracks: serde_json::Value = serde_json::from_str(&core.tracks_json()).unwrap();
+        assert_eq!(tracks["names"].as_array().unwrap().len(), 1, "{tracks}");
+        assert_eq!(tracks["current"], 0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A file without a clear bass track asks once; the choice is kept for the next opening
+    /// (QA 13.10.: "continue" on the start page did nothing, the library asked every time).
+    #[test]
+    fn chosen_track_is_kept() {
+        let dir = temp_dir("track");
+        std::fs::create_dir_all(&dir).unwrap();
+        // One track, a melody around C5: nothing a bass would play, so no suggestion.
+        let mut track = Vec::new();
+        for pitch in [72u8, 74, 76, 77] {
+            track.extend_from_slice(&[0x00, 0x90, pitch, 0x60, 0x60, 0x80, pitch, 0x00]);
+        }
+        track.extend_from_slice(&[0x00, 0xFF, 0x2F, 0x00]);
+        let mut midi = b"MThd\0\0\0\x06\0\0\0\x01\0\x60MTrk".to_vec();
+        midi.extend_from_slice(&(track.len() as u32).to_be_bytes());
+        midi.extend_from_slice(&track);
+        let file = dir.join("melodie.mid");
+        std::fs::write(&file, midi).unwrap();
+
+        let mut core = Core::new(&dir, QaOptions::default());
+        assert!(matches!(core.open(&file), Ok(Opened::ChooseTrack(_))));
+        core.choose_track(0).unwrap();
+
+        let mut again = Core::new(&dir, QaOptions::default());
+        assert!(matches!(again.open(&file), Ok(Opened::Ready)));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The demo the assistant opens has its plain path too (same file, same progress).
+    #[test]
+    fn demo_path_is_plain() {
+        let demo = Core::demo_path();
+        assert!(
+            !demo
+                .components()
+                .any(|c| c == std::path::Component::ParentDir),
+            "{demo:?}"
+        );
+    }
+
+    /// An exercise opened by its plain path (file manager, library) counts in the plan too: the
+    /// plan's paths had "../.." in them, its progress showed "new" (QA 13.10.).
+    #[test]
+    fn exercise_progress_by_plain_path() {
+        let dir = temp_dir("plainpath");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let first = levels[0]["items"][0]["path"].as_str().unwrap().to_string();
+        let plain = std::fs::canonicalize(&first).unwrap();
+        core.open(&plain).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let run = Run {
+            finished_unix: 1,
+            practice_s: 60.0,
+            speed: 1.0,
+            hit_rate: 0.95,
+            mode: "song".into(),
+            section: None,
+            hardest_bars: Vec::new(),
+        };
+        core.progress_store().record(&a, run).unwrap();
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        assert_eq!(levels[0]["items"][0]["best"], 0.95);
         let _ = std::fs::remove_dir_all(dir);
     }
 

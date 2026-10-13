@@ -108,6 +108,7 @@ pub struct TrackInfo {
     name: String,
     is_bass: bool,
     strings: usize,
+    percussion: bool,
 }
 
 impl TrackInfo {
@@ -123,6 +124,11 @@ impl TrackInfo {
     /// Strings in the file's tuning; 0 when the format has no tab information.
     pub fn strings(&self) -> usize {
         self.strings
+    }
+
+    /// A drum part (MIDI channel 10, MusicXML percussion): nothing to play on a bass.
+    pub fn is_percussion(&self) -> bool {
+        self.percussion
     }
 }
 
@@ -148,6 +154,7 @@ impl ImportResult {
                 name: part.name.clone(),
                 is_bass: *value >= build::BASS_THRESHOLD,
                 strings: part.tuning.len(),
+                percussion: part.percussion,
             })
             .collect();
 

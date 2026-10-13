@@ -137,6 +137,9 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Prüfkette vor einem Commit mit `&&` oder `set -e`, nicht mit `;`: sonst wird trotz rotem Test committet und gepusht.
 - Gestapelte PRs bei einem Runner: Konflikte (i18n-Enden, Importlisten) vorab lösen, indem die untere Branch in die
   obere gemerged wird; bleibt die untere unverändert, ist die obere nach deren Merge ohne neue CI mergebar.
+- Tests, die ein Skript schreiben und starten, laufen parallel zu anderen, die Prozesse starten: Ein geforktes Kind hält
+  die frische Datei offen, `exec` scheitert mit „Text file busy“ (ETXTBSY, etwa 1 von 40 Läufen). Solche Tests über
+  einen gemeinsamen `Mutex` nacheinander laufen lassen (`separator.rs`).
 - Seit dem 11.10. abends startet ein `/review`-Kommentar auf Kontra keinen PR-Agent-Lauf mehr (kein Lauf, auch kein
   „skipped“); zweimal fragen und dann nach grüner CI mergen (Regel vom 11.10.).
 
