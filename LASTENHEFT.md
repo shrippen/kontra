@@ -202,6 +202,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-ALL-03 | Alle Einstellungen wirken sofort und überstehen einen Neustart. | Muss | 1 | alle | – |
 | LH-ALL-04 | Kontra stürzt bei abgezogenem Interface nicht ab; meldet es und bietet den nächsten Eingang an; beim Wiederanstecken wird das Interface wieder genutzt. | Muss | 1 | P2 | Ab- und Anstecken während des Spiels, 10-mal. |
 | LH-ALL-05 | Hilfe im Programm: kurze Erklärungen an Ort und Stelle (Latenz, Hi-Z, Zeitfenster), keine Pflichtlektüre. | Soll | 1 | P1, P6 | Jeder Fachbegriff in der Oberfläche hat eine Erklärung per Tooltip oder Info-Knopf. |
+| LH-ALL-06 | Startseite: zuletzt gespieltes Stück, nächste mitgelieferte Übung, die noch nicht sitzt (über 90 %), Übungszeit der letzten sieben Tage, Einstieg in Stimmgerät, Griffbrett und Gehör; solange die Einrichtung fehlt, bietet sie sie an. Navigation nach Tätigkeit gruppiert, Einrichtung unter Einstellungen. | Soll | 1 | P1, P2, P3 | Vom Programmstart zum Weiterüben ein Klick (J-C1). |
 
 ---
 

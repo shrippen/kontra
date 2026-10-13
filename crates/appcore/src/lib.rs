@@ -392,6 +392,59 @@ impl Core {
         self.progress_json_at(unix_now())
     }
 
+    /// Start page: the last piece played, the first bundled exercise that does not sit yet
+    /// and the practice of the last seven days.
+    /// `{"last": {path, title, artist, best, practiceMin} | null,
+    ///   "next": {title, path, best, level} | null, "week": {minutes, runs}}`
+    pub fn home_json(&self) -> String {
+        self.home_json_at(unix_now())
+    }
+
+    fn home_json_at(&self, now: u64) -> String {
+        let store = self.progress_store();
+        let last = self
+            .library
+            .recent
+            .iter()
+            .max_by_key(|e| e.last_unix)
+            .map(|e| {
+                let progress = store.load_id(&e.song_id);
+                json!({
+                    "path": e.path,
+                    "title": self.library_title(e),
+                    "artist": e.artist,
+                    "best": progress.as_ref().and_then(|p| p.best_hit_rate()),
+                    "practiceMin": progress.as_ref().map_or(0.0, |p| p.practice_s() / 60.0),
+                })
+            });
+
+        // In level order, the first exercise whose best run is not above the workshop band.
+        let next = self.bundled_levels().into_iter().find_map(|level| {
+            let mut item = level["items"]
+                .as_array()?
+                .iter()
+                .find(|i| i["best"].as_f64().unwrap_or(-1.0) < MASTERED_RATE)?
+                .clone();
+            item["level"] = level["level"].clone();
+            Some(item)
+        });
+
+        let since = now.saturating_sub(WEEK_DAYS * SECONDS_PER_DAY);
+        let week: Vec<_> = store
+            .all()
+            .into_iter()
+            .flat_map(|p| p.runs)
+            .filter(|r| r.finished_unix > since)
+            .collect();
+        let minutes = week.iter().map(|r| r.practice_s).sum::<f64>() / 60.0;
+        json!({
+            "last": last,
+            "next": next,
+            "week": { "minutes": minutes, "runs": week.len() },
+        })
+        .to_string()
+    }
+
     /// Bars of the sections practised in the piece with `song_id`, as the library knows them.
     fn section_names(&self, song_id: &str) -> &[SectionBars] {
         self.library
@@ -2275,6 +2328,10 @@ impl Core {
 
     /// Bundled exercises by level: `[{"level": "1 Einstieg", "items": [{"title", "path", "best"}]}]`.
     pub fn bundled_json(&self) -> String {
+        json!(self.bundled_levels()).to_string()
+    }
+
+    fn bundled_levels(&self) -> Vec<serde_json::Value> {
         let mut levels: Vec<PathBuf> = std::fs::read_dir(Self::exercises_dir())
             .map(|d| {
                 d.flatten()
@@ -2322,7 +2379,7 @@ impl Core {
                 json!({ "level": level, "items": items })
             })
             .collect();
-        json!(list).to_string()
+        list
     }
 
     /// A library entry's title; bundled exercises in the UI's language.
@@ -2797,6 +2854,10 @@ impl Core {
 
 /// Days of workshop history in the tempo chart (LH-FOR-02).
 const HISTORY_DAYS: u64 = 30;
+/// Days the start page sums up as "this week".
+const WEEK_DAYS: u64 = 7;
+/// A bundled exercise sits above the workshop's target band (80–90 %, round 5).
+const MASTERED_RATE: f64 = 0.9;
 
 const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
 
@@ -4170,6 +4231,47 @@ mod tests {
         assert_eq!(pitches(&again), after);
         again.set_transpose(0).unwrap();
         assert_eq!(pitches(&again), before);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Start page: the last piece, the first bundled exercise that does not sit yet, and the
+    /// practice of the last seven days. Empty on a first start.
+    #[test]
+    fn home_summary() {
+        let dir = temp_dir("home");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let day = SECONDS_PER_DAY;
+        let now = 100 * day;
+        let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
+        assert!(home["last"].is_null());
+        let first = home["next"]["path"].as_str().unwrap().to_string();
+        assert_eq!(home["week"]["minutes"], 0.0);
+
+        // The first exercise sits (above the workshop band): the next one is offered.
+        core.open(Path::new(&first)).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let run = |unix, rate| Run {
+            finished_unix: unix,
+            practice_s: 120.0,
+            speed: 1.0,
+            hit_rate: rate,
+            mode: "song".into(),
+            section: None,
+            hardest_bars: Vec::new(),
+        };
+        core.progress_store()
+            .record(&a, run(now - 10 * day, 0.95))
+            .unwrap();
+        core.progress_store()
+            .record(&a, run(now - day, 0.5))
+            .unwrap();
+        let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
+        assert_ne!(home["next"]["path"], first.as_str());
+        assert_eq!(home["last"]["path"], first.as_str());
+        assert_eq!(home["last"]["best"], 0.95);
+        // Only the run of the last seven days counts for the week.
+        assert_eq!(home["week"]["minutes"], 2.0);
+        assert_eq!(home["week"]["runs"], 1);
         let _ = std::fs::remove_dir_all(dir);
     }
 

@@ -323,6 +323,11 @@ pub mod qobject {
         #[cxx_name = "progressJson"]
         fn progress_json(self: &Self) -> QString;
 
+        /// Start page: last piece, next exercise, the week's practice (JSON).
+        #[qinvokable]
+        #[cxx_name = "homeJson"]
+        fn home_json(self: &Self) -> QString;
+
         /// Timing window ("auto", "loose", "normal", "strict") and pitch limit (0 = auto).
         #[qinvokable]
         #[cxx_name = "changeScoring"]
@@ -1591,6 +1596,10 @@ impl qobject::Controller {
 
     fn progress_json(&self) -> QString {
         q(&self.rust().core.progress_json())
+    }
+
+    fn home_json(&self) -> QString {
+        q(&self.rust().core.home_json())
     }
 
     fn change_scoring(mut self: Pin<&mut Self>, strictness: &QString, pitch_cents: f64) {

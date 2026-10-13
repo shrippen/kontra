@@ -217,7 +217,7 @@ Kirigami.ScrollablePage {
                 visible: page.step === page.steps.length - 1
                 onClicked: {
                     ctl.finishSetup()
-                    applicationWindow().show("library")
+                    applicationWindow().show("home")
                 }
             }
             KanteButton {
