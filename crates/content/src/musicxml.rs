@@ -34,7 +34,7 @@ pub(crate) fn parse_mxl(data: &[u8]) -> Result<Score, ImportError> {
             .map(str::to_string)
             .ok_or_else(|| ImportError::bad("no score in .mxl archive"))?,
     };
-    parse(&archive.read(&path)?)
+    parse(&archive.read_score(&path)?)
 }
 
 fn rootfile(container: &[u8]) -> Option<String> {

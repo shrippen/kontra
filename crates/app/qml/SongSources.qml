@@ -11,7 +11,7 @@ ColumnLayout {
 
     required property var ctl
     required property var texts
-    // The download folder is read again every few seconds while this is true.
+    // The download folder is read when the page shows or the window comes back, then every 15 s.
     property bool active: true
     property var downloads: ({ dir: "", files: [] })
     // Set when the browser could not be started: the address to copy instead.
@@ -34,11 +34,11 @@ ColumnLayout {
     }
 
     spacing: KanteStyle.unit(8)
-    Component.onCompleted: refresh()
 
     Timer {
-        interval: 4000
+        interval: 15000
         repeat: true
+        triggeredOnStart: true
         running: sources.active && Qt.application.state === Qt.ApplicationActive
         onTriggered: sources.refresh()
     }
