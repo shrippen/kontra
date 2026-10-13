@@ -542,6 +542,8 @@ Kirigami.Page {
                 id: bassStaff
                 anchors.fill: parent
                 staffSpace: KanteStyle.unit(10) * page.presentScale
+                // As many lines as fit, as in the tablature (QA 13.10.: one line, the rest empty).
+                systems: Math.max(1, Math.floor(height / systemHeight))
                 visible: ctl.view === "notation"
                 notes: visible ? page.staff.notes : []
                 rests: page.staff.rests
