@@ -22,6 +22,7 @@ const PAGES: [&str; 19] = [
     "qml/BackingAlign.qml",
     "qml/ConnectionChoice.qml",
     "qml/TuningChoice.qml",
+    "qml/SongSources.qml",
 ];
 
 fn main() {

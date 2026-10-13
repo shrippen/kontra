@@ -25,6 +25,20 @@ pub fn data_dir() -> PathBuf {
     home.join(".local/share/kontra")
 }
 
+/// Files Kontra can make again (separated songs, LH-BIB-09): `$XDG_CACHE_HOME/kontra`, else
+/// `~/.cache/kontra`, so backups skip them. A data folder of its own (`KONTRA_DATA_DIR`, tests)
+/// keeps them inside, in `cache/`.
+pub fn cache_dir(data: &Path) -> PathBuf {
+    if data != data_dir() || std::env::var_os("KONTRA_DATA_DIR").is_some() {
+        return data.join("cache");
+    }
+    if let Some(dir) = std::env::var_os("XDG_CACHE_HOME") {
+        return PathBuf::from(dir).join("kontra");
+    }
+    let home = std::env::var_os("HOME").map_or_else(|| PathBuf::from("."), PathBuf::from);
+    home.join(".cache/kontra")
+}
+
 /// Reads JSON or returns the default (a damaged file is kept aside as `.broken`).
 pub fn load<T: DeserializeOwned + Default>(path: &Path) -> T {
     let Ok(text) = std::fs::read_to_string(path) else {

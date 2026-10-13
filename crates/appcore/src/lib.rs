@@ -12,6 +12,7 @@ pub mod level;
 mod package;
 pub mod quiz;
 mod report;
+mod sources;
 mod stems;
 mod store;
 mod unplug;
@@ -214,6 +215,8 @@ pub struct Core {
     started_at: std::time::Instant,
     /// Backing tracks without bass (LH-BIB-09).
     stems: stems::Stems,
+    /// Where the browser saves downloads (LH-BIB-11).
+    downloads: Option<PathBuf>,
 }
 
 impl Core {
@@ -234,6 +237,7 @@ impl Core {
             level_told: (level::LevelState::Waiting, false),
             started_at: std::time::Instant::now(),
             stems: stems::Stems::default(),
+            downloads: kontra_session::download_dir(),
             notice: None,
             active_setlist: None,
             lost: None,
@@ -869,8 +873,8 @@ impl Core {
         dir: &Path,
         as_setlist: bool,
     ) -> (usize, Vec<(String, String)>) {
-        const EXTENSIONS: [&str; 9] = [
-            "gp", "gp3", "gp4", "gp5", "gpx", "mid", "midi", "musicxml", "mxl",
+        const EXTENSIONS: [&str; 11] = [
+            "gp", "gp3", "gp4", "gp5", "gpx", "mid", "midi", "musicxml", "mxl", "mscz", "mscx",
         ];
         let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
             .map(|entries| entries.filter_map(Result::ok).map(|e| e.path()).collect())
@@ -882,9 +886,27 @@ impl Core {
             })
         });
         files.sort();
+        let (added, failed) = self.add_files(&files);
+        if as_setlist && !added.is_empty() {
+            let name = dir
+                .file_name()
+                .map_or_else(|| "Setlist".into(), |n| n.to_string_lossy().into());
+            self.library.setlists.retain(|s| s.name != name);
+            self.library.setlists.push(Setlist {
+                name,
+                pieces: added.clone(),
+            });
+        }
+        self.save_library();
+        (added.len(), failed)
+    }
+
+    /// Adds scores to the library without playing them; returns the added paths and, per
+    /// failed file, its name and the reason in the user's language.
+    fn add_files(&mut self, files: &[PathBuf]) -> (Vec<PathBuf>, Vec<(String, String)>) {
         let mut added = Vec::new();
         let mut failed = Vec::new();
-        for path in files {
+        for path in files.iter().cloned() {
             let name = path
                 .file_name()
                 .map_or_else(String::new, |n| n.to_string_lossy().into());
@@ -923,18 +945,7 @@ impl Core {
                 Err(reason) => failed.push((name, reason)),
             }
         }
-        if as_setlist && !added.is_empty() {
-            let name = dir
-                .file_name()
-                .map_or_else(|| "Setlist".into(), |n| n.to_string_lossy().into());
-            self.library.setlists.retain(|s| s.name != name);
-            self.library.setlists.push(Setlist {
-                name,
-                pieces: added.clone(),
-            });
-        }
-        self.save_library();
-        (added.len(), failed)
+        (added, failed)
     }
 
     pub fn setlist_create(&mut self, name: &str) {
@@ -1134,13 +1145,15 @@ impl Core {
         arrangement.instrument.a4_hz = self.a4_hz();
         self.stop_live();
         self.looping = None;
+        let song_id = ProgressStore::song_id(&arrangement);
+        self.adopt_progress(path, &song_id);
         self.library.touch(RecentEntry {
             path: path.to_path_buf(),
             title: arrangement.title.clone(),
             artist: arrangement.artist.clone(),
             track,
             last_unix: unix_now(),
-            song_id: ProgressStore::song_id(&arrangement),
+            song_id,
             backing: None,
             backing_offset_s: 0.0,
             view: None,
@@ -1849,6 +1862,28 @@ impl Core {
         ProgressStore::new(&self.data_dir.join("progress"))
     }
 
+    /// The file at `path` changed (a regenerated exercise, an edited score): its runs move from
+    /// the id the library knew to `song_id`, unless another entry still uses the old one.
+    fn adopt_progress(&self, path: &Path, song_id: &str) {
+        let Some((known, old)) = self
+            .library
+            .entry(path)
+            .map(|e| (e.path.clone(), e.song_id.clone()))
+        else {
+            return;
+        };
+        let shared = self
+            .library
+            .recent
+            .iter()
+            .any(|e| e.path != known && e.song_id == old);
+        if shared {
+            return;
+        }
+        // Progress is a convenience here: a failed move leaves the old runs where they were.
+        let _ = self.progress_store().adopt(&old, song_id);
+    }
+
     /// Saves the finished run (LH-FOR-01).
     fn record_run(&mut self) {
         let Some(live) = self.live.as_ref() else {
@@ -2167,6 +2202,7 @@ impl Core {
         let Some(loaded) = self.loaded_path().map(Path::to_path_buf) else {
             return;
         };
+        self.cancel_stems_of(&loaded);
         if let Some(entry) = self.library.entry_mut(&loaded) {
             entry.backing = path;
             entry.backing_offset_s = offset_s;
@@ -2504,7 +2540,8 @@ impl Core {
                             .collect()
                     })
                     .unwrap_or_default();
-                files.sort();
+                // By plan number: "100 …" comes after "99 …" (a plain sort puts it first).
+                files.sort_by_key(|f| plan_number(f));
                 let items: Vec<_> = files
                     .iter()
                     .map(|f| {
@@ -2520,6 +2557,7 @@ impl Core {
                         let best = self.best_rate(f);
                         json!({
                             "title": title,
+                            "goal": self.bundled_goal(&stem),
                             "path": f.to_string_lossy(),
                             "best": best,
                             "mastered": best >= MASTERED_RATE,
@@ -2568,13 +2606,56 @@ impl Core {
         Some(self.exercise_title(&exercise::describe(&spec)))
     }
 
-    /// "Dur-Tonleiter in G (60 BPM)" / "Major scale in G (60 BPM)".
+    /// What bundled exercise "NN …" trains, in the UI's language ("" for none).
+    fn bundled_goal(&self, stem: &str) -> String {
+        let Some(number) = stem
+            .split_once(' ')
+            .and_then(|(n, _)| n.parse::<usize>().ok())
+        else {
+            return String::new();
+        };
+        exercise::bundled_specs()
+            .into_iter()
+            .nth(number.saturating_sub(1))
+            .map(|(_, spec)| {
+                let goal = exercise::describe(&spec).goal;
+                self.tr(&format!("exercise.goal.{goal}"), &[])
+            })
+            .unwrap_or_default()
+    }
+
+    /// "Dur-Tonleiter in G (60 BPM)" / "Major scale in G (60 BPM)"; finger exercises
+    /// "Fingerübung 1-3-2-4 ab Bund 5 (60 BPM)"; a tempo ramp "(80–110 BPM)".
     pub fn exercise_title(&self, d: &exercise::Description) -> String {
         let key = self.note_label(&format!("{}{}", d.key, if d.minor { "m" } else { "" }));
-        let bpm = format!("{:.0}", d.bpm);
+        let bpm = match d.end_bpm {
+            Some(end) => format!("{:.0}-{end:.0}", d.bpm),
+            None => format!("{:.0}", d.bpm),
+        };
         let part = |group: &str, key: &str| self.tr(&format!("exercise.name.{group}.{key}"), &[]);
         let name = match d.kind {
             "scale" => part("scale", d.variant),
+            "sequence" => self.tr(
+                "exercise.name.sequence",
+                &[
+                    ("scale", part("scale", d.variant)),
+                    (
+                        "sequence",
+                        d.rhythm.map(|r| part("sequence", r)).unwrap_or_default(),
+                    ),
+                ],
+            ),
+            "chromatic" => self.tr(
+                "exercise.name.chromatic",
+                &[(
+                    "fingers",
+                    d.variant
+                        .chars()
+                        .map(String::from)
+                        .collect::<Vec<_>>()
+                        .join("-"),
+                )],
+            ),
             _ => self.tr(
                 &format!("exercise.name.{}", d.kind),
                 &[
@@ -2586,6 +2667,12 @@ impl Core {
                 ],
             ),
         };
+        if let Some(fret) = d.fret {
+            return self.tr(
+                "exercise.title.fret",
+                &[("name", name), ("fret", fret.to_string()), ("bpm", bpm)],
+            );
+        }
         self.tr(
             "exercise.title",
             &[("name", name), ("key", key), ("bpm", bpm)],
@@ -2601,9 +2688,11 @@ impl Core {
             .unwrap_or(-1.0)
     }
 
-    /// An exercise from the UI's choice: `kind` "scale" | "arpeggio" | "walking" | "groove",
-    /// `variant` the scale ("major", "minor", "majorpenta", "minorpenta", "blues") or the
-    /// progression ("tonic", "251", "blues", "minor"), `rhythm` for grooves.
+    /// An exercise from the UI's choice: `kind` "scale" | "arpeggio" | "triads" | "walking" |
+    /// "groove" | "chromatic"; `variant` the scale ("major", "dorian" …), the progression ("tonic",
+    /// "251", "blues", "minor", "145", "pop", "1625", "minor251") or the finger order ("1324");
+    /// `rhythm` the groove's rhythm or a scale's pattern ("thirds", "fours", "" for up and down).
+    /// Finger exercises take `key` as the start fret.
     pub fn exercise_spec(
         kind: &str,
         variant: &str,
@@ -2611,38 +2700,18 @@ impl Core {
         key: u8,
         bpm: f64,
     ) -> Option<exercise::ExerciseSpec> {
-        use exercise::{ExerciseKind, Progression, Rhythm, ScaleKind};
-        let progression = || match variant {
-            "tonic" => Some(Progression::Tonic),
-            "251" => Some(Progression::TwoFiveOne),
-            "blues" => Some(Progression::Blues),
-            "minor" => Some(Progression::Minor),
-            _ => None,
-        };
+        use exercise::{ExerciseKind, Fingers, Progression, Rhythm, ScaleKind, Sequence};
+        let progression = || Progression::from_key(variant);
         let kind = match kind {
-            "scale" => ExerciseKind::Scale(match variant {
-                "major" => ScaleKind::Major,
-                "minor" => ScaleKind::Minor,
-                "majorpenta" => ScaleKind::MajorPentatonic,
-                "minorpenta" => ScaleKind::MinorPentatonic,
-                "blues" => ScaleKind::Blues,
-                _ => return None,
-            }),
+            "scale" if rhythm.is_empty() => ExerciseKind::Scale(ScaleKind::from_key(variant)?),
+            "scale" => {
+                ExerciseKind::Sequence(ScaleKind::from_key(variant)?, Sequence::from_key(rhythm)?)
+            }
             "arpeggio" => ExerciseKind::Arpeggio(progression()?),
+            "triads" => ExerciseKind::Triads(progression()?),
             "walking" => ExerciseKind::WalkingBass(progression()?),
-            "groove" => ExerciseKind::Groove(
-                progression()?,
-                match rhythm {
-                    "quarters" => Rhythm::Quarters,
-                    "eighths" => Rhythm::Eighths,
-                    "sixteenths" => Rhythm::Sixteenths,
-                    "rests" => Rhythm::WithRests,
-                    "shuffle" => Rhythm::Shuffle,
-                    "octaves" => Rhythm::Octaves,
-                    "ghost" => Rhythm::Ghost,
-                    _ => return None,
-                },
-            ),
+            "groove" => ExerciseKind::Groove(progression()?, Rhythm::from_key(rhythm)?),
+            "chromatic" => ExerciseKind::Chromatic(Fingers::from_key(variant)?),
             _ => return None,
         };
         Some(exercise::ExerciseSpec {
@@ -2652,6 +2721,7 @@ impl Core {
             slow: false,
             // Short patterns (scales, two-bar grooves) get more passes than a 12-bar blues.
             repeats: if matches!(variant, "blues") { 1 } else { 2 },
+            ramp_bpm: 0.0,
         })
     }
 
@@ -3043,6 +3113,17 @@ const SPOT_REST_S: u64 = 8 * 60 * 60;
 const SPOTS: usize = 2;
 /// A bundled exercise sits above the workshop's target band (80–90 %, round 5).
 const MASTERED_RATE: f64 = 0.9;
+
+/// Place of a bundled exercise in the plan, from its file name "NN …" (unnumbered last).
+fn plan_number(path: &Path) -> (usize, PathBuf) {
+    let number = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .and_then(|n| n.split_once(' '))
+        .and_then(|(n, _)| n.parse().ok())
+        .unwrap_or(usize::MAX);
+    (number, path.to_path_buf())
+}
 
 const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
 
@@ -3995,8 +4076,65 @@ mod tests {
         assert!(path.starts_with(dir.join("exercises")));
         assert!(matches!(core.open(&path), Ok(Opened::Ready)));
         let a = core.arrangement().unwrap();
-        assert_eq!(a.notes.len(), 48);
+        // Twelve bars and a closing bar on the tonic.
+        assert_eq!(a.notes.len(), 49);
         assert_eq!(a.markers[0].name, "F7");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-LRN-04: the generator also writes scale patterns, triads, finger exercises and odd
+    /// meters, named in the UI's language.
+    #[test]
+    fn generator_offers_patterns_fingers_and_meters() {
+        use exercise::{ExerciseKind as K, Fingers, Progression, Rhythm, ScaleKind, Sequence};
+        let dir = temp_dir("generator");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let spec = |kind, variant, rhythm, key| {
+            Core::exercise_spec(kind, variant, rhythm, key, 80.0).unwrap()
+        };
+        let thirds = spec("scale", "dorian", "thirds", 2);
+        assert_eq!(
+            thirds.kind,
+            K::Sequence(ScaleKind::Dorian, Sequence::Thirds)
+        );
+        assert_eq!(
+            spec("scale", "major", "", 0).kind,
+            K::Scale(ScaleKind::Major)
+        );
+        assert_eq!(
+            spec("triads", "pop", "", 7).kind,
+            K::Triads(Progression::Pop)
+        );
+        let fingers = spec("chromatic", "1324", "", 5);
+        assert_eq!(fingers.kind, K::Chromatic(Fingers::Crossed));
+        let meter = spec("groove", "minor", "78", 9);
+        assert_eq!(
+            meter.kind,
+            K::Groove(Progression::Minor, Rhythm::SevenEight)
+        );
+        assert!(Core::exercise_spec("chromatic", "1123", "", 5, 80.0).is_none());
+
+        core.update_settings(|s| s.language = Some("en".into()));
+        let title = |core: &Core, s| core.exercise_title(&exercise::describe(s));
+        assert_eq!(
+            title(&core, &fingers),
+            "Finger exercise 1-3-2-4 from fret 5 (80 BPM)"
+        );
+        assert_eq!(title(&core, &thirds), "Dorian in thirds in D (80 BPM)");
+        assert_eq!(
+            title(&core, &meter),
+            "7/8 groove, minor cadence in Am (80 BPM)"
+        );
+        core.update_settings(|s| s.language = Some("de".into()));
+        assert_eq!(
+            title(&core, &fingers),
+            "Fingerübung 1-3-2-4 ab Bund 5 (80 BPM)"
+        );
+
+        let path = core.generate_exercise(&meter).unwrap();
+        assert!(matches!(core.open(&path), Ok(Opened::Ready)));
+        let a = core.arrangement().unwrap();
+        assert_eq!(a.bars[0].signature.numerator, 7);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -4135,7 +4273,7 @@ mod tests {
         }
     }
 
-    /// LH-BIB-08: the bundled set lists five levels with at least 30 exercises.
+    /// LH-BIB-08: the bundled set lists eight levels with at least 30 exercises.
     #[test]
     fn bundled_exercises_by_level() {
         let dir = temp_dir("bundled");
@@ -4144,8 +4282,11 @@ mod tests {
         core.update_settings(|s| s.language = Some("de".into()));
         let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
         let levels = levels.as_array().unwrap();
-        assert_eq!(levels.len(), 5);
+        assert_eq!(levels.len(), 8);
         assert_eq!(levels[0]["level"], "Einstieg");
+        // Each item says what it trains.
+        let goal = levels[0]["items"][0]["goal"].as_str().unwrap();
+        assert!(goal.starts_with("Ziel:"), "{goal}");
         let total: usize = levels
             .iter()
             .map(|l| l["items"].as_array().unwrap().len())
@@ -4406,10 +4547,15 @@ mod tests {
             levels.iter().all(|l| !l.starts_with("exercise.")),
             "{levels:?}"
         );
-        for ((_, file, ex), title) in exercise::bundled().iter().zip(&items) {
+        // The list goes level by level; appended exercises sit in earlier levels.
+        let mut bundled = exercise::bundled();
+        bundled.sort_by_key(|(level, ..)| *level);
+        for ((_, file, ex), title) in bundled.iter().zip(&items) {
+            // German: B is H, B♭ is B.
+            let german = ex.title.replace("in B ", "in H ").replace("in Bb", "in B");
             let german = ["Eb", "Ab", "Db", "Gb"]
                 .iter()
-                .fold(ex.title.replace("in Bb", "in B"), |t, k| {
+                .fold(german, |t, k| {
                     t.replace(&format!("in {k}"), &format!("in {}♭", &k[..1]))
                 })
                 .replace('#', "♯");
@@ -4655,6 +4801,49 @@ mod tests {
         core.progress_store().record(&a, run).unwrap();
         let progress: serde_json::Value = serde_json::from_str(&core.progress_json()).unwrap();
         assert_eq!(progress["pieces"][0]["title"], item["title"]);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A regenerated exercise keeps its progress: the file at the same path has new notes, so a
+    /// new song id; the runs of the old id move over (review #62: 19 files got a closing bar).
+    #[test]
+    fn regenerated_exercise_keeps_its_progress() {
+        let dir = temp_dir("regenerated");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let path = PathBuf::from(levels[0]["items"][0]["path"].as_str().unwrap());
+        core.open(&path).unwrap();
+
+        // The version before: one note less, played well, and the library knows its id.
+        let mut before = core.arrangement().unwrap().clone();
+        before.notes.pop();
+        let old_id = ProgressStore::song_id(&before);
+        let run = Run {
+            finished_unix: 1,
+            practice_s: 60.0,
+            speed: 1.0,
+            hit_rate: 0.95,
+            mode: "song".into(),
+            section: None,
+            hardest_bars: Vec::new(),
+        };
+        core.progress_store().record(&before, run).unwrap();
+        core.library.entry_mut(&path).unwrap().song_id = old_id.clone();
+        let mastered = |core: &Core| {
+            let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+            levels[0]["items"][0]["mastered"] == true
+        };
+        assert!(mastered(&core));
+
+        // Opening the new file must not lose it.
+        core.open(&path).unwrap();
+        assert!(mastered(&core), "progress lost after regeneration");
+        let home: serde_json::Value = serde_json::from_str(&core.home_json()).unwrap();
+        assert_ne!(home["next"]["path"], path.to_string_lossy().as_ref());
+        assert!(
+            core.progress_store().load_id(&old_id).is_none(),
+            "old id moved"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 

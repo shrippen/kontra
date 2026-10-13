@@ -419,27 +419,42 @@ Kirigami.Page {
         }
 
         // Without the recording's bass (LH-BIB-09, round 9): Demucs does it once, if installed;
-        // without it the switch is greyed out and the tip says how to install it.
+        // without it "without bass" is greyed out and the tip says how to install it. While it
+        // runs: progress, time left, cancel; once separated: switch at once, or delete the file.
         RowLayout {
+            id: stemsRow
             Layout.fillWidth: true
             visible: !page.presenting && page.stems.state !== "none"
             spacing: KanteStyle.unit(8)
             readonly property bool running: page.stems.state === "running"
+            readonly property int chosen: page.stems.state === "on" || running ? 1 : 0
             KanteHud { fullText: texts.t("stems.title"); color: KanteStyle.mutedTextColor }
-            KanteSwitch {
-                text: texts.t("stems.switch")
-                enabled: page.stems.available && !parent.running
-                checked: page.stems.state === "on" || parent.running
-                // A click replaces the binding; the state comes from Kontra (failed, cancelled).
-                onToggled: {
-                    ctl.removeBass(checked)
-                    checked = Qt.binding(function() { return page.stems.state === "on" || parent.running })
+            KanteSegmented {
+                id: stemsChoice
+                Accessible.name: texts.t("stems.title")
+                model: [texts.t("stems.original"), texts.t("stems.without")]
+                tooltips: [texts.t("stems.original.hint"),
+                    page.stems.available ? texts.t("stems.without.hint") : texts.t("stems.without.missing")]
+                // A song separated before plays without bass even without Demucs.
+                disabledIndexes: page.stems.available || page.stems.cached ? [] : [1]
+                currentIndex: stemsRow.chosen
+                // A click replaces the binding; the state comes from Kontra (failed, busy).
+                onActivated: function(index) {
+                    if (stemsRow.running && index === 0)
+                        ctl.cancelStems()
+                    else
+                        ctl.removeBass(index === 1)
+                    currentIndex = Qt.binding(function() { return stemsRow.chosen })
                 }
             }
             KanteProgressBar {
-                visible: parent.running
+                visible: stemsRow.running
                 Layout.preferredWidth: KanteStyle.unit(120)
                 value: page.stems.progress || 0
+                // Before the first progress Demucs loads its model.
+                indeterminate: value <= 0
+                Accessible.role: Accessible.ProgressBar
+                Accessible.name: texts.t("stems.progress")
             }
             QQC2.Label {
                 Layout.fillWidth: true
@@ -447,11 +462,21 @@ Kirigami.Page {
                 text: page.stems.text || ""
                 color: page.stems.state === "failed" ? KanteStyle.negativeTextColor : KanteStyle.mutedTextColor
             }
-            KanteInfoTip {
-                visible: !page.stems.available
-                term: texts.t("stems.install.title")
-                info: page.stems.installText || ""
-                accessibleName: texts.t("stems.install.title")
+            KanteButton {
+                visible: stemsRow.running
+                text: texts.t("stems.cancel")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: ctl.cancelStems()
+            }
+            KanteButton {
+                visible: page.stems.cached === true && !stemsRow.running
+                text: texts.t("stems.delete")
+                emphasis: KanteButton.Emphasis.Quiet
+                Accessible.description: page.stems.deleteText || ""
+                QQC2.ToolTip.text: page.stems.deleteText || ""
+                QQC2.ToolTip.visible: hovered
+                QQC2.ToolTip.delay: 500
+                onClicked: ctl.forgetStems()
             }
             KanteButton {
                 visible: !page.stems.available
@@ -459,11 +484,14 @@ Kirigami.Page {
                 emphasis: KanteButton.Emphasis.Quiet
                 onClicked: ctl.refreshStems()
             }
-            KanteButton {
-                visible: parent.running
-                text: texts.t("stems.cancel")
-                emphasis: KanteButton.Emphasis.Quiet
-                onClicked: ctl.cancelStems()
+            // Failed: Demucs' words; without Demucs: how to install it; else where the files go.
+            KanteInfoTip {
+                readonly property bool failed: page.stems.state === "failed"
+                term: failed ? texts.t("stems.why")
+                    : page.stems.available ? texts.t("stems.where.title") : texts.t("stems.install.title")
+                info: failed ? page.stems.detail || ""
+                    : page.stems.available ? page.stems.cacheText || "" : page.stems.installText || ""
+                accessibleName: term
             }
         }
 

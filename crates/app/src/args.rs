@@ -21,12 +21,16 @@ pub struct AppArgs {
     pub mixer: bool,
     /// `--present`: the practice page opens in presentation mode (screenshots, LH-ANZ-09).
     pub present: bool,
-    /// `--section data|about`: the settings page opens scrolled to that section (screenshots).
+    /// `--section data|about|make`: settings or exercises open scrolled to that section
+    /// (screenshots).
     pub section: Option<String>,
     /// `--align`: practice opens the backing-track alignment (screenshots).
     pub align: bool,
     /// `--loop-bars 3-4`: loop these bars (1-based) before autoplay.
     pub loop_bars: Option<(i32, i32)>,
+    /// `--remove-bass`: the backing track plays without its bass, separated first if needed
+    /// (screenshots of J-D1).
+    pub remove_bass: bool,
 }
 
 impl AppArgs {
@@ -62,6 +66,7 @@ impl AppArgs {
                 "--present" => out.present = true,
                 "--section" => out.section = Some(value()),
                 "--align" => out.align = true,
+                "--remove-bass" => out.remove_bass = true,
                 "--loop-bars" => {
                     let v = value();
                     let mut parts = v.split('-').map(|p| p.trim().parse::<i32>());

@@ -39,6 +39,8 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 |---|---|
 | LH-BIB-01/02 Import GP3–8, MIDI | umgesetzt, gegen Fremddateien geprüft |
 | LH-BIB-03 MusicXML | umgesetzt (vorgezogen) |
+| LH-BIB-10 MuseScore `.mscz`/`.mscx` | umgesetzt (14.10.), gegen MuseScore-4.7-Dateien geprüft; Sprungzeichen (D.S., Coda) nur nach Formatbeschreibung |
+| LH-BIB-11 Songsterr, MuseScore.com | Suche im Browser, „Neu in Downloads“, Ziehen und Ablegen (14.10., J-B6 ⚙); Ergebnisliste in Kontra nur mit Erlaubnis von Songsterr (offen) |
 | LH-BIB-04 Bibliothek | umgesetzt: Suche, Tags, Sortierung, Setlisten, Ordner als Setliste |
 | LH-ANZ-01/02/03 Tab-Lane, Tab, Noten | umgesetzt (Kante) |
 | LH-MOD-01..04 Spielen, Song, Warten, Werkstatt | umgesetzt, Werkstatt mit Takten, Zielband und Notendichte; Namen von Spielen/Song offen (Runde 11) |
@@ -271,6 +273,38 @@ stummer Ausgang, Aufnahmen als Eingang; Fokuswege mit `--focus-log`. Befunde des
   den Standardausgang (jetzt Timer-Ausgang); Stimmungs-Presets als Text, Latenz mit „ms“, Fortschritt „20 s“ statt
   „0.4min“; Metronom/Einzähler als Kästchen statt gelber Knöpfe (Kante 1.38, PR in Kante).
 
+### QA-Runde 14.10.2026 (Nacht: Stem-Trennung mit echtem Demucs)
+
+Gespielt als P2 Jens (J-D1 Schritt 5 ⚙) mit Demucs 4.1.0 (pipx) und einem erzeugten Song (Etüde 1 gerendert,
+synthetisches Schlagzeug und Akkorde, MP3, 20 s und als Schleife 4:00); headless, DE/EN, Beamer 1280×720 bei 150 %.
+Die Trennung entfernt den Bass: der Unterschied zum Original korreliert mit 0,94 mit der Bassspur.
+
+- **LH-BIB-09 gemessen** (Song 4:00, Ryzen 9 3900X, `nice 19`, Last 8–22 durch parallele Builds): Grafikkarte
+  (RTX 3090) 14 s; Prozessor mit 24 Threads 128 s (bei mehr Last 187 s, 12.10. ohne Last 92 s); auf 4 Kerne
+  beschränkt 212 s. Erfüllt auf Empfehlungs-Hardware; mit 4 Kernen über 3 min, läuft dort im Hintergrund.
+- S1 (mittel, behoben, Test zuerst): Abbrechen und Beenden ließen halbe Dateien von Demucs im Cache.
+- S2 (mittel, behoben, Test zuerst): Ein Fehler bei einem Song stand an jedem Stück.
+- S3 (mittel, behoben, Test zuerst): Lief die Trennung eines anderen Songs, tat „Ohne Bass“ nichts und sagte nichts;
+  jetzt „Kontra entfernt gerade den Bass aus …“.
+- S4 (niedrig, behoben, Test zuerst): Ein neuer Backing-Track ließ Demucs minutenlang am alten weiterrechnen.
+- S5 (mittel, behoben): Getrennte Dateien (rund 10 MB je Minute) ließen sich nicht löschen, Ort und Größe waren
+  unbekannt. Jetzt im Cache-Ordner (`~/.cache/kontra/stems`, der alte Ort im Datenordner zieht einmal um), „?“ nennt
+  Ort, Anzahl und Größe, „Getrennte Datei löschen“ je Song.
+- S6 (mittel, behoben): Demucs belegt alle Kerne; es läuft jetzt mit `nice -n 10`, Mitspielen und Oberfläche gehen vor.
+- S7 (niedrig, behoben): Fortschritt ohne Restzeit, „0 %“ solange Demucs sein Modell lädt, „100 %“ beim Speichern.
+  Jetzt „Demucs startet …“ (Streifen), „31 %, noch etwa 79 s“ (Demucs' eigene Schätzung), „Datei wird gespeichert …“.
+- S8 (niedrig, behoben): Fehlermeldung zweizeilig mit Python-Ausnahme und „..“; jetzt kurz mit Rat, Demucs' Worte
+  unter „?“.
+- S9 (niedrig, behoben): Der Schalter „Bass der Aufnahme entfernen“ zeigte nicht, was spielt; jetzt Auswahl
+  „Original | Ohne Bass“ (ohne Demucs „Ohne Bass“ durchgestrichen und gesperrt, der Tooltip sagt warum).
+- Erster Lauf: Demucs lädt sein Modell (81 MB) ohne Fortschrittsbalken; „?“ sagt das vorher (LH-NF-08).
+- **P1 Lea:** die Zeile erscheint erst mit Backing-Track, ein Klick, jederzeit abbrechbar. **P7 Sam:** Auswahl mit
+  Pfeiltasten, gesperrtes Segment durchgestrichen, Fortschritt mit Namen, Fehler als Text. Screenreader am Gerät
+  nicht geprüft.
+- Offen: Regler „Original-Bass leise mithören“ im Mixer (Demucs liefert `bass.wav` mit; braucht einen zweiten
+  gestreckten Strom im Mixer, Rechenzeit auf Mindest-Hardware); Flatpak weiter ausgegraut; Übersicht aller
+  getrennten Dateien in den Einstellungen.
+
 ### Hardware-Prüfung 13.10.2026 (Eigentümer: E-Bass, Scarlett Solo, PipeWire)
 
 `kontra-cli check`, geführt; Aufnahmen in `testdata/korpus/local/own/check-2026-10-13/` (lokal). Betrifft P1, P2, P3.
@@ -464,9 +498,10 @@ Durchgespielt mit gerenderten Aufnahmen (`kontra-cli render`) und Screenshots al
 
 - [x] LH-LRN-04: Übungs-Generator (Tonleitern, Arpeggien, Walking Bass, Grooves) in jeder Tonart und jedem Tempo, Seite „Übungen“ (Strg+7).
 - [x] LH-BIB-08: 34 mitgelieferte Übungen in vier Stufen (`testdata/exercises`, von `kontra-cli exercises` erzeugt, CI prüft den Stand).
+- [x] LH-BIB-08, LH-LRN-04, Ausbau (14.10.): 144 Übungen in acht Stufen (neu: 6 Taktarten, 7 Lesen, 8 Technik; 99 neue, an die Stufen angehängt, alte Dateinamen unverändert), je Übung ein Ziel. Neue Familien: Fingerübungen (Bünde fest in der Datei, sonst legt die Tab sie auf leere Saiten), Modi, harmonisch Moll, Terzen und Vierergruppen, Dreiklänge, I-IV-V, I-V-VI-IV, I-VI-II-V, Moll-II-V-I, Grundton-Quinte(-Oktave), Dead Notes, Offbeat, Tresillo, Triolen, Funk, Slap, 3/4, 6/8, 5/4, 7/8, Tempo-Treppen. Fehler behoben (Test zuerst): Blues und Moll-Kadenz endeten auf der Dominante (jetzt Schlusstakt auf der Tonika), Walking-Annäherung an E1 von unten fiel auf den Grundton, Oktav-Groove auf hohen Grundtönen (A♭2) verlor die Oktave. Review #62 (Test zuerst): Der Fortschritt hängt an der Song-ID (Noten), nicht am Pfad; ändert sich die Datei am selben Pfad (neu erzeugte Übung), wandern die Läufe zur neuen ID (`ProgressStore::adopt`), sonst galt eine sitzende Übung als neu. `pos`-Ereignisse fremder Dateien gelten nur, wenn Saite und Bund den Ton ergeben; Dreiklänge heißen als Dreiklänge (G, Am, Bdim); Terzen enden mit einem Grundton. Generator auf der Übungsseite mit allen Familien.
 - [x] LH-LRN-02: Griffbrett-Quiz mit dem echten Bass (Töne auf einer Saite finden, Intervalle), Seite „Griffbrett“ (Strg+8); nach dem richtigen Ton zeigt das Griffbrett alle Lagen.
 - [x] LH-BIB-06: Backing-Track abgleichen: Kontra erkennt die Schläge der Aufnahme (Spektralfluss, Tempo per Autokorrelation, Beat-Tracking nach Ellis) und legt die Takte darauf (Tempo-Karte je Takt); Takt 1 um einen Schlag, alle Takte oder ein einzelner Takt in 10-ms-Schritten korrigierbar.
-- [x] LH-BIB-09 (Kann, Runde 9): Bass aus dem Backing-Track entfernen über Demucs, wenn installiert (`drivers::separator`: `KONTRA_DEMUCS`, `PATH`, `~/.local/bin`; im Flatpak `flatpak-spawn --host`, braucht eine Erlaubnis, die das Manifest noch nicht hat). `demucs --two-stems bass -n htdemucs`, Fortschritt aus dem Fortschrittsbalken auf stderr, Abbrechen beendet den Prozess. Ergebnis im Cache je Datei (Pfad, Größe, Änderungszeit); der Abgleich bleibt. Übungsseite „Ohne Bass“: ohne Demucs ausgegraut mit Erklärung, Anleitung („?“) und „Erneut prüfen“. Getestet mit einem Ersatz-Programm; mit echtem Demucs 4.1.0 gemessen (12.10.): Song von 4:11 in 17 s (RTX 3090) bzw. 92 s nur auf dem Prozessor (24 Threads); `pipx install demucs` bringt numpy nicht mit (Anleitung ergänzt). Messung auf Mindest-Hardware (Laptop) offen.
+- [x] LH-BIB-09 (Kann, Runde 9): Bass aus dem Backing-Track entfernen über Demucs, wenn installiert (`drivers::separator`: `KONTRA_DEMUCS`, `PATH`, `~/.local/bin`; im Flatpak `flatpak-spawn --host`, braucht eine Erlaubnis, die das Manifest noch nicht hat). `demucs --two-stems bass -n htdemucs`, Fortschritt aus dem Fortschrittsbalken auf stderr, Abbrechen beendet den Prozess. Ergebnis im Cache je Datei (Pfad, Größe, Änderungszeit); der Abgleich bleibt. Übungsseite „Ohne Bass“: ohne Demucs ausgegraut mit Erklärung, Anleitung („?“) und „Erneut prüfen“. Getestet mit einem Ersatz-Programm; mit echtem Demucs 4.1.0 gemessen (12.10.): Song von 4:11 in 17 s (RTX 3090) bzw. 92 s nur auf dem Prozessor (24 Threads); `pipx install demucs` bringt numpy nicht mit (Anleitung ergänzt). Messung auf Mindest-Hardware (Laptop) offen. 14.10.: Auswahl „Original | Ohne Bass“, Restzeit, Abbrechen ohne Reste, Cache-Ordner mit Größe und Löschen je Song, `nice -n 10`; 4:00 in 128 s (Prozessor, 24 Threads, unter Last), 212 s auf 4 Kernen (QA-Runde 14.10.).
 - [ ] LH-LRN-01 (Teil): Grooves auf dem Grundton (Viertel bis Sechzehntel, Pausen, Shuffle, Oktaven) mit Schlagzeug (#15), 21 mitgeliefert; Ghost Notes im Groove fehlen noch.
 - [x] LH-TUN-02 / LH-EIN-01: Stimmung im Profil (Standard, Drop D bzw. Drop A bei 5/6 Saiten, ½ und 1 Ton tiefer, eigene mit Notenwahl je Saite) in Einstellungen und Assistent; Stimmgerät (geführt) und Tab-Zuordnung von Dateien ohne Stimmung (MIDI, MusicXML) nutzen sie, ein Wechsel ordnet das geladene Stück sofort neu zu.
 - [x] LH-TUN-04: Kammerton A 430–450 Hz (Standard 440) für Stimmgerät, Erkennung und Bewertung.

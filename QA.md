@@ -97,6 +97,15 @@ Erwartet: Cent-Werte pro Note weichen ≤ 3 Cent vom annotierten Wert ab; B0 bis
 4. Präsentation (F5 oder Knopf neben dem Mixer), durchspielen, mit Esc beenden.
 Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreichend; in der Präsentation Vollbild ohne Seitenleiste, nur Titel, Noten und Transport, Notenlinien größer; Esc stellt das Fenster wieder her wie vorher.
 
+**J-B6 Song aus dem Netz** ⚙ 🔍 · Personas: P2 Jens, P3 Mira, P1 Lea · Phase 2 · LH-BIB-10, -11
+1. Jens: Bibliothek, „Seven Nation Army“ eintippen, „Bei Songsterr suchen“ (Enter im Feld genügt).
+2. Im Browser die Guitar-Pro-Datei herunterladen (Songsterr Plus; ersatzweise eine eigene `.gp`), zurück zu Kontra.
+3. Unter „Neu in Downloads“ die Datei anklicken.
+4. Mira: eine in MuseScore 4 gespeicherte `.mscz` (Fünfsaiter mit Tab) auf die Bibliothek ziehen; danach drei Dateien auf einmal, eine davon defekt.
+5. Lea: dasselbe ohne Netz; dann ohne Browser (keine Standard-App für Links).
+6. Sam (P7): alles nur mit Tastatur und Screenreader, 200 %.
+Erwartet: Kontra lädt nichts selbst, die Suche öffnet sich im Browser mit dem Suchbegriff; die Datei erscheint beim Zurückkehren ins Fenster (sonst binnen 15 s) mit Art („Guitar Pro“, „MuseScore“) und Alter, ein Klick öffnet sie mit der Bassspur und nimmt sie aus „Neu“; `.mscz` mit gleichen Saiten und Bünden wie in MuseScore; mehrere abgelegte Dateien landen in der Bibliothek, die defekte mit Grund; ohne Netz zeigt nur der Browser einen Fehler, Kontra bleibt bedienbar; ohne Browser eine Warnung mit der Adresse zum Kopieren; Feld, Knöpfe und Liste per Tab erreichbar, der Screenreader sagt „öffnet den Browser“ und „… öffnen“.
+
 ## C. Lernen und Fortschritt
 
 **J-C1 Erste Woche** · Persona: P1 Lea · Phase 1 (adaptive Schwierigkeit Phase 2) · LH-FOR-01, LH-MOD-06, LH-BEW-04
@@ -117,8 +126,8 @@ Erwartet: Histogramm mit Achse und Legende; Tendenz in Worten („meist 18 ms zu
 **J-C3 MusicXML und Groove** · Persona: P3 Mira · Phase 2 · LH-BIB-03, LH-LRN-01, LH-LRN-04
 1. MuseScore-Export (MusicXML) importieren, in der Notenansicht spielen.
 2. Groove-Übung „Sechzehntel mit Ghost Notes“, 92 BPM.
-3. Walking-Bass-Muster über ii-V-I in B♭ generieren lassen.
-Erwartet: Notensatz wie in MuseScore; Streuung in ms; generierte Übung speicherbar.
+3. Walking-Bass-Muster über ii-V-I in B♭ generieren lassen; dann Dorisch in Terzen in D und einen Groove in 7/8.
+Erwartet: Notensatz wie in MuseScore; Streuung in ms; generierte Übung speicherbar; Taktart und Vorzeichen stimmen.
 
 **J-C4 Hören und nachspielen** ⚙ · Personas: P1 Lea, P3 Mira · Phase 3 · LH-LRN-03, LH-BEW-01
 1. Lea: Seite „Gehör“ (Strg+9), „Nachspielen“; den Ton noch während der Vorgabe mitspielen, dann einen falschen, dann den richtigen.
@@ -139,8 +148,8 @@ Erwartet: jede Technik-Note hat ein Zeichen (h, p, sl, x, Klammer) und danach ei
 2. Zwei Taktanfänge von Hand korrigieren.
 3. Bei 75 % Tempo durchspielen.
 4. Die Sängerin will es einen Ganzton höher: „Transponieren“ +2 mitten im Lied, weiterspielen; Kontra neu starten.
-5. „Bass der Aufnahme entfernen“ einschalten (erst ohne Demucs, dann mit), nach der Trennung durchspielen.
-Erwartet: kein hörbarer Versatz > 20 ms über 4 Minuten; der Wechsel hält das Lied nicht an, Bewertetes bleibt; transponiert passen Tab und Audio zusammen (gleiche Tonart, gleiche Takte), Bünde aus der Datei bleiben, wo es geht; die Einstellung bleibt beim Stück, der Fortschritt auch. Ohne Demucs ist der Schalter ausgegraut und „?“ sagt, wie man es installiert; mit Demucs läuft die Trennung im Hintergrund mit Prozent und Abbrechen, danach spielt der Backing-Track ohne Bass, im selben Abgleich, und beim nächsten Mal ohne neue Trennung.
+5. Unter „Bass der Aufnahme“ „Ohne Bass“ wählen (erst ohne Demucs, dann mit), einmal abbrechen, nach der Trennung durchspielen, Kontra neu starten, die getrennte Datei löschen.
+Erwartet: kein hörbarer Versatz > 20 ms über 4 Minuten; der Wechsel hält das Lied nicht an, Bewertetes bleibt; transponiert passen Tab und Audio zusammen (gleiche Tonart, gleiche Takte), Bünde aus der Datei bleiben, wo es geht; die Einstellung bleibt beim Stück, der Fortschritt auch. Ohne Demucs ist „Ohne Bass“ ausgegraut und „?“ sagt, wie man es installiert; mit Demucs läuft die Trennung im Hintergrund (niedrige Priorität) mit Prozent, Restzeit und Abbrechen; Abbrechen lässt keine Dateien zurück. Danach spielt der Backing-Track ohne Bass, im selben Abgleich, und beim nächsten Mal ohne neue Trennung; die Datei liegt im Cache-Ordner, „?“ nennt Ort und Größe, „Getrennte Datei löschen“ gibt den Platz frei. Ein Fehler nennt die Meldung von Demucs und was zu tun ist und bleibt bei seinem Song.
 
 **J-D2 Übung an Schüler geben** · Persona: P4 Thomas · Phase 3 · LH-BIB-07, LH-FOR-04
 1. Übung aus Guitar Pro importieren, Loop-Bereiche und Zieltempo festlegen, als `.kontra` exportieren.

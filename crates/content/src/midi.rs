@@ -2,12 +2,12 @@
 //! ticks are rescaled to 960 per quarter, bars come from the time signature events.
 
 use crate::error::ImportError;
-use crate::exercise::GHOST_TEXT;
+use crate::exercise::{POSITION_TEXT, TECHNIQUE_TEXTS};
 use crate::score::{self, BarHead, Part, RawNote, Score, DEFAULT_BPM};
 use crate::unroll::MAX_BARS;
-use kontra_model::{Pitch, Technique, TimeSignature, TICKS_PER_QUARTER};
+use kontra_model::{Pitch, Technique, TimeSignature, Tuning, TICKS_PER_QUARTER};
 use midly::{MetaMessage, MidiMessage, Smf, Timing, TrackEventKind};
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 
 /// General MIDI drum channel (10, 0-based 9).
 const DRUM_CHANNEL: u8 = 9;
@@ -18,6 +18,8 @@ const SMPTE_BIT: u8 = 0x80;
 const MICROS_PER_MINUTE: f64 = 60_000_000.0;
 /// Largest time signature denominator exponent accepted (2^6 = 64th).
 const MAX_DENOMINATOR_POW: u8 = 6;
+/// Frets of the bass that placed notes (`POSITION_TEXT`) are written for.
+const POSITION_FRETS: u8 = 24;
 
 /// Notes, names and programs collected from one track.
 #[derive(Debug, Default)]
@@ -26,9 +28,12 @@ struct TrackData {
     /// Notes per channel: (start, end, key).
     notes: BTreeMap<u8, Vec<(u64, u64, u8)>>,
     programs: HashMap<u8, u8>,
-    /// Ticks of `GHOST_TEXT` events: notes of this track starting there are ghost notes
-    /// (Kontra's own groove exercises; MIDI itself has no such mark).
-    ghosts: HashSet<u64>,
+    /// Techniques from `TECHNIQUE_TEXTS` events by tick: notes of this track starting there get
+    /// them (Kontra's own exercises; MIDI itself has no such mark).
+    techniques: HashMap<u64, Technique>,
+    /// (string, fret) from `POSITION_TEXT` events by tick, on a four-string bass in standard
+    /// tuning (Kontra's finger exercises).
+    positions: HashMap<u64, (u8, u8)>,
 }
 
 pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
@@ -76,8 +81,14 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
                     if let MetaMessage::KeySignature(fifths, _) = meta {
                         keys.extend(score::key(i32::from(fifths)).map(|k| (at, k)));
                     }
-                    if meta == MetaMessage::Text(GHOST_TEXT.as_bytes()) {
-                        track.ghosts.insert(at);
+                    if let MetaMessage::Text(text) = meta {
+                        let technique = TECHNIQUE_TEXTS.iter().find(|(t, _)| t.as_bytes() == text);
+                        if let Some((_, technique)) = technique {
+                            track.techniques.insert(at, *technique);
+                        }
+                        if let Some(position) = position(text) {
+                            track.positions.insert(at, position);
+                        }
                     }
                     if let MetaMessage::Marker(text) = meta {
                         let text = String::from_utf8_lossy(text).trim().to_string();
@@ -290,17 +301,45 @@ fn parts(score: &mut Score, starts: &[u64], tracks: &[TrackData]) {
                 .or_else(|| global.get(&channel))
                 .copied();
             part.percussion = channel == DRUM_CHANNEL;
+            // Placed notes bring their instrument: the tab keeps their strings. A place that
+            // does not give the note's pitch on a four-string bass is ignored.
+            let open = Tuning::bass4_standard().strings;
+            let place = |start: &u64, key: u8| {
+                let &(string, fret) = track.positions.get(start)?;
+                let pitch = open.get(usize::from(string))?.0.checked_add(fret)?;
+                (fret <= POSITION_FRETS && pitch == key).then_some((string, fret))
+            };
+            if notes
+                .iter()
+                .any(|(start, _, key)| place(start, *key).is_some())
+            {
+                part.tuning = open.clone();
+                part.frets = POSITION_FRETS;
+            }
             for &(start, end, key) in notes {
                 let (bar, offset) = locate(starts, start);
                 let mut note = RawNote::new(offset, end - start, Pitch(key));
-                if track.ghosts.contains(&start) {
-                    note.add(Technique::Ghost);
+                if let Some(technique) = track.techniques.get(&start) {
+                    note.add(*technique);
+                }
+                if let Some((string, fret)) = place(&start, key) {
+                    note.string = Some(string);
+                    note.fret = Some(fret);
                 }
                 part.bar_mut(bar).push(note);
             }
             score.parts.push(part);
         }
     }
+}
+
+/// "pos 1 7" → (1, 7).
+fn position(text: &[u8]) -> Option<(u8, u8)> {
+    let text = std::str::from_utf8(text).ok()?;
+    let mut words = text.strip_prefix(POSITION_TEXT)?.split_whitespace();
+    let string = words.next()?.parse().ok()?;
+    let fret = words.next()?.parse().ok()?;
+    Some((string, fret))
 }
 
 /// The first track's name as song title, unless it is a sequencer's generic name for the tempo
@@ -340,6 +379,76 @@ mod tests {
         assert_eq!(locate(&starts, 0), (0, 0));
         assert_eq!(locate(&starts, 4000), (1, 160));
         assert_eq!(locate(&starts, 9000), (2, 2280));
+    }
+
+    /// One note per (text, key) a quarter apart, each with its text event, as a type 0 file.
+    fn with_texts(notes: &[(&str, u8)]) -> Vec<u8> {
+        use midly::num::{u15, u28, u4, u7};
+        use midly::{Format, Header, Smf, TrackEvent};
+        let event = |delta: u32, kind| TrackEvent {
+            delta: u28::new(delta),
+            kind,
+        };
+        let channel = u4::new(0);
+        let mut track = Vec::new();
+        for (text, key) in notes {
+            let key = u7::new(*key);
+            track.push(event(
+                0,
+                TrackEventKind::Meta(MetaMessage::Text(text.as_bytes())),
+            ));
+            let on = MidiMessage::NoteOn {
+                key,
+                vel: u7::new(90),
+            };
+            track.push(event(
+                0,
+                TrackEventKind::Midi {
+                    channel,
+                    message: on,
+                },
+            ));
+            let off = MidiMessage::NoteOff {
+                key,
+                vel: u7::new(0),
+            };
+            track.push(event(
+                480,
+                TrackEventKind::Midi {
+                    channel,
+                    message: off,
+                },
+            ));
+        }
+        track.push(event(0, TrackEventKind::Meta(MetaMessage::EndOfTrack)));
+        let smf = Smf {
+            header: Header::new(Format::SingleTrack, Timing::Metrical(u15::new(480))),
+            tracks: vec![track],
+        };
+        let mut out = Vec::new();
+        smf.write_std(&mut out).unwrap();
+        out
+    }
+
+    /// "pos" text events place only notes they fit: a string the bass has, a fret on it that
+    /// gives the note's pitch (review #62: any file could set strings up to 255).
+    #[test]
+    fn positions_must_fit_the_note() {
+        // A2 on the A string at fret 12; E2 claimed for E fret 3 (that is G1); string 9.
+        let bytes = with_texts(&[("pos 1 12", 45), ("pos 0 3", 40), ("pos 9 2", 38)]);
+        let imported = crate::import_bytes(&bytes, crate::FileKind::Midi).unwrap();
+        let a = imported.arrangement(0).unwrap();
+        let places: Vec<(Option<u8>, Option<u8>)> =
+            a.notes.iter().map(|n| (n.string, n.fret)).collect();
+        assert_eq!(places[0], (Some(1), Some(12)));
+        assert_ne!(places[1], (Some(0), Some(3)), "wrong pitch for the place");
+        for n in &a.notes {
+            let (Some(string), Some(fret)) = (n.string, n.fret) else {
+                continue;
+            };
+            let open = a.instrument.tuning.strings[usize::from(string)].0;
+            assert_eq!(open + fret, n.pitch.0, "{n:?}");
+        }
     }
 
     #[test]

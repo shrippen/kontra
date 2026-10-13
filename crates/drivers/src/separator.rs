@@ -2,10 +2,13 @@
 //! Kontra ships nothing of it and only starts it as a separate process.
 //!
 //! ```text
-//! song.mp3 ─► demucs --two-stems bass -n htdemucs -o <out> song.mp3
-//!               │ stderr " 37%|███▋      | 12.3/33.0 [...]" ─► progress 0.37
+//! song.mp3 ─► nice -n 10 demucs --two-stems bass -n htdemucs -o <out> song.mp3
+//!               │ stderr " 37%|███▋ | 12.3/33.0 [00:10<00:17, …]" ─► progress 0.37, 17 s left
 //!               └─► <out>/htdemucs/song/no_bass.wav
 //! ```
+//!
+//! It runs at a lower priority (`nice`), so playing along and the UI keep the processor first
+//! on a slow machine; it only takes longer then.
 //!
 //! Where it is looked for: `KONTRA_DEMUCS` (a path, for an install outside `PATH`, e.g. a conda
 //! environment), then `demucs` in `PATH` and in `~/.local/bin` (where `pipx` puts it; a desktop
@@ -22,6 +25,10 @@ use std::time::{Duration, Instant};
 use thiserror::Error;
 
 const PROGRAM: &str = "demucs";
+/// Starts a program at a lower priority (coreutils, on every Linux).
+const NICE: &str = "nice";
+/// Niceness of the separator: below the UI and the audio, above idle jobs.
+const NICENESS: &str = "10";
 const OVERRIDE_ENV: &str = "KONTRA_DEMUCS";
 /// The model Demucs downloads on its first run (about 80 MB) and its output folder name.
 const MODEL: &str = "htdemucs";
@@ -36,6 +43,9 @@ const STOP_GRACE: Duration = Duration::from_millis(300);
 const STOP_POLL: Duration = Duration::from_millis(10);
 /// Last bytes of stderr kept for an error message.
 const TAIL_BYTES: usize = 600;
+/// Seconds left are kept +1, so 0 means "not known yet".
+const UNKNOWN: u32 = 0;
+const SECONDS_PER_MINUTE: u32 = 60;
 
 #[derive(Debug, Error)]
 pub enum SeparatorError {
@@ -60,7 +70,7 @@ pub struct Separator {
 pub fn find_separator() -> Option<Separator> {
     if let Some(path) = std::env::var_os(OVERRIDE_ENV) {
         let path = PathBuf::from(path);
-        return is_executable(&path).then(|| Separator::with_program(&path));
+        return is_executable(&path).then(|| Separator::with_program(&path).niced());
     }
     if in_sandbox() {
         return host_separator();
@@ -74,7 +84,7 @@ pub fn find_separator() -> Option<Separator> {
         .chain(home_bin)
         .map(|dir| dir.join(PROGRAM))
         .find(|p| is_executable(p))
-        .map(|p| Separator::with_program(&p))
+        .map(|p| Separator::with_program(&p).niced())
 }
 
 /// Demucs on the host, seen from a Flatpak; needs the permission to talk to the Flatpak
@@ -92,6 +102,9 @@ fn host_separator() -> Option<Separator> {
             "flatpak-spawn".into(),
             "--host".into(),
             "--watch-bus".into(),
+            NICE.into(),
+            "-n".into(),
+            NICENESS.into(),
             PROGRAM.into(),
         ],
     })
@@ -115,6 +128,24 @@ impl Separator {
         }
     }
 
+    /// The same program at a lower priority, if `nice` is there.
+    fn niced(self) -> Separator {
+        let Some(nice) = ["/usr/bin", "/bin"]
+            .iter()
+            .map(|dir| Path::new(dir).join(NICE))
+            .find(|p| is_executable(p))
+        else {
+            return self;
+        };
+        let mut command = vec![
+            nice.to_string_lossy().into_owned(),
+            "-n".into(),
+            NICENESS.into(),
+        ];
+        command.extend(self.command);
+        Separator { command }
+    }
+
     /// Starts removing the bass from `input`; the result lands below `out_dir`.
     pub fn start(&self, input: &Path, out_dir: &Path) -> Result<SeparationJob, SeparatorError> {
         let (program, prefix) = match self.command.split_first() {
@@ -124,7 +155,9 @@ impl Separator {
             }
         };
         // Its own process group: cancelling also stops what a wrapper (conda, a script) started.
-        let mut child = Command::new(program)
+        let mut command = Command::new(program);
+        orphan::end_with_parent(&mut command);
+        let mut child = command
             .process_group(0)
             .args(prefix)
             .args(["--two-stems", "bass", "-n", MODEL, "-o"])
@@ -139,10 +172,15 @@ impl Separator {
                 source,
             })?;
         let progress = Arc::new(AtomicU32::new(0));
+        let left = Arc::new(AtomicU32::new(UNKNOWN));
         let tail = Arc::new(Mutex::new(String::new()));
         let reader = child.stderr.take().map(|stderr| {
-            let (progress, tail) = (Arc::clone(&progress), Arc::clone(&tail));
-            std::thread::spawn(move || read_progress(stderr, &progress, &tail))
+            let bar = Bar {
+                progress: Arc::clone(&progress),
+                left: Arc::clone(&left),
+            };
+            let tail = Arc::clone(&tail);
+            std::thread::spawn(move || read_progress(stderr, &bar, &tail))
         });
         let stem = input
             .file_stem()
@@ -150,6 +188,7 @@ impl Separator {
         Ok(SeparationJob {
             child,
             progress,
+            left,
             tail,
             reader,
             exited_at: None,
@@ -164,6 +203,8 @@ impl Separator {
 pub struct SeparationJob {
     child: Child,
     progress: Arc<AtomicU32>,
+    /// Seconds left + 1, `UNKNOWN` before the bar says.
+    left: Arc<AtomicU32>,
     tail: Arc<Mutex<String>>,
     /// Reads the program's output until it ends; joined once the program exited, so the
     /// last progress and error lines are in.
@@ -178,6 +219,12 @@ impl SeparationJob {
     /// one, so it can go back).
     pub fn progress(&self) -> f64 {
         f64::from(self.progress.load(Ordering::Relaxed)) / PERMILLE
+    }
+
+    /// Time left of the current pass, as the program estimates it; `None` until it does.
+    pub fn remaining(&self) -> Option<Duration> {
+        let left = self.left.load(Ordering::Relaxed);
+        (left != UNKNOWN).then(|| Duration::from_secs(u64::from(left - 1)))
     }
 
     /// `None` while it runs; the file without bass when done.
@@ -216,24 +263,28 @@ impl SeparationJob {
         self.stop();
     }
 
-    /// Ends the program's whole process group, then the program itself if it did not end
-    /// (a wrapper like flatpak-spawn needs a moment to pass the signal on).
+    /// Asks the program's whole process group to end (a wrapper like flatpak-spawn needs a
+    /// moment to pass the signal on), then kills what is left of it, so nothing writes into
+    /// its folder afterwards.
     fn stop(&mut self) {
         self.stop_group();
         let deadline = Instant::now() + STOP_GRACE;
-        while Instant::now() < deadline {
-            if !matches!(self.child.try_wait(), Ok(None)) {
-                return;
-            }
+        while Instant::now() < deadline && matches!(self.child.try_wait(), Ok(None)) {
             std::thread::sleep(STOP_POLL);
         }
+        self.signal_group("-KILL");
         let _ = self.child.kill();
+        let _ = self.child.wait();
     }
 
     fn stop_group(&self) {
+        self.signal_group("-TERM");
+    }
+
+    fn signal_group(&self, signal: &str) {
         let group = format!("-{}", self.child.id());
         let _ = Command::new("kill")
-            .args(["-TERM", "--", &group])
+            .args([signal, "--", &group])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status();
@@ -252,8 +303,42 @@ impl Drop for SeparationJob {
     }
 }
 
+/// Demucs must not outlive Kontra: in its own process group it misses the terminal's hang-up,
+/// and after a crash it would keep every core busy for minutes.
+#[allow(unsafe_code)]
+mod orphan {
+    use std::os::unix::process::CommandExt;
+    use std::process::Command;
+
+    /// The child gets SIGKILL when the thread that started it ends (in Kontra the UI thread,
+    /// so: when Kontra ends, also by a crash).
+    pub(super) fn end_with_parent(command: &mut Command) {
+        let parent = std::process::id();
+        // SAFETY: runs in the forked child before exec; prctl and getppid are async-signal-safe
+        // and the closure neither allocates nor takes locks.
+        unsafe {
+            command.pre_exec(move || {
+                if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) != 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                // Kontra died between fork and prctl: the signal will not come.
+                if u32::try_from(libc::getppid()) != Ok(parent) {
+                    libc::_exit(1);
+                }
+                Ok(())
+            });
+        }
+    }
+}
+
+/// What the reader thread passes on from the progress bar.
+struct Bar {
+    progress: Arc<AtomicU32>,
+    left: Arc<AtomicU32>,
+}
+
 /// Reads the progress bar ("…\r 37%|███▋ |…") and keeps the end of the output for errors.
-fn read_progress(mut stderr: impl Read, progress: &AtomicU32, tail: &Mutex<String>) {
+fn read_progress(mut stderr: impl Read, bar: &Bar, tail: &Mutex<String>) {
     let mut buffer = [0u8; 1024];
     let mut line = String::new();
     loop {
@@ -267,7 +352,10 @@ fn read_progress(mut stderr: impl Read, progress: &AtomicU32, tail: &Mutex<Strin
                 continue;
             }
             if let Some(p) = percent(&line) {
-                progress.store((p * PERMILLE).round() as u32, Ordering::Relaxed);
+                bar.progress
+                    .store((p * PERMILLE).round() as u32, Ordering::Relaxed);
+                let left = seconds_left(&line).map_or(UNKNOWN, |s| s + 1);
+                bar.left.store(left, Ordering::Relaxed);
             }
             if let Ok(mut t) = tail.lock() {
                 t.push_str(&line);
@@ -291,14 +379,38 @@ fn percent(line: &str) -> Option<f64> {
     (0.0..=100.0).contains(&value).then_some(value / 100.0)
 }
 
-/// The last line with text, for an error message.
+/// Seconds left from a progress bar line, "[00:10<01:17, …]" → 77; "<?" → `None`.
+fn seconds_left(line: &str) -> Option<u32> {
+    let (_, after) = line.rsplit_once('<')?;
+    let field = after.split([',', ']']).next()?.trim();
+    field.split(':').try_fold(0u32, |total, part| {
+        let value: u32 = part.parse().ok()?;
+        total.checked_mul(SECONDS_PER_MINUTE)?.checked_add(value)
+    })
+}
+
+/// The last line with text, for an error message; without Python's exception name and the
+/// closing full stop ("demucs.api.LoadAudioError: Could not read." → "Could not read").
 fn last_line(text: &str) -> String {
-    text.lines()
+    let line = text
+        .lines()
         .rev()
         .map(str::trim)
         .find(|l| !l.is_empty())
-        .unwrap_or("")
-        .to_string()
+        .unwrap_or("");
+    let message = match line.split_once(": ") {
+        Some((name, rest)) if is_exception(name) => rest,
+        _ => line,
+    };
+    message.trim_end_matches('.').to_string()
+}
+
+/// "ValueError", "demucs.api.LoadAudioError": a dotted name ending in Error or Exception.
+fn is_exception(name: &str) -> bool {
+    let plain = name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_');
+    plain && (name.ends_with("Error") || name.ends_with("Exception"))
 }
 
 #[cfg(test)]
@@ -323,6 +435,148 @@ mod tests {
         );
         assert_eq!(percent("100%|██████████| 33.0/33.0"), Some(1.0));
         assert_eq!(percent("Separated tracks will be stored in …"), None);
+    }
+
+    #[test]
+    fn keeps_demucs_own_words() {
+        let tail = "Traceback …\ndemucs.api.LoadAudioError: When trying to load using ffmpeg, got \
+                    the following error: FFmpeg could not read the file.\n";
+        assert_eq!(
+            last_line(tail),
+            "When trying to load using ffmpeg, got the following error: FFmpeg could not read the file"
+        );
+        assert_eq!(last_line("Note: a hint\n\n"), "Note: a hint");
+        assert_eq!(last_line(""), "");
+    }
+
+    #[test]
+    fn reads_the_time_left() {
+        let line = " 25%|██▌ | 5.85/23.4 [00:30<01:32,  5.24s/seconds]";
+        assert_eq!(seconds_left(line), Some(92));
+        assert_eq!(
+            seconds_left(" 5%| | 1/20 [00:01<1:02:03, 2s/it]"),
+            Some(3723)
+        );
+        assert_eq!(seconds_left("  0%| | 0.0/23.4 [00:00<?, ?seconds/s]"), None);
+        assert_eq!(seconds_left("no bar"), None);
+    }
+
+    /// Demucs takes every processor it gets; playing along must not stutter meanwhile.
+    #[test]
+    fn runs_below_the_ui() {
+        let _scripts = scripts();
+        let dir =
+            std::env::temp_dir().join(format!("kontra-separator-nice-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let script = dir.join("demucs");
+        std::fs::write(&script, "#!/bin/sh\necho \"$(nice)\" >&2\nexit 1\n").unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let song = dir.join("Song.wav");
+        std::fs::write(&song, b"RIFF").unwrap();
+
+        let mut job = Separator::with_program(&script)
+            .niced()
+            .start(&song, &dir.join("out"))
+            .unwrap();
+        let niceness = match wait(&mut job) {
+            Err(SeparatorError::Failed(line)) => line.parse::<i32>().unwrap(),
+            other => panic!("{other:?}"),
+        };
+        // Ten below the caller (a test may itself run under `nice`), at most 19.
+        let own = Command::new("nice").output().unwrap();
+        let own: i32 = String::from_utf8_lossy(&own.stdout).trim().parse().unwrap();
+        assert_eq!(niceness, (own + 10).min(19));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn niced_starts_through_nice() {
+        let command = Separator::with_program(Path::new("/opt/demucs"))
+            .niced()
+            .command;
+        assert!(command[0].ends_with("/nice"), "{command:?}");
+        assert_eq!(command[1..], ["-n", NICENESS, "/opt/demucs"]);
+    }
+
+    /// Second reader #64: a grandchild that ignores SIGTERM outlived the cancel and could write
+    /// into the work folder after it was cleared.
+    #[test]
+    fn cancel_kills_the_whole_group() {
+        let _scripts = scripts();
+        let dir =
+            std::env::temp_dir().join(format!("kontra-separator-group-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let alive = dir.join("alive");
+        let script = dir.join("demucs");
+        let body = format!(
+            "#!/bin/sh\nsh -c 'trap \"\" TERM; while true; do touch {}; sleep 0.02; done' &\nwait\n",
+            alive.display()
+        );
+        std::fs::write(&script, body).unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let song = dir.join("Song.wav");
+        std::fs::write(&song, b"RIFF").unwrap();
+
+        let mut job = Separator::with_program(&script)
+            .start(&song, &dir.join("out"))
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+        job.cancel();
+        drop(job);
+        let _ = std::fs::remove_file(&alive);
+        std::thread::sleep(Duration::from_millis(200));
+        assert!(!alive.exists(), "the grandchild still runs");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Second reader #64: Demucs outlived a crashed Kontra and kept every core busy. It ends with
+    /// the thread that started it (in Kontra the UI thread).
+    #[test]
+    fn ends_with_its_starter() {
+        let _scripts = scripts();
+        let dir =
+            std::env::temp_dir().join(format!("kontra-separator-orphan-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let pid_file = dir.join("pid");
+        let script = dir.join("demucs");
+        let body = format!(
+            "#!/bin/sh\necho $$ > {}\nexec sleep 30\n",
+            pid_file.display()
+        );
+        std::fs::write(&script, body).unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let song = dir.join("Song.wav");
+        std::fs::write(&song, b"RIFF").unwrap();
+
+        let (script2, song2, out) = (script.clone(), song.clone(), dir.join("out"));
+        std::thread::spawn(move || {
+            let job = Separator::with_program(&script2)
+                .start(&song2, &out)
+                .unwrap();
+            // As if Kontra died: nothing stops it.
+            std::mem::forget(job);
+            std::thread::sleep(Duration::from_millis(200));
+        })
+        .join()
+        .unwrap();
+        let pid = std::fs::read_to_string(&pid_file).unwrap();
+        let running = || {
+            let stat = std::fs::read_to_string(format!("/proc/{}/stat", pid.trim()));
+            // A killed child stays a zombie (state Z) until reaped.
+            stat.is_ok_and(|s| !s.contains(") Z "))
+        };
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while running() && Instant::now() < deadline {
+            std::thread::sleep(STOP_POLL);
+        }
+        assert!(!running(), "Demucs outlived its starter");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// A stand-in for Demucs: prints a progress bar and writes the result file.

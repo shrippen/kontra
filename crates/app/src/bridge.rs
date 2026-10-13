@@ -275,6 +275,21 @@ pub mod qobject {
         #[cxx_name = "importFolder"]
         fn import_folder(self: Pin<&mut Self>, url: &QString, as_setlist: bool);
 
+        /// Adds dropped files (JSON list of URLs) to the library (LH-BIB-11).
+        #[qinvokable]
+        #[cxx_name = "importFiles"]
+        fn import_files(self: Pin<&mut Self>, urls_json: &QString);
+
+        /// Search page of "songsterr" or "musescore" for `query`, for the browser (LH-BIB-11).
+        #[qinvokable]
+        #[cxx_name = "searchUrl"]
+        fn search_url(self: &Self, site: &QString, query: &QString) -> QString;
+
+        /// Scores downloaded lately and not yet in the library, as JSON (LH-BIB-11).
+        #[qinvokable]
+        #[cxx_name = "downloadsJson"]
+        fn downloads_json(self: &Self) -> QString;
+
         #[qinvokable]
         #[cxx_name = "setlistCreate"]
         fn setlist_create(self: Pin<&mut Self>, name: &QString);
@@ -422,6 +437,11 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "cancelStems"]
         fn cancel_stems(self: Pin<&mut Self>);
+
+        /// Deletes the backing track's separated file; it plays with its bass again.
+        #[qinvokable]
+        #[cxx_name = "forgetStems"]
+        fn forget_stems(self: Pin<&mut Self>);
 
         /// Looks for the separator again (after installing it) and shows the state.
         #[qinvokable]
@@ -870,6 +890,10 @@ impl Default for ControllerRust {
             if let Some(view) = &args.view {
                 controller.core.set_view(view);
                 controller.view = q(view);
+            }
+            if args.remove_bass {
+                controller.core.remove_bass(true);
+                controller.stems_json = q(&controller.core.stems_json());
             }
         }
         controller
@@ -1501,6 +1525,34 @@ impl qobject::Controller {
         self.as_mut().set_message(q(&text));
     }
 
+    fn import_files(mut self: Pin<&mut Self>, urls_json: &QString) {
+        let urls: Vec<String> = serde_json::from_str(&urls_json.to_string()).unwrap_or_default();
+        let files: Vec<PathBuf> = urls.iter().map(|u| local_path(u)).collect();
+        let (added, failed) = self.as_mut().core().import_files(&files);
+        let (text, recent) = {
+            let this = self.as_ref();
+            let core = &this.rust().core;
+            let mut text = core.tr("library.imported", &[("n", added.to_string())]);
+            for (name, reason) in &failed {
+                text.push_str(&format!("\n{name}: {reason}"));
+            }
+            (text, core.recent_json())
+        };
+        self.as_mut().set_recent_json(q(&recent));
+        self.as_mut().set_message(q(&text));
+    }
+
+    fn search_url(&self, site: &QString, query: &QString) -> QString {
+        q(&self
+            .rust()
+            .core
+            .search_url(&site.to_string(), &query.to_string()))
+    }
+
+    fn downloads_json(&self) -> QString {
+        q(&self.rust().core.downloads_json())
+    }
+
     fn refresh_setlists(mut self: Pin<&mut Self>) {
         let (lists, next) = {
             let this = self.as_ref();
@@ -1822,6 +1874,12 @@ impl qobject::Controller {
     fn cancel_stems(mut self: Pin<&mut Self>) {
         self.as_mut().core().cancel_stems();
         self.as_mut().show_stems();
+    }
+
+    fn forget_stems(mut self: Pin<&mut Self>) {
+        self.as_mut().core().forget_stems();
+        self.as_mut().show_stems();
+        self.as_mut().set_playing(false);
     }
 
     fn refresh_stems(mut self: Pin<&mut Self>) {

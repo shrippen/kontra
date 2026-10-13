@@ -886,6 +886,134 @@ pub fn mxl() -> Vec<u8> {
 }
 
 // ---------------------------------------------------------------------------------------------
+// MuseScore
+
+/// MuseScore 4 file as MuseScore 4.7 writes it (trimmed): a flute and a five-string bass with
+/// a tab staff. Pickup, repeat played three times, dotted note, triplet, tie over the bar line,
+/// tempo change, volta, grace note, staccato, and a linked notation staff repeating the notes.
+pub fn mscx() -> String {
+    let tie_start = r#"<Spanner type="Tie"><Tie></Tie><next><location><measures>1</measures><fractions>-3/4</fractions></location></next></Spanner>"#;
+    let tie_stop = r#"<Spanner type="Tie"><prev><location><measures>-1</measures><fractions>3/4</fractions></location></prev></Spanner>"#;
+    let bass = |fretted: bool| {
+        let tab = |fret: u8, string: u8| {
+            if fretted {
+                format!("<fret>{fret}</fret><string>{string}</string>")
+            } else {
+                String::new()
+            }
+        };
+        format!(
+            r#"<Measure len="1/4"><irregular>1</irregular><voice>
+      <KeySig><concertKey>-1</concertKey></KeySig>
+      <TimeSig><sigN>4</sigN><sigD>4</sigD></TimeSig>
+      <Tempo><tempo>1.666667</tempo><followText>1</followText><text><sym>metNoteQuarterUp</sym> = 100</text></Tempo>
+      <Chord><durationType>quarter</durationType><Note><pitch>23</pitch>{t0}</Note></Chord>
+    </voice></Measure>
+    <Measure><startRepeat/><voice>
+      <Chord><dots>1</dots><durationType>quarter</durationType><Note><pitch>28</pitch>{t1}</Note></Chord>
+      <Chord><durationType>eighth</durationType><Note><pitch>31</pitch>{t2}</Note></Chord>
+      <Tuplet><normalNotes>2</normalNotes><actualNotes>3</actualNotes><baseNote>eighth</baseNote></Tuplet>
+      <Chord><durationType>eighth</durationType><Note><pitch>33</pitch>{t3}</Note></Chord>
+      <Chord><durationType>eighth</durationType><Note><pitch>34</pitch>{t4}</Note></Chord>
+      <Chord><durationType>eighth</durationType><Note><pitch>35</pitch>{t5}</Note></Chord>
+      <endTuplet/>
+      <Chord><durationType>quarter</durationType><Articulation><subtype>articStaccatoBelow</subtype></Articulation><Note>{tie_start}<pitch>38</pitch>{t6}</Note></Chord>
+    </voice></Measure>
+    <Measure><endRepeat>3</endRepeat><voice>
+      <Chord><durationType>half</durationType><Note>{tie_stop}<pitch>38</pitch>{t6}</Note></Chord>
+      <Rest><durationType>quarter</durationType></Rest>
+      <Chord><durationType>eighth</durationType><acciaccatura/><Note><pitch>40</pitch></Note></Chord>
+      <Chord><durationType>quarter</durationType><Note><ghost>1</ghost><pitch>41</pitch></Note></Chord>
+    </voice></Measure>
+    <Measure><voice>
+      <Spanner type="Volta"><Volta><endings>1</endings></Volta><next><location><fractions>1/1</fractions></location></next></Spanner>
+      <Tempo><tempo>2</tempo><text>= 120</text></Tempo>
+      <Chord><durationType>whole</durationType><Note><pitch>43</pitch>{t7}</Note></Chord>
+    </voice></Measure>"#,
+            t0 = tab(0, 4),
+            t1 = tab(0, 3),
+            t2 = tab(3, 3),
+            t3 = tab(0, 2),
+            t4 = tab(1, 2),
+            t5 = tab(2, 2),
+            t6 = tab(0, 1),
+            t7 = tab(0, 0),
+        )
+    };
+    let flute = r#"<Measure len="1/4"><voice><Chord><durationType>quarter</durationType><Note><pitch>72</pitch></Note></Chord></voice></Measure>
+    <Measure><voice><Rest><durationType>measure</durationType><duration>4/4</duration></Rest></voice></Measure>
+    <Measure><voice><Rest><durationType>measure</durationType><duration>4/4</duration></Rest></voice></Measure>
+    <Measure><voice><Chord><durationType>whole</durationType><Note><pitch>74</pitch></Note></Chord></voice></Measure>"#;
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<museScore version="4.70">
+  <programVersion>4.7.5</programVersion>
+  <Score>
+    <Division>480</Division>
+    <metaTag name="composer">Kontra</metaTag>
+    <metaTag name="workTitle">Tab &amp; Test</metaTag>
+    <Part id="1">
+      <Staff><StaffType group="pitched"><name>stdNormal</name></StaffType></Staff>
+      <trackName>Flute</trackName>
+      <Instrument id="flute"><longName>Flute</longName><instrumentId>wind.flutes.flute</instrumentId>
+        <Channel><program value="73"/></Channel></Instrument>
+    </Part>
+    <Part id="2">
+      <Staff><StaffType group="pitched"><name>stdNormal</name></StaffType></Staff>
+      <Staff><StaffType group="tablature"><name>tab5StrCommon</name></StaffType></Staff>
+      <trackName>Bass</trackName>
+      <Instrument id="electric-bass-5-str"><longName>5-str. Electric Bass</longName>
+        <instrumentId>pluck.bass.electric</instrumentId>
+        <StringData><frets>24</frets><string>23</string><string>28</string><string>33</string><string>38</string><string>43</string></StringData>
+        <Channel><program value="33"/></Channel></Instrument>
+    </Part>
+    <Staff id="1">
+      <VBox><Text><style>title</style><text>Tab &amp; Test</text></Text></VBox>
+      {flute}
+    </Staff>
+    <Staff id="2">{plain}</Staff>
+    <Staff id="3">{fretted}</Staff>
+  </Score>
+</museScore>
+"#,
+        plain = bass(false),
+        fretted = bass(true),
+    )
+}
+
+/// The same score as MuseScore 3 writes tuplets: an id on `<Tuplet>`, the chord refers to it.
+pub fn mscx3() -> String {
+    let four = mscx().replace(
+        r#"<museScore version="4.70">"#,
+        r#"<museScore version="3.02">"#,
+    );
+    let four = four.replace("<Tuplet><normalNotes>", r#"<Tuplet id="1"><normalNotes>"#);
+    let four = four.replace("<endTuplet/>", "");
+    ["33", "34", "35"].iter().fold(four, |text, pitch| {
+        text.replace(
+            &format!("<Chord><durationType>eighth</durationType><Note><pitch>{pitch}"),
+            &format!(
+                "<Chord><Tuplet>1</Tuplet><durationType>eighth</durationType><Note><pitch>{pitch}"
+            ),
+        )
+    })
+}
+
+/// `.mscz` archive as MuseScore writes it: container listing style, score and thumbnail.
+pub fn mscz() -> Vec<u8> {
+    let container = br#"<?xml version="1.0" encoding="UTF-8"?><container><rootfiles><rootfile full-path="score_style.mss"/><rootfile full-path="song.mscx"/><rootfile full-path="Thumbnails/thumbnail.png"/></rootfiles></container>"#;
+    let score = mscx();
+    zip(
+        &[
+            ("score_style.mss", b"<museScore/>".as_slice()),
+            ("song.mscx", score.as_bytes()),
+            ("META-INF/container.xml", container.as_slice()),
+        ],
+        Method::Deflated,
+    )
+}
+
+// ---------------------------------------------------------------------------------------------
 // Corruption
 
 /// Deterministic pseudo-random generator (xorshift).
