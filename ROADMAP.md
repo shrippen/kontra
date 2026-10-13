@@ -244,6 +244,8 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
   - G13 (niedrig, behoben #49): Auswertung schloss nicht mit Esc.
   - G14 (niedrig, behoben #49): „Nächste Übung“ trug Kantes Häkchen (grüne Stufe) und las sich wie erledigt.
   - G15 (niedrig, behoben #49): Kreuz und b als „#“ und „b“ (Quiz, Stimmgerät, Übungstitel); jetzt ♯ und ♭.
+  - G16 (mittel, behoben #49, P1): Leere Bibliothek und leerer Fortschritt endeten ohne Weg; jetzt „Mit einer Übung
+    anfangen“.
   - Offen (Kante): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 
