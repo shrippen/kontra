@@ -28,6 +28,7 @@ Kirigami.ScrollablePage {
     }
     readonly property var setlists: JSON.parse(ctl.setlistsJson)
     readonly property var tracks: JSON.parse(ctl.trackChoicesJson)
+    readonly property bool slim: width < KanteStyle.unit(700)
     // LH-BIB-07: the piece being shared and whether its backing audio goes along.
     property string sharePath: ""
     property bool shareAudio: false
@@ -165,14 +166,17 @@ Kirigami.ScrollablePage {
                         // Two pieces of one title: the file name tells them apart (QA 13.10.).
                         readonly property bool twin: page.recent.filter(function(r) {
                             return r.title === piece.modelData.title }).length > 1
-                        subtitle: [piece.modelData.artist]
-                                  .concat(twin ? [String(piece.modelData.path).split("/").pop()] : [])
-                                  .concat(piece.modelData.tags.map(function(t) { return "#" + t }))
-                                  .filter(function(s) { return s !== "" }).join(" · ")
-                        meta: piece.modelData.best !== null && piece.modelData.best !== undefined
+                        readonly property string result: piece.modelData.best !== null && piece.modelData.best !== undefined
                               ? texts.t("library.best", { percent: Math.round(piece.modelData.best * 100) })
                                 + " · " + (piece.modelData.practiceMin < 1 ? texts.t("library.underminute") : texts.t("library.minutes", { minutes: Math.round(piece.modelData.practiceMin) }))
                               : texts.t("library.unplayed")
+                        // In a slim window the result goes under the title, which keeps its room.
+                        subtitle: [piece.modelData.artist]
+                                  .concat(twin ? [String(piece.modelData.path).split("/").pop()] : [])
+                                  .concat(piece.modelData.tags.map(function(t) { return "#" + t }))
+                                  .concat(page.slim ? [result] : [])
+                                  .filter(function(s) { return s !== "" }).join(" · ")
+                        meta: page.slim ? "" : result
                         onClicked: page.open(String(piece.modelData.path))
                         trailing: Row {
                             spacing: KanteStyle.unit(4)
