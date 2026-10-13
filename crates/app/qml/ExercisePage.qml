@@ -58,7 +58,19 @@ Kirigami.ScrollablePage {
                 required property var modelData
                 Layout.fillWidth: true
                 spacing: 0
-                KanteHeading { text: level.modelData.level; Layout.topMargin: KanteStyle.unit(8) }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: KanteStyle.unit(8)
+                    KanteHeading { text: level.modelData.level; Layout.fillWidth: true }
+                    // How far the level is: "3 of 8 mastered" (P1 sees the plan move).
+                    QQC2.Label {
+                        text: texts.t("exercises.level.mastered", {
+                            done: level.modelData.mastered, count: level.modelData.items.length
+                        })
+                        color: KanteStyle.mutedTextColor
+                        font: KanteStyle.labelFont()
+                    }
+                }
                 Repeater {
                     model: level.modelData.items
                     delegate: KanteListRow {
@@ -69,6 +81,14 @@ Kirigami.ScrollablePage {
                             ? texts.t("library.best", { percent: Math.round(modelData.best * 100) })
                             : texts.t("exercises.new")
                         Accessible.name: text + ", " + meta
+                            + (modelData.mastered ? ", " + texts.t("exercises.mastered") : "")
+                        // Mastered: a tick, as for a hit note (not colour alone).
+                        trailing: KanteNoteMark {
+                            noteState: modelData.mastered ? "hit" : "pending"
+                            width: KanteStyle.unit(16)
+                            height: width
+                            Accessible.ignored: true
+                        }
                         onClicked: {
                             if (ctl.openFile(modelData.path))
                                 applicationWindow().show("practice")

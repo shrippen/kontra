@@ -424,6 +424,8 @@
   "exercises.bundled": "Mitgelieferte Übungen",
   "exercises.bundled.hint": "{count} Übungen in {levels} Stufen, vom ersten Groove bis zum Walking Bass. Fang oben an; jede Übung lässt sich in der Werkstatt langsamer üben.",
   "exercises.new": "neu",
+  "exercises.mastered": "sitzt",
+  "exercises.level.mastered": "{done} von {count} sitzen",
   "nav.quiz": "Griffbrett",
   "nav.ear": "Gehör",
   "ear.title": "Gehörbildung",

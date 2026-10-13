@@ -2340,13 +2340,17 @@ impl Core {
         let installed = std::env::current_exe()
             .ok()
             .and_then(|e| e.parent().map(|p| p.join("../share/kontra/exercises")));
-        match installed {
+        let dir = match installed {
             Some(path) if path.is_dir() => path,
             _ => PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/exercises"),
-        }
+        };
+        // Without "..": progress is keyed by the path, and the same file opened from the file
+        // manager has its plain one.
+        std::fs::canonicalize(&dir).unwrap_or(dir)
     }
 
-    /// Bundled exercises by level: `[{"level": "1 Einstieg", "items": [{"title", "path", "best"}]}]`.
+    /// Bundled exercises by level: `[{"level", "mastered": 3, "items": [{"title", "path", "best",
+    /// "mastered"}]}]`; mastered: best above the workshop band (`MASTERED_RATE`).
     pub fn bundled_json(&self) -> String {
         json!(self.bundled_levels()).to_string()
     }
@@ -2386,9 +2390,15 @@ impl Core {
                                 .map_or(stem.clone(), |(_, t)| t.to_string())
                         });
                         let best = self.best_rate(f);
-                        json!({ "title": title, "path": f.to_string_lossy(), "best": best })
+                        json!({
+                            "title": title,
+                            "path": f.to_string_lossy(),
+                            "best": best,
+                            "mastered": best >= MASTERED_RATE,
+                        })
                     })
                     .collect();
+                let mastered = items.iter().filter(|i| i["mastered"] == true).count();
                 let name = dir
                     .file_name()
                     .map_or(String::new(), |n| n.to_string_lossy().into_owned());
@@ -2396,7 +2406,7 @@ impl Core {
                 let level = name.split_once(' ').map_or(name.clone(), |(n, _)| {
                     self.tr(&format!("exercise.level.{n}"), &[])
                 });
-                json!({ "level": level, "items": items })
+                json!({ "level": level, "items": items, "mastered": mastered })
             })
             .collect();
         list
@@ -4361,6 +4371,39 @@ mod tests {
         // Only the run of the last seven days counts for the week.
         assert_eq!(home["week"]["minutes"], 2.0);
         assert_eq!(home["week"]["runs"], 1);
+
+        // The plan marks it as sitting and counts it in its level.
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let first_level = &levels[0];
+        assert_eq!(first_level["mastered"], 1);
+        assert_eq!(first_level["items"][0]["mastered"], true);
+        assert_eq!(first_level["items"][1]["mastered"], false);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// An exercise opened by its plain path (file manager, library) counts in the plan too: the
+    /// plan's paths had "../.." in them, its progress showed "new" (QA 13.10.).
+    #[test]
+    fn exercise_progress_by_plain_path() {
+        let dir = temp_dir("plainpath");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let first = levels[0]["items"][0]["path"].as_str().unwrap().to_string();
+        let plain = std::fs::canonicalize(&first).unwrap();
+        core.open(&plain).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let run = Run {
+            finished_unix: 1,
+            practice_s: 60.0,
+            speed: 1.0,
+            hit_rate: 0.95,
+            mode: "song".into(),
+            section: None,
+            hardest_bars: Vec::new(),
+        };
+        core.progress_store().record(&a, run).unwrap();
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        assert_eq!(levels[0]["items"][0]["best"], 0.95);
         let _ = std::fs::remove_dir_all(dir);
     }
 

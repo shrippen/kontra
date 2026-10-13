@@ -424,6 +424,8 @@
   "exercises.bundled": "Bundled exercises",
   "exercises.bundled.hint": "{count} exercises in {levels} levels, from the first groove to walking bass. Start at the top; slow any of them down in the workshop.",
   "exercises.new": "new",
+  "exercises.mastered": "mastered",
+  "exercises.level.mastered": "{done} of {count} mastered",
   "nav.quiz": "Fretboard",
   "nav.ear": "Ear",
   "ear.title": "Ear training",

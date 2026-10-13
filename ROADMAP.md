@@ -259,6 +259,11 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
     jetzt die halbe Höhe und so viele Takte je Zeile wie die Tabulatur darunter.
   - G21 (mittel, behoben #49, P2/P3): Tabulatur gab jedem Takt dieselbe Mindestbreite; Sechzehntel (Ghost-Groove #56)
     liefen ineinander. Jetzt richtet sich die Breite nach dem dichtesten Takt (Achtel: weiter fünf Takte je Zeile).
+  - G22 (hoch, behoben #49, Test zuerst, P1): Eine Übung, aus dem Dateimanager oder per Pfad geöffnet, blieb in der
+    Übungsliste „neu“ und auf der Startseite „nächste Übung“: Der Plan nannte sie über „../..“ (auch installiert:
+    `bin/../share`), der Fortschritt hängt am Pfad. Jetzt ohne „..“.
+  - G23 (mittel, behoben #49, P1): Die Übungsliste zeigte nicht, was sitzt; jetzt Häkchen ab 90 % und „3 von 8 sitzen“
+    je Stufe.
   - Offen (Kante #61): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 
