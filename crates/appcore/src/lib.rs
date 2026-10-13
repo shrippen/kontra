@@ -2481,7 +2481,8 @@ impl Core {
                             .collect()
                     })
                     .unwrap_or_default();
-                files.sort();
+                // By plan number: "100 …" comes after "99 …" (a plain sort puts it first).
+                files.sort_by_key(|f| plan_number(f));
                 let items: Vec<_> = files
                     .iter()
                     .map(|f| {
@@ -2497,6 +2498,7 @@ impl Core {
                         let best = self.best_rate(f);
                         json!({
                             "title": title,
+                            "goal": self.bundled_goal(&stem),
                             "path": f.to_string_lossy(),
                             "best": best,
                             "mastered": best >= MASTERED_RATE,
@@ -2545,13 +2547,56 @@ impl Core {
         Some(self.exercise_title(&exercise::describe(&spec)))
     }
 
-    /// "Dur-Tonleiter in G (60 BPM)" / "Major scale in G (60 BPM)".
+    /// What bundled exercise "NN …" trains, in the UI's language ("" for none).
+    fn bundled_goal(&self, stem: &str) -> String {
+        let Some(number) = stem
+            .split_once(' ')
+            .and_then(|(n, _)| n.parse::<usize>().ok())
+        else {
+            return String::new();
+        };
+        exercise::bundled_specs()
+            .into_iter()
+            .nth(number.saturating_sub(1))
+            .map(|(_, spec)| {
+                let goal = exercise::describe(&spec).goal;
+                self.tr(&format!("exercise.goal.{goal}"), &[])
+            })
+            .unwrap_or_default()
+    }
+
+    /// "Dur-Tonleiter in G (60 BPM)" / "Major scale in G (60 BPM)"; finger exercises
+    /// "Fingerübung 1-3-2-4 ab Bund 5 (60 BPM)"; a tempo ramp "(80–110 BPM)".
     pub fn exercise_title(&self, d: &exercise::Description) -> String {
         let key = self.note_label(&format!("{}{}", d.key, if d.minor { "m" } else { "" }));
-        let bpm = format!("{:.0}", d.bpm);
+        let bpm = match d.end_bpm {
+            Some(end) => format!("{:.0}-{end:.0}", d.bpm),
+            None => format!("{:.0}", d.bpm),
+        };
         let part = |group: &str, key: &str| self.tr(&format!("exercise.name.{group}.{key}"), &[]);
         let name = match d.kind {
             "scale" => part("scale", d.variant),
+            "sequence" => self.tr(
+                "exercise.name.sequence",
+                &[
+                    ("scale", part("scale", d.variant)),
+                    (
+                        "sequence",
+                        d.rhythm.map(|r| part("sequence", r)).unwrap_or_default(),
+                    ),
+                ],
+            ),
+            "chromatic" => self.tr(
+                "exercise.name.chromatic",
+                &[(
+                    "fingers",
+                    d.variant
+                        .chars()
+                        .map(String::from)
+                        .collect::<Vec<_>>()
+                        .join("-"),
+                )],
+            ),
             _ => self.tr(
                 &format!("exercise.name.{}", d.kind),
                 &[
@@ -2563,6 +2608,12 @@ impl Core {
                 ],
             ),
         };
+        if let Some(fret) = d.fret {
+            return self.tr(
+                "exercise.title.fret",
+                &[("name", name), ("fret", fret.to_string()), ("bpm", bpm)],
+            );
+        }
         self.tr(
             "exercise.title",
             &[("name", name), ("key", key), ("bpm", bpm)],
@@ -2578,9 +2629,11 @@ impl Core {
             .unwrap_or(-1.0)
     }
 
-    /// An exercise from the UI's choice: `kind` "scale" | "arpeggio" | "walking" | "groove",
-    /// `variant` the scale ("major", "minor", "majorpenta", "minorpenta", "blues") or the
-    /// progression ("tonic", "251", "blues", "minor"), `rhythm` for grooves.
+    /// An exercise from the UI's choice: `kind` "scale" | "arpeggio" | "triads" | "walking" |
+    /// "groove" | "chromatic"; `variant` the scale ("major", "dorian" …), the progression ("tonic",
+    /// "251", "blues", "minor", "145", "pop", "1625", "minor251") or the finger order ("1324");
+    /// `rhythm` the groove's rhythm or a scale's pattern ("thirds", "fours", "" for up and down).
+    /// Finger exercises take `key` as the start fret.
     pub fn exercise_spec(
         kind: &str,
         variant: &str,
@@ -2588,38 +2641,18 @@ impl Core {
         key: u8,
         bpm: f64,
     ) -> Option<exercise::ExerciseSpec> {
-        use exercise::{ExerciseKind, Progression, Rhythm, ScaleKind};
-        let progression = || match variant {
-            "tonic" => Some(Progression::Tonic),
-            "251" => Some(Progression::TwoFiveOne),
-            "blues" => Some(Progression::Blues),
-            "minor" => Some(Progression::Minor),
-            _ => None,
-        };
+        use exercise::{ExerciseKind, Fingers, Progression, Rhythm, ScaleKind, Sequence};
+        let progression = || Progression::from_key(variant);
         let kind = match kind {
-            "scale" => ExerciseKind::Scale(match variant {
-                "major" => ScaleKind::Major,
-                "minor" => ScaleKind::Minor,
-                "majorpenta" => ScaleKind::MajorPentatonic,
-                "minorpenta" => ScaleKind::MinorPentatonic,
-                "blues" => ScaleKind::Blues,
-                _ => return None,
-            }),
+            "scale" if rhythm.is_empty() => ExerciseKind::Scale(ScaleKind::from_key(variant)?),
+            "scale" => {
+                ExerciseKind::Sequence(ScaleKind::from_key(variant)?, Sequence::from_key(rhythm)?)
+            }
             "arpeggio" => ExerciseKind::Arpeggio(progression()?),
+            "triads" => ExerciseKind::Triads(progression()?),
             "walking" => ExerciseKind::WalkingBass(progression()?),
-            "groove" => ExerciseKind::Groove(
-                progression()?,
-                match rhythm {
-                    "quarters" => Rhythm::Quarters,
-                    "eighths" => Rhythm::Eighths,
-                    "sixteenths" => Rhythm::Sixteenths,
-                    "rests" => Rhythm::WithRests,
-                    "shuffle" => Rhythm::Shuffle,
-                    "octaves" => Rhythm::Octaves,
-                    "ghost" => Rhythm::Ghost,
-                    _ => return None,
-                },
-            ),
+            "groove" => ExerciseKind::Groove(progression()?, Rhythm::from_key(rhythm)?),
+            "chromatic" => ExerciseKind::Chromatic(Fingers::from_key(variant)?),
             _ => return None,
         };
         Some(exercise::ExerciseSpec {
@@ -2629,6 +2662,7 @@ impl Core {
             slow: false,
             // Short patterns (scales, two-bar grooves) get more passes than a 12-bar blues.
             repeats: if matches!(variant, "blues") { 1 } else { 2 },
+            ramp_bpm: 0.0,
         })
     }
 
@@ -3020,6 +3054,17 @@ const SPOT_REST_S: u64 = 8 * 60 * 60;
 const SPOTS: usize = 2;
 /// A bundled exercise sits above the workshop's target band (80–90 %, round 5).
 const MASTERED_RATE: f64 = 0.9;
+
+/// Place of a bundled exercise in the plan, from its file name "NN …" (unnumbered last).
+fn plan_number(path: &Path) -> (usize, PathBuf) {
+    let number = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .and_then(|n| n.split_once(' '))
+        .and_then(|(n, _)| n.parse().ok())
+        .unwrap_or(usize::MAX);
+    (number, path.to_path_buf())
+}
 
 const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
 
@@ -3966,8 +4011,65 @@ mod tests {
         assert!(path.starts_with(dir.join("exercises")));
         assert!(matches!(core.open(&path), Ok(Opened::Ready)));
         let a = core.arrangement().unwrap();
-        assert_eq!(a.notes.len(), 48);
+        // Twelve bars and a closing bar on the tonic.
+        assert_eq!(a.notes.len(), 49);
         assert_eq!(a.markers[0].name, "F7");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-LRN-04: the generator also writes scale patterns, triads, finger exercises and odd
+    /// meters, named in the UI's language.
+    #[test]
+    fn generator_offers_patterns_fingers_and_meters() {
+        use exercise::{ExerciseKind as K, Fingers, Progression, Rhythm, ScaleKind, Sequence};
+        let dir = temp_dir("generator");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let spec = |kind, variant, rhythm, key| {
+            Core::exercise_spec(kind, variant, rhythm, key, 80.0).unwrap()
+        };
+        let thirds = spec("scale", "dorian", "thirds", 2);
+        assert_eq!(
+            thirds.kind,
+            K::Sequence(ScaleKind::Dorian, Sequence::Thirds)
+        );
+        assert_eq!(
+            spec("scale", "major", "", 0).kind,
+            K::Scale(ScaleKind::Major)
+        );
+        assert_eq!(
+            spec("triads", "pop", "", 7).kind,
+            K::Triads(Progression::Pop)
+        );
+        let fingers = spec("chromatic", "1324", "", 5);
+        assert_eq!(fingers.kind, K::Chromatic(Fingers::Crossed));
+        let meter = spec("groove", "minor", "78", 9);
+        assert_eq!(
+            meter.kind,
+            K::Groove(Progression::Minor, Rhythm::SevenEight)
+        );
+        assert!(Core::exercise_spec("chromatic", "1123", "", 5, 80.0).is_none());
+
+        core.update_settings(|s| s.language = Some("en".into()));
+        let title = |core: &Core, s| core.exercise_title(&exercise::describe(s));
+        assert_eq!(
+            title(&core, &fingers),
+            "Finger exercise 1-3-2-4 from fret 5 (80 BPM)"
+        );
+        assert_eq!(title(&core, &thirds), "Dorian in thirds in D (80 BPM)");
+        assert_eq!(
+            title(&core, &meter),
+            "7/8 groove, minor cadence in Am (80 BPM)"
+        );
+        core.update_settings(|s| s.language = Some("de".into()));
+        assert_eq!(
+            title(&core, &fingers),
+            "Fingerübung 1-3-2-4 ab Bund 5 (80 BPM)"
+        );
+
+        let path = core.generate_exercise(&meter).unwrap();
+        assert!(matches!(core.open(&path), Ok(Opened::Ready)));
+        let a = core.arrangement().unwrap();
+        assert_eq!(a.bars[0].signature.numerator, 7);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -4106,7 +4208,7 @@ mod tests {
         }
     }
 
-    /// LH-BIB-08: the bundled set lists five levels with at least 30 exercises.
+    /// LH-BIB-08: the bundled set lists eight levels with at least 30 exercises.
     #[test]
     fn bundled_exercises_by_level() {
         let dir = temp_dir("bundled");
@@ -4115,8 +4217,11 @@ mod tests {
         core.update_settings(|s| s.language = Some("de".into()));
         let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
         let levels = levels.as_array().unwrap();
-        assert_eq!(levels.len(), 5);
+        assert_eq!(levels.len(), 8);
         assert_eq!(levels[0]["level"], "Einstieg");
+        // Each item says what it trains.
+        let goal = levels[0]["items"][0]["goal"].as_str().unwrap();
+        assert!(goal.starts_with("Ziel:"), "{goal}");
         let total: usize = levels
             .iter()
             .map(|l| l["items"].as_array().unwrap().len())
@@ -4377,10 +4482,15 @@ mod tests {
             levels.iter().all(|l| !l.starts_with("exercise.")),
             "{levels:?}"
         );
-        for ((_, file, ex), title) in exercise::bundled().iter().zip(&items) {
+        // The list goes level by level; appended exercises sit in earlier levels.
+        let mut bundled = exercise::bundled();
+        bundled.sort_by_key(|(level, ..)| *level);
+        for ((_, file, ex), title) in bundled.iter().zip(&items) {
+            // German: B is H, B♭ is B.
+            let german = ex.title.replace("in B ", "in H ").replace("in Bb", "in B");
             let german = ["Eb", "Ab", "Db", "Gb"]
                 .iter()
-                .fold(ex.title.replace("in Bb", "in B"), |t, k| {
+                .fold(german, |t, k| {
                     t.replace(&format!("in {k}"), &format!("in {}♭", &k[..1]))
                 })
                 .replace('#', "♯");

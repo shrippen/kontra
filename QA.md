@@ -117,8 +117,8 @@ Erwartet: Histogramm mit Achse und Legende; Tendenz in Worten („meist 18 ms zu
 **J-C3 MusicXML und Groove** · Persona: P3 Mira · Phase 2 · LH-BIB-03, LH-LRN-01, LH-LRN-04
 1. MuseScore-Export (MusicXML) importieren, in der Notenansicht spielen.
 2. Groove-Übung „Sechzehntel mit Ghost Notes“, 92 BPM.
-3. Walking-Bass-Muster über ii-V-I in B♭ generieren lassen.
-Erwartet: Notensatz wie in MuseScore; Streuung in ms; generierte Übung speicherbar.
+3. Walking-Bass-Muster über ii-V-I in B♭ generieren lassen; dann Dorisch in Terzen in D und einen Groove in 7/8.
+Erwartet: Notensatz wie in MuseScore; Streuung in ms; generierte Übung speicherbar; Taktart und Vorzeichen stimmen.
 
 **J-C4 Hören und nachspielen** ⚙ · Personas: P1 Lea, P3 Mira · Phase 3 · LH-LRN-03, LH-BEW-01
 1. Lea: Seite „Gehör“ (Strg+9), „Nachspielen“; den Ton noch während der Vorgabe mitspielen, dann einen falschen, dann den richtigen.

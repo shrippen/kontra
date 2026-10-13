@@ -2,12 +2,12 @@
 //! ticks are rescaled to 960 per quarter, bars come from the time signature events.
 
 use crate::error::ImportError;
-use crate::exercise::GHOST_TEXT;
+use crate::exercise::{POSITION_TEXT, TECHNIQUE_TEXTS};
 use crate::score::{self, BarHead, Part, RawNote, Score, DEFAULT_BPM};
 use crate::unroll::MAX_BARS;
-use kontra_model::{Pitch, Technique, TimeSignature, TICKS_PER_QUARTER};
+use kontra_model::{Pitch, Technique, TimeSignature, Tuning, TICKS_PER_QUARTER};
 use midly::{MetaMessage, MidiMessage, Smf, Timing, TrackEventKind};
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 
 /// General MIDI drum channel (10, 0-based 9).
 const DRUM_CHANNEL: u8 = 9;
@@ -18,6 +18,8 @@ const SMPTE_BIT: u8 = 0x80;
 const MICROS_PER_MINUTE: f64 = 60_000_000.0;
 /// Largest time signature denominator exponent accepted (2^6 = 64th).
 const MAX_DENOMINATOR_POW: u8 = 6;
+/// Frets of the bass that placed notes (`POSITION_TEXT`) are written for.
+const POSITION_FRETS: u8 = 24;
 
 /// Notes, names and programs collected from one track.
 #[derive(Debug, Default)]
@@ -26,9 +28,12 @@ struct TrackData {
     /// Notes per channel: (start, end, key).
     notes: BTreeMap<u8, Vec<(u64, u64, u8)>>,
     programs: HashMap<u8, u8>,
-    /// Ticks of `GHOST_TEXT` events: notes of this track starting there are ghost notes
-    /// (Kontra's own groove exercises; MIDI itself has no such mark).
-    ghosts: HashSet<u64>,
+    /// Techniques from `TECHNIQUE_TEXTS` events by tick: notes of this track starting there get
+    /// them (Kontra's own exercises; MIDI itself has no such mark).
+    techniques: HashMap<u64, Technique>,
+    /// (string, fret) from `POSITION_TEXT` events by tick, on a four-string bass in standard
+    /// tuning (Kontra's finger exercises).
+    positions: HashMap<u64, (u8, u8)>,
 }
 
 pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
@@ -76,8 +81,14 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
                     if let MetaMessage::KeySignature(fifths, _) = meta {
                         keys.extend(score::key(i32::from(fifths)).map(|k| (at, k)));
                     }
-                    if meta == MetaMessage::Text(GHOST_TEXT.as_bytes()) {
-                        track.ghosts.insert(at);
+                    if let MetaMessage::Text(text) = meta {
+                        let technique = TECHNIQUE_TEXTS.iter().find(|(t, _)| t.as_bytes() == text);
+                        if let Some((_, technique)) = technique {
+                            track.techniques.insert(at, *technique);
+                        }
+                        if let Some(position) = position(text) {
+                            track.positions.insert(at, position);
+                        }
                     }
                     if let MetaMessage::Marker(text) = meta {
                         let text = String::from_utf8_lossy(text).trim().to_string();
@@ -290,17 +301,35 @@ fn parts(score: &mut Score, starts: &[u64], tracks: &[TrackData]) {
                 .or_else(|| global.get(&channel))
                 .copied();
             part.percussion = channel == DRUM_CHANNEL;
+            // Placed notes bring their instrument: the tab keeps their strings.
+            if !track.positions.is_empty() {
+                part.tuning = Tuning::bass4_standard().strings;
+                part.frets = POSITION_FRETS;
+            }
             for &(start, end, key) in notes {
                 let (bar, offset) = locate(starts, start);
                 let mut note = RawNote::new(offset, end - start, Pitch(key));
-                if track.ghosts.contains(&start) {
-                    note.add(Technique::Ghost);
+                if let Some(technique) = track.techniques.get(&start) {
+                    note.add(*technique);
+                }
+                if let Some(&(string, fret)) = track.positions.get(&start) {
+                    note.string = Some(string);
+                    note.fret = Some(fret);
                 }
                 part.bar_mut(bar).push(note);
             }
             score.parts.push(part);
         }
     }
+}
+
+/// "pos 1 7" → (1, 7).
+fn position(text: &[u8]) -> Option<(u8, u8)> {
+    let text = std::str::from_utf8(text).ok()?;
+    let mut words = text.strip_prefix(POSITION_TEXT)?.split_whitespace();
+    let string = words.next()?.parse().ok()?;
+    let fret = words.next()?.parse().ok()?;
+    Some((string, fret))
 }
 
 /// The first track's name as song title, unless it is a sequencer's generic name for the tempo
