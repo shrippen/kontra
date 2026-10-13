@@ -39,8 +39,67 @@ Kirigami.ScrollablePage {
 
         KanteHeading { text: texts.t("exercises.title"); pageTitle: true }
 
+        // ── Bundled set ───────────────────────────────────────────────────
+        // First: a beginner starts at the top of the plan; the generator is for later (QA 13.10.).
+        KanteSectionLabel { text: texts.t("exercises.bundled") }
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: KanteStyle.textColor
+            text: texts.t("exercises.bundled.hint", {
+                count: page.levels.reduce(function(n, l) { return n + l.items.length }, 0),
+                levels: page.levels.length
+            })
+        }
+        Repeater {
+            model: page.levels
+            delegate: ColumnLayout {
+                id: level
+                required property var modelData
+                Layout.fillWidth: true
+                spacing: 0
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: KanteStyle.unit(8)
+                    KanteHeading { text: level.modelData.level; Layout.fillWidth: true }
+                    // How far the level is: "3 of 8 mastered" (P1 sees the plan move).
+                    QQC2.Label {
+                        text: texts.t("exercises.level.mastered", {
+                            done: level.modelData.mastered, count: level.modelData.items.length
+                        })
+                        color: KanteStyle.mutedTextColor
+                        font: KanteStyle.labelFont()
+                    }
+                }
+                Repeater {
+                    model: level.modelData.items
+                    delegate: KanteListRow {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        text: modelData.title
+                        meta: modelData.best >= 0
+                            ? texts.t("library.best", { percent: Math.round(modelData.best * 100) })
+                            : texts.t("exercises.new")
+                        Accessible.name: text + ", " + meta
+                            + (modelData.mastered ? ", " + texts.t("exercises.mastered") : "")
+                        // Mastered: a tick, as for a hit note (not colour alone).
+                        trailing: KanteNoteMark {
+                            noteState: modelData.mastered ? "hit" : "pending"
+                            width: KanteStyle.unit(16)
+                            height: width
+                            Accessible.ignored: true
+                        }
+                        onClicked: {
+                            if (ctl.openFile(modelData.path))
+                                applicationWindow().show("practice")
+                        }
+                    }
+                }
+            }
+        }
+
         // ── Generator ─────────────────────────────────────────────────────
-        KanteSectionLabel { text: texts.t("exercises.make") }
+        KanteSectionLabel { text: texts.t("exercises.make"); Layout.topMargin: KanteStyle.unit(16) }
         QQC2.Label {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
@@ -116,44 +175,6 @@ Kirigami.ScrollablePage {
                 var variant = page.isScale ? page.scales[page.variant] : page.progressions[page.variant]
                 if (ctl.generateExercise(page.kinds[page.kind], variant, page.rhythms[page.rhythm], page.key, page.bpm))
                     applicationWindow().show("practice")
-            }
-        }
-
-        // ── Bundled set ───────────────────────────────────────────────────
-        KanteSectionLabel { text: texts.t("exercises.bundled"); Layout.topMargin: KanteStyle.unit(8) }
-        QQC2.Label {
-            Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            color: KanteStyle.textColor
-            text: texts.t("exercises.bundled.hint", {
-                count: page.levels.reduce(function(n, l) { return n + l.items.length }, 0),
-                levels: page.levels.length
-            })
-        }
-        Repeater {
-            model: page.levels
-            delegate: ColumnLayout {
-                id: level
-                required property var modelData
-                Layout.fillWidth: true
-                spacing: 0
-                KanteHeading { text: level.modelData.level; Layout.topMargin: KanteStyle.unit(8) }
-                Repeater {
-                    model: level.modelData.items
-                    delegate: KanteListRow {
-                        required property var modelData
-                        Layout.fillWidth: true
-                        text: modelData.title
-                        meta: modelData.best >= 0
-                            ? texts.t("library.best", { percent: Math.round(modelData.best * 100) })
-                            : texts.t("exercises.new")
-                        Accessible.name: text + ", " + meta
-                        onClicked: {
-                            if (ctl.openFile(modelData.path))
-                                applicationWindow().show("practice")
-                        }
-                    }
-                }
             }
         }
     }

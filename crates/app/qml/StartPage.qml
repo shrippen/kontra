@@ -13,11 +13,16 @@ Kirigami.ScrollablePage {
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
     property var summary: ({ last: null, next: null, week: { minutes: 0, runs: 0 } })
+    readonly property bool sameAsLast: summary.next !== null && summary.last !== null
+        && summary.next.path === summary.last.path
 
     function reload() { summary = JSON.parse(ctl.homeJson()) }
     function open(path) {
         if (ctl.openFile(path)) {
             applicationWindow().show("practice")
+        } else if (JSON.parse(ctl.trackChoicesJson).length > 0) {
+            // No clear bass track: the library asks which one (it shows the choice).
+            applicationWindow().show("library")
         }
     }
     function bestText(best) {
@@ -69,7 +74,9 @@ Kirigami.ScrollablePage {
                 titleText: page.summary.last ? page.summary.last.title : texts.t("home.last.none")
                 text: page.summary.last
                     ? (page.summary.last.artist !== "" ? page.summary.last.artist + " · " : "")
-                      + texts.t("library.minutes", { minutes: Math.round(page.summary.last.practiceMin) })
+                      + (page.summary.last.best === null ? texts.t("library.unplayed")
+                         : page.summary.last.practiceMin < 1 ? texts.t("library.underminute")
+                         : texts.t("library.minutes", { minutes: Math.round(page.summary.last.practiceMin) }))
                     : texts.t("home.last.none.text")
                 KanteButton {
                     visible: page.summary.last !== null
@@ -88,15 +95,16 @@ Kirigami.ScrollablePage {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.preferredWidth: 1
-                tier: KanteHintCard.Tier.Green
+                tier: KanteHintCard.Tier.Blue
                 tierText: texts.t("home.next.tier")
                 meta: page.summary.next ? page.summary.next.level : ""
                 titleText: page.summary.next ? page.summary.next.title : texts.t("home.next.done")
-                text: page.summary.next
-                    ? page.bestText(page.summary.next.best) + " · " + texts.t("home.next.text")
-                    : texts.t("home.next.done.text")
+                text: !page.summary.next ? texts.t("home.next.done.text")
+                    : page.sameAsLast ? texts.t("home.next.same")
+                    : page.bestText(page.summary.next.best) + " · " + texts.t("home.next.text")
                 KanteButton {
-                    visible: page.summary.next !== null
+                    // The same piece as "continue": one button for it is enough.
+                    visible: page.summary.next !== null && !page.sameAsLast
                     text: texts.t("home.next.play")
                     // One main action per page: before the setup, that is the setup.
                     emphasis: ctl.setupDone ? KanteButton.Emphasis.Primary : KanteButton.Emphasis.Normal
@@ -116,7 +124,10 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             spacing: KanteStyle.unit(32)
             KanteKpi {
-                value: texts.t("home.week.minutes", { minutes: Math.round(page.summary.week.minutes) })
+                // Under a minute is not nothing: "< 1 min" once anything was played.
+                value: page.summary.week.minutes > 0 && page.summary.week.minutes < 1
+                    ? texts.t("home.week.under")
+                    : texts.t("home.week.minutes", { minutes: Math.round(page.summary.week.minutes) })
                 label: texts.t("home.week.minutes.label")
             }
             KanteKpi {

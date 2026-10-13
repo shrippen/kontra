@@ -875,10 +875,7 @@ impl ControllerRust {
         match self.core.open(path) {
             Ok(Opened::Ready) => {
                 self.loaded = true;
-                self.title = q(&self
-                    .core
-                    .arrangement()
-                    .map_or(String::new(), |a| a.title.clone()));
+                self.title = q(&self.core.loaded_title());
                 self.artist = q(&self
                     .core
                     .arrangement()
@@ -950,11 +947,10 @@ impl qobject::Controller {
     fn refresh_arrangement(mut self: Pin<&mut Self>) {
         let this = self.as_ref();
         let core = &this.rust().core;
-        let (title, artist) = core
+        let title = core.loaded_title();
+        let artist = core
             .arrangement()
-            .map_or((String::new(), String::new()), |a| {
-                (a.title.clone(), a.artist.clone())
-            });
+            .map_or(String::new(), |a| a.artist.clone());
         let notes = core.notes_json();
         let bars = core.bars_json();
         let staff = core.staff_json();

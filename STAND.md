@@ -1,26 +1,60 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-10-12 (Morgen). Was erledigt ist, steht in Lastenheft und Roadmap; hier
+Übergabe zwischen Sitzungen. Stand: 2026-10-13. Was erledigt ist, steht in Lastenheft und Roadmap; hier
 steht nur, was offen ist und wo es liegt.
+
+## Offene PRs (Reihenfolge zum Mergen)
+
+Merges per `tea api …/merge` blockiert der Auto-Modus seit dem 13.10.; Eigentümer merged oder erlaubt es (Runde 11).
+`/review` zweimal gefragt (PR-Agent bis 1.11. aus): grüne CI genügt.
+
+0. #57 CI: Cache-Ausfall nicht als Fehler werten (unabhängig, zuerst).
+1. #55 Kante 1.34 übernehmen (Dead-Note-Zeichen x, das #45 braucht).
+2. #45, #46, #47 (vom 12.10.).
+3. #48 Startseite, Navigation nach Tätigkeit (LH-ALL-06).
+4. #49 GUI-Runde 13.10. (G3–G32), baut auf #48.
+5. #50 Slides an echten Aufnahmen; #52 Oktavfehler Kontrabass baut auf #50.
+6. #51 künstliche, getippte und MusicXML-Flageoletts.
+7. #53 Halbtonfehler Kontrabass (nur Doku), nach #52.
+8. #54 Laptop-Buchse: Brummfilter und Onset-Schwelle im Profil `laptop-jack` (IDMT-Simulation 37,9 → 87,7 % Recall), auf #52.
+9. #56 Groove mit Ghost Notes (LH-LRN-01; danach Roadmap-Zeile LH-LRN-01 abhaken). Unabhängig.
+- Probe-Merge aller PRs (#57, #55, #45–#54, #56) in dieser Reihenfolge (13.10., 15:15, `../Kontra-integ`): grün. Konflikte nur in Doku: STAND.md
+  in #50–#52 (Fassung aus #49 nehmen), QUELLEN.md zwischen #53 und #54 (beide Abschnitte behalten). #50 enthält #46
+  (wegen `slide_cents`).
+- Kante #58 (1.35, Loop in Tabulatur und Noten): Eigentümer merged. Danach `scripts/sync-kante.sh` und `loopStart`/
+  `loopEnd` in `PracticePage.qml` an tabStaff, bassStaff, combinedBass, combinedTab binden (G9).
 
 ## Offen
 
-- **Runde 10** (Entscheidungs-Artefakt): nächster Schwerpunkt, Ghost Notes und Hammer-on-Töne in der Trefferquote,
-  Ort des Slide-Zeichens, Stem-Trennung im Flatpak, Demucs-Messung, Dead Notes (x) und Ghost Notes ( ).
-- **Techniken an echten Aufnahmen** (LH-BEW-06): Slap/Pop/Ghost an IDMT 79/70/96 %, an denselben Aufnahmen
-  abgestimmt; eigene Aufnahmen fehlen. Slides an echten Aufnahmen 0 von 20: Beim Gleiten meldet der Onset-Detektor
-  neue Anschläge, schnelle Slides kommen als Hammer-on an; braucht eine Slide-Erkennung über die Tonhöhenkurve.
-- **Flageoletts**: natürliche am Teilton (GP binär, GPIF); künstliche Flageoletts und MusicXML-Flageoletts fehlen.
-- **Stem-Trennung** (LH-BIB-09): mit Ersatz-Programm getestet; mit echtem Demucs nicht gelaufen (Abnahme
-  „4-Minuten-Song < 3 min“ offen). Im Flatpak ausgegraut (Erlaubnis fehlt bewusst).
-- **MIDI-Auswahl** (LH-EIN-12): mit zwei echten Keyboards nicht geprüft (nur Unit-Test).
-- **Hardware-Prüfungen vor 0.1** (zurückgestellt, Runde 9): Klang (EQ, Wärme), Transponieren mit Bandaufnahme,
-  Beamer 1280×720/150 %, echtes MIDI-Keyboard, Mikrofon mit Lautsprechern (J-E2), 60-min-Soak, Mithör-Latenz,
-  Techniken am echten Bass.
-- **Profilwahl „Keyboard“** (`Instrument::keyboard`) erst mit den Tasteninstrumenten nach 1.0.
+- **Runde 11** (Entscheidungs-Artefakt): Merge-Erlaubnis, Modusnamen „Spielen“/„Song“, Ghost-Zeichen (F8), Startseite
+  „nächste Übung“, Tastenkürzel, Slides über einen Bund, Termin Hardware-Prüfung.
+- **F8 bei Sechzehnteln** (#56): „(0)“ und „( )“ der Ghost Notes verschmolzen zu „(0(0(0“; Breite je Takt jetzt nach
+  Dichte (G21, #49), mit #49 und #56 zusammen lesbar (Probe-Merge); das doppelte Zeichen bleibt Entscheidung Runde 11.
+- **Slides über einen Bund** sind von Hammer-ons nicht zu trennen (#50); Entscheidung Runde 11.
+- **Oktavfehler** (#52): 30 FiloBass-Noten noch eine Oktave tief; 88 Noten einen Halbton tief: Ton steigt in den ersten 100 ms, Kontra entscheidet zu früh (#53, Doku); Korrektur nach dem Einschwingen = Runde 11.
+- **Flageoletts** (#51): Bewertung oktavtolerant; künstliche ohne eigenes Zeichen in Kante. GP4-Arten 15/17 mit echter
+  GP4-Datei gegenprüfen; MusicXML-Naturflageolett ohne Saite/Bund bleibt beim gegriffenen Ton.
+- **Zweiter Leser 13.10.** (#50–#54): Befunde und Antworten in den PRs; offen: `heard()`-Testkopie (#50),
+  Einschwingen der Brummfilter (~0,6 s ab Start des Eingangs, der mit dem Lauf startet; der Einzähler deckt es, ohne
+  Einzähler die ersten Töne) am Gerät prüfen.
+- **Zweiter Leser #48/#49** (13.10.): alle Befunde behoben, Antworten in den PRs.
+- **CI:** `actions/cache@v4` im app-Job scheiterte dreimal nach 7 s ohne Meldung (`<nil>`); #57 wertet das nicht mehr
+  als Fehler (früh mergen, entlastet alle PRs).
+- **KanteKpi** ohne Namen für Screenreader: Kante #61 (1.36, nach #58); danach Kante synchronisieren.
+- **Stem-Trennung** (LH-BIB-09): mit echtem Demucs nicht gelaufen; im Flatpak ausgegraut.
+- **MIDI-Auswahl** (LH-EIN-12): mit zwei echten Keyboards nicht geprüft.
+- **Hardware-Prüfungen vor 0.1** (Runde 10: zuerst): Klang, Transponieren mit Bandaufnahme, echtes MIDI-Keyboard,
+  Mikrofon mit Lautsprechern (J-E2), 60-min-Soak, Mithör-Latenz, Techniken am echten Bass, Tastatur/Screenreader am
+  Gerät.
+- **Profilwahl „Keyboard“** erst mit den Tasteninstrumenten nach 1.0.
+
+## Neue pub-Schnittstellen (nächste Runde zur Freigabe)
+
+- #48/#49: `Core::home_json`, `Core::loaded_title`, `Library::plain_paths`, `TrackInfo::is_percussion`.
+- #50: `TechniqueTarget`, `technique_signs`, `TechniqueResult::sign`, `Annotation::slide_cents`.
+- #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 
 ## Für den Eigentümer
 
-- OpenRouter-Schlüssel von PR-Agent: Monatslimit erreicht (Reset 1.11.). Seit dem 11.10. abends startet ein
-  `/review`-Kommentar auf Kontra gar keinen Lauf mehr (auch kein „skipped“); es gilt „zweimal gescheitert, grüne CI
-  genügt“.
+- Runde 11 beantworten: https://claude.ai/artifact/EsQvZ5epqB3WeBgFEhytpN
+- OpenRouter-Schlüssel von PR-Agent: Monatslimit erreicht (Reset 1.11.).

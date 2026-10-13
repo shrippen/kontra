@@ -305,6 +305,16 @@ fn last_line(text: &str) -> String {
 mod tests {
     use super::*;
 
+    /// One test at a time writes and starts a script: a child forked by the other test can hold
+    /// the file still open for writing, and starting it fails with "Text file busy" (ETXTBSY).
+    static SCRIPTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn scripts() -> std::sync::MutexGuard<'static, ()> {
+        SCRIPTS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
     #[test]
     fn reads_the_progress_bar() {
         assert_eq!(
@@ -343,6 +353,7 @@ mod tests {
 
     #[test]
     fn runs_the_program_and_finds_its_result() {
+        let _scripts = scripts();
         let dir = std::env::temp_dir().join(format!("kontra-separator-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
@@ -368,6 +379,7 @@ mod tests {
 
     #[test]
     fn cancel_stops_what_a_wrapper_started() {
+        let _scripts = scripts();
         let dir =
             std::env::temp_dir().join(format!("kontra-separator-cancel-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);

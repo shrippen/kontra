@@ -34,21 +34,23 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 |---|---|
 | LH-BIB-01/02 Import GP3–8, MIDI | umgesetzt, gegen Fremddateien geprüft |
 | LH-BIB-03 MusicXML | umgesetzt (vorgezogen) |
-| LH-BIB-04 Bibliothek | „Zuletzt gespielt“ mit Suche; Setlisten offen |
+| LH-BIB-04 Bibliothek | umgesetzt: Suche, Tags, Sortierung, Setlisten, Ordner als Setliste |
 | LH-ANZ-01/02/03 Tab-Lane, Tab, Noten | umgesetzt (Kante) |
-| LH-MOD-01..04 Spielen, Song, Warten, Werkstatt | Logik umgesetzt und getestet; Werkstatt-Bedienung in der App minimal |
+| LH-MOD-01..04 Spielen, Song, Warten, Werkstatt | umgesetzt, Werkstatt mit Takten, Zielband und Notendichte; Namen von Spielen/Song offen (Runde 11) |
 | LH-MOD-05 Metronom, Einzähler | umgesetzt; Lautstärke im Mixer |
 | LH-WIE-01 Time-Stretch | umgesetzt; Backing-Track je Stück wählbar |
 | LH-WIE-03 Referenzton, Mixer | umgesetzt: Backing, Metronom, Referenzton, Mithören (Standard aus; bei verschiedenen Abtastraten von Ein- und Ausgang kein Mithören, mit Hinweis) |
 | LH-BEW-01..05 Bewertung | umgesetzt |
 | LH-TUN-01/03 Stimmgerät | umgesetzt |
 | LH-EIN-01 Einrichtungsassistent | umgesetzt (5 Schritte, überspringbar, startet die erste Übung) |
-| LH-EIN-03/04 Pegel, Laptop-Hinweis | Pegelanzeige mit Hinweisen; Assistent offen |
+| LH-EIN-03/04 Pegel, Laptop-Hinweis | umgesetzt, Hinweise entscheidet der Core (J-A1 ⚙) |
 | LH-EIN-05 Latenz-Kalibrierung | „Spiel auf den Klick“ umgesetzt, mit Aufnahme getestet (40 ms ± 3) |
 | LH-EIN-06 Bluetooth-Hinweis | umgesetzt |
-| LH-FOR-01/03 Fortschritt | Läufe werden gespeichert; Bibliothek zeigt bestes Ergebnis und Übungszeit |
+| LH-FOR-01/03 Fortschritt | umgesetzt: Fortschrittsseite (Tage, Stücke, Abschnitte), Daten sichern und laden |
 | LH-ALL-01/02 Sprache, Stil | umgesetzt |
-| LH-NF-07 Barrierefreiheit | Kante-Bauteile mit Namen und Formen; Tastaturdurchlauf der App offen |
+| LH-NF-07 Barrierefreiheit | Kante-Bauteile mit Namen und Formen; Tastaturdurchlauf und echter Screenreader offen (braucht Sitzung am Gerät) |
+| LH-ALL-06 Startseite | umgesetzt (#48, 13.10.) |
+| Vor 0.1 offen | Hardware-Prüfungen (Runde 10: zuerst), Tastatur/Screenreader am Gerät, Release-Log, Screenshots, Flatpak |
 
 ## Entscheidungen Runde 3 (9.10.2026)
 
@@ -212,6 +214,81 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 
 ## QA-Runden
 
+### QA-Runde 13.10.2026 (GUI und Bedienung; Demo-Stück, gerenderte Aufnahmen)
+
+Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beamer-Format 1280×720 bei 150 %
+(`QT_SCALE_FACTOR=1.5 kontra -qwindowgeometry 853x480`). Klicks und Tasten am QML-Code geprüft, keine Geräte.
+
+- **P1 Lea (J-A1, J-C1): bestanden nach Befunden.**
+  - G1 (hoch, behoben #48): Kontra öffnete in der Bibliothek; ohne Stück stand dort nur eine leere Liste, und der
+    Weg zum nächsten Schritt fehlte. Neu: Startseite (letztes Stück, nächste Übung, die noch nicht sitzt, Woche).
+  - G2 (mittel, behoben #48): Neun Seiten ungeordnet, Einrichtung zwischen Einstellungen und Fortschritt.
+    Navigation nach Tätigkeit gruppiert, Einrichtung unter Einstellungen und auf der Startseite.
+  - G3 (mittel, behoben #49): Übungen begannen mit dem Generator; jetzt der Plan zuerst.
+  - G4 (mittel, behoben #49, Test zuerst): Quiz und Gehörbildung zeigten vor der ersten Antwort „0 von 1 gefunden“.
+  - G5 (mittel, behoben #49): Fortschritt sagte nach dem ersten Lauf „noch nicht geübt“ und zeigte keinen Balken
+    (Minuten vor dem Summieren gerundet); „1 Läufe“, „an 1 Tagen“.
+  - G6 (mittel, behoben #49, Test zuerst): Auswertung nannte einen falschen Ton „+100 Cent“; jetzt „C2 gespielt“.
+  - Offen (Runde 11): „Spielen“ und „Song“ sind am Namen nicht zu unterscheiden.
+- **P2 Jens (J-B1, J-B3): bestanden nach Befunden.**
+  - G7 (niedrig, behoben #49): Setlisten-Feld seitenbreit vor den Stücken; ungespielte Stücke zeigten den Dateinamen.
+  - G8 (mittel, behoben #49): Gerätenamen in Eingang/Ausgang auf „Automatisch…“ gekürzt (Layout-Hinweise wirken
+    in `KanteSettingRow` nicht).
+  - G9 (mittel, Kante-PR): Tabulatur und Noten zeigen den Werkstatt-Abschnitt nicht, nur die Tab-Lane.
+- **P4 Thomas (J-B5, Beamer): bestanden nach Befunden.**
+  - G10 (hoch, behoben #49): Tabulatur und Noten zeichneten über die Transportleiste, die Kopfzeile lief rechts aus
+    dem Fenster. Notenbereich beschnitten, Ansichten als Liste, Transponieren in der Backing-Zeile.
+  - G11 (mittel, behoben #49): Im Stimmgerät lief der Cent-Wert in die Pegelanzeige; Pegel steht jetzt daneben.
+- **P7 Sam (J-F1):** Startseite in allen drei Stilen lesbar; Zustände der Karten mit Zeichen und Wort. Tabulatur nach
+  einem Lauf unter simulierter Deuteranopie und Protanopie (Machado 2009): Treffer und Fehler über ✓ und ✗ unterscheidbar,
+  die Farbe der Ziffer allein nicht (bestanden, die Form trägt).
+  - G12 (mittel, behoben #49): Saitenwahl im Stimmgerät nur per Maus; jetzt Tab, Leertaste, Eingabe.
+  - G13 (niedrig, behoben #49): Auswertung schloss nicht mit Esc.
+  - G14 (niedrig, behoben #49): „Nächste Übung“ trug Kantes Häkchen (grüne Stufe) und las sich wie erledigt.
+  - G15 (niedrig, behoben #49): Kreuz und b als „#“ und „b“ (Quiz, Stimmgerät, Übungstitel); jetzt ♯ und ♭.
+  - G16 (mittel, behoben #49, P1): Leere Bibliothek und leerer Fortschritt endeten ohne Weg; jetzt „Mit einer Übung
+    anfangen“.
+  - G17 (mittel, behoben #49, P4): Auswertung im Beamer-Format: Bildlaufleiste über „Schließen“, Histogramm schob die
+    schwierigsten Takte aus dem Bild.
+  - G19 (mittel, behoben #49, P2/P3): Notenansicht zeigte immer eine Zeile, der Rest blieb leer; jetzt so viele
+    Zeilen, wie passen (wie die Tabulatur).
+  - G18 (niedrig, behoben #49, P4): Im Beamer-Format war der Notenbereich niedriger als eine Notenzeile; sie wurde
+    abgeschnitten, und ein Balken lag über der Transportleiste (Qt 6.12: `clip` schneidet `Shape`-Kinder nicht ab,
+    nachgewiesen mit `grabToImage`). Jetzt wird der Linienabstand kleiner, bis eine Zeile passt.
+  - G20 (niedrig, behoben #49, P4): „Noten + Tab“ im Beamer-Format: Notenzeile ragte in die Tabulatur; Noten haben
+    jetzt die halbe Höhe und so viele Takte je Zeile wie die Tabulatur darunter.
+  - G21 (mittel, behoben #49, P2/P3): Tabulatur gab jedem Takt dieselbe Mindestbreite; Sechzehntel (Ghost-Groove #56)
+    liefen ineinander. Jetzt richtet sich die Breite nach dem dichtesten Takt (Achtel: weiter fünf Takte je Zeile).
+  - G22 (hoch, behoben #49, Test zuerst, P1): Eine Übung, aus dem Dateimanager oder per Pfad geöffnet, blieb in der
+    Übungsliste „neu“ und auf der Startseite „nächste Übung“: Der Plan nannte sie über „../..“ (auch installiert:
+    `bin/../share`), der Fortschritt hängt am Pfad. Jetzt ohne „..“; die Bibliothek speichert und sucht ohne „..“, alte
+    Einträge wandern beim Laden.
+  - G23 (mittel, behoben #49, P1): Die Übungsliste zeigte nicht, was sitzt; jetzt Häkchen ab 90 % und „3 von 8 sitzen“
+    je Stufe.
+  - G24 (mittel, behoben #49, Test zuerst, P1): Nach einer Übung, die jetzt sitzt, endete die Auswertung ohne Weg nach
+    vorn; jetzt „Sitzt“ mit der nächsten Übung im Plan, ein Klick.
+  - G25 (niedrig, behoben #49): Der Mixer der Übungsseite zeigte die Lautstärke fürs Vorspielen der Gehörbildung, die
+    dort nie klingt; nur noch in Einstellungen und auf der Gehör-Seite.
+  - G26 (niedrig, behoben #49, P1): Startseite zeigte dieselbe Übung zweimal mit zwei Knöpfen, wenn die nächste Übung
+    auch das zuletzt gespielte Stück war; jetzt ein Knopf und ein Satz dazu.
+  - G27 (niedrig, behoben #49, P7): „Über Kontra“ listete rund 70 Bausteine ausgeklappt; die Tastenkürzel darunter
+    lagen weit außer Sicht. Jetzt Kontra, Qt und KDE Frameworks, der Rest auf Knopfdruck.
+- **P2 Jens (J-B3, Setliste):** G28 (niedrig, behoben #49, Test zuerst): Mitgelieferte Übungen standen in Setlisten und
+  bei „Nächstes Stück“ mit Dateinamen („09 Groove Achtel …“); jetzt mit dem Titel aus dem Plan in der Oberflächensprache.
+  Zweiter Leser über #48/#49: sieben Befunde, alle behoben (u. a. gewählte Spur bleibt, alte „..“-Pfade wandern).
+- **P5 Aylin (J-E1):** G29 (hoch, behoben #49): In der Klaviatur-Ansicht schrumpften Spur und Tasten auf einen Streifen;
+  die Zeile mit Griffbrett und Pegel nahm die Höhe (eine verschachtelte Qt-Layout füllt von sich aus). In allen
+  Ansichten bekommen die Noten jetzt die freie Höhe.
+- **Halbes Fenster (≈ 500 px, neben Video oder Tab):** G30 (mittel, behoben #49): Kopfzeile, Pegel und Transportleiste
+  liefen rechts hinaus. Unter 700 px: Kopf einspaltig, Pegel über die ganze Breite, ohne Griffbrett und
+  Präsentationsknopf (F5 bleibt); in der Bibliothek rückt das Ergebnis unter den Titel.
+- **Sprache (J-F2):** G31 (mittel, behoben #49, Test zuerst): Fortschritt, Bericht und Übungsseite nannten mitgelieferte Übungen
+  auf Deutsch, auch in der englischen Oberfläche (der gespeicherte Titel ist der deutsche Schlüssel).
+- G32 (niedrig, behoben #49, Test zuerst): Die Spurwahl bot bei Übungen und anderen Dateien mit Schlagzeug die
+  Schlagzeugspur an (MIDI-Kanal 10, MusicXML-Percussion); jetzt nur Spuren, die ein Bass spielen kann.
+  - Offen (Kante #61): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
+- Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
+
 ### QA-Runde 12.10.2026 (Nacht: Techniken, MIDI, Stems, Transponieren; synthetisch und IDMT)
 
 Gespielt headless mit erzeugten Aufnahmen (`kontra-cli render --techniques`) und den echten IDMT-Aufnahmen; ohne
@@ -306,7 +383,7 @@ Durchgespielt mit gerenderten Aufnahmen (`kontra-cli render`) und Screenshots al
 - [x] LH-LRN-02: Griffbrett-Quiz mit dem echten Bass (Töne auf einer Saite finden, Intervalle), Seite „Griffbrett“ (Strg+8); nach dem richtigen Ton zeigt das Griffbrett alle Lagen.
 - [x] LH-BIB-06: Backing-Track abgleichen: Kontra erkennt die Schläge der Aufnahme (Spektralfluss, Tempo per Autokorrelation, Beat-Tracking nach Ellis) und legt die Takte darauf (Tempo-Karte je Takt); Takt 1 um einen Schlag, alle Takte oder ein einzelner Takt in 10-ms-Schritten korrigierbar.
 - [x] LH-BIB-09 (Kann, Runde 9): Bass aus dem Backing-Track entfernen über Demucs, wenn installiert (`drivers::separator`: `KONTRA_DEMUCS`, `PATH`, `~/.local/bin`; im Flatpak `flatpak-spawn --host`, braucht eine Erlaubnis, die das Manifest noch nicht hat). `demucs --two-stems bass -n htdemucs`, Fortschritt aus dem Fortschrittsbalken auf stderr, Abbrechen beendet den Prozess. Ergebnis im Cache je Datei (Pfad, Größe, Änderungszeit); der Abgleich bleibt. Übungsseite „Ohne Bass“: ohne Demucs ausgegraut mit Erklärung, Anleitung („?“) und „Erneut prüfen“. Getestet mit einem Ersatz-Programm; mit echtem Demucs 4.1.0 gemessen (12.10.): Song von 4:11 in 17 s (RTX 3090) bzw. 92 s nur auf dem Prozessor (24 Threads); `pipx install demucs` bringt numpy nicht mit (Anleitung ergänzt). Messung auf Mindest-Hardware (Laptop) offen.
-- [ ] LH-LRN-01 (Teil): Grooves auf dem Grundton (Viertel bis Sechzehntel, Pausen, Shuffle, Oktaven); Schlagzeug-Begleitung fehlt noch.
+- [ ] LH-LRN-01 (Teil): Grooves auf dem Grundton (Viertel bis Sechzehntel, Pausen, Shuffle, Oktaven) mit Schlagzeug (#15), 21 mitgeliefert; Ghost Notes im Groove fehlen noch.
 - [x] LH-TUN-02 / LH-EIN-01: Stimmung im Profil (Standard, Drop D bzw. Drop A bei 5/6 Saiten, ½ und 1 Ton tiefer, eigene mit Notenwahl je Saite) in Einstellungen und Assistent; Stimmgerät (geführt) und Tab-Zuordnung von Dateien ohne Stimmung (MIDI, MusicXML) nutzen sie, ein Wechsel ordnet das geladene Stück sofort neu zu.
 - [x] LH-TUN-04: Kammerton A 430–450 Hz (Standard 440) für Stimmgerät, Erkennung und Bewertung.
 - [x] LH-BEW-02: Zeitfenster „Eigene“ mit ±20–150 ms.
