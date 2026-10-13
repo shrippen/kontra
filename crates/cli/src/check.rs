@@ -30,6 +30,8 @@ const STEMS_LIMIT_S: f64 = 180.0;
 /// Soak speed: time-stretched like a slowed-down practice (as `soak`).
 const SOAK_SPEED: f64 = 0.8;
 const SECONDS_PER_DAY: u64 = 86_400;
+/// First measured click of "play on the click", after the count-in (as in the app).
+const CALIBRATION_LEAD_S: f64 = 3.0;
 
 /// What only a person can check; listed in the report to be ticked off by hand.
 const MANUAL: [&str; 7] = [
@@ -253,13 +255,14 @@ fn calibrate(
     instrument: &Instrument,
 ) -> Result<Option<f64>, String> {
     report.section("Play on the click (LH-EIN-05)");
-    let prompt = "Bass into the input. Play an open string on each of the 8 clicks.";
+    let prompt =
+        "Bass into the input. After 4 clicks count-in, play an open string on each of the next 8.";
     if ask(a, prompt) == Answer::Skip {
         report.line("skipped".into());
         return Ok(None);
     }
-    let mut live =
-        session::LiveCalibration::start(setup, instrument, 1.0).map_err(|e| e.to_string())?;
+    let mut live = session::LiveCalibration::start(setup, instrument, CALIBRATION_LEAD_S)
+        .map_err(|e| e.to_string())?;
     let result = loop {
         if let Some(result) = live.poll() {
             break result;

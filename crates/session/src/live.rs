@@ -433,8 +433,8 @@ pub struct LiveCalibration {
 }
 
 impl LiveCalibration {
-    /// Starts input and output; the clicks begin `lead_s` after the input's first sample
-    /// (a recording for QA starts its plucks at the same offset).
+    /// Starts input and output; the measured clicks begin `lead_s` after the input's first sample
+    /// (a recording for QA starts its plucks at the same offset), the count-in one bar earlier.
     pub fn start(
         setup: &LiveSetup,
         instrument: &Instrument,
@@ -466,13 +466,17 @@ impl LiveCalibration {
         if self.calibration.is_none() {
             let start = self.input.started_s()?;
             let calibration = Calibration::new(start + self.lead_s);
-            for (i, click) in calibration.clicks().iter().enumerate() {
-                let accent = if i == 0 {
-                    kontra_engine::Accent::Downbeat
-                } else {
-                    kontra_engine::Accent::Beat
-                };
-                self.output.schedule(*click, Sound::Click(accent));
+            // The count-in and the measured clicks each start on an accent.
+            let count_in = calibration.count_in();
+            for clicks in [count_in.as_slice(), calibration.clicks()] {
+                for (i, click) in clicks.iter().enumerate() {
+                    let accent = if i == 0 {
+                        kontra_engine::Accent::Downbeat
+                    } else {
+                        kontra_engine::Accent::Beat
+                    };
+                    self.output.schedule(*click, Sound::Click(accent));
+                }
             }
             self.calibration = Some(calibration);
         }

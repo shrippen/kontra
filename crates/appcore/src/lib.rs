@@ -38,8 +38,9 @@ use std::path::{Path, PathBuf};
 /// Crates linked into the app and their licences, from `scripts/licences.py` (LH-NF-11).
 const LICENCES: &str = include_str!("../licences.json");
 
-/// Seconds from the input's start to the first calibration click.
-const CALIBRATION_LEAD_S: f64 = 1.0;
+/// Seconds from the input's start to the first measured calibration click; the count-in
+/// (four clicks, 2.4 s) starts 0.6 s after the input.
+const CALIBRATION_LEAD_S: f64 = 3.0;
 /// Reference pitch range for A4 (LH-TUN-04).
 const A4_MIN_HZ: f64 = 430.0;
 const A4_MAX_HZ: f64 = 450.0;
@@ -4976,7 +4977,7 @@ mod tests {
             },
         );
         core.start_calibration().unwrap();
-        let end = std::time::Instant::now() + std::time::Duration::from_secs(8);
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(12);
         let mut result = None;
         while std::time::Instant::now() < end && result.is_none() {
             result = core.tick().into_iter().find_map(|e| match e {
