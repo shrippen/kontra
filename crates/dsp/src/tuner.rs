@@ -1,16 +1,14 @@
 //! Chromatic tuner (LH-TUN-01): a reading every 30 ms from the last ~0.25 s of audio.
 
+use crate::hum::HumFilter;
 use crate::level::rms_db;
 use crate::yin::Yin;
 use kontra_model::{Pitch, A4_HZ};
-use std::f64::consts::TAU;
 
 const INTERVAL_S: f64 = 0.03;
 /// Below this level the tuner shows nothing.
 const GATE_DB: f32 = -55.0;
 const MIN_CONFIDENCE: f32 = 0.8;
-/// Mains hum (50 and 60 Hz grids) and its strongest harmonics.
-const HUM_HZ: [f64; 6] = [50.0, 60.0, 100.0, 120.0, 150.0, 180.0];
 /// Width of each hum notch. Narrow keeps notes next to it (G2 at 98 Hz keeps 80 % of its level);
 /// wide lets the ringing a new note leaves in a notch die out fast (0.1 s). On the open strings
 /// B0–C3, ±30 cent, 3 Hz kept every reading 0.5 s after the attack within 1 cent; 1 Hz did not.
@@ -31,7 +29,7 @@ pub struct TunerReading {
 #[derive(Debug)]
 pub struct Tuner {
     yin: Yin,
-    hum: [Notch; HUM_HZ.len()],
+    hum: HumFilter,
     a4_hz: f64,
     buffer: Vec<f32>,
     filled: usize,
@@ -45,7 +43,7 @@ impl Tuner {
         let len = 2 * yin.needed();
         Tuner {
             yin,
-            hum: HUM_HZ.map(|hz| Notch::new(sample_rate, hz)),
+            hum: HumFilter::new(sample_rate, HUM_WIDTH_HZ),
             a4_hz: A4_HZ,
             buffer: vec![0.0; len],
             filled: 0,
@@ -69,7 +67,7 @@ impl Tuner {
         // state stays continuous; the newest `take` are kept.
         let skip = samples.len() - take;
         for (i, x) in samples.iter().enumerate() {
-            let y = self.hum.iter_mut().fold(*x, |y, notch| notch.process(y));
+            let y = self.hum.process(*x);
             if i >= skip {
                 self.buffer[keep + i - skip] = y;
             }
@@ -94,49 +92,6 @@ impl Tuner {
             cents,
             confidence: estimate.confidence,
         })
-    }
-}
-
-/// RBJ notch biquad (Audio EQ Cookbook), direct form I.
-///
-/// A linear filter does not change the frequency of a (decaying) tone; only the onset leaves a
-/// short ringing at the notch frequency, decaying with `1 / (π · HUM_WIDTH_HZ)` = 0.1 s.
-#[derive(Debug, Clone, Copy)]
-struct Notch {
-    b1: f64,
-    a0: f64,
-    a2: f64,
-    x1: f64,
-    x2: f64,
-    y1: f64,
-    y2: f64,
-}
-
-impl Notch {
-    fn new(sample_rate: f64, hz: f64) -> Notch {
-        let w0 = TAU * hz / sample_rate;
-        let alpha = w0.sin() * HUM_WIDTH_HZ / (2.0 * hz);
-        let a0 = 1.0 + alpha;
-        Notch {
-            b1: -2.0 * w0.cos() / a0,
-            a0,
-            a2: (1.0 - alpha) / a0,
-            x1: 0.0,
-            x2: 0.0,
-            y1: 0.0,
-            y2: 0.0,
-        }
-    }
-
-    /// y = b0·x + b1·x1 + b2·x2 − a1·y1 − a2·y2; for a notch b0 = b2 = 1/a0 and a1 = b1.
-    fn process(&mut self, x: f32) -> f32 {
-        let x = f64::from(x);
-        let y = (x + self.x2) / self.a0 + self.b1 * (self.x1 - self.y1) - self.a2 * self.y2;
-        self.x2 = self.x1;
-        self.x1 = x;
-        self.y2 = self.y1;
-        self.y1 = y;
-        y as f32
     }
 }
 

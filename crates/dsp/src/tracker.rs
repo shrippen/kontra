@@ -24,6 +24,7 @@
 //!                                                             no: up/down ┴► emit
 //! ```
 
+use crate::hum::HumFilter;
 use crate::intonation::refine_hz;
 use crate::level::amplitude_to_db;
 use crate::onset::{OnsetConfig, OnsetDetector};
@@ -109,6 +110,10 @@ impl TrackerConfig {
                 gate_db: MICROPHONE_GATE_DB,
                 ..OnsetConfig::default()
             },
+            InputSource::LaptopJack => OnsetConfig {
+                margin: LAPTOP_MARGIN,
+                ..OnsetConfig::default()
+            },
             _ => OnsetConfig::default(),
         };
         TrackerConfig {
@@ -125,12 +130,28 @@ impl TrackerConfig {
     }
 }
 
+/// Hum notches for inputs that pick up mains hum: the laptop jack (charger ground loop).
+fn hum_filter(source: InputSource, sample_rate: f64) -> Option<HumFilter> {
+    (source == InputSource::LaptopJack).then(|| HumFilter::new(sample_rate, HUM_WIDTH_HZ))
+}
+
 /// Notes emitted before their attack could be judged (`Strike`), waiting for the audio; more at
 /// once would mean notes closer than 15 ms.
 const STRIKES_WAITING: usize = 8;
 
 /// Attacks at a microphone must reach this level (dBFS) in the high band.
 const MICROPHONE_GATE_DB: f32 = -48.0;
+
+/// Onset margin at the laptop jack. The jack's impedance cuts the treble and its noise floor
+/// is high, so a soft attack rises in few bins of the onset band: on the IDMT laptop
+/// simulation 8 found 56 % of the notes, 2 finds 87 % at higher precision (testdata/korpus/
+/// QUELLEN.md). At the line input 2 would cost 5 points of precision.
+const LAPTOP_MARGIN: f32 = 2.0;
+
+/// Hum notch width in the tracker. Unlike the tuner it reads right after the attack, where a
+/// wide notch still rings at 50 Hz and pulls G2 and C2 an octave down (3 Hz and 1 Hz did);
+/// 0.5 Hz rings 0.6 s but faintly, and still takes a grid off by 0.05 Hz down by 14 dB.
+const HUM_WIDTH_HZ: f64 = 0.5;
 
 #[derive(Debug, Clone, Copy)]
 struct Pending {
@@ -231,6 +252,14 @@ pub struct NoteTracker {
     config: TrackerConfig,
     sample_rate: f64,
     onsets: OnsetDetector,
+    /// Mains hum removed before anything else, where the input picks it up (laptop jack).
+    hum: Option<HumFilter>,
+    /// The current block after `hum`.
+    filtered: Vec<f32>,
+    /// The input before `hum` (empty without), for `refine_hz`: the notches ring after an
+    /// attack and moved the fine pitch by up to 25 ct (synthetic laptop set: p95 4.6 → 18.7 ct).
+    raw_ring: Vec<f32>,
+    raw_scratch: Vec<f32>,
     yin: Yin,
     ring: Vec<f32>,
     scratch: Vec<f32>,
@@ -255,8 +284,14 @@ impl NoteTracker {
         let estimate_len = 2 * yin.needed();
         let ring_len = estimate_len
             + ((config.timeout_s + 0.2 + RISE_BEFORE_S + RISE_GAP_S) * sample_rate) as usize;
+        let hum = hum_filter(config.source, sample_rate);
+        let raw_len = |len: usize| if hum.is_some() { len } else { 0 };
         NoteTracker {
             onsets: OnsetDetector::new(sample_rate, config.onset),
+            hum,
+            filtered: Vec::with_capacity((RETRY_S * sample_rate) as usize + 1),
+            raw_ring: vec![0.0; raw_len(ring_len)],
+            raw_scratch: vec![0.0; raw_len(estimate_len)],
             config,
             sample_rate,
             yin,
@@ -294,7 +329,17 @@ impl NoteTracker {
         self.out.clear();
         self.revised.clear();
         let block = (RETRY_S * self.sample_rate) as usize;
-        for chunk in samples.chunks(block.max(1)) {
+        let mut filtered = std::mem::take(&mut self.filtered);
+        for raw in samples.chunks(block.max(1)) {
+            let chunk = match self.hum.as_mut() {
+                Some(hum) => {
+                    filtered.clear();
+                    filtered.extend(raw.iter().map(|x| hum.process(*x)));
+                    &filtered[..]
+                }
+                None => raw,
+            };
+            self.store_raw(raw);
             self.store(chunk);
             let count = self.onsets.push(chunk).len();
             for i in 0..count {
@@ -311,6 +356,7 @@ impl NoteTracker {
             self.release_legato();
             self.judge_strikes(Waiting::ForAudio);
         }
+        self.filtered = filtered;
         &self.out
     }
 
@@ -329,6 +375,17 @@ impl NoteTracker {
         }
         self.judge_strikes(Waiting::No);
         &self.out
+    }
+
+    /// Keeps the input before `hum` (only with it), from `pushed` on; call before `store`.
+    fn store_raw(&mut self, raw: &[f32]) {
+        let len = self.raw_ring.len() as u64;
+        if len == 0 {
+            return;
+        }
+        for (i, &x) in raw.iter().enumerate() {
+            self.raw_ring[((self.pushed + i as u64) % len) as usize] = x;
+        }
     }
 
     fn store(&mut self, chunk: &[f32]) {
@@ -452,7 +509,16 @@ impl NoteTracker {
         if estimate.confidence < self.config.min_confidence {
             return None;
         }
-        if let Some(hz) = refine_hz(&self.scratch[..count], self.sample_rate, estimate.hz) {
+        let fine = match self.raw_ring.len() as u64 {
+            0 => &self.scratch[..count],
+            len => {
+                for (i, slot) in self.raw_scratch.iter_mut().take(count).enumerate() {
+                    *slot = self.raw_ring[((from + i as u64) % len) as usize];
+                }
+                &self.raw_scratch[..count]
+            }
+        };
+        if let Some(hz) = refine_hz(fine, self.sample_rate, estimate.hz) {
             estimate.hz = hz;
         }
         Some(estimate)
@@ -729,6 +795,29 @@ mod tests {
         let notes = line(&["E1", "A1", "D2", "G2", "C2", "F1"], 0.3);
         let signal = laptop_jack(&render(&notes, SR, 2.3, ToneShape::Dull, 7), SR, 8);
         assert_matches(&track(&signal, InputSource::LaptopJack), &notes, 8.0, 10.0);
+    }
+
+    #[test]
+    fn quiet_laptop_jack_signal() {
+        // J-A1 (P1): a passive bass in the combo jack, input level turned low. Without hum
+        // notches G2 came out an octave low (on 50 Hz) and the hum made notes of its own; with
+        // the line input's onset margin the soft attacks of A1 and C2 went unheard.
+        // The input runs a while before the first note, as in the app: the hum filter settles.
+        const QUIET: f32 = 0.05;
+        const LEAD_IN_S: f64 = 2.0;
+        let notes: Vec<SynthNote> = line(&["E1", "G1", "G2", "D3", "A1", "G2", "C2", "D3"], 0.4)
+            .into_iter()
+            .map(|n| SynthNote {
+                onset_s: n.onset_s + LEAD_IN_S,
+                ..n
+            })
+            .collect();
+        let quiet: Vec<f32> = render(&notes, SR, LEAD_IN_S + 3.6, ToneShape::Dull, 9)
+            .iter()
+            .map(|s| s * QUIET)
+            .collect();
+        let signal = laptop_jack(&quiet, SR, 10);
+        assert_matches(&track(&signal, InputSource::LaptopJack), &notes, 10.0, 15.0);
     }
 
     #[test]
