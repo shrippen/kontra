@@ -284,6 +284,8 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
   Präsentationsknopf (F5 bleibt); in der Bibliothek rückt das Ergebnis unter den Titel.
 - **Sprache (J-F2):** G31 (mittel, behoben #49, Test zuerst): Fortschritt, Bericht und Übungsseite nannten mitgelieferte Übungen
   auf Deutsch, auch in der englischen Oberfläche (der gespeicherte Titel ist der deutsche Schlüssel).
+- Offen (niedrig): Die Spurwahl der Übungsseite bietet bei Übungen und anderen Dateien mit Schlagzeug die
+  Schlagzeugspur an (`TrackInfo` kennt Schlagzeug nicht).
   - Offen (Kante #61): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 
