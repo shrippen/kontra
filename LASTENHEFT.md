@@ -148,8 +148,8 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 
 | ID | Anforderung | Prio | Ph. | Personas | Abnahme |
 |---|---|---|---|---|---|
-| LH-MOD-01 | **Spielen:** Lied läuft durch, nichts hält an, keine Punkte; Treffer dezent markiert, abschaltbar. Die Auswertung gibt es am Ende nur auf Wunsch. | Muss | 1 | P2, P1 | J-B1: Lied von Anfang bis Ende ohne Unterbrechung oder Wertungsbildschirm. |
-| LH-MOD-02 | **Song:** wie Spielen, mit Bewertung und Auswertung am Ende. | Muss | 1 | P2, P3 | Auswertung zeigt Trefferquote, Timing-Tendenz, schwierigste Takte. |
+| LH-MOD-01 | **Frei spielen** (Runde 11, vorher „Spielen“): Lied läuft durch, nichts hält an, keine Punkte; Treffer dezent markiert, abschaltbar. Die Auswertung gibt es am Ende nur auf Wunsch. | Muss | 1 | P2, P1 | J-B1: Lied von Anfang bis Ende ohne Unterbrechung oder Wertungsbildschirm. |
+| LH-MOD-02 | **Durchlauf** (Runde 11, vorher „Song“): wie frei spielen, mit Bewertung und Auswertung am Ende. | Muss | 1 | P2, P3 | Auswertung zeigt Trefferquote, Timing-Tendenz, schwierigste Takte. |
 | LH-MOD-03 | **Warten:** Lied hält vor jeder Note, bis der richtige Ton gespielt ist; Backing Track pausiert mit. | Muss | 1 | P1 | J-B2 ohne Zeitdruck schaffbar. |
 | LH-MOD-04 | **Riff-Werkstatt:** Bereich wählen (Takte oder Markierungen), Loop, Tempo 25 bis 150 % in 5-%-Schritten, automatische Anpassung an ein Zielband der Trefferquote (Standard 80–90 %: zwei Durchläufe darüber +5 %, zwei darunter −5 %, dazwischen gleich; Runde 5), Vorzähler. | Muss | 1 | P2, P3 | J-B3: Bereich, Tempo und Steigerung wirken wie eingestellt. |
 | LH-MOD-05 | Metronom und Vorzähler in allen Modi, Lautstärke getrennt regelbar (Mixer, LH-WIE-03). | Muss | 1 | P2, P3 | Mixer: Instrument, Backing Track, Metronom getrennt. |
@@ -213,7 +213,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-NF-01 | **Latenz:** Anschlag bis Anzeige < 30 ms mit Interface (Quantum 128/48 kHz); < 60 ms mit Laptop-Buchse. | Muss | 0/1 | Messung mit Loopback und Kamera (240 fps) auf Empfehlungs-Hardware. |
 | LH-NF-02 | **Onset-Genauigkeit:** Fehler < 10 ms gegenüber annotiertem Testkorpus. | Muss | 0/1 | Automatischer Test gegen Testkorpus. |
 | LH-NF-03 | **Tonhöhe:** ≥ 98 % korrekt bei Einzelnoten B0 bis G4 (Interface), ≥ 95 % mit Laptop-Buchse, ≥ 90 % Mikrofon ohne Kopfhörer (ab Phase 4). | Muss | 0/1/4 | Automatischer Test gegen Testkorpus. |
-| LH-NF-04 | **Stabilität des Audios:** keine Aussetzer (Xruns) in 60 Minuten Spielen-Modus mit Time-Stretch auf Mindest-Hardware. | Muss | 1 | Dauertest, Xrun-Zähler = 0. |
+| LH-NF-04 | **Stabilität des Audios:** keine Aussetzer (Xruns) in 60 Minuten „Frei spielen“ mit Time-Stretch auf Mindest-Hardware. | Muss | 1 | Dauertest, Xrun-Zähler = 0. |
 | LH-NF-05 | **Startzeit:** bis zur Bibliothek < 3 s (Empfehlung), < 6 s (Mindest-Hardware). | Soll | 1 | Messung. |
 | LH-NF-06 | **Darstellung:** 60 fps in der Tab-Lane auf Mindest-Hardware; die Lane ruckelt nicht bei Tempoänderung. | Muss | 1 | Frame-Zeit-Messung, 99. Perzentil < 20 ms. |
 | LH-NF-07 | **Barrierefreiheit:** vollständige Tastaturbedienung, sichtbarer Fokus, Barrierefreiheitsnamen für alle Bedienelemente, Skalierung 100 bis 200 % ohne Verlust, „Bewegung reduzieren“ wird beachtet (Systemeinstellung und eigener Schalter; dann Tabulatur statt Lane), Information nie nur über Farbe. | Muss | 1 | J-F1 bestanden. |
