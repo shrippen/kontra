@@ -105,6 +105,8 @@ Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreich
    Minuten der letzten sieben Tage; jedes mit einem Klick erreichbar.
 3. Fortschrittsansicht öffnen.
 Erwartet: Übungszeit und Verbesserung sichtbar; Formulierungen ermutigend, keine Rangliste; ohne Suchen weiterüben.
+Liegt eine Übung nach dem Lauf über 90 %, bietet die Auswertung die nächste im Plan an; die Übungsliste zeigt sie mit
+Häkchen.
 
 **J-C2 Timing-Tendenz** ⚙ · Persona: P3 Mira · Phase 1 · LH-BEW-03, LH-FOR-02
 1. Aufnahme mit konstanter Tendenz „18 ms zu früh“ im Song-Modus.

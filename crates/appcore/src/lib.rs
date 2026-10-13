@@ -402,6 +402,21 @@ impl Core {
         self.progress_json_at(unix_now())
     }
 
+    /// In level order, the first bundled exercise whose best run is not above the workshop band,
+    /// apart from `skip` (the one just played): `{title, path, best, mastered, level}`.
+    fn next_exercise(&self, skip: Option<&Path>) -> Option<serde_json::Value> {
+        self.bundled_levels().into_iter().find_map(|level| {
+            let mut item = level["items"]
+                .as_array()?
+                .iter()
+                .filter(|i| skip.is_none_or(|p| i["path"].as_str() != p.to_str()))
+                .find(|i| i["best"].as_f64().unwrap_or(-1.0) < MASTERED_RATE)?
+                .clone();
+            item["level"] = level["level"].clone();
+            Some(item)
+        })
+    }
+
     /// Start page: the last piece played, the first bundled exercise that does not sit yet
     /// and the practice of the last seven days.
     /// `{"last": {path, title, artist, best, practiceMin} | null,
@@ -428,16 +443,7 @@ impl Core {
                 })
             });
 
-        // In level order, the first exercise whose best run is not above the workshop band.
-        let next = self.bundled_levels().into_iter().find_map(|level| {
-            let mut item = level["items"]
-                .as_array()?
-                .iter()
-                .find(|i| i["best"].as_f64().unwrap_or(-1.0) < MASTERED_RATE)?
-                .clone();
-            item["level"] = level["level"].clone();
-            Some(item)
-        });
+        let next = self.next_exercise(None);
 
         let since = now.saturating_sub(WEEK_DAYS * SECONDS_PER_DAY);
         let week: Vec<_> = store
@@ -2274,7 +2280,14 @@ impl Core {
                 json!({ "index": b, "number": number })
             })
             .collect();
+        // A bundled exercise that now sits: the next one is one click away.
+        let next = self
+            .loaded_path()
+            .filter(|p| p.parent().and_then(Path::parent) == Some(Self::exercises_dir().as_path()))
+            .filter(|_| s.hit_rate >= MASTERED_RATE)
+            .and_then(|p| self.next_exercise(Some(p)));
         json!({
+            "next": next,
             "hitRate": s.hit_rate,
             "hitRateText": self.tr("summary.hitrate", &[("percent", format!("{:.0}", s.hit_rate * 100.0))]),
             "countsText": self.tr("summary.counts", &[
@@ -4380,6 +4393,35 @@ mod tests {
         assert_eq!(first_level["mastered"], 1);
         assert_eq!(first_level["items"][0]["mastered"], true);
         assert_eq!(first_level["items"][1]["mastered"], false);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A bundled exercise that sits after the run offers the next one in the summary; a run below
+    /// the band or a piece of one's own does not (P1: one step on, QA 13.10.).
+    #[test]
+    fn summary_offers_the_next_exercise() {
+        let dir = temp_dir("summarynext");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let first = levels[0]["items"][0]["path"].as_str().unwrap().to_string();
+        let second = levels[0]["items"][1]["path"].as_str().unwrap().to_string();
+        core.open(Path::new(&first)).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        let next = |core: &Core, s: &kontra_session::Summary| {
+            let v: serde_json::Value =
+                serde_json::from_str(&core.summary_json(s, &[], &[])).unwrap();
+            v["next"].clone()
+        };
+
+        s.hit_rate = 0.95;
+        assert_eq!(next(&core, &s)["path"], second.as_str());
+        s.hit_rate = 0.5;
+        assert!(next(&core, &s).is_null());
+
+        core.open(&Core::demo_path()).unwrap();
+        s.hit_rate = 0.95;
+        assert!(next(&core, &s).is_null());
         let _ = std::fs::remove_dir_all(dir);
     }
 

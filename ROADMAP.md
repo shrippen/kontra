@@ -264,6 +264,8 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
     `bin/../share`), der Fortschritt hängt am Pfad. Jetzt ohne „..“.
   - G23 (mittel, behoben #49, P1): Die Übungsliste zeigte nicht, was sitzt; jetzt Häkchen ab 90 % und „3 von 8 sitzen“
     je Stufe.
+  - G24 (mittel, behoben #49, Test zuerst, P1): Nach einer Übung, die jetzt sitzt, endete die Auswertung ohne Weg nach
+    vorn; jetzt „Sitzt“ mit der nächsten Übung im Plan, ein Klick.
   - Offen (Kante #61): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 

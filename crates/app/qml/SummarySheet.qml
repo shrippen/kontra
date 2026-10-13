@@ -56,6 +56,26 @@ KanteCard {
             value: sheet.summary ? sheet.summary.hitRateText : ""
             label: sheet.summary ? sheet.summary.countsText : ""
         }
+
+        // The exercise sits now (P1): the next one of the plan, one click away.
+        KanteHintCard {
+            Layout.fillWidth: true
+            visible: sheet.summary !== null && sheet.summary.next !== null
+            tier: KanteHintCard.Tier.Green
+            tierText: texts.t("summary.next.tier")
+            meta: visible ? sheet.summary.next.level : ""
+            titleText: visible ? sheet.summary.next.title : ""
+            text: texts.t("summary.next.text")
+            KanteButton {
+                text: texts.t("summary.next.play")
+                emphasis: KanteButton.Emphasis.Primary
+                onClicked: {
+                    var path = sheet.summary.next.path
+                    sheet.close()
+                    ctl.openFile(path)
+                }
+            }
+        }
         QQC2.Label {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
