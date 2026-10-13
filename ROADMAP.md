@@ -270,6 +270,8 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
     dort nie klingt; nur noch in Einstellungen und auf der Gehör-Seite.
   - G26 (niedrig, behoben #49, P1): Startseite zeigte dieselbe Übung zweimal mit zwei Knöpfen, wenn die nächste Übung
     auch das zuletzt gespielte Stück war; jetzt ein Knopf und ein Satz dazu.
+  - G27 (niedrig, behoben #49, P7): „Über Kontra“ listete rund 70 Bausteine ausgeklappt; die Tastenkürzel darunter
+    lagen weit außer Sicht. Jetzt Kontra, Qt und KDE Frameworks, der Rest auf Knopfdruck.
   - Offen (Kante #61): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 

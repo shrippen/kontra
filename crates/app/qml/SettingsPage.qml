@@ -12,6 +12,9 @@ Kirigami.ScrollablePage {
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
+    readonly property var licences: JSON.parse(ctl.licencesJson())
+    // Kontra, Qt and KDE Frameworks: the first entries of the licence list.
+    readonly property int mainLicences: 3
     readonly property var inputs: JSON.parse(ctl.inputDevicesJson)
     readonly property var outputs: JSON.parse(ctl.outputDevicesJson)
     readonly property var styles: ["kante", "kante-light", "system"]
@@ -406,7 +409,9 @@ Kirigami.ScrollablePage {
             rowSpacing: KanteStyle.unit(2)
             Accessible.name: texts.t("about.title")
             Repeater {
-                model: JSON.parse(ctl.licencesJson())
+                // Kontra, Qt and KDE Frameworks first; the libraries on request (about 70 lines
+                // pushed the shortcuts out of reach, QA 13.10.).
+                model: allLicences.checked ? page.licences : page.licences.slice(0, page.mainLicences)
                 delegate: RowLayout {
                     required property var modelData
                     Layout.columnSpan: 2
@@ -426,6 +431,13 @@ Kirigami.ScrollablePage {
                     }
                 }
             }
+        }
+
+        KanteButton {
+            id: allLicences
+            checkable: true
+            emphasis: KanteButton.Emphasis.Quiet
+            text: texts.t("about.all", { n: page.licences.length - page.mainLicences })
         }
 
         // All keyboard shortcuts in one place (LH-NF-07).

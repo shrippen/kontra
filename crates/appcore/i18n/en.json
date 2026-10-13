@@ -365,6 +365,7 @@
   "unplug.back": "Your input is back. Press play to go on.",
   "settings.xruns": "Audio dropouts since start: {n}",
   "about.title": "About Kontra",
+  "about.all": "All libraries ({n})",
   "about.text": "Kontra is free software under the MIT licence. It uses these building blocks, all under permissive licences; Qt and KDE Frameworks are linked dynamically.",
   "about.lgpl": "LGPL-3.0 (linked dynamically)",
   "report.made": "made with Kontra on {date}",
