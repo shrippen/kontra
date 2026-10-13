@@ -34,21 +34,23 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 |---|---|
 | LH-BIB-01/02 Import GP3–8, MIDI | umgesetzt, gegen Fremddateien geprüft |
 | LH-BIB-03 MusicXML | umgesetzt (vorgezogen) |
-| LH-BIB-04 Bibliothek | „Zuletzt gespielt“ mit Suche; Setlisten offen |
+| LH-BIB-04 Bibliothek | umgesetzt: Suche, Tags, Sortierung, Setlisten, Ordner als Setliste |
 | LH-ANZ-01/02/03 Tab-Lane, Tab, Noten | umgesetzt (Kante) |
-| LH-MOD-01..04 Spielen, Song, Warten, Werkstatt | Logik umgesetzt und getestet; Werkstatt-Bedienung in der App minimal |
+| LH-MOD-01..04 Spielen, Song, Warten, Werkstatt | umgesetzt, Werkstatt mit Takten, Zielband und Notendichte; Namen von Spielen/Song offen (Runde 11) |
 | LH-MOD-05 Metronom, Einzähler | umgesetzt; Lautstärke im Mixer |
 | LH-WIE-01 Time-Stretch | umgesetzt; Backing-Track je Stück wählbar |
 | LH-WIE-03 Referenzton, Mixer | umgesetzt: Backing, Metronom, Referenzton, Mithören (Standard aus; bei verschiedenen Abtastraten von Ein- und Ausgang kein Mithören, mit Hinweis) |
 | LH-BEW-01..05 Bewertung | umgesetzt |
 | LH-TUN-01/03 Stimmgerät | umgesetzt |
 | LH-EIN-01 Einrichtungsassistent | umgesetzt (5 Schritte, überspringbar, startet die erste Übung) |
-| LH-EIN-03/04 Pegel, Laptop-Hinweis | Pegelanzeige mit Hinweisen; Assistent offen |
+| LH-EIN-03/04 Pegel, Laptop-Hinweis | umgesetzt, Hinweise entscheidet der Core (J-A1 ⚙) |
 | LH-EIN-05 Latenz-Kalibrierung | „Spiel auf den Klick“ umgesetzt, mit Aufnahme getestet (40 ms ± 3) |
 | LH-EIN-06 Bluetooth-Hinweis | umgesetzt |
-| LH-FOR-01/03 Fortschritt | Läufe werden gespeichert; Bibliothek zeigt bestes Ergebnis und Übungszeit |
+| LH-FOR-01/03 Fortschritt | umgesetzt: Fortschrittsseite (Tage, Stücke, Abschnitte), Daten sichern und laden |
 | LH-ALL-01/02 Sprache, Stil | umgesetzt |
-| LH-NF-07 Barrierefreiheit | Kante-Bauteile mit Namen und Formen; Tastaturdurchlauf der App offen |
+| LH-NF-07 Barrierefreiheit | Kante-Bauteile mit Namen und Formen; Tastaturdurchlauf und echter Screenreader offen (braucht Sitzung am Gerät) |
+| LH-ALL-06 Startseite | umgesetzt (#48, 13.10.) |
+| Vor 0.1 offen | Hardware-Prüfungen (Runde 10: zuerst), Tastatur/Screenreader am Gerät, Release-Log, Screenshots, Flatpak |
 
 ## Entscheidungen Runde 3 (9.10.2026)
 
@@ -211,6 +213,34 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
       Ansichten zeigen nur die verlangten Noten; Fortschritt zählt für das ganze Stück.
 
 ## QA-Runden
+
+### QA-Runde 13.10.2026 (GUI und Bedienung; Demo-Stück, gerenderte Aufnahmen)
+
+Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beamer-Format 1280×720 bei 150 %
+(`QT_SCALE_FACTOR=1.5 kontra -qwindowgeometry 853x480`). Klicks und Tasten am QML-Code geprüft, keine Geräte.
+
+- **P1 Lea (J-A1, J-C1): bestanden nach Befunden.**
+  - G1 (hoch, behoben #48): Kontra öffnete in der Bibliothek; ohne Stück stand dort nur eine leere Liste, und der
+    Weg zum nächsten Schritt fehlte. Neu: Startseite (letztes Stück, nächste Übung, die noch nicht sitzt, Woche).
+  - G2 (mittel, behoben #48): Neun Seiten ungeordnet, Einrichtung zwischen Einstellungen und Fortschritt.
+    Navigation nach Tätigkeit gruppiert, Einrichtung unter Einstellungen und auf der Startseite.
+  - G3 (mittel, behoben #49): Übungen begannen mit dem Generator; jetzt der Plan zuerst.
+  - G4 (mittel, behoben #49, Test zuerst): Quiz und Gehörbildung zeigten vor der ersten Antwort „0 von 1 gefunden“.
+  - G5 (mittel, behoben #49): Fortschritt sagte nach dem ersten Lauf „noch nicht geübt“ und zeigte keinen Balken
+    (Minuten vor dem Summieren gerundet); „1 Läufe“, „an 1 Tagen“.
+  - G6 (mittel, behoben #49, Test zuerst): Auswertung nannte einen falschen Ton „+100 Cent“; jetzt „C2 gespielt“.
+  - Offen (Runde 11): „Spielen“ und „Song“ sind am Namen nicht zu unterscheiden.
+- **P2 Jens (J-B1, J-B3): bestanden nach Befunden.**
+  - G7 (niedrig, behoben #49): Setlisten-Feld seitenbreit vor den Stücken; ungespielte Stücke zeigten den Dateinamen.
+  - G8 (mittel, behoben #49): Gerätenamen in Eingang/Ausgang auf „Automatisch…“ gekürzt (Layout-Hinweise wirken
+    in `KanteSettingRow` nicht).
+  - G9 (mittel, Kante-PR): Tabulatur und Noten zeigen den Werkstatt-Abschnitt nicht, nur die Tab-Lane.
+- **P4 Thomas (J-B5, Beamer): bestanden nach Befunden.**
+  - G10 (hoch, behoben #49): Tabulatur und Noten zeichneten über die Transportleiste, die Kopfzeile lief rechts aus
+    dem Fenster. Notenbereich beschnitten, Ansichten als Liste, Transponieren in der Backing-Zeile.
+  - G11 (mittel, behoben #49): Im Stimmgerät lief der Cent-Wert in die Pegelanzeige; Pegel steht jetzt daneben.
+- **P7 Sam (J-F1):** Startseite in allen drei Stilen lesbar; Zustände der Karten mit Zeichen und Wort.
+- Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11); Kreuz als „#“ statt „♯“ in Quiz-Fragen (niedrig).
 
 ### QA-Runde 12.10.2026 (Nacht: Techniken, MIDI, Stems, Transponieren; synthetisch und IDMT)
 
