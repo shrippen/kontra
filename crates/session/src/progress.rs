@@ -146,6 +146,27 @@ impl ProgressStore {
         fs::rename(&temp, &path).map_err(|source| ProgressError::Io { path, source })
     }
 
+    /// Moves the runs of `old_id` to `new_id` (a file changed at the same path, e.g. a
+    /// regenerated exercise); runs already under `new_id` stay. Nothing stored: nothing to do.
+    pub fn adopt(&self, old_id: &str, new_id: &str) -> Result<(), ProgressError> {
+        if old_id == new_id {
+            return Ok(());
+        }
+        let Some(old) = self.load_id(old_id) else {
+            return Ok(());
+        };
+        let mut progress = self.load_id(new_id).unwrap_or(SongProgress {
+            song_id: new_id.to_string(),
+            runs: Vec::new(),
+            ..old.clone()
+        });
+        progress.runs.extend(old.runs);
+        progress.runs.sort_by_key(|r| r.finished_unix);
+        self.save(&progress)?;
+        let path = self.path(old_id);
+        fs::remove_file(&path).map_err(|source| ProgressError::Io { path, source })
+    }
+
     /// Progress stored under `song_id`, if any (for lists that only know the id).
     pub fn load_id(&self, song_id: &str) -> Option<SongProgress> {
         let text = fs::read_to_string(self.path(song_id)).ok()?;
@@ -200,6 +221,37 @@ pub fn run_from(
 mod tests {
     use super::*;
     use kontra_model::{Instrument, Note, Pitch};
+
+    #[test]
+    fn adopt_moves_runs_to_the_new_id() {
+        let dir = std::env::temp_dir().join(format!("kontra-adopt-{}", std::process::id()));
+        let store = ProgressStore::new(&dir);
+        let mut a = Arrangement::new("Riff", Instrument::default_bass());
+        a.notes.push(Note::new(0, 960, Pitch(28)));
+        let run = |at| Run {
+            finished_unix: at,
+            practice_s: 60.0,
+            speed: 1.0,
+            hit_rate: 0.9,
+            mode: "song".into(),
+            section: None,
+            hardest_bars: Vec::new(),
+        };
+        store.record(&a, run(1)).unwrap();
+        let old = ProgressStore::song_id(&a);
+        a.notes.push(Note::new(960, 960, Pitch(33)));
+        store.record(&a, run(2)).unwrap();
+        let new = ProgressStore::song_id(&a);
+
+        store.adopt(&old, &new).unwrap();
+        let moved = store.load_id(&new).unwrap();
+        let at: Vec<u64> = moved.runs.iter().map(|r| r.finished_unix).collect();
+        assert_eq!(at, [1, 2]);
+        assert!(store.load_id(&old).is_none());
+        // Nothing under the old id: nothing happens.
+        store.adopt("missing", &new).unwrap();
+        let _ = fs::remove_dir_all(dir);
+    }
 
     #[test]
     fn records_and_reloads() {
