@@ -174,7 +174,12 @@ fn bass_removed_once_and_kept() {
     write_midi(&score, "Riff", &RIFF);
     let wav = profile.dir.join("band.wav");
     band(&wav);
+    // A recording as input: no sound card needed.
     let mut core = profile.core(None);
+    core.open(&score).unwrap();
+    let played = profile.dir.join("take.wav");
+    take(&played, core.arrangement().unwrap(), 1.0);
+    let mut core = profile.core(Some(&played));
     core.open(&score).unwrap();
     core.set_backing(Some(wav.clone()), 0.0);
 
@@ -220,7 +225,11 @@ fn bass_removed_once_and_kept() {
         "{events:?}"
     );
     assert_eq!(stems(&mut core)["state"], "on");
-    assert!(core.play().iter().all(|e| !matches!(e, UiEvent::Error(_))));
+    let started = core.play();
+    assert!(
+        started.iter().all(|e| !matches!(e, UiEvent::Error(_))),
+        "{started:?}"
+    );
     core.stop_live();
 
     // Next start: no new separation, it plays without bass at once.

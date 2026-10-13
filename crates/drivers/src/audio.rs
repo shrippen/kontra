@@ -1,5 +1,5 @@
 //! Sound devices through cpal. Callbacks run on the audio thread: they must not allocate or
-//! block. Input is delivered as mono f32 (one chosen channel or the average), output as
+//! block. Input is delivered as mono f32 (the chosen channel or the loudest), output as
 //! interleaved f32.
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -119,7 +119,7 @@ pub struct StreamConfig {
     pub device_id: Option<String>,
     pub sample_rate: Option<u32>,
     pub buffer_frames: Option<u32>,
-    /// Input only: which channel carries the instrument; `None` averages all channels.
+    /// Input only: which channel carries the instrument; `None` follows the loudest.
     pub input_channel: Option<u16>,
 }
 
@@ -291,10 +291,17 @@ fn stream_config(
     Ok(cpal::StreamConfig {
         channels: default.channels(),
         sample_rate: wanted.sample_rate.unwrap_or(default.sample_rate()),
-        buffer_size: wanted
-            .buffer_frames
-            .map_or(cpal::BufferSize::Default, cpal::BufferSize::Fixed),
+        buffer_size: buffer_size(wanted.buffer_frames, default.buffer_size()),
     })
+}
+
+/// The wanted block, clamped to what the device takes; unknown limits keep the default (a
+/// fixed size outside them makes opening fail).
+fn buffer_size(wanted: Option<u32>, supported: &cpal::SupportedBufferSize) -> cpal::BufferSize {
+    let (Some(frames), cpal::SupportedBufferSize::Range { min, max }) = (wanted, supported) else {
+        return cpal::BufferSize::Default;
+    };
+    cpal::BufferSize::Fixed(frames.clamp(*min, *max))
 }
 
 /// A running input stream; dropping it stops capture.
@@ -334,6 +341,7 @@ impl InputStream {
             .input_channel
             .map(usize::from)
             .filter(|c| *c < channels);
+        let mut downmix = Downmix::new(channels, pick);
         let mut mono = vec![0.0f32; MAX_BLOCK];
         let xruns = XrunCounter::default();
         let mut late = LateCheck::new(&xruns);
@@ -342,12 +350,7 @@ impl InputStream {
             late.block(data.len() / channels, rate);
             for chunk in data.chunks(MAX_BLOCK * channels) {
                 let frames = chunk.len() / channels;
-                for (i, frame) in chunk.chunks_exact(channels).enumerate() {
-                    mono[i] = match pick {
-                        Some(c) => frame[c],
-                        None => frame.iter().sum::<f32>() / channels as f32,
-                    };
-                }
+                downmix.mono(chunk, &mut mono[..frames]);
                 on_samples(&mono[..frames]);
             }
         };
@@ -365,6 +368,65 @@ impl InputStream {
                 .map(|d| d.name().to_string())
                 .unwrap_or_default(),
         })
+    }
+}
+
+/// Turns interleaved frames into the instrument's mono signal: the chosen channel, or else the
+/// loudest one. An average would halve a bass on one input of a two-input interface and hide its
+/// clipping (hardware check 13.10.: Scarlett Solo, peaks at −6 dBFS while clipping).
+///
+/// ```text
+/// in 1 (empty)  ─────────            held peak per channel, decaying;
+/// in 2 (bass)   ─╱╲╱╲╱╲──  ──► out   switch only when another is 6 dB louder
+/// ```
+struct Downmix {
+    channels: usize,
+    pick: Option<usize>,
+    /// Recent peak per channel; allocated before the audio thread starts.
+    held: Vec<f32>,
+    current: usize,
+}
+
+/// Per block, a held peak keeps this share (a few seconds at usual block sizes).
+const HOLD_DECAY: f32 = 0.995;
+/// Another channel takes over only this much louder (6 dB): no flipping between equal inputs.
+const SWITCH_RATIO: f32 = 2.0;
+
+impl Downmix {
+    fn new(channels: usize, pick: Option<usize>) -> Downmix {
+        Downmix {
+            channels,
+            pick,
+            held: vec![0.0; channels],
+            current: 0,
+        }
+    }
+
+    /// `out` gets one sample per frame of `frames`.
+    fn mono(&mut self, frames: &[f32], out: &mut [f32]) {
+        let channel = self.pick.unwrap_or_else(|| self.follow(frames));
+        for (i, frame) in frames.chunks_exact(self.channels).enumerate() {
+            out[i] = frame[channel];
+        }
+    }
+
+    /// The loudest channel of the last blocks.
+    fn follow(&mut self, frames: &[f32]) -> usize {
+        for held in &mut self.held {
+            *held *= HOLD_DECAY;
+        }
+        for frame in frames.chunks_exact(self.channels) {
+            for (held, sample) in self.held.iter_mut().zip(frame) {
+                *held = held.max(sample.abs());
+            }
+        }
+        let loudest = (0..self.channels)
+            .max_by(|a, b| self.held[*a].total_cmp(&self.held[*b]))
+            .unwrap_or(0);
+        if self.held[loudest] > self.held[self.current] * SWITCH_RATIO {
+            self.current = loudest;
+        }
+        self.current
     }
 }
 
@@ -503,6 +565,46 @@ impl OutputStream {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Hardware check 13.10.: Scarlett Solo, bass in input 2, input 1 empty. The average halved
+    // the bass, so clipping (full scale) never reached the clip mark.
+    #[test]
+    fn empty_second_input_keeps_the_level() {
+        let mut downmix = Downmix::new(2, None);
+        let frames = [0.0, 1.0, 0.0, -1.0, 0.0, 0.5];
+        let mut out = [0.0; 3];
+        downmix.mono(&frames, &mut out);
+        assert_eq!(out, [1.0, -1.0, 0.5]);
+
+        let mut fixed = Downmix::new(2, Some(0));
+        fixed.mono(&frames, &mut out);
+        assert_eq!(out, [0.0; 3]);
+    }
+
+    // Two inputs with the same level (a stereo jack): one of them, at full level, no flipping.
+    #[test]
+    fn equal_inputs_stay_on_one() {
+        let mut downmix = Downmix::new(2, None);
+        let mut out = [0.0; 2];
+        downmix.mono(&[0.8, 0.6, 0.4, 0.5], &mut out);
+        assert_eq!(out, [0.8, 0.4]);
+        downmix.mono(&[0.6, 0.9, 0.5, 0.4], &mut out);
+        assert_eq!(out, [0.6, 0.5]);
+    }
+
+    // A device that cannot take the wanted block would refuse to open; it gets the nearest one.
+    #[test]
+    fn buffer_fits_the_device() {
+        let range = cpal::SupportedBufferSize::Range {
+            min: 256,
+            max: 4096,
+        };
+        assert_eq!(buffer_size(Some(128), &range), cpal::BufferSize::Fixed(256));
+        assert_eq!(buffer_size(Some(512), &range), cpal::BufferSize::Fixed(512));
+        assert_eq!(buffer_size(None, &range), cpal::BufferSize::Default);
+        let unknown = cpal::SupportedBufferSize::Unknown;
+        assert_eq!(buffer_size(Some(128), &unknown), cpal::BufferSize::Default);
+    }
 
     #[test]
     fn guesses_connections() {

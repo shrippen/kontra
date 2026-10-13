@@ -6,7 +6,7 @@ use crate::settings::ScoreSettings;
 use crate::summary::Summary;
 use crate::technique::{TechniqueJudge, TechniqueResult};
 use crate::transport::{LoopRange, Transport};
-use kontra_model::{Arrangement, DetectedNote, TechniqueRevision};
+use kontra_model::{Arrangement, DetectedNote, PitchRevision, Technique, TechniqueRevision};
 
 /// Real seconds to wait before declaring a note missed: detected notes arrive up to ~150 ms
 /// after their onset (concept 6.3), plus margin.
@@ -86,6 +86,9 @@ pub struct Session {
     /// Struck notes judged lately: (detected onset, pass, note), so a technique told later can
     /// be judged again (`on_revision`).
     struck: Vec<(f64, u32, usize)>,
+    /// Notes scored lately: (detected onset, index into `results`, technique), so a pitch told
+    /// later can judge them again (`on_pitch_revision`).
+    scored: Vec<(f64, usize, Option<Technique>)>,
     results: Vec<NoteResult>,
     events: Vec<SessionEvent>,
     cursor_pass: u32,
@@ -111,6 +114,7 @@ impl Session {
             matcher,
             techniques,
             struck: Vec::new(),
+            scored: Vec::new(),
             results: Vec::new(),
             events: Vec::new(),
             cursor_pass: 0,
@@ -251,6 +255,7 @@ impl Session {
             &self.settings,
             range,
         );
+        self.remember_scored(note);
         self.record(result);
         self.judge_struck(&result, Some(note.technique));
         if let Some(index) = result.note {
@@ -309,6 +314,61 @@ impl Session {
         };
         self.results[at] = hit;
         self.events.push(SessionEvent::Result(hit));
+        self.end_wait(pass, slot);
+    }
+
+    /// A pitch told after its note, once the tone settled (decision round 11): the note is
+    /// judged again with it, e.g. a flat start judged a wrong note becomes a hit.
+    pub fn on_pitch_revision(&mut self, revision: &PitchRevision) {
+        let Some(&(_, at, technique)) = self
+            .scored
+            .iter()
+            .rev()
+            .find(|(onset, _, _)| (onset - revision.onset_s).abs() < REVISION_MATCH_S)
+        else {
+            return;
+        };
+        let last = self.results[at];
+
+        // Only a note judged by its pitch (a dead note played as one has none).
+        let (Some(note), Some(_)) = (last.note, last.cents) else {
+            return;
+        };
+        let Some(slot) = self.slot_of(note, last.position_s) else {
+            return;
+        };
+        let cents = self.matcher.expected()[slot].cents_from(revision.midi);
+        let outcome =
+            crate::matcher::pitch_outcome(cents, self.settings.pitch_cents, revision.midi);
+        let revised = NoteResult {
+            outcome,
+            cents: Some(cents),
+            ..last
+        };
+
+        // The earlier result is replaced, not followed: a pass counts every result it holds.
+        self.results[at] = revised;
+        self.events.push(SessionEvent::Result(revised));
+
+        // Wait mode: a wrong attempt that was the right note after all ends the wait.
+        let wrong = |o: Outcome| matches!(o, Outcome::WrongPitch { .. });
+        if !wrong(last.outcome) || wrong(outcome) || !matches!(self.mode, Mode::Wait) {
+            return;
+        }
+        if self.cursor_slot != slot {
+            return;
+        }
+        if let Some(t) = self
+            .techniques
+            .judge_struck(last.pass, note, Some(technique))
+        {
+            self.events.push(SessionEvent::Technique(t));
+        }
+        self.end_wait(last.pass, slot);
+    }
+
+    /// Wait mode: the note at `slot` was played after all; the wait is over.
+    fn end_wait(&mut self, pass: u32, slot: usize) {
         if !matches!(self.mode, Mode::Wait) || self.cursor_slot != slot {
             return;
         }
@@ -319,6 +379,26 @@ impl Session {
             self.transport.release(self.now_s);
             self.events.push(SessionEvent::Released);
         }
+    }
+
+    /// Keeps the last scored notes for `on_pitch_revision`; call right before `record`.
+    fn remember_scored(&mut self, note: &DetectedNote) {
+        if self.scored.len() >= STRUCK_KEPT {
+            self.scored.remove(0);
+        }
+        self.scored
+            .push((note.onset_s, self.results.len(), note.technique));
+    }
+
+    /// The slot in the matcher's expected notes of `note` at `position_s`.
+    fn slot_of(&self, note: usize, position_s: f64) -> Option<usize> {
+        let expected = self.matcher.expected();
+        let from = expected.partition_point(|e| e.position_s < position_s);
+        expected[from..]
+            .iter()
+            .take_while(|e| e.position_s <= position_s)
+            .position(|e| e.index == note)
+            .map(|i| from + i)
     }
 
     /// Keeps the last struck notes for `on_revision`.
@@ -465,6 +545,7 @@ impl Session {
         };
         // An off-pitch note is still the right note: the wait is over.
         let in_tune = !matches!(outcome, Outcome::WrongPitch { .. });
+        self.remember_scored(note);
         self.record(NoteResult {
             pass,
             note: Some(target.index),

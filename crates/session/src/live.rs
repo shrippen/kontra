@@ -244,7 +244,7 @@ impl LiveTuner {
                 }),
                 Event::Error(m) => out.push(PracticeEvent::Error(m)),
                 Event::Ended => out.push(PracticeEvent::InputEnded),
-                Event::Note(_) | Event::Technique(_) => {}
+                Event::Note(_) | Event::Technique(_) | Event::Pitch(_) => {}
             }
         }
         out
@@ -359,7 +359,7 @@ impl LiveEar {
                 }),
                 Event::Error(m) => out.push(PracticeEvent::Error(m)),
                 Event::Ended => out.push(PracticeEvent::InputEnded),
-                Event::Note(_) | Event::Tuner(_) | Event::Technique(_) => {}
+                Event::Note(_) | Event::Tuner(_) | Event::Technique(_) | Event::Pitch(_) => {}
             }
         }
         out
@@ -371,6 +371,7 @@ pub(crate) fn input_kind(choice: &InputChoice) -> InputKind {
         InputChoice::Device { id, channel } => InputKind::Device(StreamConfig {
             device_id: id.clone(),
             input_channel: *channel,
+            buffer_frames: Some(LIVE_BUFFER_FRAMES),
             ..StreamConfig::default()
         }),
         InputChoice::File { path, .. } if is_midi_file(path) => {
@@ -392,15 +393,25 @@ pub fn is_midi_file(path: &std::path::Path) -> bool {
         .is_some_and(|e| e.eq_ignore_ascii_case("mid") || e.eq_ignore_ascii_case("midi"))
 }
 
+/// Frames per audio block for live input and output (LH-NF-01): PipeWire lowers its quantum to
+/// the smallest block a client asks for; its default of 1024 alone is 41–45 ms round trip
+/// (hardware check 13.10.), 128 is 20 ms.
+const LIVE_BUFFER_FRAMES: u32 = 128;
+
+fn output_config(device: Option<&str>) -> StreamConfig {
+    StreamConfig {
+        device_id: device.map(str::to_string),
+        buffer_frames: Some(LIVE_BUFFER_FRAMES),
+        ..StreamConfig::default()
+    }
+}
+
 pub(crate) fn open_output(
     device: Option<&str>,
     clock: &Clock,
     events: std::sync::mpsc::Sender<Event>,
 ) -> LiveOutput {
-    let config = StreamConfig {
-        device_id: device.map(str::to_string),
-        ..StreamConfig::default()
-    };
+    let config = output_config(device);
     match Player::start(&config, clock, events) {
         Ok(player) => LiveOutput::Device(player),
         Err(_) => LiveOutput::Silent(NullOutput {
@@ -422,8 +433,8 @@ pub struct LiveCalibration {
 }
 
 impl LiveCalibration {
-    /// Starts input and output; the clicks begin `lead_s` after the input's first sample
-    /// (a recording for QA starts its plucks at the same offset).
+    /// Starts input and output; the measured clicks begin `lead_s` after the input's first sample
+    /// (a recording for QA starts its plucks at the same offset), the count-in one bar earlier.
     pub fn start(
         setup: &LiveSetup,
         instrument: &Instrument,
@@ -455,13 +466,17 @@ impl LiveCalibration {
         if self.calibration.is_none() {
             let start = self.input.started_s()?;
             let calibration = Calibration::new(start + self.lead_s);
-            for (i, click) in calibration.clicks().iter().enumerate() {
-                let accent = if i == 0 {
-                    kontra_engine::Accent::Downbeat
-                } else {
-                    kontra_engine::Accent::Beat
-                };
-                self.output.schedule(*click, Sound::Click(accent));
+            // The count-in and the measured clicks each start on an accent.
+            let count_in = calibration.count_in();
+            for clicks in [count_in.as_slice(), calibration.clicks()] {
+                for (i, click) in clicks.iter().enumerate() {
+                    let accent = if i == 0 {
+                        kontra_engine::Accent::Downbeat
+                    } else {
+                        kontra_engine::Accent::Beat
+                    };
+                    self.output.schedule(*click, Sound::Click(accent));
+                }
             }
             self.calibration = Some(calibration);
         }
@@ -497,10 +512,7 @@ pub fn soak(
     const TICK: std::time::Duration = std::time::Duration::from_millis(10);
     let clock = Clock::new();
     let (tx, rx) = channel();
-    let config = StreamConfig {
-        device_id: output_device.map(str::to_string),
-        ..StreamConfig::default()
-    };
+    let config = output_config(output_device);
     let output = LiveOutput::Device(Player::start(&config, &clock, tx)?);
     let backing = backing
         .map(|p| BackingTrack::load(p, output.sample_rate()))
@@ -536,4 +548,23 @@ pub fn soak(
         xruns: practice.output().xruns(),
         passes: practice.session().transport().pass(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Hardware check 13.10.: without a request PipeWire runs at 1024 frames, 41–45 ms round trip.
+    #[test]
+    fn live_streams_ask_for_a_small_buffer() {
+        let device = InputChoice::Device {
+            id: None,
+            channel: None,
+        };
+        let InputKind::Device(input) = input_kind(&device) else {
+            panic!("a device input");
+        };
+        assert_eq!(input.buffer_frames, Some(LIVE_BUFFER_FRAMES));
+        assert_eq!(output_config(None).buffer_frames, Some(LIVE_BUFFER_FRAMES));
+    }
 }

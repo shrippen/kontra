@@ -30,11 +30,11 @@ pub use korpus::{
     band, evaluate, evaluate_laptop_jack, evaluate_with, generate, render_performance, same_pitch,
     Annotation, Evaluation, KorpusItem, KorpusSet, Matching, Mistakes, Playing,
 };
-pub use offline::{analyze, analyze_without, revise};
+pub use offline::{analyze, analyze_without, revise, revise_pitch};
 pub use player::{Accent, BackingAudio, Gains, NullOutput, Output, Player, Sound};
 
 use kontra_dsp::TunerReading;
-use kontra_model::{DetectedNote, TechniqueRevision};
+use kontra_model::{DetectedNote, PitchRevision, TechniqueRevision};
 
 /// What the engine reports to the layer above.
 #[derive(Debug, Clone, PartialEq)]
@@ -42,6 +42,8 @@ pub enum Event {
     Note(DetectedNote),
     /// A technique told after its note (the attack needed more audio, LH-BEW-06).
     Technique(TechniqueRevision),
+    /// A pitch told after its note, once the tone has settled (decision round 11).
+    Pitch(PitchRevision),
     /// Input level over the last 50 ms.
     Level {
         peak_db: f32,
