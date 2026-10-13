@@ -107,6 +107,29 @@ struct Target {
     position_s: f64,
     midi: u8,
     technique: Technique,
+    /// Semitones from the note it comes from (a slide's start, else the note before).
+    step: u8,
+}
+
+/// Up to this many semitones a slide and a hammer-on or pull-off sound alike (round 11).
+const ONE_FRET: u8 = 1;
+
+impl Target {
+    /// What counts as played: the technique, and over one fret a slide for a hammer-on or
+    /// pull-off and back (the pitch jumps as fast; nothing tells them apart, round 11).
+    fn outcome(&self, played: Option<Technique>) -> TechniqueOutcome {
+        let Some(technique) = played else {
+            return TechniqueOutcome::Other(None);
+        };
+        let legato = |t: Technique| matches!(t, Technique::HammerOn | Technique::PullOff);
+        let twins = self.step <= ONE_FRET
+            && ((self.technique == Technique::Slide && legato(technique))
+                || (legato(self.technique) && technique == Technique::Slide));
+        if technique == self.technique || twins {
+            return TechniqueOutcome::Played;
+        }
+        TechniqueOutcome::Other(played)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -142,12 +165,21 @@ impl TechniqueJudge {
                 continue;
             }
             let n = &arrangement.notes[note];
+            let from = if sign != note {
+                Some(sign)
+            } else {
+                note.checked_sub(1)
+            };
+            let step = from.map_or(u8::MAX, |f| {
+                n.pitch.0.abs_diff(arrangement.notes[f].pitch.0)
+            });
             let target = Target {
                 note,
                 sign,
                 position_s: arrangement.tempo.seconds_at(n.start_ticks),
                 midi: n.pitch.0,
                 technique,
+                step,
             };
             if n.needs_attack() {
                 struck.insert(note, target);
@@ -205,7 +237,7 @@ impl TechniqueJudge {
         let target = *self.struck.get(&note)?;
         let outcome = match played {
             None => TechniqueOutcome::NotHeard,
-            Some(t) => outcome_of(target.technique, t),
+            Some(t) => target.outcome(t),
         };
         Some(self.push(pass, target, outcome))
     }
@@ -235,7 +267,7 @@ impl TechniqueJudge {
             .map(|(slot, _)| slot)?;
         self.resolved.insert((pass, slot));
         let target = self.legato[slot];
-        Some(self.push(pass, target, outcome_of(target.technique, technique)))
+        Some(self.push(pass, target, target.outcome(technique)))
     }
 
     /// Restarts expiring at `position_s` of `pass` (seek, loop).
@@ -316,14 +348,6 @@ impl TechniqueJudge {
         };
         self.results.push(result);
         result
-    }
-}
-
-fn outcome_of(expected: Technique, played: Option<Technique>) -> TechniqueOutcome {
-    if played == Some(expected) {
-        TechniqueOutcome::Played
-    } else {
-        TechniqueOutcome::Other(played)
     }
 }
 
@@ -478,6 +502,33 @@ mod tests {
         );
         assert_eq!(tally[1].played, 0);
         assert_eq!(tally.len(), 3, "the dead note was not judged yet");
+    }
+
+    /// Round 11: a slide over one fret sounds like a hammer-on (0–22 ms to the next note); each
+    /// counts for the other. Over more frets they stay apart.
+    #[test]
+    fn one_fret_slide_and_hammer_on_count_for_each_other() {
+        let mut a = piece();
+        a.notes[1].pitch = Pitch(29);
+        a.notes[2].pitch = Pitch(30);
+        let mut j = TechniqueJudge::new(&a, InputSource::Line);
+        let slide = j
+            .judge_struck(0, 1, Some(Some(Technique::HammerOn)))
+            .unwrap();
+        assert!(slide.is_played(), "{slide:?}");
+        let h = j
+            .judge_legato(0, 1.0, 30.0, Some(Technique::Slide), 0.06)
+            .unwrap();
+        assert!(h.is_played(), "{h:?}");
+
+        let mut j = TechniqueJudge::new(&piece(), InputSource::Line);
+        let far = j
+            .judge_struck(0, 1, Some(Some(Technique::HammerOn)))
+            .unwrap();
+        assert_eq!(
+            far.outcome,
+            TechniqueOutcome::Other(Some(Technique::HammerOn))
+        );
     }
 
     #[test]

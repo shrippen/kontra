@@ -163,6 +163,21 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
   sofortiger Messung, Soak, Demucs-Zeit, Bericht mit Handprüfliste; `testdata/korpus/AUFNAHME.md`). Software-Schleife
   über PipeWire (Null-Senke): 26,9 ms Rundlauf, 12 von 12 Tönen. Die Prüfungen am echten Bass macht der Eigentümer.
 
+## Entscheidungen Runde 11 (13.10.2026)
+
+- Merges: Erlaubnis-Regel für `tea api … /pulls/N/merge` (trägt der Eigentümer in die Claude-Code-Einstellungen ein;
+  Claude darf die eigenen Rechte nicht ändern). Am 13.10. auf Zuruf alle PRs #45–#57 gemerged.
+- Modi umbenannt: „Spielen“ → „Frei spielen“, „Song“ → „Durchlauf“ (LH-MOD-01/02); Kürzel 1–4 bleiben (umgesetzt).
+- Ghost Note: nur der Bund in Klammern, wie gedruckte Tabulatur; das Ergebnis trägt ein Rahmen um den geklammerten
+  Bund (Kante-PR).
+- Startseite: Karte „Stellen von gestern“, die zwei schwierigsten Takte der letzten Tage, ein Klick in die Werkstatt
+  (erster Didaktik-Prototyp, LH-ALL-06).
+- Tastenkürzel Strg+1…9 in der Reihenfolge der Navigation: bleibt.
+- Slide über einen Bund, als Hammer-on gehört: zählt als gespielt, wenn die Partitur Slide sagt, und umgekehrt
+  (LH-BEW-06). Am echten Bass auch über zwei Bünde (Hardware-Prüfung H7): Frage für Runde 12.
+- Tonhöhe nachträglich korrigieren, sobald der Ton steht (#53): neues Engine-Ereignis, Neubewertung in der Session.
+- Hardware-Prüfung gemeinsam: am 13.10. begonnen (Abschnitt Hardware-Prüfung unter QA-Runden).
+
 ## Didaktik: wie Kontra Bass vermittelt (laufend, alle Phasen)
 
 Ziel: nicht nur Noten abfragen, sondern herausfinden, welche Wege zum
@@ -234,7 +249,7 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
   - G5 (mittel, behoben #49): Fortschritt sagte nach dem ersten Lauf „noch nicht geübt“ und zeigte keinen Balken
     (Minuten vor dem Summieren gerundet); „1 Läufe“, „an 1 Tagen“.
   - G6 (mittel, behoben #49, Test zuerst): Auswertung nannte einen falschen Ton „+100 Cent“; jetzt „C2 gespielt“.
-  - Offen (Runde 11): „Spielen“ und „Song“ sind am Namen nicht zu unterscheiden.
+  - Runde 11: „Spielen“ und „Song“ heißen jetzt „Frei spielen“ und „Durchlauf“.
 - **P2 Jens (J-B1, J-B3): bestanden nach Befunden.**
   - G7 (niedrig, behoben #49): Setlisten-Feld seitenbreit vor den Stücken; ungespielte Stücke zeigten den Dateinamen.
   - G8 (mittel, behoben #49): Gerätenamen in Eingang/Ausgang auf „Automatisch…“ gekürzt (Layout-Hinweise wirken
