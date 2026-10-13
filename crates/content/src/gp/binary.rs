@@ -15,8 +15,16 @@ use crate::score::{
 };
 use kontra_model::{Pitch, Technique, TimeSignature};
 
-/// Harmonic kind of GP4 and GP5 that sounds at a partial of the string.
+// Harmonic kinds of GP4 and GP5. Pinch and semi harmonics sound where the pick touches the
+// string: not stored, so they keep the fretted pitch (judged in any octave).
 const HARMONIC_NATURAL: u8 = 1;
+const GP5_ARTIFICIAL: u8 = 2;
+/// Highest GP5 octave of an artificial harmonic that points up (2: 15ma); 3 and 4 are 8vb and
+/// 15mb, below the string, where no harmonic sounds.
+const GP5_OCTAVES_UP: i32 = 2;
+const GP5_TAPPED: u8 = 3;
+/// GP4 artificial harmonics, touched 5, 7 or 12 frets above the fretted note ("AH5" …).
+const GP4_ARTIFICIAL: [(u8, f64); 3] = [(15, 5.0), (17, 7.0), (22, 12.0)];
 
 /// Slide types that go to the next note: GP4 stores a number, GP5 bit flags.
 const GP4_SLIDE_SHIFT: u8 = 1;
@@ -91,8 +99,21 @@ struct BeatFx {
 struct NoteFx {
     techniques: Vec<Technique>,
     hammer: bool,
-    /// A natural harmonic: it sounds at a partial of the string, not at the fret.
-    natural_harmonic: bool,
+    /// A harmonic: it sounds at a partial of the string, not at the fret.
+    harmonic: Option<Harmonic>,
+}
+
+/// Where a harmonic sounds, as far as the file tells.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Harmonic {
+    /// Touched at the note's fret: a partial of the open string.
+    Natural,
+    /// Touched this many frets above the fretted note (artificial, tapped).
+    Above(f64),
+    /// Pitch class (C = 0) and octaves above the fretted note (GP5 artificial).
+    Class { class: i32, octaves: i32 },
+    /// Pinch, semi or a GP4 tapped harmonic: unknown, keeps the fretted pitch.
+    Unknown,
 }
 
 #[derive(Debug)]
@@ -574,9 +595,8 @@ impl Parser<'_> {
         };
         let fretted = tuning[string].transposed(i32::from(fret));
         let sounding = fx
-            .natural_harmonic
-            .then(|| crate::harmonic::natural_harmonic(tuning[string], f64::from(fret)))
-            .flatten();
+            .harmonic
+            .and_then(|h| harmonic_pitch(h, tuning[string], fret));
         let Some(pitch) = sounding.or(fretted) else {
             return Ok(None);
         };
@@ -643,7 +663,7 @@ impl Parser<'_> {
             }
         }
         if flags2 & 0x10 != 0 {
-            fx.natural_harmonic = self.harmonic()? == HARMONIC_NATURAL;
+            fx.harmonic = Some(self.harmonic()?);
             fx.techniques.push(Technique::Harmonic);
         }
         if flags2 & 0x20 != 0 {
@@ -661,18 +681,32 @@ impl Parser<'_> {
         Ok(fx)
     }
 
-    /// Reads a harmonic and returns its kind (`HARMONIC_NATURAL`, …).
-    fn harmonic(&mut self) -> Result<u8, ImportError> {
+    /// Reads a harmonic: GP4 stores its kind only, GP5 adds the pitch of artificial and the
+    /// fret distance of tapped harmonics.
+    fn harmonic(&mut self) -> Result<Harmonic, ImportError> {
         let kind = self.r.u8()?;
         if self.version < Version::V500 {
-            return Ok(kind);
+            return Ok(gp4_harmonic(kind));
         }
         match kind {
-            2 => self.r.skip(3)?, // artificial: semitone, accidental, octave
-            3 => self.r.skip(1)?, // tapped: fret
-            _ => {}
+            HARMONIC_NATURAL => Ok(Harmonic::Natural),
+            GP5_ARTIFICIAL => {
+                // Natural pitch class (C = 0, D = 2 …), accidental (-1, 0, 1), octave (0 loco,
+                // 1 8va, 2 15ma), e.g. E, 0, 1 over a fretted A1 → E3.
+                let step = i32::from(self.r.i8()?);
+                let accidental = i32::from(self.r.i8()?);
+                let octaves = i32::from(self.r.i8()?);
+                if !(0..=GP5_OCTAVES_UP).contains(&octaves) {
+                    return Ok(Harmonic::Unknown);
+                }
+                Ok(Harmonic::Class {
+                    class: step + accidental,
+                    octaves,
+                })
+            }
+            GP5_TAPPED => Ok(Harmonic::Above(f64::from(self.r.u8()?))),
+            _ => Ok(Harmonic::Unknown),
         }
-        Ok(kind)
     }
 
     /// Bend or tremolo bar: type, value, points of 9 bytes.
@@ -683,6 +717,30 @@ impl Parser<'_> {
             .checked_mul(9)
             .ok_or_else(|| ImportError::bad("bend point count"))?;
         self.r.skip(size)
+    }
+}
+
+/// A GP4 harmonic kind: natural, artificial at a fixed distance, or unknown.
+fn gp4_harmonic(kind: u8) -> Harmonic {
+    if kind == HARMONIC_NATURAL {
+        return Harmonic::Natural;
+    }
+    GP4_ARTIFICIAL
+        .iter()
+        .find(|(k, _)| *k == kind)
+        .map_or(Harmonic::Unknown, |(_, frets)| Harmonic::Above(*frets))
+}
+
+/// The pitch a harmonic at `fret` of the string tuned to `open` sounds; `None` where unknown.
+fn harmonic_pitch(harmonic: Harmonic, open: Pitch, fret: u8) -> Option<Pitch> {
+    let fretted = open.transposed(i32::from(fret))?;
+    match harmonic {
+        Harmonic::Natural => crate::harmonic::natural_harmonic(open, f64::from(fret)),
+        Harmonic::Above(frets) => crate::harmonic::natural_harmonic(fretted, frets),
+        Harmonic::Class { class, octaves } => {
+            crate::harmonic::harmonic_of_class(fretted, class, octaves)
+        }
+        Harmonic::Unknown => None,
     }
 }
 
@@ -811,6 +869,18 @@ mod tests {
         assert_eq!(duration(2, false, 5).unwrap(), 192);
         assert_eq!(duration(2, false, 6).unwrap(), 160);
         assert!(duration(9, false, 1).is_err());
+    }
+
+    #[test]
+    fn gp4_artificial_harmonics() {
+        assert_eq!(gp4_harmonic(1), Harmonic::Natural);
+        assert_eq!(gp4_harmonic(15), Harmonic::Above(5.0));
+        assert_eq!(gp4_harmonic(22), Harmonic::Above(12.0));
+        assert_eq!(gp4_harmonic(4), Harmonic::Unknown, "pinch");
+        // AH7 over a fretted A1: E3.
+        let a = Pitch(33);
+        let e3 = harmonic_pitch(gp4_harmonic(17), Pitch(28), 5);
+        assert_eq!(e3, a.transposed(19));
     }
 
     #[test]
