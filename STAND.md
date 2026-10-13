@@ -16,7 +16,8 @@ Merges per `tea api …/merge` blockiert der Auto-Modus seit dem 13.10.; Eigent�
 6. #51 künstliche, getippte und MusicXML-Flageoletts.
 7. #53 Halbtonfehler Kontrabass (nur Doku), nach #52.
 8. #54 Laptop-Buchse: Brummfilter und Onset-Schwelle im Profil `laptop-jack` (IDMT-Simulation 37,9 → 87,7 % Recall), auf #52.
-- Probe-Merge aller PRs in dieser Reihenfolge (13.10., `../Kontra-integ`): grün. Konflikte nur in Doku: STAND.md
+9. #56 Groove mit Ghost Notes (LH-LRN-01; danach Roadmap-Zeile LH-LRN-01 abhaken). Unabhängig.
+- Probe-Merge aller PRs (#55, #45–#54, #56) in dieser Reihenfolge (13.10., `../Kontra-integ`): grün. Konflikte nur in Doku: STAND.md
   in #50–#52 (Fassung aus #49 nehmen), QUELLEN.md zwischen #53 und #54 (beide Abschnitte behalten). #50 enthält #46
   (wegen `slide_cents`).
 - Kante #58 (1.35, Loop in Tabulatur und Noten): Eigentümer merged. Danach `scripts/sync-kante.sh` und `loopStart`/
@@ -26,6 +27,8 @@ Merges per `tea api …/merge` blockiert der Auto-Modus seit dem 13.10.; Eigent�
 
 - **Runde 11** (Entscheidungs-Artefakt): Merge-Erlaubnis, Modusnamen „Spielen“/„Song“, Ghost-Zeichen (F8), Startseite
   „nächste Übung“, Tastenkürzel, Slides über einen Bund, Termin Hardware-Prüfung.
+- **F8 bei Sechzehnteln** (#56): In der Tabulatur verschmelzen „(0)“ und „( )“ der Ghost Notes zu „(0(0(0“;
+  Entscheidung Ghost-Zeichen in Runde 11.
 - **Slides über einen Bund** sind von Hammer-ons nicht zu trennen (#50); Entscheidung Runde 11.
 - **Oktavfehler** (#52): 30 FiloBass-Noten noch eine Oktave tief; 88 Noten einen Halbton tief: Ton steigt in den ersten 100 ms, Kontra entscheidet zu früh (#53, Doku); Korrektur nach dem Einschwingen = Runde 11.
 - **Flageoletts** (#51): Bewertung oktavtolerant; künstliche ohne eigenes Zeichen in Kante. GP4-Arten 15/17 mit echter
