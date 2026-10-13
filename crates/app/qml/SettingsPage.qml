@@ -55,6 +55,17 @@ Kirigami.ScrollablePage {
 
         KanteHeading { text: texts.t("nav.settings"); pageTitle: true }
 
+        // The setup assistant lives here (and on the start page), not in the navigation.
+        KanteSettingRow {
+            Layout.fillWidth: true
+            title: texts.t("settings.setup")
+            hint: texts.t("settings.setup.hint")
+            KanteButton {
+                text: texts.t("settings.setup.start")
+                onClicked: applicationWindow().show("setup")
+            }
+        }
+        KanteSectionLabel { text: texts.t("settings.section.connection"); Layout.topMargin: KanteStyle.unit(12) }
         // The audio input only matters while the bass comes as audio (not over MIDI).
         KanteSettingRow {
             Layout.fillWidth: true
@@ -90,6 +101,35 @@ Kirigami.ScrollablePage {
         }
         // LH-EIN-10: inputs that come later are entries of the choice, not left out (QA P5, P6).
         ConnectionChoice { Layout.fillWidth: true }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            title: texts.t("settings.latency")
+            hint: texts.t("settings.latency.hint")
+            RowLayout {
+                KanteSpinBox {
+                    Accessible.name: texts.t("settings.latency")
+                    from: 0
+                    to: 500
+                    stepSize: 5
+                    value: Math.round(ctl.latencyMs)
+                    onValueModified: ctl.changeLatency(value)
+                }
+                KanteButton {
+                    text: texts.t("calibration.start")
+                    busy: ctl.calibrating
+                    enabled: !ctl.calibrating
+                    onClicked: ctl.startCalibration()
+                }
+                KanteInfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency"); accessibleName: texts.t("help.about", { term: texts.t("settings.latency") }) }
+            }
+        }
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: KanteStyle.mutedTextColor
+            text: ctl.calibrationText !== "" ? ctl.calibrationText : texts.t("calibration.hint")
+        }
+        KanteSectionLabel { text: texts.t("settings.section.instrument"); Layout.topMargin: KanteStyle.unit(12) }
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.strings")
@@ -130,6 +170,7 @@ Kirigami.ScrollablePage {
                 onToggled: ctl.changeInstrument(ctl.strings, checked, ctl.laptopJack)
             }
         }
+        KanteSectionLabel { text: texts.t("settings.section.display"); Layout.topMargin: KanteStyle.unit(12) }
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.lowtop")
@@ -209,6 +250,7 @@ Kirigami.ScrollablePage {
                 onActivated: function(index) { ctl.changeMotion(values[index]) }
             }
         }
+        KanteSectionLabel { text: texts.t("settings.section.scoring"); Layout.topMargin: KanteStyle.unit(12) }
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.window")
@@ -250,6 +292,7 @@ Kirigami.ScrollablePage {
                 onActivated: function(index) { ctl.changeScoring(ctl.strictness, values[index]) }
             }
         }
+        KanteSectionLabel { text: texts.t("settings.section.practice"); Layout.topMargin: KanteStyle.unit(12) }
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("transport.metronome")
@@ -280,34 +323,7 @@ Kirigami.ScrollablePage {
         }
         KanteSectionLabel { id: mixerLabel; text: texts.t("mixer.title"); Layout.topMargin: KanteStyle.unit(12) }
         Mixer { Layout.fillWidth: true }
-        KanteSettingRow {
-            Layout.fillWidth: true
-            title: texts.t("settings.latency")
-            hint: texts.t("settings.latency.hint")
-            RowLayout {
-                KanteSpinBox {
-                    Accessible.name: texts.t("settings.latency")
-                    from: 0
-                    to: 500
-                    stepSize: 5
-                    value: Math.round(ctl.latencyMs)
-                    onValueModified: ctl.changeLatency(value)
-                }
-                KanteButton {
-                    text: texts.t("calibration.start")
-                    busy: ctl.calibrating
-                    enabled: !ctl.calibrating
-                    onClicked: ctl.startCalibration()
-                }
-                KanteInfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency"); accessibleName: texts.t("help.about", { term: texts.t("settings.latency") }) }
-            }
-        }
-        QQC2.Label {
-            Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            color: KanteStyle.mutedTextColor
-            text: ctl.calibrationText !== "" ? ctl.calibrationText : texts.t("calibration.hint")
-        }
+        KanteSectionLabel { text: texts.t("settings.section.language"); Layout.topMargin: KanteStyle.unit(12) }
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.language")
