@@ -37,11 +37,12 @@ KanteCard {
         contentHeight: content.implicitHeight
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        QQC2.ScrollBar.vertical: QQC2.ScrollBar { policy: flick.contentHeight > flick.height ? QQC2.ScrollBar.AlwaysOn : QQC2.ScrollBar.AsNeeded }
+        QQC2.ScrollBar.vertical: QQC2.ScrollBar { id: vbar; policy: flick.contentHeight > flick.height ? QQC2.ScrollBar.AlwaysOn : QQC2.ScrollBar.AsNeeded }
 
     ColumnLayout {
         id: content
-        width: flick.width
+        // Room for the scroll bar: on a beamer it covered "Close" (QA 13.10.).
+        width: flick.width - (flick.contentHeight > flick.height ? vbar.width + KanteStyle.unit(8) : 0)
         spacing: KanteStyle.unit(12)
 
         RowLayout {
@@ -63,7 +64,8 @@ KanteCard {
         }
         KanteTimingHistogram {
             Layout.fillWidth: true
-            Layout.preferredHeight: KanteStyle.unit(180)
+            // Lower on low screens, so the hardest bars stay in view.
+            Layout.preferredHeight: Math.min(KanteStyle.unit(180), Math.max(KanteStyle.unit(100), flick.height * 0.3))
             counts: sheet.summary ? sheet.summary.counts : []
             firstBinMs: sheet.summary ? sheet.summary.firstBinMs : -100
             binMs: sheet.summary ? sheet.summary.binMs : 10
