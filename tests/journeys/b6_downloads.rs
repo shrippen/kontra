@@ -2,7 +2,7 @@
 //! downloaded file under "New in Downloads", a MuseScore file dropped onto the library.
 
 use crate::common::{write_midi, Profile};
-use kontra_appcore::Opened;
+use kontra_appcore::{Opened, PackageAudio};
 use serde_json::Value;
 
 /// A five-string bass line as MuseScore 4 saves it (trimmed): two bars with tab.
@@ -70,9 +70,23 @@ fn song_from_the_web() {
     let dropped = profile.dir.join("dropped");
     std::fs::create_dir_all(&dropped).unwrap();
     write_midi(&dropped.join("riff.mid"), "Riff", &[28, 33, 38, 43]);
+    // A package made from a MIDI piece (its score is no zip of its own).
+    write_midi(&profile.dir.join("lesson.mid"), "Lesson", &[28, 31, 33]);
+    core.open(&profile.dir.join("lesson.mid")).unwrap();
+    let package = dropped.join("lesson.kontra");
+    core.export_package(
+        &profile.dir.join("lesson.mid"),
+        &package,
+        PackageAudio::Link,
+    )
+    .unwrap();
     std::fs::write(dropped.join("cut.mscz"), b"PK\x03\x04 cut").unwrap();
-    let (added, failed) = core.import_files(&[dropped.join("riff.mid"), dropped.join("cut.mscz")]);
-    assert_eq!(added, 1);
+    let (added, failed) = core.import_files(&[
+        dropped.join("riff.mid"),
+        package.clone(),
+        dropped.join("cut.mscz"),
+    ]);
+    assert_eq!(added, 2);
     assert_eq!(failed.len(), 1, "{failed:?}");
     assert_eq!(failed[0].0, "cut.mscz");
     assert!(failed[0].1.starts_with("Die Datei"), "{failed:?}");

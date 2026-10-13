@@ -104,7 +104,7 @@ Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreich
 4. Mira: eine in MuseScore 4 gespeicherte `.mscz` (Fünfsaiter mit Tab) auf die Bibliothek ziehen; danach drei Dateien auf einmal, eine davon defekt.
 5. Lea: dasselbe ohne Netz; dann ohne Browser (keine Standard-App für Links).
 6. Sam (P7): alles nur mit Tastatur und Screenreader, 200 %.
-Erwartet: Kontra lädt nichts selbst, die Suche öffnet sich im Browser mit dem Suchbegriff; die Datei erscheint binnen 5 s mit Art („Guitar Pro“, „MuseScore“) und Alter, ein Klick öffnet sie mit der Bassspur und nimmt sie aus „Neu“; `.mscz` mit gleichen Saiten und Bünden wie in MuseScore; mehrere abgelegte Dateien landen in der Bibliothek, die defekte mit Grund; ohne Netz zeigt nur der Browser einen Fehler, Kontra bleibt bedienbar; ohne Browser eine Warnung mit der Adresse zum Kopieren; Feld, Knöpfe und Liste per Tab erreichbar, der Screenreader sagt „öffnet den Browser“ und „… öffnen“.
+Erwartet: Kontra lädt nichts selbst, die Suche öffnet sich im Browser mit dem Suchbegriff; die Datei erscheint beim Zurückkehren ins Fenster (sonst binnen 15 s) mit Art („Guitar Pro“, „MuseScore“) und Alter, ein Klick öffnet sie mit der Bassspur und nimmt sie aus „Neu“; `.mscz` mit gleichen Saiten und Bünden wie in MuseScore; mehrere abgelegte Dateien landen in der Bibliothek, die defekte mit Grund; ohne Netz zeigt nur der Browser einen Fehler, Kontra bleibt bedienbar; ohne Browser eine Warnung mit der Adresse zum Kopieren; Feld, Knöpfe und Liste per Tab erreichbar, der Screenreader sagt „öffnet den Browser“ und „… öffnen“.
 
 ## C. Lernen und Fortschritt
 

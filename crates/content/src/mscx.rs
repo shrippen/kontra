@@ -27,6 +27,8 @@ const FIRST_VERSION: u32 = 3;
 const SECONDS_PER_MINUTE: f64 = 60.0;
 /// Tempo is rounded to hundredths of a beat per minute.
 const BPM_STEPS: f64 = 100.0;
+/// Largest tuplet number taken from a file (e.g. 64:1); others are ignored as damaged.
+const MAX_TUPLET: u64 = 64;
 /// Highest MIDI pitch.
 const MAX_PITCH: i32 = 127;
 
@@ -42,7 +44,7 @@ pub(crate) fn parse_mscz(data: &[u8]) -> Result<Score, ImportError> {
             .map(str::to_string)
             .ok_or_else(|| ImportError::bad("no score in .mscz archive"))?,
     };
-    parse(&archive.read(&path)?)
+    parse(&archive.read_score(&path)?)
 }
 
 /// The container lists style, thumbnail and score; the score is the `.mscx` one.
@@ -303,10 +305,7 @@ impl StaffReader {
                     }
                 }
                 "Tuplet" => {
-                    let ratio = (
-                        child.number("normalNotes").unwrap_or(1),
-                        child.number("actualNotes").unwrap_or(1),
-                    );
+                    let ratio = tuplet_ratio(child);
                     match child.attr("id") {
                         Some(id) => {
                             named.insert(id.to_string(), ratio);
@@ -396,7 +395,7 @@ impl StaffReader {
         }
         let referenced = element.value("Tuplet").and_then(|id| named.get(id));
         for (normal, actual) in open.iter().chain(referenced) {
-            ticks = ticks * normal / (*actual).max(1);
+            ticks = ticks.saturating_mul(*normal) / (*actual).max(1);
         }
         ticks
     }
@@ -453,6 +452,17 @@ impl StaffReader {
             }
         }
         Some(note)
+    }
+}
+
+/// `(normalNotes, actualNotes)`; out of range (damaged file) counts as no tuplet.
+fn tuplet_ratio(tuplet: &Element) -> (u64, u64) {
+    let valid = |n: &u64| (1..=MAX_TUPLET).contains(n);
+    let normal = tuplet.number("normalNotes").filter(valid);
+    let actual = tuplet.number("actualNotes").filter(valid);
+    match (normal, actual) {
+        (Some(normal), Some(actual)) => (normal, actual),
+        _ => (1, 1),
     }
 }
 

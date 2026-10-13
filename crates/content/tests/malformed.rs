@@ -129,3 +129,13 @@ fn magic_headers_with_garbage() {
         }
     }
 }
+
+#[test]
+fn huge_musescore_tuplet_fails_cleanly() {
+    // A tuplet ratio near u64::MAX must not overflow the duration.
+    let text = common::mscx().replace(
+        "<normalNotes>2</normalNotes>",
+        "<normalNotes>18446744073709551615</normalNotes>",
+    );
+    exercise(text.as_bytes(), FileKind::MuseScore);
+}

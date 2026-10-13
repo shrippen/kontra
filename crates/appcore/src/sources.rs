@@ -1,7 +1,7 @@
 //! Songs from outside (LH-BIB-11): search pages opened in the browser, the files the browser
 //! saved to the download folder, and files dropped onto the library.
 
-use crate::Core;
+use crate::{package, Core};
 use kontra_session::{recent_scores, search_url, FileKind, SongSite};
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -43,13 +43,9 @@ impl Core {
             .filter(|f| self.library.entry(&f.path).is_none())
             .take(SHOWN)
             .map(|f| {
-                let name = f
-                    .path
-                    .file_name()
-                    .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
                 json!({
                     "path": f.path.to_string_lossy(),
-                    "name": name,
+                    "name": file_name(&f.path),
                     "kind": self.kind_label(&f.path),
                     "age": self.age_label(now.saturating_sub(f.modified_unix)),
                 })
@@ -60,10 +56,20 @@ impl Core {
 
     /// Adds dropped files to the library without playing them; like `import_folder` it returns
     /// how many were added and, per failed file, its name and the reason.
+    /// Packages (LH-BIB-07) are unpacked like when opened; the last one stays loaded.
     pub fn import_files(&mut self, files: &[PathBuf]) -> (usize, Vec<(String, String)>) {
-        let (added, failed) = self.add_files(files);
+        let (packages, scores): (Vec<PathBuf>, Vec<PathBuf>) =
+            files.iter().cloned().partition(|p| package::is_package(p));
+        let (added, mut failed) = self.add_files(&scores);
+        let mut count = added.len();
+        for path in packages {
+            match self.open_package(&path) {
+                Ok(()) => count += 1,
+                Err(reason) => failed.push((file_name(&path), reason)),
+            }
+        }
         self.save_library();
-        (added.len(), failed)
+        (count, failed)
     }
 
     /// What the file is, in words a beginner knows from the site (P1 does not know formats).
@@ -96,4 +102,9 @@ impl Core {
         };
         self.tr(key, &[("n", n.to_string())])
     }
+}
+
+fn file_name(path: &Path) -> String {
+    path.file_name()
+        .map_or_else(String::new, |n| n.to_string_lossy().into_owned())
 }
