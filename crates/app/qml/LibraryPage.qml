@@ -116,6 +116,11 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("library.empty.title")
             text: texts.t("library.empty.hint")
+            // No file of one's own yet (P1): the bundled exercises are one step away.
+            KanteButton {
+                text: texts.t("library.empty.exercises")
+                onClicked: applicationWindow().show("exercises")
+            }
         }
 
         KanteTextField {

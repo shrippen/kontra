@@ -7,6 +7,7 @@
   "library.open": "Open file …",
   "library.empty.title": "No pieces yet",
   "library.empty.hint": "Open a Guitar Pro, MIDI or MusicXML file. Kontra finds the bass track by itself.",
+  "library.empty.exercises": "Start with an exercise",
   "library.recent": "Recently played",
   "library.formats": "Guitar Pro, MIDI, MusicXML",
   "track.choose": "Which track is the bass?",

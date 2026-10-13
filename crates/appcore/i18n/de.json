@@ -7,6 +7,7 @@
   "library.open": "Datei öffnen …",
   "library.empty.title": "Noch keine Stücke",
   "library.empty.hint": "Öffne eine Guitar-Pro-, MIDI- oder MusicXML-Datei. Kontra sucht die Bassspur selbst.",
+  "library.empty.exercises": "Mit einer Übung anfangen",
   "library.recent": "Zuletzt gespielt",
   "library.formats": "Guitar Pro, MIDI, MusicXML",
   "track.choose": "Welche Spur ist der Bass?",
