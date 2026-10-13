@@ -261,7 +261,8 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
     liefen ineinander. Jetzt richtet sich die Breite nach dem dichtesten Takt (Achtel: weiter fünf Takte je Zeile).
   - G22 (hoch, behoben #49, Test zuerst, P1): Eine Übung, aus dem Dateimanager oder per Pfad geöffnet, blieb in der
     Übungsliste „neu“ und auf der Startseite „nächste Übung“: Der Plan nannte sie über „../..“ (auch installiert:
-    `bin/../share`), der Fortschritt hängt am Pfad. Jetzt ohne „..“.
+    `bin/../share`), der Fortschritt hängt am Pfad. Jetzt ohne „..“; die Bibliothek speichert und sucht ohne „..“, alte
+    Einträge wandern beim Laden.
   - G23 (mittel, behoben #49, P1): Die Übungsliste zeigte nicht, was sitzt; jetzt Häkchen ab 90 % und „3 von 8 sitzen“
     je Stufe.
   - G24 (mittel, behoben #49, Test zuerst, P1): Nach einer Übung, die jetzt sitzt, endete die Auswertung ohne Weg nach

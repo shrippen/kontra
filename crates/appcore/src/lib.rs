@@ -215,7 +215,8 @@ pub struct Core {
 impl Core {
     pub fn new(data_dir: &Path, qa: QaOptions) -> Core {
         let settings: Settings = store::load(&data_dir.join("settings.json"));
-        let library: Library = store::load(&data_dir.join("library.json"));
+        let mut library: Library = store::load(&data_dir.join("library.json"));
+        library.plain_paths();
         let language = settings
             .language
             .as_deref()
