@@ -184,6 +184,7 @@ Kirigami.ScrollablePage {
                 }
                 QQC2.Label { text: Math.round(ctl.latencyMs) + " ms"; color: KanteStyle.textColor }
             }
+            CalibrationBeat { Layout.fillWidth: true }
             QQC2.Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap

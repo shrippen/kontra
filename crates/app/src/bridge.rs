@@ -121,6 +121,8 @@ pub mod qobject {
         #[qproperty(QString, density_text, cxx_name = "densityText")]
         #[qproperty(bool, adaptive)]
         #[qproperty(bool, calibrating)]
+        /// The calibration's click: −4..−1 count-in, 0..7 measured, −99 none.
+        #[qproperty(i32, calibration_beat, cxx_name = "calibrationBeat")]
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
         #[qproperty(QString, backing_name, cxx_name = "backingName")]
         #[qproperty(QString, stems_json, cxx_name = "stemsJson")]
@@ -596,6 +598,9 @@ use kontra_appcore::{
 };
 use std::path::PathBuf;
 
+/// `calibrationBeat` while no calibration runs.
+const NO_BEAT: i32 = -99;
+
 pub struct ControllerRust {
     texts: QString,
     loaded: bool,
@@ -686,6 +691,7 @@ pub struct ControllerRust {
     density_text: QString,
     adaptive: bool,
     calibrating: bool,
+    calibration_beat: i32,
     calibration_text: QString,
     backing_name: QString,
     stems_json: QString,
@@ -825,6 +831,7 @@ impl Default for ControllerRust {
             density_text: QString::default(),
             adaptive: s.adaptive,
             calibrating: false,
+            calibration_beat: NO_BEAT,
             calibration_text: QString::default(),
             backing_name: QString::default(),
             stems_json: QString::default(),
@@ -1182,6 +1189,15 @@ impl qobject::Controller {
         }
         if playing != *self.as_ref().playing() {
             self.as_mut().set_playing(playing);
+        }
+        let beat = self
+            .as_ref()
+            .rust()
+            .core
+            .calibration_beat()
+            .unwrap_or(NO_BEAT);
+        if beat != *self.as_ref().calibration_beat() {
+            self.as_mut().set_calibration_beat(beat);
         }
         let xruns = i32::try_from(self.as_ref().rust().core.xruns()).unwrap_or(i32::MAX);
         if xruns != *self.as_ref().xruns() {

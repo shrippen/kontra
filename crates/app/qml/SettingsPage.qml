@@ -131,6 +131,7 @@ Kirigami.ScrollablePage {
                 KanteInfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency"); accessibleName: texts.t("help.about", { term: texts.t("settings.latency") }) }
             }
         }
+        CalibrationBeat { Layout.fillWidth: true }
         QQC2.Label {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap

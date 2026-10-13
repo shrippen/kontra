@@ -1810,6 +1810,11 @@ impl Core {
         self.calibration.is_some()
     }
 
+    /// The calibration's click last passed: −4..−1 count-in, 0..7 measured.
+    pub fn calibration_beat(&self) -> Option<i32> {
+        self.calibration.as_ref()?.beat()
+    }
+
     fn calibrated(&mut self, result: CalibrationResult) -> UiEvent {
         match result {
             CalibrationResult::Measured {

@@ -143,7 +143,11 @@ mod tests {
         feed(&mut a, 0.0, 1.0, -5.0);
         feed(&mut a, 1.0, 2.0, -7.0);
         assert_eq!(a.held_peak_db(), -5.0);
-        assert_eq!(a.state(), LevelState::Loud, "the meter shows what the advice says");
+        assert_eq!(
+            a.state(),
+            LevelState::Loud,
+            "the meter shows what the advice says"
+        );
         feed(&mut a, 2.0, 5.0, -7.0);
         assert_eq!(a.held_peak_db(), -7.0, "the peak falls back after the hold");
     }

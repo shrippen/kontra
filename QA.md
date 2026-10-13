@@ -53,7 +53,7 @@ Erwartet: Anweisung in Worten („etwas höher drehen“) und Symbol; Erfolg pro
 2. Nach vier Klicks Vorzähler acht Anschläge mit +40 ms Versatz einspeisen.
 3. Modus „Durchlauf“, pünktlich gespielte Aufnahme einspeisen.
 4. PipeWire-Quantum auf 2048 setzen, Kontra neu starten.
-Erwartet: gemessene Latenz ≈ 40 ms angezeigt; danach Bewertung pünktlich (±5 ms); bei Quantum 2048 Hinweis mit Wert und Anleitung.
+Erwartet: gemessene Latenz ≈ 40 ms angezeigt; danach Bewertung pünktlich (±5 ms); bei Quantum 2048 Hinweis mit Wert und Anleitung. Während der Messung zählt die Seite mit („Vorzähler 3“, „Schlag 4 von 8“).
 
 **J-A4 Eingang, den es noch nicht gibt** · Personas: P5 Aylin, P6 Karl · Phase 1 bis 3 · LH-EIN-09, -10, -12
 1. MIDI-Keyboard anstecken, Kontra starten, Einstellungen → Anschluss (P5). Danach USB-Mikrofon als Eingang wählen wollen (P6).

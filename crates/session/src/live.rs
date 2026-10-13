@@ -467,6 +467,11 @@ impl LiveCalibration {
         })
     }
 
+    /// The click last passed (see `Calibration::beat_at`).
+    pub fn beat(&self) -> Option<i32> {
+        self.calibration.as_ref()?.beat_at(self.clock.now_s())
+    }
+
     /// Polls; returns the result once all clicks are through.
     pub fn poll(&mut self) -> Option<CalibrationResult> {
         if self.calibration.is_none() {
