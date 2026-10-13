@@ -25,6 +25,8 @@ const CLASS_B: u8 = 11;
 const FLAT: u8 = 0xff;
 const LOCO: u8 = 0;
 const OTTAVA: u8 = 1;
+/// 8vb: GP5's octaves 3 and 4 point down.
+const OTTAVA_BASSA: u8 = 3;
 
 /// Fret 5 of the E string.
 const A1: Pitch = Pitch(33);
@@ -157,6 +159,14 @@ fn gp5_artificial_harmonic_sounds_over_the_fretted_note() {
     let a = gp5_harmonic(6, &[ARTIFICIAL, CLASS_B, FLAT, OTTAVA]);
     assert_eq!(a.notes[0].pitch, Pitch(46));
     assert!(a.notes[0].techniques.contains(&Technique::Harmonic));
+}
+
+#[test]
+fn gp5_harmonic_below_keeps_the_fretted_pitch() {
+    // A over A1 marked 8vb: no harmonic sounds below the string, so it stays A1 (review 13.10.:
+    // read as three octaves up).
+    let a = gp5_harmonic(5, &[ARTIFICIAL, CLASS_A, 0, OTTAVA_BASSA]);
+    assert_eq!(a.notes[0].pitch, A1);
 }
 
 #[test]

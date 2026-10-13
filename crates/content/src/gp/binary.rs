@@ -19,6 +19,9 @@ use kontra_model::{Pitch, Technique, TimeSignature};
 // string: not stored, so they keep the fretted pitch (judged in any octave).
 const HARMONIC_NATURAL: u8 = 1;
 const GP5_ARTIFICIAL: u8 = 2;
+/// Highest GP5 octave of an artificial harmonic that points up (2: 15ma); 3 and 4 are 8vb and
+/// 15mb, below the string, where no harmonic sounds.
+const GP5_OCTAVES_UP: i32 = 2;
 const GP5_TAPPED: u8 = 3;
 /// GP4 artificial harmonics, touched 5, 7 or 12 frets above the fretted note ("AH5" …).
 const GP4_ARTIFICIAL: [(u8, f64); 3] = [(15, 5.0), (17, 7.0), (22, 12.0)];
@@ -693,6 +696,9 @@ impl Parser<'_> {
                 let step = i32::from(self.r.i8()?);
                 let accidental = i32::from(self.r.i8()?);
                 let octaves = i32::from(self.r.i8()?);
+                if !(0..=GP5_OCTAVES_UP).contains(&octaves) {
+                    return Ok(Harmonic::Unknown);
+                }
                 Ok(Harmonic::Class {
                     class: step + accidental,
                     octaves,
