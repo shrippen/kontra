@@ -239,7 +239,9 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
   - G10 (hoch, behoben #49): Tabulatur und Noten zeichneten über die Transportleiste, die Kopfzeile lief rechts aus
     dem Fenster. Notenbereich beschnitten, Ansichten als Liste, Transponieren in der Backing-Zeile.
   - G11 (mittel, behoben #49): Im Stimmgerät lief der Cent-Wert in die Pegelanzeige; Pegel steht jetzt daneben.
-- **P7 Sam (J-F1):** Startseite in allen drei Stilen lesbar; Zustände der Karten mit Zeichen und Wort.
+- **P7 Sam (J-F1):** Startseite in allen drei Stilen lesbar; Zustände der Karten mit Zeichen und Wort. Tabulatur nach
+  einem Lauf unter simulierter Deuteranopie und Protanopie (Machado 2009): Treffer und Fehler über ✓ und ✗ unterscheidbar,
+  die Farbe der Ziffer allein nicht (bestanden, die Form trägt).
   - G12 (mittel, behoben #49): Saitenwahl im Stimmgerät nur per Maus; jetzt Tab, Leertaste, Eingabe.
   - G13 (niedrig, behoben #49): Auswertung schloss nicht mit Esc.
   - G14 (niedrig, behoben #49): „Nächste Übung“ trug Kantes Häkchen (grüne Stufe) und las sich wie erledigt.
