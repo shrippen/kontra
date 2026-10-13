@@ -20,6 +20,9 @@ Kirigami.ScrollablePage {
     function open(path) {
         if (ctl.openFile(path)) {
             applicationWindow().show("practice")
+        } else if (JSON.parse(ctl.trackChoicesJson).length > 0) {
+            // No clear bass track: the library asks which one (it shows the choice).
+            applicationWindow().show("library")
         }
     }
     function bestText(best) {

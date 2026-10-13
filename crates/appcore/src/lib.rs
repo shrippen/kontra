@@ -979,7 +979,13 @@ impl Core {
             return self.open_package(path).map(|()| Opened::Ready);
         }
         let imported = import_file(path).map_err(|e| self.import_error(&e))?;
-        if let Some(track) = imported.suggested() {
+        // Without a clear bass track, the one chosen last time (still in the file) counts.
+        let chosen = self
+            .library
+            .entry(path)
+            .map(|e| e.track)
+            .filter(|t| *t < imported.tracks().len());
+        if let Some(track) = imported.suggested().or(chosen) {
             return self.load(path, &imported, track).map(|()| Opened::Ready);
         }
         let names = imported
@@ -4423,6 +4429,33 @@ mod tests {
         core.open(&Core::demo_path()).unwrap();
         s.hit_rate = 0.95;
         assert!(next(&core, &s).is_null());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A file without a clear bass track asks once; the choice is kept for the next opening
+    /// (QA 13.10.: "continue" on the start page did nothing, the library asked every time).
+    #[test]
+    fn chosen_track_is_kept() {
+        let dir = temp_dir("track");
+        std::fs::create_dir_all(&dir).unwrap();
+        // One track, a melody around C5: nothing a bass would play, so no suggestion.
+        let mut track = Vec::new();
+        for pitch in [72u8, 74, 76, 77] {
+            track.extend_from_slice(&[0x00, 0x90, pitch, 0x60, 0x60, 0x80, pitch, 0x00]);
+        }
+        track.extend_from_slice(&[0x00, 0xFF, 0x2F, 0x00]);
+        let mut midi = b"MThd\0\0\0\x06\0\0\0\x01\0\x60MTrk".to_vec();
+        midi.extend_from_slice(&(track.len() as u32).to_be_bytes());
+        midi.extend_from_slice(&track);
+        let file = dir.join("melodie.mid");
+        std::fs::write(&file, midi).unwrap();
+
+        let mut core = Core::new(&dir, QaOptions::default());
+        assert!(matches!(core.open(&file), Ok(Opened::ChooseTrack(_))));
+        core.choose_track(0).unwrap();
+
+        let mut again = Core::new(&dir, QaOptions::default());
+        assert!(matches!(again.open(&file), Ok(Opened::Ready)));
         let _ = std::fs::remove_dir_all(dir);
     }
 
