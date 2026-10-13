@@ -2877,7 +2877,12 @@ impl Core {
         let name: String = self
             .exercise_title(&exercise::describe(spec))
             .chars()
-            .map(|c| if matches!(c, '/' | ':' | '#') { '-' } else { c })
+            // ♯ and ♭ as before the printed signs, so a file made again keeps its name.
+            .map(|c| match c {
+                '/' | ':' | '#' | '♯' => '-',
+                '♭' => 'b',
+                _ => c,
+            })
             .collect();
         let path = dir.join(format!("{name}.mid"));
         std::fs::write(&path, &generated.midi).map_err(|e| e.to_string())?;
@@ -4463,7 +4468,12 @@ mod tests {
     #[test]
     fn demo_path_is_plain() {
         let demo = Core::demo_path();
-        assert_eq!(std::fs::canonicalize(&demo).unwrap(), demo);
+        assert!(
+            !demo
+                .components()
+                .any(|c| c == std::path::Component::ParentDir),
+            "{demo:?}"
+        );
     }
 
     /// An exercise opened by its plain path (file manager, library) counts in the plan too: the

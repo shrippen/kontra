@@ -60,17 +60,19 @@ KanteCard {
         // The exercise sits now (P1): the next one of the plan, one click away.
         KanteHintCard {
             Layout.fillWidth: true
-            visible: sheet.summary !== null && sheet.summary.next !== null
+            id: nextCard
+            readonly property var upcoming: sheet.summary ? sheet.summary.next : null
+            visible: upcoming !== null
             tier: KanteHintCard.Tier.Green
             tierText: texts.t("summary.next.tier")
-            meta: visible ? sheet.summary.next.level : ""
-            titleText: visible ? sheet.summary.next.title : ""
+            meta: upcoming ? upcoming.level : ""
+            titleText: upcoming ? upcoming.title : ""
             text: texts.t("summary.next.text")
             KanteButton {
                 text: texts.t("summary.next.play")
                 emphasis: KanteButton.Emphasis.Primary
                 onClicked: {
-                    var path = sheet.summary.next.path
+                    var path = nextCard.upcoming.path
                     sheet.close()
                     ctl.openFile(path)
                 }

@@ -37,7 +37,7 @@
   "waiting.for": "Spiel {note} – {string}-Saite, Bund {fret}.",
   "summary.title": "Auswertung",
   "summary.next.tier": "Sitzt",
-  "summary.next.text": "Die gespielte Übung liegt über 90 %; das ist die nächste im Plan.",
+  "summary.next.text": "Dieser Lauf lag über 90 %; das ist die nächste Übung im Plan.",
   "summary.next.play": "Nächste Übung",
   "summary.ready": "Durchlauf beendet. Gespeichert ist er in deinem Fortschritt.",
   "summary.show": "Auswertung anzeigen",

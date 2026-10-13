@@ -58,8 +58,6 @@ fn main() {
     }
 }
 
-/// Where Kante's QML folder lives: `KONTRA_QML_DIR`, next to the binary (`../share/kontra/qml`)
-/// or, in development, in the crate.
 /// True if `<APP_ID>.desktop` is in an XDG applications folder (installed, or a Flatpak).
 fn desktop_file_installed() -> bool {
     let file = format!("{APP_ID}.desktop");
@@ -73,6 +71,8 @@ fn desktop_file_installed() -> bool {
         .any(|dir| dir.join("applications").join(&file).exists())
 }
 
+/// Where Kante's QML folder lives: `KONTRA_QML_DIR`, next to the binary (`../share/kontra/qml`)
+/// or, in development, in the crate.
 fn qml_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     if let Some(dir) = std::env::var_os("KONTRA_QML_DIR") {

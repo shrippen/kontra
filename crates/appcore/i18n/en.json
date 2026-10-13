@@ -37,7 +37,7 @@
   "waiting.for": "Play {note} – {string} string, fret {fret}.",
   "summary.title": "Evaluation",
   "summary.next.tier": "Mastered",
-  "summary.next.text": "The exercise you played is above 90 %; this is the next one in the plan.",
+  "summary.next.text": "This run was above 90 %; this is the next exercise in the plan.",
   "summary.next.play": "Next exercise",
   "summary.ready": "Run finished. It is saved in your progress.",
   "summary.show": "Show summary",

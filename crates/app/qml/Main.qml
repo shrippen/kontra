@@ -106,7 +106,6 @@ Kirigami.ApplicationWindow {
         if ((current === "tuner" || current === "setup" || current === "quiz") && name !== current) {
             ctl.stopTuner()
         }
-        current = name
         // Kirigami creates pages from a URL without a visual parent, and Qt 6.12 warns ("not
         // placed in the graphics scene"); a page created here has one. Pages pushed as objects
         // are not destroyed by the page row, so the old one is.
@@ -116,6 +115,8 @@ Kirigami.ApplicationWindow {
             console.warn(component.errorString())
             return
         }
+        // Only now: on a load error the drawer kept marking a page that never showed.
+        current = name
         var page = component.createObject(pageStack)
         if (pageStack.depth === 0) {
             pageStack.push(page)
