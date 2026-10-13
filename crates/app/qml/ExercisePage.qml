@@ -17,7 +17,7 @@ Kirigami.ScrollablePage {
     readonly property var kinds: ["groove", "scale", "arpeggio", "walking"]
     readonly property var scales: ["major", "minor", "majorpenta", "minorpenta", "blues"]
     readonly property var progressions: ["tonic", "251", "blues", "minor"]
-    readonly property var rhythms: ["quarters", "eighths", "sixteenths", "rests", "shuffle", "octaves"]
+    readonly property var rhythms: ["quarters", "eighths", "sixteenths", "rests", "shuffle", "octaves", "ghost"]
     readonly property var keyNames: ["C", "C♯/D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", texts.t("exercises.key.b")]
     property int kind: 0
     property int variant: 0

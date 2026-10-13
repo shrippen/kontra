@@ -2,11 +2,12 @@
 //! ticks are rescaled to 960 per quarter, bars come from the time signature events.
 
 use crate::error::ImportError;
+use crate::exercise::GHOST_TEXT;
 use crate::score::{self, BarHead, Part, RawNote, Score, DEFAULT_BPM};
 use crate::unroll::MAX_BARS;
-use kontra_model::{Pitch, TimeSignature, TICKS_PER_QUARTER};
+use kontra_model::{Pitch, Technique, TimeSignature, TICKS_PER_QUARTER};
 use midly::{MetaMessage, MidiMessage, Smf, Timing, TrackEventKind};
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
 /// General MIDI drum channel (10, 0-based 9).
 const DRUM_CHANNEL: u8 = 9;
@@ -25,6 +26,9 @@ struct TrackData {
     /// Notes per channel: (start, end, key).
     notes: BTreeMap<u8, Vec<(u64, u64, u8)>>,
     programs: HashMap<u8, u8>,
+    /// Ticks of `GHOST_TEXT` events: notes of this track starting there are ghost notes
+    /// (Kontra's own groove exercises; MIDI itself has no such mark).
+    ghosts: HashSet<u64>,
 }
 
 pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
@@ -71,6 +75,9 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
                 TrackEventKind::Meta(meta) => {
                     if let MetaMessage::KeySignature(fifths, _) = meta {
                         keys.extend(score::key(i32::from(fifths)).map(|k| (at, k)));
+                    }
+                    if meta == MetaMessage::Text(GHOST_TEXT.as_bytes()) {
+                        track.ghosts.insert(at);
                     }
                     if let MetaMessage::Marker(text) = meta {
                         let text = String::from_utf8_lossy(text).trim().to_string();
@@ -285,7 +292,10 @@ fn parts(score: &mut Score, starts: &[u64], tracks: &[TrackData]) {
             part.percussion = channel == DRUM_CHANNEL;
             for &(start, end, key) in notes {
                 let (bar, offset) = locate(starts, start);
-                let note = RawNote::new(offset, end - start, Pitch(key));
+                let mut note = RawNote::new(offset, end - start, Pitch(key));
+                if track.ghosts.contains(&start) {
+                    note.add(Technique::Ghost);
+                }
                 part.bar_mut(bar).push(note);
             }
             score.parts.push(part);
