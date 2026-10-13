@@ -316,6 +316,7 @@
   "density.full": "Alle Noten",
   "density.hint": "Weniger Noten zum Einstieg: Kontra lässt die Zwischennoten weg und schlägt nach einem Durchlauf mehr oder weniger vor.",
   "density.fixed": "Für diesen Abschnitt festhalten",
+  "density.fixed.piece": "Für dieses Stück festhalten",
   "density.more": "{percent} % getroffen – stark! Nächster Durchlauf mit mehr Noten?",
   "density.fewer": "{percent} % getroffen. Nächster Durchlauf mit weniger Noten? So sitzt das Gerüst zuerst.",
   "density.accept": "Ja, so machen",

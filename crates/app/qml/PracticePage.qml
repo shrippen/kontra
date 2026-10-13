@@ -585,12 +585,14 @@ Kirigami.Page {
                 currentIndex: ctl.density - 1
                 onActivated: function(index) { ctl.changeDensity(index + 1, ctl.densityFixed ? "fixed" : "free") }
             }
+            // In a run-through the part is the whole piece (QA 14.10.: "this section" without one).
+            readonly property string fixedText: ctl.mode === "workshop" ? texts.t("density.fixed") : texts.t("density.fixed.piece")
             KanteSwitch {
                 checked: ctl.densityFixed
-                Accessible.name: texts.t("density.fixed")
+                Accessible.name: parent.fixedText
                 onToggled: ctl.changeDensity(ctl.density, checked ? "fixed" : "free")
             }
-            QQC2.Label { text: texts.t("density.fixed"); color: KanteStyle.textColor }
+            QQC2.Label { text: parent.fixedText; color: KanteStyle.textColor }
             Item { Layout.fillWidth: true }
         }
 

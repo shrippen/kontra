@@ -316,6 +316,7 @@
   "density.full": "All notes",
   "density.hint": "Fewer notes to start with: Kontra leaves out the notes in between and suggests more or fewer after a run.",
   "density.fixed": "Keep for this section",
+  "density.fixed.piece": "Keep for this piece",
   "density.more": "{percent} % hit – strong! Next run with more notes?",
   "density.fewer": "{percent} % hit. Next run with fewer notes? Then the frame sits first.",
   "density.accept": "Yes, do it",
