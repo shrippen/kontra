@@ -224,7 +224,16 @@ Kirigami.Page {
                 onActivated: function(index) { ctl.changeMode(page.modes[index]) }
             }
             KanteSegmented {
-                visible: !page.presenting
+                visible: !page.presenting && !page.narrow
+                model: page.views.map(function(v) { return texts.t("view." + v) })
+                currentIndex: Math.max(0, page.views.indexOf(ctl.view))
+                onActivated: function(index) { ctl.changeView(page.views[index]) }
+            }
+            // Narrow windows (P4 at 1280×720, 150 %): five views do not fit next to the modes.
+            KanteComboBox {
+                visible: !page.presenting && page.narrow
+                Layout.preferredWidth: KanteStyle.unit(200)
+                Accessible.name: texts.t("view.title")
                 model: page.views.map(function(v) { return texts.t("view." + v) })
                 currentIndex: Math.max(0, page.views.indexOf(ctl.view))
                 onActivated: function(index) { ctl.changeView(page.views[index]) }
@@ -271,6 +280,7 @@ Kirigami.Page {
             // Transpose (LH-WIE-02): piece and backing move together; the notes are laid out
             // again. In the backing's row, so the notes keep the height (QA 13.10.).
             KanteHud {
+                visible: !page.narrow
                 Layout.leftMargin: KanteStyle.unit(16)
                 fullText: texts.t("transpose.title")
                 color: KanteStyle.mutedTextColor
@@ -486,9 +496,11 @@ Kirigami.Page {
             }
         }
 
+        // Clipped: on small screens a staff taller than its room drew over the transport (QA 13.10.).
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            clip: true
 
             KanteTabLane {
                 id: lane
