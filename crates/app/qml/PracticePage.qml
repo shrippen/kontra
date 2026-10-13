@@ -566,7 +566,12 @@ Kirigami.Page {
                     id: combinedBass
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    staffSpace: KanteStyle.unit(10) * page.presentScale
+                    // Half the room is the staff's (G18); from the column, not its own height,
+                    // which follows its size.
+                    staffSpace: Math.min(KanteStyle.unit(10) * page.presentScale,
+                                         (combined.height - combined.spacing) / 2 / (hasChords ? 16.5 : 14.5))
+                    // The same bars as the tablature below, so each bar sits over its tab.
+                    barsPerSystem: combinedTab.perSystem
                     notes: combined.visible ? page.staff.notes : []
                     rests: page.staff.rests
                     keyFifths: page.staff.keyFifths

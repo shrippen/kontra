@@ -253,6 +253,8 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
   - G18 (niedrig, behoben #49, P4): Im Beamer-Format war der Notenbereich niedriger als eine Notenzeile; sie wurde
     abgeschnitten, und ein Balken lag über der Transportleiste (Qt 6.12: `clip` schneidet `Shape`-Kinder nicht ab,
     nachgewiesen mit `grabToImage`). Jetzt wird der Linienabstand kleiner, bis eine Zeile passt.
+  - G20 (niedrig, behoben #49, P4): „Noten + Tab“ im Beamer-Format: Notenzeile ragte in die Tabulatur; Noten haben
+    jetzt die halbe Höhe und so viele Takte je Zeile wie die Tabulatur darunter.
   - Offen (Kante #61): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 
