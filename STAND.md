@@ -14,6 +14,7 @@ Merges per `tea api …/merge` blockiert der Auto-Modus seit dem 13.10.; Eigent�
 4. #50 Slides an echten Aufnahmen; #52 Oktavfehler Kontrabass baut auf #50.
 5. #51 künstliche, getippte und MusicXML-Flageoletts.
 6. #53 Halbtonfehler Kontrabass (nur Doku), nach #52.
+7. #54 Laptop-Buchse: Brummfilter und Onset-Schwelle im Profil `laptop-jack` (IDMT-Simulation 37,9 → 87,7 % Recall), auf #52.
 - Kante #58 (1.35, Loop in Tabulatur und Noten): Eigentümer merged. Danach `scripts/sync-kante.sh` und `loopStart`/
   `loopEnd` in `PracticePage.qml` an tabStaff, bassStaff, combinedBass, combinedTab binden (G9).
 
