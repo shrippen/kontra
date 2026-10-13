@@ -109,6 +109,7 @@ def write_item(out_dir, name, samples, sr, notes, set_name, meta, pad_s=0.0):
             dict(
                 {"onset_s": round(n["onset_s"] + pad_s, 6), "midi": float(n["midi"])},
                 **({"technique": n["technique"]} if n.get("technique") else {}),
+                **({"slide_cents": n["slide_cents"]} if n.get("slide_cents") else {}),
             )
             for n in notes
         ],
@@ -201,9 +202,14 @@ def read_midi_notes(path):
 
 
 # IDMT styles as Kontra's techniques (LH-BEW-06): slap thumb, slap pluck (pop), dead note (ghost),
-# slide, harmonic (its pitch counts in any octave). Finger, pick and palm mute are plain plucks;
+# harmonic (its pitch counts in any octave). Finger, pick and palm mute are plain plucks;
 # vibrato and bend are not told.
-IDMT_TECHNIQUES = {"ST": "Slap", "SP": "Pop", "DN": "Muted", "SL": "Slide", "HA": "Harmonic"}
+IDMT_TECHNIQUES = {"ST": "Slap", "SP": "Pop", "DN": "Muted", "HA": "Harmonic"}
+# An IDMT slide (SL) is not a technique of the annotated note: the note is plucked and slides
+# 150-350 ms later fret by fret over its range (modulationFrequencyRange, 100 or 200 cents) to a
+# pitch IDMT does not annotate. Kontra hears the slide where it arrives; `slide_cents` lets
+# `kontra-cli korpus techniques` look for it there.
+IDMT_SLIDE = "SL"
 
 
 def import_idmt_st(src, out, args):
@@ -221,6 +227,7 @@ def import_idmt_st(src, out, args):
                     "onset_s": float(e.findtext("onsetSec")),
                     "midi": float(e.findtext("pitch")),
                     "technique": IDMT_TECHNIQUES.get(expr) or IDMT_TECHNIQUES.get(pluck),
+                    "slide_cents": float(e.findtext("modulationFrequencyRange")) if expr == IDMT_SLIDE else None,
                     "meta": {
                         "offset_s": float(e.findtext("offsetSec")),
                         "string": int(e.findtext("stringNumber")),

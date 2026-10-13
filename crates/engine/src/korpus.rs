@@ -26,6 +26,10 @@ pub struct Annotation {
     /// How it is played (LH-BEW-06); `None`: a plain pluck.
     #[serde(default)]
     pub technique: Option<Technique>,
+    /// The note slides later by this many cents to a pitch that is not annotated (IDMT: 100 or
+    /// 200, direction not given). Kontra hears that as a `Slide` where it arrives.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slide_cents: Option<f64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -231,6 +235,7 @@ fn techniques() -> KorpusItem {
                     onset_s: t,
                     midi,
                     technique,
+                    slide_cents: None,
                 });
                 t += TECHNIQUE_STEP_S;
             }
@@ -328,6 +333,7 @@ pub fn generate(set: KorpusSet) -> KorpusItem {
             onset_s: n.onset_s,
             midi: hz_to_midi(n.hz, A4_HZ),
             technique: None,
+            slide_cents: None,
         })
         .collect();
     KorpusItem {
