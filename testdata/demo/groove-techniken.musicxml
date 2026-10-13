@@ -10,8 +10,8 @@
 </measure>
 <measure number="2">
 <note><pitch><step>B</step><octave>1</octave></pitch><duration>1</duration><notations><slide type="stop"/><technical><string>4</string><fret>7</fret></technical></notations></note>
-<note><pitch><step>E</step><octave>1</octave></pitch><duration>1</duration><notehead parentheses="yes">normal</notehead><notations><technical><string>4</string><fret>0</fret></technical></notations></note>
-<note><pitch><step>A</step><octave>1</octave></pitch><duration>1</duration><notations><technical><string>3</string><fret>0</fret></technical></notations></note>
+<note><pitch><step>E</step><octave>1</octave></pitch><duration>1</duration><notehead>x</notehead><notations><technical><string>4</string><fret>0</fret></technical></notations></note>
 <note><pitch><step>A</step><octave>1</octave></pitch><duration>1</duration><notehead parentheses="yes">normal</notehead><notations><technical><string>3</string><fret>0</fret></technical></notations></note>
+<note><pitch><step>A</step><octave>1</octave></pitch><duration>1</duration><notehead>x</notehead><notations><technical><string>3</string><fret>0</fret></technical></notations></note>
 </measure>
 </part></score-partwise>

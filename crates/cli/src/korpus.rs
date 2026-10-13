@@ -49,7 +49,7 @@ const TOLD: [Option<kontra_model::Technique>; 7] = {
         Some(T::PullOff),
         Some(T::Slap),
         Some(T::Pop),
-        Some(T::Ghost),
+        Some(T::Muted),
     ]
 };
 

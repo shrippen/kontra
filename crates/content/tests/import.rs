@@ -335,3 +335,21 @@ fn extensions() {
     assert_eq!(FileKind::from_extension("mxl"), Some(FileKind::MusicXmlZip));
     assert_eq!(FileKind::from_extension("mp3"), None);
 }
+
+/// A palm-muted note keeps its pitch: it is not a dead note (x), which has none.
+#[test]
+fn palm_mute_is_no_dead_note() {
+    let score = common::gpif().replace(r#"name="Muted""#, r#"name="PalmMuted""#);
+    let data = common::zip(
+        &[
+            ("VERSION", b"7.0".as_slice()),
+            ("Content/score.gpif", score.as_bytes()),
+        ],
+        Method::Stored,
+    );
+    let a = import_bytes(&data, FileKind::GuitarPro7)
+        .unwrap()
+        .arrangement(1)
+        .unwrap();
+    assert!(!has(&a.notes[10], Technique::Muted));
+}

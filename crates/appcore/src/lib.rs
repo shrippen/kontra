@@ -26,7 +26,7 @@ pub use store::{
 
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Technique, Tuning};
 use kontra_session::{
-    import_file, list_devices, run_from, technique_targets, CalibrationResult, Connection,
+    import_file, list_devices, run_from, technique_signs, CalibrationResult, Connection,
     DeviceInfo, Direction, Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveEar,
     LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Outcome, PracticeEvent, PracticeOptions,
     ProgressStore, Run, ScoreSettings, SessionEvent, Shaping, Summary, TechniqueOutcome,
@@ -1041,8 +1041,7 @@ impl Core {
             return "[]".into();
         };
         let positions = hand_positions(&a.notes);
-        let techniques: std::collections::HashMap<usize, Technique> =
-            technique_targets(a).into_iter().collect();
+        let techniques = technique_signs(a);
         let notes: Vec<_> = a
             .notes
             .iter()
@@ -1063,7 +1062,7 @@ impl Core {
                     // Hand position (LH-ANZ-05) and the finger it suggests (0 = open string).
                     "position": position,
                     "finger": if fret == 0 { 0 } else { fret + 1 - position.min(fret) },
-                    // Kante's technique sign (LH-BEW-06); a slide shows where it arrives.
+                    // Kante's technique sign (LH-BEW-06); a slide shows where it starts.
                     "technique": techniques.get(&i).map_or("", |t| technique_key(*t)),
                     "techniqueResult": "",
                 })
@@ -2044,7 +2043,7 @@ impl Core {
                 })
             }
             SessionEvent::Technique(t) => Some(UiEvent::Technique {
-                index: t.note,
+                index: t.sign,
                 technique: technique_key(t.expected),
                 result: technique_result_key(t.outcome),
             }),
@@ -2089,7 +2088,7 @@ impl Core {
         }
         let mut technique_of = std::collections::BTreeMap::new();
         for t in techniques {
-            technique_of.insert((t.pass, t.note), *t);
+            technique_of.insert((t.pass, t.sign), *t);
         }
         last.into_iter()
             .filter_map(|((pass, index), r)| {
@@ -2863,8 +2862,9 @@ fn technique_key(technique: Technique) -> &'static str {
         Technique::Slap => "slap",
         Technique::Pop => "pop",
         Technique::Ghost => "ghost",
+        Technique::Muted => "dead",
         Technique::Harmonic
-        | Technique::Muted
+        | Technique::PalmMute
         | Technique::Vibrato
         | Technique::Bend
         | Technique::Staccato
@@ -2973,8 +2973,7 @@ fn empty_staff() -> serde_json::Value {
 
 /// `staff_json` for an arrangement. The staff shows one key; it is the first bar's.
 fn staff(a: &Arrangement) -> serde_json::Value {
-    let techniques: std::collections::HashMap<usize, Technique> =
-        technique_targets(a).into_iter().collect();
+    let techniques = technique_signs(a);
     let notes: Vec<_> = a
         .notes
         .iter()

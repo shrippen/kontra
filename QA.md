@@ -122,10 +122,10 @@ Erwartet: Notensatz wie in MuseScore; Streuung in ms; generierte Übung speicher
 Erwartet: Töne während der Vorgabe zählen nicht; jeder gespielte Ton hat Haken oder Kreuz, ein falscher sagt „zu hoch“ oder „zu tief“; gelöst nennt Kontra, was es war (Töne, Intervall, Akkord) und zeigt, wo es am Griffbrett liegt; beim Grundton zählt jede Oktave; ohne Ausgang ein Hinweis statt Stille.
 
 **J-C5 Techniken üben** ⚙ · Personas: P3 Mira, P4 Thomas · Phase 4 · LH-BEW-06
-1. Mira: Groove aus MuseScore (MusicXML) mit Hammer-on, Pull-off, Slide und Ghost Notes, Song-Modus.
-2. Mit den Techniken spielen, eine Ghost Note aber normal anschlagen.
+1. Mira: Groove aus MuseScore (MusicXML) mit Hammer-on, Pull-off, Slide, Dead Notes (x) und einer Ghost Note ( ), Song-Modus.
+2. Mit den Techniken spielen, eine Dead Note aber normal anschlagen.
 3. Auswertung lesen; Thomas zeigt sie am Beamer, Tab-Lane und Tabulatur.
-Erwartet: jede Technik-Note hat ein Zeichen (h, p, sl, Klammer) und danach ein Ergebnis in Form, nicht nur Farbe; die Auswertung zählt je Technik („Ghost Note: 1 von 2“), die Trefferquote bleibt davon unberührt (die normal angeschlagene Ghost Note trifft, eine als Ghost Note gespielte auch, ohne Tonhöhe); Hammer-on- und Pull-off-Töne sind keine zusätzlichen Noten; am Mikrofon sagt die Auswertung, dass Slap und Pop nicht bewertet werden.
+Erwartet: jede Technik-Note hat ein Zeichen (h, p, sl, x, Klammer) und danach ein Ergebnis in Form, nicht nur Farbe; das Slide-Zeichen und sein Ergebnis stehen an der Ausgangsnote wie in gedruckter Tabulatur; die Ghost Note ( ) hat nur ihr Zeichen, kein Technik-Ergebnis; die Auswertung zählt je Technik („Dead Note: 1 von 2“), die Trefferquote bleibt davon unberührt (die normal angeschlagene Dead Note trifft, eine gedämpft gespielte auch, ohne Tonhöhe; Palm Mute hat eine Tonhöhe und wird an ihr gemessen); Hammer-on- und Pull-off-Töne sind keine zusätzlichen Noten; am Mikrofon sagt die Auswertung, dass Slap und Pop nicht bewertet werden.
 
 ## D. Inhalte teilen (ab Phase 3)
 

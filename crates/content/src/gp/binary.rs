@@ -653,7 +653,7 @@ impl Parser<'_> {
             fx.techniques.push(Technique::Staccato);
         }
         if flags2 & 0x02 != 0 {
-            fx.techniques.push(Technique::Muted); // palm mute
+            fx.techniques.push(Technique::PalmMute);
         }
         if flags2 & 0x40 != 0 {
             fx.techniques.push(Technique::Vibrato);

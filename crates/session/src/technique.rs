@@ -9,9 +9,14 @@
 //! target:   G1 Slide   A1 HammerOn   D2 Slap     (a slide is judged where it arrives)
 //!                   │          │            │
 //! played:   Slide ✓    plucked ✗    not heard ✗  ──► "Slides 1 of 1, hammer-ons 0 of 1, …"
+//!                   │
+//! sign:     E1 sl ✓                               (round 10: shown where it starts, as printed)
 //! ```
 //!
-//! Notes that are struck (slap, pop, ghost, the arrival of a slide) are judged with the
+//! Dead notes (x, `Muted`) are judged as muted; ghost notes in parentheses are soft notes with
+//! a pitch and only get their sign (round 10).
+//!
+//! Notes that are struck (slap, pop, dead note, the arrival of a slide) are judged with the
 //! matcher's result for them. Hammer-on and pull-off targets have no attack: the matcher never
 //! sees them, so a detected note near one is judged here and is not an extra note.
 
@@ -26,8 +31,11 @@ const SCORED: [Technique; 6] = [
     Technique::PullOff,
     Technique::Slap,
     Technique::Pop,
-    Technique::Ghost,
+    Technique::Muted,
 ];
+
+/// Techniques that are shown but not judged: a ghost note ( ) is soft, not muted (round 10).
+const SHOWN: [Technique; 1] = [Technique::Ghost];
 
 /// A slide out of a note arrives at the next note on its string if that starts at most this
 /// late after the slide's note ends; else it slides into nothing (a "shift slide out").
@@ -53,6 +61,8 @@ pub struct TechniqueResult {
     pub pass: u32,
     /// Index into `Arrangement::notes`.
     pub note: usize,
+    /// The note whose sign shows the result: a slide's start, else `note`.
+    pub sign: usize,
     pub expected: Technique,
     pub outcome: TechniqueOutcome,
     pub position_s: f64,
@@ -78,7 +88,7 @@ const AT_MICROPHONE: [Technique; 4] = [
     Technique::Slide,
     Technique::HammerOn,
     Technique::PullOff,
-    Technique::Ghost,
+    Technique::Muted,
 ];
 
 /// Techniques the tracker tells for an input; none over MIDI.
@@ -93,6 +103,7 @@ pub fn told_techniques(source: InputSource) -> &'static [Technique] {
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Target {
     note: usize,
+    sign: usize,
     position_s: f64,
     midi: u8,
     technique: Technique,
@@ -118,7 +129,12 @@ impl TechniqueJudge {
         let mut struck = BTreeMap::new();
         let mut legato = Vec::new();
         let mut untold = Vec::new();
-        for (note, technique) in technique_targets(arrangement) {
+        for TechniqueTarget {
+            note,
+            sign,
+            technique,
+        } in technique_targets(arrangement)
+        {
             if !told.contains(&technique) {
                 if !untold.contains(&technique) {
                     untold.push(technique);
@@ -128,6 +144,7 @@ impl TechniqueJudge {
             let n = &arrangement.notes[note];
             let target = Target {
                 note,
+                sign,
                 position_s: arrangement.tempo.seconds_at(n.start_ticks),
                 midi: n.pitch.0,
                 technique,
@@ -292,6 +309,7 @@ impl TechniqueJudge {
         let result = TechniqueResult {
             pass,
             note: target.note,
+            sign: target.sign,
             expected: target.technique,
             outcome,
             position_s: target.position_s,
@@ -309,17 +327,32 @@ fn outcome_of(expected: Technique, played: Option<Technique>) -> TechniqueOutcom
     }
 }
 
-/// Every note with a scored technique and that technique (the first scored one it has). A slide
-/// marked on a note is judged on the note it slides to; views mark it there too.
-pub fn technique_targets(arrangement: &Arrangement) -> Vec<(usize, Technique)> {
+/// A note judged for a technique and the note that shows its sign.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TechniqueTarget {
+    /// The note judged: where a slide arrives, else the marked note.
+    pub note: usize,
+    /// The note the sign and result stand at: the marked one (a slide where it starts).
+    pub sign: usize,
+    pub technique: Technique,
+}
+
+/// Every note with a scored technique and that technique (the first scored one it has), by
+/// judged note. A slide marked on a note is judged on the note it slides to.
+pub fn technique_targets(arrangement: &Arrangement) -> Vec<TechniqueTarget> {
     let notes = &arrangement.notes;
-    let mut out: BTreeMap<usize, Technique> = BTreeMap::new();
+    let mut out: BTreeMap<usize, TechniqueTarget> = BTreeMap::new();
     for (i, n) in notes.iter().enumerate() {
         let Some(technique) = SCORED.iter().copied().find(|t| n.techniques.contains(t)) else {
             continue;
         };
+        let target = |note| TechniqueTarget {
+            note,
+            sign: i,
+            technique,
+        };
         if technique != Technique::Slide {
-            out.entry(i).or_insert(technique);
+            out.entry(i).or_insert(target(i));
             continue;
         }
         let arrival = notes.iter().enumerate().find(|(_, m)| {
@@ -328,10 +361,25 @@ pub fn technique_targets(arrangement: &Arrangement) -> Vec<(usize, Technique)> {
                 && m.string == n.string
         });
         if let Some((j, _)) = arrival {
-            out.entry(j).or_insert(Technique::Slide);
+            out.entry(j).or_insert(target(j));
         }
     }
-    out.into_iter().collect()
+    out.into_values().collect()
+}
+
+/// The technique sign of every note that has one, by note: judged techniques at their sign
+/// note, then shown-only ones (a ghost note's "( )").
+pub fn technique_signs(arrangement: &Arrangement) -> BTreeMap<usize, Technique> {
+    let mut out: BTreeMap<usize, Technique> = technique_targets(arrangement)
+        .into_iter()
+        .map(|t| (t.sign, t.technique))
+        .collect();
+    for (i, n) in arrangement.notes.iter().enumerate() {
+        if let Some(t) = SHOWN.iter().find(|t| n.techniques.contains(t)) {
+            out.entry(i).or_insert(*t);
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -339,7 +387,7 @@ mod tests {
     use super::*;
     use kontra_model::{Instrument, Note, Pitch, TempoMap};
 
-    /// At 120 BPM, one quarter apart: E1 sl→ G1, A1 (h), D2 (S), G2 (ghost).
+    /// At 120 BPM, one quarter apart: E1 sl→ G1, A1 (h), D2 (S), G2 (x).
     fn piece() -> Arrangement {
         let mut a = Arrangement::new("Techniken", Instrument::default_bass());
         a.tempo = TempoMap::constant(120.0);
@@ -348,7 +396,7 @@ mod tests {
             (31, 0, &[]),
             (33, 0, &[Technique::HammerOn]),
             (38, 2, &[Technique::Slap]),
-            (43, 3, &[Technique::Ghost]),
+            (43, 3, &[Technique::Muted]),
         ];
         for (i, (midi, string, techniques)) in notes.iter().enumerate() {
             let mut n = Note::new(
@@ -366,16 +414,39 @@ mod tests {
 
     #[test]
     fn slide_is_judged_where_it_arrives() {
-        let t = technique_targets(&piece());
+        let t: Vec<_> = technique_targets(&piece())
+            .into_iter()
+            .map(|t| (t.note, t.sign, t.technique))
+            .collect();
         assert_eq!(
             t,
             vec![
-                (1, Technique::Slide),
-                (2, Technique::HammerOn),
-                (3, Technique::Slap),
-                (4, Technique::Ghost)
+                (1, 0, Technique::Slide),
+                (2, 2, Technique::HammerOn),
+                (3, 3, Technique::Slap),
+                (4, 4, Technique::Muted)
             ]
         );
+    }
+
+    /// Round 10: the slide's sign stays where it starts; a ghost note ( ) gets its sign only.
+    #[test]
+    fn signs_stand_where_the_score_marks_them() {
+        let mut a = piece();
+        a.notes[1].techniques = vec![Technique::Ghost];
+        let signs: Vec<_> = technique_signs(&a).into_iter().collect();
+        assert_eq!(
+            signs,
+            vec![
+                (0, Technique::Slide),
+                (1, Technique::Ghost),
+                (2, Technique::HammerOn),
+                (3, Technique::Slap),
+                (4, Technique::Muted)
+            ]
+        );
+        let judged: Vec<_> = technique_targets(&a).iter().map(|t| t.note).collect();
+        assert_eq!(judged, vec![1, 2, 3, 4], "the ghost note is not judged");
     }
 
     #[test]
@@ -406,7 +477,7 @@ mod tests {
             }
         );
         assert_eq!(tally[1].played, 0);
-        assert_eq!(tally.len(), 3, "the ghost was not judged yet");
+        assert_eq!(tally.len(), 3, "the dead note was not judged yet");
     }
 
     #[test]

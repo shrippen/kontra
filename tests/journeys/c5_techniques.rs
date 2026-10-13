@@ -1,5 +1,5 @@
 //! J-C5 Techniken üben (P3 Mira, P4 Thomas): a MusicXML groove with a hammer-on, a pull-off, a
-//! slide and ghost notes, played with those techniques; every fourth technique note is plucked
+//! slide, dead notes (x) and a ghost note ( ), played with those techniques; every fourth technique note is plucked
 //! instead. The techniques are told apart from the hit rate: each note gets a technique result,
 //! the evaluation counts them per technique ("Hammer-on: 1 von 1"), and a plucked technique note
 //! still counts as a hit.
@@ -8,8 +8,8 @@ use crate::common::{run_until, Profile, COUNT_IN_S, RATE};
 use kontra_appcore::UiEvent;
 use std::time::Duration;
 
-/// E1 h F♯1 p E1, A1 sl B1, then ghost E1 and A1 plucked, ghost A1; 120 BPM quarters on the E
-/// and A strings (two bars).
+/// E1 h F♯1 p E1, A1 sl B1, then dead E1 (x), ghost A1 ( ), dead A1 (x); 120 BPM quarters on
+/// the E and A strings (two bars).
 const GROOVE: &str = r#"<?xml version="1.0"?>
 <score-partwise><part-list><score-part id="P1"><part-name>Bass</part-name></score-part></part-list>
 <part id="P1">
@@ -22,13 +22,14 @@ const GROOVE: &str = r#"<?xml version="1.0"?>
 </measure>
 <measure number="2">
 <note><pitch><step>B</step><octave>1</octave></pitch><duration>1</duration><notations><slide type="stop"/><technical><string>4</string><fret>7</fret></technical></notations></note>
-<note><pitch><step>E</step><octave>1</octave></pitch><duration>1</duration><notehead parentheses="yes">normal</notehead><notations><technical><string>4</string><fret>0</fret></technical></notations></note>
-<note><pitch><step>A</step><octave>1</octave></pitch><duration>1</duration><notations><technical><string>3</string><fret>0</fret></technical></notations></note>
+<note><pitch><step>E</step><octave>1</octave></pitch><duration>1</duration><notehead>x</notehead><notations><technical><string>4</string><fret>0</fret></technical></notations></note>
 <note><pitch><step>A</step><octave>1</octave></pitch><duration>1</duration><notehead parentheses="yes">normal</notehead><notations><technical><string>3</string><fret>0</fret></technical></notations></note>
+<note><pitch><step>A</step><octave>1</octave></pitch><duration>1</duration><notehead>x</notehead><notations><technical><string>3</string><fret>0</fret></technical></notations></note>
 </measure>
 </part></score-partwise>"#;
 
-/// Five technique notes: hammer-on, pull-off, slide, ghost, ghost. The fourth is plucked.
+/// Five judged technique notes: hammer-on, pull-off, slide, dead, dead. The fourth is plucked;
+/// the ghost note ( ) is a soft pluck and only shows its sign (round 10).
 const PLAIN_EVERY: usize = 4;
 
 #[test]
@@ -50,8 +51,8 @@ fn techniques_are_judged_apart_from_the_hit_rate() {
         .collect();
     assert_eq!(
         signs,
-        ["", "hammer", "pull", "", "slide", "ghost", "", "ghost"],
-        "a slide is marked where it arrives"
+        ["", "hammer", "pull", "slide", "", "dead", "ghost", "dead"],
+        "a slide is marked where it starts (round 10)"
     );
     let staff: serde_json::Value = serde_json::from_str(&core.staff_json()).unwrap();
     let written: Vec<&str> = staff["notes"]
@@ -96,11 +97,12 @@ fn techniques_are_judged_apart_from_the_hit_rate() {
         [
             (1, "hammer", "played"),
             (2, "pull", "played"),
-            (4, "slide", "played"),
-            (5, "ghost", "other"),
-            (7, "ghost", "played"),
+            (3, "slide", "played"),
+            (5, "dead", "other"),
+            (7, "dead", "played"),
         ],
-        "one result per technique note; the plucked ghost note is another technique"
+        "one result per judged technique note, a slide's at its start; the plucked dead note is \
+         another technique"
     );
     assert!(
         !events.iter().any(|e| matches!(e, UiEvent::Extra)),
@@ -128,12 +130,12 @@ fn techniques_are_judged_apart_from_the_hit_rate() {
             "Slide: 1 von 1",
             "Hammer-on: 1 von 1",
             "Pull-off: 1 von 1",
-            "Ghost Note: 1 von 2"
+            "Dead Note: 1 von 2"
         ]
     );
     assert_eq!(
         summary["hitRate"], 1.0,
-        "a plucked ghost note hits, and a ghost note is not judged by its pitch"
+        "a plucked dead note hits, and a dead note is not judged by its pitch"
     );
     assert_eq!(summary["untoldText"], "");
 }
