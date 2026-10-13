@@ -287,11 +287,12 @@ fn measure(
     );
     let (mut annotated, mut detected, mut matched, mut pitch) = (0, 0, 0, 0);
     for json in &files {
-        let mut item = session::read_korpus_file(json)?;
-        if laptop_jack {
-            item.samples = session::simulate_laptop_jack(&item.samples, item.sample_rate);
-        }
-        let (e, found) = session::evaluate_korpus_with(
+        let item = session::read_korpus_file(json)?;
+        let evaluate = match laptop_jack {
+            true => session::evaluate_korpus_laptop_jack,
+            false => session::evaluate_korpus_with,
+        };
+        let (e, found) = evaluate(
             item.set,
             &item.samples,
             item.sample_rate,

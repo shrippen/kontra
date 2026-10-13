@@ -431,6 +431,37 @@ pub fn evaluate_with(
     notes: &[Annotation],
     matching: Matching,
 ) -> (Evaluation, Vec<DetectedNote>) {
+    evaluate_as(set, set.source(), samples, sample_rate, notes, matching)
+}
+
+/// Like `evaluate_with`, with `samples` as heard through a laptop combo jack (level, band limit,
+/// hum, noise) and analyzed with the laptop-jack profile, as P1 would play them.
+pub fn evaluate_laptop_jack(
+    set: KorpusSet,
+    samples: &[f32],
+    sample_rate: u32,
+    notes: &[Annotation],
+    matching: Matching,
+) -> (Evaluation, Vec<DetectedNote>) {
+    let heard = laptop_jack(samples, f64::from(sample_rate), 3);
+    evaluate_as(
+        set,
+        InputSource::LaptopJack,
+        &heard,
+        sample_rate,
+        notes,
+        matching,
+    )
+}
+
+fn evaluate_as(
+    set: KorpusSet,
+    source: InputSource,
+    samples: &[f32],
+    sample_rate: u32,
+    notes: &[Annotation],
+    matching: Matching,
+) -> (Evaluation, Vec<DetectedNote>) {
     // With a band in the room, Kontra subtracts what it played (the band) first.
     let detected = match set {
         KorpusSet::RoomDoubleBacking => analyze_without(
@@ -438,22 +469,12 @@ pub fn evaluate_with(
             &band(samples.len(), f64::from(sample_rate)),
             f64::from(sample_rate),
             &set.instrument(),
-            set.source(),
+            source,
         ),
-        _ => analyze(
-            samples,
-            f64::from(sample_rate),
-            &set.instrument(),
-            set.source(),
-        ),
+        _ => analyze(samples, f64::from(sample_rate), &set.instrument(), source),
     };
     let evaluation = compare(set, notes, &detected, matching);
     (evaluation, detected)
-}
-
-/// `samples` as heard through a laptop combo jack (level, band limit, hum, noise).
-pub fn simulate_laptop_jack(samples: &[f32], sample_rate: u32) -> Vec<f32> {
-    laptop_jack(samples, f64::from(sample_rate), 3)
 }
 
 /// A harmonic counts in any octave, as in the session (the tracker often hears it lower).
