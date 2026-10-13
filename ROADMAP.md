@@ -231,8 +231,11 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
   riet „lauter spielen“. Jetzt vier Klicks Vorzähler, Hinweis nennt ihn.
 - H4 (mittel, behoben): Mit Vorzähler spielte der Spieler 75–95 ms früh; der Korpus maß den Spieler (3 von 8). `check`
   schätzt den Versatz je Aufnahme; Bericht markiert Übersteuern.
-- H5 (hoch, offen): Fehlalarme am echten Bass, etwa einer je Ton (Precision 50 %), meist 0,3–0,5 s nach dem Anschlag
-  (Loslassen, Saitenwechsel). IDMT hat nur einzeln abklingende Töne.
+- H5 (mittel, offen): Fehlalarme am echten Bass, etwa einer je Ton (Precision 50 %), meist 0,2–0,5 s nach dem Anschlag
+  und 20–35 dB leiser (Finger heben: leere Saite klingt kurz an; Saitenwechsel). IDMT hat nur einzeln abklingende Töne.
+  Angezeigt werden sie nicht (Extra); schaden nur, wenn einer vor dem nächsten Ton in dessen Zeitfenster fällt und ihn
+  mit falscher Tonhöhe belegt (Achtel, Sechzehntel). Ein reiner Pegelfilter scheidet aus: ein echter leiser Ton lag
+  26 dB unter dem davor.
 - H6 (hoch, offen): Slap 8 von 8 als Dead Note, Pop 6 von 8 als normaler Ton (ohne Übersteuern). Hammer-on 4/4.
 - H7 (mittel, offen): Slide über zwei Bünde als Hammer-on gehört; Runde 11 „legato“ deckt nur einen Bund.
 - H8 (mittel, offen): Ein bestimmtes Interface neben anderem Standardausgang geht nur über `PIPEWIRE_NODE`; die
