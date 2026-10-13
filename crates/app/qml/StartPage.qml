@@ -90,7 +90,7 @@ Kirigami.ScrollablePage {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.preferredWidth: 1
-                tier: KanteHintCard.Tier.Green
+                tier: KanteHintCard.Tier.Blue
                 tierText: texts.t("home.next.tier")
                 meta: page.summary.next ? page.summary.next.level : ""
                 titleText: page.summary.next ? page.summary.next.title : texts.t("home.next.done")
