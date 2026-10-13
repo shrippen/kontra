@@ -273,6 +273,9 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
     auch das zuletzt gespielte Stück war; jetzt ein Knopf und ein Satz dazu.
   - G27 (niedrig, behoben #49, P7): „Über Kontra“ listete rund 70 Bausteine ausgeklappt; die Tastenkürzel darunter
     lagen weit außer Sicht. Jetzt Kontra, Qt und KDE Frameworks, der Rest auf Knopfdruck.
+- **P2 Jens (J-B3, Setliste):** G28 (niedrig, behoben #49, Test zuerst): Mitgelieferte Übungen standen in Setlisten und
+  bei „Nächstes Stück“ mit Dateinamen („09 Groove Achtel …“); jetzt mit dem Titel aus dem Plan in der Oberflächensprache.
+  Zweiter Leser über #48/#49: sieben Befunde, alle behoben (u. a. gewählte Spur bleibt, alte „..“-Pfade wandern).
   - Offen (Kante #61): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 

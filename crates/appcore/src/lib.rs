@@ -928,13 +928,21 @@ impl Core {
         let (name, index) = self.active_setlist.as_ref()?;
         let list = self.library.setlists.iter().find(|s| &s.name == name)?;
         let path = list.pieces.get(index + 1)?;
-        Some(self.library.entry(path).map_or_else(
-            || {
-                path.file_stem()
-                    .map_or_else(String::new, |s| s.to_string_lossy().into())
-            },
-            |e| e.title.clone(),
-        ))
+        Some(self.piece_title(path))
+    }
+
+    /// A setlist piece's title: a bundled exercise as in the plan, else the library's title or
+    /// the file name.
+    fn piece_title(&self, path: &Path) -> String {
+        self.plan_title(path).unwrap_or_else(|| {
+            self.library.entry(path).map_or_else(
+                || {
+                    path.file_stem()
+                        .map_or_else(String::new, |s| s.to_string_lossy().into())
+                },
+                |e| e.title.clone(),
+            )
+        })
     }
 
     /// Opens the next piece of the active setlist.
@@ -956,7 +964,7 @@ impl Core {
                         let e = self.library.entry(p);
                         json!({
                             "path": p,
-                            "title": e.map_or_else(|| p.file_stem().map_or_else(String::new, |s| s.to_string_lossy().into()), |e| e.title.clone()),
+                            "title": self.piece_title(p),
                             "artist": e.map_or_else(String::new, |e| e.artist.clone()),
                             "missing": !p.exists(),
                         })
@@ -2434,20 +2442,21 @@ impl Core {
 
     /// A library entry's title; bundled exercises in the UI's language.
     fn library_title(&self, entry: &RecentEntry) -> String {
-        let bundled = entry
-            .path
+        self.plan_title(&entry.path)
+            .unwrap_or_else(|| entry.title.clone())
+    }
+
+    /// The title of a bundled exercise in the UI's language; `None` for any other file.
+    fn plan_title(&self, path: &Path) -> Option<String> {
+        let bundled = path
             .parent()
             .and_then(Path::parent)
             .is_some_and(|dir| dir == Self::exercises_dir());
-        let stem = entry
-            .path
-            .file_stem()
-            .map(|s| s.to_string_lossy().into_owned());
+        let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned());
         bundled
             .then_some(stem)
             .flatten()
             .and_then(|s| self.bundled_title(&s))
-            .unwrap_or_else(|| entry.title.clone())
     }
 
     /// The title of bundled exercise "NN …" in the UI's language, from its plan entry.
@@ -4434,6 +4443,26 @@ mod tests {
         core.open(&Core::demo_path()).unwrap();
         s.hit_rate = 0.95;
         assert!(next(&core, &s).is_null());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A bundled exercise in a setlist reads as in the plan: its title in the UI's language, not
+    /// "09 Groove Achtel …" from the file name (QA 13.10., P2).
+    #[test]
+    fn setlist_names_exercises_like_the_plan() {
+        let dir = temp_dir("setlisttitle");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("en".into()));
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let item = &levels[0]["items"][0];
+        core.setlist_create("Probe");
+        core.library
+            .setlist_mut("Probe")
+            .unwrap()
+            .pieces
+            .push(PathBuf::from(item["path"].as_str().unwrap()));
+        let lists: serde_json::Value = serde_json::from_str(&core.setlists_json()).unwrap();
+        assert_eq!(lists[0]["pieces"][0]["title"], item["title"]);
         let _ = std::fs::remove_dir_all(dir);
     }
 
