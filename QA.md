@@ -102,7 +102,8 @@ Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreich
 **J-C1 Erste Woche** · Persona: P1 Lea · Phase 1 (adaptive Schwierigkeit Phase 2) · LH-FOR-01, LH-MOD-06, LH-BEW-04
 1. An fünf Tagen je zehn Minuten üben (simuliert über Datumsfortschreibung).
 2. Kontra öffnen: die Startseite nennt das zuletzt gespielte Stück, die nächste Übung, die noch nicht sitzt, und die
-   Minuten der letzten sieben Tage; jedes mit einem Klick erreichbar.
+   Minuten der letzten sieben Tage; jedes mit einem Klick erreichbar. Nach einer Nacht zeigt „Wiederholen“ die zwei
+   Takte, die in den letzten drei Tagen am häufigsten am schwersten waren; ein Klick öffnet den Takt in der Werkstatt.
 3. Fortschrittsansicht öffnen.
 Erwartet: Übungszeit und Verbesserung sichtbar; Formulierungen ermutigend, keine Rangliste; ohne Suchen weiterüben.
 Liegt eine Übung nach dem Lauf über 90 %, bietet die Auswertung die nächste im Plan an; die Übungsliste zeigt sie mit
