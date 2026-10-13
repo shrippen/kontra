@@ -1,7 +1,7 @@
 //! Whole-buffer analysis for the CLI, tests and the synthetic corpus.
 
 use kontra_dsp::{EchoCanceller, NoteTracker, TrackerConfig, ECHO_BLOCK};
-use kontra_model::{DetectedNote, InputSource, Instrument, TechniqueRevision};
+use kontra_model::{DetectedNote, InputSource, Instrument, PitchRevision, TechniqueRevision};
 
 /// Detects all notes in `samples` (mono); onset times are seconds from the buffer start.
 pub fn analyze(
@@ -18,9 +18,11 @@ pub fn analyze(
     for block in samples.chunks(512) {
         notes.extend_from_slice(tracker.push(block));
         revise(&mut notes, tracker.revised());
+        revise_pitch(&mut notes, tracker.pitch_revised());
     }
     notes.extend_from_slice(tracker.flush());
     revise(&mut notes, tracker.revised());
+    revise_pitch(&mut notes, tracker.pitch_revised());
     notes
 }
 
@@ -33,6 +35,19 @@ pub fn revise(notes: &mut [DetectedNote], revisions: &[TechniqueRevision]) {
             .find(|n| (n.onset_s - r.onset_s).abs() < 1e-9)
         {
             n.technique = Some(r.technique);
+        }
+    }
+}
+
+/// Applies pitches told once the tone settled to the notes they belong to (same onset).
+pub fn revise_pitch(notes: &mut [DetectedNote], revisions: &[PitchRevision]) {
+    for r in revisions {
+        if let Some(n) = notes
+            .iter_mut()
+            .rev()
+            .find(|n| (n.onset_s - r.onset_s).abs() < 1e-9)
+        {
+            n.midi = r.midi;
         }
     }
 }

@@ -43,3 +43,14 @@ pub struct TechniqueRevision {
     pub onset_s: f64,
     pub technique: crate::Technique,
 }
+
+/// A pitch told after its note was emitted, once the tone has settled (decision round 11): a
+/// note may start up to a semitone flat, or with a component an octave below, and reach its
+/// pitch within about 100 ms; the note goes out at once and is corrected after. Matches the
+/// note by its `onset_s`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct PitchRevision {
+    pub onset_s: f64,
+    /// Fractional MIDI note number of the settled tone.
+    pub midi: f64,
+}

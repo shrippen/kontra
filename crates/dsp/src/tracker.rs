@@ -23,6 +23,16 @@
 //!              in-between pitches seen or a fret rested on? ─ yes: Slide ─┐
 //!                                                             no: up/down ┴► emit
 //! ```
+//!
+//! A note goes out as soon as its pitch is known, but some tones start up to a semitone flat or
+//! with a component an octave below, and settle within about 100 ms (decision round 11). The
+//! estimates followed 90–160 ms after the onset tell the settled pitch; one a semitone or an
+//! octave higher than emitted becomes a `PitchRevision`:
+//!
+//! ```text
+//! onset ─ emit (12–66 ms) ─ follow 90–160 ms ─► median ≥ 50 ct higher, on the semitone or
+//!                                               octave above, half the estimates near it? ─► revise
+//! ```
 
 use crate::hum::HumFilter;
 use crate::intonation::refine_hz;
@@ -31,7 +41,8 @@ use crate::onset::{OnsetConfig, OnsetDetector};
 use crate::strike::{verdict_after_s, Strike};
 use crate::yin::{PitchEstimate, Yin};
 use kontra_model::{
-    cents_between, hz_to_midi, DetectedNote, InputSource, Instrument, Technique, TechniqueRevision,
+    cents_between, hz_to_midi, DetectedNote, InputSource, Instrument, PitchRevision, Technique,
+    TechniqueRevision,
 };
 
 const RETRY_S: f64 = 0.005;
@@ -135,6 +146,46 @@ fn hum_filter(source: InputSource, sample_rate: f64) -> Option<HumFilter> {
     (source == InputSource::LaptopJack).then(|| HumFilter::new(sample_rate, HUM_WIDTH_HZ))
 }
 
+/// Follow estimates after the onset that tell a note's settled pitch. FiloBass and IDMT
+/// (testdata/korpus/QUELLEN.md): 90–160 ms rounds most flat starts right; later windows reach
+/// the next note.
+const SETTLE_FROM_S: f64 = 0.09;
+const SETTLE_TO_S: f64 = 0.16;
+/// Estimates the window holds at most (one every `FOLLOW_STEP_S`).
+const SETTLE_SLOTS: usize = 8;
+/// Fewer estimates tell nothing (a short or fading note).
+const SETTLE_MIN: usize = 3;
+/// The settled pitch must lie this far above the emitted one …
+const SETTLE_MIN_CENTS: f64 = 50.0;
+/// … and at least half the estimates this close to their median.
+const SETTLE_SPREAD_CENTS: f64 = 50.0;
+/// Corrected steps: a flat start a semitone up, a sub-octave attack an octave up. Downward
+/// steps fixed 20 notes but broke 4 right ones (a pull-off, a pop; QUELLEN.md).
+const SEMITONE: f64 = 1.0;
+const OCTAVE: f64 = 12.0;
+
+/// Which steps up a settled pitch may correct.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Steps {
+    SemitoneOrOctave,
+    /// At a microphone the low cut weakens the fundamental, and YIN on the ringing note jumps an
+    /// octave up (synthetic `room-double`: 6 of 156 C2 told as C3).
+    Semitone,
+}
+
+impl Steps {
+    fn for_source(source: InputSource) -> Steps {
+        match source {
+            InputSource::Microphone => Steps::Semitone,
+            _ => Steps::SemitoneOrOctave,
+        }
+    }
+
+    fn allow(self, step: f64) -> bool {
+        step == SEMITONE || (step == OCTAVE && self == Steps::SemitoneOrOctave)
+    }
+}
+
 /// Notes emitted before their attack could be judged (`Strike`), waiting for the audio; more at
 /// once would mean notes closer than 15 ms.
 const STRIKES_WAITING: usize = 8;
@@ -171,6 +222,83 @@ struct Sounding {
     peak: f32,
     next_try: u64,
     change: Option<Change>,
+    /// The struck note's settled pitch being heard, until it is told.
+    settle: Option<Settle>,
+}
+
+/// Follow estimates of a struck note in its settle window.
+#[derive(Debug, Clone, Copy)]
+struct Settle {
+    /// The note's reported onset (sample) and emitted pitch.
+    onset: u64,
+    midi: f64,
+    /// A dead note: its pitch wanders and does not count.
+    muted: bool,
+    steps: Steps,
+    /// (end of window, MIDI) of each estimate.
+    heard: [(u64, f64); SETTLE_SLOTS],
+    count: usize,
+}
+
+impl Settle {
+    fn new(onset: u64, midi: f64, muted: bool, steps: Steps) -> Settle {
+        Settle {
+            onset,
+            midi,
+            muted,
+            steps,
+            heard: [(0, 0.0); SETTLE_SLOTS],
+            count: 0,
+        }
+    }
+
+    fn hear(&mut self, until: u64, midi: f64) {
+        if self.count < SETTLE_SLOTS {
+            self.heard[self.count] = (until, midi);
+            self.count += 1;
+        }
+    }
+
+    /// The settled pitch, from estimates ending before `before` (a new attack), if it corrects
+    /// the emitted one: a semitone or an octave higher, by at least `SETTLE_MIN_CENTS`.
+    fn settled(&self, before: u64) -> Option<f64> {
+        if self.muted {
+            return None;
+        }
+        let mut sorted = [0.0f64; SETTLE_SLOTS];
+        let mut count = 0;
+        for &(until, midi) in &self.heard[..self.count] {
+            if until <= before {
+                sorted[count] = midi;
+                count += 1;
+            }
+        }
+        if count < SETTLE_MIN {
+            return None;
+        }
+        let sorted = &mut sorted[..count];
+        sorted.sort_by(f64::total_cmp);
+        let median = match count % 2 {
+            0 => (sorted[count / 2 - 1] + sorted[count / 2]) / 2.0,
+            _ => sorted[count / 2],
+        };
+
+        // Stable: at least half the estimates near the median.
+        let near = sorted
+            .iter()
+            .filter(|m| (*m - median).abs() * 100.0 < SETTLE_SPREAD_CENTS)
+            .count();
+        if near * 2 < count {
+            return None;
+        }
+
+        // Higher, on the next semitone or octave: e.g. 37.3 emitted, 38.0 settled.
+        let step = median.round() - self.midi.round();
+        if !self.steps.allow(step) {
+            return None;
+        }
+        ((median - self.midi) * 100.0 >= SETTLE_MIN_CENTS).then_some(median)
+    }
 }
 
 /// A pitch on the way away from the ringing one.
@@ -274,6 +402,7 @@ pub struct NoteTracker {
     /// Onsets (samples) of emitted notes whose attack is judged once its audio is there.
     strikes: [Option<u64>; STRIKES_WAITING],
     revised: Vec<TechniqueRevision>,
+    pitch_revised: Vec<PitchRevision>,
 }
 
 impl NoteTracker {
@@ -305,6 +434,7 @@ impl NoteTracker {
             out: Vec::with_capacity(16),
             strikes: [None; STRIKES_WAITING],
             revised: Vec::with_capacity(STRIKES_WAITING),
+            pitch_revised: Vec::with_capacity(STRIKES_WAITING),
         }
     }
 
@@ -324,10 +454,17 @@ impl NoteTracker {
         &self.revised
     }
 
+    /// Pitches told in the last `push` or `flush` for notes emitted earlier, once their tone
+    /// settled (decision round 11); valid until the next call.
+    pub fn pitch_revised(&self) -> &[PitchRevision] {
+        &self.pitch_revised
+    }
+
     /// Feeds samples; returns notes completed in this call (valid until the next call).
     pub fn push(&mut self, samples: &[f32]) -> &[DetectedNote] {
         self.out.clear();
         self.revised.clear();
+        self.pitch_revised.clear();
         let block = (RETRY_S * self.sample_rate) as usize;
         let mut filtered = std::mem::take(&mut self.filtered);
         for raw in samples.chunks(block.max(1)) {
@@ -364,6 +501,11 @@ impl NoteTracker {
     pub fn flush(&mut self) -> &[DetectedNote] {
         self.out.clear();
         self.revised.clear();
+        self.pitch_revised.clear();
+        if let Some(mut s) = self.sounding {
+            self.settle(&mut s, u64::MAX);
+            self.sounding = Some(s);
+        }
         if let Some((note, _)) = self.legato.take() {
             self.out.push(note);
         }
@@ -437,7 +579,11 @@ impl NoteTracker {
     }
 
     fn start(&mut self, onset: u64) {
-        // A new attack ends the ringing note; a legato note just before it was this attack.
+        // A new attack ends the ringing note (told with what was heard before it); a legato note
+        // just before it was this attack.
+        if let Some(mut s) = self.sounding {
+            self.settle(&mut s, onset);
+        }
         self.sounding = None;
         self.legato = None;
         let mut report = onset;
@@ -537,16 +683,6 @@ impl NoteTracker {
             Some(b) => (hz_to_midi(b.hz, self.config.a4_hz), b.confidence),
             None => (0.0, 0.0),
         };
-        if p.best.is_some() {
-            let peak = 10f32.powf(level_db / 20.0);
-            let step = (FOLLOW_STEP_S * self.sample_rate) as u64;
-            self.sounding = Some(Sounding {
-                midi,
-                peak,
-                next_try: self.pushed.max(p.next_try) + step,
-                change: None,
-            });
-        }
         // An attack without a pitch is a dead (muted) note; one with a pitch is judged on its
         // attack, now or, when its audio is not there yet, by a revision later.
         let technique = match p.best {
@@ -559,6 +695,23 @@ impl NoteTracker {
                 }
             },
         };
+        if p.best.is_some() {
+            let peak = 10f32.powf(level_db / 20.0);
+            let step = (FOLLOW_STEP_S * self.sample_rate) as u64;
+            let muted = technique == Some(Technique::Muted);
+            self.sounding = Some(Sounding {
+                midi,
+                peak,
+                next_try: self.pushed.max(p.next_try) + step,
+                change: None,
+                settle: Some(Settle::new(
+                    p.report,
+                    midi,
+                    muted,
+                    Steps::for_source(self.config.source),
+                )),
+            });
+        }
         self.out.push(DetectedNote {
             onset_s: p.report as f64 / self.sample_rate,
             midi,
@@ -606,6 +759,9 @@ impl NoteTracker {
             let technique = self
                 .strike(onset)
                 .and_then(|s| s.technique(self.config.source));
+            if technique == Some(Technique::Muted) {
+                self.mark_muted(onset);
+            }
             if let Some(technique) = technique {
                 self.revised.push(TechniqueRevision {
                     onset_s: onset as f64 / self.sample_rate,
@@ -630,13 +786,24 @@ impl NoteTracker {
             let until = s.next_try;
             s.next_try += step;
             if self.peak(until.saturating_sub(span), until) < s.peak * FOLLOW_FLOOR {
+                self.settle(&mut s, until);
                 self.sounding = None;
                 return;
+            }
+            let settle_end = s
+                .settle
+                .map(|t| t.onset + (SETTLE_TO_S * self.sample_rate) as u64);
+            if settle_end.is_some_and(|end| until > end) {
+                self.settle(&mut s, until);
             }
             let Some(estimate) = self.estimate_until(until) else {
                 continue;
             };
             let midi = hz_to_midi(estimate.hz, self.config.a4_hz);
+            let settle_from = (SETTLE_FROM_S * self.sample_rate) as u64;
+            if let Some(t) = s.settle.as_mut().filter(|t| until >= t.onset + settle_from) {
+                t.hear(until, midi);
+            }
             let away = (midi - s.midi).abs() * 100.0;
             if (away - 1200.0).abs() < OCTAVE_SLACK_CENTS
                 || (away - 2400.0).abs() < OCTAVE_SLACK_CENTS
@@ -652,6 +819,14 @@ impl NoteTracker {
             if change.agreeing < LEGATO_AGREE {
                 continue;
             }
+
+            // Still settling: the struck note rising to its pitch is no new note.
+            if s.settle.is_some() && self.settle(&mut s, until) {
+                continue;
+            }
+            let Some(change) = s.change else {
+                continue;
+            };
             let technique = change.technique(s.midi);
             let onset = change.first.saturating_sub(window / 2);
             let level_db = self.level_after(until.saturating_sub(span));
@@ -671,6 +846,36 @@ impl NoteTracker {
             s.change = None;
         }
         self.sounding = Some(s);
+    }
+
+    /// Tells the struck note's settled pitch from estimates up to `before`, if it corrects the
+    /// emitted one; the ringing pitch is then the settled one. Returns whether it was revised.
+    fn settle(&mut self, s: &mut Sounding, before: u64) -> bool {
+        let Some(settle) = s.settle.take() else {
+            return false;
+        };
+        let Some(midi) = settle.settled(before) else {
+            return false;
+        };
+        self.pitch_revised.push(PitchRevision {
+            onset_s: settle.onset as f64 / self.sample_rate,
+            midi,
+        });
+        s.midi = midi;
+        s.change = None;
+        true
+    }
+
+    /// A dead note told late: its settling pitch does not count.
+    fn mark_muted(&mut self, onset: u64) {
+        let settle = self
+            .sounding
+            .as_mut()
+            .and_then(|s| s.settle.as_mut())
+            .filter(|t| t.onset == onset);
+        if let Some(t) = settle {
+            t.muted = true;
+        }
     }
 
     /// Emits a held-back legato note once no attack came within `LEGATO_HOLD_S`.
@@ -928,6 +1133,103 @@ mod tests {
         let found = track(&signal, InputSource::Line);
         assert_eq!(found.len(), 2, "found {found:?}");
         assert_eq!(found[1].technique, Some(Technique::HammerOn), "{found:?}");
+    }
+
+    /// A D2 that starts `flat_cents` low and rises to pitch within `rise_s` (FiloBass double
+    /// bass, testdata/korpus/QUELLEN.md "Halbton zu tief"), after 0.2 s of silence.
+    fn rising_tone(flat_cents: f64, rise_s: f64) -> Vec<f32> {
+        let hz = Pitch::parse("D2").unwrap().hz(A4_HZ);
+        let lead = (0.2 * SR) as usize;
+        let mut signal = vec![0.0; lead];
+        let mut phase = 0.0f64;
+        for i in 0..(0.8 * SR) as usize {
+            let t = i as f64 / SR;
+            let cents = flat_cents * (1.0 - t / rise_s).max(0.0);
+            phase += std::f64::consts::TAU * hz * 2f64.powf(cents / 1200.0) / SR;
+            let tone: f64 = (1..=6).map(|h| (phase * h as f64).sin() / h as f64).sum();
+            let envelope = (t / 0.002).min(1.0) * (-t / 0.8).exp();
+            signal.push((0.4 * envelope * tone) as f32);
+        }
+        signal
+    }
+
+    /// Notes and pitch revisions, with the revisions applied.
+    fn track_revised(signal: &[f32]) -> (Vec<DetectedNote>, Vec<PitchRevision>) {
+        let config = TrackerConfig::for_instrument(&Instrument::default_bass(), InputSource::Line);
+        let mut t = NoteTracker::new(SR, config);
+        let mut notes = Vec::new();
+        let mut revisions = Vec::new();
+        for block in signal.chunks(480) {
+            notes.extend_from_slice(t.push(block));
+            revisions.extend_from_slice(t.pitch_revised());
+        }
+        notes.extend_from_slice(t.flush());
+        revisions.extend_from_slice(t.pitch_revised());
+        (notes, revisions)
+    }
+
+    #[test]
+    fn flat_start_is_revised_once_settled() {
+        // Emitted a semitone low while the tone still rises; told right once it has settled.
+        let (notes, revisions) = track_revised(&rising_tone(-140.0, 0.12));
+        assert_eq!(notes.len(), 1, "{notes:?}");
+        assert_eq!(
+            notes[0].midi.round(),
+            37.0,
+            "emitted during the rise: {notes:?}"
+        );
+        assert_eq!(revisions.len(), 1, "{revisions:?}");
+        assert_eq!(revisions[0].onset_s, notes[0].onset_s);
+        assert_eq!(revisions[0].midi.round(), 38.0, "{revisions:?}");
+    }
+
+    #[test]
+    fn steady_tone_is_not_revised() {
+        let (notes, revisions) = track_revised(&rising_tone(0.0, 0.12));
+        assert_eq!(notes.len(), 1, "{notes:?}");
+        assert!(revisions.is_empty(), "{revisions:?}");
+    }
+
+    #[test]
+    fn falling_tone_is_not_revised() {
+        // Only a rise is settling (a flat start, an octave below at the attack); a fall after
+        // the note is a pull-off or a decay.
+        let (_, revisions) = track_revised(&rising_tone(140.0, 0.12));
+        assert!(revisions.is_empty(), "{revisions:?}");
+    }
+
+    /// A settle window holding `estimates`, after a note emitted as `emitted`.
+    fn settle_of(emitted: f64, estimates: &[f64], steps: Steps) -> Settle {
+        let mut settle = Settle::new(0, emitted, false, steps);
+        for (i, m) in estimates.iter().enumerate() {
+            settle.hear(i as u64, *m);
+        }
+        settle
+    }
+
+    #[test]
+    fn settled_pitch_rules() {
+        let up = [38.0, 38.02, 37.98, 38.01];
+        let any = Steps::SemitoneOrOctave;
+        let settled = settle_of(37.3, &up, any).settled(u64::MAX);
+        assert!(
+            settled.is_some_and(|m| (m - 38.005).abs() < 1e-9),
+            "{settled:?}"
+        );
+        // Too few estimates, too close, downward, unstable, after a new attack.
+        assert_eq!(settle_of(37.3, &up[..2], any).settled(u64::MAX), None);
+        assert_eq!(settle_of(37.55, &up, any).settled(u64::MAX), None);
+        assert_eq!(settle_of(39.0, &up, any).settled(u64::MAX), None);
+        let wandering = [37.4, 38.6, 39.2, 36.8];
+        assert_eq!(settle_of(37.0, &wandering, any).settled(u64::MAX), None);
+        assert_eq!(settle_of(37.3, &up, any).settled(1), None);
+        // An octave up, but not at a microphone.
+        let octave = [50.0, 50.01, 49.99];
+        assert!(settle_of(38.0, &octave, any).settled(u64::MAX).is_some());
+        assert_eq!(
+            settle_of(38.0, &octave, Steps::Semitone).settled(u64::MAX),
+            None
+        );
     }
 
     #[test]

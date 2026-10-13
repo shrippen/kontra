@@ -19,4 +19,5 @@ mod c4_ear;
 mod c5_techniques;
 mod d1_backing;
 mod e1_midi;
+mod e3_settling;
 mod f_restart;

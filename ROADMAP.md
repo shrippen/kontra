@@ -163,6 +163,13 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
   sofortiger Messung, Soak, Demucs-Zeit, Bericht mit Handprüfliste; `testdata/korpus/AUFNAHME.md`). Software-Schleife
   über PipeWire (Null-Senke): 26,9 ms Rundlauf, 12 von 12 Tönen. Die Prüfungen am echten Bass macht der Eigentümer.
 
+## Entscheidungen Runde 11 (13.10.2026)
+
+- Tonhöhe nach dem Einschwingen korrigieren (`pitch_revision = revise`): umgesetzt (LH-BEW-07, J-E3 ⚙). Anzeige so
+  schnell wie bisher, die Note wird bis etwa 160 ms nach dem Anschlag neu bewertet, nur nach oben. FiloBass: Halbton
+  zu tief 88 → 37, Oktave zu tief 29 → 14, keine richtige gekippt, Tonhöhe 64,3 → 75,1 %; IDMT ±80 ms R/P 90,3/80,4 →
+  91,2/81,2 %; eigene Aufnahmen unverändert (testdata/korpus/QUELLEN.md, „Tonhöhen-Revision“).
+
 ## Didaktik: wie Kontra Bass vermittelt (laufend, alle Phasen)
 
 Ziel: nicht nur Noten abfragen, sondern herausfinden, welche Wege zum

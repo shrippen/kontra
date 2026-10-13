@@ -218,6 +218,36 @@ gefalteten Abweichungen: +3 bis −12 Cent). 88 von 571 zugeordneten Noten einen
   `TechniqueRevision` bis in die Bewertung (Note neu werten); offen als Entscheidung.
 - Stimmton in `korpus measure`: bringt bei höchstens 12 Cent wenig, nicht umgesetzt.
 
+### Tonhöhen-Revision (Branch `tonhoehe`, 13.10., Runde 11)
+
+Die Note geht wie bisher sofort hinaus; 90–160 ms nach dem Einsatz sagt der Median der Verfolgungs-Schätzungen die
+eingeschwungene Tonhöhe (`PitchRevision`, Session wertet die Note neu). Regel, an FiloBass, IDMT und den eigenen
+Aufnahmen vom 13.10. gewählt (Simulation über die Schätzungen, dann im Tracker nachgemessen):
+
+- Nur nach oben, ein Halbton oder eine Oktave: Beide Ursachen (Ton beginnt tief, Anteil eine Oktave tiefer im Anschlag)
+  liegen unten. Abwärts brächte 12 Halbton- und 8 Oktav-Korrekturen, kippte aber 4 richtige (Pull-off, Pop).
+- Mindestens 50 Cent über der ausgegebenen, mindestens 3 Schätzungen, die Hälfte davon ±50 Cent um den Median.
+  Strengere Stabilität kostete nur Korrekturen (±30 Cent: 9 weniger) und kippte nicht weniger. 40 statt 50 Cent
+  gäbe 8 Korrekturen mehr, ohne zu kippen; nicht genommen (Vorgabe ≥ 50 Cent).
+- Gedämpfte Töne (Dead Notes) nie: ihre Tonhöhe wandert (eigene Aufnahme `dead`: 2 richtige kippten).
+- Am Mikrofon keine Oktave: Der Tiefenschnitt schwächt den Grundton, YIN am klingenden Ton springt eine Oktave hoch
+  (synthetisch `room-double`: 6 von 156 C2 als C3).
+- Eine neue Legato-Note während des Einschwingens auf den eingeschwungenen Ton ist das Einschwingen, keine Note.
+
+| Material | vorher | nachher |
+|---|---|---|
+| FiloBass ±50 ms, Halbton zu tief / Oktave zu tief (von 571 zugeordneten) | 88 / 29 | 37 / 14 |
+| FiloBass richtige gekippt | – | 0 (1 Note am Stückanfang nicht mehr zugeordnet) |
+| FiloBass ±50 ms R / P / Tonhöhe | 68,9 / 70,1 / 64,3 % | 69,7 / 72,6 / 75,1 % |
+| IDMT ±80 ms mit Tonhöhe R / P (CI) | 90,3 / 80,4 % | 91,2 / 81,2 % |
+| IDMT ±80 ms Tonhöhe | 93,8 % | 94,8 % (9 korrigiert, 0 gekippt) |
+| Eigene Aufnahmen 13.10. ±150 ms R / P / Tonhöhe | 84,4 / 60,7 / 94,4 % | unverändert |
+| `korpus check` room-double-backing Tonhöhe | 92,9 % | 93,6 % |
+| `korpus techniques`, übrige `korpus check`-Sätze | | unverändert |
+
+Die Präzision steigt, weil 18 Legato-Noten aus dem Einschwingen wegfallen. Die Bewertung ändert sich bis etwa 160 ms
+nach dem Anschlag (bei einer neuen Note davor mit dem, was bis dahin zu hören war).
+
 ## Befunde
 
 1. **Einsatz ohne Tonhöhe plus zweite Note.** Bei tiefen Tönen meldet die Erkennung am Anschlag eine Note mit
