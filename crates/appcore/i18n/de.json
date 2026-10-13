@@ -213,6 +213,7 @@
   "progress.title": "Fortschritt",
   "progress.empty.title": "Noch keine Übungsläufe",
   "progress.empty.text": "Spiel ein Stück, dann siehst du hier, wie oft und wie gut du übst.",
+  "progress.empty.start": "Mit einer Übung anfangen",
   "progress.week": "Diese Woche: {minutes} min an {days} Tagen. Weiter so!",
   "progress.week.none": "Diese Woche noch nicht geübt. Zehn Minuten reichen für den Anfang.",
   "progress.days": "Übungszeit der letzten 14 Tage",

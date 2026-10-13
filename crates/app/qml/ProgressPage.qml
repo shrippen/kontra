@@ -69,6 +69,10 @@ Kirigami.ScrollablePage {
             visible: page.data.pieces.length === 0
             title: texts.t("progress.empty.title")
             text: texts.t("progress.empty.text")
+            KanteButton {
+                text: texts.t("progress.empty.start")
+                onClicked: applicationWindow().show("exercises")
+            }
         }
 
         ColumnLayout {

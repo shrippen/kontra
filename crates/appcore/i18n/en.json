@@ -213,6 +213,7 @@
   "progress.title": "Progress",
   "progress.empty.title": "No runs yet",
   "progress.empty.text": "Play a piece, and you will see here how often and how well you practise.",
+  "progress.empty.start": "Start with an exercise",
   "progress.week": "This week: {minutes} min on {days} days. Keep going!",
   "progress.week.none": "No practice yet this week. Ten minutes are enough to start.",
   "progress.days": "Practice time, last 14 days",
