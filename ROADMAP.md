@@ -248,6 +248,10 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
     anfangen“.
   - G17 (mittel, behoben #49, P4): Auswertung im Beamer-Format: Bildlaufleiste über „Schließen“, Histogramm schob die
     schwierigsten Takte aus dem Bild.
+  - G18 (niedrig, offen): Im Beamer-Format zeigt die Notenansicht in der Werkstatt nur ein Stück der ersten Zeile, und
+    ein Balken der abgeschnittenen Noten liegt über der Transportleiste. Ursache in Qt 6.12: `clip` schneidet
+    `Shape`-Kinder nicht ab (Rechtecke schon, nachgewiesen mit `grabToImage`); nur `layer.enabled` schneidet. Am
+    Bildschirm ungeprüft; Lösung in Kante (Balken ohne `Shape`) oder Layer, Leistung vorher messen.
   - Offen (Kante #61): `KanteKpi` hat keinen Namen für Screenreader (Zahl und Beschriftung getrennt).
 - Offen: Ghost Note doppelt geklammert (F8, Kante, Runde 11).
 
