@@ -135,6 +135,8 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Neue i18n-Schlüssel nicht in einem fremden Namensraum anlegen (`keys.*` ist die Tastenkürzel-Liste): `keys.next` stand
   doppelt, JSON behielt still den letzten. Ein Test prüft jetzt auf doppelte Schlüssel.
 - Prüfkette vor einem Commit mit `&&` oder `set -e`, nicht mit `;`: sonst wird trotz rotem Test committet und gepusht.
+  `set -e` wirkt nicht, wenn die ganze Kette selbst Teil einer `&&`/`||`-Liste ist (so betten manche Werkzeuge
+  Befehle ein): am 14.10. ging ein Push trotz Build-Fehler durch. Sicher ist nur `a && b && git push`.
 - Gestapelte PRs bei einem Runner: Konflikte (i18n-Enden, Importlisten) vorab lösen, indem die untere Branch in die
   obere gemerged wird; bleibt die untere unverändert, ist die obere nach deren Merge ohne neue CI mergebar.
 - Tests, die ein Skript schreiben und starten, laufen parallel zu anderen, die Prozesse starten: Ein geforktes Kind hält
