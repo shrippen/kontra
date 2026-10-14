@@ -15,7 +15,6 @@ use kontra_engine::{
 };
 use kontra_model::{Arrangement, TICKS_PER_QUARTER};
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 
 /// How far ahead sounds are scheduled.
 const LOOKAHEAD_S: f64 = 0.25;
@@ -425,7 +424,7 @@ impl<O: Output> Practice<O> {
         };
         self.output.stop_backing(at_s);
         self.output
-            .play_backing(Arc::clone(&audio), at_s, frame_of(position));
+            .play_backing(audio.clone(), at_s, frame_of(position));
         if let Some(LoopRange { start_s, end_s }) = self.session.transport().loop_range() {
             let wrap = at_s + (end_s - position) / speed;
             self.output.play_backing(audio, wrap, frame_of(start_s));
@@ -435,11 +434,11 @@ impl<O: Output> Practice<O> {
     fn stretched_backing(&mut self, speed: f64) -> Option<BackingAudio> {
         let key = (speed * 1000.0).round() as u32;
         if let Some(audio) = self.stretched.get(&key) {
-            return Some(Arc::clone(audio));
+            return Some(audio.clone());
         }
         let track = self.backing.as_ref()?;
-        let audio: BackingAudio = Arc::new(track.interleaved(speed, self.stretch_resolution()));
-        self.stretched.insert(key, Arc::clone(&audio));
+        let audio = track.interleaved(speed, self.stretch_resolution());
+        self.stretched.insert(key, audio.clone());
         Some(audio)
     }
 

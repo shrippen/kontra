@@ -57,8 +57,46 @@ pub enum Sound {
     Drum(DrumKind),
 }
 
-/// Interleaved stereo audio at the output's sample rate.
-pub type BackingAudio = Arc<Vec<f32>>;
+/// Interleaved backing audio at the output's sample rate: stereo, or after bass removal stereo
+/// plus the removed bass (4 channels: L, R, bass L, bass R), which `Gains::bass` mixes back.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BackingAudio {
+    samples: Arc<Vec<f32>>,
+    channels: usize,
+}
+
+const STEREO: usize = 2;
+const WITH_BASS: usize = 4;
+
+impl BackingAudio {
+    pub fn stereo(samples: Vec<f32>) -> BackingAudio {
+        BackingAudio {
+            samples: Arc::new(samples),
+            channels: STEREO,
+        }
+    }
+
+    /// Frames of L, R, bass L, bass R.
+    pub fn with_bass(samples: Vec<f32>) -> BackingAudio {
+        BackingAudio {
+            samples: Arc::new(samples),
+            channels: WITH_BASS,
+        }
+    }
+
+    /// Stereo frame `frame` with the removed bass at `bass` (0..=1), silence past the end.
+    fn frame(&self, frame: usize, bass: f32) -> (f32, f32) {
+        let start = frame * self.channels;
+        let Some(f) = self.samples.get(start..start + self.channels) else {
+            return (0.0, 0.0);
+        };
+        match f {
+            [l, r, bl, br] => (l + bass * bl, r + bass * br),
+            [l, r, ..] => (*l, *r),
+            _ => (0.0, 0.0),
+        }
+    }
+}
 
 /// What the session layer needs from an output; `Player` is the device implementation.
 pub trait Output {
@@ -86,6 +124,8 @@ pub struct Gains {
     pub backing: f32,
     /// Synthesised drum accompaniment (LH-LRN-01).
     pub drums: f32,
+    /// The original bass mixed back into a backing track without it (LH-BIB-09); 0 = removed.
+    pub bass: f32,
     /// The bass input played back (input monitoring); 0 = off.
     pub monitor: f32,
     /// Tone shaping of the monitored bass (LH-EIN-08); detection hears the dry input.
@@ -99,6 +139,7 @@ impl Default for Gains {
             tone: 0.6,
             backing: 0.8,
             drums: 0.7,
+            bass: 0.0,
             monitor: 0.0,
             shaping: Shaping::FLAT,
         }
@@ -472,10 +513,12 @@ impl Mixer {
         if let Some(b) = &self.backing {
             if now >= b.at_s && now < b.stop_s {
                 let frame = b.from_frame + ((now - b.at_s) * sr) as usize;
+                let bass = self.gains.bass;
                 let (l, r) = if self.shifter.semitones() == 0.0 {
-                    backing_frame(&b.audio, frame)
+                    b.audio.frame(frame, bass)
                 } else {
-                    shifted_frame(&mut self.shifter, &mut self.shift_next, &b.audio, frame)
+                    let shift = (&mut *self.shifter, &mut self.shift_next);
+                    shifted_frame(shift, &b.audio, frame, bass)
                 };
                 left += l * self.gains.backing;
                 right += r * self.gains.backing;
@@ -496,31 +539,24 @@ impl Mixer {
     }
 }
 
-/// Stereo frame `frame` of interleaved `audio`, silence past its end.
-fn backing_frame(audio: &[f32], frame: usize) -> (f32, f32) {
-    audio
-        .get(frame * 2..frame * 2 + 2)
-        .map_or((0.0, 0.0), |pair| (pair[0], pair[1]))
-}
-
 /// Backing frame `frame`, transposed. The shifter delays by `PITCH_LATENCY`, so it is fed that
 /// far ahead; after a jump (seek, loop start) it is filled again first, which costs one
 /// window of work once. Frames one off (rounding of the clock) count as continuous.
 fn shifted_frame(
-    shifter: &mut PitchShifter,
-    next: &mut Option<usize>,
-    audio: &[f32],
+    (shifter, next): (&mut PitchShifter, &mut Option<usize>),
+    audio: &BackingAudio,
     frame: usize,
+    bass: f32,
 ) -> (f32, f32) {
     if !next.is_some_and(|n| n.abs_diff(frame) <= 1) {
         shifter.reset();
         for f in frame..frame + PITCH_LATENCY {
-            let (l, r) = backing_frame(audio, f);
+            let (l, r) = audio.frame(f, bass);
             shifter.process(l, r);
         }
     }
     *next = Some(frame + 1);
-    let (l, r) = backing_frame(audio, frame + PITCH_LATENCY);
+    let (l, r) = audio.frame(frame + PITCH_LATENCY, bass);
     shifter.process(l, r)
 }
 
@@ -620,6 +656,7 @@ mod tests {
                 tone: 1.0,
                 backing: 1.0,
                 drums: 1.0,
+                bass: 0.0,
                 monitor: 1.0,
                 shaping: Shaping::FLAT,
             },
@@ -694,13 +731,13 @@ mod tests {
     #[test]
     fn backing_starts_at_frame_and_stops() {
         let mut m = mixer();
-        let audio: BackingAudio = Arc::new(
+        let audio = BackingAudio::stereo(
             (0..2000)
                 .flat_map(|i| [i as f32 / 4000.0, -(i as f32) / 4000.0])
                 .collect(),
         );
         m.apply(Command::Backing {
-            audio: Arc::clone(&audio),
+            audio: audio.clone(),
             at_s: 1.0,
             from_frame: 100,
         });
@@ -710,7 +747,7 @@ mod tests {
         assert!((l - 110.0 / 4000.0).abs() < 1e-6 && (r + 110.0 / 4000.0).abs() < 1e-6);
         // A pending start (next loop pass) takes over at its time.
         m.apply(Command::Backing {
-            audio: Arc::clone(&audio),
+            audio: audio.clone(),
             at_s: 1.2,
             from_frame: 0,
         });
@@ -761,7 +798,7 @@ mod tests {
         let mut m = mixer();
         m.gains.click = 0.0;
         m.apply(Command::Backing {
-            audio: Arc::new(audio),
+            audio: BackingAudio::stereo(audio),
             at_s: 0.0,
             from_frame: 0,
         });
@@ -777,6 +814,28 @@ mod tests {
         let hz = yin.estimate(&out[40_000..64_000]).map_or(0.0, |e| e.hz);
         let cents = 1200.0 * (hz / (110.0 * 2f64.powf(3.0 / 12.0))).log2();
         assert!(cents.abs() < 5.0, "{hz} Hz, {cents} cents");
+    }
+
+    /// LH-BIB-09: the removed bass comes back at `Gains::bass`, also while it plays.
+    #[test]
+    fn removed_bass_follows_its_gain() {
+        let mut m = mixer();
+        // Every frame: song without bass 0.1, removed bass 0.4 (left), -0.4 (right).
+        let audio = BackingAudio::with_bass([0.1, 0.1, 0.4, -0.4].repeat(1000));
+        m.apply(Command::Backing {
+            audio,
+            at_s: 0.0,
+            from_frame: 0,
+        });
+        let sr = 1000.0;
+        assert_eq!(m.render(0.1, sr), (0.1, 0.1));
+
+        m.apply(Command::Gains(Gains {
+            bass: 0.5,
+            ..m.gains
+        }));
+        let (l, r) = m.render(0.2, sr);
+        assert!((l - 0.3).abs() < 1e-6 && (r + 0.1).abs() < 1e-6, "{l} {r}");
     }
 
     #[test]

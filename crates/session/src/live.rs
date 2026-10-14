@@ -33,6 +33,9 @@ pub struct LiveSetup {
     pub output_device: Option<String>,
     pub source: InputSource,
     pub backing: Option<PathBuf>,
+    /// The song with its bass when `backing` is it without (LH-BIB-09): the mixer can bring the
+    /// bass back (`Gains::bass`).
+    pub original: Option<PathBuf>,
 }
 
 /// Either a real player or silence; lets `Practice` run without a sound card.
@@ -125,6 +128,15 @@ impl Live {
             .as_deref()
             .map(|p| BackingTrack::load(p, sample_rate))
             .transpose()?;
+        // An original that does not load leaves the song without its bass, nothing more.
+        let original = setup
+            .original
+            .as_deref()
+            .and_then(|p| BackingTrack::load(p, sample_rate).ok());
+        let backing = match (backing, original) {
+            (Some(without), Some(original)) => Some(without.with_bass_of(&original)),
+            (backing, _) => backing,
+        };
         // The input starts before the practice owns the output: it takes the player's monitor ring.
         let player = match &mut output {
             LiveOutput::Device(p) => Some(p),

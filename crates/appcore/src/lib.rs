@@ -1749,6 +1749,7 @@ impl Core {
             source: self.source(),
             // A backing file that is gone is skipped (play() says so), not an error.
             backing: self.backing().map(|(path, _)| path).filter(|p| p.exists()),
+            original: self.backing_original(),
         };
         let mut live = Live::start(arrangement, self.mode(), settings, options, &setup)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
@@ -1889,6 +1890,7 @@ impl Core {
             output_device: self.output_device(),
             source: self.source(),
             backing: None,
+            original: None,
         };
         let calibration = LiveCalibration::start(&setup, &instrument, CALIBRATION_LEAD_S)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
@@ -2219,6 +2221,15 @@ impl Core {
             .flatten();
         let played = separated.unwrap_or(song);
         Some((played, entry.backing_offset_s))
+    }
+
+    /// The backing track with its bass, when it plays without it: the mixer brings the bass
+    /// back from it (LH-BIB-09).
+    fn backing_original(&self) -> Option<PathBuf> {
+        let entry = self.library.entry(self.loaded_path()?)?;
+        let song = entry.backing.clone()?;
+        let separated = entry.backing_without_bass && self.without_bass(&song).is_some();
+        separated.then_some(song).filter(|p| p.exists())
     }
 
     /// File name of the chosen backing track (also when it plays without its bass).
@@ -2942,6 +2953,7 @@ impl Core {
             output_device: self.output_device(),
             source: self.source(),
             backing: None,
+            original: None,
         };
         let mut live_ear = LiveEar::start(&setup, &instrument)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
@@ -3672,6 +3684,7 @@ fn gains(settings: &Settings) -> Gains {
         tone: volume(settings.tone_volume),
         backing: volume(settings.backing_volume),
         drums: volume(settings.drums_volume),
+        bass: volume(settings.bass_volume),
         monitor: if settings.monitor {
             volume(settings.monitor_volume)
         } else {

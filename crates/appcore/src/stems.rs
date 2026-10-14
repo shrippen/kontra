@@ -413,9 +413,12 @@ mod tests {
         assert_ne!(played, song, "the separated file plays");
         assert_eq!(offset, 0.5, "with the same offset");
         assert_eq!(core.backing_name(), "Song.wav");
+        // The mixer can bring the removed bass back from the original.
+        assert_eq!(core.backing_original(), Some(song.clone()));
 
         core.remove_bass(false);
         assert_eq!(core.backing().unwrap().0, song);
+        assert_eq!(core.backing_original(), None);
         assert_eq!(state(&mut core)["state"], "off");
         // Cached: on again without a new separation.
         core.remove_bass(true);

@@ -3,8 +3,8 @@ import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import Kante
 
-// Mixer (LH-WIE-03, LH-MOD-05): volumes of backing track, metronome, reference tone and drums
-// (LH-LRN-01), and the bass played through Kontra (off by default: the interface's direct
+// Mixer (LH-WIE-03, LH-MOD-05): volumes of backing track (and its removed bass, LH-BIB-09),
+// metronome, reference tone and drums (LH-LRN-01), and the bass played through Kontra (off by default: the interface's direct
 // monitoring has no delay). While it plays, three tone bands and a compressor shape it
 // and warmth (LH-EIN-08); "Neutral" resets them.
 // Changes apply at once, also while playing. On the practice page and in the settings.
@@ -15,6 +15,9 @@ ColumnLayout {
     readonly property var texts: applicationWindow().texts
     // On the practice page: without the ear training's prompt, which plays only there (QA 13.10.).
     property bool practice: false
+    // The backing plays without its bass (LH-BIB-09): its original bass can come back quietly.
+    readonly property bool withoutBass: practice && ctl.stemsJson !== ""
+        && JSON.parse(ctl.stemsJson).state === "on"
 
     spacing: 0
 
@@ -52,6 +55,13 @@ ColumnLayout {
         title: mixer.texts.t("mixer.backing")
         bus: "backing"
         value: mixer.ctl.backingVolume
+    }
+    Volume {
+        visible: mixer.withoutBass
+        title: mixer.texts.t("mixer.bass")
+        hint: mixer.texts.t("mixer.bass.hint")
+        bus: "bass"
+        value: mixer.ctl.bassVolume
     }
     Volume {
         title: mixer.texts.t("mixer.metronome")
