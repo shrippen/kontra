@@ -8,7 +8,8 @@ steht nur, was offen ist und wo es liegt.
 Gemerged am 14.10.: #58–#63, #65, #66, #68 (Stufen), #69 (Runde 12), #70 (Seitenleiste), #72 (Fehlalarme, Werkstatt-
 Quote), #73 (PipeWire-Host, enthält #71 Songsterr-Suche), #74 (MIDI ohne Pegel), #75–#82 (Doku, Original-Bass-Regler,
 Mixer-Höhe, Griffbrett in Quiz/Gehör, Stimmung und Mikrofon schmal, Song-Suche schmal, englische Texte, QA-Runde
-14.10. Tag). #64 und #71 geschlossen (enthalten).
+14.10. Tag), #83 (STAND), #84 (Schleife beginnt neutral, Download-Ordner, Wochenzeit), #85 (kurze Stücke
+größer), #86 (Tags per Tastatur), #87 (Stimmgerät-Pfeiltasten). #64 und #71 geschlossen (enthalten).
 #67 (CI-Cache) stammt aus einer Kaiwa-Sitzung: nicht anfassen.
 
 - Kante #58 (1.35), #61 (1.36), #62 (1.37 Ghost Note), #63 (1.38 Transport-Kästchen), #64 (1.39 Schritte schmal) in
@@ -17,6 +18,10 @@ Mixer-Höhe, Griffbrett in Quiz/Gehör, Stimmung und Mikrofon schmal, Song-Suche
   binden (G9).
 
 ## Offen
+
+- **Speicherdialoge:** Vorschlag über `selectedFile`; der Qt-Ersatzdialog (Xvfb) zeigt ihn nicht, nativer KDE-Dialog
+  ungeprüft (Paket, Bericht, Daten).
+- **Gehörbildung Intervalle:** der erste Ton steht nur als Name da; ihn am Griffbrett zu zeigen wäre eine Hilfe (P1).
 
 - **Dauertest ohne Last** (Runde 12): in der nächsten Nacht allein, nach allen Builds, auf dem Solo; jetzt über den
   PipeWire-Host (#73) mit Puffer 128 und Echtzeit-Priorität. Vorher 55 Xruns in 60 min (Puffer 1024, Builds nebenher).
