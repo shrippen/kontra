@@ -699,9 +699,17 @@ Kirigami.Page {
             KanteTabStaff {
                 id: tabStaff
                 anchors.fill: parent
+                // A short piece (an exercise of 8 bars) needs fewer lines than fit: the staff grows
+                // up to half again instead of filling the top half only (QA 14.10., P1 at 1280 px).
+                readonly property real grow: {
+                    var system = KanteStyle.unit(170) * page.presentScale
+                    var perLine = Math.max(1, Math.floor((width - KanteStyle.unit(60)) / Math.max(1, minBarWidth)))
+                    var lines = Math.max(1, Math.ceil(page.bars.length / perLine))
+                    return Math.max(1, Math.min(1.5, height / (lines * system)))
+                }
                 // As many lines as fit (QA P2 R6: one line left the next bars hidden).
-                systems: Math.max(1, Math.floor(height / (KanteStyle.unit(170) * page.presentScale)))
-                lineSpacing: KanteStyle.unit(14) * page.presentScale
+                systems: Math.max(1, Math.floor(height / (KanteStyle.unit(170) * page.presentScale * grow)))
+                lineSpacing: KanteStyle.unit(14) * page.presentScale * grow
                 minBarWidth: Math.max(KanteStyle.unit(200), page.densestBar * page.tabNoteWidth)
                 visible: ctl.view === "tab"
                 strings: page.stringNames.length
@@ -722,9 +730,18 @@ Kirigami.Page {
                 // Two lines rather than one with room left under it, as long as their staff space
                 // keeps three quarters of the wanted one (QA 14.10., presentation at the beamer:
                 // two bars and a third of the screen empty).
+                // A short piece grows up to half again while all its lines still fit (QA 14.10.);
+                // a bar is 18 staff spaces wide, the clef and key about 8.
                 staffSpace: {
                     var wanted = KanteStyle.unit(10) * page.presentScale
-                    var line = height / (hasChords ? 16.5 : 14.5)
+                    var lineSpaces = hasChords ? 16.5 : 14.5
+                    for (var grown = wanted * 1.5; grown > wanted; grown -= wanted * 0.05) {
+                        var perLine = Math.max(1, Math.floor((width - grown * 8) / (grown * 18)))
+                        if (Math.ceil(page.bars.length / perLine) * lineSpaces * grown <= height) {
+                            return grown
+                        }
+                    }
+                    var line = height / lineSpaces
                     return Math.min(wanted, line / 2 >= wanted * 0.75 ? line / 2 : line)
                 }
                 // As many lines as fit, as in the tablature (QA 13.10.: one line, the rest empty).
