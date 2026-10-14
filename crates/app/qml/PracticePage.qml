@@ -862,18 +862,20 @@ Kirigami.Page {
             Layout.fillWidth: ctl.view === "keys" || page.slim
             // Kontra listens only while playing; before, "−∞ dB · too quiet" read as a fault
             // (QA 14.10.). The meter's place keeps a line saying when it shows.
+            // A MIDI keyboard has no level (P5): a line instead of "−∞ dB · too quiet".
+            readonly property bool midi: ctl.connection === "midi"
             QQC2.Label {
-                visible: !ctl.playing
+                visible: !ctl.playing || parent.midi
                 Layout.fillWidth: true
                 Layout.preferredHeight: meter.implicitHeight
                 verticalAlignment: Text.AlignVCenter
                 wrapMode: Text.WordWrap
-                text: texts.t("level.idle")
+                text: parent.midi ? texts.t("level.midi") : texts.t("level.idle")
                 color: KanteStyle.mutedTextColor
             }
             KanteLevelMeter {
                 id: meter
-                visible: ctl.playing
+                visible: ctl.playing && !parent.midi
                 Layout.fillWidth: true
                 peakDb: ctl.peakDb
                 rmsDb: ctl.rmsDb
@@ -887,7 +889,7 @@ Kirigami.Page {
             }
             LevelAdvice {
                 Layout.fillWidth: true
-                listening: ctl.playing
+                listening: ctl.playing && ctl.connection !== "midi"
                 onUseLaptopJack: ctl.changeConnection("laptop")
             }
             }
