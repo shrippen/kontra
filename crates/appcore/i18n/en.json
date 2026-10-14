@@ -563,6 +563,7 @@
   "quiz.interval.m7": "the minor seventh",
   "quiz.interval.octave": "the octave",
   "quiz.score": "{right} of {asked} found",
+  "ear.score": "{right} of {asked} without a mistake",
   "quiz.right": "Right! Here it is everywhere.",
   "quiz.played": "Heard: {note}",
   "quiz.next": "Next question",

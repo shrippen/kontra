@@ -563,6 +563,7 @@
   "quiz.interval.m7": "die kleine Septime",
   "quiz.interval.octave": "die Oktave",
   "quiz.score": "{right} von {asked} gefunden",
+  "ear.score": "{right} von {asked} ohne Fehler",
   "quiz.right": "Genau! Hier liegt er überall.",
   "quiz.played": "Gehört: {note}",
   "quiz.next": "Nächste Frage",

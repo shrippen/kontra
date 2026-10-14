@@ -2773,13 +2773,19 @@ impl Core {
 
     /// "3 of 4 found" over finished questions only: the open one is not lost yet (QA 13.10.: it
     /// read "0 of 1 found" before the first answer). Nothing before the first one is finished.
+    /// "3 of 4 found" (quiz: solved at all) or "3 of 4 without a mistake" (ear training: clean
+    /// answers only; QA 14.10.: "0 of 1 found" right after a correct answer on the fifth try).
     fn quiz_score(&self, right: u32, asked: u32, solved: bool) -> String {
+        self.score_text("quiz.score", right, asked, solved)
+    }
+
+    fn score_text(&self, key: &str, right: u32, asked: u32, solved: bool) -> String {
         let done = asked - u32::from(!solved && asked > 0);
         if done == 0 {
             return String::new();
         }
         self.tr(
-            "quiz.score",
+            key,
             &[("right", right.to_string()), ("asked", done.to_string())],
         )
     }
@@ -3053,7 +3059,7 @@ impl Core {
             "total": question.answer.len(),
             "played": played,
             "reveal": reveal,
-            "score": self.quiz_score(q.right, q.asked, q.solved),
+            "score": self.score_text("ear.score", q.right, q.asked, q.solved),
             "positions": positions,
             "silent": self.live_ear.as_ref().is_some_and(LiveEar::output_is_silent),
         })
