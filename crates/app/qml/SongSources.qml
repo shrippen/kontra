@@ -61,9 +61,11 @@ ColumnLayout {
 
     KanteSectionLabel { text: texts.t("search.title"); Layout.fillWidth: true }
 
+    // Wide: field, search and both browser buttons in one row. Slim: the browser buttons
+    // side by side below (one per line they stood alone in the middle, QA 14.10.).
     GridLayout {
         Layout.fillWidth: true
-        columns: sources.slim ? 1 : 4
+        columns: sources.slim ? 2 : 3
         KanteTextField {
             id: field
             Layout.fillWidth: true
@@ -74,26 +76,26 @@ ColumnLayout {
             Component.onCompleted: text = sources.songs.query || ""
         }
         KanteButton {
-            Layout.fillWidth: sources.slim
             text: texts.t("search.web.button")
             emphasis: KanteButton.Emphasis.Primary
             enabled: sources.songs.state !== "running"
             Accessible.name: texts.t("search.web.button.name")
             onClicked: sources.searchHere()
         }
-        KanteButton {
-            Layout.fillWidth: sources.slim
-            text: texts.t("search.songsterr")
-            emphasis: KanteButton.Emphasis.Quiet
-            Accessible.name: texts.t("search.songsterr.name")
-            onClicked: sources.search("songsterr")
-        }
-        KanteButton {
-            Layout.fillWidth: sources.slim
-            text: texts.t("search.musescore")
-            emphasis: KanteButton.Emphasis.Quiet
-            Accessible.name: texts.t("search.musescore.name")
-            onClicked: sources.search("musescore")
+        RowLayout {
+            Layout.columnSpan: sources.slim ? 2 : 1
+            KanteButton {
+                text: texts.t("search.songsterr")
+                emphasis: KanteButton.Emphasis.Quiet
+                Accessible.name: texts.t("search.songsterr.name")
+                onClicked: sources.search("songsterr")
+            }
+            KanteButton {
+                text: texts.t("search.musescore")
+                emphasis: KanteButton.Emphasis.Quiet
+                Accessible.name: texts.t("search.musescore.name")
+                onClicked: sources.search("musescore")
+            }
         }
     }
     QQC2.Label {
