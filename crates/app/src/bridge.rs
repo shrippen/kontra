@@ -303,6 +303,10 @@ pub mod qobject {
         fn setlist_add_loaded(self: Pin<&mut Self>, name: &QString);
 
         #[qinvokable]
+        #[cxx_name = "setlistAdd"]
+        fn setlist_add(self: Pin<&mut Self>, name: &QString, path: &QString);
+
+        #[qinvokable]
         #[cxx_name = "setlistRemove"]
         fn setlist_remove(self: Pin<&mut Self>, name: &QString, index: i32);
 
@@ -1575,6 +1579,12 @@ impl qobject::Controller {
 
     fn setlist_add_loaded(mut self: Pin<&mut Self>, name: &QString) {
         self.as_mut().core().setlist_add_loaded(&name.to_string());
+        self.as_mut().refresh_setlists();
+    }
+
+    fn setlist_add(mut self: Pin<&mut Self>, name: &QString, path: &QString) {
+        let path = PathBuf::from(path.to_string());
+        self.as_mut().core().setlist_add(&name.to_string(), &path);
         self.as_mut().refresh_setlists();
     }
 
