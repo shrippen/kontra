@@ -362,6 +362,17 @@ fn copy_over(from: &Path, to: &Path) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// One test at a time writes and starts a script: a child forked by another test can hold
+    /// the file still open for writing, and starting it fails with "Text file busy" (ETXTBSY),
+    /// as in `kontra_drivers::separator` (CI 14.10.: "failed" instead of "running").
+    static SCRIPTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn scripts() -> std::sync::MutexGuard<'static, ()> {
+        SCRIPTS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
     use crate::QaOptions;
 
     fn demo() -> PathBuf {
@@ -389,6 +400,7 @@ mod tests {
 
     #[test]
     fn backing_plays_without_bass_once_separated() {
+        let _scripts = scripts();
         let dir = temp_dir("stems");
         std::fs::create_dir_all(&dir).unwrap();
         let song = dir.join("Song.wav");
@@ -475,6 +487,7 @@ mod tests {
     /// QA P2 (J-D1, 14.10.): a failure with one song showed on every other piece.
     #[test]
     fn failure_stays_with_its_song() {
+        let _scripts = scripts();
         let (mut core, first, second) = two_pieces("stems-fail", "echo 'kaputt' >&2; exit 1");
         core.remove_bass(true);
         finish(&mut core);
@@ -495,9 +508,11 @@ mod tests {
     /// said nothing.
     #[test]
     fn says_when_another_song_is_separated() {
+        let _scripts = scripts();
         let (mut core, first, _) = two_pieces("stems-busy", "sleep 30");
         core.remove_bass(true);
-        assert_eq!(state(&mut core)["state"], "running");
+        let started = state(&mut core);
+        assert_eq!(started["state"], "running", "{started}");
 
         core.open(&first).unwrap();
         core.remove_bass(true);
@@ -514,6 +529,7 @@ mod tests {
     /// one for minutes.
     #[test]
     fn new_backing_stops_the_old_separation() {
+        let _scripts = scripts();
         let (mut core, _, _) = two_pieces("stems-swap", "sleep 30");
         core.remove_bass(true);
         assert!(core.stems.job.is_some());
