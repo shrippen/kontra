@@ -3117,6 +3117,13 @@ impl Core {
         // Once solved, where the answer lies; any octave for a chord's root.
         let instrument = self.instrument();
         let mut positions: Vec<serde_json::Value> = Vec::new();
+        // An interval's first note is named in the prompt: shown at once where it lies (QA
+        // 14.10., P1 found the start only by trying).
+        if let (ear::EarKind::Interval, Some(root)) = (q.kind, question.root) {
+            for (string, fret) in instrument.positions(root) {
+                positions.push(json!({ "string": string, "fret": fret, "role": "root" }));
+            }
+        }
         if q.solved {
             let wanted: Vec<kontra_model::Pitch> = match question.matching {
                 ear::Match::Exact => question.answer.clone(),

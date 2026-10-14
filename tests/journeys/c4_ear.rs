@@ -56,3 +56,21 @@ fn notes_during_the_prompt_do_not_count() {
     assert_eq!(next["played"].as_array().unwrap().len(), 0);
     core.ear_stop();
 }
+
+/// QA 14.10. (P1 Lea): an interval question names its first note; the fretboard shows where it
+/// lies (role "root"), so a beginner finds the start before playing the second.
+#[test]
+fn interval_shows_its_first_note() {
+    let profile = Profile::new("c4-interval");
+    let take = profile.dir.join("still.wav");
+    kontra_session::write_mono_wav(&take, &vec![0.0; RATE as usize], RATE).unwrap();
+    let mut core = profile.core(Some(&take));
+
+    let first: serde_json::Value =
+        serde_json::from_str(&core.ear_start("interval").unwrap()).unwrap();
+    assert_eq!(first["solved"], false);
+    let positions = first["positions"].as_array().unwrap();
+    assert!(!positions.is_empty(), "{first}");
+    assert!(positions.iter().all(|p| p["role"] == "root"), "{first}");
+    core.ear_stop();
+}
