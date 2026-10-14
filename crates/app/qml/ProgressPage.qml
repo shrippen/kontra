@@ -42,10 +42,12 @@ Kirigami.ScrollablePage {
     readonly property var lastWeek: days.slice(dayCount - 7)
     // Unrounded: a first run of 20 s is practice too (QA 13.10.: "not practised this week").
     readonly property real weekTime: lastWeek.reduce(function(s, d) { return s + d.minutes }, 0)
-    readonly property int weekMinutes: Math.max(1, Math.round(weekTime))
+    // Under a minute says so, like the pieces below (QA 14.10.: "1 min" above, "under 1 min" below).
+    readonly property string weekTimeText: weekTime < 1 ? texts.t("progress.underminute")
+                                                        : texts.t("progress.minutes", { minutes: Math.round(weekTime) })
     readonly property int weekDays: lastWeek.filter(function(d) { return d.minutes > 0 }).length
     readonly property string weekText: texts.t(weekDays === 1 ? "progress.week.oneday" : "progress.week",
-                                               { minutes: weekMinutes, days: weekDays })
+                                               { time: weekTimeText, days: weekDays })
 
     function reload() { data = JSON.parse(ctl.progressJson()) }
     function dateText(unix) {
