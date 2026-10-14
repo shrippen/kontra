@@ -94,6 +94,8 @@ pub struct Settings {
     pub count_in_bars: u32,
     pub view: String,
     pub mode: String,
+    /// The mode last chosen for an own piece; plan exercises open in "song" (round 12).
+    pub piece_mode: Option<String>,
     /// "kante", "kante-light" or "system".
     pub style: String,
     pub low_string_on_top: bool,
@@ -158,6 +160,7 @@ impl Default for Settings {
             count_in_bars: 1,
             view: "lane".into(),
             mode: "play".into(),
+            piece_mode: None,
             style: "kante".into(),
             low_string_on_top: false,
             play_marks: "quiet".into(),

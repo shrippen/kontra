@@ -27,6 +27,8 @@ const PAGES: [&str; 20] = [
 
 fn main() {
     CxxQtBuilder::new_qml_module(QmlModule::new("org.shrippen.kontra").qml_files(PAGES))
-        .files(["src/bridge.rs"])
+        .files(["src/bridge.rs", "src/translator.rs"])
+        .crate_include_root(Some("cpp".into()))
+        .cpp_file("cpp/translator.cpp")
         .build();
 }

@@ -183,6 +183,18 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
   91,2/81,2 %; eigene Aufnahmen unverändert (testdata/korpus/QUELLEN.md, „Tonhöhen-Revision“).
 - Hardware-Prüfung gemeinsam: am 13.10. begonnen (Abschnitt Hardware-Prüfung unter QA-Runden).
 
+## Entscheidungen Runde 12 (14.10.2026)
+
+- Zwei-Bund-Slides: Slide und Hammer-on/Pull-off zählen bis zwei Bünde füreinander (LH-BEW-06, umgesetzt).
+- Übungen aus dem Plan öffnen im „Durchlauf“ (Auswertung, „Nächste Übung“); eigene Stücke behalten den zuletzt für
+  sie gewählten Modus (umgesetzt, `Settings::piece_mode`).
+- Stufen: „Groove“ vor „Walking Bass“, Fortschritt zieht mit (eigener PR).
+- Songsterr: Suche aus Kontra heraus erlaubt, ein Klick öffnet weiterhin die Seite (eigener PR).
+- Dauertest ohne Last: in der nächsten Nacht allein, auf dem Solo, nach allen Builds.
+- Kirigami folgt Kontras Sprache: Kontra installiert Kirigamis Qt-Übersetzung beim Start (`cpp/translator.cpp`);
+  vorher stand „Close Sidebar“ auch auf deutschen Systemen (umgesetzt; Sprachwechsel wirkt bei Kirigami nach Neustart).
+- Neue pub-Schnittstellen der Nacht freigegeben.
+
 ## Didaktik: wie Kontra Bass vermittelt (laufend, alle Phasen)
 
 Ziel: nicht nur Noten abfragen, sondern herausfinden, welche Wege zum
