@@ -101,6 +101,16 @@ jobs:
             /opt/kf6
             /opt/qt-tools
           key: qt-6.10.3-kf-6.30.0
+      # The Rust build of the app, as in the core job: without it clippy, the tests and the
+      # release build for the screenshots compiled everything anew in every run (about 8 min
+      # of a 20–30 min job, the longest on the shared runner).
+      - uses: actions/cache@v4
+        continue-on-error: true
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+          key: app-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
       - name: Qt, Kirigami and system libraries
         run: |
           SUDO=$(command -v sudo || true)
