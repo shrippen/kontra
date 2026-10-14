@@ -12,6 +12,7 @@ pub mod level;
 mod package;
 pub mod quiz;
 mod report;
+mod songsterr;
 mod sources;
 mod stems;
 mod store;
@@ -217,6 +218,8 @@ pub struct Core {
     stems: stems::Stems,
     /// Where the browser saves downloads (LH-BIB-11).
     downloads: Option<PathBuf>,
+    /// Songsterr search (LH-BIB-11, round 12).
+    finder: songsterr::Finder,
 }
 
 impl Core {
@@ -238,6 +241,7 @@ impl Core {
             started_at: std::time::Instant::now(),
             stems: stems::Stems::default(),
             downloads: kontra_session::download_dir(),
+            finder: songsterr::Finder::default(),
             notice: None,
             active_setlist: None,
             lost: None,

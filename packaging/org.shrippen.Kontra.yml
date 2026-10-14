@@ -16,6 +16,10 @@ finish-args:
   # Audio through PipeWire/PulseAudio (ALSA in the runtime routes there). No home access:
   # files are opened through the portal file dialog.
   - --socket=pulseaudio
+  # Songsterr search on request (LH-BIB-11, round 12); "New in Downloads" reads the download
+  # folder, nothing else of the home folder.
+  - --share=network
+  - --filesystem=xdg-download:ro
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin
   env:

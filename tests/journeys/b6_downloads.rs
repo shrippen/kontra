@@ -1,9 +1,92 @@
-//! J-B6 Song aus dem Netz (P2 Jens, P3 Mira, P1 Lea): search page for the browser, the
-//! downloaded file under "New in Downloads", a MuseScore file dropped onto the library.
+//! J-B6 Song aus dem Netz (P2 Jens, P3 Mira, P1 Lea): Songsterr search in Kontra (a fake web,
+//! never the network), search page for the browser, the downloaded file under "New in
+//! Downloads", a MuseScore file dropped onto the library.
 
 use crate::common::{write_midi, Profile};
-use kontra_appcore::{Opened, PackageAudio};
+use kontra_appcore::{Core, Opened, PackageAudio};
+use kontra_session::{Http, HttpError};
 use serde_json::Value;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+/// Songsterr's answer for "seven nation army" (14.10.2026, shortened).
+const SONGSTERR: &str = r#"[
+  {"songId":265,"artist":"The White Stripes","title":"Seven Nation Army","tracks":[
+    {"instrumentId":29,"tuning":[64,59,55,50,45,40]},{"instrumentId":1024}],"isJunk":false},
+  {"songId":397405,"artist":"The White Stripes","title":"Seven Nation Army (With Bass Guitar)",
+   "tracks":[{"instrumentId":29},{"instrumentId":33,"tuning":[43,38,33,28]}],"popularTrackBass":1}
+]"#;
+
+/// A web that answers from memory and counts requests.
+#[derive(Debug)]
+struct FakeWeb {
+    answer: Result<Vec<u8>, HttpError>,
+    urls: Mutex<Vec<String>>,
+}
+
+impl Http for FakeWeb {
+    fn get(&self, url: &str) -> Result<Vec<u8>, HttpError> {
+        self.urls.lock().unwrap().push(url.to_string());
+        self.answer.clone()
+    }
+}
+
+/// Ticks like the UI until the search is done; its JSON, `None` after 5 s.
+fn finished(core: &mut Core) -> Option<Value> {
+    let start = Instant::now();
+    while start.elapsed() < Duration::from_secs(5) {
+        if let Some(json) = core.song_search_poll() {
+            return serde_json::from_str(&json).ok();
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    None
+}
+
+#[test]
+fn search_songsterr_in_kontra() {
+    let profile = Profile::new("b6-songsterr");
+    let mut core = profile.core(None);
+    let web = Arc::new(FakeWeb {
+        answer: Ok(SONGSTERR.as_bytes().to_vec()),
+        urls: Mutex::new(Vec::new()),
+    });
+    core.set_song_http(web.clone());
+
+    // Step 1: one request on Enter; a second one while it runs sends nothing.
+    let running: Value = serde_json::from_str(&core.song_search("seven nation army")).unwrap();
+    assert_eq!(running["state"], "running");
+    core.song_search("seven nation army");
+    let done = finished(&mut core).expect("search finishes");
+    assert_eq!(web.urls.lock().unwrap().len(), 1);
+    assert_eq!(done["state"], "done");
+
+    // Title, artist, bass in words (P7), the page of the bass track for the browser.
+    let hits = done["hits"].as_array().unwrap();
+    assert_eq!(hits.len(), 2);
+    assert_eq!(hits[0]["bass"], false);
+    assert_eq!(hits[0]["detail"], "ohne Bassspur");
+    assert_eq!(hits[1]["detail"], "Bass: E A D G");
+    assert!(hits[1]["url"]
+        .as_str()
+        .unwrap()
+        .starts_with("https://www.songsterr.com/a/wsa/"));
+    assert!(hits[1]["url"].as_str().unwrap().ends_with("-tab-s397405t1"));
+
+    // Step 5: offline the reason is named; nothing else breaks.
+    core.set_song_http(Arc::new(FakeWeb {
+        answer: Err(HttpError::Offline("no route".into())),
+        urls: Mutex::new(Vec::new()),
+    }));
+    core.song_search("seven nation army");
+    let failed = finished(&mut core).expect("search finishes");
+    assert_eq!(failed["state"], "error");
+    assert!(failed["message"]
+        .as_str()
+        .unwrap()
+        .starts_with("Keine Verbindung"));
+    assert!(failed["hits"].as_array().unwrap().is_empty());
+}
 
 /// A five-string bass line as MuseScore 4 saves it (trimmed): two bars with tab.
 const MSCX: &str = r#"<?xml version="1.0" encoding="UTF-8"?>

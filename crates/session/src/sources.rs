@@ -8,7 +8,8 @@
 //! Library ◄── open ◄── recent_scores(download_dir()) ◄───────┘
 //! ```
 //!
-//! Kontra itself fetches nothing: both sites forbid automated access (terms, robots.txt).
+//! Kontra downloads no files: both sites forbid it (terms, robots.txt). Only Songsterr's search
+//! is asked from Kontra itself, on the owner's decision (round 12, `songsterr.rs`).
 
 use kontra_content::FileKind;
 use kontra_engine::RecentFile;
@@ -56,7 +57,7 @@ pub fn search_url(site: SongSite, query: &str) -> Option<String> {
 }
 
 /// URL query encoding: unreserved characters stay, every other byte becomes `%XX`.
-fn percent_encode(text: &str) -> String {
+pub(crate) fn percent_encode(text: &str) -> String {
     let mut out = String::with_capacity(text.len() * 3);
     for byte in text.bytes() {
         let unreserved = byte.is_ascii_alphanumeric() || b"-_.~".contains(&byte);

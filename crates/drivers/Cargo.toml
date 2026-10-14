@@ -4,6 +4,7 @@ description = "Raw I/O for Kontra: audio devices (cpal), audio file decoding and
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 publish.workspace = true
 
 [dependencies]
@@ -19,6 +20,9 @@ minimp3 = "0.6"
 midir = "0.11"
 # MIDI files as recorded input for QA journeys (Unlicense; content uses it for import).
 midly = { version = "0.5.3", default-features = false, features = ["std"] }
+# HTTPS for the Songsterr search (LH-BIB-11, round 12; MIT/Apache-2.0): rustls with ring,
+# the system's certificates through rustls-platform-verifier (webpki-roots is CDLA, not allowed).
+ureq = { version = "3.4", default-features = false, features = ["rustls-no-provider", "_ring", "platform-verifier"] }
 
 # alsa-lib's own error print, silenced while probing devices (MIT; already in the tree under
 # cpal and midir, same version).
