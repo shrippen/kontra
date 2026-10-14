@@ -14,6 +14,7 @@
 mod args;
 mod bridge;
 mod sync_check;
+mod translator;
 
 use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QString, QUrl};
 use std::path::PathBuf;
@@ -25,6 +26,11 @@ const MAIN_QML: &str = "qrc:/qt/qml/org/shrippen/kontra/qml/Main.qml";
 
 fn main() {
     let mut app = QGuiApplication::new();
+    // Kirigami's own texts in Kontra's language (round 12: "Close Sidebar" in German Kontra).
+    let language = args::AppArgs::from_env()
+        .language
+        .unwrap_or_else(|| kontra_appcore::startup_language(&kontra_appcore::data_dir()).into());
+    translator::ffi::install_kirigami_translator(&language);
     let mut engine = QQmlApplicationEngine::new();
     if let Some(mut app) = app.as_mut() {
         app.as_mut().set_application_name(&QString::from("Kontra"));

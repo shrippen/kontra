@@ -1632,6 +1632,9 @@ impl qobject::Controller {
             Ok(Opened::Ready) => {
                 self.as_mut().set_track_choices_json(q("[]"));
                 self.as_mut().refresh_arrangement();
+                // Opening may change the mode (plan exercises: run-through, round 12).
+                let mode = self.as_ref().rust().core.settings().mode.clone();
+                self.as_mut().set_mode(q(&mode));
                 if let Some(notice) = self.as_mut().core().take_notice() {
                     self.as_mut().set_message(q(&notice));
                 }

@@ -219,6 +219,21 @@ pub struct Core {
     downloads: Option<PathBuf>,
 }
 
+/// The UI language before the app starts ("de" or "en"): as set in the settings of `data_dir`,
+/// else the environment's. Kirigami's own texts follow it (round 12: "Close Sidebar" in a German
+/// Kontra on an English system).
+pub fn startup_language(data_dir: &Path) -> &'static str {
+    let settings: Settings = store::load(&data_dir.join("settings.json"));
+    let language = settings
+        .language
+        .as_deref()
+        .map_or_else(Language::from_environment, Language::from_code);
+    match language {
+        Language::German => "de",
+        Language::English => "en",
+    }
+}
+
 impl Core {
     pub fn new(data_dir: &Path, qa: QaOptions) -> Core {
         let settings: Settings = store::load(&data_dir.join("settings.json"));
@@ -1087,6 +1102,15 @@ impl Core {
             return self.open_package(path).map(|()| Opened::Ready);
         }
         let imported = import_file(path).map_err(|e| self.import_error(&e))?;
+        // Round 12: plan exercises in a run-through, own pieces in the mode last chosen for them.
+        let mode = if self.is_bundled(path) {
+            Some(PLAN_MODE.to_string())
+        } else {
+            self.settings.piece_mode.clone()
+        };
+        if let Some(mode) = mode {
+            self.update_settings(|s| s.mode = mode);
+        }
         // Without a clear bass track, the one chosen last time (still in the file) counts.
         let chosen = self
             .library
@@ -1415,7 +1439,13 @@ impl Core {
     }
 
     pub fn set_mode(&mut self, mode: &str) {
-        self.reconfigure(|s| s.mode = mode.to_string());
+        let own = self.loaded_path().is_some_and(|p| !self.is_bundled(p));
+        self.reconfigure(|s| {
+            s.mode = mode.to_string();
+            if own {
+                s.piece_mode = Some(mode.to_string());
+            }
+        });
     }
 
     /// Loops bars `from..=to` (indices into the arrangement's bars).
@@ -2597,12 +2627,16 @@ impl Core {
             .unwrap_or_else(|| entry.title.clone())
     }
 
+    /// A file of the bundled plan (exercises dir / level / file).
+    fn is_bundled(&self, path: &Path) -> bool {
+        path.parent()
+            .and_then(Path::parent)
+            .is_some_and(|dir| dir == Self::exercises_dir())
+    }
+
     /// The title of a bundled exercise in the UI's language; `None` for any other file.
     fn plan_title(&self, path: &Path) -> Option<String> {
-        let bundled = path
-            .parent()
-            .and_then(Path::parent)
-            .is_some_and(|dir| dir == Self::exercises_dir());
+        let bundled = self.is_bundled(path);
         let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned());
         bundled
             .then_some(stem)
@@ -3125,6 +3159,8 @@ impl Core {
 const HISTORY_DAYS: u64 = 30;
 /// Days the start page sums up as "this week".
 const WEEK_DAYS: u64 = 7;
+/// Plan exercises open in a run-through: evaluation and "next exercise" at the end (round 12).
+const PLAN_MODE: &str = "song";
 /// "Spots from yesterday": runs of the last days count, the last hours wait (one night).
 const SPOT_DAYS: u64 = 3;
 const SPOT_REST_S: u64 = 8 * 60 * 60;
@@ -4818,6 +4854,28 @@ mod tests {
             lists[0]["pieces"].as_array().unwrap().len(),
             1,
             "only library pieces"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Round 12: plan exercises open in a run-through (with the evaluation and "next exercise");
+    /// own pieces get back the mode last chosen for them.
+    #[test]
+    fn plan_exercises_open_in_a_run_through() {
+        let dir = temp_dir("planmode");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let exercise = PathBuf::from(levels[0]["items"][0]["path"].as_str().unwrap());
+        core.open(&Core::demo_path()).unwrap();
+        core.set_mode("workshop");
+        core.open(&exercise).unwrap();
+        assert_eq!(core.settings().mode, "song");
+        core.set_mode("wait");
+        core.open(&Core::demo_path()).unwrap();
+        assert_eq!(
+            core.settings().mode,
+            "workshop",
+            "the own piece's mode comes back"
         );
         let _ = std::fs::remove_dir_all(dir);
     }

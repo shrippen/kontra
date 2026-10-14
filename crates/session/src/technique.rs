@@ -111,18 +111,19 @@ struct Target {
     step: u8,
 }
 
-/// Up to this many semitones a slide and a hammer-on or pull-off sound alike (round 11).
-const ONE_FRET: u8 = 1;
+/// Up to this many semitones a slide and a hammer-on or pull-off count for each other: one fret
+/// (round 11, nothing tells them apart), two (round 12, real slides heard as hammer-ons).
+const LEGATO_FRETS: u8 = 2;
 
 impl Target {
-    /// What counts as played: the technique, and over one fret a slide for a hammer-on or
-    /// pull-off and back (the pitch jumps as fast; nothing tells them apart, round 11).
+    /// What counts as played: the technique, and over up to two frets a slide for a hammer-on
+    /// or pull-off and back (rounds 11 and 12).
     fn outcome(&self, played: Option<Technique>) -> TechniqueOutcome {
         let Some(technique) = played else {
             return TechniqueOutcome::Other(None);
         };
         let legato = |t: Technique| matches!(t, Technique::HammerOn | Technique::PullOff);
-        let twins = self.step <= ONE_FRET
+        let twins = self.step <= LEGATO_FRETS
             && ((self.technique == Technique::Slide && legato(technique))
                 || (legato(self.technique) && technique == Technique::Slide));
         if technique == self.technique || twins {
@@ -505,9 +506,9 @@ mod tests {
     }
 
     /// Round 11: a slide over one fret sounds like a hammer-on (0–22 ms to the next note); each
-    /// counts for the other. Over more frets they stay apart.
+    /// counts for the other; round 12: over two frets too. Over more they stay apart.
     #[test]
-    fn one_fret_slide_and_hammer_on_count_for_each_other() {
+    fn short_slide_and_hammer_on_count_for_each_other() {
         let mut a = piece();
         a.notes[1].pitch = Pitch(29);
         a.notes[2].pitch = Pitch(30);
@@ -520,6 +521,15 @@ mod tests {
             .judge_legato(0, 1.0, 30.0, Some(Technique::Slide), 0.06)
             .unwrap();
         assert!(h.is_played(), "{h:?}");
+
+        // Round 12: two frets too (hardware check 13.10.: A5 → A7 heard as hammer-ons).
+        let mut a = piece();
+        a.notes[1].pitch = Pitch(30);
+        let mut j = TechniqueJudge::new(&a, InputSource::Line);
+        let two = j
+            .judge_struck(0, 1, Some(Some(Technique::HammerOn)))
+            .unwrap();
+        assert!(two.is_played(), "{two:?}");
 
         let mut j = TechniqueJudge::new(&piece(), InputSource::Line);
         let far = j
