@@ -144,7 +144,7 @@ Erwartet: Notensatz wie in MuseScore; Streuung in ms; generierte Übung speicher
 1. Lea: Seite „Gehör“ (Strg+9), „Nachspielen“; den Ton noch während der Vorgabe mitspielen, dann einen falschen, dann den richtigen.
 2. Drei Fragen in Folge ohne Fehler; die nächste Linie hat zwei Töne. Ein Fehler, die Linie wird wieder kürzer.
 3. Mira: „Intervalle“ und „Grundton“ je fünf Fragen, einmal „Nochmal hören“, „Vorspielen“ leiser stellen.
-Erwartet: Töne während der Vorgabe zählen nicht; jeder gespielte Ton hat Haken oder Kreuz, ein falscher sagt „zu hoch“ oder „zu tief“; gelöst nennt Kontra, was es war (Töne, Intervall, Akkord) und zeigt, wo es am Griffbrett liegt; beim Grundton zählt jede Oktave; ohne Ausgang ein Hinweis statt Stille.
+Erwartet: Töne während der Vorgabe zählen nicht; jeder gespielte Ton hat Haken oder Kreuz, ein falscher sagt „zu hoch“ oder „zu tief“; gelöst nennt Kontra, was es war (Töne, Intervall, Akkord) und zeigt, wo es am Griffbrett liegt; beim Grundton zählt jede Oktave; bei Intervallen zeigt das Griffbrett den ersten Ton schon vor der Antwort (Raute); ohne Ausgang ein Hinweis statt Stille.
 
 **J-C5 Techniken üben** ⚙ · Personas: P3 Mira, P4 Thomas · Phase 4 · LH-BEW-06
 1. Mira: Groove aus MuseScore (MusicXML) mit Hammer-on, Pull-off, Slide, Dead Notes (x) und einer Ghost Note ( ), Modus „Durchlauf“.
