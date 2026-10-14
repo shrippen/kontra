@@ -23,7 +23,7 @@ jobs:
       - name: System libraries
         run: |
           SUDO=$(command -v sudo || true)
-          $SUDO apt-get update -qq && $SUDO apt-get install -y -qq libasound2-dev pkg-config curl build-essential
+          $SUDO apt-get update -qq && $SUDO apt-get install -y -qq libasound2-dev libpipewire-0.3-dev libclang-dev pkg-config curl build-essential
       - name: Rust
         run: |
           # The runner image has no rustup: install it (stable, minimal).
@@ -104,7 +104,7 @@ jobs:
       - name: Qt, Kirigami and system libraries
         run: |
           SUDO=$(command -v sudo || true)
-          $SUDO apt-get update -qq && $SUDO apt-get install -y -qq libasound2-dev pkg-config curl build-essential
+          $SUDO apt-get update -qq && $SUDO apt-get install -y -qq libasound2-dev libpipewire-0.3-dev libclang-dev pkg-config curl build-essential
           $SUDO scripts/setup-qt-env.sh
       - name: Rust
         run: |

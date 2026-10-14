@@ -5,6 +5,8 @@ mod audio;
 mod file;
 mod folder;
 mod midi;
+#[cfg(target_os = "linux")]
+mod pipewire;
 mod separator;
 
 pub use audio::{

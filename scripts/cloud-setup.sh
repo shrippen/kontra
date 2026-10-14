@@ -22,7 +22,7 @@ log() { printf '\n== %s\n' "$*"; }
 log "system packages"
 DEBIAN_FRONTEND=noninteractive apt-get update -qq \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-        libasound2-dev pkg-config build-essential curl git xz-utils
+        libasound2-dev libpipewire-0.3-dev libclang-dev pkg-config build-essential curl git xz-utils
 
 log "rust"
 if ! command -v rustup >/dev/null 2>&1; then

@@ -2,6 +2,8 @@
 //! block. Input is delivered as mono f32 (the chosen channel or the loudest), output as
 //! interleaved f32.
 
+#[cfg(target_os = "linux")]
+use crate::pipewire::Graph;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::fmt;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -78,6 +80,47 @@ impl LateCheck {
     }
 }
 
+/// Real-time priority of the audio thread: below PipeWire's own data thread (88), above
+/// everything else Kontra runs.
+#[cfg(target_os = "linux")]
+const REALTIME_PRIORITY: i32 = 80;
+
+/// Asks, in the first callback, for real-time scheduling of the audio thread. Without it a busy
+/// system made the PipeWire host lose blocks at 128 frames (14.10.: up to 16 xruns per loopback
+/// run, round trip spread 13 ms; with it 0 xruns). Granted when the user may (RLIMIT_RTPRIO,
+/// e.g. the "realtime" group); otherwise nothing changes. One system call, no allocation.
+#[derive(Debug, Default)]
+struct Realtime {
+    asked: bool,
+}
+
+impl Realtime {
+    fn once(&mut self) {
+        if self.asked {
+            return;
+        }
+        self.asked = true;
+        promote_thread();
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[allow(unsafe_code)]
+fn promote_thread() {
+    let param = libc::sched_param {
+        sched_priority: REALTIME_PRIORITY,
+    };
+    // SAFETY: changes only the calling thread's (0) scheduling; `param` is a valid, initialised
+    // struct that outlives the call. A refusal (EPERM) is returned, not raised. Child processes
+    // (the stem separator) do not inherit it (RESET_ON_FORK).
+    unsafe {
+        libc::sched_setscheduler(0, libc::SCHED_FIFO | libc::SCHED_RESET_ON_FORK, &param);
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn promote_thread() {}
+
 #[derive(Debug, Error)]
 pub enum AudioError {
     #[error("no audio device found for {0:?}")]
@@ -123,10 +166,11 @@ pub struct StreamConfig {
     pub input_channel: Option<u16>,
 }
 
-/// Lists input or output devices of the default host.
+/// Lists input or output devices of the audio host (PipeWire nodes, else ALSA devices), the
+/// interfaces first (LH-EIN-02).
 pub fn list_devices(direction: Direction) -> Vec<DeviceInfo> {
     let _quiet = QuietAlsa::new();
-    let host = cpal::default_host();
+    let host = host();
     let default_id = match direction {
         Direction::Input => host.default_input_device(),
         Direction::Output => host.default_output_device(),
@@ -137,11 +181,55 @@ pub fn list_devices(direction: Direction) -> Vec<DeviceInfo> {
         Direction::Input => host.input_devices().map(|d| d.collect::<Vec<_>>()),
         Direction::Output => host.output_devices().map(|d| d.collect::<Vec<_>>()),
     };
-    devices
+    let mut list: Vec<DeviceInfo> = devices
         .unwrap_or_default()
         .iter()
         .filter_map(|d| describe(d, direction, default_id.as_deref()))
+        .collect();
+    // Read while `host` lives: it keeps the PipeWire library initialised.
+    #[cfg(target_os = "linux")]
+    if host.id() == cpal::HostId::PipeWire {
+        if let Some(graph) = Graph::read() {
+            list = pipewire_devices(list, &graph);
+        }
+    }
+    interfaces_first(&mut list);
+    list
+}
+
+/// Device id prefix of the PipeWire host; the rest is the node name, which stays the same
+/// across restarts ("pipewire:alsa_input.usb-Focusrite_Scarlett_Solo_USB-00.analog-stereo").
+#[cfg(target_os = "linux")]
+const PIPEWIRE_PREFIX: &str = "pipewire:";
+
+/// cpal's PipeWire list, cut to what the graph says: sources (or duplex nodes) for input, sinks
+/// for output; no sink monitors, no other programs' streams, no stand-ins for the defaults
+/// ("input_default"); the default is the node the system uses now.
+#[cfg(target_os = "linux")]
+fn pipewire_devices(listed: Vec<DeviceInfo>, graph: &Graph) -> Vec<DeviceInfo> {
+    listed
+        .into_iter()
+        .filter_map(|mut device| {
+            let node = device.id.strip_prefix(PIPEWIRE_PREFIX)?;
+            if !graph.serves(node, device.direction) {
+                return None;
+            }
+            device.is_default = graph.is_default(node, device.direction);
+            Some(device)
+        })
         .collect()
+}
+
+/// Interfaces (USB) first, then the built-in card, Bluetooth last; otherwise as listed.
+fn interfaces_first(list: &mut [DeviceInfo]) {
+    let rank = |connection: Connection| match connection {
+        Connection::Usb => 0,
+        Connection::BuiltIn => 1,
+        Connection::Other => 2,
+        Connection::Hdmi => 3,
+        Connection::Bluetooth => 4,
+    };
+    list.sort_by_key(|d| rank(d.connection));
 }
 
 /// Probing every ALSA device makes alsa-lib print to stderr for those that cannot open (the
@@ -247,13 +335,30 @@ fn guess_connection(name: &str) -> Connection {
     Connection::Other
 }
 
+/// Environment variable that forces ALSA ("alsa"), e.g. to compare with PipeWire.
+const HOST_VARIABLE: &str = "KONTRA_AUDIO_HOST";
+
+/// PipeWire when it runs (cpal finds its socket and nodes), else ALSA, e.g. without PipeWire
+/// or in a sandbox without the socket.
+fn host() -> cpal::Host {
+    if std::env::var(HOST_VARIABLE).as_deref() == Ok("alsa") {
+        if let Ok(alsa) = cpal::host_from_id(cpal::HostId::Alsa) {
+            return alsa;
+        }
+    }
+    cpal::default_host()
+}
+
+/// The device with `id`; `None` is the system default. An id of another host (an ALSA choice
+/// saved before PipeWire was used) also means the default.
 fn find_device(direction: Direction, id: Option<&str>) -> Result<cpal::Device, AudioError> {
-    let host = cpal::default_host();
+    let host = host();
     let fallback = || match direction {
         Direction::Input => host.default_input_device(),
         Direction::Output => host.default_output_device(),
     };
-    let Some(id) = id else {
+    let own = id.filter(|id| same_host(id, host.id()));
+    let Some(id) = own else {
         return fallback().ok_or(AudioError::NoDevice(direction));
     };
     let devices = match direction {
@@ -265,6 +370,13 @@ fn find_device(direction: Direction, id: Option<&str>) -> Result<cpal::Device, A
         .into_iter()
         .find(|d| d.id().map(|i| i.to_string() == id).unwrap_or(false))
         .ok_or(AudioError::NoDevice(direction))
+}
+
+/// Whether a saved id ("alsa:hw:2,0", "pipewire:alsa_input…") belongs to `host`.
+fn same_host(id: &str, host: cpal::HostId) -> bool {
+    id.parse::<cpal::DeviceId>()
+        .map(|parsed| parsed.host() == host)
+        .unwrap_or(false)
 }
 
 fn device_error(device: &cpal::Device, error: impl fmt::Display) -> AudioError {
@@ -293,10 +405,24 @@ fn stream_config(
         sample_rate: wanted.sample_rate.unwrap_or(default.sample_rate()),
         buffer_size: buffer_size(wanted.buffer_frames, default.buffer_size()),
     };
-    if config.buffer_size != cpal::BufferSize::Default && !accepts(device, direction, &config) {
+    // PipeWire takes any block in its quantum range (cpal checks it) as a wish (node.latency).
+    let probe = !is_pipewire(device) && config.buffer_size != cpal::BufferSize::Default;
+    if probe && !accepts(device, direction, &config) {
         config.buffer_size = cpal::BufferSize::Default;
     }
     Ok(config)
+}
+
+#[cfg(target_os = "linux")]
+fn is_pipewire(device: &cpal::Device) -> bool {
+    device
+        .id()
+        .is_ok_and(|id| id.host() == cpal::HostId::PipeWire)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn is_pipewire(_: &cpal::Device) -> bool {
+    false
 }
 
 /// Whether the device opens with this config. Devices may report wider limits than they take:
@@ -376,7 +502,9 @@ impl InputStream {
         let xruns = XrunCounter::default();
         let mut late = LateCheck::new(&xruns);
         let rate = stream_config.sample_rate;
+        let mut realtime = Realtime::default();
         let callback = move |data: &[f32], _: &cpal::InputCallbackInfo| {
+            realtime.once();
             late.block(data.len() / channels, rate);
             for chunk in data.chunks(MAX_BLOCK * channels) {
                 let frames = chunk.len() / channels;
@@ -527,7 +655,9 @@ impl OutputStream {
         let xruns = XrunCounter::default();
         let mut late = LateCheck::new(&xruns);
         let rate = stream_config.sample_rate;
+        let mut realtime = Realtime::default();
         let callback = move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+            realtime.once();
             late.block(data.len() / channels, rate);
             fill(data, channels);
         };
@@ -634,6 +764,103 @@ mod tests {
         assert_eq!(buffer_size(None, &range), cpal::BufferSize::Default);
         let unknown = cpal::SupportedBufferSize::Unknown;
         assert_eq!(buffer_size(Some(128), &unknown), cpal::BufferSize::Default);
+    }
+
+    fn device(id: &str, direction: Direction, connection: Connection) -> DeviceInfo {
+        DeviceInfo {
+            id: id.into(),
+            name: id.into(),
+            direction,
+            is_default: false,
+            connection,
+            sample_rate: 48_000,
+            channels: 2,
+        }
+    }
+
+    // Hardware check 13.10. (H8): the Scarlett could not be chosen next to another default.
+    // PipeWire lists it by node; sink monitors, program streams and the stand-ins go.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn pipewire_lists_sources_as_inputs() {
+        use crate::pipewire::NodeClass;
+        let scarlett = "pipewire:alsa_input.usb-Focusrite_Scarlett_Solo_USB-00.analog-stereo";
+        let graph = Graph::fake(
+            &[
+                (
+                    "alsa_input.pci-0000_12_00.4.analog-stereo",
+                    NodeClass::Source,
+                ),
+                (
+                    "alsa_input.usb-Focusrite_Scarlett_Solo_USB-00.analog-stereo",
+                    NodeClass::Source,
+                ),
+                (
+                    "alsa_output.pci-0000_12_00.4.iec958-stereo",
+                    NodeClass::Sink,
+                ),
+            ],
+            Some("alsa_input.pci-0000_12_00.4.analog-stereo"),
+            Some("alsa_output.pci-0000_12_00.4.iec958-stereo"),
+        );
+        let listed = vec![
+            device(
+                "pipewire:input_default",
+                Direction::Input,
+                Connection::Other,
+            ),
+            device(
+                "pipewire:alsa_output.pci-0000_12_00.4.iec958-stereo",
+                Direction::Input,
+                Connection::BuiltIn,
+            ),
+            device(
+                "pipewire:alsa_input.pci-0000_12_00.4.analog-stereo",
+                Direction::Input,
+                Connection::BuiltIn,
+            ),
+            device(scarlett, Direction::Input, Connection::Usb),
+            device("pipewire:mpv", Direction::Input, Connection::Other),
+        ];
+        let mut list = pipewire_devices(listed, &graph);
+        interfaces_first(&mut list);
+        let ids: Vec<_> = list.iter().map(|d| d.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            [
+                scarlett,
+                "pipewire:alsa_input.pci-0000_12_00.4.analog-stereo"
+            ]
+        );
+        assert!(!list[0].is_default && list[1].is_default);
+    }
+
+    #[test]
+    fn interfaces_come_first() {
+        let mut list = vec![
+            device("bt", Direction::Output, Connection::Bluetooth),
+            device("card", Direction::Output, Connection::BuiltIn),
+            device("hdmi", Direction::Output, Connection::Hdmi),
+            device("solo", Direction::Output, Connection::Usb),
+        ];
+        interfaces_first(&mut list);
+        let ids: Vec<_> = list.iter().map(|d| d.id.as_str()).collect();
+        assert_eq!(ids, ["solo", "card", "hdmi", "bt"]);
+    }
+
+    // An ALSA choice saved before PipeWire was used means the default, not "no device".
+    #[test]
+    fn ids_belong_to_their_host() {
+        assert!(same_host("alsa:hw:CARD=2,DEV=0", cpal::HostId::Alsa));
+        assert!(!same_host(
+            "alsa:sysdefault:CARD=USB",
+            cpal::HostId::PipeWire
+        ));
+        assert!(same_host(
+            "pipewire:alsa_input.usb-x",
+            cpal::HostId::PipeWire
+        ));
+        assert!(!same_host("Scarlett", cpal::HostId::Alsa));
     }
 
     #[test]

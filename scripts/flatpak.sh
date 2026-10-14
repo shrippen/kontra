@@ -14,7 +14,8 @@ mkdir -p "$OUT"
 
 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak install --user -y --noninteractive flathub \
-    org.kde.Sdk//6.10 org.kde.Platform//6.10 org.freedesktop.Sdk.Extension.rust-stable//25.08
+    org.kde.Sdk//6.10 org.kde.Platform//6.10 org.freedesktop.Sdk.Extension.rust-stable//25.08 \
+    org.freedesktop.Sdk.Extension.llvm20//25.08
 
 # The build has no network: vendor all crates and point cargo at them.
 cargo vendor --locked --versioned-dirs vendor > packaging/cargo-vendor.toml

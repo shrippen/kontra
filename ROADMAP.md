@@ -311,6 +311,22 @@ Die Trennung entfernt den Bass: der Unterschied zum Original korreliert mit 0,94
 
 - H1 (hoch, behoben): Rundlauf 41–45 ms, über den 30 ms von LH-NF-01. Kontra forderte keinen Puffer an, PipeWire
   blieb bei 1024 Frames; erzwungenes Quantum 256/128/64: 28/20/16 ms, keine Xruns. Live-Streams fordern 128 an.
+  Nachtrag 14.10. (nativer PipeWire-Host): 128 Frames kommen als `node.latency` an, das Quantum folgt. Software-Schleife
+  (temporärer Null-Knoten `Audio/Duplex`, danach entfernt; nicht am echten Ausgang), Release-Build, Rechner unter Last
+  (Load 9–14), je Lauf 12 Töne:
+
+  | Weg | Block | Rundlauf (Median) | Streuung max. | Xruns je Lauf |
+  |---|---|---|---|---|
+  | ALSA-Plugin, Standard | 512 | 21,5 ms | 0 | 0 |
+  | PipeWire, Standard | 1024 (Quantum) | 42,8 ms | 0 | 0 |
+  | ALSA-Plugin, 128 ohne Echtzeit | 128 | 5,3–13,4 ms | bis 2,7 ms | 0–17 |
+  | PipeWire, 128 ohne Echtzeit | 128 | 5,4–21,4 ms | bis 62 ms, Töne fehlen | 0–16 |
+  | beide, 128 mit Echtzeit-Priorität | 128 | 5,4 ms | 0 | 0 (6 von 6 Läufen) |
+
+  Ohne Echtzeit-Priorität verliert der Audio-Thread unter Last Blöcke (cpals PipeWire-Host verarbeitet im Thread seiner
+  Hauptschleife). Kontra fordert jetzt im ersten Callback `SCHED_FIFO` an (Priorität 80, unter PipeWires 88); das geht
+  nur mit RLIMIT_RTPRIO (z. B. Gruppe `realtime`), sonst bleibt es still beim Alten. Die Software-Schleife misst nur
+  Puffer und Planung, nicht den Wandler: am Solo gilt weiter die Messung oben (128: 20 ms).
 - H2 (hoch, behoben): Bass auf Eingang 2, Eingang 1 leer: der Mittelwert halbierte den Pegel, Übersteuern (0,2 s je
   Pop) blieb unter der Clip-Marke (LH-EIN-03). Der Eingang folgt jetzt dem lautesten Kanal.
 - H3 (mittel, behoben, Test zuerst): Kalibrierung ohne Vorzähler; der Spieler wartete vier Klicks (4 von 8), die App
@@ -327,8 +343,12 @@ Die Trennung entfernt den Bass: der Unterschied zum Original korreliert mit 0,94
   ≥ 28 %); die Pops nicht heller als Zupfen (0,3–0,9 %). „Hell und kurz = Slap“ bringt 7 von 8 Slaps, kostet aber IDMT-
   Dead-Notes (27 → 21 von 28, auch sie sind hell); verworfen. Braucht Aufnahmen weiterer Spieler, geübt und ungeübt.
 - H7 (mittel, offen): Slide über zwei Bünde als Hammer-on gehört; Runde 11 „legato“ deckt nur einen Bund.
-- H8 (mittel, offen): Ein bestimmtes Interface neben anderem Standardausgang geht nur über `PIPEWIRE_NODE`; die
-  Geräteliste zeigt das Solo nur als `hw:`/`sysdefault:`, die PipeWire belegt hält.
+- H8 (mittel, behoben): Ein bestimmtes Interface neben anderem Standardausgang ging nur über `PIPEWIRE_NODE`; die
+  Geräteliste zeigte das Solo nur als `hw:`/`sysdefault:`, die PipeWire belegt hält. Kontra spricht jetzt PipeWire
+  direkt an (cpal-Host `pipewire`, ALSA bleibt Rückfall ohne PipeWire, `KONTRA_AUDIO_HOST=alsa` erzwingt ihn): Listen
+  zeigen die Knoten mit ihrem Namen („Scarlett Solo USB Analoges Stereo“), Eingänge nur Quellen (keine Monitore,
+  keine Streams anderer Programme), Interfaces zuerst; die ID ist der Knotenname und bleibt über Neustarts gleich.
+  Eine gespeicherte ALSA-Wahl gilt als „Automatisch“. Entfernter Knoten meldet einen Fehler wie bisher (LH-ALL-04).
 - Tonhöhe: 100 % der gefundenen Noten. Kalibrierung 43,7 ms (±19,8 ms). Pegelring „grün“ trotz Übersteuern.
 
 ### QA-Runde 13.10.2026 (GUI und Bedienung; Demo-Stück, gerenderte Aufnahmen)

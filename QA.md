@@ -59,6 +59,14 @@ Erwartet: gemessene Latenz ≈ 40 ms angezeigt; danach Bewertung pünktlich (±5
 1. MIDI-Keyboard anstecken, Kontra starten, Einstellungen → Anschluss (P5). Danach USB-Mikrofon als Eingang wählen wollen (P6).
 Erwartet: „MIDI-Instrument“ ist wählbar und nennt das erkannte Keyboard (ohne Keyboard: „gerade ist keins angeschlossen“); das Mikrofon erscheint als „kommt in einer späteren Version“ mit einem Satz Erklärung; kein Absturz, keine leere Liste, kein „Gerät defekt“.
 
+**J-A5 Interface neben anderem Standard** · Personas: P2 Jens, P3 Mira · Phase 1 · LH-EIN-02, LH-NF-01
+1. Systemstandard für Ein- und Ausgabe ist die interne Karte (Studiomonitore), das Interface hängt am USB.
+2. Einstellungen → Eingang: Liste ansehen, Interface wählen; Kontra neu starten.
+3. `kontra-cli devices`; ohne PipeWire (`KONTRA_AUDIO_HOST=alsa`) dasselbe.
+Erwartet: Das Interface steht oben mit seinem Namen („Scarlett Solo USB Analoges Stereo“), ist bei „Automatisch“
+vorgewählt und bleibt nach dem Neustart gewählt; keine Monitore („Monitor of …“), keine Streams anderer Programme in der
+Eingangsliste; Block 128 Frames (`kontra-cli check --steps loopback`). Mit ALSA gilt die alte Liste weiter.
+
 ## B. Spielen und Üben
 
 **J-B1 Lied durchspielen** ⚙ 📽 · Persona: P2 Jens · Phase 1 · LH-BIB-01, -04, LH-MOD-01, LH-WIE-03, LH-EIN-08, LH-ANZ-01, -02
