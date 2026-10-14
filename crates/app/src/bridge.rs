@@ -102,6 +102,7 @@ pub mod qobject {
         #[qproperty(f64, metronome_volume, cxx_name = "metronomeVolume")]
         #[qproperty(f64, tone_volume, cxx_name = "toneVolume")]
         #[qproperty(f64, drums_volume, cxx_name = "drumsVolume")]
+        #[qproperty(f64, bass_volume, cxx_name = "bassVolume")]
         #[qproperty(f64, prompt_volume, cxx_name = "promptVolume")]
         #[qproperty(bool, monitor)]
         #[qproperty(f64, monitor_volume, cxx_name = "monitorVolume")]
@@ -409,8 +410,8 @@ pub mod qobject {
         #[cxx_name = "changeLatency"]
         fn change_latency(self: Pin<&mut Self>, latency_ms: f64);
 
-        /// Sets a mixer volume (0..1): `bus` is "backing", "metronome", "tone", "drums", "prompt"
-        /// or "monitor".
+        /// Sets a mixer volume (0..1): `bus` is "backing", "metronome", "tone", "drums", "bass",
+        /// "prompt" or "monitor".
         #[qinvokable]
         #[cxx_name = "changeVolume"]
         fn change_volume(self: Pin<&mut Self>, bus: &QString, value: f64);
@@ -708,6 +709,7 @@ pub struct ControllerRust {
     metronome_volume: f64,
     tone_volume: f64,
     drums_volume: f64,
+    bass_volume: f64,
     prompt_volume: f64,
     monitor: bool,
     monitor_volume: f64,
@@ -852,6 +854,7 @@ impl Default for ControllerRust {
             metronome_volume: s.metronome_volume,
             tone_volume: s.tone_volume,
             drums_volume: s.drums_volume,
+            bass_volume: s.bass_volume,
             prompt_volume: s.prompt_volume,
             monitor: s.monitor,
             monitor_volume: s.monitor_volume,
@@ -1788,6 +1791,10 @@ impl qobject::Controller {
                 self.as_mut().set_drums_volume(value);
                 self.as_mut().core().remix(|s| s.drums_volume = value)
             }
+            "bass" => {
+                self.as_mut().set_bass_volume(value);
+                self.as_mut().core().remix(|s| s.bass_volume = value)
+            }
             "prompt" => {
                 self.as_mut().set_prompt_volume(value);
                 self.as_mut().core().remix(|s| s.prompt_volume = value)
@@ -2113,6 +2120,7 @@ impl qobject::Controller {
         self.as_mut().set_metronome_volume(s.metronome_volume);
         self.as_mut().set_tone_volume(s.tone_volume);
         self.as_mut().set_drums_volume(s.drums_volume);
+        self.as_mut().set_bass_volume(s.bass_volume);
         self.as_mut().set_prompt_volume(s.prompt_volume);
         self.as_mut().set_adaptive(s.adaptive);
         self.as_mut().set_tuning(q(&s.tuning));

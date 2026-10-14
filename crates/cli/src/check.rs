@@ -133,6 +133,7 @@ fn setup(a: &CheckArgs) -> session::LiveSetup {
         output_device: a.output.clone(),
         source,
         backing: None,
+        original: None,
     }
 }
 

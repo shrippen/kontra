@@ -115,6 +115,8 @@ pub struct Settings {
     pub tone_volume: f64,
     /// Drum accompaniment of grooves and imported drum tracks (LH-LRN-01).
     pub drums_volume: f64,
+    /// The original bass in a backing track played without it (LH-BIB-09); 0 = removed.
+    pub bass_volume: f64,
     /// Ear training prompts (LH-LRN-03, round 8: its own slider, not the reference tone's).
     pub prompt_volume: f64,
     /// Play the bass through Kontra (input monitoring); off: the interface monitors directly.
@@ -172,6 +174,7 @@ impl Default for Settings {
             metronome_volume: f64::from(mix.click),
             tone_volume: f64::from(mix.tone),
             drums_volume: f64::from(mix.drums),
+            bass_volume: f64::from(mix.bass),
             prompt_volume: PROMPT_VOLUME,
             monitor: false,
             monitor_volume: MONITOR_VOLUME,

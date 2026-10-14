@@ -265,6 +265,8 @@
   "mixer.title": "Mixer",
   "mixer.hint": "Volumes for backing track, metronome, reference tone and drums; applies at once, also while playing.",
   "mixer.backing": "Backing track",
+  "mixer.bass": "Original bass",
+  "mixer.bass.hint": "Bring the removed bass back quietly to follow the original. 0 % = fully removed.",
   "mixer.metronome": "Metronome",
   "mixer.tone": "Reference tone",
   "mixer.prompt": "Prompts (ear training)",

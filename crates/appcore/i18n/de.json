@@ -265,6 +265,8 @@
   "mixer.title": "Mixer",
   "mixer.hint": "Lautstärken für Backing-Track, Metronom, Referenzton und Schlagzeug; gilt sofort, auch beim Spielen.",
   "mixer.backing": "Backing-Track",
+  "mixer.bass": "Original-Bass",
+  "mixer.bass.hint": "Den entfernten Bass leise dazunehmen, um dich am Original zu orientieren. 0 % = ganz entfernt.",
   "mixer.metronome": "Metronom",
   "mixer.tone": "Referenzton",
   "mixer.prompt": "Vorspielen (Gehörbildung)",
