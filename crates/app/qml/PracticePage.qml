@@ -142,6 +142,15 @@ Kirigami.Page {
                 summary.open()
             }
         }
+        // A loop pass ended: the next one starts clean. Kept, the notes ahead showed the last
+        // pass's marks before they were played (QA 14.10., workshop).
+        function onPassComplete(clean, hitRate) {
+            page.states = {}
+            page.techniques = {}
+            for (var i = 0; i < page.noteViews.length; i++) {
+                page.noteViews[i].resetStates()
+            }
+        }
         function onPlayingChanged() { if (ctl.playing) page.summaryReady = false }
         function onModeChanged() { page.summaryReady = false }
     }
