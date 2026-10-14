@@ -252,6 +252,32 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 
 ## QA-Runden
 
+### QA-Runde 14.10.2026 (Tag: Personas im echten Fenster, schmal, 200 %, Englisch)
+
+Echtes X-Fenster wie in der Runde davor; dazu 700 px (halber Laptop), 2560×1440 bei 200 % (P7), 853×533 bei
+150 % (P4) und Englisch (J-F2). Stummer Ausgang, Aufnahmen als Eingang, echtes Demucs für J-D1.
+
+- **P2 Jens (J-D1): bestanden.** Neu: Regler „Original-Bass“ im Mixer (#76), mit echtem Demucs getrennt und gespielt.
+  - T1 (mittel, behoben #77): Offener Mixer mit Mithören drückte die Lane auf 50 px (siehe H13).
+  - T2 (niedrig, Testumgebung): Demucs scheiterte aus Kontra heraus mit CUDNN-Fehler; `scripts/qt-env.sh` mit
+    `QT_ROOT=/usr` stellt `/usr/lib` in `LD_LIBRARY_PATH` voran. Betrifft nur die Entwicklungsumgebung.
+- **P1 Lea, P4 Thomas (J-C4, Quiz): bestanden nach Befunden.**
+  - T3 (mittel, behoben #78): Griffbrett in Quiz und Gehörbildung 160 px, darunter halbe Seite leer; am Beamer
+    schnitt die Gehörbildung Griffbrett und Punktzahl ab. Jetzt mit der Breite bis 240, auf kurzen Schirmen kleiner.
+- **P7 Sam (J-F1, 200 %, 700 px): bestanden nach Befunden.**
+  - T4 (mittel, behoben #79): „½ STEP DOWN“ las sich in der Schmalschrift wie „% STEP DOWN“; bei 700 px liefen die
+    fünf Stimmungs-Knöpfe aus dem Fenster. Jetzt „Halbton/Ganzton tiefer“, schmal als Liste.
+  - T5 (mittel, Kante #64): Die Schritte der Einrichtung schnitten bei 700 px „LET'S GO“ ab; Kante 1.39 nennt schmal
+    nur den aktuellen Schritt.
+  - T6 (niedrig, behoben #80): Mikrofon-Hinweis endete mit „…“; die Zahlen stehen jetzt nach der Wahl darunter.
+  - T7 (niedrig, behoben #81): Song-Suche schmal mit vier Zeilen, Browser-Knöpfe einzeln mittig.
+  - Stimmgerät: Nadel und Text wirkten auf Bildschirmfotos widersprüchlich; Ursache ist die Nadel-Animation
+    zwischen zwei Messungen, die Werte stimmen. Kein Befund.
+- **J-F2 Englisch: bestanden nach Befunden.** Keine rohen Schlüssel, kein Sprachmix; T8 (niedrig, behoben):
+  Formulierungen („the frame sits first“, „Once you found“) und weitere aus einem Durchgang über `en.json`.
+- Offen (niedrig): Stücke mit zwei Takten stehen in Tab und Noten klein oben links (keine Streckung auf die Breite);
+  `--page`/`--mode` mit unbekanntem Wert zeigen eine leere Seite bzw. speichern den Wert (nur QA-Schalter).
+
 ### QA-Runde 14.10.2026 (GUI, ganze Abläufe im echten Fenster)
 
 Erstmals im echten X-Fenster gespielt (Xvfb, `xdotool` klickt und tippt, `import` nimmt den ganzen Bildschirm auf),
