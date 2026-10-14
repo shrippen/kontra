@@ -4,7 +4,8 @@
 //!
 //! ```text
 //! 01–45   first set (levels 1–5)
-//! 46–     appended per level: 1 Einstieg … 5 Groove, 6 Taktarten, 7 Lesen, 8 Technik
+//! 46–     appended per level: 1 Einstieg … 4 Groove, 5 Walking Bass, 6 Taktarten, 7 Lesen,
+//!         8 Technik (levels 4 and 5 swapped in Runde 12; numbers unchanged)
 //! ```
 
 use super::*;
@@ -12,8 +13,9 @@ use super::*;
 const LEVEL_1: &str = "1 Einstieg";
 const LEVEL_2: &str = "2 Grundlagen";
 const LEVEL_3: &str = "3 Fortgeschritten";
-const LEVEL_4: &str = "4 Walking Bass";
-const LEVEL_5: &str = "5 Groove";
+// Runde 12: Groove before Walking Bass (walking is harder); the files keep their numbers.
+const LEVEL_4: &str = "4 Groove";
+const LEVEL_5: &str = "5 Walking Bass";
 const LEVEL_6: &str = "6 Taktarten";
 const LEVEL_7: &str = "7 Lesen";
 const LEVEL_8: &str = "8 Technik";
@@ -146,7 +148,7 @@ pub fn bundled_specs() -> Vec<(&'static str, ExerciseSpec)> {
             LEVEL_3,
             ramp(groove(P::OneFourFive, Eighths, E, 80.0), 4, 10.0),
         ),
-        // ── 4 Walking Bass: minor II-V-I, turnaround, blues in more keys ─────
+        // ── 5 Walking Bass: minor II-V-I, turnaround, blues in more keys ─────
         (LEVEL_4, chords(WalkingBass(P::MinorTwoFiveOne), A, 100.0)),
         (LEVEL_4, chords(WalkingBass(P::MinorTwoFiveOne), D, 105.0)),
         (LEVEL_4, chords(WalkingBass(P::Turnaround), F, 100.0)),
@@ -160,7 +162,7 @@ pub fn bundled_specs() -> Vec<(&'static str, ExerciseSpec)> {
             LEVEL_4,
             ramp(chords(WalkingBass(P::Blues), F, 100.0), 3, 10.0),
         ),
-        // ── 5 Groove: funk, syncopation, slow blues in triplets ─────────────
+        // ── 4 Groove: funk, syncopation, slow blues in triplets ─────────────
         (LEVEL_5, groove(P::Tonic, Funk, E, 85.0)),
         (LEVEL_5, groove(P::Minor, Funk, A, 90.0)),
         (LEVEL_5, groove(P::Blues, Funk, E, 90.0)),

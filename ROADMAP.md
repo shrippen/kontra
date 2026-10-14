@@ -183,6 +183,11 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
   91,2/81,2 %; eigene Aufnahmen unverändert (testdata/korpus/QUELLEN.md, „Tonhöhen-Revision“).
 - Hardware-Prüfung gemeinsam: am 13.10. begonnen (Abschnitt Hardware-Prüfung unter QA-Runden).
 
+## Entscheidungen Runde 12 (14.10.2026)
+
+- Stufenfolge (`level_order = swap`): 4 Groove vor 5 Walking Bass, Walking ist schwerer (umgesetzt: Ordner getauscht,
+  Dateinamen und Nummern gleich; Bibliothek und Setlisten ziehen beim Laden auf die neuen Pfade um, Fortschritt bleibt).
+
 ## Didaktik: wie Kontra Bass vermittelt (laufend, alle Phasen)
 
 Ziel: nicht nur Noten abfragen, sondern herausfinden, welche Wege zum

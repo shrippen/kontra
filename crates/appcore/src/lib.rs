@@ -224,6 +224,7 @@ impl Core {
         let settings: Settings = store::load(&data_dir.join("settings.json"));
         let mut library: Library = store::load(&data_dir.join("library.json"));
         library.plain_paths();
+        library.move_folders(&Self::exercises_dir(), &LEVEL_MOVES);
         let language = settings
             .language
             .as_deref()
@@ -3129,6 +3130,13 @@ const SPOT_DAYS: u64 = 3;
 const SPOT_REST_S: u64 = 8 * 60 * 60;
 /// Bars on the card.
 const SPOTS: usize = 2;
+/// Level folders of the bundled exercises renamed since a release (old, new); Runde 12 put
+/// Groove before Walking Bass.
+const LEVEL_MOVES: [(&str, &str); 2] = [
+    ("4 Walking Bass", "5 Walking Bass"),
+    ("5 Groove", "4 Groove"),
+];
+
 /// A bundled exercise sits above the workshop's target band (80–90 %, round 5).
 const MASTERED_RATE: f64 = 0.9;
 
@@ -4881,6 +4889,60 @@ mod tests {
             core.progress_store().load_id(&old_id).is_none(),
             "old id moved"
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Runde 12: Groove (now level 4) comes before Walking Bass (now 5). Pieces played under
+    /// the old folders keep their progress and their place in setlists.
+    #[test]
+    fn swapped_levels_keep_progress_and_setlists() {
+        let dir = temp_dir("swapped");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        assert_eq!(levels[3]["level"], "Groove");
+        assert_eq!(levels[4]["level"], "Walking Bass");
+        let groove = PathBuf::from(levels[3]["items"][0]["path"].as_str().unwrap());
+        let walking = PathBuf::from(levels[4]["items"][0]["path"].as_str().unwrap());
+
+        // Played before the swap: both under their old folders, one in a setlist.
+        let mut old_paths = Vec::new();
+        for (path, old_level) in [(&groove, "5 Groove"), (&walking, "4 Walking Bass")] {
+            core.open(path).unwrap();
+            let a = core.arrangement().unwrap().clone();
+            let run = Run {
+                finished_unix: 1,
+                practice_s: 60.0,
+                speed: 1.0,
+                hit_rate: 0.95,
+                mode: "song".into(),
+                section: None,
+                hardest_bars: Vec::new(),
+            };
+            core.progress_store().record(&a, run).unwrap();
+            let old = Core::exercises_dir()
+                .join(old_level)
+                .join(path.file_name().unwrap());
+            core.library.entry_mut(path).unwrap().path = old.clone();
+            old_paths.push(old);
+        }
+        core.library.setlists.push(Setlist {
+            name: "Probe".into(),
+            pieces: old_paths.clone(),
+        });
+        store::save(&dir.join("library.json"), &core.library).unwrap();
+
+        let core = Core::new(&dir, QaOptions::default());
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        assert_eq!(levels[3]["items"][0]["mastered"], true);
+        assert_eq!(levels[4]["items"][0]["mastered"], true);
+        assert_eq!(
+            core.library.setlists[0].pieces,
+            [groove.clone(), walking.clone()]
+        );
+        assert!(core.library.entry(&groove).is_some());
+        let home: serde_json::Value = serde_json::from_str(&core.home_json()).unwrap();
+        assert_ne!(home["next"]["path"], groove.to_string_lossy().as_ref());
         let _ = std::fs::remove_dir_all(dir);
     }
 

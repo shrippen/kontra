@@ -182,6 +182,8 @@ Aufwand: S = Tage, M = ein bis zwei Wochen, L = mehr. Schätzungen ohne Code-Ana
 
 ### I4 Groove-Start auf einer Saite
 
+*Plan der mitgelieferten Übungen (Runde 12): Stufe 4 Groove vor 5 Walking Bass, Groove vor Tönen auch zwischen den Stufen.*
+
 - **Beschreibung:** Erste Übungen nur auf der offenen E- oder A-Saite zu Drums: Viertel, Achtel, Pausen, Betonung auf 1. Bewertet wird nur der Anschlag (Onset), nicht die Tonhöhe. Erst wenn die Streuung klein ist, kommen Bünde dazu.
 - **These/Quelle:** These 3; Lehrer nennen Rhythmus als häufigsten Anfängerfehler (Bass Musician Magazine 2025); Groove-zuerst-Kurse; Chunking (Teilfertigkeit isolieren).
 - **Personas:** P1, P5 (Timing ist für sie genauso), P2 als Aufwärmen.
