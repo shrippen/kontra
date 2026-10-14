@@ -182,7 +182,11 @@ Kirigami.ScrollablePage {
                     enabled: !ctl.calibrating
                     onClicked: ctl.startCalibration()
                 }
-                QQC2.Label { text: Math.round(ctl.latencyMs) + " ms"; color: KanteStyle.textColor }
+                // "0 ms" before any measurement read like a result (QA 14.10.).
+                QQC2.Label {
+                    text: ctl.latencyMs > 0 ? Math.round(ctl.latencyMs) + " ms" : texts.t("calibration.none")
+                    color: ctl.latencyMs > 0 ? KanteStyle.textColor : KanteStyle.mutedTextColor
+                }
             }
             CalibrationBeat { Layout.fillWidth: true }
             QQC2.Label {

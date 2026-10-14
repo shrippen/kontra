@@ -1,17 +1,13 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-10-14, nachts. Was erledigt ist, steht in Lastenheft und Roadmap; hier
+Übergabe zwischen Sitzungen. Stand: 2026-10-14, früh. Was erledigt ist, steht in Lastenheft und Roadmap; hier
 steht nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-Merges: Claude merged nach grüner CI (Runde 11); `/review` gefragt (PR-Agent bis 1.11. aus). Ein Hintergrundlauf merged
-der Reihe nach #65, #61, #62, #64; #64 enthält #61 und #62 (Konflikte vorab gelöst), #63 enthält alle.
+Gemerged in der Nacht zum 14.10.: #58, #59, #60, #61, #62, #63 (enthält #64), #65; #64 geschlossen (in #63 enthalten).
 
-- #65 Hotfix: Wiedergabe mit Scarlett Solo (seit #58 „Buffer size 128 …“). Zuerst.
-- #61 MuseScore-Import, Songs aus dem Netz (Browser), Downloads. #62 Übungen 144, Fortschritt zieht beim Neuerzeugen um.
-  #64 Demucs in der Oberfläche. Alle drei mit Befunden des zweiten Lesers, behoben.
-- #63 GUI-Runde 14.10. (ROADMAP „QA-Runde 14.10.2026“): zuletzt, enthält #61/#62/#64/#65.
+- #66 Setliste direkt füllen, Gehörbildung „ohne Fehler“, Latenz „noch nicht gemessen“: Merge nach grüner CI läuft.
 - Kante #58 (1.35), #61 (1.36), #62 (1.37 Ghost Note), #63 (1.38 Transport-Kästchen) in dieser Reihenfolge: Eigentümer
   merged. Danach `scripts/sync-kante.sh`, `loopStart`/`loopEnd` an tabStaff, bassStaff, combinedBass, combinedTab
   binden (G9).
@@ -43,6 +39,8 @@ der Reihe nach #65, #61, #62, #64; #64 enthält #61 und #62 (Konflikte vorab gel
 
 - #48/#49: `Core::home_json`, `Core::loaded_title`, `Library::plain_paths`, `TrackInfo::is_percussion`.
 - #50: `TechniqueTarget`, `technique_signs`, `TechniqueResult::sign`, `Annotation::slide_cents`.
+- #63/#66: `Calibration::beat_at`, `LiveCalibration::beat`, `LiveTuner::input_block`, `Core::calibration_beat`,
+  `Core::setlist_add`; QA-Schalter `--screenshot-notes`, `--focus-log`.
 - #58: `Calibration::count_in`, `calibration::COUNT_IN`, `CheckTake::player_offset_ms`. #60: `PitchRevision`,
   `Event::Pitch`, `revise_pitch`, `NoteTracker::pitch_revised`, `Session::on_pitch_revision`.
 - demucs-gui: `Core::forget_stems`, `Core::qa_separator`, `store::cache_dir`, `BassRemoval::{size, remove, usage}`,

@@ -302,6 +302,20 @@ Kirigami.ScrollablePage {
                         color: KanteStyle.strongTextColor
                         font.bold: true
                     }
+                    // Any piece of the library, without opening it first (QA 14.10., P2).
+                    KanteComboBox {
+                        readonly property var pieces: JSON.parse(ctl.recentJson)
+                        visible: pieces.length > 0
+                        Layout.preferredWidth: KanteStyle.unit(240)
+                        Accessible.name: texts.t("setlist.add") + ": " + list.modelData.name
+                        displayText: texts.t("setlist.add")
+                        model: pieces.map(function(p) { return p.title })
+                        currentIndex: -1
+                        onActivated: function(index) {
+                            ctl.setlistAdd(list.modelData.name, pieces[index].path)
+                            currentIndex = -1
+                        }
+                    }
                     KanteButton {
                         visible: ctl.loaded
                         text: texts.t("setlist.addloaded")

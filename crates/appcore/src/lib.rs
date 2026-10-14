@@ -975,6 +975,18 @@ impl Core {
         }
     }
 
+    /// Adds a piece of the library to a setlist without opening it (QA 14.10., P2: only the
+    /// loaded piece could be added, so every song had to be opened first).
+    pub fn setlist_add(&mut self, name: &str, path: &Path) {
+        let Some(path) = self.library.entry(path).map(|e| e.path.clone()) else {
+            return;
+        };
+        if let Some(list) = self.library.setlist_mut(name) {
+            list.pieces.push(path);
+            self.save_library();
+        }
+    }
+
     pub fn setlist_remove(&mut self, name: &str, index: usize) {
         if let Some(list) = self.library.setlist_mut(name) {
             if index < list.pieces.len() {
@@ -2761,13 +2773,19 @@ impl Core {
 
     /// "3 of 4 found" over finished questions only: the open one is not lost yet (QA 13.10.: it
     /// read "0 of 1 found" before the first answer). Nothing before the first one is finished.
+    /// "3 of 4 found" (quiz: solved at all) or "3 of 4 without a mistake" (ear training: clean
+    /// answers only; QA 14.10.: "0 of 1 found" right after a correct answer on the fifth try).
     fn quiz_score(&self, right: u32, asked: u32, solved: bool) -> String {
+        self.score_text("quiz.score", right, asked, solved)
+    }
+
+    fn score_text(&self, key: &str, right: u32, asked: u32, solved: bool) -> String {
         let done = asked - u32::from(!solved && asked > 0);
         if done == 0 {
             return String::new();
         }
         self.tr(
-            "quiz.score",
+            key,
             &[("right", right.to_string()), ("asked", done.to_string())],
         )
     }
@@ -3041,7 +3059,7 @@ impl Core {
             "total": question.answer.len(),
             "played": played,
             "reveal": reveal,
-            "score": self.quiz_score(q.right, q.asked, q.solved),
+            "score": self.score_text("ear.score", q.right, q.asked, q.solved),
             "positions": positions,
             "silent": self.live_ear.as_ref().is_some_and(LiveEar::output_is_silent),
         })
@@ -4774,6 +4792,25 @@ mod tests {
             .push(PathBuf::from(item["path"].as_str().unwrap()));
         let lists: serde_json::Value = serde_json::from_str(&core.setlists_json()).unwrap();
         assert_eq!(lists[0]["pieces"][0]["title"], item["title"]);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn setlist_takes_library_pieces_unopened() {
+        let dir = temp_dir("setlistadd");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let path = PathBuf::from(levels[0]["items"][0]["path"].as_str().unwrap());
+        core.open(&path).unwrap();
+        core.setlist_create("Probe");
+        core.setlist_add("Probe", Path::new("/nicht/in/der/bibliothek.gp5"));
+        core.setlist_add("Probe", &path);
+        let lists: serde_json::Value = serde_json::from_str(&core.setlists_json()).unwrap();
+        assert_eq!(
+            lists[0]["pieces"].as_array().unwrap().len(),
+            1,
+            "only library pieces"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 
