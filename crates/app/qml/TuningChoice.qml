@@ -13,6 +13,8 @@ ColumnLayout {
     readonly property var values: ["standard", "drop", "half-down", "whole-down", "custom"]
     readonly property var strings: JSON.parse(ctl.profileTuningJson)
     readonly property var notes: JSON.parse(ctl.noteChoicesJson)
+    // Too narrow for five buttons (half a laptop screen): the presets as a list (QA 14.10.).
+    property bool asList: false
 
     spacing: KanteStyle.unit(8)
 
@@ -26,6 +28,8 @@ ColumnLayout {
     }
 
     KanteSegmented {
+        id: presets
+        visible: !choice.asList
         Accessible.name: texts.t("settings.tuning")
         // Drop D on four strings; on five and six the low B drops to A.
         model: [texts.t("settings.tuning.standard"),
@@ -33,6 +37,14 @@ ColumnLayout {
                 texts.t("settings.tuning.half"), texts.t("settings.tuning.whole"),
                 texts.t("settings.tuning.custom")]
         currentIndex: Math.max(0, choice.values.indexOf(ctl.tuning))
+        onActivated: function(index) { ctl.changeTuning(choice.values[index]) }
+    }
+    KanteComboBox {
+        visible: choice.asList
+        Layout.preferredWidth: KanteStyle.unit(220)
+        Accessible.name: texts.t("settings.tuning")
+        model: presets.model
+        currentIndex: presets.currentIndex
         onActivated: function(index) { ctl.changeTuning(choice.values[index]) }
     }
 

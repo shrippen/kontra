@@ -149,11 +149,14 @@ Kirigami.ScrollablePage {
                 onActivated: function(index) { ctl.changeInstrument(index + 4, ctl.fretless, ctl.laptopJack) }
             }
         }
+        // Title above the presets once they no longer fit beside it, a list below 560.
         KanteSettingRow {
+            id: tuningRow
             Layout.fillWidth: true
+            narrow: width < KanteStyle.unit(840)
             title: texts.t("settings.tuning")
             hint: texts.t("settings.tuning.hint")
-            TuningChoice {}
+            TuningChoice { asList: tuningRow.width < KanteStyle.unit(560) }
         }
         KanteSettingRow {
             Layout.fillWidth: true
