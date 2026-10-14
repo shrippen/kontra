@@ -113,6 +113,17 @@ Kirigami.Page {
                     activeFocusOnTab: true
                     Keys.onReturnPressed: choose()
                     Keys.onSpacePressed: choose()
+                    // Arrows walk the strings like a button row (P7, QA 14.10.: only Tab did).
+                    Keys.onRightPressed: {
+                        if (index + 1 < page.strings.length) {
+                            nextItemInFocusChain(true).forceActiveFocus()
+                        }
+                    }
+                    Keys.onLeftPressed: {
+                        if (index > 0) {
+                            nextItemInFocusChain(false).forceActiveFocus()
+                        }
+                    }
                     Accessible.onPressAction: choose()
                     KanteBrackets { anchors.fill: parent; active: parent.activeFocus }
                     Row {
