@@ -31,6 +31,9 @@ Kirigami.ScrollablePage {
     readonly property bool slim: width < KanteStyle.unit(700)
     // LH-BIB-07: the piece being shared and whether its backing audio goes along.
     property string sharePath: ""
+    // The piece whose tags are open; on the page, so adding a tag (which rebuilds the list)
+    // keeps the editor open with the keys in it (QA 14.10.).
+    property string tagsPath: ""
     property bool shareAudio: false
 
     // Kirigami pages paint the platform background; Kante's ground replaces it.
@@ -196,7 +199,7 @@ Kirigami.ScrollablePage {
                 delegate: ColumnLayout {
                     id: piece
                     required property var modelData
-                    property bool editing: false
+                    readonly property bool editing: page.tagsPath === String(modelData.path)
                     readonly property bool sharing: page.sharePath === String(modelData.path)
                     Layout.fillWidth: true
                     spacing: 0
@@ -227,7 +230,14 @@ Kirigami.ScrollablePage {
                                 checkable: true
                                 checked: piece.editing
                                 Accessible.name: texts.t("library.tags.edit", { title: piece.modelData.title })
-                                onClicked: piece.editing = !piece.editing
+                                // Opened, the field takes the keys: typing went nowhere and Enter
+                                // opened the piece (QA 14.10., P7).
+                                onClicked: {
+                                    page.tagsPath = piece.editing ? "" : String(piece.modelData.path)
+                                    if (piece.editing) {
+                                        tagPicker.search.forceActiveFocus()
+                                    }
+                                }
                             }
                             // LH-BIB-07: share the piece as a .kontra package.
                             KanteButton {
@@ -239,8 +249,11 @@ Kirigami.ScrollablePage {
                         }
                     }
                     KanteTagPicker {
+                        id: tagPicker
                         Layout.fillWidth: true
                         visible: piece.editing
+                        // Rebuilt after a tag was added: the keys go back into the field.
+                        Component.onCompleted: if (piece.editing) search.forceActiveFocus()
                         tags: piece.modelData.tags
                         suggestions: piece.editing ? JSON.parse(ctl.tagsJson()) : []
                         placeholderText: texts.t("library.tags.add")
