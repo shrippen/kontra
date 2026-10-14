@@ -108,14 +108,14 @@ Erwartet: Cent-Werte pro Note weichen ≤ 3 Cent vom annotierten Wert ab; B0 bis
 4. Präsentation (F5 oder Knopf neben dem Mixer), durchspielen, mit Esc beenden.
 Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreichend; in der Präsentation Vollbild ohne Seitenleiste, nur Titel, Noten und Transport, Notenlinien größer; Esc stellt das Fenster wieder her wie vorher.
 
-**J-B6 Song aus dem Netz** ⚙ 🔍 · Personas: P2 Jens, P3 Mira, P1 Lea · Phase 2 · LH-BIB-10, -11
-1. Jens: Bibliothek, „Seven Nation Army“ eintippen, „Bei Songsterr suchen“ (Enter im Feld genügt).
+**J-B6 Song aus dem Netz** ⚙ 🔍 · Personas: P2 Jens, P3 Mira, P1 Lea, P7 Sam · Phase 2 · LH-BIB-10, -11
+1. Jens: Bibliothek, „Seven Nation Army“ eintippen, Enter (oder „Suchen“); einen Treffer mit Bassspur anklicken.
 2. Im Browser die Guitar-Pro-Datei herunterladen (Songsterr Plus; ersatzweise eine eigene `.gp`), zurück zu Kontra.
 3. Unter „Neu in Downloads“ die Datei anklicken.
 4. Mira: eine in MuseScore 4 gespeicherte `.mscz` (Fünfsaiter mit Tab) auf die Bibliothek ziehen; danach drei Dateien auf einmal, eine davon defekt.
-5. Lea: dasselbe ohne Netz; dann ohne Browser (keine Standard-App für Links).
+5. Lea: dasselbe ohne Netz; dann ohne Browser (keine Standard-App für Links); „MuseScore im Browser“.
 6. Sam (P7): alles nur mit Tastatur und Screenreader, 200 %.
-Erwartet: Kontra lädt nichts selbst, die Suche öffnet sich im Browser mit dem Suchbegriff; die Datei erscheint beim Zurückkehren ins Fenster (sonst binnen 15 s) mit Art („Guitar Pro“, „MuseScore“) und Alter, ein Klick öffnet sie mit der Bassspur und nimmt sie aus „Neu“; `.mscz` mit gleichen Saiten und Bünden wie in MuseScore; mehrere abgelegte Dateien landen in der Bibliothek, die defekte mit Grund; ohne Netz zeigt nur der Browser einen Fehler, Kontra bleibt bedienbar; ohne Browser eine Warnung mit der Adresse zum Kopieren; Feld, Knöpfe und Liste per Tab erreichbar, der Screenreader sagt „öffnet den Browser“ und „… öffnen“.
+Erwartet: eine Anfrage je Enter, „Suchen“ ist gesperrt, solange sie läuft; Treffer mit Titel, Interpret und „Bass: E A D G“ bzw. „ohne Bassspur“ als Text; ein Klick öffnet die Songsterr-Seite auf der Bassspur im Browser, Kontra lädt keine Tabs; die Datei erscheint beim Zurückkehren ins Fenster (sonst binnen 15 s) mit Art („Guitar Pro“, „MuseScore“) und Alter, ein Klick öffnet sie mit der Bassspur und nimmt sie aus „Neu“; `.mscz` mit gleichen Saiten und Bünden wie in MuseScore; mehrere abgelegte Dateien landen in der Bibliothek, die defekte mit Grund; ohne Netz nennt Kontra den Grund und verweist auf die Browser-Suche, die Bibliothek bleibt bedienbar; ohne Browser eine Warnung mit der Adresse zum Kopieren; Feld, Knöpfe und Treffer per Tab erreichbar, Enter öffnet einen Treffer, der Screenreader liest Titel, Interpret und Bassspur.
 
 ## C. Lernen und Fortschritt
 

@@ -21,6 +21,10 @@ finish-args:
   # PipeWire directly: interfaces by name and a small quantum (LH-EIN-02, LH-NF-01); without
   # the socket Kontra falls back to ALSA.
   - --filesystem=xdg-run/pipewire-0
+  # Songsterr search on request (LH-BIB-11, round 12); "New in Downloads" reads the download
+  # folder, nothing else of the home folder.
+  - --share=network
+  - --filesystem=xdg-download:ro
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin
   env:

@@ -40,7 +40,7 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 | LH-BIB-01/02 Import GP3–8, MIDI | umgesetzt, gegen Fremddateien geprüft |
 | LH-BIB-03 MusicXML | umgesetzt (vorgezogen) |
 | LH-BIB-10 MuseScore `.mscz`/`.mscx` | umgesetzt (14.10.), gegen MuseScore-4.7-Dateien geprüft; Sprungzeichen (D.S., Coda) nur nach Formatbeschreibung |
-| LH-BIB-11 Songsterr, MuseScore.com | Suche im Browser, „Neu in Downloads“, Ziehen und Ablegen (14.10., J-B6 ⚙); Ergebnisliste in Kontra nur mit Erlaubnis von Songsterr (offen) |
+| LH-BIB-11 Songsterr, MuseScore.com | Suche im Browser, „Neu in Downloads“, Ziehen und Ablegen (14.10., J-B6 ⚙); Songsterr-Suche in Kontra mit Bassspur (Runde 12, 14.10.) |
 | LH-BIB-04 Bibliothek | umgesetzt: Suche, Tags, Sortierung, Setlisten, Ordner als Setliste |
 | LH-ANZ-01/02/03 Tab-Lane, Tab, Noten | umgesetzt (Kante) |
 | LH-MOD-01..04 Spielen, Song, Warten, Werkstatt | umgesetzt, Werkstatt mit Takten, Zielband und Notendichte; Namen von Spielen/Song offen (Runde 11) |

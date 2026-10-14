@@ -31,6 +31,11 @@ pub struct AppArgs {
     /// `--remove-bass`: the backing track plays without its bass, separated first if needed
     /// (screenshots of J-D1).
     pub remove_bass: bool,
+    /// `--songsterr-answer FILE`: the Songsterr search answers with this file, never the network
+    /// (screenshots of J-B6).
+    pub songsterr_answer: Option<PathBuf>,
+    /// `--song-search QUERY`: search Songsterr at start (screenshots of J-B6).
+    pub song_search: Option<String>,
 }
 
 impl AppArgs {
@@ -67,6 +72,8 @@ impl AppArgs {
                 "--section" => out.section = Some(value()),
                 "--align" => out.align = true,
                 "--remove-bass" => out.remove_bass = true,
+                "--songsterr-answer" => out.songsterr_answer = Some(PathBuf::from(value())),
+                "--song-search" => out.song_search = Some(value()),
                 "--loop-bars" => {
                     let v = value();
                     let mut parts = v.split('-').map(|p| p.trim().parse::<i32>());

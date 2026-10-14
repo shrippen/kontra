@@ -47,6 +47,7 @@ for lang in de en; do
     shot library-empty "$lang" 1500 --page library
     shot practice-lane "$lang" 9000 --open "$DEMO" --input-file "$WORK/take.wav" --autoplay
     shot library "$lang" 1500 --page library
+    shot library-songsterr "$lang" 2500 --page library --songsterr-answer testdata/demo/songsterr-answer.json --song-search Freitag
     shot settings "$lang" 1500 --page settings
     shot tuner "$lang" 4000 --page tuner --input-file "$WORK/take.wav"
     shot ear "$lang" 3800 --page ear --input-file "$WORK/take.wav"

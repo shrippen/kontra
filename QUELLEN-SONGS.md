@@ -14,18 +14,33 @@ Was Kontra mit Songsterr und MuseScore.com tun darf. Stand: 14.10.2026, geprüft
 
 **Kontra baut deshalb:**
 
-1. **Suche im Browser:** Kontra öffnet die Suchseite von Songsterr oder MuseScore mit dem eingegebenen Titel im
-   Browser des Nutzers. Kein Abruf durch Kontra, keine Daten von den Seiten in Kontra.
+1. **Songsterr-Suche in Kontra** (Entscheidung des Eigentümers, Runde 12: „Die Suche selbst aus Kontra heraus ist
+   okay. Ein Klick darauf öffnet weiterhin die Seite.“): siehe unten.
+   **Suche im Browser:** Kontra öffnet außerdem die Suchseite von Songsterr oder MuseScore mit dem eingegebenen
+   Titel im Browser des Nutzers (Ausweg ohne Netz in Kontra, und für MuseScore der einzige Weg).
 2. **Neu in Downloads:** Was der Nutzer dort mit seinem Konto selbst herunterlädt (`.gp`, `.gp5`, `.mid`, `.mscz`,
    `.mxl`, …), zeigt die Bibliothek als „Neu in Downloads“ an; ein Klick öffnet es. Dazu Ziehen und Ablegen auf die
    Bibliothek.
 3. **MuseScore-Format:** `.mscz`/`.mscx` direkt importieren (LH-BIB-10), ohne Export nach MusicXML. Das ist ein
    Dateiformat, keine Website; hilft P3 und P4, die in MuseScore schreiben.
 
-**Nicht gebaut:** Ergebnisliste in Kontra über Songsterrs `/api/songs` (geht technisch, liefert Titel, Interpret und
-Spuren samt Bass, ist aber weder dokumentiert noch freigegeben und per `robots.txt` gesperrt), Scraping, Download
-durch Kontra, Umgehen von Anmeldung oder Bezahlschranke. Eine Ergebnisliste in Kontra nur mit schriftlicher
-Erlaubnis von Songsterr (Entscheidungsrunde).
+**Nicht gebaut:** Scraping, Download von Tabs durch Kontra, andere Endpunkte als die Suche, MuseScore-Suche in
+Kontra, Umgehen von Anmeldung oder Bezahlschranke.
+
+## Songsterr-Suche in Kontra (Runde 12)
+
+`/api/songs?pattern=…&size=20` ist undokumentiert und per `robots.txt` (`/api/`) für Crawler gesperrt; Kontra ist
+kein Crawler, sondern fragt im Auftrag des Nutzers (wie `ai.txt` es erlaubt: Titel, Interpret, Stimmung ansehen).
+Der Eigentümer hat das Risiko entschieden. Grenzen, die Kontra einhält:
+
+- Nur auf Wunsch des Nutzers (Enter oder „Suchen“), eine Anfrage zur Zeit, kein Wiederholen, kein Vorladen, kein
+  Abfragen im Hintergrund; 8 s Zeitlimit, Antwort höchstens 2 MB.
+- User-Agent `Kontra/<Version> (bass trainer; +<Repository>)`, damit Songsterr weiß, wer fragt.
+- Gezeigt werden Titel, Interpret, ob es eine Bassspur gibt und deren Stimmung; nichts wird gespeichert.
+- Ein Treffer öffnet die Songsterr-Seite (auf der Bassspur) im Browser; Noten holt Kontra nie.
+- Antwortet Songsterr mit 429 oder ändert das Format, sagt Kontra das und verweist auf die Browser-Suche. Verbietet
+  Songsterr es ausdrücklich, fliegt die Suche raus.
+- Tests, CI und Screenshots nutzen eine Antwort aus einer Datei (`--songsterr-answer`), nie das Netz.
 
 ## Songsterr
 

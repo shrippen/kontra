@@ -22,6 +22,7 @@ mod progress;
 mod service;
 mod session;
 mod settings;
+mod songsterr;
 mod sources;
 mod stems;
 mod summary;
@@ -38,6 +39,7 @@ pub use check::{
 pub use density::Density;
 pub use expected::{expected_notes, ExpectedNote};
 pub use kontra_engine::Separator;
+pub use kontra_engine::{FileHttp, Http, HttpError, Web};
 pub use kontra_engine::{Gains, SeparatorError, Shaping, SHAPING_RANGE_DB};
 pub use live::{
     is_midi_file, soak, InputChoice, Live, LiveCalibration, LiveEar, LiveOutput, LiveSetup,
@@ -49,6 +51,7 @@ pub use progress::{run_from, ProgressError, ProgressStore, Run, SongProgress};
 pub use service::*;
 pub use session::{Mode, Session, SessionEvent, Workshop};
 pub use settings::{ScoreSettings, Strictness};
+pub use songsterr::{BassTrack, SearchError, SearchStart, SongHit, SongSearch};
 pub use sources::{download_dir, recent_scores, search_url, SongSite};
 pub use stems::{BassRemoval, StemJob};
 pub use summary::{Summary, TimingHistogram};
