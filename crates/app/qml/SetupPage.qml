@@ -53,7 +53,10 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.15
-            text: texts.t("setup." + page.steps[page.step] + ".hint")
+            // The last step names the exercise "start" opens.
+            text: texts.t("setup." + page.steps[page.step] + ".hint",
+                          { title: page.step === page.steps.length - 1 && JSON.parse(ctl.homeJson()).next
+                                   ? JSON.parse(ctl.homeJson()).next.title : "" })
             color: KanteStyle.textColor
         }
 
@@ -181,6 +184,7 @@ Kirigami.ScrollablePage {
                 }
                 QQC2.Label { text: Math.round(ctl.latencyMs) + " ms"; color: KanteStyle.textColor }
             }
+            CalibrationBeat { Layout.fillWidth: true }
             QQC2.Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
@@ -226,7 +230,10 @@ Kirigami.ScrollablePage {
                 visible: page.step === page.steps.length - 1
                 onClicked: {
                     ctl.finishSetup()
-                    if (ctl.openDemo()) {
+                    // The plan's first exercise, as the start page offers it (QA 14.10.: the
+                    // demo étude opened instead).
+                    var next = JSON.parse(ctl.homeJson()).next
+                    if (next ? ctl.openFile(next.path) : ctl.openDemo()) {
                         applicationWindow().show("practice")
                     }
                 }

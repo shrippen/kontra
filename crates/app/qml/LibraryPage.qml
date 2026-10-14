@@ -46,6 +46,7 @@ Kirigami.ScrollablePage {
 
     FolderDialog {
         id: folderDialog
+        currentFolder: StandardPaths.writableLocation(StandardPaths.MusicLocation)
         onAccepted: ctl.importFolder(selectedFolder.toString(), true)
     }
 
@@ -66,8 +67,20 @@ Kirigami.ScrollablePage {
         }
     }
 
+    // Where the last own piece came from, else Downloads, where tabs from the web land (QA
+    // 14.10.: the dialog opened in the program's working folder).
+    function startFolder() {
+        var recent = JSON.parse(ctl.recentJson)
+            .filter(function(e) { return e.path.indexOf("/exercises/") < 0 })
+            .sort(function(a, b) { return b.lastUnix - a.lastUnix })
+        if (recent.length > 0)
+            return "file://" + recent[0].path.substring(0, recent[0].path.lastIndexOf("/"))
+        return StandardPaths.writableLocation(StandardPaths.DownloadLocation)
+    }
+
     FileDialog {
         id: dialog
+        currentFolder: page.startFolder()
         nameFilters: [texts.t("library.formats") + " (*.gp *.gp3 *.gp4 *.gp5 *.gpx *.mid *.midi *.musicxml *.xml *.mxl *.mscz *.mscx *.kontra)"]
         onAccepted: page.open(selectedFile.toString())
     }

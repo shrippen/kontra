@@ -92,15 +92,17 @@ Kirigami.ScrollablePage {
             KanteBarChart {
                 Layout.fillWidth: true
                 Layout.preferredHeight: KanteStyle.unit(180)
-                // Tenths: short days stay visible as bars.
-                values: page.days.map(function(d) { return Math.round(d.minutes * 10) / 10 })
+                // Short days stay visible as bars: under two minutes a day the axis counts
+                // seconds (the chart writes "0.4min" for tenths, QA 14.10.).
+                readonly property bool inSeconds: Math.max.apply(null, page.days.map(function(d) { return d.minutes })) < 2
+                values: page.days.map(function(d) { return inSeconds ? Math.round(d.minutes * 60) : Math.round(d.minutes * 10) / 10 })
                 labels: page.days.map(function(d) {
                     var date = new Date(d.start)
                     return date.getDate() + "." + (date.getMonth() + 1) + "."
                 })
                 highlight: page.dayCount - 1
                 axis: true
-                unit: "min"
+                unit: inSeconds ? " s" : " min"
                 Accessible.name: texts.t("progress.days")
                 Accessible.description: page.weekText
             }

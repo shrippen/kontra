@@ -55,6 +55,19 @@ impl Calibration {
             .collect()
     }
 
+    /// The click last passed at `now_s`: −4..−1 the count-in, 0..7 the measured ones; `None`
+    /// before the first (for a display that counts along, QA 14.10.: P1 heard clicks only).
+    pub fn beat_at(&self, now_s: f64) -> Option<i32> {
+        let passed = self
+            .count_in()
+            .iter()
+            .chain(&self.clicks)
+            .filter(|t| **t <= now_s)
+            .count();
+        let passed = i32::try_from(passed).ok()?;
+        (passed > 0).then(|| passed - 1 - COUNT_IN as i32)
+    }
+
     /// When the last pluck can have arrived.
     pub fn ends_at(&self) -> f64 {
         self.clicks.last().copied().unwrap_or(0.0) + MATCH_S + 0.5
@@ -138,6 +151,16 @@ mod tests {
         assert_eq!(count_in.len(), COUNT_IN);
         assert!((count_in[0] - (3.0 - COUNT_IN as f64 * INTERVAL_S)).abs() < 1e-9);
         assert!((c.clicks()[0] - count_in[COUNT_IN - 1] - INTERVAL_S).abs() < 1e-9);
+    }
+
+    #[test]
+    fn beats_count_in_then_measure() {
+        let c = Calibration::new(3.0);
+        assert_eq!(c.beat_at(0.0), None);
+        assert_eq!(c.beat_at(0.61), Some(-4), "first count-in click at 0.6 s");
+        assert_eq!(c.beat_at(2.99), Some(-1));
+        assert_eq!(c.beat_at(3.0), Some(0));
+        assert_eq!(c.beat_at(9.0), Some(7));
     }
 
     #[test]

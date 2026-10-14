@@ -14,14 +14,23 @@ Kirigami.ApplicationWindow {
     minimumWidth: Kirigami.Units.gridUnit * 26
     minimumHeight: Kirigami.Units.gridUnit * 22
 
+    // Every page has its own heading; Kirigami's title bar above it was empty or said the same
+    // again and took 45 px (QA 14.10., a beamer at 150 % has 480).
+    pageStack.globalToolBar.style: Kirigami.ApplicationHeaderStyle.None
+
     property alias ctl: ctl
     property alias texts: texts
     property string current: ""
     // Presentation mode of the practice page (LH-ANZ-09): full screen, no sidebar.
     property bool presenting: false
     property int visibilityBefore: Window.Windowed
-    onPresentingChanged: {
+    // Narrow windows take the sidebar as an overlay; it starts closed (QA 14.10.: at 700 px it
+    // stayed open over the page, whose right side ran off the window).
+    onWideScreenChanged: if (!wideScreen) globalDrawer.close()
+
+        onPresentingChanged: {
         if (presenting) {
+            globalDrawer.close()
             visibilityBefore = visibility
             showFullScreen()
             return
@@ -129,9 +138,12 @@ Kirigami.ApplicationWindow {
     }
 
     globalDrawer: Kirigami.GlobalDrawer {
-        visible: !root.presenting
+        // In the presentation the sidebar leaves: "visible: false" alone kept its room and
+        // showed it (QA 14.10., P4 at the beamer). Modal and closed, it takes none.
         isMenu: false
-        modal: !root.wideScreen
+        modal: !root.wideScreen || root.presenting
+        // Its handle lay over the transport's time in the presentation.
+        handleVisible: !root.presenting && modal
         collapsible: true
         collapsed: !root.wideScreen
         // Grouped by what the player does: start; play pieces; learn; look back; tools. Setup lives
@@ -161,35 +173,66 @@ Kirigami.ApplicationWindow {
         onTriggered: ctl.tick()
     }
 
-    // LH-ALL-04: the interface was unplugged; another input can stand in until it is back.
-    RowLayout {
-        anchors { left: parent.left; right: parent.right; bottom: notice.visible ? notice.top : parent.bottom; margins: KanteStyle.unit(12) }
+    // Notes for the user sit in a bar under the page, not over it: the page gets shorter, nothing
+    // is hidden or clickable behind a note (QA 14.10.: the latency note covered the transport bar
+    // and was see-through).
+    // In the content area beside the sidebar (a window footer started under the sidebar); the
+    // page stack ends above it.
+    Binding { target: root.pageStack; property: "anchors.bottomMargin"; value: noteBar.visible ? noteBar.height : 0 }
+    Rectangle {
+        id: noteBar
+        parent: root.pageStack.parent
+        anchors { left: root.pageStack.left; right: root.pageStack.right; bottom: parent.bottom }
         z: 10
-        visible: ctl.offerInput !== ""
-        KanteCallout {
-            Layout.fillWidth: true
-            kind: KanteCallout.Kind.Info
-            text: ctl.offerText
-            autoHide: false
-        }
-        KanteButton {
-            text: texts.t("unplug.use")
-            emphasis: KanteButton.Emphasis.Primary
-            Accessible.name: texts.t("unplug.use")
-            onClicked: ctl.useOfferedInput()
+        color: KanteStyle.backgroundColor
+        visible: offer.visible || notice.visible
+        height: notes.implicitHeight + KanteStyle.unit(24)
+
+        ColumnLayout {
+            id: notes
+            anchors { left: parent.left; right: parent.right; top: parent.top; margins: KanteStyle.unit(12) }
+            spacing: KanteStyle.unit(8)
+
+            // LH-ALL-04: the interface was unplugged; another input can stand in until it is back.
+            RowLayout {
+                id: offer
+                Layout.fillWidth: true
+                visible: ctl.offerInput !== ""
+                KanteCallout {
+                    Layout.fillWidth: true
+                    kind: KanteCallout.Kind.Info
+                    text: ctl.offerText
+                    autoHide: false
+                }
+                KanteButton {
+                    text: texts.t("unplug.use")
+                    emphasis: KanteButton.Emphasis.Primary
+                    Accessible.name: texts.t("unplug.use")
+                    onClicked: ctl.useOfferedInput()
+                }
+            }
+
+            KanteCallout {
+                id: notice
+                Layout.fillWidth: true
+                visible: text !== ""
+                kind: ctl.errorText !== "" ? KanteCallout.Kind.Danger : KanteCallout.Kind.Info
+                text: ctl.errorText !== "" ? ctl.errorText : ctl.message
+                dismissible: true
+                autoHide: false
+                onDismissed: ctl.dismissMessage()
+            }
         }
     }
 
-    KanteCallout {
-        id: notice
-        anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: KanteStyle.unit(12) }
-        z: 10
-        visible: text !== ""
-        kind: ctl.errorText !== "" ? KanteCallout.Kind.Danger : KanteCallout.Kind.Info
-        text: ctl.errorText !== "" ? ctl.errorText : ctl.message
-        dismissible: true
-        autoHide: false
-        onDismissed: ctl.dismissMessage()
+    // QA (P7): --focus-log writes each keyboard focus change, to find stops nobody can see.
+    onActiveFocusItemChanged: {
+        if (Qt.application.arguments.indexOf("--focus-log") < 0 || !activeFocusItem)
+            return
+        var it = activeFocusItem
+        var r = it.mapToItem(null, 0, 0)
+        console.warn("focus", it, it.Accessible.name || it.text || "", Math.round(r.x), Math.round(r.y),
+                    Math.round(it.width), Math.round(it.height), it.visible)
     }
 
     // QA and release screenshots: --screenshot PATH [--screenshot-after MS].
@@ -197,7 +240,10 @@ Kirigami.ApplicationWindow {
         interval: Math.max(100, ctl.screenshotAfter)
         running: ctl.screenshotPath !== ""
         onTriggered: {
-            var item = root.pageStack.currentItem || root.contentItem
+            // --screenshot-notes: the note bar under the page instead (QA; the window itself cannot
+            // be grabbed).
+            var notes = Qt.application.arguments.indexOf("--screenshot-notes") >= 0
+            var item = notes ? noteBar : (root.pageStack.currentItem || root.contentItem)
             item.grabToImage(function(result) {
                 result.saveToFile(ctl.screenshotPath)
                 if (ctl.quitAfter <= 0) {
@@ -220,6 +266,8 @@ Kirigami.ApplicationWindow {
     }
 
     Component.onCompleted: {
+        if (!wideScreen)
+            globalDrawer.close()
         // No --page: the assistant on first start, else practice for an opened file or the start page.
         var first = ctl.startPage
         if (first === "") {

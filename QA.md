@@ -53,7 +53,7 @@ Erwartet: Anweisung in Worten („etwas höher drehen“) und Symbol; Erfolg pro
 2. Nach vier Klicks Vorzähler acht Anschläge mit +40 ms Versatz einspeisen.
 3. Modus „Durchlauf“, pünktlich gespielte Aufnahme einspeisen.
 4. PipeWire-Quantum auf 2048 setzen, Kontra neu starten.
-Erwartet: gemessene Latenz ≈ 40 ms angezeigt; danach Bewertung pünktlich (±5 ms); bei Quantum 2048 Hinweis mit Wert und Anleitung.
+Erwartet: gemessene Latenz ≈ 40 ms angezeigt; danach Bewertung pünktlich (±5 ms); bei Quantum 2048 Hinweis mit Wert und Anleitung. Während der Messung zählt die Seite mit („Vorzähler 3“, „Schlag 4 von 8“).
 
 **J-A4 Eingang, den es noch nicht gibt** · Personas: P5 Aylin, P6 Karl · Phase 1 bis 3 · LH-EIN-09, -10, -12
 1. MIDI-Keyboard anstecken, Kontra starten, Einstellungen → Anschluss (P5). Danach USB-Mikrofon als Eingang wählen wollen (P6).
@@ -148,8 +148,8 @@ Erwartet: jede Technik-Note hat ein Zeichen (h, p, sl, x, Klammer) und danach ei
 2. Zwei Taktanfänge von Hand korrigieren.
 3. Bei 75 % Tempo durchspielen.
 4. Die Sängerin will es einen Ganzton höher: „Transponieren“ +2 mitten im Lied, weiterspielen; Kontra neu starten.
-5. „Bass der Aufnahme entfernen“ einschalten (erst ohne Demucs, dann mit), nach der Trennung durchspielen.
-Erwartet: kein hörbarer Versatz > 20 ms über 4 Minuten; der Wechsel hält das Lied nicht an, Bewertetes bleibt; transponiert passen Tab und Audio zusammen (gleiche Tonart, gleiche Takte), Bünde aus der Datei bleiben, wo es geht; die Einstellung bleibt beim Stück, der Fortschritt auch. Ohne Demucs ist der Schalter ausgegraut und „?“ sagt, wie man es installiert; mit Demucs läuft die Trennung im Hintergrund mit Prozent und Abbrechen, danach spielt der Backing-Track ohne Bass, im selben Abgleich, und beim nächsten Mal ohne neue Trennung.
+5. Unter „Bass der Aufnahme“ „Ohne Bass“ wählen (erst ohne Demucs, dann mit), einmal abbrechen, nach der Trennung durchspielen, Kontra neu starten, die getrennte Datei löschen.
+Erwartet: kein hörbarer Versatz > 20 ms über 4 Minuten; der Wechsel hält das Lied nicht an, Bewertetes bleibt; transponiert passen Tab und Audio zusammen (gleiche Tonart, gleiche Takte), Bünde aus der Datei bleiben, wo es geht; die Einstellung bleibt beim Stück, der Fortschritt auch. Ohne Demucs ist „Ohne Bass“ ausgegraut und „?“ sagt, wie man es installiert; mit Demucs läuft die Trennung im Hintergrund (niedrige Priorität) mit Prozent, Restzeit und Abbrechen; Abbrechen lässt keine Dateien zurück. Danach spielt der Backing-Track ohne Bass, im selben Abgleich, und beim nächsten Mal ohne neue Trennung; die Datei liegt im Cache-Ordner, „?“ nennt Ort und Größe, „Getrennte Datei löschen“ gibt den Platz frei. Ein Fehler nennt die Meldung von Demucs und was zu tun ist und bleibt bei seinem Song.
 
 **J-D2 Übung an Schüler geben** · Persona: P4 Thomas · Phase 3 · LH-BIB-07, LH-FOR-04
 1. Übung aus Guitar Pro importieren, Loop-Bereiche und Zieltempo festlegen, als `.kontra` exportieren.

@@ -188,6 +188,8 @@ pub struct Core {
     run_started: Option<std::time::Instant>,
     /// The audio server's block size was checked for this run (LH-EIN-07).
     quantum_checked: bool,
+    /// When the current live input (practice or tuner) started.
+    input_since: Option<std::time::Instant>,
     speed: f64,
     looping: Option<(usize, usize)>,
     /// A note for the user from the last `open` (e.g. a five-string bass was chosen).
@@ -253,6 +255,7 @@ impl Core {
             calibration: None,
             run_started: None,
             quantum_checked: false,
+            input_since: None,
             speed: 1.0,
             looping: None,
         }
@@ -1696,7 +1699,7 @@ impl Core {
         let silent = live.output_is_silent;
         self.live = Some(live);
         self.run_started = Some(std::time::Instant::now());
-        self.quantum_checked = false;
+        self.input_since = self.run_started;
         Ok(silent)
     }
 
@@ -1708,6 +1711,7 @@ impl Core {
         let tuner = LiveTuner::start(&self.input_choice(), &instrument, self.source())
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
         self.tuner = Some(tuner);
+        self.input_since = Some(std::time::Instant::now());
         Ok(())
     }
 
@@ -1731,6 +1735,13 @@ impl Core {
         let mut events: Vec<UiEvent> = raw.into_iter().filter_map(|e| self.translate(e)).collect();
         events.extend(ear_event);
         events.extend(self.advise_level(&events));
+        // The meter holds the peak the advice judges, so both say the same.
+        let held = f64::from(self.level.held_peak_db());
+        for event in &mut events {
+            if let UiEvent::Level { peak_db, .. } = event {
+                *peak_db = held;
+            }
+        }
         if events.iter().any(|e| matches!(e, UiEvent::DeviceLost(_))) {
             self.stop_live();
             self.tuner = None;
@@ -1764,18 +1775,24 @@ impl Core {
         events
     }
 
-    /// LH-EIN-07: once per run, a second after the start, a hint if the audio server's block is
-    /// too long for the latency target.
+    /// LH-EIN-07: once per program run, a second after a live input started (tuner, setup or a
+    /// run), a hint if the input's block is too long for the latency target. Before the first
+    /// note where possible, not again on every run (QA 14.10.).
     fn quantum_check(&mut self) -> Option<String> {
         if self.quantum_checked {
             return None;
         }
-        let started = self.run_started?;
-        if started.elapsed() < std::time::Duration::from_secs(1) {
+        let since = self.input_since?;
+        if since.elapsed() < std::time::Duration::from_secs(1) {
             return None;
         }
+        let block = match (&self.live, &self.tuner) {
+            (Some(live), _) => live.input_block(),
+            (None, Some(tuner)) => tuner.input_block(),
+            (None, None) => None,
+        };
+        let (frames, rate) = block?;
         self.quantum_checked = true;
-        let (frames, rate) = self.live.as_ref()?.input_block()?;
         let ms = quantum_too_long_ms(frames, rate)?;
         Some(self.tr(
             "hint.quantum",
@@ -1804,6 +1821,11 @@ impl Core {
 
     pub fn is_calibrating(&self) -> bool {
         self.calibration.is_some()
+    }
+
+    /// The calibration's click last passed: −4..−1 count-in, 0..7 measured.
+    pub fn calibration_beat(&self) -> Option<i32> {
+        self.calibration.as_ref()?.beat()
     }
 
     fn calibrated(&mut self, result: CalibrationResult) -> UiEvent {
@@ -2180,6 +2202,7 @@ impl Core {
         let Some(loaded) = self.loaded_path().map(Path::to_path_buf) else {
             return;
         };
+        self.cancel_stems_of(&loaded);
         if let Some(entry) = self.library.entry_mut(&loaded) {
             entry.backing = path;
             entry.backing_offset_s = offset_s;
@@ -3618,9 +3641,15 @@ mod tests {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/demo/etude-1.mid")
     }
 
+    /// A fresh data folder whose settings play to the engine's timer, never to the speakers of
+    /// whoever runs the tests (QA 14.10.: test runs clicked on the default output).
     fn temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("kontra-core-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        // The engine's NULL_DEVICE: a timer instead of a sound card.
+        let silent = serde_json::json!({ "output_device": "kontra:null" });
+        let _ = std::fs::write(dir.join("settings.json"), silent.to_string());
         dir
     }
 

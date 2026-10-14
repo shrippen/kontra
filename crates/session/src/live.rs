@@ -223,9 +223,15 @@ impl LiveTuner {
         Ok(LiveTuner { input, events: rx })
     }
 
+    /// The input's block size in frames and its sample rate, once the device delivered audio.
+    pub fn input_block(&self) -> Option<(u32, u32)> {
+        self.input
+            .block_frames()
+            .map(|b| (b, self.input.sample_rate))
+    }
+
     /// Readings and levels since the last call.
     pub fn poll(&mut self) -> Vec<PracticeEvent> {
-        let _ = &self.input;
         let mut out = Vec::new();
         while let Ok(event) = self.events.try_recv() {
             match event {
@@ -459,6 +465,11 @@ impl LiveCalibration {
             calibration: None,
             lead_s,
         })
+    }
+
+    /// The click last passed (see `Calibration::beat_at`).
+    pub fn beat(&self) -> Option<i32> {
+        self.calibration.as_ref()?.beat_at(self.clock.now_s())
     }
 
     /// Polls; returns the result once all clicks are through.

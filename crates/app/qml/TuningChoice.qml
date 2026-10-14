@@ -36,8 +36,18 @@ ColumnLayout {
         onActivated: function(index) { ctl.changeTuning(choice.values[index]) }
     }
 
-    // The open strings, lowest first; editable in the custom tuning.
+    // A preset's open strings as text, lowest first: locked lists looked editable (QA 14.10.).
+    QQC2.Label {
+        visible: ctl.tuning !== "custom"
+        text: choice.strings.map(function(s) { return s.full }).join(" · ")
+        color: KanteStyle.textColor
+        font: KanteStyle.monoFont(KanteStyle.defaultFont.pointSize, false)
+        Accessible.name: texts.t("settings.tuning") + ": " + text
+    }
+
+    // The custom tuning: one note per string, lowest first.
     RowLayout {
+        visible: ctl.tuning === "custom"
         spacing: KanteStyle.unit(8)
         Repeater {
             model: choice.strings
@@ -46,7 +56,6 @@ ColumnLayout {
                 required property int index
                 Accessible.name: texts.t("settings.tuning.string", { n: choice.strings.length - index })
                 Layout.preferredWidth: KanteStyle.unit(80)
-                enabled: ctl.tuning === "custom"
                 model: choice.notes.map(function(n) { return n.name })
                 currentIndex: choice.noteIndex(modelData.midi)
                 displayText: modelData.full

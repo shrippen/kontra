@@ -107,6 +107,15 @@ impl LevelAdvisor {
         }
     }
 
+    /// The loudest reading of the last `HOLD_S`: the meter's peak hold, so the meter and the
+    /// advice judge the same level (QA 14.10.: "-7 dB, good" above "a bit too loud").
+    pub fn held_peak_db(&self) -> f32 {
+        self.history
+            .iter()
+            .map(|(_, db, _)| *db)
+            .fold(f32::NEG_INFINITY, f32::max)
+    }
+
     /// Quiet for a while: suggest the laptop-jack profile (only useful on the line input).
     pub fn suggests_laptop(&self) -> bool {
         let now = self.history.back().map_or(0.0, |(t, _, _)| *t);
@@ -126,6 +135,21 @@ mod tests {
             a.push(t, db, false);
             t += 0.05;
         }
+    }
+
+    #[test]
+    fn the_meter_holds_the_advised_peak() {
+        let mut a = LevelAdvisor::default();
+        feed(&mut a, 0.0, 1.0, -5.0);
+        feed(&mut a, 1.0, 2.0, -7.0);
+        assert_eq!(a.held_peak_db(), -5.0);
+        assert_eq!(
+            a.state(),
+            LevelState::Loud,
+            "the meter shows what the advice says"
+        );
+        feed(&mut a, 2.0, 5.0, -7.0);
+        assert_eq!(a.held_peak_db(), -7.0, "the peak falls back after the hold");
     }
 
     #[test]

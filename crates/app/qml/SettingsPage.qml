@@ -117,6 +117,9 @@ Kirigami.ScrollablePage {
                     to: 500
                     stepSize: 5
                     value: Math.round(ctl.latencyMs)
+                    // With its unit: a bare "0" said nothing (QA 14.10.).
+                    textFromValue: function(v) { return v + " ms" }
+                    valueFromText: function(t) { return parseInt(t) }
                     onValueModified: ctl.changeLatency(value)
                 }
                 KanteButton {
@@ -128,6 +131,7 @@ Kirigami.ScrollablePage {
                 KanteInfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency"); accessibleName: texts.t("help.about", { term: texts.t("settings.latency") }) }
             }
         }
+        CalibrationBeat { Layout.fillWidth: true }
         QQC2.Label {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
