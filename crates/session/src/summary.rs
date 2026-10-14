@@ -117,7 +117,8 @@ impl Summary {
 }
 
 /// In Wait mode a note can have several attempts; the last result per (pass, note) counts.
-fn final_per_note(results: &[NoteResult]) -> Vec<NoteResult> {
+/// Extra notes are no notes of the score and are left out.
+pub(crate) fn final_per_note(results: &[NoteResult]) -> Vec<NoteResult> {
     let mut last: BTreeMap<(u32, usize), NoteResult> = BTreeMap::new();
     for r in results {
         let Some(note) = r.note else {

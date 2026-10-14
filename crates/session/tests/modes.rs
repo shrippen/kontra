@@ -116,6 +116,11 @@ fn wait_mode_holds_until_right_note() {
 /// Workshop over the whole riff at half speed: one pass is 8 s real, note `i` at `base + i`.
 /// `hits[pass]` is how many of the eight notes are played right in that pass (the rest are missed).
 fn workshop_run(hits: &[usize], until: f64) -> Vec<SessionEvent> {
+    workshop_with(hits, &[], until)
+}
+
+/// `workshop_run` with `extras` detected besides the notes (false alarms of a real bass).
+fn workshop_with(hits: &[usize], extras: &[DetectedNote], until: f64) -> Vec<SessionEvent> {
     let workshop = Workshop {
         target_speed: 1.0,
         min_speed: 0.25,
@@ -141,7 +146,53 @@ fn workshop_run(hits: &[usize], until: f64) -> Vec<SessionEvent> {
             notes.push(played(base + i as f64, *midi));
         }
     }
+    notes.extend_from_slice(extras);
+    notes.sort_by(|a, b| a.onset_s.total_cmp(&b.onset_s));
     run(&mut s, &notes, until)
+}
+
+fn pass_rates(events: &[SessionEvent]) -> Vec<(bool, f64)> {
+    events
+        .iter()
+        .filter_map(|e| match e {
+            SessionEvent::PassComplete {
+                clean, hit_rate, ..
+            } => Some((*clean, *hit_rate)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// An open string 0.3 s after every note of two passes (H5): no note of the score.
+fn open_string_after_each_note() -> Vec<DetectedNote> {
+    (0..16).map(|i| played(f64::from(i) + 0.3, 28.0)).collect()
+}
+
+/// Extra detections are no notes of the score: a pass with every note hit is clean at 100 %,
+/// and the workshop speeds up as without them (H5: a real bass makes about one per note).
+#[test]
+fn extras_do_not_lower_the_pass_rate() {
+    let events = workshop_with(&[8, 8], &open_string_after_each_note(), 17.0);
+    assert_eq!(
+        pass_rates(&events),
+        vec![(true, 1.0), (true, 1.0)],
+        "{events:?}"
+    );
+    let changes = speed_changes(&events);
+    assert_eq!(changes.len(), 1, "{events:?}");
+    assert!((changes[0] - 0.55).abs() < 1e-9, "{changes:?}");
+}
+
+/// A missed note still counts, extras or not: 7 of 8.
+#[test]
+fn missed_note_lowers_the_pass_rate_despite_extras() {
+    let events = workshop_with(&[7, 7], &open_string_after_each_note(), 17.0);
+    assert_eq!(
+        pass_rates(&events),
+        vec![(false, 0.875), (false, 0.875)],
+        "{events:?}"
+    );
+    assert!(speed_changes(&events).is_empty(), "{events:?}");
 }
 
 /// Speed changes made by the workshop (the first event is the initial `set_speed`).

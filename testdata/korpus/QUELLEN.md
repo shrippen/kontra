@@ -248,6 +248,53 @@ Aufnahmen vom 13.10. gewählt (Simulation über die Schätzungen, dann im Tracke
 Die Präzision steigt, weil 18 Legato-Noten aus dem Einschwingen wegfallen. Die Bewertung ändert sich bis etwa 160 ms
 nach dem Anschlag (bei einer neuen Note davor mit dem, was bis dahin zu hören war).
 
+### Fehlalarme am E-Bass (Branch `fehlalarme`, 14.10., H5)
+
+Eigene Aufnahmen 13.10. (E-Bass, Scarlett Solo), Annotationen um den Spieler-Versatz korrigiert. Befund an `fretted`
+(Hüllkurve in 2,5-ms-Blöcken): Vor C2 und G2 tippt der greifende Finger die Saite 30–70 ms vor dem Zupfen an (−33 dB,
+dann Zupfen −11 dB). Liegt der Vorläufer ≥ 35 ms davor, legte `MERGE_S` beide zusammen (Einsatz des Vorläufers), sonst
+gab es nur einen Einsatz (`min_interval_s`); beide Male kam die Note 50–70 ms zu früh mit dem Pegel des Vorläufers.
+Das war der „echte leise Ton 26 dB unter dem davor“. Weitere Fehlalarme: leere Saite 0,3 s nach einem gegriffenen Ton
+auf ihr (−20 dB), tonlose Geräusche 90–175 ms vor dem Anschlag, Töne mit falscher Tonhöhe 80–140 ms davor.
+
+Neu im Tracker: Ein Anschlag ≥ 12 dB lauter als der noch tonlose Einsatz davor ersetzt ihn (`PRECURSOR_FACTOR`); vor der
+ersten Tonhöhen-Schätzung (die ohnehin ≈ 87 ms braucht, also ohne Verzögerung) rückt der Einsatz auf die erste Stelle
+binnen 60 ms, die 12 dB an den Spitzenwert heranreicht, wenn sie ≥ 10 ms später liegt.
+
+| Material | vorher R / P | nachher R / P |
+|---|---|---|
+| Eigene 13.10. ±80 ms mit Tonhöhe (8 Takes, 64 Noten) | 68,8 / 49,4 % (89 erkannt) | 70,3 / 52,3 % (86) |
+| IDMT ±80 ms mit Tonhöhe (CI) | 91,2 / 81,2 % | 91,6 / 81,9 % |
+| FiloBass ±50 ms / mit Tonhöhe | 69,7 / 72,6 %, 52,6 / 54,8 % | 69,6 / 72,9 %, 52,6 / 55,1 % |
+| `korpus techniques` IDMT richtig: normal / Slap / Pop / Ghost / Slide | 90,3 / 78,8 / 64,0 / 96,4 / 15,0 % | 90,5 / 79,8 / 66,0 / 96,4 / 15,0 % |
+| `korpus check` (synthetisch) | | unverändert |
+
+Die Recall-Lücke der eigenen Takes liegt bei den Legato-Takes (Zielnote gespielt früher als annotiert) und bei
+`dead` (Tonhöhe der Dead Notes); Hammer-on und Pull-off unverändert.
+
+Session: Ein Anschlag mit besserer Tonhöhe übernimmt eine schon belegte Note im Zeitfenster, der frühere wird Extra
+(`Matcher::score`, `Claim::TakenOver`). `kontra-cli score` gegen die Takes (Viertel, 80 BPM), Trefferquote:
+
+| Take | Fenster | vorher | nur Tracker | Tracker + Session |
+|---|---|---|---|---|
+| fretted | normal / locker | 75 / 75 % | 100 / 88 % | 100 / 100 % |
+| pop | normal / locker | 88 / 75 % | 88 / 88 % | 100 / 100 % |
+| open-strings, slap | normal / locker | 88 / 88 % | unverändert | unverändert |
+
+Verworfen: Regel „Ton ≥ x dB leiser als der vorige, binnen 0,5 s“ (Nachklang, leere Saite). Nach der Korrektur oben:
+
+| Schwelle | Eigene (5 Takes ohne Legato): Fehlalarme weg | IDMT: echte weg / Fehlalarme weg | FiloBass: echte / Fehlalarme |
+|---|---|---|---|
+| −16 dB | 4 von 24 | 3 / 23 von 204 | 1 / 4 |
+| −18 dB | 4 | 1 / 19 | 0 / 2 |
+| −20 dB | 3 | 1 / 13 | 0 / 0 |
+| −22 dB | 2 | 0 / 6 | 0 / 0 |
+
+IDMT 009 hat eine echte leere G-Saite 21 dB unter dem D2 davor, 0,39 s danach: genau das Muster der Fehlalarme. Ab
+−22 dB bleiben 2 der 24 Fehlalarme weg, 1 dB vor dem ersten echten Ton. Nur auf leere Saiten beschränkt ändert es
+wenig (−18 dB: eigene 3, IDMT 1 / 9). Tonlose Vorläufer > 150 ms vor dem Anschlag sind schon als Dead Note gemeldet,
+bevor der Anschlag kommt; sie wegzulassen hieße, tonlose Noten zu verzögern.
+
 ## Befunde
 
 1. **Einsatz ohne Tonhöhe plus zweite Note.** Bei tiefen Tönen meldet die Erkennung am Anschlag eine Note mit

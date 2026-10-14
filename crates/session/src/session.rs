@@ -1,7 +1,7 @@
 //! A practice session: one arrangement, one mode, scored live.
 
 use crate::expected::expected_notes;
-use crate::matcher::{Matcher, NoteResult, Outcome};
+use crate::matcher::{Claim, Matcher, NoteResult, Outcome};
 use crate::settings::ScoreSettings;
 use crate::summary::Summary;
 use crate::technique::{TechniqueJudge, TechniqueResult};
@@ -246,7 +246,7 @@ impl Session {
             self.events.push(SessionEvent::Technique(t));
             return;
         }
-        let result = self.matcher.score(
+        let (result, claim) = self.matcher.score(
             pass,
             position,
             note.midi,
@@ -255,12 +255,91 @@ impl Session {
             &self.settings,
             range,
         );
+        if claim == Claim::TakenOver {
+            self.take_over(note, result);
+            return;
+        }
         self.remember_scored(note);
         self.record(result);
         self.judge_struck(&result, Some(note.technique));
         if let Some(index) = result.note {
             self.remember_struck(note.onset_s, result.pass, index);
         }
+    }
+
+    /// `result` of `note` replaces the worse one an earlier detection got for the same expected
+    /// note (and its chord tones); the earlier detection becomes an extra note (H5).
+    fn take_over(&mut self, note: &DetectedNote, result: NoteResult) {
+        let taken = |r: &NoteResult| {
+            r.pass == result.pass
+                && r.position_s == result.position_s
+                && r.note.is_some()
+                && !matches!(r.outcome, Outcome::Missed)
+        };
+        let Some(at) = self
+            .results
+            .iter()
+            .rposition(|r| taken(r) && r.note == result.note)
+        else {
+            return;
+        };
+        let earlier = self.results[at];
+
+        // The note and each chord tone recorded with it.
+        let tones: Vec<usize> = (at..self.results.len())
+            .take_while(|&i| taken(&self.results[i]) && self.results[i].outcome == earlier.outcome)
+            .collect();
+        for i in tones {
+            let tone = NoteResult {
+                note: self.results[i].note,
+                ..result
+            };
+            self.results[i] = tone;
+            self.events.push(SessionEvent::Result(tone));
+        }
+
+        // The earlier detection is an extra note now; its late pitch judges nothing.
+        let extra = NoteResult {
+            note: None,
+            bar: None,
+            outcome: Outcome::Extra {
+                played_midi: self.played_midi(&earlier),
+            },
+            offset_ms: None,
+            cents: None,
+            position_s: played_at(&earlier, self.transport.speed()),
+            ..earlier
+        };
+        for entry in self.scored.iter_mut().filter(|(_, i, _)| *i == at) {
+            entry.1 = self.results.len();
+        }
+        self.results.push(extra);
+        self.events.push(SessionEvent::Result(extra));
+        if self.scored.len() >= STRUCK_KEPT {
+            self.scored.remove(0);
+        }
+        self.scored.push((note.onset_s, at, note.technique));
+
+        // The technique is judged on the attack, not the artifact.
+        self.struck
+            .retain(|(_, pass, n)| !(*pass == result.pass && Some(*n) == result.note));
+        self.judge_struck(&result, Some(note.technique));
+        if let Some(index) = result.note {
+            self.remember_struck(note.onset_s, result.pass, index);
+        }
+    }
+
+    /// The pitch a judged detection was played at: kept by a wrong note, else the expected one
+    /// moved by the cents.
+    fn played_midi(&self, result: &NoteResult) -> f64 {
+        if let Outcome::WrongPitch { played_midi } = result.outcome {
+            return played_midi;
+        }
+        let expected = result
+            .note
+            .and_then(|note| self.slot_of(note, result.position_s))
+            .map_or(0.0, |slot| f64::from(self.matcher.expected()[slot].midi));
+        expected + result.cents.unwrap_or(0.0) / 100.0
     }
 
     /// A technique told after its note (LH-BEW-06): the note it belongs to is judged again.
@@ -314,6 +393,7 @@ impl Session {
         };
         self.results[at] = hit;
         self.events.push(SessionEvent::Result(hit));
+        self.matcher.rejudge(pass, slot, hit.outcome);
         self.end_wait(pass, slot);
     }
 
@@ -349,6 +429,7 @@ impl Session {
         // The earlier result is replaced, not followed: a pass counts every result it holds.
         self.results[at] = revised;
         self.events.push(SessionEvent::Result(revised));
+        self.matcher.rejudge(last.pass, slot, outcome);
 
         // Wait mode: a wrong attempt that was the right note after all ends the wait.
         let wrong = |o: Outcome| matches!(o, Outcome::WrongPitch { .. });
@@ -624,13 +705,22 @@ impl Session {
 
     fn complete_pass(&mut self) {
         let pass = self.cursor_pass;
-        let in_pass = || self.results.iter().filter(|r| r.pass == pass);
+        // The notes of the score, judged as the summary does: extra notes (a real bass makes
+        // about one per note, H5) do not count, the last result per note does.
+        let of_pass: Vec<NoteResult> = self
+            .results
+            .iter()
+            .filter(|r| r.pass == pass)
+            .copied()
+            .collect();
+        let judged = crate::summary::final_per_note(&of_pass);
+        let in_pass = || judged.iter();
         let clean = in_pass().all(NoteResult::is_hit);
-        let judged = in_pass().count();
-        let hit_rate = if judged == 0 {
+        let count = in_pass().count();
+        let hit_rate = if count == 0 {
             1.0
         } else {
-            in_pass().filter(|r| r.is_hit()).count() as f64 / judged as f64
+            in_pass().filter(|r| r.is_hit()).count() as f64 / count as f64
         };
         self.events.push(SessionEvent::PassComplete {
             pass,
@@ -683,4 +773,9 @@ impl Session {
             self.events.push(SessionEvent::Finished);
         }
     }
+}
+
+/// Arrangement position a judged detection was played at.
+fn played_at(result: &NoteResult, speed: f64) -> f64 {
+    result.position_s + result.offset_ms.unwrap_or(0.0) / 1000.0 * speed
 }
