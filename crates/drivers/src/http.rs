@@ -49,10 +49,17 @@ pub struct Web {
 
 impl Web {
     pub fn new() -> Web {
-        use ureq::tls::{RootCerts, TlsConfig, TlsProvider};
+        use ureq::tls::{Certificate, RootCerts, TlsConfig, TlsProvider};
+        // The system's roots (its CA store); unreadable ones are skipped, none means no HTTPS
+        // and the search says it is offline.
+        let roots: Vec<Certificate<'static>> = rustls_native_certs::load_native_certs()
+            .certs
+            .iter()
+            .map(|der| Certificate::from_der(der.as_ref()).to_owned())
+            .collect();
         let tls = TlsConfig::builder()
             .provider(TlsProvider::Rustls)
-            .root_certs(RootCerts::PlatformVerifier)
+            .root_certs(RootCerts::new_with_certs(&roots))
             .build();
         let agent = ureq::Agent::config_builder()
             .timeout_global(Some(TIMEOUT))

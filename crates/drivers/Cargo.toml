@@ -22,7 +22,10 @@ midir = "0.11"
 midly = { version = "0.5.3", default-features = false, features = ["std"] }
 # HTTPS for the Songsterr search (LH-BIB-11, round 12; MIT/Apache-2.0): rustls with ring,
 # the system's certificates through rustls-platform-verifier (webpki-roots is CDLA, not allowed).
-ureq = { version = "3.4", default-features = false, features = ["rustls-no-provider", "_ring", "platform-verifier"] }
+ureq = { version = "3.4", default-features = false, features = ["rustls-no-provider", "_ring"] }
+# The system's root certificates for the Songsterr search; ureq's platform verifier pulls in
+# webpki-root-certs (CDLA-Permissive-2.0, not allowed by deny.toml).
+rustls-native-certs = "0.8"
 
 # alsa-lib's own error print, silenced while probing devices (MIT; already in the tree under
 # cpal and midir, same version).
