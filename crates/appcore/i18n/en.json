@@ -82,6 +82,7 @@
   "level.clip": "clipping",
   "level.name": "Input level",
   "level.idle": "Input: Kontra listens as soon as you play. To check the level first: tuner.",
+  "level.midi": "Input: MIDI keyboard. Kontra reads the keys; there is no level here.",
   "practice.empty.title": "No piece open yet",
   "practice.empty.text": "Take an exercise from the plan or open a piece from the library (Guitar Pro, MIDI, MusicXML).",
   "practice.empty.exercises": "Go to exercises",

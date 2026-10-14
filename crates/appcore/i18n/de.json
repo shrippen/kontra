@@ -82,6 +82,7 @@
   "level.clip": "übersteuert",
   "level.name": "Eingangspegel",
   "level.idle": "Eingang: Kontra hört zu, sobald du abspielst. Den Pegel vorher prüfen: Stimmgerät.",
+  "level.midi": "Eingang: MIDI-Keyboard. Kontra liest die Tasten, einen Pegel gibt es hier nicht.",
   "practice.empty.title": "Noch kein Stück geöffnet",
   "practice.empty.text": "Nimm eine Übung aus dem Plan oder öffne ein Stück aus der Bibliothek (Guitar Pro, MIDI, MusicXML).",
   "practice.empty.exercises": "Zu den Übungen",
