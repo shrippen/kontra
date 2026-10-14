@@ -174,8 +174,20 @@ impl Drop for StemJob {
 mod tests {
     use super::*;
 
+    /// One test at a time writes and starts a script: a child forked by another test can hold
+    /// the file still open for writing, and starting it fails with "Text file busy" (ETXTBSY),
+    /// as in `kontra_drivers::separator` (CI 14.10.: "failed" instead of "running").
+    static SCRIPTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn scripts() -> std::sync::MutexGuard<'static, ()> {
+        SCRIPTS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
     #[test]
     fn separates_once_and_keeps_the_result() {
+        let _scripts = scripts();
         let dir = std::env::temp_dir().join(format!("kontra-stems-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
@@ -221,6 +233,7 @@ mod tests {
     /// Second reader #64: work folders of an earlier run (crash, killed) stayed for good.
     #[test]
     fn start_clears_old_work() {
+        let _scripts = scripts();
         let dir = std::env::temp_dir().join(format!("kontra-stems-stale-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let cache = dir.join("cache");
@@ -243,6 +256,7 @@ mod tests {
     /// QA P2 (J-D1, 14.10.): a cancelled separation left Demucs' half-written files behind.
     #[test]
     fn cancel_leaves_nothing_behind() {
+        let _scripts = scripts();
         let dir = std::env::temp_dir().join(format!("kontra-stems-cancel-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
