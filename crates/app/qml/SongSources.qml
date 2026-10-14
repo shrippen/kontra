@@ -26,6 +26,9 @@ ColumnLayout {
     function refresh() {
         downloads = JSON.parse(ctl.downloadsJson())
     }
+    // Once at once: the timer runs only in the active window, and until its first round an
+    // inactive one said "no download folder" (QA 14.10., window started without focus).
+    Component.onCompleted: refresh()
 
     function search(site) {
         var url = ctl.searchUrl(site, field.text)

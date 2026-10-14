@@ -504,7 +504,7 @@ Kirigami.ScrollablePage {
         id: exportDialog
         fileMode: FileDialog.SaveFile
         defaultSuffix: "json"
-        currentFile: StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + "kontra-daten.json"
+        selectedFile: StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + "kontra-daten.json"
         nameFilters: [texts.t("data.files") + " (*.json)"]
         onAccepted: ctl.exportData(selectedFile.toString())
     }

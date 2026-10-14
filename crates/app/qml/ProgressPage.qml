@@ -130,7 +130,7 @@ Kirigami.ScrollablePage {
                             Accessible.name: texts.t("report.export.name", { title: modelData.title })
                             onClicked: {
                                 page.reportSongId = modelData.songId
-                                reportDialog.currentFile = StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + "kontra-" + modelData.title.replace(/[^A-Za-z0-9äöüÄÖÜß-]+/g, "-") + ".html"
+                                reportDialog.selectedFile = StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + "kontra-" + modelData.title.replace(/[^A-Za-z0-9äöüÄÖÜß-]+/g, "-") + ".html"
                                 reportDialog.open()
                             }
                         }
