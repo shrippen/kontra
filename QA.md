@@ -93,7 +93,7 @@ Erwartet: Lied wartet ohne Zeitdruck; falscher Ton wird freundlich angezeigt (we
 4. Fehlerfreie Durchläufe einspeisen bis 100 %.
 5. Notendichte „Auf den Schlägen“ wählen; nach einem Durchlauf über 90 % den Vorschlag „mehr Noten“ annehmen.
 6. Alles nur mit Tastatur wiederholen (Loop mit `[` und `]` setzen, Pos1 springt an den Loop-Anfang), dann mit einem Fußschalter (Bild ab/auf).
-Erwartet: Bereich und Tempo stimmen; Backing Track bei 60 % ohne metallischen Klang; Steigerung sichtbar; jede Funktion per Tastenkürzel.
+Erwartet: Bereich und Tempo stimmen; Backing Track bei 60 % ohne metallischen Klang; Steigerung sichtbar; jede Funktion per Tastenkürzel; jeder Durchgang beginnt mit neutralen Noten (keine Marken des vorigen vor der Spiellinie).
 
 **J-B4 Bundlos und tief** ⚙ · Persona: P3 Mira · Phase 1 · LH-TUN-01, LH-BEW-01, -02, -05, LH-NF-03, LH-ANZ-03
 1. Instrument „5 Saiten, bundlos“ anlegen.

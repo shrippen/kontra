@@ -265,7 +265,7 @@ Kirigami.ScrollablePage {
                             emphasis: KanteButton.Emphasis.Primary
                             onClicked: {
                                 page.shareAudio = withAudio.checked
-                                packageDialog.currentFile = StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + String(piece.modelData.title).replace(/[\/:*?"<>|]+/g, "-") + ".kontra"
+                                packageDialog.selectedFile = StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + String(piece.modelData.title).replace(/[\/:*?"<>|]+/g, "-") + ".kontra"
                                 packageDialog.open()
                             }
                         }

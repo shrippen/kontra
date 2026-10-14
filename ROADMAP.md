@@ -275,6 +275,13 @@ Echtes X-Fenster wie in der Runde davor; dazu 700 px (halber Laptop), 2560×1440
     zwischen zwei Messungen, die Werte stimmen. Kein Befund.
 - **J-F2 Englisch: bestanden nach Befunden.** Keine rohen Schlüssel, kein Sprachmix; T8 (niedrig, behoben):
   Formulierungen („the frame sits first“, „Once you found“) und weitere aus einem Durchgang über `en.json`.
+- **Nachmittag (P2 J-B3, P4 J-D2, P1 J-B2), lokal, während Gitea keine Pushes annahm:**
+  - T9 (hoch, behoben): Ab dem zweiten Schleifen-Durchgang trugen die kommenden Noten die Marken des vorigen
+    (verpasst, falsch) vor der Spiellinie; jetzt beginnt jeder Durchgang neutral.
+  - T10 (mittel, behoben): Ein Fenster ohne Fokus meldete „kein Download-Ordner“; die Liste lud nur im aktiven Fenster.
+  - T11 (niedrig, behoben): Fortschritt „1 min an einem Tag“ nach 22 s, darunter „unter 1 min“; jetzt einheitlich.
+  - Speicherdialoge: Vorschlag über `selectedFile`; der Qt-Ersatzdialog zeigt ihn nicht, nativ ungeprüft.
+  - Warten-Modus: hält am richtigen Ton, nennt gespielten und gesuchten, Griffbrett mit Bund und Finger. Bestanden.
 - Offen (niedrig): Stücke mit zwei Takten stehen in Tab und Noten klein oben links (keine Streckung auf die Breite);
   `--page`/`--mode` mit unbekanntem Wert zeigen eine leere Seite bzw. speichern den Wert (nur QA-Schalter).
 
