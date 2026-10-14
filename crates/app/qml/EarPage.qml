@@ -141,9 +141,15 @@ Kirigami.Page {
             }
         }
 
+        // The fretboard is the answer here: it grows with the width (a fifth of it, at most
+        // 240), so the half page below it is not empty and the marks read from further away;
+        // on a short screen (beamer) it shrinks, so the score below stays visible.
         KanteFretboard {
             Layout.fillWidth: true
-            Layout.preferredHeight: KanteStyle.unit(160)
+            Layout.fillHeight: true
+            Layout.minimumHeight: KanteStyle.unit(96)
+            Layout.preferredHeight: Layout.maximumHeight
+            Layout.maximumHeight: Math.max(KanteStyle.unit(160), Math.min(KanteStyle.unit(240), width / 5))
             strings: page.stringNames.length
             stringNames: page.stringNames
             frets: 15
