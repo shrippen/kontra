@@ -188,6 +188,8 @@ pub struct Core {
     run_started: Option<std::time::Instant>,
     /// The audio server's block size was checked for this run (LH-EIN-07).
     quantum_checked: bool,
+    /// The input was checked for a missing PipeWire node once this program run (review #73).
+    direct_checked: bool,
     /// When the current live input (practice or tuner) started.
     input_since: Option<std::time::Instant>,
     speed: f64,
@@ -255,6 +257,7 @@ impl Core {
             calibration: None,
             run_started: None,
             quantum_checked: false,
+            direct_checked: false,
             input_since: None,
             speed: 1.0,
             looping: None,
@@ -1673,10 +1676,19 @@ impl Core {
 
     /// The chosen input, else an interface before the built-in card (LH-EIN-02).
     fn input_device(&self) -> Option<String> {
-        if self.settings.input_device.is_some() {
-            return self.settings.input_device.clone();
+        chosen_input(
+            self.settings.input_device.as_deref(),
+            &list_devices(Direction::Input),
+        )
+    }
+
+    /// The chosen output if it is there, else the system default.
+    fn output_device(&self) -> Option<String> {
+        let saved = self.settings.output_device.as_deref()?;
+        if saved == kontra_session::NULL_DEVICE {
+            return Some(saved.to_string());
         }
-        preferred_input(&list_devices(Direction::Input)).map(|d| d.id.clone())
+        chosen_output(Some(saved), &list_devices(Direction::Output))
     }
 
     /// Starts audio for the loaded arrangement; true if there is no sound output.
@@ -1698,7 +1710,7 @@ impl Core {
         };
         let setup = LiveSetup {
             input: self.input_choice(),
-            output_device: self.settings.output_device.clone(),
+            output_device: self.output_device(),
             source: self.source(),
             // A backing file that is gone is skipped (play() says so), not an error.
             backing: self.backing().map(|(path, _)| path).filter(|p| p.exists()),
@@ -1779,6 +1791,9 @@ impl Core {
         if let Some(hint) = self.quantum_check() {
             events.push(UiEvent::Message(hint));
         }
+        if let Some(hint) = self.direct_check() {
+            events.push(UiEvent::Message(hint));
+        }
         if let Some(result) = self.calibration.as_mut().and_then(LiveCalibration::poll) {
             self.calibration = None;
             events.push(self.calibrated(result));
@@ -1812,6 +1827,21 @@ impl Core {
         ))
     }
 
+    /// Once per program run, when a live input started: the interface has no PipeWire node and
+    /// runs through ALSA directly; say so and how to get the node back (review #73).
+    fn direct_check(&mut self) -> Option<String> {
+        if self.direct_checked || self.input_since.is_none() {
+            return None;
+        }
+        self.direct_checked = true;
+        let InputChoice::Device { id: Some(id), .. } = self.input_choice() else {
+            return None;
+        };
+        let devices = list_devices(Direction::Input);
+        let device = devices.iter().find(|d| d.id == id && d.past_pipewire)?;
+        Some(self.tr("hint.direct", &[("name", device.name.clone())]))
+    }
+
     /// Starts "play on the click" (LH-EIN-05): 8 clicks from one second after the input starts.
     pub fn start_calibration(&mut self) -> Result<(), String> {
         self.stop_live();
@@ -1821,7 +1851,7 @@ impl Core {
         let instrument = self.instrument();
         let setup = LiveSetup {
             input: self.input_choice(),
-            output_device: self.settings.output_device.clone(),
+            output_device: self.output_device(),
             source: self.source(),
             backing: None,
         };
@@ -2870,7 +2900,7 @@ impl Core {
         let instrument = self.instrument();
         let setup = LiveSetup {
             input: self.input_choice(),
-            output_device: self.settings.output_device.clone(),
+            output_device: self.output_device(),
             source: self.source(),
             backing: None,
         };
@@ -3114,7 +3144,7 @@ impl Core {
             .map(|d| d.id.clone());
         let list: Vec<_> = devices
             .iter()
-            .map(|d| json!({ "id": d.id, "name": d.name, "default": d.is_default, "connection": format!("{:?}", d.connection), "preferred": preferred.as_ref() == Some(&d.id) }))
+            .map(|d| json!({ "id": d.id, "name": d.name, "default": d.is_default, "connection": format!("{:?}", d.connection), "preferred": preferred.as_ref() == Some(&d.id), "direct": d.past_pipewire }))
             .collect();
         serde_json::Value::Array(list).to_string()
     }
@@ -3557,6 +3587,24 @@ fn names_of(tuning: &Tuning) -> Vec<String> {
 
 /// LH-EIN-02: with no input chosen, an interface (USB) before the built-in card, the system's
 /// default first if it is one. `None`: no interface, the system decides.
+/// The saved input if it is listed, else an interface (LH-EIN-02): an unplugged device or an
+/// ALSA id saved before PipeWire means "Automatic", not the system default (review #73).
+fn chosen_input(saved: Option<&str>, devices: &[DeviceInfo]) -> Option<String> {
+    if let Some(id) = saved.filter(|id| devices.iter().any(|d| d.id == *id)) {
+        return Some(id.to_string());
+    }
+    preferred_input(devices).map(|d| d.id.clone())
+}
+
+/// The saved output if it is listed (or the engine's timer), else the system default.
+fn chosen_output(saved: Option<&str>, devices: &[DeviceInfo]) -> Option<String> {
+    let id = saved?;
+    if id == kontra_session::NULL_DEVICE || devices.iter().any(|d| d.id == id) {
+        return Some(id.to_string());
+    }
+    None
+}
+
 fn preferred_input(devices: &[DeviceInfo]) -> Option<&DeviceInfo> {
     let usb = |d: &&DeviceInfo| d.connection == Connection::Usb;
     devices
@@ -4409,6 +4457,7 @@ mod tests {
             connection,
             sample_rate: 48_000,
             channels: 2,
+            past_pipewire: false,
         };
         let internal = device("hda", Connection::BuiltIn, true);
         let scarlett = device("scarlett", Connection::Usb, false);
@@ -4427,6 +4476,44 @@ mod tests {
 
         let list = [internal, device("pipewire", Connection::Other, false)];
         assert_eq!(preferred_input(&list), None);
+    }
+
+    /// Review #73: a saved device that is not listed (an ALSA id under PipeWire, an unplugged
+    /// interface) means "Automatic": the interface first, not the system default.
+    #[test]
+    fn unlisted_choice_is_automatic() {
+        let device = |id: &str, connection: Connection, is_default: bool| DeviceInfo {
+            id: id.into(),
+            name: id.into(),
+            direction: Direction::Input,
+            is_default,
+            connection,
+            sample_rate: 48_000,
+            channels: 2,
+            past_pipewire: false,
+        };
+        let list = [
+            device("hda", Connection::BuiltIn, true),
+            device("scarlett", Connection::Usb, false),
+        ];
+        let input = |saved: Option<&str>| chosen_input(saved, &list);
+        assert_eq!(
+            input(Some("alsa:hw:CARD=2,DEV=0")).as_deref(),
+            Some("scarlett")
+        );
+        assert_eq!(input(Some("hda")).as_deref(), Some("hda"));
+        assert_eq!(input(None).as_deref(), Some("scarlett"));
+
+        assert_eq!(
+            chosen_output(Some("alsa:front:CARD=USB,DEV=0"), &list),
+            None
+        );
+        assert_eq!(chosen_output(Some("hda"), &list).as_deref(), Some("hda"));
+        // The engine's timer output is never listed and stays (tests must stay silent).
+        assert_eq!(
+            chosen_output(Some(kontra_session::NULL_DEVICE), &[]).as_deref(),
+            Some(kontra_session::NULL_DEVICE)
+        );
     }
 
     /// LH-FOR-01 / J-C1: recorded runs show up per piece and with their time for the day view.

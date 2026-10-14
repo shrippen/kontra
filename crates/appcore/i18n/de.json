@@ -202,6 +202,7 @@
   "keys.pages": "Seiten: Start, Bibliothek, Üben, Übungen, Griffbrett, Gehör, Fortschritt, Stimmgerät, Einstellungen",
   "library.underminute": "unter 1 min geübt",
   "notice.more.strings": "Das Stück geht bis {note} hinunter, tiefer als dein Bass im Profil. Kontra zeigt es für {strings} Saiten; in den Einstellungen kannst du die Saitenzahl ändern.",
+  "hint.direct": "{name} hat in PipeWire keinen Eingang; Kontra nimmt es direkt über ALSA auf. Den PipeWire-Eingang zurückholen: Interface ab- und wieder anstecken oder im Terminal systemctl --user restart wireplumber (danach Kontra neu starten).",
   "hint.quantum": "Das Audiosystem arbeitet in Blöcken von {frames} Samples ({ms} ms). Damit kommt jede Rückmeldung spürbar zu spät. Kleiner stellen, z. B. im Terminal: pw-metadata -n settings 0 clock.force-quantum 256 (gilt bis zum Neustart); dauerhaft in ~/.config/pipewire/pipewire.conf.d/ mit default.clock.quantum = 256.",
   "settings.device.default": "Standard des Systems",
   "settings.input.none": "Kontra findet keinen Audio-Eingang. Ist das Interface eingesteckt? Dann bleibt „Standard des Systems“.",

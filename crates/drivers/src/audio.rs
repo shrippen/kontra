@@ -89,6 +89,7 @@ const REALTIME_PRIORITY: i32 = 80;
 /// system made the PipeWire host lose blocks at 128 frames (14.10.: up to 16 xruns per loopback
 /// run, round trip spread 13 ms; with it 0 xruns). Granted when the user may (RLIMIT_RTPRIO,
 /// e.g. the "realtime" group); otherwise nothing changes. One system call, no allocation.
+/// rtkit (D-Bus) would serve everyone, but cpal's way there (audio_thread_priority) is MPL-2.0.
 #[derive(Debug, Default)]
 struct Realtime {
     asked: bool,
@@ -100,26 +101,57 @@ impl Realtime {
             return;
         }
         self.asked = true;
-        promote_thread();
+        let priority = if promote_thread() {
+            Priority::Realtime
+        } else {
+            Priority::Normal
+        };
+        PRIORITY.store(priority as u8, Ordering::Relaxed);
     }
 }
 
+/// What the last audio thread got (reported by the hardware check).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum Priority {
+    /// No audio stream ran yet.
+    Unknown,
+    Realtime,
+    /// Refused (no RLIMIT_RTPRIO): blocks may get lost under load at small quanta.
+    Normal,
+}
+
+static PRIORITY: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// The scheduling the audio thread got.
+pub fn audio_priority() -> Priority {
+    match PRIORITY.load(Ordering::Relaxed) {
+        x if x == Priority::Realtime as u8 => Priority::Realtime,
+        x if x == Priority::Normal as u8 => Priority::Normal,
+        _ => Priority::Unknown,
+    }
+}
+
+/// True if the calling thread now runs with real-time priority.
 #[cfg(target_os = "linux")]
 #[allow(unsafe_code)]
-fn promote_thread() {
+fn promote_thread() -> bool {
     let param = libc::sched_param {
         sched_priority: REALTIME_PRIORITY,
     };
     // SAFETY: changes only the calling thread's (0) scheduling; `param` is a valid, initialised
     // struct that outlives the call. A refusal (EPERM) is returned, not raised. Child processes
     // (the stem separator) do not inherit it (RESET_ON_FORK).
-    unsafe {
-        libc::sched_setscheduler(0, libc::SCHED_FIFO | libc::SCHED_RESET_ON_FORK, &param);
-    }
+    let result = unsafe {
+        libc::sched_setscheduler(0, libc::SCHED_FIFO | libc::SCHED_RESET_ON_FORK, &param)
+    };
+    result == 0
 }
 
 #[cfg(not(target_os = "linux"))]
-fn promote_thread() {}
+fn promote_thread() -> bool {
+    false
+}
 
 #[derive(Debug, Error)]
 pub enum AudioError {
@@ -154,6 +186,9 @@ pub struct DeviceInfo {
     pub connection: Connection,
     pub sample_rate: u32,
     pub channels: u16,
+    /// Opened through ALSA while PipeWire runs: the card has no PipeWire node (lost after
+    /// "device busy"); replugging or restarting WirePlumber brings the node back.
+    pub past_pipewire: bool,
 }
 
 /// What to open; `None` fields use the device defaults.
@@ -191,6 +226,10 @@ pub fn list_devices(direction: Direction) -> Vec<DeviceInfo> {
     if host.id() == cpal::HostId::PipeWire {
         if let Some(graph) = Graph::read() {
             list = pipewire_devices(list, &graph);
+        }
+        if direction == Direction::Input {
+            let direct = direct_inputs(&list);
+            list.extend(direct);
         }
     }
     interfaces_first(&mut list);
@@ -230,6 +269,85 @@ fn interfaces_first(list: &mut [DeviceInfo]) {
         Connection::Bluetooth => 4,
     };
     list.sort_by_key(|d| rank(d.connection));
+}
+
+/// A USB sound card as ALSA lists it in /proc/asound/cards.
+#[cfg(target_os = "linux")]
+#[derive(Debug, Clone, PartialEq)]
+struct UsbCard {
+    index: u32,
+    name: String,
+}
+
+#[cfg(target_os = "linux")]
+const CARDS_FILE: &str = "/proc/asound/cards";
+/// Marks a USB card's line: ` 2 [USB            ]: USB-Audio - Scarlett Solo USB`.
+#[cfg(target_os = "linux")]
+const USB_DRIVER: &str = "USB-Audio - ";
+
+/// USB cards from /proc/asound/cards; reading it opens no device.
+#[cfg(target_os = "linux")]
+fn usb_cards(text: &str) -> Vec<UsbCard> {
+    text.lines()
+        .filter_map(|line| {
+            let (head, driver) = line.split_once("]: ")?;
+            let name = driver.strip_prefix(USB_DRIVER)?;
+            let (index, _) = head.trim_start().split_once(' ')?;
+            Some(UsbCard {
+                index: index.parse().ok()?,
+                name: name.trim().to_string(),
+            })
+        })
+        .collect()
+}
+
+/// Cards no PipeWire input stands for: none of the USB inputs carries the card's name
+/// ("Scarlett Solo USB" in "Scarlett Solo USB Analoges Stereo").
+#[cfg(target_os = "linux")]
+fn uncovered<'a>(cards: &'a [UsbCard], pipewire: &[DeviceInfo]) -> Vec<&'a UsbCard> {
+    let covered = |card: &UsbCard| {
+        pipewire
+            .iter()
+            .any(|d| d.connection == Connection::Usb && d.name.contains(&card.name))
+    };
+    cards.iter().filter(|card| !covered(card)).collect()
+}
+
+/// An interface ALSA sees but PipeWire offers no input for (review #73: the Scarlett's
+/// source was gone after "device busy" and "Automatic" took the built-in line-in). Listed
+/// through ALSA's `plughw` (any format and rate), marked so Kontra can say why and how to fix it.
+#[cfg(target_os = "linux")]
+fn direct_inputs(pipewire: &[DeviceInfo]) -> Vec<DeviceInfo> {
+    let text = std::fs::read_to_string(CARDS_FILE).unwrap_or_default();
+    let cards = usb_cards(&text);
+    let missing: Vec<_> = uncovered(&cards, pipewire)
+        .into_iter()
+        .filter(|card| {
+            let capture = format!("/proc/asound/card{}/pcm0c", card.index);
+            std::path::Path::new(&capture).exists()
+        })
+        .collect();
+    if missing.is_empty() {
+        return Vec::new();
+    }
+    let Ok(alsa) = cpal::host_from_id(cpal::HostId::Alsa) else {
+        return Vec::new();
+    };
+    let devices = alsa.input_devices().map(|d| d.collect::<Vec<_>>());
+    let devices = devices.unwrap_or_default();
+    missing
+        .iter()
+        .filter_map(|card| {
+            let id = format!("alsa:plughw:CARD={},DEV=0", card.index);
+            let device = devices
+                .iter()
+                .find(|d| d.id().is_ok_and(|i| i.to_string() == id))?;
+            let mut info = describe(device, Direction::Input, None)?;
+            info.connection = Connection::Usb;
+            info.past_pipewire = true;
+            Some(info)
+        })
+        .collect()
 }
 
 /// Probing every ALSA device makes alsa-lib print to stderr for those that cannot open (the
@@ -318,6 +436,7 @@ fn describe(
         connection,
         sample_rate: config.sample_rate(),
         channels: config.channels(),
+        past_pipewire: false,
     })
 }
 
@@ -349,18 +468,20 @@ fn host() -> cpal::Host {
     cpal::default_host()
 }
 
-/// The device with `id`; `None` is the system default. An id of another host (an ALSA choice
-/// saved before PipeWire was used) also means the default.
+/// The device with `id` on the host the id names (an ALSA device also while PipeWire runs);
+/// `None` is the system default.
 fn find_device(direction: Direction, id: Option<&str>) -> Result<cpal::Device, AudioError> {
-    let host = host();
-    let fallback = || match direction {
-        Direction::Input => host.default_input_device(),
-        Direction::Output => host.default_output_device(),
+    let Some(id) = id else {
+        let host = host();
+        let default = match direction {
+            Direction::Input => host.default_input_device(),
+            Direction::Output => host.default_output_device(),
+        };
+        return default.ok_or(AudioError::NoDevice(direction));
     };
-    let own = id.filter(|id| same_host(id, host.id()));
-    let Some(id) = own else {
-        return fallback().ok_or(AudioError::NoDevice(direction));
-    };
+    let host = host_of(id)
+        .and_then(|h| cpal::host_from_id(h).ok())
+        .ok_or(AudioError::NoDevice(direction))?;
     let devices = match direction {
         Direction::Input => host.input_devices().map(|d| d.collect::<Vec<_>>()),
         Direction::Output => host.output_devices().map(|d| d.collect::<Vec<_>>()),
@@ -372,11 +493,11 @@ fn find_device(direction: Direction, id: Option<&str>) -> Result<cpal::Device, A
         .ok_or(AudioError::NoDevice(direction))
 }
 
-/// Whether a saved id ("alsa:hw:2,0", "pipewire:alsa_input…") belongs to `host`.
-fn same_host(id: &str, host: cpal::HostId) -> bool {
+/// The host a saved id belongs to ("alsa:hw:2,0", "pipewire:alsa_input…").
+fn host_of(id: &str) -> Option<cpal::HostId> {
     id.parse::<cpal::DeviceId>()
-        .map(|parsed| parsed.host() == host)
-        .unwrap_or(false)
+        .ok()
+        .map(|parsed| parsed.host())
 }
 
 fn device_error(device: &cpal::Device, error: impl fmt::Display) -> AudioError {
@@ -775,6 +896,7 @@ mod tests {
             connection,
             sample_rate: 48_000,
             channels: 2,
+            past_pipewire: false,
         }
     }
 
@@ -848,19 +970,60 @@ mod tests {
         assert_eq!(ids, ["solo", "card", "hdmi", "bt"]);
     }
 
-    // An ALSA choice saved before PipeWire was used means the default, not "no device".
+    // A saved id opens on its own host: an ALSA fallback device while PipeWire runs.
     #[test]
-    fn ids_belong_to_their_host() {
-        assert!(same_host("alsa:hw:CARD=2,DEV=0", cpal::HostId::Alsa));
-        assert!(!same_host(
-            "alsa:sysdefault:CARD=USB",
-            cpal::HostId::PipeWire
-        ));
-        assert!(same_host(
-            "pipewire:alsa_input.usb-x",
-            cpal::HostId::PipeWire
-        ));
-        assert!(!same_host("Scarlett", cpal::HostId::Alsa));
+    fn ids_name_their_host() {
+        assert_eq!(host_of("alsa:hw:CARD=2,DEV=0"), Some(cpal::HostId::Alsa));
+        #[cfg(target_os = "linux")]
+        assert_eq!(
+            host_of("pipewire:alsa_input.usb-x"),
+            Some(cpal::HostId::PipeWire)
+        );
+        assert_eq!(host_of("Scarlett"), None);
+    }
+
+    #[cfg(target_os = "linux")]
+    const CARDS: &str = " 0 [NVidia         ]: HDA-Intel - HDA NVidia
+                      HDA NVidia at 0xfb080000 irq 174
+ 1 [Generic        ]: HDA-Intel - HD-Audio Generic
+                      HD-Audio Generic at 0xfbf00000 irq 176
+ 2 [USB            ]: USB-Audio - Scarlett Solo USB
+                      Focusrite Scarlett Solo USB at usb-0000:12:00.3-4.4.3, high speed
+";
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn finds_usb_cards() {
+        let cards = usb_cards(CARDS);
+        let solo = UsbCard {
+            index: 2,
+            name: "Scarlett Solo USB".into(),
+        };
+        assert_eq!(cards, [solo]);
+    }
+
+    // Review #73 (hardware 14.10.): ALSA sees the Scarlett, PipeWire has no source for it
+    // (lost after "device busy"). It must stay choosable, past PipeWire, not vanish.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn interface_without_node_is_missing() {
+        let cards = usb_cards(CARDS);
+        let builtin = device(
+            "pipewire:alsa_input.pci-0000_12_00.4.analog-stereo",
+            Direction::Input,
+            Connection::BuiltIn,
+        );
+        let missing = uncovered(&cards, std::slice::from_ref(&builtin));
+        assert_eq!(missing.len(), 1);
+        assert_eq!(missing[0].index, 2);
+
+        let mut solo = device(
+            "pipewire:alsa_input.usb-Focusrite_Scarlett_Solo_USB-00.analog-stereo",
+            Direction::Input,
+            Connection::Usb,
+        );
+        solo.name = "Scarlett Solo USB Analoges Stereo".into();
+        assert!(uncovered(&cards, &[builtin, solo]).is_empty());
     }
 
     #[test]

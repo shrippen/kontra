@@ -49,8 +49,14 @@ fn devices() -> CliResult {
         }
         for d in list {
             let mark = if d.is_default { "*" } else { " " };
+            // An interface without PipeWire node, opened through ALSA directly.
+            let route = if d.past_pipewire {
+                "  (ALSA, no PipeWire node)"
+            } else {
+                ""
+            };
             println!(
-                "{mark} {} — {:?}, {} Hz, {} ch  [{}]",
+                "{mark} {} — {:?}, {} Hz, {} ch  [{}]{route}",
                 d.name, d.connection, d.sample_rate, d.channels, d.id
             );
         }

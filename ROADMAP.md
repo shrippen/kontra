@@ -325,7 +325,8 @@ Die Trennung entfernt den Bass: der Unterschied zum Original korreliert mit 0,94
 
   Ohne Echtzeit-Priorität verliert der Audio-Thread unter Last Blöcke (cpals PipeWire-Host verarbeitet im Thread seiner
   Hauptschleife). Kontra fordert jetzt im ersten Callback `SCHED_FIFO` an (Priorität 80, unter PipeWires 88); das geht
-  nur mit RLIMIT_RTPRIO (z. B. Gruppe `realtime`), sonst bleibt es still beim Alten. Die Software-Schleife misst nur
+  nur mit RLIMIT_RTPRIO (z. B. Gruppe `realtime`), sonst bleibt es beim Alten; `kontra-cli check` meldet, ob es
+  gewährt wurde. rtkit (D-Bus) für alle anderen bietet cpal nur über audio_thread_priority (MPL-2.0): offen. Die Software-Schleife misst nur
   Puffer und Planung, nicht den Wandler: am Solo gilt weiter die Messung oben (128: 20 ms).
 - H2 (hoch, behoben): Bass auf Eingang 2, Eingang 1 leer: der Mittelwert halbierte den Pegel, Übersteuern (0,2 s je
   Pop) blieb unter der Clip-Marke (LH-EIN-03). Der Eingang folgt jetzt dem lautesten Kanal.
@@ -348,7 +349,13 @@ Die Trennung entfernt den Bass: der Unterschied zum Original korreliert mit 0,94
   direkt an (cpal-Host `pipewire`, ALSA bleibt Rückfall ohne PipeWire, `KONTRA_AUDIO_HOST=alsa` erzwingt ihn): Listen
   zeigen die Knoten mit ihrem Namen („Scarlett Solo USB Analoges Stereo“), Eingänge nur Quellen (keine Monitore,
   keine Streams anderer Programme), Interfaces zuerst; die ID ist der Knotenname und bleibt über Neustarts gleich.
-  Eine gespeicherte ALSA-Wahl gilt als „Automatisch“. Entfernter Knoten meldet einen Fehler wie bisher (LH-ALL-04).
+  Eine gespeicherte Wahl, die nicht mehr in der Liste steht (ALSA-ID, abgezogenes Gerät), gilt als „Automatisch“
+  (Interface zuerst). Entfernter Knoten meldet einen Fehler wie bisher (LH-ALL-04).
+  Review #73: Nach „device busy“ (ein ALSA-Programm hielt das Solo, 13.10. abends) legte WirePlumber den Eingang des
+  Solo nicht neu an; „Automatisch“ nahm still den Line-in der internen Karte. Jetzt: Sieht ALSA eine USB-Karte mit
+  Aufnahme, für die PipeWire keinen Eingang hat (`/proc/asound/cards`, Name im Knoten), listet Kontra sie über ALSA
+  (`plughw`, 128 Frames, 0 Xruns am Solo gemessen) und sagt beim Start des Eingangs, wie der Knoten zurückkommt:
+  Interface ab- und anstecken oder `systemctl --user restart wireplumber`. `kontra-cli devices` markiert sie.
 - Tonhöhe: 100 % der gefundenen Noten. Kalibrierung 43,7 ms (±19,8 ms). Pegelring „grün“ trotz Übersteuern.
 
 ### QA-Runde 13.10.2026 (GUI und Bedienung; Demo-Stück, gerenderte Aufnahmen)

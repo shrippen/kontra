@@ -63,9 +63,12 @@ Erwartet: „MIDI-Instrument“ ist wählbar und nennt das erkannte Keyboard (oh
 1. Systemstandard für Ein- und Ausgabe ist die interne Karte (Studiomonitore), das Interface hängt am USB.
 2. Einstellungen → Eingang: Liste ansehen, Interface wählen; Kontra neu starten.
 3. `kontra-cli devices`; ohne PipeWire (`KONTRA_AUDIO_HOST=alsa`) dasselbe.
+4. Interface ohne PipeWire-Eingang (Zustand nach „device busy“: Karte in `/proc/asound/cards`, kein Quellknoten).
 Erwartet: Das Interface steht oben mit seinem Namen („Scarlett Solo USB Analoges Stereo“), ist bei „Automatisch“
 vorgewählt und bleibt nach dem Neustart gewählt; keine Monitore („Monitor of …“), keine Streams anderer Programme in der
-Eingangsliste; Block 128 Frames (`kontra-cli check --steps loopback`). Mit ALSA gilt die alte Liste weiter.
+Eingangsliste; Block 128 Frames (`kontra-cli check --steps loopback`). Mit ALSA gilt die alte Liste weiter. In
+Schritt 4 bleibt das Interface wählbar und vorgewählt (über ALSA, in `devices` markiert); beim Start des Eingangs
+nennt Kontra die Abhilfe (ab- und anstecken oder `systemctl --user restart wireplumber`).
 
 ## B. Spielen und Üben
 

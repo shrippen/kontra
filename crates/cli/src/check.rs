@@ -235,9 +235,13 @@ fn loopback(
         trip.median_ms, trip.spread_ms, trip.heard, trip.sent
     ));
     report.line(format!("- block {block} frames, {} xruns", take.xruns));
+    // Refused real-time priority loses blocks under load (14.10.); the report says which ran.
+    let realtime = session::audio_priority() == session::Priority::Realtime;
+    report.line(format!("- real-time priority: {realtime}"));
     report.json.insert(
         "loopback".into(),
         json!({
+            "realtime": realtime,
             "roundTripMs": trip.median_ms,
             "spreadMs": trip.spread_ms,
             "heard": trip.heard,

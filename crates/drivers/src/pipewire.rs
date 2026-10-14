@@ -98,6 +98,8 @@ impl Graph {
         // Done when every sync (the first, one per bound metadata) came back.
         let quit = mainloop.clone();
         let pending_done = Rc::clone(&pending);
+        let complete = Rc::new(std::cell::Cell::new(Reading::TimedOut));
+        let complete_done = Rc::clone(&complete);
         let _core_listener = core
             .add_listener_local()
             .done(move |id, seq| {
@@ -107,6 +109,7 @@ impl Graph {
                 let mut list = pending_done.borrow_mut();
                 list.retain(|s| *s != seq);
                 if list.is_empty() {
+                    complete_done.set(Reading::Complete);
                     quit.quit();
                 }
             })
@@ -168,7 +171,7 @@ impl Graph {
         mainloop.run();
 
         let graph = graph.borrow().clone();
-        Some(graph)
+        finished(graph, complete.get())
     }
 
     #[cfg(test)]
@@ -185,6 +188,21 @@ impl Graph {
             default_source: default_source.map(str::to_string),
             default_sink: default_sink.map(str::to_string),
         }
+    }
+}
+
+/// Whether every answer came before the timeout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Reading {
+    Complete,
+    TimedOut,
+}
+
+/// A partial graph would drop devices it has not seen yet; then the caller keeps cpal's list.
+fn finished(graph: Graph, reading: Reading) -> Option<Graph> {
+    match reading {
+        Reading::Complete => Some(graph),
+        Reading::TimedOut => None,
     }
 }
 
@@ -232,6 +250,14 @@ mod tests {
         assert!(!graph.serves("mpv", Direction::Output));
         assert!(graph.is_default("alsa_input.usb-Scarlett", Direction::Input));
         assert!(!graph.is_default("alsa_input.usb-Scarlett", Direction::Output));
+    }
+
+    // Review #73: after the timeout the graph is partial; filtering by it dropped every device.
+    #[test]
+    fn unfinished_reading_gives_no_graph() {
+        let graph = Graph::fake(&[("a", NodeClass::Source)], None, None);
+        assert_eq!(finished(graph.clone(), Reading::TimedOut), None);
+        assert_eq!(finished(graph.clone(), Reading::Complete), Some(graph));
     }
 
     #[test]

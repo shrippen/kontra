@@ -10,8 +10,8 @@ mod pipewire;
 mod separator;
 
 pub use audio::{
-    list_devices, AudioError, Connection, DeviceInfo, Direction, InputStream, OutputStream,
-    StreamConfig, NULL_DEVICE,
+    audio_priority, list_devices, AudioError, Connection, DeviceInfo, Direction, InputStream,
+    OutputStream, Priority, StreamConfig, NULL_DEVICE,
 };
 pub use file::{read_audio, write_wav, AudioBuffer, FileError};
 pub use folder::{download_dir, recent_files, RecentFile};
