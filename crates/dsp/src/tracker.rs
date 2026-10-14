@@ -10,7 +10,9 @@
 //! An onset only counts once the level after it has risen above the level before it
 //! (`RISE_*`): a released or ringing note makes spectral changes too, but no new attack.
 //! An attack that comes in two bursts (a second onset before the first has a pitch, within
-//! `MERGE_S`) is one note: the first onset with the pitch measured after the second.
+//! `MERGE_S`) is one note: the first onset with the pitch measured after the second. A faint
+//! burst ≥ 12 dB below the attack after it is a precursor (the fretting finger tapping the
+//! string): the note starts at the attack.
 //!
 //! While a note rings, its pitch is followed (LH-BEW-06): a new pitch without a new attack is a
 //! hammer-on (up) or pull-off (down), one reached through pitches in between a slide. A slide
@@ -62,6 +64,17 @@ const RISE_FACTOR: f32 = 1.1;
 const SILENCE: f32 = 1e-4;
 /// A second onset this soon after one without pitch belongs to the same attack.
 const MERGE_S: f64 = 0.08;
+/// … unless it is this much louder (+12 dB): then the first was a precursor, e.g. the fretting
+/// finger tapping the string 50–70 ms before the pluck (hardware check 13.10.: 22–28 dB below
+/// it), and the note starts at the second. Two bursts of one attack differ by less.
+const PRECURSOR_FACTOR: f32 = 4.0;
+/// A precursor lasts at least this long before the pluck; a plain attack reaches 12 dB below its
+/// peak sooner.
+const PRECURSOR_MIN_S: f64 = 0.01;
+/// How far after an onset a pluck without an onset of its own is looked for: a later one has its
+/// own onset (`min_interval_s` 35 ms). Looked at before the first pitch estimate, which needs more
+/// audio anyway (≈ 87 ms): no delay.
+const PRECURSOR_LOOK_S: f64 = 0.06;
 /// How often a ringing note's pitch is checked.
 const FOLLOW_STEP_S: f64 = 0.01;
 /// A ringing note is followed while its level stays above this share of its start (−26 dB).
@@ -213,6 +226,8 @@ struct Pending {
     last: Option<PitchEstimate>,
     best: Option<PitchEstimate>,
     next_try: u64,
+    /// Whether the onset was checked for a precursor (`attack_start`).
+    checked: bool,
 }
 
 /// A note that rings on after it was emitted, whose pitch is followed.
@@ -555,6 +570,30 @@ impl NoteTracker {
         }
     }
 
+    /// Where the attack after `onset` really starts: a faint precursor too close before the pluck
+    /// for an onset of its own (`min_interval_s`) moves the onset to the pluck. Needs the audio
+    /// up to `PRECURSOR_LOOK_S` after the onset.
+    ///
+    /// ```text
+    /// level   precursor (−30 dB)   pluck (−10 dB)
+    ///         ▁▂▁                  ▆█▇▇▆
+    ///         ↑ onset              ↑ first sample within 12 dB of the peak: the attack
+    /// ```
+    fn attack_start(&self, onset: u64) -> u64 {
+        let end = (onset + (PRECURSOR_LOOK_S * self.sample_rate) as u64).min(self.pushed);
+        let threshold = self.peak(onset, end) / PRECURSOR_FACTOR;
+        let len = self.ring.len() as u64;
+        let from = onset.max(self.pushed.saturating_sub(len));
+        let Some(rise) = (from..end).find(|s| self.ring[(s % len) as usize].abs() >= threshold)
+        else {
+            return onset;
+        };
+        if rise < onset + (PRECURSOR_MIN_S * self.sample_rate) as u64 {
+            return onset;
+        }
+        rise
+    }
+
     /// Peak after the onset against the peak just before it.
     fn level_rises(&self, onset: u64) -> bool {
         let sr = self.sample_rate;
@@ -586,15 +625,10 @@ impl NoteTracker {
         }
         self.sounding = None;
         self.legato = None;
-        let mut report = onset;
-        if let Some(p) = self.pending.take() {
-            let merge = (MERGE_S * self.sample_rate) as u64;
-            if p.best.is_none() && onset < p.report + merge {
-                report = p.report;
-            } else {
-                self.emit(p);
-            }
-        }
+        let report = match self.pending.take() {
+            Some(p) => self.close_pending(p, onset),
+            None => onset,
+        };
         let skip = (self.config.attack_skip_s * self.sample_rate) as u64;
         let first_try = onset + skip + self.yin.needed() as u64;
         self.pending = Some(Pending {
@@ -603,13 +637,50 @@ impl NoteTracker {
             last: None,
             best: None,
             next_try: first_try,
+            checked: false,
         });
+    }
+
+    /// Ends the pending note at a new attack at `onset`; returns the onset to report for it.
+    fn close_pending(&mut self, p: Pending, onset: u64) -> u64 {
+        let unpitched = p.best.is_none();
+
+        // A faint burst before a much louder attack was a precursor: dropped.
+        if unpitched && self.is_precursor(&p, onset) {
+            return onset;
+        }
+
+        // A second burst of the same attack: one note from the first.
+        let merge = (MERGE_S * self.sample_rate) as u64;
+        if unpitched && onset < p.report + merge {
+            return p.report;
+        }
+        self.emit(p);
+        onset
+    }
+
+    /// Whether the attack at `onset` is so much louder than the pending note's burst that the
+    /// burst was only a precursor of it.
+    fn is_precursor(&self, p: &Pending, onset: u64) -> bool {
+        let before = self.peak(p.report, onset);
+        let after = self.peak(onset, onset + (RISE_AFTER_S * self.sample_rate) as u64);
+        after >= before * PRECURSOR_FACTOR
     }
 
     fn advance(&mut self) {
         let Some(mut p) = self.pending else {
             return;
         };
+        if !p.checked && p.next_try <= self.pushed {
+            p.checked = true;
+            let start = self.attack_start(p.onset);
+            if start != p.onset {
+                let skip = (self.config.attack_skip_s * self.sample_rate) as u64;
+                p.onset = start;
+                p.report = start;
+                p.next_try = start + skip + self.yin.needed() as u64;
+            }
+        }
         let timeout = p.onset + (self.config.timeout_s * self.sample_rate) as u64;
         while p.next_try <= self.pushed {
             if let Some(estimate) = self.estimate(&p, p.next_try) {
@@ -1058,6 +1129,40 @@ mod tests {
             (found[0].midi - hz_to_midi(hz, A4_HZ)).abs() < 0.1,
             "{found:?}"
         );
+    }
+
+    #[test]
+    fn faint_burst_before_the_pluck_is_no_onset() {
+        // Fretting the note taps the string faintly 50 ms before the pluck (hardware check
+        // 13.10., H5): the note starts at the pluck with the pluck's level, not 50 ms early
+        // and 26 dB too quiet.
+        let hz = Pitch::parse("C2").unwrap().hz(A4_HZ);
+        let tap = bass_tone(hz, SR, 0.05, ToneShape::Rich, 10);
+        let pluck = bass_tone(hz, SR, 0.8, ToneShape::Rich, 11);
+        let mut signal = vec![0.0; (0.2 * SR) as usize];
+        signal.extend(tap.iter().map(|x| x * 0.03));
+        signal.extend(pluck.iter().map(|x| x * 0.9));
+        signal.extend(std::iter::repeat_n(0.0, (0.3 * SR) as usize));
+        let found = track(&signal, InputSource::Line);
+        assert_eq!(found.len(), 1, "found {found:?}");
+        assert!((found[0].onset_s - 0.25).abs() < 0.005, "{found:?}");
+        assert!(found[0].level_db > -6.0, "{found:?}");
+    }
+
+    #[test]
+    fn faint_burst_right_before_the_pluck_is_no_onset() {
+        // The same 30 ms before the pluck, too close for a second onset (`min_interval_s`).
+        let hz = Pitch::parse("G2").unwrap().hz(A4_HZ);
+        let tap = bass_tone(hz, SR, 0.03, ToneShape::Rich, 10);
+        let pluck = bass_tone(hz, SR, 0.8, ToneShape::Rich, 11);
+        let mut signal = vec![0.0; (0.2 * SR) as usize];
+        signal.extend(tap.iter().map(|x| x * 0.03));
+        signal.extend(pluck.iter().map(|x| x * 0.9));
+        signal.extend(std::iter::repeat_n(0.0, (0.3 * SR) as usize));
+        let found = track(&signal, InputSource::Line);
+        assert_eq!(found.len(), 1, "found {found:?}");
+        assert!((found[0].onset_s - 0.23).abs() < 0.005, "{found:?}");
+        assert!(found[0].level_db > -6.0, "{found:?}");
     }
 
     /// A pluck and legato notes after it on the same string (one phrase).
