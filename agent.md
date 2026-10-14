@@ -137,6 +137,12 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Prüfkette vor einem Commit mit `&&` oder `set -e`, nicht mit `;`: sonst wird trotz rotem Test committet und gepusht.
   `set -e` wirkt nicht, wenn die ganze Kette selbst Teil einer `&&`/`||`-Liste ist (so betten manche Werkzeuge
   Befehle ein): am 14.10. ging ein Push trotz Build-Fehler durch. Sicher ist nur `a && b && git push`.
+- Flow-Tests im echten Fenster (Xvfb, xdotool): immer `--input-file` und den stummen Ausgang `kontra:null` setzen.
+  Ohne Datei öffnete Kontra (über ALSA) das echte Interface des Eigentümers; WirePlumber fand es „belegt“ und legte
+  den Eingangsknoten des Scarlett Solo nicht wieder an (13.10., 23:45). Abhilfe: Interface neu einstecken oder
+  `systemctl --user restart wireplumber`. Nie PipeWire-Knoten anderer zerstören oder Profile umstellen.
+- Neue Abhängigkeiten: `cargo deny check licenses bans sources` (`~/.cargo/bin/cargo-deny`) vor dem Push; transitive
+  Lizenzen fallen sonst erst in der CI auf (14.10.: `webpki-root-certs` über ureqs `platform-verifier`).
 - Gestapelte PRs bei einem Runner: Konflikte (i18n-Enden, Importlisten) vorab lösen, indem die untere Branch in die
   obere gemerged wird; bleibt die untere unverändert, ist die obere nach deren Merge ohne neue CI mergebar.
 - Tests, die ein Skript schreiben und starten, laufen parallel zu anderen, die Prozesse starten: Ein geforktes Kind hält
