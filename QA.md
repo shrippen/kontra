@@ -59,6 +59,17 @@ Erwartet: gemessene Latenz ≈ 40 ms angezeigt; danach Bewertung pünktlich (±5
 1. MIDI-Keyboard anstecken, Kontra starten, Einstellungen → Anschluss (P5). Danach USB-Mikrofon als Eingang wählen wollen (P6).
 Erwartet: „MIDI-Instrument“ ist wählbar und nennt das erkannte Keyboard (ohne Keyboard: „gerade ist keins angeschlossen“); das Mikrofon erscheint als „kommt in einer späteren Version“ mit einem Satz Erklärung; kein Absturz, keine leere Liste, kein „Gerät defekt“.
 
+**J-A5 Interface neben anderem Standard** · Personas: P2 Jens, P3 Mira · Phase 1 · LH-EIN-02, LH-NF-01
+1. Systemstandard für Ein- und Ausgabe ist die interne Karte (Studiomonitore), das Interface hängt am USB.
+2. Einstellungen → Eingang: Liste ansehen, Interface wählen; Kontra neu starten.
+3. `kontra-cli devices`; ohne PipeWire (`KONTRA_AUDIO_HOST=alsa`) dasselbe.
+4. Interface ohne PipeWire-Eingang (Zustand nach „device busy“: Karte in `/proc/asound/cards`, kein Quellknoten).
+Erwartet: Das Interface steht oben mit seinem Namen („Scarlett Solo USB Analoges Stereo“), ist bei „Automatisch“
+vorgewählt und bleibt nach dem Neustart gewählt; keine Monitore („Monitor of …“), keine Streams anderer Programme in der
+Eingangsliste; Block 128 Frames (`kontra-cli check --steps loopback`). Mit ALSA gilt die alte Liste weiter. In
+Schritt 4 bleibt das Interface wählbar und vorgewählt (über ALSA, in `devices` markiert); beim Start des Eingangs
+nennt Kontra die Abhilfe (ab- und anstecken oder `systemctl --user restart wireplumber`).
+
 ## B. Spielen und Üben
 
 **J-B1 Lied durchspielen** ⚙ 📽 · Persona: P2 Jens · Phase 1 · LH-BIB-01, -04, LH-MOD-01, LH-WIE-03, LH-EIN-08, LH-ANZ-01, -02
@@ -97,14 +108,14 @@ Erwartet: Cent-Werte pro Note weichen ≤ 3 Cent vom annotierten Wert ab; B0 bis
 4. Präsentation (F5 oder Knopf neben dem Mixer), durchspielen, mit Esc beenden.
 Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreichend; in der Präsentation Vollbild ohne Seitenleiste, nur Titel, Noten und Transport, Notenlinien größer; Esc stellt das Fenster wieder her wie vorher.
 
-**J-B6 Song aus dem Netz** ⚙ 🔍 · Personas: P2 Jens, P3 Mira, P1 Lea · Phase 2 · LH-BIB-10, -11
-1. Jens: Bibliothek, „Seven Nation Army“ eintippen, „Bei Songsterr suchen“ (Enter im Feld genügt).
+**J-B6 Song aus dem Netz** ⚙ 🔍 · Personas: P2 Jens, P3 Mira, P1 Lea, P7 Sam · Phase 2 · LH-BIB-10, -11
+1. Jens: Bibliothek, „Seven Nation Army“ eintippen, Enter (oder „Suchen“); einen Treffer mit Bassspur anklicken.
 2. Im Browser die Guitar-Pro-Datei herunterladen (Songsterr Plus; ersatzweise eine eigene `.gp`), zurück zu Kontra.
 3. Unter „Neu in Downloads“ die Datei anklicken.
 4. Mira: eine in MuseScore 4 gespeicherte `.mscz` (Fünfsaiter mit Tab) auf die Bibliothek ziehen; danach drei Dateien auf einmal, eine davon defekt.
-5. Lea: dasselbe ohne Netz; dann ohne Browser (keine Standard-App für Links).
+5. Lea: dasselbe ohne Netz; dann ohne Browser (keine Standard-App für Links); „MuseScore im Browser“.
 6. Sam (P7): alles nur mit Tastatur und Screenreader, 200 %.
-Erwartet: Kontra lädt nichts selbst, die Suche öffnet sich im Browser mit dem Suchbegriff; die Datei erscheint beim Zurückkehren ins Fenster (sonst binnen 15 s) mit Art („Guitar Pro“, „MuseScore“) und Alter, ein Klick öffnet sie mit der Bassspur und nimmt sie aus „Neu“; `.mscz` mit gleichen Saiten und Bünden wie in MuseScore; mehrere abgelegte Dateien landen in der Bibliothek, die defekte mit Grund; ohne Netz zeigt nur der Browser einen Fehler, Kontra bleibt bedienbar; ohne Browser eine Warnung mit der Adresse zum Kopieren; Feld, Knöpfe und Liste per Tab erreichbar, der Screenreader sagt „öffnet den Browser“ und „… öffnen“.
+Erwartet: eine Anfrage je Enter, „Suchen“ ist gesperrt, solange sie läuft; Treffer mit Titel, Interpret und „Bass: E A D G“ bzw. „ohne Bassspur“ als Text; ein Klick öffnet die Songsterr-Seite auf der Bassspur im Browser, Kontra lädt keine Tabs; die Datei erscheint beim Zurückkehren ins Fenster (sonst binnen 15 s) mit Art („Guitar Pro“, „MuseScore“) und Alter, ein Klick öffnet sie mit der Bassspur und nimmt sie aus „Neu“; `.mscz` mit gleichen Saiten und Bünden wie in MuseScore; mehrere abgelegte Dateien landen in der Bibliothek, die defekte mit Grund; ohne Netz nennt Kontra den Grund und verweist auf die Browser-Suche, die Bibliothek bleibt bedienbar; ohne Browser eine Warnung mit der Adresse zum Kopieren; Feld, Knöpfe und Treffer per Tab erreichbar, Enter öffnet einen Treffer, der Screenreader liest Titel, Interpret und Bassspur.
 
 ## C. Lernen und Fortschritt
 

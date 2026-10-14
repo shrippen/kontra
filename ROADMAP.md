@@ -40,7 +40,7 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 | LH-BIB-01/02 Import GP3–8, MIDI | umgesetzt, gegen Fremddateien geprüft |
 | LH-BIB-03 MusicXML | umgesetzt (vorgezogen) |
 | LH-BIB-10 MuseScore `.mscz`/`.mscx` | umgesetzt (14.10.), gegen MuseScore-4.7-Dateien geprüft; Sprungzeichen (D.S., Coda) nur nach Formatbeschreibung |
-| LH-BIB-11 Songsterr, MuseScore.com | Suche im Browser, „Neu in Downloads“, Ziehen und Ablegen (14.10., J-B6 ⚙); Ergebnisliste in Kontra nur mit Erlaubnis von Songsterr (offen) |
+| LH-BIB-11 Songsterr, MuseScore.com | Suche im Browser, „Neu in Downloads“, Ziehen und Ablegen (14.10., J-B6 ⚙); Songsterr-Suche in Kontra mit Bassspur (Runde 12, 14.10.) |
 | LH-BIB-04 Bibliothek | umgesetzt: Suche, Tags, Sortierung, Setlisten, Ordner als Setliste |
 | LH-ANZ-01/02/03 Tab-Lane, Tab, Noten | umgesetzt (Kante) |
 | LH-MOD-01..04 Spielen, Song, Warten, Werkstatt | umgesetzt, Werkstatt mit Takten, Zielband und Notendichte; Namen von Spielen/Song offen (Runde 11) |
@@ -324,6 +324,23 @@ Die Trennung entfernt den Bass: der Unterschied zum Original korreliert mit 0,94
 
 - H1 (hoch, behoben): Rundlauf 41–45 ms, über den 30 ms von LH-NF-01. Kontra forderte keinen Puffer an, PipeWire
   blieb bei 1024 Frames; erzwungenes Quantum 256/128/64: 28/20/16 ms, keine Xruns. Live-Streams fordern 128 an.
+  Nachtrag 14.10. (nativer PipeWire-Host): 128 Frames kommen als `node.latency` an, das Quantum folgt. Software-Schleife
+  (temporärer Null-Knoten `Audio/Duplex`, danach entfernt; nicht am echten Ausgang), Release-Build, Rechner unter Last
+  (Load 9–14), je Lauf 12 Töne:
+
+  | Weg | Block | Rundlauf (Median) | Streuung max. | Xruns je Lauf |
+  |---|---|---|---|---|
+  | ALSA-Plugin, Standard | 512 | 21,5 ms | 0 | 0 |
+  | PipeWire, Standard | 1024 (Quantum) | 42,8 ms | 0 | 0 |
+  | ALSA-Plugin, 128 ohne Echtzeit | 128 | 5,3–13,4 ms | bis 2,7 ms | 0–17 |
+  | PipeWire, 128 ohne Echtzeit | 128 | 5,4–21,4 ms | bis 62 ms, Töne fehlen | 0–16 |
+  | beide, 128 mit Echtzeit-Priorität | 128 | 5,4 ms | 0 | 0 (6 von 6 Läufen) |
+
+  Ohne Echtzeit-Priorität verliert der Audio-Thread unter Last Blöcke (cpals PipeWire-Host verarbeitet im Thread seiner
+  Hauptschleife). Kontra fordert jetzt im ersten Callback `SCHED_FIFO` an (Priorität 80, unter PipeWires 88); das geht
+  nur mit RLIMIT_RTPRIO (z. B. Gruppe `realtime`), sonst bleibt es beim Alten; `kontra-cli check` meldet, ob es
+  gewährt wurde. rtkit (D-Bus) für alle anderen bietet cpal nur über audio_thread_priority (MPL-2.0): offen. Die Software-Schleife misst nur
+  Puffer und Planung, nicht den Wandler: am Solo gilt weiter die Messung oben (128: 20 ms).
 - H2 (hoch, behoben): Bass auf Eingang 2, Eingang 1 leer: der Mittelwert halbierte den Pegel, Übersteuern (0,2 s je
   Pop) blieb unter der Clip-Marke (LH-EIN-03). Der Eingang folgt jetzt dem lautesten Kanal.
 - H3 (mittel, behoben, Test zuerst): Kalibrierung ohne Vorzähler; der Spieler wartete vier Klicks (4 von 8), die App
@@ -345,8 +362,18 @@ Die Trennung entfernt den Bass: der Unterschied zum Original korreliert mit 0,94
   ≥ 28 %); die Pops nicht heller als Zupfen (0,3–0,9 %). „Hell und kurz = Slap“ bringt 7 von 8 Slaps, kostet aber IDMT-
   Dead-Notes (27 → 21 von 28, auch sie sind hell); verworfen. Braucht Aufnahmen weiterer Spieler, geübt und ungeübt.
 - H7 (mittel, offen): Slide über zwei Bünde als Hammer-on gehört; Runde 11 „legato“ deckt nur einen Bund.
-- H8 (mittel, offen): Ein bestimmtes Interface neben anderem Standardausgang geht nur über `PIPEWIRE_NODE`; die
-  Geräteliste zeigt das Solo nur als `hw:`/`sysdefault:`, die PipeWire belegt hält.
+- H8 (mittel, behoben): Ein bestimmtes Interface neben anderem Standardausgang ging nur über `PIPEWIRE_NODE`; die
+  Geräteliste zeigte das Solo nur als `hw:`/`sysdefault:`, die PipeWire belegt hält. Kontra spricht jetzt PipeWire
+  direkt an (cpal-Host `pipewire`, ALSA bleibt Rückfall ohne PipeWire, `KONTRA_AUDIO_HOST=alsa` erzwingt ihn): Listen
+  zeigen die Knoten mit ihrem Namen („Scarlett Solo USB Analoges Stereo“), Eingänge nur Quellen (keine Monitore,
+  keine Streams anderer Programme), Interfaces zuerst; die ID ist der Knotenname und bleibt über Neustarts gleich.
+  Eine gespeicherte Wahl, die nicht mehr in der Liste steht (ALSA-ID, abgezogenes Gerät), gilt als „Automatisch“
+  (Interface zuerst). Entfernter Knoten meldet einen Fehler wie bisher (LH-ALL-04).
+  Review #73: Nach „device busy“ (ein ALSA-Programm hielt das Solo, 13.10. abends) legte WirePlumber den Eingang des
+  Solo nicht neu an; „Automatisch“ nahm still den Line-in der internen Karte. Jetzt: Sieht ALSA eine USB-Karte mit
+  Aufnahme, für die PipeWire keinen Eingang hat (`/proc/asound/cards`, Name im Knoten), listet Kontra sie über ALSA
+  (`plughw`, 128 Frames, 0 Xruns am Solo gemessen) und sagt beim Start des Eingangs, wie der Knoten zurückkommt:
+  Interface ab- und anstecken oder `systemctl --user restart wireplumber`. `kontra-cli devices` markiert sie.
 - Tonhöhe: 100 % der gefundenen Noten. Kalibrierung 43,7 ms (±19,8 ms). Pegelring „grün“ trotz Übersteuern.
 
 ### QA-Runde 13.10.2026 (GUI und Bedienung; Demo-Stück, gerenderte Aufnahmen)

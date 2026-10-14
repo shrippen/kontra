@@ -4,12 +4,13 @@ description = "Raw I/O for Kontra: audio devices (cpal), audio file decoding and
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 publish.workspace = true
 
 [dependencies]
 thiserror.workspace = true
-# Audio devices: ALSA (PipeWire and PulseAudio through their ALSA plugins), JACK later.
-cpal = "0.18"
+# Audio devices: PipeWire natively when it runs (nodes by name, latency as quantum), else ALSA.
+cpal = { version = "0.18", features = ["pipewire"] }
 # Decoders, all permissive: WAV (Apache-2.0), FLAC (Apache-2.0), Ogg Vorbis (MIT/Apache-2.0), MP3 (MIT, CC0 core).
 hound = "3.5"
 claxon = "0.4"
@@ -19,6 +20,12 @@ minimp3 = "0.6"
 midir = "0.11"
 # MIDI files as recorded input for QA journeys (Unlicense; content uses it for import).
 midly = { version = "0.5.3", default-features = false, features = ["std"] }
+# HTTPS for the Songsterr search (LH-BIB-11, round 12; MIT/Apache-2.0): rustls with ring,
+# the system's certificates through rustls-platform-verifier (webpki-roots is CDLA, not allowed).
+ureq = { version = "3.4", default-features = false, features = ["rustls-no-provider", "_ring"] }
+# The system's root certificates for the Songsterr search; ureq's platform verifier pulls in
+# webpki-root-certs (CDLA-Permissive-2.0, not allowed by deny.toml).
+rustls-native-certs = "0.8"
 
 # alsa-lib's own error print, silenced while probing devices (MIT; already in the tree under
 # cpal and midir, same version).
@@ -27,6 +34,9 @@ alsa-sys = "0.4"
 # prctl(PR_SET_PDEATHSIG) for the stem separator: Demucs ends with Kontra, also after a crash
 # (MIT/Apache-2.0; already in the tree under cpal, same version).
 libc = "0.2"
+# The PipeWire graph for the device lists: node classes and the system defaults (MIT; already
+# in the tree under cpal, same version; builds against the system libpipewire, MIT).
+pipewire = "0.10"
 
 [lints]
 workspace = true

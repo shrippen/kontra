@@ -108,6 +108,7 @@ mod tests {
             connection: Connection::Usb,
             sample_rate: 48_000,
             channels: 2,
+            past_pipewire: false,
         }
     }
 

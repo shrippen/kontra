@@ -7,6 +7,8 @@ runtime-version: "6.10"
 sdk: org.kde.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
+  # libclang for the PipeWire bindings (bindgen), build time only.
+  - org.freedesktop.Sdk.Extension.llvm20
 command: kontra
 finish-args:
   - --share=ipc
@@ -16,9 +18,17 @@ finish-args:
   # Audio through PipeWire/PulseAudio (ALSA in the runtime routes there). No home access:
   # files are opened through the portal file dialog.
   - --socket=pulseaudio
+  # PipeWire directly: interfaces by name and a small quantum (LH-EIN-02, LH-NF-01); without
+  # the socket Kontra falls back to ALSA.
+  - --filesystem=xdg-run/pipewire-0
+  # Songsterr search on request (LH-BIB-11, round 12); "New in Downloads" reads the download
+  # folder, nothing else of the home folder.
+  - --share=network
+  - --filesystem=xdg-download:ro
 build-options:
-  append-path: /usr/lib/sdk/rust-stable/bin
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin
   env:
+    LIBCLANG_PATH: /usr/lib/sdk/llvm20/lib
     CARGO_HOME: /run/build/kontra/cargo
     CARGO_NET_OFFLINE: "true"
 modules:

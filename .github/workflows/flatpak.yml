@@ -34,7 +34,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.local/share/flatpak
-          key: flatpak-kde-6.10-rust-25.08
+          key: flatpak-kde-6.10-rust-25.08-llvm20
       - name: Sandbox check
         # flatpak-builder needs user namespaces; Ubuntu 24.04 restricts them through AppArmor.
         run: |

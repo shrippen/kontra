@@ -126,6 +126,8 @@ pub mod qobject {
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
         #[qproperty(QString, backing_name, cxx_name = "backingName")]
         #[qproperty(QString, stems_json, cxx_name = "stemsJson")]
+        /// Songsterr search: state, reason and hits as JSON (LH-BIB-11).
+        #[qproperty(QString, song_search_json, cxx_name = "songSearchJson")]
         /// While the arrangement is laid out again: the run goes on (a change of key), so the
         /// page keeps the marks.
         #[qproperty(bool, run_kept, cxx_name = "runKept")]
@@ -289,6 +291,12 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "downloadsJson"]
         fn downloads_json(self: &Self) -> QString;
+
+        /// Searches Songsterr from Kontra (LH-BIB-11, round 12); the result arrives in
+        /// `songSearchJson`.
+        #[qinvokable]
+        #[cxx_name = "songSearch"]
+        fn song_search(self: Pin<&mut Self>, query: &QString);
 
         #[qinvokable]
         #[cxx_name = "setlistCreate"]
@@ -719,6 +727,7 @@ pub struct ControllerRust {
     calibration_text: QString,
     backing_name: QString,
     stems_json: QString,
+    song_search_json: QString,
     run_kept: bool,
     transpose: i32,
     transpose_max: i32,
@@ -754,6 +763,9 @@ impl Default for ControllerRust {
             laptop_jack: args.laptop_jack,
         };
         let mut core = Core::new(&data_dir(), qa);
+        if let Some(answer) = &args.songsterr_answer {
+            core.fake_song_search(answer);
+        }
         if let Some(style) = &args.style {
             core.update_settings(|s| s.style = style.clone());
         }
@@ -859,6 +871,7 @@ impl Default for ControllerRust {
             calibration_text: QString::default(),
             backing_name: QString::default(),
             stems_json: QString::default(),
+            song_search_json: QString::default(),
             run_kept: false,
             transpose: 0,
             transpose_max: kontra_appcore::Core::transpose_max(),
@@ -888,6 +901,10 @@ impl Default for ControllerRust {
             quit_after: args.quit_after_ms,
             core,
         };
+        controller.song_search_json = q(&match &args.song_search {
+            Some(query) => controller.core.song_search(query),
+            None => controller.core.song_search_json(),
+        });
         if let Some(path) = args.open {
             controller.open_now(&path);
             // Opening may set the mode (plan exercises: run-through); an explicit --mode wins.
@@ -1212,6 +1229,9 @@ impl qobject::Controller {
     fn tick(mut self: Pin<&mut Self>) {
         let events = self.as_mut().core().tick();
         self.as_mut().apply(events);
+        if let Some(json) = self.as_mut().core().song_search_poll() {
+            self.as_mut().set_song_search_json(q(&json));
+        }
         let (position, playing) = {
             let this = self.as_ref();
             let core = &this.rust().core;
@@ -1560,6 +1580,11 @@ impl qobject::Controller {
 
     fn downloads_json(&self) -> QString {
         q(&self.rust().core.downloads_json())
+    }
+
+    fn song_search(mut self: Pin<&mut Self>, query: &QString) {
+        let json = self.as_mut().core().song_search(&query.to_string());
+        self.as_mut().set_song_search_json(q(&json));
     }
 
     fn refresh_setlists(mut self: Pin<&mut Self>) {
