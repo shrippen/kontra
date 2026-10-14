@@ -349,6 +349,40 @@ impl Library {
         }
     }
 
+    /// Bundled pieces whose level folder under `base` was renamed (`moves`: old, new folder
+    /// name) get their new path in the library, setlists and beat maps; progress follows the
+    /// song id, so it stays. Applied on every load, a no-op once moved.
+    pub fn move_folders(&mut self, base: &Path, moves: &[(&str, &str)]) {
+        let moved = |path: &Path| -> Option<PathBuf> {
+            let folder = path.parent()?;
+            if folder.parent()? != base {
+                return None;
+            }
+            let name = folder.file_name()?.to_str()?;
+            let (_, new) = moves.iter().find(|(old, _)| *old == name)?;
+            Some(base.join(new).join(path.file_name()?))
+        };
+        for entry in &mut self.recent {
+            if let Some(path) = moved(&entry.path) {
+                entry.path = path;
+            }
+        }
+        let mut seen = std::collections::HashSet::new();
+        self.recent.retain(|e| seen.insert(e.path.clone()));
+        for setlist in &mut self.setlists {
+            for piece in &mut setlist.pieces {
+                if let Some(path) = moved(piece) {
+                    *piece = path;
+                }
+            }
+        }
+        let maps = std::mem::take(&mut self.beat_maps);
+        self.beat_maps = maps
+            .into_iter()
+            .map(|(path, map)| (moved(&path).unwrap_or(path), map))
+            .collect();
+    }
+
     pub fn setlist_mut(&mut self, name: &str) -> Option<&mut Setlist> {
         self.setlists.iter_mut().find(|s| s.name == name)
     }
