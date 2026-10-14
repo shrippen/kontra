@@ -35,6 +35,16 @@ ColumnLayout {
         }
     }
 
+    // The microphone's looser judging in numbers: too long for its row, which cut it off at
+    // half a laptop screen (QA 14.10.).
+    KanteCallout {
+        Layout.fillWidth: true
+        visible: ctl.connection === "mic"
+        kind: KanteCallout.Kind.Info
+        text: texts.t("settings.source.mic.detail")
+        autoHide: false
+    }
+
     // Which keyboard, when several are connected; a chosen one that is missing is said here.
     KanteSettingRow {
         visible: ctl.connection === "midi" && (choice.midi.ports.length > 1 || choice.midi.missingText !== "")
