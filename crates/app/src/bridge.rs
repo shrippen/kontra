@@ -890,6 +890,11 @@ impl Default for ControllerRust {
         };
         if let Some(path) = args.open {
             controller.open_now(&path);
+            // Opening may set the mode (plan exercises: run-through); an explicit --mode wins.
+            if let Some(mode) = &args.mode {
+                controller.core.set_mode(mode);
+            }
+            controller.mode = q(&controller.core.settings().mode);
             // An explicit --view wins over the view remembered for the piece (QA runs).
             if let Some(view) = &args.view {
                 controller.core.set_view(view);
