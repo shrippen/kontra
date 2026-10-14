@@ -6,10 +6,13 @@ steht nur, was offen ist und wo es liegt.
 ## Offene PRs
 
 Gemerged am 14.10.: #58–#63, #65, #66, #68 (Stufen), #69 (Runde 12), #70 (Seitenleiste), #72 (Fehlalarme, Werkstatt-
-Quote), #73 (PipeWire-Host, enthält #71 Songsterr-Suche), #74 (MIDI ohne Pegel). #64 und #71 geschlossen (enthalten).
+Quote), #73 (PipeWire-Host, enthält #71 Songsterr-Suche), #74 (MIDI ohne Pegel), #75–#82 (Doku, Original-Bass-Regler,
+Mixer-Höhe, Griffbrett in Quiz/Gehör, Stimmung und Mikrofon schmal, Song-Suche schmal, englische Texte, QA-Runde
+14.10. Tag). #64 und #71 geschlossen (enthalten).
 #67 (CI-Cache) stammt aus einer Kaiwa-Sitzung: nicht anfassen.
 
-- Kante #58 (1.35), #61 (1.36), #62 (1.37 Ghost Note), #63 (1.38 Transport-Kästchen) in dieser Reihenfolge: Eigentümer
+- Kante #58 (1.35), #61 (1.36), #62 (1.37 Ghost Note), #63 (1.38 Transport-Kästchen), #64 (1.39 Schritte schmal) in
+  dieser Reihenfolge: Eigentümer
   merged. Danach `scripts/sync-kante.sh`, `loopStart`/`loopEnd` an tabStaff, bassStaff, combinedBass, combinedTab
   binden (G9).
 
@@ -32,7 +35,7 @@ Quote), #73 (PipeWire-Host, enthält #71 Songsterr-Suche), #74 (MIDI ohne Pegel)
   Einschwingen der Brummfilter (~0,6 s ab Start des Eingangs, der mit dem Lauf startet; der Einzähler deckt es, ohne
   Einzähler die ersten Töne) am Gerät prüfen.
 - **Stem-Trennung** (LH-BIB-09): mit echtem Demucs gespielt und gemessen (QA-Runde 14.10., PR demucs-gui); im Flatpak
-  ausgegraut; offen: Regler für den Original-Bass im Mixer.
+  ausgegraut; Regler „Original-Bass“ im Mixer (#76), am Gerät noch nicht gehört.
 - **MIDI-Auswahl** (LH-EIN-12): mit zwei echten Keyboards nicht geprüft.
 - **Hardware-Prüfungen vor 0.1**, noch offen: Klang, Transponieren mit Bandaufnahme, echtes MIDI-Keyboard, Mikrofon
   mit Lautsprechern (J-E2), Soak ohne Last, Mithör-Latenz (nach #58), Tastatur/Screenreader am Gerät.
@@ -48,6 +51,8 @@ Quote), #73 (PipeWire-Host, enthält #71 Songsterr-Suche), #74 (MIDI ohne Pegel)
   `Core::setlist_add`; QA-Schalter `--screenshot-notes`, `--focus-log`.
 - #58: `Calibration::count_in`, `calibration::COUNT_IN`, `CheckTake::player_offset_ms`. #60: `PitchRevision`,
   `Event::Pitch`, `revise_pitch`, `NoteTracker::pitch_revised`, `Session::on_pitch_revision`.
+- #76: `BackingAudio::{stereo, with_bass}` (jetzt ein Typ statt `Arc<Vec<f32>>`), `Gains::bass`,
+  `BackingTrack::with_bass_of`, `LiveSetup::original`, `Settings::bass_volume`.
 - demucs-gui: `Core::forget_stems`, `Core::qa_separator`, `store::cache_dir`, `BassRemoval::{size, remove, usage}`,
   `StemJob::remaining`, `SeparationJob::remaining`.
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
