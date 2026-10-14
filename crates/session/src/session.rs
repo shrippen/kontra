@@ -705,13 +705,22 @@ impl Session {
 
     fn complete_pass(&mut self) {
         let pass = self.cursor_pass;
-        let in_pass = || self.results.iter().filter(|r| r.pass == pass);
+        // The notes of the score, judged as the summary does: extra notes (a real bass makes
+        // about one per note, H5) do not count, the last result per note does.
+        let of_pass: Vec<NoteResult> = self
+            .results
+            .iter()
+            .filter(|r| r.pass == pass)
+            .copied()
+            .collect();
+        let judged = crate::summary::final_per_note(&of_pass);
+        let in_pass = || judged.iter();
         let clean = in_pass().all(NoteResult::is_hit);
-        let judged = in_pass().count();
-        let hit_rate = if judged == 0 {
+        let count = in_pass().count();
+        let hit_rate = if count == 0 {
             1.0
         } else {
-            in_pass().filter(|r| r.is_hit()).count() as f64 / judged as f64
+            in_pass().filter(|r| r.is_hit()).count() as f64 / count as f64
         };
         self.events.push(SessionEvent::PassComplete {
             pass,

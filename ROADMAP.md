@@ -322,7 +322,9 @@ Die Trennung entfernt den Bass: der Unterschied zum Original korreliert mit 0,94
   26 dB unter dem davor“ war keiner: Das Greifen tippt die Saite 30–70 ms vor dem Zupfen an, Kontra meldete diesen
   Vorläufer mit dem Ton des Zupfens (50–70 ms zu früh, 20 dB zu leise). Jetzt beginnt die Note am Zupfen, wenn es
   ≥ 12 dB lauter ist; ein späterer Anschlag mit besserer Tonhöhe im Zeitfenster übernimmt die Note, der frühere wird
-  Extra. Aufnahme `fretted` bewertet: 75 → 100 % (normal und locker). Offen: Nachklang-Fehlalarme bleiben (Extra);
+  Extra. Aufnahme `fretted` bewertet: 75 → 100 % (normal und locker). Die Trefferquote je Durchlauf (Werkstatt-Tempo, „sauber“)
+  zählte Extras mit: Bei etwa einem Fehlalarm je Ton lag ein fehlerfreier Durchlauf bei 50 %, die Werkstatt wurde
+  langsamer. Jetzt zählt sie wie die Auswertung nur Noten der Partitur. Offen: Nachklang-Fehlalarme bleiben (Extra);
   eine Pegelregel relativ zur Note davor kostet echte Töne (IDMT: echte leere Saite 21 dB leiser, 0,4 s danach).
   Zahlen: `testdata/korpus/QUELLEN.md`, „Fehlalarme am E-Bass“.
 - H6 (hoch, offen): Slap 8 von 8 als Dead Note, Pop 6 von 8 als normaler Ton (ohne Übersteuern). Hammer-on 4/4.
