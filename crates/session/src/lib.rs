@@ -22,6 +22,7 @@ mod progress;
 mod service;
 mod session;
 mod settings;
+mod sources;
 mod stems;
 mod summary;
 mod technique;
@@ -48,6 +49,7 @@ pub use progress::{run_from, ProgressError, ProgressStore, Run, SongProgress};
 pub use service::*;
 pub use session::{Mode, Session, SessionEvent, Workshop};
 pub use settings::{ScoreSettings, Strictness};
+pub use sources::{download_dir, recent_scores, search_url, SongSite};
 pub use stems::{BassRemoval, StemJob};
 pub use summary::{Summary, TimingHistogram};
 pub use technique::{

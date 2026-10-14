@@ -97,6 +97,15 @@ Erwartet: Cent-Werte pro Note weichen ≤ 3 Cent vom annotierten Wert ab; B0 bis
 4. Präsentation (F5 oder Knopf neben dem Mixer), durchspielen, mit Esc beenden.
 Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreichend; in der Präsentation Vollbild ohne Seitenleiste, nur Titel, Noten und Transport, Notenlinien größer; Esc stellt das Fenster wieder her wie vorher.
 
+**J-B6 Song aus dem Netz** ⚙ 🔍 · Personas: P2 Jens, P3 Mira, P1 Lea · Phase 2 · LH-BIB-10, -11
+1. Jens: Bibliothek, „Seven Nation Army“ eintippen, „Bei Songsterr suchen“ (Enter im Feld genügt).
+2. Im Browser die Guitar-Pro-Datei herunterladen (Songsterr Plus; ersatzweise eine eigene `.gp`), zurück zu Kontra.
+3. Unter „Neu in Downloads“ die Datei anklicken.
+4. Mira: eine in MuseScore 4 gespeicherte `.mscz` (Fünfsaiter mit Tab) auf die Bibliothek ziehen; danach drei Dateien auf einmal, eine davon defekt.
+5. Lea: dasselbe ohne Netz; dann ohne Browser (keine Standard-App für Links).
+6. Sam (P7): alles nur mit Tastatur und Screenreader, 200 %.
+Erwartet: Kontra lädt nichts selbst, die Suche öffnet sich im Browser mit dem Suchbegriff; die Datei erscheint beim Zurückkehren ins Fenster (sonst binnen 15 s) mit Art („Guitar Pro“, „MuseScore“) und Alter, ein Klick öffnet sie mit der Bassspur und nimmt sie aus „Neu“; `.mscz` mit gleichen Saiten und Bünden wie in MuseScore; mehrere abgelegte Dateien landen in der Bibliothek, die defekte mit Grund; ohne Netz zeigt nur der Browser einen Fehler, Kontra bleibt bedienbar; ohne Browser eine Warnung mit der Adresse zum Kopieren; Feld, Knöpfe und Liste per Tab erreichbar, der Screenreader sagt „öffnet den Browser“ und „… öffnen“.
+
 ## C. Lernen und Fortschritt
 
 **J-C1 Erste Woche** · Persona: P1 Lea · Phase 1 (adaptive Schwierigkeit Phase 2) · LH-FOR-01, LH-MOD-06, LH-BEW-04

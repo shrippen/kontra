@@ -1,4 +1,4 @@
-//! Content layer: imports Guitar Pro (3-8), MIDI and MusicXML files into `Arrangement`s and
+//! Content layer: imports Guitar Pro (3-8), MIDI, MusicXML and MuseScore files into `Arrangement`s and
 //! generates tabs for notes without string and fret.
 //!
 //! ```text
@@ -14,6 +14,7 @@ pub mod exercise;
 mod gp;
 mod harmonic;
 mod midi;
+mod mscx;
 mod musicxml;
 mod package;
 mod score;
@@ -40,6 +41,7 @@ const GP_MAGIC: &[u8] = b"FICHIER GUITAR PRO";
 const MIDI_MAGIC: &[u8] = b"MThd";
 const ZIP_MAGIC: &[u8] = b"PK\x03\x04";
 const GP7_SCORE: &str = "Content/score.gpif";
+const MSCX_SUFFIX: &str = ".mscx";
 /// Bytes searched for a MusicXML root element.
 const XML_SNIFF: usize = 4096;
 
@@ -58,6 +60,10 @@ pub enum FileKind {
     MusicXml,
     /// Compressed MusicXML (`.mxl`).
     MusicXmlZip,
+    /// MuseScore 3 or 4, uncompressed (`.mscx`).
+    MuseScore,
+    /// MuseScore 3 or 4 (`.mscz`), what MuseScore saves by default.
+    MuseScoreZip,
 }
 
 impl FileKind {
@@ -70,6 +76,8 @@ impl FileKind {
             "mid" | "midi" | "kar" => Some(FileKind::Midi),
             "musicxml" | "xml" => Some(FileKind::MusicXml),
             "mxl" => Some(FileKind::MusicXmlZip),
+            "mscx" => Some(FileKind::MuseScore),
+            "mscz" => Some(FileKind::MuseScoreZip),
             _ => None,
         }
     }
@@ -87,16 +95,20 @@ impl FileKind {
         }
         if data.starts_with(ZIP_MAGIC) {
             let archive = zip::Zip::open(data).ok()?;
-            let gp7 = archive.names().any(|n| n == GP7_SCORE);
-            return Some(if gp7 {
-                FileKind::GuitarPro7
-            } else {
-                FileKind::MusicXmlZip
-            });
+            if archive.names().any(|n| n == GP7_SCORE) {
+                return Some(FileKind::GuitarPro7);
+            }
+            if archive.names().any(|n| n.ends_with(MSCX_SUFFIX)) {
+                return Some(FileKind::MuseScoreZip);
+            }
+            return Some(FileKind::MusicXmlZip);
         }
         let head = String::from_utf8_lossy(&data[..data.len().min(XML_SNIFF)]).into_owned();
         if head.contains("<score-partwise") || head.contains("<score-timewise") {
             return Some(FileKind::MusicXml);
+        }
+        if head.contains("<museScore") {
+            return Some(FileKind::MuseScore);
         }
         None
     }
@@ -229,6 +241,8 @@ pub fn import_bytes(data: &[u8], kind: FileKind) -> Result<ImportResult, ImportE
         FileKind::Midi => midi::parse(data)?,
         FileKind::MusicXml => musicxml::parse(data)?,
         FileKind::MusicXmlZip => musicxml::parse_mxl(data)?,
+        FileKind::MuseScore => mscx::parse(data)?,
+        FileKind::MuseScoreZip => mscx::parse_mscz(data)?,
     };
     ImportResult::new(score)
 }

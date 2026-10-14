@@ -19,6 +19,8 @@ const STORED: u16 = 0;
 const DEFLATED: u16 = 8;
 /// Upper bound for one inflated entry; scores are far smaller.
 const MAX_ENTRY: usize = 256 * 1024 * 1024;
+/// Upper bound for a score's XML: the parsed tree takes several times that (deflate bomb).
+const MAX_SCORE_XML: usize = 32 * 1024 * 1024;
 
 #[derive(Debug)]
 struct Entry {
@@ -53,6 +55,19 @@ impl<'a> Zip<'a> {
 
     pub(crate) fn names(&self) -> impl Iterator<Item = &str> {
         self.entries.iter().map(|e| e.name.as_str())
+    }
+
+    /// Content of the XML score entry `name`, refused above `MAX_SCORE_XML` before inflating.
+    pub(crate) fn read_score(&self, name: &str) -> Result<Vec<u8>, ImportError> {
+        let size = self
+            .entries
+            .iter()
+            .find(|e| e.name == name)
+            .map_or(0, |e| e.size);
+        if size > MAX_SCORE_XML {
+            return Err(ImportError::TooLarge(size as u64));
+        }
+        self.read(name)
     }
 
     /// Content of entry `name`.
@@ -240,6 +255,18 @@ mod tests {
         assert_eq!(zip.read("manifest.json").unwrap(), b"{}");
         assert_eq!(zip.read("audio/ü.wav").unwrap(), big);
         assert!(data.len() < 10_000, "deflated");
+    }
+
+    #[test]
+    fn oversized_score_is_refused() {
+        // 33 MB of spaces deflate to a few kB: a bomb for the XML parser.
+        let bomb = vec![b' '; MAX_SCORE_XML + 1];
+        let data = write(&[("score.mscx", &bomb)]).unwrap();
+        let zip = Zip::open(&data).unwrap();
+        assert!(matches!(
+            zip.read_score("score.mscx"),
+            Err(ImportError::TooLarge(_))
+        ));
     }
 
     #[test]
