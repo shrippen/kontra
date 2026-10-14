@@ -282,6 +282,8 @@ stummer Ausgang, Aufnahmen als Eingang; Fokuswege mit `--focus-log`. Befunde des
   - H12 (mittel, behoben): Titel wurde neben Modi und Ansichten abgeschnitten; leere Kirigami-Titelleiste kostete 45 px.
 - **P7 Sam (Tastatur): bestanden.** Fokusweg der Übungsseite logisch (Kopf, Modi, Ansicht, Transponieren, Dichte,
   Transport), Fokusrahmen überall sichtbar. Offen (niedrig): Kirigamis „Close Sidebar“ folgt der Systemsprache.
+  - H13 (mittel, behoben): Offener Mixer mit „Bass über Kontra hören“ drückte die Tab-Lane auf einen Streifen
+    (1280×800: 50 px). Jetzt höchstens 40 % der Seite, der Rest scrollt; Tab bringt die ganze Zeile ins Bild.
 - Weiter behoben: Qt-Optionen mit Wert (`-qwindowgeometry`) wurden als Datei geöffnet (Test zuerst); Tests spielten auf
   den Standardausgang (jetzt Timer-Ausgang); Stimmungs-Presets als Text, Latenz mit „ms“, Fortschritt „20 s“ statt
   „0.4min“; Metronom/Einzähler als Kästchen statt gelber Knöpfe (Kante 1.38, PR in Kante).
