@@ -225,6 +225,7 @@ Kirigami.ScrollablePage {
 
     FileDialog {
         id: reportDialog
+        title: texts.t("dialog.report")
         fileMode: FileDialog.SaveFile
         defaultSuffix: "html"
         nameFilters: [texts.t("report.files") + " (*.html)"]

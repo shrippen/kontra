@@ -49,6 +49,7 @@ Kirigami.ScrollablePage {
 
     FolderDialog {
         id: folderDialog
+        title: texts.t("dialog.folder")
         currentFolder: StandardPaths.writableLocation(StandardPaths.MusicLocation)
         onAccepted: ctl.importFolder(selectedFolder.toString(), true)
     }
@@ -61,6 +62,7 @@ Kirigami.ScrollablePage {
 
     FileDialog {
         id: packageDialog
+        title: texts.t("dialog.package")
         fileMode: FileDialog.SaveFile
         defaultSuffix: "kontra"
         nameFilters: [texts.t("package.files") + " (*.kontra)"]
@@ -83,6 +85,7 @@ Kirigami.ScrollablePage {
 
     FileDialog {
         id: dialog
+        title: texts.t("dialog.open")
         currentFolder: page.startFolder()
         nameFilters: [texts.t("library.formats") + " (*.gp *.gp3 *.gp4 *.gp5 *.gpx *.mid *.midi *.musicxml *.xml *.mxl *.mscz *.mscx *.kontra)"]
         onAccepted: page.open(selectedFile.toString())
