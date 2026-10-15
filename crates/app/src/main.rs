@@ -24,7 +24,18 @@ const APP_ID: &str = "org.shrippen.Kontra";
 
 const MAIN_QML: &str = "qrc:/qt/qml/org/shrippen/kontra/qml/Main.qml";
 
+/// Qt's platform theme, read before the app starts.
+const THEME_VAR: &str = "QT_QPA_PLATFORMTHEME";
+
+/// Qt's portal theme. KDE's theme gives an app without widgets no native file dialog; Qt's QML
+/// stand-in then clashes with Breeze (binding loops, TypeErrors). The portal theme shows the
+/// desktop's own dialog and keeps KDE's colours and icons.
+const PORTAL_THEME: &str = "xdgdesktopportal";
+
 fn main() {
+    if let Some(theme) = platform_theme(std::env::var_os(THEME_VAR)) {
+        std::env::set_var(THEME_VAR, theme);
+    }
     let mut app = QGuiApplication::new();
     // Kirigami's own texts in Kontra's language (round 12: "Close Sidebar" in German Kontra).
     let language = args::AppArgs::from_env()
@@ -94,4 +105,28 @@ fn qml_dirs() -> Vec<PathBuf> {
     dirs.into_iter()
         .filter(|d| d.join("Kante/qmldir").exists())
         .collect()
+}
+
+/// The theme to set: the portal, unless the user chose one.
+fn platform_theme(current: Option<std::ffi::OsString>) -> Option<&'static str> {
+    if current.is_some_and(|t| !t.is_empty()) {
+        return None;
+    }
+
+    Some(PORTAL_THEME)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn portal_theme_by_default() {
+        assert_eq!(platform_theme(None), Some(PORTAL_THEME));
+    }
+
+    #[test]
+    fn user_theme_kept() {
+        assert_eq!(platform_theme(Some("kde".into())), None);
+    }
 }

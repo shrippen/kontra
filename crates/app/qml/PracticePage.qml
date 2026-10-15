@@ -1016,6 +1016,7 @@ Kirigami.Page {
 
     FileDialog {
         id: backingDialog
+        title: texts.t("dialog.backing")
         // Recordings of songs usually live in Music (QA 14.10.: it opened in the working folder).
         currentFolder: StandardPaths.writableLocation(StandardPaths.MusicLocation)
         nameFilters: [texts.t("backing.filter") + " (*.wav *.flac *.ogg *.mp3)"]

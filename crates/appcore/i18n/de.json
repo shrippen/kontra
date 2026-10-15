@@ -759,5 +759,12 @@
   "search.web.timeout": "Songsterr antwortet nicht. Versuch es später oder suche im Browser.",
   "search.web.busy": "Songsterr bittet um eine Pause. Versuch es später oder suche im Browser.",
   "search.web.status": "Songsterr meldet einen Fehler ({code}). Suche im Browser.",
-  "search.web.unreadable": "Die Antwort von Songsterr war unlesbar. Suche im Browser."
+  "search.web.unreadable": "Die Antwort von Songsterr war unlesbar. Suche im Browser.",
+  "dialog.folder": "Ordner als Setliste",
+  "dialog.package": "Paket speichern",
+  "dialog.open": "Datei öffnen",
+  "dialog.export": "Alles sichern",
+  "dialog.import": "Sicherung laden",
+  "dialog.report": "Bericht speichern",
+  "dialog.backing": "Backing-Track wählen"
 }
