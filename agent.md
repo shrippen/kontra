@@ -148,8 +148,6 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Tests, die ein Skript schreiben und starten, laufen parallel zu anderen, die Prozesse starten: Ein geforktes Kind hält
   die frische Datei offen, `exec` scheitert mit „Text file busy“ (ETXTBSY, etwa 1 von 40 Läufen). Solche Tests über
   einen gemeinsamen `Mutex` nacheinander laufen lassen (`separator.rs`).
-- Seit dem 11.10. abends startet ein `/review`-Kommentar auf Kontra keinen PR-Agent-Lauf mehr (kein Lauf, auch kein
-  „skipped“); zweimal fragen und dann nach grüner CI mergen (Regel vom 11.10.).
 
 ## Persona rule
 
@@ -210,14 +208,14 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Changes arrive as pull requests: work on a branch, open a PR, merge it on Gitea (the mirror follows).
 - Never merge a PR, push to `main` (or any default branch), push tags or publish releases on GitHub. A merge there is overwritten by the next Gitea push.
 - Never force-push a branch that someone else's PR depends on.
-- PR-Agent (`.gitea/workflows/pr-agent.yml`) reviews every PR before it is merged. Wait for its comment on the PR's latest commit; after further pushes, ask for a new one with a `/review` comment. Fix or answer each finding in the PR, then merge. If the review fails (an error, no result, e.g. a key or cost limit), ask for it once more with `/review`; if that fails too, green CI is enough to merge (owner, 11.10.2026).
+- PR-Agent (`.gitea/workflows/pr-agent.yml`, where set up) runs only when the owner comments `/review` on a PR (owner, 18.10.2026). Sessions do not post `/review`, and no merge waits for it. If it has reviewed a PR, fix or answer its findings in the PR before the merge.
 
 ## Entscheidungen mit dem Eigentümer
 
 - Offene Fragen sammeln und als Runde im Entscheidungs-Artefakt stellen (je Frage Kontext, Optionen, Empfehlung);
   Antworten liegen dort in der Datenbank-Sammlung „antworten“, ein Dokument je Runde. Umgesetzte Entscheidungen
   kommen ins Lastenheft und in die Roadmap (Abschnitt der jeweiligen Runde).
-- Kontra-PRs merged Claude selbst, wenn core und app grün sind und das PR-Agent-Review abgearbeitet ist (gescheitertes
-  Review: einmal `/review` wiederholen, scheitert es erneut, genügt grüne CI). Kante-PRs prüft und merged der Eigentümer.
+- Kontra-PRs merged Claude selbst, wenn core und app grün sind; hat der Eigentümer ein PR-Agent-Review per `/review`
+  angestoßen, sind dessen Befunde vorher abgearbeitet. Kante-PRs prüft und merged der Eigentümer.
 - Jede neue `pub`-Schnittstelle wird in der nächsten Runde zur Freigabe gelistet.
 - Der laufende Arbeitsstand steht in `STAND.md`.
