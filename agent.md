@@ -208,7 +208,7 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Changes arrive as pull requests: work on a branch, open a PR, merge it on Gitea (the mirror follows).
 - Never merge a PR, push to `main` (or any default branch), push tags or publish releases on GitHub. A merge there is overwritten by the next Gitea push.
 - Never force-push a branch that someone else's PR depends on.
-- PR-Agent (`.gitea/workflows/pr-agent.yml`, where set up) runs only when the owner comments `/review` on a PR (owner, 18.10.2026). Sessions do not post `/review`, and no merge waits for it. If it has reviewed a PR, fix or answer its findings in the PR before the merge.
+- PR-Agent (`.gitea/workflows/pr-agent.yml`, where set up) runs only when the owner comments `/review` on a PR (owner, 18.10.2026). Sessions do not post `/review`. Without one no merge waits for PR-Agent; after the owner's `/review` the merge waits until that run has finished (its result, like its status, is not a CI check; a run that fails holds nothing, say so in the PR). Fix or answer its findings in the PR before the merge.
 
 ## Entscheidungen mit dem Eigentümer
 
