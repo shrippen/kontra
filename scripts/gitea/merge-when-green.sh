@@ -1,6 +1,7 @@
 #!/bin/bash
 # merge-when-green.sh PR SHA: wait for the newest core+app runs on SHA; merge PR when both succeed.
-# PR-Agent runs only on the owner's /review and is no merge condition (owner, 18.10.2026).
+# Checks CI only: the review (PR-Agent, closing Claude agent) is a merge condition the session
+# checks before it calls this (agent.md, owner 22.10.2026).
 # Reports MERGED only if Gitea says the PR is merged.
 S=$(dirname "$0")
 for i in $(seq 200); do
