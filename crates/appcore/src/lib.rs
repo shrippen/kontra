@@ -3048,7 +3048,16 @@ impl Core {
                     ),
                 ],
             ),
-            "song" => self.tr("exercise.name.song", &[("style", part("style", d.variant))]),
+            "song" => match d.rhythm {
+                Some(level) => self.tr(
+                    "exercise.name.song.level",
+                    &[
+                        ("style", part("style", d.variant)),
+                        ("level", part("level", level)),
+                    ],
+                ),
+                None => self.tr("exercise.name.song", &[("style", part("style", d.variant))]),
+            },
             "chromatic" => self.tr(
                 "exercise.name.chromatic",
                 &[(
@@ -3116,11 +3125,18 @@ impl Core {
             "walking" => ExerciseKind::WalkingBass(progression()?),
             "groove" => ExerciseKind::Groove(progression()?, Rhythm::from_key(rhythm)?),
             "chromatic" => ExerciseKind::Chromatic(Fingers::from_key(variant)?),
-            "song" => ExerciseKind::Song(exercise::Style::from_key(variant)?),
+            // A piece takes its level where grooves take the rhythm; none is medium.
+            "song" => ExerciseKind::Song(
+                exercise::Style::from_key(variant)?,
+                match rhythm {
+                    "" => exercise::Level::default(),
+                    level => exercise::Level::from_key(level)?,
+                },
+            ),
             _ => return None,
         };
         // A piece's form repeats its parts itself; a 12-bar blues is long enough once.
-        let once = matches!(kind, ExerciseKind::Song(_)) || variant == "blues";
+        let once = matches!(kind, ExerciseKind::Song(..)) || variant == "blues";
         Some(exercise::ExerciseSpec {
             kind,
             key: key % 12,
@@ -4639,6 +4655,14 @@ mod tests {
         let path = core.generate_exercise(&piece).unwrap();
         assert!(matches!(core.open(&path), Ok(Opened::Ready)));
         assert!(!core.arrangement().unwrap().drums.is_empty());
+
+        // Its level: medium is the plain piece, the others say so in the title.
+        assert_eq!(spec("song", "funk", "medium", 9).kind, piece.kind);
+        let easy = spec("song", "funk", "easy", 9);
+        assert_eq!(title(&core, &easy), "Funk piece (easy) in Am (80 BPM)");
+        core.update_settings(|s| s.language = Some("de".into()));
+        assert_eq!(title(&core, &easy), "Stück Funk (leicht) in Am (80 BPM)");
+        assert!(Core::exercise_spec("song", "funk", "brutal", 9, 80.0).is_none());
         let _ = std::fs::remove_dir_all(dir);
     }
 

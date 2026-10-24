@@ -817,6 +817,14 @@
   "exercise.name.style.rock": "Rock",
   "exercise.name.style.funk": "Funk",
   "exercise.name.style.shuffle": "Shuffle",
+  "exercises.level": "Schwierigkeit",
+  "exercises.level.hint": "Leicht: weniger Töne je Takt, ohne Synkopen. Schwer: dichter und synkopiert. Form und Schlagzeug bleiben.",
+  "exercises.level.easy": "Leicht",
+  "exercises.level.medium": "Mittel",
+  "exercises.level.hard": "Schwer",
+  "exercise.name.song.level": "Stück {style} ({level})",
+  "exercise.name.level.easy": "leicht",
+  "exercise.name.level.hard": "schwer",
   "exercise.level.9": "Stücke",
   "exercise.goal.form": "Ziel: ein ganzes Stück durchspielen. Vor jedem neuen Teil kündigt ein Fill den Wechsel an."
 }

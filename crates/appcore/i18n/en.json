@@ -817,6 +817,14 @@
   "exercise.name.style.rock": "Rock",
   "exercise.name.style.funk": "Funk",
   "exercise.name.style.shuffle": "Shuffle",
+  "exercises.level": "Difficulty",
+  "exercises.level.hint": "Easy: fewer notes per bar, no syncopation. Hard: denser and syncopated. Form and drums stay.",
+  "exercises.level.easy": "Easy",
+  "exercises.level.medium": "Medium",
+  "exercises.level.hard": "Hard",
+  "exercise.name.song.level": "{style} piece ({level})",
+  "exercise.name.level.easy": "easy",
+  "exercise.name.level.hard": "hard",
   "exercise.level.9": "Pieces",
   "exercise.goal.form": "Goal: play a whole piece through. A drum fill announces each new part."
 }

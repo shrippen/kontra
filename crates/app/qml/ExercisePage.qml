@@ -17,6 +17,7 @@ Kirigami.ScrollablePage {
     readonly property var kinds: ["groove", "scale", "arpeggio", "triads", "walking", "chromatic", "song"]
     // Pieces in a form to play through.
     readonly property var styles: ["ballad", "pop", "rock", "funk", "shuffle"]
+    readonly property var songLevels: ["easy", "medium", "hard"]
     readonly property var scales: ["major", "minor", "majorpenta", "minorpenta", "blues", "dorian",
         "phrygian", "lydian", "mixolydian", "locrian", "harmonicminor"]
     readonly property var progressions: ["tonic", "251", "blues", "minor", "145", "pop", "1625", "minor251"]
@@ -31,6 +32,7 @@ Kirigami.ScrollablePage {
     property int variant: 0
     property int rhythm: 0
     property int pattern: 0
+    property int songLevel: 1
     property int key: 4
     property int fret: 5
     property int bpm: 80
@@ -203,6 +205,18 @@ Kirigami.ScrollablePage {
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            visible: page.isSong
+            title: texts.t("exercises.level")
+            hint: texts.t("exercises.level.hint")
+            KanteSegmented {
+                Accessible.name: texts.t("exercises.level")
+                model: page.songLevels.map(function(l) { return texts.t("exercises.level." + l) })
+                currentIndex: page.songLevel
+                onActivated: function(index) { page.songLevel = index }
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
             visible: page.kinds[page.kind] === "groove"
             title: texts.t("exercises.rhythm")
             hint: texts.t("exercises.rhythm.hint")
@@ -262,8 +276,10 @@ Kirigami.ScrollablePage {
                 var variant = page.isScale ? page.scales[page.variant]
                     : page.isFingers ? page.fingerOrders[page.variant]
                     : page.isSong ? page.styles[page.variant] : page.progressions[page.variant]
-                // Scales take their pattern where grooves take the rhythm; finger exercises a fret.
-                var rhythm = page.isScale ? page.patterns[page.pattern] : page.rhythms[page.rhythm]
+                // Scales take their pattern where grooves take the rhythm, pieces their level;
+                // finger exercises a fret.
+                var rhythm = page.isScale ? page.patterns[page.pattern]
+                    : page.isSong ? page.songLevels[page.songLevel] : page.rhythms[page.rhythm]
                 var key = page.isFingers ? page.fret : page.key
                 if (ctl.generateExercise(page.kinds[page.kind], variant, rhythm, key, page.bpm))
                     applicationWindow().show("practice")

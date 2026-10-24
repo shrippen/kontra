@@ -15,7 +15,7 @@ mod plan;
 mod song;
 
 pub use plan::{bundled, bundled_specs};
-pub use song::Style;
+pub use song::{Level, Style};
 
 use kontra_model::{Judging, Technique};
 use midly::num::{u15, u24, u28, u4, u7};
@@ -70,7 +70,7 @@ pub enum ExerciseKind {
     /// Four fingers on four frets across the strings and back; `key` is the start fret.
     Chromatic(Fingers),
     /// A piece in a form (intro, verse, chorus, bridge, outro) to play through.
-    Song(Style),
+    Song(Style, Level),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -209,7 +209,8 @@ pub struct Description {
     /// Scale ("major", "minorpenta" …), progression ("tonic", "251", "blues", "minor" …) or
     /// finger order ("1324").
     pub variant: &'static str,
-    /// Grooves: the rhythm ("quarters", "eighths" …); sequences: the pattern ("thirds").
+    /// Grooves: the rhythm ("quarters", "eighths" …); sequences: the pattern ("thirds"); pieces:
+    /// the level ("easy", "hard"), none for medium.
     pub rhythm: Option<&'static str>,
     /// Key root spelled for its signature ("Bb", "F#") with "m" for minor.
     pub key: &'static str,
@@ -860,7 +861,7 @@ struct Pass {
 pub fn generate(spec: &ExerciseSpec) -> Exercise {
     // A piece has its own form and drums for one pass: never repeated.
     let repeats = match spec.kind {
-        ExerciseKind::Song(_) => 1,
+        ExerciseKind::Song(..) => 1,
         _ => u32::from(spec.repeats.max(1)),
     };
     let pass = one_pass(spec);
@@ -888,7 +889,7 @@ pub fn generate(spec: &ExerciseSpec) -> Exercise {
     let fifths = signature(spec.key, pass.to_major);
     let title = title(spec, &pass, fifths);
     let drums = match spec.kind {
-        ExerciseKind::Song(style) => song::song(style, spec.key).1,
+        ExerciseKind::Song(style, level) => song::song(style, level, spec.key).1,
         ExerciseKind::Groove(_, rhythm) => {
             let bars = end / meter.bar();
             let mut hits: Vec<(u32, u8)> = (0..bars)
@@ -1046,7 +1047,7 @@ fn one_pass(spec: &ExerciseSpec) -> Pass {
                 )
             }
         }
-        ExerciseKind::Song(style) => song::song(style, spec.key).0,
+        ExerciseKind::Song(style, level) => song::song(style, level, spec.key).0,
         ExerciseKind::Chromatic(fingers) => {
             let (tones, length) = chromatic_line(fingers, spec.fret(), spec.slow);
             Pass {
@@ -1197,7 +1198,11 @@ pub fn describe(spec: &ExerciseSpec) -> Description {
         ExerciseKind::WalkingBass(p) => ("walking", p.key(), None, p.minor(), 0),
         ExerciseKind::Groove(p, r) => ("groove", p.key(), Some(r.key()), p.minor(), 0),
         ExerciseKind::Chromatic(f) => ("chromatic", f.key(), None, false, 0),
-        ExerciseKind::Song(style) => ("song", style.key(), None, style.minor(), 0),
+        // The level stands where grooves name their rhythm; medium is the plain piece.
+        ExerciseKind::Song(style, level) => {
+            let level = (level != Level::Medium).then(|| level.key());
+            ("song", style.key(), level, style.minor(), 0)
+        }
     };
     let to_major = if minor { RELATIVE_MAJOR } else { to_major };
     let fret = matches!(spec.kind, ExerciseKind::Chromatic(_)).then(|| spec.fret());
@@ -1230,7 +1235,7 @@ fn goal(spec: &ExerciseSpec) -> &'static str {
         ExerciseKind::WalkingBass(_) => "walking",
         ExerciseKind::Groove(_, r) => r.goal(),
         ExerciseKind::Chromatic(_) => "fingers",
-        ExerciseKind::Song(_) => "form",
+        ExerciseKind::Song(..) => "form",
     }
 }
 
@@ -2069,7 +2074,7 @@ mod tests {
     #[test]
     fn pieces_import_with_chords_and_drums() {
         for style in Style::ALL {
-            let e = generate(&spec(ExerciseKind::Song(style), 9));
+            let e = generate(&spec(ExerciseKind::Song(style, Level::Medium), 9));
             let a = arrangement(&e);
             assert!(a.bars.len() >= 40, "{style:?}: {} bars", a.bars.len());
             assert!(!a.drums.is_empty(), "{style:?}");
@@ -2108,16 +2113,16 @@ mod tests {
         // Repeats do not apply to a piece: one form, drums to the end.
         let twice = ExerciseSpec {
             repeats: 2,
-            ..spec(ExerciseKind::Song(Style::Rock), 9)
+            ..spec(ExerciseKind::Song(Style::Rock, Level::Medium), 9)
         };
         assert_eq!(
             generate(&twice).midi,
-            generate(&spec(ExerciseKind::Song(Style::Rock), 9)).midi
+            generate(&spec(ExerciseKind::Song(Style::Rock, Level::Medium), 9)).midi
         );
 
-        let funk = generate(&spec(ExerciseKind::Song(Style::Funk), 9));
+        let funk = generate(&spec(ExerciseKind::Song(Style::Funk, Level::Medium), 9));
         assert_eq!(funk.title, "Stück Funk in Am (90 BPM)");
-        let d = describe(&spec(ExerciseKind::Song(Style::Funk), 9));
+        let d = describe(&spec(ExerciseKind::Song(Style::Funk, Level::Medium), 9));
         assert_eq!(
             (d.kind, d.variant, d.minor, d.goal),
             ("song", "funk", true, "form")

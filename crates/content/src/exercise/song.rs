@@ -5,6 +5,7 @@
 //!
 //! ```text
 //! Style ──form──▶ Part, Part, …  (section, progression, rhythm, times)
+//!                  │ Level: the bass rhythm of each part one step simpler or denser
 //!                  │ chords_line + groove_bar ──▶ tones, chord names ─┐
 //!                  └ drum_bar, fill on the last beat ──▶ drums ───────┴──▶ Pass + drums
 //! ```
@@ -24,6 +25,63 @@ pub enum Style {
     Funk,
     /// Twelve-bar blues in shuffle.
     Shuffle,
+}
+
+/// How hard a piece is to play: the style's grooves one step simpler or denser, e.g. a rock
+/// verse in quarters (easy), eighths (medium) or sixteenths (hard). The form stays.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Level {
+    Easy,
+    #[default]
+    Medium,
+    Hard,
+}
+
+impl Level {
+    pub const ALL: [Level; 3] = [Level::Easy, Level::Medium, Level::Hard];
+
+    /// Text key ("easy", "medium", "hard"), the inverse of `from_key`.
+    pub fn key(self) -> &'static str {
+        match self {
+            Level::Easy => "easy",
+            Level::Medium => "medium",
+            Level::Hard => "hard",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|l| l.key() == key)
+    }
+
+    /// The German suffix of the file's title; progress is keyed by it, so each level has its own.
+    fn label(self) -> &'static str {
+        match self {
+            Level::Easy => " (leicht)",
+            Level::Medium => "",
+            Level::Hard => " (schwer)",
+        }
+    }
+
+    /// `rhythm` at this level. Easy drops subdivisions and syncopation, hard adds them; a
+    /// rhythm keeps its meter (all are 4/4 here), so the drums and the form fit.
+    fn rhythm(self, rhythm: Rhythm) -> Rhythm {
+        use Rhythm::*;
+        match (self, rhythm) {
+            (Level::Medium, r) => r,
+            (Level::Easy, Quarters) => RootFifth,
+            (Level::Easy, Eighths | Tresillo | RootFifthOctave | DeadNotes) => Quarters,
+            (Level::Easy, Octaves | Ghost | Funk) => Eighths,
+            (Level::Easy, Shuffle) => Quarters,
+            (Level::Hard, RootFifth) => RootFifthOctave,
+            (Level::Hard, Quarters) => Eighths,
+            (Level::Hard, Eighths) => Sixteenths,
+            (Level::Hard, Tresillo | Octaves) => Offbeat,
+            (Level::Hard, RootFifthOctave) => Octaves,
+            (Level::Hard, DeadNotes) => Funk,
+            (Level::Hard, Shuffle) => Triplets,
+            (_, r) => r,
+        }
+    }
 }
 
 /// Where a part stands in the form; the intro plays lighter drums.
@@ -154,7 +212,7 @@ impl Style {
 }
 
 /// The whole piece as one pass, closing on a whole-bar tonic; and its drums.
-pub(super) fn song(style: Style, key: u8) -> (Pass, Vec<(u32, u8)>) {
+pub(super) fn song(style: Style, level: Level, key: u8) -> (Pass, Vec<(u32, u8)>) {
     let form = style.form();
     let mut tones = Vec::new();
     let mut markers = Vec::new();
@@ -167,7 +225,8 @@ pub(super) fn song(style: Style, key: u8) -> (Pass, Vec<(u32, u8)>) {
             key,
             Voicing::Seventh,
             meter,
-            |at, root, q| groove_bar(at, root, q, p.rhythm),
+            // The level changes the bass line; the drums keep the style's groove (a shuffle).
+            |at, root, q| groove_bar(at, root, q, level.rhythm(p.rhythm)),
         );
         let length = bars_len(p.progression, meter);
         for time in 0..p.times {
@@ -204,7 +263,7 @@ pub(super) fn song(style: Style, key: u8) -> (Pass, Vec<(u32, u8)>) {
         length: start + BAR,
         minor: style.minor(),
         to_major: if style.minor() { RELATIVE_MAJOR } else { 0 },
-        label: style.label().to_string(),
+        label: format!("{}{}", style.label(), level.label()),
     };
     (pass, drums)
 }
@@ -233,7 +292,7 @@ mod tests {
     #[test]
     fn every_style_has_a_form_of_two_to_three_minutes() {
         for style in Style::ALL {
-            let (pass, _) = song(style, 4);
+            let (pass, _) = song(style, Level::Medium, 4);
             let bars = pass.length / BAR;
             assert!((40..=70).contains(&bars), "{style:?}: {bars} bars");
             assert!(pass.markers.len() as u32 >= bars, "a chord name per bar");
@@ -242,7 +301,7 @@ mod tests {
 
     #[test]
     fn piece_ends_on_the_tonic() {
-        let (pass, drums) = song(Style::Funk, 9);
+        let (pass, drums) = song(Style::Funk, Level::Medium, 9);
         let last = pass.tones.last().unwrap();
         assert_eq!(last.key.rem_euclid(12), 9);
         assert_eq!(last.length, BAR);
@@ -252,7 +311,7 @@ mod tests {
 
     #[test]
     fn a_fill_leads_into_each_new_part() {
-        let (pass, drums) = song(Style::Rock, 4);
+        let (pass, drums) = song(Style::Rock, Level::Medium, 4);
         // Rock: intro 4 bars, then the verse; the intro's last beat is a snare roll.
         let fill_from = 4 * BAR - QUARTER;
         let fill: Vec<_> = drums
@@ -266,5 +325,41 @@ mod tests {
             .iter()
             .any(|(at, key)| *at < fill_from && *key == SNARE));
         assert!(pass.length > 4 * BAR);
+    }
+
+    #[test]
+    fn levels_thin_or_thicken_the_line_and_keep_the_form() {
+        for style in Style::ALL {
+            let notes = |level| song(style, level, 4).0.tones.len();
+            let (easy, medium, hard) =
+                (notes(Level::Easy), notes(Level::Medium), notes(Level::Hard));
+            assert!(
+                easy < medium && medium < hard,
+                "{style:?}: {easy} {medium} {hard}"
+            );
+
+            let length = |level| song(style, level, 4).0.length;
+            assert_eq!(length(Level::Easy), length(Level::Hard), "{style:?}");
+            for p in style.form() {
+                for level in Level::ALL {
+                    assert_eq!(level.rhythm(p.rhythm).meter(), p.rhythm.meter());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn each_level_has_its_own_title_and_the_same_drums() {
+        let (easy, easy_drums) = song(Style::Shuffle, Level::Easy, 4);
+        let (medium, medium_drums) = song(Style::Shuffle, Level::Medium, 4);
+        assert_eq!(easy.label, "Stück Shuffle (leicht)");
+        assert_eq!(medium.label, "Stück Shuffle");
+        assert_eq!(
+            easy_drums, medium_drums,
+            "the drums keep the style's groove"
+        );
+        for level in Level::ALL {
+            assert_eq!(Level::from_key(level.key()), Some(level));
+        }
     }
 }
