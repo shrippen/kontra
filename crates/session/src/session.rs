@@ -53,6 +53,9 @@ pub enum Mode {
     Wait,
     /// Loop with automatic speed steps (LH-MOD-04).
     Workshop(Workshop),
+    /// Blind probe (DIDAKTIK I1): scores like `Song`, but ends after one pass of the loop, so a
+    /// practised section is played once without help.
+    Probe,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -215,6 +218,10 @@ impl Session {
 
     /// Scores a detected note. Its onset is on the same real clock as the transport.
     pub fn on_note(&mut self, note: &DetectedNote) {
+        // After a probe's one pass the run is over; a note then belongs to no pass.
+        if self.finished && matches!(self.mode, Mode::Probe) {
+            return;
+        }
         let real_s = note.onset_s - self.settings.latency_ms / 1000.0;
         if matches!(self.mode, Mode::Wait) {
             self.wait_note(real_s, note);
@@ -235,6 +242,10 @@ impl Session {
                 position = wrapped;
                 pass += 1;
             }
+        }
+        // A probe has one pass: playing on past the section is not a second one.
+        if matches!(self.mode, Mode::Probe) && pass > 0 {
+            return;
         }
         // A hammer-on or pull-off target has no attack: a note there is judged for its technique
         // only, and is not an extra note.
@@ -501,7 +512,8 @@ impl Session {
                 self.events.push(SessionEvent::Holding { note: e.index });
             }
         }
-        if !matches!(self.mode, Mode::Wait) {
+        // A finished probe judges nothing more: its clock stopped inside the next pass.
+        if !matches!(self.mode, Mode::Wait) && !self.finished {
             self.expire(real_s - DETECTION_GRACE_S);
         }
         self.check_finished();
@@ -677,6 +689,9 @@ impl Session {
                     return;
                 }
                 self.complete_pass();
+                if self.finished {
+                    return;
+                }
                 continue;
             }
             let Some(e) = self.matcher.expected().get(self.cursor_slot).copied() else {
@@ -729,6 +744,12 @@ impl Session {
         });
         self.cursor_pass += 1;
         self.cursor_slot = self.first_slot_from(self.range().0);
+        if matches!(self.mode, Mode::Probe) {
+            self.transport.pause(self.now_s);
+            self.finished = true;
+            self.events.push(SessionEvent::Finished);
+            return;
+        }
         let Mode::Workshop(workshop) = self.mode else {
             return;
         };

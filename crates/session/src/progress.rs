@@ -35,6 +35,9 @@ pub struct Run {
     /// Bars with the most mistakes, as numbered in the score (progress report, LH-FOR-04).
     #[serde(default)]
     pub hardest_bars: Vec<u32>,
+    /// Timing spread of the run (ms), to compare a blind probe with the practice before it.
+    #[serde(default)]
+    pub spread_ms: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -214,6 +217,7 @@ pub fn run_from(
             .iter()
             .map(|b| u32::try_from(*b + 1).unwrap_or(u32::MAX))
             .collect(),
+        spread_ms: summary.spread_ms,
     }
 }
 
@@ -229,6 +233,7 @@ mod tests {
         let mut a = Arrangement::new("Riff", Instrument::default_bass());
         a.notes.push(Note::new(0, 960, Pitch(28)));
         let run = |at| Run {
+            spread_ms: None,
             finished_unix: at,
             practice_s: 60.0,
             speed: 1.0,
@@ -260,6 +265,7 @@ mod tests {
         let mut a = Arrangement::new("Riff", Instrument::default_bass());
         a.notes.push(Note::new(0, 960, Pitch(28)));
         let run = Run {
+            spread_ms: None,
             finished_unix: 1,
             practice_s: 60.0,
             speed: 0.8,

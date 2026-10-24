@@ -5,7 +5,7 @@
 //!        [--input-profile laptop-jack] [--autoplay] [--screenshot PNG] [--screenshot-after MS]
 //!        [--quit-after MS] [--theme kante|kante-light|system] [--language de|en]
 //!        [--mode play|song|wait|workshop] [--view lane|tab|notation|combined|keys] [--calibrate]
-//!        [--loop-bars FROM-TO] [--remove-bass]
+//!        [--loop-bars FROM-TO] [--probe] [--remove-bass]
 //!
 //! Window size for QA (e.g. a 1280×720 beamer at 150 %): Qt's own `-qwindowgeometry 853x480`
 //! with `QT_SCALE_FACTOR=1.5`.

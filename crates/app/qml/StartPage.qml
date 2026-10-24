@@ -12,7 +12,7 @@ Kirigami.ScrollablePage {
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
-    property var summary: ({ last: null, next: null, spots: null, week: { minutes: 0, runs: 0 } })
+    property var summary: ({ last: null, next: null, spots: null, probe: null, week: { minutes: 0, runs: 0 } })
     readonly property bool sameAsLast: summary.next !== null && summary.last !== null
         && summary.next.path === summary.last.path
 
@@ -35,6 +35,20 @@ Kirigami.ScrollablePage {
         ctl.changeMode("workshop")
         ctl.loopBars(bar - 1, bar - 1)
         applicationWindow().show("practice")
+    }
+    // A section practised before, once without notes (DIDAKTIK I1); the count-in gives a bar to
+    // get ready.
+    function probe(offer) {
+        if (!ctl.openFile(offer.path)) {
+            if (JSON.parse(ctl.trackChoicesJson).length > 0)
+                applicationWindow().show("library")
+            return
+        }
+        ctl.changeMode("workshop")
+        if (!ctl.loopAt(offer.startS, offer.endS))
+            return
+        applicationWindow().show("practice")
+        ctl.startProbe()
     }
     function bestText(best) {
         return best !== null && best >= 0
@@ -147,6 +161,20 @@ Kirigami.ScrollablePage {
                     emphasis: index === 0 ? KanteButton.Emphasis.Normal : KanteButton.Emphasis.Quiet
                     onClicked: page.practise(page.summary.spots.path, modelData)
                 }
+            }
+        }
+
+        // DIDAKTIK I1: what was practised with notes, checked once without them after a night.
+        KanteHintCard {
+            Layout.fillWidth: true
+            visible: page.summary.probe !== null
+            tier: KanteHintCard.Tier.Blue
+            tierText: texts.t("home.probe.tier")
+            titleText: page.summary.probe ? page.summary.probe.title : ""
+            text: texts.t("home.probe.text")
+            KanteButton {
+                text: page.summary.probe ? texts.t("home.probe.play", { from: page.summary.probe.from, to: page.summary.probe.to }) : ""
+                onClicked: page.probe(page.summary.probe)
             }
         }
 

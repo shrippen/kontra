@@ -139,6 +139,7 @@ mod tests {
 
     fn run(unix: u64) -> Run {
         Run {
+            spread_ms: None,
             finished_unix: unix,
             practice_s: 60.0,
             speed: 1.0,

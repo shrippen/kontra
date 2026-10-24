@@ -766,5 +766,20 @@
   "dialog.export": "Alles sichern",
   "dialog.import": "Sicherung laden",
   "dialog.report": "Bericht speichern",
-  "dialog.backing": "Backing-Track wählen"
+  "dialog.backing": "Backing-Track wählen",
+  "probe.start": "Ohne Hilfe prüfen",
+  "probe.start.hint": "Spielt den Abschnitt einmal ohne Noten auf dem Bildschirm. Danach siehst du, ob er auch ohne Hilfe sitzt.",
+  "probe.noloop": "Erst die Takte wählen, die du ohne Hilfe prüfen willst.",
+  "probe.banner": "Ohne Hilfe: Takte {from}–{to} einmal spielen. Kontra hört zu und zeigt danach das Ergebnis.",
+  "probe.title": "Ohne Hilfe gegen Werkstatt",
+  "probe.with.label": "Werkstatt, mit Noten",
+  "probe.without.label": "Ohne Hilfe",
+  "probe.row": "{percent} %",
+  "probe.row.spread": "{percent} % · ±{ms} ms",
+  "probe.first": "Noch kein Werkstatt-Lauf für diese Takte zum Vergleich.",
+  "probe.less": "{points} Punkte weniger als mit Noten: Die Stelle braucht noch Übung ohne Hilfe.",
+  "probe.holds": "So gut wie mit Noten: Die Stelle sitzt.",
+  "home.probe.tier": "Ohne Hilfe",
+  "home.probe.text": "Diese Takte hast du in der Werkstatt geübt. Sitzen sie auch ohne Noten? Einmal spielen, Kontra vergleicht.",
+  "home.probe.play": "Takte {from}–{to} prüfen"
 }

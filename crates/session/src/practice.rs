@@ -266,6 +266,15 @@ impl<O: Output> Practice<O> {
         let transport = self.session.transport();
         let pass = transport.pass();
         let held = transport.is_held();
+        // A probe stops itself after one pass: silence what was planned beyond it.
+        let probe_done = matches!(self.session.mode(), Mode::Probe)
+            && events.iter().any(|e| matches!(e, SessionEvent::Finished));
+        if probe_done {
+            self.output.clear_from(now);
+            self.output.stop_backing(now);
+            self.scheduled.clear();
+            return events.into_iter().map(PracticeEvent::Session).collect();
+        }
         let speed_changed = events
             .iter()
             .any(|e| matches!(e, SessionEvent::SpeedChanged(_)));
@@ -502,6 +511,7 @@ mod tests {
         sounds: Vec<(f64, Sound)>,
         backings: Vec<(f64, usize)>,
         cleared: Vec<f64>,
+        stopped: Vec<f64>,
         gains: Option<Gains>,
     }
 
@@ -520,7 +530,9 @@ mod tests {
         fn play_backing(&mut self, _audio: BackingAudio, at_s: f64, from_frame: usize) {
             self.backings.push((at_s, from_frame));
         }
-        fn stop_backing(&mut self, _at_s: f64) {}
+        fn stop_backing(&mut self, at_s: f64) {
+            self.stopped.push(at_s);
+        }
         fn set_gains(&mut self, gains: Gains) {
             self.gains = Some(gains);
         }
@@ -598,6 +610,51 @@ mod tests {
             assert!(((pair[1] - pair[0]) - 0.25).abs() < 1e-6, "{times:?}");
         }
         assert!(times.len() >= 4);
+    }
+
+    #[test]
+    fn probe_falls_silent_after_its_pass() {
+        let clock = Clock::new();
+        let options = PracticeOptions {
+            count_in_bars: 0,
+            ..PracticeOptions::default()
+        };
+        let mut p = Practice::new(
+            arrangement(),
+            Mode::Probe,
+            ScoreSettings::default(),
+            options,
+            Recorder::default(),
+            clock.clone(),
+        );
+        p.set_speed(2.0);
+        p.set_loop(Some(LoopRange {
+            start_s: 0.0,
+            end_s: 1.0,
+        }));
+        p.play();
+        let end = clock.now_s() + 1.5;
+        let mut finished_at = None;
+        while clock.now_s() < end {
+            let events = p.tick();
+            let done = events
+                .iter()
+                .any(|e| matches!(e, PracticeEvent::Session(SessionEvent::Finished)));
+            if done {
+                finished_at = Some(clock.now_s());
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        // One pass lasts 0.5 s; no click and no backing after the probe ended.
+        let finished_at = finished_at.expect("probe finished");
+        let last = p
+            .output()
+            .sounds
+            .iter()
+            .map(|(t, _)| *t)
+            .fold(0.0, f64::max);
+        assert!(last <= finished_at, "{last} after {finished_at}");
+        assert!(!p.output().stopped.is_empty());
     }
 
     #[test]

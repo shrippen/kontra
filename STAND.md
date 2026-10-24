@@ -5,7 +5,10 @@ nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-Keine außer `kante-sync` (Kante 1.35–1.39 übernommen, Werkstatt-Abschnitt in Tabulatur und Noten, G9).
+`blind-probe` (Didaktik I1, Roadmap nachgezogen). Zuletzt gemerged: #98 (Kante 1.35–1.39, G9).
+
+Plan (Eigentümer, 24.10.): danach Stück-Generator und Etüden wie Lieder, I4-Übungen (leere Saite, nur Timing),
+Abnahme LH-BIB-06 messen.
 
 Gemerged seit 14.10.: #90 (STAND), #91 (Stem-Tests nacheinander), #92 (Dateidialoge über das Desktop-Portal),
 #93–#97 (Review-Regel: PR-Agent nur auf `/review`, Claude-Agent als Rückfall, siehe `agent.md` und `REVIEW.md`).
@@ -51,6 +54,7 @@ Gemerged seit 14.10.: #90 (STAND), #91 (Stem-Tests nacheinander), #92 (Dateidial
   `BackingTrack::with_bass_of`, `LiveSetup::original`, `Settings::bass_volume`.
 - demucs-gui: `Core::forget_stems`, `Core::qa_separator`, `store::cache_dir`, `BassRemoval::{size, remove, usage}`,
   `StemJob::remaining`, `SeparationJob::remaining`.
+- blind-probe (I1): `Mode::Probe`, `Run::spread_ms`, `Core::{start_probe, is_probing, bars_at}`; QA-Schalter `--probe`.
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 
 ## Für den Eigentümer

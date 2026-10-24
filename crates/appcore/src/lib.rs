@@ -222,6 +222,14 @@ pub struct Core {
     downloads: Option<PathBuf>,
     /// Songsterr search (LH-BIB-11, round 12).
     finder: songsterr::Finder,
+    /// The blind probe running now (DIDAKTIK I1), if any.
+    probe: Option<Probe>,
+}
+
+/// One pass of the loop without notes on screen (DIDAKTIK I1), at the speed it was practised.
+#[derive(Debug, Clone, Copy)]
+struct Probe {
+    speed: f64,
 }
 
 /// The UI language before the app starts ("de" or "en"): as set in the settings of `data_dir`,
@@ -260,6 +268,7 @@ impl Core {
             stems: stems::Stems::default(),
             downloads: kontra_session::download_dir(),
             finder: songsterr::Finder::default(),
+            probe: None,
             notice: None,
             active_setlist: None,
             lost: None,
@@ -490,6 +499,7 @@ impl Core {
             "last": last,
             "next": next,
             "spots": self.hard_spots(&store, now),
+            "probe": self.probe_offer(&store, now),
             "week": { "minutes": minutes, "runs": week.len() },
         })
         .to_string()
@@ -544,6 +554,58 @@ impl Core {
             "path": entry.path,
             "title": self.library_title(entry),
             "bars": picked,
+        }))
+    }
+
+    /// "Check without help" (DIDAKTIK I1): the section practised last in the workshop in the
+    /// recent days, rested a night like the spots, and not probed since.
+    fn probe_offer(&self, store: &ProgressStore, now: u64) -> Option<serde_json::Value> {
+        let from = now.saturating_sub(SPOT_DAYS * SECONDS_PER_DAY);
+        let until = now.saturating_sub(SPOT_REST_S);
+        let mut latest: Option<(u64, String, LoopRange)> = None;
+        for progress in store.all() {
+            for run in &progress.runs {
+                let Some((start_s, end_s)) = run.section else {
+                    continue;
+                };
+                if run.mode != WORKSHOP_MODE
+                    || run.finished_unix <= from
+                    || run.finished_unix > until
+                {
+                    continue;
+                }
+                let range = LoopRange { start_s, end_s };
+                let probed = progress.runs.iter().any(|r| {
+                    r.mode == PROBE_MODE
+                        && r.finished_unix > run.finished_unix
+                        && same_range(r.section, range)
+                });
+                if probed
+                    || latest
+                        .as_ref()
+                        .is_some_and(|(t, _, _)| *t >= run.finished_unix)
+                {
+                    continue;
+                }
+                latest = Some((run.finished_unix, progress.song_id.clone(), range));
+            }
+        }
+        let (_, song, range) = latest?;
+        let entry = self.library.recent.iter().find(|e| e.song_id == song)?;
+        if !entry.path.exists() {
+            return None;
+        }
+        let bars = entry
+            .sections
+            .iter()
+            .find(|b| same_section(b, range.start_s, range.end_s))?;
+        Some(json!({
+            "path": entry.path,
+            "title": self.library_title(entry),
+            "from": bars.from_bar,
+            "to": bars.to_bar,
+            "startS": range.start_s,
+            "endS": range.end_s,
         }))
     }
 
@@ -1418,6 +1480,40 @@ impl Core {
         }
     }
 
+    /// Plays the loop once without help (DIDAKTIK I1): no notes on screen, scored silently,
+    /// compared afterwards with the workshop. Speed: as last practised in the workshop.
+    pub fn start_probe(&mut self) -> Vec<UiEvent> {
+        let Some(range) = self.loop_range() else {
+            return vec![UiEvent::Error(self.tr("probe.noloop", &[]))];
+        };
+        self.stop_live();
+        let practised = self
+            .loaded_runs()
+            .iter()
+            .rev()
+            .find(|r| r.mode == WORKSHOP_MODE && same_range(r.section, range))
+            .map(|r| r.speed);
+        self.probe = Some(Probe {
+            speed: practised.unwrap_or(self.speed),
+        });
+        self.play()
+    }
+
+    /// True while a blind probe runs: the UI hides the notes.
+    pub fn is_probing(&self) -> bool {
+        self.probe.is_some()
+    }
+
+    /// Runs of the loaded piece, oldest first.
+    fn loaded_runs(&self) -> Vec<Run> {
+        let Some(a) = self.loaded.as_ref().map(|l| &l.full) else {
+            return Vec::new();
+        };
+        self.progress_store()
+            .load(a)
+            .map_or_else(|_| Vec::new(), |p| p.runs)
+    }
+
     /// Ends the run; the next `play` starts from the beginning with current settings.
     pub fn stop_live(&mut self) {
         // A run stopped before the end still counts as practice (QA P1 J-C1).
@@ -1427,6 +1523,7 @@ impl Core {
         if let Some(live) = self.live.take() {
             self.xruns_done += live.xruns();
         }
+        self.probe = None;
     }
 
     /// Audio dropouts since Kontra started, over all runs (LH-NF-04).
@@ -1508,6 +1605,16 @@ impl Core {
             live.practice_mut().set_loop(None);
         }
         self.rethin()
+    }
+
+    /// Indices of the bars from `start_s` to `end_s` (a saved section), if bars begin and end
+    /// there.
+    pub fn bars_at(&self, start_s: f64, end_s: f64) -> Option<(usize, usize)> {
+        let a = self.arrangement()?;
+        let at = |s: f64, t: u64| (a.tempo.seconds_at(t) - s).abs() < SECTION_TOLERANCE_S;
+        let from = a.bars.iter().position(|b| at(start_s, b.start_ticks))?;
+        let to = a.bars.iter().position(|b| at(end_s, b.end_ticks()))?;
+        Some((from, to))
     }
 
     /// Note density of the current section (the loop, else the whole piece) and its lock.
@@ -1620,6 +1727,9 @@ impl Core {
     }
 
     fn mode(&self) -> Mode {
+        if self.probe.is_some() {
+            return Mode::Probe;
+        }
         match self.settings.mode.as_str() {
             "song" => Mode::Song,
             "wait" => Mode::Wait,
@@ -1738,7 +1848,12 @@ impl Core {
         let settings = self.score_settings(arrangement.instrument.kind);
         let options = PracticeOptions {
             metronome: self.settings.metronome,
-            count_in_bars: self.settings.count_in_bars,
+            // A probe from the start page begins at once: one bar to get ready at least.
+            count_in_bars: if self.probe.is_some() {
+                self.settings.count_in_bars.max(1)
+            } else {
+                self.settings.count_in_bars
+            },
             reference_tones: self.settings.reference_tones,
             backing_offset_s: self.backing().map_or(0.0, |(_, offset)| offset),
             transpose_semitones: self.transpose(),
@@ -1753,7 +1868,8 @@ impl Core {
         };
         let mut live = Live::start(arrangement, self.mode(), settings, options, &setup)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
-        live.practice_mut().set_speed(self.speed);
+        live.practice_mut()
+            .set_speed(self.probe.map_or(self.speed, |p| p.speed));
         live.practice_mut().set_loop(self.loop_range());
         live.practice_mut().set_gains(gains(&self.settings));
         let silent = live.output_is_silent;
@@ -1823,6 +1939,10 @@ impl Core {
         }
         if finished {
             self.record_run();
+            // A probe is one pass: the next play is the chosen mode again.
+            if self.probe.is_some() {
+                self.stop_live();
+            }
         }
         if let Some(hint) = self.quantum_check() {
             events.push(UiEvent::Message(hint));
@@ -1987,7 +2107,7 @@ impl Core {
             &summary,
             practice_s,
             session.transport().speed(),
-            &self.settings.mode,
+            self.run_mode(),
             section,
             unix_now(),
         );
@@ -2007,6 +2127,14 @@ impl Core {
         if let (Some((start_s, end_s)), Some((from, to))) = (section, self.looping) {
             self.remember_section(start_s, end_s, from, to);
         }
+    }
+
+    /// The mode a run is saved under: a probe apart from the mode chosen.
+    fn run_mode(&self) -> &str {
+        if self.probe.is_some() {
+            return PROBE_MODE;
+        }
+        &self.settings.mode
     }
 
     /// Keeps the written bar numbers of a practised section with the piece (LH-FOR-01).
@@ -2527,6 +2655,7 @@ impl Core {
             .and_then(|p| self.next_exercise(Some(p)));
         json!({
             "next": next,
+            "probe": self.probe_json(s),
             "hitRate": s.hit_rate,
             "hitRateText": self.tr("summary.hitrate", &[("percent", format!("{:.0}", s.hit_rate * 100.0))]),
             "countsText": self.tr("summary.counts", &[
@@ -2560,6 +2689,44 @@ impl Core {
             },
         })
         .to_string()
+    }
+
+    /// A blind probe next to the workshop before it (DIDAKTIK I1), or null:
+    /// `{ with: "88 % · ±11 ms" | "", without: "71 % · ±19 ms", text: "17 Punkte weniger …" }`.
+    fn probe_json(&self, s: &Summary) -> serde_json::Value {
+        let (Some(_), Some(range)) = (self.probe, self.loop_range()) else {
+            return serde_json::Value::Null;
+        };
+        let row = |rate: f64, spread: Option<f64>| {
+            let percent = format!("{:.0}", rate * 100.0);
+            match spread {
+                Some(ms) => self.tr(
+                    "probe.row.spread",
+                    &[("percent", percent), ("ms", format!("{ms:.0}"))],
+                ),
+                None => self.tr("probe.row", &[("percent", percent)]),
+            }
+        };
+        let without = row(s.hit_rate, s.spread_ms);
+        let runs = self.loaded_runs();
+        let practised = runs
+            .iter()
+            .rev()
+            .find(|r| r.mode == WORKSHOP_MODE && same_range(r.section, range));
+        let Some(practised) = practised else {
+            return json!({ "with": "", "without": without, "text": self.tr("probe.first", &[]) });
+        };
+        let points = (practised.hit_rate - s.hit_rate) * 100.0;
+        let text = if points > PROBE_SAME_POINTS {
+            self.tr("probe.less", &[("points", format!("{points:.0}"))])
+        } else {
+            self.tr("probe.holds", &[])
+        };
+        json!({
+            "with": row(practised.hit_rate, practised.spread_ms),
+            "without": without,
+            "text": text,
+        })
     }
 
     /// A technique's name in the UI's language ("Hammer-on").
@@ -3214,6 +3381,13 @@ const HISTORY_DAYS: u64 = 30;
 const WEEK_DAYS: u64 = 7;
 /// Plan exercises open in a run-through: evaluation and "next exercise" at the end (round 12).
 const PLAN_MODE: &str = "song";
+
+/// Saved mode of workshop runs and of blind probes (DIDAKTIK I1).
+const WORKSHOP_MODE: &str = "workshop";
+const PROBE_MODE: &str = "probe";
+
+/// A probe this many points below the workshop or closer still counts as holding (I1).
+const PROBE_SAME_POINTS: f64 = 5.0;
 /// "Spots from yesterday": runs of the last days count, the last hours wait (one night).
 const SPOT_DAYS: u64 = 3;
 const SPOT_REST_S: u64 = 8 * 60 * 60;
@@ -3243,8 +3417,20 @@ fn plan_number(path: &Path) -> (usize, PathBuf) {
 const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
 
 /// True if `bars` names the section `start_s..end_s` (stored times, to the centisecond).
+/// Sections are the same if their ends are this close (seconds).
+const SECTION_TOLERANCE_S: f64 = 0.01;
+
+/// A run's section is the loop `range`, as `same_section`.
+fn same_range(section: Option<(f64, f64)>, range: LoopRange) -> bool {
+    section.is_some_and(|(start_s, end_s)| {
+        (start_s - range.start_s).abs() < SECTION_TOLERANCE_S
+            && (end_s - range.end_s).abs() < SECTION_TOLERANCE_S
+    })
+}
+
 fn same_section(bars: &SectionBars, start_s: f64, end_s: f64) -> bool {
-    (bars.start_s - start_s).abs() < 0.01 && (bars.end_s - end_s).abs() < 0.01
+    (bars.start_s - start_s).abs() < SECTION_TOLERANCE_S
+        && (bars.end_s - end_s).abs() < SECTION_TOLERANCE_S
 }
 
 /// Hits further off than this show as early or late.
@@ -4593,6 +4779,7 @@ mod tests {
         let a = core.arrangement().unwrap().clone();
         for (unix, rate) in [(1_000, 0.7), (90_000, 0.92)] {
             let run = kontra_session::Run {
+                spread_ms: None,
                 finished_unix: unix,
                 practice_s: 600.0,
                 speed: 0.8,
@@ -4827,6 +5014,7 @@ mod tests {
         core.open(Path::new(&first)).unwrap();
         let a = core.arrangement().unwrap().clone();
         let run = |unix, rate| Run {
+            spread_ms: None,
             finished_unix: unix,
             practice_s: 120.0,
             speed: 1.0,
@@ -4858,6 +5046,123 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// I1: the summary of a blind probe sets it next to the last workshop run of the same bars.
+    #[test]
+    fn summary_compares_probe_with_workshop() {
+        let dir = temp_dir("probesummary");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        core.set_loop(1, 2);
+        let a = core.arrangement().unwrap().clone();
+        let (start_s, end_s) = core.loop_seconds();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        s.hit_rate = 0.71;
+        s.spread_ms = Some(19.0);
+        let probe = |core: &Core, s: &kontra_session::Summary| {
+            let v: serde_json::Value =
+                serde_json::from_str(&core.summary_json(s, &[], &[])).unwrap();
+            v["probe"].clone()
+        };
+        assert!(probe(&core, &s).is_null(), "not probing");
+
+        core.probe = Some(Probe { speed: 1.0 });
+        assert_eq!(probe(&core, &s)["with"], "", "nothing to compare yet");
+        let run = Run {
+            finished_unix: 1,
+            practice_s: 60.0,
+            speed: 0.8,
+            hit_rate: 0.88,
+            mode: WORKSHOP_MODE.into(),
+            section: Some((start_s, end_s)),
+            hardest_bars: Vec::new(),
+            spread_ms: Some(11.0),
+        };
+        core.progress_store().record(&a, run).unwrap();
+        let found = probe(&core, &s);
+        assert_eq!(found["with"], "88 % · ±11 ms");
+        assert_eq!(found["without"], "71 % · ±19 ms");
+        assert!(
+            found["text"].as_str().unwrap().starts_with("17 "),
+            "{found}"
+        );
+        s.hit_rate = 0.86;
+        assert_eq!(probe(&core, &s)["text"], core.tr("probe.holds", &[]));
+        core.probe = None;
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn probe_needs_a_section() {
+        let dir = temp_dir("probeloop");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&Core::demo_path()).unwrap();
+        let events = core.start_probe();
+        assert!(
+            matches!(events.as_slice(), [UiEvent::Error(_)]),
+            "{events:?}"
+        );
+        assert!(!core.is_probing());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// I1 on the start page: a section practised in the workshop before last night, not probed
+    /// since, comes back as "check without help"; today's practice waits, a probe ends it.
+    #[test]
+    fn home_offers_a_probe() {
+        let dir = temp_dir("probehome");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let day = SECONDS_PER_DAY;
+        let now = 100 * day;
+        core.open(&Core::demo_path()).unwrap();
+        core.set_loop(1, 2);
+        let a = core.arrangement().unwrap().clone();
+        let (start_s, end_s) = core.loop_seconds();
+        core.remember_section(start_s, end_s, 1, 2);
+        let run = |unix, mode: &str| Run {
+            finished_unix: unix,
+            practice_s: 60.0,
+            speed: 1.0,
+            hit_rate: 0.9,
+            mode: mode.into(),
+            section: Some((start_s, end_s)),
+            hardest_bars: Vec::new(),
+            spread_ms: None,
+        };
+        let offer = |core: &Core| {
+            let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
+            home["probe"].clone()
+        };
+        let store = core.progress_store();
+        store.record(&a, run(now - 3600, WORKSHOP_MODE)).unwrap();
+        assert!(offer(&core).is_null(), "practised today");
+
+        store.record(&a, run(now - day, WORKSHOP_MODE)).unwrap();
+        let found = offer(&core);
+        assert_eq!(
+            (found["from"].as_u64(), found["to"].as_u64()),
+            (Some(2), Some(3))
+        );
+        assert_eq!(found["startS"].as_f64(), Some(start_s));
+
+        store.record(&a, run(now - day + 60, PROBE_MODE)).unwrap();
+        assert!(offer(&core).is_null(), "probed since");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The start page's probe opens the piece looping the same bars, found by their times.
+    #[test]
+    fn loop_follows_section_times() {
+        let dir = temp_dir("loopat");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&Core::demo_path()).unwrap();
+        core.set_loop(2, 3);
+        let (start_s, end_s) = core.loop_seconds();
+        assert_eq!(core.bars_at(start_s, end_s), Some((2, 3)));
+        assert_eq!(core.bars_at(start_s + 0.3, end_s), None);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// "Spots from yesterday" (round 11): the two bars hardest most often in the last days, from
     /// the piece practised last; today's runs wait for a night, older ones are gone.
     #[test]
@@ -4871,6 +5176,7 @@ mod tests {
         core.open(Path::new(&path)).unwrap();
         let a = core.arrangement().unwrap().clone();
         let run = |unix, bars: &[u32]| Run {
+            spread_ms: None,
             finished_unix: unix,
             practice_s: 60.0,
             speed: 1.0,
@@ -5004,6 +5310,7 @@ mod tests {
             .unwrap();
         let a = core.arrangement().unwrap().clone();
         let run = Run {
+            spread_ms: None,
             finished_unix: 1,
             practice_s: 60.0,
             speed: 1.0,
@@ -5033,6 +5340,7 @@ mod tests {
         before.notes.pop();
         let old_id = ProgressStore::song_id(&before);
         let run = Run {
+            spread_ms: None,
             finished_unix: 1,
             practice_s: 60.0,
             speed: 1.0,
@@ -5080,6 +5388,7 @@ mod tests {
             core.open(path).unwrap();
             let a = core.arrangement().unwrap().clone();
             let run = Run {
+                spread_ms: None,
                 finished_unix: 1,
                 practice_s: 60.0,
                 speed: 1.0,
@@ -5197,6 +5506,7 @@ mod tests {
         core.open(&plain).unwrap();
         let a = core.arrangement().unwrap().clone();
         let run = Run {
+            spread_ms: None,
             finished_unix: 1,
             practice_s: 60.0,
             speed: 1.0,
@@ -5232,6 +5542,7 @@ mod tests {
         ];
         for (unix, rate, speed, section) in runs {
             let run = Run {
+                spread_ms: None,
                 finished_unix: unix,
                 practice_s: 60.0,
                 speed,
@@ -5326,6 +5637,7 @@ mod tests {
         first.setlist_add_loaded("Freitag");
         let a = first.arrangement().unwrap().clone();
         let run = kontra_session::Run {
+            spread_ms: None,
             finished_unix: 7,
             practice_s: 300.0,
             speed: 0.8,
@@ -5377,6 +5689,7 @@ mod tests {
         let a = core.arrangement().unwrap().clone();
         for (unix, rate) in [(1_791_504_000, 0.7), (1_791_590_400, 0.95)] {
             let run = kontra_session::Run {
+                spread_ms: None,
                 finished_unix: unix,
                 practice_s: 600.0,
                 speed: 0.8,
@@ -5419,6 +5732,7 @@ mod tests {
         teacher.set_backing(Some(backing.clone()), 0.5);
         let a = teacher.arrangement().unwrap().clone();
         let run = kontra_session::Run {
+            spread_ms: None,
             finished_unix: 9,
             practice_s: 120.0,
             speed: 0.7,

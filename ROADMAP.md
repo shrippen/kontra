@@ -6,10 +6,10 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 |---|---|---|
 | 0 Machbarkeit | Qt-Brücke, Audio-Engine, Erkennung gegen Testkorpus, eigener Time-Stretch, Latenz, Xruns | weitgehend erledigt (synthetisch); echte Aufnahmen und Latenzmessung am Gerät fehlen |
 | 1 MVP (0.1) | E-Bass, Import GP/MIDI, Tab-Lane, Tab, Noten, Spielen/Song/Warten/Werkstatt | große Teile umgesetzt, siehe unten |
-| 2 Lernen (0.2–0.4) | Groove, Griffbrett, adaptive Schwierigkeit, MusicXML | MusicXML-Import vorgezogen |
-| 3 Inhalte (0.5–0.7) | eigene Audiodatei, `.kontra`-Pakete, Etüden, Gehör | Backing-Track-Wiedergabe mit Time-Stretch vorhanden |
+| 2 Lernen (0.2–0.4) | Groove, Griffbrett, adaptive Schwierigkeit, MusicXML | vorgezogen und umgesetzt: Groove-Übungen, Griffbrett-Quiz, Generator, Notendichte, Werkstatt-Zielband, MusicXML |
+| 3 Inhalte (0.5–0.7) | eigene Audiodatei, `.kontra`-Pakete, Etüden, Gehör | vorgezogen und umgesetzt: Backing-Abgleich, `.kontra`, 144 Übungen, Gehör; offen: Abnahme LH-BIB-06 (4 min ≤ 20 ms), Stück-Generator und Etüden wie Lieder (24.10.) |
 | 4 Bass komplett (0.8–1.0) | Kontrabass am Mikrofon, Bass über MIDI, Techniken, Stem-Trennung | MIDI-Eingang mit Klaviatur-Ansicht, Mikrofon mit Echo-Kompensation, Techniken erkannt; Rest offen |
-| Didaktik (laufend) | Wie vermittelt Kontra Bass am besten? Ideen entwickeln, als Prototypen umsetzen, mit Personas vergleichen | offen, siehe unten |
+| Didaktik (laufend) | Wie vermittelt Kontra Bass am besten? Ideen entwickeln, als Prototypen umsetzen, mit Personas vergleichen | I1 und I7 umgesetzt, I5 teilweise; als Nächstes I4 (24.10.), siehe unten |
 
 ## Phase 0
 
@@ -211,6 +211,14 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
       Chunking, Fehler-Feedback). Ergebnis (9.10.2026): [`DIDAKTIK.md`](DIDAKTIK.md),
       7 Thesen, 12 Ideen, Vorschlag für drei Prototypen nach 0.1 (Blind-Probe, Stellen-Wiederholung über Tage,
       Groove-Start mit „vor/hinter dem Beat“)
+- [ ] Stand der Ideen (24.10.): I7 Zielband umgesetzt (Runde 5); I5 Lage und Streuung stehen in der Auswertung
+      („meist 12 ms zu spät“, „Streuung ±9 ms“), die Aufgabe „bewusst laid-back“ fehlt; I4 über Stufe 4 Groove, aber
+      mit Tonhöhe bewertet; I8 teilweise über Gehör („Linie nachspielen“). Reihenfolge (Eigentümer, 24.10.): I1 als
+      Knopf nach der Werkstatt und auf der Startseite, dann I4 mit Übungen nur auf leerer Saite, nur Timing bewertet.
+- [x] I1 Blind-Probe (24.10., LH-LRN-05, J-C6 ⚙): „Ohne Hilfe prüfen“ in der Werkstatt spielt den Abschnitt einmal
+      ohne Noten (Session-Modus `Probe`, endet nach einem Durchgang, Weiterspielen zählt nicht), Auswertung neben dem
+      letzten Werkstatt-Lauf derselben Takte; Läufe speichern jetzt auch die Streuung. Startseite „Ohne Hilfe“ nach
+      einer Nacht. QA-Schalter `--probe`.
 - [ ] Ideen sammeln und je eine Skizze, z. B.: Groove vor Tönen (erst
       Rhythmus auf einer Saite), Hören vor Lesen (nachspielen ohne Anzeige),
       Lieder in Bausteine zerlegen und zusammensetzen, adaptives Tempo und
@@ -583,7 +591,7 @@ Durchgespielt mit gerenderten Aufnahmen (`kontra-cli render`) und Screenshots al
 - [x] LH-LRN-02: Griffbrett-Quiz mit dem echten Bass (Töne auf einer Saite finden, Intervalle), Seite „Griffbrett“ (Strg+8); nach dem richtigen Ton zeigt das Griffbrett alle Lagen.
 - [x] LH-BIB-06: Backing-Track abgleichen: Kontra erkennt die Schläge der Aufnahme (Spektralfluss, Tempo per Autokorrelation, Beat-Tracking nach Ellis) und legt die Takte darauf (Tempo-Karte je Takt); Takt 1 um einen Schlag, alle Takte oder ein einzelner Takt in 10-ms-Schritten korrigierbar.
 - [x] LH-BIB-09 (Kann, Runde 9): Bass aus dem Backing-Track entfernen über Demucs, wenn installiert (`drivers::separator`: `KONTRA_DEMUCS`, `PATH`, `~/.local/bin`; im Flatpak `flatpak-spawn --host`, braucht eine Erlaubnis, die das Manifest noch nicht hat). `demucs --two-stems bass -n htdemucs`, Fortschritt aus dem Fortschrittsbalken auf stderr, Abbrechen beendet den Prozess. Ergebnis im Cache je Datei (Pfad, Größe, Änderungszeit); der Abgleich bleibt. Übungsseite „Ohne Bass“: ohne Demucs ausgegraut mit Erklärung, Anleitung („?“) und „Erneut prüfen“. Getestet mit einem Ersatz-Programm; mit echtem Demucs 4.1.0 gemessen (12.10.): Song von 4:11 in 17 s (RTX 3090) bzw. 92 s nur auf dem Prozessor (24 Threads); `pipx install demucs` bringt numpy nicht mit (Anleitung ergänzt). Messung auf Mindest-Hardware (Laptop) offen. 14.10.: Auswahl „Original | Ohne Bass“, Restzeit, Abbrechen ohne Reste, Cache-Ordner mit Größe und Löschen je Song, `nice -n 10`; 4:00 in 128 s (Prozessor, 24 Threads, unter Last), 212 s auf 4 Kernen (QA-Runde 14.10.).
-- [ ] LH-LRN-01 (Teil): Grooves auf dem Grundton (Viertel bis Sechzehntel, Pausen, Shuffle, Oktaven) mit Schlagzeug (#15), 21 mitgeliefert; Ghost Notes im Groove fehlen noch.
+- [x] LH-LRN-01: Grooves auf dem Grundton (Viertel bis Sechzehntel, Pausen, Shuffle, Oktaven) mit Schlagzeug (#15); seit dem Ausbau (14.10.) auch mit Ghost Notes, in Stufe 4 Groove.
 - [x] LH-TUN-02 / LH-EIN-01: Stimmung im Profil (Standard, Drop D bzw. Drop A bei 5/6 Saiten, ½ und 1 Ton tiefer, eigene mit Notenwahl je Saite) in Einstellungen und Assistent; Stimmgerät (geführt) und Tab-Zuordnung von Dateien ohne Stimmung (MIDI, MusicXML) nutzen sie, ein Wechsel ordnet das geladene Stück sofort neu zu.
 - [x] LH-TUN-04: Kammerton A 430–450 Hz (Standard 440) für Stimmgerät, Erkennung und Bewertung.
 - [x] LH-BEW-02: Zeitfenster „Eigene“ mit ±20–150 ms.

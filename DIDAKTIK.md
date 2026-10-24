@@ -155,6 +155,9 @@ Aufwand: S = Tage, M = ein bis zwei Wochen, L = mehr. Schätzungen ohne Code-Ana
 
 ### I1 Blind-Probe (Lernen statt Leistung messen)
 
+*Prototyp umgesetzt (24.10., LH-LRN-05): Knopf „Ohne Hilfe prüfen“ in der Werkstatt und Vorschlag auf der Startseite
+nach einer Nacht (Eigentümer). Offen: Behalten nach 1 und 3 Tagen auswerten, sobald echte Läufe vorliegen.*
+
 - **Beschreibung:** Nach einer Werkstatt-Runde oder am Folgetag spielt man die Stelle einmal ohne Lane, ohne Treffer-Markierung, nur mit Backing Track und Vorzähler. Kontra wertet still und zeigt danach das Ergebnis neben dem mit Hilfe.
 - **These/Quelle:** These 1, 2; guidance hypothesis (Salmoni et al. 1984; Winstein & Schmidt 1990); Kritik an Lane-Abhängigkeit.
 - **Personas:** P1, P2, P3, P4 (Lehrer sieht, was wirklich sitzt).

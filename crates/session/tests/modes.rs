@@ -263,13 +263,13 @@ fn early_note_at_loop_start_counts_for_the_next_pass() {
     ];
     run(&mut s, &notes, 3.0);
     let extras = s.results().iter().filter(|r| r.note.is_none()).count();
-    assert_eq!(extras, 0, "{:?}", s.results());
+    assert_eq!(extras, 0);
     let first = s
         .results()
         .iter()
         .find(|r| r.pass == 1 && r.note == Some(0))
         .expect("pass 1 first note judged");
-    assert_eq!(first.outcome, Outcome::Hit, "{:?}", s.results());
+    assert_eq!(first.outcome, Outcome::Hit);
     assert!((first.offset_ms.unwrap() + 20.0).abs() < 1.0, "{first:?}");
 }
 
@@ -296,8 +296,8 @@ fn notes_after_a_stall_land_in_the_right_pass() {
     s.update(6.6);
     let extras = s.results().iter().filter(|r| r.note.is_none()).count();
     let hits = s.results().iter().filter(|r| r.is_hit()).count();
-    assert_eq!(extras, 0, "{:?}", s.results());
-    assert_eq!(hits, 12, "{:?}", s.results());
+    assert_eq!(extras, 0);
+    assert_eq!(hits, 12);
 }
 
 /// Chords: any tone counts for the whole chord (the detector hears one note), and every chord
@@ -319,7 +319,7 @@ fn chord_counts_once_for_all_tones() {
     // Upper tone of the first chord, then the single note; the second chord is not played.
     run(&mut s, &[played(0.01, 35.0), played(0.5, 33.0)], 3.0);
     let summary = s.summary();
-    assert_eq!(summary.hits, 3, "{:?}", s.results());
+    assert_eq!(summary.hits, 3);
     assert_eq!(summary.missed, 2);
     assert_eq!(summary.extra, 0);
     let first_chord: Vec<_> = s
@@ -372,7 +372,7 @@ fn transposing_while_playing_keeps_the_run() {
         .collect();
     run_from(&mut s, &later, 0.81, 4.5);
     let summary = s.summary();
-    assert_eq!((summary.hits, summary.judged), (8, 8), "{:?}", s.results());
+    assert_eq!((summary.hits, summary.judged), (8, 8));
 
     let mut shorter = riff();
     shorter.notes.pop();
@@ -394,4 +394,40 @@ fn run_from(session: &mut Session, notes: &[DetectedNote], from: f64, until: f64
         session.update(t);
         t += 0.01;
     }
+}
+
+#[test]
+fn probe_ends_after_one_pass_of_the_loop() {
+    // Blind probe (I1): bar 2 once (2.0–4.0 s), then the run is over, not looping again.
+    let mut s = Session::new(riff(), Mode::Probe, ScoreSettings::default());
+    s.set_loop(
+        0.0,
+        Some(LoopRange {
+            start_s: 2.0,
+            end_s: 4.0,
+        }),
+    );
+    s.play(0.0);
+    // The fourth note missed; one played after the end does not count.
+    let notes = [
+        played(0.0, 28.0),
+        played(0.5, 33.0),
+        played(1.0, 38.0),
+        // Played on into the next bar: just before the loop's end, with the loop start's pitch.
+        played(1.97, 28.0),
+        played(2.5, 28.0),
+    ];
+    let events = run(&mut s, &notes, 6.0);
+
+    let finished = events
+        .iter()
+        .filter(|e| matches!(e, SessionEvent::Finished))
+        .count();
+    assert_eq!(finished, 1);
+    assert_eq!(pass_rates(&events).len(), 1);
+    assert!(!s.transport().is_running());
+    // Three of the bar's four notes.
+    assert_eq!(s.summary().judged, 4);
+    assert!(s.results().iter().all(|r| r.pass == 0), "{:?}", s.results());
+    assert!((s.summary().hit_rate - 0.75).abs() < 1e-9);
 }

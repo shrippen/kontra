@@ -766,5 +766,20 @@
   "dialog.export": "Back up everything",
   "dialog.import": "Load backup",
   "dialog.report": "Save report",
-  "dialog.backing": "Choose backing track"
+  "dialog.backing": "Choose backing track",
+  "probe.start": "Check without help",
+  "probe.start.hint": "Plays the section once with no notes on screen. Afterwards you see whether it holds without help.",
+  "probe.noloop": "First choose the bars you want to check without help.",
+  "probe.banner": "Without help: play bars {from}–{to} once. Kontra listens and shows the result afterwards.",
+  "probe.title": "Without help against the workshop",
+  "probe.with.label": "Workshop, with notes",
+  "probe.without.label": "Without help",
+  "probe.row": "{percent} %",
+  "probe.row.spread": "{percent} % · ±{ms} ms",
+  "probe.first": "No workshop run for these bars to compare with yet.",
+  "probe.less": "{points} points below playing with notes: the passage still needs practice without help.",
+  "probe.holds": "As good as with notes: the passage holds.",
+  "home.probe.tier": "Without help",
+  "home.probe.text": "You practised these bars in the workshop. Do they hold without notes? Play them once, Kontra compares.",
+  "home.probe.play": "Check bars {from}–{to}"
 }
