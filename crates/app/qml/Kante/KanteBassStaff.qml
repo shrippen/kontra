@@ -206,17 +206,18 @@ Item {
     Accessible.role: Accessible.Chart
     Accessible.name: accessibleName
     Accessible.description: {
-        var d = barText.arg(barList.length ? barList[currentBar].number : 1).arg(barList.length)
-        var ch = chordAt(position)
+        let d = barText.arg(barList.length ? barList[currentBar].number : 1).arg(barList.length)
+        const ch = chordAt(position)
         if (ch !== "") {
             d += ", " + chordText.arg(ch)
         }
-        if (currentIndex >= 0) {
-            var n = notes[currentIndex]
+        // notes can change before currentIndex follows (e.g. emptied while playing)
+        const n = currentIndex >= 0 ? notes[currentIndex] : undefined
+        if (n) {
             d += ", " + pitchName(Number(n.midi), barList.length ? barList[currentBar].key : keyFifths)
                 + " (" + KanteStyle.noteStateName(shownState(currentIndex, stateRevision)) + centsSuffix(currentIndex, stateRevision) + ")"
         }
-        var t = techniqueSummary(stateRevision)
+        const t = techniqueSummary(stateRevision)
         if (t !== "") {
             d += ", " + t
         }
