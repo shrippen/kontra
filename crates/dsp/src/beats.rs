@@ -40,9 +40,9 @@ pub fn track_beats(samples: &[f32], rate: u32) -> BeatGrid {
         };
     };
     let frames = dynamic_beats(&strength, period);
-    // Flux at frame i compares windows starting at i-1 and i: the attack sits near the start of
-    // window i plus a little.
-    let offset_s = (WINDOW as f64 / 4.0) / f64::from(rate.max(1));
+    // Flux at frame i compares windows starting at i-1 and i: it jumps in the first window that
+    // holds the attack, with the attack in its last hop.
+    let offset_s = (WINDOW - HOP) as f64 / f64::from(rate.max(1));
     let beats = frames
         .iter()
         .map(|f| *f as f64 * frame_s + offset_s)
@@ -213,6 +213,21 @@ mod tests {
             .fold(0.0, f64::max)
     }
 
+    /// Mean signed distance (found minus true) of each inner true beat to its nearest found one.
+    fn mean_error(found: &[f64], truth: &[f64]) -> f64 {
+        let inner: Vec<f64> = truth
+            .iter()
+            .filter(|t| **t > 2.0 && **t < truth.last().unwrap() - 1.0)
+            .map(|t| {
+                let near = found
+                    .iter()
+                    .min_by(|a, b| (*a - t).abs().total_cmp(&(*b - t).abs()));
+                near.unwrap() - t
+            })
+            .collect();
+        inner.iter().sum::<f64>() / inner.len() as f64
+    }
+
     #[test]
     fn finds_a_steady_tempo_and_its_beats() {
         let truth: Vec<f64> = (0..40).map(|i| 0.5 + f64::from(i) * 0.6).collect(); // 100 BPM
@@ -248,6 +263,67 @@ mod tests {
         let grid = track_beats(&click_track(&truth, t + 0.5), RATE);
         let error = nearest_error(&grid.beats, &truth);
         assert!(error < 0.03, "worst beat {error:.3} s off");
+    }
+
+    /// A band-like mix: kick on 1 and 3, snare on 2 and 4, quiet hi-hat eighths, a bass note on
+    /// each beat; `jitter_s` of human looseness, deterministic.
+    fn band_track(beats: &[f64], seconds: f64, jitter_s: f64) -> Vec<f32> {
+        let mut seed = 777u32;
+        let mut loose = |t: f64| {
+            seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            t + jitter_s * ((seed >> 8) as f64 / f64::from(1u32 << 24) * 2.0 - 1.0)
+        };
+        let kicks: Vec<f64> = beats.iter().step_by(2).map(|b| loose(*b)).collect();
+        let snares: Vec<f64> = beats.iter().skip(1).step_by(2).map(|b| loose(*b)).collect();
+        let hats: Vec<f64> = beats
+            .windows(2)
+            .flat_map(|w| [w[0], 0.5 * (w[0] + w[1])])
+            .map(&mut loose)
+            .collect();
+        let mut out = click_track(&kicks, seconds);
+        let mix = |out: &mut Vec<f32>, part: Vec<f32>, gain: f32| {
+            out.iter_mut().zip(part).for_each(|(o, p)| *o += gain * p);
+        };
+        mix(&mut out, click_track(&snares, seconds), 0.8);
+        mix(&mut out, click_track(&hats, seconds), 0.2);
+
+        // Bass: a decaying 55 Hz tone from each beat to the next.
+        for w in beats.windows(2) {
+            let from = (w[0] * f64::from(RATE)) as usize;
+            let to = ((w[1] * f64::from(RATE)) as usize).min(out.len());
+            for (i, s) in out[from..to].iter_mut().enumerate() {
+                let t = i as f32 / RATE as f32;
+                *s += 0.5 * (2.0 * PI * 55.0 * t).sin() * (-t / 0.4).exp();
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn stays_within_20_ms_over_four_minutes() {
+        // LH-BIB-06 acceptance: a four-minute band wandering between 116 and 124 BPM, ±5 ms loose.
+        const MINUTES: f64 = 4.0;
+        const LIMIT_S: f64 = 0.020;
+        let seconds = MINUTES * 60.0;
+        let mut truth = Vec::new();
+        let mut t = 0.5;
+        while t < seconds - 1.0 {
+            truth.push(t);
+            let bpm = 120.0 + 4.0 * (2.0 * std::f64::consts::PI * t / 90.0).sin();
+            t += 60.0 / bpm;
+        }
+        let grid = track_beats(&band_track(&truth, seconds, 0.005), RATE);
+        let error = nearest_error(&grid.beats, &truth);
+        assert!(error <= LIMIT_S, "worst beat {:.1} ms off", error * 1000.0);
+
+        // No constant lead or lag: the player would be judged late or early with the band.
+        const BIAS_LIMIT_S: f64 = 0.005;
+        let bias = mean_error(&grid.beats, &truth);
+        assert!(
+            bias.abs() <= BIAS_LIMIT_S,
+            "beats {:.1} ms off on average",
+            bias * 1000.0
+        );
     }
 
     #[test]
