@@ -285,6 +285,8 @@ pub(crate) const POSITION_TEXT: &str = "pos";
 
 /// Text event at the start: the file is judged by time only (`Judging::TimeOnly`, DIDAKTIK I4).
 pub(crate) const TIMING_TEXT: &str = "kontra:timing";
+/// Suffix of a file title judged by time only; the UI's twin is `exercise.title.timing`.
+const TIMING_TITLE: &str = ", nur Timing";
 
 /// Text events the importer turns into a technique of the notes starting at their tick.
 pub(crate) const TECHNIQUE_TEXTS: [(&str, Technique); 4] = [
@@ -966,7 +968,7 @@ fn title(spec: &ExerciseSpec, pass: &Pass, fifths: i8) -> String {
     };
     // Judged by time only, the file is another exercise: its own name and progress.
     let timing = match spec.judging {
-        Judging::TimeOnly => ", nur Timing",
+        Judging::TimeOnly => TIMING_TITLE,
         Judging::PitchAndTime => "",
     };
     if let ExerciseKind::Chromatic(_) = spec.kind {
