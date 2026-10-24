@@ -348,6 +348,7 @@ Nicht im Umfang: Online-Konten, Song-Shop, Multiplayer übers Netz.
 - [`PERSONAS.md`](PERSONAS.md): sieben Personas mit Ausrüstung, Zielen, Frust und Prüfschwerpunkt.
 - [`QA.md`](QA.md): User Journeys je Persona für explorative QA und automatisierte Journey-Tests.
 - [`QUELLEN-SONGS.md`](QUELLEN-SONGS.md): was Kontra mit Songsterr und MuseScore.com darf (Nutzungsbedingungen).
+- [`LERNEN.md`](LERNEN.md): Plan für das Lernmodul (Lektionen, Glossar „Was ist …?“).
 - [`agent.md`](../agent.md): Arbeitsregeln für das künftige Repo, inklusive Persona- und QA-Regel.
 
 ---
