@@ -100,14 +100,13 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
   Aufnahme wird über `Input::started_s()` ausgerichtet, nicht über den Zeitpunkt des Aufrufs (Dekodieren dauert).
 - Gitea-Merge per API: `tea api -X POST /repos/shrippen/Kontra/pulls/N/merge -d '{"Do":"merge"}'`.
   „manually-merged“ ist hier nicht erlaubt; „Please try again later“ heißt meist: nichts mehr zu mergen (Inhalt schon in
-  `main`). `scripts/gitea/merge-when-green.sh PR SHA` wartet auf die neuesten core- und app-Läufe und merged nur, wenn
-  beide grün sind und der Kopf unverändert ist. Die Actions-Liste der API zeigt ohne `limit=50` nur 10 Läufe, und ältere
-  abgebrochene Läufe zum selben Commit täuschen: immer nur den neuesten Lauf je Job werten.
+  `main`). `scripts/gitea/merge-when-green.sh PR SHA` wartet auf den neuesten Status `github / test` des Commits und
+  merged nur, wenn er grün ist und der Kopf unverändert ist.
 - PR-Agent schreibt sein Review einmal und aktualisiert danach denselben Kommentar („Review updated until
   commit <sha>“, neues `updated_at`, altes `created_at`). Ein neues Review erkennt man am Commit im Text, nicht am
   Erstellungsdatum. Kommentare, die nicht mit `/` beginnen, starten keinen Lauf (Status „skipped“).
-- Flatpak baut nur GitHub (`.github/workflows/flatpak.yml`): Die Job-Container des Gitea-Runners erlauben keine
-  User-Namespaces. Merge-Kriterium auf Gitea sind die Jobs core und app.
+- CI läuft nur auf GitHub (`.github/workflows/ci.yml`, Jobs core und app, seit 24.10.2026 wie lmix) und meldet das
+  Ergebnis als Status `github / test` an Gitea; Gitea führt nur PR-Agent aus. Flatpak baut ebenfalls GitHub.
 - Mehrere Arbeitsstände parallel: je Branch ein `git worktree` und ein eigenes `CARGO_TARGET_DIR`, dazu
   `CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0`, sonst ist die Platte schnell voll. `cargo clippy` baut kein Binary;
   vor Screenshots `cargo build`.
@@ -125,8 +124,8 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
   `LANG=C cargo test`.
 - PR-Agent: Ein normaler PR-Kommentar (ohne `/`) brach ein laufendes Review ab (behoben in #25). Das Review steht
   im ersten Kommentar und wird dort aktualisiert („updated until commit“).
-- Ein Runner für alle Repos, App-Jobs 15–20 min: gestapelte PRs und Pushes auf untere Branches vervielfachen die
-  Läufe. Lieber wenige, unabhängige PRs.
+- Ein Gitea-Runner für alle Repos (PR-Agent): gestapelte PRs vervielfachen die Review-Läufe. Lieber wenige,
+  unabhängige PRs.
 - Gitea-Merge „Please try again later“ bei sauberem Merge: die Mergebarkeit ist veraltet;
   `POST pulls/<n>/update?style=merge` stößt die Prüfung neu an.
 - Korpus: Synthetische Sätze messen nur, was die Synthese modelliert; Änderungen an der Erkennung immer auch gegen die
@@ -143,7 +142,7 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
   `systemctl --user restart wireplumber`. Nie PipeWire-Knoten anderer zerstören oder Profile umstellen.
 - Neue Abhängigkeiten: `cargo deny check licenses bans sources` (`~/.cargo/bin/cargo-deny`) vor dem Push; transitive
   Lizenzen fallen sonst erst in der CI auf (14.10.: `webpki-root-certs` über ureqs `platform-verifier`).
-- Gestapelte PRs bei einem Runner: Konflikte (i18n-Enden, Importlisten) vorab lösen, indem die untere Branch in die
+- Gestapelte PRs: Konflikte (i18n-Enden, Importlisten) vorab lösen, indem die untere Branch in die
   obere gemerged wird; bleibt die untere unverändert, ist die obere nach deren Merge ohne neue CI mergebar.
 - Tests, die ein Skript schreiben und starten, laufen parallel zu anderen, die Prozesse starten: Ein geforktes Kind hält
   die frische Datei offen, `exec` scheitert mit „Text file busy“ (ETXTBSY, etwa 1 von 40 Läufen). Solche Tests über
@@ -215,7 +214,7 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
   - Each **Wichtig** is fixed, or answered in the PR with a reason.
   - PR-Agent sees no earlier round. So when an earlier round had a **Wichtig** (open or closed), after PR-Agent's comment (or with answers only, alone) a new Claude agent closes the round: it gets the PR's title and body, the repository, `REVIEW.md`, the open **Wichtig** with the answers, PR-Agent's findings of this round, the closed **Wichtig** and how they were closed, and the new commits (`git diff <last reviewed commit>..HEAD`; without new commits, the code at HEAD). It says for each open **Wichtig** whether it is fixed or its answer is accepted, and whether a **Wichtig** PR-Agent raises again is one already closed (fixed, answer accepted or decided by the owner; it stays closed unless the agent shows it is not fixed). Its count holds every **Wichtig** still open, PR-Agent's new ones included. It posts like a review, heading `## Claude-Review (offene Wichtig) zu <commit>`. An answer it does not accept goes to the owner, who decides in words. With the fallback, one new agent does both: the review of the new commits and the open **Wichtig**.
   - After a rebase, a merge of the base or a change of the PR's base branch a new round is due, also without a new commit, against the new base; a Claude agent of that round (closing or fallback) gets the whole diff against the new base (`git diff <base>...HEAD`) in place of the new commits. Every round counts, also one with answers only: after three rounds that still leave a **Wichtig** open, stop and rethink the approach with the owner.
-  - Merge only when the last round covers the PR's latest commit against its current base branch (the branch by name; the base moving on alone needs no new round) and leaves no **Wichtig** open (its closing agent's count, or PR-Agent's comment when no earlier round had a **Wichtig**), and CI is green on the PR's latest commit: the jobs `core` and `app` of `.gitea/workflows/ci.yml` (statuses `ci / core (pull_request)`, `ci / app (pull_request)`; on `main` with `(push)`) show success there, only the latest run of each job counts (`scripts/gitea/merge-when-green.sh`). No status there yet means wait, not merge. PR-Agent's status and the Flatpak build on GitHub do not count here.
+  - Merge only when the last round covers the PR's latest commit against its current base branch (the branch by name; the base moving on alone needs no new round) and leaves no **Wichtig** open (its closing agent's count, or PR-Agent's comment when no earlier round had a **Wichtig**), and CI is green on the PR's latest commit: the newest status `github / test` there is success (`.github/workflows/ci.yml` on the GitHub mirror, jobs `core` and `app`, every pushed commit; `scripts/gitea/merge-when-green.sh`). No status there yet means wait, not merge. PR-Agent's status and the Flatpak build do not count here.
   - Before the merge, the owner confirms in words, not by reading code, a PR that changes CI or release workflows (`.gitea/`, `.github/`, `packaging/`), this review rule (`agent.md`, `REVIEW.md`), secrets or what is published (a release, a tag, a new public page, site or package; rebuilding what is already published does not count).
   - `REVIEW.md` in the repository root says what failure looks like here, what to check in particular, what to skip and how to report. A repository without one gets it in its next PR.
 - PR-Agent's status is not a CI check. The owner may post `/review` at any time (PR-Agent takes no other command here); the merge waits for that run and handles its findings like a round's. Owner and session post from the same account, so a run that fails is handled the same whoever posted `/review`: as above, once more, then the fallback.
@@ -225,7 +224,7 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Offene Fragen sammeln und als Runde im Entscheidungs-Artefakt stellen (je Frage Kontext, Optionen, Empfehlung);
   Antworten liegen dort in der Datenbank-Sammlung „antworten“, ein Dokument je Runde. Umgesetzte Entscheidungen
   kommen ins Lastenheft und in die Roadmap (Abschnitt der jeweiligen Runde).
-- Kontra-PRs merged Claude selbst, wenn core und app grün sind und das Review kein **Wichtig** offen lässt (siehe
+- Kontra-PRs merged Claude selbst, wenn `github / test` grün ist und das Review kein **Wichtig** offen lässt (siehe
   Repository rule). Kante-PRs prüft und merged der Eigentümer.
 - Jede neue `pub`-Schnittstelle wird in der nächsten Runde zur Freigabe gelistet.
 - Der laufende Arbeitsstand steht in `STAND.md`.

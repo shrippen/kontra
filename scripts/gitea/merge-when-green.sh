@@ -1,19 +1,16 @@
 #!/bin/bash
-# merge-when-green.sh PR SHA: wait for the newest core+app runs on SHA; merge PR when both succeed.
+# merge-when-green.sh PR SHA: wait for the status "github / test" on SHA (CI on the GitHub mirror);
+# merge PR when it is success.
 # Checks CI only: the review (PR-Agent, closing Claude agent) is a merge condition the session
 # checks before it calls this (agent.md, owner 22.10.2026).
 # Reports MERGED only if Gitea says the PR is merged.
 S=$(dirname "$0")
 for i in $(seq 200); do
-  out=$(python3 $S/ci-status.py $2 2>&1)
-  core=$(echo "$out" | grep " core: " | head -1); app=$(echo "$out" | grep " app: " | head -1)
-  if echo "$core" | grep -q completed && echo "$app" | grep -q completed; then break; fi
+  out=$(python3 $S/ci-status.py $2 2>&1) && break
   sleep 30
 done
-echo "$core"; echo "$app"
-if ! { echo "$core" | grep -q "completed success" && echo "$app" | grep -q "completed success"; }; then
-  echo "NOT GREEN"; exit 1
-fi
+echo "$out"
+case "$out" in success*) ;; *) echo "NOT GREEN"; exit 1;; esac
 
 head=$(tea api /repos/shrippen/Kontra/pulls/$1 | python3 -c "import json,sys;print(json.load(sys.stdin)['head']['sha'])")
 case "$head" in $2*) ;; *) echo "head moved: $head"; exit 1;; esac
