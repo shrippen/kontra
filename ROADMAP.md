@@ -431,7 +431,8 @@ Alle Seiten headless aufgenommen (DE/EN, Kante, Kante Light, System) und im Beam
   - G7 (niedrig, behoben #49): Setlisten-Feld seitenbreit vor den Stücken; ungespielte Stücke zeigten den Dateinamen.
   - G8 (mittel, behoben #49): Gerätenamen in Eingang/Ausgang auf „Automatisch…“ gekürzt (Layout-Hinweise wirken
     in `KanteSettingRow` nicht).
-  - G9 (mittel, Kante-PR): Tabulatur und Noten zeigen den Werkstatt-Abschnitt nicht, nur die Tab-Lane.
+  - G9 (mittel, behoben mit Kante 1.35): Tabulatur und Noten zeigten den Werkstatt-Abschnitt nicht, nur die Tab-Lane.
+    Jetzt in allen Ansichten getönt mit Klammern [ ].
 - **P4 Thomas (J-B5, Beamer): bestanden nach Befunden.**
   - G10 (hoch, behoben #49): Tabulatur und Noten zeichneten über die Transportleiste, die Kopfzeile lief rechts aus
     dem Fenster. Notenbereich beschnitten, Ansichten als Liste, Transponieren in der Backing-Zeile.

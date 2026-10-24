@@ -1,33 +1,24 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-10-14, mittags. Was erledigt ist, steht in Lastenheft und Roadmap; hier
-steht nur, was offen ist und wo es liegt.
+Übergabe zwischen Sitzungen. Stand: 2026-10-24. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-Gemerged am 14.10.: #58–#63, #65, #66, #68 (Stufen), #69 (Runde 12), #70 (Seitenleiste), #72 (Fehlalarme, Werkstatt-
-Quote), #73 (PipeWire-Host, enthält #71 Songsterr-Suche), #74 (MIDI ohne Pegel), #75–#82 (Doku, Original-Bass-Regler,
-Mixer-Höhe, Griffbrett in Quiz/Gehör, Stimmung und Mikrofon schmal, Song-Suche schmal, englische Texte, QA-Runde
-14.10. Tag), #83 (STAND), #84 (Schleife beginnt neutral, Download-Ordner, Wochenzeit), #85 (kurze Stücke
-größer), #86 (Tags per Tastatur), #87 (Stimmgerät-Pfeiltasten), #88 (STAND), #89 (Intervall: erster Ton am
-Griffbrett). #64 und #71 geschlossen (enthalten).
-#67 (CI-Cache) stammt aus einer Kaiwa-Sitzung: nicht anfassen.
+Keine außer `kante-sync` (Kante 1.35–1.39 übernommen, Werkstatt-Abschnitt in Tabulatur und Noten, G9).
 
-- Kante #58 (1.35), #61 (1.36), #62 (1.37 Ghost Note), #63 (1.38 Transport-Kästchen), #64 (1.39 Schritte schmal) in
-  dieser Reihenfolge: Eigentümer
-  merged. Danach `scripts/sync-kante.sh`, `loopStart`/`loopEnd` an tabStaff, bassStaff, combinedBass, combinedTab
-  binden (G9).
+Gemerged seit 14.10.: #90 (STAND), #91 (Stem-Tests nacheinander), #92 (Dateidialoge über das Desktop-Portal),
+#93–#97 (Review-Regel: PR-Agent nur auf `/review`, Claude-Agent als Rückfall, siehe `agent.md` und `REVIEW.md`).
 
 ## Offen
 
-- **Speicherdialoge:** Vorschlag über `selectedFile`; der Qt-Ersatzdialog (Xvfb) zeigt ihn nicht, nativer KDE-Dialog
+- **Speicherdialoge:** seit #92 über das Desktop-Portal; Vorschlag (`selectedFile`) und Titel im echten KDE-Dialog
   ungeprüft (Paket, Bericht, Daten).
 
 - **Dauertest ohne Last** (Runde 12): in der nächsten Nacht allein, nach allen Builds, auf dem Solo; jetzt über den
   PipeWire-Host (#73) mit Puffer 128 und Echtzeit-Priorität. Vorher 55 Xruns in 60 min (Puffer 1024, Builds nebenher).
-- **Scarlett-Eingang fehlt in PipeWire** seit 13.10. 23:45 (ein Flow-Test hielt das Interface über ALSA): Kontra nimmt es
-  jetzt direkt über ALSA und nennt die Abhilfe; Eigentümer: Solo neu einstecken oder `systemctl --user restart
-  wireplumber`. Danach am Gerät prüfen, dass es als PipeWire-Knoten erscheint und Latenz/Pegel stimmen (H1, H8).
+- **Scarlett-Eingang** ist wieder ein PipeWire-Knoten (24.10., Quelle und Senke). Offen: am Gerät prüfen, dass
+  Latenz und Pegel stimmen (H1, H8).
 - **Offen aus der Hardware-Prüfung:** H5 Ausklingen der leeren Saite als Extra (zählt nicht mehr in Quoten), H6
   Slap/Pop (Aufnahmen weiterer Spieler), Echtzeit-Priorität ohne `realtime`-Gruppe (rtkit nur über MPL-Crate).
 - **Songsterr-Suche** (#71/#73): undokumentierte API; ändert Songsterr sie, sagt Kontra „unlesbar“. Flatpak hat jetzt
@@ -64,6 +55,5 @@ Griffbrett). #64 und #71 geschlossen (enthalten).
 
 ## Für den Eigentümer
 
-- Merge-Erlaubnis als Regel in den Claude-Code-Einstellungen eintragen (Runde 11), Kante #58, #61, #62 mergen.
+- Merge-Erlaubnis als Regel in den Claude-Code-Einstellungen eintragen (Runde 11).
 - Entscheidungs-Artefakt: https://claude.ai/artifact/EsQvZ5epqB3WeBgFEhytpN
-- OpenRouter-Schlüssel von PR-Agent: Monatslimit erreicht (Reset 1.11.).
