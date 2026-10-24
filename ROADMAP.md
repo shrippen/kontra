@@ -7,7 +7,7 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 | 0 Machbarkeit | Qt-Brücke, Audio-Engine, Erkennung gegen Testkorpus, eigener Time-Stretch, Latenz, Xruns | weitgehend erledigt (synthetisch); echte Aufnahmen und Latenzmessung am Gerät fehlen |
 | 1 MVP (0.1) | E-Bass, Import GP/MIDI, Tab-Lane, Tab, Noten, Spielen/Song/Warten/Werkstatt | große Teile umgesetzt, siehe unten |
 | 2 Lernen (0.2–0.4) | Groove, Griffbrett, adaptive Schwierigkeit, MusicXML | vorgezogen und umgesetzt: Groove-Übungen, Griffbrett-Quiz, Generator, Notendichte, Werkstatt-Zielband, MusicXML |
-| 3 Inhalte (0.5–0.7) | eigene Audiodatei, `.kontra`-Pakete, Etüden, Gehör | vorgezogen und umgesetzt: Backing-Abgleich, `.kontra`, 144 Übungen, Gehör; offen: Abnahme LH-BIB-06 (4 min ≤ 20 ms), Stück-Generator und Etüden wie Lieder (24.10.) |
+| 3 Inhalte (0.5–0.7) | eigene Audiodatei, `.kontra`-Pakete, Etüden, Gehör | vorgezogen und umgesetzt: Backing-Abgleich (Abnahme LH-BIB-06 synthetisch bestanden, #101), `.kontra`, 150 Übungen in neun Stufen mit Stück-Generator (#100), Gehör; offen: Gegenprobe LH-BIB-06 mit echter Aufnahme |
 | 4 Bass komplett (0.8–1.0) | Kontrabass am Mikrofon, Bass über MIDI, Techniken, Stem-Trennung | MIDI-Eingang mit Klaviatur-Ansicht, Mikrofon mit Echo-Kompensation, Techniken erkannt; Rest offen |
 | Didaktik (laufend) | Wie vermittelt Kontra Bass am besten? Ideen entwickeln, als Prototypen umsetzen, mit Personas vergleichen | I1 und I7 umgesetzt, I5 teilweise; als Nächstes I4 (24.10.), siehe unten |
 
