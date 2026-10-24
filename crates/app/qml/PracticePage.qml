@@ -396,6 +396,31 @@ Kirigami.Page {
                 accessibleName: texts.t("help.about", { term: texts.t("transpose.title") })
             }
             }
+            // Aim against the beat (LH-BEW-08, DIDAKTIK I5): the summary says if the run held it.
+            Row {
+                readonly property var pockets: ["free", "onbeat", "laidback", "pushed"]
+                spacing: KanteStyle.unit(8)
+                height: KanteStyle.heightMedium
+                KanteHud {
+                    anchors.verticalCenter: parent.verticalCenter
+                    fullText: texts.t("pocket.title")
+                    color: KanteStyle.mutedTextColor
+                }
+                KanteComboBox {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: KanteStyle.unit(170)
+                    Accessible.name: texts.t("pocket.title")
+                    model: parent.pockets.map(function(p) { return texts.t("pocket." + p) })
+                    currentIndex: Math.max(0, parent.pockets.indexOf(ctl.pocket))
+                    onActivated: function(index) { ctl.changePocket(parent.pockets[index]) }
+                }
+                KanteInfoTip {
+                    anchors.verticalCenter: parent.verticalCenter
+                    term: texts.t("pocket.title")
+                    info: texts.t("pocket.hint")
+                    accessibleName: texts.t("help.about", { term: texts.t("pocket.title") })
+                }
+            }
         }
 
         // Backing track (LH-WIE-01): chosen per piece, stretched with the speed.

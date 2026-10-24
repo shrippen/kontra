@@ -202,6 +202,8 @@ Streuung, ab der Bünde kommen; Schalter „nur Timing“ im Generator.*
 - **These/Quelle:** These 2, 3; Mikro-Timing-Forschung (Frühauf et al. 2013; Senn et al. 2016); KR mit Erklärung wirkt mehr als richtig/falsch (Übersicht White).
 - **Personas:** P3, P2, P5.
 - **Braucht:** Timing-Histogramm und Tendenz sind da; Zielvorgabe für die Lage, Text-Bausteine.
+- **Umgesetzt (24.10., LH-BEW-08):** Lage-Ziel auf der Übungsseite, Urteil in der Auswertung. Offen: Ziel im
+  Histogramm einzeichnen (braucht ein Band in Kantes `KanteTimingHistogram`), Lage-Ziel je Übung im Generator.
 - **Messgröße:** Abstand der mittleren Lage zum Ziel; Streuung; Selbstauskunft „verstanden, was ich ändern soll“.
 - **Aufwand:** S.
 

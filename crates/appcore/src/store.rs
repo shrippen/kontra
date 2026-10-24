@@ -105,6 +105,8 @@ pub struct Settings {
     pub motion: String,
     /// Timing window (LH-BEW-02): "auto" (by input), "loose", "normal" or "strict".
     pub strictness: String,
+    /// Aim against the beat (LH-BEW-08): "free", "onbeat", "laidback" or "pushed".
+    pub pocket: String,
     /// Pitch limit in cents (LH-BEW-05); 0 = by bass kind (50 fretted, 30 fretless).
     pub pitch_cents: f64,
     /// The first-start assistant was completed or skipped (LH-EIN-01).
@@ -168,6 +170,7 @@ impl Default for Settings {
             play_marks: "quiet".into(),
             motion: "system".into(),
             strictness: "auto".into(),
+            pocket: "free".into(),
             pitch_cents: 0.0,
             setup_done: false,
             backing_volume: f64::from(mix.backing),

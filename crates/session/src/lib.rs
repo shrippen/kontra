@@ -17,6 +17,7 @@ mod density;
 mod expected;
 mod live;
 mod matcher;
+mod pocket;
 mod practice;
 mod progress;
 mod service;
@@ -46,6 +47,7 @@ pub use live::{
     LiveTuner, PromptTone, SoakReport,
 };
 pub use matcher::{NoteResult, Outcome};
+pub use pocket::{Pocket, PocketVerdict};
 pub use practice::{Practice, PracticeEvent, PracticeOptions};
 pub use progress::{run_from, ProgressError, ProgressStore, Run, SongProgress};
 pub use service::*;

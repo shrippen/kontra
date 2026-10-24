@@ -129,10 +129,12 @@ Erwartet: Übungszeit und Verbesserung sichtbar; Formulierungen ermutigend, kein
 Liegt eine Übung nach dem Lauf über 90 %, bietet die Auswertung die nächste im Plan an; die Übungsliste zeigt sie mit
 Häkchen.
 
-**J-C2 Timing-Tendenz** ⚙ · Persona: P3 Mira · Phase 1 · LH-BEW-03, LH-FOR-02
-1. Aufnahme mit konstanter Tendenz „18 ms zu früh“ im Modus „Durchlauf“.
-2. Auswertung lesen.
-Erwartet: Histogramm mit Achse und Legende; Tendenz in Worten („meist 18 ms zu früh“).
+**J-C2 Timing-Tendenz** ⚙ · Persona: P3 Mira · Phase 1 · LH-BEW-03, LH-BEW-08, LH-FOR-02
+1. Auf der Übungsseite „Lage: Laid-back“ wählen, Hilfe dazu lesen.
+2. Aufnahme mit konstanter Tendenz „18 ms zu früh“ im Modus „Durchlauf“.
+3. Auswertung lesen.
+Erwartet: Histogramm mit Achse und Legende; Tendenz in Worten („meist 18 ms zu früh“); zum Ziel ein Satz in Worten
+(„Ziel laid-back (10 bis 30 ms dahinter): verfehlt, 28 ms zu früh“), nicht nur Farbe.
 
 **J-C3 MusicXML und Groove** · Persona: P3 Mira · Phase 2 · LH-BIB-03, LH-LRN-01, LH-LRN-04
 1. MuseScore-Export (MusicXML) importieren, in der Notenansicht spielen.
