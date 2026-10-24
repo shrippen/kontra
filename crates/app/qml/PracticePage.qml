@@ -663,7 +663,7 @@ Kirigami.Page {
             kind: KanteCallout.Kind.Info
             autoHide: false
             title: texts.t("probe.banner", { from: workshopRow.fromBar, to: workshopRow.toBar })
-            onVisibleChanged: if (visible) Accessible.announce(title)
+            onVisibleChanged: { if (visible) { Accessible.announce(title) } }
         }
 
         // Wait mode: what to play next, in words (LH-MOD-03). An instruction, not a warning (QA

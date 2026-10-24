@@ -40,14 +40,16 @@ Kirigami.ScrollablePage {
     // get ready.
     function probe(offer) {
         if (!ctl.openFile(offer.path)) {
-            if (JSON.parse(ctl.trackChoicesJson).length > 0)
+            if (JSON.parse(ctl.trackChoicesJson).length > 0) {
                 applicationWindow().show("library")
+            }
             return
         }
         ctl.changeMode("workshop")
-        // The bars moved (backing aligned anew): their written numbers, as for a spot.
-        if (!ctl.loopAt(offer.startS, offer.endS))
-            ctl.loopBars(offer.from - 1, offer.to - 1)
+        // The bars moved (backing aligned anew): no loop, the probe asks to choose the bars.
+        if (!ctl.loopAt(offer.startS, offer.endS)) {
+            ctl.clearLoop()
+        }
         applicationWindow().show("practice")
         ctl.startProbe()
     }

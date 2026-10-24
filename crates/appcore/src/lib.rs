@@ -3430,7 +3430,6 @@ fn plan_number(path: &Path) -> (usize, PathBuf) {
 
 const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
 
-/// True if `bars` names the section `start_s..end_s` (stored times, to the centisecond).
 /// Sections are the same if their ends are this close (seconds).
 const SECTION_TOLERANCE_S: f64 = 0.01;
 
@@ -3442,6 +3441,7 @@ fn same_range(section: Option<(f64, f64)>, range: LoopRange) -> bool {
     })
 }
 
+/// True if `bars` names the section `start_s..end_s` (stored times, to the centisecond).
 fn same_section(bars: &SectionBars, start_s: f64, end_s: f64) -> bool {
     (bars.start_s - start_s).abs() < SECTION_TOLERANCE_S
         && (bars.end_s - end_s).abs() < SECTION_TOLERANCE_S
