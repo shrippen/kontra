@@ -262,7 +262,7 @@ fn spec(kind: ExerciseKind, key: u8, bpm: f64) -> ExerciseSpec {
 fn piece(style: Style, key: u8, bpm: f64) -> ExerciseSpec {
     ExerciseSpec {
         repeats: 1,
-        ..spec(ExerciseKind::Song(style), key, bpm)
+        ..spec(ExerciseKind::Song(style, Level::Medium), key, bpm)
     }
 }
 
