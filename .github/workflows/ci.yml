@@ -1,19 +1,47 @@
 name: ci
 
-# Branches are tested through their pull request; main runs on push.
+# Public mirror: Gitea pushes every branch here on each commit. This runs the checks and reports
+# the result back to the commit on Gitea as the status "github / test", where the pull requests
+# live. There are no pull requests on GitHub, so everything runs on push. Gitea runs only
+# PR-Agent (.gitea/workflows/pr-agent.yml).
+#
+# Stays local: flow tests in a real window with a bass (Xvfb, QA.md), the owner's interface.
+#
+# Needs the secret GITEA_TOKEN: a Gitea token with write access to the repository (commit
+# statuses).
 on:
   push:
-    branches: [main]
-  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+# No concurrency group: every commit runs to the end and keeps its own status.
 
 permissions:
   contents: read
 
+env:
+  GITEA_STATUS: https://git.arianw.de/api/v1/repos/shrippen/Kontra/statuses/${{ github.sha }}
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
 jobs:
+  pending:
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    outputs:
+      started: ${{ steps.start.outputs.t }}
+    steps:
+      # A missing status is no reason to fail the checks.
+      - id: start
+        name: Report pending to Gitea
+        run: |
+          echo "t=$(date +%s)" >> "$GITHUB_OUTPUT"
+          curl -fsS -X POST "$GITEA_STATUS" \
+            -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" \
+            -d "{\"state\":\"pending\",\"context\":\"github / test\",\"description\":\"running\",\"target_url\":\"$RUN_URL\"}" \
+            || echo "::warning::Gitea status not reported"
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+
   core:
     # Everything below the GUI: no Qt needed.
     timeout-minutes: 30
@@ -25,13 +53,9 @@ jobs:
           SUDO=$(command -v sudo || true)
           $SUDO apt-get update -qq && $SUDO apt-get install -y -qq libasound2-dev libpipewire-0.3-dev libclang-dev pkg-config curl build-essential
       - name: Rust
-        run: |
-          # The runner image has no rustup: install it (stable, minimal).
-          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal -c rustfmt,clippy
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        run: rustup toolchain install stable --profile minimal -c rustfmt,clippy && rustup default stable
       - uses: actions/cache@v4
-        # The runner's cache server sometimes fails within seconds ("<nil>"); without the cache
-        # the job only takes longer (13.10.2026: three app jobs lost this way).
+        # Without the cache the job only takes longer.
         continue-on-error: true
         with:
           path: |
@@ -60,8 +84,7 @@ jobs:
       # Real recordings as a regression guard (testdata/korpus/QUELLEN.md): IDMT-SMT-Bass-Single-Track,
       # 17 electric-bass lines, released for this use by the owner. Audio is never committed.
       - uses: actions/cache@v4
-        # The runner's cache server sometimes fails within seconds ("<nil>"); without the cache
-        # the job only takes longer (13.10.2026: three app jobs lost this way).
+        # Without the cache the job only takes longer.
         continue-on-error: true
         with:
           path: testdata/korpus/local/dl/idmt-st
@@ -91,9 +114,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # The cache restores as the runner user, not root.
+      - name: Qt folders
+        run: sudo mkdir -p /opt/qt /opt/kf6 /opt/qt-tools && sudo chown "$USER" /opt/qt /opt/kf6 /opt/qt-tools
       - uses: actions/cache@v4
-        # The runner's cache server sometimes fails within seconds ("<nil>"); without the cache
-        # the job only takes longer (13.10.2026: three app jobs lost this way).
+        # Without the cache the job only takes longer.
         continue-on-error: true
         with:
           path: |
@@ -102,8 +127,7 @@ jobs:
             /opt/qt-tools
           key: qt-6.10.3-kf-6.30.0
       # The Rust build of the app, as in the core job: without it clippy, the tests and the
-      # release build for the screenshots compiled everything anew in every run (about 8 min
-      # of a 20–30 min job, the longest on the shared runner).
+      # release build for the screenshots compile everything anew (about 8 min).
       - uses: actions/cache@v4
         continue-on-error: true
         with:
@@ -117,9 +141,7 @@ jobs:
           $SUDO apt-get update -qq && $SUDO apt-get install -y -qq libasound2-dev libpipewire-0.3-dev libclang-dev pkg-config curl build-essential
           $SUDO scripts/setup-qt-env.sh
       - name: Rust
-        run: |
-          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal -c clippy
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        run: rustup toolchain install stable --profile minimal -c clippy && rustup default stable
       - name: Build and lint
         run: |
           . scripts/qt-env.sh
@@ -127,7 +149,35 @@ jobs:
           cargo test -p kontra-app
       - name: Screenshots
         run: scripts/screenshots.sh shots
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: screenshots
           path: shots/
+
+  # Also runs when a check failed or was cancelled, so Gitea never keeps a stale "pending".
+  report:
+    needs: [pending, core, app]
+    if: always()
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report result to Gitea
+        run: |
+          all="$CORE $APP"
+          if [ "$all" = "success success" ]; then
+            state=success
+          elif echo "$all" | grep -qw failure; then
+            state=failure
+          else
+            state=error
+          fi
+          desc="core $CORE, app $APP"
+          if [ -n "$STARTED" ]; then desc="$desc in $(( ($(date +%s) - STARTED) / 60 )) min"; fi
+          curl -fsS -X POST "$GITEA_STATUS" \
+            -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" \
+            -d "{\"state\":\"$state\",\"context\":\"github / test\",\"description\":\"$desc\",\"target_url\":\"$RUN_URL\"}"
+        env:
+          CORE: ${{ needs.core.result }}
+          APP: ${{ needs.app.result }}
+          STARTED: ${{ needs.pending.outputs.started }}
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
