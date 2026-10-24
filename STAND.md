@@ -62,7 +62,7 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - blind-probe (I1): `Mode::Probe`, `Run::spread_ms`, `Session::played_speed`, `Core::{start_probe, is_probing, bars_at}`,
   `pub(crate) Matcher::has_pitch`; Brücke: Invokables `startProbe`, `loopAt`, Properties `probing`, `autoprobe`;
   `AppArgs::probe` (QA-Schalter `--probe`).
-- laid-back (I5): `Pocket` (`ALL`, `key`, `from_key`, `band_ms`, `judge`), `PocketVerdict`, `Settings::pocket`;
+- laid-back (I5): `Pocket` (`key`, `from_key`, `band_ms`, `judge`), `PocketVerdict`, `Settings::pocket`;
   Brücke: Property `pocket`, Invokable `changePocket`.
 - #106 (I4): `Judging`, `Arrangement::judging`, `ExpectedNote::any_pitch`, `ExerciseSpec::judging`,
   `pub(crate) TIMING_TEXT`.

@@ -36,7 +36,7 @@ pub enum PocketVerdict {
 }
 
 impl Pocket {
-    pub const ALL: [Pocket; 4] = [
+    const ALL: [Pocket; 4] = [
         Pocket::Free,
         Pocket::OnBeat,
         Pocket::LaidBack,

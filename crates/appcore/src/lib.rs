@@ -3020,10 +3020,18 @@ impl Core {
     /// (10 bis 30 ms dahinter): verfehlt, 6 ms zu früh"; empty without an aim or timed notes.
     fn pocket_text(&self, s: &Summary) -> String {
         let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
-        let Some(verdict) = s.mean_offset_ms.and_then(|m| pocket.judge(m)) else {
+        // Whole ms, as the text shows them: +9.6 is laid-back, not "missed by 0 ms".
+        let Some(verdict) = s.mean_offset_ms.and_then(|m| pocket.judge(m.round())) else {
             return String::new();
         };
-        let aim = self.tr(&format!("pocket.{}.aim", pocket.key()), &[]);
+        let Some((a, b)) = pocket.band_ms() else {
+            return String::new();
+        };
+        let (low, high) = (a.abs().min(b.abs()), a.abs().max(b.abs()));
+        let aim = self.tr(
+            &format!("pocket.{}.aim", pocket.key()),
+            &[("low", format!("{low:.0}")), ("high", format!("{high:.0}"))],
+        );
         let (key, ms) = match verdict {
             PocketVerdict::Held => ("summary.pocket.held", 0.0),
             PocketVerdict::Early(ms) => ("summary.pocket.early", ms),
@@ -5115,20 +5123,29 @@ mod tests {
         let a = core.arrangement().unwrap().clone();
         let mut s = kontra_session::Summary::from_results(&[], &a);
         s.mean_offset_ms = Some(4.0);
-        let text = |core: &Core| {
+        let text = |core: &Core, s: &kontra_session::Summary| {
             let v: serde_json::Value =
-                serde_json::from_str(&core.summary_json(&s, &[], &[])).unwrap();
+                serde_json::from_str(&core.summary_json(s, &[], &[])).unwrap();
             v["pocketText"].as_str().unwrap().to_owned()
         };
-        assert_eq!(text(&core), "", "no aim");
+        assert_eq!(text(&core, &s), "", "no aim");
 
         core.update_settings(|s| s.pocket = "laidback".into());
         assert_eq!(
-            text(&core),
+            text(&core, &s),
             "Ziel laid-back (10 bis 30 ms dahinter): verfehlt, 6 ms zu früh"
         );
         core.update_settings(|s| s.pocket = "onbeat".into());
-        assert_eq!(text(&core), "Ziel auf den Punkt (±5 ms): gehalten");
+        assert_eq!(text(&core, &s), "Ziel auf den Punkt (±5 ms): gehalten");
+
+        // Just outside by less than half a ms: inside, as the text rounds.
+        s.mean_offset_ms = Some(5.4);
+        assert_eq!(text(&core, &s), "Ziel auf den Punkt (±5 ms): gehalten");
+        s.mean_offset_ms = Some(5.6);
+        assert_eq!(
+            text(&core, &s),
+            "Ziel auf den Punkt (±5 ms): verfehlt, 1 ms zu spät"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 
