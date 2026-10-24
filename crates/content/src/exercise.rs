@@ -17,7 +17,7 @@ mod song;
 pub use plan::{bundled, bundled_specs};
 pub use song::Style;
 
-use kontra_model::Technique;
+use kontra_model::{Judging, Technique};
 use midly::num::{u15, u24, u28, u4, u7};
 use midly::{Format, Header, MetaMessage, MidiMessage, Smf, Timing, TrackEvent, TrackEventKind};
 
@@ -187,6 +187,8 @@ pub struct ExerciseSpec {
     pub repeats: u8,
     /// BPM added per pass (tempo ramp); 0 keeps the tempo.
     pub ramp_bpm: f64,
+    /// Judged by pitch and time, or by time only (DIDAKTIK I4: grooves on the open string).
+    pub judging: Judging,
 }
 
 /// A written exercise: a title and a standard MIDI file.
@@ -277,6 +279,9 @@ const POP_TEXT: &str = "pop";
 /// Text event "pos <string> <fret>" that places the note starting at its tick (string 0 is the
 /// lowest of a four-string bass in standard tuning).
 pub(crate) const POSITION_TEXT: &str = "pos";
+
+/// Text event at the start: the file is judged by time only (`Judging::TimeOnly`, DIDAKTIK I4).
+pub(crate) const TIMING_TEXT: &str = "kontra:timing";
 
 /// Text events the importer turns into a technique of the notes starting at their tick.
 pub(crate) const TECHNIQUE_TEXTS: [(&str, Technique); 4] = [
@@ -907,6 +912,7 @@ pub fn generate(spec: &ExerciseSpec) -> Exercise {
         drums: &drums,
         tempos: &tempos,
         meter,
+        judging: spec.judging,
     };
     let midi = write(&title, fifths, pass.minor, &line);
     Exercise { title, midi }
@@ -1075,6 +1081,7 @@ struct Line<'a> {
     /// (tick, BPM): the first at 0, more for a tempo ramp.
     tempos: &'a [(u32, f64)],
     meter: Meter,
+    judging: Judging,
 }
 
 /// One bar of drums under a groove: kick on one and three, snare on two and four, hi-hat in
@@ -1211,6 +1218,9 @@ pub fn describe(spec: &ExerciseSpec) -> Description {
 fn goal(spec: &ExerciseSpec) -> &'static str {
     if spec.end_bpm().is_some() {
         return "ramp";
+    }
+    if spec.judging == Judging::TimeOnly {
+        return "timing";
     }
     match spec.kind {
         ExerciseKind::Scale(s) if s.mode() => "modes",
@@ -1552,6 +1562,12 @@ fn write(title: &str, fifths: i8, minor: bool, line: &Line) -> Vec<u8> {
             TrackEventKind::Meta(MetaMessage::KeySignature(fifths, minor)),
         ),
     ]);
+    if line.judging == Judging::TimeOnly {
+        conductor.push((
+            0,
+            TrackEventKind::Meta(MetaMessage::Text(TIMING_TEXT.as_bytes())),
+        ));
+    }
     conductor.extend(markers.iter().map(|(at, text)| {
         (
             *at,
@@ -1713,6 +1729,7 @@ mod tests {
             slow: false,
             repeats: 1,
             ramp_bpm: 0.0,
+            judging: Judging::PitchAndTime,
         }
     }
 
@@ -2017,6 +2034,34 @@ mod tests {
             .filter(|s| s.2.title.starts_with("Groove"))
             .count();
         assert!(grooves >= 20, "{grooves}");
+    }
+
+    #[test]
+    fn time_only_survives_the_file() {
+        // Open-string grooves judge only the attack (DIDAKTIK I4); the file carries that.
+        let timing = ExerciseSpec {
+            judging: Judging::TimeOnly,
+            ..spec(
+                ExerciseKind::Groove(Progression::Tonic, Rhythm::Quarters),
+                4,
+            )
+        };
+        assert_eq!(arrangement(&generate(&timing)).judging, Judging::TimeOnly);
+
+        let normal = spec(
+            ExerciseKind::Groove(Progression::Tonic, Rhythm::Quarters),
+            4,
+        );
+        assert_eq!(
+            arrangement(&generate(&normal)).judging,
+            Judging::PitchAndTime
+        );
+
+        let open = bundled_specs()
+            .iter()
+            .filter(|s| s.1.judging == Judging::TimeOnly)
+            .count();
+        assert_eq!(open, 5, "the open-string grooves of level 1");
     }
 
     /// A piece goes through the normal import: bars with chord names, drums, a title with its

@@ -9,7 +9,7 @@
 //! .mscx/z ─┘
 //! ```
 
-use kontra_model::{Pitch, Technique, TimeSignature};
+use kontra_model::{Judging, Pitch, Technique, TimeSignature};
 
 /// How a note connects to its neighbour on the same string without a new attack.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -204,6 +204,8 @@ pub(crate) struct Score {
     pub(crate) bpm: f64,
     pub(crate) bars: Vec<BarHead>,
     pub(crate) parts: Vec<Part>,
+    /// Kontra's own exercises may be judged by time only (`TIMING_TEXT`).
+    pub(crate) judging: Judging,
 }
 
 impl Score {
@@ -214,6 +216,7 @@ impl Score {
             bpm: DEFAULT_BPM,
             bars: Vec::new(),
             parts: Vec::new(),
+            judging: Judging::PitchAndTime,
         }
     }
 }

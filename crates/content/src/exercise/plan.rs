@@ -66,9 +66,9 @@ pub fn bundled_specs() -> Vec<(&'static str, ExerciseSpec)> {
     use Style as St;
     vec![
         // ── First set (01–45) ────────────────────────────────────────────
-        (LEVEL_1, groove(P::Tonic, Quarters, E, 70.0)),
-        (LEVEL_1, groove(P::Tonic, Quarters, A, 70.0)),
-        (LEVEL_1, groove(P::Tonic, Quarters, D, 70.0)),
+        (LEVEL_1, open_groove(Quarters, E, 70.0)),
+        (LEVEL_1, open_groove(Quarters, A, 70.0)),
+        (LEVEL_1, open_groove(Quarters, D, 70.0)),
         (LEVEL_1, groove(P::Minor, Quarters, A, 70.0)),
         (LEVEL_1, scale(S::MinorPentatonic, E, 60.0, Step::Quarters)),
         (LEVEL_1, scale(S::MinorPentatonic, A, 60.0, Step::Quarters)),
@@ -113,13 +113,13 @@ pub fn bundled_specs() -> Vec<(&'static str, ExerciseSpec)> {
         (LEVEL_5, groove(P::Tonic, Ghost, E, 80.0)),
         (LEVEL_5, groove(P::Minor, Ghost, A, 85.0)),
         // ── 1 Einstieg: rests, first chord changes on open strings, first frets (P1) ──
-        (LEVEL_1, groove(P::Tonic, WithRests, E, 65.0)),
+        (LEVEL_1, open_groove(WithRests, E, 65.0)),
         (LEVEL_1, groove(P::OneFourFive, Quarters, A, 70.0)),
         (LEVEL_1, groove(P::Tonic, RootFifth, A, 70.0)),
         (LEVEL_1, groove(P::Pop, Quarters, G, 70.0)),
         (LEVEL_1, fingers(Fi::Straight, 5, 60.0, Step::Quarters)),
         (LEVEL_1, scale(S::MajorPentatonic, G, 60.0, Step::Quarters)),
-        (LEVEL_1, groove(P::Tonic, Eighths, A, 70.0)),
+        (LEVEL_1, open_groove(Eighths, A, 70.0)),
         (LEVEL_1, groove(P::OneFourFive, RootFifth, D, 70.0)),
         // ── 2 Grundlagen: eighths over changes, triads, dead notes ──────────
         (LEVEL_2, groove(P::OneFourFive, Eighths, E, 85.0)),
@@ -254,6 +254,7 @@ fn spec(kind: ExerciseKind, key: u8, bpm: f64) -> ExerciseSpec {
         slow: false,
         repeats: if blues { 1 } else { 2 },
         ramp_bpm: 0.0,
+        judging: Judging::PitchAndTime,
     }
 }
 
@@ -267,6 +268,14 @@ fn piece(style: Style, key: u8, bpm: f64) -> ExerciseSpec {
 
 fn groove(progression: Progression, rhythm: Rhythm, key: u8, bpm: f64) -> ExerciseSpec {
     spec(ExerciseKind::Groove(progression, rhythm), key, bpm)
+}
+
+/// A groove on the open string judged by time only (DIDAKTIK I4): the pulse before the frets.
+fn open_groove(rhythm: Rhythm, key: u8, bpm: f64) -> ExerciseSpec {
+    ExerciseSpec {
+        judging: Judging::TimeOnly,
+        ..groove(Progression::Tonic, rhythm, key, bpm)
+    }
 }
 
 fn chords(kind: ExerciseKind, key: u8, bpm: f64) -> ExerciseSpec {
