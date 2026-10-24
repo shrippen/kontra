@@ -54,7 +54,9 @@ fn summary_shows_tendency_and_counts() {
     // 18 ms early against 10 to 30 ms behind: 28 ms too early.
     let pocket = s["pocketText"].as_str().unwrap();
     assert!(
-        pocket.starts_with("Ziel laid-back (10 bis 30 ms dahinter): verfehlt, 2"),
+        [27, 28, 29]
+            .map(|ms| format!("Ziel laid-back (10 bis 30 ms dahinter): verfehlt, {ms} ms zu früh"))
+            .contains(&pocket.to_owned()),
         "{pocket}"
     );
     let counts: u64 = s["counts"]
