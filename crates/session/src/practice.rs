@@ -84,6 +84,8 @@ pub struct Practice<O: Output> {
     stretched: HashMap<u32, BackingAudio>,
     last_pass: u32,
     was_held: bool,
+    /// Engine time the last count-in ends; its clicks are kept when plans change.
+    count_in_end_s: f64,
 }
 
 impl<O: Output> std::fmt::Debug for Practice<O> {
@@ -116,6 +118,7 @@ impl<O: Output> Practice<O> {
             stretched: HashMap::new(),
             last_pass: 0,
             was_held: false,
+            count_in_end_s: 0.0,
         }
     }
 
@@ -186,6 +189,7 @@ impl<O: Output> Practice<O> {
             self.output
                 .schedule(now + i as f64 * beat_s, Sound::Click(accent));
         }
+        self.count_in_end_s = start;
         self.session.play(start);
         self.restart_backing(start);
     }
@@ -290,10 +294,13 @@ impl<O: Output> Practice<O> {
         events.into_iter().map(PracticeEvent::Session).collect()
     }
 
-    /// Clears everything scheduled from now and plans again (speed, loop, seek changed).
+    /// Clears everything scheduled from now and plans again (speed, loop, seek changed). A
+    /// count-in still running stays: the speed set before `play` is reported on the first tick
+    /// after it and cleared all but the first click (owner 24.10.).
     fn reschedule(&mut self) {
         let now = self.clock.now_s();
-        self.output.clear_from(now + START_LEAD_S);
+        self.output
+            .clear_from((now + START_LEAD_S).max(self.count_in_end_s));
         self.scheduled.clear();
         if self.session.transport().is_running() {
             self.restart_backing(now + START_LEAD_S);
@@ -585,6 +592,29 @@ mod tests {
         run(&mut p, &clock, 2.6);
         let times: Vec<f64> = p.output().sounds.iter().map(|(t, _)| *t).collect();
         // 4 count-in clicks 0.5 s apart, then the song's clicks continue the grid.
+        assert!(times.len() >= 6, "{times:?}");
+        for pair in times.windows(2) {
+            assert!(((pair[1] - pair[0]) - 0.5).abs() < 1e-6, "{times:?}");
+        }
+    }
+
+    /// The app sets the speed before it starts (owner 24.10.: only the first count-in click
+    /// sounded); the speed change must not clear the count-in planned after it.
+    #[test]
+    fn speed_set_before_play_keeps_the_count_in() {
+        let clock = Clock::new();
+        let mut p = Practice::new(
+            arrangement(),
+            Mode::Play,
+            ScoreSettings::default(),
+            PracticeOptions::default(),
+            Recorder::default(),
+            clock.clone(),
+        );
+        p.set_speed(1.0);
+        p.play();
+        run(&mut p, &clock, 2.6);
+        let times: Vec<f64> = p.output().sounds.iter().map(|(t, _)| *t).collect();
         assert!(times.len() >= 6, "{times:?}");
         for pair in times.windows(2) {
             assert!(((pair[1] - pair[0]) - 0.5).abs() < 1e-6, "{times:?}");
