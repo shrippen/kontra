@@ -1,6 +1,6 @@
 //! Notes the player is expected to strike, in arrangement seconds.
 
-use kontra_model::{Arrangement, Technique};
+use kontra_model::{Arrangement, Judging, Technique};
 use serde::{Deserialize, Serialize};
 
 const CENTS_PER_OCTAVE: f64 = 1200.0;
@@ -22,6 +22,9 @@ pub struct ExpectedNote {
     /// A harmonic: its pitch counts in any octave (the tracker often hears it lower).
     #[serde(default)]
     pub harmonic: bool,
+    /// Judged by time only (`Judging::TimeOnly`): any pitch is right.
+    #[serde(default)]
+    pub any_pitch: bool,
 }
 
 impl ExpectedNote {
@@ -30,8 +33,12 @@ impl ExpectedNote {
         std::iter::once(self.midi).chain(self.chord.iter().map(|(_, midi)| midi))
     }
 
-    /// Cents from `midi` to the nearest accepted pitch (for a harmonic: in any octave).
+    /// Cents from `midi` to the nearest accepted pitch (for a harmonic: in any octave; judged by
+    /// time only: 0, every pitch is right).
     pub fn cents_from(&self, midi: f64) -> f64 {
+        if self.any_pitch {
+            return 0.0;
+        }
         let harmonic = self.harmonic;
         self.pitches()
             .map(|p| (midi - f64::from(p)) * 100.0)
@@ -108,6 +115,7 @@ pub fn expected_notes(arrangement: &Arrangement) -> Vec<ExpectedNote> {
                 .iter()
                 .any(|t| matches!(t, Technique::Ghost | Technique::Muted)),
             harmonic: n.techniques.contains(&Technique::Harmonic),
+            any_pitch: arrangement.judging == Judging::TimeOnly,
         });
     }
     out

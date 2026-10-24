@@ -1,7 +1,8 @@
 //! End-to-end checks of the four modes with simulated detections.
 
 use kontra_model::{
-    Arrangement, DetectedNote, InputSource, Instrument, Note, Pitch, TempoMap, TICKS_PER_QUARTER,
+    Arrangement, DetectedNote, InputSource, Instrument, Judging, Note, Pitch, TempoMap,
+    TICKS_PER_QUARTER,
 };
 use kontra_session::{LoopRange, Mode, Outcome, ScoreSettings, Session, SessionEvent, Workshop};
 
@@ -184,6 +185,27 @@ fn played_speed_is_the_last_pass_speed() {
     run(&mut s, &notes, 16.5);
     assert!((s.transport().speed() - 0.55).abs() < 1e-9);
     assert!((s.played_speed() - 0.5).abs() < 1e-9);
+}
+
+/// DIDAKTIK I4: a piece judged by time only counts every attack on time as a hit, whatever its
+/// pitch (the open string, a muffled note, a wrong fret); late and missed notes still count.
+#[test]
+fn time_only_judges_the_attack_not_the_pitch() {
+    let mut a = riff();
+    a.judging = Judging::TimeOnly;
+    let mut s = Session::new(a, Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    let notes = [
+        played(0.0, 28.0),
+        played(0.5, 40.0),  // any pitch
+        played(1.15, 28.0), // 150 ms late: outside the window
+    ];
+    run(&mut s, &notes, 2.5);
+    let first = |i| s.results().iter().find(|r| r.note == Some(i)).unwrap();
+    assert_eq!(first(0).outcome, Outcome::Hit);
+    assert_eq!(first(1).outcome, Outcome::Hit);
+    assert_eq!(first(1).cents, None, "no pitch judged");
+    assert_eq!(first(2).outcome, Outcome::Missed);
 }
 
 fn pass_rates(events: &[SessionEvent]) -> Vec<(bool, f64)> {

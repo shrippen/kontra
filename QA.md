@@ -161,6 +161,13 @@ Erwartet: Während der Probe keine Noten, nur Takte und Cursor, ein Hinweis sagt
 Weiterspielen zählt nicht; die Auswertung zeigt „Werkstatt, mit Noten“ und „Ohne Hilfe“ nebeneinander (Zahl und Satz,
 nicht nur Farbe); danach ist die Werkstatt wieder normal, die Startseite bietet dieselben Takte nicht noch einmal an.
 
+**J-C8 Erst der Puls** ⚙ · Personas: P1 Lea, P5 Sam · Phase 2 · LH-LRN-06, LH-LRN-01
+1. Lea: Übungen, Stufe 1, „Groove Viertel auf einem Akkord in E“; das Ziel lesen.
+2. Durchlauf auf der leeren A-Saite statt E, im Takt; dann einmal deutlich zu spät.
+3. Sam: dieselbe Übung am Mikrofon.
+Erwartet: Das Ziel sagt, dass nur der Anschlag zählt; jeder Ton zur rechten Zeit trifft, welcher Ton auch klingt; der
+späte zählt als spät; die Streuung in ms steht in der Auswertung. Die nächste Übung mit Bünden bewertet wieder den Ton.
+
 **J-C7 Ein ganzes Stück** · Personas: P1 Lea, P2 Jens, P4 Thomas · Phase 3 · LH-BIB-12, LH-BIB-08, LH-MOD-02, -04
 1. Lea: Übungen, Stufe „9 Stücke“, die Ballade im Durchlauf von vorn bis hinten.
 2. Jens: „Übung erzeugen“, Art „Stück“, Stil Rock in E, 100 BPM; den ersten Refrain in der Werkstatt üben.

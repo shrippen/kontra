@@ -135,6 +135,15 @@ pub struct DrumHit {
     pub kind: DrumKind,
 }
 
+/// What a note is judged by (DIDAKTIK I4): pitch and time, or only the attack's time, e.g. a
+/// groove on the open string where the hand learns the pulse first.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Judging {
+    #[default]
+    PitchAndTime,
+    TimeOnly,
+}
+
 /// A bass part ready to be played and scored.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Arrangement {
@@ -149,6 +158,8 @@ pub struct Arrangement {
     /// Drum accompaniment, sorted by `tick`; not scored.
     #[serde(default)]
     pub drums: Vec<DrumHit>,
+    #[serde(default)]
+    pub judging: Judging,
 }
 
 impl Arrangement {
@@ -162,6 +173,7 @@ impl Arrangement {
             markers: Vec::new(),
             notes: Vec::new(),
             drums: Vec::new(),
+            judging: Judging::default(),
         }
     }
 

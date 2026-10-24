@@ -157,7 +157,9 @@ impl Matcher {
         range: (f64, f64),
     ) -> (NoteResult, Claim) {
         let window = settings.strictness.window_ms() / 1000.0 * speed;
-        let muted = |e: &ExpectedNote| e.ghost && technique == Some(Technique::Muted);
+        // No pitch to report: a muted string, or a note judged by time only.
+        let muted =
+            |e: &ExpectedNote| e.any_pitch || (e.ghost && technique == Some(Technique::Muted));
         let rank_of = |e: &ExpectedNote| {
             if muted(e) {
                 0
@@ -272,6 +274,7 @@ mod tests {
                 chord: ChordTones::default(),
                 ghost: false,
                 harmonic: false,
+                any_pitch: false,
             },
             ExpectedNote {
                 index: 1,
@@ -281,6 +284,7 @@ mod tests {
                 chord: ChordTones::default(),
                 ghost: false,
                 harmonic: false,
+                any_pitch: false,
             },
             ExpectedNote {
                 index: 2,
@@ -290,6 +294,7 @@ mod tests {
                 chord: ChordTones::default(),
                 ghost: false,
                 harmonic: false,
+                any_pitch: false,
             },
         ])
     }
@@ -346,6 +351,7 @@ mod tests {
             chord: ChordTones::default(),
             ghost: true,
             harmonic: false,
+            any_pitch: false,
         }]);
         let settings = ScoreSettings::default();
         let r = m

@@ -498,6 +498,7 @@
   "exercise.goal.walking": "Goal: root on beat one, approach the next chord by a half step.",
   "exercise.goal.fingers": "Goal: one finger per fret, a relaxed and independent fretting hand.",
   "exercise.goal.ramp": "Goal: the tempo rises each pass; stay relaxed.",
+  "exercise.goal.timing": "Goal: only the attack counts, not the pitch: steady on the open string. Frets come once the spread is small.",
   "exercises.kind.triads": "Triads",
   "exercises.kind.chromatic": "Finger exercise",
   "exercises.scale.dorian": "Dorian",

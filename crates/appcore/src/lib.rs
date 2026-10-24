@@ -26,7 +26,7 @@ pub use store::{
     data_dir, InputKind, Library, RecentEntry, SectionBars, SectionDensity, Setlist, Settings,
 };
 
-use kontra_model::{Arrangement, InputSource, InstrumentKind, Technique, Tuning};
+use kontra_model::{Arrangement, InputSource, InstrumentKind, Judging, Technique, Tuning};
 use kontra_session::{
     import_file, list_devices, run_from, technique_signs, CalibrationResult, Connection,
     DeviceInfo, Direction, Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveEar,
@@ -3011,6 +3011,7 @@ impl Core {
             // Short patterns (scales, two-bar grooves) get more passes.
             repeats: if once { 1 } else { 2 },
             ramp_bpm: 0.0,
+            judging: Judging::PitchAndTime,
         })
     }
 

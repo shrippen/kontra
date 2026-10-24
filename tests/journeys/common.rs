@@ -74,6 +74,11 @@ pub fn piece(title: &str, midis: &[u8]) -> Arrangement {
 /// MThd (format 0, 1 track, 480 ticks/quarter) │ MTrk: name, tempo, 4/4, program 33, notes, end
 /// ```
 pub fn write_midi(path: &Path, title: &str, midis: &[u8]) {
+    write_marked(path, title, midis, &[]);
+}
+
+/// Like `write_midi`, with text meta events after the name (e.g. `kontra:timing`).
+pub fn write_marked(path: &Path, title: &str, midis: &[u8], texts: &[&str]) {
     const DIVISION: u16 = 480;
     let mut track = Vec::new();
     let mut meta = |kind: u8, data: &[u8]| {
@@ -81,6 +86,9 @@ pub fn write_midi(path: &Path, title: &str, midis: &[u8]) {
         track.extend(data);
     };
     meta(0x03, title.as_bytes());
+    for text in texts {
+        meta(0x01, text.as_bytes());
+    }
     let us = (60_000_000.0 / BPM) as u32;
     meta(0x51, &us.to_be_bytes()[1..]);
     meta(0x58, &[4, 2, 24, 8]);

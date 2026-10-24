@@ -2,10 +2,10 @@
 //! ticks are rescaled to 960 per quarter, bars come from the time signature events.
 
 use crate::error::ImportError;
-use crate::exercise::{POSITION_TEXT, TECHNIQUE_TEXTS};
+use crate::exercise::{POSITION_TEXT, TECHNIQUE_TEXTS, TIMING_TEXT};
 use crate::score::{self, BarHead, Part, RawNote, Score, DEFAULT_BPM};
 use crate::unroll::MAX_BARS;
-use kontra_model::{Pitch, Technique, TimeSignature, Tuning, TICKS_PER_QUARTER};
+use kontra_model::{Judging, Pitch, Technique, TimeSignature, Tuning, TICKS_PER_QUARTER};
 use midly::{MetaMessage, MidiMessage, Smf, Timing, TrackEventKind};
 use std::collections::{BTreeMap, HashMap, VecDeque};
 
@@ -64,6 +64,7 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
     let mut signatures: Vec<(u64, TimeSignature)> = Vec::new();
     let mut keys: Vec<(u64, i8)> = Vec::new();
     let mut markers: Vec<(u64, String)> = Vec::new();
+    let mut judging = Judging::PitchAndTime;
     let mut tracks = Vec::new();
     for events in &smf.tracks {
         let mut track = TrackData::default();
@@ -88,6 +89,9 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
                         }
                         if let Some(position) = position(text) {
                             track.positions.insert(at, position);
+                        }
+                        if text == TIMING_TEXT.as_bytes() {
+                            judging = Judging::TimeOnly;
                         }
                     }
                     if let MetaMessage::Marker(text) = meta {
@@ -117,6 +121,7 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
     }
 
     let mut score = Score::new();
+    score.judging = judging;
     // Type 1 files name the song in the first track, which holds only tempo and meta events.
     if let Some(title) = tracks
         .first()
