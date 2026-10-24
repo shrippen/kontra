@@ -5,7 +5,7 @@ nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-`chaining` (I6 Bausteine).
+Kante #76 (1.40: Notenzeilen ohne Noten ohne TypeError) wartet auf den Eigentümer; danach `scripts/sync-kante.sh`.
 
 Plan (Eigentümer, 24.10.): Didaktik I4 (#106), I5 (#107), I6 umgesetzt. Offen aus I4: Schwelle der Streuung für Bünde,
 Generator-Schalter „nur Timing“; aus I5: Ziel-Band im Histogramm (Kante); aus I6: Phrasengrenzen aus Pausen.
@@ -16,7 +16,9 @@ PR-Agent aus.
 Gemerged seit 14.10.: #90–#97 (STAND, Tests, Dateidialoge, Review-Regel), #98 (Kante 1.35–1.39, G9), #99 (I1 Ohne
 Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, gespeichertes Tempo = gespieltes), #100
 (Stück-Generator, Stufe 9), #101 (Beat-Erkennung 12,8 ms zu früh, Abnahme LH-BIB-06), #102 (CI auf GitHub), #103
-(CI-Meldung wiederholen), #104 (flakige Treiber-Tests), #105, #106 (I4 erst der Puls), #107 (I5 Lage-Ziel).
+(CI-Meldung wiederholen), #104 (flakige Treiber-Tests), #105, #106 (I4 erst der Puls), #107 (I5 Lage-Ziel), #108
+(I6 Bausteine), #109 (Vorzähler: Klicks 2–4 fehlten nach gesetztem Tempo), #110 (ProgressPage `data` umbenannt), #111
+(Stück-Generator: Schwierigkeit).
 
 ## Offen
 
@@ -71,6 +73,7 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   Brücke: Property `pocket`, Invokable `changePocket`.
 - #106 (I4): `Judging`, `Arrangement::judging`, `ExpectedNote::any_pitch`, `ExerciseSpec::judging`,
   `pub(crate) TIMING_TEXT`.
+- #111: `exercise::Level` (`ALL`, `key`, `from_key`, `Default`); `ExerciseKind::Song(Style, Level)`.
 - #100: `exercise::Style` (`ALL`, `key`, `from_key`, `minor`), `ExerciseKind::Song`.
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 
