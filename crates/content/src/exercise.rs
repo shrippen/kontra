@@ -224,6 +224,8 @@ pub struct Description {
     /// "triplets", "meter", "slap", "scale", "modes", "reading", "walking", "fingers", "ramp",
     /// "form".
     pub goal: &'static str,
+    /// Time only: the title says so, so it does not share a name with the judged one.
+    pub judging: Judging,
 }
 
 /// One note of the generated line, in file ticks.
@@ -962,15 +964,20 @@ fn title(spec: &ExerciseSpec, pass: &Pass, fifths: i8) -> String {
         Some(end) => format!("{:.0}-{end:.0}", spec.bpm),
         None => format!("{:.0}", spec.bpm),
     };
+    // Judged by time only, the file is another exercise: its own name and progress.
+    let timing = match spec.judging {
+        Judging::TimeOnly => ", nur Timing",
+        Judging::PitchAndTime => "",
+    };
     if let ExerciseKind::Chromatic(_) = spec.kind {
-        return format!("{} ab Bund {} ({bpm} BPM)", pass.label, spec.fret());
+        return format!("{} ab Bund {} ({bpm} BPM){timing}", pass.label, spec.fret());
     }
     let key_name = format!(
         "{}{}",
         name(i32::from(spec.key), fifths),
         if pass.minor { "m" } else { "" }
     );
-    format!("{} in {key_name} ({bpm} BPM)", pass.label)
+    format!("{} in {key_name} ({bpm} BPM){timing}", pass.label)
 }
 
 /// Notes, markers, length and label of one pass of `spec`.
@@ -1216,6 +1223,7 @@ pub fn describe(spec: &ExerciseSpec) -> Description {
         end_bpm: spec.end_bpm(),
         fret,
         goal: goal(spec),
+        judging: spec.judging,
     }
 }
 
@@ -2052,6 +2060,11 @@ mod tests {
             )
         };
         assert_eq!(arrangement(&generate(&timing)).judging, Judging::TimeOnly);
+        // Its own title, so it does not overwrite or share progress with the judged one.
+        assert_eq!(
+            generate(&timing).title,
+            "Groove Viertel auf einem Akkord in E (90 BPM), nur Timing"
+        );
 
         let normal = spec(
             ExerciseKind::Groove(Progression::Tonic, Rhythm::Quarters),
