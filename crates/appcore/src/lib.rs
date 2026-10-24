@@ -20,7 +20,7 @@ mod unplug;
 
 pub use data::DataImport;
 pub use i18n::{Catalog, Language};
-pub use kontra_session::{exercise, ChainOrder, Density};
+pub use kontra_session::{exercise, Blocks, ChainOrder, Density};
 pub use package::PackageAudio;
 pub use store::{
     data_dir, InputKind, Library, RecentEntry, SectionBars, SectionDensity, Setlist, Settings,
@@ -1743,13 +1743,18 @@ impl Core {
         })
     }
 
-    /// Starts building blocks of `size` bars (DIDAKTIK I6) over the chosen bars (with blocks
-    /// running: the bars they started from), or over the whole piece when they make only one
-    /// block; the loop becomes the first step. Returns true
-    /// if the notes changed, as `set_loop`.
-    pub fn start_chain(&mut self, size: usize, order: ChainOrder) -> bool {
+    /// Starts building blocks (DIDAKTIK I6), a few bars each or phrases, over the chosen bars
+    /// (with blocks running: the bars they started from), or over the whole piece when they
+    /// make only one block; the loop becomes the first step. Returns true if the notes changed,
+    /// as `set_loop`.
+    pub fn start_chain(&mut self, blocks: Blocks, order: ChainOrder) -> bool {
         let Some(bars) = self.arrangement().map(|a| a.bars.len()).filter(|n| *n > 0) else {
             return false;
+        };
+        // Phrases are at least two bars: fewer chosen make one block.
+        let size = match blocks {
+            Blocks::Bars(size) => size,
+            Blocks::Phrases => 2,
         };
         // Running blocks loop one step: a new order or size cuts the bars chosen before them.
         let chosen = match self.chain.as_ref() {
@@ -1759,7 +1764,10 @@ impl Core {
         let (first, last) = chosen
             .filter(|(from, to)| to - from >= size)
             .unwrap_or((0, bars - 1));
-        let chain = Chain::new(first, last, size, order, &Workshop::default());
+        let Some(a) = self.arrangement() else {
+            return false;
+        };
+        let chain = Chain::new(a, (first, last), blocks, order, &Workshop::default());
         let (from, to) = chain.step();
         self.chain = Some((chain, chosen));
         self.loop_to(from, to)
@@ -5287,6 +5295,33 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// I6: phrases cut where the line rests; a groove with a rest in every bar makes blocks of
+    /// two bars, a line without rests of four.
+    #[test]
+    fn chain_cuts_phrases_at_rests() {
+        let dir = temp_dir("chainphrases");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        let open = |core: &mut Core, rhythm| {
+            let spec = Core::exercise_spec("groove", "145", rhythm, 4, 80.0, "").unwrap();
+            let path = core.generate_exercise(&spec).unwrap();
+            core.open(&path).unwrap();
+            core.set_mode("workshop");
+            core.set_loop(0, 7);
+        };
+
+        open(&mut core, "rests");
+        core.start_chain(Blocks::Phrases, ChainOrder::Forward);
+        assert_eq!(core.looping, Some((0, 1)));
+        let chain: serde_json::Value = serde_json::from_str(&core.chain_json()).unwrap();
+        assert_eq!(chain["steps"], 7, "1 · 2 · 1–2 · 3 · 1–3 · 4 · 1–4");
+
+        open(&mut core, "eighths");
+        core.start_chain(Blocks::Phrases, ChainOrder::Forward);
+        assert_eq!(core.looping, Some((0, 3)), "no rests: four bars");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// I6: switching order or size while the blocks run cuts the bars chosen at the start, not
     /// the current step (review #108).
     #[test]
@@ -5300,13 +5335,13 @@ mod tests {
         core.set_mode("workshop");
         core.set_loop(0, 5);
 
-        core.start_chain(2, ChainOrder::Forward);
+        core.start_chain(Blocks::Bars(2), ChainOrder::Forward);
         assert_eq!(core.looping, Some((0, 1)));
-        core.start_chain(2, ChainOrder::Backward);
+        core.start_chain(Blocks::Bars(2), ChainOrder::Backward);
         assert_eq!(core.looping, Some((4, 5)), "the last block of bars 1–6");
-        core.start_chain(4, ChainOrder::Forward);
+        core.start_chain(Blocks::Bars(4), ChainOrder::Forward);
         assert_eq!(core.looping, Some((0, 3)));
-        core.start_chain(4, ChainOrder::Backward);
+        core.start_chain(Blocks::Bars(4), ChainOrder::Backward);
         assert_eq!(core.looping, Some((4, 5)));
 
         // Off: back to the chosen bars, so blocks can start over them again.
@@ -5316,18 +5351,18 @@ mod tests {
 
         // Bars 1–4 make one block of 4: the whole piece, but the choice stays (review #108).
         core.set_loop(0, 3);
-        core.start_chain(4, ChainOrder::Forward);
+        core.start_chain(Blocks::Bars(4), ChainOrder::Forward);
         assert_eq!(core.looping, Some((0, 3)), "first block of the whole piece");
-        core.start_chain(2, ChainOrder::Backward);
+        core.start_chain(Blocks::Bars(2), ChainOrder::Backward);
         assert_eq!(core.looping, Some((2, 3)), "the last block of bars 1–4");
-        core.start_chain(4, ChainOrder::Forward);
+        core.start_chain(Blocks::Bars(4), ChainOrder::Forward);
         core.stop_chain();
         assert_eq!(core.looping, Some((0, 3)));
 
         // Leaving the workshop ends the blocks the same way.
-        core.start_chain(2, ChainOrder::Forward);
+        core.start_chain(Blocks::Bars(2), ChainOrder::Forward);
         assert_eq!(core.looping, Some((0, 1)));
-        core.start_chain(3, ChainOrder::Backward);
+        core.start_chain(Blocks::Bars(3), ChainOrder::Backward);
         assert_eq!(
             core.looping,
             Some((3, 3)),

@@ -179,11 +179,11 @@ pub mod qobject {
         #[qinvokable]
         fn pause(self: Pin<&mut Self>);
 
-        /// Building blocks of `size` bars (DIDAKTIK I6), order "forward" or "backward"; size 0
-        /// ends them.
+        /// Building blocks (DIDAKTIK I6): `blocks` "2" or "4" bars or "phrases", "off" ends
+        /// them; order "forward" or "backward".
         #[qinvokable]
         #[cxx_name = "startChain"]
-        fn start_chain(self: Pin<&mut Self>, size: i32, order: &QString);
+        fn start_chain(self: Pin<&mut Self>, blocks: &QString, order: &QString);
 
         /// Plays the loop once without notes on screen (DIDAKTIK I1).
         #[qinvokable]
@@ -653,8 +653,8 @@ use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
 use kontra_appcore::{
-    data_dir, ChainOrder, Core, DataImport, Density, DensityLock, LoopEdge, Opened, PackageAudio,
-    QaOptions, UiEvent,
+    data_dir, Blocks, ChainOrder, Core, DataImport, Density, DensityLock, LoopEdge, Opened,
+    PackageAudio, QaOptions, UiEvent,
 };
 use std::path::PathBuf;
 
@@ -1094,16 +1094,19 @@ impl qobject::Controller {
         self.as_mut().set_chain_json(q(&chain));
     }
 
-    fn start_chain(mut self: Pin<&mut Self>, size: i32, order: &QString) {
+    fn start_chain(mut self: Pin<&mut Self>, blocks: &QString, order: &QString) {
         let order = match order.to_string().as_str() {
             "backward" => ChainOrder::Backward,
             _ => ChainOrder::Forward,
         };
-        let size = usize::try_from(size).unwrap_or(0);
-        let changed = if size == 0 {
-            self.as_mut().core().stop_chain()
-        } else {
-            self.as_mut().core().start_chain(size, order)
+        // "off", "2", "4" (bars per block) or "phrases".
+        let blocks = match blocks.to_string().as_str() {
+            "phrases" => Some(Blocks::Phrases),
+            size => size.parse().ok().filter(|n| *n > 0).map(Blocks::Bars),
+        };
+        let changed = match blocks {
+            Some(blocks) => self.as_mut().core().start_chain(blocks, order),
+            None => self.as_mut().core().stop_chain(),
         };
         if changed {
             self.as_mut().set_playing(false);

@@ -631,9 +631,10 @@ Kirigami.Page {
             visible: ctl.mode === "workshop" && !page.presenting
             spacing: KanteStyle.unit(8)
             readonly property var chain: JSON.parse(ctl.chainJson)
-            readonly property var sizes: [0, 2, 4]
-            // Block size running now (0: off); choosing it again keeps the step reached.
-            property int size: 0
+            // Bars per block or phrases (cut at rests), as ctl.startChain takes them.
+            readonly property var sizes: ["off", "2", "4", "phrases"]
+            // Blocks running now; choosing them again keeps the step reached.
+            property string size: "off"
             readonly property string order: chainBackward.checked ? "backward" : "forward"
             function start(size) {
                 chainRow.size = size
@@ -652,7 +653,7 @@ Kirigami.Page {
                     anchors.verticalCenter: parent.verticalCenter
                     width: KanteStyle.unit(160)
                     Accessible.name: texts.t("chain.title")
-                    model: [texts.t("chain.off"), texts.t("chain.two"), texts.t("chain.four")]
+                    model: [texts.t("chain.off"), texts.t("chain.two"), texts.t("chain.four"), texts.t("chain.phrases")]
                     onActivated: function(index) {
                         if (chainRow.sizes[index] === chainRow.size) {
                             return
@@ -687,7 +688,7 @@ Kirigami.Page {
                 function onChainJsonChanged() {
                     if (JSON.parse(ctl.chainJson) === null) {
                         chainSize.currentIndex = 0
-                        chainRow.size = 0
+                        chainRow.size = "off"
                     }
                 }
             }
