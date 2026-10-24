@@ -1,6 +1,6 @@
 //! Songsterr search from inside Kontra (LH-BIB-11, owner's decision round 12): title, artist,
 //! whether a bass track exists and its tuning. A hit opens the song's page in the browser; tabs
-//! are never fetched (`QUELLEN-SONGS.md`).
+//! are never fetched (`planung/QUELLEN-SONGS.md`).
 //!
 //! ```text
 //! start("seven nation") ─► worker thread ─► Http::get(/api/songs?pattern=…&size=20)

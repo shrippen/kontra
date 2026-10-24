@@ -10,6 +10,7 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 | 3 Inhalte (0.5–0.7) | eigene Audiodatei, `.kontra`-Pakete, Etüden, Gehör | vorgezogen und umgesetzt: Backing-Abgleich (Abnahme LH-BIB-06 synthetisch bestanden, #101), `.kontra`, 150 Übungen in neun Stufen mit Stück-Generator (#100), Gehör; offen: Gegenprobe LH-BIB-06 mit echter Aufnahme |
 | 4 Bass komplett (0.8–1.0) | Kontrabass am Mikrofon, Bass über MIDI, Techniken, Stem-Trennung | MIDI-Eingang mit Klaviatur-Ansicht, Mikrofon mit Echo-Kompensation, Techniken erkannt; Rest offen |
 | Didaktik (laufend) | Wie vermittelt Kontra Bass am besten? Ideen entwickeln, als Prototypen umsetzen, mit Personas vergleichen | I1, I4, I5, I6 und I7 umgesetzt (24.10.), siehe unten |
+| Lernen (Plan) | Lektionen und Glossar „Was ist …?“: erklären, am Bass ausprobieren, üben, prüfen | Plan 25.10.2026: [`LERNEN.md`](LERNEN.md), Entscheidungen offen |
 
 ## Phase 0
 

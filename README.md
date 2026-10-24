@@ -55,6 +55,6 @@ crates/model     gemeinsame Typen
 
 ## Dokumente
 
-- [Konzept](KONZEPT.md) mit Analyse von Rocksmith und Synthesia und den Entscheidungen
-- [Lastenheft](LASTENHEFT.md) · [Personas](PERSONAS.md) · [QA-Journeys](QA.md) · [Roadmap](ROADMAP.md)
+- [Konzept](planung/KONZEPT.md) mit Analyse von Rocksmith und Synthesia und den Entscheidungen
+- [Lastenheft](planung/LASTENHEFT.md) · [Personas](planung/PERSONAS.md) · [QA-Journeys](planung/QA.md) · [Roadmap](planung/ROADMAP.md)
 - [Arbeitsregeln](agent.md)

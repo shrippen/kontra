@@ -5,7 +5,7 @@ name: ci
 # live. There are no pull requests on GitHub, so everything runs on push. Gitea runs only
 # PR-Agent (.gitea/workflows/pr-agent.yml).
 #
-# Stays local: flow tests in a real window with a bass (Xvfb, QA.md), the owner's interface.
+# Stays local: flow tests in a real window with a bass (Xvfb, planung/QA.md), the owner's interface.
 #
 # Needs the secret GITEA_TOKEN: a Gitea token with write access to the repository (commit
 # statuses).
@@ -67,7 +67,7 @@ jobs:
       - name: Design tokens only (LH-NF-10)
         run: scripts/check-design.sh
       - run: cargo clippy --workspace --exclude kontra-app --all-targets -- -D warnings
-      # Includes the journey tests (tests/journeys, QA.md ⚙): recordings rendered on the fly,
+      # Includes the journey tests (tests/journeys, planung/QA.md ⚙): recordings rendered on the fly,
       # played in real time through the app core without a sound card.
       - run: cargo test --workspace --exclude kontra-app
       - run: command -v cargo-deny || cargo install --locked cargo-deny

@@ -1,7 +1,7 @@
 # Kontra: QA-Journeys
 
 Feste User Journeys für explorative QA und für automatisierte Journey-Tests. Jede Journey gehört zu einer oder mehreren Personas aus [`PERSONAS.md`](PERSONAS.md)
-und nennt die Anforderungen aus dem [Lastenheft](LASTENHEFT.md), die sie prüft. Wer etwas an Kontra ändert, spielt die betroffenen Journeys durch (siehe [`agent.md`](agent.md)).
+und nennt die Anforderungen aus dem [Lastenheft](LASTENHEFT.md), die sie prüft. Wer etwas an Kontra ändert, spielt die betroffenen Journeys durch (siehe [`agent.md`](../agent.md)).
 
 ## Ablauf einer Sitzung
 

@@ -1,4 +1,4 @@
-//! Journey tests (QA.md, marked ⚙): each plays a journey through the app core the way the UI
+//! Journey tests (planung/QA.md, marked ⚙): each plays a journey through the app core the way the UI
 //! does, with recordings rendered on the fly instead of an instrument. No sound card needed;
 //! without an output device Kontra runs silently. Run: `cargo test -p kontra-appcore --test journeys`.
 

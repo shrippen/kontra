@@ -56,7 +56,7 @@ const DEFAULT_KEYS: (u8, u8) = (28, 67);
 /// Tunings the settings offer (LH-TUN-02); "drop" lowers the lowest string a whole step.
 const TUNINGS: [&str; 5] = ["standard", "drop", "half-down", "whole-down", "custom"];
 
-/// Options for QA runs (QA.md): a recording instead of the audio input.
+/// Options for QA runs (planung/QA.md): a recording instead of the audio input.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct QaOptions {
     pub input_file: Option<PathBuf>,

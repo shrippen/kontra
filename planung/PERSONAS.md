@@ -2,7 +2,7 @@
 
 Sieben feste Personas für Entwurf, User Journeys ([`QA.md`](QA.md)) und QA. Sie sind erfunden; Ähnlichkeiten mit echten Menschen sind nicht beabsichtigt.
 
-**So werden sie benutzt** (verbindlich über [`agent.md`](agent.md)):
+**So werden sie benutzt** (verbindlich über [`agent.md`](../agent.md)):
 
 - Jede Änderung an einem Ablauf nennt im PR die betroffenen Personas und spielt deren Journeys durch.
 - Jede Anforderung im [Lastenheft](LASTENHEFT.md) nennt mindestens eine Persona, für die sie da ist.
