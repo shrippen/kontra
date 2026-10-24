@@ -240,7 +240,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 
 - **Technik:** Rust; Qt 6/QML mit Kirigami und Kante-QML über cxx-qt; cpal; eigene Erkennung, eigener Time-Stretch und Notensatz; Details im Konzept, Abschnitt 6.
 - **Repository:** `shrippen/kontra` auf git.arianw.de, GitHub als Spiegel; Änderungen nur als Pull Request.
-- **Arbeitsregeln:** [`agent.md`](agent.md) (Code-Stil, Persona- und QA-Regel, Release-, GUI- und Repository-Regel).
+- **Arbeitsregeln:** [`agent.md`](../agent.md) (Code-Stil, Persona- und QA-Regel, Release-, GUI- und Repository-Regel).
 - **Release:** jede Version mit Release-Log (Neu, Verbessert, Behoben, Hinweis), Screenshots aus der Demo und Eintrag auf der Landing Page.
 
 ---

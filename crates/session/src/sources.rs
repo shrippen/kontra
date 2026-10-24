@@ -1,4 +1,4 @@
-//! Where songs come from besides the user's own folders (LH-BIB-11, `QUELLEN-SONGS.md`):
+//! Where songs come from besides the user's own folders (LH-BIB-11, `planung/QUELLEN-SONGS.md`):
 //! a search page on Songsterr or MuseScore.com, opened in the user's browser, and the score
 //! files the browser saved to the download folder since.
 //!

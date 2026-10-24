@@ -3,7 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import Kante
 
-// Songs from outside (LH-BIB-11, QUELLEN-SONGS.md): "Search" asks Songsterr from Kontra (round 12),
+// Songs from outside (LH-BIB-11, planung/QUELLEN-SONGS.md): "Search" asks Songsterr from Kontra (round 12),
 // a result opens its page in the browser; both sites can also be searched in the browser. What the
 // browser saves shows under "New in Downloads", one click opens it. Kontra downloads no tabs.
 ColumnLayout {

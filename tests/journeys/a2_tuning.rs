@@ -1,4 +1,4 @@
-//! J-A2 Stimmen ohne Vorwissen (P1 Lea): the E string 30 cents flat. The recording QA.md names
+//! J-A2 Stimmen ohne Vorwissen (P1 Lea): the E string 30 cents flat. The recording planung/QA.md names
 //! (`stimmen-e-30c.wav`) is rendered here, not committed.
 
 use crate::common::{run_until, Profile, BPM, RATE};

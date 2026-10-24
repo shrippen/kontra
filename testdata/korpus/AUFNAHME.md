@@ -58,5 +58,5 @@ nachtragen (`midi` mit Nachkommastellen), sonst misst die Prüfung die Verstimmu
 kontra-cli korpus check testdata/korpus/local
 ```
 
-Ergebnis und Abweichungen gehören in `ROADMAP.md` (QA-Runde). Unterschreitet ein Satz die Ziele, zuerst einen Test
+Ergebnis und Abweichungen gehören in `planung/ROADMAP.md` (QA-Runde). Unterschreitet ein Satz die Ziele, zuerst einen Test
 mit der Aufnahme anlegen (nur lokal), dann die Erkennung verbessern.

@@ -1,4 +1,4 @@
-//! Kontra desktop app. Arguments (all optional, for QA runs and screenshots, see QA.md):
+//! Kontra desktop app. Arguments (all optional, for QA runs and screenshots, see planung/QA.md):
 //!
 //! ```text
 //! kontra [--open FILE] [--page library|practice|tuner|settings] [--input-file WAV]
