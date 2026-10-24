@@ -13,7 +13,7 @@ Kirigami.ScrollablePage {
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
-    property var data: ({ pieces: [], runs: [] })
+    property var summary: ({ pieces: [], runs: [] })
     readonly property int dayCount: 14
     // LH-FOR-04: the piece whose report is being saved.
     property string reportSongId: ""
@@ -28,11 +28,11 @@ Kirigami.ScrollablePage {
             start.setDate(today.getDate() - i)
             out.push({ start: start.getTime(), minutes: 0 })
         }
-        for (var r = 0; r < data.runs.length; r++) {
-            var t = data.runs[r].unix * 1000
+        for (var r = 0; r < summary.runs.length; r++) {
+            var t = summary.runs[r].unix * 1000
             for (var d = out.length - 1; d >= 0; d--) {
                 if (t >= out[d].start) {
-                    if (d === out.length - 1 || t < out[d + 1].start) out[d].minutes += data.runs[r].s / 60
+                    if (d === out.length - 1 || t < out[d + 1].start) out[d].minutes += summary.runs[r].s / 60
                     break
                 }
             }
@@ -49,7 +49,7 @@ Kirigami.ScrollablePage {
     readonly property string weekText: texts.t(weekDays === 1 ? "progress.week.oneday" : "progress.week",
                                                { time: weekTimeText, days: weekDays })
 
-    function reload() { data = JSON.parse(ctl.progressJson()) }
+    function reload() { summary = JSON.parse(ctl.progressJson()) }
     function dateText(unix) {
         var date = new Date(unix * 1000)
         return date.getDate() + "." + (date.getMonth() + 1) + "."
@@ -68,7 +68,7 @@ Kirigami.ScrollablePage {
 
         KanteEmptyState {
             Layout.fillWidth: true
-            visible: page.data.pieces.length === 0
+            visible: page.summary.pieces.length === 0
             title: texts.t("progress.empty.title")
             text: texts.t("progress.empty.text")
             KanteButton {
@@ -79,7 +79,7 @@ Kirigami.ScrollablePage {
 
         ColumnLayout {
             Layout.fillWidth: true
-            visible: page.data.pieces.length > 0
+            visible: page.summary.pieces.length > 0
             spacing: KanteStyle.unit(16)
 
             QQC2.Label {
@@ -111,7 +111,7 @@ Kirigami.ScrollablePage {
 
             KanteSectionLabel { text: texts.t("progress.pieces") }
             Repeater {
-                model: page.data.pieces
+                model: page.summary.pieces
                 delegate: ColumnLayout {
                     required property var modelData
                     Layout.fillWidth: true
