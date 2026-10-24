@@ -188,7 +188,8 @@ fn breathes(a: &Arrangement, bar: usize) -> bool {
         .notes
         .iter()
         .map(|n| n.start_ticks)
-        .find(|t| *t >= line)
+        .filter(|t| *t >= line)
+        .min()
         .unwrap_or(u64::MAX);
     after.saturating_sub(before) >= PHRASE_GAP_TICKS
 }
