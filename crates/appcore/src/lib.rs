@@ -1777,6 +1777,22 @@ impl Core {
         }
     }
 
+    fn practice_options(&self) -> PracticeOptions {
+        PracticeOptions {
+            metronome: self.settings.metronome,
+            // A probe from the start page begins at once: one bar to get ready at least.
+            count_in_bars: if self.probe.is_some() {
+                self.settings.count_in_bars.max(1)
+            } else {
+                self.settings.count_in_bars
+            },
+            // A probe is without help: no reference tones playing the notes.
+            reference_tones: self.settings.reference_tones && self.probe.is_none(),
+            backing_offset_s: self.backing().map_or(0.0, |(_, offset)| offset),
+            transpose_semitones: self.transpose(),
+        }
+    }
+
     fn input_choice(&self) -> InputChoice {
         match &self.qa.input_file {
             Some(path) => InputChoice::File {
@@ -1866,18 +1882,7 @@ impl Core {
         self.level.reset();
         let arrangement = loaded.arrangement.clone();
         let settings = self.score_settings(arrangement.instrument.kind);
-        let options = PracticeOptions {
-            metronome: self.settings.metronome,
-            // A probe from the start page begins at once: one bar to get ready at least.
-            count_in_bars: if self.probe.is_some() {
-                self.settings.count_in_bars.max(1)
-            } else {
-                self.settings.count_in_bars
-            },
-            reference_tones: self.settings.reference_tones,
-            backing_offset_s: self.backing().map_or(0.0, |(_, offset)| offset),
-            transpose_semitones: self.transpose(),
-        };
+        let options = self.practice_options();
         let setup = LiveSetup {
             input: self.input_choice(),
             output_device: self.output_device(),
@@ -5139,6 +5144,18 @@ mod tests {
             "{events:?}"
         );
         assert!(!core.is_probing());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// PR #99 review: a probe plays no reference tones, even if the player turned them on.
+    #[test]
+    fn probe_has_no_reference_tones() {
+        let dir = temp_dir("probetones");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.reference_tones = true);
+        assert!(core.practice_options().reference_tones);
+        core.probe = Some(Probe { speed: 1.0 });
+        assert!(!core.practice_options().reference_tones);
         let _ = std::fs::remove_dir_all(dir);
     }
 

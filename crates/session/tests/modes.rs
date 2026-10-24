@@ -298,13 +298,13 @@ fn early_note_at_loop_start_counts_for_the_next_pass() {
     ];
     run(&mut s, &notes, 3.0);
     let extras = s.results().iter().filter(|r| r.note.is_none()).count();
-    assert_eq!(extras, 0);
+    assert_eq!(extras, 0, "{:?}", s.results());
     let first = s
         .results()
         .iter()
         .find(|r| r.pass == 1 && r.note == Some(0))
         .expect("pass 1 first note judged");
-    assert_eq!(first.outcome, Outcome::Hit);
+    assert_eq!(first.outcome, Outcome::Hit, "{:?}", s.results());
     assert!((first.offset_ms.unwrap() + 20.0).abs() < 1.0, "{first:?}");
 }
 
@@ -365,8 +365,8 @@ fn notes_after_a_stall_land_in_the_right_pass() {
     s.update(6.6);
     let extras = s.results().iter().filter(|r| r.note.is_none()).count();
     let hits = s.results().iter().filter(|r| r.is_hit()).count();
-    assert_eq!(extras, 0);
-    assert_eq!(hits, 12);
+    assert_eq!(extras, 0, "{:?}", s.results());
+    assert_eq!(hits, 12, "{:?}", s.results());
 }
 
 /// Chords: any tone counts for the whole chord (the detector hears one note), and every chord
@@ -388,7 +388,7 @@ fn chord_counts_once_for_all_tones() {
     // Upper tone of the first chord, then the single note; the second chord is not played.
     run(&mut s, &[played(0.01, 35.0), played(0.5, 33.0)], 3.0);
     let summary = s.summary();
-    assert_eq!(summary.hits, 3);
+    assert_eq!(summary.hits, 3, "{:?}", s.results());
     assert_eq!(summary.missed, 2);
     assert_eq!(summary.extra, 0);
     let first_chord: Vec<_> = s
@@ -441,7 +441,7 @@ fn transposing_while_playing_keeps_the_run() {
         .collect();
     run_from(&mut s, &later, 0.81, 4.5);
     let summary = s.summary();
-    assert_eq!((summary.hits, summary.judged), (8, 8));
+    assert_eq!((summary.hits, summary.judged), (8, 8), "{:?}", s.results());
 
     let mut shorter = riff();
     shorter.notes.pop();
