@@ -20,7 +20,7 @@ mod unplug;
 
 pub use data::DataImport;
 pub use i18n::{Catalog, Language};
-pub use kontra_session::{exercise, Density};
+pub use kontra_session::{exercise, ChainOrder, Density};
 pub use package::PackageAudio;
 pub use store::{
     data_dir, InputKind, Library, RecentEntry, SectionBars, SectionDensity, Setlist, Settings,
@@ -28,7 +28,7 @@ pub use store::{
 
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Judging, Technique, Tuning};
 use kontra_session::{
-    import_file, list_devices, run_from, technique_signs, CalibrationResult, Connection,
+    import_file, list_devices, run_from, technique_signs, CalibrationResult, Chain, Connection,
     DeviceInfo, Direction, Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveEar,
     LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Outcome, Pocket, PocketVerdict,
     PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings, SessionEvent, Shaping,
@@ -132,6 +132,11 @@ pub enum UiEvent {
     InputBack(String),
     /// Bass removal of the backing track changed (`Core::stems_json`).
     Stems(String),
+    /// Building blocks moved on (DIDAKTIK I6): the new step (`Core::chain_json`) is the loop,
+    /// its run starts with a count-in.
+    ChainStep {
+        chain_json: String,
+    },
     /// Calibration finished: new latency (if measured) and a text for the user.
     Calibrated {
         latency_ms: Option<f64>,
@@ -224,6 +229,8 @@ pub struct Core {
     finder: songsterr::Finder,
     /// The blind probe running now (DIDAKTIK I1), if any.
     probe: Option<Probe>,
+    /// Building blocks in the workshop (DIDAKTIK I6), if chosen, and the loop chosen before them.
+    chain: Option<(Chain, Option<(usize, usize)>)>,
 }
 
 /// One pass of the loop without notes on screen (DIDAKTIK I1), at the speed it was practised.
@@ -269,6 +276,7 @@ impl Core {
             downloads: kontra_session::download_dir(),
             finder: songsterr::Finder::default(),
             probe: None,
+            chain: None,
             notice: None,
             active_setlist: None,
             lost: None,
@@ -1257,6 +1265,7 @@ impl Core {
         arrangement.instrument.a4_hz = self.a4_hz();
         self.stop_live();
         self.looping = None;
+        self.chain = None;
         let song_id = ProgressStore::song_id(&arrangement);
         self.adopt_progress(path, &song_id);
         self.library.touch(RecentEntry {
@@ -1562,7 +1571,10 @@ impl Core {
         self.speed
     }
 
-    pub fn set_mode(&mut self, mode: &str) {
+    /// Returns true if the notes changed: leaving the workshop ends the building blocks and
+    /// loops the bars chosen before them (`stop_chain`).
+    pub fn set_mode(&mut self, mode: &str) -> bool {
+        let changed = mode != "workshop" && self.stop_chain();
         let own = self.loaded_path().is_some_and(|p| !self.is_bundled(p));
         self.reconfigure(|s| {
             s.mode = mode.to_string();
@@ -1570,6 +1582,7 @@ impl Core {
                 s.piece_mode = Some(mode.to_string());
             }
         });
+        changed
     }
 
     /// Loops bars `from..=to` (indices into the arrangement's bars).
@@ -1585,6 +1598,12 @@ impl Core {
 
     /// Returns true if the notes changed: the section has another note density (LH-MOD-06).
     pub fn set_loop(&mut self, from: usize, to: usize) -> bool {
+        // Bars chosen by hand end the building blocks.
+        self.chain = None;
+        self.loop_to(from, to)
+    }
+
+    fn loop_to(&mut self, from: usize, to: usize) -> bool {
         self.looping = Some((from.min(to), from.max(to)));
         let range = self.loop_range();
         if let Some(live) = self.live.as_mut() {
@@ -1621,6 +1640,7 @@ impl Core {
     /// Returns true if the notes changed, as `set_loop`.
     pub fn clear_loop(&mut self) -> bool {
         self.looping = None;
+        self.chain = None;
         if let Some(live) = self.live.as_mut() {
             live.practice_mut().set_loop(None);
         }
@@ -1721,6 +1741,95 @@ impl Core {
             level: next.level(),
             text: self.tr(key, &[("percent", format!("{:.0}", hit_rate * 100.0))]),
         })
+    }
+
+    /// Starts building blocks of `size` bars (DIDAKTIK I6) over the chosen bars (with blocks
+    /// running: the bars they started from), or over the whole piece when they make only one
+    /// block; the loop becomes the first step. Returns true
+    /// if the notes changed, as `set_loop`.
+    pub fn start_chain(&mut self, size: usize, order: ChainOrder) -> bool {
+        let Some(bars) = self.arrangement().map(|a| a.bars.len()).filter(|n| *n > 0) else {
+            return false;
+        };
+        // Running blocks loop one step: a new order or size cuts the bars chosen before them.
+        let chosen = match self.chain.as_ref() {
+            Some((_, chosen)) => *chosen,
+            None => self.looping,
+        };
+        let (first, last) = chosen
+            .filter(|(from, to)| to - from >= size)
+            .unwrap_or((0, bars - 1));
+        let chain = Chain::new(first, last, size, order, &Workshop::default());
+        let (from, to) = chain.step();
+        self.chain = Some((chain, chosen));
+        self.loop_to(from, to)
+    }
+
+    /// Ends the building blocks; the loop goes back to the one chosen before them (none, if
+    /// none was). Returns true if the notes changed, as `set_loop`.
+    pub fn stop_chain(&mut self) -> bool {
+        let Some((_, chosen)) = self.chain.take() else {
+            return false;
+        };
+        match chosen {
+            Some((from, to)) => self.loop_to(from, to),
+            None => self.clear_loop(),
+        }
+    }
+
+    /// The building blocks for the UI, or `null`: `{step, steps, last, text}`, `text` like
+    /// "Baustein: Takte 3–4 · Schritt 2 von 5".
+    pub fn chain_json(&self) -> String {
+        let Some((chain, _)) = self.chain.as_ref() else {
+            return "null".into();
+        };
+        let (from, to) = chain.step();
+        let number = |bar: usize| {
+            self.arrangement()
+                .and_then(|a| a.bars.get(bar))
+                .map_or(bar + 1, |b| b.source_index as usize + 1)
+        };
+        let key = if chain.is_last() {
+            "chain.whole"
+        } else if from == to {
+            "chain.step.one"
+        } else {
+            "chain.step"
+        };
+        let text = self.tr(
+            key,
+            &[
+                ("from", number(from).to_string()),
+                ("to", number(to).to_string()),
+                ("step", (chain.index() + 1).to_string()),
+                ("steps", chain.count().to_string()),
+            ],
+        );
+        json!({
+            "step": chain.index(),
+            "steps": chain.count(),
+            "last": chain.is_last(),
+            "text": text,
+        })
+        .to_string()
+    }
+
+    /// After a workshop pass: when the step sits, its run ends (and is saved) and the next step
+    /// starts with a count-in. Not within the run: clicks and backing are planned ahead.
+    fn chain_pass(&mut self, hit_rate: f64) -> Vec<UiEvent> {
+        if self.settings.mode != "workshop" || self.probe.is_some() {
+            return Vec::new();
+        }
+        let Some((from, to)) = self.chain.as_mut().and_then(|(c, _)| c.on_pass(hit_rate)) else {
+            return Vec::new();
+        };
+        self.stop_live();
+        self.loop_to(from, to);
+        let mut events = vec![UiEvent::ChainStep {
+            chain_json: self.chain_json(),
+        }];
+        events.extend(self.play());
+        events
     }
 
     /// Loop range in seconds, or (-1, -1).
@@ -1961,6 +2070,14 @@ impl Core {
         });
         if let Some(hint) = rate.and_then(|r| self.density_hint(r)) {
             events.push(hint);
+        }
+        let passed = events.iter().find_map(|e| match e {
+            UiEvent::PassComplete { hit_rate, .. } => Some(*hit_rate),
+            _ => None,
+        });
+        if let Some(rate) = passed {
+            let steps = self.chain_pass(rate);
+            events.extend(steps);
         }
         if finished {
             self.record_run();
@@ -5110,6 +5227,63 @@ mod tests {
         assert_eq!(first_level["mastered"], 1);
         assert_eq!(first_level["items"][0]["mastered"], true);
         assert_eq!(first_level["items"][1]["mastered"], false);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// I6: switching order or size while the blocks run cuts the bars chosen at the start, not
+    /// the current step (review #108).
+    #[test]
+    fn chain_restarts_over_the_chosen_bars() {
+        let dir = temp_dir("chainrestart");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        let bars = core.arrangement().unwrap().bars.len();
+        assert!(bars > 6, "{bars}");
+        core.set_mode("workshop");
+        core.set_loop(0, 5);
+
+        core.start_chain(2, ChainOrder::Forward);
+        assert_eq!(core.looping, Some((0, 1)));
+        core.start_chain(2, ChainOrder::Backward);
+        assert_eq!(core.looping, Some((4, 5)), "the last block of bars 1–6");
+        core.start_chain(4, ChainOrder::Forward);
+        assert_eq!(core.looping, Some((0, 3)));
+        core.start_chain(4, ChainOrder::Backward);
+        assert_eq!(core.looping, Some((4, 5)));
+
+        // Off: back to the chosen bars, so blocks can start over them again.
+        core.stop_chain();
+        assert_eq!(core.looping, Some((0, 5)));
+        assert_eq!(core.chain_json(), "null");
+
+        // Bars 1–4 make one block of 4: the whole piece, but the choice stays (review #108).
+        core.set_loop(0, 3);
+        core.start_chain(4, ChainOrder::Forward);
+        assert_eq!(core.looping, Some((0, 3)), "first block of the whole piece");
+        core.start_chain(2, ChainOrder::Backward);
+        assert_eq!(core.looping, Some((2, 3)), "the last block of bars 1–4");
+        core.start_chain(4, ChainOrder::Forward);
+        core.stop_chain();
+        assert_eq!(core.looping, Some((0, 3)));
+
+        // Leaving the workshop ends the blocks the same way.
+        core.start_chain(2, ChainOrder::Forward);
+        assert_eq!(core.looping, Some((0, 1)));
+        core.start_chain(3, ChainOrder::Backward);
+        assert_eq!(
+            core.looping,
+            Some((3, 3)),
+            "bars 1–4 by 3 end in a block of one bar"
+        );
+        assert!(
+            core.chain_json().contains("Baustein: Takt 4 ·"),
+            "{}",
+            core.chain_json()
+        );
+        core.set_mode("song");
+        assert_eq!(core.looping, Some((0, 3)));
+        assert_eq!(core.chain_json(), "null");
         let _ = std::fs::remove_dir_all(dir);
     }
 

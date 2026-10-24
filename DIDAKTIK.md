@@ -213,6 +213,8 @@ Streuung, ab der Bünde kommen; Schalter „nur Timing“ im Generator.*
 - **These/Quelle:** These 4; Chunking (Sakai et al. 2003); Duke et al. 2009; Yousician „one part at a time“.
 - **Personas:** P1, P2, P4 (Übungsfolgen bauen).
 - **Braucht:** Werkstatt mit Bereichsliste und Abfolge; automatische Phrasengrenzen (einfach: alle 2 oder 4 Takte).
+- **Umgesetzt (24.10., LH-MOD-08):** Bausteine zu 2 oder 4 Takten, vorwärts oder von hinten; ein sitzender Schritt
+  startet den nächsten mit Einzähler. Offen: Phrasengrenzen aus Pausen oder Zögern statt fester Taktzahl.
 - **Messgröße:** Übungszeit bis Lied ganz durch mit ≥ 85 %; Behalten nach 2 Tagen.
 - **Aufwand:** M.
 

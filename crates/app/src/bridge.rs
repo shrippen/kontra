@@ -56,6 +56,7 @@ pub mod qobject {
         #[qproperty(i32, holding_index, cxx_name = "holdingIndex")]
         #[qproperty(QString, holding_text, cxx_name = "holdingText")]
         #[qproperty(QString, summary_json, cxx_name = "summaryJson")]
+        #[qproperty(QString, chain_json, cxx_name = "chainJson")]
         #[qproperty(QString, recent_json, cxx_name = "recentJson")]
         #[qproperty(QString, setlists_json, cxx_name = "setlistsJson")]
         /// Tracks of the loaded file: `{"names": [...], "current": i}`.
@@ -177,6 +178,12 @@ pub mod qobject {
 
         #[qinvokable]
         fn pause(self: Pin<&mut Self>);
+
+        /// Building blocks of `size` bars (DIDAKTIK I6), order "forward" or "backward"; size 0
+        /// ends them.
+        #[qinvokable]
+        #[cxx_name = "startChain"]
+        fn start_chain(self: Pin<&mut Self>, size: i32, order: &QString);
 
         /// Plays the loop once without notes on screen (DIDAKTIK I1).
         #[qinvokable]
@@ -645,8 +652,8 @@ use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
 use kontra_appcore::{
-    data_dir, Core, DataImport, Density, DensityLock, LoopEdge, Opened, PackageAudio, QaOptions,
-    UiEvent,
+    data_dir, ChainOrder, Core, DataImport, Density, DensityLock, LoopEdge, Opened, PackageAudio,
+    QaOptions, UiEvent,
 };
 use std::path::PathBuf;
 
@@ -694,6 +701,7 @@ pub struct ControllerRust {
     holding_index: i32,
     holding_text: QString,
     summary_json: QString,
+    chain_json: QString,
     recent_json: QString,
     setlists_json: QString,
     next_title: QString,
@@ -842,6 +850,7 @@ impl Default for ControllerRust {
             holding_index: -1,
             holding_text: QString::default(),
             summary_json: QString::default(),
+            chain_json: q("null"),
             recent_json: q(&core.recent_json()),
             setlists_json: q(&core.setlists_json()),
             next_title: QString::default(),
@@ -1067,6 +1076,7 @@ impl qobject::Controller {
         self.as_mut().set_summary_json(QString::default());
         self.as_mut().set_holding_index(-1);
         self.as_mut().refresh_density();
+        self.as_mut().refresh_chain();
         self.as_mut().arrangement_loaded();
     }
 
@@ -1076,6 +1086,39 @@ impl qobject::Controller {
         self.as_mut().set_density(i32::from(density.level()));
         self.as_mut().set_density_fixed(lock == DensityLock::Fixed);
         self.as_mut().set_density_suggestion(0);
+    }
+
+    fn refresh_chain(mut self: Pin<&mut Self>) {
+        let chain = self.as_ref().rust().core.chain_json();
+        self.as_mut().set_chain_json(q(&chain));
+    }
+
+    fn start_chain(mut self: Pin<&mut Self>, size: i32, order: &QString) {
+        let order = match order.to_string().as_str() {
+            "backward" => ChainOrder::Backward,
+            _ => ChainOrder::Forward,
+        };
+        let size = usize::try_from(size).unwrap_or(0);
+        let changed = if size == 0 {
+            self.as_mut().core().stop_chain()
+        } else {
+            self.as_mut().core().start_chain(size, order)
+        };
+        if changed {
+            self.as_mut().set_playing(false);
+            self.as_mut().refresh_arrangement();
+        }
+        self.as_mut().after_loop();
+    }
+
+    /// The loop moved: density, building blocks, pass count and loop times follow.
+    fn after_loop(mut self: Pin<&mut Self>) {
+        self.as_mut().refresh_density();
+        self.as_mut().refresh_chain();
+        self.as_mut().reset_passes();
+        let (start, end) = self.as_ref().rust().core.loop_seconds();
+        self.as_mut().set_loop_start(start);
+        self.as_mut().set_loop_end(end);
     }
 
     fn change_density(mut self: Pin<&mut Self>, level: i32, lock: &QString) {
@@ -1198,7 +1241,11 @@ impl qobject::Controller {
 
     fn change_mode(mut self: Pin<&mut Self>, mode: &QString) {
         let mode = mode.to_string();
-        self.as_mut().core().set_mode(&mode);
+        // Leaving the workshop ends the building blocks: back to the bars chosen before them.
+        if self.as_mut().core().set_mode(&mode) {
+            self.as_mut().refresh_arrangement();
+        }
+        self.as_mut().after_loop();
         self.as_mut().set_mode(q(&mode));
         self.as_mut().reset_passes();
         self.as_mut().rewind();
@@ -1239,6 +1286,7 @@ impl qobject::Controller {
             self.as_mut().refresh_arrangement();
         }
         self.as_mut().refresh_density();
+        self.as_mut().refresh_chain();
         self.as_mut().reset_passes();
         let (start, end) = self.as_ref().rust().core.loop_seconds();
         self.as_mut().set_loop_start(start);
@@ -1257,6 +1305,7 @@ impl qobject::Controller {
             self.as_mut().refresh_arrangement();
         }
         self.as_mut().refresh_density();
+        self.as_mut().refresh_chain();
         self.as_mut().reset_passes();
         let (start, end) = self.as_ref().rust().core.loop_seconds();
         self.as_mut().set_loop_start(start);
@@ -1275,6 +1324,7 @@ impl qobject::Controller {
             self.as_mut().refresh_arrangement();
         }
         self.as_mut().refresh_density();
+        self.as_mut().refresh_chain();
         self.as_mut().set_loop_start(-1.0);
         self.as_mut().set_loop_end(-1.0);
     }
@@ -1406,6 +1456,14 @@ impl qobject::Controller {
                     self.as_mut().set_density_text(q(&text));
                 }
                 UiEvent::Stems(state) => self.as_mut().set_stems_json(q(&state)),
+                UiEvent::ChainStep { chain_json } => {
+                    // A new run: the marks of the last step go.
+                    self.as_mut().refresh_arrangement();
+                    self.as_mut().after_loop();
+                    self.as_mut().set_chain_json(q(&chain_json));
+                    let playing = self.as_ref().rust().core.is_playing();
+                    self.as_mut().set_playing(playing);
+                }
                 UiEvent::Calibrated { latency_ms, text } => {
                     if let Some(latency) = latency_ms {
                         self.as_mut().set_latency_ms(latency);
