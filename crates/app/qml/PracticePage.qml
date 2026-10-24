@@ -634,9 +634,10 @@ Kirigami.Page {
             readonly property var sizes: [0, 2, 4]
             // Block size running now (0: off); choosing it again keeps the step reached.
             property int size: 0
-            function start(size, backward) {
+            readonly property string order: chainBackward.checked ? "backward" : "forward"
+            function start(size) {
                 chainRow.size = size
-                ctl.startChain(size, backward ? "backward" : "forward")
+                ctl.startChain(size, chainRow.order)
             }
             Row {
                 spacing: KanteStyle.unit(8)
@@ -656,14 +657,14 @@ Kirigami.Page {
                         if (chainRow.sizes[index] === chainRow.size) {
                             return
                         }
-                        chainRow.start(chainRow.sizes[index], chainBackward.checked)
+                        chainRow.start(chainRow.sizes[index])
                     }
                 }
                 KanteSwitch {
                     id: chainBackward
                     anchors.verticalCenter: parent.verticalCenter
                     Accessible.name: texts.t("chain.backward")
-                    onToggled: { if (chainRow.chain !== null) { chainRow.start(chainRow.sizes[chainSize.currentIndex], checked) } }
+                    onToggled: { if (chainRow.chain !== null) { chainRow.start(chainRow.sizes[chainSize.currentIndex]) } }
                 }
                 QQC2.Label { anchors.verticalCenter: parent.verticalCenter; text: texts.t("chain.backward"); color: KanteStyle.textColor }
                 KanteInfoTip {
