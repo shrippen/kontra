@@ -1571,10 +1571,10 @@ impl Core {
         self.speed
     }
 
-    pub fn set_mode(&mut self, mode: &str) {
-        if mode != "workshop" {
-            self.chain = None;
-        }
+    /// Returns true if the notes changed: leaving the workshop ends the building blocks and
+    /// loops the bars chosen before them (`stop_chain`).
+    pub fn set_mode(&mut self, mode: &str) -> bool {
+        let changed = mode != "workshop" && self.stop_chain();
         let own = self.loaded_path().is_some_and(|p| !self.is_bundled(p));
         self.reconfigure(|s| {
             s.mode = mode.to_string();
@@ -1582,6 +1582,7 @@ impl Core {
                 s.piece_mode = Some(mode.to_string());
             }
         });
+        changed
     }
 
     /// Loops bars `from..=to` (indices into the arrangement's bars).
@@ -5262,6 +5263,13 @@ mod tests {
         core.start_chain(4, ChainOrder::Forward);
         core.stop_chain();
         assert_eq!(core.looping, Some((0, 3)));
+
+        // Leaving the workshop ends the blocks the same way.
+        core.start_chain(2, ChainOrder::Forward);
+        assert_eq!(core.looping, Some((0, 1)));
+        core.set_mode("song");
+        assert_eq!(core.looping, Some((0, 3)));
+        assert_eq!(core.chain_json(), "null");
         let _ = std::fs::remove_dir_all(dir);
     }
 

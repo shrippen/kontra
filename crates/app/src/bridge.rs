@@ -1241,11 +1241,10 @@ impl qobject::Controller {
 
     fn change_mode(mut self: Pin<&mut Self>, mode: &QString) {
         let mode = mode.to_string();
-        // Leaving the workshop ends the building blocks: back to the bars they started from.
-        if mode != "workshop" && self.as_mut().core().stop_chain() {
+        // Leaving the workshop ends the building blocks: back to the bars chosen before them.
+        if self.as_mut().core().set_mode(&mode) {
             self.as_mut().refresh_arrangement();
         }
-        self.as_mut().core().set_mode(&mode);
         self.as_mut().after_loop();
         self.as_mut().set_mode(q(&mode));
         self.as_mut().reset_passes();
