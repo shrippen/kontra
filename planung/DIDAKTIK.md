@@ -187,7 +187,8 @@ nach einer Nacht (Eigentümer). Offen: Behalten nach 1 und 3 Tagen auswerten, so
 
 *Plan der mitgelieferten Übungen (Runde 12): Stufe 4 Groove vor 5 Walking Bass, Groove vor Tönen auch zwischen den Stufen.*
 *Umgesetzt (24.10., LH-LRN-06): fünf Grooves der Stufe 1 auf leerer Saite bewerten nur den Anschlag. Schalter „nur Timing“ im
-Generator seit 24.10. Offen: Schwelle der Streuung, ab der Bünde kommen.*
+Generator seit 24.10. Schwelle seit 25.10.: Die Übung sitzt bei ≥ 90 % Treffern und Streuung ≤ ±25 ms, dann kommen
+die Bünde (nächste Übung).*
 
 - **Beschreibung:** Erste Übungen nur auf der offenen E- oder A-Saite zu Drums: Viertel, Achtel, Pausen, Betonung auf 1. Bewertet wird nur der Anschlag (Onset), nicht die Tonhöhe. Erst wenn die Streuung klein ist, kommen Bünde dazu.
 - **These/Quelle:** These 3; Lehrer nennen Rhythmus als häufigsten Anfängerfehler (Bass Musician Magazine 2025); Groove-zuerst-Kurse; Chunking (Teilfertigkeit isolieren).
