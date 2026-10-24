@@ -210,16 +210,17 @@ Item {
     Accessible.role: Accessible.Chart
     Accessible.name: accessibleName
     Accessible.description: {
-        var d = barText.arg(barList.length ? barList[currentBar].number : 1).arg(barList.length)
-        var cb = barList[currentBar]
+        let d = barText.arg(barList.length ? barList[currentBar].number : 1).arg(barList.length)
+        const cb = barList[currentBar]
         if (cb && cb.endings.length > 0) {
             d += ", " + endingText.arg(cb.endings.join(", "))
         }
-        if (currentIndex >= 0) {
-            var n = notes[currentIndex]
+        // notes can change before currentIndex follows (e.g. emptied while playing)
+        const n = currentIndex >= 0 ? notes[currentIndex] : undefined
+        if (n) {
             d += ", " + nameOf(Number(n.string) || 0) + " " + n.fret + " (" + KanteStyle.noteStateName(shownState(currentIndex, stateRevision)) + centsSuffix(currentIndex, stateRevision) + ")"
         }
-        var t = techniqueSummary(stateRevision)
+        const t = techniqueSummary(stateRevision)
         if (t !== "") {
             d += ", " + t
         }
