@@ -21,7 +21,7 @@ App zieht Bibliothek und Setlisten beim Laden auf die neuen Pfade um.
 | 6 Taktarten | 3/4, 6/8, 5/4, 7/8 | P3 |
 | 7 Lesen | Dur in allen Tonarten, Terzen, Vierergruppen, harmonisch Moll, Modi, Arpeggios in entfernten Tonarten | P3, P4 |
 | 8 Technik | Slap und Pop, Fingerfolgen in allen Lagen, Tempo-Treppen | P2, P3 |
-| 9 Stücke | Ganze Stücke mit Form (Intro, Strophe, Refrain, Bridge, Outro) und Schlagzeug: Ballade, Pop, Rock, Shuffle, Funk; ein Fill vor jedem neuen Teil | P1, P2, P4 |
+| 9 Stücke | Ganze Stücke mit Form und Schlagzeug: Pop, Rock, Funk (Intro, Strophe, Refrain, Bridge, Outro), Ballade (ohne Bridge), Shuffle (vier Blues-Chorusse); ein Fill vor jedem neuen Teil | P1, P2, P4 |
 
 Akkordnamen stehen als MIDI-Marker am Taktanfang; Grooves haben eine Schlagzeugspur auf Kanal 10. Techniken (`ghost`,
 `dead`, `slap`, `pop`) und feste Griffe (`pos <Saite> <Bund>`, Saite 0 = E) stehen als Text-Ereignis an der Note.

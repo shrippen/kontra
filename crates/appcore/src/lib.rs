@@ -4273,6 +4273,17 @@ mod tests {
         assert!(matches!(core.open(&path), Ok(Opened::Ready)));
         let a = core.arrangement().unwrap();
         assert_eq!(a.bars[0].signature.numerator, 7);
+
+        // A piece (LH-BIB-12) the way the generator page asks for it: played once, titled in
+        // the UI's language, with drums.
+        let piece = spec("song", "funk", "", 9);
+        assert_eq!(piece.repeats, 1);
+        assert_eq!(title(&core, &piece), "Stück Funk in Am (80 BPM)");
+        core.update_settings(|s| s.language = Some("en".into()));
+        assert_eq!(title(&core, &piece), "Funk piece in Am (80 BPM)");
+        let path = core.generate_exercise(&piece).unwrap();
+        assert!(matches!(core.open(&path), Ok(Opened::Ready)));
+        assert!(!core.arrangement().unwrap().drums.is_empty());
         let _ = std::fs::remove_dir_all(dir);
     }
 
