@@ -26,12 +26,12 @@ along. A bug that matters is one the player hears, sees or loses data to:
   text in code instead of a translation key (de and en).
 - **Brings in what it must not:** a dependency without a reason in the PR
   or under a licence `agent.md` forbids (GPL, MPL, LGPL crates).
-- **Lies:** `LASTENHEFT.md`, `ROADMAP.md`, `QA.md`, `KONZEPT.md`, README or
+- **Lies:** `planung/LASTENHEFT.md`, `planung/ROADMAP.md`, `planung/QA.md`, `planung/KONZEPT.md`, README or
   comments that the change made wrong.
 
 ## What to check in particular
 
-- New behaviour has a test; a changed flow changes its journey in `QA.md`
+- New behaviour has a test; a changed flow changes its journey in `planung/QA.md`
   (and its test in `tests/journeys/` where it is marked ⚙).
 - Changes to detection are measured against the real IDMT recordings
   (`kontra-cli korpus measure`), not only the synthetic set.

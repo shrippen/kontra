@@ -44,8 +44,8 @@ Rule 7: Use the body to explain what and why vs. how. Assume the code explains t
 Bass-Trainer für KDE Plasma (Linux zuerst): hört am echten Bass zu (Klinke, Interface;
 ab Phase 4 Mikrofon und MIDI), Tab-Lane, Tabulatur und Noten laufen mit, Rückmeldung
 zu Ton und Timing. Lernen und einfach Lieder spielen. Bis 1.0 nur Bass.
-Konzept und Entscheidungen: `KONZEPT.md`; Anforderungen: `LASTENHEFT.md`;
-Personas: `PERSONAS.md`; Journeys: `QA.md`; Plan und QA-Runden: `ROADMAP.md`.
+Konzept und Entscheidungen: `planung/KONZEPT.md`; Anforderungen: `planung/LASTENHEFT.md`;
+Personas: `planung/PERSONAS.md`; Journeys: `planung/QA.md`; Plan und QA-Runden: `planung/ROADMAP.md`.
 
 Implementierung: Rust (Cargo-Workspace), UI in QML (Kirigami + Kante) über cxx-qt,
 Audio über cpal. Erkennung, Time-Stretch, Notensatz und Import sind eigene Implementierungen. Lizenz MIT.
@@ -150,24 +150,24 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 
 ## Persona rule
 
-- `PERSONAS.md` holds the fixed personas P1–P7. They are used automatically, without being asked:
+- `planung/PERSONAS.md` holds the fixed personas P1–P7. They are used automatically, without being asked:
   - Before designing a flow or screen, name the personas it serves and check it against
     their equipment, knowledge and frustrations.
-  - Every PR names the affected personas and the journeys from `QA.md` that were played
+  - Every PR names the affected personas and the journeys from `planung/QA.md` that were played
     through, with the result (passed, findings with severity).
-  - Every requirement added to `LASTENHEFT.md` names at least one persona.
+  - Every requirement added to `planung/LASTENHEFT.md` names at least one persona.
   - Personas whose instrument or input comes later (P5, P6) check that the architecture stays
     open and that Kontra says clearly what is not supported yet.
 - Change a persona only on the user's request; never adapt a persona to make a finding go away.
 
 ## QA rule
 
-- Exploratory QA follows the user journeys in `QA.md`: play them as the named persona
-  (equipment, resolution, scaling, colour filter, input as in `PERSONAS.md`), with a real
+- Exploratory QA follows the user journeys in `planung/QA.md`: play them as the named persona
+  (equipment, resolution, scaling, colour filter, input as in `planung/PERSONAS.md`), with a real
   instrument or recordings from `testdata/korpus/`, note friction, illogical behaviour and
-  bugs with evidence, and record the round in `ROADMAP.md`.
+  bugs with evidence, and record the round in `planung/ROADMAP.md`.
 - Journeys marked ⚙ have an automated test in `tests/journeys/`; keep it in step with the journey.
-- A feature that adds or changes a flow adds or changes its journey in `QA.md`.
+- A feature that adds or changes a flow adds or changes its journey in `planung/QA.md`.
 
 ## Release rule
 
@@ -227,4 +227,4 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Kontra-PRs merged Claude selbst, wenn `github / test` grün ist und das Review kein **Wichtig** offen lässt (siehe
   Repository rule). Kante-PRs prüft und merged der Eigentümer.
 - Jede neue `pub`-Schnittstelle wird in der nächsten Runde zur Freigabe gelistet.
-- Der laufende Arbeitsstand steht in `STAND.md`.
+- Der laufende Arbeitsstand steht in `planung/STAND.md`.

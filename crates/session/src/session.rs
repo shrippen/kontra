@@ -18,7 +18,7 @@ const STRUCK_KEPT: usize = 16;
 const REVISION_MATCH_S: f64 = 1e-6;
 
 /// Riff-Werkstatt (LH-MOD-04): keeps the hit rate in a target band (decision round 5, after
-/// DIDAKTIK.md idea I7). Above the band for `passes_needed` passes in a row → one step faster
+/// planung/DIDAKTIK.md idea I7). Above the band for `passes_needed` passes in a row → one step faster
 /// (up to `target_speed`); below it as often → one step slower (down to `min_speed`); inside it
 /// the tempo stays. Practice that is neither trivial nor overwhelming is where people learn.
 #[derive(Debug, Clone, Copy, PartialEq)]
