@@ -3198,10 +3198,8 @@ impl Core {
         })
     }
 
-    /// Whether the run held the chosen aim against the beat (LH-BEW-08), e.g. "Ziel laid-back
-    /// (10 bis 30 ms dahinter): verfehlt, 6 ms zu früh"; empty without an aim or timed notes.
-    /// "Streuung ±18 ms"; judged by time only with the aim for the frets (DIDAKTIK I4), e.g.
-    /// "Streuung ±31 ms · Bünde ab ±25 ms".
+    /// The spread, e.g. "Streuung ±18 ms"; judged by time only with the aim for the frets
+    /// (DIDAKTIK I4), e.g. "Streuung ±31 ms · Bünde ab ±25 ms".
     fn spread_text(&self, spread_ms: f64, judging: Judging) -> String {
         let spread = self.tr("summary.spread", &[("ms", format!("{spread_ms:.0}"))]);
         match judging {
@@ -3213,6 +3211,8 @@ impl Core {
         }
     }
 
+    /// Whether the run held the chosen aim against the beat (LH-BEW-08), e.g. "Ziel laid-back
+    /// (10 bis 30 ms dahinter): verfehlt, 6 ms zu früh"; empty without an aim or timed notes.
     fn pocket_text(&self, s: &Summary) -> String {
         let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
         // Whole ms, as the text shows them: +9.6 is laid-back, not "missed by 0 ms".
