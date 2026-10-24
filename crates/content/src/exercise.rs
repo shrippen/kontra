@@ -2036,8 +2036,6 @@ mod tests {
         assert!(grooves >= 20, "{grooves}");
     }
 
-    /// A piece goes through the normal import: bars with chord names, drums, a title with its
-    /// style; the funk piece is in A minor.
     #[test]
     fn time_only_survives_the_file() {
         // Open-string grooves judge only the attack (DIDAKTIK I4); the file carries that.
@@ -2066,6 +2064,8 @@ mod tests {
         assert_eq!(open, 5, "the open-string grooves of level 1");
     }
 
+    /// A piece goes through the normal import: bars with chord names, drums, a title with its
+    /// style; the funk piece is in A minor.
     #[test]
     fn pieces_import_with_chords_and_drums() {
         for style in Style::ALL {

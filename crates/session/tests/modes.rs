@@ -197,7 +197,7 @@ fn time_only_judges_the_attack_not_the_pitch() {
     s.play(0.0);
     let notes = [
         played(0.0, 28.0),
-        played(0.5, 40.0),  // any pitch
+        played(0.53, 40.0), // any pitch, 30 ms late
         played(1.15, 28.0), // 150 ms late: outside the window
     ];
     run(&mut s, &notes, 2.5);
@@ -205,6 +205,11 @@ fn time_only_judges_the_attack_not_the_pitch() {
     assert_eq!(first(0).outcome, Outcome::Hit);
     assert_eq!(first(1).outcome, Outcome::Hit);
     assert_eq!(first(1).cents, None, "no pitch judged");
+    let late = first(1).offset_ms.unwrap();
+    assert!(
+        (late - 30.0).abs() < 1.0,
+        "the attack is still timed: {late}"
+    );
     assert_eq!(first(2).outcome, Outcome::Missed);
 }
 
