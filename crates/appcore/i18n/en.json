@@ -185,6 +185,7 @@
   "chain.backward": "From the end",
   "chain.hint": "Kontra cuts the chosen bars (or the whole piece) into blocks: first block 1, then 2, then 1 and 2 together, then 3, then 1 to 3. Once a step stays in the target band for two passes, the next one comes. From the end starts with the last block, so you always play into something you know.",
   "chain.step": "Block: bars {from}–{to} · step {step} of {steps}",
+  "chain.step.one": "Block: bar {from} · step {step} of {steps}",
   "chain.whole": "All together: bars {from}–{to} · step {step} of {steps}",
   "workshop.pass": "Pass {n}: {percent} % hits",
   "workshop.choose": "Choose bars, then play",

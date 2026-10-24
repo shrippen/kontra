@@ -25,10 +25,7 @@ fn blocks_join_until_the_whole_part() {
     let chain = |core: &kontra_appcore::Core| -> serde_json::Value {
         serde_json::from_str(&core.chain_json()).unwrap()
     };
-    assert_eq!(
-        chain(&core)["text"],
-        "Baustein: Takte 1–1 · Schritt 1 von 5"
-    );
+    assert_eq!(chain(&core)["text"], "Baustein: Takt 1 · Schritt 1 von 5");
 
     // 1 · 2 · 1–2 · 3 · 1–3, two clean passes each; one bar lasts 2 s at 120 BPM.
     let bar_s = 4.0 * 60.0 / BPM;

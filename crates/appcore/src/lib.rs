@@ -1791,6 +1791,8 @@ impl Core {
         };
         let key = if chain.is_last() {
             "chain.whole"
+        } else if from == to {
+            "chain.step.one"
         } else {
             "chain.step"
         };
@@ -5234,6 +5236,7 @@ mod tests {
     fn chain_restarts_over_the_chosen_bars() {
         let dir = temp_dir("chainrestart");
         let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
         core.open(&Core::demo_path()).unwrap();
         let bars = core.arrangement().unwrap().bars.len();
         assert!(bars > 6, "{bars}");
@@ -5267,6 +5270,17 @@ mod tests {
         // Leaving the workshop ends the blocks the same way.
         core.start_chain(2, ChainOrder::Forward);
         assert_eq!(core.looping, Some((0, 1)));
+        core.start_chain(3, ChainOrder::Backward);
+        assert_eq!(
+            core.looping,
+            Some((3, 3)),
+            "bars 1–4 by 3 end in a block of one bar"
+        );
+        assert!(
+            core.chain_json().contains("Baustein: Takt 4 ·"),
+            "{}",
+            core.chain_json()
+        );
         core.set_mode("song");
         assert_eq!(core.looping, Some((0, 3)));
         assert_eq!(core.chain_json(), "null");
