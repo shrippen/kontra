@@ -720,6 +720,8 @@ Kirigami.Page {
                 onNotesChanged: Qt.callLater(function() { page.catchUp(tabStaff) })
                 bars: page.bars
                 position: ctl.position
+                loopStart: ctl.loopStart
+                loopEnd: ctl.loopEnd
             }
             KanteBassStaff {
                 id: bassStaff
@@ -754,6 +756,8 @@ Kirigami.Page {
                 onNotesChanged: Qt.callLater(function() { page.catchUp(bassStaff) })
                 bars: page.bars
                 position: ctl.position
+                loopStart: ctl.loopStart
+                loopEnd: ctl.loopEnd
             }
             // Notation above tablature (LH-ANZ-04).
             ColumnLayout {
@@ -778,6 +782,8 @@ Kirigami.Page {
                     onNotesChanged: Qt.callLater(function() { page.catchUp(combinedBass) })
                     bars: page.bars
                     position: ctl.position
+                    loopStart: ctl.loopStart
+                    loopEnd: ctl.loopEnd
                 }
                 KanteTabStaff {
                     id: combinedTab
@@ -793,6 +799,8 @@ Kirigami.Page {
                     onNotesChanged: Qt.callLater(function() { page.catchUp(combinedTab) })
                     bars: page.bars
                     position: ctl.position
+                    loopStart: ctl.loopStart
+                    loopEnd: ctl.loopEnd
                 }
             }
             // Bass over MIDI (J-E1, P5): the notes fall onto the keys to play.
