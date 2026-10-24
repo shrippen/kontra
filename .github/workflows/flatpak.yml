@@ -2,9 +2,7 @@ name: flatpak
 
 # Builds the Flatpak on GitHub, not on Gitea: flatpak-builder needs user namespaces, which the
 # Gitea runner's job containers do not allow. Gitea ignores this directory (.gitea/workflows
-# exists). Waits until Kontra is on GitHub: with 1.0 as a public repo, mirrored from Gitea
-# (ROADMAP, decisions 10.10.2026). Runs on main and by hand; a full build takes about 20 minutes
-# (the KDE SDK is cached).
+# exists). Runs on main and by hand; a full build takes about 20 minutes (the KDE SDK is cached).
 on:
   push:
     branches: [main]
