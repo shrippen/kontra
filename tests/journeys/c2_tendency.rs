@@ -1,5 +1,6 @@
 //! J-C2 Timing-Tendenz (P3 Mira) and the summary values: a take 18 ms early with one wrong and
-//! one missed note; the evaluation says so in words and numbers and the run is saved.
+//! one missed note; the evaluation says so in words and numbers and the run is saved. Mira aimed
+//! for laid-back (LH-BEW-08): the summary says she missed it, and by how much.
 
 use crate::common::{piece, render, run_until, write_midi, Profile};
 use kontra_appcore::UiEvent;
@@ -21,6 +22,7 @@ fn summary_shows_tendency_and_counts() {
     };
     render(&take, &piece("Linie", &LINE), mistakes);
     let mut core = profile.core(Some(&take));
+    core.update_settings(|s| s.pocket = "laidback".into());
     core.open(&score).unwrap();
     core.set_mode("song");
     core.play();
@@ -48,6 +50,14 @@ fn summary_shows_tendency_and_counts() {
         ]
         .contains(&tendency),
         "{tendency}"
+    );
+    // 18 ms early against 10 to 30 ms behind: 28 ms too early.
+    let pocket = s["pocketText"].as_str().unwrap();
+    assert!(
+        [27, 28, 29]
+            .map(|ms| format!("Ziel laid-back (10 bis 30 ms dahinter): verfehlt, {ms} ms zu früh"))
+            .contains(&pocket.to_owned()),
+        "{pocket}"
     );
     let counts: u64 = s["counts"]
         .as_array()

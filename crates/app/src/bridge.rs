@@ -82,6 +82,7 @@ pub mod qobject {
         #[qproperty(QString, play_marks, cxx_name = "playMarks")]
         #[qproperty(QString, motion)]
         #[qproperty(QString, strictness)]
+        #[qproperty(QString, pocket)]
         #[qproperty(f64, pitch_cents, cxx_name = "pitchCents")]
         #[qproperty(f64, latency_ms, cxx_name = "latencyMs")]
         /// Tuning of the profile (LH-TUN-02): "standard", "drop", "half-down", "whole-down", "custom".
@@ -405,6 +406,11 @@ pub mod qobject {
         #[cxx_name = "changeLeftHanded"]
         fn change_left_handed(self: Pin<&mut Self>, on: bool);
 
+        /// Aim against the beat (LH-BEW-08): "free", "onbeat", "laidback" or "pushed".
+        #[qinvokable]
+        #[cxx_name = "changePocket"]
+        fn change_pocket(self: Pin<&mut Self>, pocket: &QString);
+
         /// Note marks in play mode: "quiet", "off" or "full".
         #[qinvokable]
         #[cxx_name = "changePlayMarks"]
@@ -710,6 +716,7 @@ pub struct ControllerRust {
     play_marks: QString,
     motion: QString,
     strictness: QString,
+    pocket: QString,
     pitch_cents: f64,
     latency_ms: f64,
     tuning: QString,
@@ -857,6 +864,7 @@ impl Default for ControllerRust {
             play_marks: q(&s.play_marks),
             motion: q(&s.motion),
             strictness: q(&s.strictness),
+            pocket: q(&s.pocket),
             pitch_cents: s.pitch_cents,
             latency_ms: s.latency_ms,
             tuning: q(&s.tuning),
@@ -1774,6 +1782,17 @@ impl qobject::Controller {
         self.as_mut().set_playing(false);
     }
 
+    fn change_pocket(mut self: Pin<&mut Self>, pocket: &QString) {
+        let pocket = pocket.to_string();
+        if !["free", "onbeat", "laidback", "pushed"].contains(&pocket.as_str()) {
+            return;
+        }
+        let value = q(&pocket);
+        // Read when the run ends: a running take keeps going.
+        self.as_mut().core().update_settings(|s| s.pocket = pocket);
+        self.as_mut().set_pocket(value);
+    }
+
     fn change_play_marks(mut self: Pin<&mut Self>, marks: &QString) {
         let marks = marks.to_string();
         if !["quiet", "off", "full"].contains(&marks.as_str()) {
@@ -2160,6 +2179,7 @@ impl qobject::Controller {
         self.as_mut().set_play_marks(q(&s.play_marks));
         self.as_mut().set_motion(q(&s.motion));
         self.as_mut().set_strictness(q(&s.strictness));
+        self.as_mut().set_pocket(q(&s.pocket));
         self.as_mut().set_pitch_cents(s.pitch_cents);
         self.as_mut().set_latency_ms(s.latency_ms);
         self.as_mut().set_backing_volume(s.backing_volume);

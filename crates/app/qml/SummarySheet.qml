@@ -111,7 +111,7 @@ KanteCard {
         QQC2.Label {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-            text: sheet.summary ? [sheet.summary.tendencyText, sheet.summary.spreadText, sheet.summary.intonationText].filter(function(t) { return t !== "" }).join(" · ") : ""
+            text: sheet.summary ? [sheet.summary.pocketText, sheet.summary.tendencyText, sheet.summary.spreadText, sheet.summary.intonationText].filter(function(t) { return t !== "" }).join(" · ") : ""
             color: KanteStyle.textColor
         }
         KanteTimingHistogram {

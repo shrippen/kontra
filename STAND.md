@@ -5,18 +5,18 @@ nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-#103 (CI: Meldung an Gitea wiederholen) wartet auf die Bestätigung des Eigentümers (ändert CI).
+`laid-back` (I5 Lage-Ziel).
 
-Plan (Eigentümer, 24.10.): I4 erledigt (#106), dann I5 (bewusst laid-back) und I6 (Bausteine, braucht Abfolgen in der
-Werkstatt). Offen aus I4: Schwelle der Streuung für Bünde, Generator-Schalter „nur Timing“.
+Plan (Eigentümer, 24.10.): I4 (#106) und I5 erledigt, dann I6 (Bausteine, braucht Abfolgen in der Werkstatt). Offen aus
+I4: Schwelle der Streuung für Bünde, Generator-Schalter „nur Timing“; aus I5: Ziel-Band im Histogramm (Kante).
 
 CI läuft seit 24.10. auf GitHub (`.github/workflows/ci.yml`, Status `github / test` an Gitea, #102); Gitea führt nur
 PR-Agent aus.
 
 Gemerged seit 14.10.: #90–#97 (STAND, Tests, Dateidialoge, Review-Regel), #98 (Kante 1.35–1.39, G9), #99 (I1 Ohne
 Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, gespeichertes Tempo = gespieltes), #100
-(Stück-Generator, Stufe 9), #101 (Beat-Erkennung 12,8 ms zu früh, Abnahme LH-BIB-06), #102 (CI auf GitHub), #104
-(flakige Treiber-Tests).
+(Stück-Generator, Stufe 9), #101 (Beat-Erkennung 12,8 ms zu früh, Abnahme LH-BIB-06), #102 (CI auf GitHub), #103
+(CI-Meldung wiederholen), #104 (flakige Treiber-Tests), #105, #106 (I4 erst der Puls).
 
 ## Offen
 
@@ -62,6 +62,8 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - blind-probe (I1): `Mode::Probe`, `Run::spread_ms`, `Session::played_speed`, `Core::{start_probe, is_probing, bars_at}`,
   `pub(crate) Matcher::has_pitch`; Brücke: Invokables `startProbe`, `loopAt`, Properties `probing`, `autoprobe`;
   `AppArgs::probe` (QA-Schalter `--probe`).
+- laid-back (I5): `Pocket` (`key`, `from_key`, `band_ms`, `judge`), `PocketVerdict`, `Settings::pocket`;
+  Brücke: Property `pocket`, Invokable `changePocket`.
 - #106 (I4): `Judging`, `Arrangement::judging`, `ExpectedNote::any_pitch`, `ExerciseSpec::judging`,
   `pub(crate) TIMING_TEXT`.
 - #100: `exercise::Style` (`ALL`, `key`, `from_key`, `minor`), `ExerciseKind::Song`.

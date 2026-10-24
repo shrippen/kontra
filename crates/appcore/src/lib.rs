@@ -30,9 +30,9 @@ use kontra_model::{Arrangement, InputSource, InstrumentKind, Judging, Technique,
 use kontra_session::{
     import_file, list_devices, run_from, technique_signs, CalibrationResult, Connection,
     DeviceInfo, Direction, Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveEar,
-    LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Outcome, PracticeEvent, PracticeOptions,
-    ProgressStore, Run, ScoreSettings, SessionEvent, Shaping, Summary, TechniqueOutcome,
-    TechniqueResult, Workshop,
+    LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Outcome, Pocket, PocketVerdict,
+    PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings, SessionEvent, Shaping,
+    Summary, TechniqueOutcome, TechniqueResult, Workshop,
 };
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -2692,6 +2692,7 @@ impl Core {
             ]),
             "tendencyText": tendency,
             "spreadText": s.spread_ms.map_or(String::new(), |v| self.tr("summary.spread", &[("ms", format!("{v:.0}"))])),
+            "pocketText": self.pocket_text(s),
             // Intonation only where it is scored: a fretless or double bass, or off-pitch notes.
             "intonationText": match s.mean_abs_cents {
                 Some(c) if s.off_pitch > 0 || self.scored_intonation() => self.tr("summary.intonation", &[
@@ -3013,6 +3014,30 @@ impl Core {
             ramp_bpm: 0.0,
             judging: Judging::PitchAndTime,
         })
+    }
+
+    /// Whether the run held the chosen aim against the beat (LH-BEW-08), e.g. "Ziel laid-back
+    /// (10 bis 30 ms dahinter): verfehlt, 6 ms zu früh"; empty without an aim or timed notes.
+    fn pocket_text(&self, s: &Summary) -> String {
+        let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
+        // Whole ms, as the text shows them: +9.6 is laid-back, not "missed by 0 ms".
+        let Some(verdict) = s.mean_offset_ms.and_then(|m| pocket.judge(m.round())) else {
+            return String::new();
+        };
+        let Some((a, b)) = pocket.band_ms() else {
+            return String::new();
+        };
+        let (low, high) = (a.abs().min(b.abs()), a.abs().max(b.abs()));
+        let aim = self.tr(
+            &format!("pocket.{}.aim", pocket.key()),
+            &[("low", format!("{low:.0}")), ("high", format!("{high:.0}"))],
+        );
+        let (key, ms) = match verdict {
+            PocketVerdict::Held => ("summary.pocket.held", 0.0),
+            PocketVerdict::Early(ms) => ("summary.pocket.early", ms),
+            PocketVerdict::Late(ms) => ("summary.pocket.late", ms),
+        };
+        self.tr(key, &[("aim", aim), ("ms", format!("{ms:.0}"))])
     }
 
     /// Starts the fretboard quiz ("notes" or "intervals") and returns `quiz_json`.
@@ -5085,6 +5110,42 @@ mod tests {
         assert_eq!(first_level["mastered"], 1);
         assert_eq!(first_level["items"][0]["mastered"], true);
         assert_eq!(first_level["items"][1]["mastered"], false);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// I5: with an aim against the beat the summary says whether the mean held it.
+    #[test]
+    fn summary_judges_the_pocket() {
+        let dir = temp_dir("pocket");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        s.mean_offset_ms = Some(4.0);
+        let text = |core: &Core, s: &kontra_session::Summary| {
+            let v: serde_json::Value =
+                serde_json::from_str(&core.summary_json(s, &[], &[])).unwrap();
+            v["pocketText"].as_str().unwrap().to_owned()
+        };
+        assert_eq!(text(&core, &s), "", "no aim");
+
+        core.update_settings(|s| s.pocket = "laidback".into());
+        assert_eq!(
+            text(&core, &s),
+            "Ziel laid-back (10 bis 30 ms dahinter): verfehlt, 6 ms zu früh"
+        );
+        core.update_settings(|s| s.pocket = "onbeat".into());
+        assert_eq!(text(&core, &s), "Ziel auf den Punkt (±5 ms): gehalten");
+
+        // Just outside by less than half a ms: inside, as the text rounds.
+        s.mean_offset_ms = Some(5.4);
+        assert_eq!(text(&core, &s), "Ziel auf den Punkt (±5 ms): gehalten");
+        s.mean_offset_ms = Some(5.6);
+        assert_eq!(
+            text(&core, &s),
+            "Ziel auf den Punkt (±5 ms): verfehlt, 1 ms zu spät"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 

@@ -9,7 +9,7 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 | 2 Lernen (0.2–0.4) | Groove, Griffbrett, adaptive Schwierigkeit, MusicXML | vorgezogen und umgesetzt: Groove-Übungen, Griffbrett-Quiz, Generator, Notendichte, Werkstatt-Zielband, MusicXML |
 | 3 Inhalte (0.5–0.7) | eigene Audiodatei, `.kontra`-Pakete, Etüden, Gehör | vorgezogen und umgesetzt: Backing-Abgleich (Abnahme LH-BIB-06 synthetisch bestanden, #101), `.kontra`, 150 Übungen in neun Stufen mit Stück-Generator (#100), Gehör; offen: Gegenprobe LH-BIB-06 mit echter Aufnahme |
 | 4 Bass komplett (0.8–1.0) | Kontrabass am Mikrofon, Bass über MIDI, Techniken, Stem-Trennung | MIDI-Eingang mit Klaviatur-Ansicht, Mikrofon mit Echo-Kompensation, Techniken erkannt; Rest offen |
-| Didaktik (laufend) | Wie vermittelt Kontra Bass am besten? Ideen entwickeln, als Prototypen umsetzen, mit Personas vergleichen | I1, I4 und I7 umgesetzt, I5 teilweise; als Nächstes I5, I6 (24.10.), siehe unten |
+| Didaktik (laufend) | Wie vermittelt Kontra Bass am besten? Ideen entwickeln, als Prototypen umsetzen, mit Personas vergleichen | I1, I4, I5 und I7 umgesetzt; als Nächstes I6 (24.10.), siehe unten |
 
 ## Phase 0
 
@@ -222,6 +222,9 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 - [x] I4 Erst der Puls (24.10., LH-LRN-06, J-C8 ⚙): Bewertungsart `Judging::TimeOnly` im Arrangement (MIDI-Text
       `kontra:timing`); die Session wertet dann nur den Anschlag. Fünf Grooves der Stufe 1 auf leerer Saite nutzen sie.
       Offen: Schwelle für Bünde, Generator-Schalter.
+- [x] I5 Lage-Ziel (24.10., LH-BEW-08, J-C2 ⚙): „Lage“ auf der Übungsseite (frei, auf den Punkt, laid-back, vorn);
+      die Auswertung sagt, ob die mittlere Lage gehalten wurde, sonst um wie viele ms daneben. Offen: Band im
+      Histogramm (Kante), Lage-Ziel je Übung.
 - [ ] Ideen sammeln und je eine Skizze, z. B.: Groove vor Tönen (erst
       Rhythmus auf einer Saite), Hören vor Lesen (nachspielen ohne Anzeige),
       Lieder in Bausteine zerlegen und zusammensetzen, adaptives Tempo und
