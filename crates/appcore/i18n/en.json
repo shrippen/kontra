@@ -781,5 +781,20 @@
   "probe.holds": "As good as with notes: the passage holds.",
   "home.probe.tier": "Without help",
   "home.probe.text": "You practised these bars in the workshop. Do they hold without notes? Play them once, Kontra compares.",
-  "home.probe.play": "Check bars {from}–{to}"
+  "home.probe.play": "Check bars {from}–{to}",
+  "exercises.kind.song": "Piece",
+  "exercises.style": "Style",
+  "exercises.style.ballad": "Ballad",
+  "exercises.style.pop": "Pop",
+  "exercises.style.rock": "Rock",
+  "exercises.style.funk": "Funk",
+  "exercises.style.shuffle": "Shuffle",
+  "exercise.name.song": "{style} piece",
+  "exercise.name.style.ballad": "Ballad",
+  "exercise.name.style.pop": "Pop",
+  "exercise.name.style.rock": "Rock",
+  "exercise.name.style.funk": "Funk",
+  "exercise.name.style.shuffle": "Shuffle",
+  "exercise.level.9": "Pieces",
+  "exercise.goal.form": "Goal: play a whole piece through. A drum fill announces each new part."
 }

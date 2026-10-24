@@ -12,8 +12,10 @@
 //! ```
 
 mod plan;
+mod song;
 
 pub use plan::{bundled, bundled_specs};
+pub use song::Style;
 
 use kontra_model::Technique;
 use midly::num::{u15, u24, u28, u4, u7};
@@ -67,6 +69,8 @@ pub enum ExerciseKind {
     Triads(Progression),
     /// Four fingers on four frets across the strings and back; `key` is the start fret.
     Chromatic(Fingers),
+    /// A piece in a form (intro, verse, chorus, bridge, outro) to play through.
+    Song(Style),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -198,7 +202,7 @@ pub struct Exercise {
 /// blues in E (90 BPM)".
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Description {
-    /// "scale", "sequence", "arpeggio", "triads", "walking", "groove" or "chromatic".
+    /// "scale", "sequence", "arpeggio", "triads", "walking", "groove", "chromatic" or "song".
     pub kind: &'static str,
     /// Scale ("major", "minorpenta" …), progression ("tonic", "251", "blues", "minor" …) or
     /// finger order ("1324").
@@ -214,7 +218,8 @@ pub struct Description {
     /// Finger exercises start at a fret instead of a key.
     pub fret: Option<u8>,
     /// What the exercise trains: "pulse", "rests", "syncopation", "chordtones", "sixteenths",
-    /// "triplets", "meter", "slap", "scale", "modes", "reading", "walking", "fingers", "ramp".
+    /// "triplets", "meter", "slap", "scale", "modes", "reading", "walking", "fingers", "ramp",
+    /// "form".
     pub goal: &'static str,
 }
 
@@ -848,7 +853,11 @@ struct Pass {
 
 /// Generates `spec` as a titled MIDI file.
 pub fn generate(spec: &ExerciseSpec) -> Exercise {
-    let repeats = u32::from(spec.repeats.max(1));
+    // A piece has its own form and drums for one pass: never repeated.
+    let repeats = match spec.kind {
+        ExerciseKind::Song(_) => 1,
+        _ => u32::from(spec.repeats.max(1)),
+    };
     let pass = one_pass(spec);
     let (mut tones, mut markers) = repeat(&pass.tones, &pass.markers, pass.length, repeats);
     let end = pass.length * repeats;
@@ -874,6 +883,7 @@ pub fn generate(spec: &ExerciseSpec) -> Exercise {
     let fifths = signature(spec.key, pass.to_major);
     let title = title(spec, &pass, fifths);
     let drums = match spec.kind {
+        ExerciseKind::Song(style) => song::song(style, spec.key).1,
         ExerciseKind::Groove(_, rhythm) => {
             let bars = end / meter.bar();
             let mut hits: Vec<(u32, u8)> = (0..bars)
@@ -1030,6 +1040,7 @@ fn one_pass(spec: &ExerciseSpec) -> Pass {
                 )
             }
         }
+        ExerciseKind::Song(style) => song::song(style, spec.key).0,
         ExerciseKind::Chromatic(fingers) => {
             let (tones, length) = chromatic_line(fingers, spec.fret(), spec.slow);
             Pass {
@@ -1179,6 +1190,7 @@ pub fn describe(spec: &ExerciseSpec) -> Description {
         ExerciseKind::WalkingBass(p) => ("walking", p.key(), None, p.minor(), 0),
         ExerciseKind::Groove(p, r) => ("groove", p.key(), Some(r.key()), p.minor(), 0),
         ExerciseKind::Chromatic(f) => ("chromatic", f.key(), None, false, 0),
+        ExerciseKind::Song(style) => ("song", style.key(), None, style.minor(), 0),
     };
     let to_major = if minor { RELATIVE_MAJOR } else { to_major };
     let fret = matches!(spec.kind, ExerciseKind::Chromatic(_)).then(|| spec.fret());
@@ -1208,6 +1220,7 @@ fn goal(spec: &ExerciseSpec) -> &'static str {
         ExerciseKind::WalkingBass(_) => "walking",
         ExerciseKind::Groove(_, r) => r.goal(),
         ExerciseKind::Chromatic(_) => "fingers",
+        ExerciseKind::Song(_) => "form",
     }
 }
 
@@ -1990,12 +2003,12 @@ mod tests {
     }
 
     #[test]
-    fn bundled_set_has_eight_levels() {
+    fn bundled_set_has_nine_levels() {
         let set = bundled();
         assert!(set.len() >= 140, "{}", set.len());
         // Appended exercises go into the earlier levels too: count the folders, not the runs.
         let levels: std::collections::BTreeSet<&str> = set.iter().map(|s| s.0).collect();
-        assert_eq!(levels.len(), 8, "{levels:?}");
+        assert_eq!(levels.len(), 9, "{levels:?}");
         let files: std::collections::BTreeSet<&str> = set.iter().map(|s| s.1.as_str()).collect();
         assert_eq!(files.len(), set.len(), "file names are unique");
         // LH-LRN-01 asks for twenty groove exercises.
@@ -2004,6 +2017,67 @@ mod tests {
             .filter(|s| s.2.title.starts_with("Groove"))
             .count();
         assert!(grooves >= 20, "{grooves}");
+    }
+
+    /// A piece goes through the normal import: bars with chord names, drums, a title with its
+    /// style; the funk piece is in A minor.
+    #[test]
+    fn pieces_import_with_chords_and_drums() {
+        for style in Style::ALL {
+            let e = generate(&spec(ExerciseKind::Song(style), 9));
+            let a = arrangement(&e);
+            assert!(a.bars.len() >= 40, "{style:?}: {} bars", a.bars.len());
+            assert!(!a.drums.is_empty(), "{style:?}");
+            assert!(
+                a.markers.len() >= a.bars.len(),
+                "{style:?}: a chord name per bar"
+            );
+            assert!(e.title.starts_with("Stück"), "{}", e.title);
+
+            // One closing bar on the tonic, with drums under it.
+            let last = a.bars.last().unwrap();
+            let closing = a.notes.iter().filter(|n| n.start_ticks >= last.start_ticks);
+            assert_eq!(closing.count(), 1, "{style:?}");
+            assert!(
+                a.drums.iter().any(|d| d.tick >= last.start_ticks),
+                "{style:?}"
+            );
+        }
+
+        // The bundled pieces at their tempos last two to three minutes (LH-BIB-12).
+        let set = bundled();
+        let pieces: Vec<_> = set
+            .iter()
+            .filter(|s| s.2.title.starts_with("Stück"))
+            .collect();
+        assert_eq!(pieces.len(), 6);
+        for (_, _, piece) in pieces {
+            let a = arrangement(piece);
+            let seconds = a.tempo.seconds_at(a.bars.last().unwrap().end_ticks());
+            assert!(
+                (120.0..=180.0).contains(&seconds),
+                "{}: {seconds:.0} s",
+                piece.title
+            );
+        }
+        // Repeats do not apply to a piece: one form, drums to the end.
+        let twice = ExerciseSpec {
+            repeats: 2,
+            ..spec(ExerciseKind::Song(Style::Rock), 9)
+        };
+        assert_eq!(
+            generate(&twice).midi,
+            generate(&spec(ExerciseKind::Song(Style::Rock), 9)).midi
+        );
+
+        let funk = generate(&spec(ExerciseKind::Song(Style::Funk), 9));
+        assert_eq!(funk.title, "Stück Funk in Am (90 BPM)");
+        let d = describe(&spec(ExerciseKind::Song(Style::Funk), 9));
+        assert_eq!(
+            (d.kind, d.variant, d.minor, d.goal),
+            ("song", "funk", true, "form")
+        );
+        assert_eq!(Style::from_key("shuffle"), Some(Style::Shuffle));
     }
 
     #[test]
