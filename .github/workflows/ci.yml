@@ -173,7 +173,8 @@ jobs:
           fi
           desc="core $CORE, app $APP"
           if [ -n "$STARTED" ]; then desc="$desc in $(( ($(date +%s) - STARTED) / 60 )) min"; fi
-          curl -fsS -X POST "$GITEA_STATUS" \
+          # Retried: a lost result would leave "pending" and the merge waiting.
+          curl -fsS --retry 10 --retry-delay 15 --retry-all-errors -X POST "$GITEA_STATUS" \
             -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" \
             -d "{\"state\":\"$state\",\"context\":\"github / test\",\"description\":\"$desc\",\"target_url\":\"$RUN_URL\"}"
         env:
