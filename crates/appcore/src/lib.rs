@@ -4689,6 +4689,12 @@ mod tests {
         let path = core.generate_exercise(&timing).unwrap();
         assert!(matches!(core.open(&path), Ok(Opened::Ready)));
         assert_eq!(core.arrangement().unwrap().judging, Judging::TimeOnly);
+        let normal = Core::exercise_spec("groove", "tonic", "eighths", 4, 80.0, "pitch").unwrap();
+        assert_ne!(
+            core.generate_exercise(&normal).unwrap(),
+            path,
+            "no overwrite"
+        );
         assert!(Core::exercise_spec("groove", "tonic", "eighths", 4, 80.0, "loud").is_none());
         let _ = std::fs::remove_dir_all(dir);
     }
