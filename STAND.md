@@ -7,8 +7,8 @@ nur, was offen ist und wo es liegt.
 
 #103 (CI: Meldung an Gitea wiederholen) wartet auf die Bestätigung des Eigentümers (ändert CI).
 
-Plan (Eigentümer, 24.10.): I4-Übungen (leere Saite, Bewertung nur nach Timing), dann I5 (bewusst laid-back) und I6
-(Bausteine, braucht Abfolgen in der Werkstatt).
+Plan (Eigentümer, 24.10.): I4 erledigt (#106), dann I5 (bewusst laid-back) und I6 (Bausteine, braucht Abfolgen in der
+Werkstatt). Offen aus I4: Schwelle der Streuung für Bünde, Generator-Schalter „nur Timing“.
 
 CI läuft seit 24.10. auf GitHub (`.github/workflows/ci.yml`, Status `github / test` an Gitea, #102); Gitea führt nur
 PR-Agent aus.
@@ -62,6 +62,8 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - blind-probe (I1): `Mode::Probe`, `Run::spread_ms`, `Session::played_speed`, `Core::{start_probe, is_probing, bars_at}`,
   `pub(crate) Matcher::has_pitch`; Brücke: Invokables `startProbe`, `loopAt`, Properties `probing`, `autoprobe`;
   `AppArgs::probe` (QA-Schalter `--probe`).
+- #106 (I4): `Judging`, `Arrangement::judging`, `ExpectedNote::any_pitch`, `ExerciseSpec::judging`,
+  `pub(crate) TIMING_TEXT`.
 - #100: `exercise::Style` (`ALL`, `key`, `from_key`, `minor`), `ExerciseKind::Song`.
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 
