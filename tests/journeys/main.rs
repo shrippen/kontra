@@ -20,6 +20,7 @@ mod c4_ear;
 mod c5_techniques;
 mod c6_probe;
 mod c8_pulse;
+mod c9_blocks;
 mod d1_backing;
 mod e1_midi;
 mod e3_settling;

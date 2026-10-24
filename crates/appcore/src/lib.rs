@@ -20,7 +20,7 @@ mod unplug;
 
 pub use data::DataImport;
 pub use i18n::{Catalog, Language};
-pub use kontra_session::{exercise, Density};
+pub use kontra_session::{exercise, ChainOrder, Density};
 pub use package::PackageAudio;
 pub use store::{
     data_dir, InputKind, Library, RecentEntry, SectionBars, SectionDensity, Setlist, Settings,
@@ -28,7 +28,7 @@ pub use store::{
 
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Judging, Technique, Tuning};
 use kontra_session::{
-    import_file, list_devices, run_from, technique_signs, CalibrationResult, Connection,
+    import_file, list_devices, run_from, technique_signs, CalibrationResult, Chain, Connection,
     DeviceInfo, Direction, Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveEar,
     LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Outcome, Pocket, PocketVerdict,
     PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings, SessionEvent, Shaping,
@@ -132,6 +132,11 @@ pub enum UiEvent {
     InputBack(String),
     /// Bass removal of the backing track changed (`Core::stems_json`).
     Stems(String),
+    /// Building blocks moved on (DIDAKTIK I6): the new step (`Core::chain_json`) is the loop,
+    /// its run starts with a count-in.
+    ChainStep {
+        chain_json: String,
+    },
     /// Calibration finished: new latency (if measured) and a text for the user.
     Calibrated {
         latency_ms: Option<f64>,
@@ -224,6 +229,8 @@ pub struct Core {
     finder: songsterr::Finder,
     /// The blind probe running now (DIDAKTIK I1), if any.
     probe: Option<Probe>,
+    /// Building blocks in the workshop (DIDAKTIK I6), if chosen.
+    chain: Option<Chain>,
 }
 
 /// One pass of the loop without notes on screen (DIDAKTIK I1), at the speed it was practised.
@@ -269,6 +276,7 @@ impl Core {
             downloads: kontra_session::download_dir(),
             finder: songsterr::Finder::default(),
             probe: None,
+            chain: None,
             notice: None,
             active_setlist: None,
             lost: None,
@@ -1257,6 +1265,7 @@ impl Core {
         arrangement.instrument.a4_hz = self.a4_hz();
         self.stop_live();
         self.looping = None;
+        self.chain = None;
         let song_id = ProgressStore::song_id(&arrangement);
         self.adopt_progress(path, &song_id);
         self.library.touch(RecentEntry {
@@ -1563,6 +1572,9 @@ impl Core {
     }
 
     pub fn set_mode(&mut self, mode: &str) {
+        if mode != "workshop" {
+            self.chain = None;
+        }
         let own = self.loaded_path().is_some_and(|p| !self.is_bundled(p));
         self.reconfigure(|s| {
             s.mode = mode.to_string();
@@ -1585,6 +1597,12 @@ impl Core {
 
     /// Returns true if the notes changed: the section has another note density (LH-MOD-06).
     pub fn set_loop(&mut self, from: usize, to: usize) -> bool {
+        // Bars chosen by hand end the building blocks.
+        self.chain = None;
+        self.loop_to(from, to)
+    }
+
+    fn loop_to(&mut self, from: usize, to: usize) -> bool {
         self.looping = Some((from.min(to), from.max(to)));
         let range = self.loop_range();
         if let Some(live) = self.live.as_mut() {
@@ -1621,6 +1639,7 @@ impl Core {
     /// Returns true if the notes changed, as `set_loop`.
     pub fn clear_loop(&mut self) -> bool {
         self.looping = None;
+        self.chain = None;
         if let Some(live) = self.live.as_mut() {
             live.practice_mut().set_loop(None);
         }
@@ -1721,6 +1740,81 @@ impl Core {
             level: next.level(),
             text: self.tr(key, &[("percent", format!("{:.0}", hit_rate * 100.0))]),
         })
+    }
+
+    /// Starts building blocks of `size` bars (DIDAKTIK I6) over the chosen bars, or over the
+    /// whole piece when they make only one block; the loop becomes the first step. Returns true
+    /// if the notes changed, as `set_loop`.
+    pub fn start_chain(&mut self, size: usize, order: ChainOrder) -> bool {
+        let Some(bars) = self.arrangement().map(|a| a.bars.len()).filter(|n| *n > 0) else {
+            return false;
+        };
+        let (first, last) = self
+            .looping
+            .filter(|(from, to)| to - from >= size)
+            .unwrap_or((0, bars - 1));
+        let chain = Chain::new(first, last, size, order, &Workshop::default());
+        let (from, to) = chain.step();
+        self.chain = Some(chain);
+        self.loop_to(from, to)
+    }
+
+    /// Ends the building blocks; the loop stays on the current step.
+    pub fn stop_chain(&mut self) {
+        self.chain = None;
+    }
+
+    /// The building blocks for the UI, or `null`: `{step, steps, last, text}`, `text` like
+    /// "Baustein: Takte 3–4 · Schritt 2 von 5".
+    pub fn chain_json(&self) -> String {
+        let Some(chain) = self.chain.as_ref() else {
+            return "null".into();
+        };
+        let (from, to) = chain.step();
+        let number = |bar: usize| {
+            self.arrangement()
+                .and_then(|a| a.bars.get(bar))
+                .map_or(bar + 1, |b| b.source_index as usize + 1)
+        };
+        let key = if chain.is_last() {
+            "chain.whole"
+        } else {
+            "chain.step"
+        };
+        let text = self.tr(
+            key,
+            &[
+                ("from", number(from).to_string()),
+                ("to", number(to).to_string()),
+                ("step", (chain.index() + 1).to_string()),
+                ("steps", chain.count().to_string()),
+            ],
+        );
+        json!({
+            "step": chain.index(),
+            "steps": chain.count(),
+            "last": chain.is_last(),
+            "text": text,
+        })
+        .to_string()
+    }
+
+    /// After a workshop pass: when the step sits, its run ends (and is saved) and the next step
+    /// starts with a count-in. Not within the run: clicks and backing are planned ahead.
+    fn chain_pass(&mut self, hit_rate: f64) -> Vec<UiEvent> {
+        if self.settings.mode != "workshop" || self.probe.is_some() {
+            return Vec::new();
+        }
+        let Some((from, to)) = self.chain.as_mut().and_then(|c| c.on_pass(hit_rate)) else {
+            return Vec::new();
+        };
+        self.stop_live();
+        self.loop_to(from, to);
+        let mut events = vec![UiEvent::ChainStep {
+            chain_json: self.chain_json(),
+        }];
+        events.extend(self.play());
+        events
     }
 
     /// Loop range in seconds, or (-1, -1).
@@ -1961,6 +2055,14 @@ impl Core {
         });
         if let Some(hint) = rate.and_then(|r| self.density_hint(r)) {
             events.push(hint);
+        }
+        let passed = events.iter().find_map(|e| match e {
+            UiEvent::PassComplete { hit_rate, .. } => Some(*hit_rate),
+            _ => None,
+        });
+        if let Some(rate) = passed {
+            let steps = self.chain_pass(rate);
+            events.extend(steps);
         }
         if finished {
             self.record_run();

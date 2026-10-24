@@ -624,6 +624,59 @@ Kirigami.Page {
             }
         }
 
+        // Building blocks (DIDAKTIK I6, LH-MOD-08): the bars in blocks, joined step by step.
+        Flow {
+            id: chainRow
+            Layout.fillWidth: true
+            visible: ctl.mode === "workshop" && !page.presenting
+            spacing: KanteStyle.unit(8)
+            readonly property var chain: JSON.parse(ctl.chainJson)
+            readonly property var sizes: [0, 2, 4]
+            function start(size, backward) { ctl.startChain(size, backward ? "backward" : "forward") }
+            Row {
+                spacing: KanteStyle.unit(8)
+                height: KanteStyle.heightMedium
+                KanteHud {
+                    anchors.verticalCenter: parent.verticalCenter
+                    fullText: texts.t("chain.title")
+                    color: KanteStyle.mutedTextColor
+                }
+                KanteComboBox {
+                    id: chainSize
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: KanteStyle.unit(160)
+                    Accessible.name: texts.t("chain.title")
+                    model: [texts.t("chain.off"), texts.t("chain.two"), texts.t("chain.four")]
+                    onActivated: function(index) { chainRow.start(chainRow.sizes[index], chainBackward.checked) }
+                }
+                KanteSwitch {
+                    id: chainBackward
+                    anchors.verticalCenter: parent.verticalCenter
+                    Accessible.name: texts.t("chain.backward")
+                    onToggled: if (chainRow.chain !== null) { chainRow.start(chainRow.sizes[chainSize.currentIndex], checked) }
+                }
+                QQC2.Label { anchors.verticalCenter: parent.verticalCenter; text: texts.t("chain.backward"); color: KanteStyle.textColor }
+                KanteInfoTip {
+                    anchors.verticalCenter: parent.verticalCenter
+                    term: texts.t("chain.title")
+                    info: texts.t("chain.hint")
+                    accessibleName: texts.t("help.about", { term: texts.t("chain.title") })
+                }
+            }
+            QQC2.Label {
+                visible: chainRow.chain !== null
+                height: KanteStyle.heightMedium
+                verticalAlignment: Text.AlignVCenter
+                text: chainRow.chain !== null ? chainRow.chain.text : ""
+                color: KanteStyle.textColor
+            }
+            // Bars chosen by hand end the blocks: the list says so.
+            Connections {
+                target: ctl
+                function onChainJsonChanged() { if (JSON.parse(ctl.chainJson) === null) chainSize.currentIndex = 0 }
+            }
+        }
+
         // Note density (LH-MOD-06): fewer notes while a part is new; per section, fixable. A Flow:
         // as one row its width pushed the whole page past a narrow window (QA 14.10., 700 px).
         Flow {

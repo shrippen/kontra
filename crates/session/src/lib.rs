@@ -12,6 +12,7 @@
 //! arrangement at original tempo). At speed 0.5 the position advances half as fast.
 
 mod calibration;
+mod chain;
 mod check;
 mod density;
 mod expected;
@@ -33,6 +34,7 @@ mod transport;
 pub use calibration::{
     CalibrationResult, CLICKS as CALIBRATION_CLICKS, INTERVAL_S as CALIBRATION_INTERVAL_S,
 };
+pub use chain::{Chain, ChainOrder};
 pub use check::{
     check_takes, loopback_length_s, loopback_plan, round_trip, CheckNote, CheckTake, LiveTake,
     RoundTrip, Take, TakeSound, CHECK_BPM,

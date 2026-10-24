@@ -5,10 +5,10 @@ nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-`laid-back` (I5 Lage-Ziel).
+`chaining` (I6 Bausteine).
 
-Plan (Eigentümer, 24.10.): I4 (#106) und I5 erledigt, dann I6 (Bausteine, braucht Abfolgen in der Werkstatt). Offen aus
-I4: Schwelle der Streuung für Bünde, Generator-Schalter „nur Timing“; aus I5: Ziel-Band im Histogramm (Kante).
+Plan (Eigentümer, 24.10.): Didaktik I4 (#106), I5 (#107), I6 umgesetzt. Offen aus I4: Schwelle der Streuung für Bünde,
+Generator-Schalter „nur Timing“; aus I5: Ziel-Band im Histogramm (Kante); aus I6: Phrasengrenzen aus Pausen.
 
 CI läuft seit 24.10. auf GitHub (`.github/workflows/ci.yml`, Status `github / test` an Gitea, #102); Gitea führt nur
 PR-Agent aus.
@@ -16,10 +16,12 @@ PR-Agent aus.
 Gemerged seit 14.10.: #90–#97 (STAND, Tests, Dateidialoge, Review-Regel), #98 (Kante 1.35–1.39, G9), #99 (I1 Ohne
 Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, gespeichertes Tempo = gespieltes), #100
 (Stück-Generator, Stufe 9), #101 (Beat-Erkennung 12,8 ms zu früh, Abnahme LH-BIB-06), #102 (CI auf GitHub), #103
-(CI-Meldung wiederholen), #104 (flakige Treiber-Tests), #105, #106 (I4 erst der Puls).
+(CI-Meldung wiederholen), #104 (flakige Treiber-Tests), #105, #106 (I4 erst der Puls), #107 (I5 Lage-Ziel).
 
 ## Offen
 
+- **Flakiger Journey-Test** J-C5 (`c5_techniques.rs:107`): unter Last (Load > 120) einmal ein Extra-Ton bei
+  Hammer-on/Pull-off (24.10., einmal in `make check`, dreimal danach grün). Reparieren, nicht ausnehmen.
 - **Speicherdialoge:** seit #92 über das Desktop-Portal; Vorschlag (`selectedFile`) und Titel im echten KDE-Dialog
   ungeprüft (Paket, Bericht, Daten).
 
@@ -62,6 +64,9 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - blind-probe (I1): `Mode::Probe`, `Run::spread_ms`, `Session::played_speed`, `Core::{start_probe, is_probing, bars_at}`,
   `pub(crate) Matcher::has_pitch`; Brücke: Invokables `startProbe`, `loopAt`, Properties `probing`, `autoprobe`;
   `AppArgs::probe` (QA-Schalter `--probe`).
+- chaining (I6): `Chain` (`new`, `step`, `index`, `count`, `is_last`, `on_pass`), `ChainOrder`,
+  `Core::{start_chain, stop_chain, chain_json}`, `UiEvent::ChainStep`; Brücke: Property `chainJson`, Invokable
+  `startChain`.
 - laid-back (I5): `Pocket` (`key`, `from_key`, `band_ms`, `judge`), `PocketVerdict`, `Settings::pocket`;
   Brücke: Property `pocket`, Invokable `changePocket`.
 - #106 (I4): `Judging`, `Arrangement::judging`, `ExpectedNote::any_pitch`, `ExerciseSpec::judging`,

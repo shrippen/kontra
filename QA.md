@@ -170,6 +170,15 @@ nicht nur Farbe); danach ist die Werkstatt wieder normal, die Startseite bietet 
 Erwartet: Das Ziel sagt, dass nur der Anschlag zählt; jeder Ton zur rechten Zeit trifft, welcher Ton auch klingt; der
 späte zählt als spät; die Streuung in ms steht in der Auswertung. Die nächste Übung mit Bünden bewertet wieder den Ton.
 
+**J-C9 Bausteine** ⚙ · Personas: P1 Lea, P2 Jens, P4 Thomas · Phase 2 · LH-MOD-08, LH-MOD-04
+1. Jens: ein eigenes Lied, Werkstatt, Takte 1–8, „Bausteine: Je 2 Takte“.
+2. Spielen, bis „Alles zusammen: Takte 1–8“ steht; einmal mitten in einem Schritt schlecht spielen.
+3. Lea: dasselbe mit einer Übung aus Stufe 1 und „Von hinten“, bei 200 % Schrift.
+4. Thomas: von Hand andere Takte wählen.
+Erwartet: Die Zeile nennt Takte und Schritt („Baustein: Takte 3–4 · Schritt 2 von 7“); ein Schritt endet erst nach zwei
+Durchgängen im Zielband, ein schwacher zählt neu; danach Einzähler und der nächste Schritt ohne Klick; „Von hinten“
+beginnt mit den letzten Takten; von Hand gewählte Takte beenden die Bausteine, die Liste steht wieder auf „Aus“.
+
 **J-C7 Ein ganzes Stück** · Personas: P1 Lea, P2 Jens, P4 Thomas · Phase 3 · LH-BIB-12, LH-BIB-08, LH-MOD-02, -04
 1. Lea: Übungen, Stufe „9 Stücke“, die Ballade im Durchlauf von vorn bis hinten.
 2. Jens: „Übung erzeugen“, Art „Stück“, Stil Rock in E, 100 BPM; den ersten Refrain in der Werkstatt üben.
