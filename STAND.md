@@ -64,7 +64,7 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - blind-probe (I1): `Mode::Probe`, `Run::spread_ms`, `Session::played_speed`, `Core::{start_probe, is_probing, bars_at}`,
   `pub(crate) Matcher::has_pitch`; Brücke: Invokables `startProbe`, `loopAt`, Properties `probing`, `autoprobe`;
   `AppArgs::probe` (QA-Schalter `--probe`).
-- chaining (I6): `Chain` (`new`, `part`, `step`, `index`, `count`, `is_last`, `on_pass`), `ChainOrder`,
+- chaining (I6): `Chain` (`new`, `step`, `index`, `count`, `is_last`, `on_pass`), `ChainOrder`,
   `Core::{start_chain, stop_chain, chain_json}`, `UiEvent::ChainStep`; Brücke: Property `chainJson`, Invokable
   `startChain`.
 - laid-back (I5): `Pocket` (`key`, `from_key`, `band_ms`, `judge`), `PocketVerdict`, `Settings::pocket`;

@@ -229,8 +229,8 @@ pub struct Core {
     finder: songsterr::Finder,
     /// The blind probe running now (DIDAKTIK I1), if any.
     probe: Option<Probe>,
-    /// Building blocks in the workshop (DIDAKTIK I6), if chosen.
-    chain: Option<Chain>,
+    /// Building blocks in the workshop (DIDAKTIK I6), if chosen, and the loop chosen before them.
+    chain: Option<(Chain, Option<(usize, usize)>)>,
 }
 
 /// One pass of the loop without notes on screen (DIDAKTIK I1), at the speed it was practised.
@@ -1750,31 +1750,36 @@ impl Core {
         let Some(bars) = self.arrangement().map(|a| a.bars.len()).filter(|n| *n > 0) else {
             return false;
         };
-        // Running blocks loop one step: a new order or size cuts the bars they started from.
-        let chosen = self.chain.as_ref().map(Chain::part).or(self.looping);
+        // Running blocks loop one step: a new order or size cuts the bars chosen before them.
+        let chosen = match self.chain.as_ref() {
+            Some((_, chosen)) => *chosen,
+            None => self.looping,
+        };
         let (first, last) = chosen
             .filter(|(from, to)| to - from >= size)
             .unwrap_or((0, bars - 1));
         let chain = Chain::new(first, last, size, order, &Workshop::default());
         let (from, to) = chain.step();
-        self.chain = Some(chain);
+        self.chain = Some((chain, chosen));
         self.loop_to(from, to)
     }
 
-    /// Ends the building blocks; the loop goes back to the bars they started from. Returns
-    /// true if the notes changed, as `set_loop`.
+    /// Ends the building blocks; the loop goes back to the one chosen before them (none, if
+    /// none was). Returns true if the notes changed, as `set_loop`.
     pub fn stop_chain(&mut self) -> bool {
-        let Some(chain) = self.chain.take() else {
+        let Some((_, chosen)) = self.chain.take() else {
             return false;
         };
-        let (from, to) = chain.part();
-        self.loop_to(from, to)
+        match chosen {
+            Some((from, to)) => self.loop_to(from, to),
+            None => self.clear_loop(),
+        }
     }
 
     /// The building blocks for the UI, or `null`: `{step, steps, last, text}`, `text` like
     /// "Baustein: Takte 3–4 · Schritt 2 von 5".
     pub fn chain_json(&self) -> String {
-        let Some(chain) = self.chain.as_ref() else {
+        let Some((chain, _)) = self.chain.as_ref() else {
             return "null".into();
         };
         let (from, to) = chain.step();
@@ -1812,7 +1817,7 @@ impl Core {
         if self.settings.mode != "workshop" || self.probe.is_some() {
             return Vec::new();
         }
-        let Some((from, to)) = self.chain.as_mut().and_then(|c| c.on_pass(hit_rate)) else {
+        let Some((from, to)) = self.chain.as_mut().and_then(|(c, _)| c.on_pass(hit_rate)) else {
             return Vec::new();
         };
         self.stop_live();
@@ -5247,6 +5252,16 @@ mod tests {
         core.stop_chain();
         assert_eq!(core.looping, Some((0, 5)));
         assert_eq!(core.chain_json(), "null");
+
+        // Bars 1–4 make one block of 4: the whole piece, but the choice stays (review #108).
+        core.set_loop(0, 3);
+        core.start_chain(4, ChainOrder::Forward);
+        assert_eq!(core.looping, Some((0, 3)), "first block of the whole piece");
+        core.start_chain(2, ChainOrder::Backward);
+        assert_eq!(core.looping, Some((2, 3)), "the last block of bars 1–4");
+        core.start_chain(4, ChainOrder::Forward);
+        core.stop_chain();
+        assert_eq!(core.looping, Some((0, 3)));
         let _ = std::fs::remove_dir_all(dir);
     }
 
