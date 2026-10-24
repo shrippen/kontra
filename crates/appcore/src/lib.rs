@@ -1496,7 +1496,13 @@ impl Core {
         self.probe = Some(Probe {
             speed: practised.unwrap_or(self.speed),
         });
-        self.play()
+        let events = self.play();
+
+        // The input did not start: no probe hiding the notes of the next run.
+        if self.live.is_none() {
+            self.probe = None;
+        }
+        events
     }
 
     /// True while a blind probe runs: the UI hides the notes.
@@ -1516,7 +1522,15 @@ impl Core {
 
     /// Ends the run; the next `play` starts from the beginning with current settings.
     pub fn stop_live(&mut self) {
-        // A run stopped before the end still counts as practice (QA P1 J-C1).
+        // A run stopped before the end still counts as practice (QA P1 J-C1); a probe stopped
+        // before its pass is no probe and would end the start page's offer.
+        let passed = self
+            .live
+            .as_ref()
+            .is_some_and(|l| l.practice().session().is_finished());
+        if self.probe.is_some() && !passed {
+            self.run_started = None;
+        }
         if self.run_started.is_some() {
             self.record_run();
         }
@@ -5100,6 +5114,29 @@ mod tests {
         let events = core.start_probe();
         assert!(
             matches!(events.as_slice(), [UiEvent::Error(_)]),
+            "{events:?}"
+        );
+        assert!(!core.is_probing());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// PR #99 review: a probe whose input does not start must not stay set (notes hidden, the
+    /// next run saved as a probe).
+    #[test]
+    fn failed_start_ends_the_probe() {
+        let dir = temp_dir("probefail");
+        let mut core = Core::new(
+            &dir,
+            QaOptions {
+                input_file: Some(dir.join("missing.wav")),
+                laptop_jack: false,
+            },
+        );
+        core.open(&Core::demo_path()).unwrap();
+        core.set_loop(1, 2);
+        let events = core.start_probe();
+        assert!(
+            events.iter().any(|e| matches!(e, UiEvent::Error(_))),
             "{events:?}"
         );
         assert!(!core.is_probing());

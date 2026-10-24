@@ -38,6 +38,16 @@ fn probe_compares_with_the_workshop() {
     core.open(&score).unwrap();
     core.set_mode("workshop");
     core.set_loop(0, 0);
+
+    // Stopped after its first note: no probe, nothing saved apart from the workshop.
+    core.start_probe();
+    run_until(&mut core, Duration::from_secs(8), |e| {
+        matches!(e, UiEvent::Judged { .. })
+    });
+    core.stop_live();
+    let p: serde_json::Value = serde_json::from_str(&core.progress_json()).unwrap();
+    assert_eq!(p["pieces"][0]["runs"], 1, "{p}");
+
     core.start_probe();
     assert!(core.is_probing());
     let events = run_until(&mut core, Duration::from_secs(8), |e| {

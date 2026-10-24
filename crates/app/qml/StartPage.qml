@@ -45,8 +45,9 @@ Kirigami.ScrollablePage {
             return
         }
         ctl.changeMode("workshop")
+        // The bars moved (backing aligned anew): their written numbers, as for a spot.
         if (!ctl.loopAt(offer.startS, offer.endS))
-            return
+            ctl.loopBars(offer.from - 1, offer.to - 1)
         applicationWindow().show("practice")
         ctl.startProbe()
     }
