@@ -632,7 +632,12 @@ Kirigami.Page {
             spacing: KanteStyle.unit(8)
             readonly property var chain: JSON.parse(ctl.chainJson)
             readonly property var sizes: [0, 2, 4]
-            function start(size, backward) { ctl.startChain(size, backward ? "backward" : "forward") }
+            // Block size running now (0: off); choosing it again keeps the step reached.
+            property int size: 0
+            function start(size, backward) {
+                chainRow.size = size
+                ctl.startChain(size, backward ? "backward" : "forward")
+            }
             Row {
                 spacing: KanteStyle.unit(8)
                 height: KanteStyle.heightMedium
@@ -647,7 +652,12 @@ Kirigami.Page {
                     width: KanteStyle.unit(160)
                     Accessible.name: texts.t("chain.title")
                     model: [texts.t("chain.off"), texts.t("chain.two"), texts.t("chain.four")]
-                    onActivated: function(index) { chainRow.start(chainRow.sizes[index], chainBackward.checked) }
+                    onActivated: function(index) {
+                        if (chainRow.sizes[index] === chainRow.size) {
+                            return
+                        }
+                        chainRow.start(chainRow.sizes[index], chainBackward.checked)
+                    }
                 }
                 KanteSwitch {
                     id: chainBackward
@@ -673,7 +683,12 @@ Kirigami.Page {
             // Bars chosen by hand end the blocks: the list says so.
             Connections {
                 target: ctl
-                function onChainJsonChanged() { if (JSON.parse(ctl.chainJson) === null) { chainSize.currentIndex = 0 } }
+                function onChainJsonChanged() {
+                    if (JSON.parse(ctl.chainJson) === null) {
+                        chainSize.currentIndex = 0
+                        chainRow.size = 0
+                    }
+                }
             }
         }
 
