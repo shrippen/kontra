@@ -14,7 +14,9 @@ Kirigami.ScrollablePage {
     property var levels: []
 
     // Choices of the generator; values go to ctl.generateExercise.
-    readonly property var kinds: ["groove", "scale", "arpeggio", "triads", "walking", "chromatic"]
+    readonly property var kinds: ["groove", "scale", "arpeggio", "triads", "walking", "chromatic", "song"]
+    // Pieces in a form to play through.
+    readonly property var styles: ["ballad", "pop", "rock", "funk", "shuffle"]
     readonly property var scales: ["major", "minor", "majorpenta", "minorpenta", "blues", "dorian",
         "phrygian", "lydian", "mixolydian", "locrian", "harmonicminor"]
     readonly property var progressions: ["tonic", "251", "blues", "minor", "145", "pop", "1625", "minor251"]
@@ -34,6 +36,7 @@ Kirigami.ScrollablePage {
     property int bpm: 80
     readonly property bool isScale: kinds[kind] === "scale"
     readonly property bool isFingers: kinds[kind] === "chromatic"
+    readonly property bool isSong: kinds[kind] === "song"
 
     function reload() { levels = JSON.parse(ctl.exercisesJson()) }
     // The level being worked on (the first with an exercise that does not sit yet) stands open;
@@ -158,8 +161,10 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("exercises.kind")
-            KanteSegmented {
+            // A list, not segments: seven kinds ran out of a narrow window (700 px, 24.10.).
+            KanteComboBox {
                 Accessible.name: texts.t("exercises.kind")
+                width: KanteStyle.unit(220)
                 model: page.kinds.map(function(k) { return texts.t("exercises.kind." + k) })
                 currentIndex: page.kind
                 onActivated: function(index) { page.kind = index; page.variant = 0 }
@@ -169,7 +174,8 @@ Kirigami.ScrollablePage {
             id: variantRow
             Layout.fillWidth: true
             title: page.isScale ? texts.t("exercises.scale")
-                : page.isFingers ? texts.t("exercises.fingers") : texts.t("exercises.progression")
+                : page.isFingers ? texts.t("exercises.fingers")
+                : page.isSong ? texts.t("exercises.style") : texts.t("exercises.progression")
             KanteComboBox {
                 Accessible.name: variantRow.title
                 width: KanteStyle.unit(220)
@@ -177,6 +183,8 @@ Kirigami.ScrollablePage {
                     ? page.scales.map(function(s) { return texts.t("exercises.scale." + s) })
                     : page.isFingers
                         ? page.fingerOrders.map(function(f) { return f.split("").join("-") })
+                    : page.isSong
+                        ? page.styles.map(function(s) { return texts.t("exercises.style." + s) })
                         : page.progressions.map(function(p) { return texts.t("exercises.progression." + p) })
                 currentIndex: page.variant
                 onActivated: function(index) { page.variant = index }
@@ -252,7 +260,8 @@ Kirigami.ScrollablePage {
             Accessible.name: texts.t("exercises.generate")
             onClicked: {
                 var variant = page.isScale ? page.scales[page.variant]
-                    : page.isFingers ? page.fingerOrders[page.variant] : page.progressions[page.variant]
+                    : page.isFingers ? page.fingerOrders[page.variant]
+                    : page.isSong ? page.styles[page.variant] : page.progressions[page.variant]
                 // Scales take their pattern where grooves take the rhythm; finger exercises a fret.
                 var rhythm = page.isScale ? page.patterns[page.pattern] : page.rhythms[page.rhythm]
                 var key = page.isFingers ? page.fret : page.key

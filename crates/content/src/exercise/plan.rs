@@ -5,7 +5,8 @@
 //! ```text
 //! 01–45   first set (levels 1–5)
 //! 46–     appended per level: 1 Einstieg … 4 Groove, 5 Walking Bass, 6 Taktarten, 7 Lesen,
-//!         8 Technik (levels 4 and 5 swapped in Runde 12; numbers unchanged)
+//!         8 Technik (levels 4 and 5 swapped in Runde 12; numbers unchanged),
+//!         9 Stücke (pieces in a form to play through, 24.10.)
 //! ```
 
 use super::*;
@@ -19,6 +20,7 @@ const LEVEL_5: &str = "5 Walking Bass";
 const LEVEL_6: &str = "6 Taktarten";
 const LEVEL_7: &str = "7 Lesen";
 const LEVEL_8: &str = "8 Technik";
+const LEVEL_9: &str = "9 Stücke";
 
 /// Key roots as pitch classes.
 const C: u8 = 0;
@@ -61,6 +63,7 @@ pub fn bundled_specs() -> Vec<(&'static str, ExerciseSpec)> {
     use Progression as P;
     use Rhythm::*;
     use ScaleKind as S;
+    use Style as St;
     vec![
         // ── First set (01–45) ────────────────────────────────────────────
         (LEVEL_1, groove(P::Tonic, Quarters, E, 70.0)),
@@ -225,6 +228,13 @@ pub fn bundled_specs() -> Vec<(&'static str, ExerciseSpec)> {
         ),
         (LEVEL_8, ramp(groove(P::Tonic, Funk, E, 80.0), 3, 10.0)),
         (LEVEL_8, groove(P::Minor, Ghost, D, 95.0)),
+        // ── 9 Stücke: whole pieces, easiest first ────────────────────────────
+        (LEVEL_9, piece(St::Ballad, E, 70.0)),
+        (LEVEL_9, piece(St::Pop, G, 90.0)),
+        (LEVEL_9, piece(St::Rock, A, 110.0)),
+        (LEVEL_9, piece(St::Shuffle, E, 90.0)),
+        (LEVEL_9, piece(St::Pop, D, 100.0)),
+        (LEVEL_9, piece(St::Funk, A, 95.0)),
     ]
 }
 
@@ -244,6 +254,14 @@ fn spec(kind: ExerciseKind, key: u8, bpm: f64) -> ExerciseSpec {
         slow: false,
         repeats: if blues { 1 } else { 2 },
         ramp_bpm: 0.0,
+    }
+}
+
+/// A piece is played once: its form already repeats verse and chorus.
+fn piece(style: Style, key: u8, bpm: f64) -> ExerciseSpec {
+    ExerciseSpec {
+        repeats: 1,
+        ..spec(ExerciseKind::Song(style), key, bpm)
     }
 }
 

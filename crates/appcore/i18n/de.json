@@ -766,5 +766,20 @@
   "dialog.export": "Alles sichern",
   "dialog.import": "Sicherung laden",
   "dialog.report": "Bericht speichern",
-  "dialog.backing": "Backing-Track wählen"
+  "dialog.backing": "Backing-Track wählen",
+  "exercises.kind.song": "Stück",
+  "exercises.style": "Stil",
+  "exercises.style.ballad": "Ballade",
+  "exercises.style.pop": "Pop",
+  "exercises.style.rock": "Rock",
+  "exercises.style.funk": "Funk",
+  "exercises.style.shuffle": "Shuffle",
+  "exercise.name.song": "Stück {style}",
+  "exercise.name.style.ballad": "Ballade",
+  "exercise.name.style.pop": "Pop",
+  "exercise.name.style.rock": "Rock",
+  "exercise.name.style.funk": "Funk",
+  "exercise.name.style.shuffle": "Shuffle",
+  "exercise.level.9": "Stücke",
+  "exercise.goal.form": "Ziel: ein ganzes Stück durchspielen. Intro, Strophe, Refrain, Bridge: Vor jedem neuen Teil kündigt ein Fill den Wechsel an."
 }

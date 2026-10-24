@@ -6,8 +6,8 @@ Eigenes Material unter MIT, erzeugt von `kontra_content::exercise::bundled()`:
 kontra-cli exercises testdata/exercises
 ```
 
-Ein Ordner je Niveau (1 Einstieg bis 8 Technik). Die Nummer im Dateinamen ist der Platz im Plan; der Fortschritt hängt
-am Pfad, darum werden neue Übungen nur angehängt (46–144 liegen hinter den alten ihrer Stufe), nie umbenannt oder
+Ein Ordner je Niveau (1 Einstieg bis 9 Stücke). Die Nummer im Dateinamen ist der Platz im Plan; der Fortschritt hängt
+am Pfad, darum werden neue Übungen nur angehängt (46–150 liegen hinter den alten ihrer Stufe), nie umbenannt oder
 verschoben. Die App sortiert nach der Nummer. Runde 12 tauschte die Ordner 4 und 5 (Groove vor Walking Bass); die
 App zieht Bibliothek und Setlisten beim Laden auf die neuen Pfade um.
 
@@ -21,6 +21,7 @@ App zieht Bibliothek und Setlisten beim Laden auf die neuen Pfade um.
 | 6 Taktarten | 3/4, 6/8, 5/4, 7/8 | P3 |
 | 7 Lesen | Dur in allen Tonarten, Terzen, Vierergruppen, harmonisch Moll, Modi, Arpeggios in entfernten Tonarten | P3, P4 |
 | 8 Technik | Slap und Pop, Fingerfolgen in allen Lagen, Tempo-Treppen | P2, P3 |
+| 9 Stücke | Ganze Stücke mit Form (Intro, Strophe, Refrain, Bridge, Outro) und Schlagzeug: Ballade, Pop, Rock, Shuffle, Funk; ein Fill vor jedem neuen Teil | P1, P2, P4 |
 
 Akkordnamen stehen als MIDI-Marker am Taktanfang; Grooves haben eine Schlagzeugspur auf Kanal 10. Techniken (`ghost`,
 `dead`, `slap`, `pop`) und feste Griffe (`pos <Saite> <Bund>`, Saite 0 = E) stehen als Text-Ereignis an der Note.

@@ -152,6 +152,14 @@ Erwartet: Töne während der Vorgabe zählen nicht; jeder gespielte Ton hat Hake
 3. Auswertung lesen; Thomas zeigt sie am Beamer, Tab-Lane und Tabulatur.
 Erwartet: jede Technik-Note hat ein Zeichen (h, p, sl, x, Klammer) und danach ein Ergebnis in Form, nicht nur Farbe; das Slide-Zeichen und sein Ergebnis stehen an der Ausgangsnote wie in gedruckter Tabulatur; die Ghost Note ( ) hat nur ihr Zeichen, kein Technik-Ergebnis; die Auswertung zählt je Technik („Dead Note: 1 von 2“), die Trefferquote bleibt davon unberührt (die normal angeschlagene Dead Note trifft, eine gedämpft gespielte auch, ohne Tonhöhe; Palm Mute hat eine Tonhöhe und wird an ihr gemessen); Hammer-on- und Pull-off-Töne sind keine zusätzlichen Noten; am Mikrofon sagt die Auswertung, dass Slap und Pop nicht bewertet werden.
 
+**J-C7 Ein ganzes Stück** · Personas: P1 Lea, P2 Jens, P4 Thomas · Phase 3 · LH-BIB-12, LH-BIB-08, LH-MOD-02, -04
+1. Lea: Übungen, Stufe „9 Stücke“, die Ballade im Durchlauf von vorn bis hinten.
+2. Jens: „Übung erzeugen“, Art „Stück“, Stil Rock in E, 120 BPM; den ersten Refrain in der Werkstatt üben.
+3. Thomas: dasselbe Stück am Beamer in Noten + Tab für die Klasse, Stil Funk in Am.
+Erwartet: Stück läuft zwei bis drei Minuten; Akkordname über jedem Takt; Schlagzeug, vor jedem neuen Teil ein Fill;
+letzter Takt auf der Tonika; Titel in der Oberflächensprache („Stück Rock“ / „Rock piece“); der Generator passt in ein
+schmales Fenster.
+
 ## D. Inhalte teilen (ab Phase 3)
 
 **J-D1 Original-Song als Backing Track** ⚙ · Persona: P2 Jens · Phase 3 · LH-BIB-06, LH-WIE-01, LH-WIE-02

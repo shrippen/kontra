@@ -766,5 +766,20 @@
   "dialog.export": "Back up everything",
   "dialog.import": "Load backup",
   "dialog.report": "Save report",
-  "dialog.backing": "Choose backing track"
+  "dialog.backing": "Choose backing track",
+  "exercises.kind.song": "Piece",
+  "exercises.style": "Style",
+  "exercises.style.ballad": "Ballad",
+  "exercises.style.pop": "Pop",
+  "exercises.style.rock": "Rock",
+  "exercises.style.funk": "Funk",
+  "exercises.style.shuffle": "Shuffle",
+  "exercise.name.song": "{style} piece",
+  "exercise.name.style.ballad": "Ballad",
+  "exercise.name.style.pop": "Pop",
+  "exercise.name.style.rock": "Rock",
+  "exercise.name.style.funk": "Funk",
+  "exercise.name.style.shuffle": "Shuffle",
+  "exercise.level.9": "Pieces",
+  "exercise.goal.form": "Goal: play a whole piece through. Intro, verse, chorus, bridge: a drum fill announces each new part."
 }
