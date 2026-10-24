@@ -321,8 +321,13 @@ impl<O: Output> Practice<O> {
         let origin = anchor_real - anchor_pos / rate;
         let looping = transport.loop_range();
         let (start, end) = looping.map_or((0.0, transport.end_s()), |l| (l.start_s, l.end_s));
+        // A probe has one pass: nothing beyond the loop's end (it ends after the last grace).
+        let probe = matches!(self.session.mode(), Mode::Probe);
+        if probe && pass > 0 {
+            return;
+        }
         let mut windows = vec![(pass, position, horizon.min(end), origin)];
-        if horizon > end && looping.is_some() {
+        if horizon > end && looping.is_some() && !probe {
             let wrap_real = origin + end / rate;
             windows.push((
                 pass + 1,
@@ -436,6 +441,10 @@ impl<O: Output> Practice<O> {
             .play_backing(audio.clone(), at_s, frame_of(position));
         if let Some(LoopRange { start_s, end_s }) = self.session.transport().loop_range() {
             let wrap = at_s + (end_s - position) / speed;
+            if matches!(self.session.mode(), Mode::Probe) {
+                self.output.stop_backing(wrap);
+                return;
+            }
             self.output.play_backing(audio, wrap, frame_of(start_s));
         }
     }
@@ -645,15 +654,14 @@ mod tests {
             }
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
-        // One pass lasts 0.5 s; no click and no backing after the probe ended.
-        let finished_at = finished_at.expect("probe finished");
-        let last = p
-            .output()
-            .sounds
-            .iter()
-            .map(|(t, _)| *t)
-            .fold(0.0, f64::max);
-        assert!(last <= finished_at, "{last} after {finished_at}");
+        // One pass lasts 0.5 s from the first click; nothing from the loop's end on, though
+        // the probe only ends after its last note's grace (PR #99 review).
+        assert!(finished_at.is_some(), "probe finished");
+        let times = p.output().sounds.iter().map(|(t, _)| *t);
+        let first = times.clone().fold(f64::MAX, f64::min);
+        let last = times.fold(0.0, f64::max);
+        let wrap = first + 0.5;
+        assert!(last < wrap - 1e-6, "{last} at or after the loop end {wrap}");
         assert!(!p.output().stopped.is_empty());
     }
 
