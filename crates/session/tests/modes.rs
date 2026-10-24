@@ -273,6 +273,40 @@ fn early_note_at_loop_start_counts_for_the_next_pass() {
     assert!((first.offset_ms.unwrap() + 20.0).abs() < 1.0, "{first:?}");
 }
 
+/// The mirror case (PR #99 review): the loop's last note played late, just after the wrap, is
+/// that note, not an extra in the next pass; in a probe it is not dropped either.
+#[test]
+fn late_note_at_loop_end_counts_for_its_pass() {
+    for mode in [Mode::Song, Mode::Probe] {
+        let mut s = Session::new(riff(), mode, ScoreSettings::default());
+        // Loop 0–1.52 s: the last note (1.5 s) played 40 ms late lands after the wrap.
+        s.set_loop(
+            0.0,
+            Some(LoopRange {
+                start_s: 0.0,
+                end_s: 1.52,
+            }),
+        );
+        s.play(0.0);
+        let notes = [
+            played(0.0, 28.0),
+            played(0.5, 33.0),
+            played(1.0, 38.0),
+            played(1.54, 43.0),
+        ];
+        run(&mut s, &notes, 1.9);
+        let last = s
+            .results()
+            .iter()
+            .find(|r| r.pass == 0 && r.note == Some(3))
+            .unwrap_or_else(|| panic!("{mode:?} {:?}", s.results()));
+        assert_eq!(last.outcome, Outcome::Hit, "{mode:?}");
+        assert!((last.offset_ms.unwrap() - 40.0).abs() < 1.0, "{last:?}");
+        let extras = s.results().iter().filter(|r| r.note.is_none()).count();
+        assert_eq!(extras, 0, "{mode:?}");
+    }
+}
+
 /// QA P2 (F3): after a stall (stretching a backing track blocked the thread) notes arrive before
 /// the clock was advanced past the loop end; they belong to the next pass, not "extra".
 #[test]

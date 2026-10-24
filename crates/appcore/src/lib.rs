@@ -562,8 +562,18 @@ impl Core {
     fn probe_offer(&self, store: &ProgressStore, now: u64) -> Option<serde_json::Value> {
         let from = now.saturating_sub(SPOT_DAYS * SECONDS_PER_DAY);
         let until = now.saturating_sub(SPOT_REST_S);
-        let mut latest: Option<(u64, String, LoopRange)> = None;
+        let mut latest: Option<(u64, &RecentEntry, &SectionBars)> = None;
         for progress in store.all() {
+            // Only pieces the library can open, with sections it can name (a newer one it
+            // cannot must not hide an older one).
+            let Some(entry) = self
+                .library
+                .recent
+                .iter()
+                .find(|e| e.song_id == progress.song_id && e.path.exists())
+            else {
+                continue;
+            };
             for run in &progress.runs {
                 let Some((start_s, end_s)) = run.section else {
                     continue;
@@ -571,6 +581,7 @@ impl Core {
                 if run.mode != WORKSHOP_MODE
                     || run.finished_unix <= from
                     || run.finished_unix > until
+                    || latest.is_some_and(|(t, _, _)| t >= run.finished_unix)
                 {
                     continue;
                 }
@@ -580,32 +591,27 @@ impl Core {
                         && r.finished_unix > run.finished_unix
                         && same_range(r.section, range)
                 });
-                if probed
-                    || latest
-                        .as_ref()
-                        .is_some_and(|(t, _, _)| *t >= run.finished_unix)
-                {
+                if probed {
                     continue;
                 }
-                latest = Some((run.finished_unix, progress.song_id.clone(), range));
+                let Some(bars) = entry
+                    .sections
+                    .iter()
+                    .find(|b| same_section(b, start_s, end_s))
+                else {
+                    continue;
+                };
+                latest = Some((run.finished_unix, entry, bars));
             }
         }
-        let (_, song, range) = latest?;
-        let entry = self.library.recent.iter().find(|e| e.song_id == song)?;
-        if !entry.path.exists() {
-            return None;
-        }
-        let bars = entry
-            .sections
-            .iter()
-            .find(|b| same_section(b, range.start_s, range.end_s))?;
+        let (_, entry, bars) = latest?;
         Some(json!({
             "path": entry.path,
             "title": self.library_title(entry),
             "from": bars.from_bar,
             "to": bars.to_bar,
-            "startS": range.start_s,
-            "endS": range.end_s,
+            "startS": bars.start_s,
+            "endS": bars.end_s,
         }))
     }
 
@@ -5184,6 +5190,43 @@ mod tests {
 
         store.record(&a, run(now - day + 60, PROBE_MODE)).unwrap();
         assert!(offer(&core).is_null(), "probed since");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// PR #99 review: a newer section the library cannot name (or whose file is gone) does not
+    /// hide an older one it can offer.
+    #[test]
+    fn probe_offer_skips_what_it_cannot_open() {
+        let dir = temp_dir("probeskip");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let day = SECONDS_PER_DAY;
+        let now = 100 * day;
+        core.open(&Core::demo_path()).unwrap();
+        core.set_loop(1, 2);
+        let a = core.arrangement().unwrap().clone();
+        let (start_s, end_s) = core.loop_seconds();
+        core.remember_section(start_s, end_s, 1, 2);
+        let run = |unix, section| Run {
+            finished_unix: unix,
+            practice_s: 60.0,
+            speed: 1.0,
+            hit_rate: 0.9,
+            mode: WORKSHOP_MODE.into(),
+            section: Some(section),
+            hardest_bars: Vec::new(),
+            spread_ms: None,
+        };
+        let store = core.progress_store();
+        store
+            .record(&a, run(now - 2 * day, (start_s, end_s)))
+            .unwrap();
+        // Newer, but bars the library never named.
+        store
+            .record(&a, run(now - day, (end_s, end_s + 2.0)))
+            .unwrap();
+
+        let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
+        assert_eq!(home["probe"]["startS"].as_f64(), Some(start_s), "{home}");
         let _ = std::fs::remove_dir_all(dir);
     }
 

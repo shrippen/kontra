@@ -242,6 +242,22 @@ impl Session {
                 position = wrapped;
                 pass += 1;
             }
+
+            // The mirror case: just after the wrap, the last pass's final note played late. Both
+            // lie in the window; the pitch tells them apart (PR #99 review).
+            let unwrapped = end_s + (position - start_s);
+            if pass > 0
+                && position - start_s <= window
+                && !self
+                    .matcher
+                    .has_pitch(pass, position, window, range, note.midi)
+                && self
+                    .matcher
+                    .has_pitch(pass - 1, unwrapped, window, range, note.midi)
+            {
+                position = unwrapped;
+                pass -= 1;
+            }
         }
         // A probe has one pass: playing on past the section is not a second one.
         if matches!(self.mode, Mode::Probe) && pass > 0 {
