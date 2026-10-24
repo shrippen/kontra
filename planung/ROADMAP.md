@@ -194,7 +194,8 @@ Lernmodul ([`LERNEN.md`](LERNEN.md), LH-LRN-07 bis -13, Journeys J-G1 bis J-G4):
 - Kurse je Instrument aus einem gemeinsamen Lektionsvorrat (Eigentümer, 25.10.): `for` (any, Familie, Instrument),
   Varianten, relative Tonhöhen, `needs`, ein Glossar; Bass-Kurs zuerst (LERNEN.md Abschnitt 12).
 - Kurse nachladen aus Datei oder Internet, auch mit Videos, auch Bezahlkurse von Anbietern; mitgeliefert nur ohne
-  Videos (Eigentümer, 25.10., LERNEN.md Abschnitt 13, LH-LRN-14).
+  Videos (Eigentümer, 25.10., LERNEN.md Abschnitt 13, LH-LRN-14). Videos bevorzugt über das Internet eingebunden;
+  ein Glossar über alle installierten Kurse, doppelte Begriffe mit allen Texten und ihrer Herkunft.
 
 ## Entscheidungen Runde 12 (14.10.2026)
 

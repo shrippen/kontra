@@ -129,7 +129,7 @@ engine/     content/  Lektionsformat: Parser, mitgelieferte Kurse, Lektionen, Gl
   und prüft das Ausprobieren mit den Wegen, die es schon besitzt (`quiz`, `ear`, Session); nichts ruft nach oben.
 - **Format:** je Lektion ein Ordner `lessons/units/<id>/` mit `de.md` und `en.md`. Kopf mit `id`, `for` (siehe
   Abschnitt 12), `needs`, `terms`; dann Markdown-Teilmenge (Überschrift, Absatz, Liste, Hervorhebung) und Blöcke für das
-  Interaktive, z. B. `::: fretboard root=A steps="0 10"`, `::: listen root=A steps="0 10"`,
+  Interaktive, z. B. `::: figure root=A steps="0 10"`, `::: listen root=A steps="0 10"`,
   `::: try interval=10`, `::: exercise …`, `::: question …`. Tonhöhen in Lektionen relativ (Stufen, Halbtöne über einem
   Grundton); Lage und Oktave wählt das Profil. Parser selbst gebaut im Crate `content` (keine neue Abhängigkeit),
   mitgeliefert über ein Build-Skript, das die Dateien einbettet.
@@ -239,7 +239,7 @@ Auf der Tastatur ist die kleine Septime ein Ganzton unter der Oktave …
 Die Session löst Varianten beim Laden für das aktive Profil auf (das Besondere vor dem Allgemeinen). Fehlt für ein
 Instrument eine nötige Variante, fällt das ein Test auf, nicht der Nutzer.
 
-**Abbildungen und Tonhöhen aus dem Profil.** Blöcke beschreiben Musik, nicht das Instrument: `::: fretboard` wird
+**Abbildungen und Tonhöhen aus dem Profil.** Blöcke beschreiben Musik, nicht das Instrument: `::: figure` wird
 beim Keyboard zur Klaviatur, beim Kontrabass zum Griffbrett ohne Bünde; Tonhöhen stehen relativ (Grundton und
 Halbtöne), das Profil legt Oktave und Lage in seinen Umfang. „Spiel die Septime über A“ ist am Bass A1 → G2, an der
 Gitarre A2 → G3. So bleibt ein Ausprobieren gleich und wird für jedes Instrument richtig geprüft.
@@ -258,7 +258,8 @@ Jeder Kurs ordnet anders, die Voraussetzungen bleiben gleich; ein Test prüft je
 Voraussetzung steht.
 
 **Glossar einmal.** Ein Glossar für alle Kurse, Begriffe instrumentneutral, mit Varianten wie in Lektionen
-(„Slap“ hat nur eine Bass-Variante und erscheint nur dort). Ein Begriff verweist auf die Lektion im aktiven Kurs.
+(„Slap“ hat nur eine Bass-Variante und erscheint nur dort). Ein Begriff verweist auf die Lektion im aktiven Kurs;
+Glossare nachgeladener Kurse kommen dazu (Abschnitt 13).
 
 **Pflege und Prüfung:** Tests je Kurs: jede Lektion gilt für das Instrument (`for`), jeder Block ist für das Profil
 darstellbar und prüfbar, beide Sprachen gleich, `needs` in Reihenfolge. Eine Änderung an einer gemeinsamen Lektion
@@ -285,8 +286,10 @@ kurs.kontrakurs
 └── media/                  optional: Videos (WebM/MP4), Bilder
 ```
 
-Dasselbe Lektionsformat wie die mitgelieferten Kurse, dazu der Block `::: video src=media/anschlag.webm` (oder eine
-`https://`-Adresse zum Streamen) mit Untertiteln je Sprache (`media/anschlag.de.vtt`). Ein nachgeladener Kurs darf
+Dasselbe Lektionsformat wie die mitgelieferten Kurse, dazu der Block `::: video src=…` mit Untertiteln je Sprache.
+**Videos bevorzugt über das Internet** (`src=https://…`, gestreamt), damit Pakete klein bleiben (Eigentümer, 25.10.);
+`media/` im Paket nur, wo ein Kurs ohne Netz gehen soll. Ohne Netz zeigt die Seite statt des Videos einen Hinweis, Text
+und Untertitel bleiben. Ein nachgeladener Kurs darf
 Lektionen aus dem mitgelieferten Vorrat nennen (`needs`, Kapitel), aber nicht verändern; eigene Lektionen haben eigene
 Ids (Präfix des Anbieters, z. B. `bassbuzz.anschlag`), damit nichts kollidiert.
 
@@ -302,6 +305,11 @@ Ids (Präfix des Anbieters, z. B. `bassbuzz.anschlag`), damit nichts kollidiert.
 Videos nur in Formaten, die Qt Multimedia (LGPL, dynamisch) abspielt. Kontra zeigt Anbieter und Lizenz vor dem
 Hinzufügen und sagt, wenn ein Kurs für ein anderes Instrument ist. Videos sind optional: ohne Wiedergabe-Möglichkeit
 (oder mit „Bewegung reduzieren“) bleibt der Text der Seite lesbar, Untertitel stehen darunter (P7).
+
+**Glossar über alle Kurse** (Eigentümer, 25.10.): Kontra führt die Glossare aller installierten Kurse zu einem
+zusammen. Nennen mehrere Kurse denselben Begriff (gleiche Id), zeigt der Eintrag alle Texte hintereinander, jeden mit
+seiner Herkunft („Aus: Bass-Kurs“, „Aus: <Anbieter-Kurs>“); der mitgelieferte zuerst. Ein „?“-Verweis findet einen
+Begriff aus jedem Kurs, gleich in welchem Kurs er steht.
 
 **Lernstand:** wie bei mitgelieferten Kursen an der Lektions-Id; gemeinsame Lektionen zählen über Kurse (Abschnitt 12).
 Ein entfernter Kurs behält seinen Lernstand, bis der Nutzer ihn löscht.

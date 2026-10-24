@@ -191,7 +191,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-LRN-11 | Offenes, dokumentiertes Lektionsformat; eigene Lektionen in der Bibliothek, später im `.kontra`-Paket. | Kann | 3 | P4 | J-G4 |
 | LH-LRN-12 | Lektionen gelten für eine Stufe (`any`, Familie, Instrument) aus dem Profil; ein Profil ohne passende Lektion bekommt einen Hinweis statt einer falschen Lektion. | Soll | 2 | P5, P6 | J-A4 |
 | LH-LRN-13 | Kurs je Instrument aus einem gemeinsamen Lektionsvorrat (Varianten, `needs`); Wissen aus `any`-Lektionen zählt über Kurse hinweg. Bis 1.0 nur der Bass-Kurs, alle 15 Kapitel vor 0.1. | Soll | 2 | P5, P6, P1 | Tests je Kurs: `for`, Sprachen, Reihenfolge der `needs` |
-| LH-LRN-14 | **Kurse nachladen** (Eigentümer, 25.10.): Kurspaket `.kontrakurs` (Lektionsformat, Medien, Manifest mit Anbieter und Lizenz) aus Datei oder HTTPS-Adresse hinzufügen; nachgeladene Kurse dürfen Videos mit Untertiteln enthalten, mitgelieferte nie. Kein Shop, kein Konto in Kontra. | Kann | 3 | P2, P4, P1, P7 | J-G5; Test: kein Video-Block in mitgelieferten Kursen |
+| LH-LRN-14 | **Kurse nachladen** (Eigentümer, 25.10.): Kurspaket `.kontrakurs` (Lektionsformat, Medien, Manifest mit Anbieter und Lizenz) aus Datei oder HTTPS-Adresse hinzufügen; nachgeladene Kurse dürfen Videos mit Untertiteln enthalten, bevorzugt über das Internet eingebunden (kleine Pakete), mitgelieferte nie. Das Glossar gilt über alle installierten Kurse; doppelte Begriffe zeigen alle Texte hintereinander mit Herkunft. Kein Shop, kein Konto in Kontra. | Kann | 3 | P2, P4, P1, P7 | J-G5; Test: kein Video-Block in mitgelieferten Kursen |
 
 ### 4.8 Wiedergabe (WIE)
 
