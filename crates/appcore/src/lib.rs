@@ -3024,10 +3024,11 @@ impl Core {
     }
 
     /// Whether a run sits: hits above the workshop band (`MASTERED_RATE`); judged by time only,
-    /// also a spread of at most `PULSE_SPREAD_MS` (DIDAKTIK I4: then the frets come in).
+    /// also a spread of at most `PULSE_SPREAD_MS` (DIDAKTIK I4: then the frets come in), in
+    /// whole ms as the summary shows it.
     fn run_sits(judging: Judging, hit_rate: f64, spread_ms: Option<f64>) -> bool {
         let pulse = match judging {
-            Judging::TimeOnly => spread_ms.is_some_and(|s| s <= PULSE_SPREAD_MS),
+            Judging::TimeOnly => spread_ms.is_some_and(|s| s.round() <= PULSE_SPREAD_MS),
             Judging::PitchAndTime => true,
         };
         hit_rate >= MASTERED_RATE && pulse
@@ -5344,6 +5345,14 @@ mod tests {
         assert_eq!(first_level["items"][0]["mastered"], true);
         assert_eq!(first_level["items"][1]["mastered"], false);
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// I4: the threshold judges the spread as the summary shows it (whole ms): ±25.4 reads
+    /// "±25 ms" and sits.
+    #[test]
+    fn the_pulse_threshold_rounds_like_the_text() {
+        assert!(Core::run_sits(Judging::TimeOnly, 0.95, Some(25.4)));
+        assert!(!Core::run_sits(Judging::TimeOnly, 0.95, Some(25.5)));
     }
 
     /// I4: a groove judged by time only sits when the hits are there and the spread is small;
