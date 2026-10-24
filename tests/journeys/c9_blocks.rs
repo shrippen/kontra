@@ -1,8 +1,9 @@
 //! J-C9 Bausteine (P1 Lea, P2 Jens; DIDAKTIK I6): the workshop cuts the chosen bars into blocks
-//! and joins them step by step; each step that sits starts the next with a count-in.
+//! and joins them step by step; each step that sits starts the next with a count-in. Step 5: by
+//! phrase, a groove with a rest in every bar makes blocks of two bars.
 
 use crate::common::{piece, render, run_until, write_midi, Profile, BPM};
-use kontra_appcore::{ChainOrder, UiEvent};
+use kontra_appcore::{Blocks, ChainOrder, Core, UiEvent};
 use std::time::Duration;
 
 /// Six equal bars: whichever bars loop, the take (played straight through) fits them.
@@ -21,7 +22,7 @@ fn blocks_join_until_the_whole_part() {
     core.open(&score).unwrap();
     core.set_mode("workshop");
     core.set_loop(0, 2);
-    core.start_chain(1, ChainOrder::Forward);
+    core.start_chain(Blocks::Bars(1), ChainOrder::Forward);
     let chain = |core: &kontra_appcore::Core| -> serde_json::Value {
         serde_json::from_str(&core.chain_json()).unwrap()
     };
@@ -56,4 +57,20 @@ fn blocks_join_until_the_whole_part() {
     // Bars chosen by hand end the blocks.
     core.set_loop(1, 1);
     assert_eq!(core.chain_json(), "null");
+}
+
+#[test]
+fn phrases_follow_the_rests() {
+    let profile = Profile::new("c9-phrases");
+    let mut core = profile.core(None);
+    core.update_settings(|s| s.language = Some("de".into()));
+    let spec = Core::exercise_spec("groove", "145", "rests", 4, 80.0, "").unwrap();
+    let path = core.generate_exercise(&spec).unwrap();
+    core.open(&path).unwrap();
+    core.set_mode("workshop");
+    core.set_loop(0, 7);
+
+    core.start_chain(Blocks::Phrases, ChainOrder::Forward);
+    let chain: serde_json::Value = serde_json::from_str(&core.chain_json()).unwrap();
+    assert_eq!(chain["text"], "Baustein: Takte 1–2 · Schritt 1 von 7");
 }
