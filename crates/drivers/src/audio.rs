@@ -1070,11 +1070,18 @@ mod tests {
             |_| {},
         )
         .unwrap();
+        let start = Instant::now();
         std::thread::sleep(Duration::from_millis(200));
         drop(stream);
-        // 200 ms in 5.3 ms blocks: about 37.
-        let n = blocks.load(Ordering::Relaxed);
-        assert!((25..=45).contains(&n), "{n}");
+
+        // About 200 ms in 5.3 ms blocks, 37; measured, as the sleep overshoots under load.
+        let block_s = NULL_BLOCK as f64 / f64::from(NULL_RATE);
+        let expected = start.elapsed().as_secs_f64() / block_s;
+        let n = blocks.load(Ordering::Relaxed) as f64;
+        assert!(
+            n >= 0.7 * expected && n <= 1.2 * expected + 2.0,
+            "{n} of {expected:.0}"
+        );
     }
 
     #[test]
