@@ -173,11 +173,12 @@ späte zählt als spät; die Streuung in ms steht in der Auswertung. Die nächst
 **J-C9 Bausteine** ⚙ · Personas: P1 Lea, P2 Jens, P4 Thomas · Phase 2 · LH-MOD-08, LH-MOD-04
 1. Jens: ein eigenes Lied, Werkstatt, Takte 1–8, „Bausteine: Je 2 Takte“.
 2. Spielen, bis „Alles zusammen: Takte 1–8“ steht; einmal mitten in einem Schritt schlecht spielen.
-3. Lea: dasselbe mit einer Übung aus Stufe 1 und „Von hinten“, bei 200 % Schrift.
+3. Lea: dasselbe mit einer Übung aus Stufe 1, mitten drin „Von hinten“ einschalten, dann „Aus“; bei 200 % Schrift.
 4. Thomas: von Hand andere Takte wählen.
 Erwartet: Die Zeile nennt Takte und Schritt („Baustein: Takte 3–4 · Schritt 2 von 7“); ein Schritt endet erst nach zwei
 Durchgängen im Zielband, ein schwacher zählt neu; danach Einzähler und der nächste Schritt ohne Klick; „Von hinten“
-beginnt mit den letzten Takten; von Hand gewählte Takte beenden die Bausteine, die Liste steht wieder auf „Aus“.
+beginnt mit den letzten der gewählten Takte (nicht des Stücks), „Aus“ zeigt wieder alle gewählten Takte; von Hand gewählte
+Takte beenden die Bausteine, die Liste steht wieder auf „Aus“.
 
 **J-C7 Ein ganzes Stück** · Personas: P1 Lea, P2 Jens, P4 Thomas · Phase 3 · LH-BIB-12, LH-BIB-08, LH-MOD-02, -04
 1. Lea: Übungen, Stufe „9 Stücke“, die Ballade im Durchlauf von vorn bis hinten.

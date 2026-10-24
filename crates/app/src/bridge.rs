@@ -1099,12 +1099,12 @@ impl qobject::Controller {
             _ => ChainOrder::Forward,
         };
         let size = usize::try_from(size).unwrap_or(0);
-        if size == 0 {
-            self.as_mut().core().stop_chain();
-            self.as_mut().refresh_chain();
-            return;
-        }
-        if self.as_mut().core().start_chain(size, order) {
+        let changed = if size == 0 {
+            self.as_mut().core().stop_chain()
+        } else {
+            self.as_mut().core().start_chain(size, order)
+        };
+        if changed {
             self.as_mut().set_playing(false);
             self.as_mut().refresh_arrangement();
         }

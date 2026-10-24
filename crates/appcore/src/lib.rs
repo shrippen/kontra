@@ -1742,15 +1742,17 @@ impl Core {
         })
     }
 
-    /// Starts building blocks of `size` bars (DIDAKTIK I6) over the chosen bars, or over the
-    /// whole piece when they make only one block; the loop becomes the first step. Returns true
+    /// Starts building blocks of `size` bars (DIDAKTIK I6) over the chosen bars (with blocks
+    /// running: the bars they started from), or over the whole piece when they make only one
+    /// block; the loop becomes the first step. Returns true
     /// if the notes changed, as `set_loop`.
     pub fn start_chain(&mut self, size: usize, order: ChainOrder) -> bool {
         let Some(bars) = self.arrangement().map(|a| a.bars.len()).filter(|n| *n > 0) else {
             return false;
         };
-        let (first, last) = self
-            .looping
+        // Running blocks loop one step: a new order or size cuts the bars they started from.
+        let chosen = self.chain.as_ref().map(Chain::part).or(self.looping);
+        let (first, last) = chosen
             .filter(|(from, to)| to - from >= size)
             .unwrap_or((0, bars - 1));
         let chain = Chain::new(first, last, size, order, &Workshop::default());
@@ -1759,9 +1761,14 @@ impl Core {
         self.loop_to(from, to)
     }
 
-    /// Ends the building blocks; the loop stays on the current step.
-    pub fn stop_chain(&mut self) {
-        self.chain = None;
+    /// Ends the building blocks; the loop goes back to the bars they started from. Returns
+    /// true if the notes changed, as `set_loop`.
+    pub fn stop_chain(&mut self) -> bool {
+        let Some(chain) = self.chain.take() else {
+            return false;
+        };
+        let (from, to) = chain.part();
+        self.loop_to(from, to)
     }
 
     /// The building blocks for the UI, or `null`: `{step, steps, last, text}`, `text` like
@@ -5212,6 +5219,34 @@ mod tests {
         assert_eq!(first_level["mastered"], 1);
         assert_eq!(first_level["items"][0]["mastered"], true);
         assert_eq!(first_level["items"][1]["mastered"], false);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// I6: switching order or size while the blocks run cuts the bars chosen at the start, not
+    /// the current step (review #108).
+    #[test]
+    fn chain_restarts_over_the_chosen_bars() {
+        let dir = temp_dir("chainrestart");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&Core::demo_path()).unwrap();
+        let bars = core.arrangement().unwrap().bars.len();
+        assert!(bars > 6, "{bars}");
+        core.set_mode("workshop");
+        core.set_loop(0, 5);
+
+        core.start_chain(2, ChainOrder::Forward);
+        assert_eq!(core.looping, Some((0, 1)));
+        core.start_chain(2, ChainOrder::Backward);
+        assert_eq!(core.looping, Some((4, 5)), "the last block of bars 1–6");
+        core.start_chain(4, ChainOrder::Forward);
+        assert_eq!(core.looping, Some((0, 3)));
+        core.start_chain(4, ChainOrder::Backward);
+        assert_eq!(core.looping, Some((4, 5)));
+
+        // Off: back to the chosen bars, so blocks can start over them again.
+        core.stop_chain();
+        assert_eq!(core.looping, Some((0, 5)));
+        assert_eq!(core.chain_json(), "null");
         let _ = std::fs::remove_dir_all(dir);
     }
 

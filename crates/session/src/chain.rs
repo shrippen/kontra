@@ -23,6 +23,8 @@ pub enum ChainOrder {
 /// Steps through the blocks of a part; bars are indices into `Arrangement::bars`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Chain {
+    /// The bars cut into blocks.
+    part: (usize, usize),
     steps: Vec<(usize, usize)>,
     at: usize,
     streak: u32,
@@ -61,12 +63,18 @@ impl Chain {
         }
 
         Chain {
+            part: (first, last),
             steps,
             at: 0,
             streak: 0,
             floor: w.band.0,
             passes_needed: w.passes_needed.max(1),
         }
+    }
+
+    /// The bars cut into blocks, e.g. (0, 5) for bars 1–6.
+    pub fn part(&self) -> (usize, usize) {
+        self.part
     }
 
     /// Bars of the current step.
