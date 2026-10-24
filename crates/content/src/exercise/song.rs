@@ -66,8 +66,8 @@ impl Style {
         Style::Shuffle,
     ];
 
-    /// The parts in order. Verse and chorus come twice, then a bridge and a last chorus:
-    /// about 50 to 60 bars, two to three minutes.
+    /// The parts in order: intro, verse and chorus twice, outro; pop, rock and funk add a bridge
+    /// and a last chorus. The shuffle plays four twelve-bar choruses of the blues. 40 to 60 bars.
     fn form(self) -> Vec<Part> {
         use Progression as P;
         use Rhythm::*;
@@ -114,9 +114,9 @@ impl Style {
             Style::Shuffle => vec![
                 part(Intro, P::Tonic, Shuffle, 1),
                 part(Verse, P::Blues, Shuffle, 1),
-                part(Chorus, P::Blues, Shuffle, 1),
                 part(Verse, P::Blues, Shuffle, 1),
-                part(Chorus, P::Blues, Shuffle, 1),
+                part(Verse, P::Blues, Shuffle, 1),
+                part(Verse, P::Blues, Shuffle, 1),
                 part(Outro, P::Tonic, Shuffle, 1),
             ],
         }

@@ -156,7 +156,7 @@ Erwartet: jede Technik-Note hat ein Zeichen (h, p, sl, x, Klammer) und danach ei
 1. Lea: Übungen, Stufe „9 Stücke“, die Ballade im Durchlauf von vorn bis hinten.
 2. Jens: „Übung erzeugen“, Art „Stück“, Stil Rock in E, 100 BPM; den ersten Refrain in der Werkstatt üben.
 3. Thomas: dasselbe Stück am Beamer in Noten + Tab für die Klasse, Stil Funk in Am.
-Erwartet: Stück läuft bei 70–110 BPM zwei bis drei Minuten; Akkordname über jedem Takt; Schlagzeug, vor jedem neuen Teil ein Fill;
+Erwartet: Stück läuft zwei bis drei Minuten (Rock bei 100 BPM gut zwei); Akkordname über jedem Takt; Schlagzeug, vor jedem neuen Teil ein Fill;
 letzter Takt auf der Tonika; Titel in der Oberflächensprache („Stück Rock“ / „Rock piece“); der Generator passt in ein
 schmales Fenster.
 

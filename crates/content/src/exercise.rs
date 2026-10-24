@@ -853,7 +853,11 @@ struct Pass {
 
 /// Generates `spec` as a titled MIDI file.
 pub fn generate(spec: &ExerciseSpec) -> Exercise {
-    let repeats = u32::from(spec.repeats.max(1));
+    // A piece has its own form and drums for one pass: never repeated.
+    let repeats = match spec.kind {
+        ExerciseKind::Song(_) => 1,
+        _ => u32::from(spec.repeats.max(1)),
+    };
     let pass = one_pass(spec);
     let (mut tones, mut markers) = repeat(&pass.tones, &pass.markers, pass.length, repeats);
     let end = pass.length * repeats;
@@ -2056,6 +2060,16 @@ mod tests {
                 piece.title
             );
         }
+        // Repeats do not apply to a piece: one form, drums to the end.
+        let twice = ExerciseSpec {
+            repeats: 2,
+            ..spec(ExerciseKind::Song(Style::Rock), 9)
+        };
+        assert_eq!(
+            generate(&twice).midi,
+            generate(&spec(ExerciseKind::Song(Style::Rock), 9)).midi
+        );
+
         let funk = generate(&spec(ExerciseKind::Song(Style::Funk), 9));
         assert_eq!(funk.title, "Stück Funk in Am (90 BPM)");
         let d = describe(&spec(ExerciseKind::Song(Style::Funk), 9));
