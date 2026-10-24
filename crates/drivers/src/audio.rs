@@ -69,7 +69,11 @@ impl LateCheck {
 
     /// Call at the start of every callback with the block's length in frames.
     fn block(&mut self, frames: usize, sample_rate: u32) {
-        let now = Instant::now();
+        self.block_at(Instant::now(), frames, sample_rate);
+    }
+
+    /// `block` at a given time: tests set it, a sleeping test thread overshoots under load.
+    fn block_at(&mut self, now: Instant, frames: usize, sample_rate: u32) {
         if let Some((at, length)) = self.last {
             if now.duration_since(at) > length.mul_f64(LATE_BLOCKS) + LATE_SLACK {
                 self.counter.add();
@@ -1041,12 +1045,11 @@ mod tests {
         let counter = XrunCounter::default();
         let mut late = LateCheck::new(&counter);
         // 480 frames at 48 kHz = 10 ms; 12 ms later is fine, 40 ms later is a dropout.
-        late.block(480, 48_000);
-        std::thread::sleep(Duration::from_millis(12));
-        late.block(480, 48_000);
+        let start = Instant::now();
+        late.block_at(start, 480, 48_000);
+        late.block_at(start + Duration::from_millis(12), 480, 48_000);
         assert_eq!(counter.get(), 0);
-        std::thread::sleep(Duration::from_millis(40));
-        late.block(480, 48_000);
+        late.block_at(start + Duration::from_millis(52), 480, 48_000);
         assert_eq!(counter.get(), 1);
     }
 
@@ -1067,11 +1070,18 @@ mod tests {
             |_| {},
         )
         .unwrap();
+        let start = Instant::now();
         std::thread::sleep(Duration::from_millis(200));
         drop(stream);
-        // 200 ms in 5.3 ms blocks: about 37.
-        let n = blocks.load(Ordering::Relaxed);
-        assert!((25..=45).contains(&n), "{n}");
+
+        // About 200 ms in 5.3 ms blocks, 37; measured, as the sleep overshoots under load.
+        let block_s = NULL_BLOCK as f64 / f64::from(NULL_RATE);
+        let expected = start.elapsed().as_secs_f64() / block_s;
+        let n = blocks.load(Ordering::Relaxed) as f64;
+        assert!(
+            n >= 0.7 * expected && n <= 1.2 * expected + 2.0,
+            "{n} of {expected:.0}"
+        );
     }
 
     #[test]
