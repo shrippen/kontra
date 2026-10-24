@@ -154,6 +154,7 @@ engine/     content/  Lektionsformat: Parser, mitgelieferte Kurse, Lektionen, Gl
 | LH-LRN-10 | Prüffragen kehren nach Tagen wieder; fällige Fragen auf der Startseite; „Kann ich schon“ hakt ein Kapitel nach bestandenen Fragen ab. | Kann | P1, P2 | J-G3 |
 | LH-LRN-11 | Offenes, dokumentiertes Lektionsformat; eigene Lektionen in der Bibliothek, später im `.kontra`-Paket. | Kann | P4 | J-G4 |
 | LH-LRN-12 | Lektionen gelten für eine Stufe (`any`, Familie, Instrument) aus dem Profil; ein Profil ohne passende Lektion bekommt einen Hinweis statt einer falschen Lektion. | Soll | P5, P6 | J-A4 |
+| LH-LRN-14 | Kurse nachladen als `.kontrakurs` aus Datei oder Adresse, auch mit Videos (Abschnitt 13); mitgelieferte Kurse ohne Videos. | Kann | P2, P4, P1 | J-G5 |
 | LH-LRN-13 | Kurs je Instrument aus einem gemeinsamen Lektionsvorrat (`for`, Varianten, `needs`, Abschnitt 12); gemeinsames Wissen zählt über Kurse. | Soll | P5, P6 | Tests je Kurs |
 
 ## 9. Journeys (`QA.md`, Abschnitt G)
@@ -184,7 +185,7 @@ Jeder Schritt ein eigener PR.
 | # | Frage | Entscheidung |
 |---|---|---|
 | E1 | Name im Menü | „Lernen“ / „Learn“ |
-| E2 | Videos | keine: Text, lebendige Abbildungen, Hörbeispiele, Ausprobieren am Bass |
+| E2 | Videos | in mitgelieferten Kursen keine: Text, lebendige Abbildungen, Hörbeispiele, Ausprobieren am Bass; nachgeladene Kurse dürfen Videos haben (Eigentümer, 25.10., Abschnitt 13) |
 | E3 | Reihenfolge | Pfad empfohlen, alles offen, „Kann ich schon“ |
 | E4 | Abzeichen | keine |
 | E5 | Texte | Claude schreibt, der Eigentümer liest je Kapitel Stichproben |
@@ -266,3 +267,44 @@ zeigt im PR, welche Kurse sie betrifft (Personas P1 und P5 lesen gegen).
 **Für den Bass-Kurs heißt das jetzt:** jede neue Lektion bekommt die allgemeinste passende Stufe `for`, Tonhöhen
 relativ, Übungen möglichst als Generator-Vorgabe; Bass-Eigenheiten stehen in `variant for=bass` statt im allgemeinen
 Text. Mehr baut der Bass-Kurs nicht vor: kein Gitarren-Kurs, keine Klaviatur-Abbildung vor 1.0.
+
+## 13. Kurse nachladen (Eigentümer, 25.10.2026)
+
+Kurse lassen sich nachladen, auch aus dem Internet und **auch mit Videos**. Damit kann ein Anbieter einen Kurs direkt
+für Kontra schreiben, auch als Bezahlkurs (Beispiel: ein Kurs im Stil von BassBuzz, vom Anbieter selbst). **Mitgeliefert
+werden nur Kurse ohne Videos;** ein Test bricht ab, wenn ein mitgelieferter Kurs einen Video-Block enthält.
+
+**Kurspaket.** Ein Kurs kommt als eine Datei `.kontrakurs` (Zip wie `.kontra`, `FORMAT.md`):
+
+```
+kurs.kontrakurs
+├── manifest.json     Format, Version, Id, Titel (DE/EN), Anbieter, Lizenz, Kurs-Datei, für welches Instrument
+├── courses/<id>.json
+├── units/<id>/de.md, en.md
+├── glossary/de.md, en.md   optional: zusätzliche Begriffe
+└── media/                  optional: Videos (WebM/MP4), Bilder
+```
+
+Dasselbe Lektionsformat wie die mitgelieferten Kurse, dazu der Block `::: video src=media/anschlag.webm` (oder eine
+`https://`-Adresse zum Streamen) mit Untertiteln je Sprache (`media/anschlag.de.vtt`). Ein nachgeladener Kurs darf
+Lektionen aus dem mitgelieferten Vorrat nennen (`needs`, Kapitel), aber nicht verändern; eigene Lektionen haben eigene
+Ids (Präfix des Anbieters, z. B. `bassbuzz.anschlag`), damit nichts kollidiert.
+
+**Wege hinein:**
+- Datei öffnen („Kurs hinzufügen…“), wie ein `.kontra`-Paket.
+- Adresse eingeben: Kontra lädt das Paket über HTTPS (vorhandener `Http`-Weg in `drivers`), prüft es und legt es im
+  Datenordner ab. Ein Anbieter kann eine Adresse mit persönlichem Schlüssel ausgeben; Kontra speichert sie nur, um nach
+  Aktualisierungen zu fragen.
+- Kein Shop, keine Zahlung, kein Konto in Kontra: Kauf und Freischaltung laufen beim Anbieter. Kontra lädt nur, was der
+  Nutzer selbst öffnet oder dessen Adresse er eingibt (Datenschutz-Grundsatz „lokal und privat“).
+
+**Sicherheit und Ehrlichkeit:** Pakete sind Daten, kein Code; Pfade bleiben im Paket (kein `..`), Größe begrenzt,
+Videos nur in Formaten, die Qt Multimedia (LGPL, dynamisch) abspielt. Kontra zeigt Anbieter und Lizenz vor dem
+Hinzufügen und sagt, wenn ein Kurs für ein anderes Instrument ist. Videos sind optional: ohne Wiedergabe-Möglichkeit
+(oder mit „Bewegung reduzieren“) bleibt der Text der Seite lesbar, Untertitel stehen darunter (P7).
+
+**Lernstand:** wie bei mitgelieferten Kursen an der Lektions-Id; gemeinsame Lektionen zählen über Kurse (Abschnitt 12).
+Ein entfernter Kurs behält seinen Lernstand, bis der Nutzer ihn löscht.
+
+**Reihenfolge:** erst der mitgelieferte Bass-Kurs (Kapitel 1–5); das Format bekommt den Video-Block gleich, damit es
+nicht bricht; Paket, Laden aus Datei und Adresse, Video-Wiedergabe danach (LH-LRN-14).

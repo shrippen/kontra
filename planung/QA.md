@@ -250,6 +250,13 @@ Erwartet: fällige Fragen stehen auf der Startseite; die falsche kommt früher; 
 1. Lektion nach der Formatbeschreibung schreiben, in Kontra öffnen, am Beamer (1280×720) zeigen.
 Erwartet: liest sich wie eine mitgelieferte; Fehler im Format mit Zeile genannt.
 
+**J-G5 Kurs nachladen** · Personas: P2 Jens, P7 Sam · Phase 3 · LH-LRN-14
+1. Jens: Kurs-Adresse eines Anbieters eingeben; Anbieter und Lizenz lesen, hinzufügen; eine Lektion mit Video.
+2. Sam: dieselbe Lektion bei 200 % und „Bewegung reduzieren“, mit Orca.
+3. Ohne Netz neu starten.
+Erwartet: Kurs erscheint neben dem Bass-Kurs; Video mit Untertiteln, Text darunter lesbar; ohne Netz bleibt ein
+heruntergeladener Kurs nutzbar, ein Stream-Video sagt, dass es Netz braucht; der Lernstand gemeinsamer Lektionen gilt.
+
 ## F. Querschnitt
 
 **J-F1 Barrierefreiheit** 🔍 · Persona: P7 Sam · Phase 1 · LH-ANZ-06, LH-MOD-07, LH-NF-07, LH-ALL-02
