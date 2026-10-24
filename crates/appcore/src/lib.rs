@@ -2737,6 +2737,7 @@ impl Core {
                     ),
                 ],
             ),
+            "song" => self.tr("exercise.name.song", &[("style", part("style", d.variant))]),
             "chromatic" => self.tr(
                 "exercise.name.chromatic",
                 &[(
@@ -2804,15 +2805,18 @@ impl Core {
             "walking" => ExerciseKind::WalkingBass(progression()?),
             "groove" => ExerciseKind::Groove(progression()?, Rhythm::from_key(rhythm)?),
             "chromatic" => ExerciseKind::Chromatic(Fingers::from_key(variant)?),
+            "song" => ExerciseKind::Song(exercise::Style::from_key(variant)?),
             _ => return None,
         };
+        // A piece's form repeats its parts itself; a 12-bar blues is long enough once.
+        let once = matches!(kind, ExerciseKind::Song(_)) || variant == "blues";
         Some(exercise::ExerciseSpec {
             kind,
             key: key % 12,
             bpm: bpm.clamp(40.0, 200.0),
             slow: false,
-            // Short patterns (scales, two-bar grooves) get more passes than a 12-bar blues.
-            repeats: if matches!(variant, "blues") { 1 } else { 2 },
+            // Short patterns (scales, two-bar grooves) get more passes.
+            repeats: if once { 1 } else { 2 },
             ramp_bpm: 0.0,
         })
     }
@@ -4269,6 +4273,17 @@ mod tests {
         assert!(matches!(core.open(&path), Ok(Opened::Ready)));
         let a = core.arrangement().unwrap();
         assert_eq!(a.bars[0].signature.numerator, 7);
+
+        // A piece (LH-BIB-12) the way the generator page asks for it: played once, titled in
+        // the UI's language, with drums.
+        let piece = spec("song", "funk", "", 9);
+        assert_eq!(piece.repeats, 1);
+        assert_eq!(title(&core, &piece), "Stück Funk in Am (80 BPM)");
+        core.update_settings(|s| s.language = Some("en".into()));
+        assert_eq!(title(&core, &piece), "Funk piece in Am (80 BPM)");
+        let path = core.generate_exercise(&piece).unwrap();
+        assert!(matches!(core.open(&path), Ok(Opened::Ready)));
+        assert!(!core.arrangement().unwrap().drums.is_empty());
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -4416,7 +4431,7 @@ mod tests {
         core.update_settings(|s| s.language = Some("de".into()));
         let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
         let levels = levels.as_array().unwrap();
-        assert_eq!(levels.len(), 8);
+        assert_eq!(levels.len(), 9);
         assert_eq!(levels[0]["level"], "Einstieg");
         // Each item says what it trains.
         let goal = levels[0]["items"][0]["goal"].as_str().unwrap();
