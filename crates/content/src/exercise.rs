@@ -2024,8 +2024,37 @@ mod tests {
             let a = arrangement(&e);
             assert!(a.bars.len() >= 40, "{style:?}: {} bars", a.bars.len());
             assert!(!a.drums.is_empty(), "{style:?}");
-            assert!(a.markers.len() >= a.bars.len() - 1, "{style:?}");
+            assert!(
+                a.markers.len() >= a.bars.len(),
+                "{style:?}: a chord name per bar"
+            );
             assert!(e.title.starts_with("Stück"), "{}", e.title);
+
+            // One closing bar on the tonic, with drums under it.
+            let last = a.bars.last().unwrap();
+            let closing = a.notes.iter().filter(|n| n.start_ticks >= last.start_ticks);
+            assert_eq!(closing.count(), 1, "{style:?}");
+            assert!(
+                a.drums.iter().any(|d| d.tick >= last.start_ticks),
+                "{style:?}"
+            );
+        }
+
+        // The bundled pieces at their tempos last two to three minutes (LH-BIB-12).
+        let set = bundled();
+        let pieces: Vec<_> = set
+            .iter()
+            .filter(|s| s.2.title.starts_with("Stück"))
+            .collect();
+        assert_eq!(pieces.len(), 6);
+        for (_, _, piece) in pieces {
+            let a = arrangement(piece);
+            let seconds = a.tempo.seconds_at(a.bars.last().unwrap().end_ticks());
+            assert!(
+                (120.0..=180.0).contains(&seconds),
+                "{}: {seconds:.0} s",
+                piece.title
+            );
         }
         let funk = generate(&spec(ExerciseKind::Song(Style::Funk), 9));
         assert_eq!(funk.title, "Stück Funk in Am (90 BPM)");
