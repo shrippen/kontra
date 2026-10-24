@@ -2122,11 +2122,12 @@ impl Core {
             .transport()
             .loop_range()
             .map(|l| (l.start_s, l.end_s));
-        // The session's speed: the workshop changes it on its own (LH-FOR-02 charts it).
+        // The speed played: the workshop changes it on its own after a pass (LH-FOR-02 charts
+        // it, the probe takes it over).
         let mut run = run_from(
             &summary,
             practice_s,
-            session.transport().speed(),
+            session.played_speed(),
             self.run_mode(),
             section,
             unix_now(),

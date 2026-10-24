@@ -100,6 +100,8 @@ pub struct Session {
     band_streak: i32,
     holding: bool,
     finished: bool,
+    /// Speed of the last completed pass; the workshop may already have changed the transport's.
+    played_speed: Option<f64>,
     /// Real time of the last `update`.
     now_s: f64,
 }
@@ -125,6 +127,7 @@ impl Session {
             band_streak: 0,
             holding: false,
             finished: false,
+            played_speed: None,
             now_s: 0.0,
         }
     }
@@ -180,6 +183,11 @@ impl Session {
 
     pub fn is_finished(&self) -> bool {
         self.finished
+    }
+
+    /// The speed the player last played a whole pass at; before one, the transport's.
+    pub fn played_speed(&self) -> f64 {
+        self.played_speed.unwrap_or(self.transport.speed())
     }
 
     pub fn play(&mut self, real_s: f64) {
@@ -736,6 +744,7 @@ impl Session {
 
     fn complete_pass(&mut self) {
         let pass = self.cursor_pass;
+        self.played_speed = Some(self.transport.speed());
         // The notes of the score, judged as the summary does: extra notes (a real bass makes
         // about one per note, H5) do not count, the last result per note does.
         let of_pass: Vec<NoteResult> = self

@@ -54,7 +54,9 @@ Gemerged seit 14.10.: #90 (STAND), #91 (Stem-Tests nacheinander), #92 (Dateidial
   `BackingTrack::with_bass_of`, `LiveSetup::original`, `Settings::bass_volume`.
 - demucs-gui: `Core::forget_stems`, `Core::qa_separator`, `store::cache_dir`, `BassRemoval::{size, remove, usage}`,
   `StemJob::remaining`, `SeparationJob::remaining`.
-- blind-probe (I1): `Mode::Probe`, `Run::spread_ms`, `Core::{start_probe, is_probing, bars_at}`; QA-Schalter `--probe`.
+- blind-probe (I1): `Mode::Probe`, `Run::spread_ms`, `Session::played_speed`, `Core::{start_probe, is_probing, bars_at}`,
+  `pub(crate) Matcher::has_pitch`; Brücke: Invokables `startProbe`, `loopAt`, Properties `probing`, `autoprobe`;
+  `AppArgs::probe` (QA-Schalter `--probe`).
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 
 ## Für den Eigentümer

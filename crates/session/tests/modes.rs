@@ -151,6 +151,41 @@ fn workshop_with(hits: &[usize], extras: &[DetectedNote], until: f64) -> Vec<Ses
     run(&mut s, &notes, until)
 }
 
+/// PR #99 review: stopped right after the workshop sped up, the run keeps the speed it was
+/// played at, not the one it would play next (the probe takes it over).
+#[test]
+fn played_speed_is_the_last_pass_speed() {
+    let workshop = Workshop {
+        target_speed: 1.0,
+        min_speed: 0.25,
+        step: 0.05,
+        band: (0.8, 0.9),
+        passes_needed: 2,
+    };
+    let mut s = Session::new(riff(), Mode::Workshop(workshop), ScoreSettings::default());
+    s.set_speed(0.0, 0.5);
+    s.set_loop(
+        0.0,
+        Some(LoopRange {
+            start_s: 0.0,
+            end_s: 4.0,
+        }),
+    );
+    s.play(0.0);
+    let pitches = [28.0, 33.0, 38.0, 43.0, 28.0, 33.0, 38.0, 43.0];
+    let notes: Vec<DetectedNote> = (0..2)
+        .flat_map(|pass| {
+            pitches
+                .iter()
+                .enumerate()
+                .map(move |(i, midi)| played(f64::from(pass) * 8.0 + i as f64, *midi))
+        })
+        .collect();
+    run(&mut s, &notes, 16.5);
+    assert!((s.transport().speed() - 0.55).abs() < 1e-9);
+    assert!((s.played_speed() - 0.5).abs() < 1e-9);
+}
+
 fn pass_rates(events: &[SessionEvent]) -> Vec<(bool, f64)> {
     events
         .iter()
