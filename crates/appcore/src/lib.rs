@@ -1751,23 +1751,20 @@ impl Core {
         let Some(bars) = self.arrangement().map(|a| a.bars.len()).filter(|n| *n > 0) else {
             return false;
         };
-        // Phrases are at least two bars: fewer chosen make one block.
-        let size = match blocks {
-            Blocks::Bars(size) => size,
-            Blocks::Phrases => 2,
-        };
         // Running blocks loop one step: a new order or size cuts the bars chosen before them.
         let chosen = match self.chain.as_ref() {
             Some((_, chosen)) => *chosen,
             None => self.looping,
         };
-        let (first, last) = chosen
-            .filter(|(from, to)| to - from >= size)
-            .unwrap_or((0, bars - 1));
         let Some(a) = self.arrangement() else {
             return false;
         };
-        let chain = Chain::new(a, (first, last), blocks, order, &Workshop::default());
+        let cut = |bars| Chain::new(a, bars, blocks, order, &Workshop::default());
+        // Chosen bars that make one block leave nothing to join: the whole piece instead.
+        let chain = match chosen.map(cut) {
+            Some(chain) if chain.count() > 1 => chain,
+            _ => cut((0, bars - 1)),
+        };
         let (from, to) = chain.step();
         self.chain = Some((chain, chosen));
         self.loop_to(from, to)
@@ -5319,6 +5316,13 @@ mod tests {
         open(&mut core, "eighths");
         core.start_chain(Blocks::Phrases, ChainOrder::Forward);
         assert_eq!(core.looping, Some((0, 3)), "no rests: four bars");
+
+        // Bars 1–4 without rests are one phrase: the blocks take the whole piece (review #115).
+        core.stop_chain();
+        core.set_loop(0, 3);
+        core.start_chain(Blocks::Phrases, ChainOrder::Forward);
+        let chain: serde_json::Value = serde_json::from_str(&core.chain_json()).unwrap();
+        assert!(chain["steps"].as_u64().unwrap() > 1, "{chain}");
         let _ = std::fs::remove_dir_all(dir);
     }
 
