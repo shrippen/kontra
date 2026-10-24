@@ -5,13 +5,18 @@ nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-`blind-probe` (Didaktik I1, Roadmap nachgezogen). Zuletzt gemerged: #98 (Kante 1.35–1.39, G9).
+#103 (CI: Meldung an Gitea wiederholen) wartet auf die Bestätigung des Eigentümers (ändert CI).
 
-Plan (Eigentümer, 24.10.): danach Stück-Generator und Etüden wie Lieder, I4-Übungen (leere Saite, nur Timing),
-Abnahme LH-BIB-06 messen.
+Plan (Eigentümer, 24.10.): I4-Übungen (leere Saite, Bewertung nur nach Timing), dann I5 (bewusst laid-back) und I6
+(Bausteine, braucht Abfolgen in der Werkstatt).
 
-Gemerged seit 14.10.: #90 (STAND), #91 (Stem-Tests nacheinander), #92 (Dateidialoge über das Desktop-Portal),
-#93–#97 (Review-Regel: PR-Agent nur auf `/review`, Claude-Agent als Rückfall, siehe `agent.md` und `REVIEW.md`).
+CI läuft seit 24.10. auf GitHub (`.github/workflows/ci.yml`, Status `github / test` an Gitea, #102); Gitea führt nur
+PR-Agent aus.
+
+Gemerged seit 14.10.: #90–#97 (STAND, Tests, Dateidialoge, Review-Regel), #98 (Kante 1.35–1.39, G9), #99 (I1 Ohne
+Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, gespeichertes Tempo = gespieltes), #100
+(Stück-Generator, Stufe 9), #101 (Beat-Erkennung 12,8 ms zu früh, Abnahme LH-BIB-06), #102 (CI auf GitHub), #104
+(flakige Treiber-Tests).
 
 ## Offen
 
@@ -57,6 +62,7 @@ Gemerged seit 14.10.: #90 (STAND), #91 (Stem-Tests nacheinander), #92 (Dateidial
 - blind-probe (I1): `Mode::Probe`, `Run::spread_ms`, `Session::played_speed`, `Core::{start_probe, is_probing, bars_at}`,
   `pub(crate) Matcher::has_pitch`; Brücke: Invokables `startProbe`, `loopAt`, Properties `probing`, `autoprobe`;
   `AppArgs::probe` (QA-Schalter `--probe`).
+- #100: `exercise::Style` (`ALL`, `key`, `from_key`, `minor`), `ExerciseKind::Song`.
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 
 ## Für den Eigentümer
