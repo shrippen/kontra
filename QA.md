@@ -164,11 +164,14 @@ Weiterspielen zählt nicht; die Auswertung zeigt „Werkstatt, mit Noten“ und 
 nicht nur Farbe); danach ist die Werkstatt wieder normal, die Startseite bietet dieselben Takte nicht noch einmal an.
 
 **J-C8 Erst der Puls** ⚙ · Personas: P1 Lea, P5 Sam · Phase 2 · LH-LRN-06, LH-LRN-01
-1. Lea: Übungen, Stufe 1, „Groove Viertel auf einem Akkord in E“; das Ziel lesen.
+1. Lea: Übungen, Stufe 1, „Groove Viertel auf einem Akkord in E (70 BPM), nur Timing“; das Ziel lesen.
 2. Durchlauf auf der leeren A-Saite statt E, im Takt; dann einmal deutlich zu spät.
 3. Sam: dieselbe Übung am Mikrofon.
+4. Lea: „Übung erzeugen“, Groove Achtel über I-IV-V, Bewertung „Nur Timing“; dann dieselbe mit „Ton und Timing“.
 Erwartet: Das Ziel sagt, dass nur der Anschlag zählt; jeder Ton zur rechten Zeit trifft, welcher Ton auch klingt; der
 späte zählt als spät; die Streuung in ms steht in der Auswertung. Die nächste Übung mit Bünden bewertet wieder den Ton.
+Titel „…, nur Timing“ / „…, timing only“; die zweite erzeugte Übung überschreibt die erste nicht, jede hat eigenen
+Fortschritt; „Bewertung“ steht nur bei der Art „Groove“.
 
 **J-C9 Bausteine** ⚙ · Personas: P1 Lea, P2 Jens, P4 Thomas · Phase 2 · LH-MOD-08, LH-MOD-04
 1. Jens: ein eigenes Lied, Werkstatt, Takte 1–8, „Bausteine: Je 2 Takte“.

@@ -18,6 +18,8 @@ Kirigami.ScrollablePage {
     // Pieces in a form to play through.
     readonly property var styles: ["ballad", "pop", "rock", "funk", "shuffle"]
     readonly property var songLevels: ["easy", "medium", "hard"]
+    // Grooves judged by pitch and time, or by the attack only (DIDAKTIK I4).
+    readonly property var judgings: ["pitch", "time"]
     readonly property var scales: ["major", "minor", "majorpenta", "minorpenta", "blues", "dorian",
         "phrygian", "lydian", "mixolydian", "locrian", "harmonicminor"]
     readonly property var progressions: ["tonic", "251", "blues", "minor", "145", "pop", "1625", "minor251"]
@@ -33,6 +35,7 @@ Kirigami.ScrollablePage {
     property int rhythm: 0
     property int pattern: 0
     property int songLevel: 1
+    property int judging: 0
     property int key: 4
     property int fret: 5
     property int bpm: 80
@@ -230,6 +233,18 @@ Kirigami.ScrollablePage {
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            visible: page.kinds[page.kind] === "groove"
+            title: texts.t("exercises.judging")
+            hint: texts.t("exercises.judging.hint")
+            KanteSegmented {
+                Accessible.name: texts.t("exercises.judging")
+                model: page.judgings.map(function(j) { return texts.t("exercises.judging." + j) })
+                currentIndex: page.judging
+                onActivated: function(index) { page.judging = index }
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
             visible: page.isFingers
             title: texts.t("exercises.fret")
             hint: texts.t("exercises.fret.hint")
@@ -281,7 +296,8 @@ Kirigami.ScrollablePage {
                 var rhythm = page.isScale ? page.patterns[page.pattern]
                     : page.isSong ? page.songLevels[page.songLevel] : page.rhythms[page.rhythm]
                 var key = page.isFingers ? page.fret : page.key
-                if (ctl.generateExercise(page.kinds[page.kind], variant, rhythm, key, page.bpm))
+                var judging = page.kinds[page.kind] === "groove" ? page.judgings[page.judging] : ""
+                if (ctl.generateExercise(page.kinds[page.kind], variant, rhythm, key, page.bpm, judging))
                     applicationWindow().show("practice")
             }
         }

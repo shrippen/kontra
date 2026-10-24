@@ -3080,16 +3080,21 @@ impl Core {
                 ],
             ),
         };
-        if let Some(fret) = d.fret {
-            return self.tr(
+        let title = match d.fret {
+            Some(fret) => self.tr(
                 "exercise.title.fret",
                 &[("name", name), ("fret", fret.to_string()), ("bpm", bpm)],
-            );
+            ),
+            None => self.tr(
+                "exercise.title",
+                &[("name", name), ("key", key), ("bpm", bpm)],
+            ),
+        };
+        // Judged by time only: another exercise with its own file and progress (DIDAKTIK I4).
+        match d.judging {
+            Judging::TimeOnly => self.tr("exercise.title.timing", &[("title", title)]),
+            Judging::PitchAndTime => title,
         }
-        self.tr(
-            "exercise.title",
-            &[("name", name), ("key", key), ("bpm", bpm)],
-        )
     }
 
     /// Best hit rate (0..1) of a piece, or -1 when never played.
@@ -3105,14 +3110,21 @@ impl Core {
     /// "groove" | "chromatic"; `variant` the scale ("major", "dorian" …), the progression ("tonic",
     /// "251", "blues", "minor", "145", "pop", "1625", "minor251") or the finger order ("1324");
     /// `rhythm` the groove's rhythm or a scale's pattern ("thirds", "fours", "" for up and down).
-    /// Finger exercises take `key` as the start fret.
+    /// Finger exercises take `key` as the start fret. `judging` "time" judges only the attack
+    /// (grooves, DIDAKTIK I4); "pitch" or "" pitch and time.
     pub fn exercise_spec(
         kind: &str,
         variant: &str,
         rhythm: &str,
         key: u8,
         bpm: f64,
+        judging: &str,
     ) -> Option<exercise::ExerciseSpec> {
+        let judging = match judging {
+            "" | JUDGING_PITCH => Judging::PitchAndTime,
+            JUDGING_TIME => Judging::TimeOnly,
+            _ => return None,
+        };
         use exercise::{ExerciseKind, Fingers, Progression, Rhythm, ScaleKind, Sequence};
         let progression = || Progression::from_key(variant);
         let kind = match kind {
@@ -3145,7 +3157,7 @@ impl Core {
             // Short patterns (scales, two-bar grooves) get more passes.
             repeats: if once { 1 } else { 2 },
             ramp_bpm: 0.0,
-            judging: Judging::PitchAndTime,
+            judging,
         })
     }
 
@@ -3570,6 +3582,9 @@ const HISTORY_DAYS: u64 = 30;
 const WEEK_DAYS: u64 = 7;
 /// Plan exercises open in a run-through: evaluation and "next exercise" at the end (round 12).
 const PLAN_MODE: &str = "song";
+/// Generator choices of `Core::exercise_spec`: judged by pitch and time, or by time only.
+const JUDGING_PITCH: &str = "pitch";
+const JUDGING_TIME: &str = "time";
 
 /// Saved mode of workshop runs and of blind probes (DIDAKTIK I1).
 const WORKSHOP_MODE: &str = "workshop";
@@ -4579,8 +4594,8 @@ mod tests {
     fn generated_exercise_opens() {
         let dir = temp_dir("exercise");
         let mut core = Core::new(&dir, QaOptions::default());
-        assert!(Core::exercise_spec("groove", "251", "nope", 0, 90.0).is_none());
-        let spec = Core::exercise_spec("walking", "blues", "", 5, 110.0).unwrap();
+        assert!(Core::exercise_spec("groove", "251", "nope", 0, 90.0, "").is_none());
+        let spec = Core::exercise_spec("walking", "blues", "", 5, 110.0, "").unwrap();
         let path = core.generate_exercise(&spec).unwrap();
         assert!(path.starts_with(dir.join("exercises")));
         assert!(matches!(core.open(&path), Ok(Opened::Ready)));
@@ -4599,7 +4614,7 @@ mod tests {
         let dir = temp_dir("generator");
         let mut core = Core::new(&dir, QaOptions::default());
         let spec = |kind, variant, rhythm, key| {
-            Core::exercise_spec(kind, variant, rhythm, key, 80.0).unwrap()
+            Core::exercise_spec(kind, variant, rhythm, key, 80.0, "").unwrap()
         };
         let thirds = spec("scale", "dorian", "thirds", 2);
         assert_eq!(
@@ -4621,7 +4636,7 @@ mod tests {
             meter.kind,
             K::Groove(Progression::Minor, Rhythm::SevenEight)
         );
-        assert!(Core::exercise_spec("chromatic", "1123", "", 5, 80.0).is_none());
+        assert!(Core::exercise_spec("chromatic", "1123", "", 5, 80.0, "").is_none());
 
         core.update_settings(|s| s.language = Some("en".into()));
         let title = |core: &Core, s| core.exercise_title(&exercise::describe(s));
@@ -4662,7 +4677,25 @@ mod tests {
         assert_eq!(title(&core, &easy), "Funk piece (easy) in Am (80 BPM)");
         core.update_settings(|s| s.language = Some("de".into()));
         assert_eq!(title(&core, &easy), "Stück Funk (leicht) in Am (80 BPM)");
-        assert!(Core::exercise_spec("song", "funk", "brutal", 9, 80.0).is_none());
+        assert!(Core::exercise_spec("song", "funk", "brutal", 9, 80.0, "").is_none());
+
+        // A groove judged by time only (DIDAKTIK I4): its own title, the file carries it.
+        let timing = Core::exercise_spec("groove", "tonic", "eighths", 4, 80.0, "time").unwrap();
+        assert_eq!(timing.judging, Judging::TimeOnly);
+        assert_eq!(
+            title(&core, &timing),
+            "Groove Achtel auf einem Akkord in E (80 BPM), nur Timing"
+        );
+        let path = core.generate_exercise(&timing).unwrap();
+        assert!(matches!(core.open(&path), Ok(Opened::Ready)));
+        assert_eq!(core.arrangement().unwrap().judging, Judging::TimeOnly);
+        let normal = Core::exercise_spec("groove", "tonic", "eighths", 4, 80.0, "pitch").unwrap();
+        assert_ne!(
+            core.generate_exercise(&normal).unwrap(),
+            path,
+            "no overwrite"
+        );
+        assert!(Core::exercise_spec("groove", "tonic", "eighths", 4, 80.0, "loud").is_none());
         let _ = std::fs::remove_dir_all(dir);
     }
 

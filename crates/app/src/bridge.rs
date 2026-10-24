@@ -512,6 +512,7 @@ pub mod qobject {
             rhythm: &QString,
             key: i32,
             bpm: f64,
+            judging: &QString,
         ) -> bool;
 
         /// Fretboard quiz (LH-LRN-02): "notes" or "intervals"; returns the question JSON.
@@ -2150,6 +2151,7 @@ impl qobject::Controller {
         rhythm: &QString,
         key: i32,
         bpm: f64,
+        judging: &QString,
     ) -> bool {
         let Some(spec) = Core::exercise_spec(
             &kind.to_string(),
@@ -2157,6 +2159,7 @@ impl qobject::Controller {
             &rhythm.to_string(),
             u8::try_from(key.rem_euclid(12)).unwrap_or(0),
             bpm,
+            &judging.to_string(),
         ) else {
             return false;
         };
