@@ -34,7 +34,7 @@ mod transport;
 pub use calibration::{
     CalibrationResult, CLICKS as CALIBRATION_CLICKS, INTERVAL_S as CALIBRATION_INTERVAL_S,
 };
-pub use chain::{Chain, ChainOrder};
+pub use chain::{Blocks, Chain, ChainOrder};
 pub use check::{
     check_takes, loopback_length_s, loopback_plan, round_trip, CheckNote, CheckTake, LiveTake,
     RoundTrip, Take, TakeSound, CHECK_BPM,

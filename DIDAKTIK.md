@@ -214,7 +214,8 @@ Generator seit 24.10. Offen: Schwelle der Streuung, ab der Bünde kommen.*
 - **Personas:** P1, P2, P4 (Übungsfolgen bauen).
 - **Braucht:** Werkstatt mit Bereichsliste und Abfolge; automatische Phrasengrenzen (einfach: alle 2 oder 4 Takte).
 - **Umgesetzt (24.10., LH-MOD-08):** Bausteine zu 2 oder 4 Takten, vorwärts oder von hinten; ein sitzender Schritt
-  startet den nächsten mit Einzähler. Offen: Phrasengrenzen aus Pausen oder Zögern statt fester Taktzahl.
+  startet den nächsten mit Einzähler. Seit 25.10. auch nach Phrasen aus Pausen (mindestens eine Viertel an der
+  Taktgrenze, 2 bis 4 Takte). Offen: Phrasengrenzen aus Zögern des Spielers.
 - **Messgröße:** Übungszeit bis Lied ganz durch mit ≥ 85 %; Behalten nach 2 Tagen.
 - **Aufwand:** M.
 
