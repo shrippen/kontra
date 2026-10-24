@@ -57,6 +57,36 @@ KanteCard {
             label: sheet.summary ? sheet.summary.countsText : ""
         }
 
+        // Blind probe (DIDAKTIK I1): without help next to the workshop with notes, in figures and
+        // a sentence (not colour alone).
+        readonly property var probe: sheet.summary ? sheet.summary.probe : null
+        KanteSectionLabel {
+            visible: content.probe !== null
+            text: texts.t("probe.title")
+        }
+        // Without a workshop run to compare the hit rate above says it all; only the sentence.
+        RowLayout {
+            Layout.fillWidth: true
+            visible: content.probe !== null && content.probe["with"] !== ""
+            spacing: KanteStyle.unit(32)
+            KanteKpi {
+                value: content.probe ? content.probe["with"] : ""
+                label: texts.t("probe.with.label")
+            }
+            KanteKpi {
+                value: content.probe ? content.probe.without : ""
+                label: texts.t("probe.without.label")
+            }
+            Item { Layout.fillWidth: true }
+        }
+        QQC2.Label {
+            Layout.fillWidth: true
+            visible: content.probe !== null
+            wrapMode: Text.WordWrap
+            text: content.probe ? content.probe.text : ""
+            color: KanteStyle.textColor
+        }
+
         // The exercise sits now (P1): the next one of the plan, one click away.
         KanteHintCard {
             Layout.fillWidth: true

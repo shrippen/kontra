@@ -22,6 +22,9 @@ Kirigami.Page {
     // The notation view: the same notes as written for bass, rests, key signature.
     property var staff: JSON.parse(ctl.staffJson)
     property var states: ({})
+    // A blind probe (DIDAKTIK I1) shows bars and cursor only; the marks come back after it.
+    readonly property var shown: ctl.probing ? [] : notes
+    readonly property var shownStaff: ctl.probing ? [] : staff.notes
     // Technique results by note (LH-BEW-06), kept like `states` for views that load later.
     property var techniques: ({})
     // Play mode marks quietly or not at all (setting); the other modes mark fully.
@@ -183,7 +186,7 @@ Kirigami.Page {
     // Backing track without bass (LH-BIB-09): {available, state, progress, text, installText}.
     readonly property var stems: ctl.stemsJson !== "" ? JSON.parse(ctl.stemsJson) : ({ state: "none" })
     readonly property int nextIndex: ctl.holdingIndex >= 0 ? ctl.holdingIndex : lane.nextIndex
-    readonly property var nextNote: nextIndex >= 0 && nextIndex < notes.length ? notes[nextIndex] : null
+    readonly property var nextNote: nextIndex >= 0 && nextIndex < shown.length ? shown[nextIndex] : null
     // Hand position (LH-ANZ-05) and the next change of it, shown at least one bar ahead.
     readonly property int handPosition: nextNote ? nextNote.position : 0
     readonly property var shift: positionShift(nextIndex, ctl.position)
@@ -566,6 +569,21 @@ Kirigami.Page {
                 accessibleName: texts.t("help.about", { term: texts.t("help.band.term") })
                 info: texts.t("help.band", { low: Math.round(ctl.bandLow * 100), high: Math.round(ctl.bandHigh * 100) })
             }
+            // Blind probe (DIDAKTIK I1): the bars once without notes; the summary compares.
+            KanteButton {
+                visible: ctl.loopStart >= 0
+                enabled: !ctl.playing
+                text: texts.t("probe.start")
+                emphasis: KanteButton.Emphasis.Quiet
+                Accessible.description: texts.t("probe.start.hint")
+                onClicked: ctl.startProbe()
+            }
+            KanteInfoTip {
+                visible: ctl.loopStart >= 0
+                term: texts.t("probe.start")
+                accessibleName: texts.t("help.about", { term: texts.t("probe.start") })
+                info: texts.t("probe.start.hint")
+            }
             Item { Layout.fillWidth: true }
             Connections {
                 target: ctl
@@ -638,6 +656,16 @@ Kirigami.Page {
             }
         }
 
+        // Blind probe running: why the notes are gone (P1 would think they broke).
+        KanteCallout {
+            Layout.fillWidth: true
+            visible: ctl.probing
+            kind: KanteCallout.Kind.Info
+            autoHide: false
+            title: texts.t("probe.banner", { from: workshopRow.fromBar, to: workshopRow.toBar })
+            onVisibleChanged: { if (visible) { Accessible.announce(title) } }
+        }
+
         // Wait mode: what to play next, in words (LH-MOD-03). An instruction, not a warning (QA
         // P1: the hazard banner read as an alarm); read out by screen readers when it changes (P7).
         KanteCallout {
@@ -685,7 +713,7 @@ Kirigami.Page {
                 strings: page.stringNames.length
                 stringNames: page.stringNames
                 lowStringOnTop: ctl.lowStringOnTop
-                notes: page.notes
+                notes: page.shown
                 marks: page.marks
                 onNotesChanged: Qt.callLater(function() { page.catchUp(lane) })
                 bars: page.times
@@ -715,7 +743,7 @@ Kirigami.Page {
                 strings: page.stringNames.length
                 stringNames: page.stringNames
                 lowStringOnTop: ctl.lowStringOnTop
-                notes: visible ? page.notes : []
+                notes: visible ? page.shown : []
                 marks: page.marks
                 onNotesChanged: Qt.callLater(function() { page.catchUp(tabStaff) })
                 bars: page.bars
@@ -749,7 +777,7 @@ Kirigami.Page {
                 // As many lines as fit, as in the tablature (QA 13.10.: one line, the rest empty).
                 systems: Math.max(1, Math.floor(height / systemHeight))
                 visible: ctl.view === "notation"
-                notes: visible ? page.staff.notes : []
+                notes: visible ? page.shownStaff : []
                 rests: page.staff.rests
                 keyFifths: page.staff.keyFifths
                 marks: page.marks
@@ -775,7 +803,7 @@ Kirigami.Page {
                                          (combined.height - combined.spacing) / 2 / (hasChords ? 16.5 : 14.5))
                     // The same bars as the tablature below, so each bar sits over its tab.
                     barsPerSystem: combinedTab.perSystem
-                    notes: combined.visible ? page.staff.notes : []
+                    notes: combined.visible ? page.shownStaff : []
                     rests: page.staff.rests
                     keyFifths: page.staff.keyFifths
                     marks: page.marks
@@ -794,7 +822,7 @@ Kirigami.Page {
                     strings: page.stringNames.length
                     stringNames: page.stringNames
                     lowStringOnTop: ctl.lowStringOnTop
-                    notes: combined.visible ? page.notes : []
+                    notes: combined.visible ? page.shown : []
                     marks: page.marks
                     onNotesChanged: Qt.callLater(function() { page.catchUp(combinedTab) })
                     bars: page.bars
@@ -816,7 +844,7 @@ Kirigami.Page {
                     low: page.keys.low
                     high: page.keys.high
                     noteNames: page.keys.names
-                    notes: keysView.visible ? page.notes : []
+                    notes: keysView.visible ? page.shown : []
                     marks: page.marks
                     onNotesChanged: Qt.callLater(function() { page.catchUp(keyLane) })
                     bars: page.bars

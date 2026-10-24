@@ -9,6 +9,8 @@ pub struct AppArgs {
     pub input_file: Option<PathBuf>,
     pub laptop_jack: bool,
     pub autoplay: bool,
+    /// `--probe`: start a blind probe of the `--loop-bars` (screenshots, DIDAKTIK I1).
+    pub probe: bool,
     pub screenshot: Option<PathBuf>,
     pub screenshot_after_ms: i32,
     pub quit_after_ms: i32,
@@ -57,6 +59,7 @@ impl AppArgs {
                 "--input-file" => out.input_file = Some(PathBuf::from(value())),
                 "--input-profile" => out.laptop_jack = value() == "laptop-jack",
                 "--autoplay" => out.autoplay = true,
+                "--probe" => out.probe = true,
                 "--screenshot" => out.screenshot = Some(PathBuf::from(value())),
                 "--screenshot-after" => out.screenshot_after_ms = value().parse().unwrap_or(1500),
                 "--quit-after" => out.quit_after_ms = value().parse().unwrap_or(0),
@@ -156,10 +159,11 @@ mod tests {
             "--page",
             "practice",
             "--mixer",
+            "--probe",
         ];
         let a = AppArgs::parse(args.iter().map(|s| s.to_string()));
         assert_eq!(a.input_file, Some(PathBuf::from("take.wav")));
-        assert!(a.laptop_jack && a.autoplay && a.mixer);
+        assert!(a.laptop_jack && a.autoplay && a.mixer && a.probe);
         assert_eq!(a.page.as_deref(), Some("practice"));
         assert_eq!(a.screenshot_after_ms, 1500);
     }

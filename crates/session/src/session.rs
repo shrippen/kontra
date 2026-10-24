@@ -53,6 +53,9 @@ pub enum Mode {
     Wait,
     /// Loop with automatic speed steps (LH-MOD-04).
     Workshop(Workshop),
+    /// Blind probe (DIDAKTIK I1): scores like `Song`, but ends after one pass of the loop, so a
+    /// practised section is played once without help.
+    Probe,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -97,6 +100,8 @@ pub struct Session {
     band_streak: i32,
     holding: bool,
     finished: bool,
+    /// Speed of the last completed pass; the workshop may already have changed the transport's.
+    played_speed: Option<f64>,
     /// Real time of the last `update`.
     now_s: f64,
 }
@@ -122,6 +127,7 @@ impl Session {
             band_streak: 0,
             holding: false,
             finished: false,
+            played_speed: None,
             now_s: 0.0,
         }
     }
@@ -179,6 +185,11 @@ impl Session {
         self.finished
     }
 
+    /// The speed the player last played a whole pass at; before one, the transport's.
+    pub fn played_speed(&self) -> f64 {
+        self.played_speed.unwrap_or(self.transport.speed())
+    }
+
     pub fn play(&mut self, real_s: f64) {
         self.transport.play(real_s);
     }
@@ -215,6 +226,10 @@ impl Session {
 
     /// Scores a detected note. Its onset is on the same real clock as the transport.
     pub fn on_note(&mut self, note: &DetectedNote) {
+        // After a probe's one pass the run is over; a note then belongs to no pass.
+        if self.finished && matches!(self.mode, Mode::Probe) {
+            return;
+        }
         let real_s = note.onset_s - self.settings.latency_ms / 1000.0;
         if matches!(self.mode, Mode::Wait) {
             self.wait_note(real_s, note);
@@ -235,6 +250,26 @@ impl Session {
                 position = wrapped;
                 pass += 1;
             }
+
+            // The mirror case: just after the wrap, the last pass's final note played late. Both
+            // lie in the window; the pitch tells them apart (PR #99 review).
+            let unwrapped = end_s + (position - start_s);
+            if pass > 0
+                && position - start_s <= window
+                && !self
+                    .matcher
+                    .has_pitch(pass, position, window, range, note.midi)
+                && self
+                    .matcher
+                    .has_pitch(pass - 1, unwrapped, window, range, note.midi)
+            {
+                position = unwrapped;
+                pass -= 1;
+            }
+        }
+        // A probe has one pass: playing on past the section is not a second one.
+        if matches!(self.mode, Mode::Probe) && pass > 0 {
+            return;
         }
         // A hammer-on or pull-off target has no attack: a note there is judged for its technique
         // only, and is not an extra note.
@@ -501,7 +536,8 @@ impl Session {
                 self.events.push(SessionEvent::Holding { note: e.index });
             }
         }
-        if !matches!(self.mode, Mode::Wait) {
+        // A finished probe judges nothing more: its clock stopped inside the next pass.
+        if !matches!(self.mode, Mode::Wait) && !self.finished {
             self.expire(real_s - DETECTION_GRACE_S);
         }
         self.check_finished();
@@ -677,6 +713,9 @@ impl Session {
                     return;
                 }
                 self.complete_pass();
+                if self.finished {
+                    return;
+                }
                 continue;
             }
             let Some(e) = self.matcher.expected().get(self.cursor_slot).copied() else {
@@ -705,6 +744,7 @@ impl Session {
 
     fn complete_pass(&mut self) {
         let pass = self.cursor_pass;
+        self.played_speed = Some(self.transport.speed());
         // The notes of the score, judged as the summary does: extra notes (a real bass makes
         // about one per note, H5) do not count, the last result per note does.
         let of_pass: Vec<NoteResult> = self
@@ -729,6 +769,12 @@ impl Session {
         });
         self.cursor_pass += 1;
         self.cursor_slot = self.first_slot_from(self.range().0);
+        if matches!(self.mode, Mode::Probe) {
+            self.transport.pause(self.now_s);
+            self.finished = true;
+            self.events.push(SessionEvent::Finished);
+            return;
+        }
         let Mode::Workshop(workshop) = self.mode else {
             return;
         };

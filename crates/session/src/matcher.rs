@@ -82,6 +82,25 @@ impl Matcher {
         self.expected = expected;
     }
 
+    /// Whether an unresolved note of `pass` within `window` of `position_s` has the pitch
+    /// `midi` (the right semitone).
+    pub(crate) fn has_pitch(
+        &self,
+        pass: u32,
+        position_s: f64,
+        window: f64,
+        range: (f64, f64),
+        midi: f64,
+    ) -> bool {
+        self.expected.iter().enumerate().any(|(slot, e)| {
+            (e.position_s - position_s).abs() <= window
+                && e.position_s >= range.0
+                && e.position_s < range.1
+                && !self.resolved.contains_key(&(pass, slot))
+                && pitch_rank(e.cents_from(midi), SEMITONE_CENTS) == 0
+        })
+    }
+
     pub(crate) fn is_resolved(&self, pass: u32, slot: usize) -> bool {
         self.resolved.contains_key(&(pass, slot))
     }
@@ -224,6 +243,9 @@ fn outcome_rank(outcome: Outcome) -> u8 {
         _ => 2,
     }
 }
+
+/// Half a semitone: nearer than this, a pitch is the note's semitone.
+const SEMITONE_CENTS: f64 = 50.0;
 
 fn pitch_rank(cents: f64, limit_cents: f64) -> u8 {
     let off = cents.abs();

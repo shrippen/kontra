@@ -280,7 +280,9 @@ Kirigami.ApplicationWindow {
             var bars = ctl.startLoop.split("-")
             ctl.loopBars(Number(bars[0]) - 1, Number(bars[1]) - 1)
         }
-        if (ctl.autoplay && ctl.loaded) {
+        if (ctl.autoprobe && ctl.loaded) {
+            ctl.startProbe()
+        } else if (ctl.autoplay && ctl.loaded) {
             ctl.togglePlay()
         }
         if (ctl.autocalibrate) {

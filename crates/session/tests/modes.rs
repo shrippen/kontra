@@ -151,6 +151,41 @@ fn workshop_with(hits: &[usize], extras: &[DetectedNote], until: f64) -> Vec<Ses
     run(&mut s, &notes, until)
 }
 
+/// PR #99 review: stopped right after the workshop sped up, the run keeps the speed it was
+/// played at, not the one it would play next (the probe takes it over).
+#[test]
+fn played_speed_is_the_last_pass_speed() {
+    let workshop = Workshop {
+        target_speed: 1.0,
+        min_speed: 0.25,
+        step: 0.05,
+        band: (0.8, 0.9),
+        passes_needed: 2,
+    };
+    let mut s = Session::new(riff(), Mode::Workshop(workshop), ScoreSettings::default());
+    s.set_speed(0.0, 0.5);
+    s.set_loop(
+        0.0,
+        Some(LoopRange {
+            start_s: 0.0,
+            end_s: 4.0,
+        }),
+    );
+    s.play(0.0);
+    let pitches = [28.0, 33.0, 38.0, 43.0, 28.0, 33.0, 38.0, 43.0];
+    let notes: Vec<DetectedNote> = (0..2)
+        .flat_map(|pass| {
+            pitches
+                .iter()
+                .enumerate()
+                .map(move |(i, midi)| played(f64::from(pass) * 8.0 + i as f64, *midi))
+        })
+        .collect();
+    run(&mut s, &notes, 16.5);
+    assert!((s.transport().speed() - 0.55).abs() < 1e-9);
+    assert!((s.played_speed() - 0.5).abs() < 1e-9);
+}
+
 fn pass_rates(events: &[SessionEvent]) -> Vec<(bool, f64)> {
     events
         .iter()
@@ -271,6 +306,40 @@ fn early_note_at_loop_start_counts_for_the_next_pass() {
         .expect("pass 1 first note judged");
     assert_eq!(first.outcome, Outcome::Hit, "{:?}", s.results());
     assert!((first.offset_ms.unwrap() + 20.0).abs() < 1.0, "{first:?}");
+}
+
+/// The mirror case (PR #99 review): the loop's last note played late, just after the wrap, is
+/// that note, not an extra in the next pass; in a probe it is not dropped either.
+#[test]
+fn late_note_at_loop_end_counts_for_its_pass() {
+    for mode in [Mode::Song, Mode::Probe] {
+        let mut s = Session::new(riff(), mode, ScoreSettings::default());
+        // Loop 0–1.52 s: the last note (1.5 s) played 40 ms late lands after the wrap.
+        s.set_loop(
+            0.0,
+            Some(LoopRange {
+                start_s: 0.0,
+                end_s: 1.52,
+            }),
+        );
+        s.play(0.0);
+        let notes = [
+            played(0.0, 28.0),
+            played(0.5, 33.0),
+            played(1.0, 38.0),
+            played(1.54, 43.0),
+        ];
+        run(&mut s, &notes, 1.9);
+        let last = s
+            .results()
+            .iter()
+            .find(|r| r.pass == 0 && r.note == Some(3))
+            .unwrap_or_else(|| panic!("{mode:?} {:?}", s.results()));
+        assert_eq!(last.outcome, Outcome::Hit, "{mode:?}");
+        assert!((last.offset_ms.unwrap() - 40.0).abs() < 1.0, "{last:?}");
+        let extras = s.results().iter().filter(|r| r.note.is_none()).count();
+        assert_eq!(extras, 0, "{mode:?}");
+    }
 }
 
 /// QA P2 (F3): after a stall (stretching a backing track blocked the thread) notes arrive before
@@ -394,4 +463,40 @@ fn run_from(session: &mut Session, notes: &[DetectedNote], from: f64, until: f64
         session.update(t);
         t += 0.01;
     }
+}
+
+#[test]
+fn probe_ends_after_one_pass_of_the_loop() {
+    // Blind probe (I1): bar 2 once (2.0–4.0 s), then the run is over, not looping again.
+    let mut s = Session::new(riff(), Mode::Probe, ScoreSettings::default());
+    s.set_loop(
+        0.0,
+        Some(LoopRange {
+            start_s: 2.0,
+            end_s: 4.0,
+        }),
+    );
+    s.play(0.0);
+    // The fourth note missed; one played after the end does not count.
+    let notes = [
+        played(0.0, 28.0),
+        played(0.5, 33.0),
+        played(1.0, 38.0),
+        // Played on into the next bar: just before the loop's end, with the loop start's pitch.
+        played(1.97, 28.0),
+        played(2.5, 28.0),
+    ];
+    let events = run(&mut s, &notes, 6.0);
+
+    let finished = events
+        .iter()
+        .filter(|e| matches!(e, SessionEvent::Finished))
+        .count();
+    assert_eq!(finished, 1);
+    assert_eq!(pass_rates(&events).len(), 1);
+    assert!(!s.transport().is_running());
+    // Three of the bar's four notes.
+    assert_eq!(s.summary().judged, 4);
+    assert!(s.results().iter().all(|r| r.pass == 0), "{:?}", s.results());
+    assert!((s.summary().hit_rate - 0.75).abs() < 1e-9);
 }

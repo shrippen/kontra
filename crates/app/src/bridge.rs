@@ -27,6 +27,7 @@ pub mod qobject {
         #[qproperty(f64, duration)]
         #[qproperty(f64, position)]
         #[qproperty(bool, playing)]
+        #[qproperty(bool, probing)]
         #[qproperty(f64, speed)]
         #[qproperty(f64, loop_start, cxx_name = "loopStart")]
         #[qproperty(f64, pass_rate, cxx_name = "passRate")]
@@ -143,6 +144,8 @@ pub mod qobject {
         #[qproperty(QString, start_page, cxx_name = "startPage")]
         #[qproperty(bool, setup_done, cxx_name = "setupDone")]
         #[qproperty(bool, autoplay)]
+        /// QA: a blind probe of the start loop instead of autoplay (DIDAKTIK I1).
+        #[qproperty(bool, autoprobe)]
         #[qproperty(bool, autocalibrate)]
         /// QA: practice and settings show the mixer from the start.
         #[qproperty(bool, show_mixer, cxx_name = "showMixer")]
@@ -173,6 +176,16 @@ pub mod qobject {
 
         #[qinvokable]
         fn pause(self: Pin<&mut Self>);
+
+        /// Plays the loop once without notes on screen (DIDAKTIK I1).
+        #[qinvokable]
+        #[cxx_name = "startProbe"]
+        fn start_probe(self: Pin<&mut Self>);
+
+        /// Loops the bars of a saved section, given by its times (start page).
+        #[qinvokable]
+        #[cxx_name = "loopAt"]
+        fn loop_at(self: Pin<&mut Self>, start_s: f64, end_s: f64) -> bool;
 
         #[qinvokable]
         fn rewind(self: Pin<&mut Self>);
@@ -647,6 +660,7 @@ pub struct ControllerRust {
     duration: f64,
     position: f64,
     playing: bool,
+    probing: bool,
     speed: f64,
     loop_start: f64,
     /// Hit rate of the last loop pass (-1: none yet).
@@ -741,6 +755,7 @@ pub struct ControllerRust {
     start_page: QString,
     setup_done: bool,
     autoplay: bool,
+    autoprobe: bool,
     autocalibrate: bool,
     show_mixer: bool,
     start_presenting: bool,
@@ -794,6 +809,7 @@ impl Default for ControllerRust {
             duration: 0.0,
             position: 0.0,
             playing: false,
+            probing: false,
             speed: 1.0,
             loop_start: -1.0,
             pass_rate: -1.0,
@@ -886,6 +902,7 @@ impl Default for ControllerRust {
             start_page: q(args.page.as_deref().unwrap_or("")),
             setup_done: s.setup_done,
             autoplay: args.autoplay,
+            autoprobe: args.probe,
             autocalibrate: args.calibrate,
             show_mixer: args.mixer,
             start_presenting: args.present,
@@ -1131,6 +1148,31 @@ impl qobject::Controller {
         self.as_mut().set_playing(false);
     }
 
+    fn start_probe(mut self: Pin<&mut Self>) {
+        self.as_mut().set_summary_json(QString::default());
+        self.as_mut().set_holding_index(-1);
+        self.as_mut().arrangement_loaded();
+        let events = self.as_mut().core().start_probe();
+        self.as_mut().apply(events);
+        let (playing, probing) = {
+            let this = self.as_ref();
+            let core = &this.rust().core;
+            (core.is_playing(), core.is_probing())
+        };
+        self.as_mut().set_probing(probing);
+        self.as_mut().set_playing(playing);
+    }
+
+    fn loop_at(mut self: Pin<&mut Self>, start_s: f64, end_s: f64) -> bool {
+        let Some((from, to)) = self.as_ref().rust().core.bars_at(start_s, end_s) else {
+            return false;
+        };
+        let from = i32::try_from(from).unwrap_or(0);
+        let to = i32::try_from(to).unwrap_or(0);
+        self.as_mut().loop_bars(from, to);
+        true
+    }
+
     fn rewind(mut self: Pin<&mut Self>) {
         let start = self.as_mut().core().rewind();
         self.as_mut().set_playing(false);
@@ -1245,6 +1287,10 @@ impl qobject::Controller {
         }
         if playing != *self.as_ref().playing() {
             self.as_mut().set_playing(playing);
+        }
+        let probing = self.as_ref().rust().core.is_probing();
+        if probing != *self.as_ref().probing() {
+            self.as_mut().set_probing(probing);
         }
         let beat = self
             .as_ref()

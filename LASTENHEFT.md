@@ -179,6 +179,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-LRN-02 | **Griffbrett:** Töne finden, Intervalle, Tonleitern und Arpeggien in Lagen, Quiz mit dem echten Instrument. | Muss | 2 | P1, P3 | Quiz „alle C auf dem Griffbrett“ funktioniert mit 4 und 5 Saiten. |
 | LH-LRN-03 | **Gehör:** Ton oder kurze Linie hören und nachspielen; Intervalle; Grundton zu einem Akkord. | Soll | 3 | P1, P3 | 3 Übungstypen, Bewertung wie LH-BEW-01. |
 | LH-LRN-04 | Generierte Übungen (Tonleitern und Modi, auch in Terzen und Vierergruppen; Dreiklänge, Arpeggien, Walking-Bass-Muster über Akkordfolgen; Fingerübungen ab einem Bund) in wählbarer Tonart und Tempo. | Soll | 2 | P1, P3, P4 | Tonart und Tempo wirken; Ergebnis als Arrangement speicherbar. |
+| LH-LRN-05 | **Ohne Hilfe prüfen** (DIDAKTIK I1, 24.10.): In der Werkstatt spielt „Ohne Hilfe prüfen“ den Abschnitt einmal ohne Noten auf dem Bildschirm (nur Takte und Cursor, mindestens ein Takt Vorzähler), im zuletzt geübten Werkstatt-Tempo, und endet nach einem Durchgang. Die Auswertung setzt das Ergebnis neben den letzten Werkstatt-Lauf derselben Takte (Trefferquote und Streuung, ein Satz dazu: „12 Punkte weniger als mit Noten“ oder „sitzt“); der Lauf wird als eigener Typ gespeichert. Die Startseite bietet einen Abschnitt an, der vor mindestens einer Nacht in den letzten drei Tagen geübt und seitdem nicht geprüft wurde. | Soll | 2 | P2, P1, P4 | J-C6: Probe endet nach einem Durchgang, Vergleich stimmt mit beiden Läufen überein. |
 
 ### 4.8 Wiedergabe (WIE)
 
