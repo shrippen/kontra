@@ -37,6 +37,7 @@ impl Chain {
     /// (0,1), (2,3), (0,3), (4,5), (0,5).
     pub fn new(first: usize, last: usize, size: usize, order: ChainOrder, w: &Workshop) -> Chain {
         let size = size.max(1);
+        let (first, last) = (first.min(last), first.max(last));
         let blocks: Vec<(usize, usize)> = (first..=last)
             .step_by(size)
             .map(|start| (start, (start + size - 1).min(last)))
@@ -138,6 +139,10 @@ mod tests {
             [(3, 6), (7, 7), (3, 7)]
         );
         assert_eq!(chain(0, 1, 2, ChainOrder::Forward), [(0, 1)]);
+        assert_eq!(
+            chain(3, 0, 2, ChainOrder::Forward),
+            [(0, 1), (2, 3), (0, 3)]
+        );
     }
 
     #[test]

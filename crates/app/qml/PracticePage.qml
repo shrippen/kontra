@@ -653,7 +653,7 @@ Kirigami.Page {
                     id: chainBackward
                     anchors.verticalCenter: parent.verticalCenter
                     Accessible.name: texts.t("chain.backward")
-                    onToggled: if (chainRow.chain !== null) { chainRow.start(chainRow.sizes[chainSize.currentIndex], checked) }
+                    onToggled: { if (chainRow.chain !== null) { chainRow.start(chainRow.sizes[chainSize.currentIndex], checked) } }
                 }
                 QQC2.Label { anchors.verticalCenter: parent.verticalCenter; text: texts.t("chain.backward"); color: KanteStyle.textColor }
                 KanteInfoTip {
@@ -673,7 +673,7 @@ Kirigami.Page {
             // Bars chosen by hand end the blocks: the list says so.
             Connections {
                 target: ctl
-                function onChainJsonChanged() { if (JSON.parse(ctl.chainJson) === null) chainSize.currentIndex = 0 }
+                function onChainJsonChanged() { if (JSON.parse(ctl.chainJson) === null) { chainSize.currentIndex = 0 } }
             }
         }
 
