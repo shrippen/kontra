@@ -174,7 +174,7 @@ id: tonart
 lesson: tonarten
 Die Tonleiter, aus der ein Lied seine Töne nimmt, benannt nach ihrem Grundton: G-Dur, A-Moll.
 
-## Lage
+## Lage am Hals
 id: lage
 for: e-bass
 lesson: dur-lagen
