@@ -58,7 +58,7 @@ Die **Septime** liegt einen *Ganzton* unter der [[oktave|Oktave]].
 | `::: practice bundled=1 speeds="60 80 100"` | mitgelieferte Übung Nr. 1 (Nummer im Dateinamen von `testdata/exercises`) in drei Tempi (%) |
 | `::: practice kind=groove variant=145 rhythm=quarters key=A bpm=70 judging=time` | eine Übung aus dem Generator |
 | `::: tuner` | das Stimmgerät |
-| `::: hint` … `:::` | Hinweis-Kasten (nur Text) |
+| `::: hint` … `:::` | Hinweis-Kasten (nur Klartext: keine Begriffe, kein Fett oder Kursiv) |
 | `::: variant for=e-bass` … `:::` | Blöcke nur für diese Stufe |
 | `::: question` … `:::` | Frage: Zeilen Frage, dann `- [x] richtig` und `- [ ] falsch` |
 | `::: video src=media/a.webm` | Video, nur in nachgeladenen Kursen; mitgelieferte Kurse haben keine |

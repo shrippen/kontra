@@ -3463,7 +3463,7 @@ impl Core {
     /// The question in words, the notes played so far and, once solved, what it was and where
     /// it lies: `{"prompt", "prompting", "solved", "progress", "total", "played": [{note,
     /// right, direction ("high", "low" or "")}], "reveal", "score", "positions": [{string, fret,
-    /// role}], "silent"}`.
+    /// role}], "silent", "listening" (false without an input: answers come by click)}`.
     pub fn ear_json(&self) -> String {
         let Some(q) = &self.ear else {
             return String::new();
@@ -3571,6 +3571,7 @@ impl Core {
             "score": self.score_text("ear.score", q.right, q.asked, q.solved),
             "positions": positions,
             "silent": self.live_ear.as_ref().is_some_and(LiveEar::output_is_silent),
+            "listening": self.live_ear.is_some(),
         })
         .to_string()
     }
