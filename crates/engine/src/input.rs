@@ -231,6 +231,9 @@ struct Analysis {
     level: Vec<f32>,
     level_len: usize,
     start_s: f64,
+    sample_rate: f64,
+    /// Samples analysed since the input started.
+    analysed: u64,
 }
 
 impl Analysis {
@@ -245,6 +248,8 @@ impl Analysis {
             level: Vec::with_capacity(level_len),
             level_len,
             start_s: 0.0,
+            sample_rate,
+            analysed: 0,
         }
     }
 
@@ -272,6 +277,14 @@ impl Analysis {
                 clipped: peak > CLIP_DB,
             });
             self.level.clear();
+        }
+
+        // How far the analysis is, as often as the level: the session judges up to there.
+        let before = self.analysed / self.level_len as u64;
+        self.analysed += block.len() as u64;
+        if self.analysed / self.level_len as u64 != before {
+            let at_s = self.start_s + self.analysed as f64 / self.sample_rate;
+            let _ = events.send(Event::Heard { at_s });
         }
     }
 

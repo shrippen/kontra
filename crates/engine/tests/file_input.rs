@@ -49,10 +49,12 @@ fn file_input_detects_riff() {
     .unwrap();
     let mut found = Vec::new();
     let mut levels = 0;
+    let mut heard = Vec::new();
     for event in rx.iter() {
         match event {
             Event::Note(n) => found.push(n),
             Event::Level { .. } => levels += 1,
+            Event::Heard { at_s } => heard.push(at_s),
             Event::Ended => break,
             _ => {}
         }
@@ -60,6 +62,9 @@ fn file_input_detects_riff() {
     drop(input);
     std::fs::remove_file(path).unwrap();
     assert!(levels > 30);
+    // How far the analysis is: rising, up to the file's end (2.2 s, within one 50 ms step).
+    assert!(heard.windows(2).all(|w| w[0] < w[1]));
+    assert!(heard.last().is_some_and(|&end| (2.15..=2.2).contains(&end)));
     assert_eq!(found.len(), names.len());
     let start = 0.0;
     for (f, n) in found.iter().zip(&notes) {
