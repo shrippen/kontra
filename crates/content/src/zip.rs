@@ -4,6 +4,7 @@
 //! What this layer adds: every read is bounded by the size the archive declares, and callers
 //! refuse a declared size before anything is inflated (deflate bombs, lying headers).
 
+use std::collections::HashMap;
 use std::io::{Cursor, Read, Write};
 
 use zip::result::ZipError;
@@ -26,6 +27,9 @@ pub(crate) struct Zip<'a> {
     archive: ZipArchive<Cursor<&'a [u8]>>,
     /// Name and declared inflated size of each entry, in archive order.
     entries: Vec<(String, u64)>,
+    /// Entry index by name; of names that decode alike, the first. `size` and `read` both go
+    /// through it, so a size always belongs to the entry that is read (review #131).
+    index: HashMap<String, usize>,
 }
 
 impl<'a> Zip<'a> {
@@ -33,12 +37,18 @@ impl<'a> Zip<'a> {
         let mut archive =
             ZipArchive::new(Cursor::new(data)).map_err(|_| ImportError::UnknownFormat)?;
         let mut entries = Vec::with_capacity(archive.len());
-        for index in 0..archive.len() {
-            let entry = archive.by_index_raw(index).map_err(archive_error)?;
+        let mut index = HashMap::with_capacity(archive.len());
+        for at in 0..archive.len() {
+            let entry = archive.by_index_raw(at).map_err(archive_error)?;
             let name = entry.name().map_err(archive_error)?.into_owned();
+            index.entry(name.clone()).or_insert(at);
             entries.push((name, entry.size()));
         }
-        Ok(Zip { archive, entries })
+        Ok(Zip {
+            archive,
+            entries,
+            index,
+        })
     }
 
     pub(crate) fn names(&self) -> impl Iterator<Item = &str> {
@@ -48,10 +58,9 @@ impl<'a> Zip<'a> {
     /// Inflated size of entry `name` as the archive declares it (0 if missing); reading never
     /// yields more.
     pub(crate) fn size(&self, name: &str) -> usize {
-        // The archive indexes names: no search through all entries (many-entry archives).
-        self.archive
-            .index_for_name(name)
-            .and_then(|index| self.entries.get(index))
+        self.index
+            .get(name)
+            .and_then(|at| self.entries.get(*at))
             .map_or(0, |(_, size)| usize::try_from(*size).unwrap_or(usize::MAX))
     }
 
@@ -71,12 +80,13 @@ impl<'a> Zip<'a> {
 
     /// Content of entry `name`: exactly as long as declared, checksum checked.
     pub(crate) fn read(&self, name: &str) -> Result<Vec<u8>, ImportError> {
-        // A clone shares the parsed directory; `by_name` needs it mutable.
+        // A clone shares the parsed directory; `by_index` needs it mutable.
+        let at = *self
+            .index
+            .get(name)
+            .ok_or_else(|| ImportError::Malformed(format!("{name} missing in archive")))?;
         let mut archive = self.archive.clone();
-        let entry = archive.by_name(name).map_err(|e| match e {
-            ZipError::FileNotFound => ImportError::Malformed(format!("{name} missing in archive")),
-            other => archive_error(other),
-        })?;
+        let entry = archive.by_index(at).map_err(archive_error)?;
         let size = entry.size();
         if size > MAX_ENTRY {
             return Err(ImportError::TooLarge(size));
@@ -154,6 +164,25 @@ mod tests {
 
         let lying = stored("a.md", b"hello", 0);
         assert!(Zip::open(&lying).and_then(|z| z.read("a.md")).is_err());
+    }
+
+    /// Review #131, round 6: a CP437 name and a UTF-8 name decode alike ("t000xä"); size and
+    /// read must take the same entry, else the small one's size lets the large one through.
+    #[test]
+    fn size_and_read_take_the_same_entry() {
+        let big = vec![b' '; 20 * 1024];
+        let mut data = write(&[("t000xQ", b"small"), ("t000xä", &big)]).unwrap();
+        // 'Q' becomes CP437 0x84 ('ä') in both headers; ASCII names carry no UTF-8 flag.
+        let mut at = 0;
+        while let Some(found) = data[at..].windows(6).position(|w| w == b"t000xQ") {
+            data[at + found + 5] = 0x84;
+            at += found + 6;
+        }
+
+        let zip = Zip::open(&data).unwrap();
+        if let Ok(content) = zip.read_text("t000xä", 10) {
+            assert!(content.len() <= 10, "read {} bytes", content.len());
+        }
     }
 
     #[test]
