@@ -5,6 +5,7 @@
 //!     ◄──properties/signals── bridge ◄── UiEvent
 //! ```
 
+mod course;
 mod data;
 pub mod ear;
 mod i18n;
@@ -211,6 +212,8 @@ pub struct Core {
     fallback_input: Option<String>,
     /// Dropouts of finished runs since the start (LH-NF-04).
     xruns_done: u64,
+    /// Courses the player added (LH-LRN-14), read once and after each change.
+    courses: Vec<kontra_session::lesson::CoursePack>,
     /// Fretboard quiz in progress (LH-LRN-02).
     quiz: Option<quiz::Quiz>,
     /// Ear training (LH-LRN-03): the round and its audio.
@@ -266,6 +269,7 @@ impl Core {
             .as_deref()
             .map_or_else(Language::from_environment, Language::from_code);
         Core {
+            courses: kontra_session::CourseStore::new(data_dir).load(),
             quiz: None,
             ear: None,
             live_ear: None,
@@ -4340,6 +4344,45 @@ mod tests {
         // Open strings first: the hand waits for the first fretted note.
         assert_eq!(positions_of(&[0, 0, 2, 4]), [2, 2, 2, 2]);
         assert_eq!(positions_of(&[0, 0]), [1, 1]);
+    }
+
+    /// J-G5: an added course appears beside the bundled one and becomes the one to learn;
+    /// the bundled one can be chosen again.
+    #[test]
+    fn an_added_course_is_learned_next() {
+        use kontra_session::lesson::{new_course, pack, Author};
+        use serde_json::{json, Value};
+        let dir = temp_dir("course-add");
+        let src = dir.join("src");
+        let author = Author {
+            provider: "Studio Weber".into(),
+            license: "CC-BY-4.0".into(),
+        };
+        new_course(&src, "weber", &author).unwrap();
+        let file = dir.join("weber.kontrakurs");
+        std::fs::write(&file, pack(&src).unwrap()).unwrap();
+
+        let mut core = Core::new(&dir.join("data"), QaOptions::default());
+        let preview: Value = serde_json::from_str(&core.course_preview(&file)).unwrap();
+        assert_eq!(preview["ok"], true);
+        assert_eq!(preview["provider"], "Studio Weber");
+        assert_eq!(preview["problems"], json!([]));
+        assert_eq!(preview["replaces"], false);
+
+        assert_eq!(core.course_add(&file), "");
+        let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
+        assert_eq!(learn["course"], "weber.kurs");
+        assert_eq!(learn["courses"].as_array().map(Vec::len), Some(2));
+        assert_eq!(learn["next"]["id"], "weber.start");
+
+        // Kept over a restart; the bundled course comes back by choice.
+        let mut core = Core::new(&dir.join("data"), QaOptions::default());
+        let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
+        assert_eq!(learn["course"], "weber.kurs");
+        core.choose_course("bass");
+        let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
+        assert_eq!(learn["course"], "bass");
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

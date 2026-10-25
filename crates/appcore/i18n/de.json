@@ -884,5 +884,19 @@
   "learn.check": "Kann ich schon",
   "check.title": "Kann ich schon: {title}",
   "check.passed": "Kapitel abgehakt: alle {total} Fragen richtig.",
-  "check.open": "{right} von {total} richtig. Das Kapitel bleibt offen; die falschen Fragen kommen morgen wieder."
+  "check.open": "{right} von {total} richtig. Das Kapitel bleibt offen; die falschen Fragen kommen morgen wieder.",
+  "courses.label": "Kurs",
+  "courses.bundled": "Bass-Kurs",
+  "courses.add": "Kurs hinzufügen …",
+  "courses.filter": "Kontra-Kurse (*.kontrakurs)",
+  "courses.from": "Von {provider} · Lizenz: {license} · {lessons} Lektionen",
+  "courses.hosts": "Videos kommen von: {hosts}. Kontra lädt eins erst, wenn du es startest.",
+  "courses.nohosts": "Keine Videos aus dem Internet.",
+  "courses.other": "Dieser Kurs ist für ein anderes Instrument. Er erscheint, wenn du es in den Einstellungen wählst.",
+  "courses.replaces": "Ersetzt die vorhandene Fassung; dein Lernstand bleibt.",
+  "courses.problems": "Der Kurs hat {count} Fehler und kann nicht hinzugefügt werden.",
+  "courses.more": "… und {count} weitere.",
+  "courses.unreadable": "Die Datei ist kein lesbarer Kurs: {reason}",
+  "courses.confirm": "Hinzufügen",
+  "courses.cancel": "Abbrechen"
 }

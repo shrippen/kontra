@@ -884,5 +884,19 @@
   "learn.check": "I know this",
   "check.title": "I know this: {title}",
   "check.passed": "Chapter ticked off: all {total} questions right.",
-  "check.open": "{right} of {total} right. The chapter stays open; the wrong questions come back tomorrow."
+  "check.open": "{right} of {total} right. The chapter stays open; the wrong questions come back tomorrow.",
+  "courses.label": "Course",
+  "courses.bundled": "Bass course",
+  "courses.add": "Add course …",
+  "courses.filter": "Kontra courses (*.kontrakurs)",
+  "courses.from": "By {provider} · Licence: {license} · {lessons} lessons",
+  "courses.hosts": "Videos come from: {hosts}. Kontra loads one only when you start it.",
+  "courses.nohosts": "No videos from the internet.",
+  "courses.other": "This course is for another instrument. It appears once you choose that in the settings.",
+  "courses.replaces": "Replaces the installed version; your progress stays.",
+  "courses.problems": "The course has {count} errors and cannot be added.",
+  "courses.more": "… and {count} more.",
+  "courses.unreadable": "The file is not a readable course: {reason}",
+  "courses.confirm": "Add",
+  "courses.cancel": "Cancel"
 }

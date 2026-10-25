@@ -124,3 +124,8 @@ kurs.kontrakurs
 Anlegen, prüfen und packen: `kontra-cli course new <ordner> --id <präfix> --provider … --license …`,
 `kontra-cli course check <ordner|datei>` (jeder Befund mit Datei, Fehler im Format mit Zeile),
 `kontra-cli course pack <ordner> <datei>.kontrakurs` (prüft vorher).
+
+Hinzufügen: Lernen → „Kurs hinzufügen …“ oder `kontra kurs.kontrakurs`. Kontra zeigt Titel, Anbieter, Lizenz und
+Stream-Hosts, sagt, wenn der Kurs für ein anderes Instrument ist, und nimmt nur Pakete ohne Befund. Es legt die Datei
+unverändert unter `<Datenordner>/courses/<id>.kontrakurs` ab; ein Paket mit derselben `id` ersetzt das alte, der
+Lernstand bleibt. Mehrere Kurse für das Instrument: Auswahl „Kurs“ auf der Lernseite.

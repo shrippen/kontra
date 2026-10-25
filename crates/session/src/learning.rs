@@ -8,7 +8,9 @@
 //! ```
 
 use crate::progress::ProgressError;
-use kontra_content::lesson::{Block, Course, Doc, Lang, Lessons, Page, Term, Tones, Unit};
+use kontra_content::lesson::{
+    Block, Course, CoursePack, Doc, Lang, Lessons, Page, Term, Tones, Unit,
+};
 use kontra_model::{Instrument, Pitch};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -26,6 +28,8 @@ const OCTAVE: u8 = 12;
 pub struct Learning {
     lessons: Lessons,
     scopes: &'static [&'static str],
+    /// The course the player chose; empty or not for this profile: the first that is.
+    chosen: String,
 }
 
 impl Learning {
@@ -33,6 +37,7 @@ impl Learning {
         Learning {
             lessons,
             scopes: lesson::scopes(instrument.kind),
+            chosen: String::new(),
         }
     }
 
@@ -42,14 +47,40 @@ impl Learning {
         Some(Learning::new(Lessons::bundled().ok()?, instrument))
     }
 
+    /// The bundled lessons and those of added courses in one pool (LH-LRN-14): courses after
+    /// the bundled one, units and terms side by side (added ones carry their prefix). `chosen`
+    /// is the course to learn.
+    pub fn with_courses(
+        instrument: &Instrument,
+        packs: &[CoursePack],
+        chosen: &str,
+    ) -> Option<Learning> {
+        let mut lessons = Lessons::bundled().ok()?;
+        for pack in packs {
+            lessons.courses.extend(pack.lessons.courses.iter().cloned());
+            lessons.units.extend(pack.lessons.units.iter().cloned());
+            lessons.terms.extend(pack.lessons.terms.iter().cloned());
+        }
+        let mut learning = Learning::new(lessons, instrument);
+        learning.chosen = chosen.to_string();
+        Some(learning)
+    }
+
     /// Whether something scoped `scope` is meant for this profile.
     pub fn fits(&self, scope: &str) -> bool {
         self.scopes.contains(&scope)
     }
 
-    /// The course for this profile: the first whose scope fits.
+    /// The chosen course if it is for this profile, else the first that is.
     pub fn course(&self) -> Option<&Course> {
-        self.lessons.courses.iter().find(|c| self.fits(&c.scope))
+        self.courses()
+            .find(|c| c.id == self.chosen)
+            .or_else(|| self.courses().next())
+    }
+
+    /// Every course for this profile, the bundled one first.
+    pub fn courses(&self) -> impl Iterator<Item = &Course> {
+        self.lessons.courses.iter().filter(|c| self.fits(&c.scope))
     }
 
     pub fn unit(&self, id: &str) -> Option<&Unit> {

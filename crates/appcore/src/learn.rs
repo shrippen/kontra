@@ -92,13 +92,14 @@ const TOPIC_TERMS: &[(&str, &str)] = &[
 ];
 
 impl Core {
-    /// The bundled lessons seen through the current instrument profile; `None` only if the
-    /// embedded files are broken (a test guards that).
+    /// The bundled lessons and added courses seen through the current instrument profile;
+    /// `None` only if the embedded files are broken (a test guards that).
     fn learning(&self) -> Option<Learning> {
-        Learning::bundled(&self.instrument())
+        let chosen = self.settings.course.as_deref().unwrap_or_default();
+        Learning::with_courses(&self.instrument(), &self.courses, chosen)
     }
 
-    fn learn_lang(&self) -> Lang {
+    pub(crate) fn learn_lang(&self) -> Lang {
         match self.catalog.language() {
             Language::German => Lang::De,
             Language::English => Lang::En,
@@ -114,8 +115,9 @@ impl Core {
     }
 
     /// The course: `{"fits", "next": {id, title} | null, "chapters": [{id, title, done, total,
-    /// questions, units: [{id, title, done, fits}], finale: practice | null}]}`. `fits` false: the course is not for
-    /// this instrument (LH-LRN-12).
+    /// questions, units: [{id, title, done, fits}], finale: practice | null}], "course": id,
+    /// "courses": [{id, title}]}`. `fits` false: the course is not for this instrument
+    /// (LH-LRN-12); `courses` are all for it, to choose from (LH-LRN-14).
     pub fn learn_json(&self) -> String {
         let (Some(learning), lang) = (self.learning(), self.learn_lang()) else {
             return json!({ "fits": false, "chapters": [] }).to_string();
@@ -159,7 +161,13 @@ impl Core {
                 })
             })
             .collect();
-        json!({ "fits": true, "next": next, "chapters": chapters }).to_string()
+        let courses: Vec<Value> = learning
+            .courses()
+            .map(|c| json!({ "id": c.id, "title": self.course_title(&c.id) }))
+            .collect();
+        json!({ "fits": true, "next": next, "chapters": chapters, "course": course.id,
+                "courses": courses })
+        .to_string()
     }
 
     /// One lesson: `{"id", "title", "fits", "seen": [page], "done", "pages": [{"title",

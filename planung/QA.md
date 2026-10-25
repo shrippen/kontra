@@ -261,7 +261,8 @@ je Kapitel) fragt alle Fragen des Kapitels; alle richtig hakt es ab, sonst bleib
 Erwartet: liest sich wie eine mitgelieferte; Fehler im Format mit Zeile genannt.
 
 **J-G5 Kurs nachladen** · Personas: P2 Jens, P7 Sam · Phase 4 · LH-LRN-14
-1. Jens: Kurs-Adresse eines Anbieters eingeben; Anbieter und Lizenz lesen, hinzufügen; eine Lektion mit Video.
+1. Jens: Kurs-Adresse eines Anbieters eingeben oder die heruntergeladene `.kontrakurs` öffnen (Lernen → „Kurs
+   hinzufügen …“ oder Doppelklick); Anbieter, Lizenz und Video-Hosts lesen, hinzufügen; eine Lektion mit Video.
 2. Sam: dieselbe Lektion bei 200 % und „Bewegung reduzieren“, mit Orca.
 3. Ohne Netz neu starten.
 Erwartet: Kurs erscheint neben dem Bass-Kurs; Video mit Untertiteln, Text darunter lesbar; ohne Netz bleibt ein

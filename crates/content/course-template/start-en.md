@@ -3,4 +3,4 @@ id: {id}.start
 for: any
 
 ## Hello
-The course starts here. Format: `lessons/README.md` in the Kontra repository.
+The course starts here. How lessons look: lessons/README.md in the Kontra repository.

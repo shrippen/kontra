@@ -107,6 +107,8 @@ pub struct Settings {
     pub strictness: String,
     /// Aim against the beat (LH-BEW-08): "free", "onbeat", "laidback" or "pushed".
     pub pocket: String,
+    /// The course to learn (LH-LRN-14); `None` or gone: the first for the instrument.
+    pub course: Option<String>,
     /// Pitch limit in cents (LH-BEW-05); 0 = by bass kind (50 fretted, 30 fretless).
     pub pitch_cents: f64,
     /// The first-start assistant was completed or skipped (LH-EIN-01).
@@ -171,6 +173,7 @@ impl Default for Settings {
             motion: "system".into(),
             strictness: "auto".into(),
             pocket: "free".into(),
+            course: None,
             pitch_cents: 0.0,
             setup_done: false,
             backing_volume: f64::from(mix.backing),
