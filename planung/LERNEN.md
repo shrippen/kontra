@@ -156,6 +156,7 @@ engine/     content/  Lektionsformat: Parser, mitgelieferte Kurse, Lektionen, Gl
 | LH-LRN-12 | Lektionen gelten für eine Stufe (`any`, Familie, Instrument) aus dem Profil; ein Profil ohne passende Lektion bekommt einen Hinweis statt einer falschen Lektion. | Soll | P5, P6 | J-A4 |
 | LH-LRN-14 | Kurse nachladen als `.kontrakurs` aus Datei oder Adresse, auch mit Videos (Abschnitt 13); mitgelieferte Kurse ohne Videos. | Kann | P2, P4, P1 | J-G5 |
 | LH-LRN-13 | Kurs je Instrument aus einem gemeinsamen Lektionsvorrat (`for`, Varianten, `needs`, Abschnitt 12); gemeinsames Wissen zählt über Kurse. | Soll | P5, P6 | Tests je Kurs |
+| LH-LRN-15 | Kurswerkstatt: kleines Begleitprogramm, mit dem Anbieter und Lehrkräfte einen Kurs anlegen, Lektionen mit Vorschau schreiben, prüfen und als `.kontrakurs` packen (Abschnitt 13). Für 1.0. | Soll | P4, P2 | J-G4, J-G5 |
 
 ## 9. Journeys (`QA.md`, Abschnitt G)
 
@@ -292,6 +293,13 @@ Dasselbe Lektionsformat wie die mitgelieferten Kurse, dazu der Block `::: video 
 und Untertitel bleiben. Ein nachgeladener Kurs darf
 Lektionen aus dem mitgelieferten Vorrat nennen (`needs`, Kapitel), aber nicht verändern; eigene Lektionen haben eigene
 Ids (Präfix des Anbieters, z. B. `bassbuzz.anschlag`), damit nichts kollidiert.
+
+**Kurswerkstatt** (Eigentümer, 25.10., für 1.0): ein kleines Begleitprogramm neben Kontra, damit niemand Zip und
+Manifest von Hand baut. Es legt einen Kurs an (Manifest, Kapitel, Ordner je Lektion), zeigt eine Lektion beim Schreiben
+so, wie Kontra sie zeigt (dieselben QML-Bausteine), prüft wie `Lessons::check` (Fehler mit Datei und Zeile) und packt das
+Paket. Dieselben Schritte gehen ohne Fenster über `kontra-cli course new|check|pack`, damit ein Anbieter sie in seiner
+eigenen Pipeline nutzen kann. Kein eigenes Format, kein Editor-Ehrgeiz: Texte bleiben Markdown, geschrieben im Editor der
+Wahl; die Werkstatt lädt bei jeder Änderung neu.
 
 **Wege hinein:**
 - Datei öffnen („Kurs hinzufügen…“), wie ein `.kontra`-Paket.
