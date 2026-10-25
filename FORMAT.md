@@ -118,7 +118,7 @@ kurs.kontrakurs
   mitgelieferte Ids nutzen; geplant: Kontra zeigt dann beide Texte mit Herkunft.
 - `::: video src=… subtitles=…`: `src` ist `media/<datei>` im Paket oder `https://<host>/…` auf einem Host aus
   `hosts`; andere Adressen sind ein Fehler. `subtitles` je Sprachdatei (WebVTT), sonst wie `src`.
-- Namen bleiben im Paket (kein `/` am Anfang, kein `..`, kein `\\`), höchstens 1 GiB, Textdateien je höchstens
+- Namen bleiben im Paket (kein `/` am Anfang, kein `..`, kein `\`), höchstens 1 GiB, Textdateien je höchstens
   4 MiB, zusammen höchstens 32 MiB.
 
 Anlegen, prüfen und packen: `kontra-cli course new <ordner> --id <präfix> --provider … --license …`,
