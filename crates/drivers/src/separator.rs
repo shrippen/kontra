@@ -555,13 +555,18 @@ mod tests {
         std::fs::write(&song, b"RIFF").unwrap();
 
         let (script2, song2, out) = (script.clone(), song.clone(), dir.join("out"));
+        let pid_file2 = pid_file.clone();
         std::thread::spawn(move || {
             let job = Separator::with_program(&script2)
                 .start(&song2, &out)
                 .unwrap();
-            // As if Kontra died: nothing stops it.
+            // As if Kontra died: nothing stops it. The starter ends once the program runs; a
+            // fixed 200 ms was too short on a busy machine (the shell had not written its pid).
             std::mem::forget(job);
-            std::thread::sleep(Duration::from_millis(200));
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while !pid_file2.exists() && Instant::now() < deadline {
+                std::thread::sleep(STOP_POLL);
+            }
         })
         .join()
         .unwrap();
