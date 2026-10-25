@@ -8,7 +8,8 @@ nur, was offen ist und wo es liegt.
 #124 `lernen-klick` (LH-LRN-08), #125 `wiederholen` (LH-LRN-10); Kante #77 (1.41 Ziel-Band im Histogramm, wartet auf den Eigentümer; danach Kontra-Branch `pocket-band`).
 
 Lernen (Runde 13, `LERNEN.md`): Plan (#118), Format und Kapitel 1 (#119), Kapitel 2–5 (#121) gemerged. Offen: „?“ an
-Fachbegriffen in Übungsziel, Generator und Auswertung (LH-LRN-09), Wiederholen (LH-LRN-10),
+Fachbegriffen in Übungsziel, Generator und Auswertung (LH-LRN-09), „Kann ich schon“ (LH-LRN-10; Wiederholen
+fälliger Fragen ist da),
 Kurspakete und Kurswerkstatt (LH-LRN-14, -15, für 1.0).
 
 Bestand: In `testdata/exercises` heißen die Ordner 4 und 5 vertauscht („4 Groove“ hält die Walking-Bass-Übungen,

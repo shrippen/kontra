@@ -868,5 +868,17 @@
   "learn.missing": "This content is missing.",
   "home.lesson.tier": "Learn",
   "home.lesson.text": "The next lesson in the course.",
-  "home.lesson.open": "Continue learning"
+  "home.lesson.open": "Continue learning",
+  "home.review.tier": "Review",
+  "home.review.one": "1 question due",
+  "home.review.title": "{count} questions due",
+  "home.review.text": "Questions from earlier lessons come back after a few days. If you still know them then, they stay.",
+  "home.review.open": "Review",
+  "review.title": "Review",
+  "review.from": "From: {title}",
+  "review.step": "Question {number} of {total}",
+  "review.next": "Next question",
+  "review.done": "Done: {right} of {total} right.",
+  "review.none": "Nothing is due right now.",
+  "review.back": "To the course"
 }

@@ -166,6 +166,64 @@ pub struct UnitState {
 pub struct LearnState {
     #[serde(default)]
     pub units: BTreeMap<String, UnitState>,
+    /// Questions answered, keyed by `QuestionRef::key` (LH-LRN-10).
+    #[serde(default)]
+    questions: BTreeMap<String, Recall>,
+}
+
+/// A question in a lesson: unit (its state key), page and block on that page.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuestionRef {
+    pub unit: String,
+    pub page: usize,
+    pub block: usize,
+}
+
+impl QuestionRef {
+    pub fn new(unit: &str, page: usize, block: usize) -> QuestionRef {
+        QuestionRef {
+            unit: unit.to_string(),
+            page,
+            block,
+        }
+    }
+
+    /// "septime/3/0"; unit keys hold no "/".
+    fn key(&self) -> String {
+        format!("{}/{}/{}", self.unit, self.page, self.block)
+    }
+
+    fn from_key(key: &str) -> Option<QuestionRef> {
+        let mut parts = key.rsplitn(3, '/');
+        let block = parts.next()?.parse().ok()?;
+        let page = parts.next()?.parse().ok()?;
+        Some(QuestionRef::new(parts.next()?, page, block))
+    }
+}
+
+/// How an answer went.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Answer {
+    Right,
+    Wrong,
+}
+
+/// Days until a question comes back, by box: each right answer moves it one box on, a wrong
+/// one back to the start (Leitner). Box 0 is "wrong last time".
+///
+/// ```text
+/// box     0   1   2   3    4
+/// days    1   3   7   21   60
+/// ```
+const RECALL_DAYS: [u64; 5] = [1, 3, 7, 21, 60];
+const SECONDS_PER_DAY: u64 = 86_400;
+
+/// When a question comes back.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+struct Recall {
+    #[serde(rename = "box")]
+    level: usize,
+    due_unix: u64,
 }
 
 impl LearnState {
@@ -180,6 +238,36 @@ impl LearnState {
 
     pub fn done(&self, key: &str) -> bool {
         self.units.get(key).is_some_and(|u| u.done_unix.is_some())
+    }
+
+    /// Records an answer to `question`; it comes back after its box's days. A right answer
+    /// before the question is due (the lesson read again) keeps its box.
+    pub fn answer(&mut self, question: &QuestionRef, answer: Answer, now_unix: u64) {
+        let key = question.key();
+        let new = !self.questions.contains_key(&key);
+        let recall = self.questions.entry(key).or_default();
+        let early = !new && now_unix < recall.due_unix;
+        if answer == Answer::Right && early {
+            return;
+        }
+
+        recall.level = match answer {
+            Answer::Right => (recall.level + 1).min(RECALL_DAYS.len() - 1),
+            Answer::Wrong => 0,
+        };
+        recall.due_unix = now_unix + RECALL_DAYS[recall.level] * SECONDS_PER_DAY;
+    }
+
+    /// Questions due at `now_unix`, the longest waiting first.
+    pub fn due(&self, now_unix: u64) -> Vec<QuestionRef> {
+        let mut due: Vec<(u64, QuestionRef)> = self
+            .questions
+            .iter()
+            .filter(|(_, r)| r.due_unix <= now_unix)
+            .filter_map(|(key, r)| Some((r.due_unix, QuestionRef::from_key(key)?)))
+            .collect();
+        due.sort_by_key(|(at, _)| *at);
+        due.into_iter().map(|(_, q)| q).collect()
     }
 }
 
@@ -299,6 +387,41 @@ mod tests {
         // G1 is not on the A string; A1 and B1 keep steps 1 and 2 (and their labels).
         let a = positions(&tones(9, &[-2, 0, 2], Some(9)), &bass);
         assert_eq!(a, [(1, 1, 0), (2, 1, 2)]);
+    }
+
+    #[test]
+    fn questions_come_back_later_the_better_they_sit() {
+        const DAY: u64 = 86_400;
+        let mut state = LearnState::default();
+        let q = QuestionRef::new("septime", 3, 0);
+        state.answer(&q, Answer::Right, 0);
+        assert!(state.due(2 * DAY).is_empty(), "not before three days");
+        assert_eq!(state.due(3 * DAY), std::slice::from_ref(&q));
+
+        state.answer(&q, Answer::Right, 3 * DAY);
+        assert!(state.due(9 * DAY).is_empty());
+        assert_eq!(state.due(10 * DAY).len(), 1, "a week later");
+
+        // Wrong: back to tomorrow, whatever box it was in; sooner than a right first answer.
+        state.answer(&q, Answer::Wrong, 10 * DAY);
+        assert_eq!(state.due(11 * DAY).len(), 1);
+    }
+
+    #[test]
+    fn answering_early_does_not_move_a_box_on() {
+        const DAY: u64 = 86_400;
+        let mut state = LearnState::default();
+        let q = QuestionRef::new("septime", 3, 0);
+
+        // Reading the lesson again the same day: still three days, not 60.
+        state.answer(&q, Answer::Right, 0);
+        state.answer(&q, Answer::Right, 60);
+        state.answer(&q, Answer::Right, 120);
+        assert_eq!(state.due(3 * DAY).len(), 1);
+
+        // Wrong still resets, due or not.
+        state.answer(&q, Answer::Wrong, 3 * DAY + 60);
+        assert_eq!(state.due(4 * DAY + 60).len(), 1);
     }
 
     #[test]

@@ -541,6 +541,22 @@ pub mod qobject {
         #[cxx_name = "termEar"]
         fn term_ear(self: Pin<&mut Self>, id: &QString, block: i32);
 
+        /// An answer to a lesson question; true if right. It comes back for review (LH-LRN-10).
+        #[qinvokable]
+        #[cxx_name = "lessonAnswer"]
+        fn lesson_answer(
+            self: Pin<&mut Self>,
+            id: &QString,
+            page: i32,
+            block: i32,
+            option: i32,
+        ) -> bool;
+
+        /// Questions due for review, see `Core::review_json`.
+        #[qinvokable]
+        #[cxx_name = "reviewJson"]
+        fn review_json(self: &Self) -> QString;
+
         /// Opens the exercise of a lesson's practice block; true when it is ready to play.
         #[qinvokable]
         #[cxx_name = "lessonExercise"]
@@ -2173,6 +2189,30 @@ impl qobject::Controller {
             Err(text) if text.is_empty() => {}
             Err(text) => self.as_mut().show_error(&text),
         }
+    }
+
+    fn lesson_answer(
+        mut self: Pin<&mut Self>,
+        id: &QString,
+        page: i32,
+        block: i32,
+        option: i32,
+    ) -> bool {
+        let at = (
+            usize::try_from(page),
+            usize::try_from(block),
+            usize::try_from(option),
+        );
+        let (Ok(page), Ok(block), Ok(option)) = at else {
+            return false;
+        };
+        self.as_mut()
+            .core()
+            .lesson_answer(&id.to_string(), page, block, option)
+    }
+
+    fn review_json(&self) -> QString {
+        q(&self.rust().core.review_json())
     }
 
     fn lesson_exercise(mut self: Pin<&mut Self>, id: &QString, page: i32, block: i32) -> bool {

@@ -11,9 +11,14 @@
 use crate::{ear, exercise, plan_number, unix_now, Core, Language};
 use kontra_model::Pitch;
 use kontra_session::lesson::{Block, Doc, ExerciseRef, Lang, Practice, Span, Tones};
-use kontra_session::{place, positions, LearnState, LearnStore, Learning, LiveEar, LiveSetup};
+use kontra_session::{
+    place, positions, Answer, LearnState, LearnStore, Learning, LiveEar, LiveSetup, QuestionRef,
+};
 use serde_json::{json, Value};
 use std::path::PathBuf;
+
+/// Questions per review round (LH-LRN-10): a few minutes, not a test.
+const REVIEW_MAX: usize = 10;
 
 /// Link target prefix of a glossary term in lesson HTML: `<a href="term:septime">`.
 const TERM_LINK: &str = "term:";
@@ -198,6 +203,88 @@ impl Core {
         if let Err(e) = store.save(&state) {
             eprintln!("kontra: {e}");
         }
+    }
+
+    /// The learner picked option `option` of question `block` on page `page`; true if right. The
+    /// question comes back after days, sooner when it was wrong (LH-LRN-10).
+    pub fn lesson_answer(&mut self, id: &str, page: usize, block: usize, option: usize) -> bool {
+        self.answer_at(id, page, block, option, unix_now())
+    }
+
+    fn answer_at(&mut self, id: &str, page: usize, block: usize, option: usize, now: u64) -> bool {
+        let Some(Block::Question(question)) = self.lesson_block(id, page, block) else {
+            return false;
+        };
+        let right = question.answer == option;
+        let Some(learning) = self.learning() else {
+            return right;
+        };
+        let Some(unit) = learning.unit(id) else {
+            return right;
+        };
+        let store = self.learn_store();
+        // A damaged file stays as it is rather than being overwritten with less.
+        let Ok(mut state) = store.load() else {
+            return right;
+        };
+        let answer = if right { Answer::Right } else { Answer::Wrong };
+        let at = QuestionRef::new(&learning.state_key(unit), page, block);
+        state.answer(&at, answer, now);
+        if let Err(e) = store.save(&state) {
+            eprintln!("kontra: {e}");
+        }
+        right
+    }
+
+    /// Questions due again, at most `REVIEW_MAX`: `{"questions": [{"lesson": {id, title},
+    /// "page", "block", "question": block}]}`. Questions of lessons that no longer fit the
+    /// instrument or no longer exist wait.
+    pub fn review_json(&self) -> String {
+        self.review_json_at(unix_now())
+    }
+
+    fn review_json_at(&self, now: u64) -> String {
+        let questions: Vec<Value> = self
+            .due_questions(now)
+            .into_iter()
+            .take(REVIEW_MAX)
+            .collect();
+        json!({ "questions": questions }).to_string()
+    }
+
+    /// How many questions are due, for the start page.
+    pub(crate) fn review_count(&self, now: u64) -> usize {
+        self.due_questions(now).len()
+    }
+
+    fn due_questions(&self, now: u64) -> Vec<Value> {
+        let Some(learning) = self.learning() else {
+            return Vec::new();
+        };
+        let lang = self.learn_lang();
+        self.learn_state()
+            .due(now)
+            .into_iter()
+            .filter_map(|q| {
+                // "greifen@e-bass": the key holds the unit's id and, if scoped, the instrument it
+                // was answered on; another instrument's answers wait for it.
+                let id = q.unit.split('@').next()?;
+                let unit = learning
+                    .unit(id)
+                    .filter(|u| learning.fits(&u.scope) && learning.state_key(u) == q.unit)?;
+                let doc = learning.doc(&unit.texts, lang)?;
+                let block = doc.pages.get(q.page)?.blocks.get(q.block)?;
+                let Block::Question(_) = block else {
+                    return None;
+                };
+                Some(json!({
+                    "lesson": { "id": unit.id, "title": doc.title },
+                    "page": q.page,
+                    "block": q.block,
+                    "question": self.block_json(block),
+                }))
+            })
+            .collect()
     }
 
     /// "Listen" plays block `block` of the page; "try" waits for the player to play it. Both
@@ -559,6 +646,37 @@ mod tests {
             .unwrap()
             .iter()
             .any(|t| t["id"] == "viertel"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn answered_questions_come_back() {
+        const DAY: u64 = 86_400;
+        let (mut core, dir) = core("review");
+        let lesson = parse(&core.lesson_json("septime"));
+        let (page, block, answer) = lesson["pages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .enumerate()
+            .find_map(|(p, page)| {
+                let blocks = page["blocks"].as_array()?;
+                let b = blocks.iter().position(|b| b["kind"] == "question")?;
+                Some((p, b, blocks[b]["answer"].as_u64()? as usize))
+            })
+            .unwrap();
+        assert!(core.answer_at("septime", page, block, answer, 0));
+        assert_eq!(parse(&core.review_json_at(DAY))["questions"], json!([]));
+
+        let due = parse(&core.review_json_at(3 * DAY));
+        let first = &due["questions"][0];
+        assert_eq!(first["lesson"]["id"], "septime");
+        assert_eq!(
+            (first["page"].as_u64(), first["block"].as_u64()),
+            (Some(page as u64), Some(block as u64))
+        );
+        assert_eq!(first["question"]["kind"], "question");
+        assert_eq!(parse(&core.home_json_at(3 * DAY))["review"], 1);
         let _ = std::fs::remove_dir_all(dir);
     }
 
