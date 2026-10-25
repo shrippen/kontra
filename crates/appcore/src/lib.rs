@@ -6008,6 +6008,37 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// Played under its old folder before Runde 12 (moved to "5 Walking Bass", missing then)
+    /// and again from "4 Groove" since: both entries name one file now; the newer stays.
+    #[test]
+    fn two_entries_of_one_moved_exercise_become_one() {
+        let dir = temp_dir("twoentries");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let walking = PathBuf::from(levels[4]["items"][0]["path"].as_str().unwrap());
+        core.open(&walking).unwrap();
+        let mut older = core.library.entry(&walking).unwrap().clone();
+        older.last_unix = 1;
+        let newer = core.library.entry_mut(&walking).unwrap();
+        newer.path = Core::exercises_dir()
+            .join("4 Groove")
+            .join(walking.file_name().unwrap());
+        newer.last_unix = 2;
+        core.library.recent.push(older);
+        store::save(&dir.join("library.json"), &core.library).unwrap();
+
+        let core = Core::new(&dir, QaOptions::default());
+        let entries: Vec<_> = core
+            .library
+            .recent
+            .iter()
+            .filter(|e| e.path == walking)
+            .collect();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].last_unix, 2);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// The practice page's heading names a bundled exercise in the UI's language too.
     #[test]
     fn loaded_title_follows_the_language() {
