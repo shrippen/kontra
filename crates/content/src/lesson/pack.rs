@@ -115,7 +115,7 @@ impl CoursePack {
             .names()
             .filter(|n| !n.starts_with(MEDIA_DIR))
             .map(|n| zip.size(n))
-            .sum();
+            .fold(0, usize::saturating_add);
         if declared > MAX_TEXTS_BYTES {
             return Err(PackError::archive(format!(
                 "texts above {MAX_TEXTS_BYTES} bytes"
