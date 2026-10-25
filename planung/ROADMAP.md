@@ -10,7 +10,7 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 | 3 Inhalte (0.5–0.7) | eigene Audiodatei, `.kontra`-Pakete, Etüden, Gehör | vorgezogen und umgesetzt: Backing-Abgleich (Abnahme LH-BIB-06 synthetisch bestanden, #101), `.kontra`, 150 Übungen in neun Stufen mit Stück-Generator (#100), Gehör; offen: Gegenprobe LH-BIB-06 mit echter Aufnahme |
 | 4 Bass komplett (0.8–1.0) | Kontrabass am Mikrofon, Bass über MIDI, Techniken, Stem-Trennung | MIDI-Eingang mit Klaviatur-Ansicht, Mikrofon mit Echo-Kompensation, Techniken erkannt; Rest offen |
 | Didaktik (laufend) | Wie vermittelt Kontra Bass am besten? Ideen entwickeln, als Prototypen umsetzen, mit Personas vergleichen | I1, I4, I5, I6 und I7 umgesetzt (24.10.), siehe unten |
-| Lernen (Plan) | Lektionen und Glossar „Was ist …?“: erklären, am Bass ausprobieren, üben, prüfen | Plan 25.10.2026: [`LERNEN.md`](LERNEN.md), Entscheidungen offen |
+| Lernen | Lektionen und Glossar „Was ist …?“: erklären, am Bass ausprobieren, üben, prüfen | Plan [`LERNEN.md`](LERNEN.md), Runde 13 entschieden; Umsetzung ab 25.10. mit Kapitel 1–5 |
 
 ## Phase 0
 
@@ -183,6 +183,21 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
   zu tief 88 → 37, Oktave zu tief 29 → 14, keine richtige gekippt, Tonhöhe 64,3 → 75,1 %; IDMT ±80 ms R/P 90,3/80,4 →
   91,2/81,2 %; eigene Aufnahmen unverändert (testdata/korpus/QUELLEN.md, „Tonhöhen-Revision“).
 - Hardware-Prüfung gemeinsam: am 13.10. begonnen (Abschnitt Hardware-Prüfung unter QA-Runden).
+
+## Entscheidungen Runde 13 (25.10.2026)
+
+Lernmodul ([`LERNEN.md`](LERNEN.md), LH-LRN-07 bis -15, Journeys J-G1 bis J-G5):
+
+- Name „Lernen“; keine Videos in mitgelieferten Kursen; Pfad empfohlen, nichts gesperrt; keine Abzeichen; Claude
+  schreibt die Lektionen, der Eigentümer liest je Kapitel Stichproben; Lektionen neben den Übungsstufen.
+- Alle 15 Kapitel vor 0.1, Beginn mit Kapitel 1–5 (Eigentümer, 25.10.).
+- Kurse je Instrument aus einem gemeinsamen Lektionsvorrat (Eigentümer, 25.10.): `for` (any, Familie, Instrument),
+  Varianten, relative Tonhöhen, `needs`, ein Glossar; Bass-Kurs zuerst (LERNEN.md Abschnitt 12).
+- Kurse nachladen aus Datei oder Internet, auch mit Videos, auch Bezahlkurse von Anbietern; mitgeliefert nur ohne
+  Videos (Eigentümer, 25.10., LERNEN.md Abschnitt 13, LH-LRN-14). Videos bevorzugt über das Internet eingebunden;
+  ein Glossar über alle installierten Kurse, doppelte Begriffe mit allen Texten und ihrer Herkunft.
+- Kurswerkstatt für 1.0 (Eigentümer, 25.10.): kleines Begleitprogramm zum Anlegen, Prüfen und Packen von Kursen
+  (LH-LRN-15, LERNEN.md Abschnitt 13).
 
 ## Entscheidungen Runde 12 (14.10.2026)
 
