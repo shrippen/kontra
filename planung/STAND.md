@@ -9,7 +9,7 @@ nur, was offen ist und wo es liegt.
 Ziel-Band im Histogramm, wartet auf den Eigentümer; danach Kontra-Branch `pocket-band`).
 
 Lernen (Runde 13, `LERNEN.md`): Format und Kapitel 1 (#119), Plan (#118) gemerged. Offen: „?“ an Fachbegriffen in
-Übungsziel, Generator und Auswertung (LH-LRN-09), Wiederholen (LH-LRN-10), „ohne Eingang per Auswahl“ beim
+Übungsziel, Generator und Auswertung (LH-LRN-09), „Kann ich schon“ (LH-LRN-10; Wiederholen fälliger Fragen ist da), „ohne Eingang per Auswahl“ beim
 Ausprobieren (LH-LRN-08), Kapitel 6–15, Kurspakete und Kurswerkstatt (LH-LRN-14, -15, für 1.0).
 
 Neue pub-Schnittstellen zur Freigabe (nächste Runde): `kontra_content::lesson` (`Lessons`, Blocktypen, `scopes`),

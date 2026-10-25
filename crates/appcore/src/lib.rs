@@ -471,7 +471,7 @@ impl Core {
     /// Start page: the last piece played, the first bundled exercise that does not sit yet,
     /// the next lesson (LH-LRN-07) and the practice of the last seven days.
     /// `{"last": {path, title, artist, best, practiceMin} | null,
-    ///   "next": {title, path, best, level} | null, "lesson": {id, title} | null,
+    ///   "next": {title, path, best, level} | null, "lesson": {id, title} | null, "review": due,
     ///   "week": {minutes, runs}}`
     pub fn home_json(&self) -> String {
         self.home_json_at(unix_now())
@@ -511,6 +511,7 @@ impl Core {
             "spots": self.hard_spots(&store, now),
             "probe": self.probe_offer(&store, now),
             "lesson": self.next_lesson(),
+            "review": self.review_count(now),
             "week": { "minutes": minutes, "runs": week.len() },
         })
         .to_string()

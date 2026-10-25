@@ -12,7 +12,7 @@ Kirigami.ScrollablePage {
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
-    property var summary: ({ last: null, next: null, lesson: null, spots: null, probe: null, week: { minutes: 0, runs: 0 } })
+    property var summary: ({ last: null, next: null, lesson: null, review: 0, spots: null, probe: null, week: { minutes: 0, runs: 0 } })
     readonly property bool sameAsLast: summary.next !== null && summary.last !== null
         && summary.next.path === summary.last.path
 
@@ -161,6 +161,21 @@ Kirigami.ScrollablePage {
                     applicationWindow().lessonPage = 0
                     applicationWindow().show("lesson")
                 }
+            }
+        }
+
+        // Wiederholen (LH-LRN-10): questions from earlier lessons, due again after days.
+        KanteHintCard {
+            Layout.fillWidth: true
+            visible: (page.summary.review || 0) > 0
+            tier: KanteHintCard.Tier.Blue
+            tierText: texts.t("home.review.tier")
+            titleText: page.summary.review === 1 ? texts.t("home.review.one")
+                                                 : texts.t("home.review.title", { count: page.summary.review || 0 })
+            text: texts.t("home.review.text")
+            KanteButton {
+                text: texts.t("home.review.open")
+                onClicked: applicationWindow().show("review")
             }
         }
 

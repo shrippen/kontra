@@ -25,6 +25,8 @@ ColumnLayout {
     signal term(string id)
     signal ear(int index)
     signal tuner()
+    /** The first pick of a question (it is recorded for review). */
+    signal answered(bool right)
 
     function link(target) {
         if (target.indexOf("term:") === 0) {
@@ -194,7 +196,13 @@ ColumnLayout {
             KanteButton {
                 text: modelData
                 emphasis: KanteButton.Emphasis.Normal
-                onClicked: options.picked = index
+                onClicked: {
+                    // Only the first pick counts for review; later ones are for trying.
+                    if (options.picked < 0 && block.lessonId !== "") {
+                        block.answered(block.ctl.lessonAnswer(block.lessonId, block.pageIndex, block.index, index))
+                    }
+                    options.picked = index
+                }
             }
             KanteNoteMark {
                 visible: chosen

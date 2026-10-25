@@ -867,5 +867,17 @@
   "learn.missing": "Dieser Inhalt fehlt.",
   "home.lesson.tier": "Lernen",
   "home.lesson.text": "Die nächste Lektion im Kurs.",
-  "home.lesson.open": "Weiter lernen"
+  "home.lesson.open": "Weiter lernen",
+  "home.review.tier": "Wiederholen",
+  "home.review.one": "1 Frage fällig",
+  "home.review.title": "{count} Fragen fällig",
+  "home.review.text": "Fragen aus früheren Lektionen kommen nach ein paar Tagen wieder. Wer sie dann noch weiß, behält sie.",
+  "home.review.open": "Wiederholen",
+  "review.title": "Wiederholen",
+  "review.from": "Aus: {title}",
+  "review.step": "Frage {number} von {total}",
+  "review.next": "Nächste Frage",
+  "review.done": "Fertig: {right} von {total} richtig.",
+  "review.none": "Gerade ist nichts fällig.",
+  "review.back": "Zum Kurs"
 }
