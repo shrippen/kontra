@@ -286,3 +286,63 @@ Drei gleiche Töne in der Zeit von zwei. Gezählt „1 Tri ol“.
 id: shuffle
 lesson: shuffle
 Achtel lang, kurz statt gleich lang; klingt wie eine Triole ohne Mitte.
+
+## Slide
+id: slide
+for: strings
+lesson: slide
+Mit demselben Finger von einem Ton zum nächsten rutschen, ohne neu anzuschlagen.
+
+## Hammer-on
+id: hammer-on
+for: strings
+lesson: hammer-pull
+Ein Finger der Greifhand schlägt auf einen höheren Bund derselben Saite; der Ton klingt ohne Anschlag.
+
+## Pull-off
+id: pull-off
+for: strings
+lesson: hammer-pull
+Ein Finger der Greifhand zieht die Saite beim Loslassen an; der tiefere Ton klingt ohne Anschlag.
+
+## Slap
+id: slap
+for: e-bass
+lesson: slap-pop
+Der Daumen schlägt die tiefe Saite und federt zurück; dazu der Pop, bei dem der Zeigefinger eine hohe Saite anhebt.
+
+## Oktavgriff
+id: oktavgriff
+for: e-bass
+lesson: oktav-grooves
+Zeigefinger auf dem Grundton, kleiner Finger zwei Saiten höher und zwei Bünde weiter: die Oktave.
+
+## Walking Bass
+id: walking-bass
+lesson: walking
+Basslinie in gleichmäßigen Vierteln, die von Akkord zu Akkord geht: Grundton auf der 1, Akkordtöne, ein Ton, der weiterführt.
+
+## Durchgangston
+id: durchgangston
+lesson: durchgangstoene
+Ein Ton außerhalb des Akkords, der zum nächsten Ton führt, oft einen Halbton daneben.
+
+## II-V-I
+id: zwei-fuenf-eins
+lesson: zwei-fuenf-eins
+Akkordfolge aus den Stufen II, V und I, etwa Dm7, G7, Cmaj7. Die häufigste Wendung im Jazz.
+
+## Pocket
+id: pocket
+lesson: pocket
+Wo Bass und Schlagzeug zusammen grooven: auf dem Schlag, etwas davor (vorn) oder dahinter (laid-back).
+
+## Streuung
+id: streuung
+lesson: streuung
+Wie weit deine Töne um ihre mittlere Lage verteilt sind, in Millisekunden. Klein heißt gleichmäßig.
+
+## Form
+id: form
+lesson: form
+Die Teile eines Stücks und ihre Reihenfolge: Strophe, Refrain, Bridge.

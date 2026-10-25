@@ -285,3 +285,63 @@ Three equal notes in the time of two. Counted "1 trip let".
 id: shuffle
 lesson: shuffle
 Eighths long, short instead of equal; sounds like a triplet without its middle.
+
+## Slide
+id: slide
+for: strings
+lesson: slide
+Moving with the same finger from one note to the next without plucking again.
+
+## Hammer-on
+id: hammer-on
+for: strings
+lesson: hammer-pull
+A finger of the fretting hand strikes a higher fret on the same string; the note sounds without plucking.
+
+## Pull-off
+id: pull-off
+for: strings
+lesson: hammer-pull
+A finger of the fretting hand plucks the string as it lets go; the lower note sounds without plucking.
+
+## Slap
+id: slap
+for: e-bass
+lesson: slap-pop
+The thumb strikes the low string and bounces back; with it the pop, where the index finger lifts a high string.
+
+## Octave shape
+id: oktavgriff
+for: e-bass
+lesson: oktav-grooves
+Index finger on the root, little finger two strings higher and two frets further: the octave.
+
+## Walking bass
+id: walking-bass
+lesson: walking
+A bass line in even quarters moving from chord to chord: root on 1, chord tones, a note that leads on.
+
+## Passing note
+id: durchgangston
+lesson: durchgangstoene
+A note outside the chord that leads to the next note, often a half step beside it.
+
+## II-V-I
+id: zwei-fuenf-eins
+lesson: zwei-fuenf-eins
+Progression of degrees II, V and I, such as Dm7, G7, Cmaj7. The most common turn in jazz.
+
+## Pocket
+id: pocket
+lesson: pocket
+Where bass and drums groove together: on the beat, a little ahead (pushed) or behind (laid-back).
+
+## Spread
+id: streuung
+lesson: streuung
+How widely your notes scatter around their average placement, in milliseconds. Small means even.
+
+## Form
+id: form
+lesson: form
+The parts of a piece and their order: verse, chorus, bridge.

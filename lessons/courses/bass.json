@@ -135,6 +135,51 @@
         "ungerade-takte"
       ],
       "finale": "bundled=148 speeds=\"60 80 100\""
+    },
+    {
+      "id": "techniken",
+      "de": "Techniken",
+      "en": "Techniques",
+      "units": [
+        "slide",
+        "hammer-pull",
+        "slap-pop",
+        "oktav-grooves"
+      ],
+      "finale": "bundled=94 speeds=\"60 80 100\""
+    },
+    {
+      "id": "walking",
+      "de": "Walking Bass",
+      "en": "Walking bass",
+      "units": [
+        "walking",
+        "durchgangstoene",
+        "zwei-fuenf-eins"
+      ],
+      "finale": "bundled=84 speeds=\"60 80 100\""
+    },
+    {
+      "id": "groove",
+      "de": "Groove und Pocket",
+      "en": "Groove and pocket",
+      "units": [
+        "pocket",
+        "streuung",
+        "ruf-antwort"
+      ],
+      "finale": "bundled=90 speeds=\"60 80 100\""
+    },
+    {
+      "id": "band",
+      "de": "Mit Band spielen",
+      "en": "Playing with a band",
+      "units": [
+        "form",
+        "akkorde-folgen",
+        "eigene-linie"
+      ],
+      "finale": "kind=song variant=rock key=E bpm=110 speeds=\"60 80 100\""
     }
   ]
 }
