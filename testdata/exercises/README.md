@@ -8,8 +8,9 @@ kontra-cli exercises testdata/exercises
 
 Ein Ordner je Niveau (1 Einstieg bis 9 Stücke). Die Nummer im Dateinamen ist der Platz im Plan; der Fortschritt hängt
 am Pfad, darum werden neue Übungen nur angehängt (46–150 liegen hinter den alten ihrer Stufe), nie umbenannt oder
-verschoben. Die App sortiert nach der Nummer. Runde 12 tauschte die Ordner 4 und 5 (Groove vor Walking Bass); die
-App zieht Bibliothek und Setlisten beim Laden auf die neuen Pfade um.
+verschoben. Die App sortiert nach der Nummer. Runde 12 tauschte die Namen der Ordner 4 und 5 (Groove vor Walking Bass),
+die Übungen zogen erst am 25.10. mit. Findet die App eine Übung aus Bibliothek oder Setliste nicht mehr in ihrem
+Ordner, sucht sie sie beim Laden nach dem Dateinamen in den anderen.
 
 | Stufe | Inhalt | Für |
 |---|---|---|

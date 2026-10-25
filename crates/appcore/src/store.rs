@@ -358,18 +358,29 @@ impl Library {
         }
     }
 
-    /// Bundled pieces whose level folder under `base` was renamed (`moves`: old, new folder
-    /// name) get their new path in the library, setlists and beat maps; progress follows the
-    /// song id, so it stays. Applied on every load, a no-op once moved.
-    pub fn move_folders(&mut self, base: &Path, moves: &[(&str, &str)]) {
+    /// Bundled pieces that left their level folder under `base` (levels renamed or reordered)
+    /// are found by file name in the other level folders, unique there, and get their new path
+    /// in the library, setlists and beat maps; progress follows the song id, so it stays.
+    /// Applied on every load, a no-op once moved.
+    ///
+    /// ```text
+    /// 4 Groove/27 Walking Bass … .mid   (gone)  ──▶  5 Walking Bass/27 Walking Bass … .mid
+    /// ```
+    pub fn find_moved(&mut self, base: &Path) {
+        let folders: Vec<PathBuf> = std::fs::read_dir(base)
+            .map(|dir| {
+                dir.filter_map(|e| e.ok())
+                    .map(|e| e.path())
+                    .filter(|p| p.is_dir())
+                    .collect()
+            })
+            .unwrap_or_default();
         let moved = |path: &Path| -> Option<PathBuf> {
-            let folder = path.parent()?;
-            if folder.parent()? != base {
+            if path.parent()?.parent()? != base || path.exists() {
                 return None;
             }
-            let name = folder.file_name()?.to_str()?;
-            let (_, new) = moves.iter().find(|(old, _)| *old == name)?;
-            Some(base.join(new).join(path.file_name()?))
+            let name = path.file_name()?;
+            folders.iter().map(|f| f.join(name)).find(|p| p.exists())
         };
         for entry in &mut self.recent {
             if let Some(path) = moved(&entry.path) {
