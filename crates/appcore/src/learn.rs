@@ -86,6 +86,7 @@ const TOPIC_TERMS: &[(&str, &str)] = &[
     ("technique.pop", "slap"),
     ("technique.ghost", "ghost-note"),
     ("technique.dead", "dead-note"),
+    ("lane.chord", "akkordsymbol"),
     ("summary.pocket", "pocket"),
     ("summary.spread", "streuung"),
 ];

@@ -184,7 +184,9 @@ Erwartet: Die Zeile nennt Takte und Schritt („Baustein: Takte 3–4 · Schritt
 Durchgängen im Zielband, ein schwacher zählt neu; danach Einzähler und der nächste Schritt ohne Klick; „Von hinten“
 beginnt mit den letzten der gewählten Takte (nicht des Stücks), „Aus“ zeigt wieder alle gewählten Takte; von Hand gewählte
 Takte beenden die Bausteine, die Liste steht wieder auf „Aus“. Nach Phrasen: Bausteine zu 2 Takten (die Pause am Taktende
-trennt), Schritt 1 von 7; eine Linie ohne Pausen ergibt Bausteine zu 4 Takten.
+trennt), Schritt 1 von 7; eine Linie ohne Pausen ergibt Bausteine zu 4 Takten, außer vor einem Takt, an dem Jens in
+zwei der letzten fünf Durchläufe gezögert hat (erster Ton fehlt oder kommt spät): dort beginnt ein Baustein, sofern
+der Baustein davor mindestens zwei Takte behält.
 
 **J-C7 Ein ganzes Stück** · Personas: P1 Lea, P2 Jens, P4 Thomas · Phase 3 · LH-BIB-12, LH-BIB-13, LH-BIB-08, LH-MOD-02, -04
 1. Lea: Übungen, Stufe „9 Stücke“, die Ballade im Durchlauf von vorn bis hinten; danach „Übung erzeugen“, Stück Pop, Schwierigkeit „Leicht“.
@@ -241,8 +243,10 @@ zeigt „Weiter: <nächste Lektion>“; ohne Eingang antwortet ein Klick auf die
 1. Jens: Übung erzeugen, Akkordfolge II-V-I; „?“ daneben zeigt beim Zeigen den ersten Satz, ein Klick den Eintrag;
    weiter über „Septakkorde“ zu „Septime“, Hörbeispiel; zurück.
 2. Lea: in der Auswertung „Slide: 3 von 5“, „?“ an „Slide“; zurück.
+3. Jens: Walking-Übung II-V-I in der Ansicht „Noten“; unter dem Griffbrett „Akkordsymbol ?“; ein Stück mit Techniken
+   zeigt dort seine Zeichen (h Hammer-on ?, sl Slide ? …).
 Erwartet: Eintrag kurz mit Abbildung und Verweis auf die Lektion; zurück an dieselbe Stelle (auch gescrollt), nichts
-verstellt. Eine Auswahl ohne Begriff (Funk) zeigt kein „?“.
+verstellt. Eine Auswahl ohne Begriff (Funk) zeigt kein „?“; „Akkordsymbol“ nur, wo Akkordsymbole stehen (Noten).
 
 **J-G3 Wiederholen** · Persona: P1 Lea · Phase 2 · LH-LRN-10
 1. Prüffragen von Kapitel 1, eine falsch.

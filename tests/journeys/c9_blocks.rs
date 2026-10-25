@@ -1,6 +1,7 @@
 //! J-C9 Bausteine (P1 Lea, P2 Jens; DIDAKTIK I6): the workshop cuts the chosen bars into blocks
 //! and joins them step by step; each step that sits starts the next with a count-in. Step 5: by
-//! phrase, a groove with a rest in every bar makes blocks of two bars.
+//! phrase, a groove with a rest in every bar makes blocks of two bars; a line without rests makes
+//! blocks of four, but one starts where Jens hesitated twice.
 
 use crate::common::{piece, render, run_until, write_midi, Profile, BPM};
 use kontra_appcore::{Blocks, ChainOrder, Core, UiEvent};
@@ -73,4 +74,39 @@ fn phrases_follow_the_rests() {
     core.start_chain(Blocks::Phrases, ChainOrder::Forward);
     let chain: serde_json::Value = serde_json::from_str(&core.chain_json()).unwrap();
     assert_eq!(chain["text"], "Baustein: Takte 1–2 · Schritt 1 von 7");
+}
+
+#[test]
+fn phrases_start_where_the_player_hesitates() {
+    let profile = Profile::new("c9-hesitant");
+    let line: Vec<u8> = BAR.iter().copied().cycle().take(BAR.len() * 8).collect();
+    let score = profile.dir.join("zoegern.mid");
+    write_midi(&score, "Zoegern", &line);
+    // Jens stops at bar 3 each time: its first note is not played.
+    let mut played = piece("Zoegern", &line);
+    played.notes.remove(2 * BAR.len());
+    let take = profile.dir.join("take.wav");
+    render(&take, &played, Default::default());
+
+    // Twice through the song; once could be a slip.
+    for _ in 0..2 {
+        let mut core = profile.core(Some(&take));
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&score).unwrap();
+        core.set_mode("song");
+        core.play();
+        run_until(&mut core, Duration::from_secs(30), |e| {
+            matches!(e, UiEvent::Finished { .. })
+        });
+    }
+
+    let mut core = profile.core(None);
+    core.update_settings(|s| s.language = Some("de".into()));
+    core.open(&score).unwrap();
+    core.set_mode("workshop");
+    core.set_loop(0, 7);
+    core.start_chain(Blocks::Phrases, ChainOrder::Forward);
+    let chain: serde_json::Value = serde_json::from_str(&core.chain_json()).unwrap();
+    // Blocks 1–2 · 3–6 · 7–8 instead of 1–4 · 5–8.
+    assert_eq!(chain["text"], "Baustein: Takte 1–2 · Schritt 1 von 5");
 }
