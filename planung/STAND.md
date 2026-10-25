@@ -5,12 +5,16 @@ nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-`lernen-seite` (Seite „Lernen“, J-G1/J-G2), #121 (Kapitel 2–5), #120 (flakiger Separator-Test); Kante #77 (1.41
-Ziel-Band im Histogramm, wartet auf den Eigentümer; danach Kontra-Branch `pocket-band`).
+#122 `lernen-seite` (Seite „Lernen“, J-G1/J-G2), `kapitel-6-15` (Kapitel 6–15), `lernen-klick` (LH-LRN-08, nach
+#122); Kante #77 (1.41 Ziel-Band im Histogramm, wartet auf den Eigentümer; danach Kontra-Branch `pocket-band`).
 
-Lernen (Runde 13, `LERNEN.md`): Format und Kapitel 1 (#119), Plan (#118) gemerged. Offen: „?“ an Fachbegriffen in
-Übungsziel, Generator und Auswertung (LH-LRN-09), „Kann ich schon“ (LH-LRN-10; Wiederholen fälliger Fragen ist da), „ohne Eingang per Auswahl“ beim
-Ausprobieren (LH-LRN-08), Kapitel 6–15, Kurspakete und Kurswerkstatt (LH-LRN-14, -15, für 1.0).
+Lernen (Runde 13, `LERNEN.md`): Plan (#118), Format und Kapitel 1 (#119), Kapitel 2–5 (#121) gemerged. Offen: „?“ an
+Fachbegriffen in Übungsziel, Generator und Auswertung (LH-LRN-09), „Kann ich schon“ (LH-LRN-10; Wiederholen
+fälliger Fragen ist da),
+Kurspakete und Kurswerkstatt (LH-LRN-14, -15, für 1.0).
+
+Bestand: In `testdata/exercises` heißen die Ordner 4 und 5 vertauscht („4 Groove“ hält die Walking-Bass-Übungen,
+„5 Walking Bass“ die Grooves); Lektionen verweisen nur auf Nummern und sind nicht betroffen.
 
 Neue pub-Schnittstellen zur Freigabe (nächste Runde): `kontra_content::lesson` (`Lessons`, Blocktypen, `scopes`),
 `kontra_session::{Learning, LearnState, LearnStore, UnitState, place, positions}`, `EarQuiz::fixed`, Core
