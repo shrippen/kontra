@@ -880,5 +880,9 @@
   "review.next": "Nächste Frage",
   "review.done": "Fertig: {right} von {total} richtig.",
   "review.none": "Gerade ist nichts fällig.",
-  "review.back": "Zum Kurs"
+  "review.back": "Zum Kurs",
+  "learn.check": "Kann ich schon",
+  "check.title": "Kann ich schon: {title}",
+  "check.passed": "Kapitel abgehakt: alle {total} Fragen richtig.",
+  "check.open": "{right} von {total} richtig. Das Kapitel bleibt offen; die falschen Fragen kommen morgen wieder."
 }

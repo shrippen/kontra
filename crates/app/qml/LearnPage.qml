@@ -85,6 +85,16 @@ Kirigami.ScrollablePage {
                     openText: texts.t("learn.state.open")
                     onActivated: function(index) { page.open(chapter.modelData.units[index].id) }
                 }
+                // Nothing is locked (LERNEN.md): who knows a chapter proves it with its questions.
+                KanteButton {
+                    visible: chapter.modelData.questions > 0 && chapter.modelData.done < chapter.modelData.total
+                    text: texts.t("learn.check")
+                    emphasis: KanteButton.Emphasis.Quiet
+                    onClicked: {
+                        applicationWindow().checkChapter = chapter.modelData.id
+                        applicationWindow().show("review")
+                    }
+                }
 
                 // The chapter's piece, slow to full speed.
                 KanteHintCard {

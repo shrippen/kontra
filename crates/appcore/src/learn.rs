@@ -46,7 +46,7 @@ impl Core {
     }
 
     /// The course: `{"fits", "next": {id, title} | null, "chapters": [{id, title, done, total,
-    /// units: [{id, title, done, fits}], finale: practice | null}]}`. `fits` false: the course is not for
+    /// questions, units: [{id, title, done, fits}], finale: practice | null}]}`. `fits` false: the course is not for
     /// this instrument (LH-LRN-12).
     pub fn learn_json(&self) -> String {
         let (Some(learning), lang) = (self.learning(), self.learn_lang()) else {
@@ -82,6 +82,7 @@ impl Core {
                 let done = units.iter().filter(|u| u["done"] == true).count();
                 json!({
                     "id": chapter.id,
+                    "questions": self.chapter_questions(&chapter.id).len(),
                     "title": chapter.titles.get(&lang).cloned().unwrap_or_default(),
                     "done": done,
                     "total": units.len(),
@@ -285,6 +286,105 @@ impl Core {
                 }))
             })
             .collect()
+    }
+
+    /// "Kann ich schon" (LH-LRN-10): every question of chapter `chapter` in lessons for this
+    /// instrument, as `review_json`, the chapter's `title` and `since`, the time to hand back to
+    /// `chapter_pass`.
+    pub fn chapter_check_json(&self, chapter: &str) -> String {
+        let questions: Vec<Value> = self
+            .chapter_questions(chapter)
+            .into_iter()
+            .map(|(_, value)| value)
+            .collect();
+        let title = self
+            .learning()
+            .and_then(|l| {
+                let course = l.course()?;
+                let chapter = course.chapters.iter().find(|ch| ch.id == chapter)?;
+                chapter.titles.get(&self.learn_lang()).cloned()
+            })
+            .unwrap_or_default();
+        json!({ "title": title, "questions": questions, "since": unix_now() }).to_string()
+    }
+
+    /// Ticks off chapter `chapter` (each of its lessons for this instrument done) if every
+    /// question was last answered right at `since` or later; true if so.
+    pub fn chapter_pass(&mut self, chapter: &str, since: u64) -> bool {
+        let questions = self.chapter_questions(chapter);
+        let store = self.learn_store();
+        let Ok(mut state) = store.load() else {
+            return false;
+        };
+        let right = questions.iter().all(|(q, _)| state.right_since(q, since));
+        if questions.is_empty() || !right {
+            return false;
+        }
+
+        let Some(learning) = self.learning() else {
+            return false;
+        };
+        let Some(units) = learning
+            .course()
+            .and_then(|c| c.chapters.iter().find(|ch| ch.id == chapter))
+            .map(|ch| ch.units.clone())
+        else {
+            return false;
+        };
+        let now = unix_now();
+        for unit in units.iter().filter_map(|id| learning.unit(id)) {
+            if learning.fits(&unit.scope) {
+                state.pass(&learning.state_key(unit), now);
+            }
+        }
+        if let Err(e) = store.save(&state) {
+            eprintln!("kontra: {e}");
+            return false;
+        }
+        true
+    }
+
+    /// The questions of a chapter's lessons for this instrument, where they are and as
+    /// `review_json` lists them.
+    fn chapter_questions(&self, chapter: &str) -> Vec<(QuestionRef, Value)> {
+        let Some(learning) = self.learning() else {
+            return Vec::new();
+        };
+        let Some(chapter) = learning
+            .course()
+            .and_then(|c| c.chapters.iter().find(|ch| ch.id == chapter))
+        else {
+            return Vec::new();
+        };
+        let lang = self.learn_lang();
+        let mut questions = Vec::new();
+        for unit in chapter.units.iter().filter_map(|id| learning.unit(id)) {
+            if !learning.fits(&unit.scope) {
+                continue;
+            }
+            let Some(doc) = learning.doc(&unit.texts, lang) else {
+                continue;
+            };
+            let key = learning.state_key(unit);
+
+            for (p, page) in doc.pages.iter().enumerate() {
+                for (b, block) in page.blocks.iter().enumerate() {
+                    let Block::Question(_) = block else {
+                        continue;
+                    };
+                    questions.push((
+                        QuestionRef::new(&key, p, b),
+                        json!({
+                            "lesson": { "id": unit.id, "title": doc.title },
+                            "page": p,
+                            "block": b,
+                            "question": self.block_json(block),
+                        }),
+                    ));
+                }
+            }
+        }
+        questions
     }
 
     /// "Listen" plays block `block` of the page; "try" waits for the player to play it. Both
@@ -677,6 +777,56 @@ mod tests {
         );
         assert_eq!(first["question"]["kind"], "question");
         assert_eq!(parse(&core.home_json_at(3 * DAY))["review"], 1);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_chapter_is_ticked_off_by_its_questions() {
+        let (mut core, dir) = core("check");
+        let course = parse(&core.learn_json());
+        let chapter = course["chapters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["questions"].as_u64() > Some(1))
+            .unwrap()
+            .clone();
+        let id = chapter["id"].as_str().unwrap();
+        let check = parse(&core.chapter_check_json(id));
+        let since = check["since"].as_u64().unwrap();
+        assert_eq!(check["title"], chapter["title"]);
+        let questions = check["questions"].as_array().unwrap();
+        assert_eq!(
+            questions.len() as u64,
+            chapter["questions"].as_u64().unwrap()
+        );
+
+        // One wrong: the chapter stays open.
+        let answer = |core: &mut Core, q: &Value, right: bool| {
+            let correct = q["question"]["answer"].as_u64().unwrap() as usize;
+            let option = if right { correct } else { (correct + 1) % 2 };
+            let lesson = q["lesson"]["id"].as_str().unwrap();
+            let (page, block) = (q["page"].as_u64().unwrap(), q["block"].as_u64().unwrap());
+            core.lesson_answer(lesson, page as usize, block as usize, option)
+        };
+        for (i, q) in questions.iter().enumerate() {
+            assert_eq!(answer(&mut core, q, i > 0), i > 0);
+        }
+        assert!(!core.chapter_pass(id, since));
+
+        // All right: each lesson of the chapter is done.
+        for q in questions {
+            assert!(answer(&mut core, q, true));
+        }
+        assert!(core.chapter_pass(id, since));
+        let course = parse(&core.learn_json());
+        let chapter = course["chapters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["id"] == id)
+            .unwrap();
+        assert_eq!(chapter["done"], chapter["total"]);
         let _ = std::fs::remove_dir_all(dir);
     }
 

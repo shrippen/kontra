@@ -880,5 +880,9 @@
   "review.next": "Next question",
   "review.done": "Done: {right} of {total} right.",
   "review.none": "Nothing is due right now.",
-  "review.back": "To the course"
+  "review.back": "To the course",
+  "learn.check": "I know this",
+  "check.title": "I know this: {title}",
+  "check.passed": "Chapter ticked off: all {total} questions right.",
+  "check.open": "{right} of {total} right. The chapter stays open; the wrong questions come back tomorrow."
 }
