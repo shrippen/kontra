@@ -16,7 +16,13 @@ The [[notenwert|note value]] says how long a note sounds, counted in beats:
 A [[pause|rest]] is a note value without a note: you keep counting but do not play. Every note has a rest of the same
 length. Rests are part of the groove, not a hole in it.
 ::: hint
-The note should really stop in the rest. Ease the fretting finger, or let go of the key.
+The note should really stop in the rest.
+:::
+::: variant for=strings
+To stop it, rest a finger lightly on the string, also on an open one.
+:::
+::: variant for=keys
+To stop it, let go of the key.
 :::
 
 ## Practise
