@@ -2966,6 +2966,8 @@ impl Core {
                         json!({
                             "title": title,
                             "goal": self.bundled_goal(&stem),
+                            "goalTopic": bundled_goal_key(&stem)
+                                .map_or(String::new(), |g| format!("goal.{g}")),
                             "path": f.to_string_lossy(),
                             "best": best,
                             "mastered": self.sits(f, self.bundled_judging(&stem)),
@@ -3051,19 +3053,8 @@ impl Core {
 
     /// What bundled exercise "NN …" trains, in the UI's language ("" for none).
     fn bundled_goal(&self, stem: &str) -> String {
-        let Some(number) = stem
-            .split_once(' ')
-            .and_then(|(n, _)| n.parse::<usize>().ok())
-        else {
-            return String::new();
-        };
-        exercise::bundled_specs()
-            .into_iter()
-            .nth(number.saturating_sub(1))
-            .map(|(_, spec)| {
-                let goal = exercise::describe(&spec).goal;
-                self.tr(&format!("exercise.goal.{goal}"), &[])
-            })
+        bundled_goal_key(stem)
+            .map(|goal| self.tr(&format!("exercise.goal.{goal}"), &[]))
             .unwrap_or_default()
     }
 
@@ -3751,6 +3742,17 @@ fn playable(imported: &ImportResult) -> impl Iterator<Item = (usize, String)> + 
         .enumerate()
         .filter(|(_, t)| !t.is_percussion())
         .map(|(i, t)| (i, t.name().to_string()))
+}
+
+/// The goal key of a bundled exercise ("07 …" is plan entry 7), e.g. "scale".
+fn bundled_goal_key(stem: &str) -> Option<&'static str> {
+    let number = stem
+        .split_once(' ')
+        .and_then(|(n, _)| n.parse::<usize>().ok())?;
+    exercise::bundled_specs()
+        .into_iter()
+        .nth(number.saturating_sub(1))
+        .map(|(_, spec)| exercise::describe(&spec).goal)
 }
 
 fn technique_key(technique: Technique) -> &'static str {
@@ -4905,6 +4907,9 @@ mod tests {
         // Each item says what it trains.
         let goal = levels[0]["items"][0]["goal"].as_str().unwrap();
         assert!(goal.starts_with("Ziel:"), "{goal}");
+        // And names the topic of its "?" (LH-LRN-09).
+        let topic = levels[0]["items"][0]["goalTopic"].as_str().unwrap();
+        assert!(topic.starts_with("goal."), "{topic}");
         let total: usize = levels
             .iter()
             .map(|l| l["items"].as_array().unwrap().len())

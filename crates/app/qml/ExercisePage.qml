@@ -139,12 +139,21 @@ Kirigami.ScrollablePage {
                             : texts.t("exercises.new")
                         Accessible.name: text + ", " + meta
                             + (modelData.mastered ? ", " + texts.t("exercises.mastered") : "")
-                        // Mastered: a tick, as for a hit note (not colour alone).
-                        trailing: KanteNoteMark {
-                            noteState: modelData.mastered ? "hit" : "pending"
-                            width: KanteStyle.unit(16)
-                            height: width
-                            Accessible.ignored: true
+                        // "?" at the goal (LH-LRN-09); mastered: a tick, as for a hit note (not
+                        // colour alone).
+                        trailing: Row {
+                            spacing: KanteStyle.unit(8)
+                            TermTip {
+                                anchors.verticalCenter: parent.verticalCenter
+                                topic: modelData.goalTopic
+                            }
+                            KanteNoteMark {
+                                anchors.verticalCenter: parent.verticalCenter
+                                noteState: modelData.mastered ? "hit" : "pending"
+                                width: KanteStyle.unit(16)
+                                height: width
+                                Accessible.ignored: true
+                            }
                         }
                         onClicked: {
                             if (ctl.openFile(modelData.path))

@@ -19,8 +19,8 @@ use std::path::PathBuf;
 const TERM_LINK: &str = "term:";
 
 /// Places outside the lessons with a glossary term behind their "?" (LH-LRN-09): generator
-/// choices (`kind.`, `scale.`, `progression.`, `rhythm.`, `style.`), technique signs
-/// (`technique.`, as `technique_key`) and figures of the evaluation (`summary.`).
+/// choices (`kind.`, `scale.`, `progression.`, `rhythm.`, `style.`), exercise goals (`goal.`),
+/// technique signs (`technique.`, as `technique_key`) and figures of the evaluation (`summary.`).
 const TOPIC_TERMS: &[(&str, &str)] = &[
     ("kind.scale", "tonleiter"),
     ("kind.arpeggio", "arpeggio"),
@@ -58,6 +58,20 @@ const TOPIC_TERMS: &[(&str, &str)] = &[
     ("rhythm.54", "taktart"),
     ("rhythm.78", "taktart"),
     ("style.shuffle", "shuffle"),
+    ("goal.pulse", "zaehlzeit"),
+    ("goal.rests", "pause"),
+    ("goal.syncopation", "synkope"),
+    ("goal.chordtones", "akkord"),
+    ("goal.sixteenths", "sechzehntel"),
+    ("goal.triplets", "triole"),
+    ("goal.meter", "taktart"),
+    ("goal.slap", "slap"),
+    ("goal.scale", "tonleiter"),
+    ("goal.modes", "tonleiter"),
+    ("goal.walking", "walking-bass"),
+    ("goal.fingers", "fingersatz"),
+    ("goal.timing", "streuung"),
+    ("goal.form", "form"),
     ("technique.slide", "slide"),
     ("technique.hammer", "hammer-on"),
     ("technique.pull", "pull-off"),
