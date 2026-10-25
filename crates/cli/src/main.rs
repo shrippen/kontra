@@ -3,6 +3,7 @@
 
 mod args;
 mod check;
+mod course;
 mod korpus;
 mod live;
 mod tab;
@@ -27,6 +28,7 @@ fn main() -> ExitCode {
         Command::Soak(a) => soak(&a),
         Command::Exercises(a) => exercises(&a),
         Command::Check(a) => check::run(&a),
+        Command::Course(a) => course::run(&a),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

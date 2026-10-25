@@ -217,7 +217,8 @@ fn block_shape(block: &Block, out: &mut Vec<String>) {
         Block::Practice(p) => format!("practice{p:?}"),
         Block::Question(q) => format!("question{}/{}", q.options.len(), q.answer),
         Block::Tuner => "tuner".to_string(),
-        Block::Video { src } => format!("video:{src}"),
+        // Subtitles differ by language; the video is the same.
+        Block::Video { src, .. } => format!("video:{src}"),
         Block::Variant { scope, blocks } => {
             out.push(format!("variant:{scope}("));
             blocks.iter().for_each(|b| block_shape(b, out));

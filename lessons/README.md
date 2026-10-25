@@ -61,7 +61,7 @@ Die **Septime** liegt einen *Ganzton* unter der [[oktave|Oktave]].
 | `::: hint` … `:::` | Hinweis-Kasten (nur Klartext: keine Begriffe, kein Fett oder Kursiv) |
 | `::: variant for=e-bass` … `:::` | Blöcke nur für diese Stufe |
 | `::: question` … `:::` | Frage: Zeilen Frage, dann `- [x] richtig` und `- [ ] falsch` |
-| `::: video src=media/a.webm` | Video, nur in nachgeladenen Kursen; mitgelieferte Kurse haben keine |
+| `::: video src=media/a.webm subtitles=media/a.de.vtt` | Video mit Untertiteln je Sprache, nur in nachgeladenen Kursen (`FORMAT.md`); mitgelieferte Kurse haben keine |
 
 Tonhöhen stehen relativ: `root` ist ein Notenname (C, F#, Bb), `steps` sind Halbtöne darüber; Oktave und Lage wählt
 das Profil: der Grundton liegt so tief wie möglich im Umfang des Instruments. `string=A` legt die Töne auf

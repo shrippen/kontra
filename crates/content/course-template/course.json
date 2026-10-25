@@ -1,0 +1,14 @@
+{
+  "id": "{id}.kurs",
+  "for": "bass",
+  "chapters": [
+    {
+      "id": "start",
+      "de": "Los geht's",
+      "en": "Getting started",
+      "units": [
+        "{id}.start"
+      ]
+    }
+  ]
+}
