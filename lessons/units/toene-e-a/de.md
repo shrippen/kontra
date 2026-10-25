@@ -1,7 +1,7 @@
 # Töne auf E- und A-Saite
 id: toene-e-a
-for: e-bass
-needs: halbton greifen
+for: strings
+needs: halbton
 
 ## Die Töne finden
 Die meisten Basslinien beginnen auf der E- oder A-Saite. Wer dort die Töne kennt, findet den

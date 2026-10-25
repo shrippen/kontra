@@ -1,7 +1,7 @@
 # Notes on the E and A strings
 id: toene-e-a
-for: e-bass
-needs: halbton greifen
+for: strings
+needs: halbton
 
 ## Finding the notes
 Most bass lines start on the E or A string. Knowing the notes there lets you find the [[grundton|root]] of every

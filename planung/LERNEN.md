@@ -1,6 +1,6 @@
 # Kontra: Lernmodul „Lernen“ (Plan)
 
-Stand: 25. Oktober 2026, Entwurf zur Entscheidung. Grundlage: [`KONZEPT.md`](KONZEPT.md) 5.1 Punkt 5,
+Stand: 25. Oktober 2026; Entscheidungen Runde 13 eingearbeitet (Abschnitt 11). Grundlage: [`KONZEPT.md`](KONZEPT.md) 5.1 Punkt 5,
 [`DIDAKTIK.md`](DIDAKTIK.md), [`PERSONAS.md`](PERSONAS.md), Vorbild BassBuzz „Beginner to Badass“ (Konto des Eigentümers,
 Kurs abgeschlossen; nur Aufbau angesehen, keine Inhalte übernommen).
 
@@ -54,10 +54,11 @@ Glossar „Was ist …?“  ein Absatz + Abbildung + Link zur Lektion; aus jedem
 
 **Zwei Stränge** in einem Pfad, im Format getrennt markiert:
 
-- **Instrument** (`instrument: bass`): Haltung, Stimmen, Anschlag und Wechselschlag, Greifen, Muting, Saitenwechsel,
-  Slides, Hammer-on/Pull-off, Ghost und Dead Notes, Slap/Pop, Lagen. Gilt für das Instrument-Profil; Kontrabass (P6)
+- **Instrument** (`for: e-bass`, `strings`, `fretted` …, Abschnitt 12): Haltung, Stimmen, Anschlag und Wechselschlag,
+  Greifen, Muting, Saitenwechsel, Slides, Hammer-on/Pull-off, Ghost und Dead Notes, Slap/Pop, Lagen. Gilt für das
+  Instrument-Profil; Kontrabass (P6)
   und Keyboard-Bass (P5) bekommen später eigene Lektionen derselben Fertigkeit, Gitarre nach 1.0 ebenso.
-- **Musik** (`instrument: any`): Töne und Halbtöne, Notenwerte und Pausen, Takt und Taktarten, Tab und Bassschlüssel,
+- **Musik** (`for: any`): Töne und Halbtöne, Notenwerte und Pausen, Takt und Taktarten, Tab und Bassschlüssel,
   Intervalle (inkl. Septime), Dur und Moll, Tonarten, Dreiklänge und Septakkorde, Stufen und Akkordfolgen, Synkope,
   Triole, Shuffle, Form (Strophe, Refrain), Groove und Pocket. Instrumentneutral formuliert, Abbildungen kommen aus dem
   aktiven Profil (Griffbrett beim Bass, Klaviatur beim Keyboard).
@@ -115,33 +116,38 @@ Umfang zum Start: Kapitel 1–5 (rund 25 Lektionen) und ein Glossar mit rund 60 
 ## 7. Architektur
 
 ```
-ui/        LessonPage.qml (Schritt-für-Schritt), GlossaryPage.qml, „?“-Verweise an Fachbegriffen
-  ↓        Kante: Lernpfad, Lektionsschritt, Hinweis-Verweis (fehlen; erst in Kante bauen)
-appcore    Core::lessons_json, lesson_json(id), lesson_step(id, step, answer), glossary_json(term)
-  ↓
-session/   Lesson-Service: Schritte, Ausprobieren über vorhandene Quiz-/Gehör-/Session-Wege, Fortschritt
+ui/        LessonPage.qml (Schritt für Schritt), GlossaryPage.qml, „?“-Verweise an Fachbegriffen
+  ↓        Kante-Bauteile; was fehlt, kommt zuerst nach Kante
+appcore    Lektionsablauf: Schritte, Ausprobieren über die vorhandenen Wege quiz/ear/Session,
+  ↓        JSON für QML (lessons_json, lesson_json, glossary_json)
+session/   Kurs und Lektionen laden (für das aktive Instrument aufgelöst), Lernstand speichern
   ↓          ↘
-engine/     content/  lesson-Parser: Lektionsdateien (DE/EN), Glossar, Prüffragen; mitgeliefert wie Übungen
+engine/     content/  Lektionsformat: Parser, mitgelieferte Kurse, Lektionen, Glossar
 ```
 
-- **Format** (Vorschlag): je Lektion ein Ordner `lessons/<kapitel>/<nr>-<id>/` mit `de.md` und `en.md` (Markdown-
-  Teilmenge: Überschrift, Absatz, Liste, Hervorhebung) und Blöcken für das Interaktive, z. B.
-  `::: fretboard notes="A G" labels="1 b7"`, `::: listen notes="A2 G3"`, `::: try interval=10 root=A1`,
-  `::: exercise path="2 Grundlagen/12-…"`, `::: question …`. Parser selbst gebaut im Crate `content` (keine neue
-  Abhängigkeit). Glossar `glossary/de.md`, `glossary/en.md`, ein Abschnitt je Begriff mit stabiler Id.
+- **Wer was besitzt:** `content` liest Dateien und kennt kein Instrument-Verhalten; es hält nur die Tabelle, welche
+  Stufen ein Profil hat (`lesson::scopes`), damit Prüfung und Session dieselbe nutzen. `session` wählt den Kurs zum
+  Instrument-Profil, löst Varianten auf (Abschnitt 12) und speichert den Lernstand. `appcore` führt durch die Schritte
+  und prüft das Ausprobieren mit den Wegen, die es schon besitzt (`quiz`, `ear`, Session); nichts ruft nach oben.
+- **Format:** je Lektion ein Ordner `lessons/units/<id>/` mit `de.md` und `en.md`. Kopf mit `id`, `for` (siehe
+  Abschnitt 12), `needs`, `terms`; dann Markdown-Teilmenge (Überschrift, Absatz, Liste, Hervorhebung) und Blöcke für das
+  Interaktive, z. B. `::: figure root=A steps="0 10"`, `::: listen root=A steps="0 10"`,
+  `::: try interval=10`, `::: exercise …`, `::: question …`. Tonhöhen in Lektionen relativ (Stufen, Halbtöne über einem
+  Grundton); Lage und Oktave wählt das Profil. Parser selbst gebaut im Crate `content` (keine neue Abhängigkeit),
+  mitgeliefert über ein Build-Skript, das die Dateien einbettet.
+- **Kurs:** `lessons/courses/<instrument>.json`: Kapitel mit Titel (DE/EN), Lektions-Ids und Abschlussstück.
 - **Texte:** Lektionen sind Inhalt, keine UI-Texte; sie liegen je Sprache als Datei. Die UI-Texte der Lektionsseite
   laufen wie immer über Übersetzungsschlüssel. Ein Test prüft, dass jede Lektion und jeder Glossar-Eintrag in beiden
   Sprachen dieselben Blöcke und Ids hat.
-- **Fortschritt:** im vorhandenen Speicher (`store`), je Lektion Schritte erledigt, Prüffragen mit nächstem
-  Fälligkeitsdatum. Export/Import wie bisher (LH-FOR-03).
+- **Lernstand:** im vorhandenen Speicher, je Lektion erledigte Schritte und Prüffragen mit nächster Fälligkeit; Export
+  und Import wie bisher (LH-FOR-03). Schlüssel: die Lektions-Id für Lektionen `any`, sonst Id und Instrument
+  (`greifen@e-bass`, Abschnitt 12).
 - **Verlinkung:** Übungsziele, Generator-Optionen, Technik-Zeichen und Auswertungssätze bekommen Glossar-Ids; die UI
-  macht daraus „?“-Verweise. Glossar-Einträge verweisen auf ihre Lektion.
-- **Instrument offen:** Blöcke wie `fretboard` und `try` werden vom Instrument-Profil gezeichnet und geprüft; eine
-  Lektion mit `instrument: bass` erscheint bei einem anderen Profil mit Hinweis statt still.
+  macht daraus „?“-Verweise. Glossar-Einträge verweisen auf ihre Lektion im aktiven Kurs.
 - **Demo-Modus:** Lektionen sind eigenes Material, keine Nutzerdaten; Screenshots zeigen Lektionsseite und Glossar mit
-  dem Fortschritt der Demo-Welt.
+  dem Lernstand der Demo-Welt.
 
-## 8. Anforderungen (Entwurf, nach Entscheidung ins Lastenheft)
+## 8. Anforderungen (im Lastenheft, 4.7)
 
 | ID | Anforderung | Prio | Personas | Abnahme |
 |---|---|---|---|---|
@@ -149,10 +155,13 @@ engine/     content/  lesson-Parser: Lektionsdateien (DE/EN), Glossar, Prüffrag
 | LH-LRN-08 | Lektion in Schritten Erklären, Ausprobieren (am Bass, ohne Eingang per Auswahl), Üben (vorhandene Übung, drei Tempi), Prüfen. | Soll | P1, P3, P7 | J-G1, J-G3 |
 | LH-LRN-09 | Glossar „Was ist …?“ (DE/EN), aus jedem Fachbegriff in Übungsziel, Generator, Auswertung und Technik-Zeichen erreichbar, zurück an dieselbe Stelle. | Soll | P1, P2, P5 | J-G2 |
 | LH-LRN-10 | Prüffragen kehren nach Tagen wieder; fällige Fragen auf der Startseite; „Kann ich schon“ hakt ein Kapitel nach bestandenen Fragen ab. | Kann | P1, P2 | J-G3 |
-| LH-LRN-11 | Offenes, dokumentiertes Lektionsformat; eigene Lektionen in der Bibliothek, später im `.kontra`-Paket. | Kann | P4 | J-G4 |
-| LH-LRN-12 | Instrument-Lektionen hängen am Profil; ein anderes Profil zeigt einen Hinweis statt einer falschen Lektion. | Soll | P5, P6 | J-A4 |
+| LH-LRN-11 | Offenes, dokumentiertes Lektionsformat; eigene Lektionen in der Bibliothek; ab Phase 4 als `.kontrakurs` gepackt (LH-LRN-14, -15). | Kann | P4 | J-G4 |
+| LH-LRN-12 | Lektionen gelten für eine Stufe (`any`, Rolle wie `bass`, Familie, Instrument) aus dem Profil; ein Profil ohne passende Lektion bekommt einen Hinweis statt einer falschen Lektion. | Soll | P5, P6 | J-A4 |
+| LH-LRN-13 | Kurs je Instrument aus einem gemeinsamen Lektionsvorrat (`for`, Varianten, `needs`, Abschnitt 12); gemeinsames Wissen zählt über Kurse. | Soll | P5, P6, P1 | Tests je Kurs |
+| LH-LRN-14 | Kurse nachladen als `.kontrakurs` aus Datei oder Adresse, auch mit Videos (Abschnitt 13); mitgelieferte Kurse ohne Videos. Für 1.0, wie die Kurswerkstatt. | Soll | P2, P4, P1, P7 | J-G5 |
+| LH-LRN-15 | Kurswerkstatt: kleines Begleitprogramm, mit dem Anbieter und Lehrkräfte einen Kurs anlegen, Lektionen mit Vorschau schreiben, prüfen und als `.kontrakurs` packen (Abschnitt 13). Für 1.0. | Soll | P4, P2 | J-G6 |
 
-## 9. Journeys (Entwurf, neuer Abschnitt G in `QA.md`)
+## 9. Journeys (`QA.md`, Abschnitt G)
 
 - **J-G1 Erste Lektion** · P1 Lea · Kapitel 1, Lektion „Viertel im Takt“: lesen, ausprobieren, langsam üben, prüfen;
   Startseite zeigt danach „Weiter: …“. Bei 200 % Schrift.
@@ -161,12 +170,14 @@ engine/     content/  lesson-Parser: Lektionsdateien (DE/EN), Glossar, Prüffrag
   („Slide: 3 von 5“ → „Was ist ein Slide?“) und aus dem Generator mit unveränderten Einstellungen.
 - **J-G3 Wiederholen** · P1 Lea · Prüffragen eines Kapitels, eine falsch; drei Tage später auf der Startseite fällig.
 - **J-G4 Eigene Lektion** · P4 Thomas · Lektion als Datei schreiben, in Kontra öffnen, am Beamer zeigen.
+- **J-G5 Kurs nachladen** · P2 Jens, P7 Sam · Kurs von einer Adresse hinzufügen, Lektion mit Video, ohne Netz neu starten.
+- **J-G6 Kurs bauen** · P4 Thomas · Kurs in der Kurswerkstatt anlegen, prüfen, packen und in Kontra laden.
 
 ## 10. Schritte
 
-1. **Entscheidungen** (Abschnitt 11) mit dem Eigentümer.
-2. **Format und Parser** in `content`, drei Probelektionen (Viertel im Takt, Was ist ein Intervall, Septime) und 20
-   Glossar-Einträge; Tests für Parser und Sprachgleichheit.
+1. **Entscheidungen** (Abschnitt 11): erledigt.
+2. **Format und Parser** in `content` mit `for`, Varianten und `needs` (Abschnitt 12), Kurs `bass.json`, drei
+   Probelektionen und Glossar-Anfang; Tests für Parser, Sprachgleichheit und Kurs-Regeln.
 3. **Kante:** Lernpfad (Kapitelliste mit Fortschritt), Lektionsschritt, Begriffs-Verweis; Test, README, Changelog.
 4. **Session und appcore:** Lesson-Service, Fortschritt im Speicher, JSON für QML; Ausprobieren über Quiz/Gehör.
 5. **UI:** Lektionsseite, Glossar-Seite, Startseite „Weiter“, „?“-Verweise; Journeys J-G1, J-G2 automatisiert (⚙).
@@ -175,16 +186,152 @@ engine/     content/  lesson-Parser: Lektionsdateien (DE/EN), Glossar, Prüffrag
 
 Jeder Schritt ein eigener PR.
 
-## 11. Offene Entscheidungen
+## 11. Entscheidungen (Runde 13, 25.10.2026)
 
-Gestellt als Runde 13 im Entscheidungs-Artefakt (25.10.2026).
+| # | Frage | Entscheidung |
+|---|---|---|
+| E1 | Name im Menü | „Lernen“ / „Learn“ |
+| E2 | Videos | in mitgelieferten Kursen keine: Text, lebendige Abbildungen, Hörbeispiele, Ausprobieren am Bass; nachgeladene Kurse dürfen Videos haben (Eigentümer, 25.10., Abschnitt 13) |
+| E3 | Reihenfolge | Pfad empfohlen, alles offen, „Kann ich schon“ |
+| E4 | Abzeichen | keine |
+| E5 | Texte | Claude schreibt, der Eigentümer liest je Kapitel Stichproben |
+| E6 | Lektionen und Übungsstufen | nebeneinander; Lektionen verweisen auf Übungen |
+| E7 | Umfang vor 0.1 | alle 15 Kapitel vor 0.1; Beginn mit Kapitel 1–5 (Eigentümer, 25.10.) |
 
-| # | Frage | Optionen | Empfehlung |
-|---|---|---|---|
-| E1 | Name im Menü | „Lernen“ · „Kurs“ · „Wissen“ | „Lernen“ (kurz, zu „Üben“ passend) |
-| E2 | Videos | keine · eigene Aufnahmen · Verweise auf YouTube | keine: Text, lebendige Abbildungen, Hörbeispiele; Video ist teuer, schwer übersetzbar und sieht den Spieler nicht |
-| E3 | Reihenfolge | Pfad empfohlen, alles offen · Kapitel gesperrt bis bestanden | offen, mit „Kann ich schon“ |
-| E4 | Abzeichen | keine · abschaltbar | keine; Fortschritt in % und Haken genügen |
-| E5 | Texte | Claude schreibt, Eigentümer liest Stichproben · Eigentümer schreibt | Claude schreibt, je Kapitel ein Review; Quellen in DIDAKTIK |
-| E6 | Lektionen und Übungsstufen | Lernpfad ersetzt die Stufen · beides nebeneinander | nebeneinander: Stufen für Üben, Pfad verweist darauf |
-| E7 | Umfang 1.0 | Kapitel 1–5 · alle 15 | 1–5 vor 0.1-Release, Rest danach |
+## 12. Kurse für weitere Instrumente
+
+Der Kurs ist auf Bass ausgelegt. Kontra soll später auch andere Instrumente lehren (erst Saiteninstrumente wie Gitarre
+und Ukulele, dann Tasteninstrumente); jedes bekommt einen **eigenen Kurs** mit eigener Reihenfolge und eigenen
+Lektionen. Vieles überschneidet sich aber (Notenwerte, Intervalle, Tonleitern, Akkorde, Hammer-on auf Bass und
+Gitarre). Damit das nicht doppelt geschrieben, doppelt übersetzt und auseinanderlaufend gepflegt wird, gilt schon für
+den Bass-Kurs:
+
+**Kurs und Lektion sind getrennt.** Ein Kurs ist nur eine Liste: Kapitel, Reihenfolge, Lektions-Ids, Abschlussstücke.
+Die Lektionen liegen in einem gemeinsamen Vorrat (`lessons/units/`). Ein Gitarren-Kurs nimmt „Was ist ein Intervall“
+aus demselben Vorrat, setzt es aber in ein anderes Kapitel.
+
+```
+lessons/
+├── courses/   bass.json      guitar.json (später)   keys.json (später)
+├── units/     intervall/  septime/  notenwerte/  …      für alle Instrumente   (for: any)
+│              hammer-on/  slide/  muting/  …            für Saiten mit Bünden  (for: fretted)
+│              slap/  anschlag-zwei-finger/  …           nur E-Bass             (for: e-bass)
+└── glossary/  de.md  en.md   ein Glossar für alle Kurse
+```
+
+**Wofür eine Lektion gilt** (`for`), vom Allgemeinen zum Besonderen, abgeleitet aus dem Instrument-Profil:
+
+| Stufe | Beispiele | Gilt für |
+|---|---|---|
+| `any` | Notenwerte, Takt, Intervalle, Dur/Moll, Akkorde, Groove | jedes Instrument |
+| Rolle: `bass` | Grundton, Walking, Zusammenspiel mit dem Schlagzeug | alle Bass-Profile, auch Bass am Keyboard |
+| Familie: `strings`, `fretted`, `fretless`, `keys` | Stimmen, Saitenwechsel (`strings`); Bünde, Hammer-on, Slide (`fretted`); Fingersatz auf Tasten (`keys`) | alle Instrumente der Familie |
+| Instrument: `e-bass`, `double-bass`, später `guitar`, `ukulele`, `piano` … | Slap und Pop, Anschlag mit zwei Fingern (E-Bass); Plektrum, Akkordgriffe (Gitarre) | nur dieses |
+
+Eine Lektion steht auf der allgemeinsten Stufe, auf der sie wahr ist. Welche Stufen ein Profil hat, steht an einer
+Stelle (`content::lesson::scopes`, Tabelle in `lessons/README.md`); ein neues Instrument ist dort eine Zeile, dazu ein
+Profil und ein Kurs, kein Umbau. Der Lernstand-Schlüssel nutzt dieselbe Instrument-Id (`greifen@e-bass`).
+
+**Varianten statt Kopien.** Wo eine gemeinsame Lektion sich je Instrument nur in Teilen unterscheidet, bleibt sie eine
+Lektion mit Varianten-Abschnitten:
+
+```
+::: variant for=fretted
+Auf Saiten mit Bünden liegt die Septime zwei Bünde unter der Oktave …
+:::
+::: variant for=keys
+Auf der Tastatur ist die kleine Septime ein Ganzton unter der Oktave …
+:::
+```
+
+Die Session löst Varianten beim Laden für das aktive Profil auf (das Besondere vor dem Allgemeinen). Fehlt für ein
+Instrument eine nötige Variante, fällt das ein Test auf, nicht der Nutzer.
+
+**Abbildungen und Tonhöhen aus dem Profil.** Blöcke beschreiben Musik, nicht das Instrument: `::: figure` wird
+beim Keyboard zur Klaviatur, beim Kontrabass zum Griffbrett ohne Bünde; Tonhöhen stehen relativ (Grundton und
+Halbtöne), das Profil legt Oktave und Lage in seinen Umfang. „Spiel die Septime über A“ ist am Bass A1 → G2, an der
+Gitarre A2 → G3. So bleibt ein Ausprobieren gleich und wird für jedes Instrument richtig geprüft.
+
+**Übungen als Vorgabe, nicht als Datei.** Wo es geht, verweist eine Lektion auf eine Generator-Vorgabe (Art, Tonart,
+Tempo) statt auf eine Bass-Datei; der Generator erzeugt sie für das aktive Instrument. Mitgelieferte Dateien (Stufen
+1–9) sind Bass-spezifisch und nur im Bass-Kurs.
+
+**Gemeinsamer Lernstand für gemeinsames Wissen.** Der Lernstand hängt an der Lektions-Id (bei Lektionen, die nicht
+`any` sind, an Id und Instrument, z. B. `greifen@e-bass`); Lektionen `any` zählen über
+Kurse hinweg: Wer Intervalle am Bass gelernt hat, sieht sie im Gitarren-Kurs als erledigt, mit „Wiederholen“ statt
+„Neu“. Lektionen einer Familie oder eines Instruments zählen je Instrument, weil die Hand neu lernen muss. Prüffragen
+zum Wissen wiederholen sich kursübergreifend nur einmal.
+
+**`needs` statt Kapitelnummern.** Voraussetzungen nennen Lektions-Ids („septime braucht intervall“), nicht Kapitel.
+Jeder Kurs ordnet anders, die Voraussetzungen bleiben gleich; ein Test prüft je Kurs, dass keine Lektion vor ihrer
+Voraussetzung steht.
+
+**Glossar einmal.** Ein Glossar für alle Kurse, Begriffe instrumentneutral, mit Varianten wie in Lektionen
+(„Slap“ hat nur eine Bass-Variante und erscheint nur dort). Ein Begriff verweist auf die Lektion im aktiven Kurs;
+Glossare nachgeladener Kurse kommen dazu (Abschnitt 13).
+
+**Pflege und Prüfung:** Tests je Kurs: jede Lektion gilt für das Instrument (`for`), jeder Block ist für das Profil
+darstellbar und prüfbar, beide Sprachen gleich, `needs` in Reihenfolge. Eine Änderung an einer gemeinsamen Lektion
+zeigt im PR, welche Kurse sie betrifft (Personas P1 und P5 lesen gegen).
+
+**Für den Bass-Kurs heißt das jetzt:** jede neue Lektion bekommt die allgemeinste passende Stufe `for`, Tonhöhen
+relativ, Übungen möglichst als Generator-Vorgabe; Bass-Eigenheiten stehen in `variant for=e-bass` statt im allgemeinen
+Text. Mehr baut der Bass-Kurs nicht vor: kein Gitarren-Kurs, keine Klaviatur-Abbildung vor 1.0.
+
+## 13. Kurse nachladen (Eigentümer, 25.10.2026)
+
+Kurse lassen sich nachladen, auch aus dem Internet und **auch mit Videos**. Damit kann ein Anbieter einen Kurs direkt
+für Kontra schreiben, auch als Bezahlkurs (Beispiel: ein Kurs im Stil von BassBuzz, vom Anbieter selbst). **Mitgeliefert
+werden nur Kurse ohne Videos;** ein Test bricht ab, wenn ein mitgelieferter Kurs einen Video-Block enthält.
+
+**Kurspaket.** Ein Kurs kommt als eine Datei `.kontrakurs` (Zip wie `.kontra`, `FORMAT.md`):
+
+```
+kurs.kontrakurs
+├── manifest.json     Format, Version, Id, Titel (DE/EN), Anbieter, Lizenz, Kurs-Datei, für welches Instrument
+├── courses/<id>.json
+├── units/<id>/de.md, en.md
+├── glossary/de.md, en.md   optional: zusätzliche Begriffe
+└── media/                  optional: Videos (WebM/MP4), Bilder
+```
+
+Dasselbe Lektionsformat wie die mitgelieferten Kurse, dazu der Block `::: video src=…` mit Untertiteln je Sprache.
+**Videos bevorzugt über das Internet** (`src=https://…`, gestreamt), damit Pakete klein bleiben (Eigentümer, 25.10.);
+`media/` im Paket nur, wo ein Kurs ohne Netz gehen soll. Ohne Netz zeigt die Seite statt des Videos einen Hinweis, Text
+und Untertitel bleiben. Datenschutz: Das Manifest nennt alle Hosts, von denen der Kurs streamt; Kontra zeigt sie vor dem
+Hinzufügen und lädt nur von ihnen. Andere Adressen in `src` sind ein Fehler im Paket. Der erste Stream einer Lektion
+startet erst auf Klick, nie beim Öffnen der Seite. Ein nachgeladener Kurs darf
+Lektionen aus dem mitgelieferten Vorrat nennen (`needs`, Kapitel), aber nicht verändern; eigene Lektionen haben eigene
+Ids (Präfix des Anbieters, z. B. `bassbuzz.anschlag`), damit nichts kollidiert.
+
+**Kurswerkstatt** (Eigentümer, 25.10., für 1.0): ein kleines Begleitprogramm neben Kontra, damit niemand Zip und
+Manifest von Hand baut. Es legt einen Kurs an (Manifest, Kapitel, Ordner je Lektion), zeigt eine Lektion beim Schreiben
+so, wie Kontra sie zeigt (dieselben QML-Bausteine), prüft wie `Lessons::check` (Fehler mit Datei und Zeile) und packt das
+Paket. Dieselben Schritte gehen ohne Fenster über `kontra-cli course new|check|pack`, damit ein Anbieter sie in seiner
+eigenen Pipeline nutzen kann. Kein eigenes Format, kein Editor-Ehrgeiz: Texte bleiben Markdown, geschrieben im Editor der
+Wahl; die Werkstatt lädt bei jeder Änderung neu.
+
+**Wege hinein:**
+- Datei öffnen („Kurs hinzufügen…“), wie ein `.kontra`-Paket.
+- Adresse eingeben: Kontra lädt das Paket über HTTPS (vorhandener `Http`-Weg in `drivers`), prüft es und legt es im
+  Datenordner ab. Ein Anbieter kann eine Adresse mit persönlichem Schlüssel ausgeben; Kontra speichert sie nur, um nach
+  Aktualisierungen zu fragen.
+- Kein Shop, keine Zahlung, kein Konto in Kontra: Kauf und Freischaltung laufen beim Anbieter. Kontra lädt nur, was der
+  Nutzer selbst öffnet oder dessen Adresse er eingibt (Datenschutz-Grundsatz „lokal und privat“).
+
+**Sicherheit und Ehrlichkeit:** Pakete sind Daten, kein Code; Pfade bleiben im Paket (kein `..`), Größe begrenzt,
+Videos nur in Formaten, die Qt Multimedia (LGPL, dynamisch) abspielt. Kontra zeigt Anbieter und Lizenz vor dem
+Hinzufügen und sagt, wenn ein Kurs für ein anderes Instrument ist. Videos sind optional: ohne Wiedergabe-Möglichkeit
+(oder mit „Bewegung reduzieren“) bleibt der Text der Seite lesbar, Untertitel stehen darunter (P7).
+
+**Glossar über alle Kurse** (Eigentümer, 25.10.): Kontra führt die Glossare aller installierten Kurse zu einem
+zusammen. Nennen mehrere Kurse denselben Begriff (gleiche Id), zeigt der Eintrag alle Texte hintereinander, jeden mit
+seiner Herkunft („Aus: Bass-Kurs“, „Aus: <Anbieter-Kurs>“); der mitgelieferte zuerst. Ein „?“-Verweis findet einen
+Begriff aus jedem Kurs, gleich in welchem Kurs er steht.
+
+**Lernstand:** wie bei mitgelieferten Kursen: Lektionen `any` an der Id allein, alle anderen an Id und Instrument
+(`greifen@e-bass`); gemeinsame Lektionen zählen über Kurse (Abschnitt 12).
+Ein entfernter Kurs behält seinen Lernstand, bis der Nutzer ihn löscht.
+
+**Reihenfolge:** erst der mitgelieferte Bass-Kurs (Kapitel 1–5); das Format bekommt den Video-Block gleich, damit es
+nicht bricht; Paket, Laden aus Datei und Adresse, Video-Wiedergabe danach (LH-LRN-14).

@@ -25,3 +25,5 @@ mod d1_backing;
 mod e1_midi;
 mod e3_settling;
 mod f_restart;
+mod g1_lesson;
+mod g2_glossary;

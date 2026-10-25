@@ -8,6 +8,7 @@
 mod data;
 pub mod ear;
 mod i18n;
+mod learn;
 pub mod level;
 mod package;
 pub mod quiz;
@@ -467,10 +468,11 @@ impl Core {
         })
     }
 
-    /// Start page: the last piece played, the first bundled exercise that does not sit yet
-    /// and the practice of the last seven days.
+    /// Start page: the last piece played, the first bundled exercise that does not sit yet,
+    /// the next lesson (LH-LRN-07) and the practice of the last seven days.
     /// `{"last": {path, title, artist, best, practiceMin} | null,
-    ///   "next": {title, path, best, level} | null, "week": {minutes, runs}}`
+    ///   "next": {title, path, best, level} | null, "lesson": {id, title} | null,
+    ///   "week": {minutes, runs}}`
     pub fn home_json(&self) -> String {
         self.home_json_at(unix_now())
     }
@@ -508,6 +510,7 @@ impl Core {
             "next": next,
             "spots": self.hard_spots(&store, now),
             "probe": self.probe_offer(&store, now),
+            "lesson": self.next_lesson(),
             "week": { "minutes": minutes, "runs": week.len() },
         })
         .to_string()

@@ -12,7 +12,7 @@ Kirigami.ScrollablePage {
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
-    property var summary: ({ last: null, next: null, spots: null, probe: null, week: { minutes: 0, runs: 0 } })
+    property var summary: ({ last: null, next: null, lesson: null, spots: null, probe: null, week: { minutes: 0, runs: 0 } })
     readonly property bool sameAsLast: summary.next !== null && summary.last !== null
         && summary.next.path === summary.last.path
 
@@ -142,6 +142,24 @@ Kirigami.ScrollablePage {
                     text: texts.t("home.exercises")
                     emphasis: KanteButton.Emphasis.Quiet
                     onClicked: applicationWindow().show("exercises")
+                }
+            }
+        }
+
+        // Lernen (J-G1): the next lesson of the course, one click away.
+        KanteHintCard {
+            Layout.fillWidth: true
+            visible: page.summary.lesson !== null && page.summary.lesson !== undefined
+            tier: KanteHintCard.Tier.Blue
+            tierText: texts.t("home.lesson.tier")
+            titleText: page.summary.lesson ? page.summary.lesson.title : ""
+            text: texts.t("home.lesson.text")
+            KanteButton {
+                text: texts.t("home.lesson.open")
+                onClicked: {
+                    applicationWindow().lessonId = page.summary.lesson.id
+                    applicationWindow().lessonPage = 0
+                    applicationWindow().show("lesson")
                 }
             }
         }

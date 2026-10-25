@@ -33,7 +33,8 @@ const ANY: &str = "any";
 const SEMITONES: i32 = 12;
 
 /// Attributes each block takes; anything else is a typo (`step=` for `steps=`).
-const TONES_KEYS: &[&str] = &["root", "steps", "labels", "string"];
+const FIGURE_KEYS: &[&str] = &["root", "steps", "labels", "string"];
+const LISTEN_KEYS: &[&str] = &["root", "steps", "labels"];
 const TRY_KEYS: &[&str] = &["root", "steps", "labels", "string", "octave"];
 const PRACTICE_KEYS: &[&str] = &[
     "bundled", "speeds", "kind", "variant", "rhythm", "key", "bpm", "judging",
@@ -365,7 +366,8 @@ impl<'a> Reader<'a> {
     fn directive(&mut self, rest: &str, line: usize) -> Result<Block, LessonError> {
         let (name, attrs) = rest.split_once(' ').unwrap_or((rest, ""));
         let keys: &[&str] = match name {
-            "figure" | "listen" => TONES_KEYS,
+            "figure" => FIGURE_KEYS,
+            "listen" => LISTEN_KEYS,
             "try" => TRY_KEYS,
             "practice" => PRACTICE_KEYS,
             "video" => VIDEO_KEYS,
@@ -382,7 +384,11 @@ impl<'a> Reader<'a> {
             "listen" => Ok(Block::Listen(tones(&attrs).map_err(bad)?)),
             "try" => Ok(Block::Try(Task {
                 tones: tones(&attrs).map_err(bad)?,
-                any_octave: attrs.get("octave").is_some_and(|o| o == ANY),
+                any_octave: match attrs.get("octave").map(String::as_str) {
+                    None => false,
+                    Some(ANY) => true,
+                    Some(_) => return Err(self.err_at(line, "octave= takes only any")),
+                },
             })),
             "practice" => Ok(Block::Practice(practice(&attrs).map_err(bad)?)),
             "tuner" => Ok(Block::Tuner),
@@ -861,6 +867,18 @@ Wie viele Halbtöne hat die kleine Septime?
             (e.line, e.reason.as_str()),
             (9, "question text after the options")
         );
+    }
+
+    /// Review #119: `octave=Any` was taken as "this octave"; `string=` on listen did nothing.
+    #[test]
+    fn checks_attribute_values() {
+        let octave = "# T\nid: t\n\n## P\n::: try root=E octave=Any\n";
+        let e = unit("u/de.md", octave).unwrap_err();
+        assert_eq!((e.line, e.reason.as_str()), (5, "octave= takes only any"));
+
+        let listen = "# T\nid: t\n\n## P\n::: listen root=A string=A\n";
+        let e = unit("u/de.md", listen).unwrap_err();
+        assert_eq!(e.reason, "unknown attribute string=");
     }
 
     /// Review #119: `step=` instead of `steps=` was ignored and asked for the root alone.

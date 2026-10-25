@@ -10,13 +10,18 @@ Der [[notenwert|Notenwert]] sagt, wie lange ein Ton klingt, gezählt in Schläge
 - Halbe Note: zwei Schläge.
 - Viertelnote: ein Schlag.
 - Achtelnote: ein halber Schlag.
-::: listen root=E steps="0 0 0"
 
 ## Pausen zählen mit
 Eine [[pause|Pause]] ist ein Notenwert ohne Ton: Du zählst weiter, spielst aber nicht. Jede Note hat ihre Pause mit
 derselben Länge. Pausen sind Teil des Grooves, kein Loch darin.
 ::: hint
-Der Ton soll in der Pause wirklich aufhören. Lockere dazu den greifenden Finger oder lass die Taste los.
+Der Ton soll in der Pause wirklich aufhören.
+:::
+::: variant for=strings
+Leg dazu einen Finger locker auf die Saite, auch auf eine leere.
+:::
+::: variant for=keys
+Lass dazu die Taste los.
 :::
 
 ## Üben

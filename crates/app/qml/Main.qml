@@ -45,6 +45,8 @@ Kirigami.ApplicationWindow {
         exercises: Qt.resolvedUrl("ExercisePage.qml"),
         quiz: Qt.resolvedUrl("QuizPage.qml"),
         ear: Qt.resolvedUrl("EarPage.qml"),
+        learn: Qt.resolvedUrl("LearnPage.qml"),
+        lesson: Qt.resolvedUrl("LessonPage.qml"),
         library: Qt.resolvedUrl("LibraryPage.qml"),
         practice: Qt.resolvedUrl("PracticePage.qml"),
         tuner: Qt.resolvedUrl("TunerPage.qml"),
@@ -112,6 +114,15 @@ Kirigami.ApplicationWindow {
     KanteScope { target: root.contentItem }
     color: KanteStyle.themed ? KanteStyle.backgroundColor : Kirigami.Theme.backgroundColor
 
+    // The lesson open on the lesson page and its step, kept while the tuner or an exercise runs.
+    property string lessonId: ""
+    property int lessonPage: 0
+
+    // A glossary entry ("" the index) as a layer over the page that asked (J-G2).
+    function glossary(id) {
+        pageStack.layers.push(Qt.resolvedUrl("GlossaryPage.qml"), { termId: id })
+    }
+
     function show(name) {
         if ((current === "tuner" || current === "setup" || current === "quiz") && name !== current) {
             ctl.stopTuner()
@@ -124,6 +135,9 @@ Kirigami.ApplicationWindow {
         if (component.status !== Component.Ready) {
             console.warn(component.errorString())
             return
+        }
+        while (pageStack.layers.depth > 1) {
+            pageStack.layers.pop()
         }
         // Only now: on a load error the drawer kept marking a page that never showed.
         current = name
@@ -156,13 +170,14 @@ Kirigami.ApplicationWindow {
             Kirigami.Action { text: texts.t("nav.practice"); icon.name: "media-playback-start"; enabled: ctl.loaded; checked: root.current === "practice"; shortcut: "Ctrl+3"; onTriggered: root.show("practice") },
             Kirigami.Action { text: texts.t("nav.exercises"); icon.name: "view-media-playlist"; checked: root.current === "exercises"; shortcut: "Ctrl+4"; onTriggered: root.show("exercises") },
             Kirigami.Action { separator: true },
-            Kirigami.Action { text: texts.t("nav.quiz"); icon.name: "games-config-board"; checked: root.current === "quiz"; shortcut: "Ctrl+5"; onTriggered: root.show("quiz") },
-            Kirigami.Action { text: texts.t("nav.ear"); icon.name: "audio-headphones"; checked: root.current === "ear"; shortcut: "Ctrl+6"; onTriggered: root.show("ear") },
+            Kirigami.Action { text: texts.t("nav.learn"); icon.name: "applications-education"; checked: root.current === "learn" || root.current === "lesson"; shortcut: "Ctrl+5"; onTriggered: root.show("learn") },
+            Kirigami.Action { text: texts.t("nav.quiz"); icon.name: "games-config-board"; checked: root.current === "quiz"; shortcut: "Ctrl+6"; onTriggered: root.show("quiz") },
+            Kirigami.Action { text: texts.t("nav.ear"); icon.name: "audio-headphones"; checked: root.current === "ear"; shortcut: "Ctrl+7"; onTriggered: root.show("ear") },
             Kirigami.Action { separator: true },
-            Kirigami.Action { text: texts.t("nav.progress"); icon.name: "view-statistics"; checked: root.current === "progress"; shortcut: "Ctrl+7"; onTriggered: root.show("progress") },
+            Kirigami.Action { text: texts.t("nav.progress"); icon.name: "view-statistics"; checked: root.current === "progress"; shortcut: "Ctrl+8"; onTriggered: root.show("progress") },
             Kirigami.Action { separator: true },
-            Kirigami.Action { text: texts.t("nav.tuner"); icon.name: "audio-input-line"; checked: root.current === "tuner"; shortcut: "Ctrl+8"; onTriggered: root.show("tuner") },
-            Kirigami.Action { text: texts.t("nav.settings"); icon.name: "settings-configure"; checked: root.current === "settings" || root.current === "setup"; shortcut: "Ctrl+9"; onTriggered: root.show("settings") }
+            Kirigami.Action { text: texts.t("nav.tuner"); icon.name: "audio-input-line"; checked: root.current === "tuner"; shortcut: "Ctrl+9"; onTriggered: root.show("tuner") },
+            Kirigami.Action { text: texts.t("nav.settings"); icon.name: "settings-configure"; checked: root.current === "settings" || root.current === "setup"; shortcut: "Ctrl+0"; onTriggered: root.show("settings") }
         ]
     }
 
