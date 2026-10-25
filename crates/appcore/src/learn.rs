@@ -225,13 +225,14 @@ impl Core {
             _ => return Err(String::new()),
         };
         let pitches = place(&tones, &self.instrument());
+        let before = self.ear.take();
         let started = self.start_lesson_ear(pitches, matching);
 
         // Without an input "try it" still runs: the learner answers by clicking (LH-LRN-08).
-        // "Listen" needs the output, so its error stands.
+        // "Listen" needs the output, so its error stands, and a round of clicks goes on.
         if let Err(error) = started {
             if play {
-                self.ear = None;
+                self.ear = before;
                 return Err(error);
             }
             return Ok(self.ear_json());

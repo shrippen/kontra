@@ -530,10 +530,11 @@ pub mod qobject {
         #[cxx_name = "lessonSeen"]
         fn lesson_seen(self: Pin<&mut Self>, id: &QString, page: i32);
 
-        /// "Listen" or "try it" of a lesson block; what was heard comes as `earState`.
+        /// "Listen" or "try it" of a lesson block; what was heard comes as `earState`. False when
+        /// it did not start (the round before goes on).
         #[qinvokable]
         #[cxx_name = "lessonEar"]
-        fn lesson_ear(self: Pin<&mut Self>, id: &QString, page: i32, block: i32);
+        fn lesson_ear(self: Pin<&mut Self>, id: &QString, page: i32, block: i32) -> bool;
 
         /// "Listen" or "try it" in a glossary entry, as `lessonEar`.
         #[qinvokable]
@@ -2141,17 +2142,19 @@ impl qobject::Controller {
         self.as_mut().core().lesson_seen(&id.to_string(), page);
     }
 
-    fn lesson_ear(mut self: Pin<&mut Self>, id: &QString, page: i32, block: i32) {
+    fn lesson_ear(mut self: Pin<&mut Self>, id: &QString, page: i32, block: i32) -> bool {
         let (page, block) = (usize::try_from(page), usize::try_from(block));
         let (Ok(page), Ok(block)) = (page, block) else {
-            return;
+            return false;
         };
         self.as_mut().set_playing(false);
         let state = self
             .as_mut()
             .core()
             .lesson_ear(&id.to_string(), page, block);
+        let started = state.is_ok();
         self.as_mut().show_ear(state);
+        started
     }
 
     fn term_ear(mut self: Pin<&mut Self>, id: &QString, block: i32) {

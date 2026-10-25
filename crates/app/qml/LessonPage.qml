@@ -106,8 +106,12 @@ Kirigami.ScrollablePage {
                 earBlock: page.earBlock
                 onTerm: function(id) { applicationWindow().glossary(id) }
                 onEar: function(index) {
+                    // A "listen" that fails (no device) leaves the running round as it was.
+                    const before = page.earBlock
                     page.earBlock = index
-                    ctl.lessonEar(page.lessonId, page.step, index)
+                    if (!ctl.lessonEar(page.lessonId, page.step, index)) {
+                        page.earBlock = before
+                    }
                 }
                 onTuner: applicationWindow().show("tuner")
             }
