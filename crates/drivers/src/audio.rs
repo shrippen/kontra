@@ -1055,8 +1055,19 @@ mod tests {
 
     #[test]
     fn null_output_runs_on_time() {
+        // Blocks, the time of the last one in µs after the first, and whether the thread was
+        // ever starved past an xrun: the output's own view.
         let blocks = Arc::new(AtomicU64::new(0));
-        let seen = Arc::clone(&blocks);
+        let last_us = Arc::new(AtomicU64::new(0));
+        let starved = Arc::new(AtomicBool::new(false));
+        let (seen, last, gap) = (
+            Arc::clone(&blocks),
+            Arc::clone(&last_us),
+            Arc::clone(&starved),
+        );
+        let block = Duration::from_secs_f64(NULL_BLOCK as f64 / f64::from(NULL_RATE));
+        let mut first: Option<Instant> = None;
+        let mut previous: Option<Instant> = None;
         let config = StreamConfig {
             device_id: Some(NULL_DEVICE.into()),
             ..StreamConfig::default()
@@ -1065,23 +1076,34 @@ mod tests {
             &config,
             move |data: &mut [f32], _| {
                 data.fill(0.0);
+                let now = Instant::now();
+                // Three blocks: a gap a slow clock (two blocks) cannot explain.
+                if previous.is_some_and(|p| now - p > 3 * block) {
+                    gap.store(true, Ordering::Relaxed);
+                }
+                previous = Some(now);
+                let first = *first.get_or_insert(now);
+                last.store((now - first).as_micros() as u64, Ordering::Relaxed);
                 seen.fetch_add(1, Ordering::Relaxed);
             },
             |_| {},
         )
         .unwrap();
-        let start = Instant::now();
         std::thread::sleep(Duration::from_millis(200));
         drop(stream);
 
-        // About 200 ms in 5.3 ms blocks, 37; measured, as the sleep overshoots under load.
-        let block_s = NULL_BLOCK as f64 / f64::from(NULL_RATE);
-        let expected = start.elapsed().as_secs_f64() / block_s;
+        // Between its first and last block the output keeps 5.3 ms blocks, about 37 in 200 ms.
+        // Measured from the output, not the test: under load (load average 36, 25.10.) the
+        // thread starts or ends late, and the test's clock counted blocks it never had time for.
+        // Starved in between, it skips blocks like a device after an xrun: then only "never too
+        // many" holds.
+        let span_s = last_us.load(Ordering::Relaxed) as f64 / 1e6;
+        let expected = span_s / block.as_secs_f64() + 1.0;
         let n = blocks.load(Ordering::Relaxed) as f64;
-        assert!(
-            n >= 0.7 * expected && n <= 1.2 * expected + 2.0,
-            "{n} of {expected:.0}"
-        );
+        assert!(n <= 1.2 * expected + 2.0, "{n} of {expected:.0}");
+        if !starved.load(Ordering::Relaxed) {
+            assert!(n >= 0.7 * expected, "{n} of {expected:.0}");
+        }
     }
 
     #[test]
