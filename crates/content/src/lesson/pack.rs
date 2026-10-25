@@ -370,7 +370,8 @@ pub fn new_course(dir: &Path, id: &str, author: &Author) -> Result<(), PackError
     Ok(())
 }
 
-/// Paths of all files below `dir`, relative with `/`, sorted; hidden files and folders skipped.
+/// Paths of all files below `dir`, relative with `/`, sorted; hidden files and folders and
+/// packed courses skipped.
 /// Refuses what `CoursePack::read` would refuse packed: unsafe names, a text file above
 /// `MAX_TEXT_BYTES`, texts above `MAX_TEXTS_BYTES`, all above `MAX_COURSE_BYTES` (unpacked here,
 /// so at least the packed size).
@@ -384,7 +385,12 @@ fn files(dir: &Path) -> Result<Vec<String>, PackError> {
             .map_err(|e| PackError::archive(format!("{}: {e}", at.display())))?;
         for entry in entries.flatten() {
             let path = entry.path();
-            if entry.file_name().to_string_lossy().starts_with('.') {
+            // Hidden files, and packages packed into the folder (`pack . kurs.kontrakurs`).
+            let file = entry.file_name().to_string_lossy().into_owned();
+            let packed = Path::new(&file)
+                .extension()
+                .is_some_and(|e| e == COURSE_EXT);
+            if file.starts_with('.') || (packed && !path.is_dir()) {
                 continue;
             }
             if path.is_dir() {
@@ -552,6 +558,19 @@ mod tests {
             panic!("expected an archive error");
         };
         assert!(reason.starts_with("texts above"), "{reason}");
+    }
+
+    /// A package packed into its own folder is not packed again (review #131).
+    #[test]
+    fn a_folder_leaves_out_packed_courses() {
+        let dir = std::env::temp_dir().join(format!("kontra-course-self-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        new_course(&dir, "probe", &author()).unwrap();
+        let data = pack(&dir).unwrap();
+        std::fs::write(dir.join("probe.kontrakurs"), &data).unwrap();
+        assert!(CoursePack::from_dir(&dir).is_ok());
+        assert_eq!(pack(&dir).unwrap(), data);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// A link counts with the size of what it points to: packing follows it (review #131).
