@@ -54,10 +54,11 @@ Glossar „Was ist …?“  ein Absatz + Abbildung + Link zur Lektion; aus jedem
 
 **Zwei Stränge** in einem Pfad, im Format getrennt markiert:
 
-- **Instrument** (`instrument: bass`): Haltung, Stimmen, Anschlag und Wechselschlag, Greifen, Muting, Saitenwechsel,
-  Slides, Hammer-on/Pull-off, Ghost und Dead Notes, Slap/Pop, Lagen. Gilt für das Instrument-Profil; Kontrabass (P6)
+- **Instrument** (`for: e-bass`, `strings`, `fretted` …, Abschnitt 12): Haltung, Stimmen, Anschlag und Wechselschlag,
+  Greifen, Muting, Saitenwechsel, Slides, Hammer-on/Pull-off, Ghost und Dead Notes, Slap/Pop, Lagen. Gilt für das
+  Instrument-Profil; Kontrabass (P6)
   und Keyboard-Bass (P5) bekommen später eigene Lektionen derselben Fertigkeit, Gitarre nach 1.0 ebenso.
-- **Musik** (`instrument: any`): Töne und Halbtöne, Notenwerte und Pausen, Takt und Taktarten, Tab und Bassschlüssel,
+- **Musik** (`for: any`): Töne und Halbtöne, Notenwerte und Pausen, Takt und Taktarten, Tab und Bassschlüssel,
   Intervalle (inkl. Septime), Dur und Moll, Tonarten, Dreiklänge und Septakkorde, Stufen und Akkordfolgen, Synkope,
   Triole, Shuffle, Form (Strophe, Refrain), Groove und Pocket. Instrumentneutral formuliert, Abbildungen kommen aus dem
   aktiven Profil (Griffbrett beim Bass, Klaviatur beim Keyboard).
@@ -155,7 +156,7 @@ engine/     content/  Lektionsformat: Parser, mitgelieferte Kurse, Lektionen, Gl
 | LH-LRN-10 | Prüffragen kehren nach Tagen wieder; fällige Fragen auf der Startseite; „Kann ich schon“ hakt ein Kapitel nach bestandenen Fragen ab. | Kann | P1, P2 | J-G3 |
 | LH-LRN-11 | Offenes, dokumentiertes Lektionsformat; eigene Lektionen in der Bibliothek, gepackt als `.kontrakurs` (LH-LRN-14, -15). | Kann | P4 | J-G4 |
 | LH-LRN-12 | Lektionen gelten für eine Stufe (`any`, Familie, Instrument) aus dem Profil; ein Profil ohne passende Lektion bekommt einen Hinweis statt einer falschen Lektion. | Soll | P5, P6 | J-A4 |
-| LH-LRN-14 | Kurse nachladen als `.kontrakurs` aus Datei oder Adresse, auch mit Videos (Abschnitt 13); mitgelieferte Kurse ohne Videos. | Kann | P2, P4, P1, P7 | J-G5 |
+| LH-LRN-14 | Kurse nachladen als `.kontrakurs` aus Datei oder Adresse, auch mit Videos (Abschnitt 13); mitgelieferte Kurse ohne Videos. Für 1.0, wie die Kurswerkstatt. | Soll | P2, P4, P1, P7 | J-G5 |
 | LH-LRN-13 | Kurs je Instrument aus einem gemeinsamen Lektionsvorrat (`for`, Varianten, `needs`, Abschnitt 12); gemeinsames Wissen zählt über Kurse. | Soll | P5, P6, P1 | Tests je Kurs |
 | LH-LRN-15 | Kurswerkstatt: kleines Begleitprogramm, mit dem Anbieter und Lehrkräfte einen Kurs anlegen, Lektionen mit Vorschau schreiben, prüfen und als `.kontrakurs` packen (Abschnitt 13). Für 1.0. | Soll | P4, P2 | J-G4, J-G5 |
 
@@ -211,7 +212,7 @@ lessons/
 ├── courses/   bass.json      guitar.json (später)   keys.json (später)
 ├── units/     intervall/  septime/  notenwerte/  …      für alle Instrumente   (for: any)
 │              hammer-on/  slide/  muting/  …            für Saiten mit Bünden  (for: fretted)
-│              slap/  anschlag-zwei-finger/  …           nur Bass               (for: bass)
+│              slap/  anschlag-zwei-finger/  …           nur E-Bass             (for: e-bass)
 └── glossary/  de.md  en.md   ein Glossar für alle Kurse
 ```
 
@@ -220,18 +221,20 @@ lessons/
 | Stufe | Beispiele | Gilt für |
 |---|---|---|
 | `any` | Notenwerte, Takt, Intervalle, Dur/Moll, Akkorde, Groove | jedes Instrument |
-| Familie: `strings`, `fretted`, `keys`, `voice` | Stimmen, Saitenwechsel (`strings`); Bünde, Hammer-on, Slide (`fretted`); Fingersatz auf Tasten (`keys`) | alle Instrumente der Familie |
-| Instrument: `bass`, `guitar`, `ukulele`, `double-bass`, `piano` … | Slap und Pop, Anschlag mit zwei Fingern (Bass); Plektrum, Akkordgriffe (Gitarre) | nur dieses |
+| Rolle: `bass` | Grundton, Walking, Zusammenspiel mit dem Schlagzeug | alle Bass-Profile, auch Bass am Keyboard |
+| Familie: `strings`, `fretted`, `fretless`, `keys` | Stimmen, Saitenwechsel (`strings`); Bünde, Hammer-on, Slide (`fretted`); Fingersatz auf Tasten (`keys`) | alle Instrumente der Familie |
+| Instrument: `e-bass`, `double-bass`, später `guitar`, `ukulele`, `piano` … | Slap und Pop, Anschlag mit zwei Fingern (E-Bass); Plektrum, Akkordgriffe (Gitarre) | nur dieses |
 
-Eine Lektion steht auf der allgemeinsten Stufe, auf der sie wahr ist. Die Familie kommt aus dem Profil (Saiten und
-Bünde, Tasten), nicht aus einer Liste im Code; ein neues Instrument ist damit ein Profil und ein Kurs, kein Umbau.
+Eine Lektion steht auf der allgemeinsten Stufe, auf der sie wahr ist. Welche Stufen ein Profil hat, steht an einer
+Stelle (`content::lesson::scopes`, Tabelle in `lessons/README.md`); ein neues Instrument ist dort eine Zeile, dazu ein
+Profil und ein Kurs, kein Umbau. Der Lernstand-Schlüssel nutzt dieselbe Instrument-Id (`greifen@e-bass`).
 
 **Varianten statt Kopien.** Wo eine gemeinsame Lektion sich je Instrument nur in Teilen unterscheidet, bleibt sie eine
 Lektion mit Varianten-Abschnitten:
 
 ```
-::: variant for=bass
-Am Bass liegt die Septime zwei Bünde unter der Oktave …
+::: variant for=fretted
+Auf Saiten mit Bünden liegt die Septime zwei Bünde unter der Oktave …
 :::
 ::: variant for=keys
 Auf der Tastatur ist die kleine Septime ein Ganzton unter der Oktave …
@@ -269,7 +272,7 @@ darstellbar und prüfbar, beide Sprachen gleich, `needs` in Reihenfolge. Eine Ä
 zeigt im PR, welche Kurse sie betrifft (Personas P1 und P5 lesen gegen).
 
 **Für den Bass-Kurs heißt das jetzt:** jede neue Lektion bekommt die allgemeinste passende Stufe `for`, Tonhöhen
-relativ, Übungen möglichst als Generator-Vorgabe; Bass-Eigenheiten stehen in `variant for=bass` statt im allgemeinen
+relativ, Übungen möglichst als Generator-Vorgabe; Bass-Eigenheiten stehen in `variant for=e-bass` statt im allgemeinen
 Text. Mehr baut der Bass-Kurs nicht vor: kein Gitarren-Kurs, keine Klaviatur-Abbildung vor 1.0.
 
 ## 13. Kurse nachladen (Eigentümer, 25.10.2026)
@@ -323,8 +326,8 @@ zusammen. Nennen mehrere Kurse denselben Begriff (gleiche Id), zeigt der Eintrag
 seiner Herkunft („Aus: Bass-Kurs“, „Aus: <Anbieter-Kurs>“); der mitgelieferte zuerst. Ein „?“-Verweis findet einen
 Begriff aus jedem Kurs, gleich in welchem Kurs er steht.
 
-**Lernstand:** wie bei mitgelieferten Kursen an der Lektions-Id, außer bei `any` mit dem Instrument dazu; gemeinsame
-Lektionen zählen über Kurse (Abschnitt 12).
+**Lernstand:** wie bei mitgelieferten Kursen: Lektionen `any` an der Id allein, alle anderen an Id und Instrument
+(`greifen@e-bass`); gemeinsame Lektionen zählen über Kurse (Abschnitt 12).
 Ein entfernter Kurs behält seinen Lernstand, bis der Nutzer ihn löscht.
 
 **Reihenfolge:** erst der mitgelieferte Bass-Kurs (Kapitel 1–5); das Format bekommt den Video-Block gleich, damit es
