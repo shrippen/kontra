@@ -898,6 +898,7 @@
   "courses.replaces.older": "Older revision {revision} (installed: {installed}); replaces the newer one, your progress stays.",
   "courses.problems": "The course has {count} errors and cannot be added.",
   "courses.more": "… and {count} more.",
+  "courses.newer": "This course is for a newer Kontra (format {version}). Update Kontra to add it.",
   "courses.unreadable": "The file is not a readable course: {reason}",
   "courses.confirm": "Add",
   "courses.cancel": "Cancel",

@@ -51,11 +51,12 @@ pub fn cues(text: &str) -> Vec<Cue> {
 fn time_ms(time: &str) -> Option<u64> {
     let (clock, ms) = time.split_once('.')?;
     let ms: u64 = ms.parse().ok()?;
-    let mut s = 0;
+    // Checked: the file comes from a foreign course; a time too long to count drops the cue.
+    let mut s: u64 = 0;
     for part in clock.split(':') {
-        s = s * S_PER_MIN + part.parse::<u64>().ok()?;
+        s = s.checked_mul(S_PER_MIN)?.checked_add(part.parse().ok()?)?;
     }
-    Some(s * MS_PER_S + ms)
+    s.checked_mul(MS_PER_S)?.checked_add(ms)
 }
 
 /// Text without inline tags ("<i>so</i>" → "so"); cues are shown as plain text.
@@ -95,5 +96,11 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn skips_a_cue_too_long_to_count() {
+        let vtt = "WEBVTT\n\n18446744073709551615:00.000 --> 18446744073709551615:01.000\nNie\n";
+        assert!(cues(vtt).is_empty());
     }
 }

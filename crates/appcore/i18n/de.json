@@ -898,6 +898,7 @@
   "courses.replaces.older": "Ältere Fassung {revision} (vorhanden: {installed}); ersetzt die neuere, dein Lernstand bleibt.",
   "courses.problems": "Der Kurs hat {count} Fehler und kann nicht hinzugefügt werden.",
   "courses.more": "… und {count} weitere.",
+  "courses.newer": "Der Kurs ist für eine neuere Kontra-Version (Format {version}). Aktualisiere Kontra, um ihn hinzuzufügen.",
   "courses.unreadable": "Die Datei ist kein lesbarer Kurs: {reason}",
   "courses.confirm": "Hinzufügen",
   "courses.cancel": "Abbrechen",

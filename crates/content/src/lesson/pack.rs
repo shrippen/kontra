@@ -101,6 +101,9 @@ pub enum PackError {
     Lesson(#[from] LessonError),
     #[error("{0}")]
     Archive(String),
+    /// Made for a later Kontra (format version); said as such, not as a parse error.
+    #[error("version {0} is newer than this Kontra")]
+    Newer(u64),
 }
 
 impl PackError {
@@ -468,8 +471,7 @@ fn newer(manifest: &str) -> Result<(), PackError> {
     if format != Some(COURSE_FORMAT) || version <= u64::from(COURSE_VERSION) {
         return Ok(());
     }
-    let reason = format!("version {version} is newer than this Kontra");
-    Err(super::parse::error(MANIFEST, 1, &reason).into())
+    Err(PackError::Newer(version))
 }
 
 /// Hidden files and the macOS resource folder, left out like in a folder (`files`).
@@ -724,10 +726,7 @@ mod tests {
             .replace("\"version\": 1", "\"version\": 2")
             .replace("\"hosts\"", "\"price\": 5, \"hosts\"");
         let data = zip::write(&[("manifest.json", manifest.as_bytes())]).unwrap();
-        let Err(PackError::Lesson(e)) = CoursePack::read(&data) else {
-            panic!("expected a lesson error");
-        };
-        assert!(e.to_string().contains("newer"), "{e}");
+        assert!(matches!(CoursePack::read(&data), Err(PackError::Newer(2))));
     }
 
     /// Many tiny entries cost no time per entry squared (review #131, round 6): above the

@@ -12,7 +12,7 @@
 //! ```
 
 use crate::Core;
-use kontra_session::lesson::{self, Block, CoursePack, COURSE_EXT};
+use kontra_session::lesson::{self, Block, CoursePack, PackError, COURSE_EXT};
 use kontra_session::{CourseError, CourseFetch, CourseStore, FileHttp, Http, Web};
 use serde_json::{json, Value};
 use std::path::Path;
@@ -254,6 +254,9 @@ impl Core {
                 self.tr("courses.problems", &[("count", p.len().to_string())])
             }
             CourseError::NotHttps => self.tr("courses.https", &[]),
+            CourseError::Pack(PackError::Newer(version)) => {
+                self.tr("courses.newer", &[("version", version.to_string())])
+            }
             CourseError::Http(h) => self.tr("courses.offline", &[("reason", h.to_string())]),
             other => self.tr("courses.unreadable", &[("reason", other.to_string())]),
         }
@@ -278,6 +281,17 @@ fn escaped(path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_newer_course_is_named_in_the_language() {
+        let dir = std::env::temp_dir().join(format!("kontra-newer-{}", std::process::id()));
+        let mut core = Core::new(&dir, crate::QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        let text = core.course_error(&CourseError::Pack(PackError::Newer(2)));
+        assert_eq!(text, core.tr("courses.newer", &[("version", "2".into())]));
+        assert!(!text.contains("newer"), "{text}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
 
     #[test]
     fn a_file_url_escapes_its_path() {

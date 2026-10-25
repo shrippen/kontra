@@ -75,6 +75,8 @@ impl Web {
             ureq::Agent::config_builder()
                 .timeout_global(Some(timeout))
                 .user_agent(USER_AGENT)
+                // Also after a redirect: courses and searches are https only.
+                .https_only(true)
                 .tls_config(tls.clone())
                 .build()
                 .into()
@@ -164,5 +166,17 @@ mod tests {
         assert_eq!(http.get("https://example.org/a").unwrap(), b"[]");
         std::fs::remove_file(&path).unwrap();
         assert!(matches!(http.get("x"), Err(HttpError::Failed(_))));
+    }
+
+    /// Never plain http, also not after a redirect from https (a package could be swapped).
+    #[test]
+    fn plain_http_is_never_asked() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let url = format!("http://{}/kurs", listener.local_addr().unwrap());
+        let web = Web::new();
+        assert!(web.get(&url).is_err());
+        assert!(web.download(&url, 1).is_err());
+        assert!(listener.accept().is_err(), "no connection was made");
     }
 }
