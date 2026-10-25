@@ -401,7 +401,8 @@ fn files(dir: &Path) -> Result<Vec<String>, PackError> {
             let name = parts.join("/");
             safe(&name)?;
 
-            let size = entry.metadata().map_or(0, |m| m.len());
+            // Through links, as reading and packing go (review #131).
+            let size = std::fs::metadata(&path).map_or(0, |m| m.len());
             total += size;
             let text = !name.starts_with(MEDIA_DIR);
             if text && size > MAX_TEXT_BYTES as u64 {
@@ -551,6 +552,25 @@ mod tests {
             panic!("expected an archive error");
         };
         assert!(reason.starts_with("texts above"), "{reason}");
+    }
+
+    /// A link counts with the size of what it points to: packing follows it (review #131).
+    #[test]
+    fn a_link_counts_with_its_target() {
+        let dir = std::env::temp_dir().join(format!("kontra-course-link-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        new_course(&dir, "probe", &author()).unwrap();
+        let big = dir.with_extension("big");
+        std::fs::File::create(&big)
+            .and_then(|f| f.set_len(MAX_TEXT_BYTES as u64 + 1))
+            .unwrap();
+        std::os::unix::fs::symlink(&big, dir.join("notes.md")).unwrap();
+        assert!(matches!(
+            CoursePack::from_dir(&dir),
+            Err(PackError::Archive(_))
+        ));
+        std::fs::remove_dir_all(&dir).unwrap();
+        std::fs::remove_file(&big).unwrap();
     }
 
     /// A folder name the archive would refuse is refused in the folder too (review #131).
