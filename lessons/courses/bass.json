@@ -6,8 +6,63 @@
       "id": "loslegen",
       "de": "Loslegen",
       "en": "Getting started",
-      "units": ["bass-teile", "stimmen", "anschlag", "greifen", "viertel"],
+      "units": [
+        "bass-teile",
+        "stimmen",
+        "anschlag",
+        "greifen",
+        "viertel"
+      ],
       "finale": "bundled=47 speeds=\"70 85 100\""
+    },
+    {
+      "id": "rhythmus",
+      "de": "Rhythmus",
+      "en": "Rhythm",
+      "units": [
+        "notenwerte",
+        "zaehlen",
+        "achtel",
+        "schlagzeug",
+        "tab"
+      ],
+      "finale": "bundled=146 speeds=\"70 85 100\""
+    },
+    {
+      "id": "toene",
+      "de": "Töne am Hals",
+      "en": "Notes on the neck",
+      "units": [
+        "halbton",
+        "toene-e-a",
+        "oktave",
+        "grundton-quinte"
+      ],
+      "finale": "bundled=53 speeds=\"70 85 100\""
+    },
+    {
+      "id": "saiten",
+      "de": "Saiten wechseln, Saiten dämpfen",
+      "en": "Changing and muting strings",
+      "units": [
+        "saitenwechsel",
+        "daempfen",
+        "fingerfolgen"
+      ],
+      "finale": "bundled=147 speeds=\"60 80 100\""
+    },
+    {
+      "id": "intervalle",
+      "de": "Intervalle",
+      "en": "Intervals",
+      "units": [
+        "intervall",
+        "terzen",
+        "quarte-quinte",
+        "septime",
+        "intervalle-hoeren"
+      ],
+      "finale": "bundled=56 speeds=\"70 85 100\""
     }
   ]
 }
