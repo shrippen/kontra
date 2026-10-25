@@ -13,7 +13,8 @@ something sounds happy or sad.
 
 ## The names
 You count from the lower note, which is 1 itself: second (2), third (3), fourth (4), fifth (5), sixth (6), seventh
-(7), octave (8). Major and minor differ by a semitone.
+(7), octave (8). Seconds, thirds, sixths and sevenths come
+major and minor, a semitone apart; fourths, fifths and octaves are called perfect.
 
 ## Check
 ::: question

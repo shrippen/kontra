@@ -13,7 +13,8 @@ bestimmt, ob etwas fröhlich oder traurig klingt.
 
 ## Die Namen
 Gezählt wird ab dem unteren Ton, der selbst die 1 ist: Sekunde (2), Terz (3), Quarte (4), Quinte (5), Sexte (6),
-Septime (7), Oktave (8). Groß und klein unterscheiden sich um einen Halbton.
+Septime (7), Oktave (8). Sekunde, Terz, Sexte und Septime gibt es groß und klein, einen Halbton
+auseinander; Quarte, Quinte und Oktave heißen rein.
 
 ## Prüfen
 ::: question

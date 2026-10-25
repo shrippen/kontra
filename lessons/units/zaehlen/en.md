@@ -17,7 +17,7 @@ Mistakes are normal. What matters is not to stop but to keep playing on the next
 :::
 
 ## Practise
-Eighth notes on the open A string: a note on every number and every "and". Only when you pluck counts here.
+Eighth notes on the low A: a note on every number and every "and". Only when you play counts here.
 ::: practice bundled=52 speeds="70 85 100"
 
 ## Check
