@@ -597,6 +597,11 @@ pub mod qobject {
         #[cxx_name = "earStop"]
         fn ear_stop(self: Pin<&mut Self>);
 
+        /// An answer chosen by click instead of played (no input, LH-LRN-08); updates `earState`.
+        #[qinvokable]
+        #[cxx_name = "earAnswer"]
+        fn ear_answer(self: Pin<&mut Self>, midi: i32);
+
         /// Backing-track beat map (LH-BIB-06); see `Core::backing_json`.
         #[qinvokable]
         #[cxx_name = "backingJson"]
@@ -2242,6 +2247,11 @@ impl qobject::Controller {
     fn ear_stop(mut self: Pin<&mut Self>) {
         self.as_mut().core().ear_stop();
         self.as_mut().set_ear_state(QString::default());
+    }
+
+    fn ear_answer(mut self: Pin<&mut Self>, midi: i32) {
+        let state = self.as_mut().core().ear_answer(f64::from(midi));
+        self.as_mut().set_ear_state(q(&state));
     }
 
     fn quiz_json(&self) -> QString {

@@ -86,3 +86,20 @@ fn first_lesson_tries_reads_and_moves_on() {
     assert_eq!(home["lesson"], course["next"]);
     assert_ne!(home["lesson"]["id"], FIRST);
 }
+
+#[test]
+fn without_input_a_click_answers() {
+    let profile = Profile::new("g1-click");
+    // No interface: a recording that is not there stands in for a missing device.
+    let mut core = profile.core(Some(&profile.dir.join("none.wav")));
+    let lesson = json(&core.lesson_json(FIRST));
+    let (page, block) = first_try(&lesson);
+    let first = json(&core.lesson_ear(FIRST, page, block).unwrap());
+    assert_eq!(first["listening"], false, "{first}");
+
+    let wrong = json(&core.ear_answer(f64::from(A1)));
+    assert_eq!(wrong["played"][0]["right"], false, "{wrong}");
+    let solved = json(&core.ear_answer(f64::from(E1)));
+    assert_eq!(solved["solved"], true, "{solved}");
+    core.ear_stop();
+}
