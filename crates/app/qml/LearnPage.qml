@@ -87,7 +87,9 @@ Kirigami.ScrollablePage {
                 }
                 // Nothing is locked (LERNEN.md): who knows a chapter proves it with its questions.
                 KanteButton {
-                    visible: chapter.modelData.questions > 0 && chapter.modelData.done < chapter.modelData.total
+                    // Only lessons for this instrument can be ticked off.
+                    visible: chapter.modelData.questions > 0
+                        && chapter.modelData.units.some(function(u) { return u.fits && !u.done })
                     text: texts.t("learn.check")
                     emphasis: KanteButton.Emphasis.Quiet
                     onClicked: {

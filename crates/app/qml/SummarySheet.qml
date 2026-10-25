@@ -108,11 +108,18 @@ KanteCard {
                 }
             }
         }
-        QQC2.Label {
+        // "?" at pocket and spread (LH-LRN-09), when the line names them.
+        RowLayout {
             Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            text: sheet.summary ? [sheet.summary.pocketText, sheet.summary.tendencyText, sheet.summary.spreadText, sheet.summary.intonationText].filter(function(t) { return t !== "" }).join(" · ") : ""
-            color: KanteStyle.textColor
+            spacing: KanteStyle.unit(4)
+            QQC2.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: sheet.summary ? [sheet.summary.pocketText, sheet.summary.tendencyText, sheet.summary.spreadText, sheet.summary.intonationText].filter(function(t) { return t !== "" }).join(" · ") : ""
+                color: KanteStyle.textColor
+            }
+            TermTip { topic: sheet.summary && sheet.summary.pocketText !== "" ? "summary.pocket" : "" }
+            TermTip { topic: sheet.summary && sheet.summary.spreadText !== "" ? "summary.spread" : "" }
         }
         KanteTimingHistogram {
             Layout.fillWidth: true
@@ -155,6 +162,7 @@ KanteCard {
                         text: modelData.text
                         color: KanteStyle.textColor
                     }
+                    TermTip { topic: "technique." + modelData.technique }
                 }
             }
         }

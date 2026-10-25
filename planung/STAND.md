@@ -5,11 +5,12 @@ nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-#124 `lernen-klick` (LH-LRN-08), #125 `wiederholen` (LH-LRN-10); Kante #77 (1.41 Ziel-Band im Histogramm, wartet auf den Eigentümer; danach Kontra-Branch `pocket-band`).
+#127 `kann-ich-schon` (LH-LRN-10); Kante #77 (1.41 Ziel-Band im Histogramm, wartet auf den Eigentümer; danach Kontra-Branch `pocket-band`).
 
-Lernen (Runde 13, `LERNEN.md`): Plan (#118), Format und Kapitel 1 (#119), Kapitel 2–5 (#121) gemerged. Offen: „?“ an
-Fachbegriffen in Übungsziel, Generator und Auswertung (LH-LRN-09),
-Kurspakete und Kurswerkstatt (LH-LRN-14, -15, für 1.0). LH-LRN-10 mit „Kann ich schon“ fertig (`kann-ich-schon`).
+Lernen (Runde 13, `LERNEN.md`): Plan (#118), Format und Kapitel 1 (#119), Kapitel 2–5 (#121), Kapitel 6–15 (#123),
+Ausprobieren per Klick (#124), Wiederholen (#125), „?“ an Fachbegriffen in Übungsziel, Generator und Auswertung (#126)
+gemerged. Offen: „?“ am Akkordnamen und an den Technik-Zeichen in
+Tab-Lane und Tabulatur (LH-LRN-09, Rest), Kurspakete und Kurswerkstatt (LH-LRN-14, -15, für 1.0).
 
 Bestand: In `testdata/exercises` heißen die Ordner 4 und 5 vertauscht („4 Groove“ hält die Walking-Bass-Übungen,
 „5 Walking Bass“ die Grooves); Lektionen verweisen nur auf Nummern und sind nicht betroffen.
@@ -35,7 +36,9 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 ## Offen
 
 - **Flakiger Journey-Test** J-C5 (`c5_techniques.rs:107`): unter Last (Load > 120) einmal ein Extra-Ton bei
-  Hammer-on/Pull-off (24.10., einmal in `make check`, dreimal danach grün). Reparieren, nicht ausnehmen.
+  Hammer-on/Pull-off (24.10., einmal in `make check`, dreimal danach grün). Reparieren, nicht ausnehmen. 25.10.:
+  nicht nachgestellt (172 Läufe bei Load bis 170, auch 8 parallel). Verdacht: Bei `Pace::RealTime` stempelt die
+  Engine Noten auf ihre Uhr; ein verspäteter Block verschiebt einen Ton aus dem Fenster.
 - **Speicherdialoge:** seit #92 über das Desktop-Portal; Vorschlag (`selectedFile`) und Titel im echten KDE-Dialog
   ungeprüft (Paket, Bericht, Daten).
 
