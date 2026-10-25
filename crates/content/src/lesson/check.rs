@@ -41,7 +41,7 @@ pub(super) fn problems(lessons: &Lessons) -> Vec<String> {
             }
         }
         links(&name, &unit.texts, &term_ids, &mut out);
-        reach(&scoped, &unit.scope, &unit.texts, &term_scopes, &mut out);
+        reach(&name, &unit.scope, &unit.texts, &term_scopes, &mut out);
     }
 
     // Terms: both languages alike; the teaching unit exists.
@@ -57,6 +57,7 @@ pub(super) fn problems(lessons: &Lessons) -> Vec<String> {
             }
         }
         links(&name, &term.texts, &term_ids, &mut out);
+        reach(&name, &term.scope, &term.texts, &term_scopes, &mut out);
     }
 
     // Courses: known units, each once, after the units they need.
@@ -147,29 +148,33 @@ fn reach(
     out: &mut Vec<String>,
 ) {
     for doc in texts.values() {
-        let mut links = Vec::new();
+        let (mut links, mut unknown) = (Vec::new(), Vec::new());
         for page in &doc.pages {
             for block in &page.blocks {
-                scoped_terms(block, scope, &mut links, out);
+                scoped_terms(block, scope, &mut links, &mut unknown);
             }
+        }
+        for inner in unknown {
+            out.push(format!("{name} has a variant for unknown scope {inner}"));
         }
         for (id, at) in links {
             let Some(&wide) = terms.get(id.as_str()) else {
                 continue;
             };
             if !covers(wide, &at) {
-                out.push(format!("{name} links term {id} ({wide})"));
+                out.push(format!("{name} ({scope}) links term {id} ({wide})"));
             }
         }
     }
 }
 
-/// Term ids linked in a block with the scope they appear under; unknown variant scopes noted.
+/// Term ids linked in a block with the scope they appear under; unknown variant scopes go to
+/// `unknown`.
 fn scoped_terms(
     block: &Block,
     scope: &str,
     links: &mut Vec<(String, String)>,
-    out: &mut Vec<String>,
+    unknown: &mut Vec<String>,
 ) {
     if let Block::Variant {
         scope: inner,
@@ -177,11 +182,11 @@ fn scoped_terms(
     } = block
     {
         if !known(inner) {
-            out.push(format!("variant for unknown scope {inner}"));
+            unknown.push(inner.clone());
         }
         blocks
             .iter()
-            .for_each(|b| scoped_terms(b, inner, links, out));
+            .for_each(|b| scoped_terms(b, inner, links, unknown));
         return;
     }
     let mut ids = Vec::new();
@@ -325,6 +330,22 @@ mod tests {
         assert_eq!(
             problems,
             ["unit teile (strings) teaches term bund (fretted)"]
+        );
+    }
+
+    /// Review #119: unknown variant scopes in the glossary went unnoticed, and the message did
+    /// not say where.
+    #[test]
+    fn names_unknown_variant_scopes_and_where() {
+        let glossary = "## Bund\nid: bund\nText.\n::: variant for=fretles\nOhne.\n:::\n";
+        let files = [("glossary/de.md", glossary), ("glossary/en.md", glossary)];
+        let problems = Lessons::parse(&files).unwrap().check();
+        assert_eq!(
+            problems,
+            [
+                "term bund has a variant for unknown scope fretles",
+                "term bund has a variant for unknown scope fretles",
+            ]
         );
     }
 

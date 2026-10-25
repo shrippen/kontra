@@ -16,6 +16,7 @@ mod chain;
 mod check;
 mod density;
 mod expected;
+mod learning;
 mod live;
 mod matcher;
 mod pocket;
@@ -44,6 +45,7 @@ pub use expected::{expected_notes, ExpectedNote};
 pub use kontra_engine::Separator;
 pub use kontra_engine::{FileHttp, Http, HttpError, Web};
 pub use kontra_engine::{Gains, SeparatorError, Shaping, SHAPING_RANGE_DB};
+pub use learning::{lesson, place, positions, LearnState, LearnStore, Learning, UnitState};
 pub use live::{
     is_midi_file, soak, InputChoice, Live, LiveCalibration, LiveEar, LiveOutput, LiveSetup,
     LiveTuner, PromptTone, SoakReport,
