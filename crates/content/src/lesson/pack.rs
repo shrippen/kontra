@@ -181,7 +181,7 @@ impl CoursePack {
         let prefix = format!("{}.", m.id);
 
         // Manifest: an id that makes a prefix, titles in every language, plain host names.
-        if m.id.is_empty() || !m.id.chars().all(|c| c.is_ascii_lowercase() || c == '-') {
+        if !plain_id(&m.id) {
             out.push(format!("id {:?}: only a-z and -", m.id));
         }
         for lang in Lang::ALL {
@@ -276,18 +276,20 @@ impl CoursePack {
             if !self.manifest.hosts.iter().any(|h| h == host) {
                 return Some("host not named in the manifest");
             }
-            return None;
-        }
-        if src.contains("://") {
+        } else if src.contains("://") {
             return Some("only https addresses");
+        } else {
+            let Some(file) = src.strip_prefix(MEDIA_DIR) else {
+                return Some("not below media/");
+            };
+            if !self.media.contains(file) {
+                return Some("missing in media/");
+            }
         }
-        let Some(file) = src.strip_prefix(MEDIA_DIR) else {
-            return Some("not below media/");
-        };
-        if !self.media.contains(file) {
-            return Some("missing in media/");
-        }
-        let lower = file.to_ascii_lowercase();
+
+        // The type by the path's end, without query or fragment ("a.webm?t=1").
+        let path = src.split(['?', '#']).next().unwrap_or_default();
+        let lower = path.to_ascii_lowercase();
         if !types.iter().any(|t| lower.ends_with(t)) {
             return Some("unsupported type");
         }
@@ -322,6 +324,10 @@ pub struct Author {
 
 /// Lays out a new course in the empty or missing folder `dir`: manifest, course, one lesson.
 pub fn new_course(dir: &Path, id: &str, author: &Author) -> Result<(), PackError> {
+    // The id goes into paths and JSON: nothing but a-z and - (review #131).
+    if !plain_id(id) {
+        return Err(PackError::archive(format!("id {id:?}: only a-z and -")));
+    }
     let io = |e: std::io::Error| PackError::archive(format!("{}: {e}", dir.display()));
     if dir.exists() && std::fs::read_dir(dir).map_err(io)?.next().is_some() {
         return Err(PackError::archive(format!(
@@ -351,7 +357,10 @@ pub fn new_course(dir: &Path, id: &str, author: &Author) -> Result<(), PackError
 }
 
 /// Paths of all files below `dir`, relative with `/`, sorted; hidden files and folders skipped.
+/// Refuses what `CoursePack::read` would refuse packed: text files above `MAX_TEXT_BYTES`, all
+/// above `MAX_COURSE_BYTES`.
 fn files(dir: &Path) -> Result<Vec<String>, PackError> {
+    let mut total = 0u64;
     let mut out = Vec::new();
     let mut todo = vec![dir.to_path_buf()];
     while let Some(at) = todo.pop() {
@@ -373,11 +382,29 @@ fn files(dir: &Path) -> Result<Vec<String>, PackError> {
                 .iter()
                 .map(|p| p.to_string_lossy().into_owned())
                 .collect();
-            out.push(parts.join("/"));
+            let name = parts.join("/");
+
+            let size = entry.metadata().map_or(0, |m| m.len());
+            total += size;
+            let text = !name.starts_with(MEDIA_DIR);
+            if text && size > MAX_TEXT_BYTES as u64 {
+                return Err(PackError::archive(format!("{name}: {size} bytes")));
+            }
+            if total > MAX_COURSE_BYTES {
+                return Err(PackError::archive(format!(
+                    "more than {MAX_COURSE_BYTES} bytes"
+                )));
+            }
+            out.push(name);
         }
     }
     out.sort();
     Ok(out)
+}
+
+/// A package id: a–z and `-`, not empty (`studio-weber`).
+fn plain_id(id: &str) -> bool {
+    !id.is_empty() && id.chars().all(|c| c.is_ascii_lowercase() || c == '-')
 }
 
 /// A name that stays inside the package: relative, no `..`, no backslash or NUL.
@@ -463,6 +490,11 @@ mod tests {
         );
         let srt = "subtitles media/a.srt: unsupported type";
         assert_eq!(problems(&subs), both(srt));
+
+        // The type counts on the web too (review #131).
+        let web = archive("src=https://video.example/a.avi?t=1", &[]);
+        let avi = "video https://video.example/a.avi?t=1: unsupported type";
+        assert_eq!(problems(&web), both(avi));
     }
 
     #[test]
@@ -497,17 +529,47 @@ mod tests {
         assert_eq!((e.file.as_str(), e.line), ("manifest.json", 2));
     }
 
+    /// A folder holds what the archive may (review #131): `course check <folder>` must not pass
+    /// what `read` then refuses.
+    #[test]
+    fn a_folder_has_the_archive_limits() {
+        let dir = std::env::temp_dir().join(format!("kontra-course-big-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        new_course(&dir, "probe", &author()).unwrap();
+        let big = "x".repeat(MAX_TEXT_BYTES + 1);
+        std::fs::write(dir.join("glossary.md"), big).unwrap();
+        assert!(matches!(
+            CoursePack::from_dir(&dir),
+            Err(PackError::Archive(_))
+        ));
+        assert!(pack(&dir).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_new_course_needs_a_plain_id() {
+        let dir = std::env::temp_dir().join(format!("kontra-course-id-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        for id in ["a\"b", "../x", "", "Gross"] {
+            assert!(new_course(&dir, id, &author()).is_err(), "{id}");
+            assert!(!dir.exists(), "nothing written for {id}");
+        }
+    }
+
+    fn author() -> Author {
+        Author {
+            provider: "Studio \"W\"".into(),
+            license: "CC-BY-4.0".into(),
+        }
+    }
+
     #[test]
     fn a_new_course_packs_and_reads_without_problems() {
         let dir = std::env::temp_dir().join(format!("kontra-course-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        let author = Author {
-            provider: "Studio \"W\"".into(),
-            license: "CC-BY-4.0".into(),
-        };
-        new_course(&dir, "probe", &author).unwrap();
+        new_course(&dir, "probe", &author()).unwrap();
         assert!(
-            new_course(&dir, "probe", &author).is_err(),
+            new_course(&dir, "probe", &author()).is_err(),
             "refuses a folder with files"
         );
 
