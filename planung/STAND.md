@@ -5,18 +5,18 @@ nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-#131 `kurspaket` (Format, `kontra-cli course new|check|pack`; wartet auf den Eigentümer, Runde 14). Darauf
+#131 `kurspaket` (Format, `kontra-cli course new|check|pack`; Runde 14: Zip über die Crate `zip`, Review-Runde 5). Darauf
 `kurs-adresse` (Kurse in der App, PR nach #131): Kurs aus Datei oder https-Adresse hinzufügen, wählen, nach Update
 suchen, entfernen (Lernstand bleibt); Glossar über alle Kurse; Video mit Untertiteln (Qt Multimedia per `Loader`:
-fehlt das Modul, bleibt ein Link); QA-Schalter `--course-answer`. Kante #77 (1.41 Ziel-Band im Histogramm, wartet
+fehlt das Modul, bleibt ein Link; WebM und MP4, `scripts/check-video.sh` in CI und `make check`); Dateityp
+`application/x-kontrakurs`; QA-Schalter `--course-answer`. Kante #77 (1.41 Ziel-Band im Histogramm, wartet
 auf den Eigentümer; danach Kontra-Branch `pocket-band`).
 
 Lernen (Runde 13, `LERNEN.md`): Kapitel 1–15, Glossar, „?“ an Fachbegriffen und Legende an Zeichen (#118–#130)
 gemerged. Offen: Kurswerkstatt mit Fenster (LH-LRN-15, für 1.0); Kursfassung im Manifest (das Update sagt nur
-„ersetzt“, nicht „neuer“). Runde 14 fragt: MIME-Typ `.kontrakurs` in `packaging/`, Video-Formate (WebM oder
-FFmpeg-Erweiterung), Qt Multimedia in der CI.
+„ersetzt“, nicht „neuer“). Runde 14 beantwortet (ROADMAP): danach zuerst Kurse fertig, dann Hardware-Prüfungen.
 
-Neue pub-Schnittstellen zur Freigabe (nächste Runde): `kontra_content::lesson` (`Lessons`, Blocktypen, `scopes`),
+Neue pub-Schnittstellen, in Runde 14 freigegeben: `kontra_content::lesson` (`Lessons`, Blocktypen, `scopes`),
 `kontra_session::{Learning, LearnState, LearnStore, UnitState, place, positions}`, `EarQuiz::fixed`, Core
 `learn_json`, `lesson_json`, `lesson_seen`, `lesson_ear`, `term_ear`, `lesson_exercise`, `finale_exercise`,
 `glossary_json`, `glossary_list_json`; `kurspaket`: `lesson::{CoursePack, CourseManifest, PackError, Author,
