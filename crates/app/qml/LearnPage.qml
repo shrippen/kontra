@@ -50,6 +50,10 @@ Kirigami.ScrollablePage {
     }
 
     function fetch() {
+        // Enter in the field, too: one fetch at a time.
+        if (page.fetching) {
+            return
+        }
         ctl.courseFetch(addressField.text)
     }
     // A fetched package is previewed and added like a file.

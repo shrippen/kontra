@@ -126,7 +126,8 @@ impl Core {
     /// Adds the package at `path` and makes its course the one to learn; "" when done, else
     /// what went wrong.
     pub fn course_add(&mut self, path: &Path) -> String {
-        let pack = match CourseStore::new(&self.data_dir).add(path) {
+        let cache = crate::store::cache_dir(&self.data_dir);
+        let pack = match CourseStore::new(&self.data_dir).add(path, &cache) {
             Ok(pack) => pack,
             Err(e) => return self.course_error(&e),
         };
@@ -184,7 +185,7 @@ impl Core {
         };
         let cache = crate::store::cache_dir(&self.data_dir);
         match CourseStore::new(&self.data_dir).media_file(&pack.manifest.id, &src, &cache) {
-            Ok(path) => format!("{FILE_URL}{}", path.display()),
+            Ok(path) => format!("{FILE_URL}{}", escaped(&path)),
             Err(e) => {
                 eprintln!("kontra: {e}");
                 String::new()
@@ -199,13 +200,14 @@ impl Core {
             return pages;
         };
         let store = CourseStore::new(&self.data_dir);
+        let cache = crate::store::cache_dir(&self.data_dir);
         let blocks = pages.iter_mut().filter_map(|p| p["blocks"].as_array_mut());
         for block in blocks.flatten() {
             let Some(src) = block["subtitles"].as_str() else {
                 continue;
             };
             let cues: Vec<Value> = store
-                .subtitles(&pack.manifest.id, src)
+                .subtitles(&pack.manifest.id, src, &cache)
                 .into_iter()
                 .map(|c| json!({ "startMs": c.start_ms, "endMs": c.end_ms, "text": c.text }))
                 .collect();
@@ -255,5 +257,33 @@ impl Core {
             CourseError::Http(h) => self.tr("courses.offline", &[("reason", h.to_string())]),
             other => self.tr("courses.unreadable", &[("reason", other.to_string())]),
         }
+    }
+}
+
+/// `path` for a file URL: every byte but unreserved ones and `/` percent-encoded, so a name with
+/// `#` or `%` ("teil#1.webm") is not read as a fragment or an escape.
+fn escaped(path: &Path) -> String {
+    let mut out = String::new();
+    for byte in path.as_os_str().as_encoded_bytes() {
+        let plain = byte.is_ascii_alphanumeric() || b"/-._~".contains(byte);
+        if plain {
+            out.push(char::from(*byte));
+            continue;
+        }
+        out.push_str(&format!("%{byte:02X}"));
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_file_url_escapes_its_path() {
+        assert_eq!(
+            escaped(Path::new("/c/media/teil#1 ä%.webm")),
+            "/c/media/teil%231%20%C3%A4%25.webm"
+        );
     }
 }

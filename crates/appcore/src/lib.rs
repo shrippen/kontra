@@ -4454,8 +4454,8 @@ mod tests {
 
         let cache = store::cache_dir(&data);
         assert!(
-            !cache.join("courses").exists(),
-            "nothing unpacked before a click"
+            !cache.join("courses/weber/media/a.webm").exists(),
+            "no video unpacked before a click"
         );
         let url = core.lesson_video("weber.start", 0, 1);
         let path = url.strip_prefix("file://").unwrap();

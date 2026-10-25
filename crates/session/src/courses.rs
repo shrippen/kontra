@@ -21,9 +21,10 @@ use thiserror::Error;
 
 const DIR: &str = "courses";
 /// Where a fetched package waits to be previewed and added; not a course (`load` skips it).
-const FETCHED: &str = "fetched.part";
+/// Hidden names: no course id has a dot, so none is ever called so.
+const FETCHED: &str = ".fetched.part";
 /// The address `FETCHED` came from; kept as `<id>.url` once added, to fetch updates from.
-const FETCHED_URL: &str = "fetched.url";
+const FETCHED_URL: &str = ".fetched.url";
 const URL_EXT: &str = "url";
 const HTTPS: &str = "https://";
 
@@ -106,8 +107,8 @@ impl CourseStore {
     }
 
     /// Adds the package at `path` if it has no problems; one with the same id is replaced (an
-    /// update from its provider).
-    pub fn add(&self, path: &Path) -> Result<CoursePack, CourseError> {
+    /// update from its provider), with what was unpacked of it into `cache`.
+    pub fn add(&self, path: &Path, cache: &Path) -> Result<CoursePack, CourseError> {
         let (pack, problems) = CourseStore::preview(path)?;
         if !problems.is_empty() {
             return Err(CourseError::Problems(problems));
@@ -119,10 +120,14 @@ impl CourseStore {
         fs::create_dir_all(&self.dir).map_err(io)?;
 
         // Copy beside, then rename: a half-written file never replaces a working course.
-        let target = self.package(&pack.manifest.id);
-        let partial = target.with_extension("part");
+        let id = &pack.manifest.id;
+        let target = self.package(id);
+        let partial = self.dir.join(format!(".{id}.{COURSE_EXT}.part"));
         fs::copy(path, &partial).map_err(io)?;
         fs::rename(&partial, &target).map_err(io)?;
+
+        // Videos unpacked from the version before would play instead of the new ones.
+        let _ = fs::remove_dir_all(cache.join(DIR).join(id));
 
         // Fetched from an address: keep it for updates, the fetched copy is not needed.
         if path == self.dir.join(FETCHED) {
@@ -172,11 +177,12 @@ impl CourseStore {
     }
 
     /// The subtitles `src` ("media/a.de.vtt") of added course `id`; none if they cannot be read.
-    pub fn subtitles(&self, id: &str, src: &str) -> Vec<Cue> {
-        let Ok(data) = read(&self.package(id)) else {
+    /// Unpacked into `cache` like a video: the package is read once, not on every lesson.
+    pub fn subtitles(&self, id: &str, src: &str, cache: &Path) -> Vec<Cue> {
+        let Ok(file) = self.media_file(id, src, cache) else {
             return Vec::new();
         };
-        let Ok(bytes) = lesson::read_media(&data, src) else {
+        let Ok(bytes) = fs::read(file) else {
             return Vec::new();
         };
         lesson::cues(&String::from_utf8_lossy(&bytes))
@@ -285,8 +291,8 @@ mod tests {
         assert!(store.load().is_empty());
 
         let file = packed(&dir, "weber");
-        store.add(&file).unwrap();
-        store.add(&file).unwrap();
+        store.add(&file, &dir.join("cache")).unwrap();
+        store.add(&file, &dir.join("cache")).unwrap();
         let loaded = store.load();
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].manifest.provider, "Studio Weber");
@@ -323,7 +329,7 @@ mod tests {
             std::thread::yield_now();
         };
         assert!(store.load().is_empty(), "fetched is not added yet");
-        store.add(&path).unwrap();
+        store.add(&path, &dir.join("cache")).unwrap();
         assert_eq!(store.load().len(), 1);
         assert_eq!(
             store.address("weber").as_deref(),
@@ -332,10 +338,35 @@ mod tests {
         assert!(!path.exists(), "the fetched copy is gone");
 
         // Added again from a file (an update by hand): the address stays.
-        store.add(&dir.join("weber.kontrakurs")).unwrap();
+        store
+            .add(&dir.join("weber.kontrakurs"), &dir.join("cache"))
+            .unwrap();
         assert!(store.address("weber").is_some());
         store.remove("weber", &dir.join("cache")).unwrap();
         assert_eq!(store.address("weber"), None);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_fetched_course_may_be_called_fetched() {
+        let dir = temp("fetched");
+        let data = fs::read(packed(&dir, "fetched")).unwrap();
+        let store = CourseStore::new(&dir.join("data"));
+        let mut fetch = store
+            .fetch(Arc::new(Fake(data)), "https://kurs.example/f")
+            .unwrap();
+        let path = loop {
+            if let Some(outcome) = fetch.poll() {
+                break outcome.unwrap();
+            }
+            std::thread::yield_now();
+        };
+        store.add(&path, &dir.join("cache")).unwrap();
+        assert_eq!(store.load().len(), 1);
+        assert_eq!(
+            store.address("fetched").as_deref(),
+            Some("https://kurs.example/f")
+        );
         fs::remove_dir_all(dir).unwrap();
     }
 
@@ -358,9 +389,9 @@ mod tests {
         let file = dir.join("weber.kontrakurs");
         fs::write(&file, pack(&src).unwrap()).unwrap();
         let store = CourseStore::new(&dir.join("data"));
-        store.add(&file).unwrap();
-
         let cache = dir.join("cache");
+        store.add(&file, &cache).unwrap();
+
         let video = store.media_file("weber", "media/a.webm", &cache).unwrap();
         assert_eq!(fs::read(&video).unwrap(), b"video");
         assert!(store.media_file("weber", "../a.webm", &cache).is_err());
@@ -368,7 +399,17 @@ mod tests {
         assert!(store
             .media_file("weber", "media/../../../weber.kontrakurs", &cache)
             .is_err());
-        assert_eq!(store.subtitles("weber", "media/a.vtt")[0].text, "Hallo");
+        assert_eq!(
+            store.subtitles("weber", "media/a.vtt", &cache)[0].text,
+            "Hallo"
+        );
+
+        // An update with a new video: the one unpacked before is not played any more.
+        fs::write(src.join("media/a.webm"), b"video 2").unwrap();
+        fs::write(&file, pack(&src).unwrap()).unwrap();
+        store.add(&file, &cache).unwrap();
+        let video = store.media_file("weber", "media/a.webm", &cache).unwrap();
+        assert_eq!(fs::read(&video).unwrap(), b"video 2");
 
         store.remove("weber", &cache).unwrap();
         assert!(store.load().is_empty());
@@ -396,7 +437,7 @@ mod tests {
         fs::write(&file, pack(&src).unwrap()).unwrap();
 
         let store = CourseStore::new(&dir.join("data"));
-        let Err(CourseError::Problems(problems)) = store.add(&file) else {
+        let Err(CourseError::Problems(problems)) = store.add(&file, &dir.join("cache")) else {
             panic!("expected problems");
         };
         assert_eq!(problems, ["unit start lacks the prefix weber."]);
