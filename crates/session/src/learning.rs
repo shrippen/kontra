@@ -100,33 +100,47 @@ impl Learning {
     }
 }
 
-/// Pitches of `tones` on `instrument`: the root lowest in its range, the steps above it.
+/// Pitches of `tones` on `instrument`: the root lowest in its range, the steps above it. Steps
+/// outside the range are left out.
 pub fn place(tones: &Tones, instrument: &Instrument) -> Vec<Pitch> {
-    let Some((low, _)) = instrument.range() else {
+    placed(tones, instrument)
+        .into_iter()
+        .map(|(_, pitch)| pitch)
+        .collect()
+}
+
+/// Where to show `tones` on a string instrument: (step index, string, fret) per tone, on
+/// `tones.string` if given, else the lowest fret. The index keeps each tone with its label; tones
+/// that do not fit are left out; keyboards get none.
+pub fn positions(tones: &Tones, instrument: &Instrument) -> Vec<(usize, u8, u8)> {
+    let open = |string: u8| instrument.pitch_at(string, 0).map(|p| p.0 % OCTAVE);
+    placed(tones, instrument)
+        .into_iter()
+        .filter_map(|(step, pitch)| {
+            let all = instrument.positions(pitch);
+            let at = match tones.string {
+                Some(wanted) => all.into_iter().find(|&(s, _)| open(s) == Some(wanted)),
+                None => all.into_iter().min_by_key(|&(_, fret)| fret),
+            };
+            at.map(|(string, fret)| (step, string, fret))
+        })
+        .collect()
+}
+
+/// Each step's index and pitch, if it lies in the instrument's range.
+fn placed(tones: &Tones, instrument: &Instrument) -> Vec<(usize, Pitch)> {
+    let Some((low, high)) = instrument.range() else {
         return Vec::new();
     };
     let up = (tones.root + OCTAVE - low.0 % OCTAVE) % OCTAVE;
     let root = i32::from(low.0) + i32::from(up);
+    let range = i32::from(low.0)..=i32::from(high.0);
     tones
         .steps
         .iter()
-        .filter_map(|s| u8::try_from(root + s).ok().map(Pitch))
-        .collect()
-}
-
-/// Where to show `tones` on a string instrument: (string, fret) per tone, on `tones.string` if
-/// given, else the lowest fret. Tones that do not fit are left out; keyboards get none.
-pub fn positions(tones: &Tones, instrument: &Instrument) -> Vec<(u8, u8)> {
-    let open = |string: u8| instrument.pitch_at(string, 0).map(|p| p.0 % OCTAVE);
-    place(tones, instrument)
-        .into_iter()
-        .filter_map(|pitch| {
-            let all = instrument.positions(pitch);
-            match tones.string {
-                Some(wanted) => all.into_iter().find(|&(s, _)| open(s) == Some(wanted)),
-                None => all.into_iter().min_by_key(|&(_, fret)| fret),
-            }
-        })
+        .enumerate()
+        .filter(|(_, s)| range.contains(&(root + **s)))
+        .filter_map(|(i, s)| u8::try_from(root + s).ok().map(|p| (i, Pitch(p))))
         .collect()
 }
 
@@ -265,10 +279,20 @@ mod tests {
             [Pitch(33), Pitch(43)]
         );
         // E with 15 steps: G2, the open G string.
-        assert_eq!(positions(&tones(4, &[15], Some(7)), &bass), [(3, 0)]);
+        assert_eq!(positions(&tones(4, &[15], Some(7)), &bass), [(0, 3, 0)]);
         // Frets 2 to 5 on the A string, not the E string.
         let a = positions(&tones(9, &[2, 3, 4, 5], Some(9)), &bass);
-        assert_eq!(a, [(1, 2), (1, 3), (1, 4), (1, 5)]);
+        assert_eq!(a, [(0, 1, 2), (1, 1, 3), (2, 1, 4), (3, 1, 5)]);
+    }
+
+    #[test]
+    fn keeps_each_tone_with_its_step() {
+        let bass = Instrument::default_bass();
+        // Five octaves up lies above the bass: no tone, not an unplayable one.
+        assert_eq!(place(&tones(9, &[0, 60], None), &bass), [Pitch(33)]);
+        // G1 is not on the A string; A1 and B1 keep steps 1 and 2 (and their labels).
+        let a = positions(&tones(9, &[-2, 0, 2], Some(9)), &bass);
+        assert_eq!(a, [(1, 1, 0), (2, 1, 2)]);
     }
 
     #[test]

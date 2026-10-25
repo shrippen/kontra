@@ -395,9 +395,8 @@ impl Core {
             .collect();
         let at: Vec<Value> = positions(tones, &instrument)
             .into_iter()
-            .enumerate()
-            .map(|(i, (string, fret))| {
-                let label = tones.labels.get(i).cloned().unwrap_or_default();
+            .map(|(step, string, fret)| {
+                let label = tones.labels.get(step).cloned().unwrap_or_default();
                 json!({ "string": string, "fret": fret, "label": label })
             })
             .collect();

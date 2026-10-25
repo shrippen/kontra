@@ -30,7 +30,12 @@ Kirigami.ScrollablePage {
     globalToolBarStyle: Kirigami.ApplicationHeaderStyle.None
 
     Component.onDestruction: if (earBlock >= 0) ctl.earStop()
-    Shortcut { sequence: "Esc"; onActivated: applicationWindow().pageStack.layers.pop() }
+    // Only the top layer: two active Esc shortcuts would make Qt fire neither.
+    Shortcut {
+        sequence: "Esc"
+        enabled: applicationWindow().pageStack.layers.currentItem === page
+        onActivated: applicationWindow().pageStack.layers.pop()
+    }
 
     ColumnLayout {
         spacing: KanteStyle.unit(16)
