@@ -4,6 +4,7 @@
 //! ```text
 //! kurs.kontrakurs ──preview()──▶ manifest, problems   (shown before adding)
 //!                 ──add()──────▶ <data>/courses/<id>.kontrakurs ──load()──▶ [CoursePack]
+//!                                 ──remove()──▶ gone, with its unpacked media (progress stays)
 //! https://… ──fetch()──▶ worker thread ──poll()──▶ <data>/courses/fetched.part (then as a file)
 //! ```
 
@@ -162,6 +163,23 @@ impl CourseStore {
         lesson::cues(&String::from_utf8_lossy(&bytes))
     }
 
+    /// Removes added course `id` and what was unpacked of it into `cache`; the learning
+    /// progress is not here and stays (adding the course again picks it up).
+    pub fn remove(&self, id: &str, cache: &Path) -> Result<(), CourseError> {
+        if id.contains(['/', '.']) || id.is_empty() {
+            return Err(CourseError::Pack(PackError::Archive(id.to_string())));
+        }
+        let package = self.package(id);
+        fs::remove_file(&package).map_err(|source| CourseError::Io {
+            path: package,
+            source,
+        })?;
+
+        // Unpacked videos only save time; one left behind is no harm.
+        let _ = fs::remove_dir_all(cache.join(DIR).join(id));
+        Ok(())
+    }
+
     fn package(&self, id: &str) -> PathBuf {
         self.dir.join(format!("{id}.{COURSE_EXT}"))
     }
@@ -310,6 +328,11 @@ mod tests {
             .media_file("weber", "media/../../../weber.kontrakurs", &cache)
             .is_err());
         assert_eq!(store.subtitles("weber", "media/a.vtt")[0].text, "Hallo");
+
+        store.remove("weber", &cache).unwrap();
+        assert!(store.load().is_empty());
+        assert!(!video.exists(), "unpacked media goes with it");
+        assert!(store.remove("../weber", &cache).is_err());
         fs::remove_dir_all(dir).unwrap();
     }
 

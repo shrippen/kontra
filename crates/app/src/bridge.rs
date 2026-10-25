@@ -593,6 +593,11 @@ pub mod qobject {
         #[cxx_name = "lessonVideo"]
         fn lesson_video(self: &Self, id: &QString, page: i32, block: i32) -> QString;
 
+        /// Removes added course `id`; "" when done, else what went wrong.
+        #[qinvokable]
+        #[cxx_name = "courseRemove"]
+        fn course_remove(self: Pin<&mut Self>, id: &QString) -> QString;
+
         /// Learns course `id` from now on.
         #[qinvokable]
         #[cxx_name = "chooseCourse"]
@@ -2311,6 +2316,10 @@ impl qobject::Controller {
             return QString::default();
         };
         q(&self.rust().core.lesson_video(&id.to_string(), page, block))
+    }
+
+    fn course_remove(mut self: Pin<&mut Self>, id: &QString) -> QString {
+        q(&self.as_mut().core().course_remove(&id.to_string()))
     }
 
     fn choose_course(mut self: Pin<&mut Self>, id: &QString) {

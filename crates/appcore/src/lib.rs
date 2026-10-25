@@ -4382,9 +4382,22 @@ mod tests {
         let mut core = Core::new(&dir.join("data"), QaOptions::default());
         let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
         assert_eq!(learn["course"], "weber.kurs");
+        assert_eq!(learn["courses"][1]["removable"], true);
         core.choose_course("bass");
         let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
         assert_eq!(learn["course"], "bass");
+        assert_eq!(learn["courses"][0]["removable"], false);
+
+        // Removed: the bundled course again; adding it back keeps what was learned.
+        core.choose_course("weber.kurs");
+        core.lesson_seen("weber.start", usize::MAX - 1);
+        assert_eq!(core.course_remove("weber.kurs"), "");
+        let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
+        assert_eq!(learn["course"], "bass");
+        assert_eq!(learn["courses"].as_array().map(Vec::len), Some(1));
+        assert_eq!(core.course_add(&file), "");
+        let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
+        assert_ne!(learn["next"]["id"], "weber.start");
         std::fs::remove_dir_all(dir).unwrap();
     }
 

@@ -5,6 +5,7 @@
 //! QML ──course_preview(path)──▶ {title, provider, license, hosts, problems, fits}
 //!     ──course_add(path)──────▶ CourseStore (data folder) ──▶ Core::courses, chosen course
 //!     ──choose_course(id)─────▶ Settings::course
+//!     ──course_remove(id)─────▶ CourseStore (package and unpacked media; progress stays)
 //!     ──course_fetch(url)─────▶ CourseFetch (thread) ──course_fetch_poll() each tick──▶ preview
 //!     ──lesson_video(…)───────▶ https address as written, or the video unpacked into the cache
 //! ```
@@ -121,6 +122,29 @@ impl Core {
     /// Learns course `id` from now on (one of `learn_json`'s `courses`).
     pub fn choose_course(&mut self, id: &str) {
         self.update_settings(|s| s.course = Some(id.to_string()));
+    }
+
+    /// Removes the added package holding course `id`; the learning progress stays. "" when
+    /// done, else what went wrong. The bundled course cannot be removed.
+    pub fn course_remove(&mut self, id: &str) -> String {
+        let Some(pack) = self.courses.iter().find(|c| c.manifest.course == id) else {
+            return String::new();
+        };
+        let cache = crate::store::cache_dir(&self.data_dir);
+        let store = CourseStore::new(&self.data_dir);
+        if let Err(e) = store.remove(&pack.manifest.id, &cache) {
+            return self.course_error(&e);
+        }
+        self.courses = store.load();
+        if self.settings().course.as_deref() == Some(id) {
+            self.update_settings(|s| s.course = None);
+        }
+        String::new()
+    }
+
+    /// Whether course `id` came from an added package (and can be removed).
+    pub(crate) fn is_added(&self, id: &str) -> bool {
+        self.courses.iter().any(|c| c.manifest.course == id)
     }
 
     /// What to play for video block `block` on page `page` of lesson `id`, only when asked

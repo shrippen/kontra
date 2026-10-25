@@ -116,7 +116,7 @@ impl Core {
 
     /// The course: `{"fits", "next": {id, title} | null, "chapters": [{id, title, done, total,
     /// questions, units: [{id, title, done, fits}], finale: practice | null}], "course": id,
-    /// "courses": [{id, title}]}`. `fits` false: the course is not for this instrument
+    /// "courses": [{id, title, removable}]}`. `fits` false: the course is not for this instrument
     /// (LH-LRN-12); `courses` are all for it, to choose from (LH-LRN-14).
     pub fn learn_json(&self) -> String {
         let (Some(learning), lang) = (self.learning(), self.learn_lang()) else {
@@ -163,7 +163,10 @@ impl Core {
             .collect();
         let courses: Vec<Value> = learning
             .courses()
-            .map(|c| json!({ "id": c.id, "title": self.course_title(&c.id) }))
+            .map(|c| {
+                json!({ "id": c.id, "title": self.course_title(&c.id),
+                        "removable": self.is_added(&c.id) })
+            })
             .collect();
         json!({ "fits": true, "next": next, "chapters": chapters, "course": course.id,
                 "courses": courses })

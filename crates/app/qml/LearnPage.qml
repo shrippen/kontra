@@ -26,6 +26,10 @@ Kirigami.ScrollablePage {
     readonly property bool fetching: fetchState.state === "running"
     readonly property string fetchError: fetchState.state === "error" ? fetchState.message : ""
     readonly property string nextId: course.next ? course.next.id : ""
+    // The chosen course as `learnJson` lists it; removing asks first.
+    readonly property var chosen: (course.courses || []).find(function(c) { return c.id === course.course }) || null
+    property bool removing: false
+    property string removeError: ""
 
     function open(id) {
         applicationWindow().lessonId = id
@@ -60,6 +64,14 @@ Kirigami.ScrollablePage {
 
     function reload() {
         page.course = JSON.parse(ctl.learnJson())
+    }
+    function removeCourse() {
+        page.removeError = ctl.courseRemove(page.chosen.id)
+        if (page.removeError !== "") {
+            return
+        }
+        page.removing = false
+        page.reload()
     }
     function addCourse() {
         page.addError = ctl.courseAdd(page.previewUrl)
@@ -161,8 +173,39 @@ Kirigami.ScrollablePage {
                 currentIndex: (page.course.courses || []).findIndex(function(c) { return c.id === page.course.course })
                 onActivated: function(index) {
                     ctl.chooseCourse(page.course.courses[index].id)
+                    page.removing = false
                     page.reload()
                 }
+            }
+            KanteButton {
+                visible: page.chosen !== null && page.chosen.removable
+                text: texts.t("courses.remove")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: {
+                    page.removeError = ""
+                    page.removing = true
+                }
+            }
+        }
+
+        // Removing an added course: asked first; what was learned stays for a later add.
+        KanteCallout {
+            Layout.fillWidth: true
+            Layout.maximumWidth: KanteStyle.unit(640)
+            visible: page.removing && page.chosen !== null
+            kind: KanteCallout.Kind.Warn
+            autoHide: false
+            title: page.chosen ? texts.t("courses.remove.title", { title: page.chosen.title }) : ""
+            text: page.removeError !== "" ? page.removeError : texts.t("courses.remove.text")
+            KanteButton {
+                text: texts.t("courses.remove.confirm")
+                emphasis: KanteButton.Emphasis.Primary
+                onClicked: page.removeCourse()
+            }
+            KanteButton {
+                text: texts.t("courses.cancel")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: page.removing = false
             }
         }
 
