@@ -354,7 +354,8 @@ pub fn read_media(path: &Path, src: &str) -> Result<Vec<u8>, PackError> {
 /// The course file at `path` as an archive read as needed; one above `MAX_COURSE_BYTES` (a
 /// video picked by mistake) is refused before anything is read.
 fn packed(path: &Path) -> Result<Zip<BufReader<File>>, PackError> {
-    let fail = |e: std::io::Error| PackError::archive(format!("{}: {e}", path.display()));
+    // The caller names the file (`kontra-cli course check x.kontrakurs` says "x.kontrakurs: …").
+    let fail = |e: std::io::Error| PackError::archive(e.to_string());
     let size = std::fs::metadata(path).map_err(fail)?.len();
     if size > MAX_COURSE_BYTES {
         return Err(PackError::archive(format!("{size} bytes")));
