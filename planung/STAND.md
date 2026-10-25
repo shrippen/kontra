@@ -42,8 +42,9 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 
 ## Offen
 
-- **Flakiger Journey-Test** J-C5 (`c5_techniques.rs`): Ursache war die Analyse, die unter Last mehr als 250 ms
-  hinter der Uhr lag; die Session wartet jetzt auf sie (`Event::Heard`, PR `analyse-rueckstand`).
+- **Flakiger Journey-Test** J-C5 (`c5_techniques.rs`): vermutete Ursache (nicht nachgestellt): die Analyse lag
+  unter Last mehr als 250 ms hinter der Uhr; die Session wartet jetzt auf sie (`Event::Heard`, #132). Tritt er
+  wieder auf, ist es eine andere Ursache.
 - **Speicherdialoge:** seit #92 über das Desktop-Portal; Vorschlag (`selectedFile`) und Titel im echten KDE-Dialog
   ungeprüft (Paket, Bericht, Daten).
 
