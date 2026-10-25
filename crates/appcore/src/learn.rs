@@ -364,13 +364,13 @@ impl Core {
             .collect()
     }
 
-    /// One block for QML, by `kind`: text/hint `{html}`, list `{items: [html]}`, figure/listen/
+    /// One block for QML, by `kind`: text `{html}`, hint `{text}`, list `{items: [html]}`, figure/listen/
     /// try `{notes, positions: [{string, fret, label}]}`, practice `{title, speeds}`, question
     /// `{html, options: [text], answer}`, tuner, video `{src}`.
     fn block_json(&self, block: &Block) -> Value {
         match block {
             Block::Text(spans) => json!({ "kind": "text", "html": html(spans) }),
-            Block::Hint(spans) => json!({ "kind": "hint", "html": html(spans) }),
+            Block::Hint(spans) => json!({ "kind": "hint", "text": plain(spans) }),
             Block::List(items) => {
                 let items: Vec<String> = items.iter().map(|i| html(i)).collect();
                 json!({ "kind": "list", "items": items })

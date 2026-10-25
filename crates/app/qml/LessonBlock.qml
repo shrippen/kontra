@@ -55,7 +55,7 @@ ColumnLayout {
         visible: block.kindName === "hint"
         kind: KanteCallout.Kind.Info
         autoHide: false
-        text: block.kindName === "hint" ? block.modelData.html : ""
+        text: block.kindName === "hint" ? block.modelData.text : ""
     }
 
     // Tones: their names, and where they lie on a string instrument.

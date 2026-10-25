@@ -413,6 +413,10 @@ impl<'a> Reader<'a> {
                     let Block::Text(more) = block else {
                         return Err(self.err_at(line, "a hint holds text only"));
                     };
+                    // The box shows plain text: no links to follow, no emphasis.
+                    if more.iter().any(|s| !matches!(s, Span::Text(_))) {
+                        return Err(self.err_at(line, "a hint holds plain text only"));
+                    }
                     if !spans.is_empty() {
                         spans.push(Span::Text(" ".to_string()));
                     }
@@ -832,6 +836,13 @@ Wie viele Halbtöne hat die kleine Septime?
 
         let two = "# T\nid: t\n## P\n::: question\nQ?\n- [x] a\n- [x] b\n:::\n";
         assert_eq!(unit("u/de.md", two).unwrap_err().line, 7);
+        // Review #122: a hint box shows plain text; a link in it could not be followed.
+        let link = "# T\nid: t\n## P\n::: hint\nSiehe [[bund]].\n:::\n";
+        let e = unit("u/de.md", link).unwrap_err();
+        assert_eq!(
+            (e.line, e.reason.as_str()),
+            (4, "a hint holds plain text only")
+        );
     }
 
     /// Review #119: text after a list without a blank line stayed before it.
