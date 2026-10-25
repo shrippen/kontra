@@ -1,4 +1,5 @@
-//! Evaluation after a run (LH-BEW-03): hit rate, timing histogram and tendency, hardest bars.
+//! Evaluation after a run (LH-BEW-03): hit rate, timing histogram and tendency, hardest bars,
+//! bars the player hesitated at (DIDAKTIK I6).
 
 use crate::matcher::{NoteResult, Outcome};
 use crate::technique::TechniqueTally;
@@ -9,6 +10,8 @@ use std::collections::BTreeMap;
 const BIN_MS: f64 = 10.0;
 const HISTOGRAM_LIMIT_MS: f64 = 100.0;
 const HARDEST_BARS: usize = 3;
+/// A bar's first note this much later than the player's own mean is a hesitation.
+const HESITATE_MS: f64 = 80.0;
 
 /// Counts of timing offsets in 10 ms bins from −100 to +100 ms; outliers go to the edge bins.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -57,6 +60,10 @@ pub struct Summary {
     pub histogram: TimingHistogram,
     /// Bars with the lowest hit rate, worst first (index into `Arrangement::bars`).
     pub hardest_bars: Vec<usize>,
+    /// Bars the player hesitated at, in order (index into `Arrangement::bars`); see
+    /// `hesitant_bars`.
+    #[serde(default)]
+    pub hesitant_bars: Vec<usize>,
     /// Techniques apart from the hit rate (LH-BEW-06): "Slides 8 of 10".
     #[serde(default)]
     pub techniques: Vec<TechniqueTally>,
@@ -110,6 +117,7 @@ impl Summary {
             mean_abs_cents: mean(&cents),
             histogram: TimingHistogram::from_offsets(&offsets),
             hardest_bars: hardest_bars(&final_results, arrangement),
+            hesitant_bars: hesitant_bars(&final_results, mean_offset.unwrap_or(0.0)),
             techniques: Vec::new(),
             untold_techniques: Vec::new(),
         }
@@ -158,4 +166,78 @@ fn hardest_bars(results: &[NoteResult], arrangement: &Arrangement) -> Vec<usize>
         .take(HARDEST_BARS)
         .map(|(bar, _)| bar)
         .collect()
+}
+
+/// Bars the player hesitated at: the bar before was played to its end, then the bar's first
+/// note came late (`HESITATE_MS` behind the run's mean offset) or not at all. `results` are the
+/// final results per note, in order of pass and note.
+///
+/// ```text
+/// bar      3          4
+/// played   ♩ ♩ ♩ ♩ |     ♩ ♩ ♩      first note of bar 4 missed: hesitated at 4
+/// ```
+fn hesitant_bars(results: &[NoteResult], mean_offset_ms: f64) -> Vec<usize> {
+    let mut bars = Vec::new();
+    for pair in results.windows(2) {
+        let [before, first] = pair else {
+            continue;
+        };
+        let (Some(was), Some(bar)) = (before.bar, first.bar) else {
+            continue;
+        };
+        if before.pass != first.pass || bar != was + 1 || matches!(before.outcome, Outcome::Missed)
+        {
+            continue;
+        }
+
+        let late = first
+            .offset_ms
+            .is_some_and(|ms| ms - mean_offset_ms >= HESITATE_MS);
+        if (matches!(first.outcome, Outcome::Missed) || late) && !bars.contains(&bar) {
+            bars.push(bar);
+        }
+    }
+    bars.sort_unstable();
+    bars
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// One note per beat, four to a bar: `(outcome, offset)` in order.
+    fn played(notes: &[(Outcome, Option<f64>)]) -> Vec<NoteResult> {
+        notes
+            .iter()
+            .enumerate()
+            .map(|(i, (outcome, offset_ms))| NoteResult {
+                pass: 0,
+                note: Some(i),
+                bar: Some(i / 4),
+                outcome: *outcome,
+                offset_ms: *offset_ms,
+                cents: None,
+                position_s: i as f64 * 0.5,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn hesitating_at_a_bar_line_is_told_from_a_slip() {
+        let on = (Outcome::Hit, Some(30.0));
+        let late = (Outcome::Hit, Some(130.0));
+        let missed = (Outcome::Missed, None);
+        let results = played(&[
+            on, on, on, on, // bar 0
+            missed, on, on, on, // bar 1: stops before it
+            on, on, missed, on, // bar 2: a slip inside the bar
+            late, on, on, on, // bar 3: comes in late
+            on, on, on, missed, // bar 4
+            missed, on, on, on, // bar 5: the bar before was not played to its end
+        ]);
+        // The run drags by 30 ms on average; bar 3 comes 100 ms behind that.
+        assert_eq!(hesitant_bars(&results, 30.0), [1, 3]);
+        // Measured against a run that drags by 60 ms, 70 ms is no hesitation.
+        assert_eq!(hesitant_bars(&results, 60.0), [1]);
+    }
 }

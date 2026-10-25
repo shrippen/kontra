@@ -21,7 +21,7 @@ Neue pub-Schnittstellen zur Freigabe (nächste Runde): `kontra_content::lesson` 
 `glossary_json`, `glossary_list_json`.
 
 Plan (Eigentümer, 24.10.): Didaktik I4 (#106), I5 (#107), I6 umgesetzt. Offen aus
-I5: Ziel-Band im Histogramm (Kante); aus I6: Phrasengrenzen aus Zögern.
+I5: Ziel-Band im Histogramm (Kante). I6 Phrasengrenzen aus Zögern: `zoegern`.
 
 CI läuft seit 24.10. auf GitHub (`.github/workflows/ci.yml`, Status `github / test` an Gitea, #102); Gitea führt nur
 PR-Agent aus.

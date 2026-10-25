@@ -35,6 +35,10 @@ pub struct Run {
     /// Bars with the most mistakes, as numbered in the score (progress report, LH-FOR-04).
     #[serde(default)]
     pub hardest_bars: Vec<u32>,
+    /// Bars the player hesitated at, numbered as `hardest_bars` (DIDAKTIK I6: phrases start
+    /// there).
+    #[serde(default)]
+    pub hesitant_bars: Vec<u32>,
     /// Timing spread of the run (ms), to compare a blind probe with the practice before it.
     #[serde(default)]
     pub spread_ms: Option<f64>,
@@ -217,6 +221,11 @@ pub fn run_from(
             .iter()
             .map(|b| u32::try_from(*b + 1).unwrap_or(u32::MAX))
             .collect(),
+        hesitant_bars: summary
+            .hesitant_bars
+            .iter()
+            .map(|b| u32::try_from(*b + 1).unwrap_or(u32::MAX))
+            .collect(),
         spread_ms: summary.spread_ms,
     }
 }
@@ -241,6 +250,7 @@ mod tests {
             mode: "song".into(),
             section: None,
             hardest_bars: Vec::new(),
+            hesitant_bars: Vec::new(),
         };
         store.record(&a, run(1)).unwrap();
         let old = ProgressStore::song_id(&a);
@@ -273,6 +283,7 @@ mod tests {
             mode: "song".into(),
             section: None,
             hardest_bars: Vec::new(),
+            hesitant_bars: Vec::new(),
         };
         store.record(&a, run.clone()).unwrap();
         let p = store

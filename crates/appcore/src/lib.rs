@@ -1763,7 +1763,8 @@ impl Core {
         let Some(a) = self.arrangement() else {
             return false;
         };
-        let cut = |bars| Chain::new(a, bars, blocks, order, &Workshop::default());
+        let hesitant = self.hesitant_bars();
+        let cut = |bars| Chain::new(a, bars, blocks, &hesitant, order, &Workshop::default());
         // Chosen bars that make one block leave nothing to join: the whole piece instead.
         let chain = match chosen.map(cut) {
             Some(chain) if chain.count() > 1 => chain,
@@ -1772,6 +1773,35 @@ impl Core {
         let (from, to) = chain.step();
         self.chain = Some((chain, chosen));
         self.loop_to(from, to)
+    }
+
+    /// Bars (indices) the player keeps hesitating at, from the piece's last runs; phrases start
+    /// there.
+    fn hesitant_bars(&self) -> Vec<usize> {
+        let (Some(loaded), Some(a)) = (self.loaded.as_ref(), self.arrangement()) else {
+            return Vec::new();
+        };
+        let Ok(progress) = self.progress_store().load(&loaded.full) else {
+            return Vec::new();
+        };
+        let mut counts = std::collections::BTreeMap::new();
+        for run in progress.runs.iter().rev().take(HESITATION_RUNS) {
+            for bar in &run.hesitant_bars {
+                *counts.entry(*bar).or_insert(0) += 1;
+            }
+        }
+
+        // Stored as printed numbers; with repeats a number names several bars.
+        a.bars
+            .iter()
+            .enumerate()
+            .filter(|(_, bar)| {
+                counts
+                    .get(&(bar.source_index + 1))
+                    .is_some_and(|n| *n >= HESITATION_MIN)
+            })
+            .map(|(i, _)| i)
+            .collect()
     }
 
     /// Ends the building blocks; the loop goes back to the one chosen before them (none, if
@@ -2271,6 +2301,12 @@ impl Core {
         // Bar numbers as printed in the score (repeats are unrolled into more bars).
         run.hardest_bars = summary
             .hardest_bars
+            .iter()
+            .filter_map(|b| arrangement.bars.get(*b))
+            .map(|bar| bar.source_index + 1)
+            .collect();
+        run.hesitant_bars = summary
+            .hesitant_bars
             .iter()
             .filter_map(|b| arrangement.bars.get(*b))
             .map(|bar| bar.source_index + 1)
@@ -3643,6 +3679,10 @@ const SPOT_DAYS: u64 = 3;
 const SPOT_REST_S: u64 = 8 * 60 * 60;
 /// Bars on the card.
 const SPOTS: usize = 2;
+/// Phrases from hesitating (DIDAKTIK I6): a bar counts when the player hesitated there in at
+/// least `HESITATION_MIN` of the piece's last `HESITATION_RUNS` runs; once may be a slip.
+const HESITATION_RUNS: usize = 5;
+const HESITATION_MIN: usize = 2;
 /// Level folders of the bundled exercises renamed since a release (old, new); Runde 12 put
 /// Groove before Walking Bass.
 const LEVEL_MOVES: [(&str, &str); 2] = [
@@ -5091,6 +5131,7 @@ mod tests {
                 mode: "song".into(),
                 section: None,
                 hardest_bars: Vec::new(),
+                hesitant_bars: Vec::new(),
             };
             core.progress_store().record(&a, run).unwrap();
         }
@@ -5326,6 +5367,7 @@ mod tests {
             mode: "song".into(),
             section: None,
             hardest_bars: Vec::new(),
+            hesitant_bars: Vec::new(),
         };
         // The first exercise is judged by time only: it sits with a small spread, too (I4).
         core.progress_store()
@@ -5386,6 +5428,7 @@ mod tests {
             mode: "song".into(),
             section: None,
             hardest_bars: Vec::new(),
+            hesitant_bars: Vec::new(),
         };
         let sits = |core: &Core| {
             let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
@@ -5439,6 +5482,48 @@ mod tests {
         core.start_chain(Blocks::Phrases, ChainOrder::Forward);
         let chain: serde_json::Value = serde_json::from_str(&core.chain_json()).unwrap();
         assert!(chain["steps"].as_u64().unwrap() > 1, "{chain}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// I6: a phrase starts at a bar the player hesitated at in two of the last runs; once is
+    /// a slip.
+    #[test]
+    fn chain_cuts_phrases_where_the_player_hesitates() {
+        let dir = temp_dir("chainhesitant");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let spec = Core::exercise_spec("groove", "145", "eighths", 4, 80.0, "").unwrap();
+        let path = core.generate_exercise(&spec).unwrap();
+        core.open(&path).unwrap();
+        core.set_mode("workshop");
+        core.set_loop(0, 7);
+        let full = core.loaded.as_ref().unwrap().full.clone();
+        let run = |hesitant: Vec<u32>| Run {
+            finished_unix: 1,
+            practice_s: 60.0,
+            speed: 1.0,
+            hit_rate: 0.8,
+            mode: "workshop".into(),
+            section: None,
+            hardest_bars: Vec::new(),
+            hesitant_bars: hesitant,
+            spread_ms: None,
+        };
+
+        // Printed bar 3 is index 2.
+        core.progress_store().record(&full, run(vec![3])).unwrap();
+        core.start_chain(Blocks::Phrases, ChainOrder::Forward);
+        assert_eq!(core.looping, Some((0, 3)), "once: four bars as before");
+
+        core.stop_chain();
+        core.progress_store()
+            .record(&full, run(vec![3, 6]))
+            .unwrap();
+        core.start_chain(Blocks::Phrases, ChainOrder::Forward);
+        assert_eq!(
+            core.looping,
+            Some((0, 1)),
+            "twice: a phrase starts at bar 3"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -5565,6 +5650,7 @@ mod tests {
             mode: WORKSHOP_MODE.into(),
             section: Some((start_s, end_s)),
             hardest_bars: Vec::new(),
+            hesitant_bars: Vec::new(),
             spread_ms: Some(11.0),
         };
         core.progress_store().record(&a, run).unwrap();
@@ -5651,6 +5737,7 @@ mod tests {
             mode: mode.into(),
             section: Some((start_s, end_s)),
             hardest_bars: Vec::new(),
+            hesitant_bars: Vec::new(),
             spread_ms: None,
         };
         let offer = |core: &Core| {
@@ -5695,6 +5782,7 @@ mod tests {
             mode: WORKSHOP_MODE.into(),
             section: Some(section),
             hardest_bars: Vec::new(),
+            hesitant_bars: Vec::new(),
             spread_ms: None,
         };
         let store = core.progress_store();
@@ -5745,6 +5833,7 @@ mod tests {
             mode: "song".into(),
             section: None,
             hardest_bars: bars.to_vec(),
+            hesitant_bars: Vec::new(),
         };
         let spots = |core: &Core| {
             let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
@@ -5883,6 +5972,7 @@ mod tests {
             mode: "song".into(),
             section: None,
             hardest_bars: Vec::new(),
+            hesitant_bars: Vec::new(),
         };
         core.progress_store().record(&a, run).unwrap();
         let progress: serde_json::Value = serde_json::from_str(&core.progress_json()).unwrap();
@@ -5913,6 +6003,7 @@ mod tests {
             mode: "song".into(),
             section: None,
             hardest_bars: Vec::new(),
+            hesitant_bars: Vec::new(),
         };
         core.progress_store().record(&before, run).unwrap();
         core.library.entry_mut(&path).unwrap().song_id = old_id.clone();
@@ -5961,6 +6052,7 @@ mod tests {
                 mode: "song".into(),
                 section: None,
                 hardest_bars: Vec::new(),
+                hesitant_bars: Vec::new(),
             };
             core.progress_store().record(&a, run).unwrap();
             let old = Core::exercises_dir()
@@ -6079,6 +6171,7 @@ mod tests {
             mode: "song".into(),
             section: None,
             hardest_bars: Vec::new(),
+            hesitant_bars: Vec::new(),
         };
         core.progress_store().record(&a, run).unwrap();
         let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
@@ -6120,6 +6213,7 @@ mod tests {
                 .into(),
                 section,
                 hardest_bars: Vec::new(),
+                hesitant_bars: Vec::new(),
             };
             core.progress_store().record(&a, run).unwrap();
         }
@@ -6210,6 +6304,7 @@ mod tests {
             mode: "song".into(),
             section: None,
             hardest_bars: Vec::new(),
+            hesitant_bars: Vec::new(),
         };
         first.progress_store().record(&a, run).unwrap();
         let file = dir.join("sicherung.json");
@@ -6262,6 +6357,7 @@ mod tests {
                 mode: "workshop".into(),
                 section: None,
                 hardest_bars: vec![3, 7],
+                hesitant_bars: Vec::new(),
             };
             core.progress_store().record(&a, run).unwrap();
         }
@@ -6305,6 +6401,7 @@ mod tests {
             mode: "workshop".into(),
             section: None,
             hardest_bars: vec![2],
+            hesitant_bars: Vec::new(),
         };
         teacher.progress_store().record(&a, run).unwrap();
         let linked = dir.join("etude-link.kontra");

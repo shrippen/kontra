@@ -216,7 +216,9 @@ die Bünde (nächste Übung).*
 - **Braucht:** Werkstatt mit Bereichsliste und Abfolge; automatische Phrasengrenzen (einfach: alle 2 oder 4 Takte).
 - **Umgesetzt (24.10., LH-MOD-08):** Bausteine zu 2 oder 4 Takten, vorwärts oder von hinten; ein sitzender Schritt
   startet den nächsten mit Einzähler. Seit 25.10. auch nach Phrasen aus Pausen (mindestens eine Viertel an der
-  Taktgrenze, 2 bis 4 Takte). Offen: Phrasengrenzen aus Zögern des Spielers.
+  Taktgrenze, 2 bis 4 Takte), und vor Takten, an denen der Spieler zögert: der erste Ton fehlt oder
+  kommt 80 ms hinter seinem eigenen Mittel, obwohl der Takt davor zu Ende gespielt war, in zwei der letzten fünf
+  Durchläufe. Ungeprüft an echten Spielern.
 - **Messgröße:** Übungszeit bis Lied ganz durch mit ≥ 85 %; Behalten nach 2 Tagen.
 - **Aufwand:** M.
 
