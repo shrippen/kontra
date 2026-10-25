@@ -10,7 +10,6 @@ Der [[notenwert|Notenwert]] sagt, wie lange ein Ton klingt, gezählt in Schläge
 - Halbe Note: zwei Schläge.
 - Viertelnote: ein Schlag.
 - Achtelnote: ein halber Schlag.
-::: listen root=E steps="0 0 0"
 
 ## Pausen zählen mit
 Eine [[pause|Pause]] ist ein Notenwert ohne Ton: Du zählst weiter, spielst aber nicht. Jede Note hat ihre Pause mit

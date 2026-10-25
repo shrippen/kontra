@@ -10,7 +10,6 @@ The [[notenwert|note value]] says how long a note sounds, counted in beats:
 - Half note: two beats.
 - Quarter note: one beat.
 - Eighth note: half a beat.
-::: listen root=E steps="0 0 0"
 
 ## Rests count too
 A [[pause|rest]] is a note value without a note: you keep counting but do not play. Every note has a rest of the same
