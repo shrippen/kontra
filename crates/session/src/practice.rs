@@ -259,7 +259,14 @@ impl<O: Output> Practice<O> {
                 cents: r.cents,
             }),
             Event::Error(message) => Some(PracticeEvent::Error(message)),
-            Event::Ended => Some(PracticeEvent::InputEnded),
+            Event::Heard { at_s } => {
+                self.session.on_heard(at_s);
+                None
+            }
+            Event::Ended => {
+                self.session.on_input_ended();
+                Some(PracticeEvent::InputEnded)
+            }
         }
     }
 

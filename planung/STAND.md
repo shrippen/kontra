@@ -32,10 +32,8 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 
 ## Offen
 
-- **Flakiger Journey-Test** J-C5 (`c5_techniques.rs:107`): unter Last (Load > 120) einmal ein Extra-Ton bei
-  Hammer-on/Pull-off (24.10., einmal in `make check`, dreimal danach grün). Reparieren, nicht ausnehmen. 25.10.:
-  nicht nachgestellt (172 Läufe bei Load bis 170, auch 8 parallel). Verdacht: Bei `Pace::RealTime` stempelt die
-  Engine Noten auf ihre Uhr; ein verspäteter Block verschiebt einen Ton aus dem Fenster.
+- **Flakiger Journey-Test** J-C5 (`c5_techniques.rs`): Ursache war die Analyse, die unter Last mehr als 250 ms
+  hinter der Uhr lag; die Session wartet jetzt auf sie (`Event::Heard`, PR `analyse-rueckstand`).
 - **Speicherdialoge:** seit #92 über das Desktop-Portal; Vorschlag (`selectedFile`) und Titel im echten KDE-Dialog
   ungeprüft (Paket, Bericht, Daten).
 
