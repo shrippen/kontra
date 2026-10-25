@@ -103,6 +103,7 @@
   "fretboard.name": "Griffbrett",
   "fretboard.marker": "%1: Saite %2, Bund %3",
   "histogram.mean": "Mittel",
+  "histogram.band": "Ziel",
   "histogram.count": "%1 Noten",
   "histogram.name": "Timing",
   "tuner.name": "Stimmgerät",

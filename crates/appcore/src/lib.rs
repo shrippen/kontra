@@ -2815,6 +2815,11 @@ impl Core {
             "tendencyText": tendency,
             "spreadText": s.spread_ms.map_or(String::new(), |v| self.tr("summary.spread", &[("ms", format!("{v:.0}"))])),
             "pocketText": self.pocket_text(s),
+            // The aim's band for the histogram (I5): [low, high] in ms, null without an aim.
+            "pocketBandMs": Pocket::from_key(&self.settings.pocket)
+                .unwrap_or_default()
+                .band_ms()
+                .map(|(low, high)| [low, high]),
             // Intonation only where it is scored: a fretless or double bass, or off-pitch notes.
             "intonationText": match s.mean_abs_cents {
                 Some(c) if s.off_pitch > 0 || self.scored_intonation() => self.tr("summary.intonation", &[
@@ -5399,8 +5404,19 @@ mod tests {
             v["pocketText"].as_str().unwrap().to_owned()
         };
         assert_eq!(text(&core, &s), "", "no aim");
+        let band = |core: &Core, s: &kontra_session::Summary| {
+            let v: serde_json::Value =
+                serde_json::from_str(&core.summary_json(s, &[], &[])).unwrap();
+            v["pocketBandMs"].clone()
+        };
+        assert!(band(&core, &s).is_null());
 
         core.update_settings(|s| s.pocket = "laidback".into());
+        assert_eq!(
+            band(&core, &s),
+            serde_json::json!([10.0, 30.0]),
+            "for the histogram"
+        );
         assert_eq!(
             text(&core, &s),
             "Ziel laid-back (10 bis 30 ms dahinter): verfehlt, 6 ms zu früh"

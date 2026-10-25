@@ -122,6 +122,10 @@ KanteCard {
             firstBinMs: sheet.summary ? sheet.summary.firstBinMs : -100
             binMs: sheet.summary ? sheet.summary.binMs : 10
             meanMs: sheet.summary ? sheet.summary.meanOffsetMs : NaN
+            // The aim against the beat (I5) as a band; none without an aim.
+            bandMinMs: sheet.summary && sheet.summary.pocketBandMs ? sheet.summary.pocketBandMs[0] : NaN
+            bandMaxMs: sheet.summary && sheet.summary.pocketBandMs ? sheet.summary.pocketBandMs[1] : NaN
+            bandText: texts.t("histogram.band")
             earlyText: texts.t("result.early")
             lateText: texts.t("result.late")
             meanText: texts.t("histogram.mean")

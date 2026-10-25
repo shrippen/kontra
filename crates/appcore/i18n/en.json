@@ -103,6 +103,7 @@
   "fretboard.name": "Fretboard",
   "fretboard.marker": "%1: string %2, fret %3",
   "histogram.mean": "mean",
+  "histogram.band": "Aim",
   "histogram.count": "%1 notes",
   "histogram.name": "Timing",
   "tuner.name": "Tuner",
