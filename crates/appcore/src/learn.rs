@@ -201,33 +201,59 @@ impl Core {
     }
 
     /// One glossary term: `{"id", "title", "blocks": [block], "lesson": {id, title} | null}`;
-    /// "" for an unknown id.
+    /// "" for an unknown id. Several courses explaining the term give their texts one after
+    /// the other, bundled first; the first block of each carries `from` ("Aus: Bass-Kurs").
     pub fn glossary_json(&self, id: &str) -> String {
         let Some(learning) = self.learning() else {
             return String::new();
         };
-        let Some(term) = learning.term(id) else {
+        let docs = self.term_docs(&learning, id);
+        let Some((_, first)) = docs.first() else {
             return String::new();
         };
         let lang = self.learn_lang();
-        let Some(doc) = learning.doc(&term.texts, lang) else {
-            return String::new();
-        };
-        let lesson = term
-            .lesson
-            .as_deref()
+        let lesson = learning
+            .term_texts(id)
+            .into_iter()
+            .find_map(|(t, _)| t.lesson.as_deref())
             .and_then(|l| learning.unit(l))
             .filter(|u| learning.fits(&u.scope))
             .and_then(|u| {
                 let title = learning.doc(&u.texts, lang)?.title;
                 Some(json!({ "id": u.id, "title": title }))
             });
-        let blocks: Vec<Value> = doc
-            .pages
-            .iter()
-            .flat_map(|p| p.blocks.iter().map(|b| self.block_json(b)))
-            .collect();
-        json!({ "id": term.id, "title": doc.title, "blocks": blocks, "lesson": lesson }).to_string()
+
+        let mut blocks: Vec<Value> = Vec::new();
+        for (from, doc) in &docs {
+            let start = blocks.len();
+            blocks.extend(
+                doc.pages
+                    .iter()
+                    .flat_map(|p| p.blocks.iter().map(|b| self.block_json(b))),
+            );
+            if let (Some(block), false) = (blocks.get_mut(start), from.is_empty()) {
+                block["from"] = json!(from);
+            }
+        }
+        json!({ "id": id, "title": first.title, "blocks": blocks, "lesson": lesson }).to_string()
+    }
+
+    /// The texts of term `id` with their origin, empty when only one course explains it.
+    fn term_docs(&self, learning: &Learning, id: &str) -> Vec<(String, Doc)> {
+        let lang = self.learn_lang();
+        let texts = learning.term_texts(id);
+        let several = texts.len() > 1;
+        texts
+            .into_iter()
+            .filter_map(|(term, source)| {
+                let doc = learning.doc(&term.texts, lang)?;
+                let from = match several {
+                    true => self.tr("glossary.from", &[("course", self.source_title(source))]),
+                    false => String::new(),
+                };
+                Some((from, doc))
+            })
+            .collect()
     }
 
     /// The term behind a place's "?" (`TOPIC_TERMS`): `{"id", "title", "text"}`, the text its
@@ -270,6 +296,9 @@ impl Core {
             .filter(|t| learning.fits(&t.scope))
             .filter_map(|t| Some((learning.doc(&t.texts, lang)?.title, t.id.clone())))
             .collect();
+        // A term several courses explain is one entry, under its first (bundled) name.
+        let mut seen = std::collections::BTreeSet::new();
+        terms.retain(|(_, id)| seen.insert(id.clone()));
         terms.sort_by_key(|(title, _)| title.to_lowercase());
         let list: Vec<Value> = terms
             .into_iter()
@@ -500,10 +529,12 @@ impl Core {
 
     /// "Listen" or "try" in glossary entry `id`, block `block` (counted over its pages).
     pub fn term_ear(&mut self, id: &str, block: usize) -> Result<String, String> {
+        // Counted over every course's text, as `glossary_json` lists them.
         let block = self.learning().and_then(|learning| {
-            let term = learning.term(id)?;
-            let doc = learning.doc(&term.texts, self.learn_lang())?;
-            doc.pages.into_iter().flat_map(|p| p.blocks).nth(block)
+            self.term_docs(&learning, id)
+                .into_iter()
+                .flat_map(|(_, doc)| doc.pages.into_iter().flat_map(|p| p.blocks))
+                .nth(block)
         });
         self.block_ear(block)
     }

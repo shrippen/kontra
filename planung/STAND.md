@@ -10,8 +10,8 @@ nur, was offen ist und wo es liegt.
 Lernen (Runde 13, `LERNEN.md`): Plan (#118), Format und Kapitel 1 (#119), Kapitel 2–5 (#121), Kapitel 6–15 (#123),
 Ausprobieren per Klick (#124), Wiederholen (#125), „?“ an Fachbegriffen in Übungsziel, Generator und Auswertung (#126)
 gemerged. „?“ an Zeichen und Akkordsymbolen über eine Legende unter dem Griffbrett (LH-LRN-09, `zeichen`). Kurspaket-Format
-und `kontra-cli course new|check|pack` (LH-LRN-14, -15, `kurspaket`); Kurs aus Datei hinzufügen und wählen (`kurs-laden`). Offen: Kurs von Adresse,
-Video-Wiedergabe, Glossar über alle Kurse, Kurswerkstatt mit Fenster (für 1.0), MIME-Typ für `.kontrakurs` in
+und `kontra-cli course new|check|pack` (LH-LRN-14, -15, `kurspaket`); Kurs aus Datei hinzufügen und wählen (`kurs-laden`). Glossar über alle Kurse (`kurs-glossar`). Offen: Kurs von Adresse,
+Video-Wiedergabe, Kurswerkstatt mit Fenster (für 1.0), MIME-Typ für `.kontrakurs` in
 `packaging/` (Doppelklick; braucht die Bestätigung des Eigentümers).
 
 Bestand: In `testdata/exercises` heißen die Ordner 4 und 5 vertauscht („4 Groove“ hält die Walking-Bass-Übungen,

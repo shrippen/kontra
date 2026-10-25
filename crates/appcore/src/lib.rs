@@ -4385,6 +4385,53 @@ mod tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 
+    /// LH-LRN-14: a course explaining a bundled term adds its text under its name; the index
+    /// lists the term once.
+    #[test]
+    fn a_term_from_two_courses_shows_both_texts() {
+        use kontra_session::lesson::{new_course, pack, Author};
+        use serde_json::Value;
+        let dir = temp_dir("course-term");
+        let src = dir.join("src");
+        let author = Author {
+            provider: "Studio Weber".into(),
+            license: "CC-BY-4.0".into(),
+        };
+        new_course(&src, "weber", &author).unwrap();
+        std::fs::create_dir_all(src.join("glossary")).unwrap();
+        for (lang, name, text) in [
+            ("de", "Oktave", "Bei Weber."),
+            ("en", "Octave", "At Weber."),
+        ] {
+            let entry = format!("## {name}\nid: oktave\n\n{text}\n");
+            std::fs::write(src.join(format!("glossary/{lang}.md")), entry).unwrap();
+        }
+        let file = dir.join("weber.kontrakurs");
+        std::fs::write(&file, pack(&src).unwrap()).unwrap();
+        let mut core = Core::new(&dir.join("data"), QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        assert_eq!(core.course_add(&file), "");
+
+        let entry: Value = serde_json::from_str(&core.glossary_json("oktave")).unwrap();
+        let froms: Vec<&str> = entry["blocks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|b| b["from"].as_str())
+            .collect();
+        assert_eq!(froms, ["Aus: Bass-Kurs", "Aus: Mein Kurs"]);
+        assert!(entry.to_string().contains("Bei Weber."));
+
+        let list: Value = serde_json::from_str(&core.glossary_list_json()).unwrap();
+        let octaves = list
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|t| t["id"] == "oktave");
+        assert_eq!(octaves.count(), 1);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
     #[test]
     fn bars_carry_repeat_signs_and_endings() {
         let mut a = arrangement(&[(0, 4 * Q, 34), (4 * Q, 4 * Q, 34)]);

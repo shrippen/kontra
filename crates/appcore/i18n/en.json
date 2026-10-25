@@ -889,7 +889,7 @@
   "courses.bundled": "Bass course",
   "courses.add": "Add course …",
   "courses.filter": "Kontra courses (*.kontrakurs)",
-  "courses.from": "By {provider} · Licence: {license} · {lessons} lessons",
+  "courses.from": "By {provider} · Licence: {license} · Lessons: {lessons}",
   "courses.hosts": "Videos come from: {hosts}. Kontra loads one only when you start it.",
   "courses.nohosts": "No videos from the internet.",
   "courses.other": "This course is for another instrument. It appears once you choose that in the settings.",
@@ -898,5 +898,6 @@
   "courses.more": "… and {count} more.",
   "courses.unreadable": "The file is not a readable course: {reason}",
   "courses.confirm": "Add",
-  "courses.cancel": "Cancel"
+  "courses.cancel": "Cancel",
+  "glossary.from": "From: {course}"
 }

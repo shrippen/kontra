@@ -30,11 +30,14 @@ pub struct Learning {
     scopes: &'static [&'static str],
     /// The course the player chose; empty or not for this profile: the first that is.
     chosen: String,
+    /// The package each term comes from, by position in `lessons.terms`; "" for bundled ones.
+    term_sources: Vec<String>,
 }
 
 impl Learning {
     pub fn new(lessons: Lessons, instrument: &Instrument) -> Learning {
         Learning {
+            term_sources: vec![String::new(); lessons.terms.len()],
             lessons,
             scopes: lesson::scopes(instrument.kind),
             chosen: String::new(),
@@ -56,13 +59,16 @@ impl Learning {
         chosen: &str,
     ) -> Option<Learning> {
         let mut lessons = Lessons::bundled().ok()?;
+        let mut sources = vec![String::new(); lessons.terms.len()];
         for pack in packs {
             lessons.courses.extend(pack.lessons.courses.iter().cloned());
             lessons.units.extend(pack.lessons.units.iter().cloned());
             lessons.terms.extend(pack.lessons.terms.iter().cloned());
+            sources.extend(pack.lessons.terms.iter().map(|_| pack.manifest.id.clone()));
         }
         let mut learning = Learning::new(lessons, instrument);
         learning.chosen = chosen.to_string();
+        learning.term_sources = sources;
         Some(learning)
     }
 
@@ -93,6 +99,18 @@ impl Learning {
 
     pub fn term(&self, id: &str) -> Option<&Term> {
         self.lessons.term(id)
+    }
+
+    /// Every text of term `id` with the package it comes from ("" bundled), bundled first: several
+    /// courses may explain the same term (LH-LRN-14).
+    pub fn term_texts(&self, id: &str) -> Vec<(&Term, &str)> {
+        self.lessons
+            .terms
+            .iter()
+            .zip(&self.term_sources)
+            .filter(|(t, _)| t.id == id)
+            .map(|(t, source)| (t, source.as_str()))
+            .collect()
     }
 
     /// A unit's or term's text in `lang` (or the first one there is), with only the variants for

@@ -78,6 +78,14 @@ impl Core {
         }
     }
 
+    /// The name of a term's source: package `id`, or the bundled course for "".
+    pub(crate) fn source_title(&self, id: &str) -> String {
+        match self.courses.iter().find(|c| c.manifest.id == id) {
+            Some(pack) => self.pack_title(pack),
+            None => self.tr("courses.bundled", &[]),
+        }
+    }
+
     fn pack_title(&self, pack: &CoursePack) -> String {
         let titles = &pack.manifest.title;
         titles
