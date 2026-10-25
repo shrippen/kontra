@@ -115,10 +115,11 @@ kurs.kontrakurs
 
 - `id` (a–z, `-`) ist das Präfix des Kurses und jeder eigenen Lektion (`studio-weber.anschlag`): Lektionen aus dem
   mitgelieferten Vorrat dürfen genannt (Kapitel, `needs`), aber nicht ersetzt werden. Begriffe im Glossar dürfen
-  mitgelieferte Ids nutzen; Kontra zeigt dann beide Texte mit Herkunft.
+  mitgelieferte Ids nutzen; geplant: Kontra zeigt dann beide Texte mit Herkunft.
 - `::: video src=… subtitles=…`: `src` ist `media/<datei>` im Paket oder `https://<host>/…` auf einem Host aus
   `hosts`; andere Adressen sind ein Fehler. `subtitles` je Sprachdatei (WebVTT), sonst wie `src`.
-- Namen bleiben im Paket (kein `/` am Anfang, kein `..`), höchstens 1 GiB, Textdateien höchstens 4 MiB.
+- Namen bleiben im Paket (kein `/` am Anfang, kein `..`, kein `\\`), höchstens 1 GiB, Textdateien je höchstens
+  4 MiB, zusammen höchstens 32 MiB.
 
 Anlegen, prüfen und packen: `kontra-cli course new <ordner> --id <präfix> --provider … --license …`,
 `kontra-cli course check <ordner|datei>` (jeder Befund mit Datei, Fehler im Format mit Zeile),

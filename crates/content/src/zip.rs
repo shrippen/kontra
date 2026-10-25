@@ -57,6 +57,15 @@ impl<'a> Zip<'a> {
         self.entries.iter().map(|e| e.name.as_str())
     }
 
+    /// Inflated size of entry `name` as the archive declares it (0 if missing); reading never
+    /// yields more.
+    pub(crate) fn size(&self, name: &str) -> usize {
+        self.entries
+            .iter()
+            .find(|e| e.name == name)
+            .map_or(0, |e| e.size)
+    }
+
     /// Content of the XML score entry `name`, refused above `MAX_SCORE_XML` before inflating.
     pub(crate) fn read_score(&self, name: &str) -> Result<Vec<u8>, ImportError> {
         self.read_text(name, MAX_SCORE_XML)
@@ -64,11 +73,7 @@ impl<'a> Zip<'a> {
 
     /// Content of the text entry `name`, refused above `max` bytes before inflating.
     pub(crate) fn read_text(&self, name: &str, max: usize) -> Result<Vec<u8>, ImportError> {
-        let size = self
-            .entries
-            .iter()
-            .find(|e| e.name == name)
-            .map_or(0, |e| e.size);
+        let size = self.size(name);
         if size > max {
             return Err(ImportError::TooLarge(size as u64));
         }

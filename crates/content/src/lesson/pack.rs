@@ -35,6 +35,8 @@ const SUBTITLE_TYPES: &[&str] = &[".vtt"];
 const MAX_COURSE_BYTES: u64 = 1024 * 1024 * 1024;
 /// Manifest, courses and lessons are text; refuse more before inflating.
 const MAX_TEXT_BYTES: usize = 4 * 1024 * 1024;
+/// All texts together; the archive's size says nothing about them (deflated zeros).
+const MAX_TEXTS_BYTES: usize = 32 * 1024 * 1024;
 
 /// The template `new` lays out; `{id}` becomes the package id (path and text).
 const TEMPLATE: &[(&str, &str)] = &[
@@ -107,6 +109,18 @@ impl CoursePack {
             return Err(PackError::archive(format!("{} bytes", data.len())));
         }
         let zip = Zip::open(data).map_err(|e| PackError::archive(e.to_string()))?;
+
+        // All texts by their declared size, before inflating any (deflated zeros, review #131).
+        let declared: usize = zip
+            .names()
+            .filter(|n| !n.starts_with(MEDIA_DIR))
+            .map(|n| zip.size(n))
+            .sum();
+        if declared > MAX_TEXTS_BYTES {
+            return Err(PackError::archive(format!(
+                "texts above {MAX_TEXTS_BYTES} bytes"
+            )));
+        }
 
         let mut texts = Vec::new();
         let mut media = Vec::new();
@@ -357,10 +371,12 @@ pub fn new_course(dir: &Path, id: &str, author: &Author) -> Result<(), PackError
 }
 
 /// Paths of all files below `dir`, relative with `/`, sorted; hidden files and folders skipped.
-/// Refuses what `CoursePack::read` would refuse packed: text files above `MAX_TEXT_BYTES`, all
-/// above `MAX_COURSE_BYTES`.
+/// Refuses what `CoursePack::read` would refuse packed: unsafe names, a text file above
+/// `MAX_TEXT_BYTES`, texts above `MAX_TEXTS_BYTES`, all above `MAX_COURSE_BYTES` (unpacked here,
+/// so at least the packed size).
 fn files(dir: &Path) -> Result<Vec<String>, PackError> {
     let mut total = 0u64;
+    let mut texts = 0u64;
     let mut out = Vec::new();
     let mut todo = vec![dir.to_path_buf()];
     while let Some(at) = todo.pop() {
@@ -383,12 +399,19 @@ fn files(dir: &Path) -> Result<Vec<String>, PackError> {
                 .map(|p| p.to_string_lossy().into_owned())
                 .collect();
             let name = parts.join("/");
+            safe(&name)?;
 
             let size = entry.metadata().map_or(0, |m| m.len());
             total += size;
             let text = !name.starts_with(MEDIA_DIR);
             if text && size > MAX_TEXT_BYTES as u64 {
                 return Err(PackError::archive(format!("{name}: {size} bytes")));
+            }
+            texts += if text { size } else { 0 };
+            if texts > MAX_TEXTS_BYTES as u64 {
+                return Err(PackError::archive(format!(
+                    "texts above {MAX_TEXTS_BYTES} bytes"
+                )));
             }
             if total > MAX_COURSE_BYTES {
                 return Err(PackError::archive(format!(
@@ -509,6 +532,55 @@ mod tests {
             ],
         );
         assert!(problems(&data).contains(&"unit greifen lacks the prefix test.".to_string()));
+    }
+
+    /// A few kB of zeros inflate to gigabytes (review #131): the texts together have a limit,
+    /// checked before anything is inflated.
+    #[test]
+    fn texts_together_have_a_limit() {
+        let zeros = vec![b' '; MAX_TEXT_BYTES];
+        let names: Vec<String> = (0..=MAX_TEXTS_BYTES / MAX_TEXT_BYTES)
+            .map(|i| format!("units/test.{i}/de.md"))
+            .collect();
+        let entries: Vec<(&str, &[u8])> = names
+            .iter()
+            .map(|n| (n.as_str(), zeros.as_slice()))
+            .collect();
+        let data = zip::write(&entries).unwrap();
+        let Err(PackError::Archive(reason)) = CoursePack::read(&data) else {
+            panic!("expected an archive error");
+        };
+        assert!(reason.starts_with("texts above"), "{reason}");
+    }
+
+    /// A folder name the archive would refuse is refused in the folder too (review #131).
+    #[test]
+    fn a_folder_has_the_archive_names() {
+        let dir = std::env::temp_dir().join(format!("kontra-course-name-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        new_course(&dir, "probe", &author()).unwrap();
+        std::fs::write(dir.join("notes\\a.md"), "x").unwrap();
+        assert!(matches!(
+            CoursePack::from_dir(&dir),
+            Err(PackError::Archive(_))
+        ));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A package may explain a bundled term again; Kontra shows both texts (review #131).
+    #[test]
+    fn a_package_may_explain_a_bundled_term() {
+        let de = "## Oktave\nid: oktave\n\nNoch einmal anders erklärt.\n";
+        let en = "## Octave\nid: oktave\n\nExplained once more.\n";
+        let data = archive(
+            "src=media/a.webm",
+            &[
+                ("media/a.webm", b"x"),
+                ("glossary/de.md", de.as_bytes()),
+                ("glossary/en.md", en.as_bytes()),
+            ],
+        );
+        assert_eq!(problems(&data), Vec::<String>::new());
     }
 
     #[test]
