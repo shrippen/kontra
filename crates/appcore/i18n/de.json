@@ -905,5 +905,9 @@
   "courses.fetch": "Laden",
   "courses.fetching": "Lädt …",
   "courses.https": "Kontra lädt Kurse nur über https://.",
-  "courses.offline": "Der Kurs ließ sich nicht laden: {reason}"
+  "courses.offline": "Der Kurs ließ sich nicht laden: {reason}",
+  "learn.video.play": "Weiter",
+  "learn.video.pause": "Pause",
+  "learn.video.offline": "Das Video braucht eine Verbindung zum Internet. Text und Untertitel stehen auf der Seite.",
+  "learn.video.error": "Das Video lässt sich nicht abspielen. Der Text der Seite gilt weiter."
 }

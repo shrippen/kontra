@@ -588,6 +588,11 @@ pub mod qobject {
         #[cxx_name = "courseFetch"]
         fn course_fetch(self: Pin<&mut Self>, url: &QString);
 
+        /// What to play for a lesson's video block, see `Core::lesson_video`.
+        #[qinvokable]
+        #[cxx_name = "lessonVideo"]
+        fn lesson_video(self: &Self, id: &QString, page: i32, block: i32) -> QString;
+
         /// Learns course `id` from now on.
         #[qinvokable]
         #[cxx_name = "chooseCourse"]
@@ -2299,6 +2304,13 @@ impl qobject::Controller {
     fn course_fetch(mut self: Pin<&mut Self>, url: &QString) {
         let json = self.as_mut().core().course_fetch(&url.to_string());
         self.as_mut().set_course_fetch_json(q(&json));
+    }
+
+    fn lesson_video(&self, id: &QString, page: i32, block: i32) -> QString {
+        let (Ok(page), Ok(block)) = (usize::try_from(page), usize::try_from(block)) else {
+            return QString::default();
+        };
+        q(&self.rust().core.lesson_video(&id.to_string(), page, block))
     }
 
     fn choose_course(mut self: Pin<&mut Self>, id: &QString) {

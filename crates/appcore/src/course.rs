@@ -6,14 +6,18 @@
 //!     ──course_add(path)──────▶ CourseStore (data folder) ──▶ Core::courses, chosen course
 //!     ──choose_course(id)─────▶ Settings::course
 //!     ──course_fetch(url)─────▶ CourseFetch (thread) ──course_fetch_poll() each tick──▶ preview
+//!     ──lesson_video(…)───────▶ https address as written, or the video unpacked into the cache
 //! ```
 
 use crate::Core;
-use kontra_session::lesson::{self, CoursePack, COURSE_EXT};
+use kontra_session::lesson::{self, Block, CoursePack, COURSE_EXT};
 use kontra_session::{CourseError, CourseFetch, CourseStore, FileHttp, Http, Web};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::Arc;
+
+const HTTPS: &str = "https://";
+const FILE_URL: &str = "file://";
 
 /// Problems shown before adding; the rest are counted (`kontra-cli course check` lists all).
 const PREVIEW_PROBLEMS: usize = 5;
@@ -117,6 +121,58 @@ impl Core {
     /// Learns course `id` from now on (one of `learn_json`'s `courses`).
     pub fn choose_course(&mut self, id: &str) {
         self.update_settings(|s| s.course = Some(id.to_string()));
+    }
+
+    /// What to play for video block `block` on page `page` of lesson `id`, only when asked
+    /// (a stream starts on a click, never on opening the page): an https address as written,
+    /// or the video unpacked from its course as a file URL; "" when there is none.
+    pub fn lesson_video(&self, id: &str, page: usize, block: usize) -> String {
+        let Some(Block::Video { src, .. }) = self.lesson_block(id, page, block) else {
+            return String::new();
+        };
+        if src.starts_with(HTTPS) {
+            return src;
+        }
+        let Some(pack) = self.unit_pack(id) else {
+            return String::new();
+        };
+        let cache = crate::store::cache_dir(&self.data_dir);
+        match CourseStore::new(&self.data_dir).media_file(&pack.manifest.id, &src, &cache) {
+            Ok(path) => format!("{FILE_URL}{}", path.display()),
+            Err(e) => {
+                eprintln!("kontra: {e}");
+                String::new()
+            }
+        }
+    }
+
+    /// `pages` of lesson `id` with the subtitle cues of its videos (`cues: [{startMs, endMs,
+    /// text}]`), read from the lesson's course.
+    pub(crate) fn with_cues(&self, id: &str, mut pages: Vec<Value>) -> Vec<Value> {
+        let Some(pack) = self.unit_pack(id) else {
+            return pages;
+        };
+        let store = CourseStore::new(&self.data_dir);
+        let blocks = pages.iter_mut().filter_map(|p| p["blocks"].as_array_mut());
+        for block in blocks.flatten() {
+            let Some(src) = block["subtitles"].as_str() else {
+                continue;
+            };
+            let cues: Vec<Value> = store
+                .subtitles(&pack.manifest.id, src)
+                .into_iter()
+                .map(|c| json!({ "startMs": c.start_ms, "endMs": c.end_ms, "text": c.text }))
+                .collect();
+            block["cues"] = json!(cues);
+        }
+        pages
+    }
+
+    /// The added course a lesson belongs to; none for bundled lessons.
+    fn unit_pack(&self, id: &str) -> Option<&CoursePack> {
+        self.courses
+            .iter()
+            .find(|c| c.lessons.units.iter().any(|u| u.id == id))
     }
 
     /// A course's name: the package title in the user's language, the bundled one by key.

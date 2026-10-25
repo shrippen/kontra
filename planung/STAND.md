@@ -11,9 +11,10 @@ Lernen (Runde 13, `LERNEN.md`): Plan (#118), Format und Kapitel 1 (#119), Kapite
 Ausprobieren per Klick (#124), Wiederholen (#125), „?“ an Fachbegriffen in Übungsziel, Generator und Auswertung (#126)
 gemerged. „?“ an Zeichen und Akkordsymbolen über eine Legende unter dem Griffbrett (LH-LRN-09, `zeichen`). Kurspaket-Format
 und `kontra-cli course new|check|pack` (LH-LRN-14, -15, `kurspaket`); Kurs aus Datei hinzufügen und wählen (`kurs-laden`). Glossar über alle Kurse, Kurs von Adresse (`kurs-adresse`, QA-Schalter
-`--course-answer`). Offen: Aktualisierungen von der gespeicherten Adresse erfragen,
-Video-Wiedergabe, Kurswerkstatt mit Fenster (für 1.0), MIME-Typ für `.kontrakurs` in
-`packaging/` (Doppelklick; braucht die Bestätigung des Eigentümers).
+`--course-answer`). Video mit Untertiteln (Qt Multimedia, per
+`Loader`: fehlt das Modul, bleibt ein Link). Offen: Aktualisierungen von der gespeicherten Adresse erfragen, Kurswerkstatt mit Fenster (für 1.0), MIME-Typ für `.kontrakurs` in
+`packaging/` (Doppelklick) und FFmpeg-Erweiterung im Flatpak für Videos (beides braucht die Bestätigung des
+Eigentümers); CI-Qt ohne QtMultimedia (Video dort ungetestet).
 
 Bestand: In `testdata/exercises` heißen die Ordner 4 und 5 vertauscht („4 Groove“ hält die Walking-Bass-Übungen,
 „5 Walking Bass“ die Grooves); Lektionen verweisen nur auf Nummern und sind nicht betroffen.

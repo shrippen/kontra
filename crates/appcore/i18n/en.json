@@ -905,5 +905,9 @@
   "courses.fetch": "Load",
   "courses.fetching": "Loading …",
   "courses.https": "Kontra loads courses only over https://.",
-  "courses.offline": "The course could not be loaded: {reason}"
+  "courses.offline": "The course could not be loaded: {reason}",
+  "learn.video.play": "Resume",
+  "learn.video.pause": "Pause",
+  "learn.video.offline": "The video needs an internet connection. Text and subtitles are on the page.",
+  "learn.video.error": "The video cannot be played. The page's text still holds."
 }

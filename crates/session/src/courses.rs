@@ -7,7 +7,9 @@
 //! https://… ──fetch()──▶ worker thread ──poll()──▶ <data>/courses/fetched.part (then as a file)
 //! ```
 
-use kontra_content::lesson::{CoursePack, Lessons, PackError, COURSE_EXT, MAX_COURSE_BYTES};
+use kontra_content::lesson::{
+    self, CoursePack, Cue, Lessons, PackError, COURSE_EXT, MAX_COURSE_BYTES,
+};
 use kontra_engine::{Http, HttpError};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -112,7 +114,7 @@ impl CourseStore {
         fs::create_dir_all(&self.dir).map_err(io)?;
 
         // Copy beside, then rename: a half-written file never replaces a working course.
-        let target = self.dir.join(format!("{}.{COURSE_EXT}", pack.manifest.id));
+        let target = self.package(&pack.manifest.id);
         let partial = target.with_extension("part");
         fs::copy(path, &partial).map_err(io)?;
         fs::rename(&partial, &target).map_err(io)?;
@@ -121,6 +123,49 @@ impl CourseStore {
 }
 
 impl CourseStore {
+    /// File `src` ("media/a.webm") of added course `id` as a file to play, unpacked into
+    /// `cache` on first use (videos inside a package; streamed ones need no file).
+    pub fn media_file(&self, id: &str, src: &str, cache: &Path) -> Result<PathBuf, CourseError> {
+        // Only names a package can hold, before the cache is looked at ("media/../../x").
+        let inside = src
+            .split('/')
+            .all(|p| !p.is_empty() && p != ".." && p != ".");
+        if !inside || id.contains(['/', '.']) {
+            return Err(CourseError::Pack(PackError::Archive(format!(
+                "{id}: {src}"
+            ))));
+        }
+        let target = cache.join(DIR).join(id).join(src);
+        if target.is_file() {
+            return Ok(target);
+        }
+        let data = lesson::read_media(&read(&self.package(id))?, src)?;
+        let io = |source| CourseError::Io {
+            path: target.clone(),
+            source,
+        };
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent).map_err(io)?;
+        }
+        fs::write(&target, data).map_err(io)?;
+        Ok(target)
+    }
+
+    /// The subtitles `src` ("media/a.de.vtt") of added course `id`; none if they cannot be read.
+    pub fn subtitles(&self, id: &str, src: &str) -> Vec<Cue> {
+        let Ok(data) = read(&self.package(id)) else {
+            return Vec::new();
+        };
+        let Ok(bytes) = lesson::read_media(&data, src) else {
+            return Vec::new();
+        };
+        lesson::cues(&String::from_utf8_lossy(&bytes))
+    }
+
+    fn package(&self, id: &str) -> PathBuf {
+        self.dir.join(format!("{id}.{COURSE_EXT}"))
+    }
+
     /// Fetches the package at `url` (https only, nothing else is asked for) on a worker thread
     /// into the data folder; `poll` hands over the file to preview and add.
     pub fn fetch(&self, http: Arc<dyn Http>, url: &str) -> Result<CourseFetch, CourseError> {
@@ -232,6 +277,39 @@ mod tests {
         assert!(store.load().is_empty(), "fetched is not added yet");
         store.add(&path).unwrap();
         assert_eq!(store.load().len(), 1);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn media_of_an_added_course_is_unpacked_once() {
+        let dir = temp("media");
+        let src = dir.join("weber");
+        let author = Author {
+            provider: "Studio Weber".into(),
+            license: "CC-BY-4.0".into(),
+        };
+        new_course(&src, "weber", &author).unwrap();
+        fs::create_dir_all(src.join("media")).unwrap();
+        fs::write(src.join("media/a.webm"), b"video").unwrap();
+        fs::write(
+            src.join("media/a.vtt"),
+            "WEBVTT\n\n00:01.000 --> 00:02.000\nHallo\n",
+        )
+        .unwrap();
+        let file = dir.join("weber.kontrakurs");
+        fs::write(&file, pack(&src).unwrap()).unwrap();
+        let store = CourseStore::new(&dir.join("data"));
+        store.add(&file).unwrap();
+
+        let cache = dir.join("cache");
+        let video = store.media_file("weber", "media/a.webm", &cache).unwrap();
+        assert_eq!(fs::read(&video).unwrap(), b"video");
+        assert!(store.media_file("weber", "../a.webm", &cache).is_err());
+        // Even where the file exists: nothing outside the cache is handed out.
+        assert!(store
+            .media_file("weber", "media/../../../weber.kontrakurs", &cache)
+            .is_err());
+        assert_eq!(store.subtitles("weber", "media/a.vtt")[0].text, "Hallo");
         fs::remove_dir_all(dir).unwrap();
     }
 

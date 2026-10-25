@@ -4388,6 +4388,58 @@ mod tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 
+    /// J-G5: a course video plays from the package only when asked, its subtitles come with the
+    /// lesson.
+    #[test]
+    fn a_course_video_is_unpacked_on_request() {
+        use kontra_session::lesson::{new_course, pack, Author};
+        use serde_json::Value;
+        let dir = temp_dir("course-video");
+        let src = dir.join("src");
+        let author = Author {
+            provider: "Studio Weber".into(),
+            license: "CC-BY-4.0".into(),
+        };
+        new_course(&src, "weber", &author).unwrap();
+        std::fs::create_dir_all(src.join("media")).unwrap();
+        std::fs::write(src.join("media/a.webm"), b"video").unwrap();
+        for lang in ["de", "en"] {
+            let vtt = format!("WEBVTT\n\n00:01.000 --> 00:02.000\n{lang}\n");
+            std::fs::write(src.join(format!("media/a.{lang}.vtt")), vtt).unwrap();
+            let unit = src.join(format!("units/weber.start/{lang}.md"));
+            let mut text = std::fs::read_to_string(&unit).unwrap();
+            text += &format!("::: video src=media/a.webm subtitles=media/a.{lang}.vtt\n");
+            std::fs::write(&unit, text).unwrap();
+        }
+        let file = dir.join("weber.kontrakurs");
+        std::fs::write(&file, pack(&src).unwrap()).unwrap();
+        let data = dir.join("data");
+        let mut core = Core::new(&data, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        assert_eq!(core.course_add(&file), "");
+
+        let lesson: Value = serde_json::from_str(&core.lesson_json("weber.start")).unwrap();
+        let video = &lesson["pages"][0]["blocks"][1];
+        assert_eq!(video["kind"], "video");
+        assert_eq!(video["cues"][0]["text"], "de");
+        assert_eq!(video["cues"][0]["startMs"], 1000);
+
+        let cache = store::cache_dir(&data);
+        assert!(
+            !cache.join("courses").exists(),
+            "nothing unpacked before a click"
+        );
+        let url = core.lesson_video("weber.start", 0, 1);
+        let path = url.strip_prefix("file://").unwrap();
+        assert_eq!(std::fs::read(path).unwrap(), b"video");
+        assert_eq!(
+            core.lesson_video("weber.start", 0, 0),
+            "",
+            "a text block plays nothing"
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
     /// J-G5: a course from an address is fetched, previewed and added like a file; only https.
     #[test]
     fn a_course_from_an_address_is_added() {

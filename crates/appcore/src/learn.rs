@@ -195,7 +195,7 @@ impl Core {
             "fits": learning.fits(&unit.scope),
             "seen": seen,
             "done": state.done(&key),
-            "pages": self.pages_json(&doc),
+            "pages": self.with_cues(id, self.pages_json(&doc)),
         })
         .to_string()
     }
@@ -605,7 +605,7 @@ impl Core {
         json!({ "kind": "practice", "title": title.unwrap_or_default(), "speeds": practice.speeds })
     }
 
-    fn lesson_block(&self, id: &str, page: usize, block: usize) -> Option<Block> {
+    pub(crate) fn lesson_block(&self, id: &str, page: usize, block: usize) -> Option<Block> {
         let learning = self.learning()?;
         let unit = learning.unit(id)?;
         let doc = learning.doc(&unit.texts, self.learn_lang())?;
@@ -689,7 +689,8 @@ impl Core {
 
     /// One block for QML, by `kind`: text `{html}`, hint `{text}`, list `{items: [html]}`, figure/listen/
     /// try `{notes, positions: [{string, fret, label}]}`, practice `{title, speeds}`, question
-    /// `{html, options: [text], answer}`, tuner, video `{src}`.
+    /// `{html, options: [text], answer}`, tuner, video `{src, subtitles}` (`lesson_json` adds
+    /// the cues).
     fn block_json(&self, block: &Block) -> Value {
         match block {
             Block::Text(spans) => json!({ "kind": "text", "html": html(spans) }),
@@ -712,7 +713,9 @@ impl Core {
                         "answer": q.answer })
             }
             Block::Tuner => json!({ "kind": "tuner" }),
-            Block::Video { src, .. } => json!({ "kind": "video", "src": src }),
+            Block::Video { src, subtitles } => {
+                json!({ "kind": "video", "src": src, "subtitles": subtitles })
+            }
             // Resolved away by `Learning::doc`.
             Block::Variant { .. } => json!({ "kind": "none" }),
         }

@@ -117,7 +117,8 @@ kurs.kontrakurs
   mitgelieferten Vorrat dürfen genannt (Kapitel, `needs`), aber nicht ersetzt werden. Begriffe im Glossar dürfen
   mitgelieferte Ids nutzen; das Glossar zeigt dann alle Texte nacheinander, jeden mit seiner Herkunft.
 - `::: video src=… subtitles=…`: `src` ist `media/<datei>` im Paket oder `https://<host>/…` auf einem Host aus
-  `hosts`; andere Adressen sind ein Fehler. `subtitles` je Sprachdatei (WebVTT), sonst wie `src`.
+  `hosts`; andere Adressen sind ein Fehler. `subtitles` je Sprachdatei (WebVTT) immer unter `media/`, damit sie
+  ohne Netz gehen. Ein Video startet erst auf Klick; eins aus dem Paket entpackt Kontra dann in seinen Cache.
 - Namen bleiben im Paket (kein `/` am Anfang, kein `..`, kein `\`), höchstens 1 GiB, Textdateien je höchstens
   4 MiB, zusammen höchstens 32 MiB.
 

@@ -272,6 +272,11 @@ impl CoursePack {
                     let Some(sub) = subtitles else {
                         continue;
                     };
+                    // Subtitles are small and must work offline: always in the package.
+                    if !sub.starts_with(MEDIA_DIR) {
+                        out.push(format!("{name}: subtitles {sub}: not below media/"));
+                        continue;
+                    }
                     if let Some(p) = self.source(sub, SUBTITLE_TYPES) {
                         out.push(format!("{name}: subtitles {sub}: {p}"));
                     }
@@ -309,6 +314,17 @@ impl CoursePack {
         }
         None
     }
+}
+
+/// File `src` ("media/a.webm", as a block names it) of the packed course `data`.
+pub fn read_media(data: &[u8], src: &str) -> Result<Vec<u8>, PackError> {
+    safe(src)?;
+    if !src.starts_with(MEDIA_DIR) {
+        return Err(PackError::archive(format!("{src}: not below {MEDIA_DIR}")));
+    }
+    let zip = Zip::open(data).map_err(|e| PackError::archive(e.to_string()))?;
+    zip.read(src)
+        .map_err(|e| PackError::archive(format!("{src}: {e}")))
 }
 
 /// Packs the folder `dir` as a `.kontrakurs` archive (every file, hidden ones left out). Check
@@ -521,6 +537,14 @@ mod tests {
         let srt = "subtitles media/a.srt: unsupported type";
         assert_eq!(problems(&subs), both(srt));
 
+        // Subtitles must work offline.
+        let web_subs = archive(
+            "src=media/a.webm subtitles=https://video.example/a.vtt",
+            &[("media/a.webm", b"x")],
+        );
+        let web = "subtitles https://video.example/a.vtt: not below media/";
+        assert_eq!(problems(&web_subs), both(web));
+
         // The type counts on the web too (review #131).
         let web = archive("src=https://video.example/a.avi?t=1", &[]);
         let avi = "video https://video.example/a.avi?t=1: unsupported type";
@@ -620,6 +644,14 @@ mod tests {
             ],
         );
         assert_eq!(problems(&data), Vec::<String>::new());
+    }
+
+    #[test]
+    fn media_reads_from_the_package_only() {
+        let data = archive("src=media/a.webm", &[("media/a.webm", b"video")]);
+        assert_eq!(read_media(&data, "media/a.webm").unwrap(), b"video");
+        assert!(read_media(&data, "manifest.json").is_err());
+        assert!(read_media(&data, "media/../manifest.json").is_err());
     }
 
     #[test]
