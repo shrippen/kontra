@@ -228,6 +228,36 @@ Erwartet: Hinweis, dass die Toleranzen weiter sind; Trefferquote ≥ 90 % auf de
 1. Walking-Linie im Song-Modus auf einem Kontrabass, dessen Töne zu tief beginnen und in rund 100 ms auf ihre Tonhöhe steigen.
 Erwartet: Jede Note wird so schnell markiert wie sonst; eine Note, die beim Anschlag als falscher Ton gilt, wird binnen etwa 0,2 s zum Treffer. Keine zusätzlichen Noten (Hammer-on) für das Einschwingen. Der automatische Test spielt eine synthetische Linie (D2 E2 F2 G2, 140 Cent zu tief, 120 ms Anstieg).
 
+## G. Lernen
+
+**J-G1 Erste Lektion** · Persona: P1 Lea · Phase 2 · LH-LRN-07, LH-LRN-08
+1. Seite „Lernen“, Kapitel 1, erste offene Lektion; lesen, Hörbeispiel, ausprobieren am Bass, langsam üben, prüfen.
+2. Kontra schließen und öffnen.
+3. Dasselbe bei 200 % Schrift, ohne Eingang.
+Erwartet: Jeder Schritt passt auf einen Bildschirm; beim Ausprobieren sagt ein falscher Ton, was er war; die Startseite
+zeigt „Weiter: <nächste Lektion>“; ohne Eingang Auswahl per Klick statt Bass.
+
+**J-G2 Was ist eine Septime?** · Personas: P2 Jens, P1 Lea · Phase 2 · LH-LRN-09
+1. Jens: Walking-Übung II-V-I, „?“ am Akkordnamen „Dm7“, weiter zu „Septime“, Hörbeispiel; zurück.
+2. Lea: in der Auswertung „Slide: 3 von 5“, „?“ an „Slide“; zurück.
+Erwartet: Eintrag kurz mit Abbildung und Verweis auf die Lektion; zurück an dieselbe Stelle, nichts verstellt.
+
+**J-G3 Wiederholen** · Persona: P1 Lea · Phase 2 · LH-LRN-10
+1. Prüffragen von Kapitel 1, eine falsch.
+2. Drei Tage später (Datum fortgeschrieben) die Startseite öffnen.
+Erwartet: fällige Fragen stehen auf der Startseite; die falsche kommt früher; „Kann ich schon“ hakt ein Kapitel ab.
+
+**J-G4 Eigene Lektion** · Persona: P4 Thomas · Phase 3 · LH-LRN-11
+1. Lektion nach der Formatbeschreibung schreiben, in Kontra öffnen, am Beamer (1280×720) zeigen.
+Erwartet: liest sich wie eine mitgelieferte; Fehler im Format mit Zeile genannt.
+
+**J-G5 Kurs nachladen** · Personas: P2 Jens, P7 Sam · Phase 3 · LH-LRN-14
+1. Jens: Kurs-Adresse eines Anbieters eingeben; Anbieter und Lizenz lesen, hinzufügen; eine Lektion mit Video.
+2. Sam: dieselbe Lektion bei 200 % und „Bewegung reduzieren“, mit Orca.
+3. Ohne Netz neu starten.
+Erwartet: Kurs erscheint neben dem Bass-Kurs; Video mit Untertiteln, Text darunter lesbar; ohne Netz bleibt ein
+heruntergeladener Kurs nutzbar, ein Stream-Video sagt, dass es Netz braucht; der Lernstand gemeinsamer Lektionen gilt.
+
 ## F. Querschnitt
 
 **J-F1 Barrierefreiheit** 🔍 · Persona: P7 Sam · Phase 1 · LH-ANZ-06, LH-MOD-07, LH-NF-07, LH-ALL-02
