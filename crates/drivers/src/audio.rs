@@ -84,6 +84,37 @@ impl LateCheck {
     }
 }
 
+/// The null output's clock: a block every `NULL_BLOCK` frames at `NULL_RATE`, like a sound card.
+#[derive(Debug)]
+struct NullClock {
+    counter: XrunCounter,
+    block: Duration,
+    deadline: Instant,
+}
+
+impl NullClock {
+    fn new(start: Instant, counter: &XrunCounter) -> NullClock {
+        let block = Duration::from_secs_f64(NULL_BLOCK as f64 / f64::from(NULL_RATE));
+        NullClock {
+            counter: counter.clone(),
+            block,
+            deadline: start + block,
+        }
+    }
+
+    /// A block was ready at `now`: when to ask for the next. Later than its deadline counts as a
+    /// dropout, and the clock starts over from `now`, as a device does after an xrun.
+    fn after_block(&mut self, now: Instant) -> Instant {
+        if now > self.deadline + LATE_SLACK {
+            self.counter.add();
+            self.deadline = now;
+        }
+        let wake = self.deadline;
+        self.deadline += self.block;
+        wake
+    }
+}
+
 /// Real-time priority of the audio thread: below PipeWire's own data thread (88), above
 /// everything else Kontra runs.
 #[cfg(target_os = "linux")]
@@ -813,20 +844,13 @@ impl OutputStream {
         let stop = Arc::new(AtomicBool::new(false));
         let stop_thread = Arc::clone(&stop);
         let channels = usize::from(NULL_CHANNELS);
-        let block = Duration::from_secs_f64(NULL_BLOCK as f64 / f64::from(NULL_RATE));
         let thread = std::thread::spawn(move || {
             let mut buffer = vec![0.0f32; NULL_BLOCK * channels];
-            let mut deadline = Instant::now() + block;
+            let mut clock = NullClock::new(Instant::now(), &counter);
             while !stop_thread.load(Ordering::Relaxed) {
                 fill(&mut buffer, channels);
-                let now = Instant::now();
-                if now > deadline + LATE_SLACK {
-                    counter.add();
-                    // Start over from now, as a device does after an xrun.
-                    deadline = now;
-                }
-                std::thread::sleep(deadline.saturating_duration_since(Instant::now()));
-                deadline += block;
+                let wake = clock.after_block(Instant::now());
+                std::thread::sleep(wake.saturating_duration_since(Instant::now()));
             }
         });
         OutputStream {
@@ -1054,56 +1078,59 @@ mod tests {
     }
 
     #[test]
-    fn null_output_runs_on_time() {
-        // Blocks, the time of the last one in µs after the first, and whether the thread was
-        // ever starved past an xrun: the output's own view.
+    fn null_clock_keeps_its_blocks() {
+        let counter = XrunCounter::default();
+        let start = Instant::now();
+        let mut clock = NullClock::new(start, &counter);
+        let block = clock.block;
+
+        // On time: one block length apart, 37 in about 200 ms, never sooner or later.
+        let mut now = start;
+        for k in 1..=37 {
+            now = clock.after_block(now);
+            assert_eq!(now, start + block * k);
+        }
+        assert_eq!(counter.get(), 0);
+
+        // 20 ms late: a dropout, then a block length from that moment on.
+        let late = now + block + Duration::from_millis(20);
+        assert_eq!(clock.after_block(late), late);
+        assert_eq!(clock.after_block(late), late + block);
+        assert_eq!(counter.get(), 1);
+    }
+
+    /// The real thread under any load (load average 36, 25.10.): it runs and never runs ahead.
+    /// How fast is `null_clock_keeps_its_blocks`; a starved thread only delivers fewer blocks.
+    #[test]
+    fn null_output_runs() {
         let blocks = Arc::new(AtomicU64::new(0));
-        let last_us = Arc::new(AtomicU64::new(0));
-        let starved = Arc::new(AtomicBool::new(false));
-        let (seen, last, gap) = (
-            Arc::clone(&blocks),
-            Arc::clone(&last_us),
-            Arc::clone(&starved),
-        );
-        let block = Duration::from_secs_f64(NULL_BLOCK as f64 / f64::from(NULL_RATE));
-        let mut first: Option<Instant> = None;
-        let mut previous: Option<Instant> = None;
+        let seen = Arc::clone(&blocks);
         let config = StreamConfig {
             device_id: Some(NULL_DEVICE.into()),
             ..StreamConfig::default()
         };
+        let start = Instant::now();
         let stream = OutputStream::open(
             &config,
             move |data: &mut [f32], _| {
                 data.fill(0.0);
-                let now = Instant::now();
-                // Three blocks: a gap a slow clock (two blocks) cannot explain.
-                if previous.is_some_and(|p| now - p > 3 * block) {
-                    gap.store(true, Ordering::Relaxed);
-                }
-                previous = Some(now);
-                let first = *first.get_or_insert(now);
-                last.store((now - first).as_micros() as u64, Ordering::Relaxed);
                 seen.fetch_add(1, Ordering::Relaxed);
             },
             |_| {},
         )
         .unwrap();
+        // Runs: the first block comes, however late the thread starts.
+        while blocks.load(Ordering::Relaxed) == 0 {
+            assert!(start.elapsed() < Duration::from_secs(5), "no block");
+            std::thread::sleep(Duration::from_millis(1));
+        }
         std::thread::sleep(Duration::from_millis(200));
         drop(stream);
 
-        // Between its first and last block the output keeps 5.3 ms blocks, about 37 in 200 ms.
-        // Measured from the output, not the test: under load (load average 36, 25.10.) the
-        // thread starts or ends late, and the test's clock counted blocks it never had time for.
-        // Starved in between, it skips blocks like a device after an xrun: then only "never too
-        // many" holds.
-        let span_s = last_us.load(Ordering::Relaxed) as f64 / 1e6;
-        let expected = span_s / block.as_secs_f64() + 1.0;
+        let block_s = NULL_BLOCK as f64 / f64::from(NULL_RATE);
+        let most = start.elapsed().as_secs_f64() / block_s + 2.0;
         let n = blocks.load(Ordering::Relaxed) as f64;
-        assert!(n <= 1.2 * expected + 2.0, "{n} of {expected:.0}");
-        if !starved.load(Ordering::Relaxed) {
-            assert!(n >= 0.7 * expected, "{n} of {expected:.0}");
-        }
+        assert!(n <= most, "{n} of at most {most:.0}");
     }
 
     #[test]
