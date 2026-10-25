@@ -18,6 +18,20 @@ Kirigami.Page {
     // The notes as loaded; live states go to the views one by one (setNoteState) and are kept
     // here too, so a view that gets its notes later (view switch) can catch up.
     property var notes: []
+    // The technique signs in this piece, once each (the key under the fretboard).
+    readonly property var signs: {
+        var found = []
+        for (var i = 0; i < notes.length; i++) {
+            var t = notes[i].technique
+            if (t && found.indexOf(t) < 0) {
+                found.push(t)
+            }
+        }
+        return found
+    }
+    // Chord symbols stand over the notation only.
+    readonly property bool hasChordSymbols: (ctl.view === "notation" || ctl.view === "combined")
+        && bars.some(function(b) { return b.chord })
     property var bars: JSON.parse(ctl.barsJson)
     // The notation view: the same notes as written for bass, rests, key signature.
     property var staff: JSON.parse(ctl.staffJson)
@@ -1010,6 +1024,51 @@ Kirigami.Page {
                     visible: page.nextNote !== null && page.nextNote.finger > 0
                     text: page.nextNote ? texts.t("fretboard.finger", { finger: page.nextNote.finger }) : ""
                     color: KanteStyle.mutedTextColor
+                }
+            }
+            // The signs of this piece, each with its "?" (LH-LRN-09): lane and notes show them
+            // while playing, when a click would come too late.
+            Flow {
+                Layout.fillWidth: true
+                visible: page.signs.length > 0 || page.hasChordSymbols
+                spacing: KanteStyle.unit(16)
+                Repeater {
+                    model: page.signs
+                    delegate: Row {
+                        required property string modelData
+                        visible: signTip.entry !== null
+                        spacing: KanteStyle.unit(4)
+                        KanteTechniqueMark {
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: KanteStyle.unit(18)
+                            width: implicitWidth
+                            technique: modelData
+                        }
+                        QQC2.Label {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: signTip.term
+                            color: KanteStyle.mutedTextColor
+                        }
+                        TermTip {
+                            id: signTip
+                            anchors.verticalCenter: parent.verticalCenter
+                            topic: "technique." + modelData
+                        }
+                    }
+                }
+                Row {
+                    visible: page.hasChordSymbols && chordTip.entry !== null
+                    spacing: KanteStyle.unit(4)
+                    QQC2.Label {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: chordTip.term
+                        color: KanteStyle.mutedTextColor
+                    }
+                    TermTip {
+                        id: chordTip
+                        anchors.verticalCenter: parent.verticalCenter
+                        topic: "lane.chord"
+                    }
                 }
             }
             }

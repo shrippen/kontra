@@ -241,8 +241,10 @@ zeigt „Weiter: <nächste Lektion>“; ohne Eingang antwortet ein Klick auf die
 1. Jens: Übung erzeugen, Akkordfolge II-V-I; „?“ daneben zeigt beim Zeigen den ersten Satz, ein Klick den Eintrag;
    weiter über „Septakkorde“ zu „Septime“, Hörbeispiel; zurück.
 2. Lea: in der Auswertung „Slide: 3 von 5“, „?“ an „Slide“; zurück.
+3. Jens: Walking-Übung II-V-I in der Ansicht „Noten“; unter dem Griffbrett „Akkordsymbol ?“; ein Stück mit Techniken
+   zeigt dort seine Zeichen (h Hammer-on ?, sl Slide ? …).
 Erwartet: Eintrag kurz mit Abbildung und Verweis auf die Lektion; zurück an dieselbe Stelle (auch gescrollt), nichts
-verstellt. Eine Auswahl ohne Begriff (Funk) zeigt kein „?“.
+verstellt. Eine Auswahl ohne Begriff (Funk) zeigt kein „?“; „Akkordsymbol“ nur, wo Akkordsymbole stehen (Noten).
 
 **J-G3 Wiederholen** · Persona: P1 Lea · Phase 2 · LH-LRN-10
 1. Prüffragen von Kapitel 1, eine falsch.

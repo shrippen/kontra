@@ -9,8 +9,8 @@ nur, was offen ist und wo es liegt.
 
 Lernen (Runde 13, `LERNEN.md`): Plan (#118), Format und Kapitel 1 (#119), Kapitel 2–5 (#121), Kapitel 6–15 (#123),
 Ausprobieren per Klick (#124), Wiederholen (#125), „?“ an Fachbegriffen in Übungsziel, Generator und Auswertung (#126)
-gemerged. Offen: „?“ am Akkordnamen und an den Technik-Zeichen in
-Tab-Lane und Tabulatur (LH-LRN-09, Rest), Kurspakete und Kurswerkstatt (LH-LRN-14, -15, für 1.0).
+gemerged. „?“ an Zeichen und Akkordsymbolen über eine Legende unter dem Griffbrett (LH-LRN-09, `zeichen`). Offen:
+Kurspakete und Kurswerkstatt (LH-LRN-14, -15, für 1.0).
 
 Bestand: In `testdata/exercises` heißen die Ordner 4 und 5 vertauscht („4 Groove“ hält die Walking-Bass-Übungen,
 „5 Walking Bass“ die Grooves); Lektionen verweisen nur auf Nummern und sind nicht betroffen.
