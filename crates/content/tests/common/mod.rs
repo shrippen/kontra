@@ -524,68 +524,21 @@ pub enum Method {
     Deflated,
 }
 
-pub fn crc32(data: &[u8]) -> u32 {
-    let mut crc = u32::MAX;
-    for byte in data {
-        crc ^= u32::from(*byte);
-        for _ in 0..8 {
-            let mask = (crc & 1).wrapping_neg();
-            crc = (crc >> 1) ^ (0xedb8_8320 & mask);
-        }
-    }
-    !crc
-}
-
-/// Minimal zip writer (no data descriptors).
+/// Zip archive of `entries`, every entry stored with `method`.
 pub fn zip(entries: &[(&str, &[u8])], method: Method) -> Vec<u8> {
-    let mut out = Vec::new();
-    let mut central = Vec::new();
+    use std::io::Write;
+
+    let method = match method {
+        Method::Stored => zip::CompressionMethod::Stored,
+        Method::Deflated => zip::CompressionMethod::Deflated,
+    };
+    let options = zip::write::SimpleFileOptions::default().compression_method(method);
+    let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
     for (name, data) in entries {
-        let packed = match method {
-            Method::Stored => data.to_vec(),
-            Method::Deflated => miniz_oxide::deflate::compress_to_vec(data, 6),
-        };
-        let code: u16 = if method == Method::Stored { 0 } else { 8 };
-        let crc = crc32(data);
-        let local = out.len() as u32;
-
-        out.extend_from_slice(&0x0403_4b50u32.to_le_bytes());
-        out.extend_from_slice(&20u16.to_le_bytes());
-        out.extend_from_slice(&0u16.to_le_bytes());
-        out.extend_from_slice(&code.to_le_bytes());
-        out.extend_from_slice(&[0; 4]); // time, date
-        out.extend_from_slice(&crc.to_le_bytes());
-        out.extend_from_slice(&(packed.len() as u32).to_le_bytes());
-        out.extend_from_slice(&(data.len() as u32).to_le_bytes());
-        out.extend_from_slice(&(name.len() as u16).to_le_bytes());
-        out.extend_from_slice(&0u16.to_le_bytes());
-        out.extend_from_slice(name.as_bytes());
-        out.extend_from_slice(&packed);
-
-        central.extend_from_slice(&0x0201_4b50u32.to_le_bytes());
-        central.extend_from_slice(&20u16.to_le_bytes());
-        central.extend_from_slice(&20u16.to_le_bytes());
-        central.extend_from_slice(&0u16.to_le_bytes());
-        central.extend_from_slice(&code.to_le_bytes());
-        central.extend_from_slice(&[0; 4]);
-        central.extend_from_slice(&crc.to_le_bytes());
-        central.extend_from_slice(&(packed.len() as u32).to_le_bytes());
-        central.extend_from_slice(&(data.len() as u32).to_le_bytes());
-        central.extend_from_slice(&(name.len() as u16).to_le_bytes());
-        central.extend_from_slice(&[0; 2 + 2 + 2 + 2 + 4]); // extra, comment, disk, attrs
-        central.extend_from_slice(&local.to_le_bytes());
-        central.extend_from_slice(name.as_bytes());
+        writer.start_file(*name, options).unwrap();
+        writer.write_all(data).unwrap();
     }
-    let start = out.len() as u32;
-    out.extend_from_slice(&central);
-    out.extend_from_slice(&0x0605_4b50u32.to_le_bytes());
-    out.extend_from_slice(&[0; 4]);
-    out.extend_from_slice(&(entries.len() as u16).to_le_bytes());
-    out.extend_from_slice(&(entries.len() as u16).to_le_bytes());
-    out.extend_from_slice(&(central.len() as u32).to_le_bytes());
-    out.extend_from_slice(&start.to_le_bytes());
-    out.extend_from_slice(&0u16.to_le_bytes());
-    out
+    writer.finish().unwrap().into_inner()
 }
 
 // ---------------------------------------------------------------------------------------------
