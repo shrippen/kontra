@@ -3,15 +3,32 @@
 Übergabe zwischen Sitzungen. Stand: 2026-10-25. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
 
-## Offene PRs
+## Übergabe (25.10.2026, abends)
 
-`offene-punkte`: Glossar zeigt Kurstexte nur für passende Instrumente (`term_texts`), Kurse von der Datei
-statt ganz im Speicher (`CoursePack::open`, `read_media(path, …)`). Kante #77 (1.41 Ziel-Band im Histogramm,
-wartet auf den Eigentümer; danach Kontra-Branch `pocket-band`).
+Keine offenen Kontra-PRs. `main` = #135. Kante #77 (1.41 Ziel-Band im Histogramm) wartet auf den Eigentümer;
+danach Kontra-Branch `pocket-band` (Worktree `~/.cache/claude/kontra-wt/band`, Target `kontra-band-target`; sonst
+keine Worktrees).
 
-Kurse (LH-LRN-14) gemerged: #131 Format und `kontra-cli course`, #134 Kurse in der App (Datei, https-Adresse,
-Update mit `revision`, Entfernen, Glossar über alle Kurse, Video mit Untertiteln, Dateityp
-`application/x-kontrakurs`), #133 Null-Ausgang-Test unter Last.
+Nächste Schritte (Runde 14, `next`: courses):
+1. Kurswerkstatt mit Fenster (LH-LRN-15, J-G6, Ziel 1.0): Kurs anlegen, prüfen, packen in der App statt
+   `kontra-cli course new|check|pack`. Personas P4 (baut Kurse), P2.
+2. Danach die Hardware-Prüfungen (geführte Sitzung mit Bass und Scarlett Solo, siehe „Offen“ unten).
+3. In der nächsten Entscheidungsrunde (15) zur Freigabe listen: `CourseStore::add(path, cache)`,
+   `CourseStore::subtitles(id, src, cache)`, `PackError::Newer`, `CoursePack::open`,
+   `lesson::read_media(path, src)` (vorher Bytes); `Learning::term_texts` filtert jetzt nach Profil.
+
+Eigentümer im Chat (25.10.): „merge alles wenn die runden durch sind“ galt für #131, #134, #135 (erledigt)
+und bestätigte deren CI- und packaging-Änderungen; keine Freigabe für spätere PRs.
+
+Bewusst offen gelassen (Review #134/#135, beantwortet):
+- Fehler beim Lesen eines Kurses nennt in der App den Pfad nicht (Nutzer hat die Datei eben gewählt).
+- Bestand #133: nach einem Xrun füllt der stumme Ausgang sofort einen zweiten Block (Vorfüllen; kein Überschuss).
+- Nebenbefund: Tests hinterlassen `kontra-core-*`-Ordner im `TMPDIR` (Core-Tests ohne Aufräumen).
+
+Kurse (LH-LRN-14) gemerged: #131 Format und `kontra-cli course` (Zip über die Crate `zip`), #134 Kurse in der App
+(Datei, https-Adresse, Update mit `revision`, Entfernen, Glossar über alle Kurse, Video mit Untertiteln, WebM und
+MP4, Dateityp `application/x-kontrakurs`, Qt Multimedia in der CI), #135 Glossar nach Instrument, Kurse von der
+Datei statt im Speicher. #133 Null-Ausgang-Test unter Last.
 
 Lernen (Runde 13, `LERNEN.md`): Kapitel 1–15, Glossar, „?“ an Fachbegriffen und Legende an Zeichen (#118–#130)
 gemerged. Offen: Kurswerkstatt mit Fenster (LH-LRN-15, für 1.0). Kursfassung `revision` im Manifest: Das Update sagt
@@ -26,8 +43,7 @@ new_course, pack, COURSE_*}`, `Block::Video::subtitles`, `pub(crate) Zip::{read_
 cues, Cue}`, `MAX_COURSE_BYTES`, `Settings::course`, Core `course_preview`, `course_add`, `course_remove`,
 `course_fetch`, `course_fetch_poll`, `choose_course`, `lesson_video`, `is_course`, `fake_course_web`,
 `set_course_http`; Brücke `coursePreview`, `courseAdd`, `courseRemove`, `courseFetch`, `chooseCourse`,
-`lessonVideo`, `startCourse`, `courseFetchJson`. Zur nächsten Runde: `CourseStore::add(path, cache)`,
-`CourseStore::subtitles(id, src, cache)`, `PackError::Newer`, `CoursePack::open`, `read_media(path, src)`.
+`lessonVideo`, `startCourse`, `courseFetchJson`. Zur nächsten Runde: siehe Übergabe oben.
 
 Plan (Eigentümer, 24.10.): Didaktik I4 (#106), I5 (#107), I6 umgesetzt. Offen aus
 I5: Ziel-Band im Histogramm (Kante). I6 Phrasengrenzen aus Zögern: #128.
