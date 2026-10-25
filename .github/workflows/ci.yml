@@ -125,7 +125,7 @@ jobs:
             /opt/qt
             /opt/kf6
             /opt/qt-tools
-          key: qt-6.10.3-kf-6.30.0
+          key: qt-6.10.3-kf-6.30.0-multimedia
       # The Rust build of the app, as in the core job: without it clippy, the tests and the
       # release build for the screenshots compile everything anew (about 8 min).
       - uses: actions/cache@v4
@@ -147,6 +147,10 @@ jobs:
           . scripts/qt-env.sh
           cargo clippy -p kontra-app --all-targets -- -D warnings
           cargo test -p kontra-app
+      - name: Course video player (LH-LRN-14)
+        run: |
+          . scripts/qt-env.sh
+          scripts/check-video.sh
       - name: Screenshots
         run: scripts/screenshots.sh shots
       - uses: actions/upload-artifact@v4

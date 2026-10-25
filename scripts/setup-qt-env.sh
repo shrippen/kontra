@@ -35,7 +35,7 @@ log() { printf '\n== %s\n' "$*"; }
 log "apt packages"
 PKGS=(build-essential python3-venv curl xz-utils libgl1-mesa-dev libegl-dev libvulkan-dev
       libxkbcommon-dev libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1
-      libxcb-render-util0 libxcb-image0 libfontconfig1 libdbus-1-3 xvfb xauth)
+      libxcb-render-util0 libxcb-image0 libfontconfig1 libdbus-1-3 libpulse0 xvfb xauth)
 missing=()
 for p in "${PKGS[@]}"; do dpkg -s "$p" >/dev/null 2>&1 || missing+=("$p"); done
 if [ ${#missing[@]} -gt 0 ]; then
@@ -55,10 +55,12 @@ else
 fi
 export PATH="${QT_TOOLS}/bin:${PATH}"
 
-# 3. Qt (base, declarative, svg, wayland, tools come with the base set) + qtshadertools.
+# 3. Qt (base, declarative, svg, wayland, tools come with the base set) + qtshadertools and
+#    qtmultimedia (course videos, LH-LRN-14; brings its FFmpeg).
 log "Qt ${QT_VERSION} -> ${QT_ROOT}"
-if [ ! -x "${QT_ROOT}/bin/qmake6" ] || [ ! -d "${QT_ROOT}/lib/cmake/Qt6ShaderTools" ]; then
-    aqt install-qt linux desktop "${QT_VERSION}" linux_gcc_64 -m qtshadertools -O "${QT_BASE}"
+if [ ! -x "${QT_ROOT}/bin/qmake6" ] || [ ! -d "${QT_ROOT}/lib/cmake/Qt6ShaderTools" ] \
+    || [ ! -d "${QT_ROOT}/lib/cmake/Qt6Multimedia" ]; then
+    aqt install-qt linux desktop "${QT_VERSION}" linux_gcc_64 -m qtshadertools qtmultimedia -O "${QT_BASE}"
 else
     echo "present"
 fi
