@@ -6,6 +6,7 @@
 //!                 ──add()──────▶ <data>/courses/<id>.kontrakurs ──load()──▶ [CoursePack]
 //!                                 ──remove()──▶ gone, with its unpacked media (progress stays)
 //! https://… ──fetch()──▶ worker thread ──poll()──▶ <data>/courses/fetched.part (then as a file)
+//!                                                  + fetched.url ──add()──▶ <id>.url ──address()
 //! ```
 
 use kontra_content::lesson::{
@@ -21,6 +22,9 @@ use thiserror::Error;
 const DIR: &str = "courses";
 /// Where a fetched package waits to be previewed and added; not a course (`load` skips it).
 const FETCHED: &str = "fetched.part";
+/// The address `FETCHED` came from; kept as `<id>.url` once added, to fetch updates from.
+const FETCHED_URL: &str = "fetched.url";
+const URL_EXT: &str = "url";
 const HTTPS: &str = "https://";
 
 /// Why a course cannot be added.
@@ -119,7 +123,22 @@ impl CourseStore {
         let partial = target.with_extension("part");
         fs::copy(path, &partial).map_err(io)?;
         fs::rename(&partial, &target).map_err(io)?;
+
+        // Fetched from an address: keep it for updates, the fetched copy is not needed.
+        if path == self.dir.join(FETCHED) {
+            let url = self.dir.join(FETCHED_URL);
+            fs::rename(&url, target.with_extension(URL_EXT)).map_err(io)?;
+            fs::remove_file(path).map_err(io)?;
+        }
         Ok(pack)
+    }
+
+    /// The address added course `id` was fetched from, to look for an update; none when it came
+    /// from a file.
+    pub fn address(&self, id: &str) -> Option<String> {
+        let url = self.package(id).with_extension(URL_EXT);
+        let text = fs::read_to_string(url).ok()?;
+        Some(text.trim().to_string())
     }
 }
 
@@ -175,7 +194,8 @@ impl CourseStore {
             source,
         })?;
 
-        // Unpacked videos only save time; one left behind is no harm.
+        // The address and unpacked videos only save time; one left behind is no harm.
+        let _ = fs::remove_file(self.package(id).with_extension(URL_EXT));
         let _ = fs::remove_dir_all(cache.join(DIR).join(id));
         Ok(())
     }
@@ -197,15 +217,15 @@ impl CourseStore {
             let outcome = http
                 .download(&url, MAX_COURSE_BYTES)
                 .map_err(CourseError::from)
-                .and_then(|data| keep(&dir, &data));
+                .and_then(|data| keep(&dir, &data, &url));
             let _ = tx.send(outcome);
         });
         Ok(CourseFetch { running: rx })
     }
 }
 
-/// Writes a fetched package to `dir/FETCHED`.
-fn keep(dir: &Path, data: &[u8]) -> Result<PathBuf, CourseError> {
+/// Writes a fetched package to `dir/FETCHED`, its address beside it.
+fn keep(dir: &Path, data: &[u8], url: &str) -> Result<PathBuf, CourseError> {
     let io = |source| CourseError::Io {
         path: dir.to_path_buf(),
         source,
@@ -213,6 +233,7 @@ fn keep(dir: &Path, data: &[u8]) -> Result<PathBuf, CourseError> {
     fs::create_dir_all(dir).map_err(io)?;
     let path = dir.join(FETCHED);
     fs::write(&path, data).map_err(io)?;
+    fs::write(dir.join(FETCHED_URL), url).map_err(io)?;
     Ok(path)
 }
 
@@ -295,6 +316,17 @@ mod tests {
         assert!(store.load().is_empty(), "fetched is not added yet");
         store.add(&path).unwrap();
         assert_eq!(store.load().len(), 1);
+        assert_eq!(
+            store.address("weber").as_deref(),
+            Some("https://kurs.example/w")
+        );
+        assert!(!path.exists(), "the fetched copy is gone");
+
+        // Added again from a file (an update by hand): the address stays.
+        store.add(&dir.join("weber.kontrakurs")).unwrap();
+        assert!(store.address("weber").is_some());
+        store.remove("weber", &dir.join("cache")).unwrap();
+        assert_eq!(store.address("weber"), None);
         fs::remove_dir_all(dir).unwrap();
     }
 

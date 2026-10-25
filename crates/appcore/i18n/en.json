@@ -899,6 +899,7 @@
   "courses.unreadable": "The file is not a readable course: {reason}",
   "courses.confirm": "Add",
   "courses.cancel": "Cancel",
+  "courses.update": "Check for update",
   "courses.remove": "Remove …",
   "courses.remove.title": "Remove “{title}”?",
   "courses.remove.text": "The course's lessons and videos are deleted. Your progress stays: add the course again and you continue where you left off.",

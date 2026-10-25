@@ -177,6 +177,14 @@ Kirigami.ScrollablePage {
                     page.reload()
                 }
             }
+            // Fetched from an address: the provider's newer version comes the same way, as a preview.
+            KanteButton {
+                visible: page.chosen !== null && !!page.chosen.address
+                enabled: !page.fetching
+                text: page.fetching ? texts.t("courses.fetching") : texts.t("courses.update")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: ctl.courseFetch(page.chosen.address)
+            }
             KanteButton {
                 visible: page.chosen !== null && page.chosen.removable
                 text: texts.t("courses.remove")

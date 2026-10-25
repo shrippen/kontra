@@ -899,6 +899,7 @@
   "courses.unreadable": "Die Datei ist kein lesbarer Kurs: {reason}",
   "courses.confirm": "Hinzufügen",
   "courses.cancel": "Abbrechen",
+  "courses.update": "Nach Update suchen",
   "courses.remove": "Entfernen …",
   "courses.remove.title": "„{title}“ entfernen?",
   "courses.remove.text": "Lektionen und Videos des Kurses werden gelöscht. Dein Lernstand bleibt: Fügst du den Kurs wieder hinzu, geht es dort weiter.",

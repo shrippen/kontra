@@ -4488,6 +4488,8 @@ mod tests {
         assert_eq!(core.course_add(&path), "");
         let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
         assert_eq!(learn["course"], "weber.kurs");
+        // Kept to look for an update there.
+        assert_eq!(learn["courses"][1]["address"], "https://x.example");
         std::fs::remove_dir_all(dir).unwrap();
     }
 

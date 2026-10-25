@@ -7,6 +7,7 @@
 //!     ──choose_course(id)─────▶ Settings::course
 //!     ──course_remove(id)─────▶ CourseStore (package and unpacked media; progress stays)
 //!     ──course_fetch(url)─────▶ CourseFetch (thread) ──course_fetch_poll() each tick──▶ preview
+//!       (an update: the same, from the address `learn_json` keeps for the course)
 //!     ──lesson_video(…)───────▶ https address as written, or the video unpacked into the cache
 //! ```
 
@@ -140,6 +141,12 @@ impl Core {
             self.update_settings(|s| s.course = None);
         }
         String::new()
+    }
+
+    /// The address added course `id` was fetched from, to look for an update there.
+    pub(crate) fn course_address(&self, id: &str) -> Option<String> {
+        let pack = self.courses.iter().find(|c| c.manifest.course == id)?;
+        CourseStore::new(&self.data_dir).address(&pack.manifest.id)
     }
 
     /// Whether course `id` came from an added package (and can be removed).
