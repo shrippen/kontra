@@ -73,6 +73,8 @@ const TOPIC_TERMS: &[(&str, &str)] = &[
     ("goal.slap", "slap"),
     ("goal.scale", "tonleiter"),
     ("goal.modes", "tonleiter"),
+    ("goal.reading", "tonart"),
+    ("goal.ramp", "bpm"),
     ("goal.walking", "walking-bass"),
     ("goal.fingers", "fingersatz"),
     ("goal.timing", "streuung"),
@@ -753,6 +755,16 @@ mod tests {
         let walking = parse(&core.term_json("kind.walking"));
         assert_eq!(walking["title"], "Walking Bass");
         assert_eq!(core.term_json("kind.groove"), "", "no term, no \"?\"");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn every_bundled_goal_has_a_term() {
+        let (core, dir) = core("goals");
+        for (_, spec) in exercise::bundled_specs() {
+            let goal = exercise::describe(&spec).goal;
+            assert_ne!(core.term_json(&format!("goal.{goal}")), "", "{goal}");
+        }
         let _ = std::fs::remove_dir_all(dir);
     }
 
