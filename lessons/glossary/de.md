@@ -198,7 +198,7 @@ Die Töne eines Akkords nacheinander gespielt statt zusammen.
 ## Septakkord
 id: septakkord
 lesson: septakkord
-Dreiklang mit Septime: maj7 (große Septime), 7 (Dur mit kleiner Septime), m7 (Moll mit kleiner Septime).
+[[dreiklang|Dreiklang]] mit [[septime|Septime]]: maj7 (große Septime), 7 (Dur mit kleiner Septime), m7 (Moll mit kleiner Septime).
 
 ## Stufe
 id: stufe
@@ -330,7 +330,7 @@ Ein Ton außerhalb des Akkords, der zum nächsten Ton führt, oft einen Halbton 
 ## II-V-I
 id: zwei-fuenf-eins
 lesson: zwei-fuenf-eins
-Akkordfolge aus den Stufen II, V und I, etwa Dm7, G7, Cmaj7. Die häufigste Wendung im Jazz.
+Akkordfolge aus den Stufen II, V und I, etwa die [[septakkord|Septakkorde]] Dm7, G7, Cmaj7. Die häufigste Wendung im Jazz.
 
 ## Pocket
 id: pocket

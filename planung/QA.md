@@ -238,9 +238,11 @@ Erwartet: Jeder Schritt passt auf einen Bildschirm; beim Ausprobieren sagt ein f
 zeigt „Weiter: <nächste Lektion>“; ohne Eingang antwortet ein Klick auf die Klaviatur statt des Basses.
 
 **J-G2 Was ist eine Septime?** ⚙ · Personas: P2 Jens, P1 Lea · Phase 2 · LH-LRN-09
-1. Jens: Walking-Übung II-V-I, „?“ am Akkordnamen „Dm7“, weiter zu „Septime“, Hörbeispiel; zurück.
+1. Jens: Übung erzeugen, Akkordfolge II-V-I; „?“ daneben zeigt beim Zeigen den ersten Satz, ein Klick den Eintrag;
+   weiter über „Septakkorde“ zu „Septime“, Hörbeispiel; zurück.
 2. Lea: in der Auswertung „Slide: 3 von 5“, „?“ an „Slide“; zurück.
-Erwartet: Eintrag kurz mit Abbildung und Verweis auf die Lektion; zurück an dieselbe Stelle, nichts verstellt.
+Erwartet: Eintrag kurz mit Abbildung und Verweis auf die Lektion; zurück an dieselbe Stelle (auch gescrollt), nichts
+verstellt. Eine Auswahl ohne Begriff (Funk) zeigt kein „?“.
 
 **J-G3 Wiederholen** · Persona: P1 Lea · Phase 2 · LH-LRN-10
 1. Prüffragen von Kapitel 1, eine falsch.
