@@ -120,8 +120,10 @@ kurs.kontrakurs
 - `::: video src=… subtitles=…`: `src` ist `media/<datei>` im Paket oder `https://<host>/…` auf einem Host aus
   `hosts`; andere Adressen sind ein Fehler. `subtitles` je Sprachdatei (WebVTT) immer unter `media/`, damit sie
   ohne Netz gehen. Ein Video startet erst auf Klick; eins aus dem Paket entpackt Kontra dann in seinen Cache.
-- Namen bleiben im Paket (kein `/` am Anfang, kein `..`, kein `\`), höchstens 1 GiB, Textdateien je höchstens
-  4 MiB, zusammen höchstens 32 MiB.
+- Namen bleiben im Paket (kein `/` am Anfang, kein `..`, kein `\`), höchstens 1 GiB und 10 000 Einträge,
+  Textdateien je höchstens 4 MiB, zusammen höchstens 32 MiB. Versteckte Dateien (`.…`) und `__MACOSX/` zählen
+  nicht.
+- Ein Kurs mit höherer `version` sagt, dass er ein neueres Kontra braucht.
 
 Anlegen, prüfen und packen: `kontra-cli course new <ordner> --id <präfix> --provider … --license …`,
 `kontra-cli course check <ordner|datei>` (jeder Befund mit Datei, Fehler im Format mit Zeile),

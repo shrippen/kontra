@@ -48,9 +48,10 @@ impl<'a> Zip<'a> {
     /// Inflated size of entry `name` as the archive declares it (0 if missing); reading never
     /// yields more.
     pub(crate) fn size(&self, name: &str) -> usize {
-        self.entries
-            .iter()
-            .find(|(n, _)| n == name)
+        // The archive indexes names: no search through all entries (many-entry archives).
+        self.archive
+            .index_for_name(name)
+            .and_then(|index| self.entries.get(index))
             .map_or(0, |(_, size)| usize::try_from(*size).unwrap_or(usize::MAX))
     }
 

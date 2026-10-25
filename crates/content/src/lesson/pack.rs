@@ -27,6 +27,8 @@ pub const COURSE_VERSION: u32 = 1;
 pub const COURSE_EXT: &str = "kontrakurs";
 const MANIFEST: &str = "manifest.json";
 const MEDIA_DIR: &str = "media/";
+/// Resource forks the macOS Finder adds when it zips a folder.
+const MACOS_DIR: &str = "__MACOSX/";
 const HTTPS: &str = "https://";
 /// What Qt Multimedia plays on every desktop; subtitles as WebVTT.
 const VIDEO_TYPES: &[&str] = &[".webm", ".mp4"];
@@ -37,6 +39,8 @@ pub const MAX_COURSE_BYTES: u64 = 1024 * 1024 * 1024;
 const MAX_TEXT_BYTES: usize = 4 * 1024 * 1024;
 /// All texts together; the archive's size says nothing about them (deflated zeros).
 const MAX_TEXTS_BYTES: usize = 32 * 1024 * 1024;
+/// Most entries in a package: lessons in two languages, media and subtitles fit many times.
+const MAX_ENTRIES: usize = 10_000;
 
 /// The template `new` lays out; `{id}` becomes the package id (path and text).
 const TEMPLATE: &[(&str, &str)] = &[
@@ -109,11 +113,15 @@ impl CoursePack {
             return Err(PackError::archive(format!("{} bytes", data.len())));
         }
         let zip = Zip::open(data).map_err(|e| PackError::archive(e.to_string()))?;
+        let entries = zip.names().count();
+        if entries > MAX_ENTRIES {
+            return Err(PackError::archive(format!("{entries} entries")));
+        }
 
         // All texts by their declared size, before inflating any (deflated zeros, review #131).
         let declared: usize = zip
             .names()
-            .filter(|n| !n.starts_with(MEDIA_DIR))
+            .filter(|n| !n.starts_with(MEDIA_DIR) && !hidden(n))
             .map(|n| zip.size(n))
             .fold(0, usize::saturating_add);
         if declared > MAX_TEXTS_BYTES {
@@ -126,7 +134,7 @@ impl CoursePack {
         let mut media = Vec::new();
         for name in zip.names() {
             safe(name)?;
-            if name.ends_with('/') {
+            if name.ends_with('/') || hidden(name) {
                 continue;
             }
             if name.starts_with(MEDIA_DIR) {
@@ -163,14 +171,11 @@ impl CoursePack {
             .find(|(n, _)| n == MANIFEST)
             .map(|(_, t)| t.as_str())
             .ok_or_else(|| PackError::archive(format!("{MANIFEST} missing")))?;
+        newer(manifest_text)?;
         let manifest: CourseManifest = serde_json::from_str(manifest_text)
             .map_err(|e| super::parse::error(MANIFEST, e.line(), &e.to_string()))?;
         if manifest.format != COURSE_FORMAT {
             let reason = format!("format {} is not {COURSE_FORMAT}", manifest.format);
-            return Err(super::parse::error(MANIFEST, 1, &reason).into());
-        }
-        if manifest.version > COURSE_VERSION {
-            let reason = format!("version {} is newer than this Kontra", manifest.version);
             return Err(super::parse::error(MANIFEST, 1, &reason).into());
         }
 
@@ -449,6 +454,26 @@ fn files(dir: &Path) -> Result<Vec<String>, PackError> {
 }
 
 /// A package id: a–z and `-`, not empty (`studio-weber`).
+/// A course from a later Kontra: said before the strict parse, which would only name the field
+/// this Kontra does not know.
+fn newer(manifest: &str) -> Result<(), PackError> {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(manifest) else {
+        return Ok(());
+    };
+    let format = value.get("format").and_then(|f| f.as_str());
+    let version = value.get("version").and_then(|v| v.as_u64()).unwrap_or(0);
+    if format != Some(COURSE_FORMAT) || version <= u64::from(COURSE_VERSION) {
+        return Ok(());
+    }
+    let reason = format!("version {version} is newer than this Kontra");
+    Err(super::parse::error(MANIFEST, 1, &reason).into())
+}
+
+/// Hidden files and the macOS resource folder, left out like in a folder (`files`).
+fn hidden(name: &str) -> bool {
+    name.starts_with(MACOS_DIR) || name.split('/').any(|part| part.starts_with('.'))
+}
+
 fn plain_id(id: &str) -> bool {
     !id.is_empty() && id.chars().all(|c| c.is_ascii_lowercase() || c == '-')
 }
@@ -670,6 +695,49 @@ mod tests {
             panic!("expected a lesson error");
         };
         assert_eq!((e.file.as_str(), e.line), ("manifest.json", 2));
+    }
+
+    /// A course zipped by hand (macOS Finder) holds hidden files the folder check skips
+    /// (review #131, round 6).
+    #[test]
+    fn an_archive_skips_hidden_entries() {
+        let data = archive(
+            "src=media/a.webm",
+            &[
+                ("media/a.webm", b"x"),
+                (".DS_Store", b"\x00\x00\x00\x01Bud1\xff"),
+                ("__MACOSX/units/test.video/._de.md", b"\x00\x05\x16\x07\xff"),
+                ("units/test.video/.de.md.swp", b"\xff\xfe"),
+            ],
+        );
+        assert_eq!(problems(&data), Vec::<String>::new());
+    }
+
+    /// A course from a later Kontra says so, even with fields this one does not know
+    /// (review #131, round 6).
+    #[test]
+    fn a_newer_course_is_named() {
+        let manifest = MANIFEST_OK
+            .replace("\"version\": 1", "\"version\": 2")
+            .replace("\"hosts\"", "\"price\": 5, \"hosts\"");
+        let data = zip::write(&[("manifest.json", manifest.as_bytes())]).unwrap();
+        let Err(PackError::Lesson(e)) = CoursePack::read(&data) else {
+            panic!("expected a lesson error");
+        };
+        assert!(e.to_string().contains("newer"), "{e}");
+    }
+
+    /// Many tiny entries cost no time per entry squared (review #131, round 6): above the
+    /// limit, the archive is refused before anything is read.
+    #[test]
+    fn an_archive_has_an_entry_limit() {
+        let names: Vec<String> = (0..=MAX_ENTRIES).map(|i| format!("media/{i}")).collect();
+        let entries: Vec<(&str, &[u8])> = names.iter().map(|n| (n.as_str(), &b""[..])).collect();
+        let data = zip::write(&entries).unwrap();
+        let Err(PackError::Archive(reason)) = CoursePack::read(&data) else {
+            panic!("expected an archive error");
+        };
+        assert!(reason.contains("entries"), "{reason}");
     }
 
     /// A folder holds what the archive may (review #131): `course check <folder>` must not pass
