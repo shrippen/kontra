@@ -53,9 +53,11 @@ fn first_lesson_tries_reads_and_moves_on() {
     let first = json(&core.lesson_ear(FIRST, page, block).unwrap());
     assert_eq!(first["solved"], false);
 
-    let events = run_until(&mut core, Duration::from_secs(3), |e| {
-        matches!(e, UiEvent::Ear(s) if s.contains("\"solved\":true"))
-    });
+    let events = run_until(
+        &mut core,
+        Duration::from_secs(3),
+        |e| matches!(e, UiEvent::Ear(s) if s.contains("\"solved\":true")),
+    );
     let last = events
         .iter()
         .rev()
