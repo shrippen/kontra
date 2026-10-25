@@ -95,6 +95,7 @@ Durchläufe kommen dazu) oder ersetzt alles. Ungültige Dateien ändern nichts.
 # Kurspaket `.kontrakurs` (Format 1)
 
 Ein Kurs eines Anbieters zum Hinzufügen (LH-LRN-14): ein Zip, entpackt der Ordner, den der Autor bearbeitet.
+MIME-Typ: `application/x-kontrakurs`; Kontra öffnet ihn mit der Vorschau, nichts wird ohne Bestätigung hinzugefügt.
 Lektionsformat wie die mitgelieferten Kurse (`lessons/README.md`).
 
 ```text

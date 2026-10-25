@@ -3,6 +3,9 @@
 # headless once.
 id: org.shrippen.Kontra
 runtime: org.kde.Platform
+# Course videos (LH-LRN-14, Runde 14: WebM and MP4): Qt Multimedia's FFmpeg is in the runtime, the
+# patent-encumbered codecs (H.264, AAC) come with its extension org.freedesktop.Platform.codecs-extra,
+# which Flatpak installs with it; the successor of ffmpeg-full.
 runtime-version: "6.10"
 sdk: org.kde.Sdk
 sdk-extensions:
