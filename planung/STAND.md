@@ -1,11 +1,21 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-10-24. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+Übergabe zwischen Sitzungen. Stand: 2026-10-25. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-`pulse-threshold` (I4: Bünde ab ±25 ms); Kante #77 (1.41 Ziel-Band im Histogramm).
+`lernen-seite` (Seite „Lernen“, J-G1/J-G2), #121 (Kapitel 2–5), #120 (flakiger Separator-Test); Kante #77 (1.41
+Ziel-Band im Histogramm, wartet auf den Eigentümer; danach Kontra-Branch `pocket-band`).
+
+Lernen (Runde 13, `LERNEN.md`): Format und Kapitel 1 (#119), Plan (#118) gemerged. Offen: „?“ an Fachbegriffen in
+Übungsziel, Generator und Auswertung (LH-LRN-09), Wiederholen (LH-LRN-10), „ohne Eingang per Auswahl“ beim
+Ausprobieren (LH-LRN-08), Kapitel 6–15, Kurspakete und Kurswerkstatt (LH-LRN-14, -15, für 1.0).
+
+Neue pub-Schnittstellen zur Freigabe (nächste Runde): `kontra_content::lesson` (`Lessons`, Blocktypen, `scopes`),
+`kontra_session::{Learning, LearnState, LearnStore, UnitState, place, positions}`, `EarQuiz::fixed`, Core
+`learn_json`, `lesson_json`, `lesson_seen`, `lesson_ear`, `term_ear`, `lesson_exercise`, `finale_exercise`,
+`glossary_json`, `glossary_list_json`.
 
 Plan (Eigentümer, 24.10.): Didaktik I4 (#106), I5 (#107), I6 umgesetzt. Offen aus
 I5: Ziel-Band im Histogramm (Kante); aus I6: Phrasengrenzen aus Zögern.

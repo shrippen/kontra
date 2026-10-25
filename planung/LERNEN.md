@@ -125,7 +125,8 @@ session/   Kurs und Lektionen laden (für das aktive Instrument aufgelöst), Ler
 engine/     content/  Lektionsformat: Parser, mitgelieferte Kurse, Lektionen, Glossar
 ```
 
-- **Wer was besitzt:** `content` liest Dateien und kennt kein Instrument-Verhalten. `session` wählt den Kurs zum
+- **Wer was besitzt:** `content` liest Dateien und kennt kein Instrument-Verhalten; es hält nur die Tabelle, welche
+  Stufen ein Profil hat (`lesson::scopes`), damit Prüfung und Session dieselbe nutzen. `session` wählt den Kurs zum
   Instrument-Profil, löst Varianten auf (Abschnitt 12) und speichert den Lernstand. `appcore` führt durch die Schritte
   und prüft das Ausprobieren mit den Wegen, die es schon besitzt (`quiz`, `ear`, Session); nichts ruft nach oben.
 - **Format:** je Lektion ein Ordner `lessons/units/<id>/` mit `de.md` und `en.md`. Kopf mit `id`, `for` (siehe
@@ -154,11 +155,11 @@ engine/     content/  Lektionsformat: Parser, mitgelieferte Kurse, Lektionen, Gl
 | LH-LRN-08 | Lektion in Schritten Erklären, Ausprobieren (am Bass, ohne Eingang per Auswahl), Üben (vorhandene Übung, drei Tempi), Prüfen. | Soll | P1, P3, P7 | J-G1, J-G3 |
 | LH-LRN-09 | Glossar „Was ist …?“ (DE/EN), aus jedem Fachbegriff in Übungsziel, Generator, Auswertung und Technik-Zeichen erreichbar, zurück an dieselbe Stelle. | Soll | P1, P2, P5 | J-G2 |
 | LH-LRN-10 | Prüffragen kehren nach Tagen wieder; fällige Fragen auf der Startseite; „Kann ich schon“ hakt ein Kapitel nach bestandenen Fragen ab. | Kann | P1, P2 | J-G3 |
-| LH-LRN-11 | Offenes, dokumentiertes Lektionsformat; eigene Lektionen in der Bibliothek, gepackt als `.kontrakurs` (LH-LRN-14, -15). | Kann | P4 | J-G4 |
-| LH-LRN-12 | Lektionen gelten für eine Stufe (`any`, Familie, Instrument) aus dem Profil; ein Profil ohne passende Lektion bekommt einen Hinweis statt einer falschen Lektion. | Soll | P5, P6 | J-A4 |
-| LH-LRN-14 | Kurse nachladen als `.kontrakurs` aus Datei oder Adresse, auch mit Videos (Abschnitt 13); mitgelieferte Kurse ohne Videos. Für 1.0, wie die Kurswerkstatt. | Soll | P2, P4, P1, P7 | J-G5 |
+| LH-LRN-11 | Offenes, dokumentiertes Lektionsformat; eigene Lektionen in der Bibliothek; ab Phase 4 als `.kontrakurs` gepackt (LH-LRN-14, -15). | Kann | P4 | J-G4 |
+| LH-LRN-12 | Lektionen gelten für eine Stufe (`any`, Rolle wie `bass`, Familie, Instrument) aus dem Profil; ein Profil ohne passende Lektion bekommt einen Hinweis statt einer falschen Lektion. | Soll | P5, P6 | J-A4 |
 | LH-LRN-13 | Kurs je Instrument aus einem gemeinsamen Lektionsvorrat (`for`, Varianten, `needs`, Abschnitt 12); gemeinsames Wissen zählt über Kurse. | Soll | P5, P6, P1 | Tests je Kurs |
-| LH-LRN-15 | Kurswerkstatt: kleines Begleitprogramm, mit dem Anbieter und Lehrkräfte einen Kurs anlegen, Lektionen mit Vorschau schreiben, prüfen und als `.kontrakurs` packen (Abschnitt 13). Für 1.0. | Soll | P4, P2 | J-G4, J-G5 |
+| LH-LRN-14 | Kurse nachladen als `.kontrakurs` aus Datei oder Adresse, auch mit Videos (Abschnitt 13); mitgelieferte Kurse ohne Videos. Für 1.0, wie die Kurswerkstatt. | Soll | P2, P4, P1, P7 | J-G5 |
+| LH-LRN-15 | Kurswerkstatt: kleines Begleitprogramm, mit dem Anbieter und Lehrkräfte einen Kurs anlegen, Lektionen mit Vorschau schreiben, prüfen und als `.kontrakurs` packen (Abschnitt 13). Für 1.0. | Soll | P4, P2 | J-G6 |
 
 ## 9. Journeys (`QA.md`, Abschnitt G)
 
@@ -169,6 +170,8 @@ engine/     content/  Lektionsformat: Parser, mitgelieferte Kurse, Lektionen, Gl
   („Slide: 3 von 5“ → „Was ist ein Slide?“) und aus dem Generator mit unveränderten Einstellungen.
 - **J-G3 Wiederholen** · P1 Lea · Prüffragen eines Kapitels, eine falsch; drei Tage später auf der Startseite fällig.
 - **J-G4 Eigene Lektion** · P4 Thomas · Lektion als Datei schreiben, in Kontra öffnen, am Beamer zeigen.
+- **J-G5 Kurs nachladen** · P2 Jens, P7 Sam · Kurs von einer Adresse hinzufügen, Lektion mit Video, ohne Netz neu starten.
+- **J-G6 Kurs bauen** · P4 Thomas · Kurs in der Kurswerkstatt anlegen, prüfen, packen und in Kontra laden.
 
 ## 10. Schritte
 

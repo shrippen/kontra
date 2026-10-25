@@ -230,7 +230,7 @@ Erwartet: Jede Note wird so schnell markiert wie sonst; eine Note, die beim Ansc
 
 ## G. Lernen
 
-**J-G1 Erste Lektion** · Persona: P1 Lea · Phase 2 · LH-LRN-07, LH-LRN-08
+**J-G1 Erste Lektion** ⚙ · Persona: P1 Lea · Phase 2 · LH-LRN-07, LH-LRN-08
 1. Seite „Lernen“, Kapitel 1, erste offene Lektion; lesen, Hörbeispiel, ausprobieren am Bass, langsam üben, prüfen.
 2. Kontra schließen und öffnen.
 3. Dasselbe bei 200 % Schrift, ohne Eingang.
@@ -251,12 +251,18 @@ Erwartet: fällige Fragen stehen auf der Startseite; die falsche kommt früher; 
 1. Lektion nach der Formatbeschreibung schreiben, in Kontra öffnen, am Beamer (1280×720) zeigen.
 Erwartet: liest sich wie eine mitgelieferte; Fehler im Format mit Zeile genannt.
 
-**J-G5 Kurs nachladen** · Personas: P2 Jens, P7 Sam · Phase 3 · LH-LRN-14
+**J-G5 Kurs nachladen** · Personas: P2 Jens, P7 Sam · Phase 4 · LH-LRN-14
 1. Jens: Kurs-Adresse eines Anbieters eingeben; Anbieter und Lizenz lesen, hinzufügen; eine Lektion mit Video.
 2. Sam: dieselbe Lektion bei 200 % und „Bewegung reduzieren“, mit Orca.
 3. Ohne Netz neu starten.
 Erwartet: Kurs erscheint neben dem Bass-Kurs; Video mit Untertiteln, Text darunter lesbar; ohne Netz bleibt ein
 heruntergeladener Kurs nutzbar, ein Stream-Video sagt, dass es Netz braucht; der Lernstand gemeinsamer Lektionen gilt.
+
+**J-G6 Kurs bauen** · Persona: P4 Thomas · Phase 4 · LH-LRN-15
+1. In der Kurswerkstatt einen Kurs anlegen, zwei Lektionen schreiben (eine mit Fehler im Format), Vorschau ansehen.
+2. Prüfen, Fehler beheben, als `.kontrakurs` packen; dasselbe mit `kontra-cli course new|check|pack`.
+3. Das Paket in Kontra hinzufügen und eine Lektion spielen.
+Erwartet: Fehler mit Datei und Zeile; die Vorschau sieht aus wie in Kontra; das Paket lädt ohne Befund.
 
 ## F. Querschnitt
 
