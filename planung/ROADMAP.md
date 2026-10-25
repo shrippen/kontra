@@ -222,7 +222,7 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
       einer Nacht. QA-Schalter `--probe`.
 - [x] I4 Erst der Puls (24.10., LH-LRN-06, J-C8 ⚙): Bewertungsart `Judging::TimeOnly` im Arrangement (MIDI-Text
       `kontra:timing`); die Session wertet dann nur den Anschlag. Fünf Grooves der Stufe 1 auf leerer Saite nutzen sie.
-      Generator-Schalter „Nur Timing“ für Grooves (24.10.). Offen: Schwelle für Bünde.
+      Generator-Schalter „Nur Timing“ für Grooves (24.10.). Schwelle für Bünde: Streuung ≤ ±25 ms (25.10.).
 - [x] I5 Lage-Ziel (24.10., LH-BEW-08, J-C2 ⚙): „Lage“ auf der Übungsseite (frei, auf den Punkt, laid-back, vorn);
       die Auswertung sagt, ob die mittlere Lage gehalten wurde, sonst um wie viele ms daneben. Offen: Band im
       Histogramm (Kante), Lage-Ziel je Übung.

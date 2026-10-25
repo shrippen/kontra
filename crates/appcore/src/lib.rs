@@ -453,7 +453,7 @@ impl Core {
         self.progress_json_at(unix_now())
     }
 
-    /// In level order, the first bundled exercise whose best run is not above the workshop band,
+    /// In level order, the first bundled exercise that does not sit yet (see `sits`),
     /// apart from `skip` (the one just played): `{title, path, best, mastered, level}`.
     fn next_exercise(&self, skip: Option<&Path>) -> Option<serde_json::Value> {
         self.bundled_levels().into_iter().find_map(|level| {
@@ -461,7 +461,7 @@ impl Core {
                 .as_array()?
                 .iter()
                 .filter(|i| skip.is_none_or(|p| i["path"].as_str() != p.to_str()))
-                .find(|i| i["best"].as_f64().unwrap_or(-1.0) < MASTERED_RATE)?
+                .find(|i| i["mastered"] != true)?
                 .clone();
             item["level"] = level["level"].clone();
             Some(item)
@@ -2782,6 +2782,7 @@ impl Core {
             .collect();
         let hardest_notes = hardest_notes(&notes);
         let arrangement = self.arrangement();
+        let judging = arrangement.map_or(Judging::PitchAndTime, |a| a.judging);
         let tendency = match s.mean_offset_ms {
             Some(m) if m < -5.0 => self.tr("summary.early", &[("ms", format!("{:.0}", -m))]),
             Some(m) if m > 5.0 => self.tr("summary.late", &[("ms", format!("{m:.0}"))]),
@@ -2802,7 +2803,7 @@ impl Core {
         let next = self
             .loaded_path()
             .filter(|p| p.parent().and_then(Path::parent) == Some(Self::exercises_dir().as_path()))
-            .filter(|_| s.hit_rate >= MASTERED_RATE)
+            .filter(|_| Self::run_sits(judging, s.hit_rate, s.spread_ms))
             .and_then(|p| self.next_exercise(Some(p)));
         json!({
             "next": next,
@@ -2816,7 +2817,7 @@ impl Core {
                 ("missed", s.missed.to_string()),
             ]),
             "tendencyText": tendency,
-            "spreadText": s.spread_ms.map_or(String::new(), |v| self.tr("summary.spread", &[("ms", format!("{v:.0}"))])),
+            "spreadText": s.spread_ms.map_or(String::new(), |v| self.spread_text(v, judging)),
             "pocketText": self.pocket_text(s),
             // Intonation only where it is scored: a fretless or double bass, or off-pitch notes.
             "intonationText": match s.mean_abs_cents {
@@ -2921,7 +2922,7 @@ impl Core {
     }
 
     /// Bundled exercises by level: `[{"level", "mastered": 3, "items": [{"title", "path", "best",
-    /// "mastered"}]}]`; mastered: best above the workshop band (`MASTERED_RATE`).
+    /// "mastered"}]}]`; mastered: see `sits`.
     pub fn bundled_json(&self) -> String {
         json!(self.bundled_levels()).to_string()
     }
@@ -2967,7 +2968,7 @@ impl Core {
                             "goal": self.bundled_goal(&stem),
                             "path": f.to_string_lossy(),
                             "best": best,
-                            "mastered": best >= MASTERED_RATE,
+                            "mastered": self.sits(f, self.bundled_judging(&stem)),
                         })
                     })
                     .collect();
@@ -3015,6 +3016,37 @@ impl Core {
             .into_iter()
             .nth(number.checked_sub(1)?)?;
         Some(self.exercise_title(&exercise::describe(&spec)))
+    }
+
+    /// How bundled exercise "NN …" is judged; pitch and time when unknown.
+    fn bundled_judging(&self, stem: &str) -> Judging {
+        stem.split_once(' ')
+            .and_then(|(n, _)| n.parse::<usize>().ok())
+            .and_then(|n| exercise::bundled_specs().into_iter().nth(n.checked_sub(1)?))
+            .map_or(Judging::PitchAndTime, |(_, spec)| spec.judging)
+    }
+
+    /// Whether a run sits: hits above the workshop band (`MASTERED_RATE`); judged by time only,
+    /// also a spread of at most `PULSE_SPREAD_MS` (DIDAKTIK I4: then the frets come in), in
+    /// whole ms as the summary shows it.
+    fn run_sits(judging: Judging, hit_rate: f64, spread_ms: Option<f64>) -> bool {
+        let pulse = match judging {
+            Judging::TimeOnly => spread_ms.is_some_and(|s| s.round() <= PULSE_SPREAD_MS),
+            Judging::PitchAndTime => true,
+        };
+        hit_rate >= MASTERED_RATE && pulse
+    }
+
+    /// Whether any run of the piece at `path` sits (`run_sits`).
+    fn sits(&self, path: &Path, judging: Judging) -> bool {
+        self.library
+            .entry(path)
+            .and_then(|e| self.progress_store().load_id(&e.song_id))
+            .is_some_and(|p| {
+                p.runs
+                    .iter()
+                    .any(|r| Self::run_sits(judging, r.hit_rate, r.spread_ms))
+            })
     }
 
     /// What bundled exercise "NN …" trains, in the UI's language ("" for none).
@@ -3167,6 +3199,19 @@ impl Core {
             ramp_bpm: 0.0,
             judging,
         })
+    }
+
+    /// The spread, e.g. "Streuung ±18 ms"; judged by time only with the aim for the frets
+    /// (DIDAKTIK I4), e.g. "Streuung ±31 ms · Bünde ab ±25 ms".
+    fn spread_text(&self, spread_ms: f64, judging: Judging) -> String {
+        let spread = self.tr("summary.spread", &[("ms", format!("{spread_ms:.0}"))]);
+        match judging {
+            Judging::TimeOnly => self.tr(
+                "summary.spread.pulse",
+                &[("spread", spread), ("ms", format!("{PULSE_SPREAD_MS:.0}"))],
+            ),
+            Judging::PitchAndTime => spread,
+        }
     }
 
     /// Whether the run held the chosen aim against the beat (LH-BEW-08), e.g. "Ziel laid-back
@@ -3614,6 +3659,9 @@ const LEVEL_MOVES: [(&str, &str); 2] = [
 
 /// A bundled exercise sits above the workshop's target band (80–90 %, round 5).
 const MASTERED_RATE: f64 = 0.9;
+/// A groove judged by time only sits when its spread is at most this (DIDAKTIK I4): then the
+/// frets come in. Own choice (25.10.), not from a study; to be checked with real beginners.
+const PULSE_SPREAD_MS: f64 = 25.0;
 
 /// Place of a bundled exercise in the plan, from its file name "NN …" (unnumbered last).
 fn plan_number(path: &Path) -> (usize, PathBuf) {
@@ -5272,8 +5320,15 @@ mod tests {
             section: None,
             hardest_bars: Vec::new(),
         };
+        // The first exercise is judged by time only: it sits with a small spread, too (I4).
         core.progress_store()
-            .record(&a, run(now - 10 * day, 0.95))
+            .record(
+                &a,
+                Run {
+                    spread_ms: Some(12.0),
+                    ..run(now - 10 * day, 0.95)
+                },
+            )
             .unwrap();
         core.progress_store()
             .record(&a, run(now - day, 0.5))
@@ -5292,6 +5347,57 @@ mod tests {
         assert_eq!(first_level["mastered"], 1);
         assert_eq!(first_level["items"][0]["mastered"], true);
         assert_eq!(first_level["items"][1]["mastered"], false);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// I4: the threshold judges the spread as the summary shows it (whole ms): ±25.4 reads
+    /// "±25 ms" and sits.
+    #[test]
+    fn the_pulse_threshold_rounds_like_the_text() {
+        assert!(Core::run_sits(Judging::TimeOnly, 0.95, Some(25.4)));
+        assert!(!Core::run_sits(Judging::TimeOnly, 0.95, Some(25.5)));
+    }
+
+    /// I4: a groove judged by time only sits when the hits are there and the spread is small;
+    /// before that, the frets of the next exercise wait.
+    #[test]
+    fn the_pulse_sits_on_a_small_spread() {
+        let dir = temp_dir("pulse");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let first = levels[0]["items"][0]["path"].as_str().unwrap().to_string();
+        core.open(Path::new(&first)).unwrap();
+        assert_eq!(core.arrangement().unwrap().judging, Judging::TimeOnly);
+        let a = core.arrangement().unwrap().clone();
+        let run = |spread| Run {
+            spread_ms: Some(spread),
+            finished_unix: 1,
+            practice_s: 60.0,
+            speed: 1.0,
+            hit_rate: 0.95,
+            mode: "song".into(),
+            section: None,
+            hardest_bars: Vec::new(),
+        };
+        let sits = |core: &Core| {
+            let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+            levels[0]["items"][0]["mastered"] == true
+        };
+
+        // All hits, but ±31 ms: not yet.
+        core.progress_store().record(&a, run(31.0)).unwrap();
+        assert!(!sits(&core));
+        let next: serde_json::Value = serde_json::from_str(&core.home_json()).unwrap();
+        assert_eq!(
+            next["next"]["path"],
+            first.as_str(),
+            "the pulse is still the next step"
+        );
+
+        // ±18 ms: the pulse sits.
+        core.progress_store().record(&a, run(18.0)).unwrap();
+        assert!(sits(&core));
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -5673,7 +5779,11 @@ mod tests {
             v["next"].clone()
         };
 
+        // The first exercise is judged by time only (I4): the hits and a small spread.
         s.hit_rate = 0.95;
+        s.spread_ms = Some(30.0);
+        assert!(next(&core, &s).is_null(), "the spread is not small yet");
+        s.spread_ms = Some(15.0);
         assert_eq!(next(&core, &s)["path"], second.as_str());
         s.hit_rate = 0.5;
         assert!(next(&core, &s).is_null());
@@ -5788,7 +5898,7 @@ mod tests {
         before.notes.pop();
         let old_id = ProgressStore::song_id(&before);
         let run = Run {
-            spread_ms: None,
+            spread_ms: Some(15.0),
             finished_unix: 1,
             practice_s: 60.0,
             speed: 1.0,
