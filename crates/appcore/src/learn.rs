@@ -10,7 +10,7 @@
 
 use crate::{ear, exercise, plan_number, unix_now, Core, Language};
 use kontra_model::Pitch;
-use kontra_session::lesson::{Block, Doc, ExerciseRef, Lang, Lessons, Practice, Span, Tones};
+use kontra_session::lesson::{Block, Doc, ExerciseRef, Lang, Practice, Span, Tones};
 use kontra_session::{place, positions, LearnState, LearnStore, Learning, LiveEar, LiveSetup};
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -22,8 +22,7 @@ impl Core {
     /// The bundled lessons seen through the current instrument profile; `None` only if the
     /// embedded files are broken (a test guards that).
     fn learning(&self) -> Option<Learning> {
-        let lessons = Lessons::bundled().ok()?;
-        Some(Learning::new(lessons, &self.instrument()))
+        Learning::bundled(&self.instrument())
     }
 
     fn learn_lang(&self) -> Lang {

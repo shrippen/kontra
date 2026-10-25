@@ -36,6 +36,12 @@ impl Learning {
         }
     }
 
+    /// The lessons Kontra brings, seen through `instrument`; `None` only if the embedded files
+    /// are broken (a test guards that).
+    pub fn bundled(instrument: &Instrument) -> Option<Learning> {
+        Some(Learning::new(Lessons::bundled().ok()?, instrument))
+    }
+
     /// Whether something scoped `scope` is meant for this profile.
     pub fn fits(&self, scope: &str) -> bool {
         self.scopes.contains(&scope)
