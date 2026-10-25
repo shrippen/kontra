@@ -6,28 +6,37 @@ import Kante
 
 // Wiederholen (LH-LRN-10, J-G3): the questions due again, one at a time, each with the lesson
 // it comes from. The list is taken once on opening; answering moves a question to its next day.
+// With `checkChapter` set on the window, "Kann ich schon": all questions of that chapter; all
+// right ticks it off.
 Kirigami.ScrollablePage {
     id: page
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
-    readonly property var questions: JSON.parse(ctl.reviewJson()).questions
+    readonly property string chapter: applicationWindow().checkChapter
+    readonly property var round: JSON.parse(chapter !== "" ? ctl.chapterCheckJson(chapter) : ctl.reviewJson())
+    readonly property var questions: round.questions
     readonly property int total: questions.length
     readonly property var current: step < total ? questions[step] : null
     property int step: 0
     property int correct: 0
     property bool answered: false
+    // The chapter's result, asked once at the end.
+    property bool passed: false
 
     function next() {
         answered = false
         loader.active = false
         step += 1
+        if (step >= total && chapter !== "") {
+            passed = ctl.chapterPass(chapter, round.since)
+        }
         loader.active = true
         page.flickable.contentY = 0
     }
 
     background: Rectangle { color: KanteStyle.backgroundColor }
-    title: texts.t("review.title")
+    title: chapter !== "" ? texts.t("check.title", { title: round.title }) : texts.t("review.title")
     padding: KanteStyle.unit(16)
 
     ColumnLayout {
@@ -83,10 +92,12 @@ Kirigami.ScrollablePage {
         KanteCallout {
             Layout.fillWidth: true
             visible: page.current === null
-            kind: page.total > 0 ? KanteCallout.Kind.Ok : KanteCallout.Kind.Info
+            kind: page.total > 0 && (page.chapter === "" || page.passed) ? KanteCallout.Kind.Ok : KanteCallout.Kind.Info
             autoHide: false
-            title: page.total > 0 ? texts.t("review.done", { right: page.correct, total: page.total })
-                                  : texts.t("review.none")
+            title: page.total === 0 ? texts.t("review.none")
+                : page.chapter === "" ? texts.t("review.done", { right: page.correct, total: page.total })
+                : page.passed ? texts.t("check.passed", { total: page.total })
+                : texts.t("check.open", { right: page.correct, total: page.total })
         }
         KanteButton {
             visible: page.current === null

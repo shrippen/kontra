@@ -118,6 +118,8 @@ Kirigami.ApplicationWindow {
     // The lesson open on the lesson page and its step, kept while the tuner or an exercise runs.
     property string lessonId: ""
     property int lessonPage: 0
+    // The chapter "Kann ich schon" checks on the review page ("" = the questions due).
+    property string checkChapter: ""
 
     // A glossary entry ("" the index) as a layer over the page that asked (J-G2). The page loses
     // its scroll position under the layer; it is put back when the last layer closes.

@@ -175,7 +175,10 @@ Kirigami.ScrollablePage {
             text: texts.t("home.review.text")
             KanteButton {
                 text: texts.t("home.review.open")
-                onClicked: applicationWindow().show("review")
+                onClicked: {
+                    applicationWindow().checkChapter = ""
+                    applicationWindow().show("review")
+                }
             }
         }
 
