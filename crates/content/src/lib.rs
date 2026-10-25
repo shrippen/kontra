@@ -13,6 +13,7 @@ mod error;
 pub mod exercise;
 mod gp;
 mod harmonic;
+pub mod lesson;
 mod midi;
 mod mscx;
 mod musicxml;

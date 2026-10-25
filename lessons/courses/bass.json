@@ -1,0 +1,13 @@
+{
+  "id": "bass",
+  "for": "bass",
+  "chapters": [
+    {
+      "id": "loslegen",
+      "de": "Loslegen",
+      "en": "Getting started",
+      "units": ["bass-teile", "stimmen", "anschlag", "greifen", "viertel"],
+      "finale": "bundled=47 speeds=\"70 85 100\""
+    }
+  ]
+}
