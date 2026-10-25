@@ -237,11 +237,20 @@ fn keep(dir: &Path, data: &[u8], url: &str) -> Result<PathBuf, CourseError> {
     Ok(path)
 }
 
+/// The file at `path`; one above `MAX_COURSE_BYTES` (a video picked by mistake) is refused before
+/// it is read.
 fn read(path: &Path) -> Result<Vec<u8>, CourseError> {
-    fs::read(path).map_err(|source| CourseError::Io {
+    let io = |source| CourseError::Io {
         path: path.to_path_buf(),
         source,
-    })
+    };
+    let size = fs::metadata(path).map_err(io)?.len();
+    if size > MAX_COURSE_BYTES {
+        return Err(CourseError::Pack(PackError::Archive(format!(
+            "{size} bytes"
+        ))));
+    }
+    fs::read(path).map_err(io)
 }
 
 #[cfg(test)]

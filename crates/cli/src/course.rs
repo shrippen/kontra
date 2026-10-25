@@ -3,7 +3,7 @@
 
 use crate::args::{CourseArgs, CourseCommand};
 use crate::CliResult;
-use kontra_session::lesson::{self, Author, CoursePack, Lessons};
+use kontra_session::lesson::{self, Author, CoursePack, Lessons, MAX_COURSE_BYTES};
 use std::path::Path;
 
 pub fn run(a: &CourseArgs) -> CliResult {
@@ -37,6 +37,16 @@ pub fn run(a: &CourseArgs) -> CliResult {
 fn read(path: &Path) -> Result<CoursePack, String> {
     if path.is_dir() {
         return CoursePack::from_dir(path).map_err(|e| e.to_string());
+    }
+    // Size first: a video picked by mistake is refused before it is read.
+    let size = std::fs::metadata(path)
+        .map_err(|e| format!("{}: {e}", path.display()))?
+        .len();
+    if size > MAX_COURSE_BYTES {
+        return Err(format!(
+            "{}: {size} bytes, more than a course",
+            path.display()
+        ));
     }
     let data = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
     CoursePack::read(&data).map_err(|e| e.to_string())
