@@ -544,3 +544,33 @@ fn a_late_analysis_misses_nothing() {
     assert_eq!(summary.extra, 0);
     assert_eq!(summary.hits, 1);
 }
+
+/// A stalled input (heard stands still) holds notes 2 s at most; after a file's end only the
+/// clock counts.
+#[test]
+fn a_stalled_or_ended_input_still_misses() {
+    let mut s = Session::new(riff(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    s.on_heard(0.0);
+    s.update(2.0);
+    assert_eq!(s.summary().missed, 0, "within 2 s of lag");
+    s.update(2.5);
+    assert_eq!(
+        s.summary().missed,
+        1,
+        "the first note: 2 s, grace and window behind"
+    );
+
+    let mut s = Session::new(riff(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    s.on_heard(0.0);
+    s.update(1.0);
+    assert_eq!(s.summary().missed, 0);
+    s.on_input_ended();
+    s.update(1.0);
+    assert_eq!(
+        s.summary().missed,
+        2,
+        "0 s and 0.5 s are past the clock's grace"
+    );
+}

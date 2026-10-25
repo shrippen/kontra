@@ -383,7 +383,6 @@ impl Session {
         expected + result.cents.unwrap_or(0.0) / 100.0
     }
 
-    /// A technique told after its note (LH-BEW-06): the note it belongs to is judged again.
     /// The analysis has heard the input up to `at_s` (engine clock); nothing after it is
     /// missed yet.
     pub fn on_heard(&mut self, at_s: f64) {
@@ -396,6 +395,7 @@ impl Session {
         self.heard_s = None;
     }
 
+    /// A technique told after its note (LH-BEW-06): the note it belongs to is judged again.
     pub fn on_revision(&mut self, revision: &TechniqueRevision) {
         let Some(&(_, pass, note)) = self
             .struck
