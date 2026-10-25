@@ -16,7 +16,7 @@ Der [[notenwert|Notenwert]] sagt, wie lange ein Ton klingt, gezählt in Schläge
 Eine [[pause|Pause]] ist ein Notenwert ohne Ton: Du zählst weiter, spielst aber nicht. Jede Note hat ihre Pause mit
 derselben Länge. Pausen sind Teil des Grooves, kein Loch darin.
 ::: hint
-Der Ton soll in der Pause wirklich aufhören. Wie du ihn stoppst, lernst du in Kapitel 4.
+Der Ton soll in der Pause wirklich aufhören. Lockere dazu den greifenden Finger oder lass die Taste los.
 :::
 
 ## Üben

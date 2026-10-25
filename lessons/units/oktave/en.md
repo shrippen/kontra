@@ -18,8 +18,8 @@ Play A and the A an octave higher.
 ::: try root=A steps="0 12"
 
 ## Practise
-Root, fifth and octave over I-IV-V in A.
-::: practice bundled=56 speeds="70 85 100"
+Root and octave on one chord in F.
+::: practice bundled=21 speeds="70 85 100"
 
 ## Check
 ::: question

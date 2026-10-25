@@ -7,7 +7,7 @@ needs: halbton greifen
 Die meisten Basslinien beginnen auf der E- oder A-Saite. Wer dort die Töne kennt, findet den
 [[grundton|Grundton]] jedes Akkords. Auf der E-Saite liegen:
 ::: figure root=E steps="0 1 3 5 7 8 10 12" labels="0 1 3 5 7 8 10 12" string=E
-Auf der A-Saite dasselbe Muster, nur von A aus:
+Auf der A-Saite liegen die Töne anders, denn von A zu H ist ein Ganzton, von E zu F nur ein Halbton:
 ::: figure root=A steps="0 2 3 5 7 8 10 12" labels="0 2 3 5 7 8 10 12" string=A
 
 ## Merkhilfe

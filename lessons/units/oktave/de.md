@@ -18,8 +18,8 @@ Spiel A und das A eine Oktave höher.
 ::: try root=A steps="0 12"
 
 ## Üben
-Grundton, Quinte und Oktave über I-IV-V in A.
-::: practice bundled=56 speeds="70 85 100"
+Grundton und Oktave auf einem Akkord in F.
+::: practice bundled=21 speeds="70 85 100"
 
 ## Prüfen
 ::: question
