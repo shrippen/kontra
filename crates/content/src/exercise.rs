@@ -2052,6 +2052,19 @@ mod tests {
     }
 
     #[test]
+    fn levels_hold_their_kind() {
+        // Runde 12 swapped the names of levels 4 and 5, not the exercises in them.
+        for (level, spec) in bundled_specs() {
+            let walking = matches!(spec.kind, ExerciseKind::WalkingBass(_));
+            match level {
+                "4 Groove" => assert!(matches!(spec.kind, ExerciseKind::Groove(..)), "{spec:?}"),
+                "5 Walking Bass" => assert!(walking, "{spec:?}"),
+                _ => {}
+            }
+        }
+    }
+
+    #[test]
     fn time_only_survives_the_file() {
         // Open-string grooves judge only the attack (DIDAKTIK I4); the file carries that.
         let timing = ExerciseSpec {

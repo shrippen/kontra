@@ -12,9 +12,6 @@ Ausprobieren per Klick (#124), Wiederholen (#125), „?“ an Fachbegriffen in �
 gemerged. „?“ an Zeichen und Akkordsymbolen über eine Legende unter dem Griffbrett (LH-LRN-09, `zeichen`). Offen:
 Kurspakete und Kurswerkstatt (LH-LRN-14, -15, für 1.0).
 
-Bestand: In `testdata/exercises` heißen die Ordner 4 und 5 vertauscht („4 Groove“ hält die Walking-Bass-Übungen,
-„5 Walking Bass“ die Grooves); Lektionen verweisen nur auf Nummern und sind nicht betroffen.
-
 Neue pub-Schnittstellen zur Freigabe (nächste Runde): `kontra_content::lesson` (`Lessons`, Blocktypen, `scopes`),
 `kontra_session::{Learning, LearnState, LearnStore, UnitState, place, positions}`, `EarQuiz::fixed`, Core
 `learn_json`, `lesson_json`, `lesson_seen`, `lesson_ear`, `term_ear`, `lesson_exercise`, `finale_exercise`,
