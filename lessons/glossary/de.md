@@ -224,3 +224,65 @@ Tonleiter mit fünf Tönen ohne Halbtonschritte. Moll-Pentatonik: 1, b3, 4, 5, b
 id: akkordfolge
 lesson: akkordfolgen
 Die Reihe der Akkorde eines Lieds, oft in Stufen notiert: I-V-vi-IV.
+
+## Synkope
+id: synkope
+lesson: synkope
+Ein betonter Ton zwischen zwei Schlägen, oft über den nächsten Schlag gehalten. Gibt dem Groove Zug nach vorn.
+
+## Sechzehntelnote
+id: sechzehntel
+lesson: sechzehntel
+Ein Viertel eines Schlags. Gezählt „1 e und e“.
+
+## Ghost Note
+id: ghost-note
+for: strings
+lesson: ghost-notes
+Ein sehr leiser, kurzer Ton zwischen betonten Tönen, mehr gefühlt als gehört.
+
+## Dead Note
+id: dead-note
+for: strings
+lesson: dead-notes
+Ein perkussiver Klick ohne Tonhöhe: Die Greifhand liegt locker auf der Saite. Im Tab ein x.
+
+## Bassschlüssel
+id: bassschluessel
+lesson: bassschluessel
+Notenschlüssel für tiefe Stimmen; seine zwei Punkte umfassen die F-Linie.
+
+## Notenlinien
+id: notenlinien
+lesson: bassschluessel
+Die fünf Linien, auf und zwischen denen Noten stehen. Höher stehende Noten klingen höher.
+
+## Notenhals
+id: notenhals
+lesson: rhythmus-lesen
+Der senkrechte Strich am Notenkopf. Mit Fähnchen oder Balken zeigt er kürzere Notenwerte.
+
+## Generalvorzeichen
+id: generalvorzeichen
+lesson: vorzeichen-lesen
+Kreuze oder Bes gleich nach dem Schlüssel; sie gelten im ganzen Stück und zeigen die Tonart.
+
+## Auflösungszeichen
+id: aufloesungszeichen
+lesson: vorzeichen-lesen
+♮ hebt ein Kreuz oder Be bis zum Ende des Takts auf.
+
+## Taktart
+id: taktart
+lesson: taktarten
+Wie viele Schläge ein Takt hat und welcher Notenwert einen zählt: 4/4, 3/4, 6/8.
+
+## Triole
+id: triole
+lesson: triole
+Drei gleiche Töne in der Zeit von zwei. Gezählt „1 Tri ol“.
+
+## Shuffle
+id: shuffle
+lesson: shuffle
+Achtel lang, kurz statt gleich lang; klingt wie eine Triole ohne Mitte.

@@ -99,6 +99,42 @@
         "akkordfolgen"
       ],
       "finale": "bundled=145 speeds=\"60 80 100\""
+    },
+    {
+      "id": "synkopen",
+      "de": "Synkopen und Sechzehntel",
+      "en": "Syncopation and sixteenths",
+      "units": [
+        "synkope",
+        "sechzehntel",
+        "ghost-notes",
+        "dead-notes"
+      ],
+      "finale": "bundled=150 speeds=\"60 80 100\""
+    },
+    {
+      "id": "lesen",
+      "de": "Noten lesen",
+      "en": "Reading notation",
+      "units": [
+        "bassschluessel",
+        "rhythmus-lesen",
+        "vorzeichen-lesen",
+        "lesen-ohne-lane"
+      ],
+      "finale": "bundled=149 speeds=\"60 80 100\""
+    },
+    {
+      "id": "taktarten",
+      "de": "Taktarten und Triolen",
+      "en": "Time signatures and triplets",
+      "units": [
+        "taktarten",
+        "triole",
+        "shuffle",
+        "ungerade-takte"
+      ],
+      "finale": "bundled=148 speeds=\"60 80 100\""
     }
   ]
 }

@@ -223,3 +223,65 @@ Scale of five notes without half steps. Minor pentatonic: 1, b3, 4, 5, b7.
 id: akkordfolge
 lesson: akkordfolgen
 The row of chords in a song, often written in degrees: I-V-vi-IV.
+
+## Syncopation
+id: synkope
+lesson: synkope
+An accented note between two beats, often held across the next beat. Gives the groove a push forward.
+
+## Sixteenth note
+id: sechzehntel
+lesson: sechzehntel
+A quarter of a beat. Counted "1 e and a".
+
+## Ghost note
+id: ghost-note
+for: strings
+lesson: ghost-notes
+A very quiet, short note between accented notes, felt more than heard.
+
+## Dead note
+id: dead-note
+for: strings
+lesson: dead-notes
+A percussive click without pitch: the fretting hand rests lightly on the string. Written x in tab.
+
+## Bass clef
+id: bassschluessel
+lesson: bassschluessel
+Clef for low parts; its two dots surround the F line.
+
+## Staff lines
+id: notenlinien
+lesson: bassschluessel
+The five lines that notes sit on and between. Higher notes sound higher.
+
+## Stem
+id: notenhals
+lesson: rhythmus-lesen
+The vertical line at the note head. With flags or beams it marks shorter note values.
+
+## Key signature
+id: generalvorzeichen
+lesson: vorzeichen-lesen
+Sharps or flats right after the clef; they hold for the whole piece and show the key.
+
+## Natural sign
+id: aufloesungszeichen
+lesson: vorzeichen-lesen
+♮ cancels a sharp or flat until the end of the bar.
+
+## Time signature
+id: taktart
+lesson: taktarten
+How many beats a bar has and which note value counts as one: 4/4, 3/4, 6/8.
+
+## Triplet
+id: triole
+lesson: triole
+Three equal notes in the time of two. Counted "1 trip let".
+
+## Shuffle
+id: shuffle
+lesson: shuffle
+Eighths long, short instead of equal; sounds like a triplet without its middle.
