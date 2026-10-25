@@ -260,7 +260,7 @@ impl Core {
         let settings: Settings = store::load(&data_dir.join("settings.json"));
         let mut library: Library = store::load(&data_dir.join("library.json"));
         library.plain_paths();
-        library.move_folders(&Self::exercises_dir(), &LEVEL_MOVES);
+        library.find_moved(&Self::exercises_dir());
         let language = settings
             .language
             .as_deref()
@@ -3643,12 +3643,6 @@ const SPOT_DAYS: u64 = 3;
 const SPOT_REST_S: u64 = 8 * 60 * 60;
 /// Bars on the card.
 const SPOTS: usize = 2;
-/// Level folders of the bundled exercises renamed since a release (old, new); Runde 12 put
-/// Groove before Walking Bass.
-const LEVEL_MOVES: [(&str, &str); 2] = [
-    ("4 Walking Bass", "5 Walking Bass"),
-    ("5 Groove", "4 Groove"),
-];
 
 /// A bundled exercise sits above the workshop's target band (80–90 %, round 5).
 const MASTERED_RATE: f64 = 0.9;
@@ -5986,6 +5980,31 @@ mod tests {
         assert!(core.library.entry(&groove).is_some());
         let home: serde_json::Value = serde_json::from_str(&core.home_json()).unwrap();
         assert_ne!(home["next"]["path"], groove.to_string_lossy().as_ref());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Runde 12 renamed levels 4 and 5 but left the exercises in place: walking lines sat in
+    /// "4 Groove". Played from there, they keep their entry where they are now.
+    #[test]
+    fn exercises_played_in_the_wrong_level_are_found() {
+        let dir = temp_dir("wronglevel");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let walking = PathBuf::from(levels[4]["items"][0]["path"].as_str().unwrap());
+        core.open(&walking).unwrap();
+        let before = Core::exercises_dir()
+            .join("4 Groove")
+            .join(walking.file_name().unwrap());
+        core.library.entry_mut(&walking).unwrap().path = before.clone();
+        core.library.setlists.push(Setlist {
+            name: "Probe".into(),
+            pieces: vec![before],
+        });
+        store::save(&dir.join("library.json"), &core.library).unwrap();
+
+        let core = Core::new(&dir, QaOptions::default());
+        assert!(core.library.entry(&walking).is_some());
+        assert_eq!(core.library.setlists[0].pieces, [walking]);
         let _ = std::fs::remove_dir_all(dir);
     }
 
