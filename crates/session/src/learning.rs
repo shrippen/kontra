@@ -240,9 +240,17 @@ impl LearnState {
         self.units.get(key).is_some_and(|u| u.done_unix.is_some())
     }
 
-    /// Records an answer to `question`; it comes back after its box's days.
+    /// Records an answer to `question`; it comes back after its box's days. A right answer
+    /// before the question is due (the lesson read again) keeps its box.
     pub fn answer(&mut self, question: &QuestionRef, answer: Answer, now_unix: u64) {
-        let recall = self.questions.entry(question.key()).or_default();
+        let key = question.key();
+        let new = !self.questions.contains_key(&key);
+        let recall = self.questions.entry(key).or_default();
+        let early = !new && now_unix < recall.due_unix;
+        if answer == Answer::Right && early {
+            return;
+        }
+
         recall.level = match answer {
             Answer::Right => (recall.level + 1).min(RECALL_DAYS.len() - 1),
             Answer::Wrong => 0,
@@ -397,6 +405,23 @@ mod tests {
         // Wrong: back to tomorrow, whatever box it was in; sooner than a right first answer.
         state.answer(&q, Answer::Wrong, 10 * DAY);
         assert_eq!(state.due(11 * DAY).len(), 1);
+    }
+
+    #[test]
+    fn answering_early_does_not_move_a_box_on() {
+        const DAY: u64 = 86_400;
+        let mut state = LearnState::default();
+        let q = QuestionRef::new("septime", 3, 0);
+
+        // Reading the lesson again the same day: still three days, not 60.
+        state.answer(&q, Answer::Right, 0);
+        state.answer(&q, Answer::Right, 60);
+        state.answer(&q, Answer::Right, 120);
+        assert_eq!(state.due(3 * DAY).len(), 1);
+
+        // Wrong still resets, due or not.
+        state.answer(&q, Answer::Wrong, 3 * DAY + 60);
+        assert_eq!(state.due(4 * DAY + 60).len(), 1);
     }
 
     #[test]
