@@ -555,17 +555,26 @@ mod tests {
         std::fs::write(&song, b"RIFF").unwrap();
 
         let (script2, song2, out) = (script.clone(), song.clone(), dir.join("out"));
+        let pid_file2 = pid_file.clone();
         std::thread::spawn(move || {
             let job = Separator::with_program(&script2)
                 .start(&song2, &out)
                 .unwrap();
-            // As if Kontra died: nothing stops it.
+            // As if Kontra died: nothing stops it. The starter ends once the program runs; a
+            // fixed 200 ms was too short on a busy machine (the shell had not written its pid).
             std::mem::forget(job);
-            std::thread::sleep(Duration::from_millis(200));
+            let deadline = Instant::now() + Duration::from_secs(5);
+            // `echo $$ > pid` creates the file before it writes: wait for the number itself.
+            let written =
+                || std::fs::read_to_string(&pid_file2).is_ok_and(|s| !s.trim().is_empty());
+            while !written() && Instant::now() < deadline {
+                std::thread::sleep(STOP_POLL);
+            }
         })
         .join()
         .unwrap();
         let pid = std::fs::read_to_string(&pid_file).unwrap();
+        assert!(!pid.trim().is_empty(), "the program never wrote its pid");
         let running = || {
             let stat = std::fs::read_to_string(format!("/proc/{}/stat", pid.trim()));
             // A killed child stays a zombie (state Z) until reaped.
