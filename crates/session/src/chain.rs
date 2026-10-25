@@ -10,7 +10,8 @@
 //! then the next step's bars become the loop.
 //!
 //! Blocks are a fixed number of bars, or phrases: a phrase ends at a bar line with at least a
-//! quarter of silence around it, as a bass line breathes between two phrases.
+//! quarter of silence around it, as a bass line breathes between two phrases, or before a bar
+//! where the player keeps hesitating (a new block starts at the spot that needs it).
 //!
 //! ```text
 //! notes   ♩♩♩♩|♩♩♩𝄽|♩♩♩♩|♩♩𝄽𝄽|     rests at bar lines 2|3 and 4|5
@@ -31,7 +32,7 @@ const PHRASE_MAX_BARS: usize = 4;
 pub enum Blocks {
     /// A fixed number of bars per block.
     Bars(usize),
-    /// Phrases found in the rests of the line.
+    /// Phrases found in the rests of the line and where the player hesitates.
     Phrases,
 }
 
@@ -56,18 +57,19 @@ pub struct Chain {
 
 impl Chain {
     /// Cuts bars `first..=last` of `a` into blocks, e.g. bars 0–5 by 2, forward:
-    /// (0,1), (2,3), (0,3), (4,5), (0,5).
+    /// (0,1), (2,3), (0,3), (4,5), (0,5). Phrases also start at the bars in `hesitant`.
     pub fn new(
         a: &Arrangement,
         (first, last): (usize, usize),
         blocks: Blocks,
+        hesitant: &[usize],
         order: ChainOrder,
         w: &Workshop,
     ) -> Chain {
         let (first, last) = (first.min(last), first.max(last));
         let blocks = match blocks {
             Blocks::Bars(size) => by_size(first, last, size),
-            Blocks::Phrases => phrases(a, first, last),
+            Blocks::Phrases => phrases(a, first, last, hesitant),
         };
 
         let mut steps = Vec::new();
@@ -145,16 +147,16 @@ fn by_size(first: usize, last: usize, size: usize) -> Vec<(usize, usize)> {
         .collect()
 }
 
-/// Bars `first..=last` cut at the bar lines with a quarter of silence (see the module docs);
-/// short phrases join the next, long ones are cut in blocks of `PHRASE_MAX_BARS`.
-fn phrases(a: &Arrangement, first: usize, last: usize) -> Vec<(usize, usize)> {
+/// Bars `first..=last` cut at the bar lines with a quarter of silence or before a bar in
+/// `hesitant` (see the module docs); short phrases join the next, long ones are cut in blocks of
+/// `PHRASE_MAX_BARS`.
+fn phrases(a: &Arrangement, first: usize, last: usize, hesitant: &[usize]) -> Vec<(usize, usize)> {
     let mut out = Vec::new();
     let mut start = first;
     for bar in first..=last {
         let length = bar + 1 - start;
-        let end = bar == last
-            || length >= PHRASE_MAX_BARS
-            || (length >= PHRASE_MIN_BARS && breathes(a, bar + 1));
+        let cut = breathes(a, bar + 1) || hesitant.contains(&(bar + 1));
+        let end = bar == last || length >= PHRASE_MAX_BARS || (length >= PHRASE_MIN_BARS && cut);
         if end {
             out.push((start, bar));
             start = bar + 1;
@@ -234,6 +236,7 @@ mod tests {
             &a,
             (first, last),
             Blocks::Bars(size),
+            &[],
             order,
             &Workshop::default(),
         )
@@ -246,19 +249,28 @@ mod tests {
             "xxxx", "xxx.", "xxxx", "xx..", "xxxx", "xxxx", "xxx.", "xxxx",
         ]);
         // The short tail (bar 7) joins bars 4–6.
-        assert_eq!(phrases(&a, 0, 7), [(0, 1), (2, 3), (4, 7)]);
+        assert_eq!(phrases(&a, 0, 7, &[]), [(0, 1), (2, 3), (4, 7)]);
     }
 
     #[test]
     fn a_line_without_rests_falls_back_to_four_bars() {
         let a = line(&["xxxx"; 10]);
-        assert_eq!(phrases(&a, 0, 9), [(0, 3), (4, 7), (8, 9)]);
+        assert_eq!(phrases(&a, 0, 9, &[]), [(0, 3), (4, 7), (8, 9)]);
+    }
+
+    #[test]
+    fn a_phrase_starts_where_the_player_hesitates() {
+        let a = line(&["xxxx"; 10]);
+        // Without rests: blocks of four; hesitating at bar 3 starts a phrase there.
+        assert_eq!(phrases(&a, 0, 9, &[3]), [(0, 2), (3, 6), (7, 9)]);
+        // Not after a single bar: the phrase holds at least two.
+        assert_eq!(phrases(&a, 0, 9, &[1]), [(0, 3), (4, 7), (8, 9)]);
     }
 
     #[test]
     fn a_rest_in_every_bar_still_gives_two_bar_phrases() {
         let a = line(&["xxx."; 6]);
-        assert_eq!(phrases(&a, 0, 5), [(0, 1), (2, 3), (4, 5)]);
+        assert_eq!(phrases(&a, 0, 5, &[]), [(0, 1), (2, 3), (4, 5)]);
     }
 
     #[test]
@@ -268,6 +280,7 @@ mod tests {
             &a,
             (0, 3),
             Blocks::Phrases,
+            &[],
             ChainOrder::Forward,
             &Workshop::default(),
         );
@@ -303,6 +316,7 @@ mod tests {
             &a,
             (0, 3),
             Blocks::Bars(2),
+            &[],
             ChainOrder::Forward,
             &Workshop::default(),
         );

@@ -243,7 +243,8 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
       Histogramm (Kante), Lage-Ziel je Übung.
 - [x] I6 Bausteine (24.10., LH-MOD-08, J-C9 ⚙): Werkstatt teilt die Takte in Bausteine zu 2 oder 4 Takten (1 · 2 ·
       1–2 · 3 …, oder von hinten); ein sitzender Schritt (zwei Durchgänge im Zielband) startet den nächsten mit
-      Einzähler. Nach Phrasen aus Pausen (25.10.). Offen: Phrasengrenzen aus Zögern.
+      Einzähler. Nach Phrasen aus Pausen (25.10.) und vor Takten, an denen der Spieler in zwei der letzten fünf
+      Durchläufe gezögert hat (25.10.).
 - [ ] Ideen sammeln und je eine Skizze, z. B.: Groove vor Tönen (erst
       Rhythmus auf einer Saite), Hören vor Lesen (nachspielen ohne Anzeige),
       Lieder in Bausteine zerlegen und zusammensetzen, adaptives Tempo und

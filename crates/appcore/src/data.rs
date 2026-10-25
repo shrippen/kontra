@@ -147,6 +147,7 @@ mod tests {
             mode: "song".into(),
             section: None,
             hardest_bars: Vec::new(),
+            hesitant_bars: Vec::new(),
         }
     }
 

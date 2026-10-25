@@ -5,7 +5,7 @@ nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-#127 `kann-ich-schon` (LH-LRN-10); Kante #77 (1.41 Ziel-Band im Histogramm, wartet auf den Eigentümer; danach Kontra-Branch `pocket-band`).
+#128 `zoegern` (I6 Phrasen aus Zögern); Kante #77 (1.41 Ziel-Band im Histogramm, wartet auf den Eigentümer; danach Kontra-Branch `pocket-band`).
 
 Lernen (Runde 13, `LERNEN.md`): Plan (#118), Format und Kapitel 1 (#119), Kapitel 2–5 (#121), Kapitel 6–15 (#123),
 Ausprobieren per Klick (#124), Wiederholen (#125), „?“ an Fachbegriffen in Übungsziel, Generator und Auswertung (#126)
@@ -21,7 +21,7 @@ Neue pub-Schnittstellen zur Freigabe (nächste Runde): `kontra_content::lesson` 
 `glossary_json`, `glossary_list_json`.
 
 Plan (Eigentümer, 24.10.): Didaktik I4 (#106), I5 (#107), I6 umgesetzt. Offen aus
-I5: Ziel-Band im Histogramm (Kante); aus I6: Phrasengrenzen aus Zögern.
+I5: Ziel-Band im Histogramm (Kante). I6 Phrasengrenzen aus Zögern: #128.
 
 CI läuft seit 24.10. auf GitHub (`.github/workflows/ci.yml`, Status `github / test` an Gitea, #102); Gitea führt nur
 PR-Agent aus.
