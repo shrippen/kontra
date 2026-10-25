@@ -4555,6 +4555,48 @@ mod tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 
+    /// Two courses explain the same new term, one for any instrument, one for keys: on bass only
+    /// the first shows, alone and without "From:". Terms for `any` stay on every instrument.
+    #[test]
+    fn a_course_term_for_another_instrument_is_left_out() {
+        use kontra_session::lesson::{new_course, pack, Author};
+        use serde_json::Value;
+        let dir = temp_dir("course-term-scope");
+        let author = Author {
+            provider: "Studio Weber".into(),
+            license: "CC-BY-4.0".into(),
+        };
+        let mut core = Core::new(&dir.join("data"), QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        for (id, scope, text) in [
+            ("weber", "any", "Für alle."),
+            ("tasten", "keys", "Auf Tasten."),
+        ] {
+            let src = dir.join(id);
+            new_course(&src, id, &author).unwrap();
+            std::fs::create_dir_all(src.join("glossary")).unwrap();
+            for (lang, name) in [("de", "Groove"), ("en", "Groove")] {
+                let entry = format!("## {name}\nid: groove-kniff\nfor: {scope}\n\n{text}\n");
+                std::fs::write(src.join(format!("glossary/{lang}.md")), entry).unwrap();
+            }
+            let file = dir.join(format!("{id}.kontrakurs"));
+            std::fs::write(&file, pack(&src).unwrap()).unwrap();
+            assert_eq!(core.course_add(&file), "", "{}", core.course_preview(&file));
+        }
+
+        let entry = core.glossary_json("groove-kniff");
+        assert!(entry.contains("Für alle."), "{entry}");
+        assert!(!entry.contains("Auf Tasten."), "{entry}");
+        let entry: Value = serde_json::from_str(&entry).unwrap();
+        let froms = entry["blocks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|b| b["from"].is_string());
+        assert_eq!(froms.count(), 0);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
     #[test]
     fn bars_carry_repeat_signs_and_endings() {
         let mut a = arrangement(&[(0, 4 * Q, 34), (4 * Q, 4 * Q, 34)]);

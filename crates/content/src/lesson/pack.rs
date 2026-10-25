@@ -18,6 +18,8 @@ use super::{Block, Doc, Lang, LessonError, Lessons};
 use crate::zip::{self, Zip};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs::File;
+use std::io::{BufReader, Read, Seek};
 use std::path::Path;
 use thiserror::Error;
 
@@ -119,6 +121,16 @@ impl CoursePack {
             return Err(PackError::archive(format!("{} bytes", data.len())));
         }
         let zip = Zip::open(data).map_err(|e| PackError::archive(e.to_string()))?;
+        CoursePack::unzip(&zip)
+    }
+
+    /// Reads the `.kontrakurs` file at `path` like `read`, but only its directory and texts:
+    /// videos inside (up to `MAX_COURSE_BYTES`) are not read at every start.
+    pub fn open(path: &Path) -> Result<CoursePack, PackError> {
+        CoursePack::unzip(&packed(path)?)
+    }
+
+    fn unzip<R: Read + Seek>(zip: &Zip<R>) -> Result<CoursePack, PackError> {
         let entries = zip.names().count();
         if entries > MAX_ENTRIES {
             return Err(PackError::archive(format!("{entries} entries")));
@@ -327,15 +339,29 @@ impl CoursePack {
     }
 }
 
-/// File `src` ("media/a.webm", as a block names it) of the packed course `data`.
-pub fn read_media(data: &[u8], src: &str) -> Result<Vec<u8>, PackError> {
+/// File `src` ("media/a.webm", as a block names it) of the course file at `path`; only that
+/// entry is read.
+pub fn read_media(path: &Path, src: &str) -> Result<Vec<u8>, PackError> {
     safe(src)?;
     if !src.starts_with(MEDIA_DIR) {
         return Err(PackError::archive(format!("{src}: not below {MEDIA_DIR}")));
     }
-    let zip = Zip::open(data).map_err(|e| PackError::archive(e.to_string()))?;
-    zip.read(src)
+    packed(path)?
+        .read(src)
         .map_err(|e| PackError::archive(format!("{src}: {e}")))
+}
+
+/// The course file at `path` as an archive read as needed; one above `MAX_COURSE_BYTES` (a
+/// video picked by mistake) is refused before anything is read.
+fn packed(path: &Path) -> Result<Zip<BufReader<File>>, PackError> {
+    // The caller names the file (`kontra-cli course check x.kontrakurs` says "x.kontrakurs: …").
+    let fail = |e: std::io::Error| PackError::archive(e.to_string());
+    let size = std::fs::metadata(path).map_err(fail)?.len();
+    if size > MAX_COURSE_BYTES {
+        return Err(PackError::archive(format!("{size} bytes")));
+    }
+    let file = File::open(path).map_err(fail)?;
+    Zip::new(BufReader::new(file)).map_err(|e| PackError::archive(e.to_string()))
 }
 
 /// Packs the folder `dir` as a `.kontrakurs` archive (every file, hidden ones left out). Check
@@ -459,7 +485,6 @@ fn files(dir: &Path) -> Result<Vec<String>, PackError> {
     Ok(out)
 }
 
-/// A package id: a–z and `-`, not empty (`studio-weber`).
 /// A course from a later Kontra: said before the strict parse, which would only name the field
 /// this Kontra does not know.
 fn newer(manifest: &str) -> Result<(), PackError> {
@@ -479,6 +504,7 @@ fn hidden(name: &str) -> bool {
     name.starts_with(MACOS_DIR) || name.split('/').any(|part| part.starts_with('.'))
 }
 
+/// A package id: a–z and `-`, not empty (`studio-weber`).
 fn plain_id(id: &str) -> bool {
     !id.is_empty() && id.chars().all(|c| c.is_ascii_lowercase() || c == '-')
 }
@@ -679,9 +705,18 @@ mod tests {
     #[test]
     fn media_reads_from_the_package_only() {
         let data = archive("src=media/a.webm", &[("media/a.webm", b"video")]);
-        assert_eq!(read_media(&data, "media/a.webm").unwrap(), b"video");
-        assert!(read_media(&data, "manifest.json").is_err());
-        assert!(read_media(&data, "media/../manifest.json").is_err());
+        let path =
+            std::env::temp_dir().join(format!("kontra-media-{}.kontrakurs", std::process::id()));
+        std::fs::write(&path, &data).unwrap();
+        assert_eq!(read_media(&path, "media/a.webm").unwrap(), b"video");
+        assert!(read_media(&path, "manifest.json").is_err());
+        assert!(read_media(&path, "media/../manifest.json").is_err());
+
+        // Opened from the file: the same course as read from memory.
+        let opened = CoursePack::open(&path).unwrap();
+        assert_eq!(opened.manifest, CoursePack::read(&data).unwrap().manifest);
+        std::fs::remove_file(&path).unwrap();
+        assert!(CoursePack::open(&path).is_err());
     }
 
     #[test]

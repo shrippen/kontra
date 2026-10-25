@@ -90,7 +90,7 @@ impl CourseStore {
             .flatten()
             .map(|e| e.path())
             .filter(|p| p.extension().is_some_and(|x| x == COURSE_EXT))
-            .filter_map(|p| CoursePack::read(&fs::read(p).ok()?).ok())
+            .filter_map(|p| CoursePack::open(&p).ok())
             .collect();
         packs.sort_by(|a, b| a.manifest.id.cmp(&b.manifest.id));
         packs
@@ -98,8 +98,7 @@ impl CourseStore {
 
     /// Reads the package at `path` and what does not fit, before anything is added.
     pub fn preview(path: &Path) -> Result<(CoursePack, Vec<String>), CourseError> {
-        let data = read(path)?;
-        let pack = CoursePack::read(&data)?;
+        let pack = CoursePack::open(path)?;
         let problems = Lessons::bundled()
             .map(|bundled| pack.problems(&bundled))
             .map_err(PackError::from)?;
@@ -164,7 +163,7 @@ impl CourseStore {
         if target.is_file() {
             return Ok(target);
         }
-        let data = lesson::read_media(&read(&self.package(id))?, src)?;
+        let data = lesson::read_media(&self.package(id), src)?;
         let io = |source| CourseError::Io {
             path: target.clone(),
             source,
@@ -241,22 +240,6 @@ fn keep(dir: &Path, data: &[u8], url: &str) -> Result<PathBuf, CourseError> {
     fs::write(&path, data).map_err(io)?;
     fs::write(dir.join(FETCHED_URL), url).map_err(io)?;
     Ok(path)
-}
-
-/// The file at `path`; one above `MAX_COURSE_BYTES` (a video picked by mistake) is refused before
-/// it is read.
-fn read(path: &Path) -> Result<Vec<u8>, CourseError> {
-    let io = |source| CourseError::Io {
-        path: path.to_path_buf(),
-        source,
-    };
-    let size = fs::metadata(path).map_err(io)?.len();
-    if size > MAX_COURSE_BYTES {
-        return Err(CourseError::Pack(PackError::Archive(format!(
-            "{size} bytes"
-        ))));
-    }
-    fs::read(path).map_err(io)
 }
 
 #[cfg(test)]

@@ -101,14 +101,15 @@ impl Learning {
         self.lessons.term(id)
     }
 
-    /// Every text of term `id` with the package it comes from ("" bundled), bundled first: several
-    /// courses may explain the same term (LH-LRN-14).
+    /// Every text of term `id` for this profile with the package it comes from ("" bundled),
+    /// bundled first: several courses may explain the same term (LH-LRN-14). A text for another
+    /// instrument is left out ("oktave" for keys on a bass); one for `any` stays.
     pub fn term_texts(&self, id: &str) -> Vec<(&Term, &str)> {
         self.lessons
             .terms
             .iter()
             .zip(&self.term_sources)
-            .filter(|(t, _)| t.id == id)
+            .filter(|(t, _)| t.id == id && self.fits(&t.scope))
             .map(|(t, source)| (t, source.as_str()))
             .collect()
     }
