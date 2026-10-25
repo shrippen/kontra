@@ -47,7 +47,7 @@ pub fn scopes(kind: InstrumentKind) -> &'static [&'static str] {
 
 /// Whether something for `wide` holds wherever something for `narrow` does: every profile with
 /// `narrow` also has `wide` (`strings` covers `fretted`, not the other way round).
-pub fn covers(wide: &str, narrow: &str) -> bool {
+fn covers(wide: &str, narrow: &str) -> bool {
     PROFILES
         .iter()
         .filter(|p| p.contains(&narrow))

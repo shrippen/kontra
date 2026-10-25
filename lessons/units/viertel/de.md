@@ -17,7 +17,7 @@ In den ersten Übungen zählt nur, wann du anschlägst. Welcher Ton klingt, ist 
 :::
 
 ## Üben
-Viertel auf der leeren E-Saite zum Schlagzeug, erst langsam.
+Viertel auf dem tiefen E zum Schlagzeug, erst langsam.
 ::: practice bundled=1 speeds="70 85 100"
 
 ## Prüfen

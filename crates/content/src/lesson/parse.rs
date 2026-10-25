@@ -32,6 +32,15 @@ const CONTINUED: &str = "  ";
 const ANY: &str = "any";
 const SEMITONES: i32 = 12;
 
+/// Attributes each block takes; anything else is a typo (`step=` for `steps=`).
+const TONES_KEYS: &[&str] = &["root", "steps", "labels", "string"];
+const TRY_KEYS: &[&str] = &["root", "steps", "labels", "string", "octave"];
+const PRACTICE_KEYS: &[&str] = &[
+    "bundled", "speeds", "kind", "variant", "rhythm", "key", "bpm", "judging",
+];
+const VIDEO_KEYS: &[&str] = &["src"];
+const VARIANT_KEYS: &[&str] = &["for"];
+
 /// Header of a unit file.
 #[derive(Debug, Default)]
 pub(super) struct UnitMeta {
@@ -174,7 +183,9 @@ pub(super) fn course(file: &str, text: &str) -> Result<Course, LessonError> {
         let finale = match &c.finale {
             Some(attrs) => {
                 let line = finale_lines.next().unwrap_or(1);
-                let attrs = attributes(attrs).map_err(|r| error(file, line, &r))?;
+                let attrs = attributes(attrs)
+                    .and_then(|a| only(a, PRACTICE_KEYS))
+                    .map_err(|r| error(file, line, &r))?;
                 let practice = practice(&attrs)
                     .map_err(|r| error(file, line, &format!("finale of {}: {r}", c.id)))?;
                 Some(practice)
@@ -353,7 +364,17 @@ impl<'a> Reader<'a> {
     /// One ":::" block; `rest` is its name and attributes, `line` its line number.
     fn directive(&mut self, rest: &str, line: usize) -> Result<Block, LessonError> {
         let (name, attrs) = rest.split_once(' ').unwrap_or((rest, ""));
-        let attrs = attributes(attrs).map_err(|r| self.err_at(line, &r))?;
+        let keys: &[&str] = match name {
+            "figure" | "listen" => TONES_KEYS,
+            "try" => TRY_KEYS,
+            "practice" => PRACTICE_KEYS,
+            "video" => VIDEO_KEYS,
+            "variant" => VARIANT_KEYS,
+            _ => &[],
+        };
+        let attrs = attributes(attrs)
+            .and_then(|a| only(a, keys))
+            .map_err(|r| self.err_at(line, &r))?;
         let bad = |r: String| error(self.file, line, &r);
 
         match name {
@@ -592,6 +613,17 @@ fn attributes(text: &str) -> Result<BTreeMap<String, String>, String> {
     Ok(map)
 }
 
+/// `attrs` if every key is one of `keys`.
+fn only(
+    attrs: BTreeMap<String, String>,
+    keys: &[&str],
+) -> Result<BTreeMap<String, String>, String> {
+    match attrs.keys().find(|k| !keys.contains(&k.as_str())) {
+        Some(key) => Err(format!("unknown attribute {key}=")),
+        None => Ok(attrs),
+    }
+}
+
 fn words(text: &str) -> Vec<String> {
     text.split_whitespace().map(str::to_string).collect()
 }
@@ -804,6 +836,14 @@ Wie viele Halbtöne hat die kleine Septime?
             })
             .collect();
         assert_eq!(kinds, ["text", "list", "text"]);
+    }
+
+    /// Review #119: `step=` instead of `steps=` was ignored and asked for the root alone.
+    #[test]
+    fn an_unknown_attribute_is_an_error() {
+        let typo = "# T\nid: t\n\n## P\n::: try root=A step=\"0 7\"\n";
+        let e = unit("u/de.md", typo).unwrap_err();
+        assert_eq!((e.line, e.reason.as_str()), (5, "unknown attribute step="));
     }
 
     #[test]

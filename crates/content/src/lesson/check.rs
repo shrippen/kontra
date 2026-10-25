@@ -43,6 +43,9 @@ pub(super) fn problems(lessons: &Lessons) -> Vec<String> {
     // Terms: both languages alike; the teaching unit exists.
     for term in &lessons.terms {
         let name = format!("term {}", term.id);
+        if !known(&term.scope) {
+            out.push(format!("{name} is for unknown scope {}", term.scope));
+        }
         languages(&name, &term.texts, &mut out);
         if let Some(lesson) = &term.lesson {
             if lessons.unit(lesson).is_none() {
@@ -54,6 +57,12 @@ pub(super) fn problems(lessons: &Lessons) -> Vec<String> {
 
     // Courses: known units, each once, after the units they need.
     for course in &lessons.courses {
+        if !known(&course.scope) {
+            out.push(format!(
+                "course {} is for unknown scope {}",
+                course.id, course.scope
+            ));
+        }
         let mut seen: BTreeSet<&str> = BTreeSet::new();
         for chapter in &course.chapters {
             for lang in Lang::ALL {
@@ -293,6 +302,26 @@ mod tests {
                 "unit greifen (strings) links term bund (fretted)",
                 "unit greifen (strings) links term bund (fretted)",
                 "unit stimmen (strings) needs unit teile (e-bass)",
+            ]
+        );
+    }
+
+    /// Review #119: a term or course for a scope no profile has matched nothing, unnoticed.
+    #[test]
+    fn notices_unknown_scopes() {
+        let course = r#"{"id": "bass", "for": "bas", "chapters": []}"#;
+        let glossary = "## Bund\nid: bund\nfor: fretles\nText.\n";
+        let files = [
+            ("courses/bass.json", course),
+            ("glossary/de.md", glossary),
+            ("glossary/en.md", glossary),
+        ];
+        let problems = Lessons::parse(&files).unwrap().check();
+        assert_eq!(
+            problems,
+            [
+                "term bund is for unknown scope fretles",
+                "course bass is for unknown scope bas",
             ]
         );
     }

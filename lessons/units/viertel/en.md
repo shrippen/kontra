@@ -16,7 +16,7 @@ In the first exercises only the timing of your attack counts. Which note sounds 
 :::
 
 ## Practise
-Quarter notes on the open E string with drums, slowly at first.
+Quarter notes on the low E with drums, slowly at first.
 ::: practice bundled=1 speeds="70 85 100"
 
 ## Check
