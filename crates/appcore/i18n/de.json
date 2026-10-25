@@ -59,6 +59,7 @@
   "pocket.pushed.aim": "vorn ({low} bis {high} ms davor)",
   "summary.ontime": "im Timing",
   "summary.spread": "Streuung ±{ms} ms",
+  "summary.spread.pulse": "{spread} · Bünde ab ±{ms} ms",
   "summary.intonation": "{offpitch} unsauber · im Mittel {cents} Cent daneben",
   "summary.hardest": "Schwierigste Takte",
   "summary.histogram.x": "Abweichung (ms)",

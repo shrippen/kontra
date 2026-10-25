@@ -5,10 +5,10 @@ nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-`phrase-blocks` (Bausteine nach Phrasen).
+`pulse-threshold` (I4: Bünde ab ±25 ms); Kante #77 (1.41 Ziel-Band im Histogramm).
 
-Plan (Eigentümer, 24.10.): Didaktik I4 (#106), I5 (#107), I6 umgesetzt. Offen aus I4: Schwelle der Streuung für Bünde;
-aus I5: Ziel-Band im Histogramm (Kante); aus I6: Phrasengrenzen aus Zögern.
+Plan (Eigentümer, 24.10.): Didaktik I4 (#106), I5 (#107), I6 umgesetzt. Offen aus
+I5: Ziel-Band im Histogramm (Kante); aus I6: Phrasengrenzen aus Zögern.
 
 CI läuft seit 24.10. auf GitHub (`.github/workflows/ci.yml`, Status `github / test` an Gitea, #102); Gitea führt nur
 PR-Agent aus.
@@ -18,7 +18,7 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 (Stück-Generator, Stufe 9), #101 (Beat-Erkennung 12,8 ms zu früh, Abnahme LH-BIB-06), #102 (CI auf GitHub), #103
 (CI-Meldung wiederholen), #104 (flakige Treiber-Tests), #105, #106 (I4 erst der Puls), #107 (I5 Lage-Ziel), #108
 (I6 Bausteine), #109 (Vorzähler: Klicks 2–4 fehlten nach gesetztem Tempo), #110 (ProgressPage `data` umbenannt), #111
-(Stück-Generator: Schwierigkeit), #112, #113 (Kante 1.40), #114 (Generator: nur Timing).
+(Stück-Generator: Schwierigkeit), #112, #113 (Kante 1.40), #114 (Generator: nur Timing), #115 (Bausteine nach Phrasen).
 
 ## Offen
 
