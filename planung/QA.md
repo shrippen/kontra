@@ -268,7 +268,7 @@ Erwartet: liest sich wie eine mitgelieferte; Fehler im Format mit Zeile genannt.
 4. Jens: „Nach Update suchen“ (Kurs von einer Adresse), dann den Kurs entfernen („Entfernen …“) und wieder hinzufügen.
 Erwartet: Kurs erscheint neben dem Bass-Kurs; Video mit Untertiteln, Text darunter lesbar; ohne Netz bleibt ein
 heruntergeladener Kurs nutzbar, ein Stream-Video sagt, dass es Netz braucht; der Lernstand gemeinsamer Lektionen gilt.
-Das Update kommt als Vorschau („Ersetzt die vorhandene Fassung“); Entfernen fragt erst; danach lernt Jens den Bass-Kurs, nach dem erneuten Hinzufügen steht sein Lernstand wieder da.
+Das Update kommt als Vorschau und nennt die Fassung („Neuere Fassung 2 (vorhanden: 1)“, „schon da“ oder „ältere“); Entfernen fragt erst; danach lernt Jens den Bass-Kurs, nach dem erneuten Hinzufügen steht sein Lernstand wieder da.
 
 **J-G6 Kurs bauen** · Persona: P4 Thomas · Phase 4 · LH-LRN-15
 1. In der Kurswerkstatt einen Kurs anlegen, zwei Lektionen schreiben (eine mit Fehler im Format), Vorschau ansehen.

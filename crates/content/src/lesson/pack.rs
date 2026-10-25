@@ -69,6 +69,9 @@ const ID: &str = "{id}";
 pub struct CourseManifest {
     pub format: String,
     pub version: u32,
+    /// The course's own edition, raised by its author with each release (1, 2, …); an update
+    /// says by it whether it is newer.
+    pub revision: u32,
     /// Prefix of the course and lesson ids (`bassbuzz` → `bassbuzz.anschlag`).
     pub id: String,
     /// Title per language code ("de", "en").
@@ -498,7 +501,7 @@ mod tests {
     use super::*;
 
     const MANIFEST_OK: &str = r#"{
-  "format": "kontra-course", "version": 1, "id": "test",
+  "format": "kontra-course", "version": 1, "revision": 1, "id": "test",
   "title": {"de": "Test", "en": "Test"}, "provider": "Anbieter", "license": "CC-BY-4.0",
   "course": "test.kurs", "hosts": ["video.example"]
 }"#;

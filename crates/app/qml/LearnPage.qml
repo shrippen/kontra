@@ -237,8 +237,9 @@ Kirigami.ScrollablePage {
                 if (!p.fits) {
                     lines.push(texts.t("courses.other"))
                 }
-                if (p.replaces) {
-                    lines.push(texts.t("courses.replaces"))
+                if (p.replaces !== "none") {
+                    lines.push(texts.t("courses.replaces." + p.replaces,
+                                       { revision: p.revision, installed: p.installed }))
                 }
                 if (p.problems.length > 0) {
                     lines.push(texts.t("courses.problems", { count: p.problems.length + p.more }))

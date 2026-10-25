@@ -180,9 +180,8 @@ mod tests {
         }
 
         let zip = Zip::open(&data).unwrap();
-        if let Ok(content) = zip.read_text("t000xä", 10) {
-            assert!(content.len() <= 10, "read {} bytes", content.len());
-        }
+        assert_eq!(zip.names().filter(|n| *n == "t000xä").count(), 2);
+        assert_eq!(zip.read_text("t000xä", 10).unwrap(), b"small");
     }
 
     #[test]

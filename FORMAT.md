@@ -108,12 +108,14 @@ kurs.kontrakurs
 ```
 
 ```json
-{ "format": "kontra-course", "version": 1, "id": "studio-weber",
+{ "format": "kontra-course", "version": 1, "revision": 3, "id": "studio-weber",
   "title": { "de": "Groove-Kurs", "en": "Groove course" },
   "provider": "Studio Weber", "license": "CC-BY-4.0",
   "course": "studio-weber.kurs", "hosts": ["video.example.org"] }
 ```
 
+- `version` ist die Version dieses Formats, `revision` die Fassung des Kurses: Der Autor zählt sie mit jeder
+  Veröffentlichung hoch, und ein Update sagt damit, ob es neuer ist als der vorhandene Kurs.
 - `id` (a–z, `-`) ist das Präfix des Kurses und jeder eigenen Lektion (`studio-weber.anschlag`): Lektionen aus dem
   mitgelieferten Vorrat dürfen genannt (Kapitel, `needs`), aber nicht ersetzt werden. Begriffe im Glossar dürfen
   mitgelieferte Ids nutzen; das Glossar zeigt dann alle Texte nacheinander, jeden mit seiner Herkunft.

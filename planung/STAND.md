@@ -13,8 +13,8 @@ fehlt das Modul, bleibt ein Link; WebM und MP4, `scripts/check-video.sh` in CI u
 auf den Eigentümer; danach Kontra-Branch `pocket-band`).
 
 Lernen (Runde 13, `LERNEN.md`): Kapitel 1–15, Glossar, „?“ an Fachbegriffen und Legende an Zeichen (#118–#130)
-gemerged. Offen: Kurswerkstatt mit Fenster (LH-LRN-15, für 1.0); Kursfassung im Manifest (das Update sagt nur
-„ersetzt“, nicht „neuer“). Runde 14 beantwortet (ROADMAP): danach zuerst Kurse fertig, dann Hardware-Prüfungen.
+gemerged. Offen: Kurswerkstatt mit Fenster (LH-LRN-15, für 1.0). Kursfassung `revision` im Manifest: Das Update sagt
+neuer, gleich oder älter. Runde 14 beantwortet (ROADMAP): danach zuerst Kurse fertig, dann Hardware-Prüfungen.
 
 Neue pub-Schnittstellen, in Runde 14 freigegeben: `kontra_content::lesson` (`Lessons`, Blocktypen, `scopes`),
 `kontra_session::{Learning, LearnState, LearnStore, UnitState, place, positions}`, `EarQuiz::fixed`, Core

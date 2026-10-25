@@ -78,8 +78,10 @@ impl Core {
     }
 
     /// What the package at `path` is, before adding it: `{"ok", "title", "provider", "license",
-    /// "lessons", "hosts": [host], "problems": [text], "more", "fits", "replaces"}`; `ok` false
-    /// with `error` when it cannot be read. `fits` false: the course is for another instrument.
+    /// "lessons", "hosts": [host], "problems": [text], "more", "fits", "replaces", "revision",
+    /// "installed"}`; `ok` false with `error` when it cannot be read. `fits` false: the course is
+    /// for another instrument. `replaces`: "none" (new), "newer", "same" or "older" than the
+    /// `installed` revision.
     pub fn course_preview(&self, path: &Path) -> String {
         let (pack, problems) = match CourseStore::preview(path) {
             Ok(preview) => preview,
@@ -93,6 +95,17 @@ impl Core {
             .iter()
             .any(|c| c.id == m.course && scopes.contains(&c.scope.as_str()));
         let shown: Vec<&String> = problems.iter().take(PREVIEW_PROBLEMS).collect();
+        let installed = self
+            .courses
+            .iter()
+            .find(|c| c.manifest.id == m.id)
+            .map(|c| c.manifest.revision);
+        let replaces = match installed {
+            None => "none",
+            Some(old) if m.revision > old => "newer",
+            Some(old) if m.revision == old => "same",
+            Some(_) => "older",
+        };
         json!({
             "ok": true,
             "title": self.pack_title(&pack),
@@ -103,7 +116,9 @@ impl Core {
             "problems": shown,
             "more": problems.len() - shown.len(),
             "fits": fits,
-            "replaces": self.courses.iter().any(|c| c.manifest.id == m.id),
+            "replaces": replaces,
+            "revision": m.revision,
+            "installed": installed,
         })
         .to_string()
     }

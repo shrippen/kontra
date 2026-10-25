@@ -4364,13 +4364,34 @@ mod tests {
         assert_eq!(preview["ok"], true);
         assert_eq!(preview["provider"], "Studio Weber");
         assert_eq!(preview["problems"], json!([]));
-        assert_eq!(preview["replaces"], false);
+        assert_eq!(preview["replaces"], "none");
 
         assert_eq!(core.course_add(&file), "");
         let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
         assert_eq!(learn["course"], "weber.kurs");
         assert_eq!(learn["courses"].as_array().map(Vec::len), Some(2));
         assert_eq!(learn["next"]["id"], "weber.start");
+
+        // The same package again, then a later revision: the preview says which (J-G5 step 4).
+        let preview: Value = serde_json::from_str(&core.course_preview(&file)).unwrap();
+        assert_eq!(preview["replaces"], "same");
+        let manifest = src.join("manifest.json");
+        let text = std::fs::read_to_string(&manifest).unwrap();
+        std::fs::write(
+            &manifest,
+            text.replace("\"revision\": 1", "\"revision\": 2"),
+        )
+        .unwrap();
+        std::fs::write(&file, pack(&src).unwrap()).unwrap();
+        let preview: Value = serde_json::from_str(&core.course_preview(&file)).unwrap();
+        assert_eq!(
+            (
+                &preview["replaces"],
+                &preview["revision"],
+                &preview["installed"]
+            ),
+            (&json!("newer"), &json!(2), &json!(1))
+        );
 
         // Kept over a restart; the bundled course comes back by choice.
         let mut core = Core::new(&dir.join("data"), QaOptions::default());
