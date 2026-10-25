@@ -237,7 +237,7 @@ Erwartet: Jede Note wird so schnell markiert wie sonst; eine Note, die beim Ansc
 Erwartet: Jeder Schritt passt auf einen Bildschirm; beim Ausprobieren sagt ein falscher Ton, was er war; die Startseite
 zeigt „Weiter: <nächste Lektion>“; ohne Eingang Auswahl per Klick statt Bass.
 
-**J-G2 Was ist eine Septime?** · Personas: P2 Jens, P1 Lea · Phase 2 · LH-LRN-09
+**J-G2 Was ist eine Septime?** ⚙ · Personas: P2 Jens, P1 Lea · Phase 2 · LH-LRN-09
 1. Jens: Walking-Übung II-V-I, „?“ am Akkordnamen „Dm7“, weiter zu „Septime“, Hörbeispiel; zurück.
 2. Lea: in der Auswertung „Slide: 3 von 5“, „?“ an „Slide“; zurück.
 Erwartet: Eintrag kurz mit Abbildung und Verweis auf die Lektion; zurück an dieselbe Stelle, nichts verstellt.

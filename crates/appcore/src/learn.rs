@@ -357,7 +357,7 @@ impl Core {
 
     /// One block for QML, by `kind`: text/hint `{html}`, list `{items: [html]}`, figure/listen/
     /// try `{notes, positions: [{string, fret, label}]}`, practice `{title, speeds}`, question
-    /// `{html, options: [html], answer}`, tuner, video `{src}`.
+    /// `{html, options: [text], answer}`, tuner, video `{src}`.
     fn block_json(&self, block: &Block) -> Value {
         match block {
             Block::Text(spans) => json!({ "kind": "text", "html": html(spans) }),
@@ -375,7 +375,7 @@ impl Core {
             }
             Block::Practice(practice) => self.practice_json(practice),
             Block::Question(q) => {
-                let options: Vec<String> = q.options.iter().map(|o| html(o)).collect();
+                let options: Vec<String> = q.options.iter().map(|o| plain(o)).collect();
                 json!({ "kind": "question", "html": html(&q.prompt), "options": options,
                         "answer": q.answer })
             }
@@ -422,6 +422,17 @@ fn html(spans: &[Span]) -> String {
         }
     }
     out
+}
+
+/// Spans as plain text, for answers on buttons.
+fn plain(spans: &[Span]) -> String {
+    spans
+        .iter()
+        .map(|span| match span {
+            Span::Text(t) | Span::Strong(t) | Span::Em(t) => t.as_str(),
+            Span::Term { text, .. } => text.as_str(),
+        })
+        .collect()
 }
 
 fn escape(text: &str) -> String {
@@ -554,5 +565,19 @@ mod tests {
             html(&spans),
             "a &lt; b &amp; <a href=\"term:x\">&quot;y&quot;</a>"
         );
+    }
+
+    #[test]
+    fn answers_are_plain_text() {
+        // Answers sit on buttons, which show text as it is: no markup, no escapes.
+        let spans = [
+            Span::Strong("a & b".into()),
+            Span::Text(" or ".into()),
+            Span::Term {
+                id: "x".into(),
+                text: "c".into(),
+            },
+        ];
+        assert_eq!(plain(&spans), "a & b or c");
     }
 }

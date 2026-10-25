@@ -43,6 +43,15 @@ Kirigami.ScrollablePage {
     }
     Component.onCompleted: if (lesson) ctl.lessonSeen(lessonId, step)
     Component.onDestruction: if (earBlock >= 0) ctl.earStop()
+    // A glossary layer shares the ear; once it stops it, the block here starts over.
+    Connections {
+        target: page.ctl
+        function onEarStateChanged() {
+            if (page.ctl.earState === "") {
+                page.earBlock = -1
+            }
+        }
+    }
 
     Shortcut { sequence: StandardKey.MoveToNextPage; enabled: !page.last; onActivated: page.go(page.step + 1) }
     Shortcut { sequence: StandardKey.MoveToPreviousPage; enabled: page.step > 0; onActivated: page.go(page.step - 1) }
