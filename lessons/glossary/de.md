@@ -158,3 +158,191 @@ Acht (kleine Sexte) oder neun Halbtöne (große Sexte) über dem Grundton.
 id: septime
 lesson: septime
 Zehn (kleine Septime) oder elf Halbtöne (große Septime) über dem Grundton. Die kleine Septime klingt nach Blues.
+
+## Tonleiter
+id: tonleiter
+lesson: dur-tonleiter
+Eine Reihe von Tönen vom Grundton bis zur Oktave, nach festem Muster aus Ganz- und Halbtönen.
+
+## Dur
+id: dur
+lesson: dur-tonleiter
+Tongeschlecht mit großer Terz. Klingt hell; die Dur-Tonleiter folgt dem Muster Ganz, Ganz, Halb, Ganz, Ganz, Ganz, Halb.
+
+## Tonart
+id: tonart
+lesson: tonarten
+Die Tonleiter, aus der ein Lied seine Töne nimmt, benannt nach ihrem Grundton: G-Dur, A-Moll.
+
+## Lage am Hals
+id: lage
+for: fretted
+lesson: dur-lagen
+Eine feste Stelle der Greifhand am Hals; jeder Finger hat seine Stelle.
+
+## Akkord
+id: akkord
+lesson: dreiklang
+Mehrere Töne, die zusammen klingen. Der Bass spielt meist seinen Grundton oder seine Töne nacheinander.
+
+## Dreiklang
+id: dreiklang
+lesson: dreiklang
+Akkord aus Grundton, Terz und Quinte. Mit großer Terz Dur, mit kleiner Terz Moll.
+
+## Arpeggio
+id: arpeggio
+lesson: arpeggio
+Die Töne eines Akkords nacheinander gespielt statt zusammen.
+
+## Septakkord
+id: septakkord
+lesson: septakkord
+Dreiklang mit Septime: maj7 (große Septime), 7 (Dur mit kleiner Septime), m7 (Moll mit kleiner Septime).
+
+## Stufe
+id: stufe
+lesson: stufen
+Der Platz eines Akkords in der Tonart, in römischen Zahlen: I steht auf dem Grundton, IV und V die wichtigsten Nachbarn.
+
+## Akkordsymbol
+id: akkordsymbol
+lesson: akkordnamen
+Kurzschrift für einen Akkord: Grundton und Zusatz, etwa Am7. Nach einem Schrägstrich steht der Basston.
+
+## Moll
+id: moll
+lesson: moll-tonleiter
+Tongeschlecht mit kleiner Terz. Klingt dunkler als Dur; die Moll-Tonleiter folgt dem Muster Ganz, Halb, Ganz, Ganz, Halb, Ganz, Ganz.
+
+## Pentatonik
+id: pentatonik
+lesson: pentatonik
+Tonleiter mit fünf Tönen ohne Halbtonschritte. Moll-Pentatonik: 1, b3, 4, 5, b7.
+
+## Akkordfolge
+id: akkordfolge
+lesson: akkordfolgen
+Die Reihe der Akkorde eines Lieds, oft in Stufen notiert: I-V-vi-IV.
+
+## Synkope
+id: synkope
+lesson: synkope
+Ein betonter Ton zwischen zwei Schlägen, oft über den nächsten Schlag gehalten. Gibt dem Groove Zug nach vorn.
+
+## Sechzehntelnote
+id: sechzehntel
+lesson: sechzehntel
+Ein Viertel eines Schlags. Gezählt „1 e und e“.
+
+## Ghost Note
+id: ghost-note
+for: strings
+lesson: ghost-notes
+Ein sehr leiser, kurzer Ton zwischen betonten Tönen, mehr gefühlt als gehört.
+
+## Dead Note
+id: dead-note
+for: strings
+lesson: dead-notes
+Ein perkussiver Klick ohne Tonhöhe: Die Greifhand liegt locker auf der Saite. Im Tab ein x.
+
+## Bassschlüssel
+id: bassschluessel
+lesson: bassschluessel
+Notenschlüssel für tiefe Stimmen; seine zwei Punkte umfassen die F-Linie.
+
+## Notenlinien
+id: notenlinien
+lesson: bassschluessel
+Die fünf Linien, auf und zwischen denen Noten stehen. Höher stehende Noten klingen höher.
+
+## Notenhals
+id: notenhals
+lesson: rhythmus-lesen
+Der senkrechte Strich am Notenkopf. Mit Fähnchen oder Balken zeigt er kürzere Notenwerte.
+
+## Generalvorzeichen
+id: generalvorzeichen
+lesson: vorzeichen-lesen
+Kreuze oder Bes gleich nach dem Schlüssel; sie gelten im ganzen Stück und zeigen die Tonart.
+
+## Auflösungszeichen
+id: aufloesungszeichen
+lesson: vorzeichen-lesen
+♮ hebt ein Kreuz oder Be bis zum Ende des Takts auf.
+
+## Taktart
+id: taktart
+lesson: taktarten
+Wie viele Schläge ein Takt hat und welcher Notenwert einen zählt: 4/4, 3/4, 6/8.
+
+## Triole
+id: triole
+lesson: triole
+Drei gleiche Töne in der Zeit von zwei. Gezählt „1 Tri ol“.
+
+## Shuffle
+id: shuffle
+lesson: shuffle
+Achtel lang, kurz statt gleich lang; klingt wie eine Triole ohne Mitte.
+
+## Slide
+id: slide
+for: strings
+lesson: slide
+Mit demselben Finger von einem Ton zum nächsten rutschen, ohne neu anzuschlagen.
+
+## Hammer-on
+id: hammer-on
+for: strings
+lesson: hammer-pull
+Ein Finger der Greifhand schlägt auf eine höhere Stelle derselben Saite; der Ton klingt ohne Anschlag.
+
+## Pull-off
+id: pull-off
+for: strings
+lesson: hammer-pull
+Ein Finger der Greifhand zieht die Saite beim Loslassen an; der tiefere Ton klingt ohne Anschlag.
+
+## Slap
+id: slap
+for: e-bass
+lesson: slap-pop
+Der Daumen schlägt die tiefe Saite und federt zurück; dazu der Pop, bei dem der Zeigefinger eine hohe Saite anhebt.
+
+## Oktavgriff
+id: oktavgriff
+for: e-bass
+lesson: oktav-grooves
+Zeigefinger auf dem Grundton, kleiner Finger zwei Saiten höher und zwei Stellen weiter: die Oktave.
+
+## Walking Bass
+id: walking-bass
+lesson: walking
+Basslinie in gleichmäßigen Vierteln, die von Akkord zu Akkord geht: Grundton auf der 1, Akkordtöne, ein Ton, der weiterführt.
+
+## Durchgangston
+id: durchgangston
+lesson: durchgangstoene
+Ein Ton außerhalb des Akkords, der zum nächsten Ton führt, oft einen Halbton daneben.
+
+## II-V-I
+id: zwei-fuenf-eins
+lesson: zwei-fuenf-eins
+Akkordfolge aus den Stufen II, V und I, etwa Dm7, G7, Cmaj7. Die häufigste Wendung im Jazz.
+
+## Pocket
+id: pocket
+lesson: pocket
+Wo Bass und Schlagzeug zusammen grooven: auf dem Schlag, etwas davor (vorn) oder dahinter (laid-back).
+
+## Streuung
+id: streuung
+lesson: streuung
+Wie weit deine Töne um ihre mittlere Lage verteilt sind, in Millisekunden. Klein heißt gleichmäßig.
+
+## Form
+id: form
+lesson: form
+Die Teile eines Stücks und ihre Reihenfolge: Strophe, Refrain, Bridge.
