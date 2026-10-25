@@ -6,9 +6,15 @@ Eine Saite, die du anschlägst, ohne sie zu greifen. In Tabulaturen steht dafür
 
 ## Bund
 id: bund
-for: fretted
+for: e-bass
 lesson: greifen
-Die Metallstäbchen quer über dem Hals. Von Bund zu Bund wird der Ton einen Halbton höher. Du greifst direkt dahinter.
+Die Metallstäbchen quer über dem Hals. Von Bund zu Bund wird der Ton einen Halbton höher.
+::: variant for=fretted
+Du greifst direkt dahinter.
+:::
+::: variant for=fretless
+Dein Bass hat keine; die Markierungen zeigen, wo sie wären, und dort greifst du.
+:::
 
 ## Stimmen
 id: stimmen

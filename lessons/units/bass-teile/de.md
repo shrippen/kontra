@@ -1,7 +1,7 @@
 # Der Bass und seine Teile
 id: bass-teile
 for: strings
-terms: leersaite bund
+terms: leersaite
 
 ## Was du in der Hand hast
 Ein Bass hat meist vier **Saiten**. Von der dicksten zur dünnsten heißen sie E, A, D und G. Zupfst du eine Saite,

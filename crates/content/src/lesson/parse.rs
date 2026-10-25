@@ -439,8 +439,15 @@ impl<'a> Reader<'a> {
             if text.is_empty() {
                 continue;
             }
+            // A new page or block means the ":::" is missing (as in `body`).
+            if text.starts_with(PAGE) || text.starts_with(TITLE) || text.starts_with(DIRECTIVE) {
+                return Err(self.err_at(number, "question not closed with :::"));
+            }
 
             let Some(item) = text.strip_prefix(ITEM) else {
+                if !options.is_empty() {
+                    return Err(self.err_at(number, "question text after the options"));
+                }
                 if !prompt.is_empty() {
                     prompt.push(Span::Text(" ".to_string()));
                 }
@@ -836,6 +843,24 @@ Wie viele Halbtöne hat die kleine Septime?
             })
             .collect();
         assert_eq!(kinds, ["text", "list", "text"]);
+    }
+
+    /// Review #119: a question without its ":::" swallowed the next page as prompt text.
+    #[test]
+    fn a_question_ends_before_the_next_page() {
+        let open = "# T\nid: t\n\n## P\n::: question\nQ?\n- [x] a\n- [ ] b\n\n## Q\nText.\n";
+        let e = unit("u/de.md", open).unwrap_err();
+        assert_eq!(
+            (e.line, e.reason.as_str()),
+            (10, "question not closed with :::")
+        );
+
+        let late = "# T\nid: t\n\n## P\n::: question\nQ?\n- [x] a\n- [ ] b\nmehr\n:::\n";
+        let e = unit("u/de.md", late).unwrap_err();
+        assert_eq!(
+            (e.line, e.reason.as_str()),
+            (9, "question text after the options")
+        );
     }
 
     /// Review #119: `step=` instead of `steps=` was ignored and asked for the root alone.

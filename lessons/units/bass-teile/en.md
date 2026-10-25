@@ -1,7 +1,7 @@
 # The bass and its parts
 id: bass-teile
 for: strings
-terms: leersaite bund
+terms: leersaite
 
 ## What you are holding
 A bass usually has four **strings**. From the thickest to the thinnest they are E, A, D and G. Pluck a

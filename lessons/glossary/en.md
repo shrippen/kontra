@@ -6,9 +6,15 @@ A string you pluck without pressing it down. Tabs write it as 0.
 
 ## Fret
 id: bund
-for: fretted
+for: e-bass
 lesson: greifen
-The metal strips across the neck. From fret to fret the note goes up a semitone. You press right behind it.
+The metal strips across the neck. From fret to fret the note goes up a semitone.
+::: variant for=fretted
+You press right behind it.
+:::
+::: variant for=fretless
+Your bass has none; the markers show where they would be, and that is where you press.
+:::
 
 ## Tuning
 id: stimmen

@@ -32,8 +32,12 @@ pub(super) fn problems(lessons: &Lessons) -> Vec<String> {
             }
         }
         for term in &unit.terms {
-            if !term_ids.contains(term.as_str()) {
-                out.push(format!("{name} teaches unknown term {term}"));
+            match term_scopes.get(term.as_str()) {
+                None => out.push(format!("{name} teaches unknown term {term}")),
+                Some(wide) if !covers(wide, &unit.scope) => {
+                    out.push(format!("{scoped} teaches term {term} ({wide})"));
+                }
+                Some(_) => {}
             }
         }
         links(&name, &unit.texts, &term_ids, &mut out);
@@ -303,6 +307,24 @@ mod tests {
                 "unit greifen (strings) links term bund (fretted)",
                 "unit stimmen (strings) needs unit teile (e-bass)",
             ]
+        );
+    }
+
+    /// Review #119: a lesson for every string bass taught the fret, which only some have.
+    #[test]
+    fn taught_terms_reach_as_far_as_the_lesson() {
+        let teile = "# T\nid: teile\nfor: strings\nterms: bund\n\n## P\nText.\n";
+        let glossary = "## Bund\nid: bund\nfor: fretted\nText.\n";
+        let files = [
+            ("units/teile/de.md", teile),
+            ("units/teile/en.md", teile),
+            ("glossary/de.md", glossary),
+            ("glossary/en.md", glossary),
+        ];
+        let problems = Lessons::parse(&files).unwrap().check();
+        assert_eq!(
+            problems,
+            ["unit teile (strings) teaches term bund (fretted)"]
         );
     }
 
