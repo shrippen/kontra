@@ -1,24 +1,90 @@
 import QtQuick
+import QtCore
 import QtQuick.Layouts
 import QtQuick.Controls as QQC2
+import QtQuick.Dialogs
 import org.kde.kirigami as Kirigami
 import Kante
 
 // Lernen (LH-LRN-07, J-G1): the course for the instrument, chapter by chapter as a path. Done
 // lessons carry a check, the next one is marked, lessons for other instruments stay visible but
 // locked (LH-LRN-12). Each chapter ends with a piece at three speeds; the glossary is one click.
+// Courses from providers are added here (LH-LRN-14, J-G5): provider, licence and video hosts are
+// shown before anything is added.
 Kirigami.ScrollablePage {
     id: page
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
-    readonly property var course: JSON.parse(ctl.learnJson())
+    property var course: JSON.parse(ctl.learnJson())
+    // The package chosen to add, as `coursePreview` reads it; null: none.
+    property var preview: null
+    property string previewUrl: ""
+    property string addError: ""
+    property bool addressShown: false
+    readonly property var fetchState: ctl.courseFetchJson !== "" ? JSON.parse(ctl.courseFetchJson) : ({ state: "idle" })
+    readonly property bool fetching: fetchState.state === "running"
+    readonly property string fetchError: fetchState.state === "error" ? fetchState.message : ""
     readonly property string nextId: course.next ? course.next.id : ""
+    // The chosen course as `learnJson` lists it; removing asks first.
+    readonly property var chosen: (course.courses || []).find(function(c) { return c.id === course.course }) || null
+    property bool removing: false
+    property string removeError: ""
 
     function open(id) {
         applicationWindow().lessonId = id
         applicationWindow().lessonPage = 0
         applicationWindow().show("lesson")
+    }
+    function showPreview(url) {
+        page.previewUrl = url
+        page.addError = ""
+        page.preview = JSON.parse(ctl.coursePreview(url))
+    }
+    // A package opened with Kontra (file manager, `kontra kurs.kontrakurs`).
+    Component.onCompleted: {
+        if (ctl.startCourse !== "") {
+            page.showPreview(ctl.startCourse)
+            ctl.startCourse = ""
+        }
+    }
+
+    function fetch() {
+        // Enter in the field, too: one fetch at a time.
+        if (page.fetching) {
+            return
+        }
+        ctl.courseFetch(addressField.text)
+    }
+    // A fetched package is previewed and added like a file.
+    Connections {
+        target: page.ctl
+        function onCourseFetchJsonChanged() {
+            if (page.fetchState.state === "done") {
+                page.showPreview(page.fetchState.path)
+            }
+        }
+    }
+
+    function reload() {
+        page.course = JSON.parse(ctl.learnJson())
+    }
+    function removeCourse() {
+        page.removeError = ctl.courseRemove(page.chosen.id)
+        if (page.removeError !== "") {
+            return
+        }
+        page.removing = false
+        page.reload()
+    }
+    function addCourse() {
+        page.addError = ctl.courseAdd(page.previewUrl)
+        if (page.addError !== "") {
+            return
+        }
+        page.preview = null
+        page.addressShown = false
+        page.reload()
     }
     function finale(chapter, percent) {
         if (!ctl.finaleExercise(chapter)) {
@@ -54,6 +120,153 @@ Kirigami.ScrollablePage {
                 text: texts.t("learn.glossary")
                 emphasis: KanteButton.Emphasis.Quiet
                 onClicked: applicationWindow().glossary("")
+            }
+            KanteButton {
+                text: texts.t("courses.add")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: courseDialog.open()
+            }
+            KanteButton {
+                text: texts.t("courses.address")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: {
+                    page.addressShown = true
+                    addressField.forceActiveFocus()
+                }
+            }
+        }
+
+        // An address from a provider: Kontra loads only what is typed here (privacy).
+        RowLayout {
+            visible: page.addressShown
+            spacing: KanteStyle.unit(8)
+            KanteTextField {
+                id: addressField
+                Layout.preferredWidth: KanteStyle.unit(420)
+                placeholderText: texts.t("courses.address.label")
+                Accessible.name: texts.t("courses.address.label")
+                inputMethodHints: Qt.ImhUrlCharactersOnly
+                onAccepted: page.fetch()
+            }
+            KanteButton {
+                text: page.fetching ? texts.t("courses.fetching") : texts.t("courses.fetch")
+                enabled: !page.fetching && addressField.text.trim() !== ""
+                onClicked: page.fetch()
+            }
+        }
+        KanteCallout {
+            Layout.fillWidth: true
+            Layout.maximumWidth: KanteStyle.unit(640)
+            visible: page.fetchError !== ""
+            kind: KanteCallout.Kind.Warn
+            autoHide: false
+            text: page.fetchError
+        }
+
+        // More than one course for this instrument: choose which to learn.
+        RowLayout {
+            visible: (page.course.courses || []).length > 1
+            spacing: KanteStyle.unit(8)
+            QQC2.Label {
+                color: KanteStyle.textColor
+                text: texts.t("courses.label")
+            }
+            KanteComboBox {
+                Accessible.name: texts.t("courses.label")
+                model: (page.course.courses || []).map(function(c) { return c.title })
+                currentIndex: (page.course.courses || []).findIndex(function(c) { return c.id === page.course.course })
+                onActivated: function(index) {
+                    ctl.chooseCourse(page.course.courses[index].id)
+                    page.removing = false
+                    page.reload()
+                }
+            }
+            // Fetched from an address: the provider's newer version comes the same way, as a preview.
+            KanteButton {
+                visible: page.chosen !== null && !!page.chosen.address
+                enabled: !page.fetching
+                text: page.fetching ? texts.t("courses.fetching") : texts.t("courses.update")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: ctl.courseFetch(page.chosen.address)
+            }
+            KanteButton {
+                visible: page.chosen !== null && page.chosen.removable
+                text: texts.t("courses.remove")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: {
+                    page.removeError = ""
+                    page.removing = true
+                }
+            }
+        }
+
+        // Removing an added course: asked first; what was learned stays for a later add.
+        KanteCallout {
+            Layout.fillWidth: true
+            Layout.maximumWidth: KanteStyle.unit(640)
+            visible: page.removing && page.chosen !== null
+            kind: KanteCallout.Kind.Warn
+            autoHide: false
+            title: page.chosen ? texts.t("courses.remove.title", { title: page.chosen.title }) : ""
+            text: page.removeError !== "" ? page.removeError : texts.t("courses.remove.text")
+            KanteButton {
+                text: texts.t("courses.remove.confirm")
+                emphasis: KanteButton.Emphasis.Primary
+                onClicked: page.removeCourse()
+            }
+            KanteButton {
+                text: texts.t("courses.cancel")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: page.removing = false
+            }
+        }
+
+        // What the chosen package is, before it is added.
+        KanteCallout {
+            Layout.fillWidth: true
+            Layout.maximumWidth: KanteStyle.unit(640)
+            visible: page.preview !== null
+            autoHide: false
+            kind: page.preview && page.preview.ok && page.preview.problems.length === 0
+                ? KanteCallout.Kind.Info : KanteCallout.Kind.Warn
+            title: !page.preview ? "" : page.preview.ok ? page.preview.title : page.preview.error
+            text: {
+                const p = page.preview
+                if (!p || !p.ok) {
+                    return ""
+                }
+                let lines = [texts.t("courses.from", { provider: p.provider, license: p.license, lessons: p.lessons }),
+                             p.hosts.length > 0 ? texts.t("courses.hosts", { hosts: p.hosts.join(", ") })
+                                                : texts.t("courses.nohosts")]
+                if (!p.fits) {
+                    lines.push(texts.t("courses.other"))
+                }
+                if (p.replaces !== "none") {
+                    lines.push(texts.t("courses.replaces." + p.replaces,
+                                       { revision: p.revision, installed: p.installed }))
+                }
+                if (p.problems.length > 0) {
+                    lines.push(texts.t("courses.problems", { count: p.problems.length + p.more }))
+                    lines = lines.concat(p.problems)
+                }
+                if (p.more > 0) {
+                    lines.push(texts.t("courses.more", { count: p.more }))
+                }
+                if (page.addError !== "") {
+                    lines.push(page.addError)
+                }
+                return lines.join("\n")
+            }
+            KanteButton {
+                visible: page.preview !== null && page.preview.ok && page.preview.problems.length === 0
+                text: texts.t("courses.confirm")
+                emphasis: KanteButton.Emphasis.Primary
+                onClicked: page.addCourse()
+            }
+            KanteButton {
+                text: texts.t("courses.cancel")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: page.preview = null
             }
         }
 
@@ -120,5 +333,13 @@ Kirigami.ScrollablePage {
                 }
             }
         }
+    }
+
+    FileDialog {
+        id: courseDialog
+        title: texts.t("courses.add")
+        currentFolder: StandardPaths.writableLocation(StandardPaths.DownloadLocation)
+        nameFilters: [texts.t("courses.filter")]
+        onAccepted: page.showPreview(selectedFile.toString())
     }
 }

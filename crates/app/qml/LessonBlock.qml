@@ -5,7 +5,7 @@ import Kante
 
 // One block of a lesson or glossary entry (`Core::block_json`): text, list, hint, figure on the
 // fretboard, "listen" and "try it" through ear training, practice at a chosen speed, a question,
-// the tuner, a video link. Term links (`term:<id>`) go out as `term(id)`; the page decides.
+// the tuner, a video with subtitles. Term links (`term:<id>`) go out as `term(id)`; the page decides.
 ColumnLayout {
     id: block
 
@@ -237,9 +237,26 @@ ColumnLayout {
         onClicked: block.tuner()
     }
 
-    // Videos only come with courses loaded later (LH-LRN-14); bundled ones have none.
+    // Videos only come with courses loaded later (LH-LRN-14); bundled ones have none. The
+    // player sits in its own file: without Qt Multimedia it does not load, and a link remains.
+    Loader {
+        id: videoLoader
+        Layout.fillWidth: true
+        active: block.kindName === "video"
+        source: "LessonVideo.qml"
+        onLoaded: {
+            item.cues = block.modelData.cues || []
+            item.remote = block.modelData.src.indexOf("https://") === 0
+            item.source = function() {
+                return block.lessonId !== ""
+                    ? block.ctl.lessonVideo(block.lessonId, block.pageIndex, block.index)
+                    : (item.remote ? block.modelData.src : "")
+            }
+        }
+    }
     KanteButton {
-        visible: block.kindName === "video"
+        visible: block.kindName === "video" && videoLoader.status === Loader.Error
+            && block.modelData.src.indexOf("https://") === 0
         text: block.texts.t("learn.video")
         onClicked: Qt.openUrlExternally(block.modelData.src)
     }

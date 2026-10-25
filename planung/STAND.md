@@ -5,19 +5,27 @@ nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-#128 `zoegern` (I6 Phrasen aus Zögern); Kante #77 (1.41 Ziel-Band im Histogramm, wartet auf den Eigentümer; danach Kontra-Branch `pocket-band`).
+#131 `kurspaket` (Format, `kontra-cli course new|check|pack`; Runde 14: Zip über die Crate `zip`, Review-Runde 5). Darauf
+`kurs-adresse` (Kurse in der App, PR nach #131): Kurs aus Datei oder https-Adresse hinzufügen, wählen, nach Update
+suchen, entfernen (Lernstand bleibt); Glossar über alle Kurse; Video mit Untertiteln (Qt Multimedia per `Loader`:
+fehlt das Modul, bleibt ein Link; WebM und MP4, `scripts/check-video.sh` in CI und `make check`); Dateityp
+`application/x-kontrakurs`; QA-Schalter `--course-answer`. Kante #77 (1.41 Ziel-Band im Histogramm, wartet
+auf den Eigentümer; danach Kontra-Branch `pocket-band`).
 
-Lernen (Runde 13, `LERNEN.md`): Plan (#118), Format und Kapitel 1 (#119), Kapitel 2–5 (#121), Kapitel 6–15 (#123),
-Ausprobieren per Klick (#124), Wiederholen (#125), „?“ an Fachbegriffen in Übungsziel, Generator und Auswertung (#126)
-gemerged. „?“ an Zeichen und Akkordsymbolen über eine Legende unter dem Griffbrett (LH-LRN-09, `zeichen`). Kurspaket-Format
-und `kontra-cli course new|check|pack` (LH-LRN-14, -15, `kurspaket`). Offen: Kurs hinzufügen (Datei, Adresse),
-Video-Wiedergabe, Glossar über alle Kurse, Kurswerkstatt mit Fenster (für 1.0).
+Lernen (Runde 13, `LERNEN.md`): Kapitel 1–15, Glossar, „?“ an Fachbegriffen und Legende an Zeichen (#118–#130)
+gemerged. Offen: Kurswerkstatt mit Fenster (LH-LRN-15, für 1.0). Kursfassung `revision` im Manifest: Das Update sagt
+neuer, gleich oder älter. Runde 14 beantwortet (ROADMAP): danach zuerst Kurse fertig, dann Hardware-Prüfungen.
 
-Neue pub-Schnittstellen zur Freigabe (nächste Runde): `kontra_content::lesson` (`Lessons`, Blocktypen, `scopes`),
+Neue pub-Schnittstellen, in Runde 14 freigegeben: `kontra_content::lesson` (`Lessons`, Blocktypen, `scopes`),
 `kontra_session::{Learning, LearnState, LearnStore, UnitState, place, positions}`, `EarQuiz::fixed`, Core
 `learn_json`, `lesson_json`, `lesson_seen`, `lesson_ear`, `term_ear`, `lesson_exercise`, `finale_exercise`,
 `glossary_json`, `glossary_list_json`; `kurspaket`: `lesson::{CoursePack, CourseManifest, PackError, Author,
-new_course, pack, COURSE_*}`, `Block::Video::subtitles`, `pub(crate) Zip::{read_text, size}`, CLI `CourseArgs`, `CourseCommand`, `course::run`.
+new_course, pack, COURSE_*}`, `Block::Video::subtitles`, `pub(crate) Zip::{read_text, size}`, CLI `CourseArgs`, `CourseCommand`, `course::run`. `kurs-adresse`: `CourseStore`, `CourseFetch`,
+`CourseError`, `Learning::{with_courses, courses, term_sources, term_texts}`, `Http::download`, `lesson::{read_media,
+cues, Cue}`, `MAX_COURSE_BYTES`, `Settings::course`, Core `course_preview`, `course_add`, `course_remove`,
+`course_fetch`, `course_fetch_poll`, `choose_course`, `lesson_video`, `is_course`, `fake_course_web`,
+`set_course_http`; Brücke `coursePreview`, `courseAdd`, `courseRemove`, `courseFetch`, `chooseCourse`,
+`lessonVideo`, `startCourse`, `courseFetchJson`.
 
 Plan (Eigentümer, 24.10.): Didaktik I4 (#106), I5 (#107), I6 umgesetzt. Offen aus
 I5: Ziel-Band im Histogramm (Kante). I6 Phrasengrenzen aus Zögern: #128.
@@ -34,8 +42,9 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 
 ## Offen
 
-- **Flakiger Journey-Test** J-C5 (`c5_techniques.rs`): Ursache war die Analyse, die unter Last mehr als 250 ms
-  hinter der Uhr lag; die Session wartet jetzt auf sie (`Event::Heard`, PR `analyse-rueckstand`).
+- **Flakiger Journey-Test** J-C5 (`c5_techniques.rs`): vermutete Ursache (nicht nachgestellt): die Analyse lag
+  unter Last mehr als 250 ms hinter der Uhr; die Session wartet jetzt auf sie (`Event::Heard`, #132). Tritt er
+  wieder auf, ist es eine andere Ursache.
 - **Speicherdialoge:** seit #92 über das Desktop-Portal; Vorschlag (`selectedFile`) und Titel im echten KDE-Dialog
   ungeprüft (Paket, Bericht, Daten).
 
@@ -66,7 +75,7 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - #48/#49: `Core::home_json`, `Core::loaded_title`, `Library::plain_paths`, `TrackInfo::is_percussion`.
 - #50: `TechniqueTarget`, `technique_signs`, `TechniqueResult::sign`, `Annotation::slide_cents`.
 - Runde 12 und danach (freigegeben in Runde 12 bis #66; neu): `startup_language`, `Settings::piece_mode`,
-  `Library::move_folders`, `DeviceInfo::past_pipewire`, `audio_priority`/`Priority`, `Http`/`Web`/`FileHttp`.
+  `Library::find_moved`, `DeviceInfo::past_pipewire`, `audio_priority`/`Priority`, `Http`/`Web`/`FileHttp`.
 - #63/#66: `Calibration::beat_at`, `LiveCalibration::beat`, `LiveTuner::input_block`, `Core::calibration_beat`,
   `Core::setlist_add`; QA-Schalter `--screenshot-notes`, `--focus-log`.
 - #58: `Calibration::count_in`, `calibration::COUNT_IN`, `CheckTake::player_offset_ms`. #60: `PitchRevision`,
@@ -92,6 +101,10 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 
 ## Für den Eigentümer
+
+- #131 (Kurspakete): drei Review-Runden mit offenem Wichtig (pub-Liste, Zip-Bombe über Deflate, dann über STORED).
+  Nach der Review-Regel angehalten; Vorschlag im PR (eigene Zip-Lesung behalten, Größen zentral erzwungen). Merge
+  erst nach deiner Entscheidung; die Folgearbeit (Kurse in der App) wartet darauf.
 
 - Merge-Erlaubnis als Regel in den Claude-Code-Einstellungen eintragen (Runde 11).
 - Entscheidungs-Artefakt: https://claude.ai/artifact/EsQvZ5epqB3WeBgFEhytpN

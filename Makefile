@@ -1,7 +1,7 @@
-.PHONY: check fmt lint test deny design licences korpus run cli qt-env
+.PHONY: check fmt lint test deny design video licences licences-check korpus run cli qt-env
 
 # Everything CI runs; run before every commit (agent.md).
-check: fmt lint test deny design
+check: fmt lint test deny design video licences-check
 
 fmt:
 	cargo fmt --all --check
@@ -20,9 +20,16 @@ deny:
 design:
 	scripts/check-design.sh
 
+# Course videos play with subtitles (LH-LRN-14); needs Qt Multimedia.
+video:
+	scripts/check-video.sh
+
 # Licence list in the About section (LH-NF-11); regenerate after dependency changes.
 licences:
 	scripts/licences.py
+
+licences-check:
+	scripts/licences.py --check
 
 # Detection quality on the synthetic corpus (LH-NF-02/03).
 korpus:

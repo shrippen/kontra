@@ -132,6 +132,8 @@ pub mod qobject {
         #[qproperty(QString, stems_json, cxx_name = "stemsJson")]
         /// Songsterr search: state, reason and hits as JSON (LH-BIB-11).
         #[qproperty(QString, song_search_json, cxx_name = "songSearchJson")]
+        /// A course package fetched from an address, see `Core::course_fetch_poll`.
+        #[qproperty(QString, course_fetch_json, cxx_name = "courseFetchJson")]
         /// While the arrangement is laid out again: the run goes on (a change of key), so the
         /// page keeps the marks.
         #[qproperty(bool, run_kept, cxx_name = "runKept")]
@@ -144,6 +146,9 @@ pub mod qobject {
         #[qproperty(QString, offer_text, cxx_name = "offerText")]
         #[qproperty(QString, error_text, cxx_name = "errorText")]
         #[qproperty(QString, start_page, cxx_name = "startPage")]
+        /// A course package given at start (`kontra kurs.kontrakurs`); the learn page shows it
+        /// before adding and clears this.
+        #[qproperty(QString, start_course, cxx_name = "startCourse")]
         #[qproperty(bool, setup_done, cxx_name = "setupDone")]
         #[qproperty(bool, autoplay)]
         /// QA: a blind probe of the start loop instead of autoplay (DIDAKTIK I1).
@@ -567,6 +572,37 @@ pub mod qobject {
         #[cxx_name = "chapterPass"]
         fn chapter_pass(self: Pin<&mut Self>, chapter: &QString, since: f64) -> bool;
 
+        /// A course package before adding it, see `Core::course_preview`.
+        #[qinvokable]
+        #[cxx_name = "coursePreview"]
+        fn course_preview(self: &Self, url: &QString) -> QString;
+
+        /// Adds a course package; "" when done, else what went wrong.
+        #[qinvokable]
+        #[cxx_name = "courseAdd"]
+        fn course_add(self: Pin<&mut Self>, url: &QString) -> QString;
+
+        /// Fetches a course package from an https address; the outcome comes as
+        /// `courseFetchJson`.
+        #[qinvokable]
+        #[cxx_name = "courseFetch"]
+        fn course_fetch(self: Pin<&mut Self>, url: &QString);
+
+        /// What to play for a lesson's video block, see `Core::lesson_video`.
+        #[qinvokable]
+        #[cxx_name = "lessonVideo"]
+        fn lesson_video(self: &Self, id: &QString, page: i32, block: i32) -> QString;
+
+        /// Removes added course `id`; "" when done, else what went wrong.
+        #[qinvokable]
+        #[cxx_name = "courseRemove"]
+        fn course_remove(self: Pin<&mut Self>, id: &QString) -> QString;
+
+        /// Learns course `id` from now on.
+        #[qinvokable]
+        #[cxx_name = "chooseCourse"]
+        fn choose_course(self: Pin<&mut Self>, id: &QString);
+
         /// Opens the exercise of a lesson's practice block; true when it is ready to play.
         #[qinvokable]
         #[cxx_name = "lessonExercise"]
@@ -842,6 +878,7 @@ pub struct ControllerRust {
     backing_name: QString,
     stems_json: QString,
     song_search_json: QString,
+    course_fetch_json: QString,
     run_kept: bool,
     transpose: i32,
     transpose_max: i32,
@@ -851,6 +888,7 @@ pub struct ControllerRust {
     offer_text: QString,
     error_text: QString,
     start_page: QString,
+    start_course: QString,
     setup_done: bool,
     autoplay: bool,
     autoprobe: bool,
@@ -880,6 +918,9 @@ impl Default for ControllerRust {
         let mut core = Core::new(&data_dir(), qa);
         if let Some(answer) = &args.songsterr_answer {
             core.fake_song_search(answer);
+        }
+        if let Some(answer) = &args.course_answer {
+            core.fake_course_web(answer);
         }
         if let Some(style) = &args.style {
             core.update_settings(|s| s.style = style.clone());
@@ -991,6 +1032,7 @@ impl Default for ControllerRust {
             backing_name: QString::default(),
             stems_json: QString::default(),
             song_search_json: QString::default(),
+            course_fetch_json: QString::default(),
             run_kept: false,
             transpose: 0,
             transpose_max: kontra_appcore::Core::transpose_max(),
@@ -1000,6 +1042,7 @@ impl Default for ControllerRust {
             offer_text: QString::default(),
             error_text: QString::default(),
             start_page: q(args.page.as_deref().unwrap_or("")),
+            start_course: QString::default(),
             setup_done: s.setup_done,
             autoplay: args.autoplay,
             autoprobe: args.probe,
@@ -1025,7 +1068,11 @@ impl Default for ControllerRust {
             Some(query) => controller.core.song_search(query),
             None => controller.core.song_search_json(),
         });
-        if let Some(path) = args.open {
+        // A course is added, not played: the learn page shows what it is first (LH-LRN-14).
+        if let Some(path) = args.open.as_ref().filter(|p| Core::is_course(p)) {
+            controller.start_course = q(&path.to_string_lossy());
+            controller.start_page = q("learn");
+        } else if let Some(path) = args.open {
             controller.open_now(&path);
             // Opening may set the mode (plan exercises: run-through); an explicit --mode wins.
             if let Some(mode) = &args.mode {
@@ -1420,6 +1467,9 @@ impl qobject::Controller {
         self.as_mut().apply(events);
         if let Some(json) = self.as_mut().core().song_search_poll() {
             self.as_mut().set_song_search_json(q(&json));
+        }
+        if let Some(json) = self.as_mut().core().course_fetch_poll() {
+            self.as_mut().set_course_fetch_json(q(&json));
         }
         let (position, playing) = {
             let this = self.as_ref();
@@ -2244,6 +2294,36 @@ impl qobject::Controller {
         self.as_mut()
             .core()
             .chapter_pass(&chapter.to_string(), since)
+    }
+
+    fn course_preview(&self, url: &QString) -> QString {
+        let path = local_path(&url.to_string());
+        q(&self.rust().core.course_preview(&path))
+    }
+
+    fn course_add(mut self: Pin<&mut Self>, url: &QString) -> QString {
+        let path = local_path(&url.to_string());
+        q(&self.as_mut().core().course_add(&path))
+    }
+
+    fn course_fetch(mut self: Pin<&mut Self>, url: &QString) {
+        let json = self.as_mut().core().course_fetch(&url.to_string());
+        self.as_mut().set_course_fetch_json(q(&json));
+    }
+
+    fn lesson_video(&self, id: &QString, page: i32, block: i32) -> QString {
+        let (Ok(page), Ok(block)) = (usize::try_from(page), usize::try_from(block)) else {
+            return QString::default();
+        };
+        q(&self.rust().core.lesson_video(&id.to_string(), page, block))
+    }
+
+    fn course_remove(mut self: Pin<&mut Self>, id: &QString) -> QString {
+        q(&self.as_mut().core().course_remove(&id.to_string()))
+    }
+
+    fn choose_course(mut self: Pin<&mut Self>, id: &QString) {
+        self.as_mut().core().choose_course(&id.to_string());
     }
 
     fn lesson_exercise(mut self: Pin<&mut Self>, id: &QString, page: i32, block: i32) -> bool {

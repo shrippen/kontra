@@ -14,6 +14,8 @@ use thiserror::Error;
 const TIMEOUT: Duration = Duration::from_secs(8);
 /// Search answers are kilobytes; anything near this is not one.
 const MAX_BODY: u64 = 2 * 1024 * 1024;
+/// A download (a course package) may take a slow line its time.
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(300);
 /// Names Kontra and where to find it, so the site knows who asks.
 const USER_AGENT: &str = concat!(
     "Kontra/",
@@ -39,12 +41,20 @@ pub enum HttpError {
 /// Fetches a URL; one call is one request.
 pub trait Http: Send + Sync + std::fmt::Debug {
     fn get(&self, url: &str) -> Result<Vec<u8>, HttpError>;
+
+    /// A file to keep (a course package): up to `max_bytes`, with time for a slow line.
+    fn download(&self, url: &str, max_bytes: u64) -> Result<Vec<u8>, HttpError> {
+        let _ = max_bytes;
+        self.get(url)
+    }
 }
 
 /// The real web.
 #[derive(Debug)]
 pub struct Web {
     agent: ureq::Agent,
+    /// The same, with time for downloads.
+    downloads: ureq::Agent,
 }
 
 impl Web {
@@ -61,13 +71,20 @@ impl Web {
             .provider(TlsProvider::Rustls)
             .root_certs(RootCerts::new_with_certs(&roots))
             .build();
-        let agent = ureq::Agent::config_builder()
-            .timeout_global(Some(TIMEOUT))
-            .user_agent(USER_AGENT)
-            .tls_config(tls)
-            .build()
-            .into();
-        Web { agent }
+        let agent = |timeout| {
+            ureq::Agent::config_builder()
+                .timeout_global(Some(timeout))
+                .user_agent(USER_AGENT)
+                // Also after a redirect: courses and searches are https only.
+                .https_only(true)
+                .tls_config(tls.clone())
+                .build()
+                .into()
+        };
+        Web {
+            agent: agent(TIMEOUT),
+            downloads: agent(DOWNLOAD_TIMEOUT),
+        }
     }
 }
 
@@ -84,6 +101,16 @@ impl Http for Web {
             .body_mut()
             .with_config()
             .limit(MAX_BODY)
+            .read_to_vec()
+            .map_err(error)
+    }
+
+    fn download(&self, url: &str, max_bytes: u64) -> Result<Vec<u8>, HttpError> {
+        let mut response = self.downloads.get(url).call().map_err(error)?;
+        response
+            .body_mut()
+            .with_config()
+            .limit(max_bytes)
             .read_to_vec()
             .map_err(error)
     }
@@ -139,5 +166,17 @@ mod tests {
         assert_eq!(http.get("https://example.org/a").unwrap(), b"[]");
         std::fs::remove_file(&path).unwrap();
         assert!(matches!(http.get("x"), Err(HttpError::Failed(_))));
+    }
+
+    /// Never plain http, also not after a redirect from https (a package could be swapped).
+    #[test]
+    fn plain_http_is_never_asked() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let url = format!("http://{}/kurs", listener.local_addr().unwrap());
+        let web = Web::new();
+        assert!(web.get(&url).is_err());
+        assert!(web.download(&url, 1).is_err());
+        assert!(listener.accept().is_err(), "no connection was made");
     }
 }

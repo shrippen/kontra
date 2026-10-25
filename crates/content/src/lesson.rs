@@ -14,12 +14,14 @@
 mod check;
 mod pack;
 mod parse;
+mod vtt;
 
 pub use pack::{
-    new_course, pack, Author, CourseManifest, CoursePack, PackError, COURSE_EXT, COURSE_FORMAT,
-    COURSE_VERSION,
+    new_course, pack, read_media, Author, CourseManifest, CoursePack, PackError, COURSE_EXT,
+    COURSE_FORMAT, COURSE_VERSION, MAX_COURSE_BYTES,
 };
 pub use parse::note_class;
+pub use vtt::{cues, Cue};
 
 use kontra_model::InstrumentKind;
 use std::collections::BTreeMap;

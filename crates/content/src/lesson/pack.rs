@@ -27,16 +27,20 @@ pub const COURSE_VERSION: u32 = 1;
 pub const COURSE_EXT: &str = "kontrakurs";
 const MANIFEST: &str = "manifest.json";
 const MEDIA_DIR: &str = "media/";
+/// Resource forks the macOS Finder adds when it zips a folder.
+const MACOS_DIR: &str = "__MACOSX/";
 const HTTPS: &str = "https://";
 /// What Qt Multimedia plays on every desktop; subtitles as WebVTT.
 const VIDEO_TYPES: &[&str] = &[".webm", ".mp4"];
 const SUBTITLE_TYPES: &[&str] = &[".vtt"];
 /// Videos belong on the web (small packages); one that must work offline may carry a few.
-const MAX_COURSE_BYTES: u64 = 1024 * 1024 * 1024;
+pub const MAX_COURSE_BYTES: u64 = 1024 * 1024 * 1024;
 /// Manifest, courses and lessons are text; refuse more before inflating.
 const MAX_TEXT_BYTES: usize = 4 * 1024 * 1024;
 /// All texts together; the archive's size says nothing about them (deflated zeros).
 const MAX_TEXTS_BYTES: usize = 32 * 1024 * 1024;
+/// Most entries in a package: lessons in two languages, media and subtitles fit many times.
+const MAX_ENTRIES: usize = 10_000;
 
 /// The template `new` lays out; `{id}` becomes the package id (path and text).
 const TEMPLATE: &[(&str, &str)] = &[
@@ -65,6 +69,9 @@ const ID: &str = "{id}";
 pub struct CourseManifest {
     pub format: String,
     pub version: u32,
+    /// The course's own edition, raised by its author with each release (1, 2, …); an update
+    /// says by it whether it is newer.
+    pub revision: u32,
     /// Prefix of the course and lesson ids (`bassbuzz` → `bassbuzz.anschlag`).
     pub id: String,
     /// Title per language code ("de", "en").
@@ -94,6 +101,9 @@ pub enum PackError {
     Lesson(#[from] LessonError),
     #[error("{0}")]
     Archive(String),
+    /// Made for a later Kontra (format version); said as such, not as a parse error.
+    #[error("version {0} is newer than this Kontra")]
+    Newer(u64),
 }
 
 impl PackError {
@@ -109,11 +119,15 @@ impl CoursePack {
             return Err(PackError::archive(format!("{} bytes", data.len())));
         }
         let zip = Zip::open(data).map_err(|e| PackError::archive(e.to_string()))?;
+        let entries = zip.names().count();
+        if entries > MAX_ENTRIES {
+            return Err(PackError::archive(format!("{entries} entries")));
+        }
 
         // All texts by their declared size, before inflating any (deflated zeros, review #131).
         let declared: usize = zip
             .names()
-            .filter(|n| !n.starts_with(MEDIA_DIR))
+            .filter(|n| !n.starts_with(MEDIA_DIR) && !hidden(n))
             .map(|n| zip.size(n))
             .fold(0, usize::saturating_add);
         if declared > MAX_TEXTS_BYTES {
@@ -126,7 +140,7 @@ impl CoursePack {
         let mut media = Vec::new();
         for name in zip.names() {
             safe(name)?;
-            if name.ends_with('/') {
+            if name.ends_with('/') || hidden(name) {
                 continue;
             }
             if name.starts_with(MEDIA_DIR) {
@@ -163,14 +177,11 @@ impl CoursePack {
             .find(|(n, _)| n == MANIFEST)
             .map(|(_, t)| t.as_str())
             .ok_or_else(|| PackError::archive(format!("{MANIFEST} missing")))?;
+        newer(manifest_text)?;
         let manifest: CourseManifest = serde_json::from_str(manifest_text)
             .map_err(|e| super::parse::error(MANIFEST, e.line(), &e.to_string()))?;
         if manifest.format != COURSE_FORMAT {
             let reason = format!("format {} is not {COURSE_FORMAT}", manifest.format);
-            return Err(super::parse::error(MANIFEST, 1, &reason).into());
-        }
-        if manifest.version > COURSE_VERSION {
-            let reason = format!("version {} is newer than this Kontra", manifest.version);
             return Err(super::parse::error(MANIFEST, 1, &reason).into());
         }
 
@@ -272,6 +283,11 @@ impl CoursePack {
                     let Some(sub) = subtitles else {
                         continue;
                     };
+                    // Subtitles are small and must work offline: always in the package.
+                    if !sub.starts_with(MEDIA_DIR) {
+                        out.push(format!("{name}: subtitles {sub}: not below media/"));
+                        continue;
+                    }
                     if let Some(p) = self.source(sub, SUBTITLE_TYPES) {
                         out.push(format!("{name}: subtitles {sub}: {p}"));
                     }
@@ -309,6 +325,17 @@ impl CoursePack {
         }
         None
     }
+}
+
+/// File `src` ("media/a.webm", as a block names it) of the packed course `data`.
+pub fn read_media(data: &[u8], src: &str) -> Result<Vec<u8>, PackError> {
+    safe(src)?;
+    if !src.starts_with(MEDIA_DIR) {
+        return Err(PackError::archive(format!("{src}: not below {MEDIA_DIR}")));
+    }
+    let zip = Zip::open(data).map_err(|e| PackError::archive(e.to_string()))?;
+    zip.read(src)
+        .map_err(|e| PackError::archive(format!("{src}: {e}")))
 }
 
 /// Packs the folder `dir` as a `.kontrakurs` archive (every file, hidden ones left out). Check
@@ -370,7 +397,8 @@ pub fn new_course(dir: &Path, id: &str, author: &Author) -> Result<(), PackError
     Ok(())
 }
 
-/// Paths of all files below `dir`, relative with `/`, sorted; hidden files and folders skipped.
+/// Paths of all files below `dir`, relative with `/`, sorted; hidden files and folders and
+/// packed courses skipped.
 /// Refuses what `CoursePack::read` would refuse packed: unsafe names, a text file above
 /// `MAX_TEXT_BYTES`, texts above `MAX_TEXTS_BYTES`, all above `MAX_COURSE_BYTES` (unpacked here,
 /// so at least the packed size).
@@ -384,7 +412,12 @@ fn files(dir: &Path) -> Result<Vec<String>, PackError> {
             .map_err(|e| PackError::archive(format!("{}: {e}", at.display())))?;
         for entry in entries.flatten() {
             let path = entry.path();
-            if entry.file_name().to_string_lossy().starts_with('.') {
+            // Hidden files, and packages packed into the folder (`pack . kurs.kontrakurs`).
+            let file = entry.file_name().to_string_lossy().into_owned();
+            let packed = Path::new(&file)
+                .extension()
+                .is_some_and(|e| e == COURSE_EXT);
+            if file.starts_with('.') || (packed && !path.is_dir()) {
                 continue;
             }
             if path.is_dir() {
@@ -427,6 +460,25 @@ fn files(dir: &Path) -> Result<Vec<String>, PackError> {
 }
 
 /// A package id: a–z and `-`, not empty (`studio-weber`).
+/// A course from a later Kontra: said before the strict parse, which would only name the field
+/// this Kontra does not know.
+fn newer(manifest: &str) -> Result<(), PackError> {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(manifest) else {
+        return Ok(());
+    };
+    let format = value.get("format").and_then(|f| f.as_str());
+    let version = value.get("version").and_then(|v| v.as_u64()).unwrap_or(0);
+    if format != Some(COURSE_FORMAT) || version <= u64::from(COURSE_VERSION) {
+        return Ok(());
+    }
+    Err(PackError::Newer(version))
+}
+
+/// Hidden files and the macOS resource folder, left out like in a folder (`files`).
+fn hidden(name: &str) -> bool {
+    name.starts_with(MACOS_DIR) || name.split('/').any(|part| part.starts_with('.'))
+}
+
 fn plain_id(id: &str) -> bool {
     !id.is_empty() && id.chars().all(|c| c.is_ascii_lowercase() || c == '-')
 }
@@ -451,7 +503,7 @@ mod tests {
     use super::*;
 
     const MANIFEST_OK: &str = r#"{
-  "format": "kontra-course", "version": 1, "id": "test",
+  "format": "kontra-course", "version": 1, "revision": 1, "id": "test",
   "title": {"de": "Test", "en": "Test"}, "provider": "Anbieter", "license": "CC-BY-4.0",
   "course": "test.kurs", "hosts": ["video.example"]
 }"#;
@@ -515,6 +567,14 @@ mod tests {
         let srt = "subtitles media/a.srt: unsupported type";
         assert_eq!(problems(&subs), both(srt));
 
+        // Subtitles must work offline.
+        let web_subs = archive(
+            "src=media/a.webm subtitles=https://video.example/a.vtt",
+            &[("media/a.webm", b"x")],
+        );
+        let web = "subtitles https://video.example/a.vtt: not below media/";
+        assert_eq!(problems(&web_subs), both(web));
+
         // The type counts on the web too (review #131).
         let web = archive("src=https://video.example/a.avi?t=1", &[]);
         let avi = "video https://video.example/a.avi?t=1: unsupported type";
@@ -552,6 +612,19 @@ mod tests {
             panic!("expected an archive error");
         };
         assert!(reason.starts_with("texts above"), "{reason}");
+    }
+
+    /// A package packed into its own folder is not packed again (review #131).
+    #[test]
+    fn a_folder_leaves_out_packed_courses() {
+        let dir = std::env::temp_dir().join(format!("kontra-course-self-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        new_course(&dir, "probe", &author()).unwrap();
+        let data = pack(&dir).unwrap();
+        std::fs::write(dir.join("probe.kontrakurs"), &data).unwrap();
+        assert!(CoursePack::from_dir(&dir).is_ok());
+        assert_eq!(pack(&dir).unwrap(), data);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// A link counts with the size of what it points to: packing follows it (review #131).
@@ -604,6 +677,14 @@ mod tests {
     }
 
     #[test]
+    fn media_reads_from_the_package_only() {
+        let data = archive("src=media/a.webm", &[("media/a.webm", b"video")]);
+        assert_eq!(read_media(&data, "media/a.webm").unwrap(), b"video");
+        assert!(read_media(&data, "manifest.json").is_err());
+        assert!(read_media(&data, "media/../manifest.json").is_err());
+    }
+
+    #[test]
     fn names_stay_inside_the_package() {
         let data = archive("src=media/a.webm", &[("media/../../evil", b"x")]);
         assert!(matches!(
@@ -619,6 +700,46 @@ mod tests {
             panic!("expected a lesson error");
         };
         assert_eq!((e.file.as_str(), e.line), ("manifest.json", 2));
+    }
+
+    /// A course zipped by hand (macOS Finder) holds hidden files the folder check skips
+    /// (review #131, round 6).
+    #[test]
+    fn an_archive_skips_hidden_entries() {
+        let data = archive(
+            "src=media/a.webm",
+            &[
+                ("media/a.webm", b"x"),
+                (".DS_Store", b"\x00\x00\x00\x01Bud1\xff"),
+                ("__MACOSX/units/test.video/._de.md", b"\x00\x05\x16\x07\xff"),
+                ("units/test.video/.de.md.swp", b"\xff\xfe"),
+            ],
+        );
+        assert_eq!(problems(&data), Vec::<String>::new());
+    }
+
+    /// A course from a later Kontra says so, even with fields this one does not know
+    /// (review #131, round 6).
+    #[test]
+    fn a_newer_course_is_named() {
+        let manifest = MANIFEST_OK
+            .replace("\"version\": 1", "\"version\": 2")
+            .replace("\"hosts\"", "\"price\": 5, \"hosts\"");
+        let data = zip::write(&[("manifest.json", manifest.as_bytes())]).unwrap();
+        assert!(matches!(CoursePack::read(&data), Err(PackError::Newer(2))));
+    }
+
+    /// Many tiny entries cost no time per entry squared (review #131, round 6): above the
+    /// limit, the archive is refused before anything is read.
+    #[test]
+    fn an_archive_has_an_entry_limit() {
+        let names: Vec<String> = (0..=MAX_ENTRIES).map(|i| format!("media/{i}")).collect();
+        let entries: Vec<(&str, &[u8])> = names.iter().map(|n| (n.as_str(), &b""[..])).collect();
+        let data = zip::write(&entries).unwrap();
+        let Err(PackError::Archive(reason)) = CoursePack::read(&data) else {
+            panic!("expected an archive error");
+        };
+        assert!(reason.contains("entries"), "{reason}");
     }
 
     /// A folder holds what the archive may (review #131): `course check <folder>` must not pass

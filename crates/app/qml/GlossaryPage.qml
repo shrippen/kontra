@@ -7,6 +7,7 @@ import Kante
 // Glossary (LH-LRN-09, J-G2): with `termId` one entry, short, with its figure and the lesson
 // that teaches it; without, the index of all terms for the instrument. It opens as a layer over
 // the page that asked, so "back" (or Esc) returns to the same place with nothing changed.
+// Terms explained by several courses show every text with its origin (LH-LRN-14).
 Kirigami.ScrollablePage {
     id: page
 
@@ -55,16 +56,33 @@ Kirigami.ScrollablePage {
             title: texts.t("learn.missing")
         }
 
-        // The entry: its blocks; "listen" plays through ear training like in a lesson.
+        // The entry: its blocks; "listen" plays through ear training like in a lesson. Several
+        // courses explaining the term follow each other, each under its name (LH-LRN-14).
         Repeater {
             model: page.entry ? page.entry.blocks : []
-            delegate: LessonBlock {
+            delegate: ColumnLayout {
+                id: entryBlock
+                required property var modelData
+                required property int index
                 Layout.fillWidth: true
-                earBlock: page.earBlock
-                onTerm: function(id) { applicationWindow().glossary(id) }
-                onEar: function(index) {
-                    page.earBlock = index
-                    ctl.termEar(page.termId, index)
+                spacing: KanteStyle.unit(8)
+
+                KanteSectionLabel {
+                    Layout.fillWidth: true
+                    visible: entryBlock.modelData.from !== undefined
+                    rule: true
+                    text: entryBlock.modelData.from || ""
+                }
+                LessonBlock {
+                    Layout.fillWidth: true
+                    modelData: entryBlock.modelData
+                    index: entryBlock.index
+                    earBlock: page.earBlock
+                    onTerm: function(id) { applicationWindow().glossary(id) }
+                    onEar: function(index) {
+                        page.earBlock = index
+                        ctl.termEar(page.termId, index)
+                    }
                 }
             }
         }

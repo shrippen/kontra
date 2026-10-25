@@ -92,13 +92,14 @@ const TOPIC_TERMS: &[(&str, &str)] = &[
 ];
 
 impl Core {
-    /// The bundled lessons seen through the current instrument profile; `None` only if the
-    /// embedded files are broken (a test guards that).
+    /// The bundled lessons and added courses seen through the current instrument profile;
+    /// `None` only if the embedded files are broken (a test guards that).
     fn learning(&self) -> Option<Learning> {
-        Learning::bundled(&self.instrument())
+        let chosen = self.settings.course.as_deref().unwrap_or_default();
+        Learning::with_courses(&self.instrument(), &self.courses, chosen)
     }
 
-    fn learn_lang(&self) -> Lang {
+    pub(crate) fn learn_lang(&self) -> Lang {
         match self.catalog.language() {
             Language::German => Lang::De,
             Language::English => Lang::En,
@@ -114,8 +115,9 @@ impl Core {
     }
 
     /// The course: `{"fits", "next": {id, title} | null, "chapters": [{id, title, done, total,
-    /// questions, units: [{id, title, done, fits}], finale: practice | null}]}`. `fits` false: the course is not for
-    /// this instrument (LH-LRN-12).
+    /// questions, units: [{id, title, done, fits}], finale: practice | null}], "course": id,
+    /// "courses": [{id, title, removable, address}]}`. `fits` false: the course is not for this instrument
+    /// (LH-LRN-12); `courses` are all for it, to choose from (LH-LRN-14).
     pub fn learn_json(&self) -> String {
         let (Some(learning), lang) = (self.learning(), self.learn_lang()) else {
             return json!({ "fits": false, "chapters": [] }).to_string();
@@ -159,7 +161,17 @@ impl Core {
                 })
             })
             .collect();
-        json!({ "fits": true, "next": next, "chapters": chapters }).to_string()
+        let courses: Vec<Value> = learning
+            .courses()
+            .map(|c| {
+                json!({ "id": c.id, "title": self.course_title(&c.id),
+                        "removable": self.is_added(&c.id),
+                        "address": self.course_address(&c.id) })
+            })
+            .collect();
+        json!({ "fits": true, "next": next, "chapters": chapters, "course": course.id,
+                "courses": courses })
+        .to_string()
     }
 
     /// One lesson: `{"id", "title", "fits", "seen": [page], "done", "pages": [{"title",
@@ -187,39 +199,65 @@ impl Core {
             "fits": learning.fits(&unit.scope),
             "seen": seen,
             "done": state.done(&key),
-            "pages": self.pages_json(&doc),
+            "pages": self.with_cues(id, self.pages_json(&doc)),
         })
         .to_string()
     }
 
     /// One glossary term: `{"id", "title", "blocks": [block], "lesson": {id, title} | null}`;
-    /// "" for an unknown id.
+    /// "" for an unknown id. Several courses explaining the term give their texts one after
+    /// the other, bundled first; the first block of each carries `from` ("Aus: Bass-Kurs").
     pub fn glossary_json(&self, id: &str) -> String {
         let Some(learning) = self.learning() else {
             return String::new();
         };
-        let Some(term) = learning.term(id) else {
+        let docs = self.term_docs(&learning, id);
+        let Some((_, first)) = docs.first() else {
             return String::new();
         };
         let lang = self.learn_lang();
-        let Some(doc) = learning.doc(&term.texts, lang) else {
-            return String::new();
-        };
-        let lesson = term
-            .lesson
-            .as_deref()
+        let lesson = learning
+            .term_texts(id)
+            .into_iter()
+            .find_map(|(t, _)| t.lesson.as_deref())
             .and_then(|l| learning.unit(l))
             .filter(|u| learning.fits(&u.scope))
             .and_then(|u| {
                 let title = learning.doc(&u.texts, lang)?.title;
                 Some(json!({ "id": u.id, "title": title }))
             });
-        let blocks: Vec<Value> = doc
-            .pages
-            .iter()
-            .flat_map(|p| p.blocks.iter().map(|b| self.block_json(b)))
-            .collect();
-        json!({ "id": term.id, "title": doc.title, "blocks": blocks, "lesson": lesson }).to_string()
+
+        let mut blocks: Vec<Value> = Vec::new();
+        for (from, doc) in &docs {
+            let start = blocks.len();
+            blocks.extend(
+                doc.pages
+                    .iter()
+                    .flat_map(|p| p.blocks.iter().map(|b| self.block_json(b))),
+            );
+            if let (Some(block), false) = (blocks.get_mut(start), from.is_empty()) {
+                block["from"] = json!(from);
+            }
+        }
+        json!({ "id": id, "title": first.title, "blocks": blocks, "lesson": lesson }).to_string()
+    }
+
+    /// The texts of term `id` with their origin, empty when only one course explains it.
+    fn term_docs(&self, learning: &Learning, id: &str) -> Vec<(String, Doc)> {
+        let lang = self.learn_lang();
+        let texts = learning.term_texts(id);
+        let several = texts.len() > 1;
+        texts
+            .into_iter()
+            .filter_map(|(term, source)| {
+                let doc = learning.doc(&term.texts, lang)?;
+                let from = match several {
+                    true => self.tr("glossary.from", &[("course", self.source_title(source))]),
+                    false => String::new(),
+                };
+                Some((from, doc))
+            })
+            .collect()
     }
 
     /// The term behind a place's "?" (`TOPIC_TERMS`): `{"id", "title", "text"}`, the text its
@@ -262,6 +300,9 @@ impl Core {
             .filter(|t| learning.fits(&t.scope))
             .filter_map(|t| Some((learning.doc(&t.texts, lang)?.title, t.id.clone())))
             .collect();
+        // A term several courses explain is one entry, under its first (bundled) name.
+        let mut seen = std::collections::BTreeSet::new();
+        terms.retain(|(_, id)| seen.insert(id.clone()));
         terms.sort_by_key(|(title, _)| title.to_lowercase());
         let list: Vec<Value> = terms
             .into_iter()
@@ -492,10 +533,12 @@ impl Core {
 
     /// "Listen" or "try" in glossary entry `id`, block `block` (counted over its pages).
     pub fn term_ear(&mut self, id: &str, block: usize) -> Result<String, String> {
+        // Counted over every course's text, as `glossary_json` lists them.
         let block = self.learning().and_then(|learning| {
-            let term = learning.term(id)?;
-            let doc = learning.doc(&term.texts, self.learn_lang())?;
-            doc.pages.into_iter().flat_map(|p| p.blocks).nth(block)
+            self.term_docs(&learning, id)
+                .into_iter()
+                .flat_map(|(_, doc)| doc.pages.into_iter().flat_map(|p| p.blocks))
+                .nth(block)
         });
         self.block_ear(block)
     }
@@ -566,7 +609,7 @@ impl Core {
         json!({ "kind": "practice", "title": title.unwrap_or_default(), "speeds": practice.speeds })
     }
 
-    fn lesson_block(&self, id: &str, page: usize, block: usize) -> Option<Block> {
+    pub(crate) fn lesson_block(&self, id: &str, page: usize, block: usize) -> Option<Block> {
         let learning = self.learning()?;
         let unit = learning.unit(id)?;
         let doc = learning.doc(&unit.texts, self.learn_lang())?;
@@ -650,7 +693,8 @@ impl Core {
 
     /// One block for QML, by `kind`: text `{html}`, hint `{text}`, list `{items: [html]}`, figure/listen/
     /// try `{notes, positions: [{string, fret, label}]}`, practice `{title, speeds}`, question
-    /// `{html, options: [text], answer}`, tuner, video `{src}`.
+    /// `{html, options: [text], answer}`, tuner, video `{src, subtitles}` (`lesson_json` adds
+    /// the cues).
     fn block_json(&self, block: &Block) -> Value {
         match block {
             Block::Text(spans) => json!({ "kind": "text", "html": html(spans) }),
@@ -673,7 +717,9 @@ impl Core {
                         "answer": q.answer })
             }
             Block::Tuner => json!({ "kind": "tuner" }),
-            Block::Video { src, .. } => json!({ "kind": "video", "src": src }),
+            Block::Video { src, subtitles } => {
+                json!({ "kind": "video", "src": src, "subtitles": subtitles })
+            }
             // Resolved away by `Learning::doc`.
             Block::Variant { .. } => json!({ "kind": "none" }),
         }

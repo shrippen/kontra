@@ -5,6 +5,7 @@
 //!     ◄──properties/signals── bridge ◄── UiEvent
 //! ```
 
+mod course;
 mod data;
 pub mod ear;
 mod i18n;
@@ -211,6 +212,10 @@ pub struct Core {
     fallback_input: Option<String>,
     /// Dropouts of finished runs since the start (LH-NF-04).
     xruns_done: u64,
+    /// Courses the player added (LH-LRN-14), read once and after each change.
+    courses: Vec<kontra_session::lesson::CoursePack>,
+    /// A course package being fetched from an address (LH-LRN-14).
+    fetcher: course::Fetcher,
     /// Fretboard quiz in progress (LH-LRN-02).
     quiz: Option<quiz::Quiz>,
     /// Ear training (LH-LRN-03): the round and its audio.
@@ -266,6 +271,8 @@ impl Core {
             .as_deref()
             .map_or_else(Language::from_environment, Language::from_code);
         Core {
+            courses: kontra_session::CourseStore::new(data_dir).load(),
+            fetcher: course::Fetcher::default(),
             quiz: None,
             ear: None,
             live_ear: None,
@@ -4334,6 +4341,218 @@ mod tests {
         // Open strings first: the hand waits for the first fretted note.
         assert_eq!(positions_of(&[0, 0, 2, 4]), [2, 2, 2, 2]);
         assert_eq!(positions_of(&[0, 0]), [1, 1]);
+    }
+
+    /// J-G5: an added course appears beside the bundled one and becomes the one to learn;
+    /// the bundled one can be chosen again.
+    #[test]
+    fn an_added_course_is_learned_next() {
+        use kontra_session::lesson::{new_course, pack, Author};
+        use serde_json::{json, Value};
+        let dir = temp_dir("course-add");
+        let src = dir.join("src");
+        let author = Author {
+            provider: "Studio Weber".into(),
+            license: "CC-BY-4.0".into(),
+        };
+        new_course(&src, "weber", &author).unwrap();
+        let file = dir.join("weber.kontrakurs");
+        std::fs::write(&file, pack(&src).unwrap()).unwrap();
+
+        let mut core = Core::new(&dir.join("data"), QaOptions::default());
+        let preview: Value = serde_json::from_str(&core.course_preview(&file)).unwrap();
+        assert_eq!(preview["ok"], true);
+        assert_eq!(preview["provider"], "Studio Weber");
+        assert_eq!(preview["problems"], json!([]));
+        assert_eq!(preview["replaces"], "none");
+
+        assert_eq!(core.course_add(&file), "");
+        let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
+        assert_eq!(learn["course"], "weber.kurs");
+        assert_eq!(learn["courses"].as_array().map(Vec::len), Some(2));
+        assert_eq!(learn["next"]["id"], "weber.start");
+
+        // The same package again, then a later revision: the preview says which (J-G5 step 4).
+        let preview: Value = serde_json::from_str(&core.course_preview(&file)).unwrap();
+        assert_eq!(preview["replaces"], "same");
+        let manifest = src.join("manifest.json");
+        let text = std::fs::read_to_string(&manifest).unwrap();
+        std::fs::write(
+            &manifest,
+            text.replace("\"revision\": 1", "\"revision\": 2"),
+        )
+        .unwrap();
+        std::fs::write(&file, pack(&src).unwrap()).unwrap();
+        let preview: Value = serde_json::from_str(&core.course_preview(&file)).unwrap();
+        assert_eq!(
+            (
+                &preview["replaces"],
+                &preview["revision"],
+                &preview["installed"]
+            ),
+            (&json!("newer"), &json!(2), &json!(1))
+        );
+
+        // Kept over a restart; the bundled course comes back by choice.
+        let mut core = Core::new(&dir.join("data"), QaOptions::default());
+        let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
+        assert_eq!(learn["course"], "weber.kurs");
+        assert_eq!(learn["courses"][1]["removable"], true);
+        core.choose_course("bass");
+        let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
+        assert_eq!(learn["course"], "bass");
+        assert_eq!(learn["courses"][0]["removable"], false);
+
+        // Removed: the bundled course again; adding it back keeps what was learned.
+        core.choose_course("weber.kurs");
+        core.lesson_seen("weber.start", usize::MAX - 1);
+        assert_eq!(core.course_remove("weber.kurs"), "");
+        let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
+        assert_eq!(learn["course"], "bass");
+        assert_eq!(learn["courses"].as_array().map(Vec::len), Some(1));
+        assert_eq!(core.course_add(&file), "");
+        let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
+        assert_ne!(learn["next"]["id"], "weber.start");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// J-G5: a course video plays from the package only when asked, its subtitles come with the
+    /// lesson.
+    #[test]
+    fn a_course_video_is_unpacked_on_request() {
+        use kontra_session::lesson::{new_course, pack, Author};
+        use serde_json::Value;
+        let dir = temp_dir("course-video");
+        let src = dir.join("src");
+        let author = Author {
+            provider: "Studio Weber".into(),
+            license: "CC-BY-4.0".into(),
+        };
+        new_course(&src, "weber", &author).unwrap();
+        std::fs::create_dir_all(src.join("media")).unwrap();
+        std::fs::write(src.join("media/a.webm"), b"video").unwrap();
+        for lang in ["de", "en"] {
+            let vtt = format!("WEBVTT\n\n00:01.000 --> 00:02.000\n{lang}\n");
+            std::fs::write(src.join(format!("media/a.{lang}.vtt")), vtt).unwrap();
+            let unit = src.join(format!("units/weber.start/{lang}.md"));
+            let mut text = std::fs::read_to_string(&unit).unwrap();
+            text += &format!("::: video src=media/a.webm subtitles=media/a.{lang}.vtt\n");
+            std::fs::write(&unit, text).unwrap();
+        }
+        let file = dir.join("weber.kontrakurs");
+        std::fs::write(&file, pack(&src).unwrap()).unwrap();
+        let data = dir.join("data");
+        let mut core = Core::new(&data, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        assert_eq!(core.course_add(&file), "");
+
+        let lesson: Value = serde_json::from_str(&core.lesson_json("weber.start")).unwrap();
+        let video = &lesson["pages"][0]["blocks"][1];
+        assert_eq!(video["kind"], "video");
+        assert_eq!(video["cues"][0]["text"], "de");
+        assert_eq!(video["cues"][0]["startMs"], 1000);
+
+        let cache = store::cache_dir(&data);
+        assert!(
+            !cache.join("courses/weber/media/a.webm").exists(),
+            "no video unpacked before a click"
+        );
+        let url = core.lesson_video("weber.start", 0, 1);
+        let path = url.strip_prefix("file://").unwrap();
+        assert_eq!(std::fs::read(path).unwrap(), b"video");
+        assert_eq!(
+            core.lesson_video("weber.start", 0, 0),
+            "",
+            "a text block plays nothing"
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// J-G5: a course from an address is fetched, previewed and added like a file; only https.
+    #[test]
+    fn a_course_from_an_address_is_added() {
+        use kontra_session::lesson::{new_course, pack, Author};
+        use serde_json::Value;
+        let dir = temp_dir("course-fetch");
+        let src = dir.join("src");
+        let author = Author {
+            provider: "Studio Weber".into(),
+            license: "CC-BY-4.0".into(),
+        };
+        new_course(&src, "weber", &author).unwrap();
+        let file = dir.join("weber.kontrakurs");
+        std::fs::write(&file, pack(&src).unwrap()).unwrap();
+        let mut core = Core::new(&dir.join("data"), QaOptions::default());
+        core.fake_course_web(&file);
+
+        let refused: Value = serde_json::from_str(&core.course_fetch("http://x.example")).unwrap();
+        assert_eq!(refused["state"], "error");
+
+        let started: Value = serde_json::from_str(&core.course_fetch("https://x.example")).unwrap();
+        assert_eq!(started["state"], "running");
+        let done: Value = loop {
+            if let Some(json) = core.course_fetch_poll() {
+                break serde_json::from_str(&json).unwrap();
+            }
+            std::thread::yield_now();
+        };
+        assert_eq!(done["state"], "done");
+        let path = PathBuf::from(done["path"].as_str().unwrap());
+        let preview: Value = serde_json::from_str(&core.course_preview(&path)).unwrap();
+        assert_eq!(preview["provider"], "Studio Weber");
+        assert_eq!(core.course_add(&path), "");
+        let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
+        assert_eq!(learn["course"], "weber.kurs");
+        // Kept to look for an update there.
+        assert_eq!(learn["courses"][1]["address"], "https://x.example");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// LH-LRN-14: a course explaining a bundled term adds its text under its name; the index
+    /// lists the term once.
+    #[test]
+    fn a_term_from_two_courses_shows_both_texts() {
+        use kontra_session::lesson::{new_course, pack, Author};
+        use serde_json::Value;
+        let dir = temp_dir("course-term");
+        let src = dir.join("src");
+        let author = Author {
+            provider: "Studio Weber".into(),
+            license: "CC-BY-4.0".into(),
+        };
+        new_course(&src, "weber", &author).unwrap();
+        std::fs::create_dir_all(src.join("glossary")).unwrap();
+        for (lang, name, text) in [
+            ("de", "Oktave", "Bei Weber."),
+            ("en", "Octave", "At Weber."),
+        ] {
+            let entry = format!("## {name}\nid: oktave\n\n{text}\n");
+            std::fs::write(src.join(format!("glossary/{lang}.md")), entry).unwrap();
+        }
+        let file = dir.join("weber.kontrakurs");
+        std::fs::write(&file, pack(&src).unwrap()).unwrap();
+        let mut core = Core::new(&dir.join("data"), QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        assert_eq!(core.course_add(&file), "");
+
+        let entry: Value = serde_json::from_str(&core.glossary_json("oktave")).unwrap();
+        let froms: Vec<&str> = entry["blocks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|b| b["from"].as_str())
+            .collect();
+        assert_eq!(froms, ["Aus: Bass-Kurs", "Aus: Mein Kurs"]);
+        assert!(entry.to_string().contains("Bei Weber."));
+
+        let list: Value = serde_json::from_str(&core.glossary_list_json()).unwrap();
+        let octaves = list
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|t| t["id"] == "oktave");
+        assert_eq!(octaves.count(), 1);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

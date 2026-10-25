@@ -95,6 +95,7 @@ Durchläufe kommen dazu) oder ersetzt alles. Ungültige Dateien ändern nichts.
 # Kurspaket `.kontrakurs` (Format 1)
 
 Ein Kurs eines Anbieters zum Hinzufügen (LH-LRN-14): ein Zip, entpackt der Ordner, den der Autor bearbeitet.
+MIME-Typ: `application/x-kontrakurs`; Kontra öffnet ihn mit der Vorschau, nichts wird ohne Bestätigung hinzugefügt.
 Lektionsformat wie die mitgelieferten Kurse (`lessons/README.md`).
 
 ```text
@@ -107,20 +108,31 @@ kurs.kontrakurs
 ```
 
 ```json
-{ "format": "kontra-course", "version": 1, "id": "studio-weber",
+{ "format": "kontra-course", "version": 1, "revision": 3, "id": "studio-weber",
   "title": { "de": "Groove-Kurs", "en": "Groove course" },
   "provider": "Studio Weber", "license": "CC-BY-4.0",
   "course": "studio-weber.kurs", "hosts": ["video.example.org"] }
 ```
 
+- `version` ist die Version dieses Formats, `revision` die Fassung des Kurses: Der Autor zählt sie mit jeder
+  Veröffentlichung hoch, und ein Update sagt damit, ob es neuer ist als der vorhandene Kurs.
 - `id` (a–z, `-`) ist das Präfix des Kurses und jeder eigenen Lektion (`studio-weber.anschlag`): Lektionen aus dem
   mitgelieferten Vorrat dürfen genannt (Kapitel, `needs`), aber nicht ersetzt werden. Begriffe im Glossar dürfen
-  mitgelieferte Ids nutzen; geplant: Kontra zeigt dann beide Texte mit Herkunft.
+  mitgelieferte Ids nutzen; das Glossar zeigt dann alle Texte nacheinander, jeden mit seiner Herkunft.
 - `::: video src=… subtitles=…`: `src` ist `media/<datei>` im Paket oder `https://<host>/…` auf einem Host aus
-  `hosts`; andere Adressen sind ein Fehler. `subtitles` je Sprachdatei (WebVTT), sonst wie `src`.
-- Namen bleiben im Paket (kein `/` am Anfang, kein `..`, kein `\`), höchstens 1 GiB, Textdateien je höchstens
-  4 MiB, zusammen höchstens 32 MiB.
+  `hosts`; andere Adressen sind ein Fehler. `subtitles` je Sprachdatei (WebVTT) immer unter `media/`, damit sie
+  ohne Netz gehen. Ein Video startet erst auf Klick; eins aus dem Paket entpackt Kontra dann in seinen Cache.
+- Namen bleiben im Paket (kein `/` am Anfang, kein `..`, kein `\`), höchstens 1 GiB und 10 000 Einträge,
+  Textdateien je höchstens 4 MiB, zusammen höchstens 32 MiB. Versteckte Dateien (`.…`) und `__MACOSX/` zählen
+  nicht.
+- Ein Kurs mit höherer `version` sagt, dass er ein neueres Kontra braucht.
 
 Anlegen, prüfen und packen: `kontra-cli course new <ordner> --id <präfix> --provider … --license …`,
 `kontra-cli course check <ordner|datei>` (jeder Befund mit Datei, Fehler im Format mit Zeile),
 `kontra-cli course pack <ordner> <datei>.kontrakurs` (prüft vorher).
+
+Hinzufügen: Lernen → „Kurs hinzufügen …“, `kontra kurs.kontrakurs` oder „Kurs von Adresse …“ (nur `https://`;
+Kontra lädt nur die eingegebene Adresse). Kontra zeigt Titel, Anbieter, Lizenz und
+Stream-Hosts, sagt, wenn der Kurs für ein anderes Instrument ist, und nimmt nur Pakete ohne Befund. Es legt die Datei
+unverändert unter `<Datenordner>/courses/<id>.kontrakurs` ab; ein Paket mit derselben `id` ersetzt das alte, der
+Lernstand bleibt. Mehrere Kurse für das Instrument: Auswahl „Kurs“ auf der Lernseite.
