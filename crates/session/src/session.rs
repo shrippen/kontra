@@ -11,6 +11,9 @@ use kontra_model::{Arrangement, DetectedNote, PitchRevision, Technique, Techniqu
 /// Real seconds to wait before declaring a note missed: detected notes arrive up to ~150 ms
 /// after their onset (concept 6.3), plus margin.
 const DETECTION_GRACE_S: f64 = 0.25;
+/// A loaded machine may analyse behind the clock: notes wait for the analysis this long at
+/// most (a stalled input must not hold the run forever).
+const MAX_ANALYSIS_LAG_S: f64 = 2.0;
 
 /// Struck notes kept for techniques told later (they come within about 110 ms of the note).
 const STRUCK_KEPT: usize = 16;
@@ -104,6 +107,8 @@ pub struct Session {
     played_speed: Option<f64>,
     /// Real time of the last `update`.
     now_s: f64,
+    /// Real time up to which the analysis has heard; `None`: as far as the clock (MIDI, ended).
+    heard_s: Option<f64>,
 }
 
 impl Session {
@@ -129,6 +134,7 @@ impl Session {
             finished: false,
             played_speed: None,
             now_s: 0.0,
+            heard_s: None,
         }
     }
 
@@ -378,6 +384,18 @@ impl Session {
     }
 
     /// A technique told after its note (LH-BEW-06): the note it belongs to is judged again.
+    /// The analysis has heard the input up to `at_s` (engine clock); nothing after it is
+    /// missed yet.
+    pub fn on_heard(&mut self, at_s: f64) {
+        let real_s = at_s - self.settings.latency_ms / 1000.0;
+        self.heard_s = Some(self.heard_s.map_or(real_s, |h| h.max(real_s)));
+    }
+
+    /// The input ended (a file): from now on only the clock counts.
+    pub fn on_input_ended(&mut self) {
+        self.heard_s = None;
+    }
+
     pub fn on_revision(&mut self, revision: &TechniqueRevision) {
         let Some(&(_, pass, note)) = self
             .struck
@@ -538,7 +556,11 @@ impl Session {
         }
         // A finished probe judges nothing more: its clock stopped inside the next pass.
         if !matches!(self.mode, Mode::Wait) && !self.finished {
-            self.expire(real_s - DETECTION_GRACE_S);
+            // Up to where the analysis has heard, if it runs behind (a loaded machine).
+            let heard = self
+                .heard_s
+                .map_or(real_s, |h| h.max(real_s - MAX_ANALYSIS_LAG_S));
+            self.expire(real_s.min(heard) - DETECTION_GRACE_S);
         }
         self.check_finished();
         std::mem::take(&mut self.events)

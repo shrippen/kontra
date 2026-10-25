@@ -527,3 +527,20 @@ fn probe_ends_after_one_pass_of_the_loop() {
     assert!(s.results().iter().all(|r| r.pass == 0), "{:?}", s.results());
     assert!((s.summary().hit_rate - 0.75).abs() < 1e-9);
 }
+
+/// A loaded machine: the analysis runs a second behind the clock. A note reported that late
+/// still hits; it is not missed and then counted as extra (flaky J-C5, 24.10.).
+#[test]
+fn a_late_analysis_misses_nothing() {
+    let mut s = Session::new(riff(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    s.on_heard(0.0);
+    s.update(1.0);
+    s.on_heard(0.2);
+    s.on_note(&played(0.0, 28.0));
+    s.update(1.2);
+    let summary = s.summary();
+    assert_eq!(summary.missed, 0, "the first note was still being analysed");
+    assert_eq!(summary.extra, 0);
+    assert_eq!(summary.hits, 1);
+}

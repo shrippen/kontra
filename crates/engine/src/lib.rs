@@ -3,7 +3,8 @@
 //! ```text
 //! device / file ─► input callback ─► ring ─► analysis thread ─┬─ NoteTracker ─► Event::Note
 //!                                                             ├─ Tuner ───────► Event::Tuner
-//!                                                             └─ level ───────► Event::Level
+//!                                                             ├─ level ───────► Event::Level
+//!                                                             └─ heard until ─► Event::Heard
 //! MIDI keyboard / .mid ─► note-on (exact, no analysis) ─────────────────────────► Event::Note
 //! control ─► command ring ─► output callback (clicks, reference tones) ─► device
 //! ```
@@ -54,6 +55,11 @@ pub enum Event {
     Tuner(TunerReading),
     /// Device problem, e.g. the interface was unplugged.
     Error(String),
+    /// The analysis has heard the input up to `at_s`; under load it runs behind the clock,
+    /// and a note may still come for any time after it.
+    Heard {
+        at_s: f64,
+    },
     /// File input reached its end.
     Ended,
 }
