@@ -158,3 +158,69 @@ Acht (kleine Sexte) oder neun Halbtöne (große Sexte) über dem Grundton.
 id: septime
 lesson: septime
 Zehn (kleine Septime) oder elf Halbtöne (große Septime) über dem Grundton. Die kleine Septime klingt nach Blues.
+
+## Tonleiter
+id: tonleiter
+lesson: dur-tonleiter
+Eine Reihe von Tönen vom Grundton bis zur Oktave, nach festem Muster aus Ganz- und Halbtönen.
+
+## Dur
+id: dur
+lesson: dur-tonleiter
+Tongeschlecht mit großer Terz. Klingt hell; die Dur-Tonleiter folgt dem Muster Ganz, Ganz, Halb, Ganz, Ganz, Ganz, Halb.
+
+## Tonart
+id: tonart
+lesson: tonarten
+Die Tonleiter, aus der ein Lied seine Töne nimmt, benannt nach ihrem Grundton: G-Dur, A-Moll.
+
+## Lage
+id: lage
+for: e-bass
+lesson: dur-lagen
+Eine feste Stelle der Greifhand am Hals; jeder Finger greift einen Bund.
+
+## Akkord
+id: akkord
+lesson: dreiklang
+Mehrere Töne, die zusammen klingen. Der Bass spielt meist seinen Grundton oder seine Töne nacheinander.
+
+## Dreiklang
+id: dreiklang
+lesson: dreiklang
+Akkord aus Grundton, Terz und Quinte. Mit großer Terz Dur, mit kleiner Terz Moll.
+
+## Arpeggio
+id: arpeggio
+lesson: arpeggio
+Die Töne eines Akkords nacheinander gespielt statt zusammen.
+
+## Septakkord
+id: septakkord
+lesson: septakkord
+Dreiklang mit Septime: maj7 (große Septime), 7 (Dur mit kleiner Septime), m7 (Moll mit kleiner Septime).
+
+## Stufe
+id: stufe
+lesson: stufen
+Die Lage eines Akkords in der Tonart, in römischen Zahlen: I ist der Grundton, IV und V die wichtigsten Nachbarn.
+
+## Akkordsymbol
+id: akkordsymbol
+lesson: akkordnamen
+Kurzschrift für einen Akkord: Grundton und Zusatz, etwa Am7. Nach einem Schrägstrich steht der Basston.
+
+## Moll
+id: moll
+lesson: moll-tonleiter
+Tongeschlecht mit kleiner Terz. Klingt dunkler als Dur; die Moll-Tonleiter folgt dem Muster Ganz, Halb, Ganz, Ganz, Halb, Ganz, Ganz.
+
+## Pentatonik
+id: pentatonik
+lesson: pentatonik
+Tonleiter mit fünf Tönen ohne Halbtonschritte. Moll-Pentatonik: 1, b3, 4, 5, b7.
+
+## Akkordfolge
+id: akkordfolge
+lesson: akkordfolgen
+Die Reihe der Akkorde eines Lieds, oft in Stufen notiert: I-V-vi-IV.

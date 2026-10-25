@@ -63,6 +63,42 @@
         "intervalle-hoeren"
       ],
       "finale": "bundled=56 speeds=\"70 85 100\""
+    },
+    {
+      "id": "dur",
+      "de": "Dur",
+      "en": "Major",
+      "units": [
+        "dur-tonleiter",
+        "tonarten",
+        "dur-lagen"
+      ],
+      "finale": "bundled=122 speeds=\"60 80 100\""
+    },
+    {
+      "id": "akkorde",
+      "de": "Akkorde",
+      "en": "Chords",
+      "units": [
+        "dreiklang",
+        "arpeggio",
+        "septakkord",
+        "stufen",
+        "akkordnamen"
+      ],
+      "finale": "bundled=26 speeds=\"60 80 100\""
+    },
+    {
+      "id": "moll",
+      "de": "Moll",
+      "en": "Minor",
+      "units": [
+        "moll-tonleiter",
+        "moll-dreiklang",
+        "pentatonik",
+        "akkordfolgen"
+      ],
+      "finale": "bundled=145 speeds=\"60 80 100\""
     }
   ]
 }

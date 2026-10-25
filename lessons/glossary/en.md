@@ -157,3 +157,69 @@ Eight (minor sixth) or nine semitones (major sixth) above the root.
 id: septime
 lesson: septime
 Ten (minor seventh) or eleven semitones (major seventh) above the root. The minor seventh sounds like the blues.
+
+## Scale
+id: tonleiter
+lesson: dur-tonleiter
+A row of notes from the root to the octave, following a fixed pattern of whole and half steps.
+
+## Major
+id: dur
+lesson: dur-tonleiter
+Tonality with a major third. Sounds bright; the major scale follows the pattern whole, whole, half, whole, whole, whole, half.
+
+## Key
+id: tonart
+lesson: tonarten
+The scale a song takes its notes from, named after its root: G major, A minor.
+
+## Position
+id: lage
+for: e-bass
+lesson: dur-lagen
+A fixed place of the fretting hand on the neck; each finger frets one fret.
+
+## Chord
+id: akkord
+lesson: dreiklang
+Several notes sounding together. The bass mostly plays its root or its notes one after another.
+
+## Triad
+id: dreiklang
+lesson: dreiklang
+Chord of root, third and fifth. With a major third it is major, with a minor third minor.
+
+## Arpeggio
+id: arpeggio
+lesson: arpeggio
+The notes of a chord played one after another instead of together.
+
+## Seventh chord
+id: septakkord
+lesson: septakkord
+Triad with a seventh: maj7 (major seventh), 7 (major with minor seventh), m7 (minor with minor seventh).
+
+## Degree
+id: stufe
+lesson: stufen
+A chord's place in the key, in Roman numerals: I is the root, IV and V its most important neighbours.
+
+## Chord symbol
+id: akkordsymbol
+lesson: akkordnamen
+Shorthand for a chord: root and addition, such as Am7. After a slash comes the bass note.
+
+## Minor
+id: moll
+lesson: moll-tonleiter
+Tonality with a minor third. Sounds darker than major; the minor scale follows the pattern whole, half, whole, whole, half, whole, whole.
+
+## Pentatonic
+id: pentatonik
+lesson: pentatonik
+Scale of five notes without half steps. Minor pentatonic: 1, b3, 4, 5, b7.
+
+## Chord progression
+id: akkordfolge
+lesson: akkordfolgen
+The row of chords in a song, often written in degrees: I-V-vi-IV.
