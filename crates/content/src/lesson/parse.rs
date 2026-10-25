@@ -35,6 +35,8 @@ const SEMITONES: i32 = 12;
 /// Header of a unit file.
 #[derive(Debug, Default)]
 pub(super) struct UnitMeta {
+    /// Line where the header starts (for errors between languages).
+    pub line: usize,
     pub id: String,
     pub scope: String,
     pub needs: Vec<String>,
@@ -44,6 +46,8 @@ pub(super) struct UnitMeta {
 /// Header of a glossary section.
 #[derive(Debug, Default)]
 pub(super) struct TermMeta {
+    /// Line of the term's "## Name".
+    pub line: usize,
     pub id: String,
     pub scope: String,
     pub lesson: Option<String>,
@@ -61,9 +65,11 @@ pub(super) fn error(file: &str, line: usize, reason: &str) -> LessonError {
 pub(super) fn unit(file: &str, text: &str) -> Result<(UnitMeta, Doc), LessonError> {
     let mut r = Reader::new(file, text);
     let title = r.title()?;
+    let line = r.pos + 1;
     let header = r.header()?;
 
     let mut meta = UnitMeta {
+        line,
         scope: ANY.to_string(),
         ..UnitMeta::default()
     };
@@ -94,9 +100,11 @@ pub(super) fn glossary(file: &str, text: &str) -> Result<Vec<(TermMeta, Doc)>, L
             return Err(r.err("a term starts with ## and its name"));
         };
         let name = name.trim().to_string();
+        let line = r.pos + 1;
         r.pos += 1;
 
         let mut meta = TermMeta {
+            line,
             scope: ANY.to_string(),
             ..TermMeta::default()
         };
@@ -154,13 +162,23 @@ pub(super) fn course(file: &str, text: &str) -> Result<Course, LessonError> {
     let parsed: CourseFile =
         serde_json::from_str(text).map_err(|e| error(file, e.line(), &e.to_string()))?;
 
+    // Lines of the "finale" keys, in order, so an error names its line (JSON keeps no positions).
+    let mut finale_lines = text
+        .lines()
+        .enumerate()
+        .filter(|(_, l)| l.contains("\"finale\""))
+        .map(|(i, _)| i + 1);
+
     let mut chapters = Vec::new();
     for c in parsed.chapters {
         let finale = match &c.finale {
-            Some(attrs) => Some(
-                practice(&attributes(attrs).map_err(|r| error(file, 1, &r))?)
-                    .map_err(|r| error(file, 1, &format!("finale of {}: {r}", c.id)))?,
-            ),
+            Some(attrs) => {
+                let line = finale_lines.next().unwrap_or(1);
+                let attrs = attributes(attrs).map_err(|r| error(file, line, &r))?;
+                let practice = practice(&attrs)
+                    .map_err(|r| error(file, line, &format!("finale of {}: {r}", c.id)))?;
+                Some(practice)
+            }
             None => None,
         };
         let titles = BTreeMap::from([(Lang::De, c.de), (Lang::En, c.en)]);
@@ -307,12 +325,19 @@ impl<'a> Reader<'a> {
                 continue;
             }
 
-            // List items, with indented continuation lines.
+            // List items, with indented continuation lines. A change between paragraph and list
+            // ends the one before, so both stay in order ("Vorher", "- a", "Nachher").
             if let Some(item) = line.strip_prefix(ITEM) {
+                if text.in_paragraph() {
+                    text.flush(&mut blocks, self.file)?;
+                }
                 text.item(item, number);
             } else if raw.starts_with(CONTINUED) && text.in_list() {
                 text.more(line.trim());
             } else {
+                if text.in_list() {
+                    text.flush(&mut blocks, self.file)?;
+                }
                 text.line(line.trim(), number);
             }
             self.pos += 1;
@@ -456,6 +481,10 @@ impl Text {
 
     fn in_list(&self) -> bool {
         !self.items.is_empty()
+    }
+
+    fn in_paragraph(&self) -> bool {
+        !self.paragraph.is_empty()
     }
 
     fn more(&mut self, text: &str) {
@@ -760,6 +789,23 @@ Wie viele Halbtöne hat die kleine Septime?
         assert_eq!(unit("u/de.md", two).unwrap_err().line, 7);
     }
 
+    /// Review #119: text after a list without a blank line stayed before it.
+    #[test]
+    fn keeps_text_and_lists_in_order() {
+        let text = "# T\nid: t\n\n## P\nVorher\n- a\nNachher\n";
+        let (_, doc) = unit("u/de.md", text).unwrap();
+        let kinds: Vec<&str> = doc.pages[0]
+            .blocks
+            .iter()
+            .map(|b| match b {
+                Block::Text(_) => "text",
+                Block::List(_) => "list",
+                _ => "other",
+            })
+            .collect();
+        assert_eq!(kinds, ["text", "list", "text"]);
+    }
+
     #[test]
     fn reads_note_names() {
         assert_eq!(note_class("C"), Some(0));
@@ -777,6 +823,13 @@ Wie viele Halbtöne hat die kleine Septime?
         assert_eq!(terms[0].0.lesson.as_deref(), Some("septime"));
         assert_eq!(terms[1].0.scope, "bass");
         assert_eq!(terms[1].1.title, "Slap");
+    }
+
+    /// Review #119: a bad finale named line 1.
+    #[test]
+    fn names_the_line_of_a_bad_finale() {
+        let text = "{\"id\": \"bass\", \"for\": \"bass\", \"chapters\": [\n  {\"id\": \"a\", \"de\": \"A\", \"en\": \"A\", \"units\": [],\n   \"finale\": \"speeds=x\"}]}";
+        assert_eq!(course("c.json", text).unwrap_err().line, 3);
     }
 
     #[test]

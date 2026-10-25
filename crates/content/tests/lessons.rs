@@ -73,3 +73,28 @@ fn practice_names_existing_exercises() {
         }
     }
 }
+
+const UNIT_DE: &str = "# T\nid: t\nfor: bass\n\n## P\nText.\n";
+
+/// Review #119: errors between files name the line, not line 1.
+#[test]
+fn differing_headers_name_their_line() {
+    // The header starts on line 3 here (a blank line above it would end it).
+    let en = "\n# T\nid: t\nfor: any\n\n## P\nText.\n";
+    let files = [("units/t/de.md", UNIT_DE), ("units/t/en.md", en)];
+    let e = Lessons::parse(&files).unwrap_err();
+    assert_eq!((e.file.as_str(), e.line), ("units/t/en.md", 3));
+
+    let de = "## A\nid: a\nText.\n\n## B\nid: b\nlesson: t\nText.\n";
+    let en = "## A\nid: a\nText.\n\n## B\nid: b\nText.\n";
+    let files = [("glossary/de.md", de), ("glossary/en.md", en)];
+    assert_eq!(Lessons::parse(&files).unwrap_err().line, 5);
+}
+
+/// Review #119: a term twice in one file kept only the second text, silently.
+#[test]
+fn a_term_twice_is_an_error() {
+    let de = "## A\nid: a\nEins.\n\n## A\nid: a\nZwei.\n";
+    let e = Lessons::parse(&[("glossary/de.md", de)]).unwrap_err();
+    assert_eq!(e.line, 5, "{e}");
+}

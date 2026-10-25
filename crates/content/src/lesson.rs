@@ -16,6 +16,7 @@ mod parse;
 
 pub use parse::note_class;
 
+use kontra_model::InstrumentKind;
 use std::collections::BTreeMap;
 use thiserror::Error;
 
@@ -26,6 +27,37 @@ const COURSES_DIR: &str = "courses/";
 const UNITS_DIR: &str = "units/";
 const GLOSSARY_DIR: &str = "glossary/";
 const JSON: &str = ".json";
+
+/// Scopes of each instrument profile, most specific first (`lessons/README.md`).
+const FRETTED: &[&str] = &["e-bass", "fretted", "strings", "bass", "any"];
+const FRETLESS: &[&str] = &["e-bass", "fretless", "strings", "bass", "any"];
+const DOUBLE: &[&str] = &["double-bass", "strings", "bass", "any"];
+const KEYS: &[&str] = &["keys", "bass", "any"];
+const PROFILES: [&[&str]; 4] = [FRETTED, FRETLESS, DOUBLE, KEYS];
+
+/// The scopes an instrument profile belongs to, most specific first.
+pub fn scopes(kind: InstrumentKind) -> &'static [&'static str] {
+    match kind {
+        InstrumentKind::Fretted => FRETTED,
+        InstrumentKind::Fretless => FRETLESS,
+        InstrumentKind::Double => DOUBLE,
+        InstrumentKind::Keys => KEYS,
+    }
+}
+
+/// Whether something for `wide` holds wherever something for `narrow` does: every profile with
+/// `narrow` also has `wide` (`strings` covers `fretted`, not the other way round).
+pub fn covers(wide: &str, narrow: &str) -> bool {
+    PROFILES
+        .iter()
+        .filter(|p| p.contains(&narrow))
+        .all(|p| p.contains(&wide))
+}
+
+/// Whether a profile knows `scope` at all.
+fn known(scope: &str) -> bool {
+    PROFILES.iter().any(|p| p.contains(&scope))
+}
 
 /// A lesson file that cannot be read, with the place it went wrong.
 #[derive(Debug, Error, PartialEq)]
@@ -251,7 +283,11 @@ impl Lessons {
                 });
                 if unit.scope != meta.scope || unit.needs != meta.needs || unit.terms != meta.terms
                 {
-                    return Err(parse::error(path, 1, "header differs between languages"));
+                    return Err(parse::error(
+                        path,
+                        meta.line,
+                        "header differs between languages",
+                    ));
                 }
                 unit.texts.insert(lang, doc);
                 continue;
@@ -270,9 +306,13 @@ impl Lessons {
                         texts: BTreeMap::new(),
                     });
                     if term.scope != meta.scope || term.lesson != meta.lesson {
-                        return Err(parse::error(path, 1, &format!("{} differs", meta.id)));
+                        let reason = format!("{} differs between languages", meta.id);
+                        return Err(parse::error(path, meta.line, &reason));
                     }
-                    term.texts.insert(lang, doc);
+                    if term.texts.insert(lang, doc).is_some() {
+                        let reason = format!("{} twice", meta.id);
+                        return Err(parse::error(path, meta.line, &reason));
+                    }
                 }
             }
         }

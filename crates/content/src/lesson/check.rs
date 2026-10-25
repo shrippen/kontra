@@ -1,20 +1,34 @@
-//! Consistency of a lesson folder: both languages alike, every id known, needs before use.
+//! Consistency of a lesson folder: both languages alike, every id known, needs before use, and
+//! what a lesson needs or links reaches every instrument the lesson is for.
 
-use super::{Block, Doc, Lang, Lessons, Span};
-use std::collections::BTreeSet;
+use super::{covers, known, Block, Doc, Lang, Lessons, Span};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// All problems, one sentence each.
 pub(super) fn problems(lessons: &Lessons) -> Vec<String> {
     let mut out = Vec::new();
     let term_ids: BTreeSet<&str> = lessons.terms.iter().map(|t| t.id.as_str()).collect();
+    let term_scopes: BTreeMap<&str, &str> = lessons
+        .terms
+        .iter()
+        .map(|t| (t.id.as_str(), t.scope.as_str()))
+        .collect();
 
-    // Units: both languages with the same structure; known needs and terms.
+    // Units: both languages with the same structure; known needs and terms, as wide as the unit.
     for unit in &lessons.units {
         let name = format!("unit {}", unit.id);
+        let scoped = format!("{name} ({})", unit.scope);
+        if !known(&unit.scope) {
+            out.push(format!("{name} is for unknown scope {}", unit.scope));
+        }
         languages(&name, &unit.texts, &mut out);
         for need in &unit.needs {
-            if lessons.unit(need).is_none() {
-                out.push(format!("{name} needs unknown unit {need}"));
+            match lessons.unit(need) {
+                None => out.push(format!("{name} needs unknown unit {need}")),
+                Some(n) if !covers(&n.scope, &unit.scope) => {
+                    out.push(format!("{scoped} needs unit {need} ({})", n.scope));
+                }
+                Some(_) => {}
             }
         }
         for term in &unit.terms {
@@ -23,6 +37,7 @@ pub(super) fn problems(lessons: &Lessons) -> Vec<String> {
             }
         }
         links(&name, &unit.texts, &term_ids, &mut out);
+        reach(&scoped, &unit.scope, &unit.texts, &term_scopes, &mut out);
     }
 
     // Terms: both languages alike; the teaching unit exists.
@@ -107,6 +122,58 @@ fn links(
             }
         }
     }
+}
+
+/// Linked terms hold wherever the text (or its variant) does: `[[bund]]` in a lesson for every
+/// string instrument is wrong for the fretless bass, inside `::: variant for=fretted` it is right.
+fn reach(
+    name: &str,
+    scope: &str,
+    texts: &BTreeMap<Lang, Doc>,
+    terms: &BTreeMap<&str, &str>,
+    out: &mut Vec<String>,
+) {
+    for doc in texts.values() {
+        let mut links = Vec::new();
+        for page in &doc.pages {
+            for block in &page.blocks {
+                scoped_terms(block, scope, &mut links, out);
+            }
+        }
+        for (id, at) in links {
+            let Some(&wide) = terms.get(id.as_str()) else {
+                continue;
+            };
+            if !covers(wide, &at) {
+                out.push(format!("{name} links term {id} ({wide})"));
+            }
+        }
+    }
+}
+
+/// Term ids linked in a block with the scope they appear under; unknown variant scopes noted.
+fn scoped_terms(
+    block: &Block,
+    scope: &str,
+    links: &mut Vec<(String, String)>,
+    out: &mut Vec<String>,
+) {
+    if let Block::Variant {
+        scope: inner,
+        blocks,
+    } = block
+    {
+        if !known(inner) {
+            out.push(format!("variant for unknown scope {inner}"));
+        }
+        blocks
+            .iter()
+            .for_each(|b| scoped_terms(b, inner, links, out));
+        return;
+    }
+    let mut ids = Vec::new();
+    block_terms(block, &mut ids);
+    links.extend(ids.into_iter().map(|id| (id, scope.to_string())));
 }
 
 /// The language-free structure of a text: what must match between de and en.
@@ -194,6 +261,38 @@ mod tests {
                 "unit septime has no en text",
                 "term quinte has no en text",
                 "course bass: septime comes before intervall",
+            ]
+        );
+    }
+
+    /// Review #119: a lesson for every string instrument needed one for the e-bass only, and
+    /// linked a term only true with frets; the double bass and fretless lost them.
+    #[test]
+    fn needs_and_terms_reach_as_far_as_the_lesson() {
+        let unit = |id: &str, scope: &str, extra: &str| {
+            format!("# {id}\nid: {id}\nfor: {scope}\n{extra}\n## P\nText.\n")
+        };
+        let teile = unit("teile", "e-bass", "");
+        let stimmen = unit("stimmen", "strings", "needs: teile\n");
+        let greifen = "# G\nid: greifen\nfor: strings\n\n## P\nDie [[bund]].\n::: variant for=fretted\nDer [[bund]].\n:::\n";
+        let glossary = "## Bund\nid: bund\nfor: fretted\nText.\n";
+        let files = [
+            ("units/teile/de.md", teile.as_str()),
+            ("units/teile/en.md", teile.as_str()),
+            ("units/stimmen/de.md", stimmen.as_str()),
+            ("units/stimmen/en.md", stimmen.as_str()),
+            ("units/greifen/de.md", greifen),
+            ("units/greifen/en.md", greifen),
+            ("glossary/de.md", glossary),
+            ("glossary/en.md", glossary),
+        ];
+        let problems = Lessons::parse(&files).unwrap().check();
+        assert_eq!(
+            problems,
+            [
+                "unit greifen (strings) links term bund (fretted)",
+                "unit greifen (strings) links term bund (fretted)",
+                "unit stimmen (strings) needs unit teile (e-bass)",
             ]
         );
     }

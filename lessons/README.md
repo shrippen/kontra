@@ -24,7 +24,8 @@ ab, vom Besonderen zum Allgemeinen:
 | Bass am Keyboard | `keys`, `bass`, `any` |
 
 Eine Lektion steht auf der allgemeinsten Stufe, auf der sie stimmt; Besonderes steht in `::: variant`. Ein Kurs gilt
-für eine Stufe (`bass`: alle Bass-Profile).
+für eine Stufe (`bass`: alle Bass-Profile). Was eine Lektion braucht (`needs`) und verlinkt (`[[id]]`), gilt
+mindestens so weit wie die Lektion oder ihre Variante; die Prüfung meldet, wo nicht.
 
 ## Lektion
 
