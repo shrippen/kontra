@@ -15,7 +15,7 @@ Play the A major arpeggio up and back down.
 ::: try root=A steps="0 4 7 12 7 4 0"
 
 ## Practise
-Triads over I-V-VI-IV in F, each chord as an arpeggio.
+Triads over I-V-vi-IV in F, each chord as an arpeggio.
 ::: practice bundled=68 speeds="60 80 100"
 
 ## Check

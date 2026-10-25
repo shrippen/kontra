@@ -15,7 +15,7 @@ Spiel das A-Dur-Arpeggio hinauf und wieder hinab.
 ::: try root=A steps="0 4 7 12 7 4 0"
 
 ## Üben
-Dreiklänge über I-V-VI-IV in F, jeder Akkord als Arpeggio.
+Dreiklänge über I-V-vi-IV in F, jeder Akkord als Arpeggio.
 ::: practice bundled=68 speeds="60 80 100"
 
 ## Prüfen

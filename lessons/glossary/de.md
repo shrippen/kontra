@@ -176,7 +176,7 @@ Die Tonleiter, aus der ein Lied seine Töne nimmt, benannt nach ihrem Grundton: 
 
 ## Lage am Hals
 id: lage
-for: e-bass
+for: fretted
 lesson: dur-lagen
 Eine feste Stelle der Greifhand am Hals; jeder Finger hat seine Stelle.
 

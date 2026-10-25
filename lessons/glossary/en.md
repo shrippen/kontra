@@ -175,7 +175,7 @@ The scale a song takes its notes from, named after its root: G major, A minor.
 
 ## Position on the neck
 id: lage
-for: e-bass
+for: fretted
 lesson: dur-lagen
 A fixed place of the fretting hand on the neck; each finger has its place.
 
