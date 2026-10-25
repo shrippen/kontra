@@ -8,6 +8,8 @@ use serde_json::Value;
 use std::time::Duration;
 
 const FIRST: &str = "bass-teile";
+/// A lesson with a "listen" block.
+const LISTEN: &str = "oktave";
 const A1: u8 = 33;
 const E1: u8 = 28;
 /// The first note starts this long after the input opens.
@@ -19,13 +21,18 @@ fn json(text: &str) -> Value {
 
 /// Page and block of the first "try it" in lesson `id`.
 fn first_try(lesson: &Value) -> (usize, usize) {
+    first_block(lesson, "try")
+}
+
+/// Page and block of the first block of `kind`.
+fn first_block(lesson: &Value, kind: &str) -> (usize, usize) {
     let pages = lesson["pages"].as_array().unwrap();
     pages
         .iter()
         .enumerate()
         .find_map(|(p, page)| {
             let blocks = page["blocks"].as_array()?;
-            Some((p, blocks.iter().position(|b| b["kind"] == "try")?))
+            Some((p, blocks.iter().position(|b| b["kind"] == kind)?))
         })
         .unwrap()
 }
@@ -85,4 +92,25 @@ fn first_lesson_tries_reads_and_moves_on() {
     let home = json(&core.home_json());
     assert_eq!(home["lesson"], course["next"]);
     assert_ne!(home["lesson"]["id"], FIRST);
+}
+
+#[test]
+fn without_input_a_click_answers() {
+    let profile = Profile::new("g1-click");
+    // No interface: a recording that is not there stands in for a missing device.
+    let mut core = profile.core(Some(&profile.dir.join("none.wav")));
+    let lesson = json(&core.lesson_json(FIRST));
+    let (page, block) = first_try(&lesson);
+    let first = json(&core.lesson_ear(FIRST, page, block).unwrap());
+    assert_eq!(first["listening"], false, "{first}");
+
+    let wrong = json(&core.ear_answer(f64::from(A1)));
+    assert_eq!(wrong["played"][0]["right"], false, "{wrong}");
+
+    // Review #124: "listen" fails without the device, but the round of clicks stays.
+    let (lpage, lblock) = first_block(&json(&core.lesson_json(LISTEN)), "listen");
+    assert!(core.lesson_ear(LISTEN, lpage, lblock).is_err());
+    let solved = json(&core.ear_answer(f64::from(E1)));
+    assert_eq!(solved["solved"], true, "{solved}");
+    core.ear_stop();
 }

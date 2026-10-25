@@ -57,7 +57,7 @@ ColumnLayout {
         visible: block.kindName === "hint"
         kind: KanteCallout.Kind.Info
         autoHide: false
-        text: block.kindName === "hint" ? block.modelData.html : ""
+        text: block.kindName === "hint" ? block.modelData.text : ""
     }
 
     // Tones: their names, and where they lie on a string instrument.
@@ -111,10 +111,25 @@ ColumnLayout {
             : block.round.solved ? block.texts.t("learn.try.done")
             : block.round.silent ? block.texts.t("ear.silent")
             : block.round.prompting ? block.texts.t("ear.prompting")
+            : !block.round.listening ? block.texts.t("learn.try.click")
             : block.texts.t("learn.try.now")
         text: block.round && block.round.solved ? block.round.reveal : ""
         Accessible.name: title
         onTitleChanged: if (visible) Accessible.announce(title)
+    }
+    // Without an input the keys answer instead of the bass.
+    KanteKeyboard {
+        readonly property var keys: JSON.parse(block.ctl.keyRangeJson)
+        Layout.fillWidth: true
+        Layout.preferredHeight: KanteStyle.unit(90)
+        visible: block.kindName === "try" && block.round !== null && !block.round.listening && !block.round.solved
+        interactive: true
+        low: keys.low
+        high: keys.high
+        noteNames: keys.names
+        accessibleName: block.texts.t("keyboard.name")
+        markerText: block.texts.t("keyboard.marker")
+        onActivated: function(midi) { block.ctl.earAnswer(midi) }
     }
     Flow {
         Layout.fillWidth: true

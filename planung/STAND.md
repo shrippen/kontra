@@ -5,8 +5,7 @@ nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-#122 `lernen-seite` (Seite „Lernen“, J-G1/J-G2), `kapitel-6-15` (Kapitel 6–15), `lernen-klick` (LH-LRN-08, nach
-#122); Kante #77 (1.41 Ziel-Band im Histogramm, wartet auf den Eigentümer; danach Kontra-Branch `pocket-band`).
+#124 `lernen-klick` (LH-LRN-08), #125 `wiederholen` (LH-LRN-10); Kante #77 (1.41 Ziel-Band im Histogramm, wartet auf den Eigentümer; danach Kontra-Branch `pocket-band`).
 
 Lernen (Runde 13, `LERNEN.md`): Plan (#118), Format und Kapitel 1 (#119), Kapitel 2–5 (#121) gemerged. Offen: „?“ an
 Fachbegriffen in Übungsziel, Generator und Auswertung (LH-LRN-09), „Kann ich schon“ (LH-LRN-10; Wiederholen

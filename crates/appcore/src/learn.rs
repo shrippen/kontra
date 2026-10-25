@@ -312,7 +312,18 @@ impl Core {
             _ => return Err(String::new()),
         };
         let pitches = place(&tones, &self.instrument());
-        self.start_lesson_ear(pitches, matching)?;
+        let before = self.ear.take();
+        let started = self.start_lesson_ear(pitches, matching);
+
+        // Without an input "try it" still runs: the learner answers by clicking (LH-LRN-08).
+        // "Listen" needs the output, so its error stands, and a round of clicks goes on.
+        if let Err(error) = started {
+            if play {
+                self.ear = before;
+                return Err(error);
+            }
+            return Ok(self.ear_json());
+        }
         if play {
             return Ok(self.ear_play());
         }
@@ -372,6 +383,7 @@ impl Core {
         pitches: Vec<Pitch>,
         matching: ear::Match,
     ) -> Result<(), String> {
+        self.ear = Some(ear::EarQuiz::fixed(pitches, matching));
         if self.live_ear.is_none() {
             self.stop_live();
             self.tuner = None;
@@ -388,7 +400,6 @@ impl Core {
             live_ear.set_gains(crate::ear_gains(&self.settings));
             self.live_ear = Some(live_ear);
         }
-        self.ear = Some(ear::EarQuiz::fixed(pitches, matching));
         Ok(())
     }
 
@@ -441,13 +452,13 @@ impl Core {
             .collect()
     }
 
-    /// One block for QML, by `kind`: text/hint `{html}`, list `{items: [html]}`, figure/listen/
+    /// One block for QML, by `kind`: text `{html}`, hint `{text}`, list `{items: [html]}`, figure/listen/
     /// try `{notes, positions: [{string, fret, label}]}`, practice `{title, speeds}`, question
     /// `{html, options: [text], answer}`, tuner, video `{src}`.
     fn block_json(&self, block: &Block) -> Value {
         match block {
             Block::Text(spans) => json!({ "kind": "text", "html": html(spans) }),
-            Block::Hint(spans) => json!({ "kind": "hint", "html": html(spans) }),
+            Block::Hint(spans) => json!({ "kind": "hint", "text": plain(spans) }),
             Block::List(items) => {
                 let items: Vec<String> = items.iter().map(|i| html(i)).collect();
                 json!({ "kind": "list", "items": items })
