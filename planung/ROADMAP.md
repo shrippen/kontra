@@ -184,6 +184,18 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
   91,2/81,2 %; eigene Aufnahmen unverändert (testdata/korpus/QUELLEN.md, „Tonhöhen-Revision“).
 - Hardware-Prüfung gemeinsam: am 13.10. begonnen (Abschnitt Hardware-Prüfung unter QA-Runden).
 
+## Entscheidungen Runde 14 (25.10.2026)
+
+Kurspakete (LH-LRN-14):
+
+- Zip über die Crate `zip` statt eigener Lesung, für alle Archive (`.gp`, `.mxl`, `.mscz`, `.kontra`,
+  `.kontrakurs`); Größengrenzen bleiben in `content` (#131).
+- `.kontrakurs` als MIME-Typ `application/x-kontrakurs` anmelden; Doppelklick zeigt erst die Vorschau.
+- Videos in WebM und MP4: das Flatpak bekommt die FFmpeg-Erweiterung.
+- Die CI installiert Qt Multimedia und prüft den Videospieler.
+- Neue pub-Schnittstellen aus #131, #132 und „Kurse in der App“ freigegeben.
+- Danach zuerst Kurse fertig (Aktualisieren, Entfernen, dann Kurswerkstatt), Hardware-Prüfungen danach.
+
 ## Entscheidungen Runde 13 (25.10.2026)
 
 Lernmodul ([`LERNEN.md`](LERNEN.md), LH-LRN-07 bis -15, Journeys J-G1 bis J-G5):
