@@ -4,8 +4,9 @@
 //! What this layer adds: every read is bounded by the size the archive declares, and callers
 //! refuse a declared size before anything is inflated (deflate bombs, lying headers).
 
+use std::cell::RefCell;
 use std::collections::HashMap;
-use std::io::{Cursor, Read, Write};
+use std::io::{Cursor, Read, Seek, Write};
 
 use zip::result::ZipError;
 use zip::write::SimpleFileOptions;
@@ -22,9 +23,12 @@ const PREALLOC_MAX: u64 = 64 * 1024;
 /// Deflate level for written entries (0–9).
 const DEFLATE_LEVEL: i64 = 6;
 
+/// An archive in memory (`Zip::open`) or read from a file as needed (`Zip::new`): only the
+/// directory and the entries asked for are read, not a course's videos.
 #[derive(Debug)]
-pub(crate) struct Zip<'a> {
-    archive: ZipArchive<Cursor<&'a [u8]>>,
+pub(crate) struct Zip<R> {
+    /// `by_index` needs it mutable; reads are one at a time.
+    archive: RefCell<ZipArchive<R>>,
     /// Name and declared inflated size of each entry, in archive order.
     entries: Vec<(String, u64)>,
     /// Entry index by name; of names that decode alike, the first. `size` and `read` both go
@@ -32,10 +36,15 @@ pub(crate) struct Zip<'a> {
     index: HashMap<String, usize>,
 }
 
-impl<'a> Zip<'a> {
-    pub(crate) fn open(data: &'a [u8]) -> Result<Zip<'a>, ImportError> {
-        let mut archive =
-            ZipArchive::new(Cursor::new(data)).map_err(|_| ImportError::UnknownFormat)?;
+impl<'a> Zip<Cursor<&'a [u8]>> {
+    pub(crate) fn open(data: &'a [u8]) -> Result<Zip<Cursor<&'a [u8]>>, ImportError> {
+        Zip::new(Cursor::new(data))
+    }
+}
+
+impl<R: Read + Seek> Zip<R> {
+    pub(crate) fn new(reader: R) -> Result<Zip<R>, ImportError> {
+        let mut archive = ZipArchive::new(reader).map_err(|_| ImportError::UnknownFormat)?;
         let mut entries = Vec::with_capacity(archive.len());
         let mut index = HashMap::with_capacity(archive.len());
         for at in 0..archive.len() {
@@ -45,7 +54,7 @@ impl<'a> Zip<'a> {
             entries.push((name, entry.size()));
         }
         Ok(Zip {
-            archive,
+            archive: RefCell::new(archive),
             entries,
             index,
         })
@@ -80,12 +89,11 @@ impl<'a> Zip<'a> {
 
     /// Content of entry `name`: exactly as long as declared, checksum checked.
     pub(crate) fn read(&self, name: &str) -> Result<Vec<u8>, ImportError> {
-        // A clone shares the parsed directory; `by_index` needs it mutable.
         let at = *self
             .index
             .get(name)
             .ok_or_else(|| ImportError::Malformed(format!("{name} missing in archive")))?;
-        let mut archive = self.archive.clone();
+        let mut archive = self.archive.borrow_mut();
         let entry = archive.by_index(at).map_err(archive_error)?;
         let size = entry.size();
         if size > MAX_ENTRY {
