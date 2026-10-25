@@ -557,6 +557,16 @@ pub mod qobject {
         #[cxx_name = "reviewJson"]
         fn review_json(self: &Self) -> QString;
 
+        /// "Kann ich schon": a chapter's questions, see `Core::chapter_check_json`.
+        #[qinvokable]
+        #[cxx_name = "chapterCheckJson"]
+        fn chapter_check_json(self: &Self, chapter: &QString) -> QString;
+
+        /// Ticks the chapter off if all its questions were right since `since` (seconds).
+        #[qinvokable]
+        #[cxx_name = "chapterPass"]
+        fn chapter_pass(self: Pin<&mut Self>, chapter: &QString, since: f64) -> bool;
+
         /// Opens the exercise of a lesson's practice block; true when it is ready to play.
         #[qinvokable]
         #[cxx_name = "lessonExercise"]
@@ -2218,6 +2228,22 @@ impl qobject::Controller {
 
     fn review_json(&self) -> QString {
         q(&self.rust().core.review_json())
+    }
+
+    fn chapter_check_json(&self, chapter: &QString) -> QString {
+        q(&self.rust().core.chapter_check_json(&chapter.to_string()))
+    }
+
+    fn chapter_pass(mut self: Pin<&mut Self>, chapter: &QString, since: f64) -> bool {
+        // Seconds since 1970 from JSON; a negative or broken value asks for nothing earlier.
+        let since = if since.is_finite() && since > 0.0 {
+            since as u64
+        } else {
+            0
+        };
+        self.as_mut()
+            .core()
+            .chapter_pass(&chapter.to_string(), since)
     }
 
     fn lesson_exercise(mut self: Pin<&mut Self>, id: &QString, page: i32, block: i32) -> bool {

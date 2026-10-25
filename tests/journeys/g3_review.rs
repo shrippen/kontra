@@ -1,5 +1,6 @@
 //! J-G3 Wiederholen (P1 Lea): the questions of chapter 1, one answered wrong; days later the start
-//! page names them as due, the wrong one first.
+//! page names them as due, the wrong one first. "Kann ich schon" ticks a chapter off once all
+//! its questions are right.
 
 use crate::common::Profile;
 use serde_json::Value;
@@ -65,4 +66,38 @@ fn questions_come_back_the_wrong_one_first() {
 
     days_pass(&profile, 1);
     assert_eq!(json(&core.home_json())["review"], questions.len());
+}
+
+#[test]
+fn i_know_this_ticks_off_a_chapter() {
+    let profile = Profile::new("g3-check");
+    let mut core = profile.core(None);
+    let chapter = json(&core.learn_json())["chapters"][0].clone();
+    let id = chapter["id"].as_str().unwrap();
+    let check = json(&core.chapter_check_json(id));
+    let since = check["since"].as_u64().unwrap();
+    let questions = chapter_questions(&core);
+    assert_eq!(
+        check["questions"].as_array().unwrap().len(),
+        questions.len()
+    );
+
+    // One wrong: nothing ticked off, the wrong one comes back tomorrow.
+    let (wrong, rest) = questions.split_first().unwrap();
+    assert!(!core.lesson_answer(&wrong.0, wrong.1, wrong.2, wrong.3 + 1));
+    for (lesson, page, block, answer) in rest {
+        assert!(core.lesson_answer(lesson, *page, *block, *answer));
+    }
+    assert!(!core.chapter_pass(id, since));
+    assert_eq!(json(&core.learn_json())["chapters"][0]["done"], 0);
+
+    // Again, all right: the chapter is done, the course goes on with chapter 2.
+    for (lesson, page, block, answer) in &questions {
+        assert!(core.lesson_answer(lesson, *page, *block, *answer));
+    }
+    assert!(core.chapter_pass(id, since));
+    let course = json(&core.learn_json());
+    assert_eq!(course["chapters"][0]["done"], chapter["total"]);
+    let first_of_two = &course["chapters"][1]["units"][0]["id"];
+    assert_eq!(&course["next"]["id"], first_of_two);
 }

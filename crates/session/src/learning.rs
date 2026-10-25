@@ -224,6 +224,9 @@ struct Recall {
     #[serde(rename = "box")]
     level: usize,
     due_unix: u64,
+    /// When the last answer was given, if it was right ("Kann ich schon" asks for that).
+    #[serde(default)]
+    right_unix: Option<u64>,
 }
 
 impl LearnState {
@@ -247,6 +250,10 @@ impl LearnState {
         let new = !self.questions.contains_key(&key);
         let recall = self.questions.entry(key).or_default();
         let early = !new && now_unix < recall.due_unix;
+        recall.right_unix = match answer {
+            Answer::Right => Some(now_unix),
+            Answer::Wrong => None,
+        };
         if answer == Answer::Right && early {
             return;
         }
@@ -256,6 +263,20 @@ impl LearnState {
             Answer::Wrong => 0,
         };
         recall.due_unix = now_unix + RECALL_DAYS[recall.level] * SECONDS_PER_DAY;
+    }
+
+    /// Whether the last answer to `question` was right and given at `since_unix` or later.
+    pub fn right_since(&self, question: &QuestionRef, since_unix: u64) -> bool {
+        self.questions
+            .get(&question.key())
+            .and_then(|r| r.right_unix)
+            .is_some_and(|at| at >= since_unix)
+    }
+
+    /// Finishes a unit without its pages read ("Kann ich schon", LH-LRN-10).
+    pub fn pass(&mut self, key: &str, now_unix: u64) {
+        let unit = self.units.entry(key.to_string()).or_default();
+        unit.done_unix.get_or_insert(now_unix);
     }
 
     /// Questions due at `now_unix`, the longest waiting first.
@@ -387,6 +408,25 @@ mod tests {
         // G1 is not on the A string; A1 and B1 keep steps 1 and 2 (and their labels).
         let a = positions(&tones(9, &[-2, 0, 2], Some(9)), &bass);
         assert_eq!(a, [(1, 1, 0), (2, 1, 2)]);
+    }
+
+    #[test]
+    fn a_passed_check_finishes_the_unit() {
+        let mut state = LearnState::default();
+        let q = QuestionRef::new("septime", 3, 0);
+        assert!(!state.right_since(&q, 0), "not answered");
+
+        state.answer(&q, Answer::Right, 100);
+        assert!(state.right_since(&q, 100));
+        assert!(!state.right_since(&q, 101), "answered before the check");
+        state.answer(&q, Answer::Wrong, 200);
+        assert!(!state.right_since(&q, 0), "the last answer counts");
+        // Right again early (box kept), still right for the check.
+        state.answer(&q, Answer::Right, 300);
+        assert!(state.right_since(&q, 300));
+
+        state.pass("septime", 300);
+        assert!(state.done("septime"));
     }
 
     #[test]
