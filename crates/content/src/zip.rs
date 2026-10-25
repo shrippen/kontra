@@ -16,6 +16,8 @@ use crate::error::ImportError;
 const MAX_ENTRY: u64 = 256 * 1024 * 1024;
 /// Upper bound for a score's XML: the parsed tree takes several times that (deflate bomb).
 const MAX_SCORE_XML: usize = 32 * 1024 * 1024;
+/// Most a read allocates before data arrives.
+const PREALLOC_MAX: u64 = 64 * 1024;
 /// Deflate level for written entries (0–9).
 const DEFLATE_LEVEL: i64 = 6;
 
@@ -80,7 +82,8 @@ impl<'a> Zip<'a> {
         }
 
         // One byte past the declared size tells a lying header; reading to the end checks the CRC.
-        let mut content = Vec::with_capacity(size as usize);
+        // The buffer grows with what arrives, not with what the header claims.
+        let mut content = Vec::with_capacity(size.min(PREALLOC_MAX) as usize);
         entry
             .take(size + 1)
             .read_to_end(&mut content)
