@@ -138,7 +138,8 @@ engine/     content/  Lektionsformat: Parser, mitgelieferte Kurse, Lektionen, Gl
   laufen wie immer über Übersetzungsschlüssel. Ein Test prüft, dass jede Lektion und jeder Glossar-Eintrag in beiden
   Sprachen dieselben Blöcke und Ids hat.
 - **Lernstand:** im vorhandenen Speicher, je Lektion erledigte Schritte und Prüffragen mit nächster Fälligkeit; Export
-  und Import wie bisher (LH-FOR-03).
+  und Import wie bisher (LH-FOR-03). Schlüssel: die Lektions-Id für Lektionen `any`, sonst Id und Instrument
+  (`greifen@e-bass`, Abschnitt 12).
 - **Verlinkung:** Übungsziele, Generator-Optionen, Technik-Zeichen und Auswertungssätze bekommen Glossar-Ids; die UI
   macht daraus „?“-Verweise. Glossar-Einträge verweisen auf ihre Lektion im aktiven Kurs.
 - **Demo-Modus:** Lektionen sind eigenes Material, keine Nutzerdaten; Screenshots zeigen Lektionsseite und Glossar mit
@@ -152,7 +153,7 @@ engine/     content/  Lektionsformat: Parser, mitgelieferte Kurse, Lektionen, Gl
 | LH-LRN-08 | Lektion in Schritten Erklären, Ausprobieren (am Bass, ohne Eingang per Auswahl), Üben (vorhandene Übung, drei Tempi), Prüfen. | Soll | P1, P3, P7 | J-G1, J-G3 |
 | LH-LRN-09 | Glossar „Was ist …?“ (DE/EN), aus jedem Fachbegriff in Übungsziel, Generator, Auswertung und Technik-Zeichen erreichbar, zurück an dieselbe Stelle. | Soll | P1, P2, P5 | J-G2 |
 | LH-LRN-10 | Prüffragen kehren nach Tagen wieder; fällige Fragen auf der Startseite; „Kann ich schon“ hakt ein Kapitel nach bestandenen Fragen ab. | Kann | P1, P2 | J-G3 |
-| LH-LRN-11 | Offenes, dokumentiertes Lektionsformat; eigene Lektionen in der Bibliothek, später im `.kontra`-Paket. | Kann | P4 | J-G4 |
+| LH-LRN-11 | Offenes, dokumentiertes Lektionsformat; eigene Lektionen in der Bibliothek, gepackt als `.kontrakurs` (LH-LRN-14, -15). | Kann | P4 | J-G4 |
 | LH-LRN-12 | Lektionen gelten für eine Stufe (`any`, Familie, Instrument) aus dem Profil; ein Profil ohne passende Lektion bekommt einen Hinweis statt einer falschen Lektion. | Soll | P5, P6 | J-A4 |
 | LH-LRN-14 | Kurse nachladen als `.kontrakurs` aus Datei oder Adresse, auch mit Videos (Abschnitt 13); mitgelieferte Kurse ohne Videos. | Kann | P2, P4, P1, P7 | J-G5 |
 | LH-LRN-13 | Kurs je Instrument aus einem gemeinsamen Lektionsvorrat (`for`, Varianten, `needs`, Abschnitt 12); gemeinsames Wissen zählt über Kurse. | Soll | P5, P6, P1 | Tests je Kurs |
@@ -249,7 +250,8 @@ Gitarre A2 → G3. So bleibt ein Ausprobieren gleich und wird für jedes Instrum
 Tempo) statt auf eine Bass-Datei; der Generator erzeugt sie für das aktive Instrument. Mitgelieferte Dateien (Stufen
 1–9) sind Bass-spezifisch und nur im Bass-Kurs.
 
-**Gemeinsamer Lernstand für gemeinsames Wissen.** Der Lernstand hängt an der Lektions-Id, Lektionen `any` zählen über
+**Gemeinsamer Lernstand für gemeinsames Wissen.** Der Lernstand hängt an der Lektions-Id (bei Lektionen, die nicht
+`any` sind, an Id und Instrument, z. B. `greifen@e-bass`); Lektionen `any` zählen über
 Kurse hinweg: Wer Intervalle am Bass gelernt hat, sieht sie im Gitarren-Kurs als erledigt, mit „Wiederholen“ statt
 „Neu“. Lektionen einer Familie oder eines Instruments zählen je Instrument, weil die Hand neu lernen muss. Prüffragen
 zum Wissen wiederholen sich kursübergreifend nur einmal.
@@ -321,7 +323,8 @@ zusammen. Nennen mehrere Kurse denselben Begriff (gleiche Id), zeigt der Eintrag
 seiner Herkunft („Aus: Bass-Kurs“, „Aus: <Anbieter-Kurs>“); der mitgelieferte zuerst. Ein „?“-Verweis findet einen
 Begriff aus jedem Kurs, gleich in welchem Kurs er steht.
 
-**Lernstand:** wie bei mitgelieferten Kursen an der Lektions-Id; gemeinsame Lektionen zählen über Kurse (Abschnitt 12).
+**Lernstand:** wie bei mitgelieferten Kursen an der Lektions-Id, außer bei `any` mit dem Instrument dazu; gemeinsame
+Lektionen zählen über Kurse (Abschnitt 12).
 Ein entfernter Kurs behält seinen Lernstand, bis der Nutzer ihn löscht.
 
 **Reihenfolge:** erst der mitgelieferte Bass-Kurs (Kapitel 1–5); das Format bekommt den Video-Block gleich, damit es
