@@ -5,22 +5,27 @@ nur, was offen ist und wo es liegt.
 
 ## Offene PRs
 
-#128 `zoegern` (I6 Phrasen aus Zögern); Kante #77 (1.41 Ziel-Band im Histogramm, wartet auf den Eigentümer; danach Kontra-Branch `pocket-band`).
+#131 `kurspaket` (Format, `kontra-cli course new|check|pack`; wartet auf den Eigentümer, Runde 14). Darauf
+`kurs-adresse` (Kurse in der App, PR nach #131): Kurs aus Datei oder https-Adresse hinzufügen, wählen, nach Update
+suchen, entfernen (Lernstand bleibt); Glossar über alle Kurse; Video mit Untertiteln (Qt Multimedia per `Loader`:
+fehlt das Modul, bleibt ein Link); QA-Schalter `--course-answer`. Kante #77 (1.41 Ziel-Band im Histogramm, wartet
+auf den Eigentümer; danach Kontra-Branch `pocket-band`).
 
-Lernen (Runde 13, `LERNEN.md`): Plan (#118), Format und Kapitel 1 (#119), Kapitel 2–5 (#121), Kapitel 6–15 (#123),
-Ausprobieren per Klick (#124), Wiederholen (#125), „?“ an Fachbegriffen in Übungsziel, Generator und Auswertung (#126)
-gemerged. „?“ an Zeichen und Akkordsymbolen über eine Legende unter dem Griffbrett (LH-LRN-09, `zeichen`). Kurspaket-Format
-und `kontra-cli course new|check|pack` (LH-LRN-14, -15, `kurspaket`); Kurs aus Datei hinzufügen und wählen (`kurs-laden`). Glossar über alle Kurse, Kurs von Adresse (`kurs-adresse`, QA-Schalter
-`--course-answer`). Video mit Untertiteln (Qt Multimedia, per
-`Loader`: fehlt das Modul, bleibt ein Link). Offen: Aktualisierungen von der gespeicherten Adresse erfragen, Kurswerkstatt mit Fenster (für 1.0), MIME-Typ für `.kontrakurs` in
-`packaging/` (Doppelklick) und FFmpeg-Erweiterung im Flatpak für Videos (beides braucht die Bestätigung des
-Eigentümers); CI-Qt ohne QtMultimedia (Video dort ungetestet).
+Lernen (Runde 13, `LERNEN.md`): Kapitel 1–15, Glossar, „?“ an Fachbegriffen und Legende an Zeichen (#118–#130)
+gemerged. Offen: Kurswerkstatt mit Fenster (LH-LRN-15, für 1.0); Kursfassung im Manifest (das Update sagt nur
+„ersetzt“, nicht „neuer“). Runde 14 fragt: MIME-Typ `.kontrakurs` in `packaging/`, Video-Formate (WebM oder
+FFmpeg-Erweiterung), Qt Multimedia in der CI.
 
 Neue pub-Schnittstellen zur Freigabe (nächste Runde): `kontra_content::lesson` (`Lessons`, Blocktypen, `scopes`),
 `kontra_session::{Learning, LearnState, LearnStore, UnitState, place, positions}`, `EarQuiz::fixed`, Core
 `learn_json`, `lesson_json`, `lesson_seen`, `lesson_ear`, `term_ear`, `lesson_exercise`, `finale_exercise`,
 `glossary_json`, `glossary_list_json`; `kurspaket`: `lesson::{CoursePack, CourseManifest, PackError, Author,
-new_course, pack, COURSE_*}`, `Block::Video::subtitles`, `pub(crate) Zip::{read_text, size}`, CLI `CourseArgs`, `CourseCommand`, `course::run`.
+new_course, pack, COURSE_*}`, `Block::Video::subtitles`, `pub(crate) Zip::{read_text, size}`, CLI `CourseArgs`, `CourseCommand`, `course::run`. `kurs-adresse`: `CourseStore`, `CourseFetch`,
+`CourseError`, `Learning::{with_courses, courses, term_sources, term_texts}`, `Http::download`, `lesson::{read_media,
+cues, Cue}`, `MAX_COURSE_BYTES`, `Settings::course`, Core `course_preview`, `course_add`, `course_remove`,
+`course_fetch`, `course_fetch_poll`, `choose_course`, `lesson_video`, `is_course`, `fake_course_web`,
+`set_course_http`; Brücke `coursePreview`, `courseAdd`, `courseRemove`, `courseFetch`, `chooseCourse`,
+`lessonVideo`, `startCourse`, `courseFetchJson`.
 
 Plan (Eigentümer, 24.10.): Didaktik I4 (#106), I5 (#107), I6 umgesetzt. Offen aus
 I5: Ziel-Band im Histogramm (Kante). I6 Phrasengrenzen aus Zögern: #128.
@@ -71,7 +76,7 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - #48/#49: `Core::home_json`, `Core::loaded_title`, `Library::plain_paths`, `TrackInfo::is_percussion`.
 - #50: `TechniqueTarget`, `technique_signs`, `TechniqueResult::sign`, `Annotation::slide_cents`.
 - Runde 12 und danach (freigegeben in Runde 12 bis #66; neu): `startup_language`, `Settings::piece_mode`,
-  `Library::move_folders`, `DeviceInfo::past_pipewire`, `audio_priority`/`Priority`, `Http`/`Web`/`FileHttp`.
+  `Library::find_moved`, `DeviceInfo::past_pipewire`, `audio_priority`/`Priority`, `Http`/`Web`/`FileHttp`.
 - #63/#66: `Calibration::beat_at`, `LiveCalibration::beat`, `LiveTuner::input_block`, `Core::calibration_beat`,
   `Core::setlist_add`; QA-Schalter `--screenshot-notes`, `--focus-log`.
 - #58: `Calibration::count_in`, `calibration::COUNT_IN`, `CheckTake::player_offset_ms`. #60: `PitchRevision`,
