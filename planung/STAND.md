@@ -17,8 +17,8 @@ Nächste Schritte (Runde 14, `next`: courses):
    `CourseStore::subtitles(id, src, cache)`, `PackError::Newer`, `CoursePack::open`,
    `lesson::read_media(path, src)` (vorher Bytes); `Learning::term_texts` filtert jetzt nach Profil.
 
-Eigentümer im Chat (25.10.): „merge alles wenn die runden durch sind“ galt für #131, #134, #135 (erledigt);
-CI- und packaging-Änderungen aus Runde 14 sind damit bestätigt.
+Eigentümer im Chat (25.10.): „merge alles wenn die runden durch sind“ galt für #131, #134, #135 (erledigt)
+und bestätigte deren CI- und packaging-Änderungen; keine Freigabe für spätere PRs.
 
 Bewusst offen gelassen (Review #134/#135, beantwortet):
 - Fehler beim Lesen eines Kurses nennt in der App den Pfad nicht (Nutzer hat die Datei eben gewählt).
