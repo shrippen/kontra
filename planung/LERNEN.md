@@ -154,8 +154,8 @@ engine/     content/  Lektionsformat: Parser, mitgelieferte Kurse, Lektionen, Gl
 | LH-LRN-10 | Prüffragen kehren nach Tagen wieder; fällige Fragen auf der Startseite; „Kann ich schon“ hakt ein Kapitel nach bestandenen Fragen ab. | Kann | P1, P2 | J-G3 |
 | LH-LRN-11 | Offenes, dokumentiertes Lektionsformat; eigene Lektionen in der Bibliothek, später im `.kontra`-Paket. | Kann | P4 | J-G4 |
 | LH-LRN-12 | Lektionen gelten für eine Stufe (`any`, Familie, Instrument) aus dem Profil; ein Profil ohne passende Lektion bekommt einen Hinweis statt einer falschen Lektion. | Soll | P5, P6 | J-A4 |
-| LH-LRN-14 | Kurse nachladen als `.kontrakurs` aus Datei oder Adresse, auch mit Videos (Abschnitt 13); mitgelieferte Kurse ohne Videos. | Kann | P2, P4, P1 | J-G5 |
-| LH-LRN-13 | Kurs je Instrument aus einem gemeinsamen Lektionsvorrat (`for`, Varianten, `needs`, Abschnitt 12); gemeinsames Wissen zählt über Kurse. | Soll | P5, P6 | Tests je Kurs |
+| LH-LRN-14 | Kurse nachladen als `.kontrakurs` aus Datei oder Adresse, auch mit Videos (Abschnitt 13); mitgelieferte Kurse ohne Videos. | Kann | P2, P4, P1, P7 | J-G5 |
+| LH-LRN-13 | Kurs je Instrument aus einem gemeinsamen Lektionsvorrat (`for`, Varianten, `needs`, Abschnitt 12); gemeinsames Wissen zählt über Kurse. | Soll | P5, P6, P1 | Tests je Kurs |
 | LH-LRN-15 | Kurswerkstatt: kleines Begleitprogramm, mit dem Anbieter und Lehrkräfte einen Kurs anlegen, Lektionen mit Vorschau schreiben, prüfen und als `.kontrakurs` packen (Abschnitt 13). Für 1.0. | Soll | P4, P2 | J-G4, J-G5 |
 
 ## 9. Journeys (`QA.md`, Abschnitt G)
@@ -290,7 +290,9 @@ kurs.kontrakurs
 Dasselbe Lektionsformat wie die mitgelieferten Kurse, dazu der Block `::: video src=…` mit Untertiteln je Sprache.
 **Videos bevorzugt über das Internet** (`src=https://…`, gestreamt), damit Pakete klein bleiben (Eigentümer, 25.10.);
 `media/` im Paket nur, wo ein Kurs ohne Netz gehen soll. Ohne Netz zeigt die Seite statt des Videos einen Hinweis, Text
-und Untertitel bleiben. Ein nachgeladener Kurs darf
+und Untertitel bleiben. Datenschutz: Das Manifest nennt alle Hosts, von denen der Kurs streamt; Kontra zeigt sie vor dem
+Hinzufügen und lädt nur von ihnen. Andere Adressen in `src` sind ein Fehler im Paket. Der erste Stream einer Lektion
+startet erst auf Klick, nie beim Öffnen der Seite. Ein nachgeladener Kurs darf
 Lektionen aus dem mitgelieferten Vorrat nennen (`needs`, Kapitel), aber nicht verändern; eigene Lektionen haben eigene
 Ids (Präfix des Anbieters, z. B. `bassbuzz.anschlag`), damit nichts kollidiert.
 

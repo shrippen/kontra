@@ -186,16 +186,18 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 
 ## Entscheidungen Runde 13 (25.10.2026)
 
-Lernmodul ([`LERNEN.md`](LERNEN.md), LH-LRN-07 bis -13, Journeys J-G1 bis J-G4):
+Lernmodul ([`LERNEN.md`](LERNEN.md), LH-LRN-07 bis -15, Journeys J-G1 bis J-G5):
 
-- Name „Lernen“; keine Videos; Pfad empfohlen, nichts gesperrt; keine Abzeichen; Claude schreibt die Lektionen, der
-  Eigentümer liest je Kapitel Stichproben; Lektionen neben den Übungsstufen.
+- Name „Lernen“; keine Videos in mitgelieferten Kursen; Pfad empfohlen, nichts gesperrt; keine Abzeichen; Claude
+  schreibt die Lektionen, der Eigentümer liest je Kapitel Stichproben; Lektionen neben den Übungsstufen.
 - Alle 15 Kapitel vor 0.1, Beginn mit Kapitel 1–5 (Eigentümer, 25.10.).
 - Kurse je Instrument aus einem gemeinsamen Lektionsvorrat (Eigentümer, 25.10.): `for` (any, Familie, Instrument),
   Varianten, relative Tonhöhen, `needs`, ein Glossar; Bass-Kurs zuerst (LERNEN.md Abschnitt 12).
 - Kurse nachladen aus Datei oder Internet, auch mit Videos, auch Bezahlkurse von Anbietern; mitgeliefert nur ohne
   Videos (Eigentümer, 25.10., LERNEN.md Abschnitt 13, LH-LRN-14). Videos bevorzugt über das Internet eingebunden;
   ein Glossar über alle installierten Kurse, doppelte Begriffe mit allen Texten und ihrer Herkunft.
+- Kurswerkstatt für 1.0 (Eigentümer, 25.10.): kleines Begleitprogramm zum Anlegen, Prüfen und Packen von Kursen
+  (LH-LRN-15, LERNEN.md Abschnitt 13).
 
 ## Entscheidungen Runde 12 (14.10.2026)
 
