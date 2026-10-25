@@ -101,6 +101,10 @@ impl<'a> Zip<'a> {
             .ok_or(ImportError::Truncated(start))?;
 
         let content = match entry.method {
+            // Checked before copying: a stored entry is as long as its packed data.
+            STORED if entry.packed != entry.size => {
+                return Err(ImportError::bad("zip entry size mismatch"));
+            }
             STORED => packed.to_vec(),
             DEFLATED => inflate(packed, entry.size)?,
             other => {
@@ -109,6 +113,10 @@ impl<'a> Zip<'a> {
                 )))
             }
         };
+        // The declared size is what callers limit by: content must be exactly that long.
+        if content.len() != entry.size {
+            return Err(ImportError::bad("zip entry size mismatch"));
+        }
         if crc32(&content) != entry.crc {
             return Err(ImportError::bad("zip entry checksum mismatch"));
         }
@@ -247,6 +255,61 @@ fn crc32(data: &[u8]) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// One stored (uncompressed) entry whose headers declare `declared` bytes.
+    fn stored(name: &str, data: &[u8], declared: u32) -> Vec<u8> {
+        let crc = crc32(data);
+        let packed = data.len() as u32;
+        let name_len = name.len() as u16;
+        let mut out = Vec::new();
+        out.extend(LOCAL_SIG.to_le_bytes());
+        for v in [ZIP_VERSION, 0, STORED, 0, 0] {
+            out.extend(v.to_le_bytes());
+        }
+        for v in [crc, packed, declared] {
+            out.extend(v.to_le_bytes());
+        }
+        out.extend(name_len.to_le_bytes());
+        out.extend(0u16.to_le_bytes());
+        out.extend(name.as_bytes());
+        out.extend(data);
+
+        let central_at = out.len() as u32;
+        out.extend(CENTRAL_SIG.to_le_bytes());
+        for v in [ZIP_VERSION, ZIP_VERSION, 0, STORED, 0, 0] {
+            out.extend(v.to_le_bytes());
+        }
+        for v in [crc, packed, declared] {
+            out.extend(v.to_le_bytes());
+        }
+        for v in [name_len, 0, 0, 0, 0] {
+            out.extend(v.to_le_bytes());
+        }
+        out.extend(0u32.to_le_bytes());
+        out.extend(0u32.to_le_bytes());
+        out.extend(name.as_bytes());
+        let central_len = out.len() as u32 - central_at;
+
+        out.extend(EOCD_SIG.to_le_bytes());
+        for v in [0u16, 0, 1, 1] {
+            out.extend(v.to_le_bytes());
+        }
+        out.extend(central_len.to_le_bytes());
+        out.extend(central_at.to_le_bytes());
+        out.extend(0u16.to_le_bytes());
+        out
+    }
+
+    /// Review #131: a stored entry declaring fewer bytes than it holds slipped past every size
+    /// limit; reading never yields more than the declared size now.
+    #[test]
+    fn an_entry_yields_no_more_than_it_declares() {
+        let honest = stored("a.md", b"hello", 5);
+        assert_eq!(Zip::open(&honest).unwrap().read("a.md").unwrap(), b"hello");
+
+        let lying = stored("a.md", b"hello", 0);
+        assert!(Zip::open(&lying).unwrap().read("a.md").is_err());
+    }
 
     #[test]
     fn crc_of_check_string() {

@@ -587,7 +587,7 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// A package may explain a bundled term again; Kontra shows both texts (review #131).
+    /// A package may explain a bundled term again (review #131).
     #[test]
     fn a_package_may_explain_a_bundled_term() {
         let de = "## Oktave\nid: oktave\n\nNoch einmal anders erklärt.\n";
