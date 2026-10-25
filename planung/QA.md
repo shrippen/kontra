@@ -247,7 +247,9 @@ verstellt. Eine Auswahl ohne Begriff (Funk) zeigt kein „?“.
 **J-G3 Wiederholen** · Persona: P1 Lea · Phase 2 · LH-LRN-10
 1. Prüffragen von Kapitel 1, eine falsch.
 2. Drei Tage später (Datum fortgeschrieben) die Startseite öffnen.
-Erwartet: fällige Fragen stehen auf der Startseite; die falsche kommt früher; „Kann ich schon“ hakt ein Kapitel ab.
+Erwartet: fällige Fragen stehen auf der Startseite (Karte „Wiederholen“, Seite „Wiederholen“ fragt sie einzeln ab, mit
+der Lektion, aus der sie stammen); die falsche kommt früher (nach einem Tag, richtige nach drei); „Kann ich schon“ hakt
+ein Kapitel ab (offen). Test: `tests/journeys/g3_review.rs` (ohne „Kann ich schon“).
 
 **J-G4 Eigene Lektion** · Persona: P4 Thomas · Phase 3 · LH-LRN-11
 1. Lektion nach der Formatbeschreibung schreiben, in Kontra öffnen, am Beamer (1280×720) zeigen.
