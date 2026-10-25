@@ -515,6 +515,51 @@ pub mod qobject {
             judging: &QString,
         ) -> bool;
 
+        /// Lernen (LH-LRN-07): the course, see `Core::learn_json`.
+        #[qinvokable]
+        #[cxx_name = "learnJson"]
+        fn learn_json(self: &Self) -> QString;
+
+        /// One lesson, see `Core::lesson_json`.
+        #[qinvokable]
+        #[cxx_name = "lessonJson"]
+        fn lesson_json(self: &Self, id: &QString) -> QString;
+
+        /// Page `page` of lesson `id` was shown (the last finishes it).
+        #[qinvokable]
+        #[cxx_name = "lessonSeen"]
+        fn lesson_seen(self: Pin<&mut Self>, id: &QString, page: i32);
+
+        /// "Listen" or "try it" of a lesson block; what was heard comes as `earState`.
+        #[qinvokable]
+        #[cxx_name = "lessonEar"]
+        fn lesson_ear(self: Pin<&mut Self>, id: &QString, page: i32, block: i32);
+
+        /// "Listen" or "try it" in a glossary entry, as `lessonEar`.
+        #[qinvokable]
+        #[cxx_name = "termEar"]
+        fn term_ear(self: Pin<&mut Self>, id: &QString, block: i32);
+
+        /// Opens the exercise of a lesson's practice block; true when it is ready to play.
+        #[qinvokable]
+        #[cxx_name = "lessonExercise"]
+        fn lesson_exercise(self: Pin<&mut Self>, id: &QString, page: i32, block: i32) -> bool;
+
+        /// Opens the exercise that rounds off chapter `chapter`.
+        #[qinvokable]
+        #[cxx_name = "finaleExercise"]
+        fn finale_exercise(self: Pin<&mut Self>, chapter: &QString) -> bool;
+
+        /// Glossary (LH-LRN-09): one term, see `Core::glossary_json`.
+        #[qinvokable]
+        #[cxx_name = "glossaryJson"]
+        fn glossary_json(self: &Self, id: &QString) -> QString;
+
+        /// All terms for the instrument: `[{"id", "title"}]`.
+        #[qinvokable]
+        #[cxx_name = "glossaryListJson"]
+        fn glossary_list_json(self: &Self) -> QString;
+
         /// Fretboard quiz (LH-LRN-02): "notes" or "intervals"; returns the question JSON.
         #[qinvokable]
         #[cxx_name = "quizStart"]
@@ -2076,6 +2121,92 @@ impl qobject::Controller {
             .update_settings(|s| s.setup_done = true);
         self.as_mut().set_tuner_active(false);
         self.as_mut().set_setup_done(true);
+    }
+
+    fn learn_json(&self) -> QString {
+        q(&self.rust().core.learn_json())
+    }
+
+    fn lesson_json(&self, id: &QString) -> QString {
+        q(&self.rust().core.lesson_json(&id.to_string()))
+    }
+
+    fn lesson_seen(mut self: Pin<&mut Self>, id: &QString, page: i32) {
+        let page = usize::try_from(page).unwrap_or(0);
+        self.as_mut().core().lesson_seen(&id.to_string(), page);
+    }
+
+    fn lesson_ear(mut self: Pin<&mut Self>, id: &QString, page: i32, block: i32) {
+        let (page, block) = (usize::try_from(page), usize::try_from(block));
+        let (Ok(page), Ok(block)) = (page, block) else {
+            return;
+        };
+        self.as_mut().set_playing(false);
+        let state = self
+            .as_mut()
+            .core()
+            .lesson_ear(&id.to_string(), page, block);
+        self.as_mut().show_ear(state);
+    }
+
+    fn term_ear(mut self: Pin<&mut Self>, id: &QString, block: i32) {
+        let Ok(block) = usize::try_from(block) else {
+            return;
+        };
+        self.as_mut().set_playing(false);
+        let state = self.as_mut().core().term_ear(&id.to_string(), block);
+        self.as_mut().show_ear(state);
+    }
+
+    /// The ear state of a lesson or glossary block, or its error ("" for none).
+    fn show_ear(mut self: Pin<&mut Self>, state: Result<String, String>) {
+        match state {
+            Ok(state) => self.as_mut().set_ear_state(q(&state)),
+            Err(text) if text.is_empty() => {}
+            Err(text) => self.as_mut().show_error(&text),
+        }
+    }
+
+    fn lesson_exercise(mut self: Pin<&mut Self>, id: &QString, page: i32, block: i32) -> bool {
+        let (page, block) = (usize::try_from(page), usize::try_from(block));
+        let (Ok(page), Ok(block)) = (page, block) else {
+            return false;
+        };
+        let path = self
+            .as_mut()
+            .core()
+            .lesson_exercise(&id.to_string(), page, block);
+        self.as_mut().open_exercise(path)
+    }
+
+    fn finale_exercise(mut self: Pin<&mut Self>, chapter: &QString) -> bool {
+        let path = self.as_mut().core().finale_exercise(&chapter.to_string());
+        self.as_mut().open_exercise(path)
+    }
+
+    /// Leaves ear training and opens a lesson's exercise like any file.
+    fn open_exercise(mut self: Pin<&mut Self>, path: Result<std::path::PathBuf, String>) -> bool {
+        match path {
+            Ok(path) => {
+                self.as_mut().ear_stop();
+                let result = self.as_mut().core().open(&path);
+                self.as_mut().after_open(result)
+            }
+            Err(text) => {
+                if !text.is_empty() {
+                    self.as_mut().show_error(&text);
+                }
+                false
+            }
+        }
+    }
+
+    fn glossary_json(&self, id: &QString) -> QString {
+        q(&self.rust().core.glossary_json(&id.to_string()))
+    }
+
+    fn glossary_list_json(&self) -> QString {
+        q(&self.rust().core.glossary_list_json())
     }
 
     fn quiz_start(mut self: Pin<&mut Self>, kind: &QString) -> QString {

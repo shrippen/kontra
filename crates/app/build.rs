@@ -2,7 +2,7 @@
 // bridge. Kante is loaded from its folder at run time (see main.rs), copied unchanged.
 use cxx_qt_build::{CxxQtBuilder, QmlModule};
 
-const PAGES: [&str; 20] = [
+const PAGES: [&str; 24] = [
     "qml/SetupPage.qml",
     "qml/Main.qml",
     "qml/LibraryPage.qml",
@@ -23,6 +23,10 @@ const PAGES: [&str; 20] = [
     "qml/ConnectionChoice.qml",
     "qml/TuningChoice.qml",
     "qml/SongSources.qml",
+    "qml/LearnPage.qml",
+    "qml/LessonPage.qml",
+    "qml/LessonBlock.qml",
+    "qml/GlossaryPage.qml",
 ];
 
 fn main() {

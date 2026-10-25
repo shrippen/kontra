@@ -123,6 +123,31 @@ impl EarQuiz {
         quiz
     }
 
+    /// One fixed question, as a lesson asks it (LH-LRN-08): play `answer` in order; the prompt
+    /// sounds the same notes. Nothing adapts or moves on.
+    pub fn fixed(answer: Vec<Pitch>, matching: Match) -> EarQuiz {
+        EarQuiz {
+            kind: EarKind::Echo,
+            question: EarQuestion {
+                tones: line(&answer),
+                answer,
+                matching,
+                root: None,
+                interval: None,
+                chord: None,
+            },
+            asked: 1,
+            right: 0,
+            progress: 0,
+            solved: false,
+            played: Vec::new(),
+            line_len: 1,
+            missed: false,
+            streak: 0,
+            seed: 1,
+        }
+    }
+
     fn random(&mut self, below: u64) -> u64 {
         // xorshift64, as in the fretboard quiz: varied and reproducible in tests.
         self.seed ^= self.seed << 13;
@@ -171,15 +196,7 @@ impl EarQuiz {
             notes.push(pitch);
         }
         let answer: Vec<Pitch> = notes.iter().map(|&p| pitch_of(p)).collect();
-        let tones = answer
-            .iter()
-            .enumerate()
-            .map(|(i, &pitch)| PromptTone {
-                pitch,
-                at_s: i as f64 * NOTE_GAP_S,
-                duration_s: NOTE_S,
-            })
-            .collect();
+        let tones = line(&answer);
         EarQuestion {
             tones,
             answer,
@@ -297,6 +314,19 @@ impl EarQuiz {
     }
 }
 
+/// The notes one after the other, as an echo line sounds.
+fn line(pitches: &[Pitch]) -> Vec<PromptTone> {
+    pitches
+        .iter()
+        .enumerate()
+        .map(|(i, &pitch)| PromptTone {
+            pitch,
+            at_s: i as f64 * NOTE_GAP_S,
+            duration_s: NOTE_S,
+        })
+        .collect()
+}
+
 fn pitch_of(midi: i32) -> Pitch {
     Pitch(midi.clamp(0, 127) as u8)
 }
@@ -313,6 +343,16 @@ mod tests {
         for pitch in quiz.question.answer.clone() {
             quiz.answer(f64::from(pitch.0));
         }
+    }
+
+    #[test]
+    fn a_fixed_question_takes_repeated_notes() {
+        let mut quiz = EarQuiz::fixed(vec![Pitch(33); 4], Match::Exact);
+        assert_eq!(quiz.question.tones.len(), 4);
+        for _ in 0..3 {
+            assert_eq!(quiz.answer(33.0), Verdict::Right);
+        }
+        assert_eq!(quiz.answer(33.2), Verdict::Solved);
     }
 
     #[test]
