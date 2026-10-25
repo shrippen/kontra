@@ -169,15 +169,17 @@ fn hardest_bars(results: &[NoteResult], arrangement: &Arrangement) -> Vec<usize>
 }
 
 /// Bars the player hesitated at: the bar before was played to its end, then the bar's first
-/// note came late (`HESITATE_MS` behind the run's mean offset) or not at all. `results` are the
-/// final results per note, in order of pass and note.
+/// note came late (`HESITATE_MS` behind the run's mean offset) or not at all, in at least half
+/// of the passes that came there (a loop of twenty passes with one slip is no hesitation).
+/// `results` are the final results per note, in order of pass and note.
 ///
 /// ```text
 /// bar      3          4
 /// played   ♩ ♩ ♩ ♩ |     ♩ ♩ ♩      first note of bar 4 missed: hesitated at 4
 /// ```
 fn hesitant_bars(results: &[NoteResult], mean_offset_ms: f64) -> Vec<usize> {
-    let mut bars = Vec::new();
+    // Per bar: passes that came to its first note from a played bar, and those that hesitated.
+    let mut seen: BTreeMap<usize, (u32, u32)> = BTreeMap::new();
     for pair in results.windows(2) {
         let [before, first] = pair else {
             continue;
@@ -193,12 +195,16 @@ fn hesitant_bars(results: &[NoteResult], mean_offset_ms: f64) -> Vec<usize> {
         let late = first
             .offset_ms
             .is_some_and(|ms| ms - mean_offset_ms >= HESITATE_MS);
-        if (matches!(first.outcome, Outcome::Missed) || late) && !bars.contains(&bar) {
-            bars.push(bar);
+        let entry = seen.entry(bar).or_default();
+        entry.0 += 1;
+        if matches!(first.outcome, Outcome::Missed) || late {
+            entry.1 += 1;
         }
     }
-    bars.sort_unstable();
-    bars
+    seen.into_iter()
+        .filter(|(_, (came, hesitated))| *hesitated > 0 && 2 * hesitated >= *came)
+        .map(|(bar, _)| bar)
+        .collect()
 }
 
 #[cfg(test)]
@@ -239,5 +245,23 @@ mod tests {
         assert_eq!(hesitant_bars(&results, 30.0), [1, 3]);
         // Measured against a run that drags by 60 ms, 70 ms is no hesitation.
         assert_eq!(hesitant_bars(&results, 60.0), [1]);
+    }
+
+    #[test]
+    fn one_slip_in_a_loop_is_no_hesitation() {
+        let on = (Outcome::Hit, Some(0.0));
+        let missed = (Outcome::Missed, None);
+        // Bars 0 and 1 looped four times; bar 1's first note missed once, then twice.
+        let mut results = Vec::new();
+        for pass in 0..4 {
+            let start = if pass == 0 { missed } else { on };
+            for mut r in played(&[on, on, on, on, start, on, on, on]) {
+                r.pass = pass;
+                results.push(r);
+            }
+        }
+        assert!(hesitant_bars(&results, 0.0).is_empty(), "once in four");
+        results[4 + 8].outcome = Outcome::Missed;
+        assert_eq!(hesitant_bars(&results, 0.0), [1], "half of the passes");
     }
 }

@@ -185,7 +185,8 @@ Durchgängen im Zielband, ein schwacher zählt neu; danach Einzähler und der n�
 beginnt mit den letzten der gewählten Takte (nicht des Stücks), „Aus“ zeigt wieder alle gewählten Takte; von Hand gewählte
 Takte beenden die Bausteine, die Liste steht wieder auf „Aus“. Nach Phrasen: Bausteine zu 2 Takten (die Pause am Taktende
 trennt), Schritt 1 von 7; eine Linie ohne Pausen ergibt Bausteine zu 4 Takten, außer vor einem Takt, an dem Jens in
-zwei der letzten fünf Durchläufe gezögert hat (erster Ton fehlt oder kommt spät): dort beginnt ein Baustein.
+zwei der letzten fünf Durchläufe gezögert hat (erster Ton fehlt oder kommt spät): dort beginnt ein Baustein, sofern
+der Baustein davor mindestens zwei Takte behält.
 
 **J-C7 Ein ganzes Stück** · Personas: P1 Lea, P2 Jens, P4 Thomas · Phase 3 · LH-BIB-12, LH-BIB-13, LH-BIB-08, LH-MOD-02, -04
 1. Lea: Übungen, Stufe „9 Stücke“, die Ballade im Durchlauf von vorn bis hinten; danach „Übung erzeugen“, Stück Pop, Schwierigkeit „Leicht“.
