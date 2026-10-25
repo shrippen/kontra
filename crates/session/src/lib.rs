@@ -41,7 +41,7 @@ pub use check::{
     check_takes, loopback_length_s, loopback_plan, round_trip, CheckNote, CheckTake, LiveTake,
     RoundTrip, Take, TakeSound, CHECK_BPM,
 };
-pub use courses::{CourseError, CourseStore};
+pub use courses::{CourseError, CourseFetch, CourseStore};
 pub use density::Density;
 pub use expected::{expected_notes, ExpectedNote};
 pub use kontra_engine::Separator;

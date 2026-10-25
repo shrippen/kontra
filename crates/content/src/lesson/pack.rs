@@ -32,7 +32,7 @@ const HTTPS: &str = "https://";
 const VIDEO_TYPES: &[&str] = &[".webm", ".mp4"];
 const SUBTITLE_TYPES: &[&str] = &[".vtt"];
 /// Videos belong on the web (small packages); one that must work offline may carry a few.
-const MAX_COURSE_BYTES: u64 = 1024 * 1024 * 1024;
+pub const MAX_COURSE_BYTES: u64 = 1024 * 1024 * 1024;
 /// Manifest, courses and lessons are text; refuse more before inflating.
 const MAX_TEXT_BYTES: usize = 4 * 1024 * 1024;
 /// All texts together; the archive's size says nothing about them (deflated zeros).

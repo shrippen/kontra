@@ -899,5 +899,11 @@
   "courses.unreadable": "The file is not a readable course: {reason}",
   "courses.confirm": "Add",
   "courses.cancel": "Cancel",
-  "glossary.from": "From: {course}"
+  "glossary.from": "From: {course}",
+  "courses.address": "Course from address …",
+  "courses.address.label": "Address of the course (https://…)",
+  "courses.fetch": "Load",
+  "courses.fetching": "Loading …",
+  "courses.https": "Kontra loads courses only over https://.",
+  "courses.offline": "The course could not be loaded: {reason}"
 }

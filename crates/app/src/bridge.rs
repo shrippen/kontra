@@ -132,6 +132,8 @@ pub mod qobject {
         #[qproperty(QString, stems_json, cxx_name = "stemsJson")]
         /// Songsterr search: state, reason and hits as JSON (LH-BIB-11).
         #[qproperty(QString, song_search_json, cxx_name = "songSearchJson")]
+        /// A course package fetched from an address, see `Core::course_fetch_poll`.
+        #[qproperty(QString, course_fetch_json, cxx_name = "courseFetchJson")]
         /// While the arrangement is laid out again: the run goes on (a change of key), so the
         /// page keeps the marks.
         #[qproperty(bool, run_kept, cxx_name = "runKept")]
@@ -580,6 +582,12 @@ pub mod qobject {
         #[cxx_name = "courseAdd"]
         fn course_add(self: Pin<&mut Self>, url: &QString) -> QString;
 
+        /// Fetches a course package from an https address; the outcome comes as
+        /// `courseFetchJson`.
+        #[qinvokable]
+        #[cxx_name = "courseFetch"]
+        fn course_fetch(self: Pin<&mut Self>, url: &QString);
+
         /// Learns course `id` from now on.
         #[qinvokable]
         #[cxx_name = "chooseCourse"]
@@ -860,6 +868,7 @@ pub struct ControllerRust {
     backing_name: QString,
     stems_json: QString,
     song_search_json: QString,
+    course_fetch_json: QString,
     run_kept: bool,
     transpose: i32,
     transpose_max: i32,
@@ -899,6 +908,9 @@ impl Default for ControllerRust {
         let mut core = Core::new(&data_dir(), qa);
         if let Some(answer) = &args.songsterr_answer {
             core.fake_song_search(answer);
+        }
+        if let Some(answer) = &args.course_answer {
+            core.fake_course_web(answer);
         }
         if let Some(style) = &args.style {
             core.update_settings(|s| s.style = style.clone());
@@ -1010,6 +1022,7 @@ impl Default for ControllerRust {
             backing_name: QString::default(),
             stems_json: QString::default(),
             song_search_json: QString::default(),
+            course_fetch_json: QString::default(),
             run_kept: false,
             transpose: 0,
             transpose_max: kontra_appcore::Core::transpose_max(),
@@ -1444,6 +1457,9 @@ impl qobject::Controller {
         self.as_mut().apply(events);
         if let Some(json) = self.as_mut().core().song_search_poll() {
             self.as_mut().set_song_search_json(q(&json));
+        }
+        if let Some(json) = self.as_mut().core().course_fetch_poll() {
+            self.as_mut().set_course_fetch_json(q(&json));
         }
         let (position, playing) = {
             let this = self.as_ref();
@@ -2278,6 +2294,11 @@ impl qobject::Controller {
     fn course_add(mut self: Pin<&mut Self>, url: &QString) -> QString {
         let path = local_path(&url.to_string());
         q(&self.as_mut().core().course_add(&path))
+    }
+
+    fn course_fetch(mut self: Pin<&mut Self>, url: &QString) {
+        let json = self.as_mut().core().course_fetch(&url.to_string());
+        self.as_mut().set_course_fetch_json(q(&json));
     }
 
     fn choose_course(mut self: Pin<&mut Self>, id: &QString) {

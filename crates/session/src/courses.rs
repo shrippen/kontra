@@ -4,14 +4,21 @@
 //! ```text
 //! kurs.kontrakurs ──preview()──▶ manifest, problems   (shown before adding)
 //!                 ──add()──────▶ <data>/courses/<id>.kontrakurs ──load()──▶ [CoursePack]
+//! https://… ──fetch()──▶ worker thread ──poll()──▶ <data>/courses/fetched.part (then as a file)
 //! ```
 
-use kontra_content::lesson::{CoursePack, Lessons, PackError, COURSE_EXT};
+use kontra_content::lesson::{CoursePack, Lessons, PackError, COURSE_EXT, MAX_COURSE_BYTES};
+use kontra_engine::{Http, HttpError};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::mpsc::{channel, Receiver, TryRecvError};
+use std::sync::Arc;
 use thiserror::Error;
 
 const DIR: &str = "courses";
+/// Where a fetched package waits to be previewed and added; not a course (`load` skips it).
+const FETCHED: &str = "fetched.part";
+const HTTPS: &str = "https://";
 
 /// Why a course cannot be added.
 #[derive(Debug, Error)]
@@ -26,6 +33,31 @@ pub enum CourseError {
     /// It reads but does not fit; the problems as `CoursePack::problems` says them.
     #[error("{} problems", .0.len())]
     Problems(Vec<String>),
+    #[error(transparent)]
+    Http(#[from] HttpError),
+    /// Kontra fetches packages only over https.
+    #[error("not an https address")]
+    NotHttps,
+    /// The worker ended without an answer.
+    #[error("fetch ended")]
+    Ended,
+}
+
+/// A package being fetched from an address the player typed (LH-LRN-14).
+#[derive(Debug)]
+pub struct CourseFetch {
+    running: Receiver<Result<PathBuf, CourseError>>,
+}
+
+impl CourseFetch {
+    /// The fetched file, once; `None` while it runs.
+    pub fn poll(&mut self) -> Option<Result<PathBuf, CourseError>> {
+        match self.running.try_recv() {
+            Ok(outcome) => Some(outcome),
+            Err(TryRecvError::Empty) => None,
+            Err(TryRecvError::Disconnected) => Some(Err(CourseError::Ended)),
+        }
+    }
 }
 
 /// The added courses in the data folder.
@@ -88,6 +120,39 @@ impl CourseStore {
     }
 }
 
+impl CourseStore {
+    /// Fetches the package at `url` (https only, nothing else is asked for) on a worker thread
+    /// into the data folder; `poll` hands over the file to preview and add.
+    pub fn fetch(&self, http: Arc<dyn Http>, url: &str) -> Result<CourseFetch, CourseError> {
+        let url = url.trim().to_string();
+        if !url.starts_with(HTTPS) {
+            return Err(CourseError::NotHttps);
+        }
+        let dir = self.dir.clone();
+        let (tx, rx) = channel();
+        std::thread::spawn(move || {
+            let outcome = http
+                .download(&url, MAX_COURSE_BYTES)
+                .map_err(CourseError::from)
+                .and_then(|data| keep(&dir, &data));
+            let _ = tx.send(outcome);
+        });
+        Ok(CourseFetch { running: rx })
+    }
+}
+
+/// Writes a fetched package to `dir/FETCHED`.
+fn keep(dir: &Path, data: &[u8]) -> Result<PathBuf, CourseError> {
+    let io = |source| CourseError::Io {
+        path: dir.to_path_buf(),
+        source,
+    };
+    fs::create_dir_all(dir).map_err(io)?;
+    let path = dir.join(FETCHED);
+    fs::write(&path, data).map_err(io)?;
+    Ok(path)
+}
+
 fn read(path: &Path) -> Result<Vec<u8>, CourseError> {
     fs::read(path).map_err(|source| CourseError::Io {
         path: path.to_path_buf(),
@@ -132,6 +197,41 @@ mod tests {
         let loaded = store.load();
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].manifest.provider, "Studio Weber");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// The web, answering every address with one package.
+    #[derive(Debug)]
+    struct Fake(Vec<u8>);
+
+    impl Http for Fake {
+        fn get(&self, _url: &str) -> Result<Vec<u8>, HttpError> {
+            Ok(self.0.clone())
+        }
+    }
+
+    #[test]
+    fn a_course_fetched_from_an_address_can_be_added() {
+        let dir = temp("fetch");
+        let data = fs::read(packed(&dir, "weber")).unwrap();
+        let store = CourseStore::new(&dir.join("data"));
+        assert!(matches!(
+            store.fetch(Arc::new(Fake(data.clone())), "http://kurs.example/w"),
+            Err(CourseError::NotHttps)
+        ));
+
+        let mut fetch = store
+            .fetch(Arc::new(Fake(data)), " https://kurs.example/w ")
+            .unwrap();
+        let path = loop {
+            if let Some(outcome) = fetch.poll() {
+                break outcome.unwrap();
+            }
+            std::thread::yield_now();
+        };
+        assert!(store.load().is_empty(), "fetched is not added yet");
+        store.add(&path).unwrap();
+        assert_eq!(store.load().len(), 1);
         fs::remove_dir_all(dir).unwrap();
     }
 

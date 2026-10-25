@@ -214,6 +214,8 @@ pub struct Core {
     xruns_done: u64,
     /// Courses the player added (LH-LRN-14), read once and after each change.
     courses: Vec<kontra_session::lesson::CoursePack>,
+    /// A course package being fetched from an address (LH-LRN-14).
+    fetcher: course::Fetcher,
     /// Fretboard quiz in progress (LH-LRN-02).
     quiz: Option<quiz::Quiz>,
     /// Ear training (LH-LRN-03): the round and its audio.
@@ -270,6 +272,7 @@ impl Core {
             .map_or_else(Language::from_environment, Language::from_code);
         Core {
             courses: kontra_session::CourseStore::new(data_dir).load(),
+            fetcher: course::Fetcher::default(),
             quiz: None,
             ear: None,
             live_ear: None,
@@ -4382,6 +4385,44 @@ mod tests {
         core.choose_course("bass");
         let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
         assert_eq!(learn["course"], "bass");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// J-G5: a course from an address is fetched, previewed and added like a file; only https.
+    #[test]
+    fn a_course_from_an_address_is_added() {
+        use kontra_session::lesson::{new_course, pack, Author};
+        use serde_json::Value;
+        let dir = temp_dir("course-fetch");
+        let src = dir.join("src");
+        let author = Author {
+            provider: "Studio Weber".into(),
+            license: "CC-BY-4.0".into(),
+        };
+        new_course(&src, "weber", &author).unwrap();
+        let file = dir.join("weber.kontrakurs");
+        std::fs::write(&file, pack(&src).unwrap()).unwrap();
+        let mut core = Core::new(&dir.join("data"), QaOptions::default());
+        core.fake_course_web(&file);
+
+        let refused: Value = serde_json::from_str(&core.course_fetch("http://x.example")).unwrap();
+        assert_eq!(refused["state"], "error");
+
+        let started: Value = serde_json::from_str(&core.course_fetch("https://x.example")).unwrap();
+        assert_eq!(started["state"], "running");
+        let done: Value = loop {
+            if let Some(json) = core.course_fetch_poll() {
+                break serde_json::from_str(&json).unwrap();
+            }
+            std::thread::yield_now();
+        };
+        assert_eq!(done["state"], "done");
+        let path = PathBuf::from(done["path"].as_str().unwrap());
+        let preview: Value = serde_json::from_str(&core.course_preview(&path)).unwrap();
+        assert_eq!(preview["provider"], "Studio Weber");
+        assert_eq!(core.course_add(&path), "");
+        let learn: Value = serde_json::from_str(&core.learn_json()).unwrap();
+        assert_eq!(learn["course"], "weber.kurs");
         std::fs::remove_dir_all(dir).unwrap();
     }
 

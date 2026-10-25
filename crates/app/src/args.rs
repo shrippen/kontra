@@ -38,6 +38,9 @@ pub struct AppArgs {
     pub songsterr_answer: Option<PathBuf>,
     /// `--song-search QUERY`: search Songsterr at start (screenshots of J-B6).
     pub song_search: Option<String>,
+    /// `--course-answer FILE`: every course address answers with this file, never the network
+    /// (QA of J-G5).
+    pub course_answer: Option<PathBuf>,
 }
 
 impl AppArgs {
@@ -77,6 +80,7 @@ impl AppArgs {
                 "--remove-bass" => out.remove_bass = true,
                 "--songsterr-answer" => out.songsterr_answer = Some(PathBuf::from(value())),
                 "--song-search" => out.song_search = Some(value()),
+                "--course-answer" => out.course_answer = Some(PathBuf::from(value())),
                 "--loop-bars" => {
                     let v = value();
                     let mut parts = v.split('-').map(|p| p.trim().parse::<i32>());

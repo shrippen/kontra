@@ -899,5 +899,11 @@
   "courses.unreadable": "Die Datei ist kein lesbarer Kurs: {reason}",
   "courses.confirm": "Hinzufügen",
   "courses.cancel": "Abbrechen",
-  "glossary.from": "Aus: {course}"
+  "glossary.from": "Aus: {course}",
+  "courses.address": "Kurs von Adresse …",
+  "courses.address.label": "Adresse des Kurses (https://…)",
+  "courses.fetch": "Laden",
+  "courses.fetching": "Lädt …",
+  "courses.https": "Kontra lädt Kurse nur über https://.",
+  "courses.offline": "Der Kurs ließ sich nicht laden: {reason}"
 }

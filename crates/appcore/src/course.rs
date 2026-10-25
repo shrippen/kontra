@@ -5,18 +5,67 @@
 //! QML ──course_preview(path)──▶ {title, provider, license, hosts, problems, fits}
 //!     ──course_add(path)──────▶ CourseStore (data folder) ──▶ Core::courses, chosen course
 //!     ──choose_course(id)─────▶ Settings::course
+//!     ──course_fetch(url)─────▶ CourseFetch (thread) ──course_fetch_poll() each tick──▶ preview
 //! ```
 
 use crate::Core;
 use kontra_session::lesson::{self, CoursePack, COURSE_EXT};
-use kontra_session::{CourseError, CourseStore};
+use kontra_session::{CourseError, CourseFetch, CourseStore, FileHttp, Http, Web};
 use serde_json::json;
 use std::path::Path;
+use std::sync::Arc;
 
 /// Problems shown before adding; the rest are counted (`kontra-cli course check` lists all).
 const PREVIEW_PROBLEMS: usize = 5;
 
+/// A package being fetched from an address.
+#[derive(Debug, Default)]
+pub(crate) struct Fetcher {
+    /// The web, made on first use; tests and QA runs put a fake here.
+    http: Option<Arc<dyn Http>>,
+    running: Option<CourseFetch>,
+}
+
 impl Core {
+    /// Fetches the package at `url` for a preview: `{"state": "running"}`, or
+    /// `{"state": "error", "message"}` when it cannot start (not https).
+    pub fn course_fetch(&mut self, url: &str) -> String {
+        let http = self
+            .fetcher
+            .http
+            .get_or_insert_with(|| Arc::new(Web::new()))
+            .clone();
+        match CourseStore::new(&self.data_dir).fetch(http, url) {
+            Ok(fetch) => {
+                self.fetcher.running = Some(fetch);
+                json!({ "state": "running" }).to_string()
+            }
+            Err(e) => json!({ "state": "error", "message": self.course_error(&e) }).to_string(),
+        }
+    }
+
+    /// The finished fetch, once: `{"state": "done", "path"}` (preview and add it like a file)
+    /// or `{"state": "error", "message"}`; `None` while it runs or none was started.
+    pub fn course_fetch_poll(&mut self) -> Option<String> {
+        let outcome = self.fetcher.running.as_mut()?.poll()?;
+        self.fetcher.running = None;
+        let json = match outcome {
+            Ok(path) => json!({ "state": "done", "path": path.to_string_lossy() }),
+            Err(e) => json!({ "state": "error", "message": self.course_error(&e) }),
+        };
+        Some(json.to_string())
+    }
+
+    /// Answers every course address with the file's content (QA runs): never the network.
+    pub fn fake_course_web(&mut self, answer: &Path) {
+        self.set_course_http(Arc::new(FileHttp::new(answer)));
+    }
+
+    /// The web client fetching uses; tests pass a fake.
+    pub fn set_course_http(&mut self, http: Arc<dyn Http>) {
+        self.fetcher.http = Some(http);
+    }
+
     /// Whether `path` is a course package (by its extension, as the file manager sees it).
     pub fn is_course(path: &Path) -> bool {
         path.extension().is_some_and(|e| e == COURSE_EXT)
@@ -100,6 +149,8 @@ impl Core {
             CourseError::Problems(p) => {
                 self.tr("courses.problems", &[("count", p.len().to_string())])
             }
+            CourseError::NotHttps => self.tr("courses.https", &[]),
+            CourseError::Http(h) => self.tr("courses.offline", &[("reason", h.to_string())]),
             other => self.tr("courses.unreadable", &[("reason", other.to_string())]),
         }
     }

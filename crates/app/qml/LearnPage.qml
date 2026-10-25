@@ -21,6 +21,10 @@ Kirigami.ScrollablePage {
     property var preview: null
     property string previewUrl: ""
     property string addError: ""
+    property bool addressShown: false
+    readonly property var fetchState: ctl.courseFetchJson !== "" ? JSON.parse(ctl.courseFetchJson) : ({ state: "idle" })
+    readonly property bool fetching: fetchState.state === "running"
+    readonly property string fetchError: fetchState.state === "error" ? fetchState.message : ""
     readonly property string nextId: course.next ? course.next.id : ""
 
     function open(id) {
@@ -41,6 +45,19 @@ Kirigami.ScrollablePage {
         }
     }
 
+    function fetch() {
+        ctl.courseFetch(addressField.text)
+    }
+    // A fetched package is previewed and added like a file.
+    Connections {
+        target: page.ctl
+        function onCourseFetchJsonChanged() {
+            if (page.fetchState.state === "done") {
+                page.showPreview(page.fetchState.path)
+            }
+        }
+    }
+
     function reload() {
         page.course = JSON.parse(ctl.learnJson())
     }
@@ -50,6 +67,7 @@ Kirigami.ScrollablePage {
             return
         }
         page.preview = null
+        page.addressShown = false
         page.reload()
     }
     function finale(chapter, percent) {
@@ -92,6 +110,41 @@ Kirigami.ScrollablePage {
                 emphasis: KanteButton.Emphasis.Quiet
                 onClicked: courseDialog.open()
             }
+            KanteButton {
+                text: texts.t("courses.address")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: {
+                    page.addressShown = true
+                    addressField.forceActiveFocus()
+                }
+            }
+        }
+
+        // An address from a provider: Kontra loads only what is typed here (privacy).
+        RowLayout {
+            visible: page.addressShown
+            spacing: KanteStyle.unit(8)
+            KanteTextField {
+                id: addressField
+                Layout.preferredWidth: KanteStyle.unit(420)
+                placeholderText: texts.t("courses.address.label")
+                Accessible.name: texts.t("courses.address.label")
+                inputMethodHints: Qt.ImhUrlCharactersOnly
+                onAccepted: page.fetch()
+            }
+            KanteButton {
+                text: page.fetching ? texts.t("courses.fetching") : texts.t("courses.fetch")
+                enabled: !page.fetching && addressField.text.trim() !== ""
+                onClicked: page.fetch()
+            }
+        }
+        KanteCallout {
+            Layout.fillWidth: true
+            Layout.maximumWidth: KanteStyle.unit(640)
+            visible: page.fetchError !== ""
+            kind: KanteCallout.Kind.Warn
+            autoHide: false
+            text: page.fetchError
         }
 
         // More than one course for this instrument: choose which to learn.

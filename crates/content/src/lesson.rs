@@ -17,7 +17,7 @@ mod parse;
 
 pub use pack::{
     new_course, pack, Author, CourseManifest, CoursePack, PackError, COURSE_EXT, COURSE_FORMAT,
-    COURSE_VERSION,
+    COURSE_VERSION, MAX_COURSE_BYTES,
 };
 pub use parse::note_class;
 

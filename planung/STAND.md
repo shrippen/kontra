@@ -10,7 +10,8 @@ nur, was offen ist und wo es liegt.
 Lernen (Runde 13, `LERNEN.md`): Plan (#118), Format und Kapitel 1 (#119), Kapitel 2–5 (#121), Kapitel 6–15 (#123),
 Ausprobieren per Klick (#124), Wiederholen (#125), „?“ an Fachbegriffen in Übungsziel, Generator und Auswertung (#126)
 gemerged. „?“ an Zeichen und Akkordsymbolen über eine Legende unter dem Griffbrett (LH-LRN-09, `zeichen`). Kurspaket-Format
-und `kontra-cli course new|check|pack` (LH-LRN-14, -15, `kurspaket`); Kurs aus Datei hinzufügen und wählen (`kurs-laden`). Glossar über alle Kurse (`kurs-glossar`). Offen: Kurs von Adresse,
+und `kontra-cli course new|check|pack` (LH-LRN-14, -15, `kurspaket`); Kurs aus Datei hinzufügen und wählen (`kurs-laden`). Glossar über alle Kurse, Kurs von Adresse (`kurs-adresse`, QA-Schalter
+`--course-answer`). Offen: Aktualisierungen von der gespeicherten Adresse erfragen,
 Video-Wiedergabe, Kurswerkstatt mit Fenster (für 1.0), MIME-Typ für `.kontrakurs` in
 `packaging/` (Doppelklick; braucht die Bestätigung des Eigentümers).
 
@@ -98,6 +99,10 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 
 ## Für den Eigentümer
+
+- #131 (Kurspakete): drei Review-Runden mit offenem Wichtig (pub-Liste, Zip-Bombe über Deflate, dann über STORED).
+  Nach der Review-Regel angehalten; Vorschlag im PR (eigene Zip-Lesung behalten, Größen zentral erzwungen). Merge
+  erst nach deiner Entscheidung; die Folgearbeit (Kurse in der App) wartet darauf.
 
 - Merge-Erlaubnis als Regel in den Claude-Code-Einstellungen eintragen (Runde 11).
 - Entscheidungs-Artefakt: https://claude.ai/artifact/EsQvZ5epqB3WeBgFEhytpN
