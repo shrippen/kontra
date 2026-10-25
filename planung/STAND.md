@@ -9,13 +9,15 @@ nur, was offen ist und wo es liegt.
 
 Lernen (Runde 13, `LERNEN.md`): Plan (#118), Format und Kapitel 1 (#119), Kapitel 2–5 (#121), Kapitel 6–15 (#123),
 Ausprobieren per Klick (#124), Wiederholen (#125), „?“ an Fachbegriffen in Übungsziel, Generator und Auswertung (#126)
-gemerged. „?“ an Zeichen und Akkordsymbolen über eine Legende unter dem Griffbrett (LH-LRN-09, `zeichen`). Offen:
-Kurspakete und Kurswerkstatt (LH-LRN-14, -15, für 1.0).
+gemerged. „?“ an Zeichen und Akkordsymbolen über eine Legende unter dem Griffbrett (LH-LRN-09, `zeichen`). Kurspaket-Format
+und `kontra-cli course new|check|pack` (LH-LRN-14, -15, `kurspaket`). Offen: Kurs hinzufügen (Datei, Adresse),
+Video-Wiedergabe, Glossar über alle Kurse, Kurswerkstatt mit Fenster (für 1.0).
 
 Neue pub-Schnittstellen zur Freigabe (nächste Runde): `kontra_content::lesson` (`Lessons`, Blocktypen, `scopes`),
 `kontra_session::{Learning, LearnState, LearnStore, UnitState, place, positions}`, `EarQuiz::fixed`, Core
 `learn_json`, `lesson_json`, `lesson_seen`, `lesson_ear`, `term_ear`, `lesson_exercise`, `finale_exercise`,
-`glossary_json`, `glossary_list_json`.
+`glossary_json`, `glossary_list_json`; `kurspaket`: `lesson::{CoursePack, CourseManifest, PackError, Author,
+new_course, pack, COURSE_*}`, `Block::Video::subtitles`, `pub(crate) Zip::{read_text, size}`, CLI `CourseArgs`, `CourseCommand`, `course::run`.
 
 Plan (Eigentümer, 24.10.): Didaktik I4 (#106), I5 (#107), I6 umgesetzt. Offen aus
 I5: Ziel-Band im Histogramm (Kante). I6 Phrasengrenzen aus Zögern: #128.

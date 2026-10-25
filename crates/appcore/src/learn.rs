@@ -673,7 +673,7 @@ impl Core {
                         "answer": q.answer })
             }
             Block::Tuner => json!({ "kind": "tuner" }),
-            Block::Video { src } => json!({ "kind": "video", "src": src }),
+            Block::Video { src, .. } => json!({ "kind": "video", "src": src }),
             // Resolved away by `Learning::doc`.
             Block::Variant { .. } => json!({ "kind": "none" }),
         }

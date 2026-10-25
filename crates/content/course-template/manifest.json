@@ -1,0 +1,13 @@
+{
+  "format": "kontra-course",
+  "version": 1,
+  "id": "{id}",
+  "title": {
+    "de": "Mein Kurs",
+    "en": "My course"
+  },
+  "provider": "",
+  "license": "",
+  "course": "{id}.kurs",
+  "hosts": []
+}

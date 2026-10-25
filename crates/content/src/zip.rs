@@ -1,246 +1,188 @@
-//! Minimal zip reader for `.gp` (Guitar Pro 7/8) and `.mxl` (compressed MusicXML):
-//! central directory, stored and deflated entries, CRC check. No zip64, no encryption.
-//! The writer (`.kontra` packages) stores deflated entries the same way.
+//! Zip archives for `.gp` (Guitar Pro 7/8), `.mxl` (compressed MusicXML), `.kontra` packages and
+//! `.kontrakurs` courses, read and written by the `zip` crate (owner, Runde 14).
 //!
-//! ```text
-//! [local header + data]... │ central directory entries │ end of central directory (EOCD)
-//! ```
+//! What this layer adds: every read is bounded by the size the archive declares, and callers
+//! refuse a declared size before anything is inflated (deflate bombs, lying headers).
+
+use std::collections::HashMap;
+use std::io::{Cursor, Read, Write};
+
+use zip::result::ZipError;
+use zip::write::SimpleFileOptions;
+use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
 use crate::error::ImportError;
 
-const EOCD_SIG: u32 = 0x0605_4b50;
-const CENTRAL_SIG: u32 = 0x0201_4b50;
-const LOCAL_SIG: u32 = 0x0403_4b50;
-const EOCD_LEN: usize = 22;
-const CENTRAL_LEN: usize = 46;
-const LOCAL_LEN: usize = 30;
-const MAX_COMMENT: usize = 0xffff;
-const STORED: u16 = 0;
-const DEFLATED: u16 = 8;
 /// Upper bound for one inflated entry; scores are far smaller.
-const MAX_ENTRY: usize = 256 * 1024 * 1024;
+const MAX_ENTRY: u64 = 256 * 1024 * 1024;
 /// Upper bound for a score's XML: the parsed tree takes several times that (deflate bomb).
 const MAX_SCORE_XML: usize = 32 * 1024 * 1024;
-
-#[derive(Debug)]
-struct Entry {
-    name: String,
-    method: u16,
-    crc: u32,
-    packed: usize,
-    size: usize,
-    local: usize,
-}
+/// Most a read allocates before data arrives.
+const PREALLOC_MAX: u64 = 64 * 1024;
+/// Deflate level for written entries (0–9).
+const DEFLATE_LEVEL: i64 = 6;
 
 #[derive(Debug)]
 pub(crate) struct Zip<'a> {
-    data: &'a [u8],
-    entries: Vec<Entry>,
+    archive: ZipArchive<Cursor<&'a [u8]>>,
+    /// Name and declared inflated size of each entry, in archive order.
+    entries: Vec<(String, u64)>,
+    /// Entry index by name; of names that decode alike, the first. `size` and `read` both go
+    /// through it, so a size always belongs to the entry that is read (review #131).
+    index: HashMap<String, usize>,
 }
 
 impl<'a> Zip<'a> {
     pub(crate) fn open(data: &'a [u8]) -> Result<Zip<'a>, ImportError> {
-        let eocd = eocd(data).ok_or(ImportError::UnknownFormat)?;
-        let count = usize::from(u16_at(data, eocd + 10).ok_or(ImportError::Truncated(eocd))?);
-        let mut at = u32_at(data, eocd + 16).ok_or(ImportError::Truncated(eocd))? as usize;
-
-        let mut entries = Vec::new();
-        for _ in 0..count {
-            let (entry, next) = central(data, at)?;
-            entries.push(entry);
-            at = next;
+        let mut archive =
+            ZipArchive::new(Cursor::new(data)).map_err(|_| ImportError::UnknownFormat)?;
+        let mut entries = Vec::with_capacity(archive.len());
+        let mut index = HashMap::with_capacity(archive.len());
+        for at in 0..archive.len() {
+            let entry = archive.by_index_raw(at).map_err(archive_error)?;
+            let name = entry.name().map_err(archive_error)?.into_owned();
+            index.entry(name.clone()).or_insert(at);
+            entries.push((name, entry.size()));
         }
-        Ok(Zip { data, entries })
+        Ok(Zip {
+            archive,
+            entries,
+            index,
+        })
     }
 
     pub(crate) fn names(&self) -> impl Iterator<Item = &str> {
-        self.entries.iter().map(|e| e.name.as_str())
+        self.entries.iter().map(|(name, _)| name.as_str())
+    }
+
+    /// Inflated size of entry `name` as the archive declares it (0 if missing); reading never
+    /// yields more.
+    pub(crate) fn size(&self, name: &str) -> usize {
+        self.index
+            .get(name)
+            .and_then(|at| self.entries.get(*at))
+            .map_or(0, |(_, size)| usize::try_from(*size).unwrap_or(usize::MAX))
     }
 
     /// Content of the XML score entry `name`, refused above `MAX_SCORE_XML` before inflating.
     pub(crate) fn read_score(&self, name: &str) -> Result<Vec<u8>, ImportError> {
-        let size = self
-            .entries
-            .iter()
-            .find(|e| e.name == name)
-            .map_or(0, |e| e.size);
-        if size > MAX_SCORE_XML {
+        self.read_text(name, MAX_SCORE_XML)
+    }
+
+    /// Content of the text entry `name`, refused above `max` bytes before inflating.
+    pub(crate) fn read_text(&self, name: &str, max: usize) -> Result<Vec<u8>, ImportError> {
+        let size = self.size(name);
+        if size > max {
             return Err(ImportError::TooLarge(size as u64));
         }
         self.read(name)
     }
 
-    /// Content of entry `name`.
+    /// Content of entry `name`: exactly as long as declared, checksum checked.
     pub(crate) fn read(&self, name: &str) -> Result<Vec<u8>, ImportError> {
-        let entry = self
-            .entries
-            .iter()
-            .find(|e| e.name == name)
+        // A clone shares the parsed directory; `by_index` needs it mutable.
+        let at = *self
+            .index
+            .get(name)
             .ok_or_else(|| ImportError::Malformed(format!("{name} missing in archive")))?;
-        let data = self.data;
-        let truncated = ImportError::Truncated(entry.local);
-        if u32_at(data, entry.local) != Some(LOCAL_SIG) {
-            return Err(ImportError::bad("bad local zip header"));
+        let mut archive = self.archive.clone();
+        let entry = archive.by_index(at).map_err(archive_error)?;
+        let size = entry.size();
+        if size > MAX_ENTRY {
+            return Err(ImportError::TooLarge(size));
         }
-        let name_len = u16_at(data, entry.local + 26).ok_or(truncated)?;
-        let extra_len =
-            u16_at(data, entry.local + 28).ok_or(ImportError::Truncated(entry.local))?;
-        let start = entry.local + LOCAL_LEN + usize::from(name_len) + usize::from(extra_len);
-        let packed = data
-            .get(start..start.saturating_add(entry.packed))
-            .ok_or(ImportError::Truncated(start))?;
 
-        let content = match entry.method {
-            STORED => packed.to_vec(),
-            DEFLATED => inflate(packed, entry.size)?,
-            other => {
-                return Err(ImportError::Unsupported(format!(
-                    "zip compression method {other}"
-                )))
-            }
-        };
-        if crc32(&content) != entry.crc {
-            return Err(ImportError::bad("zip entry checksum mismatch"));
+        // One byte past the declared size tells a lying header; reading to the end checks the CRC.
+        // The buffer grows with what arrives, not with what the header claims.
+        let mut content = Vec::with_capacity(size.min(PREALLOC_MAX) as usize);
+        entry
+            .take(size + 1)
+            .read_to_end(&mut content)
+            .map_err(|e| ImportError::Malformed(format!("zip: {e}")))?;
+        if content.len() as u64 != size {
+            return Err(ImportError::bad("zip entry size mismatch"));
         }
         Ok(content)
     }
 }
 
-/// Deflate level for written entries (miniz: 0–10).
-const DEFLATE_LEVEL: u8 = 6;
-/// Version 2.0: deflate; the same for "made by" and "needed to extract".
-const ZIP_VERSION: u16 = 20;
-/// Bit 11: names are UTF-8.
-const UTF8_NAMES: u16 = 1 << 11;
-
-/// Writes `entries` (name, content) as a zip archive with deflated entries, no zip64: every
-/// entry and the archive must stay below 4 GiB, and at most 65535 entries.
+/// Writes `entries` (name, content) as a zip archive with deflated entries.
 pub(crate) fn write(entries: &[(&str, &[u8])]) -> Result<Vec<u8>, ImportError> {
-    let too_large = |n: usize| ImportError::TooLarge(n as u64);
-    let mut out = Vec::new();
-    let mut central = Vec::new();
+    let options = SimpleFileOptions::default()
+        .compression_method(CompressionMethod::Deflated)
+        .compression_level(Some(DEFLATE_LEVEL));
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     for (name, content) in entries {
-        let packed = miniz_oxide::deflate::compress_to_vec(content, DEFLATE_LEVEL);
-        let local = u32::try_from(out.len()).map_err(|_| too_large(out.len()))?;
-        let size = u32::try_from(content.len()).map_err(|_| too_large(content.len()))?;
-        let packed_len = u32::try_from(packed.len()).map_err(|_| too_large(packed.len()))?;
-        let name_len =
-            u16::try_from(name.len()).map_err(|_| ImportError::bad("zip name too long"))?;
-        let crc = crc32(content);
-
-        // Local header: signature, version, flags, method, time, date, crc, sizes, name.
-        out.extend(LOCAL_SIG.to_le_bytes());
-        for v in [ZIP_VERSION, UTF8_NAMES, DEFLATED, 0, 0] {
-            out.extend(v.to_le_bytes());
-        }
-        for v in [crc, packed_len, size] {
-            out.extend(v.to_le_bytes());
-        }
-        out.extend(name_len.to_le_bytes());
-        out.extend(0u16.to_le_bytes());
-        out.extend(name.as_bytes());
-        out.extend(&packed);
-
-        // Central entry: as above plus made-by, comment, disk, attributes and the offset.
-        central.extend(CENTRAL_SIG.to_le_bytes());
-        for v in [ZIP_VERSION, ZIP_VERSION, UTF8_NAMES, DEFLATED, 0, 0] {
-            central.extend(v.to_le_bytes());
-        }
-        for v in [crc, packed_len, size] {
-            central.extend(v.to_le_bytes());
-        }
-        for v in [name_len, 0, 0, 0, 0] {
-            central.extend(v.to_le_bytes());
-        }
-        central.extend(0u32.to_le_bytes());
-        central.extend(local.to_le_bytes());
-        central.extend(name.as_bytes());
+        writer.start_file(*name, options).map_err(archive_error)?;
+        writer.write_all(content)?;
     }
-    let count = u16::try_from(entries.len()).map_err(|_| ImportError::bad("too many entries"))?;
-    let central_at = u32::try_from(out.len()).map_err(|_| too_large(out.len()))?;
-    let central_len = u32::try_from(central.len()).map_err(|_| too_large(central.len()))?;
-    out.extend(central);
-    out.extend(EOCD_SIG.to_le_bytes());
-    for v in [0, 0, count, count] {
-        out.extend(v.to_le_bytes());
-    }
-    out.extend(central_len.to_le_bytes());
-    out.extend(central_at.to_le_bytes());
-    out.extend(0u16.to_le_bytes());
-    Ok(out)
+    Ok(writer.finish().map_err(archive_error)?.into_inner())
 }
 
-fn inflate(packed: &[u8], size: usize) -> Result<Vec<u8>, ImportError> {
-    let limit = size.min(MAX_ENTRY);
-    miniz_oxide::inflate::decompress_to_vec_with_limit(packed, limit)
-        .map_err(|e| ImportError::Malformed(format!("deflate: {e}")))
-}
-
-/// Position of the end-of-central-directory record, searched backwards past a comment.
-fn eocd(data: &[u8]) -> Option<usize> {
-    let last = data.len().checked_sub(EOCD_LEN)?;
-    let first = last.saturating_sub(MAX_COMMENT);
-    (first..=last)
-        .rev()
-        .find(|at| u32_at(data, *at) == Some(EOCD_SIG))
-}
-
-/// Parses one central directory entry; returns it and the next entry's position.
-fn central(data: &[u8], at: usize) -> Result<(Entry, usize), ImportError> {
-    if u32_at(data, at) != Some(CENTRAL_SIG) {
-        return Err(ImportError::bad("bad zip central directory"));
-    }
-    let field = |offset: usize| u32_at(data, at + offset).ok_or(ImportError::Truncated(at));
-    let short = |offset: usize| u16_at(data, at + offset).ok_or(ImportError::Truncated(at));
-    let name_len = usize::from(short(28)?);
-    let extra_len = usize::from(short(30)?);
-    let comment_len = usize::from(short(32)?);
-    let name_at = at + CENTRAL_LEN;
-    let name = data
-        .get(name_at..name_at + name_len)
-        .ok_or(ImportError::Truncated(name_at))?;
-    let entry = Entry {
-        name: String::from_utf8_lossy(name).into_owned(),
-        method: short(10)?,
-        crc: field(16)?,
-        packed: field(20)? as usize,
-        size: field(24)? as usize,
-        local: field(42)? as usize,
-    };
-    Ok((entry, name_at + name_len + extra_len + comment_len))
-}
-
-fn u16_at(data: &[u8], at: usize) -> Option<u16> {
-    let bytes = data.get(at..at.checked_add(2)?)?;
-    Some(u16::from_le_bytes([bytes[0], bytes[1]]))
-}
-
-fn u32_at(data: &[u8], at: usize) -> Option<u32> {
-    let bytes = data.get(at..at.checked_add(4)?)?;
-    Some(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
-}
-
-/// CRC-32 (IEEE, reflected, polynomial 0xEDB88320) as used by zip.
-fn crc32(data: &[u8]) -> u32 {
-    const POLY: u32 = 0xedb8_8320;
-    let mut crc = u32::MAX;
-    for byte in data {
-        crc ^= u32::from(*byte);
-        for _ in 0..8 {
-            let mask = (crc & 1).wrapping_neg();
-            crc = (crc >> 1) ^ (POLY & mask);
+fn archive_error(error: ZipError) -> ImportError {
+    match error {
+        ZipError::UnsupportedArchive(what) => ImportError::Unsupported(what.to_string()),
+        ZipError::CompressionMethodNotSupported(method) => {
+            ImportError::Unsupported(format!("zip compression method {method}"))
         }
+        other => ImportError::Malformed(format!("zip: {other}")),
     }
-    !crc
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// One stored entry whose headers declare `declared` bytes instead of its true length.
+    fn stored(name: &str, data: &[u8], declared: u32) -> Vec<u8> {
+        let options = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+        let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+        writer.start_file(name, options).unwrap();
+        writer.write_all(data).unwrap();
+        let mut out = writer.finish().unwrap().into_inner();
+
+        // Uncompressed size: offset 22 in the local header, 24 in the central entry.
+        let true_len = (data.len() as u32).to_le_bytes();
+        for (signature, offset) in [(0x0403_4b50u32, 22), (0x0201_4b50, 24)] {
+            let at = out
+                .windows(4)
+                .position(|w| w == signature.to_le_bytes())
+                .unwrap()
+                + offset;
+            assert_eq!(out[at..at + 4], true_len);
+            out[at..at + 4].copy_from_slice(&declared.to_le_bytes());
+        }
+        out
+    }
+
+    /// Review #131: a stored entry declaring fewer bytes than it holds slipped past every size
+    /// limit; reading never yields more than the declared size now.
     #[test]
-    fn crc_of_check_string() {
-        assert_eq!(crc32(b"123456789"), 0xcbf4_3926);
+    fn an_entry_yields_no_more_than_it_declares() {
+        let honest = stored("a.md", b"hello", 5);
+        assert_eq!(Zip::open(&honest).unwrap().read("a.md").unwrap(), b"hello");
+
+        let lying = stored("a.md", b"hello", 0);
+        assert!(Zip::open(&lying).and_then(|z| z.read("a.md")).is_err());
+    }
+
+    /// Review #131, round 6: a CP437 name and a UTF-8 name decode alike ("t000xä"); size and
+    /// read must take the same entry, else the small one's size lets the large one through.
+    #[test]
+    fn size_and_read_take_the_same_entry() {
+        let big = vec![b' '; 20 * 1024];
+        let mut data = write(&[("t000xQ", b"small"), ("t000xä", &big)]).unwrap();
+        // 'Q' becomes CP437 0x84 ('ä') in both headers; ASCII names carry no UTF-8 flag.
+        let mut at = 0;
+        while let Some(found) = data[at..].windows(6).position(|w| w == b"t000xQ") {
+            data[at + found + 5] = 0x84;
+            at += found + 6;
+        }
+
+        let zip = Zip::open(&data).unwrap();
+        if let Ok(content) = zip.read_text("t000xä", 10) {
+            assert!(content.len() <= 10, "read {} bytes", content.len());
+        }
     }
 
     #[test]

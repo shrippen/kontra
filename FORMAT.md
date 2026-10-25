@@ -91,3 +91,36 @@ Einstellungen → „Deine Daten“ sichert alles in eine JSON-Datei (LH-FOR-03)
 
 Laden ergänzt (eigene Einstellungen bleiben; unbekannte Stücke nach Pfad, Setlisten nach Name und
 Durchläufe kommen dazu) oder ersetzt alles. Ungültige Dateien ändern nichts.
+
+# Kurspaket `.kontrakurs` (Format 1)
+
+Ein Kurs eines Anbieters zum Hinzufügen (LH-LRN-14): ein Zip, entpackt der Ordner, den der Autor bearbeitet.
+Lektionsformat wie die mitgelieferten Kurse (`lessons/README.md`).
+
+```text
+kurs.kontrakurs
+├── manifest.json            Format, Version, Präfix, Titel, Anbieter, Lizenz, Kurs, Stream-Hosts
+├── courses/<kurs>.json
+├── units/<id>/de.md, en.md
+├── glossary/de.md, en.md    optional: weitere Begriffe
+└── media/                   optional: Videos (.webm, .mp4), Untertitel (.vtt)
+```
+
+```json
+{ "format": "kontra-course", "version": 1, "id": "studio-weber",
+  "title": { "de": "Groove-Kurs", "en": "Groove course" },
+  "provider": "Studio Weber", "license": "CC-BY-4.0",
+  "course": "studio-weber.kurs", "hosts": ["video.example.org"] }
+```
+
+- `id` (a–z, `-`) ist das Präfix des Kurses und jeder eigenen Lektion (`studio-weber.anschlag`): Lektionen aus dem
+  mitgelieferten Vorrat dürfen genannt (Kapitel, `needs`), aber nicht ersetzt werden. Begriffe im Glossar dürfen
+  mitgelieferte Ids nutzen; geplant: Kontra zeigt dann beide Texte mit Herkunft.
+- `::: video src=… subtitles=…`: `src` ist `media/<datei>` im Paket oder `https://<host>/…` auf einem Host aus
+  `hosts`; andere Adressen sind ein Fehler. `subtitles` je Sprachdatei (WebVTT), sonst wie `src`.
+- Namen bleiben im Paket (kein `/` am Anfang, kein `..`, kein `\`), höchstens 1 GiB, Textdateien je höchstens
+  4 MiB, zusammen höchstens 32 MiB.
+
+Anlegen, prüfen und packen: `kontra-cli course new <ordner> --id <präfix> --provider … --license …`,
+`kontra-cli course check <ordner|datei>` (jeder Befund mit Datei, Fehler im Format mit Zeile),
+`kontra-cli course pack <ordner> <datei>.kontrakurs` (prüft vorher).

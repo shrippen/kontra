@@ -39,6 +39,34 @@ pub enum Command {
     /// Hardware check (round 10): loopback latency, play on the click, bass takes for the
     /// corpus, optionally soak and stem timing; every measurement goes into a report.
     Check(CheckArgs),
+    /// Course packages (LH-LRN-15): lay out, check and pack a `.kontrakurs`.
+    Course(CourseArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct CourseArgs {
+    #[command(subcommand)]
+    pub command: CourseCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum CourseCommand {
+    /// Lay out a new course in an empty folder: manifest, course, one lesson.
+    New {
+        dir: PathBuf,
+        /// Prefix of every id in the course, a-z and - (e.g. "studio-weber").
+        #[arg(long)]
+        id: String,
+        #[arg(long)]
+        provider: String,
+        /// Licence of the texts and media (e.g. "CC-BY-4.0" or "all rights reserved").
+        #[arg(long)]
+        license: String,
+    },
+    /// Check a course folder or `.kontrakurs` file; lists every problem, fails if any.
+    Check { path: PathBuf },
+    /// Check the folder and pack it as a `.kontrakurs` file.
+    Pack { dir: PathBuf, out: PathBuf },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]

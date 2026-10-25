@@ -12,8 +12,13 @@
 //! like `fretted`, an instrument like `bass`); resolving it against a profile is the session's job.
 
 mod check;
+mod pack;
 mod parse;
 
+pub use pack::{
+    new_course, pack, Author, CourseManifest, CoursePack, PackError, COURSE_EXT, COURSE_FORMAT,
+    COURSE_VERSION,
+};
 pub use parse::note_class;
 
 use kontra_model::InstrumentKind;
@@ -170,6 +175,8 @@ pub enum Block {
     /// videos (LH-LRN-14); bundled ones never.
     Video {
         src: String,
+        /// Subtitles (WebVTT) in this file's language, like `src` a path or an address.
+        subtitles: Option<String>,
     },
     /// Blocks only for instruments in `scope`.
     Variant {

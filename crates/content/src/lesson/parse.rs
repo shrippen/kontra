@@ -39,7 +39,7 @@ const TRY_KEYS: &[&str] = &["root", "steps", "labels", "string", "octave"];
 const PRACTICE_KEYS: &[&str] = &[
     "bundled", "speeds", "kind", "variant", "rhythm", "key", "bpm", "judging",
 ];
-const VIDEO_KEYS: &[&str] = &["src"];
+const VIDEO_KEYS: &[&str] = &["src", "subtitles"];
 const VARIANT_KEYS: &[&str] = &["for"];
 
 /// Header of a unit file.
@@ -397,6 +397,7 @@ impl<'a> Reader<'a> {
                     .get("src")
                     .cloned()
                     .ok_or_else(|| self.err_at(line, "video needs src="))?,
+                subtitles: attrs.get("subtitles").cloned(),
             }),
             "variant" => {
                 let scope = attrs

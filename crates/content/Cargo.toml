@@ -16,8 +16,9 @@ serde_json.workspace = true
 midly = { version = "0.5.3", default-features = false, features = ["std"] }
 # XML tokenizer (MIT).
 quick-xml = "0.42"
-# Inflate for zip entries (MIT/Zlib/Apache-2.0); the zip container itself is parsed here.
-miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
+# Zip archives (MIT; owner, Runde 14): deflate only, through flate2 on miniz_oxide (MIT/Apache-2.0).
+zip = { version = "9.1", default-features = false, features = ["deflate-flate2"] }
+flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
 
 [lints]
 workspace = true
