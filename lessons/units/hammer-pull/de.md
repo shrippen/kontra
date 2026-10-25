@@ -5,8 +5,8 @@ needs: slide
 terms: hammer-on pull-off
 
 ## Ohne Anschlag
-Beim [[hammer-on|Hammer-on]] schlägst du einen Ton an und schlägst dann einen Finger der Greifhand fest auf einen
-höheren Bund derselben Saite. Der zweite Ton klingt ohne neuen Anschlag. Der [[pull-off|Pull-off]] ist der Weg zurück:
+Beim [[hammer-on|Hammer-on]] schlägst du einen Ton an und schlägst dann einen Finger der Greifhand fest auf eine
+höhere Stelle derselben Saite. Der zweite Ton klingt ohne neuen Anschlag. Der [[pull-off|Pull-off]] ist der Weg zurück:
 Der obere Finger zieht die Saite beim Loslassen leicht an, der tiefere Ton klingt.
 ::: figure root=A steps="0 2" labels="1 2" string=E
 

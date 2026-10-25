@@ -5,7 +5,7 @@ needs: stufen moll-dreiklang
 terms: akkordfolge
 
 ## Seven chords from one scale
-Build a triad on each degree of a major scale using only its notes, and major and minor alternate. In C major:
+Build a triad on each degree of a major scale using only its notes, and you get a mix of major and minor. In C major:
 - I C, IV F, V G: major.
 - ii Dm, iii Em, vi Am: minor.
 - vii° B diminished: rare in the bass.

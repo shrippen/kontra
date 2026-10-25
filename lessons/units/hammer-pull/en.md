@@ -5,7 +5,7 @@ needs: slide
 terms: hammer-on pull-off
 
 ## Without plucking
-For a [[hammer-on|hammer-on]] you pluck a note, then strike a finger of the fretting hand firmly onto a higher fret of
+For a [[hammer-on|hammer-on]] you pluck a note, then strike a finger of the fretting hand firmly onto a higher spot on
 the same string. The second note sounds without plucking again. The [[pull-off|pull-off]] is the way back: the upper
 finger plucks the string lightly as it lets go, and the lower note sounds.
 ::: figure root=A steps="0 2" labels="1 2" string=E

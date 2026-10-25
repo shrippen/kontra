@@ -6,7 +6,7 @@ terms: slap
 
 ## Thumb and index finger
 For a [[slap|slap]] the side of the thumb strikes the low string at the end of the neck and bounces straight back. For
-a pop the index finger hooks under a high string and lets it snap against the frets. They often alternate: low note
+a pop the index finger hooks under a high string and lets it snap against the fingerboard. They often alternate: low note
 with the thumb, the octave with a pop.
 ::: figure root=E steps="0 12" labels="1 8"
 ::: hint

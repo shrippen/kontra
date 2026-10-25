@@ -11,7 +11,7 @@ Quinte und Oktave dazu, zuletzt Durchgangstöne.
 Schau beim letzten Schlag eines Akkords schon auf den nächsten. So landest du sicher auf der 1.
 
 ## Üben
-Offbeat-Groove über I-V-VI-IV in C.
+Offbeat-Groove über I-V-vi-IV in C.
 ::: practice bundled=92 speeds="60 80 100"
 
 ## Prüfen

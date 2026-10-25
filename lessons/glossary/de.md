@@ -178,7 +178,7 @@ Die Tonleiter, aus der ein Lied seine Töne nimmt, benannt nach ihrem Grundton: 
 id: lage
 for: e-bass
 lesson: dur-lagen
-Eine feste Stelle der Greifhand am Hals; jeder Finger greift einen Bund.
+Eine feste Stelle der Greifhand am Hals; jeder Finger hat seine Stelle.
 
 ## Akkord
 id: akkord
@@ -203,7 +203,7 @@ Dreiklang mit Septime: maj7 (große Septime), 7 (Dur mit kleiner Septime), m7 (M
 ## Stufe
 id: stufe
 lesson: stufen
-Die Lage eines Akkords in der Tonart, in römischen Zahlen: I ist der Grundton, IV und V die wichtigsten Nachbarn.
+Der Platz eines Akkords in der Tonart, in römischen Zahlen: I steht auf dem Grundton, IV und V die wichtigsten Nachbarn.
 
 ## Akkordsymbol
 id: akkordsymbol
@@ -297,7 +297,7 @@ Mit demselben Finger von einem Ton zum nächsten rutschen, ohne neu anzuschlagen
 id: hammer-on
 for: strings
 lesson: hammer-pull
-Ein Finger der Greifhand schlägt auf einen höheren Bund derselben Saite; der Ton klingt ohne Anschlag.
+Ein Finger der Greifhand schlägt auf eine höhere Stelle derselben Saite; der Ton klingt ohne Anschlag.
 
 ## Pull-off
 id: pull-off
@@ -315,7 +315,7 @@ Der Daumen schlägt die tiefe Saite und federt zurück; dazu der Pop, bei dem de
 id: oktavgriff
 for: e-bass
 lesson: oktav-grooves
-Zeigefinger auf dem Grundton, kleiner Finger zwei Saiten höher und zwei Bünde weiter: die Oktave.
+Zeigefinger auf dem Grundton, kleiner Finger zwei Saiten höher und zwei Stellen weiter: die Oktave.
 
 ## Walking Bass
 id: walking-bass

@@ -8,7 +8,7 @@ terms: pocket
 The [[pocket|pocket]] is the place where bass and drums groove together. You can place notes on purpose:
 - On the beat: exactly with it.
 - Laid-back: a few milliseconds behind. Sounds relaxed, heavy.
-- Pushed: a little ahead. Sounds driving.
+- Ahead: a little before it. Sounds driving.
 
 ## Set an aim
 On the "Practice" page you choose an aim under "Pocket". The summary then says whether your average placement hit

@@ -20,7 +20,7 @@ German chord symbols write H for B and B for B♭.
 :::
 
 ## Practise
-Arpeggios over I-V-VI-IV in D: D, A, Bm, G.
+Arpeggios over I-V-VI-IV in D: Dmaj7, A7, Bm7, Gmaj7.
 ::: practice bundled=67 speeds="60 80 100"
 
 ## Check

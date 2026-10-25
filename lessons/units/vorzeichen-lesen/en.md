@@ -9,7 +9,7 @@ The [[generalvorzeichen|key signature]] comes right after the clef and holds for
 sharp on the F line means: every F becomes F♯. It tells you the key.
 
 ## In the middle of a bar
-An accidental before a single note holds until the end of the bar. The [[aufloesungszeichen|natural sign]] ♮ cancels
+An accidental before a single note holds for that note until the end of the bar. The [[aufloesungszeichen|natural sign]] ♮ cancels
 an accidental.
 
 ## Practise

@@ -5,7 +5,7 @@ needs: stufen moll-dreiklang
 terms: akkordfolge
 
 ## Sieben Akkorde aus einer Tonleiter
-Baust du auf jeder Stufe einer Dur-Tonleiter einen Dreiklang nur aus ihren Tönen, entstehen Dur und Moll im Wechsel.
+Baust du auf jeder Stufe einer Dur-Tonleiter einen Dreiklang nur aus ihren Tönen, entstehen Dur und Moll gemischt.
 In C-Dur:
 - I C, IV F, V G: Dur.
 - ii Dm, iii Em, vi Am: Moll.

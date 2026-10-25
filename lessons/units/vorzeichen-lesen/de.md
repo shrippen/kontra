@@ -9,7 +9,7 @@ Die [[generalvorzeichen|Generalvorzeichen]] stehen gleich nach dem Schlüssel un
 Oktave. Ein Kreuz auf der F-Linie heißt: Jedes F wird F♯. Daran erkennst du die Tonart.
 
 ## Mitten im Takt
-Ein Vorzeichen vor einer einzelnen Note gilt bis zum Ende des Takts. Das [[aufloesungszeichen|Auflösungszeichen]] ♮
+Ein Vorzeichen vor einer einzelnen Note gilt für diesen Ton bis zum Ende des Takts. Das [[aufloesungszeichen|Auflösungszeichen]] ♮
 hebt ein Vorzeichen wieder auf.
 
 ## Üben

@@ -6,7 +6,7 @@ terms: slap
 
 ## Daumen und Zeigefinger
 Beim [[slap|Slap]] schlägt die Seite des Daumens auf die tiefe Saite, am Ende des Halses, und federt sofort zurück.
-Beim Pop hakt der Zeigefinger unter eine hohe Saite und lässt sie gegen die Bünde schnappen. Oft wechseln sie sich ab:
+Beim Pop hakt der Zeigefinger unter eine hohe Saite und lässt sie gegen das Griffbrett schnappen. Oft wechseln sie sich ab:
 tiefer Ton mit dem Daumen, die Oktave mit Pop.
 ::: figure root=E steps="0 12" labels="1 8"
 ::: hint

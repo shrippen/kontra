@@ -4,7 +4,7 @@ for: any
 needs: vorzeichen-lesen
 
 ## Nur die Noten
-Bisher hat dir die Tab-Lane gezeigt, wann welcher Ton kommt. Jetzt liest du nur aus den Noten. Stell die Ansicht auf
+Bisher hat dir die Lane gezeigt, wann welcher Ton kommt. Jetzt liest du nur aus den Noten. Stell die Ansicht auf
 „Noten“ und spiel langsam; das Tempo kommt mit der Zeit.
 ::: hint
 Schau einen Takt voraus. Wer nur die Note liest, die gerade klingt, kommt zu spät.

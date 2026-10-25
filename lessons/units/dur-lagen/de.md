@@ -1,6 +1,6 @@
 # Dur in einer Lage
 id: dur-lagen
-for: e-bass
+for: fretted
 needs: dur-tonleiter fingerfolgen
 terms: lage
 
@@ -20,7 +20,7 @@ Dieselbe Form gilt für jede Dur-Tonart. Schieb sie den Hals hinauf oder hinab, 
 
 ## Üben
 G-Dur in dieser Lage, dann D-Dur mit derselben Form: Grundton am fünften Bund der A-Saite.
-::: practice bundled=15 speeds="60 80 100"
+::: practice bundled=7 speeds="60 80 100"
 ::: practice bundled=116 speeds="60 80 100"
 
 ## Prüfen

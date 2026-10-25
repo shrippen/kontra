@@ -14,7 +14,7 @@ Play C, E, G, then G♭ and land on F.
 ::: try root=C steps="0 4 7 6 5"
 
 ## Practise
-Walking bass over I-VI-II-V in F.
+Walking bass over I-vi-ii-V in F.
 ::: practice bundled=81 speeds="60 80 100"
 
 ## Check

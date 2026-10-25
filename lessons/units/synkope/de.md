@@ -16,7 +16,7 @@ spielst.
 Ein bekanntes Muster: drei Töne in einem Takt, auf 1, auf das „und“ von 2 und auf 4. Es trägt Latin, Pop und Reggaeton.
 
 ## Üben
-Tresillo über I-V-VI-IV in A. Erst langsam, bis die Töne zwischen den Schlägen sicher sitzen.
+Tresillo über I-V-vi-IV in A. Erst langsam, bis die Töne zwischen den Schlägen sicher sitzen.
 ::: practice bundled=72 speeds="60 80 100"
 
 ## Prüfen

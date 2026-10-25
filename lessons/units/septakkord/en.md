@@ -19,7 +19,7 @@ Play A7: A, C♯, E, G.
 ::: try root=A steps="0 4 7 10"
 
 ## Practise
-Arpeggios with sevenths over I-VI-II-V in C.
+Arpeggios with sevenths over I-vi-ii-V in C.
 ::: practice bundled=65 speeds="60 80 100"
 
 ## Check

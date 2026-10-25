@@ -177,7 +177,7 @@ The scale a song takes its notes from, named after its root: G major, A minor.
 id: lage
 for: e-bass
 lesson: dur-lagen
-A fixed place of the fretting hand on the neck; each finger frets one fret.
+A fixed place of the fretting hand on the neck; each finger has its place.
 
 ## Chord
 id: akkord
@@ -202,7 +202,7 @@ Triad with a seventh: maj7 (major seventh), 7 (major with minor seventh), m7 (mi
 ## Degree
 id: stufe
 lesson: stufen
-A chord's place in the key, in Roman numerals: I is the root, IV and V its most important neighbours.
+A chord's place in the key, in Roman numerals: I stands on the root, IV and V its most important neighbours.
 
 ## Chord symbol
 id: akkordsymbol
@@ -296,7 +296,7 @@ Moving with the same finger from one note to the next without plucking again.
 id: hammer-on
 for: strings
 lesson: hammer-pull
-A finger of the fretting hand strikes a higher fret on the same string; the note sounds without plucking.
+A finger of the fretting hand strikes a higher spot on the same string; the note sounds without plucking.
 
 ## Pull-off
 id: pull-off
@@ -314,7 +314,7 @@ The thumb strikes the low string and bounces back; with it the pop, where the in
 id: oktavgriff
 for: e-bass
 lesson: oktav-grooves
-Index finger on the root, little finger two strings higher and two frets further: the octave.
+Index finger on the root, little finger two strings higher and two places further: the octave.
 
 ## Walking bass
 id: walking-bass
@@ -334,7 +334,7 @@ Progression of degrees II, V and I, such as Dm7, G7, Cmaj7. The most common turn
 ## Pocket
 id: pocket
 lesson: pocket
-Where bass and drums groove together: on the beat, a little ahead (pushed) or behind (laid-back).
+Where bass and drums groove together: on the beat, a little before it (ahead) or behind (laid-back).
 
 ## Spread
 id: streuung

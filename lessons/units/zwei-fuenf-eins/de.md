@@ -7,11 +7,11 @@ terms: zwei-fuenf-eins
 ## Die Wendung des Jazz
 Die [[zwei-fuenf-eins|II-V-I]] führt in drei Akkorden nach Hause: in C-Dur Dm7, G7, Cmaj7. Die Grundtöne fallen in
 Quinten: D, G, C. Jazz-Standards bestehen zum großen Teil aus ihr, in wechselnden Tonarten.
-::: listen root=D steps="0 5 -2"
+::: listen root=C steps="2 7 0"
 
 ## Ausprobieren
 Spiel die Grundtöne von II, V und I in C.
-::: try root=D steps="0 5 -2" octave=any
+::: try root=C steps="2 7 0" octave=any
 
 ## Üben
 Walking Bass über II-V-I in F.

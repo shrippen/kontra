@@ -1,6 +1,6 @@
 # Major in one position
 id: dur-lagen
-for: e-bass
+for: fretted
 needs: dur-tonleiter fingerfolgen
 terms: lage
 
@@ -19,7 +19,7 @@ The same shape works for every major key. Slide it up or down the neck, and the 
 
 ## Practise
 G major in this position, then D major with the same shape: root at the fifth fret of the A string.
-::: practice bundled=15 speeds="60 80 100"
+::: practice bundled=7 speeds="60 80 100"
 ::: practice bundled=116 speeds="60 80 100"
 
 ## Check

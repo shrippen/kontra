@@ -11,7 +11,7 @@ passing notes last.
 On the last beat of a chord, already look at the next one. That way you land on 1 safely.
 
 ## Practise
-Offbeat groove over I-V-VI-IV in C.
+Offbeat groove over I-V-vi-IV in C.
 ::: practice bundled=92 speeds="60 80 100"
 
 ## Check
