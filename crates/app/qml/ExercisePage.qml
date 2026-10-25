@@ -139,12 +139,21 @@ Kirigami.ScrollablePage {
                             : texts.t("exercises.new")
                         Accessible.name: text + ", " + meta
                             + (modelData.mastered ? ", " + texts.t("exercises.mastered") : "")
-                        // Mastered: a tick, as for a hit note (not colour alone).
-                        trailing: KanteNoteMark {
-                            noteState: modelData.mastered ? "hit" : "pending"
-                            width: KanteStyle.unit(16)
-                            height: width
-                            Accessible.ignored: true
+                        // "?" at the goal (LH-LRN-09); mastered: a tick, as for a hit note (not
+                        // colour alone).
+                        trailing: Row {
+                            spacing: KanteStyle.unit(8)
+                            TermTip {
+                                anchors.verticalCenter: parent.verticalCenter
+                                topic: modelData.goalTopic
+                            }
+                            KanteNoteMark {
+                                anchors.verticalCenter: parent.verticalCenter
+                                noteState: modelData.mastered ? "hit" : "pending"
+                                width: KanteStyle.unit(16)
+                                height: width
+                                Accessible.ignored: true
+                            }
                         }
                         onClicked: {
                             if (ctl.openFile(modelData.path))
@@ -167,12 +176,20 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             title: texts.t("exercises.kind")
             // A list, not segments: seven kinds ran out of a narrow window (700 px, 24.10.).
-            KanteComboBox {
-                Accessible.name: texts.t("exercises.kind")
-                width: KanteStyle.unit(220)
-                model: page.kinds.map(function(k) { return texts.t("exercises.kind." + k) })
-                currentIndex: page.kind
-                onActivated: function(index) { page.kind = index; page.variant = 0 }
+            // The "?" before the list, so the lists stay flush right.
+            Row {
+                spacing: KanteStyle.unit(8)
+                TermTip {
+                    anchors.verticalCenter: parent.verticalCenter
+                    topic: "kind." + page.kinds[page.kind]
+                }
+                KanteComboBox {
+                    Accessible.name: texts.t("exercises.kind")
+                    width: KanteStyle.unit(220)
+                    model: page.kinds.map(function(k) { return texts.t("exercises.kind." + k) })
+                    currentIndex: page.kind
+                    onActivated: function(index) { page.kind = index; page.variant = 0 }
+                }
             }
         }
         KanteSettingRow {
@@ -181,18 +198,28 @@ Kirigami.ScrollablePage {
             title: page.isScale ? texts.t("exercises.scale")
                 : page.isFingers ? texts.t("exercises.fingers")
                 : page.isSong ? texts.t("exercises.style") : texts.t("exercises.progression")
-            KanteComboBox {
-                Accessible.name: variantRow.title
-                width: KanteStyle.unit(220)
-                model: page.isScale
-                    ? page.scales.map(function(s) { return texts.t("exercises.scale." + s) })
-                    : page.isFingers
-                        ? page.fingerOrders.map(function(f) { return f.split("").join("-") })
-                    : page.isSong
-                        ? page.styles.map(function(s) { return texts.t("exercises.style." + s) })
-                        : page.progressions.map(function(p) { return texts.t("exercises.progression." + p) })
-                currentIndex: page.variant
-                onActivated: function(index) { page.variant = index }
+            Row {
+                spacing: KanteStyle.unit(8)
+                TermTip {
+                    anchors.verticalCenter: parent.verticalCenter
+                    topic: page.isScale ? "scale." + page.scales[page.variant]
+                        : page.isFingers ? ""
+                        : page.isSong ? "style." + page.styles[page.variant]
+                        : "progression." + page.progressions[page.variant]
+                }
+                KanteComboBox {
+                    Accessible.name: variantRow.title
+                    width: KanteStyle.unit(220)
+                    model: page.isScale
+                        ? page.scales.map(function(s) { return texts.t("exercises.scale." + s) })
+                        : page.isFingers
+                            ? page.fingerOrders.map(function(f) { return f.split("").join("-") })
+                        : page.isSong
+                            ? page.styles.map(function(s) { return texts.t("exercises.style." + s) })
+                            : page.progressions.map(function(p) { return texts.t("exercises.progression." + p) })
+                    currentIndex: page.variant
+                    onActivated: function(index) { page.variant = index }
+                }
             }
         }
         KanteSettingRow {
@@ -223,12 +250,19 @@ Kirigami.ScrollablePage {
             visible: page.kinds[page.kind] === "groove"
             title: texts.t("exercises.rhythm")
             hint: texts.t("exercises.rhythm.hint")
-            KanteComboBox {
-                Accessible.name: texts.t("exercises.rhythm")
-                width: KanteStyle.unit(220)
-                model: page.rhythms.map(function(r) { return texts.t("exercises.rhythm." + r) })
-                currentIndex: page.rhythm
-                onActivated: function(index) { page.rhythm = index }
+            Row {
+                spacing: KanteStyle.unit(8)
+                TermTip {
+                    anchors.verticalCenter: parent.verticalCenter
+                    topic: "rhythm." + page.rhythms[page.rhythm]
+                }
+                KanteComboBox {
+                    Accessible.name: texts.t("exercises.rhythm")
+                    width: KanteStyle.unit(220)
+                    model: page.rhythms.map(function(r) { return texts.t("exercises.rhythm." + r) })
+                    currentIndex: page.rhythm
+                    onActivated: function(index) { page.rhythm = index }
+                }
             }
         }
         KanteSettingRow {

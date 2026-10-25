@@ -23,6 +23,73 @@ const REVIEW_MAX: usize = 10;
 /// Link target prefix of a glossary term in lesson HTML: `<a href="term:septime">`.
 const TERM_LINK: &str = "term:";
 
+/// Places outside the lessons with a glossary term behind their "?" (LH-LRN-09): generator
+/// choices (`kind.`, `scale.`, `progression.`, `rhythm.`, `style.`), exercise goals (`goal.`),
+/// technique signs (`technique.`, as `technique_key`) and figures of the evaluation (`summary.`).
+const TOPIC_TERMS: &[(&str, &str)] = &[
+    ("kind.scale", "tonleiter"),
+    ("kind.arpeggio", "arpeggio"),
+    ("kind.triads", "dreiklang"),
+    ("kind.walking", "walking-bass"),
+    ("kind.chromatic", "fingersatz"),
+    ("kind.song", "form"),
+    ("scale.major", "dur"),
+    ("scale.minor", "moll"),
+    ("scale.majorpenta", "pentatonik"),
+    ("scale.minorpenta", "pentatonik"),
+    ("progression.251", "zwei-fuenf-eins"),
+    ("progression.minor251", "zwei-fuenf-eins"),
+    ("progression.145", "stufe"),
+    ("progression.blues", "stufe"),
+    ("progression.pop", "akkordfolge"),
+    ("progression.1625", "akkordfolge"),
+    ("progression.minor", "moll"),
+    ("rhythm.quarters", "viertel"),
+    ("rhythm.eighths", "achtel"),
+    ("rhythm.sixteenths", "sechzehntel"),
+    ("rhythm.rests", "pause"),
+    ("rhythm.shuffle", "shuffle"),
+    ("rhythm.octaves", "oktave"),
+    ("rhythm.ghost", "ghost-note"),
+    ("rhythm.dead", "dead-note"),
+    ("rhythm.rootfifth", "quinte"),
+    ("rhythm.rootfifthoctave", "quinte"),
+    ("rhythm.offbeat", "synkope"),
+    ("rhythm.tresillo", "synkope"),
+    ("rhythm.triplets", "triole"),
+    ("rhythm.slap", "slap"),
+    ("rhythm.34", "taktart"),
+    ("rhythm.68", "taktart"),
+    ("rhythm.54", "taktart"),
+    ("rhythm.78", "taktart"),
+    ("style.shuffle", "shuffle"),
+    ("goal.pulse", "zaehlzeit"),
+    ("goal.rests", "pause"),
+    ("goal.syncopation", "synkope"),
+    ("goal.chordtones", "akkord"),
+    ("goal.sixteenths", "sechzehntel"),
+    ("goal.triplets", "triole"),
+    ("goal.meter", "taktart"),
+    ("goal.slap", "slap"),
+    ("goal.scale", "tonleiter"),
+    ("goal.modes", "tonleiter"),
+    ("goal.reading", "tonart"),
+    ("goal.ramp", "bpm"),
+    ("goal.walking", "walking-bass"),
+    ("goal.fingers", "fingersatz"),
+    ("goal.timing", "streuung"),
+    ("goal.form", "form"),
+    ("technique.slide", "slide"),
+    ("technique.hammer", "hammer-on"),
+    ("technique.pull", "pull-off"),
+    ("technique.slap", "slap"),
+    ("technique.pop", "slap"),
+    ("technique.ghost", "ghost-note"),
+    ("technique.dead", "dead-note"),
+    ("summary.pocket", "pocket"),
+    ("summary.spread", "streuung"),
+];
+
 impl Core {
     /// The bundled lessons seen through the current instrument profile; `None` only if the
     /// embedded files are broken (a test guards that).
@@ -151,6 +218,34 @@ impl Core {
             .flat_map(|p| p.blocks.iter().map(|b| self.block_json(b)))
             .collect();
         json!({ "id": term.id, "title": doc.title, "blocks": blocks, "lesson": lesson }).to_string()
+    }
+
+    /// The term behind a place's "?" (`TOPIC_TERMS`): `{"id", "title", "text"}`, the text its
+    /// first paragraph for the tooltip; "" without a term or for a term of another instrument.
+    pub fn term_json(&self, topic: &str) -> String {
+        let Some((_, id)) = TOPIC_TERMS.iter().find(|(t, _)| *t == topic) else {
+            return String::new();
+        };
+        let Some(learning) = self.learning() else {
+            return String::new();
+        };
+        let Some(term) = learning.term(id).filter(|t| learning.fits(&t.scope)) else {
+            return String::new();
+        };
+        let Some(doc) = learning.doc(&term.texts, self.learn_lang()) else {
+            return String::new();
+        };
+
+        let text = doc
+            .pages
+            .iter()
+            .flat_map(|p| p.blocks.iter())
+            .find_map(|b| match b {
+                Block::Text(spans) => Some(plain(spans)),
+                _ => None,
+            })
+            .unwrap_or_default();
+        json!({ "id": term.id, "title": doc.title, "text": text }).to_string()
     }
 
     /// All terms for this instrument, by name: `[{"id", "title"}]`.
@@ -646,6 +741,30 @@ mod tests {
             .unwrap()
             .iter()
             .any(|t| t["id"] == "viertel"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn every_topic_has_its_term() {
+        let (core, dir) = core("topics");
+        for (topic, id) in TOPIC_TERMS {
+            let term = parse(&core.term_json(topic));
+            assert_eq!(term["id"], *id, "{topic}");
+            assert_ne!(term["text"], "", "{topic}");
+        }
+        let walking = parse(&core.term_json("kind.walking"));
+        assert_eq!(walking["title"], "Walking Bass");
+        assert_eq!(core.term_json("kind.groove"), "", "no term, no \"?\"");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn every_bundled_goal_has_a_term() {
+        let (core, dir) = core("goals");
+        for (_, spec) in exercise::bundled_specs() {
+            let goal = exercise::describe(&spec).goal;
+            assert_ne!(core.term_json(&format!("goal.{goal}")), "", "{goal}");
+        }
         let _ = std::fs::remove_dir_all(dir);
     }
 

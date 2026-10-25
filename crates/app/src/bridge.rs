@@ -577,6 +577,11 @@ pub mod qobject {
         #[cxx_name = "glossaryListJson"]
         fn glossary_list_json(self: &Self) -> QString;
 
+        /// The term behind a "?" outside the lessons, see `Core::term_json`.
+        #[qinvokable]
+        #[cxx_name = "termJson"]
+        fn term_json(self: &Self, topic: &QString) -> QString;
+
         /// Fretboard quiz (LH-LRN-02): "notes" or "intervals"; returns the question JSON.
         #[qinvokable]
         #[cxx_name = "quizStart"]
@@ -2255,6 +2260,10 @@ impl qobject::Controller {
 
     fn glossary_list_json(&self) -> QString {
         q(&self.rust().core.glossary_list_json())
+    }
+
+    fn term_json(&self, topic: &QString) -> QString {
+        q(&self.rust().core.term_json(&topic.to_string()))
     }
 
     fn quiz_start(mut self: Pin<&mut Self>, kind: &QString) -> QString {

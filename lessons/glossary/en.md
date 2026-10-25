@@ -197,7 +197,7 @@ The notes of a chord played one after another instead of together.
 ## Seventh chord
 id: septakkord
 lesson: septakkord
-Triad with a seventh: maj7 (major seventh), 7 (major with minor seventh), m7 (minor with minor seventh).
+[[dreiklang|Triad]] with a [[septime|seventh]]: maj7 (major seventh), 7 (major with minor seventh), m7 (minor with minor seventh).
 
 ## Degree
 id: stufe
@@ -329,7 +329,7 @@ A note outside the chord that leads to the next note, often a half step beside i
 ## II-V-I
 id: zwei-fuenf-eins
 lesson: zwei-fuenf-eins
-Progression of degrees II, V and I, such as Dm7, G7, Cmaj7. The most common turn in jazz.
+Progression of degrees II, V and I, such as the [[septakkord|seventh chords]] Dm7, G7, Cmaj7. The most common turn in jazz.
 
 ## Pocket
 id: pocket
