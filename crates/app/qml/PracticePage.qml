@@ -109,6 +109,16 @@ Kirigami.Page {
         var item = applicationWindow().activeFocusItem
         return !(item && item.hasOwnProperty("cursorPosition"))
     }
+    // A number typed into a field (bars, tempo) ends with Return or Escape: the keys go back to
+    // the page; before, K and the foot switch stayed dead (QA 27.10., P2 Jens).
+    Shortcut {
+        sequences: ["Return", "Enter", "Escape"]
+        enabled: !page.keysFree
+        onActivated: keySink.forceActiveFocus()
+    }
+    // The page is a focus scope: focused itself, it hands the focus back to the field.
+    Item { id: keySink }
+
     // Foot switches emulate a keyboard and mostly send PageDown/PageUp: play and rewind.
     Shortcut { sequences: ["K", "PgDown"]; enabled: page.keysFree; onActivated: ctl.togglePlay() }
     Shortcut { sequence: "N"; enabled: page.keysFree && ctl.nextTitle !== ""; onActivated: ctl.openNext() }
