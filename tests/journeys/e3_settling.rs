@@ -44,13 +44,32 @@ fn rising_line() -> Vec<f32> {
 
 #[test]
 fn flat_starts_turn_into_hits() {
-    let profile = Profile::new("e3");
+    settles_into_hits("e3", |_| {});
+}
+
+/// QA 27.10. (P3 Mira): with the strict window, five strings or fretless the flat starts stayed
+/// wrong (0 %); the settling must not depend on them.
+#[test]
+fn flat_starts_turn_into_hits_when_strict() {
+    settles_into_hits("e3-strict", |s| s.strictness = "strict".into());
+}
+
+#[test]
+fn flat_starts_turn_into_hits_on_five_fretless_strings() {
+    settles_into_hits("e3-fretless", |s| {
+        s.fretless = true;
+    });
+}
+
+fn settles_into_hits(name: &str, choose: impl FnOnce(&mut kontra_appcore::Settings)) {
+    let profile = Profile::new(name);
     let score = profile.dir.join("Walking.mid");
     write_midi(&score, "Walking", &LINE);
     let take = profile.dir.join("einschwingen.wav");
     kontra_session::write_mono_wav(&take, &rising_line(), RATE).unwrap();
 
     let mut core = profile.core(Some(&take));
+    core.update_settings(choose);
     core.open(&score).unwrap();
     core.set_mode("song");
     core.play();
