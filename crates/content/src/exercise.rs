@@ -14,7 +14,7 @@
 mod plan;
 mod song;
 
-pub use plan::{bundled, bundled_specs};
+pub use plan::{bundled, bundled_specs, plan_place};
 pub use song::{Level, Style};
 
 use kontra_model::{Judging, Technique};
@@ -1735,6 +1735,24 @@ fn file_name(title: &str) -> String {
 mod tests {
     use super::*;
     use crate::{import_bytes, FileKind};
+
+    #[test]
+    fn level_1_order_holds_every_level_1_exercise() {
+        let level_1: Vec<usize> = bundled_specs()
+            .iter()
+            .enumerate()
+            .filter(|(_, (level, _))| level.starts_with("1 "))
+            .map(|(i, _)| i + 1)
+            .collect();
+        let mut placed = level_1.clone();
+        placed.sort_by_key(|&n| plan_place(n));
+
+        // The order holds exactly the level-1 files; the pulse comes first, scales last.
+        let places: Vec<usize> = placed.iter().map(|&n| plan_place(n).0).collect();
+        assert_eq!(places, (0..level_1.len()).collect::<Vec<_>>());
+        assert_eq!(&placed[..5], &[1, 2, 3, 46, 52]);
+        assert_eq!(placed.last(), Some(&8));
+    }
 
     fn spec(kind: ExerciseKind, key: u8) -> ExerciseSpec {
         ExerciseSpec {

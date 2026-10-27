@@ -2992,8 +2992,12 @@ impl Core {
                             .collect()
                     })
                     .unwrap_or_default();
-                // By plan number: "100 …" comes after "99 …" (a plain sort puts it first).
-                files.sort_by_key(|f| plan_number(f));
+                // By plan place: "100 …" comes after "99 …" (a plain sort puts it first), level 1
+                // in learning order.
+                files.sort_by_key(|f| {
+                    let (number, path) = plan_number(f);
+                    (exercise::plan_place(number), path)
+                });
                 let items: Vec<_> = files
                     .iter()
                     .map(|f| {
@@ -5508,9 +5512,10 @@ mod tests {
             "{levels:?}"
         );
         // The list goes level by level; appended exercises sit in earlier levels.
-        let mut bundled = exercise::bundled();
-        bundled.sort_by_key(|(level, ..)| *level);
-        for ((_, file, ex), title) in bundled.iter().zip(&items) {
+        // Inside a level in plan place (level 1 in learning order).
+        let mut bundled: Vec<_> = exercise::bundled().into_iter().enumerate().collect();
+        bundled.sort_by_key(|(i, (level, ..))| (*level, exercise::plan_place(i + 1)));
+        for ((_, (_, file, ex)), title) in bundled.iter().zip(&items) {
             // German: B is H, B♭ is B.
             let german = ex.title.replace("in B ", "in H ").replace("in Bb", "in B");
             let german = ["Eb", "Ab", "Db", "Gb"]
