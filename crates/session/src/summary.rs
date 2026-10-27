@@ -12,6 +12,8 @@ const HISTOGRAM_LIMIT_MS: f64 = 100.0;
 const HARDEST_BARS: usize = 3;
 /// A bar's first note this much later than the player's own mean is a hesitation.
 const HESITATE_MS: f64 = 80.0;
+/// A played note this close (real ms) to a missed one counts as that note outside the window.
+const OUTSIDE_LIMIT_MS: f64 = 150.0;
 
 /// Counts of timing offsets in 10 ms bins from −100 to +100 ms; outliers go to the edge bins.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -70,6 +72,10 @@ pub struct Summary {
     /// Techniques in the score this input cannot tell (slap and pop at a microphone).
     #[serde(default)]
     pub untold_techniques: Vec<Technique>,
+    /// Median offset in real ms of the notes played next to missed ones, when most missed notes
+    /// have one: the timing outside the window (`outside_offset_ms`).
+    #[serde(default)]
+    pub outside_offset_ms: Option<f64>,
 }
 
 impl Summary {
@@ -120,8 +126,41 @@ impl Summary {
             hesitant_bars: hesitant_bars(&final_results, mean_offset.unwrap_or(0.0)),
             techniques: Vec::new(),
             untold_techniques: Vec::new(),
+            outside_offset_ms: None,
         }
     }
+}
+
+/// Where the notes fell that missed the timing window: for each missed note the nearest extra
+/// note of its pass within `OUTSIDE_LIMIT_MS`, the median of their offsets in real ms (score
+/// seconds / `speed`; negative = early). `None` unless at least half the missed notes have one.
+/// Example: window ±25 ms, every note 40 ms early → all missed, −40.
+pub(crate) fn outside_offset_ms(results: &[NoteResult], speed: f64) -> Option<f64> {
+    let speed = speed.max(f64::EPSILON);
+    let missed: Vec<NoteResult> = final_per_note(results)
+        .into_iter()
+        .filter(|r| matches!(r.outcome, Outcome::Missed))
+        .collect();
+    let extras: Vec<&NoteResult> = results
+        .iter()
+        .filter(|r| matches!(r.outcome, Outcome::Extra { .. }))
+        .collect();
+    let mut offsets: Vec<f64> = missed
+        .iter()
+        .filter_map(|m| {
+            extras
+                .iter()
+                .filter(|e| e.pass == m.pass)
+                .map(|e| (e.position_s - m.position_s) * 1000.0 / speed)
+                .filter(|ms| ms.abs() <= OUTSIDE_LIMIT_MS)
+                .min_by(|a, b| a.abs().total_cmp(&b.abs()))
+        })
+        .collect();
+    if missed.is_empty() || offsets.len() * 2 < missed.len() {
+        return None;
+    }
+    offsets.sort_by(f64::total_cmp);
+    Some(offsets[offsets.len() / 2])
 }
 
 /// In Wait mode a note can have several attempts; the last result per (pass, note) counts.
@@ -226,6 +265,33 @@ mod tests {
                 position_s: i as f64 * 0.5,
             })
             .collect()
+    }
+
+    /// QA 27.10. (P3 Mira, M2): a strict window and every note 40 ms early read "0 % hit,
+    /// 128 missed" with no word of the timing. The missed notes' nearest played notes tell it.
+    #[test]
+    fn notes_outside_the_window_tell_their_offset() {
+        let missed = (Outcome::Missed, None);
+        let mut results = played(&[missed, missed, missed, missed]);
+        let extra = |at: f64| NoteResult {
+            pass: 0,
+            note: None,
+            bar: None,
+            outcome: Outcome::Extra { played_midi: 40.0 },
+            offset_ms: None,
+            cents: None,
+            position_s: at,
+        };
+        // Played 40 ms early at full speed; at half speed the same gap in the score is 20 ms.
+        results.extend([0.0, 0.5, 1.0, 1.5].map(|at| extra(at - 0.040)));
+        let early = outside_offset_ms(&results, 1.0).expect("an offset");
+        assert!((early + 40.0).abs() < 1e-6, "{early}");
+        let slow = outside_offset_ms(&results, 0.5).expect("an offset");
+        assert!((slow + 80.0).abs() < 1e-6, "{slow}");
+
+        // Nothing played near the missed notes: nothing to tell.
+        let far = played(&[missed, missed]);
+        assert_eq!(outside_offset_ms(&far, 1.0), None);
     }
 
     #[test]

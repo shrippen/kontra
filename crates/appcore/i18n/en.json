@@ -46,6 +46,8 @@
   "summary.counts": "{hits} of {judged} · {wrong} wrong · {missed} missed",
   "summary.early": "mostly {ms} ms early",
   "summary.late": "mostly {ms} ms late",
+  "summary.outside.early": "mostly {ms} ms early, outside the timing window",
+  "summary.outside.late": "mostly {ms} ms late, outside the timing window",
   "summary.pocket.held": "Aim {aim}: held",
   "summary.pocket.early": "Aim {aim}: missed, {ms} ms too early",
   "summary.pocket.late": "Aim {aim}: missed, {ms} ms too late",

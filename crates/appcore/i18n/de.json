@@ -46,6 +46,8 @@
   "summary.counts": "{hits} von {judged} · {wrong} falsch · {missed} ausgelassen",
   "summary.early": "meist {ms} ms zu früh",
   "summary.late": "meist {ms} ms zu spät",
+  "summary.outside.early": "meist {ms} ms zu früh, außerhalb des Zeitfensters",
+  "summary.outside.late": "meist {ms} ms zu spät, außerhalb des Zeitfensters",
   "summary.pocket.held": "Ziel {aim}: gehalten",
   "summary.pocket.early": "Ziel {aim}: verfehlt, {ms} ms zu früh",
   "summary.pocket.late": "Ziel {aim}: verfehlt, {ms} ms zu spät",
