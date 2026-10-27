@@ -80,6 +80,7 @@ impl AppArgs {
         };
         let mut args = args.peekable();
         while let Some(arg) = args.next() {
+            let arg = single_dash(arg);
             let mut value = || args.next().unwrap_or_default();
             match arg.as_str() {
                 "--open" => out.open = Some(PathBuf::from(value())),
@@ -116,8 +117,7 @@ impl AppArgs {
                 }
                 // Qt's own options with a value (QGuiApplication reads them too): the value is
                 // not a file to open.
-                "-qwindowgeometry" | "-geometry" | "-platform" | "-platformtheme" | "-plugin"
-                | "-qwindowtitle" | "-qwindowicon" | "-style" | "-stylesheet" | "-display" => {
+                other if QT_VALUED.contains(&other) => {
                     let _ = value();
                 }
                 "--help" | "-h" => out.help = true,
@@ -137,6 +137,38 @@ impl AppArgs {
     }
 }
 
+/// Qt's own options that take a value.
+const QT_VALUED: [&str; 10] = [
+    "-qwindowgeometry",
+    "-geometry",
+    "-platform",
+    "-platformtheme",
+    "-plugin",
+    "-qwindowtitle",
+    "-qwindowicon",
+    "-style",
+    "-stylesheet",
+    "-display",
+];
+
+/// Qt's own options without a value.
+const QT_FLAGS: [&str; 5] = ["-reverse", "-nograb", "-dograb", "-sync", "-widgetcount"];
+
+/// Qt reads its options with two dashes too ("--platform offscreen"): those become the
+/// one-dash form, so they pass like Qt's and are not unknown.
+fn single_dash(arg: String) -> String {
+    let Some(short) = arg.strip_prefix('-') else {
+        return arg;
+    };
+    if !short.starts_with('-') {
+        return arg;
+    }
+    if QT_VALUED.contains(&short) || QT_FLAGS.contains(&short) {
+        return short.to_string();
+    }
+    arg
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -150,8 +182,11 @@ mod tests {
         assert_eq!(parse(&["--bogus"]).unknown, Some("--bogus".into()));
         assert_eq!(parse(&["--language", "de"]).unknown, None);
         assert_eq!(parse(&["--focus-log"]).unknown, None);
-        // Qt's own single-dash options pass.
+        // Qt's own options pass, with one dash or two; their values are no file.
         assert_eq!(parse(&["-reverse"]).unknown, None);
+        let qt = parse(&["--platform", "offscreen", "--reverse", "song.gp5"]);
+        assert_eq!(qt.unknown, None);
+        assert_eq!(qt.open, Some(PathBuf::from("song.gp5")));
     }
 
     #[test]

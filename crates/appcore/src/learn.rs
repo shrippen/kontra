@@ -819,7 +819,7 @@ mod tests {
             .iter()
             .filter_map(|t| t["title"].as_str())
             .collect();
-        let at = |name: &str| titles.iter().position(|t| *t == name);
+        let at = |name: &str| titles.iter().position(|t| *t == name).expect(name);
         assert!(at("Dämpfen") < at("Durchgangston"), "{titles:?}");
         let _ = std::fs::remove_dir_all(dir);
     }
