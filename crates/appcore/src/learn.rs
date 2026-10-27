@@ -303,7 +303,7 @@ impl Core {
         // A term several courses explain is one entry, under its first (bundled) name.
         let mut seen = std::collections::BTreeSet::new();
         terms.retain(|(_, id)| seen.insert(id.clone()));
-        terms.sort_by_key(|(title, _)| title.to_lowercase());
+        terms.sort_by_key(|(title, _)| sort_key(title));
         let list: Vec<Value> = terms
             .into_iter()
             .map(|(title, id)| json!({ "id": id, "title": title }))
@@ -781,6 +781,16 @@ fn escape(text: &str) -> String {
         .replace('"', "&quot;")
 }
 
+/// Dictionary order: umlauts sort with their base letter, ß as ss ("Dämpfen" before "Durch…").
+fn sort_key(title: &str) -> String {
+    title
+        .to_lowercase()
+        .replace('ä', "a")
+        .replace('ö', "o")
+        .replace('ü', "u")
+        .replace('ß', "ss")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -796,6 +806,22 @@ mod tests {
 
     fn parse(text: &str) -> Value {
         text.parse().unwrap()
+    }
+
+    /// German puts umlauts with their base letter: "Dämpfen" before "Durchgangston" (QA 27.10.).
+    #[test]
+    fn glossary_sorts_umlauts_with_their_letter() {
+        let (core, dir) = core("umlauts");
+        let list = parse(&core.glossary_list_json());
+        let titles: Vec<&str> = list
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|t| t["title"].as_str())
+            .collect();
+        let at = |name: &str| titles.iter().position(|t| *t == name);
+        assert!(at("Dämpfen") < at("Durchgangston"), "{titles:?}");
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

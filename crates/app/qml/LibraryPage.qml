@@ -175,6 +175,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             visible: JSON.parse(ctl.recentJson).length > 5
             placeholderText: texts.t("library.search")
+            Accessible.name: texts.t("library.search")
             onTextChanged: page.query = text
         }
         QQC2.Label {

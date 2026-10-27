@@ -361,6 +361,7 @@ Kirigami.Page {
             visible: !page.presenting
             spacing: KanteStyle.unit(12)
             KanteSegmented {
+                Accessible.name: texts.t("mode.title")
                 model: page.modes.map(function(m) { return texts.t("mode." + m) })
                 tooltips: page.modes.map(function(m) { return texts.t("mode." + m + ".hint") })
                 currentIndex: Math.max(0, page.modes.indexOf(ctl.mode))
@@ -368,6 +369,7 @@ Kirigami.Page {
             }
             KanteSegmented {
                 visible: !page.viewsAsList
+                Accessible.name: texts.t("view.title")
                 model: page.views.map(function(v) { return texts.t("view." + v) })
                 currentIndex: Math.max(0, page.views.indexOf(ctl.view))
                 onActivated: function(index) { ctl.changeView(page.views[index]) }
@@ -1086,7 +1088,9 @@ Kirigami.Page {
                 Layout.preferredHeight: meter.implicitHeight
                 verticalAlignment: Text.AlignVCenter
                 wrapMode: Text.WordWrap
-                text: parent.midi ? texts.t("level.midi") : texts.t("level.idle")
+                // No keyboard plugged in: say so instead of "Kontra reads the keys" (QA 27.10., P5).
+                text: !parent.midi ? texts.t("level.idle")
+                    : ctl.midiPortName === "" ? texts.t("level.midi.none") : texts.t("level.midi")
                 color: KanteStyle.mutedTextColor
             }
             KanteLevelMeter {
