@@ -42,6 +42,18 @@ enum Step {
     Eighths,
 }
 
+/// Learning order of level 1 where it differs from the numbers (appended files keep theirs):
+/// the pulse on open strings, roots, root and fifth, the fretting hand, then scales (DIDAKTIK
+/// I4; QA 27.10.: the timing-only grooves 46 and 52 came after the scales).
+const LEVEL_1_ORDER: [usize; 16] = [1, 2, 3, 46, 52, 47, 4, 49, 48, 53, 50, 5, 6, 51, 7, 8];
+
+/// Sort key of bundled exercise `number` inside its level: level 1 in learning order, the
+/// others by number.
+pub fn plan_place(number: usize) -> (usize, usize) {
+    let place = LEVEL_1_ORDER.iter().position(|&n| n == number);
+    (place.unwrap_or(LEVEL_1_ORDER.len()), number)
+}
+
 /// The bundled set (LH-BIB-08): (level folder, file name, exercise), easiest first.
 pub fn bundled() -> Vec<(&'static str, String, Exercise)> {
     bundled_specs()
