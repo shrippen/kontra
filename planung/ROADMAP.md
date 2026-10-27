@@ -350,8 +350,8 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
     Oktavzahl; M16 Gehör-Versuchsliste unbegrenzt; M18 Laid-back-Hilfe ohne ms.
 - **P4 Thomas (J-B5, J-D2, J-G4, J-G6): bestanden nach Befunden; J-D2 nicht prüfbar (Portal-Dialog).**
   - M20 (mittel, Entscheidung): „Kante Light“ bleibt bei dunklem System dunkel (LH-ALL-02).
-  - M21 (mittel, offen): Bei 853 px fehlt der Präsentations-Knopf; nur F5 hilft.
-  - M22 (mittel, offen): Nach Esc aus der Präsentation fehlt die Seitenleiste, Noten bleiben klein.
+  - M21 (mittel, behoben #145): Bei 853 px fehlte der Präsentations-Knopf; nur F5 half.
+  - M22 (mittel, behoben #145): Nach Esc aus der Präsentation fehlte die Seitenleiste.
   - M24 (niedrig, offen): Dieselbe Etüde doppelt in der Bibliothek (zwei Pfade).
   - M25 (mittel, Entscheidung): `.kontra` ohne Loops und Zieltempo, trägt den Fortschritt der Lehrkraft.
   - M26 (mittel, Entscheidung): Kurs nur per CLI anlegbar, Platzhalter „Mein Kurs“ besteht die Prüfung.
@@ -364,7 +364,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - J4 (niedrig, offen): Bibliothek zeigt den internen GP-Titel („001“) statt des Dateinamens, kein Umbenennen.
   - J7 (mittel, behoben #142): Nach Eingabe in „Takte“ blieben K und Fußschalter tot; Return/Esc geben frei.
   - J8 (mittel, offen): „Ohne Hilfe prüfen“ fließt in Werkstatt-Durchläufe und Dichte-Vorschlag ein.
-  - J9 (mittel, offen): Erzeugtes Stück erbt Loop und Tempo des vorigen.
+  - J9 (mittel, behoben #146): Erzeugtes Stück erbte Loop und Tempo des vorigen.
   - J10 (mittel, offen): Erzeugtes Stück ohne Teilnamen; „Rock in E“ mit maj7-Akkorden.
   - J11 (mittel, Inhalt): Glossar ohne Abbildungen und Hörbeispiele.
   - Offen (niedrig): J1b englischer Rohfehler im Kurs-Satz; J5 Mithör-Hinweis ohne ms; J6 Lane 45 px bei Mixer,
