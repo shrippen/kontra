@@ -1299,9 +1299,20 @@ fn even_line(degrees: &[i32], root: i32, step: u32) -> (Vec<Tone>, u32) {
     let end = tones.len() as u32 * step;
     let length = end.div_ceil(BAR) * BAR;
     if let Some(last) = tones.last_mut() {
-        last.length = length - last.start;
+        last.length = held(last.start, length);
     }
     (tones, length)
+}
+
+/// The longest plain value a closing tone at `start` can hold before `end`, starting on a
+/// multiple of itself, so the staff writes it as one note and rests fill the bar.
+/// Example: a tone on the second eighth of the last bar → an eighth (seven eighths before).
+fn held(start: u32, end: u32) -> u32 {
+    let offset = start % BAR;
+    [BAR, BAR / 2, QUARTER, EIGHTH, SIXTEENTH]
+        .into_iter()
+        .find(|v| *v <= end - start && offset.is_multiple_of(*v))
+        .unwrap_or(end - start)
 }
 
 /// A scale pattern in eighths over one octave: thirds (1-3 2-4 … up, 8-6 7-5 … down, then the
@@ -1864,6 +1875,28 @@ mod tests {
         // Down in thirds to the root, which comes once (review #62: twice before).
         assert_eq!(line[line.len() - 4..], [41, 38, 40, 36]);
         assert_eq!(e.title, "Dur-Tonleiter in Terzen in C (90 BPM)");
+    }
+
+    #[test]
+    fn scale_lines_end_on_a_written_value() {
+        // Sixteenths a staff writes as one note: plain or dotted, sixteenth to whole.
+        const WRITTEN: [u64; 8] = [1, 2, 3, 4, 6, 8, 12, 16];
+        let sixteenth = kontra_model::TICKS_PER_QUARTER / 4;
+        let kinds = ScaleKind::ALL.into_iter().flat_map(|s| {
+            let sequences = Sequence::ALL.map(|q| ExerciseKind::Sequence(s, q));
+            std::iter::once(ExerciseKind::Scale(s)).chain(sequences)
+        });
+        for kind in kinds {
+            for key in 0..12 {
+                let a = arrangement(&generate(&spec(kind, key)));
+                for n in &a.notes {
+                    // The file ends each tone 1/16 of its length early (articulation).
+                    let ticks = n.duration_ticks as f64 * 16.0 / 15.0;
+                    let value = (ticks / sixteenth as f64).round() as u64;
+                    assert!(WRITTEN.contains(&value), "{kind:?} in {key}: {value}/16");
+                }
+            }
+        }
     }
 
     #[test]
