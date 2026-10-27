@@ -36,7 +36,7 @@
   "result.late": "late",
   "waiting.for": "Play {note} – {string} string, fret {fret}.",
   "summary.title": "Summary",
-  "summary.next.tier": "Mastered",
+  "summary.next.tier": "Mastered · up next",
   "summary.next.text": "This run was above 90 %; this is the next exercise in the plan.",
   "summary.next.play": "Next exercise",
   "summary.ready": "Done. Saved to your progress.",

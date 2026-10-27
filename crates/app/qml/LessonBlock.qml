@@ -45,6 +45,7 @@ ColumnLayout {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             textFormat: Text.StyledText
+            linkColor: KanteStyle.infoColor
             color: KanteStyle.textColor
             text: (block.kindName === "list" ? "• " : "") + modelData
             onLinkActivated: function(target) { block.link(target) }
@@ -70,7 +71,8 @@ ColumnLayout {
     }
     KanteFretboard {
         Layout.fillWidth: true
-        Layout.preferredHeight: Math.max(KanteStyle.unit(120), Math.min(KanteStyle.unit(200), width / 5))
+        // Two try-outs fit one laptop screen (J-G1; QA 27.10.: 1366×768 scrolled at 200 each).
+        Layout.preferredHeight: Math.max(KanteStyle.unit(110), Math.min(KanteStyle.unit(150), width / 7))
         visible: block.modelData.positions !== undefined && block.modelData.positions.length > 0
         strings: block.stringNames.length
         stringNames: block.stringNames
@@ -193,6 +195,7 @@ ColumnLayout {
         visible: block.kindName === "question"
         wrapMode: Text.WordWrap
         textFormat: Text.StyledText
+        linkColor: KanteStyle.infoColor
         color: KanteStyle.strongTextColor
         text: block.kindName === "question" ? block.modelData.html : ""
         onLinkActivated: function(target) { block.link(target) }

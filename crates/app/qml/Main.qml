@@ -113,6 +113,8 @@ Kirigami.ApplicationWindow {
     readonly property bool systemReducesMotion: Kirigami.Units.longDuration === 0
     Binding { target: KanteStyle; property: "motion"; value: ctl.motion !== "reduce" }
     KanteScope { target: root.contentItem }
+    // Its labels take the highlighted text colour from Kirigami's theme.
+    KanteScope { target: root.globalDrawer ? root.globalDrawer.contentItem : null }
     color: KanteStyle.themed ? KanteStyle.backgroundColor : Kirigami.Theme.backgroundColor
 
     // The lesson open on the lesson page and its step, kept while the tuner or an exercise runs.
@@ -186,6 +188,10 @@ Kirigami.ApplicationWindow {
         handleVisible: !root.presenting && modal
         collapsible: true
         collapsed: !root.wideScreen
+        // A popup outside the content: it marked the page in the desktop's highlight colour
+        // (QA 27.10.: green). Kante's selection colour, as on segmented buttons.
+        palette.highlight: KanteStyle.themed ? KanteStyle.accentColor : root.palette.highlight
+        palette.highlightedText: KanteStyle.themed ? KanteStyle.accentForegroundColor : root.palette.highlightedText
         // Grouped by what the player does: start; play pieces; learn; look back; tools. Setup lives
         // in the settings and on the start page.
         actions: [

@@ -36,7 +36,7 @@
   "result.late": "zu spät",
   "waiting.for": "Spiel {note} – {string}-Saite, Bund {fret}.",
   "summary.title": "Auswertung",
-  "summary.next.tier": "Sitzt",
+  "summary.next.tier": "Sitzt · als Nächstes",
   "summary.next.text": "Dieser Lauf lag über 90 %; das ist die nächste Übung im Plan.",
   "summary.next.play": "Nächste Übung",
   "summary.ready": "Fertig gespielt. Gespeichert ist es in deinem Fortschritt.",
