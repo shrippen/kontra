@@ -20,6 +20,8 @@ Kirigami.ScrollablePage {
 
     Component.onCompleted: ctl.refreshDevices()
     onStepChanged: {
+        // Each step starts at its top (QA 27.10.: at 150 % the next step opened scrolled down).
+        flickable.contentY = 0
         // Level and tuning listen to the input; other steps leave it alone.
         if (steps[step] === "level") {
             ctl.startTuner()

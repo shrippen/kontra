@@ -16,6 +16,12 @@ KanteCard {
     signal practiceBar(int bar)
 
     function open() { visible = true }
+    // The keyboard starts in the sheet, on "close" (QA 27.10., P7).
+    onVisibleChanged: {
+        if (visible) {
+            closeButton.forceActiveFocus(Qt.TabFocusReason)
+        }
+    }
     function close() { visible = false }
 
     visible: false
@@ -48,7 +54,7 @@ KanteCard {
         RowLayout {
             Layout.fillWidth: true
             KanteHeading { text: texts.t("summary.title"); Layout.fillWidth: true }
-            KanteButton { text: texts.t("summary.close"); emphasis: KanteButton.Emphasis.Quiet; onClicked: sheet.close() }
+            KanteButton { id: closeButton; text: texts.t("summary.close"); emphasis: KanteButton.Emphasis.Quiet; onClicked: sheet.close() }
         }
 
         KanteKpi {

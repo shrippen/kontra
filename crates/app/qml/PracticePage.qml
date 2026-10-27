@@ -271,6 +271,9 @@ Kirigami.Page {
     ColumnLayout {
         anchors.fill: parent
         visible: ctl.loaded
+        // Under the summary nothing takes the focus (QA 27.10., P7: Tab went through 18 hidden
+        // controls before "close").
+        enabled: !summary.visible
         spacing: KanteStyle.unit(10)
 
         // The piece's title on a row of its own (QA 14.10.: beside modes and views it was cut
