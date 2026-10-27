@@ -1277,6 +1277,10 @@ impl Core {
         self.stop_live();
         self.looping = None;
         self.chain = None;
+        // Another piece starts at full tempo; the same one again keeps it (QA 27.10., J9).
+        if self.loaded_path() != Some(path) {
+            self.speed = 1.0;
+        }
         let song_id = ProgressStore::song_id(&arrangement);
         self.adopt_progress(path, &song_id);
         self.library.touch(RecentEntry {
@@ -4962,6 +4966,31 @@ mod tests {
         // Twelve bars and a closing bar on the tonic.
         assert_eq!(a.notes.len(), 49);
         assert_eq!(a.markers[0].name, "F7");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA 27.10. (P2 Jens, J9): a new piece opened at the tempo and loop of the one before.
+    #[test]
+    fn another_piece_starts_at_full_tempo() {
+        let dir = temp_dir("fresh-piece");
+        let mut core = Core::new(&dir, QaOptions::default());
+        let blues = Core::exercise_spec("walking", "blues", "", 5, 110.0, "").unwrap();
+        let first = core.generate_exercise(&blues).unwrap();
+        core.open(&first).unwrap();
+        core.set_speed(0.6);
+        core.set_loop(1, 5);
+        assert!(core.loop_seconds().0 > 0.0);
+
+        let groove = Core::exercise_spec("song", "rock", "", 4, 100.0, "").unwrap();
+        let second = core.generate_exercise(&groove).unwrap();
+        core.open(&second).unwrap();
+        assert_eq!(core.speed(), 1.0);
+        assert_eq!(core.loop_seconds(), (-1.0, -1.0));
+
+        // The same piece again keeps its tempo (a restart, the next round).
+        core.set_speed(0.8);
+        core.open(&second).unwrap();
+        assert_eq!(core.speed(), 0.8);
         let _ = std::fs::remove_dir_all(dir);
     }
 

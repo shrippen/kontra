@@ -1187,6 +1187,12 @@ impl qobject::Controller {
         let transpose = core.transpose();
         let view = core.view();
         let tracks = core.tracks_json();
+        // Loop and tempo as the core has them now (QA 27.10., J9: the last piece's showed on).
+        let (loop_start, loop_end) = core.loop_seconds();
+        let speed = core.speed();
+        self.as_mut().set_loop_start(loop_start);
+        self.as_mut().set_loop_end(loop_end);
+        self.as_mut().set_speed(speed);
         self.as_mut().set_view(q(&view));
         self.as_mut().set_tracks_json(q(&tracks));
         self.as_mut().set_title(q(&title));
