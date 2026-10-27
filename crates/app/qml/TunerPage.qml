@@ -164,6 +164,13 @@ Kirigami.Page {
             Accessible.role: Accessible.StaticText
             Accessible.name: text
         }
+        // "Let's go" needs a way to go (QA 27.10., P1): back to the piece, else the start page.
+        KanteButton {
+            visible: page.guided && page.allDone
+            text: ctl.loaded ? texts.t("tuner.toPiece") : texts.t("tuner.toHome")
+            emphasis: KanteButton.Emphasis.Primary
+            onClicked: applicationWindow().show(ctl.loaded ? "practice" : "home")
+        }
 
         // Low windows (beamer, 1280×720 at 150 %): level and advice beside the gauge; below its own
         // height the gauge's cent value ran into the level meter (QA 13.10.).

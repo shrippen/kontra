@@ -3237,7 +3237,7 @@ impl Core {
     }
 
     /// The spread, e.g. "Streuung ±18 ms"; judged by time only with the aim for the frets
-    /// (DIDAKTIK I4), e.g. "Streuung ±31 ms · Bünde ab ±25 ms".
+    /// (DIDAKTIK I4), e.g. "Streuung ±31 ms · Bünde kommen unter ±25 ms dazu".
     fn spread_text(&self, spread_ms: f64, judging: Judging) -> String {
         let spread = self.tr("summary.spread", &[("ms", format!("{spread_ms:.0}"))]);
         match judging {

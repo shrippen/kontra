@@ -41,7 +41,32 @@ pub struct AppArgs {
     /// `--course-answer FILE`: every course address answers with this file, never the network
     /// (QA of J-G5).
     pub course_answer: Option<PathBuf>,
+    /// `--help` or `-h`: print `USAGE` and quit, never open the audio input (QA 27.10.).
+    pub help: bool,
+    /// The first `--option` Kontra does not know: an error instead of a start with real audio.
+    pub unknown: Option<String>,
 }
+
+/// What `--help` prints. Options for QA runs and screenshots; Qt's own options pass through.
+pub const USAGE: &str = "\
+Usage: kontra [FILE] [OPTIONS]
+
+  FILE                     a piece (Guitar Pro, MusicXML, MuseScore, MIDI) or a .kontrakurs
+  --language de|en         language of the interface
+  --theme kante|kante-light|system
+  --page NAME              open this page (home, library, practice, settings, tuner, ear, ...)
+  --open FILE              open this piece
+  --mode play|song|wait|workshop
+  --view lane|tab|notation|combined|keys
+  --input-file WAV         a recording instead of the audio input (QA)
+  --input-profile laptop-jack
+  --autoplay, --probe, --calibrate, --mixer, --present, --align, --remove-bass
+  --loop-bars A-B, --section NAME
+  --screenshot PNG, --screenshot-after MS, --quit-after MS
+  --songsterr-answer FILE, --song-search TEXT, --course-answer FILE
+  --focus-log, --screenshot-notes
+  -h, --help               this text
+";
 
 impl AppArgs {
     pub fn from_env() -> AppArgs {
@@ -55,6 +80,7 @@ impl AppArgs {
         };
         let mut args = args.peekable();
         while let Some(arg) = args.next() {
+            let arg = single_dash(arg);
             let mut value = || args.next().unwrap_or_default();
             match arg.as_str() {
                 "--open" => out.open = Some(PathBuf::from(value())),
@@ -91,13 +117,18 @@ impl AppArgs {
                 }
                 // Qt's own options with a value (QGuiApplication reads them too): the value is
                 // not a file to open.
-                "-qwindowgeometry" | "-geometry" | "-platform" | "-platformtheme" | "-plugin"
-                | "-qwindowtitle" | "-qwindowicon" | "-style" | "-stylesheet" | "-display" => {
+                other if QT_VALUED.contains(&other) => {
                     let _ = value();
                 }
+                "--help" | "-h" => out.help = true,
+                // Read by Main.qml (QA): known, nothing to keep here.
+                "--focus-log" | "--screenshot-notes" => {}
                 // A file from the file manager (desktop file `%f`).
                 other if !other.starts_with('-') && out.open.is_none() => {
                     out.open = Some(PathBuf::from(other));
+                }
+                other if other.starts_with("--") && out.unknown.is_none() => {
+                    out.unknown = Some(other.to_string());
                 }
                 _ => {}
             }
@@ -106,9 +137,57 @@ impl AppArgs {
     }
 }
 
+/// Qt's own options that take a value.
+const QT_VALUED: [&str; 10] = [
+    "-qwindowgeometry",
+    "-geometry",
+    "-platform",
+    "-platformtheme",
+    "-plugin",
+    "-qwindowtitle",
+    "-qwindowicon",
+    "-style",
+    "-stylesheet",
+    "-display",
+];
+
+/// Qt's own options without a value.
+const QT_FLAGS: [&str; 5] = ["-reverse", "-nograb", "-dograb", "-sync", "-widgetcount"];
+
+/// Qt reads its options with two dashes too ("--platform offscreen"): those become the
+/// one-dash form, so they pass like Qt's and are not unknown.
+fn single_dash(arg: String) -> String {
+    let Some(short) = arg.strip_prefix('-') else {
+        return arg;
+    };
+    if !short.starts_with('-') {
+        return arg;
+    }
+    if QT_VALUED.contains(&short) || QT_FLAGS.contains(&short) {
+        return short.to_string();
+    }
+    arg
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // QA 27.10.: "kontra --help" started the app with the real audio input.
+    #[test]
+    fn help_and_unknown_options_do_not_start_the_app() {
+        let parse = |a: &[&str]| AppArgs::parse(a.iter().map(|s| s.to_string()));
+        assert!(parse(&["--help"]).help);
+        assert!(parse(&["-h"]).help);
+        assert_eq!(parse(&["--bogus"]).unknown, Some("--bogus".into()));
+        assert_eq!(parse(&["--language", "de"]).unknown, None);
+        assert_eq!(parse(&["--focus-log"]).unknown, None);
+        // Qt's own options pass, with one dash or two; their values are no file.
+        assert_eq!(parse(&["-reverse"]).unknown, None);
+        let qt = parse(&["--platform", "offscreen", "--reverse", "song.gp5"]);
+        assert_eq!(qt.unknown, None);
+        assert_eq!(qt.open, Some(PathBuf::from("song.gp5")));
+    }
 
     #[test]
     fn theme_is_not_qts_style_option() {

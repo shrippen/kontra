@@ -20,6 +20,8 @@ Kirigami.ScrollablePage {
 
     Component.onCompleted: ctl.refreshDevices()
     onStepChanged: {
+        // Each step starts at its top (QA 27.10.: at 150 % the next step opened scrolled down).
+        flickable.contentY = 0
         // Level and tuning listen to the input; other steps leave it alone.
         if (steps[step] === "level") {
             ctl.startTuner()
@@ -200,9 +202,18 @@ Kirigami.ScrollablePage {
                 color: KanteStyle.mutedTextColor
             }
         }
+    }
 
-        RowLayout {
-            Layout.fillWidth: true
+    // Back, skip and next stay in one place on every step (QA 27.10.: they moved with each step
+    // and with the level advice; a click aimed at "next" hit empty space).
+    footer: QQC2.ToolBar {
+        background: Rectangle { color: KanteStyle.backgroundColor }
+        // Aligned with the page content.
+        leftPadding: page.leftPadding
+        rightPadding: page.rightPadding
+        topPadding: KanteStyle.unit(12)
+        bottomPadding: KanteStyle.unit(12)
+        contentItem: RowLayout {
             spacing: KanteStyle.unit(10)
             KanteButton {
                 text: texts.t("setup.back")

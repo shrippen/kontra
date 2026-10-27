@@ -92,8 +92,10 @@ Kirigami.ScrollablePage {
                            upcoming: texts.t("learn.state.open") })
         }
 
+        // The steps above name the current page; a heading repeated it (QA 27.10.).
         KanteHeading {
             level: 2
+            visible: page.count === 1
             text: page.lesson && page.count > 0 ? page.lesson.pages[page.step].title : ""
         }
 

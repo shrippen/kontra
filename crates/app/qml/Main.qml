@@ -113,6 +113,8 @@ Kirigami.ApplicationWindow {
     readonly property bool systemReducesMotion: Kirigami.Units.longDuration === 0
     Binding { target: KanteStyle; property: "motion"; value: ctl.motion !== "reduce" }
     KanteScope { target: root.contentItem }
+    // Its labels take the highlighted text colour from Kirigami's theme.
+    KanteScope { target: root.globalDrawer ? root.globalDrawer.contentItem : null }
     color: KanteStyle.themed ? KanteStyle.backgroundColor : Kirigami.Theme.backgroundColor
 
     // The lesson open on the lesson page and its step, kept while the tuner or an exercise runs.
@@ -186,6 +188,10 @@ Kirigami.ApplicationWindow {
         handleVisible: !root.presenting && modal
         collapsible: true
         collapsed: !root.wideScreen
+        // A popup outside the content: it marked the page in the desktop's highlight colour
+        // (QA 27.10.: green). Kante's selection colour, as on segmented buttons.
+        palette.highlight: KanteStyle.themed ? KanteStyle.accentColor : root.palette.highlight
+        palette.highlightedText: KanteStyle.themed ? KanteStyle.accentForegroundColor : root.palette.highlightedText
         // Grouped by what the player does: start; play pieces; learn; look back; tools. Setup lives
         // in the settings and on the start page.
         actions: [
@@ -299,10 +305,16 @@ Kirigami.ApplicationWindow {
         onTriggered: Qt.quit()
     }
 
-    // Space starts and stops everywhere except in text fields (LH-MOD-07).
+    // Space starts and stops everywhere except in text fields and on a button reached by keyboard,
+    // which Space presses (LH-MOD-07; QA 27.10., P7: Space on "practise bar 7 in the workshop" in
+    // the summary started a run instead). A clicked button keeps focus but not visual focus.
+    readonly property bool spaceFree: {
+        var item = activeFocusItem
+        return !(item && ((item instanceof QQC2.AbstractButton && item.visualFocus) || item.hasOwnProperty("cursorPosition")))
+    }
     Shortcut {
         sequence: "Space"
-        enabled: ctl.loaded && root.current === "practice"
+        enabled: ctl.loaded && root.current === "practice" && root.spaceFree
         onActivated: ctl.togglePlay()
     }
 

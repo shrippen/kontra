@@ -1543,6 +1543,10 @@ impl qobject::Controller {
                 }
                 UiEvent::SpeedChanged(speed) => self.as_mut().set_speed(speed),
                 UiEvent::Finished { summary_json } => {
+                    // The run's result shows in the library at once (QA 27.10., P7: "not played
+                    // yet" until a restart).
+                    let recent = self.as_ref().rust().core.recent_json();
+                    self.as_mut().set_recent_json(q(&recent));
                     self.as_mut().set_summary_json(q(&summary_json));
                     self.as_mut().set_playing(false);
                     self.as_mut().finished();

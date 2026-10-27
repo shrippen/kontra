@@ -32,7 +32,20 @@ const THEME_VAR: &str = "QT_QPA_PLATFORMTHEME";
 /// desktop's own dialog and keeps KDE's colours and icons.
 const PORTAL_THEME: &str = "xdgdesktopportal";
 
+/// Exit status for a wrong command line (sysexits EX_USAGE).
+const EXIT_USAGE: i32 = 64;
+
 fn main() {
+    // Before Qt and audio: help or a typo never opens the input (QA 27.10.).
+    let options = args::AppArgs::from_env();
+    if options.help {
+        print!("{}", args::USAGE);
+        return;
+    }
+    if let Some(option) = options.unknown {
+        eprint!("kontra: unknown option {option}\n\n{}", args::USAGE);
+        std::process::exit(EXIT_USAGE);
+    }
     if let Some(theme) = platform_theme(std::env::var_os(THEME_VAR)) {
         std::env::set_var(THEME_VAR, theme);
     }
