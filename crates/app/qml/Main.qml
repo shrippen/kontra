@@ -226,50 +226,13 @@ Kirigami.ApplicationWindow {
     // In the content area beside the sidebar (a window footer started under the sidebar); the
     // page stack ends above it.
     Binding { target: root.pageStack; property: "anchors.bottomMargin"; value: noteBar.visible ? noteBar.height : 0 }
-    Rectangle {
+    NoteBar {
         id: noteBar
         parent: root.pageStack.parent
         anchors { left: root.pageStack.left; right: root.pageStack.right; bottom: parent.bottom }
         z: 10
-        color: KanteStyle.backgroundColor
-        visible: offer.visible || notice.visible
-        height: notes.implicitHeight + KanteStyle.unit(24)
-
-        ColumnLayout {
-            id: notes
-            anchors { left: parent.left; right: parent.right; top: parent.top; margins: KanteStyle.unit(12) }
-            spacing: KanteStyle.unit(8)
-
-            // LH-ALL-04: the interface was unplugged; another input can stand in until it is back.
-            RowLayout {
-                id: offer
-                Layout.fillWidth: true
-                visible: ctl.offerInput !== ""
-                KanteCallout {
-                    Layout.fillWidth: true
-                    kind: KanteCallout.Kind.Info
-                    text: ctl.offerText
-                    autoHide: false
-                }
-                KanteButton {
-                    text: texts.t("unplug.use")
-                    emphasis: KanteButton.Emphasis.Primary
-                    Accessible.name: texts.t("unplug.use")
-                    onClicked: ctl.useOfferedInput()
-                }
-            }
-
-            KanteCallout {
-                id: notice
-                Layout.fillWidth: true
-                visible: text !== ""
-                kind: ctl.errorText !== "" ? KanteCallout.Kind.Danger : KanteCallout.Kind.Info
-                text: ctl.errorText !== "" ? ctl.errorText : ctl.message
-                dismissible: true
-                autoHide: false
-                onDismissed: ctl.dismissMessage()
-            }
-        }
+        ctl: ctl
+        texts: texts
     }
 
     // QA (P7): --focus-log writes each keyboard focus change, to find stops nobody can see.
