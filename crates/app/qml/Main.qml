@@ -37,6 +37,10 @@ Kirigami.ApplicationWindow {
             return
         }
         visibility = visibilityBefore === Window.FullScreen ? Window.Windowed : visibilityBefore
+        // The sidebar comes back as it was before (QA 27.10., P4: gone after Esc).
+        if (wideScreen) {
+            globalDrawer.open()
+        }
     }
     readonly property var pages: ({
         home: Qt.resolvedUrl("StartPage.qml"),
