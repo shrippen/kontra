@@ -305,10 +305,16 @@ Kirigami.ApplicationWindow {
         onTriggered: Qt.quit()
     }
 
-    // Space starts and stops everywhere except in text fields (LH-MOD-07).
+    // Space starts and stops everywhere except in text fields and on a button reached by keyboard,
+    // which Space presses (LH-MOD-07; QA 27.10., P7: Space on "practise bar 7 in the workshop" in
+    // the summary started a run instead). A clicked button keeps focus but not visual focus.
+    readonly property bool spaceFree: {
+        var item = activeFocusItem
+        return !(item && ((item instanceof QQC2.AbstractButton && item.visualFocus) || item.hasOwnProperty("cursorPosition")))
+    }
     Shortcut {
         sequence: "Space"
-        enabled: ctl.loaded && root.current === "practice"
+        enabled: ctl.loaded && root.current === "practice" && root.spaceFree
         onActivated: ctl.togglePlay()
     }
 
