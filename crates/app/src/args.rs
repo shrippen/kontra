@@ -41,7 +41,32 @@ pub struct AppArgs {
     /// `--course-answer FILE`: every course address answers with this file, never the network
     /// (QA of J-G5).
     pub course_answer: Option<PathBuf>,
+    /// `--help` or `-h`: print `USAGE` and quit, never open the audio input (QA 27.10.).
+    pub help: bool,
+    /// The first `--option` Kontra does not know: an error instead of a start with real audio.
+    pub unknown: Option<String>,
 }
+
+/// What `--help` prints. Options for QA runs and screenshots; Qt's own options pass through.
+pub const USAGE: &str = "\
+Usage: kontra [FILE] [OPTIONS]
+
+  FILE                     a piece (Guitar Pro, MusicXML, MuseScore, MIDI) or a .kontrakurs
+  --language de|en         language of the interface
+  --theme kante|kante-light|system
+  --page NAME              open this page (home, library, practice, settings, tuner, ear, ...)
+  --open FILE              open this piece
+  --mode play|song|wait|workshop
+  --view lane|tab|notation|combined|keys
+  --input-file WAV         a recording instead of the audio input (QA)
+  --input-profile laptop-jack
+  --autoplay, --probe, --calibrate, --mixer, --present, --align, --remove-bass
+  --loop-bars A-B, --section NAME
+  --screenshot PNG, --screenshot-after MS, --quit-after MS
+  --songsterr-answer FILE, --song-search TEXT, --course-answer FILE
+  --focus-log, --screenshot-notes
+  -h, --help               this text
+";
 
 impl AppArgs {
     pub fn from_env() -> AppArgs {
@@ -95,9 +120,15 @@ impl AppArgs {
                 | "-qwindowtitle" | "-qwindowicon" | "-style" | "-stylesheet" | "-display" => {
                     let _ = value();
                 }
+                "--help" | "-h" => out.help = true,
+                // Read by Main.qml (QA): known, nothing to keep here.
+                "--focus-log" | "--screenshot-notes" => {}
                 // A file from the file manager (desktop file `%f`).
                 other if !other.starts_with('-') && out.open.is_none() => {
                     out.open = Some(PathBuf::from(other));
+                }
+                other if other.starts_with("--") && out.unknown.is_none() => {
+                    out.unknown = Some(other.to_string());
                 }
                 _ => {}
             }
@@ -109,6 +140,19 @@ impl AppArgs {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // QA 27.10.: "kontra --help" started the app with the real audio input.
+    #[test]
+    fn help_and_unknown_options_do_not_start_the_app() {
+        let parse = |a: &[&str]| AppArgs::parse(a.iter().map(|s| s.to_string()));
+        assert!(parse(&["--help"]).help);
+        assert!(parse(&["-h"]).help);
+        assert_eq!(parse(&["--bogus"]).unknown, Some("--bogus".into()));
+        assert_eq!(parse(&["--language", "de"]).unknown, None);
+        assert_eq!(parse(&["--focus-log"]).unknown, None);
+        // Qt's own single-dash options pass.
+        assert_eq!(parse(&["-reverse"]).unknown, None);
+    }
 
     #[test]
     fn theme_is_not_qts_style_option() {
