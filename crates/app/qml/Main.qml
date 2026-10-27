@@ -24,6 +24,7 @@ Kirigami.ApplicationWindow {
     // Presentation mode of the practice page (LH-ANZ-09): full screen, no sidebar.
     property bool presenting: false
     property int visibilityBefore: Window.Windowed
+    property bool drawerBefore: false
     // Narrow windows take the sidebar as an overlay, closed; wide ones show it. Following the
     // width both ways: closing once at start hid it for good when the window became wide only
     // after loading (QA 14.10.).
@@ -31,14 +32,16 @@ Kirigami.ApplicationWindow {
 
         onPresentingChanged: {
         if (presenting) {
+            drawerBefore = globalDrawer.drawerOpen
             globalDrawer.close()
             visibilityBefore = visibility
             showFullScreen()
             return
         }
         visibility = visibilityBefore === Window.FullScreen ? Window.Windowed : visibilityBefore
-        // The sidebar comes back as it was before (QA 27.10., P4: gone after Esc).
-        if (wideScreen) {
+        // The sidebar comes back as it was before (QA 27.10., P4: gone after Esc); a window that
+        // turns narrow later closes it again (onWideScreenChanged).
+        if (drawerBefore) {
             globalDrawer.open()
         }
     }
