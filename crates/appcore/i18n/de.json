@@ -244,6 +244,8 @@
   "tuner.string": "{name}-Saite",
   "tuner.again": "Von vorn",
   "tuner.alldone": "Alle Saiten gestimmt. Los geht's!",
+  "tuner.toPiece": "Zurück zum Stück",
+  "tuner.toHome": "Zur Startseite",
   "tuner.pluck": "Schlag die {name}-Saite an.",
   "tuner.wrongstring": "Das klingt nach einer anderen Saite. Schlag die {name}-Saite an.",
   "tuner.hold": "Gestimmt – kurz halten …",

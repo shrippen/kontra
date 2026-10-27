@@ -244,6 +244,8 @@
   "tuner.string": "{name} string",
   "tuner.again": "Start again",
   "tuner.alldone": "All strings in tune. Off you go!",
+  "tuner.toPiece": "Back to the piece",
+  "tuner.toHome": "To the start page",
   "tuner.pluck": "Pluck the {name} string.",
   "tuner.wrongstring": "That sounds like another string. Pluck the {name} string.",
   "tuner.hold": "In tune – hold it …",
