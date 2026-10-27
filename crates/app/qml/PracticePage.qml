@@ -109,12 +109,12 @@ Kirigami.Page {
         var item = applicationWindow().activeFocusItem
         return !(item && item.hasOwnProperty("cursorPosition"))
     }
-    // A number typed into a field (bars, tempo) ends with Return or Escape: the keys go back to
-    // the page; before, K and the foot switch stayed dead (QA 27.10., P2 Jens).
-    Shortcut {
-        sequences: ["Return", "Enter", "Escape"]
-        enabled: !page.keysFree
-        onActivated: keySink.forceActiveFocus()
+    // A bar typed into a workshop field ends with Return (taken) or Escape (dropped): the keys go
+    // back to the page; before, K and the foot switch stayed dead (QA 27.10., P2 Jens).
+    function endField() { keySink.forceActiveFocus() }
+    function cancelField(spin) {
+        spin.contentItem.text = spin.textFromValue(spin.value, spin.locale)
+        keySink.forceActiveFocus()
     }
     // The page is a focus scope: focused itself, it hands the focus back to the field.
     Item { id: keySink }
@@ -584,6 +584,11 @@ Kirigami.Page {
                 editable: true
                 Accessible.name: texts.t("workshop.from")
                 onValueModified: ctl.loopBars(value - 1, Math.max(value, toSpin.value) - 1)
+                Keys.onEscapePressed: page.cancelField(fromSpin)
+                Connections {
+                    target: fromSpin.contentItem
+                    function onAccepted() { page.endField() }
+                }
             }
             QQC2.Label { text: texts.t("workshop.to"); color: KanteStyle.textColor }
             KanteSpinBox {
@@ -594,6 +599,11 @@ Kirigami.Page {
                 editable: true
                 Accessible.name: texts.t("workshop.until")
                 onValueModified: ctl.loopBars(Math.min(fromSpin.value, value) - 1, value - 1)
+                Keys.onEscapePressed: page.cancelField(toSpin)
+                Connections {
+                    target: toSpin.contentItem
+                    function onAccepted() { page.endField() }
+                }
             }
             QQC2.Label {
                 // Fills the row: tied to its own width it wrapped "Tempo 100 / %" after the
