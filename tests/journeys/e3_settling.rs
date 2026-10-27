@@ -47,7 +47,7 @@ fn flat_starts_turn_into_hits() {
     settles_into_hits("e3", |_| {});
 }
 
-/// QA 27.10. (P3 Mira): with the strict window, five strings or fretless the flat starts stayed
+/// QA 27.10. (P3 Mira): with the strict window or fretless the flat starts stayed
 /// wrong (0 %); the settling must not depend on them.
 #[test]
 fn flat_starts_turn_into_hits_when_strict() {
@@ -55,7 +55,7 @@ fn flat_starts_turn_into_hits_when_strict() {
 }
 
 #[test]
-fn flat_starts_turn_into_hits_on_five_fretless_strings() {
+fn flat_starts_turn_into_hits_when_fretless() {
     settles_into_hits("e3-fretless", |s| {
         s.fretless = true;
     });

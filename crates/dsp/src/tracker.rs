@@ -1337,6 +1337,10 @@ mod tests {
             settled.is_some_and(|m| (m - 38.01).abs() < 1e-9),
             "{settled:?}"
         );
+        // The latest reach the next semitone: the median of all decides.
+        let rising = [38.0, 38.02, 38.6, 38.7];
+        let settled = settle_of(37.3, &rising, any).settled(u64::MAX);
+        assert!(settled.is_some_and(|m| m.round() == 38.0), "{settled:?}");
         // Too few estimates, too close, downward, unstable, after a new attack.
         assert_eq!(settle_of(37.3, &up[..2], any).settled(u64::MAX), None);
         assert_eq!(settle_of(37.55, &up, any).settled(u64::MAX), None);
