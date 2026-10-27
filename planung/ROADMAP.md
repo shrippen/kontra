@@ -298,6 +298,82 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 
 ## QA-Runden
 
+### QA-Runde 27.10.2026 (Nacht: alle Personas, alle Funktionen, echtes Fenster)
+
+Echtes X-Fenster (Xvfb, ohne Fenstermanager), stummer Ausgang, Aufnahmen aus `testdata/korpus/` und synthetische
+Takes als Eingang. Vier Durchgänge parallel: P1 Lea (selbst, mit Gesamtdesign), P7 Sam mit P5 Aylin und P6 Karl,
+P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-Artefakt.
+
+- **P1 Lea (J-A1, J-A2, J-B2, J-C8, J-G1): bestanden nach Befunden.**
+  - L1 (mittel, behoben #137): Seitenleiste in Systemfarben (grüner Akzent), Lektionslinks grün; jetzt Kante.
+  - L3 (mittel, behoben #137): Pegel-Hinweise verschoben „Weiter“; die Knöpfe stehen jetzt fest im Seitenfuß.
+  - L5 (mittel, Entscheidung): Einrichtung endet immer mit „Groove Viertel“, ohne Frage nach dem Stand (auch M17).
+  - L6 (mittel, Entscheidung): Übungsseite zeigt einer Anfängerin alle Regler; Ziel der Übung fehlt auf der Seite.
+  - L8 (niedrig, behoben #137): Auswertung: „Sitzt“-Karte trug den Titel der nächsten Übung ohne Hinweis.
+  - L11 (niedrig, behoben #137): Geführtes Stimmen endete ohne Weg weiter.
+  - L15, L16 (niedrig, behoben #137): Lektion: Überschrift doppelt, Griffbrett zu hoch für 768 px.
+  - L17 (mittel, behoben #138): „Einstieg“ folgte den Dateinummern, Tonleitern vor dem Puls; jetzt Lernreihenfolge.
+  - Offen (niedrig): L2 Auswahl der Anschlussliste schwach sichtbar; L4 übersprungene Latenz mit Haken (Kante);
+    L7 dieselbe Übung in zwei Startkarten; L9 Histogramm ohne y-Achsentitel (Kante); L10 „Zeigefinger am 1. Bund“
+    bei leeren Saiten; L12 Callout reserviert zwei Zeilen (Kante); L13 Oktavzahlen (E1) unerklärt; L18 Fortschritt
+    ohne Lektionen und Gehör.
+- **P7 Sam (J-F1, 200 %, Deuteranopie, nur Tastatur): nicht bestanden.**
+  - S1 (hoch, teils behoben #137): Leertaste startete einen Lauf statt den fokussierten Knopf zu drücken; behoben.
+    Return/Enter löst `KanteButton` nicht aus (Kante).
+  - S2 (hoch, Kante): Lange Seiten scrollen nicht zum Fokus (Einstellungen, Lernen).
+  - S3 (mittel, offen): Fokus in der Seitenleiste unsichtbar, Trennlinien sind Tab-Halte.
+  - S4 (mittel, behoben #137): Fokus blieb hinter der Auswertung.
+  - S5 (mittel, teils behoben #137): Modus, Ansicht, Suche jetzt benannt; `KanteBarChart` ohne Namen (Kante),
+    Glossar-Links im Lektionstext nicht per Tab erreichbar.
+  - S6 (mittel, Kante): Bei Deuteranopie gleicht ein verfehlter Ton (rot) einer D-Saiten-Note (ocker).
+  - S7 (mittel, behoben #137): Bibliothek zeigte Ergebnisse erst nach Neustart.
+  - S8 (mittel, Entscheidung): „Lage“ heißt im Übungskopf das Timing-Ziel, sonst die Handposition.
+  - S9 (mittel, behoben #137), S10, S13, S15 (niedrig, behoben #137): springende Knöpfe, MIDI-Hinweis ohne Keyboard,
+    englische Formulierungen, Glossar sortierte „Dämpfen“ nach „Durchgangston“.
+  - S11 (mittel, Entscheidung): Kein Instrument „Kontrabass“ oder „MIDI-Bass“ wählbar (LH-EIN-09).
+  - S12 (mittel, offen): Notenansicht ohne Pegel und Toleranz-Hinweis, untere Hälfte leer.
+  - S14 (niedrig, Kante): Einstöckiges „a“ der Kante-Schrift liest sich bei 100 % wie „o“.
+- **P5 Aylin (J-A4, J-E1), P6 Karl (J-A4, J-E2): bestanden.** J-E2 mit Band im Raum (`room-double-backing`) nicht
+  prüfbar: der Abzug zieht nur Kontras eigenes Backing ab.
+- **P3 Mira (J-A3, J-B4, J-C2, J-C3, J-C5, J-E3): J-E3 nicht bestanden, Rest bestanden nach Befunden.**
+  - M1 (hoch, behoben #139): Bundlos und im strengen Fenster blieb ein von unten einschwingender Ton „falsch“.
+  - M2 (mittel, offen): Strenges Fenster, alle Noten 40 ms früh: „0 % getroffen, 128 ausgelassen“ statt „zu früh“.
+  - M3 (mittel, offen): Pocket-Satz widersprüchlich („2 ms zu früh · meist 8 ms zu spät“).
+  - M4 (mittel, offen): Enharmonik in B♭: Liste A♯1, Noten D♭ aus C♯.
+  - M5 (mittel, offen): MusicXML-Akkordsymbole (`<harmony>`) werden nicht gelesen (LH-BIB-03).
+  - M6 (mittel, offen): „Alle Noten“ ohne Timing je Note (LH-BEW-01).
+  - M9 (mittel, offen): Sechzehntel unlesbar, acht Takte in einer Zeile.
+  - M10 (mittel, behoben #140): Generator: Schlusston über sieben Achtel, Takt las sich als 3/4.
+  - M15 (mittel, behoben #143): Alt+5 (Klaviatur) fehlte, Tastenliste nannte alte Modi.
+  - Offen (niedrig): M7 Liste „zweiter Blick“ unsortiert; M8 Live-Etikett überdeckt Marken; M11 Fähnchen, Hälse;
+    M12 „in BB“, ♭ im Dateinamen verloren; M13 Generator vergisst Einstellungen; M14 Akkordantworten mit
+    Oktavzahl; M16 Gehör-Versuchsliste unbegrenzt; M18 Laid-back-Hilfe ohne ms.
+- **P4 Thomas (J-B5, J-D2, J-G4, J-G6): bestanden nach Befunden; J-D2 nicht prüfbar (Portal-Dialog).**
+  - M20 (mittel, Entscheidung): „Kante Light“ bleibt bei dunklem System dunkel (LH-ALL-02).
+  - M21 (mittel, offen): Bei 853 px fehlt der Präsentations-Knopf; nur F5 hilft.
+  - M22 (mittel, offen): Nach Esc aus der Präsentation fehlt die Seitenleiste, Noten bleiben klein.
+  - M24 (niedrig, offen): Dieselbe Etüde doppelt in der Bibliothek (zwei Pfade).
+  - M25 (mittel, Entscheidung): `.kontra` ohne Loops und Zieltempo, trägt den Fortschritt der Lehrkraft.
+  - M26 (mittel, Entscheidung): Kurs nur per CLI anlegbar, Platzhalter „Mein Kurs“ besteht die Prüfung.
+  - M27 (mittel, behoben #137): `kontra --help` startete die App mit echtem Eingang.
+- **P2 Jens (J-B1, J-B3, J-B6, J-C6, J-C7, J-C9, J-D1, J-G2, J-G5): bestanden nach Befunden.**
+  - J1 (mittel, behoben #141): Meldungen nach dem Start (Import, kaputte Datei) erschienen nie.
+  - J2 (mittel, offen): MP3-Backing wird bei jedem Start dekodiert; Debug-Build 20 s eingefroren, Release ~1 s.
+    Cache und Ladeanzeige fehlen.
+  - J3 (mittel, offen): Takterkennung rastet auf dem Offbeat ein (+310 ms) und meldet trotzdem „8 von 8 Takten“.
+  - J4 (niedrig, offen): Bibliothek zeigt den internen GP-Titel („001“) statt des Dateinamens, kein Umbenennen.
+  - J7 (mittel, behoben #142): Nach Eingabe in „Takte“ blieben K und Fußschalter tot; Return/Esc geben frei.
+  - J8 (mittel, offen): „Ohne Hilfe prüfen“ fließt in Werkstatt-Durchläufe und Dichte-Vorschlag ein.
+  - J9 (mittel, offen): Erzeugtes Stück erbt Loop und Tempo des vorigen.
+  - J10 (mittel, offen): Erzeugtes Stück ohne Teilnamen; „Rock in E“ mit maj7-Akkorden.
+  - J11 (mittel, Inhalt): Glossar ohne Abbildungen und Hörbeispiele.
+  - Offen (niedrig): J1b englischer Rohfehler im Kurs-Satz; J5 Mithör-Hinweis ohne ms; J6 Lane 45 px bei Mixer,
+    Mithören und Callout; J12 „bestes Ergebnis“ aus Frei spielen; J13 Sammelbefund („1 Stücke“, Schlagzeug-Regler
+    ohne Schlagzeug, Start zeigt 0:00 trotz Loop, alter Beat-Map nach Entfernen des Backings).
+- **Vorfälle (Testumgebung):** `kontra --help` lief zweimal ~2 min mit dem echten Eingang (behoben, M27); ein
+  Ordnerdialog öffnete über das Portal auf dem echten Desktop (`main.rs` setzt das Portal-Theme); Songsterr-Treffer
+  öffneten Browser-Tabs; `kontra-cli practice --backing` hat keinen stummen Ausgang. Scarlett-Knoten danach geprüft.
+
 ### QA-Runde 14.10.2026 (Tag: Personas im echten Fenster, schmal, 200 %, Englisch)
 
 Echtes X-Fenster wie in der Runde davor; dazu 700 px (halber Laptop), 2560×1440 bei 200 % (P7), 853×533 bei

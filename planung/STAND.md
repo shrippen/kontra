@@ -1,7 +1,21 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-10-25. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+Übergabe zwischen Sitzungen. Stand: 2026-10-28. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
+
+## Übergabe (28.10.2026, QA-Nacht)
+
+QA-Runde 27.10. mit allen Personas (ROADMAP). Offene PRs aus der Nacht, je mit `/review` und CI: #137 (Einrichtung,
+Tastatur, Texte, `--help`), #138 (Einstieg-Reihenfolge), #139 (Bundlos einschwingen), #140 (Generator-Schluss),
+#141 (Meldungen nach dem Start), #142 (Zahlenfeld mit Return/Esc verlassen), #143 (Alt+5, Tastenliste), dazu dieser
+Bericht. Gemerged wird, sobald die Runde kein Wichtig offen lässt und `github / test` grün ist.
+
+Runde 15 steht im Entscheidungs-Artefakt (Einrichtung, Übungsseite, „Lage“, Instrument, `.kontra`, Kante Light,
+Kante-Bausteine, Demo-Modus, Kurs aus Ordner, QA-Schalter, pub, Reihenfolge). Nach den Antworten: Lastenheft und
+ROADMAP-Abschnitt „Entscheidungen Runde 15“.
+
+Offene Befunde mittel (ROADMAP, QA-Runde 27.10.): M2, M3, M4, M5, M6, M9, M21, M22, S3, S12, J2, J3, J8, J9, J10.
+In `pocket-band` (unten) liegt weiter das Ziel-Band; Kante-Stand der Kopie 1.40, Kante `main` 1.48.
 
 ## Übergabe (25.10.2026, abends)
 
