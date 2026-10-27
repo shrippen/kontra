@@ -168,6 +168,8 @@ const SETTLE_TO_S: f64 = 0.16;
 const SETTLE_SLOTS: usize = 8;
 /// Fewer estimates tell nothing (a short or fading note).
 const SETTLE_MIN: usize = 3;
+/// The latest estimates that give the settled pitch (odd: their median is one of them).
+const SETTLE_TAIL: usize = 3;
 /// The settled pitch must lie this far above the emitted one …
 const SETTLE_MIN_CENTS: f64 = 50.0;
 /// … and at least half the estimates this close to their median.
@@ -291,6 +293,12 @@ impl Settle {
         if count < SETTLE_MIN {
             return None;
         }
+        // The pitch it settled on: the latest estimates, whose windows lie after the rise. All
+        // of them read a tone rising for 120 ms 39 cents flat, a miss on fretless (QA 27.10.).
+        let mut latest = [0.0f64; SETTLE_TAIL];
+        latest.copy_from_slice(&sorted[count - SETTLE_TAIL..count]);
+        latest.sort_by(f64::total_cmp);
+        let settled = latest[SETTLE_TAIL / 2];
         let sorted = &mut sorted[..count];
         sorted.sort_by(f64::total_cmp);
         let median = match count % 2 {
@@ -312,7 +320,14 @@ impl Settle {
         if !self.steps.allow(step) {
             return None;
         }
-        ((median - self.midi) * 100.0 >= SETTLE_MIN_CENTS).then_some(median)
+        // The semitone from all estimates (FiloBass: the latest alone reach the next note more
+        // often), the cents from the latest when they agree on it.
+        let pitch = if settled.round() == median.round() {
+            settled
+        } else {
+            median
+        };
+        ((median - self.midi) * 100.0 >= SETTLE_MIN_CENTS).then_some(pitch)
     }
 }
 
@@ -1316,11 +1331,16 @@ mod tests {
     fn settled_pitch_rules() {
         let up = [38.0, 38.02, 37.98, 38.01];
         let any = Steps::SemitoneOrOctave;
+        // The median of the latest three: 38.02, 37.98, 38.01.
         let settled = settle_of(37.3, &up, any).settled(u64::MAX);
         assert!(
-            settled.is_some_and(|m| (m - 38.005).abs() < 1e-9),
+            settled.is_some_and(|m| (m - 38.01).abs() < 1e-9),
             "{settled:?}"
         );
+        // The latest reach the next semitone: the median of all decides.
+        let rising = [38.0, 38.02, 38.6, 38.7];
+        let settled = settle_of(37.3, &rising, any).settled(u64::MAX);
+        assert!(settled.is_some_and(|m| m.round() == 38.0), "{settled:?}");
         // Too few estimates, too close, downward, unstable, after a new attack.
         assert_eq!(settle_of(37.3, &up[..2], any).settled(u64::MAX), None);
         assert_eq!(settle_of(37.55, &up, any).settled(u64::MAX), None);
