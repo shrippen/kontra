@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # The course video player (LH-LRN-14) with Qt Multimedia: crates/app/qml/tests plays the WebM and
-# MP4 clips from testdata/video and expects the subtitle. Headless; CI job app and `make check`.
+# MP4 clips from testdata/video and expects the subtitle; the other tests there run too (note bar).
+# Headless; CI job app and `make check`.
 #
 #   scripts/check-video.sh
 set -euo pipefail
