@@ -113,8 +113,11 @@ Kirigami.Page {
     // back to the page; before, K and the foot switch stayed dead (QA 27.10., P2 Jens).
     function endField() { keySink.forceActiveFocus() }
     function cancelField(spin) {
+        // The typed text goes before the field lets go (it takes its text then); a binding
+        // again after, so the field follows the loop when it moves later.
         spin.contentItem.text = spin.textFromValue(spin.value, spin.locale)
         keySink.forceActiveFocus()
+        spin.contentItem.text = Qt.binding(function() { return spin.displayText })
     }
     // The page is a focus scope: focused itself, it hands the focus back to the field.
     Item { id: keySink }
@@ -584,11 +587,10 @@ Kirigami.Page {
                 editable: true
                 Accessible.name: texts.t("workshop.from")
                 onValueModified: ctl.loopBars(value - 1, Math.max(value, toSpin.value) - 1)
+                // The field passes Return on after taking the value; also when it was not valid.
+                Keys.onReturnPressed: page.endField()
+                Keys.onEnterPressed: page.endField()
                 Keys.onEscapePressed: page.cancelField(fromSpin)
-                Connections {
-                    target: fromSpin.contentItem
-                    function onAccepted() { page.endField() }
-                }
             }
             QQC2.Label { text: texts.t("workshop.to"); color: KanteStyle.textColor }
             KanteSpinBox {
@@ -599,11 +601,10 @@ Kirigami.Page {
                 editable: true
                 Accessible.name: texts.t("workshop.until")
                 onValueModified: ctl.loopBars(Math.min(fromSpin.value, value) - 1, value - 1)
+                // The field passes Return on after taking the value; also when it was not valid.
+                Keys.onReturnPressed: page.endField()
+                Keys.onEnterPressed: page.endField()
                 Keys.onEscapePressed: page.cancelField(toSpin)
-                Connections {
-                    target: toSpin.contentItem
-                    function onAccepted() { page.endField() }
-                }
             }
             QQC2.Label {
                 // Fills the row: tied to its own width it wrapped "Tempo 100 / %" after the
