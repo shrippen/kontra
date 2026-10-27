@@ -1747,8 +1747,9 @@ mod tests {
         let mut placed = level_1.clone();
         placed.sort_by_key(|&n| plan_place(n));
 
-        // Every level-1 file has a place; the pulse comes first, scales last.
-        assert!(placed.iter().all(|&n| plan_place(n).0 < level_1.len()));
+        // The order holds exactly the level-1 files; the pulse comes first, scales last.
+        let places: Vec<usize> = placed.iter().map(|&n| plan_place(n).0).collect();
+        assert_eq!(places, (0..level_1.len()).collect::<Vec<_>>());
         assert_eq!(&placed[..5], &[1, 2, 3, 46, 52]);
         assert_eq!(placed.last(), Some(&8));
     }
