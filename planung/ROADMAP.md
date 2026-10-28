@@ -184,6 +184,21 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
   91,2/81,2 %; eigene Aufnahmen unverändert (testdata/korpus/QUELLEN.md, „Tonhöhen-Revision“).
 - Hardware-Prüfung gemeinsam: am 13.10. begonnen (Abschnitt Hardware-Prüfung unter QA-Runden).
 
+## Entscheidungen Runde 16 (28.10.2026)
+
+- [ ] Kante #86: `scheme` herausgenommen, Rest nach Review mergen; Release Kante 1.49 (Bestätigung in Worten
+      ausstehend). Hell/Dunkel als eigener Kante-PR mit der Einstellung in Kontra (M20).
+- [ ] Probenzeichen: Kante-Baustein, dann Generator und MIDI-Import (mehrere Marker je Takt zusammengefasst,
+      LH-BIB-12, J10).
+- [ ] Pop in Dreiklängen, Septimen nur bei Soul/Jazz (LH-BIB-12, J10).
+- [ ] Einstellungen → Daten: Backing-Cache und getrennte Songs mit Größe, je Eintrag löschen, „alles leeren“
+      (LH-BIB-09).
+- [ ] Notenansicht zeigt Pegel und Toleranz immer, die Noten schrumpfen (S12).
+- [ ] Einstöckiges „a“ (S14): Rajdhani hat keine Variante; Vergleich und Folgefrage zur Titelschrift im Artefakt.
+- Neue pub-Schnittstellen aus #152–#164 und Kante 1.49 freigegeben.
+- [ ] Regel gegen App-Starts auf dem echten Desktop in `agent.md` (Bestätigung in Worten ausstehend).
+- Danach J-F1 und J-B5 erneut spielen, dann Hell/Dunkel.
+
 ## Entscheidungen Runde 15 (28.10.2026)
 
 Nach der QA-Nacht 27.10.:
