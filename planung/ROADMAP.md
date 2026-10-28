@@ -343,27 +343,33 @@ Orca nicht genutzt, statt dessen der AT-SPI-Baum.
 - [x] B1 (hoch, #175): In niedrigen Fenstern (1280×720 bei 150 %) bleiben den Noten etwa 100 px: Tab schneidet die tiefe
   Saite ab, Noten + Tab überlappen, Lane 4 Saiten auf 70 px. Am Ende eines Laufs drückt der Hinweis „Fertig
   gespielt“ Noten und Tab auf null.
-- [ ] B2 (mittel): Die Seitenleiste nimmt den Hintergrund aus der Systempalette; Kante dunkel auf hellem System:
+- [x] B2 (mittel, #176 mit Kante 1.51): Die Seitenleiste nimmt den Hintergrund aus der Systempalette; Kante dunkel auf hellem System:
   „Seitenleiste schließen“ 1,4:1, gesperrtes „Üben“ 1,7:1 (L1 nur teils behoben).
-- [ ] B3 (mittel): Auswertung ohne Fokus-Käfig: Tab geht in die Seitenleiste, der Screenreader liest die Seite
+- [x] B3 (mittel, #176 mit Kante 1.51): Auswertung ohne Fokus-Käfig: Tab geht in die Seitenleiste, der Screenreader liest die Seite
   dahinter; nach Esc bleibt der Fokus auf dem versteckten „Schließen“.
-- [ ] B4 (mittel): Einrichtung Schritt 3 bei 200 %: Ton, Cent und Drehrichtung unter dem Seitenfuß, per Tastatur
+- [x] B4 (mittel, #178): Einrichtung Schritt 3 bei 200 %: Ton, Cent und Drehrichtung unter dem Seitenfuß, per Tastatur
   nicht erreichbar (Bild ab, Strg+Ende, Pfeile).
-- [ ] B5 (mittel): Glossar aus der Übungsliste („?“), dann „Zurück“: Fokus weg, die erste Übung per Tab nicht mehr
+- [x] B5 (mittel, #176 mit Kante 1.51): Glossar aus der Übungsliste („?“), dann „Zurück“: Fokus weg, die erste Übung per Tab nicht mehr
   erreichbar.
 - [ ] B6 (mittel, beim Spielen behoben #178): Werkstatt bei 200 %: die Regler füllen die Seite, Tab oder Lane nicht zu sehen.
 - [ ] Extreme Vergrößerung und kleine Auflösungen (Eigentümer, 28.10.): getrennt anschauen, jede Seite und jeder Modus
   bei 200 % und mehr sowie bei kleinen Auflösungen als Screenshot, dazu Ideen je Seite; mit dem Eigentümer
   entscheiden. Dazu gehört B6 vor dem Abspielen (Vorschlag: Klappe „Einstellungen“).
-- [ ] B7 (mittel, Kante): Saitenfarben der Tabulatur in Kante Light auf hellem Grund 1,7–2,6:1, am Beamer kaum lesbar.
+- [x] B7 (mittel, Kante 1.51, übernommen #176): Saitenfarben der Tabulatur in Kante Light auf hellem Grund 1,7–2,6:1, am Beamer kaum lesbar.
 - [ ] B8 (niedrig): Nach Seitenwechsel Fokus auf der ScrollView; Trenner der Seitenleiste als unbenannte
-  Listeneinträge; Tempo-Regler mit zwei Tab-Halten; nach „Klinke direkt“ zeigt der Eingang weiter „Automatisch:
+  Listeneinträge (gehört nach Kante: `KanteScope.popup`); Tempo-Regler mit zwei Tab-Halten; nach „Klinke direkt“ zeigt der Eingang weiter „Automatisch:
   Scarlett Solo …“; nach Esc aus der Präsentation Seitenleiste 216 statt 260 px; Saitenbuchstaben und Taktzahlen in
   der Präsentation etwa 8 px; frühe Note (orange) unter Deuteranopie wie eine D-Saiten-Note, nur das kleine Abzeichen
   trägt.
-- [ ] B9 (niedrig, Kante): Timing-Histogramm nennt dem Screenreader keine Balkenwerte (S5 nur teils).
+- [x] B9 (niedrig, Kante 1.51, übersetzt #176): Timing-Histogramm nennt dem Screenreader keine Balkenwerte (S5 nur teils).
+- Geprüft für #176 (Xvfb, helles Breeze als Systemschema, Tastatur über xdotool, `--focus-log`): B2 Seitenleiste in
+  Kante dunkel ohne helle Fläche, „Üben“ gesperrt lesbar; B3 Tab kreist in der Auswertung (sechs Halte, Umschalt+Tab
+  vom ersten zum letzten), die Seite dahinter ist verborgen, Esc setzt den Fokus auf „Abspielen“; B5 „Zurück“ setzt
+  den Fokus auf das „?“, jede Übung per Tab und Umschalt+Tab erreichbar; B7 Ziffern in Kante Light 4,9:1 (Himbeere),
+  5,8:1 (Blau), 5,2:1 (Ocker) auf #eff0f1. B9 nur per QML-Test (Balkenname „+10 to +20 ms: 3 notes“), Orca nicht
+  genutzt. QML-Tests: `tst_summarysheet`, `tst_glossaryreturn`.
 - Vorfall: eine eigene D-Bus-Sitzung für AT-SPI startete `xdg-desktop-portal-kde` mit dem echten Wayland-Display;
-  sofort beendet, nichts erschienen. Regel: kein eigener Session-Bus für QA.
+  sofort beendet, nichts erschienen. Regel: eigener Session-Bus nur für den Screenreader-Test, ganz vom Desktop getrennt (#179).
 
 ### QA-Runde 27.10.2026 (Nacht: alle Personas, alle Funktionen, echtes Fenster)
 

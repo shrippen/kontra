@@ -9,18 +9,16 @@ nur, was offen ist und wo es liegt.
 Pegel in der Notenansicht, Wayland-Regel). QA-Runde 28.10. (J-B5, J-F1) in der ROADMAP, B1 behoben (#175).
 
 Offen:
-- Kante 1.51 (PR in Kante): `KanteScope` für deaktivierte Kirigami-Items, Fokus-Käfig für Sheets, `KanteCallout`
-  ohne leere Zeile, Saitenfarben Kante Light (B7), Balkenwerte im Histogramm (B9), Changelog 1.50. Release braucht
-  die Bestätigung des Eigentümers in Worten.
-- Kontra #176 (B2, B3, Trenner): angehalten, bis Kante 1.51 da ist; dann auf die Kante-Bausteine umstellen
-  (`DrawerSkin`, `FocusTrap` entfallen).
-- B4–B6 (Tastatur und 200 %: Einrichtung Schritt 3, Glossar-Fokus, Werkstatt): PR `tastatur-200` in Arbeit.
+- Kontra #176 (B2, B3, B5, B7, B9): auf Kante 1.51 umgestellt (`DrawerSkin`, `FocusTrap` entfallen),
+  wartet auf Review und Merge.
+- Trenner der Seitenleiste für Screenreader stumm schalten: in Kante (`KanteScope.popup`), nicht lokal.
 - Danach Hell/Dunkel (M20) als Kante-PR mit Einstellung in Kontra; B8 (niedrig).
 - Extreme Vergrößerung und kleine Auflösungen getrennt anschauen: Screenshots je Seite, Ideen, Entscheidung mit dem
   Eigentümer (ROADMAP, QA-Runde 28.10.; enthält B6 vor dem Abspielen).
 - Zur Freigabe in der nächsten Runde: pub aus #172 (`CacheEntry`, `BackingCache::{entries, forget, clear}`,
   `BassRemoval::{entries, forget, clear}`, `Core::{caches_json, forget_cached, clear_cache}`), #174 (`song::parts`,
-  `CHORD_TEXT`, `BarHead.markers`), Kante 1.50 (`KanteRehearsalMark`, `KanteStyle.partText`, `rehearsalText`).
+  `CHORD_TEXT`, `BarHead.markers`), Kante 1.50 (`KanteRehearsalMark`, `KanteStyle.partText`, `rehearsalText`), #176
+  (QML: `SummarySheet.returnTo`, `.behind`, `GlossaryReturn`).
 - Kleinigkeiten: `pressByKey` ohne `toggle` (Qt < 6.8); Hinweis „Paket geöffnet“ (#164); Paketgröße ohne Test;
   MusicXML `<degree>`/`<offset>`; `staffSpace` ohne Untergrenze (#171); Werkstatt- und Warten-Zeilen in niedrigen
   Fenstern (#175).

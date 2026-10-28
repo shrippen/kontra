@@ -639,7 +639,9 @@ Item {
             height: modelData.h
             color: modelData.kind === "line" ? staff.stringColor(modelData.str)
                  : modelData.kind === "bar" ? KanteStyle.textColor : KanteStyle.textColor
-            opacity: modelData.kind === "line" ? 0.7 : 1
+            // On a light ground the string lines take their full colour: at 0.7 they missed 3:1
+            // (1.51, a beamer in Kante Light).
+            opacity: modelData.kind === "line" && !(KanteStyle.active && KanteStyle.light) ? 0.7 : 1
         }
     }
 

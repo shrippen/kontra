@@ -296,6 +296,7 @@ Kirigami.Page {
     }
 
     ColumnLayout {
+        id: pageContent
         anchors.fill: parent
         visible: ctl.loaded
         // Under the summary nothing takes the focus (QA 27.10., P7: Tab went through 18 hidden
@@ -1355,6 +1356,9 @@ Kirigami.Page {
         width: Math.min(page.width - KanteStyle.unit(40), KanteStyle.unit(640))
         height: Math.min(contentHeight, page.height - KanteStyle.unit(24))
         z: 5
+        // Closed, the keyboard goes on at play; it stayed on the hidden "close" (QA 28.10., P7).
+        returnTo: transport
+        behind: [pageContent]
         onPracticeBar: function(bar) {
             ctl.changeMode("workshop")
             ctl.loopBars(bar, bar)
