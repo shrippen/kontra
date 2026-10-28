@@ -2492,6 +2492,16 @@ impl Core {
         self.apply_beat_map()
     }
 
+    /// Moves every bar half a beat later, or back (QA 27.10., J3: the grid sat on the offbeat).
+    pub fn backing_half_beat(&mut self) -> Result<(), String> {
+        let path = self.loaded_path().ok_or("nothing loaded")?.to_path_buf();
+        let Some(map) = self.library.beat_maps.get_mut(&path) else {
+            return Ok(());
+        };
+        map.half_beat = !map.half_beat;
+        self.apply_beat_map()
+    }
+
     /// Back to the piece's own tempo, the backing starting at its old offset.
     pub fn backing_clear(&mut self) -> Result<(), String> {
         let path = self.loaded_path().ok_or("nothing loaded")?.to_path_buf();
@@ -2524,11 +2534,12 @@ impl Core {
             .map(|a| map.bar_times(&quarters_per_bar(a)))
             .unwrap_or_default();
         let first = times.first().copied().unwrap_or(0.0);
-        let sure = map.on_beat_share >= SURE_ON_BEAT_SHARE;
-        let key = if sure {
-            "backing.aligned"
-        } else {
-            "backing.unsure"
+        // Moved by hand, the player has listened: no warning, but the text says so.
+        let sure = map.on_beat_share >= SURE_ON_BEAT_SHARE || map.half_beat;
+        let key = match (map.half_beat, sure) {
+            (true, _) => "backing.aligned.half",
+            (false, true) => "backing.aligned",
+            (false, false) => "backing.unsure",
         };
         json!({
             "analysed": true,
@@ -2537,6 +2548,7 @@ impl Core {
             "mapped": times.len(),
             "bars": bars,
             "sure": sure,
+            "halfBeat": map.half_beat,
             "text": self.tr(key, &[
                 ("bpm", format!("{:.0}", map.bpm)),
                 ("first", format!("{first:.2}")),
@@ -5299,6 +5311,21 @@ mod tests {
         let info: serde_json::Value = serde_json::from_str(&core.backing_json()).unwrap();
         assert_eq!(info["sure"], false, "{info}");
         assert!(!info["text"].as_str().unwrap().contains("follow"), "{info}");
+
+        // Half a beat by hand (PR-Agent #155): the warning goes, bar 1 moves half a beat; a
+        // second click takes it back instead of moving a whole beat.
+        let first = info["firstS"].as_f64().unwrap();
+        let half_s = 30.0 / info["bpm"].as_f64().unwrap();
+        core.backing_half_beat().unwrap();
+        let moved: serde_json::Value = serde_json::from_str(&core.backing_json()).unwrap();
+        assert_eq!(moved["sure"], true, "{moved}");
+        assert_eq!(moved["halfBeat"], true, "{moved}");
+        let at = moved["firstS"].as_f64().unwrap();
+        assert!((at - first - half_s).abs() < 0.02, "{moved}");
+        core.backing_half_beat().unwrap();
+        let back: serde_json::Value = serde_json::from_str(&core.backing_json()).unwrap();
+        assert_eq!(back["firstS"], info["firstS"], "{back}");
+        assert_eq!(back["sure"], false, "{back}");
         let _ = std::fs::remove_dir_all(dir);
     }
 

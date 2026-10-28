@@ -71,8 +71,11 @@ KanteCard {
                 spacing: KanteStyle.unit(8)
                 KanteButton { text: texts.t("backing.earlier"); onClicked: ctl.backingAdjust(-1, 0, -1, 0) }
                 KanteButton { text: texts.t("backing.later"); onClicked: ctl.backingAdjust(1, 0, -1, 0) }
-                // Half a beat (ms at the found tempo): the grid sat on the offbeat (J3).
-                KanteButton { text: texts.t("backing.halfbeat"); onClicked: ctl.backingAdjust(0, 30000 / sheet.info.bpm, -1, 0) }
+                // Half a beat, a toggle: the grid sat on the offbeat (J3).
+                KanteButton {
+                    text: sheet.info.halfBeat ? texts.t("backing.halfbeat.back") : texts.t("backing.halfbeat")
+                    onClicked: { ctl.backingHalfBeat(); sheet.refresh() }
+                }
             }
             KanteSettingRow {
                 Layout.fillWidth: true

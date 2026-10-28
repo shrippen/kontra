@@ -690,6 +690,11 @@ pub mod qobject {
             bar_ms: f64,
         );
 
+        /// Every bar half a beat later, or back (QA 27.10., J3).
+        #[qinvokable]
+        #[cxx_name = "backingHalfBeat"]
+        fn backing_half_beat(self: Pin<&mut Self>);
+
         #[qinvokable]
         #[cxx_name = "backingClear"]
         fn backing_clear(self: Pin<&mut Self>);
@@ -2444,6 +2449,11 @@ impl qobject::Controller {
     ) {
         let bar = usize::try_from(bar).ok().map(|b| (b, bar_ms));
         let result = self.as_mut().core().backing_adjust(downbeat, shift_ms, bar);
+        self.as_mut().after_retune(result);
+    }
+
+    fn backing_half_beat(mut self: Pin<&mut Self>) {
+        let result = self.as_mut().core().backing_half_beat();
         self.as_mut().after_retune(result);
     }
 

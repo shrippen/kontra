@@ -82,9 +82,13 @@ fn fix_phase(beats: &mut Vec<usize>, low: &[f64], period: f64) -> f64 {
     };
     let on: f64 = beats.iter().map(|b| peak(*b)).sum();
     let off: f64 = beats.iter().map(|b| peak(b + half)).sum();
+    // Half a beat earlier, so a downbeat before the first offbeat stays; the last beat moves
+    // half a beat later instead of being lost.
     if off > on {
-        beats.iter_mut().for_each(|b| *b += half);
-        beats.retain(|b| *b < low.len());
+        let last = beats.last().map(|b| b + half).filter(|b| *b < low.len());
+        beats.retain(|b| *b >= half);
+        beats.iter_mut().for_each(|b| *b -= half);
+        beats.extend(last);
     }
     if on + off <= 0.0 {
         return 0.0;
@@ -419,6 +423,12 @@ mod tests {
             error * 1000.0
         );
         assert!(grid.on_beat_share > 0.9, "{}", grid.on_beat_share);
+        // The first downbeat stays (PR-Agent #155: shifting later dropped bar 1).
+        let first = grid.beats.first().copied().unwrap_or(f64::MAX);
+        assert!(
+            (first - truth[0]).abs() < 0.03,
+            "first beat at {first:.3} s"
+        );
     }
 
     #[test]
