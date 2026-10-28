@@ -712,6 +712,11 @@ impl Rhythm {
         }
     }
 
+    /// The line plays the chord's seventh (funk): its chords stay seventh chords.
+    fn plays_seventh(self) -> bool {
+        self.hits().iter().any(|hit| hit.2 == Degree::Seventh)
+    }
+
     fn goal(self) -> &'static str {
         match self {
             Rhythm::Quarters | Rhythm::Eighths => "pulse",
@@ -936,9 +941,14 @@ impl ExerciseSpec {
         }
     }
 
+    /// Triads where the line plays them, and for a groove over the pop progression that plays
+    /// no seventh (round 16: maj7 read like jazz to a beginner).
     fn voicing(&self) -> Voicing {
         match self.kind {
             ExerciseKind::Triads(_) => Voicing::Triad,
+            ExerciseKind::Groove(Progression::Pop, rhythm) if !rhythm.plays_seventh() => {
+                Voicing::Triad
+            }
             _ => Voicing::Seventh,
         }
     }
@@ -1040,7 +1050,7 @@ fn one_pass(spec: &ExerciseSpec) -> Pass {
             let (tones, markers) = chords_line(
                 progression,
                 spec.key,
-                Voicing::Seventh,
+                spec.voicing(),
                 meter,
                 |start, root, q| groove_bar(start, root, q, rhythm),
             );
@@ -1917,6 +1927,25 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// Round 16: a groove over the pop progression names triads (it plays no seventh); a
+    /// groove over a jazz progression keeps its seventh chords.
+    #[test]
+    fn pop_grooves_name_triads() {
+        let names = |progression, rhythm| {
+            let e = generate(&spec(ExerciseKind::Groove(progression, rhythm), 0));
+            let a = arrangement(&e);
+            a.markers.iter().map(|m| m.name.clone()).collect::<Vec<_>>()
+        };
+        assert_eq!(
+            names(Progression::Pop, Rhythm::Quarters)[..4],
+            ["C", "G", "Am", "F"]
+        );
+        assert_eq!(
+            names(Progression::Turnaround, Rhythm::Quarters)[..4],
+            ["Cmaj7", "Am7", "Dm7", "G7"]
+        );
     }
 
     #[test]

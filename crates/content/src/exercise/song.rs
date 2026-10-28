@@ -185,11 +185,13 @@ impl Style {
     }
 
     /// How the chord names read: rock plays root, fifth and octave, so power chords (QA 27.10.:
-    /// "Rock in E" with maj7 chords); the others as seventh chords.
+    /// "Rock in E" with maj7 chords); pop and ballad as triads (round 16: maj7 read like jazz to
+    /// a beginner); funk and shuffle keep their seventh chords.
     fn voicing(self) -> Voicing {
         match self {
             Style::Rock => Voicing::Power,
-            _ => Voicing::Seventh,
+            Style::Pop | Style::Ballad => Voicing::Triad,
+            Style::Funk | Style::Shuffle => Voicing::Seventh,
         }
     }
 
@@ -338,6 +340,40 @@ mod tests {
         assert_eq!(names.first(), Some(&"E5"));
         assert_eq!(names.last(), Some(&"E5"));
         assert!(names.contains(&"C#m"), "{names:?}");
+    }
+
+    /// QA 27.10. (J10, round 16): pop and ballad named maj7 and m7 chords; to a beginner the
+    /// piece read like jazz. They name triads, the line plays no seventh; funk and shuffle
+    /// keep their sevenths.
+    #[test]
+    fn pop_chords_are_triads() {
+        let sevenths = |n: &str| n.ends_with("maj7") || n.ends_with('7') || n.ends_with("7b5");
+        for style in [Style::Pop, Style::Ballad] {
+            let (pass, _) = song(style, Level::Medium, 0);
+            let names: Vec<&str> = pass.markers.iter().map(|m| m.1.as_str()).collect();
+            assert!(!names.iter().any(|n| sevenths(n)), "{style:?}: {names:?}");
+            assert_eq!(names.first(), Some(&"C"), "{style:?}");
+            assert!(names.contains(&"Am"), "{style:?}: {names:?}");
+
+            // No tone a major seventh (11) or minor seventh (10) above the bar's root.
+            let roots: Vec<(u32, i32)> = pass
+                .tones
+                .iter()
+                .filter(|t| t.start % BAR == 0)
+                .map(|t| (t.start, t.key))
+                .collect();
+            for tone in &pass.tones {
+                let Some((_, root)) = roots.iter().rev().find(|(at, _)| *at <= tone.start) else {
+                    continue;
+                };
+                let interval = (tone.key - root).rem_euclid(12);
+                assert!(interval != 10 && interval != 11, "{style:?}: {tone:?}");
+            }
+        }
+        for style in [Style::Funk, Style::Shuffle] {
+            let (pass, _) = song(style, Level::Medium, 9);
+            assert!(pass.markers.iter().any(|m| sevenths(&m.1)), "{style:?}");
+        }
     }
 
     #[test]
