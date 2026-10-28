@@ -385,8 +385,8 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - J7 (mittel, behoben #142): Nach Eingabe in „Takte“ blieben K und Fußschalter tot; Return/Esc geben frei.
   - J8 (mittel, behoben #148): „Ohne Hilfe prüfen“ floss in Werkstatt-Durchläufe und Dichte-Vorschlag ein.
   - J9 (mittel, behoben #146): Erzeugtes Stück erbte Loop und Tempo des vorigen.
-  - J10 (mittel, teils behoben #158, #PR): Erzeugtes Stück ohne Teilnamen; „Rock in E“ mit maj7-Akkorden. Akkorde behoben
-    (Rock Powerchords #158; Pop, Ballade und Pop-Grooves Dreiklänge #PR, Runde 16); Teilnamen brauchen Probenzeichen in Kante.
+  - J10 (mittel, teils behoben #158, #169): Erzeugtes Stück ohne Teilnamen; „Rock in E“ mit maj7-Akkorden. Akkorde behoben
+    (Rock Powerchords #158; Pop, Ballade und Pop-Grooves Dreiklänge #169, Runde 16); Teilnamen brauchen Probenzeichen in Kante.
   - J11 (mittel, Inhalt): Glossar ohne Abbildungen und Hörbeispiele.
   - Offen (niedrig): J1b englischer Rohfehler im Kurs-Satz; J5 Mithör-Hinweis ohne ms; J6 Lane 45 px bei Mixer,
     Mithören und Callout; J12 „bestes Ergebnis“ aus Frei spielen; J13 Sammelbefund („1 Stücke“, Schlagzeug-Regler
