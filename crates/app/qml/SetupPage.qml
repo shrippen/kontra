@@ -175,6 +175,7 @@ Kirigami.ScrollablePage {
                 onUseLaptopJack: ctl.changeConnection("laptop")
             }
             KanteTunerGauge {
+                id: gauge
                 Layout.fillWidth: true
                 Layout.preferredHeight: KanteStyle.unit(260)
                 noteName: ctl.tunerNote.replace(/-?[0-9]+$/, "")
@@ -186,6 +187,10 @@ Kirigami.ScrollablePage {
                     : ctl.tunerCents > 3 ? texts.t("tuner.down") : texts.t("tuner.ok")
                 inTuneText: texts.t("tuner.ok")
                 accessibleName: texts.t("tuner.name")
+                // A stop for Tab: the view follows it down to note, cents and direction, which lay
+                // below the footer at 200 % (QA 28.10. B4, P7); a screen reader reads them there.
+                activeFocusOnTab: true
+                KanteBrackets { anchors.fill: parent; active: gauge.activeFocus }
             }
         }
 
