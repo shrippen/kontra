@@ -3,7 +3,8 @@
 //!
 //! ```text
 //! samples ─► spectral flux (onset strength) ─► tempo (autocorrelation, prior ~120 BPM)
-//!                                         └──► beats (dynamic programming, Ellis 2007)
+//!       │                                 └──► beats (dynamic programming, Ellis 2007)
+//!       └──► low-band flux (kick, bass) ─────────► phase: on the beat or half a beat off?
 //! ```
 //!
 //! Offline only: the whole file is analysed once when it is coupled to a piece.
@@ -21,25 +22,37 @@ const PRIOR_BPM: f64 = 120.0;
 const PRIOR_OCTAVES: f64 = 1.0;
 /// How strongly the tracker keeps the found tempo between beats.
 const TIGHTNESS: f64 = 100.0;
+/// Kick drum and bass live below this; hi-hats and most of a snare above.
+const LOW_HZ: f64 = 150.0;
+/// Frames either side of a beat searched for its low-band onset (about ±12 ms).
+const PHASE_REACH: usize = 2;
+/// Low-band rise (linear FFT magnitude) below which there is no kick or bass: about 48 dB under
+/// a full-scale sine (256 in a Hann window of 1024).
+const LOW_FLOOR: f64 = 1.0;
 
 /// Tempo and beat times (seconds) of a recording.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BeatGrid {
     pub bpm: f64,
     pub beats: Vec<f64>,
+    /// Share (0–1) of the kick and bass onsets on the beats rather than half a beat off. Near 0.5
+    /// (or 0 without any): the grid may sit on the offbeat, the player should check by ear.
+    pub on_beat_share: f64,
 }
 
 /// Finds the beats of `samples` (mono) at `rate` Hz. Silence or very short input gives no beats.
 pub fn track_beats(samples: &[f32], rate: u32) -> BeatGrid {
-    let strength = onset_strength(samples);
+    let (strength, low) = onset_strength(samples, rate);
     let frame_s = HOP as f64 / f64::from(rate.max(1));
     let Some(period) = tempo_period(&strength, frame_s) else {
         return BeatGrid {
             bpm: 0.0,
             beats: Vec::new(),
+            on_beat_share: 0.0,
         };
     };
-    let frames = dynamic_beats(&strength, period);
+    let mut frames = dynamic_beats(&strength, period);
+    let on_beat_share = fix_phase(&mut frames, &low, period);
     // Flux at frame i compares windows starting at i-1 and i: it jumps in the first window that
     // holds the attack, with the attack in its last hop.
     let offset_s = (WINDOW - HOP) as f64 / f64::from(rate.max(1));
@@ -50,23 +63,57 @@ pub fn track_beats(samples: &[f32], rate: u32) -> BeatGrid {
     BeatGrid {
         bpm: 60.0 / (period * frame_s),
         beats,
+        on_beat_share,
     }
 }
 
-/// Half-wave rectified spectral flux of log magnitudes, minus a one-second moving mean.
-fn onset_strength(samples: &[f32]) -> Vec<f64> {
-    if samples.len() < WINDOW * 2 {
-        return Vec::new();
+/// Moves the beats half a period when kick and bass sit between them rather than on them (a
+/// loud hi-hat on the offbeat pulls the tracker there); returns the share of the low-band onset
+/// that then falls on the beats (0.5: no telling which).
+fn fix_phase(beats: &mut Vec<usize>, low: &[f64], period: f64) -> f64 {
+    let half = (period / 2.0).round() as usize;
+    let peak = |frame: usize| -> f64 {
+        let from = frame.saturating_sub(PHASE_REACH);
+        let to = (frame + PHASE_REACH + 1).min(low.len());
+        low.get(from..to)
+            .map_or(0.0, |w| w.iter().copied().fold(0.0, f64::max))
+            .max(LOW_FLOOR)
+            - LOW_FLOOR
+    };
+    let on: f64 = beats.iter().map(|b| peak(*b)).sum();
+    let off: f64 = beats.iter().map(|b| peak(b + half)).sum();
+    // Half a beat earlier, so a downbeat before the first offbeat stays; the last beat moves
+    // half a beat later instead of being lost.
+    if off > on {
+        let last = beats.last().map(|b| b + half).filter(|b| *b < low.len());
+        beats.retain(|b| *b >= half);
+        beats.iter_mut().for_each(|b| *b -= half);
+        beats.extend(last);
     }
+    if on + off <= 0.0 {
+        return 0.0;
+    }
+    on.max(off) / (on + off)
+}
+
+/// Half-wave rectified spectral flux of log magnitudes, minus a one-second moving mean; and the
+/// linear flux below `LOW_HZ` (kick and bass) for the phase.
+fn onset_strength(samples: &[f32], rate: u32) -> (Vec<f64>, Vec<f64>) {
+    if samples.len() < WINDOW * 2 {
+        return (Vec::new(), Vec::new());
+    }
+    let low_bins = (LOW_HZ * WINDOW as f64 / f64::from(rate.max(1))).ceil() as usize;
     let fft = FftPlanner::<f32>::new().plan_fft_forward(WINDOW);
     let window: Vec<f32> = (0..WINDOW)
         .map(|i| 0.5 - 0.5 * (2.0 * PI * i as f32 / WINDOW as f32).cos())
         .collect();
     let bins = WINDOW / 2;
     let mut previous = vec![0.0f32; bins];
+    let mut previous_low = vec![0.0f32; low_bins];
     let mut buffer = vec![Complex32::new(0.0, 0.0); WINDOW];
     let frames = (samples.len() - WINDOW) / HOP;
     let mut flux = Vec::with_capacity(frames);
+    let mut low = Vec::with_capacity(frames);
     for f in 0..frames {
         let start = f * HOP;
         for (i, b) in buffer.iter_mut().enumerate() {
@@ -74,6 +121,7 @@ fn onset_strength(samples: &[f32]) -> Vec<f64> {
         }
         fft.process(&mut buffer);
         let mut sum = 0.0f64;
+        let mut low_sum = 0.0f64;
         for (bin, prev) in previous.iter_mut().enumerate() {
             let magnitude = (1.0 + 100.0 * buffer[bin + 1].norm()).ln();
             if f > 0 {
@@ -81,7 +129,16 @@ fn onset_strength(samples: &[f32]) -> Vec<f64> {
             }
             *prev = magnitude;
         }
+        // Linear, not log: a hi-hat's faint low end must not count as a kick.
+        for (bin, prev) in previous_low.iter_mut().enumerate() {
+            let magnitude = buffer[bin + 1].norm();
+            if f > 0 {
+                low_sum += f64::from((magnitude - *prev).max(0.0));
+            }
+            *prev = magnitude;
+        }
         flux.push(sum);
+        low.push(low_sum);
     }
     // Remove the slowly changing part (crescendos), keep the attacks.
     let half = 40; // about half a second at 44.1 kHz
@@ -96,7 +153,7 @@ fn onset_strength(samples: &[f32]) -> Vec<f64> {
     if deviation > 0.0 {
         out.iter_mut().for_each(|v| *v /= deviation);
     }
-    out
+    (out, low)
 }
 
 /// Beat period in frames (fractional) from the autocorrelation, weighted by the tempo prior.
@@ -315,6 +372,7 @@ mod tests {
         let grid = track_beats(&band_track(&truth, seconds, 0.005), RATE);
         let error = nearest_error(&grid.beats, &truth);
         assert!(error <= LIMIT_S, "worst beat {:.1} ms off", error * 1000.0);
+        assert!(grid.on_beat_share > 0.8, "{}", grid.on_beat_share);
 
         // No constant lead or lag: the player would be judged late or early with the band.
         const BIAS_LIMIT_S: f64 = 0.005;
@@ -324,6 +382,61 @@ mod tests {
             "beats {:.1} ms off on average",
             bias * 1000.0
         );
+    }
+
+    /// Kick on 1 and 3 (a low thump), a loud hi-hat (high noise) on every offbeat: the hats
+    /// carry most of the onset energy, half a beat after the beat.
+    fn offbeat_hats(beats: &[f64], seconds: f64, kick_gain: f32) -> Vec<f32> {
+        let mut out = vec![0.0f32; (seconds * f64::from(RATE)) as usize];
+        for b in beats.iter().step_by(2) {
+            let start = (b * f64::from(RATE)) as usize;
+            for (i, s) in out.iter_mut().skip(start).take(6000).enumerate() {
+                let t = i as f32 / RATE as f32;
+                *s += kick_gain * (2.0 * PI * 55.0 * t).sin() * (-t / 0.08).exp();
+            }
+        }
+        let mut noise = 4242u32;
+        for w in beats.windows(2) {
+            let start = (0.5 * (w[0] + w[1]) * f64::from(RATE)) as usize;
+            let mut last = 0.0f32;
+            for (i, s) in out.iter_mut().skip(start).take(3000).enumerate() {
+                noise = noise.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let n = (noise >> 9) as f32 / (1u32 << 23) as f32 - 0.5;
+                let t = i as f32 / RATE as f32;
+                *s += 1.5 * (n - last) * (-t / 0.03).exp();
+                last = n;
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn hats_on_the_offbeat_do_not_shift_the_beats() {
+        // QA 27.10. (J3): the grid sat on the offbeat, +310 ms at 97 BPM.
+        let truth: Vec<f64> = (0..48).map(|i| 0.5 + f64::from(i) * 60.0 / 97.0).collect();
+        let grid = track_beats(&offbeat_hats(&truth, 31.0, 1.0), RATE);
+        let error = nearest_error(&grid.beats, &truth);
+        assert!(
+            error < 0.03,
+            "{} BPM, worst beat {:.0} ms off",
+            grid.bpm,
+            error * 1000.0
+        );
+        assert!(grid.on_beat_share > 0.9, "{}", grid.on_beat_share);
+        // The first downbeat stays (PR-Agent #155: shifting later dropped bar 1).
+        let first = grid.beats.first().copied().unwrap_or(f64::MAX);
+        assert!(
+            (first - truth[0]).abs() < 0.03,
+            "first beat at {first:.3} s"
+        );
+    }
+
+    #[test]
+    fn hats_alone_leave_the_phase_open() {
+        // Nothing low tells beat from offbeat: the grid must not claim to know.
+        let truth: Vec<f64> = (0..48).map(|i| 0.5 + f64::from(i) * 60.0 / 97.0).collect();
+        let grid = track_beats(&offbeat_hats(&truth, 31.0, 0.0), RATE);
+        assert!(grid.on_beat_share < 0.6, "{}", grid.on_beat_share);
     }
 
     #[test]

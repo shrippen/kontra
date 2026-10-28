@@ -5,8 +5,8 @@ needs: pocket
 terms: streuung
 
 ## Wie weit die Töne streuen
-Die [[streuung|Streuung]] sagt, wie weit deine Töne um ihre mittlere Lage verteilt sind, in Millisekunden. Kleine
-Streuung heißt: Jeder Ton sitzt dort, wo der vorige saß. Das hört man als festen Groove, auch wenn die Lage selbst
+Die [[streuung|Streuung]] sagt, wie weit deine Töne um ihr mittleres Timing verteilt sind, in Millisekunden. Kleine
+Streuung heißt: Jeder Ton sitzt dort, wo der vorige saß. Das hört man als festen Groove, auch wenn das Timing selbst
 nicht genau auf dem Schlag liegt.
 ::: hint
 Die Auswertung zeigt die Streuung als Zahl und als Diagramm „Timing“: je schmaler der Berg, desto gleichmäßiger.

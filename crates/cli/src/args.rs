@@ -298,7 +298,7 @@ pub struct PracticeArgs {
     /// Input device id (see `devices`).
     #[arg(long)]
     pub input: Option<String>,
-    /// Output device id (see `devices`).
+    /// Output device id (see `devices`); with `--input-file` silent unless given.
     #[arg(long)]
     pub output: Option<String>,
 }

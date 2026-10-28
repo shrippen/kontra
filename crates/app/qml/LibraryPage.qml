@@ -48,6 +48,10 @@ Kirigami.ScrollablePage {
     }
 
     FolderDialog {
+
+        // QA: Qt's dialog in the window, never the desktop portal.
+
+        options: ctl.qaRun ? FolderDialog.DontUseNativeDialog : 0
         id: folderDialog
         title: texts.t("dialog.folder")
         currentFolder: StandardPaths.writableLocation(StandardPaths.MusicLocation)
@@ -61,6 +65,10 @@ Kirigami.ScrollablePage {
     }
 
     FileDialog {
+
+        // QA: Qt's dialog in the window, never the desktop portal.
+
+        options: ctl.qaRun ? FileDialog.DontUseNativeDialog : 0
         id: packageDialog
         title: texts.t("dialog.package")
         fileMode: FileDialog.SaveFile
@@ -84,6 +92,10 @@ Kirigami.ScrollablePage {
     }
 
     FileDialog {
+
+        // QA: Qt's dialog in the window, never the desktop portal.
+
+        options: ctl.qaRun ? FileDialog.DontUseNativeDialog : 0
         id: dialog
         title: texts.t("dialog.open")
         currentFolder: page.startFolder()

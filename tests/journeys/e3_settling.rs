@@ -57,7 +57,7 @@ fn flat_starts_turn_into_hits_when_strict() {
 #[test]
 fn flat_starts_turn_into_hits_when_fretless() {
     settles_into_hits("e3-fretless", |s| {
-        s.fretless = true;
+        s.instrument = kontra_appcore::Bass::Fretless;
     });
 }
 

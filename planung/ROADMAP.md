@@ -184,6 +184,23 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
   91,2/81,2 %; eigene Aufnahmen unverändert (testdata/korpus/QUELLEN.md, „Tonhöhen-Revision“).
 - Hardware-Prüfung gemeinsam: am 13.10. begonnen (Abschnitt Hardware-Prüfung unter QA-Runden).
 
+## Entscheidungen Runde 15 (28.10.2026)
+
+Nach der QA-Nacht 27.10.:
+
+- [ ] Einrichtung fragt am Ende nach dem Stand (LH-EIN-13): Lektion 1, Übungen der Stufe oder Bibliothek.
+- [ ] Einstellung „Einfache Ansicht“ (LH-ANZ-11), für „Neu am Bass“ an; Ziel der Übung unter dem Titel.
+- [ ] „Lage“ als Timing-Ziel heißt in der Oberfläche „Timing“ (LH-BEW-08).
+- [ ] Instrument jetzt eigens wählbar: E-Bass, Kontrabass, Bass über MIDI (LH-EIN-09).
+- [ ] `.kontra` mit Loops und Zieltempo, ohne Fortschritt; Pakete können Backing Tracks enthalten (LH-BIB-07).
+- [ ] Kante Light ist die abgespeckte Kante (Systemfarben), nicht hell. Hell/dunkel als eigene Einstellung, im
+      Präsentationsmodus als Schalter (LH-ALL-02).
+- [ ] Fehlende Kante-Bausteine als Kante-PR; Claude merged Kante-PRs nach Review wie Kontra-PRs (`agent.md`).
+- Demo-Modus „Studio Weber“ nach 0.1; „Kurs aus Ordner“ bleibt bei der Kurswerkstatt (1.0).
+- [ ] QA-Läufe mit `--input-file`: kein Portal-Dialog, kein Browser, `kontra-cli` mit stummem Ausgang.
+- Neue pub-Schnittstellen aus #137, #138, #141 und #147 freigegeben.
+- Danach zuerst die offenen Befunde der QA-Runde 27.10., dann J-F1 und J-B5 erneut spielen.
+
 ## Entscheidungen Runde 14 (25.10.2026)
 
 Kurspakete (LH-LRN-14):
@@ -307,8 +324,8 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
 - **P1 Lea (J-A1, J-A2, J-B2, J-C8, J-G1): bestanden nach Befunden.**
   - L1 (mittel, behoben #137): Seitenleiste in Systemfarben (grüner Akzent), Lektionslinks grün; jetzt Kante.
   - L3 (mittel, behoben #137): Pegel-Hinweise verschoben „Weiter“; die Knöpfe stehen jetzt fest im Seitenfuß.
-  - L5 (mittel, Entscheidung): Einrichtung endet immer mit „Groove Viertel“, ohne Frage nach dem Stand (auch M17).
-  - L6 (mittel, Entscheidung): Übungsseite zeigt einer Anfängerin alle Regler; Ziel der Übung fehlt auf der Seite.
+  - L5 (mittel, behoben #161): Einrichtung endete immer mit „Groove Viertel“, ohne Frage nach dem Stand (auch M17).
+  - L6 (mittel, behoben #161): Übungsseite zeigte einer Anfängerin alle Regler; Ziel der Übung fehlte auf der Seite.
   - L8 (niedrig, behoben #137): Auswertung: „Sitzt“-Karte trug den Titel der nächsten Übung ohne Hinweis.
   - L11 (niedrig, behoben #137): Geführtes Stimmen endete ohne Weg weiter.
   - L15, L16 (niedrig, behoben #137): Lektion: Überschrift doppelt, Griffbrett zu hoch für 768 px.
@@ -327,10 +344,10 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
     Glossar-Links im Lektionstext nicht per Tab erreichbar.
   - S6 (mittel, Kante): Bei Deuteranopie gleicht ein verfehlter Ton (rot) einer D-Saiten-Note (ocker).
   - S7 (mittel, behoben #137): Bibliothek zeigte Ergebnisse erst nach Neustart.
-  - S8 (mittel, Entscheidung): „Lage“ heißt im Übungskopf das Timing-Ziel, sonst die Handposition.
+  - S8 (mittel, behoben #154): „Lage“ hieß im Übungskopf das Timing-Ziel, sonst die Handposition; jetzt „Timing“.
   - S9 (mittel, behoben #137), S10, S13, S15 (niedrig, behoben #137): springende Knöpfe, MIDI-Hinweis ohne Keyboard,
     englische Formulierungen, Glossar sortierte „Dämpfen“ nach „Durchgangston“.
-  - S11 (mittel, Entscheidung): Kein Instrument „Kontrabass“ oder „MIDI-Bass“ wählbar (LH-EIN-09).
+  - S11 (mittel, behoben #163): Kein Instrument „Kontrabass“ oder „MIDI-Bass“ wählbar (LH-EIN-09).
   - S12 (mittel, offen): Notenansicht ohne Pegel und Toleranz-Hinweis, untere Hälfte leer.
   - S14 (niedrig, Kante): Einstöckiges „a“ der Kante-Schrift liest sich bei 100 % wie „o“.
 - **P5 Aylin (J-A4, J-E1), P6 Karl (J-A4, J-E2): bestanden.** J-E2 mit Band im Raum (`room-double-backing`) nicht
@@ -339,10 +356,11 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - M1 (hoch, behoben #139): Bundlos und im strengen Fenster blieb ein von unten einschwingender Ton „falsch“.
   - M2 (mittel, behoben #147): Strenges Fenster, alle Noten 40 ms früh: „0 % getroffen, 128 ausgelassen“ ohne „zu früh“.
   - M3 (mittel, behoben #149): Pocket-Satz widersprüchlich („2 ms zu früh · meist 8 ms zu spät“).
-  - M4 (mittel, offen): Enharmonik in B♭: Liste A♯1, Noten D♭ aus C♯.
-  - M5 (mittel, offen): MusicXML-Akkordsymbole (`<harmony>`) werden nicht gelesen (LH-BIB-03).
+  - M4 (mittel, behoben #152): Enharmonik in B♭: Liste A♯1, Noten D♭ aus C♯.
+  - M5 (mittel, behoben #156): MusicXML-Akkordsymbole (`<harmony>`) werden nicht gelesen (LH-BIB-03). Offen
+    (niedrig): `<degree>` (z. B. C7♯9, C7sus4) und negativer `<offset>` werden noch nicht gelesen.
   - M6 (mittel, offen): „Alle Noten“ ohne Timing je Note (LH-BEW-01).
-  - M9 (mittel, offen): Sechzehntel unlesbar, acht Takte in einer Zeile.
+  - M9 (mittel, behoben #157): Sechzehntel unlesbar, acht Takte in einer Zeile.
   - M10 (mittel, behoben #140): Generator: Schlusston über sieben Achtel, Takt las sich als 3/4.
   - M15 (mittel, behoben #143): Alt+5 (Klaviatur) fehlte, Tastenliste nannte alte Modi.
   - Offen (niedrig): M7 Liste „zweiter Blick“ unsortiert; M8 Live-Etikett überdeckt Marken; M11 Fähnchen, Hälse;
@@ -360,12 +378,13 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - J1 (mittel, behoben #141): Meldungen nach dem Start (Import, kaputte Datei) erschienen nie.
   - J2 (mittel, behoben #162): MP3-Backing wurde bei jedem Start dekodiert; Debug-Build 20 s eingefroren, Release ~1 s.
     Jetzt Cache, Vorbereitung im Hintergrund, Ladeanzeige.
-  - J3 (mittel, offen): Takterkennung rastet auf dem Offbeat ein (+310 ms) und meldet trotzdem „8 von 8 Takten“.
+  - J3 (mittel, behoben #155): Takterkennung rastete auf dem Offbeat ein (+310 ms) und meldete trotzdem „8 von 8 Takten“.
   - J4 (niedrig, behoben #150): Bibliothek zeigte den internen GP-Titel („001“) statt des Dateinamens; Umbenennen fehlt weiter.
   - J7 (mittel, behoben #142): Nach Eingabe in „Takte“ blieben K und Fußschalter tot; Return/Esc geben frei.
   - J8 (mittel, behoben #148): „Ohne Hilfe prüfen“ floss in Werkstatt-Durchläufe und Dichte-Vorschlag ein.
   - J9 (mittel, behoben #146): Erzeugtes Stück erbte Loop und Tempo des vorigen.
-  - J10 (mittel, offen): Erzeugtes Stück ohne Teilnamen; „Rock in E“ mit maj7-Akkorden.
+  - J10 (mittel, teils behoben #158): Erzeugtes Stück ohne Teilnamen; „Rock in E“ mit maj7-Akkorden. Akkorde behoben
+    (Powerchords); Teilnamen brauchen Probenzeichen in Kante.
   - J11 (mittel, Inhalt): Glossar ohne Abbildungen und Hörbeispiele.
   - Offen (niedrig): J1b englischer Rohfehler im Kurs-Satz; J5 Mithör-Hinweis ohne ms; J6 Lane 45 px bei Mixer,
     Mithören und Callout; J12 „bestes Ergebnis“ aus Frei spielen; J13 Sammelbefund („1 Stücke“, Schlagzeug-Regler

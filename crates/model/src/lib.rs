@@ -16,8 +16,8 @@ mod tempo;
 mod tuning;
 
 pub use arrangement::{
-    Arrangement, Bar, DrumHit, DrumKind, Judging, Marker, Note, Technique, TimeSignature,
-    TICKS_PER_QUARTER,
+    Arrangement, Bar, DrumHit, DrumKind, Judging, Marker, MarkerKind, Note, Technique,
+    TimeSignature, TICKS_PER_QUARTER,
 };
 pub use event::{DetectedNote, InputSource, PitchRevision, TechniqueRevision};
 pub use instrument::{Instrument, InstrumentError, InstrumentKind, KeyRange, ToneBands};
