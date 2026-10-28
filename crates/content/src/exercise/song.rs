@@ -184,6 +184,15 @@ impl Style {
         self == Style::Funk
     }
 
+    /// How the chord names read: rock plays root, fifth and octave, so power chords (QA 27.10.:
+    /// "Rock in E" with maj7 chords); the others as seventh chords.
+    fn voicing(self) -> Voicing {
+        match self {
+            Style::Rock => Voicing::Power,
+            _ => Voicing::Seventh,
+        }
+    }
+
     /// Text key ("ballad", "pop" …), the inverse of `from_key`.
     pub fn key(self) -> &'static str {
         match self {
@@ -223,7 +232,7 @@ pub(super) fn song(style: Style, level: Level, key: u8) -> (Pass, Vec<(u32, u8)>
         let (line, chords) = chords_line(
             p.progression,
             key,
-            Voicing::Seventh,
+            style.voicing(),
             meter,
             // The level changes the bass line; the drums keep the style's groove (a shuffle).
             |at, root, q| groove_bar(at, root, q, level.rhythm(p.rhythm)),
@@ -247,7 +256,14 @@ pub(super) fn song(style: Style, level: Level, key: u8) -> (Pass, Vec<(u32, u8)>
     let (offset, quality) = form[0].progression.bars()[0];
     let root = nearest(i32::from(key) + offset, low_root(key));
     let fifths = key_fifths(key, style.minor());
-    markers.push((start, format!("{}{}", name(root, fifths), quality.suffix())));
+    markers.push((
+        start,
+        format!(
+            "{}{}",
+            name(root, fifths),
+            quality.suffix_for(style.voicing())
+        ),
+    ));
     tones.push(Tone {
         start,
         length: BAR,
@@ -307,6 +323,21 @@ mod tests {
         assert_eq!(last.length, BAR);
         assert_eq!(pass.markers.last().unwrap().1, "Am7");
         assert!(drums.iter().all(|(at, _)| *at <= last.start));
+    }
+
+    /// QA 27.10. (J10): "Rock in E" read Emaj7 and Amaj7. Rock names its chords as the line
+    /// plays them (root, fifth, octave): power chords, minor as minor.
+    #[test]
+    fn rock_chords_are_power_chords() {
+        let (pass, _) = song(Style::Rock, Level::Medium, 4);
+        let names: Vec<&str> = pass.markers.iter().map(|m| m.1.as_str()).collect();
+        assert!(
+            names.iter().all(|n| n.ends_with('5') || n.ends_with('m')),
+            "{names:?}"
+        );
+        assert_eq!(names.first(), Some(&"E5"));
+        assert_eq!(names.last(), Some(&"E5"));
+        assert!(names.contains(&"C#m"), "{names:?}");
     }
 
     #[test]

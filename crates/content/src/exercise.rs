@@ -311,11 +311,13 @@ const HARMONIC_MINOR: [i32; 8] = [0, 2, 3, 5, 7, 8, 11, 12];
 /// Semitones from a minor root up to its relative major (A minor → C major).
 const RELATIVE_MAJOR: u8 = 3;
 
-/// How the chords of an exercise are named: as played (triads) or as seventh chords.
+/// How the chords of an exercise are named: as played (triads), as seventh chords, or as
+/// power chords where the line plays only root, fifth and octave (rock).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Voicing {
     Seventh,
     Triad,
+    Power,
 }
 
 /// Chord quality of a progression step.
@@ -338,15 +340,15 @@ impl Quality {
         }
     }
 
-    /// Chord symbol suffix: "maj7" as a seventh chord, "" as its triad.
+    /// Chord symbol suffix: "maj7" as a seventh chord, "" as its triad, "5" as a power chord
+    /// (minor stays "m": the minor sixth of a pop progression).
     fn suffix_for(self, voicing: Voicing) -> &'static str {
-        if voicing == Voicing::Seventh {
-            return self.suffix();
-        }
-        match self {
-            Quality::Major7 | Quality::Dominant7 => "",
-            Quality::Minor7 => "m",
-            Quality::HalfDiminished => "dim",
+        match (voicing, self) {
+            (Voicing::Seventh, _) => self.suffix(),
+            (Voicing::Power, Quality::Major7 | Quality::Dominant7) => "5",
+            (Voicing::Triad, Quality::Major7 | Quality::Dominant7) => "",
+            (_, Quality::Minor7) => "m",
+            (_, Quality::HalfDiminished) => "dim",
         }
     }
 
