@@ -332,8 +332,9 @@ Kirigami.Page {
             }
             KanteToolButton {
                 id: presentButton
-                // Not in a slim window (F5 still works).
-                visible: !page.slim || page.presenting
+                // Only the narrowest pages leave it out (F5 still works); at a beamer with 853 px it
+                // is what the teacher looks for (QA 27.10., P4).
+                visible: page.width >= KanteStyle.unit(560) || page.presenting
                 Layout.alignment: Qt.AlignTop
                 Layout.preferredHeight: KanteStyle.heightMedium
                 text: page.presenting ? texts.t("present.end") : texts.t("present.start")
