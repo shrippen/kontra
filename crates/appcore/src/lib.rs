@@ -2831,11 +2831,20 @@ impl Core {
         let hardest_notes = hardest_notes(&notes);
         let arrangement = self.arrangement();
         let judging = arrangement.map_or(Judging::PitchAndTime, |a| a.judging);
-        let tendency = match s.mean_offset_ms {
-            Some(m) if m < -5.0 => self.tr("summary.early", &[("ms", format!("{:.0}", -m))]),
-            Some(m) if m > 5.0 => self.tr("summary.late", &[("ms", format!("{m:.0}"))]),
-            Some(_) => self.tr("summary.ontime", &[]),
-            None => String::new(),
+        // Most notes missed the window but were played beside it: their offset is the tendency
+        // (QA 27.10., M2: strict window, all 40 ms early read "0 % hit" without a word on time).
+        let outside = s.outside_offset_ms.filter(|_| s.missed > s.hits);
+        let tendency = match (outside, s.mean_offset_ms) {
+            (Some(m), _) if m < 0.0 => {
+                self.tr("summary.outside.early", &[("ms", format!("{:.0}", -m))])
+            }
+            (Some(m), _) => self.tr("summary.outside.late", &[("ms", format!("{m:.0}"))]),
+            (None, Some(m)) if m < -5.0 => {
+                self.tr("summary.early", &[("ms", format!("{:.0}", -m))])
+            }
+            (None, Some(m)) if m > 5.0 => self.tr("summary.late", &[("ms", format!("{m:.0}"))]),
+            (None, Some(_)) => self.tr("summary.ontime", &[]),
+            (None, None) => String::new(),
         };
         let hardest: Vec<_> = s
             .hardest_bars
@@ -2865,7 +2874,11 @@ impl Core {
                 ("missed", s.missed.to_string()),
             ]),
             "tendencyText": tendency,
-            "spreadText": s.spread_ms.map_or(String::new(), |v| self.spread_text(v, judging)),
+            // The few hits beside the missed notes tell no steadiness.
+            "spreadText": s
+                .spread_ms
+                .filter(|_| outside.is_none())
+                .map_or(String::new(), |v| self.spread_text(v, judging)),
             "pocketText": self.pocket_text(s),
             // Intonation only where it is scored: a fretless or double bass, or off-pitch notes.
             "intonationText": match s.mean_abs_cents {

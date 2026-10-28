@@ -12,6 +12,10 @@ const HISTOGRAM_LIMIT_MS: f64 = 100.0;
 const HARDEST_BARS: usize = 3;
 /// A bar's first note this much later than the player's own mean is a hesitation.
 const HESITATE_MS: f64 = 80.0;
+/// A played note this close (real ms) to a missed one counts as that note outside the window.
+const OUTSIDE_LIMIT_MS: f64 = 150.0;
+/// Offsets this close count as the same timing.
+const OUTSIDE_TOLERANCE_MS: f64 = 15.0;
 
 /// Counts of timing offsets in 10 ms bins from −100 to +100 ms; outliers go to the edge bins.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -70,6 +74,10 @@ pub struct Summary {
     /// Techniques in the score this input cannot tell (slap and pop at a microphone).
     #[serde(default)]
     pub untold_techniques: Vec<Technique>,
+    /// Median offset in real ms of the notes played next to missed ones, when most missed notes
+    /// have one: the timing outside the window (`outside_offset_ms`).
+    #[serde(default)]
+    pub outside_offset_ms: Option<f64>,
 }
 
 impl Summary {
@@ -120,8 +128,68 @@ impl Summary {
             hesitant_bars: hesitant_bars(&final_results, mean_offset.unwrap_or(0.0)),
             techniques: Vec::new(),
             untold_techniques: Vec::new(),
+            outside_offset_ms: None,
         }
     }
+}
+
+/// Where the notes fell that missed the timing window, in real ms (score seconds / `speed`;
+/// negative = early). Every extra note of a pass within `OUTSIDE_LIMIT_MS` of a missed note is
+/// a candidate offset; the one most missed notes share (within `OUTSIDE_TOLERANCE_MS`) wins,
+/// the nearer on a tie, and the median of the offsets near it is told. `None` unless at least
+/// half the missed notes share it. Example: sixteenths 125 ms apart, every note 70 ms late:
+/// +70 fits all eight notes, −55 (the note before, late) only seven.
+pub(crate) fn outside_offset_ms(results: &[NoteResult], speed: f64) -> Option<f64> {
+    let speed = speed.max(f64::EPSILON);
+    let missed: Vec<NoteResult> = final_per_note(results)
+        .into_iter()
+        .filter(|r| matches!(r.outcome, Outcome::Missed))
+        .collect();
+    let extras: Vec<&NoteResult> = results
+        .iter()
+        .filter(|r| matches!(r.outcome, Outcome::Extra { .. }))
+        .collect();
+
+    // Per missed note, the offsets of the extra notes around it.
+    let around: Vec<Vec<f64>> = missed
+        .iter()
+        .map(|m| {
+            extras
+                .iter()
+                .filter(|e| e.pass == m.pass)
+                .map(|e| (e.position_s - m.position_s) * 1000.0 / speed)
+                .filter(|ms| ms.abs() <= OUTSIDE_LIMIT_MS)
+                .collect()
+        })
+        .collect();
+    // For an offset, each missed note's nearest one to it, if close enough.
+    let near = |at: f64| -> Vec<f64> {
+        around
+            .iter()
+            .filter_map(|offsets| {
+                offsets
+                    .iter()
+                    .copied()
+                    .min_by(|a, b| (a - at).abs().total_cmp(&(b - at).abs()))
+                    .filter(|o| (o - at).abs() <= OUTSIDE_TOLERANCE_MS)
+            })
+            .collect()
+    };
+    // Candidates to the whole ms: a long run has thousands of notes but few distinct offsets.
+    let mut candidates: Vec<f64> = around.iter().flatten().map(|o| o.round()).collect();
+    candidates.sort_by(f64::total_cmp);
+    candidates.dedup();
+    let best = candidates
+        .into_iter()
+        .map(|at| (near(at).len(), at))
+        .max_by(|(n, a), (m, b)| n.cmp(m).then(b.abs().total_cmp(&a.abs())))?;
+    let (count, at) = best;
+    if count * 2 < missed.len() {
+        return None;
+    }
+    let mut offsets = near(at);
+    offsets.sort_by(f64::total_cmp);
+    Some(offsets[offsets.len() / 2])
 }
 
 /// In Wait mode a note can have several attempts; the last result per (pass, note) counts.
@@ -226,6 +294,54 @@ mod tests {
                 position_s: i as f64 * 0.5,
             })
             .collect()
+    }
+
+    /// QA 27.10. (P3 Mira, M2): a strict window and every note 40 ms early read "0 % hit,
+    /// 128 missed" with no word of the timing. The missed notes' nearest played notes tell it.
+    #[test]
+    fn notes_outside_the_window_tell_their_offset() {
+        let missed = (Outcome::Missed, None);
+        let mut results = played(&[missed, missed, missed, missed]);
+        let extra = |at: f64| NoteResult {
+            pass: 0,
+            note: None,
+            bar: None,
+            outcome: Outcome::Extra { played_midi: 40.0 },
+            offset_ms: None,
+            cents: None,
+            position_s: at,
+        };
+        // Played 40 ms early at full speed; at half speed the same gap in the score is 20 ms.
+        results.extend([0.0, 0.5, 1.0, 1.5].map(|at| extra(at - 0.040)));
+        let early = outside_offset_ms(&results, 1.0).expect("an offset");
+        assert!((early + 40.0).abs() < 1e-6, "{early}");
+        let slow = outside_offset_ms(&results, 0.5).expect("an offset");
+        assert!((slow + 80.0).abs() < 1e-6, "{slow}");
+
+        // Nothing played near the missed notes: nothing to tell.
+        let far = played(&[missed, missed]);
+        assert_eq!(outside_offset_ms(&far, 1.0), None);
+
+        // Sixteenths at 120 BPM (125 ms apart): 70 ms late lies nearer the next note than its
+        // own; it must still read late (PR-Agent #147: it read "55 ms early").
+        let dense = |shift: f64| {
+            let mut r: Vec<NoteResult> = (0..8)
+                .map(|i| NoteResult {
+                    position_s: f64::from(i) * 0.125,
+                    ..played(&[missed])[0]
+                })
+                .enumerate()
+                .map(|(i, r)| NoteResult { note: Some(i), ..r })
+                .collect();
+            r.extend((0..8).map(|i| extra(f64::from(i) * 0.125 + shift)));
+            r
+        };
+        let early = outside_offset_ms(&dense(-0.040), 1.0).expect("an offset");
+        assert!((early + 40.0).abs() < 1e-6, "{early}");
+        let late = outside_offset_ms(&dense(0.070), 1.0).expect("an offset");
+        assert!((late - 70.0).abs() < 1e-6, "{late}");
+        let early = outside_offset_ms(&dense(-0.070), 1.0).expect("an offset");
+        assert!((early + 70.0).abs() < 1e-6, "{early}");
     }
 
     #[test]
