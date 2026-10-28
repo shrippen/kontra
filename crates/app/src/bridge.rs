@@ -773,6 +773,21 @@ pub mod qobject {
         #[cxx_name = "licencesJson"]
         fn licences_json(self: &Self) -> QString;
 
+        /// Prepared backing tracks and separated songs for Settings → Data (round 16).
+        #[qinvokable]
+        #[cxx_name = "cachesJson"]
+        fn caches_json(self: &Self) -> QString;
+
+        /// Deletes one entry of `cache` ("backing" or "stems").
+        #[qinvokable]
+        #[cxx_name = "forgetCached"]
+        fn forget_cached(self: Pin<&mut Self>, cache: &QString, key: &QString);
+
+        /// Empties `cache` ("backing" or "stems").
+        #[qinvokable]
+        #[cxx_name = "clearCache"]
+        fn clear_cache(self: Pin<&mut Self>, cache: &QString);
+
         #[qinvokable]
         #[cxx_name = "dismissMessage"]
         fn dismiss_message(self: Pin<&mut Self>);
@@ -2092,6 +2107,23 @@ impl qobject::Controller {
 
     fn licences_json(&self) -> QString {
         q(&self.rust().core.licences_json())
+    }
+
+    fn caches_json(&self) -> QString {
+        q(&self.rust().core.caches_json())
+    }
+
+    // The practice page's bass choice follows: a deleted separated song plays with its bass.
+    fn forget_cached(mut self: Pin<&mut Self>, cache: &QString, key: &QString) {
+        self.as_mut()
+            .core()
+            .forget_cached(&cache.to_string(), &key.to_string());
+        self.as_mut().show_stems();
+    }
+
+    fn clear_cache(mut self: Pin<&mut Self>, cache: &QString) {
+        self.as_mut().core().clear_cache(&cache.to_string());
+        self.as_mut().show_stems();
     }
 
     fn progress_json(&self) -> QString {
