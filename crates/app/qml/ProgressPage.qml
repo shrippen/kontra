@@ -11,6 +11,9 @@ import Kante
 Kirigami.ScrollablePage {
     id: page
 
+    // Tab never leaves the focus below the edge (Kante 1.49, QA 27.10. S2).
+    readonly property KanteFocusFollow focusFollow: KanteFocusFollow { flickable: page.flickable }
+
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
     property var summary: ({ pieces: [], runs: [] })
@@ -105,6 +108,7 @@ Kirigami.ScrollablePage {
                 highlight: page.dayCount - 1
                 axis: true
                 unit: inSeconds ? " s" : " min"
+                axisTitle: texts.t(inSeconds ? "progress.axis.seconds" : "progress.axis.minutes")
                 Accessible.name: texts.t("progress.days")
                 Accessible.description: page.weekText
             }

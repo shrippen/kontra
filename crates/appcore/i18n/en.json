@@ -957,5 +957,12 @@
   "learn.video.play": "Resume",
   "learn.video.pause": "Pause",
   "learn.video.offline": "The video needs an internet connection. Text and subtitles are on the page.",
-  "learn.video.error": "The video cannot be played. The page's text still holds."
+  "learn.video.error": "The video cannot be played. The page's text still holds.",
+  "histogram.axis": "Notes",
+  "progress.axis.seconds": "Seconds",
+  "progress.axis.minutes": "Minutes",
+  "setup.state.done": "done",
+  "setup.state.current": "current",
+  "setup.state.upcoming": "open",
+  "setup.state.skipped": "skipped"
 }

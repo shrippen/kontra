@@ -346,19 +346,19 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - L11 (niedrig, behoben #137): Geführtes Stimmen endete ohne Weg weiter.
   - L15, L16 (niedrig, behoben #137): Lektion: Überschrift doppelt, Griffbrett zu hoch für 768 px.
   - L17 (mittel, behoben #138): „Einstieg“ folgte den Dateinummern, Tonleitern vor dem Puls; jetzt Lernreihenfolge.
-  - Offen (niedrig): L2 Auswahl der Anschlussliste schwach sichtbar; L4 übersprungene Latenz mit Haken (Kante);
-    L7 dieselbe Übung in zwei Startkarten; L9 Histogramm ohne y-Achsentitel (Kante); L10 „Zeigefinger am 1. Bund“
+  - Offen (niedrig): L2 Auswahl der Anschlussliste schwach sichtbar; L4 übersprungene Latenz mit Haken (behoben, Kante 1.49);
+    L7 dieselbe Übung in zwei Startkarten; L9 Histogramm ohne y-Achsentitel (behoben, Kante 1.49); L10 „Zeigefinger am 1. Bund“
     bei leeren Saiten; L12 Callout reserviert zwei Zeilen (Kante); L13 Oktavzahlen (E1) unerklärt; L18 Fortschritt
     ohne Lektionen und Gehör.
 - **P7 Sam (J-F1, 200 %, Deuteranopie, nur Tastatur): nicht bestanden.**
-  - S1 (hoch, teils behoben #137): Leertaste startete einen Lauf statt den fokussierten Knopf zu drücken; behoben.
-    Return/Enter löst `KanteButton` nicht aus (Kante).
-  - S2 (hoch, Kante): Lange Seiten scrollen nicht zum Fokus (Einstellungen, Lernen).
+  - S1 (hoch, behoben #137 und Kante 1.49): Leertaste startete einen Lauf statt den fokussierten Knopf zu drücken; behoben.
+    Return/Enter löste `KanteButton` nicht aus; behoben mit Kante 1.49.
+  - S2 (hoch, behoben mit Kante 1.49): Lange Seiten scrollten nicht zum Fokus (Einstellungen, Lernen).
   - S3 (mittel, behoben #153): Fokus in der Seitenleiste unsichtbar, Trennlinien sind Tab-Halte.
   - S4 (mittel, behoben #137): Fokus blieb hinter der Auswertung.
   - S5 (mittel, teils behoben #137): Modus, Ansicht, Suche jetzt benannt; `KanteBarChart` ohne Namen (Kante),
     Glossar-Links im Lektionstext nicht per Tab erreichbar.
-  - S6 (mittel, Kante): Bei Deuteranopie gleicht ein verfehlter Ton (rot) einer D-Saiten-Note (ocker).
+  - S6 (mittel, behoben mit Kante 1.49): Bei Deuteranopie glich ein verfehlter Ton (rot) einer D-Saiten-Note (ocker).
   - S7 (mittel, behoben #137): Bibliothek zeigte Ergebnisse erst nach Neustart.
   - S8 (mittel, behoben #154): „Lage“ hieß im Übungskopf das Timing-Ziel, sonst die Handposition; jetzt „Timing“.
   - S9 (mittel, behoben #137), S10, S13, S15 (niedrig, behoben #137): springende Knöpfe, MIDI-Hinweis ohne Keyboard,
