@@ -23,6 +23,8 @@ KanteCard {
         }
     }
     function close() { visible = false }
+    // Tab stays in the sheet while it is open (QA 28.10., P7).
+    FocusTrap { area: sheet; first: closeButton }
 
     visible: false
     barColor: KanteStyle.accentColor

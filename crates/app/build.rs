@@ -34,6 +34,8 @@ const PAGES: &[&str] = &[
     "qml/NoteBar.qml",
     "qml/NavSeparator.qml",
     "qml/DrawerFocus.qml",
+    "qml/DrawerSkin.qml",
+    "qml/FocusTrap.qml",
     "qml/NotationStaff.qml",
 ];
 

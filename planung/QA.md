@@ -285,7 +285,7 @@ Erwartet: Fehler mit Datei und Zeile; die Vorschau sieht aus wie in Kontra; das 
 2. J-A1 und J-B3 nur mit Tastatur, dazu Saitenwahl im Stimmgerät und Auswertung schließen (Esc).
 3. Mit Orca: Bibliothek, Einstellungen und Auswertung vorlesen lassen.
 4. Bei 1280×720 und 150 % ein Stück in jeder Ansicht (Lane, Tab, Noten, Noten + Tab, Klaviatur) abspielen.
-Erwartet: Fokus immer sichtbar; Treffer/Fehler/früh/spät ohne Farbe unterscheidbar; alle Bedienelemente haben Namen; keine abgeschnittenen Texte; Animationen reduziert; Pegel und Pegel-Hinweis in jeder Ansicht unter den Noten, nichts überlappt.
+Erwartet: Fokus immer sichtbar; die Auswertung hält den Tab-Fokus wie ein Dialog, die Seite dahinter wird nicht vorgelesen, nach Esc steht der Fokus auf „Abspielen“; Treffer/Fehler/früh/spät ohne Farbe unterscheidbar; alle Bedienelemente haben Namen; keine abgeschnittenen Texte; Animationen reduziert; Pegel und Pegel-Hinweis in jeder Ansicht unter den Noten, nichts überlappt.
 
 **J-F2 Sprache** · alle · Phase 1 · LH-ALL-01
 1. System auf Englisch, J-A1 und J-B1.

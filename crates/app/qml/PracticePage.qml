@@ -293,10 +293,10 @@ Kirigami.Page {
 
     ColumnLayout {
         anchors.fill: parent
-        visible: ctl.loaded
         // Under the summary nothing takes the focus (QA 27.10., P7: Tab went through 18 hidden
-        // controls before "close").
+        // controls before "close"), and screen readers do not read it (QA 28.10.).
         enabled: !summary.visible
+        visible: ctl.loaded && !summary.visible
         spacing: KanteStyle.unit(10)
 
         // The piece's title on a row of its own (QA 14.10.: beside modes and views it was cut
@@ -1347,6 +1347,12 @@ Kirigami.Page {
         width: Math.min(page.width - KanteStyle.unit(40), KanteStyle.unit(640))
         height: Math.min(contentHeight, page.height - KanteStyle.unit(24))
         z: 5
+        // Closed, the keyboard goes on at play; it stayed on the hidden "close" (QA 28.10., P7).
+        onVisibleChanged: {
+            if (!visible) {
+                Qt.callLater(transport.forceActiveFocus, Qt.TabFocusReason)
+            }
+        }
         onPracticeBar: function(bar) {
             ctl.changeMode("workshop")
             ctl.loopBars(bar, bar)
