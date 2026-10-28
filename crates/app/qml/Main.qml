@@ -205,21 +205,23 @@ Kirigami.ApplicationWindow {
         // in the settings and on the start page.
         actions: [
             Kirigami.Action { text: texts.t("nav.home"); icon.name: "go-home"; checked: root.current === "home"; shortcut: "Ctrl+1"; onTriggered: root.show("home") },
-            Kirigami.Action { separator: true },
+            NavSeparator {},
             Kirigami.Action { text: texts.t("nav.library"); icon.name: "folder-music"; checked: root.current === "library"; shortcut: "Ctrl+2"; onTriggered: root.show("library") },
             Kirigami.Action { text: texts.t("nav.practice"); icon.name: "media-playback-start"; enabled: ctl.loaded; checked: root.current === "practice"; shortcut: "Ctrl+3"; onTriggered: root.show("practice") },
             Kirigami.Action { text: texts.t("nav.exercises"); icon.name: "view-media-playlist"; checked: root.current === "exercises"; shortcut: "Ctrl+4"; onTriggered: root.show("exercises") },
-            Kirigami.Action { separator: true },
+            NavSeparator {},
             Kirigami.Action { text: texts.t("nav.learn"); icon.name: "applications-education"; checked: root.current === "learn" || root.current === "lesson" || root.current === "review"; shortcut: "Ctrl+5"; onTriggered: root.show("learn") },
             Kirigami.Action { text: texts.t("nav.quiz"); icon.name: "games-config-board"; checked: root.current === "quiz"; shortcut: "Ctrl+6"; onTriggered: root.show("quiz") },
             Kirigami.Action { text: texts.t("nav.ear"); icon.name: "audio-headphones"; checked: root.current === "ear"; shortcut: "Ctrl+7"; onTriggered: root.show("ear") },
-            Kirigami.Action { separator: true },
+            NavSeparator {},
             Kirigami.Action { text: texts.t("nav.progress"); icon.name: "view-statistics"; checked: root.current === "progress"; shortcut: "Ctrl+8"; onTriggered: root.show("progress") },
-            Kirigami.Action { separator: true },
+            NavSeparator {},
             Kirigami.Action { text: texts.t("nav.tuner"); icon.name: "audio-input-line"; checked: root.current === "tuner"; shortcut: "Ctrl+9"; onTriggered: root.show("tuner") },
             Kirigami.Action { text: texts.t("nav.settings"); icon.name: "settings-configure"; checked: root.current === "settings" || root.current === "setup"; shortcut: "Ctrl+0"; onTriggered: root.show("settings") }
         ]
     }
+
+    DrawerFocus { drawer: root.globalDrawer }
 
     // Audio and session are polled here, ~60 times a second.
     Timer {

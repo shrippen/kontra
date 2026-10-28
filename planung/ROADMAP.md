@@ -338,7 +338,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - S1 (hoch, teils behoben #137): Leertaste startete einen Lauf statt den fokussierten Knopf zu drücken; behoben.
     Return/Enter löst `KanteButton` nicht aus (Kante).
   - S2 (hoch, Kante): Lange Seiten scrollen nicht zum Fokus (Einstellungen, Lernen).
-  - S3 (mittel, offen): Fokus in der Seitenleiste unsichtbar, Trennlinien sind Tab-Halte.
+  - S3 (mittel, behoben #153): Fokus in der Seitenleiste unsichtbar, Trennlinien sind Tab-Halte.
   - S4 (mittel, behoben #137): Fokus blieb hinter der Auswertung.
   - S5 (mittel, teils behoben #137): Modus, Ansicht, Suche jetzt benannt; `KanteBarChart` ohne Namen (Kante),
     Glossar-Links im Lektionstext nicht per Tab erreichbar.

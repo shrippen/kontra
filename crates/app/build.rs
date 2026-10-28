@@ -32,6 +32,8 @@ const PAGES: &[&str] = &[
     "qml/ReviewPage.qml",
     "qml/TermTip.qml",
     "qml/NoteBar.qml",
+    "qml/NavSeparator.qml",
+    "qml/DrawerFocus.qml",
     "qml/NotationStaff.qml",
 ];
 
