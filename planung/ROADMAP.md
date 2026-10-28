@@ -184,6 +184,23 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
   91,2/81,2 %; eigene Aufnahmen unverändert (testdata/korpus/QUELLEN.md, „Tonhöhen-Revision“).
 - Hardware-Prüfung gemeinsam: am 13.10. begonnen (Abschnitt Hardware-Prüfung unter QA-Runden).
 
+## Entscheidungen Runde 15 (28.10.2026)
+
+Nach der QA-Nacht 27.10.:
+
+- [ ] Einrichtung fragt am Ende nach dem Stand (LH-EIN-13): Lektion 1, Übungen der Stufe oder Bibliothek.
+- [ ] Einstellung „Einfache Ansicht“ (LH-ANZ-11), für „Neu am Bass“ an; Ziel der Übung unter dem Titel.
+- [ ] „Lage“ als Timing-Ziel heißt in der Oberfläche „Timing“ (LH-BEW-08).
+- [ ] Instrument jetzt eigens wählbar: E-Bass, Kontrabass, Bass über MIDI (LH-EIN-09).
+- [ ] `.kontra` mit Loops und Zieltempo, ohne Fortschritt; Pakete können Backing Tracks enthalten (LH-BIB-07).
+- [ ] Kante Light ist die abgespeckte Kante (Systemfarben), nicht hell. Hell/dunkel als eigene Einstellung, im
+      Präsentationsmodus als Schalter (LH-ALL-02).
+- [ ] Fehlende Kante-Bausteine als Kante-PR; Claude merged Kante-PRs nach Review wie Kontra-PRs (`agent.md`).
+- Demo-Modus „Studio Weber“ nach 0.1; „Kurs aus Ordner“ bleibt bei der Kurswerkstatt (1.0).
+- [ ] QA-Läufe mit `--input-file`: kein Portal-Dialog, kein Browser, `kontra-cli` mit stummem Ausgang.
+- Neue pub-Schnittstellen aus #137, #138, #141 und #147 freigegeben.
+- Danach zuerst die offenen Befunde der QA-Runde 27.10., dann J-F1 und J-B5 erneut spielen.
+
 ## Entscheidungen Runde 14 (25.10.2026)
 
 Kurspakete (LH-LRN-14):
