@@ -336,6 +336,10 @@ Kirigami.ScrollablePage {
     }
 
     FileDialog {
+
+        // QA: Qt's dialog in the window, never the desktop portal.
+
+        options: ctl.qaRun ? FileDialog.DontUseNativeDialog : 0
         id: courseDialog
         title: texts.t("courses.add")
         currentFolder: StandardPaths.writableLocation(StandardPaths.DownloadLocation)

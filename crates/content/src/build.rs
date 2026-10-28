@@ -6,8 +6,8 @@ use crate::score::{BarHead, Legato, Part, Score};
 use crate::tab::assign_tab;
 use crate::unroll::unroll;
 use kontra_model::{
-    Arrangement, Bar, DrumHit, DrumKind, Instrument, InstrumentKind, Marker, Note, Pitch,
-    Technique, TempoChange, TempoMap, Tuning,
+    Arrangement, Bar, DrumHit, DrumKind, Instrument, InstrumentKind, Marker, MarkerKind, Note,
+    Pitch, Technique, TempoChange, TempoMap, Tuning,
 };
 use std::collections::HashMap;
 
@@ -45,6 +45,14 @@ pub(crate) fn arrangement(score: &Score, index: usize) -> Result<Arrangement, Im
             arrangement.markers.push(Marker {
                 tick,
                 name: name.clone(),
+                kind: MarkerKind::Section,
+            });
+        }
+        for (offset, name) in &head.chords {
+            arrangement.markers.push(Marker {
+                tick: tick.saturating_add(*offset),
+                name: name.clone(),
+                kind: MarkerKind::Chord,
             });
         }
         for &(offset, bpm) in &head.tempos {

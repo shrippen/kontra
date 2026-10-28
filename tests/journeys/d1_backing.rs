@@ -63,6 +63,7 @@ fn backing_beats_slow_and_transposed() {
         (info["firstS"].as_f64().unwrap() - BAND_START_S).abs() < 0.02,
         "{info}"
     );
+    assert_eq!(info["sure"], true, "{info}");
 
     // Step 2: two bar starts moved by hand.
     let bar_s = |core: &kontra_appcore::Core, bar: usize| {

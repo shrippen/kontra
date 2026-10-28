@@ -324,8 +324,8 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
 - **P1 Lea (J-A1, J-A2, J-B2, J-C8, J-G1): bestanden nach Befunden.**
   - L1 (mittel, behoben #137): Seitenleiste in Systemfarben (grüner Akzent), Lektionslinks grün; jetzt Kante.
   - L3 (mittel, behoben #137): Pegel-Hinweise verschoben „Weiter“; die Knöpfe stehen jetzt fest im Seitenfuß.
-  - L5 (mittel, Entscheidung): Einrichtung endet immer mit „Groove Viertel“, ohne Frage nach dem Stand (auch M17).
-  - L6 (mittel, Entscheidung): Übungsseite zeigt einer Anfängerin alle Regler; Ziel der Übung fehlt auf der Seite.
+  - L5 (mittel, behoben #161): Einrichtung endete immer mit „Groove Viertel“, ohne Frage nach dem Stand (auch M17).
+  - L6 (mittel, behoben #161): Übungsseite zeigte einer Anfängerin alle Regler; Ziel der Übung fehlte auf der Seite.
   - L8 (niedrig, behoben #137): Auswertung: „Sitzt“-Karte trug den Titel der nächsten Übung ohne Hinweis.
   - L11 (niedrig, behoben #137): Geführtes Stimmen endete ohne Weg weiter.
   - L15, L16 (niedrig, behoben #137): Lektion: Überschrift doppelt, Griffbrett zu hoch für 768 px.
@@ -347,7 +347,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - S8 (mittel, behoben #154): „Lage“ hieß im Übungskopf das Timing-Ziel, sonst die Handposition; jetzt „Timing“.
   - S9 (mittel, behoben #137), S10, S13, S15 (niedrig, behoben #137): springende Knöpfe, MIDI-Hinweis ohne Keyboard,
     englische Formulierungen, Glossar sortierte „Dämpfen“ nach „Durchgangston“.
-  - S11 (mittel, Entscheidung): Kein Instrument „Kontrabass“ oder „MIDI-Bass“ wählbar (LH-EIN-09).
+  - S11 (mittel, behoben #163): Kein Instrument „Kontrabass“ oder „MIDI-Bass“ wählbar (LH-EIN-09).
   - S12 (mittel, offen): Notenansicht ohne Pegel und Toleranz-Hinweis, untere Hälfte leer.
   - S14 (niedrig, Kante): Einstöckiges „a“ der Kante-Schrift liest sich bei 100 % wie „o“.
 - **P5 Aylin (J-A4, J-E1), P6 Karl (J-A4, J-E2): bestanden.** J-E2 mit Band im Raum (`room-double-backing`) nicht
@@ -357,7 +357,8 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - M2 (mittel, behoben #147): Strenges Fenster, alle Noten 40 ms früh: „0 % getroffen, 128 ausgelassen“ ohne „zu früh“.
   - M3 (mittel, behoben #149): Pocket-Satz widersprüchlich („2 ms zu früh · meist 8 ms zu spät“).
   - M4 (mittel, behoben #152): Enharmonik in B♭: Liste A♯1, Noten D♭ aus C♯.
-  - M5 (mittel, offen): MusicXML-Akkordsymbole (`<harmony>`) werden nicht gelesen (LH-BIB-03).
+  - M5 (mittel, behoben #156): MusicXML-Akkordsymbole (`<harmony>`) werden nicht gelesen (LH-BIB-03). Offen
+    (niedrig): `<degree>` (z. B. C7♯9, C7sus4) und negativer `<offset>` werden noch nicht gelesen.
   - M6 (mittel, offen): „Alle Noten“ ohne Timing je Note (LH-BEW-01).
   - M9 (mittel, behoben #157): Sechzehntel unlesbar, acht Takte in einer Zeile.
   - M10 (mittel, behoben #140): Generator: Schlusston über sieben Achtel, Takt las sich als 3/4.
@@ -377,7 +378,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - J1 (mittel, behoben #141): Meldungen nach dem Start (Import, kaputte Datei) erschienen nie.
   - J2 (mittel, offen): MP3-Backing wird bei jedem Start dekodiert; Debug-Build 20 s eingefroren, Release ~1 s.
     Cache und Ladeanzeige fehlen.
-  - J3 (mittel, offen): Takterkennung rastet auf dem Offbeat ein (+310 ms) und meldet trotzdem „8 von 8 Takten“.
+  - J3 (mittel, behoben #155): Takterkennung rastete auf dem Offbeat ein (+310 ms) und meldete trotzdem „8 von 8 Takten“.
   - J4 (niedrig, behoben #150): Bibliothek zeigte den internen GP-Titel („001“) statt des Dateinamens; Umbenennen fehlt weiter.
   - J7 (mittel, behoben #142): Nach Eingabe in „Takte“ blieben K und Fußschalter tot; Return/Esc geben frei.
   - J8 (mittel, behoben #148): „Ohne Hilfe prüfen“ floss in Werkstatt-Durchläufe und Dichte-Vorschlag ein.

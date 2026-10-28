@@ -113,11 +113,23 @@ impl Bar {
     }
 }
 
-/// Named position, e.g. "Chorus" or a rehearsal mark.
+/// Named position, e.g. "Chorus", a rehearsal mark or a chord symbol.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Marker {
     pub tick: u64,
     pub name: String,
+    #[serde(default)]
+    pub kind: MarkerKind,
+}
+
+/// What a marker names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum MarkerKind {
+    /// Section or rehearsal mark ("Chorus", "A"); MIDI markers, which may also be chord names.
+    #[default]
+    Section,
+    /// Chord symbol the file marks as one ("C", "Bbm7"), e.g. MusicXML `<harmony>`.
+    Chord,
 }
 
 /// Drum sounds the player synthesises for an accompaniment (LH-LRN-01).
