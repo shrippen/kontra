@@ -253,6 +253,10 @@ Kirigami.Page {
     // Presentation (LH-ANZ-09, P4 at the beamer): full screen, only title, notes and transport;
     // staff lines half as large again, the lane grows with the room. F5 toggles, Esc ends.
     readonly property bool presenting: applicationWindow().presenting
+    // Simple view (LH-ANZ-11): transpose, timing aim, density, blocks, backing and presentation
+    // stay away; a beginner sees mode, view, tempo and the exercise's aim (QA 27.10., L6).
+    readonly property bool simple: ctl.simpleView
+    readonly property string goal: ctl.title !== "" ? ctl.loadedGoal() : ""
     readonly property real presentScale: presenting ? 1.5 : 1
     function present(on) { applicationWindow().presenting = on }
     Shortcut { sequence: "F5"; onActivated: page.present(!page.presenting) }
@@ -305,6 +309,14 @@ Kirigami.Page {
                 spacing: 0
                 KanteHeading { text: ctl.title; pageTitle: true; Layout.fillWidth: true; elide: Text.ElideRight }
                 QQC2.Label { text: ctl.artist; visible: ctl.artist !== ""; color: KanteStyle.mutedTextColor }
+                // What the exercise trains, e.g. "Ziel: nur der Anschlag zählt" (QA 27.10., L6).
+                QQC2.Label {
+                    text: page.goal
+                    visible: page.goal !== "" && !page.presenting
+                    color: KanteStyle.mutedTextColor
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
                 // Kontra picks the bass track itself; another can be chosen (QA P2 R9).
                 RowLayout {
                     readonly property var tracks: JSON.parse(ctl.tracksJson)
@@ -330,7 +342,7 @@ Kirigami.Page {
             // A backing track is for some (P2); without one its row stays away (QA 14.10.).
             KanteToolButton {
                 id: backingButton
-                visible: ctl.backingName === "" && !page.presenting
+                visible: ctl.backingName === "" && !page.presenting && !page.simple
                 Layout.alignment: Qt.AlignTop
                 Layout.preferredHeight: KanteStyle.heightMedium
                 text: texts.t("backing.choose")
@@ -347,7 +359,7 @@ Kirigami.Page {
                 id: presentButton
                 // Only the narrowest pages leave it out (F5 still works); at a beamer with 853 px it
                 // is what the teacher looks for (QA 27.10., P4).
-                visible: page.width >= KanteStyle.unit(560) || page.presenting
+                visible: (page.width >= KanteStyle.unit(560) && !page.simple) || page.presenting
                 Layout.alignment: Qt.AlignTop
                 Layout.preferredHeight: KanteStyle.heightMedium
                 text: page.presenting ? texts.t("present.end") : texts.t("present.start")
@@ -409,6 +421,7 @@ Kirigami.Page {
             // Transpose (LH-WIE-02): piece and backing move together; the notes are laid out
             // again. Beside modes and views, so the notes keep the height (QA 13.10.).
             Row {
+            visible: !page.simple
             spacing: KanteStyle.unit(8)
             height: KanteStyle.heightMedium
             KanteHud {
@@ -437,6 +450,7 @@ Kirigami.Page {
             }
             // Aim against the beat (LH-BEW-08, DIDAKTIK I5): the summary says if the run held it.
             Row {
+                visible: !page.simple
                 readonly property var pockets: ["free", "onbeat", "laidback", "pushed"]
                 spacing: KanteStyle.unit(8)
                 height: KanteStyle.heightMedium
@@ -465,7 +479,7 @@ Kirigami.Page {
         // Backing track (LH-WIE-01): chosen per piece, stretched with the speed.
         RowLayout {
             Layout.fillWidth: true
-            visible: !page.presenting && ctl.backingName !== ""
+            visible: !page.presenting && ctl.backingName !== "" && !page.simple
             spacing: KanteStyle.unit(8)
             KanteHud { fullText: texts.t("backing.title"); color: KanteStyle.mutedTextColor }
             QQC2.Label {
@@ -675,7 +689,7 @@ Kirigami.Page {
         Flow {
             id: chainRow
             Layout.fillWidth: true
-            visible: ctl.mode === "workshop" && !page.presenting
+            visible: ctl.mode === "workshop" && !page.presenting && !page.simple
             spacing: KanteStyle.unit(8)
             readonly property var chain: JSON.parse(ctl.chainJson)
             // Bars per block or phrases (cut at rests), as ctl.startChain takes them.
@@ -746,7 +760,7 @@ Kirigami.Page {
         Flow {
             id: densityRow
             Layout.fillWidth: true
-            visible: (ctl.mode === "song" || ctl.mode === "workshop") && !page.presenting
+            visible: (ctl.mode === "song" || ctl.mode === "workshop") && !page.presenting && !page.simple
             spacing: KanteStyle.unit(8)
             // In a run-through the part is the whole piece (QA 14.10.: "this section" without one).
             readonly property string fixedText: ctl.mode === "workshop" ? texts.t("density.fixed") : texts.t("density.fixed.piece")
@@ -893,35 +907,16 @@ Kirigami.Page {
                 loopStart: ctl.loopStart
                 loopEnd: ctl.loopEnd
             }
-            KanteBassStaff {
+            NotationStaff {
                 id: bassStaff
                 anchors.fill: parent
-                // Smaller where one line does not fit (beamer at 150 %): cut off, its beams ran
-                // over the transport (G18). A KanteBassStaff line is 14.5 staff spaces, 16.5 with
-                // chord symbols.
-                // Two lines rather than one with room left under it, as long as their staff space
-                // keeps three quarters of the wanted one (QA 14.10., presentation at the beamer:
-                // two bars and a third of the screen empty).
-                // A short piece grows up to half again while all its lines still fit (QA 14.10.);
-                // a bar is 18 staff spaces wide, the clef and key about 8.
-                staffSpace: {
-                    var wanted = KanteStyle.unit(10) * page.presentScale
-                    var lineSpaces = hasChords ? 16.5 : 14.5
-                    for (var grown = wanted * 1.5; grown > wanted; grown -= wanted * 0.05) {
-                        var perLine = Math.max(1, Math.floor((width - grown * 8) / (grown * 18)))
-                        if (Math.ceil(page.bars.length / perLine) * lineSpaces * grown <= height) {
-                            return grown
-                        }
-                    }
-                    var line = height / lineSpaces
-                    return Math.min(wanted, line / 2 >= wanted * 0.75 ? line / 2 : line)
-                }
-                // As many lines as fit, as in the tablature (QA 13.10.: one line, the rest empty).
-                systems: Math.max(1, Math.floor(height / systemHeight))
+                presentScale: page.presentScale
+                densestBar: page.densestBar
                 visible: ctl.view === "notation"
                 notes: visible ? page.shownStaff : []
                 rests: page.staff.rests
                 keyFifths: page.staff.keyFifths
+                chords: page.staff.chords
                 marks: page.marks
                 onNotesChanged: Qt.callLater(function() { page.catchUp(bassStaff) })
                 bars: page.bars
@@ -948,6 +943,7 @@ Kirigami.Page {
                     notes: combined.visible ? page.shownStaff : []
                     rests: page.staff.rests
                     keyFifths: page.staff.keyFifths
+                    chords: page.staff.chords
                     marks: page.marks
                     onNotesChanged: Qt.callLater(function() { page.catchUp(combinedBass) })
                     bars: page.bars
@@ -1240,6 +1236,10 @@ Kirigami.Page {
     }
 
     FileDialog {
+
+        // QA: Qt's dialog in the window, never the desktop portal.
+
+        options: ctl.qaRun ? FileDialog.DontUseNativeDialog : 0
         id: backingDialog
         title: texts.t("dialog.backing")
         // Recordings of songs usually live in Music (QA 14.10.: it opened in the working folder).

@@ -11,7 +11,7 @@ Die [[pocket|Pocket]] ist der Platz, an dem Bass und Schlagzeug zusammen grooven
 - Vorn: etwas davor. Klingt treibend.
 
 ## Ein Ziel einstellen
-Auf der Seite „Üben“ wählst du unter „Lage“ ein Ziel. Die Auswertung sagt dann, ob deine mittlere Lage im Ziel lag
+Auf der Seite „Üben“ wählst du unter „Timing“ ein Ziel. Die Auswertung sagt dann, ob dein mittleres Timing im Ziel lag
 und um wie viele Millisekunden nicht.
 
 ## Üben

@@ -340,7 +340,7 @@ Wo Bass und Schlagzeug zusammen grooven: auf dem Schlag, etwas davor (vorn) oder
 ## Streuung
 id: streuung
 lesson: streuung
-Wie weit deine Töne um ihre mittlere Lage verteilt sind, in Millisekunden. Klein heißt gleichmäßig.
+Wie weit deine Töne um ihr mittleres Timing verteilt sind, in Millisekunden. Klein heißt gleichmäßig.
 
 ## Form
 id: form

@@ -224,6 +224,10 @@ Kirigami.ScrollablePage {
     }
 
     FileDialog {
+
+        // QA: Qt's dialog in the window, never the desktop portal.
+
+        options: ctl.qaRun ? FileDialog.DontUseNativeDialog : 0
         id: reportDialog
         title: texts.t("dialog.report")
         fileMode: FileDialog.SaveFile

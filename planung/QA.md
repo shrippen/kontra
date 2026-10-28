@@ -35,11 +35,11 @@ Markierungen: ⚙ automatisiert · 🔍 auch mit 200 % Skalierung und Farbfilter
 
 **J-A1 Anstecken und los** ⚙ 🔍 · Persona: P1 Lea · Phase 1 · LH-EIN-01, -02, -03, -04, LH-NF-01
 1. Kontra zum ersten Mal starten, Bass per Klinke in die Laptop-Buchse (`--input-profile laptop-jack`).
-2. Assistent: Instrument „E-Bass, 4 Saiten“, Stimmung „Standard“; Anschluss „Klinke direkt in den Laptop“ (MIDI und Mikrofon stehen als „kommt später“ in der Liste); Eingang wählen (ein Interface ist vorgewählt). Pegel ist zu leise.
+2. Assistent: Instrument „E-Bass, 4 Saiten“, Stimmung „Standard“; Anschluss „Klinke direkt in den Laptop“ (daneben Interface und Mikrofon; MIDI kommt mit dem Instrument „Bass über MIDI“); Eingang wählen (ein Interface ist vorgewählt). Pegel ist zu leise.
 3. Den Hinweis lesen und befolgen (Lautstärke am Bass auf, Gain im Assistenten).
 4. Kalibrierung überspringen.
-5. Erste Übung wählen: von der Startseite („Nächste Übung“) oder aus der leeren Bibliothek („Mit einer Übung anfangen“), ersten Ton spielen.
-Erwartet: ≤ 60 s bis zum ersten bewerteten Ton; der Hinweis zur Laptop-Buchse erklärt in einem Satz, warum es dumpf klingt, und verweigert nichts; kein Fachbegriff ohne Erklärung.
+5. Am Ende „Wie spielst du bisher?“: „Neu am Bass“ öffnet die erste Lektion und schaltet die einfache Ansicht ein; „Ich spiele schon“ (P3 Mira) öffnet die Übungen mit den Grundlagen; „Eigene Songs“ (P2 Jens) die Bibliothek. Ersten Ton spielen.
+Erwartet: ≤ 60 s bis zum ersten bewerteten Ton; die Übungsseite zeigt Lea nur Modus, Ansicht, Tempo und das Ziel der Übung; der Hinweis zur Laptop-Buchse erklärt in einem Satz, warum es dumpf klingt, und verweigert nichts; kein Fachbegriff ohne Erklärung.
 
 **J-A2 Stimmen ohne Vorwissen** ⚙ 🔍 · Persona: P1 Lea · Phase 1 · LH-TUN-01, -02, -03, -04
 1. Stimmgerät öffnen, „Geführt“.
@@ -56,8 +56,8 @@ Erwartet: Anweisung in Worten („etwas höher drehen“) und Symbol; Erfolg pro
 Erwartet: gemessene Latenz ≈ 40 ms angezeigt; danach Bewertung pünktlich (±5 ms); bei Quantum 2048 Hinweis mit Wert und Anleitung. Während der Messung zählt die Seite mit („Vorzähler 3“, „Schlag 4 von 8“).
 
 **J-A4 Eingang, den es noch nicht gibt** · Personas: P5 Aylin, P6 Karl · Phase 1 bis 3 · LH-EIN-09, -10, -12
-1. MIDI-Keyboard anstecken, Kontra starten, Einstellungen → Anschluss (P5). Danach USB-Mikrofon als Eingang wählen wollen (P6).
-Erwartet: „MIDI-Instrument“ ist wählbar und nennt das erkannte Keyboard (ohne Keyboard: „gerade ist keins angeschlossen“); das Mikrofon erscheint als „kommt in einer späteren Version“ mit einem Satz Erklärung; kein Absturz, keine leere Liste, kein „Gerät defekt“.
+1. MIDI-Keyboard anstecken, Kontra starten, Einrichtung bzw. Einstellungen → Instrument „Bass über MIDI“ (P5). Danach Instrument „Kontrabass“ mit USB-Mikrofon (P6).
+Erwartet: Das Instrument ist eine eigene Wahl (E-Bass, Kontrabass, Bass über MIDI), unabhängig vom Anschluss gespeichert. „Bass über MIDI“ setzt den Anschluss „MIDI-Instrument“, der das erkannte Keyboard nennt (ohne Keyboard: „gerade ist keins angeschlossen“); Saiten, Stimmung, Bundlos und Kammerton sind ausgeblendet. „Kontrabass“ schlägt das Mikrofon vor (Tonabnehmer über das Interface bleibt wählbar), bietet 4 oder 5 Saiten, kein „Bundlos“. Kein Absturz, keine leere Liste, kein „Gerät defekt“.
 
 **J-A5 Interface neben anderem Standard** · Personas: P2 Jens, P3 Mira · Phase 1 · LH-EIN-02, LH-NF-01
 1. Systemstandard für Ein- und Ausgabe ist die interne Karte (Studiomonitore), das Interface hängt am USB.
@@ -130,7 +130,7 @@ Liegt eine Übung nach dem Lauf über 90 %, bietet die Auswertung die nächste i
 Häkchen.
 
 **J-C2 Timing-Tendenz** ⚙ · Persona: P3 Mira · Phase 1 · LH-BEW-03, LH-BEW-08, LH-FOR-02
-1. Auf der Übungsseite „Lage: Laid-back“ wählen, Hilfe dazu lesen.
+1. Auf der Übungsseite „Timing: Laid-back“ wählen, Hilfe dazu lesen.
 2. Aufnahme mit konstanter Tendenz „18 ms zu früh“ im Modus „Durchlauf“.
 3. Auswertung lesen.
 Erwartet: Histogramm mit Achse und Legende; Tendenz in Worten („meist 18 ms zu früh“); zum Ziel ein Satz in Worten
@@ -216,12 +216,12 @@ Erwartet: identische Darstellung und Loop-Bereiche; Audio wird nur mitgegeben, w
 ## E. Weitere Bass-Eingänge (ab Phase 4)
 
 **J-E1 Synth-Bass über MIDI** ⚙ · Persona: P5 Aylin · Phase 4 · LH-EIN-12
-1. MIDI-Keyboard als Eingang (Einstellungen → Anschluss „MIDI-Instrument“), Instrument „Bass über MIDI“. Zwei Keyboards angesteckt: unter „MIDI-Gerät“ das zweite wählen, Kontra neu starten, dann das zweite abziehen.
+1. Instrument „Bass über MIDI“ (Einstellungen → Instrument; der Anschluss wird „MIDI-Instrument“). Zwei Keyboards angesteckt: unter „MIDI-Gerät“ das zweite wählen, Kontra neu starten, dann das zweite abziehen.
 2. Funk-Groove im Modus „Durchlauf“, Ansicht Klaviatur (Alt+5).
 Erwartet: Timing aus MIDI-Zeitstempeln, gleiche Auswertung wie beim E-Bass. Die Wahl des Keyboards bleibt nach dem Neustart; fehlt es, nennt Anschluss das Keyboard, das Kontra stattdessen nimmt. Die Noten fallen auf die Tasten, die nächste ist auf der Klaviatur markiert; die Tasten reichen über den Umfang des Basses (4 Saiten: E1–G4), Tastennamen in der Oberflächensprache (H statt B). Der automatische Test spielt eine MIDI-Datei wie ein Keyboard ein und prüft, dass jede Note auf einer gezeigten Taste liegt.
 
 **J-E2 Kontrabass im Wohnzimmer** ⚙ 🔍 · Persona: P6 Karl · Phase 4 · LH-EIN-11, LH-NF-03, LH-NF-06
-1. USB-Mikrofon, Instrument Kontrabass, keine Kopfhörer, Backing Track über Lautsprecher.
+1. USB-Mikrofon, Instrument „Kontrabass“ (Anschluss Mikrofon vorgeschlagen, Wertung als Kontrabass), keine Kopfhörer, Backing Track über Lautsprecher.
 2. Standard im Modus „Frei spielen“, Notenansicht, Schrift 150 %.
 3. Auf Mindest-Hardware.
 Erwartet: Hinweis, dass die Toleranzen weiter sind; Trefferquote ≥ 90 % auf dem Testkorpus; Lane flüssig. Testkorpus: `room-double` (ohne Band, erfüllt) und `room-double-backing` (Band aus den Lautsprechern, mit Abzug erfüllt).

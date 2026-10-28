@@ -261,6 +261,13 @@ ColumnLayout {
         visible: block.kindName === "video" && videoLoader.status === Loader.Error
             && block.modelData.src.indexOf("https://") === 0
         text: block.texts.t("learn.video")
-        onClicked: Qt.openUrlExternally(block.modelData.src)
+        onClicked: {
+            // QA: the browser stays shut; the log tells what would open.
+            if (ctl.qaRun) {
+                console.log("qa: open " + block.modelData.src)
+                return
+            }
+            Qt.openUrlExternally(block.modelData.src)
+        }
     }
 }
