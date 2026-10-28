@@ -9,11 +9,16 @@ import Kante
 Kirigami.ScrollablePage {
     id: page
 
+    // Tab never leaves the focus below the edge (Kante 1.49, QA 27.10. S2).
+    readonly property KanteFocusFollow focusFollow: KanteFocusFollow { flickable: page.flickable }
+
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
     readonly property var inputs: JSON.parse(ctl.inputDevicesJson)
     readonly property var steps: ["instrument", "connection", "level", "latency", "done"]
     property int step: 0
+    // Steps left out with "skip": a dash, not the done check (Kante 1.49, QA 27.10. L4).
+    property var skippedSteps: []
     // The player's answer on the last step (LH-EIN-13): "new", "player" or "songs".
     property string level: ""
     readonly property var levels: ["new", "player", "songs"]
@@ -70,7 +75,17 @@ Kirigami.ScrollablePage {
         return texts.t("settings.device.default")
     }
 
-    function next() { step = Math.min(step + 1, steps.length - 1) }
+    function next() {
+        skippedSteps = skippedSteps.filter(function(i) { return i !== step })
+        step = Math.min(step + 1, steps.length - 1)
+    }
+
+    function skip() {
+        if (skippedSteps.indexOf(step) < 0) {
+            skippedSteps = skippedSteps.concat([step])
+        }
+        step = Math.min(step + 1, steps.length - 1)
+    }
 
     ColumnLayout {
         spacing: KanteStyle.unit(16)
@@ -80,6 +95,9 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             model: page.steps.map(function(s) { return texts.t("setup.step." + s) })
             current: page.step
+            skipped: page.skippedSteps
+            stateNames: ({ done: texts.t("setup.state.done"), current: texts.t("setup.state.current"),
+                           upcoming: texts.t("setup.state.upcoming"), skipped: texts.t("setup.state.skipped") })
         }
         QQC2.Label {
             Layout.fillWidth: true
@@ -246,7 +264,7 @@ Kirigami.ScrollablePage {
                 text: texts.t("setup.skip")
                 emphasis: KanteButton.Emphasis.Quiet
                 visible: page.step < page.steps.length - 1
-                onClicked: page.next()
+                onClicked: page.skip()
             }
             KanteButton {
                 text: texts.t("setup.next")

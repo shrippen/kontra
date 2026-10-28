@@ -23,6 +23,8 @@ import "."
  * left edge (2.5 = the middle of the third bar), `barFill` is the share of a column the
  * bar fills (1 = bars touch), `wholeSteps` keeps the axis on whole numbers (counts).
  * KanteTimingHistogram is configured this way.
+ * `ranges` (1.44) shade spans behind the bars [{from, to, label}], in columns as `markers`
+ * (e.g. a target band): a tint, dashed edges and the label at the top, not colour alone.
  */
 Item {
     id: chart
@@ -42,6 +44,8 @@ Item {
     /** Colour of part k of every stack; the data palette where missing. */
     property var stackColors: []
     property bool axis: false
+    /** Title of the value axis, written upwards left of its labels (1.49; e.g. "Noten"). */
+    property string axisTitle: ""
     property int valueFormat: KanteBarChart.ValueFormat.Number
     /** Optional function (number) -> string for the axis; overrides `valueFormat`. */
     property var formatter: null
@@ -60,6 +64,7 @@ Item {
     property string edgeUnit: ""
     /** Vertical lines [{at, label, dashed}], `at` in columns from the left edge. */
     property var markers: []
+    property var ranges: []
     /** Axis steps on whole numbers only (counts): 1, 2, 5, 10, … */
     property bool wholeSteps: false
     /** Share of a column the bar fills. */
@@ -92,7 +97,8 @@ Item {
     readonly property int gridLines: axis ? Math.round(scaleMax / axisStep) + 1 : 3
     readonly property real labelHeight: compact ? 0 : KanteStyle.unit(16)
     readonly property real plotHeight: height - labelHeight
-    readonly property real padLeft: axis ? axisWidth.width + KanteStyle.unit(8) : 0
+    readonly property real padLeft: axis ? axisWidth.width + KanteStyle.unit(8)
+                                           + (axisTitleText.visible ? axisTitleText.height + KanteStyle.unit(4) : 0) : 0
     readonly property real plotWidth: width - padLeft
 
     function niceStep(raw) {
@@ -169,6 +175,22 @@ Item {
         text: chart.format(chart.scaleMax)
     }
 
+    // Axis title, turned upwards; rotation keeps the centre, so x and y place the turned box
+    // at the left edge, centred on the plot.
+    Text {
+        id: axisTitleText
+        objectName: "kanteAxisTitle"
+        visible: chart.axis && !chart.compact && chart.axisTitle !== ""
+        width: Math.min(implicitWidth, chart.plotHeight)
+        elide: Text.ElideRight
+        text: chart.axisTitle
+        color: KanteStyle.mutedTextColor
+        font: axisWidth.font
+        rotation: -90
+        x: (height - width) / 2
+        y: (chart.plotHeight - height) / 2
+    }
+
     implicitWidth: KanteStyle.unit(compact ? 120 : 260)
     implicitHeight: KanteStyle.unit(compact ? 32 : 120)
 
@@ -195,6 +217,41 @@ Item {
             text: chart.format(index * chart.axisStep)
             color: KanteStyle.mutedTextColor
             font: axisWidth.font
+        }
+    }
+
+    // Ranges behind the bars: tint and dashed edges; their labels follow the markers'.
+    Repeater {
+        model: chart.ranges
+        delegate: Item {
+            id: range
+            required property var modelData
+            required property int index
+            readonly property real from: Math.max(0, Math.min(chart.values.length, Number(modelData.from)))
+            readonly property real to: Math.max(0, Math.min(chart.values.length, Number(modelData.to)))
+            objectName: "kanteRange"
+            visible: !isNaN(from) && !isNaN(to) && to > from
+            x: chart.padLeft + from * chart.columnWidth
+            width: (to - from) * chart.columnWidth
+            height: chart.plotHeight
+            Rectangle {
+                anchors.fill: parent
+                color: KanteStyle.tint1Color
+            }
+            Shape {
+                anchors.fill: parent
+                ShapePath {
+                    strokeColor: KanteStyle.mutedTextColor
+                    strokeWidth: 1
+                    strokeStyle: ShapePath.DashLine
+                    dashPattern: [4, 3]
+                    fillColor: "transparent"
+                    startX: 0.5; startY: 0
+                    PathLine { x: 0.5; y: chart.plotHeight }
+                    PathMove { x: range.width - 0.5; y: 0 }
+                    PathLine { x: range.width - 0.5; y: chart.plotHeight }
+                }
+            }
         }
     }
 
@@ -348,6 +405,34 @@ Item {
                     color: KanteStyle.strongTextColor
                     font: KanteStyle.monoFont(KanteStyle.labelFont().pointSize * 0.85, true)
                 }
+            }
+        }
+    }
+
+    // Range labels above the bars, one row each below the marker labels.
+    Repeater {
+        model: chart.ranges
+        delegate: Rectangle {
+            id: rangeLabel
+            required property var modelData
+            required property int index
+            readonly property real from: Math.max(0, Math.min(chart.values.length, Number(modelData.from)))
+            readonly property real to: Math.max(0, Math.min(chart.values.length, Number(modelData.to)))
+            // Only with its band: a range clipped to nothing has no label either.
+            objectName: "kanteRangeLabel"
+            visible: !!modelData.label && !isNaN(from) && !isNaN(to) && to > from
+            x: Math.min(chart.padLeft + from * chart.columnWidth + KanteStyle.unit(3), chart.width - width)
+            y: (chart.markers.length + index) * (height + KanteStyle.unit(2))
+            z: 1
+            width: rangeText.implicitWidth + KanteStyle.unit(8)
+            height: rangeText.implicitHeight + KanteStyle.unit(2)
+            color: Qt.alpha(KanteStyle.dialogColor, 0.85)
+            Text {
+                id: rangeText
+                anchors.centerIn: parent
+                text: rangeLabel.modelData.label || ""
+                color: KanteStyle.mutedTextColor
+                font: KanteStyle.monoFont(KanteStyle.labelFont().pointSize * 0.85, true)
             }
         }
     }

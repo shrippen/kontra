@@ -9,6 +9,9 @@ import Kante
 Kirigami.ScrollablePage {
     id: page
 
+    // Tab never leaves the focus below the edge (Kante 1.49, QA 27.10. S2).
+    readonly property KanteFocusFollow focusFollow: KanteFocusFollow { flickable: page.flickable }
+
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
     property var levels: []

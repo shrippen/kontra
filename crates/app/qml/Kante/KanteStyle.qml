@@ -57,6 +57,22 @@ QtObject {
      */
     property bool materialStyle: false
 
+    /**
+     * Presses a button from the keyboard (Return, Enter) as a click does (1.49). Qt 6.8 and
+     * later animate it; older versions only emit clicked().
+     */
+    function pressByKey(button, event) {
+        if (!button.enabled) {
+            event.accepted = false
+            return
+        }
+        if (typeof button.animateClick === "function") {
+            button.animateClick()
+        } else {
+            button.clicked()
+        }
+    }
+
     /** Leinen when the platform theme is light, unless preferDark. */
     readonly property bool light: !preferDark && Kirigami.Theme.backgroundColor.hslLightness > 0.5
     readonly property QtObject palette: light ? KantePalette.light : KantePalette.dark

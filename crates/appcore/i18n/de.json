@@ -957,5 +957,12 @@
   "learn.video.play": "Weiter",
   "learn.video.pause": "Pause",
   "learn.video.offline": "Das Video braucht eine Verbindung zum Internet. Text und Untertitel stehen auf der Seite.",
-  "learn.video.error": "Das Video lässt sich nicht abspielen. Der Text der Seite gilt weiter."
+  "learn.video.error": "Das Video lässt sich nicht abspielen. Der Text der Seite gilt weiter.",
+  "histogram.axis": "Noten",
+  "progress.axis.seconds": "Sekunden",
+  "progress.axis.minutes": "Minuten",
+  "setup.state.done": "erledigt",
+  "setup.state.current": "aktuell",
+  "setup.state.upcoming": "offen",
+  "setup.state.skipped": "übersprungen"
 }

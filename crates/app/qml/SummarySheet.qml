@@ -139,6 +139,7 @@ KanteCard {
             lateText: texts.t("result.late")
             meanText: texts.t("histogram.mean")
             countText: texts.t("histogram.count")
+            axisTitle: texts.t("histogram.axis")
             accessibleName: texts.t("histogram.name")
         }
         // Techniques apart from the hit rate (LH-BEW-06, round 9): sign and count per technique;

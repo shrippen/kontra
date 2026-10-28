@@ -447,6 +447,18 @@ Item {
                                     height: lane.head
                                     color: note.hollow ? KanteStyle.backgroundColor : note.fill
                                 }
+                                // A wrong note's head is framed in the strong text colour (1.49): with deuteranopia its
+                                // red read like a string's ochre, and the cross badge alone was too small.
+                                Rectangle {
+                                    objectName: "kanteWrongFrame"
+                                    readonly property real w: Math.max(2, Math.round(lane.head * 0.12))
+                                    visible: note.full && note.st === "wrong"
+                                    anchors.fill: headBox
+                                    anchors.margins: -w
+                                    color: "transparent"
+                                    border.width: w
+                                    border.color: KanteStyle.strongTextColor
+                                }
                                 Loader {
                                     active: note.hollow
                                     anchors.fill: headBox
