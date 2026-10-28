@@ -1028,12 +1028,7 @@ impl Core {
                 });
             match arrangement {
                 Ok(a) => {
-                    let title = if a.title.trim().is_empty() {
-                        path.file_stem()
-                            .map_or_else(String::new, |s| s.to_string_lossy().into())
-                    } else {
-                        a.title.clone()
-                    };
+                    let title = piece_name(&a.title, &path);
                     self.library.add_known(RecentEntry {
                         path: path.clone(),
                         title,
@@ -1233,11 +1228,7 @@ impl Core {
         let mut arrangement = imported
             .arrangement(track)
             .map_err(|e| self.import_error(&e))?;
-        if arrangement.title.trim().is_empty() {
-            arrangement.title = path
-                .file_stem()
-                .map_or_else(String::new, |s| s.to_string_lossy().to_string());
-        }
+        arrangement.title = piece_name(&arrangement.title, path);
         if !imported.has_tuning(track) {
             // No tuning in the file: the player's instrument, if it reaches the lowest note
             // (QA F13: a five-string profile was replaced by four strings).
@@ -4261,6 +4252,16 @@ fn unix_now() -> u64 {
         .map_or(0, |d| d.as_secs())
 }
 
+/// The name a piece is shown by: its title, or the file name when the title names nothing
+/// ("", "001", "1." from Guitar Pro templates; QA 27.10., J4).
+fn piece_name(title: &str, path: &Path) -> String {
+    if title.chars().any(char::is_alphabetic) {
+        return title.to_string();
+    }
+    path.file_stem()
+        .map_or_else(|| title.to_string(), |s| s.to_string_lossy().into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5013,6 +5014,31 @@ mod tests {
         core.set_speed(0.8);
         core.open(&second).unwrap();
         assert_eq!(core.speed(), 0.8);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    // QA 27.10., J4: a Guitar Pro file titled "001" showed as "001"; a title without letters
+    // names nothing, the file name does.
+    #[test]
+    fn numeric_title_shows_the_file_name() {
+        let dir = temp_dir("numeric-title");
+        let file = dir.join("Riff in E.musicxml");
+        let xml = r#"<?xml version="1.0"?>
+<score-partwise version="3.1">
+  <work><work-title>001</work-title></work>
+  <part-list><score-part id="P1"><part-name>Bass</part-name></score-part></part-list>
+  <part id="P1"><measure number="1">
+    <attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time>
+      <clef><sign>F</sign><line>4</line></clef></attributes>
+    <note><pitch><step>E</step><octave>2</octave></pitch><duration>4</duration></note>
+  </measure></part>
+</score-partwise>"#;
+        std::fs::write(&file, xml).unwrap();
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.import_folder(&dir, false);
+        assert!(core.recent_json().contains("\"title\":\"Riff in E\""));
+        core.open(&file).unwrap();
+        assert_eq!(core.loaded_title(), "Riff in E");
         let _ = std::fs::remove_dir_all(dir);
     }
 
