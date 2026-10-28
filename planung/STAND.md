@@ -1,7 +1,20 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-10-25. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+Übergabe zwischen Sitzungen. Stand: 2026-10-28. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
+
+## Übergabe (28.10.2026, QA-Nacht)
+
+QA-Runde 27.10. mit allen Personas (ROADMAP). Die Korrekturen der Nacht sind als #137–#143 und #145–#150 gemerged,
+dieser Bericht als #144 zuletzt.
+
+Runde 15 steht im Entscheidungs-Artefakt (Einrichtung, Übungsseite, „Lage“, Instrument, `.kontra`, Kante Light,
+Kante-Bausteine, Demo-Modus, Kurs aus Ordner, QA-Schalter, pub, Reihenfolge). Nach den Antworten: Lastenheft und
+ROADMAP-Abschnitt „Entscheidungen Runde 15“.
+
+Offene Befunde mittel (ROADMAP, QA-Runde 27.10.): M4, M5, M6, M9, S3, S12, J2, J3, J10.
+Offen in Kante (J-F1 hängt daran): S1-Rest (Return löst `KanteButton` nicht aus), S2 (Scrollen zum Fokus), S6 (Deuteranopie).
+In `pocket-band` (unten) liegt weiter das Ziel-Band; Kante-Stand der Kopie 1.40, Kante `main` 1.48.
 
 ## Übergabe (25.10.2026, abends)
 
