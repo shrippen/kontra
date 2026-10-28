@@ -94,17 +94,6 @@ enum Section {
     Outro,
 }
 
-#[cfg(test)]
-impl Section {
-    const ALL: [Section; 5] = [
-        Section::Intro,
-        Section::Verse,
-        Section::Chorus,
-        Section::Bridge,
-        Section::Outro,
-    ];
-}
-
 impl Section {
     /// The rehearsal mark over the part's first bar, as German bands say it (LH-BIB-12); the
     /// shuffle's twelve bars of blues are a chorus.
@@ -248,6 +237,17 @@ impl Style {
     }
 }
 
+/// The rehearsal marks of the piece: (tick of the part's first bar, name).
+pub(super) fn parts(style: Style) -> Vec<(u32, String)> {
+    let mut start = 0;
+    let mut marks = Vec::new();
+    for p in style.form() {
+        marks.push((start, p.section.mark(style).to_string()));
+        start += p.times * bars_len(p.progression, p.rhythm.meter());
+    }
+    marks
+}
+
 /// The whole piece as one pass, closing on a whole-bar tonic; and its drums.
 pub(super) fn song(style: Style, level: Level, key: u8) -> (Pass, Vec<(u32, u8)>) {
     let form = style.form();
@@ -266,7 +266,6 @@ pub(super) fn song(style: Style, level: Level, key: u8) -> (Pass, Vec<(u32, u8)>
             |at, root, q| groove_bar(at, root, q, level.rhythm(p.rhythm)),
         );
         let length = bars_len(p.progression, meter);
-        markers.push((start, p.section.mark(style).to_string()));
         for time in 0..p.times {
             let shift = start + time * length;
             tones.extend(line.iter().map(|t| Tone {
@@ -334,16 +333,6 @@ fn part_drums(p: &Part, start: u32, bars: u32, last: bool) -> Vec<(u32, u8)> {
 mod tests {
     use super::*;
 
-    /// The chord symbols among the markers, without the part names.
-    fn chord_names(pass: &Pass) -> Vec<&str> {
-        let parts = Section::ALL.map(|s| [s.mark(Style::Pop), s.mark(Style::Shuffle)]);
-        pass.markers
-            .iter()
-            .map(|m| m.1.as_str())
-            .filter(|n| !parts.iter().flatten().any(|p| p == n))
-            .collect()
-    }
-
     #[test]
     fn every_style_has_a_form_of_two_to_three_minutes() {
         for style in Style::ALL {
@@ -369,7 +358,7 @@ mod tests {
     #[test]
     fn rock_chords_are_power_chords() {
         let (pass, _) = song(Style::Rock, Level::Medium, 4);
-        let names = chord_names(&pass);
+        let names: Vec<&str> = pass.markers.iter().map(|m| m.1.as_str()).collect();
         assert!(
             names.iter().all(|n| n.ends_with('5') || n.ends_with('m')),
             "{names:?}"
@@ -392,7 +381,7 @@ mod tests {
             .flat_map(|(s, l)| [0, 3, 7].map(|key| (s, l, key)));
         for (style, level, key) in cases {
             let (pass, _) = song(style, level, key);
-            let names = chord_names(&pass);
+            let names: Vec<&str> = pass.markers.iter().map(|m| m.1.as_str()).collect();
             assert!(
                 !names.iter().any(|n| sevenths(n)),
                 "{style:?} {level:?}: {names:?}"

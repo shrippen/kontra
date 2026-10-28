@@ -25,7 +25,8 @@ Ordner, sucht sie sie beim Laden nach dem Dateinamen in den anderen.
 | 8 Technik | Slap und Pop, Fingerfolgen in allen Lagen, Tempo-Treppen | P2, P3 |
 | 9 Stücke | Ganze Stücke mit Form und Schlagzeug: Pop, Rock, Funk (Intro, Strophe, Refrain, Bridge, Outro), Ballade (ohne Bridge), Shuffle (vier Blues-Chorusse); ein Fill vor jedem neuen Teil | P1, P2, P4 |
 
-Akkordnamen stehen als MIDI-Marker am Taktanfang; Grooves haben eine Schlagzeugspur auf Kanal 10. Techniken (`ghost`,
+Akkordnamen stehen als Text-Ereignis `chord <Name>` am Akkord, Teilnamen der Stücke (Probenzeichen) als MIDI-Marker
+am ersten Takt des Teils; Grooves haben eine Schlagzeugspur auf Kanal 10. Techniken (`ghost`,
 `dead`, `slap`, `pop`) und feste Griffe (`pos <Saite> <Bund>`, Saite 0 = E) stehen als Text-Ereignis an der Note.
 Blues und Moll-Kadenz enden mit einem Schlusstakt auf der Tonika. Nicht von Hand ändern: die CI erzeugt den Satz neu
 und vergleicht ihn mit diesem Ordner.

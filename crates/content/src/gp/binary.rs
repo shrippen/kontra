@@ -281,7 +281,7 @@ impl Parser<'_> {
                 head.endings = old_endings(number, previous);
             }
             if flags & 0x20 != 0 {
-                head.marker = Some(self.marker()?);
+                head.markers.push(self.marker()?);
             }
             if flags & 0x40 != 0 {
                 head.key = self.key()?;
@@ -290,7 +290,7 @@ impl Parser<'_> {
         }
 
         if flags & 0x20 != 0 {
-            head.marker = Some(self.marker()?);
+            head.markers.push(self.marker()?);
         }
         if flags & 0x40 != 0 {
             head.key = self.key()?;
