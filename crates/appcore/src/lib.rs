@@ -55,6 +55,8 @@ const WINDOW_MAX_MS: f64 = 150.0;
 const CUSTOM_NOTES: std::ops::RangeInclusive<u8> = 19..=55;
 /// Keyboard view without an instrument range: E1 to G4, a four-string bass.
 const DEFAULT_KEYS: (u8, u8) = (28, 67);
+/// Middle C (MIDI 60): any octave names the twelve keys of the keyboard view.
+const MIDDLE_C: u8 = 60;
 /// Tunings the settings offer (LH-TUN-02); "drop" lowers the lowest string a whole step.
 const TUNINGS: [&str; 5] = ["standard", "drop", "half-down", "whole-down", "custom"];
 
@@ -341,6 +343,12 @@ impl Core {
             .collect()
     }
 
+    /// A pitch spelled in a key, in the user's language: MIDI 34 in B♭ is "B♭1" ("B1" in German),
+    /// as the notation writes it (QA 27.10., M4).
+    fn pitch_label(&self, pitch: kontra_model::Pitch, key_fifths: i8) -> String {
+        self.note_label(&pitch.spelled(key_fifths))
+    }
+
     /// An import error in the user's language (QA P2: the English reason showed in German).
     fn import_error(&self, e: &kontra_session::ImportError) -> String {
         use kontra_session::ImportError as E;
@@ -369,16 +377,18 @@ impl Core {
             .string
             .and_then(|s| a.instrument.tuning.strings.get(usize::from(s)))
             .map_or_else(String::new, |p| self.note_label(&p.name().to_string()));
+        let key = key_at(a, n.start_ticks);
         let args = [
-            ("note", self.note_label(&n.pitch.to_string())),
+            ("note", self.pitch_label(n.pitch, key)),
             ("string", string),
             ("fret", n.fret.unwrap_or(0).to_string()),
         ];
         let wanted = self.tr("waiting.for", &args);
         Some(match played_midi {
             Some(m) => {
-                let played = kontra_model::Pitch(m.round().clamp(0.0, 127.0) as u8).to_string();
-                let played = self.tr("waiting.played", &[("played", self.note_label(&played))]);
+                let played = kontra_model::Pitch(m.round().clamp(0.0, 127.0) as u8);
+                let played = self.pitch_label(played, key);
+                let played = self.tr("waiting.played", &[("played", played)]);
                 format!("{played} {wanted}")
             }
             None => wanted,
@@ -1426,16 +1436,21 @@ impl Core {
     }
 
     /// Keys of the keyboard view (J-E1): the instrument's range as MIDI numbers and the
-    /// twelve note names in the user's language, e.g. {"low": 28, "high": 67, "names":
-    /// ["C", "C#", …, "H"]} for a four-string bass with 24 frets, in German.
+    /// twelve note names in the user's language, spelled in the piece's first key, e.g.
+    /// {"low": 28, "high": 67, "names": ["C", "C♯", …, "H"]} for a four-string bass with 24
+    /// frets, in German.
     pub fn key_range_json(&self) -> String {
         let (low, high) = self
             .instrument()
             .range()
             .map_or(DEFAULT_KEYS, |(low, high)| (low.0, high.0));
-        let names: Vec<String> = kontra_model::NoteName::ALL
-            .iter()
-            .map(|n| self.note_label(&n.to_string()))
+        let key = self.arrangement().map_or(0, |a| key_at(a, 0));
+        let names: Vec<String> = (0..12)
+            .map(|pc| self.pitch_label(kontra_model::Pitch(MIDDLE_C + pc), key))
+            .map(|name| {
+                name.trim_end_matches(|c: char| c.is_ascii_digit())
+                    .to_string()
+            })
             .collect();
         json!({ "low": low, "high": high, "names": names }).to_string()
     }
@@ -2732,9 +2747,10 @@ impl Core {
                     .bar
                     .and_then(|b| a.bars.get(b))
                     .map_or(0, |b| b.source_index + 1);
+                let key = key_at(a, note.start_ticks);
                 let mut parts = vec![
                     self.tr("summary.note.bar", &[("bar", bar.to_string())]),
-                    self.note_label(&note.pitch.to_string()),
+                    self.pitch_label(note.pitch, key),
                 ];
                 // Early and late say it with the milliseconds below.
                 if !matches!(state, "early" | "late") {
@@ -2754,7 +2770,7 @@ impl Core {
                     (Outcome::WrongPitch { played_midi }, _) => {
                         let played =
                             kontra_model::Pitch(played_midi.round().clamp(0.0, 127.0) as u8);
-                        let played = self.note_label(&played.to_string());
+                        let played = self.pitch_label(played, key);
                         parts.push(self.tr("summary.note.played", &[("played", played)]));
                     }
                     (_, Some(c)) => {
@@ -3972,6 +3988,13 @@ fn staff(a: &Arrangement) -> serde_json::Value {
         .map(|m| json!({ "time": a.tempo.seconds_at(m.tick), "text": m.name }))
         .collect();
     json!({ "notes": notes, "rests": rests, "keyFifths": key, "chords": chords })
+}
+
+/// Key signature of the bar holding `tick` (0 = C major without bars).
+fn key_at(a: &Arrangement, tick: u64) -> i8 {
+    a.bar_at(tick)
+        .and_then(|b| a.bars.get(b))
+        .map_or(0, |b| b.key_fifths)
 }
 
 /// Kontra marks the note that continues a tie (`tied`: no new attack); Kante's staff marks
@@ -5241,6 +5264,49 @@ mod tests {
             "{text}"
         );
         assert!(!text.contains("Cent"), "{text}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA 27.10. (M4): in B♭ the note list said A♯1 where the notation writes B♭; names follow
+    /// the key of the note's bar, as in the notation.
+    #[test]
+    fn note_list_spells_in_the_key() {
+        let mut a = arrangement(&[(0, 4 * Q, 34), (4 * Q, 4 * Q, 37)]);
+        a.bars[0].key_fifths = -2;
+        a.bars[1].key_fifths = 2;
+        let dir = temp_dir("spelling");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("en".into()));
+        core.loaded = Some(Loaded {
+            path: dir.join("x.mid"),
+            full: a.clone(),
+            arrangement: a,
+            tracks: Vec::new(),
+            track: 0,
+        });
+        let result = |note: usize, played: u8| NoteResult {
+            pass: 0,
+            note: Some(note),
+            bar: Some(note),
+            outcome: Outcome::WrongPitch {
+                played_midi: f64::from(played),
+            },
+            offset_ms: Some(0.0),
+            cents: None,
+            position_s: 0.0,
+        };
+        let notes = core.note_details(&[result(0, 39), result(1, 39)], &[]);
+        let flat = notes[0]["text"].as_str().unwrap();
+        assert!(flat.contains("B♭1") && flat.contains("E♭2"), "{flat}");
+        let sharp = notes[1]["text"].as_str().unwrap();
+        assert!(sharp.contains("C♯2") && sharp.contains("D♯2"), "{sharp}");
+        assert!(core.wait_text(0, None).unwrap().contains("B♭1"));
+        // The keyboard names the keys in the piece's key too.
+        let keys: serde_json::Value = serde_json::from_str(&core.key_range_json()).unwrap();
+        assert_eq!(
+            (keys["names"][10].as_str(), keys["names"][1].as_str()),
+            (Some("B♭"), Some("D♭"))
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 

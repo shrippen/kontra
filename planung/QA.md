@@ -130,7 +130,7 @@ Liegt eine Übung nach dem Lauf über 90 %, bietet die Auswertung die nächste i
 Häkchen.
 
 **J-C2 Timing-Tendenz** ⚙ · Persona: P3 Mira · Phase 1 · LH-BEW-03, LH-BEW-08, LH-FOR-02
-1. Auf der Übungsseite „Lage: Laid-back“ wählen, Hilfe dazu lesen.
+1. Auf der Übungsseite „Timing: Laid-back“ wählen, Hilfe dazu lesen.
 2. Aufnahme mit konstanter Tendenz „18 ms zu früh“ im Modus „Durchlauf“.
 3. Auswertung lesen.
 Erwartet: Histogramm mit Achse und Legende; Tendenz in Worten („meist 18 ms zu früh“); zum Ziel ein Satz in Worten

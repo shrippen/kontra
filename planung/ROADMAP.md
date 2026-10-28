@@ -327,7 +327,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
     Glossar-Links im Lektionstext nicht per Tab erreichbar.
   - S6 (mittel, Kante): Bei Deuteranopie gleicht ein verfehlter Ton (rot) einer D-Saiten-Note (ocker).
   - S7 (mittel, behoben #137): Bibliothek zeigte Ergebnisse erst nach Neustart.
-  - S8 (mittel, Entscheidung): „Lage“ heißt im Übungskopf das Timing-Ziel, sonst die Handposition.
+  - S8 (mittel, behoben #154): „Lage“ hieß im Übungskopf das Timing-Ziel, sonst die Handposition; jetzt „Timing“.
   - S9 (mittel, behoben #137), S10, S13, S15 (niedrig, behoben #137): springende Knöpfe, MIDI-Hinweis ohne Keyboard,
     englische Formulierungen, Glossar sortierte „Dämpfen“ nach „Durchgangston“.
   - S11 (mittel, Entscheidung): Kein Instrument „Kontrabass“ oder „MIDI-Bass“ wählbar (LH-EIN-09).
@@ -339,8 +339,9 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - M1 (hoch, behoben #139): Bundlos und im strengen Fenster blieb ein von unten einschwingender Ton „falsch“.
   - M2 (mittel, behoben #147): Strenges Fenster, alle Noten 40 ms früh: „0 % getroffen, 128 ausgelassen“ ohne „zu früh“.
   - M3 (mittel, behoben #149): Pocket-Satz widersprüchlich („2 ms zu früh · meist 8 ms zu spät“).
-  - M4 (mittel, offen): Enharmonik in B♭: Liste A♯1, Noten D♭ aus C♯.
-  - M5 (mittel, behoben #156): MusicXML-Akkordsymbole (`<harmony>`) werden nicht gelesen (LH-BIB-03).
+  - M4 (mittel, behoben #152): Enharmonik in B♭: Liste A♯1, Noten D♭ aus C♯.
+  - M5 (mittel, behoben #156): MusicXML-Akkordsymbole (`<harmony>`) werden nicht gelesen (LH-BIB-03). Offen
+    (niedrig): `<degree>` (z. B. C7♯9, C7sus4) und negativer `<offset>` werden noch nicht gelesen.
   - M6 (mittel, offen): „Alle Noten“ ohne Timing je Note (LH-BEW-01).
   - M9 (mittel, offen): Sechzehntel unlesbar, acht Takte in einer Zeile.
   - M10 (mittel, behoben #140): Generator: Schlusston über sieben Achtel, Takt las sich als 3/4.
