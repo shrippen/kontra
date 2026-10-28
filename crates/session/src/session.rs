@@ -577,6 +577,8 @@ impl Session {
         summary.untold_techniques = self.techniques.untold().to_vec();
         summary.outside_offset_ms =
             crate::summary::outside_offset_ms(&self.results, self.transport.speed());
+        summary.outside_notes =
+            crate::summary::outside_notes(&self.results, self.transport.speed());
         summary
     }
 

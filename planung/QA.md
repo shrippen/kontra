@@ -99,7 +99,7 @@ Erwartet: Bereich und Tempo stimmen; Backing Track bei 60 % ohne metallischen Kl
 1. Instrument „5 Saiten, bundlos“ anlegen.
 2. Walking-Bass-Etüde in der Notenansicht, Zeitfenster „streng“.
 3. Aufnahme mit absichtlichen Intonationsfehlern (±10 bis ±40 Cent) und tiefen Tönen auf der B-Saite einspeisen.
-Erwartet: Cent-Werte pro Note weichen ≤ 3 Cent vom annotierten Wert ab; B0 bis D1 sicher erkannt; Noten im Bassschlüssel korrekt.
+Erwartet: Cent-Werte pro Note weichen ≤ 3 Cent vom annotierten Wert ab; „Alle Noten“ nennt je Note das Timing in ms (auch „pünktlich (0 ms)“ und bei ausgelassenen Noten neben dem Fenster „40 ms zu früh, außerhalb des Zeitfensters“); B0 bis D1 sicher erkannt; Noten im Bassschlüssel korrekt.
 
 **J-B5 Unterricht am Beamer** 📽 🔍 · Persona: P4 Thomas · Phase 1 (Präsentationsmodus Phase 2) · LH-ANZ-02, -04, -09, LH-ALL-02, LH-MOD-07
 1. Auflösung 1280×720, Schrift 150 %.

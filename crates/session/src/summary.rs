@@ -78,6 +78,19 @@ pub struct Summary {
     /// have one: the timing outside the window (`outside_offset_ms`).
     #[serde(default)]
     pub outside_offset_ms: Option<f64>,
+    /// The missed notes behind `outside_offset_ms`, each with its own offset (LH-BEW-01).
+    #[serde(default)]
+    pub outside_notes: Vec<OutsideNote>,
+}
+
+/// A missed note played beside the timing window.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct OutsideNote {
+    pub pass: u32,
+    /// Index into `Arrangement::notes`.
+    pub note: usize,
+    /// Real milliseconds, negative = early.
+    pub offset_ms: f64,
 }
 
 impl Summary {
@@ -129,6 +142,7 @@ impl Summary {
             techniques: Vec::new(),
             untold_techniques: Vec::new(),
             outside_offset_ms: None,
+            outside_notes: Vec::new(),
         }
     }
 }
@@ -140,6 +154,17 @@ impl Summary {
 /// half the missed notes share it. Example: sixteenths 125 ms apart, every note 70 ms late:
 /// +70 fits all eight notes, −55 (the note before, late) only seven.
 pub(crate) fn outside_offset_ms(results: &[NoteResult], speed: f64) -> Option<f64> {
+    let mut offsets: Vec<f64> = outside_notes(results, speed)
+        .iter()
+        .map(|n| n.offset_ms)
+        .collect();
+    offsets.sort_by(f64::total_cmp);
+    offsets.get(offsets.len() / 2).copied()
+}
+
+/// The missed notes that share the timing `outside_offset_ms` tells, each with the offset of
+/// its played note; empty when fewer than half the missed notes share one.
+pub(crate) fn outside_notes(results: &[NoteResult], speed: f64) -> Vec<OutsideNote> {
     let speed = speed.max(f64::EPSILON);
     let missed: Vec<NoteResult> = final_per_note(results)
         .into_iter()
@@ -163,15 +188,21 @@ pub(crate) fn outside_offset_ms(results: &[NoteResult], speed: f64) -> Option<f6
         })
         .collect();
     // For an offset, each missed note's nearest one to it, if close enough.
-    let near = |at: f64| -> Vec<f64> {
-        around
+    let near = |at: f64| -> Vec<OutsideNote> {
+        missed
             .iter()
-            .filter_map(|offsets| {
-                offsets
+            .zip(&around)
+            .filter_map(|(m, offsets)| {
+                let offset_ms = offsets
                     .iter()
                     .copied()
                     .min_by(|a, b| (a - at).abs().total_cmp(&(b - at).abs()))
-                    .filter(|o| (o - at).abs() <= OUTSIDE_TOLERANCE_MS)
+                    .filter(|o| (o - at).abs() <= OUTSIDE_TOLERANCE_MS)?;
+                Some(OutsideNote {
+                    pass: m.pass,
+                    note: m.note?,
+                    offset_ms,
+                })
             })
             .collect()
     };
@@ -182,14 +213,14 @@ pub(crate) fn outside_offset_ms(results: &[NoteResult], speed: f64) -> Option<f6
     let best = candidates
         .into_iter()
         .map(|at| (near(at).len(), at))
-        .max_by(|(n, a), (m, b)| n.cmp(m).then(b.abs().total_cmp(&a.abs())))?;
-    let (count, at) = best;
+        .max_by(|(n, a), (m, b)| n.cmp(m).then(b.abs().total_cmp(&a.abs())));
+    let Some((count, at)) = best else {
+        return Vec::new();
+    };
     if count * 2 < missed.len() {
-        return None;
+        return Vec::new();
     }
-    let mut offsets = near(at);
-    offsets.sort_by(f64::total_cmp);
-    Some(offsets[offsets.len() / 2])
+    near(at)
 }
 
 /// In Wait mode a note can have several attempts; the last result per (pass, note) counts.
@@ -317,6 +348,11 @@ mod tests {
         assert!((early + 40.0).abs() < 1e-6, "{early}");
         let slow = outside_offset_ms(&results, 0.5).expect("an offset");
         assert!((slow + 80.0).abs() < 1e-6, "{slow}");
+
+        // Each missed note keeps its own offset for the note list (M6).
+        let notes = outside_notes(&results, 1.0);
+        assert_eq!(notes.len(), 4, "{notes:?}");
+        assert!(notes.iter().all(|n| (n.offset_ms + 40.0).abs() < 1e-6));
 
         // Nothing played near the missed notes: nothing to tell.
         let far = played(&[missed, missed]);
