@@ -339,7 +339,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - M1 (hoch, behoben #139): Bundlos und im strengen Fenster blieb ein von unten einschwingender Ton „falsch“.
   - M2 (mittel, behoben #147): Strenges Fenster, alle Noten 40 ms früh: „0 % getroffen, 128 ausgelassen“ ohne „zu früh“.
   - M3 (mittel, behoben #149): Pocket-Satz widersprüchlich („2 ms zu früh · meist 8 ms zu spät“).
-  - M4 (mittel, offen): Enharmonik in B♭: Liste A♯1, Noten D♭ aus C♯.
+  - M4 (mittel, behoben #152): Enharmonik in B♭: Liste A♯1, Noten D♭ aus C♯.
   - M5 (mittel, offen): MusicXML-Akkordsymbole (`<harmony>`) werden nicht gelesen (LH-BIB-03).
   - M6 (mittel, offen): „Alle Noten“ ohne Timing je Note (LH-BEW-01).
   - M9 (mittel, offen): Sechzehntel unlesbar, acht Takte in einer Zeile.
