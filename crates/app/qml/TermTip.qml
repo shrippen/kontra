@@ -20,32 +20,6 @@ KanteInfoTip {
     term: entry ? entry.title : ""
     info: entry ? entry.text : ""
     accessibleName: applicationWindow().texts.t("help.about", { term: term })
-    // In a list row (a focus scope) the row handed its focus on to a "?" that had it once, so
-    // Tab skipped the row (QA 28.10. B5). Leaving, the "?" gives the scope's focus back.
-    onActiveFocusChanged: {
-        if (!activeFocus) {
-            focus = false
-        }
-    }
-    // Qt's Shift+Tab passes over the list row that holds the "?": it goes to the row first.
-    Keys.onBacktabPressed: function(event) {
-        var row = listRow()
-        event.accepted = row !== null
-        if (row) {
-            // Off first: the row (a focus scope) would hand the focus straight back.
-            focus = false
-            row.forceActiveFocus(Qt.BacktabFocusReason)
-        }
-    }
-    // The list row the "?" sits in, or null.
-    function listRow() {
-        for (var p = parent; p; p = p.parent) {
-            if (p instanceof KanteListRow) {
-                return p
-            }
-        }
-        return null
-    }
     // A click opens the entry instead of pinning the tooltip.
     onClicked: {
         checked = false
