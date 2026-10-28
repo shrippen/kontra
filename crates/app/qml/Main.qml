@@ -134,29 +134,11 @@ Kirigami.ApplicationWindow {
     // The chapter "Kann ich schon" checks on the review page ("" = the questions due).
     property string checkChapter: ""
 
-    // A glossary entry ("" the index) as a layer over the page that asked (J-G2). The page loses
-    // its scroll position under the layer; it is put back when the last layer closes.
-    property real glossaryReturnY: -1
+    // A glossary entry ("" the index) as a layer over the page that asked (J-G2).
+    GlossaryReturn { id: glossaryReturn; pageStack: root.pageStack }
     function glossary(id) {
-        var under = pageStack.currentItem
-        if (pageStack.layers.depth === 1 && under && under.flickable) {
-            glossaryReturnY = under.flickable.contentY
-        }
+        glossaryReturn.save()
         pageStack.layers.push(Qt.resolvedUrl("GlossaryPage.qml"), { termId: id })
-    }
-    Connections {
-        target: pageStack.layers
-        function onDepthChanged() {
-            if (pageStack.layers.depth > 1 || root.glossaryReturnY < 0) {
-                return
-            }
-            var under = pageStack.currentItem
-            var y = root.glossaryReturnY
-            root.glossaryReturnY = -1
-            if (under && under.flickable) {
-                Qt.callLater(function() { under.flickable.contentY = y })
-            }
-        }
     }
 
     function show(name) {
@@ -172,8 +154,7 @@ Kirigami.ApplicationWindow {
             console.warn(component.errorString())
             return
         }
-        // Another page: no scroll position to put back.
-        glossaryReturnY = -1
+        glossaryReturn.forget()
         while (pageStack.layers.depth > 1) {
             pageStack.layers.pop()
         }
