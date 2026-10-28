@@ -9,8 +9,10 @@
 //!                                       └─no──► decode, resample, keep
 //! ```
 //! The key changes with the file's path, size, modification time and the rate, like the
-//! separated songs (`stems`). Only the newest `KEEP_FILES` stay.
+//! separated songs (`stems`). Only the newest `KEEP_FILES` stay; Settings → Data lists them
+//! by song (`cache_files`).
 
+use crate::cache_files::{self, CacheEntry, Partial};
 use crate::stems::file_key;
 use kontra_engine::{list_devices, BackingTrack, Direction, EngineError, NULL_DEVICE};
 use std::path::{Path, PathBuf};
@@ -45,7 +47,7 @@ impl BackingCache {
             }
         }
         let track = BackingTrack::load(song, rate)?;
-        self.keep(&track, &target);
+        self.keep(&track, &target, song);
         Ok(track)
     }
 
@@ -54,16 +56,25 @@ impl BackingCache {
         self.target(song, rate).is_some_and(|t| t.is_file())
     }
 
-    /// Prepared files and their bytes.
+    /// Prepared files and their bytes (with files left half written).
     pub fn usage(&self) -> (usize, u64) {
-        let Ok(entries) = std::fs::read_dir(&self.dir) else {
-            return (0, 0);
-        };
-        entries
-            .flatten()
-            .filter(|e| e.path().extension().is_some_and(|x| x == RESULT_EXT))
-            .filter_map(|e| e.metadata().ok())
-            .fold((0, 0), |(n, bytes), m| (n + 1, bytes + m.len()))
+        cache_files::usage(&self.dir)
+    }
+
+    /// Prepared tracks by song, newest first.
+    pub fn entries(&self) -> Vec<CacheEntry> {
+        cache_files::entries(&self.dir)
+    }
+
+    /// Deletes one prepared track. A run playing it keeps it in memory; the next play
+    /// prepares it again.
+    pub fn forget(&self, key: &str) -> bool {
+        cache_files::forget(&self.dir, key)
+    }
+
+    /// Deletes every prepared track and every file left half written.
+    pub fn clear(&self) {
+        cache_files::prune(&self.dir, 0, Partial::All);
     }
 
     /// Prepares `songs` in a thread for the output `device` (`None`: the default one).
@@ -95,7 +106,7 @@ impl BackingCache {
 
     /// Writes beside the target and renames, so a reader never sees half a file; then drops
     /// the oldest files beyond `KEEP_FILES`.
-    fn keep(&self, track: &BackingTrack, target: &Path) {
+    fn keep(&self, track: &BackingTrack, target: &Path, song: &Path) {
         if std::fs::create_dir_all(&self.dir).is_err() {
             return;
         }
@@ -104,22 +115,9 @@ impl BackingCache {
             let _ = std::fs::remove_file(&partial);
             return;
         }
-        self.prune();
-    }
-
-    fn prune(&self) {
-        let Ok(entries) = std::fs::read_dir(&self.dir) else {
-            return;
-        };
-        let mut files: Vec<(std::time::SystemTime, PathBuf)> = entries
-            .flatten()
-            .filter(|e| e.path().extension().is_some_and(|x| x == RESULT_EXT))
-            .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
-            .collect();
-        files.sort_by_key(|f| std::cmp::Reverse(f.0));
-        for (_, path) in files.iter().skip(KEEP_FILES) {
-            let _ = std::fs::remove_file(path);
-        }
+        cache_files::label(target, song);
+        // Half-written files of a stop while writing go too (review #162).
+        cache_files::prune(&self.dir, KEEP_FILES, Partial::Stale);
     }
 }
 
@@ -201,6 +199,46 @@ mod tests {
 
         // Another rate is another file.
         assert!(!cache.cached(&song, RATE));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Round 16 (Settings → Data): each track by its song, deleted alone or all at once.
+    #[test]
+    fn lists_by_song_and_forgets() {
+        let dir = temp_dir("list");
+        let song = song(&dir);
+        let cache = BackingCache::new(&dir.join("cache"));
+        cache.load(&song, OUTPUT_RATE).unwrap();
+        let entries = cache.entries();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].name.as_deref(), Some("song.wav"));
+
+        assert!(cache.forget(&entries[0].key));
+        assert!(!cache.cached(&song, OUTPUT_RATE));
+        assert_eq!(cache.usage(), (0, 0));
+
+        // Gone from the cache, the song still loads (and is kept again).
+        assert!(cache.load(&song, OUTPUT_RATE).is_ok());
+        cache.clear();
+        assert!(cache.entries().is_empty());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Emptying while the thread prepares: nothing fails, the song loads afterwards.
+    #[test]
+    fn clear_while_preparing() {
+        let dir = temp_dir("busy");
+        let song = song(&dir);
+        let cache = BackingCache::new(&dir.join("cache"));
+        let mut job = cache.prepare(vec![song.clone()], Some(NULL_DEVICE.into()));
+        cache.clear();
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        while job.running() && std::time::Instant::now() < end {
+            cache.clear();
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert!(!job.running());
+        assert!(cache.load(&song, FALLBACK_RATE).is_ok());
         let _ = std::fs::remove_dir_all(dir);
     }
 

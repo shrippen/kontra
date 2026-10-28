@@ -8,6 +8,7 @@
 //! The key changes with the file's path, size and modification time, so an edited song is
 //! separated again.
 
+use crate::cache_files::{self, CacheEntry, Partial};
 use kontra_engine::{find_separator, in_sandbox, SeparationJob, Separator, SeparatorError};
 use std::path::{Path, PathBuf};
 
@@ -62,20 +63,31 @@ impl BassRemoval {
     /// Deletes the song's separated file (it plays with its bass again); false if there was
     /// none.
     pub fn remove(&self, song: &Path) -> bool {
-        self.cached(song)
-            .is_some_and(|path| std::fs::remove_file(path).is_ok())
+        let key = self.cached(song).and_then(|path| {
+            path.file_stem()
+                .map(|stem| stem.to_string_lossy().into_owned())
+        });
+        key.is_some_and(|key| self.forget(&key))
     }
 
     /// Separated files in the cache and their bytes, of every song.
     pub fn usage(&self) -> (usize, u64) {
-        let Ok(entries) = std::fs::read_dir(&self.cache_dir) else {
-            return (0, 0);
-        };
-        entries
-            .flatten()
-            .filter(|e| e.path().extension().is_some_and(|x| x == RESULT_EXT))
-            .filter_map(|e| e.metadata().ok())
-            .fold((0, 0), |(n, bytes), m| (n + 1, bytes + m.len()))
+        cache_files::usage(&self.cache_dir)
+    }
+
+    /// Separated songs by name, newest first (Settings → Data).
+    pub fn entries(&self) -> Vec<CacheEntry> {
+        cache_files::entries(&self.cache_dir)
+    }
+
+    /// Deletes one separated song by its key; it plays with its bass again.
+    pub fn forget(&self, key: &str) -> bool {
+        cache_files::forget(&self.cache_dir, key)
+    }
+
+    /// Deletes every separated song; a running separation goes on in its work folder.
+    pub fn clear(&self) {
+        cache_files::prune(&self.cache_dir, 0, Partial::All);
     }
 
     /// Starts separating `song`; `None` when no separator is installed.
@@ -91,6 +103,7 @@ impl BassRemoval {
         Some(separator.start(song, &work).map(|job| StemJob {
             job,
             target,
+            song: song.to_path_buf(),
             work,
             done: false,
         }))
@@ -124,6 +137,8 @@ pub(crate) fn file_key(song: &Path, extra: &str) -> Option<u64> {
 pub struct StemJob {
     job: SeparationJob,
     target: PathBuf,
+    /// The song, whose name the list in Settings → Data shows.
+    song: PathBuf,
     work: PathBuf,
     done: bool,
 }
@@ -143,6 +158,7 @@ impl StemJob {
     pub fn poll(&mut self) -> Option<Result<PathBuf, SeparatorError>> {
         let result = self.job.poll()?.and_then(|file| {
             std::fs::rename(&file, &self.target)
+                .map(|()| cache_files::label(&self.target, &self.song))
                 .map(|()| self.target.clone())
                 .map_err(|e| SeparatorError::Failed(e.to_string()))
         });
@@ -227,6 +243,10 @@ mod tests {
         assert_eq!(std::fs::read(&result).unwrap(), b"RIFF");
         assert_eq!(stems.size(&song), Some(4));
         assert_eq!(stems.usage(), (1, 4));
+        // Settings → Data names it by its song (round 16).
+        let entries = stems.entries();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].name.as_deref(), Some("Song.wav"));
         let leftover = std::fs::read_dir(cache.join(WORK_DIR)).map_or(0, |d| d.count());
         assert_eq!(leftover, 0, "the work folder is cleared");
 
@@ -234,6 +254,8 @@ mod tests {
         assert!(stems.remove(&song));
         assert_eq!((stems.cached(&song), stems.usage()), (None, (0, 0)));
         assert!(!stems.remove(&song));
+        let files = std::fs::read_dir(&cache).map_or(0, |d| d.count());
+        assert_eq!(files, 0, "the name goes with the file");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
