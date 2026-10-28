@@ -229,6 +229,14 @@ impl PartReader {
                 "backup" => position = position.saturating_sub(self.ticks(child)),
                 "forward" => position = position.saturating_add(self.ticks(child)),
                 "direction" => direction(child, position, &mut head),
+                "harmony" => {
+                    if let Some(name) = chord_symbol(child) {
+                        let offset = child.number::<u64>("offset").unwrap_or(0);
+                        let offset =
+                            offset.saturating_mul(TICKS_PER_QUARTER) / self.divisions.max(1);
+                        head.chords.push((position.saturating_add(offset), name));
+                    }
+                }
                 "sound" => sound(child, position, &mut head),
                 "barline" => self.barline(child, &mut head),
                 _ => {}
@@ -260,6 +268,10 @@ impl PartReader {
         // Every part writes the same concert key; the first part that has one wins.
         if target.key.is_none() {
             target.key = head.key;
+        }
+        // Chord symbols often sit on the melody's part: the first part that has some wins.
+        if target.chords.is_empty() {
+            target.chords = head.chords;
         }
         if self.role == Role::Leading {
             target.signature = head.signature;
@@ -638,6 +650,77 @@ fn staff_tuning(details: &Element) -> Vec<Pitch> {
     }
     lines.sort_by_key(|l| l.0);
     lines.into_iter().map(|l| l.1).collect()
+}
+
+/// Chord symbol of a `<harmony>` as the generator writes them: "C", "Bbm7", "F#/A#";
+/// `None` for "N.C." (kind `none`) or without a root.
+fn chord_symbol(harmony: &Element) -> Option<String> {
+    let root = harmony.child("root")?;
+    let mut name = spelled(root.value("root-step")?, root.number("root-alter"))?;
+
+    let kind = harmony.child("kind");
+    let suffix = match kind.map_or("major", Element::text) {
+        "none" => return None,
+        // A kind MusicXML has no name for: as the file writes it.
+        "other" => kind.and_then(|k| k.attr("text")).unwrap_or(""),
+        value => chord_suffix(value),
+    };
+    name.push_str(suffix);
+
+    if let Some(bass) = harmony.child("bass") {
+        let step = bass.value("bass-step").unwrap_or("");
+        if let Some(bass) = spelled(step, bass.number("bass-alter")) {
+            name = format!("{name}/{bass}");
+        }
+    }
+    Some(name)
+}
+
+/// A step with its alteration: ("B", -1) → "Bb".
+fn spelled(step: &str, alter: Option<f64>) -> Option<String> {
+    let step = step.trim();
+    if !matches!(step, "A" | "B" | "C" | "D" | "E" | "F" | "G") {
+        return None;
+    }
+    let sign = match alter.map_or(0, |a| a.round() as i32) {
+        1 => "#",
+        2 => "##",
+        -1 => "b",
+        -2 => "bb",
+        _ => "",
+    };
+    Some(format!("{step}{sign}"))
+}
+
+/// Symbol suffix of a MusicXML chord kind, e.g. "minor-seventh" → "m7".
+fn chord_suffix(kind: &str) -> &'static str {
+    match kind.trim() {
+        "minor" => "m",
+        "augmented" => "aug",
+        "diminished" => "dim",
+        "dominant" => "7",
+        "major-seventh" => "maj7",
+        "minor-seventh" => "m7",
+        "diminished-seventh" => "dim7",
+        "augmented-seventh" => "aug7",
+        "half-diminished" => "m7b5",
+        "major-minor" => "m(maj7)",
+        "major-sixth" => "6",
+        "minor-sixth" => "m6",
+        "dominant-ninth" => "9",
+        "major-ninth" => "maj9",
+        "minor-ninth" => "m9",
+        "dominant-11th" => "11",
+        "major-11th" => "maj11",
+        "minor-11th" => "m11",
+        "dominant-13th" => "13",
+        "major-13th" => "maj13",
+        "minor-13th" => "m13",
+        "suspended-second" => "sus2",
+        "suspended-fourth" => "sus4",
+        "power" => "5",
+        _ => "",
+    }
 }
 
 /// Tempo from `<sound tempo>` or, failing that, a quarter-based `<metronome>`.

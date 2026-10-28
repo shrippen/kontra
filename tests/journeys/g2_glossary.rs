@@ -22,7 +22,7 @@ fn a_lesson_term_opens_its_entry() {
     assert!(index.as_array().unwrap().iter().any(|t| t["id"] == "bund"));
 
     // A fretless bass has no frets: the entry says so, and lessons do not link it.
-    core.update_settings(|s| s.fretless = true);
+    core.update_settings(|s| s.instrument = kontra_appcore::Bass::Fretless);
     let entry = core.glossary_json("bund");
     assert!(entry.contains("Markierungen"), "{entry}");
     assert!(!core.lesson_json("bass-teile").contains("term:bund"));

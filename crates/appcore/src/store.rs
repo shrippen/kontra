@@ -76,12 +76,50 @@ pub enum InputKind {
     Microphone,
 }
 
+/// The bass the player holds (LH-EIN-09), stored apart from how it reaches Kontra (`InputKind`):
+/// a double bass at a pickup is `Double` with `Line`, bass over MIDI any bass with `Midi`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Bass {
+    /// Electric bass with frets.
+    Fretted,
+    /// Electric bass without frets.
+    Fretless,
+    /// Double bass: always without frets, four or five strings.
+    Double,
+}
+
+impl Bass {
+    /// Most strings the profile offers: a double bass has four or five (low B or C).
+    pub fn strings_max(self) -> u8 {
+        match self {
+            Bass::Double => 5,
+            Bass::Fretted | Bass::Fretless => 6,
+        }
+    }
+}
+
+/// Reads `instrument`, or `fretless` from files before it (true: `Fretless`, false: `Fretted`).
+fn bass_or_fretless<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Bass, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Stored {
+        Bass(Bass),
+        Fretless(bool),
+    }
+    Ok(match Stored::deserialize(d)? {
+        Stored::Bass(bass) => bass,
+        Stored::Fretless(true) => Bass::Fretless,
+        Stored::Fretless(false) => Bass::Fretted,
+    })
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     pub language: Option<String>,
     pub strings: u8,
-    pub fretless: bool,
+    #[serde(alias = "fretless", deserialize_with = "bass_or_fretless")]
+    pub instrument: Bass,
     pub input_kind: InputKind,
     pub input_device: Option<String>,
     /// MIDI device by name when `input_kind` is MIDI (port ids change when it is plugged in
@@ -134,6 +172,8 @@ pub struct Settings {
     pub monitor_warmth: f64,
     /// Suggest more or fewer notes between runs (LH-MOD-06).
     pub adaptive: bool,
+    /// The practice page leaves its rare controls out (LH-ANZ-11, round 15).
+    pub simple_view: bool,
     /// Tuning (LH-TUN-02): "standard", "drop" (lowest string a whole step down),
     /// "half-down", "whole-down" or "custom".
     pub tuning: String,
@@ -155,7 +195,7 @@ impl Default for Settings {
         Settings {
             language: None,
             strings: 4,
-            fretless: false,
+            instrument: Bass::Fretted,
             input_kind: InputKind::Line,
             input_device: None,
             midi_port: None,
@@ -190,6 +230,7 @@ impl Default for Settings {
             monitor_compress: 0.0,
             monitor_warmth: 0.0,
             adaptive: true,
+            simple_view: false,
             tuning: "standard".into(),
             custom_tuning: Vec::new(),
             a4_hz: A4_HZ,
@@ -267,6 +308,10 @@ pub struct BeatMap {
     pub shift_ms: f64,
     /// Per-bar corrections, ms: bar index → shift of that bar's start.
     pub nudges: std::collections::BTreeMap<usize, f64>,
+    /// Share (0–1) of kick and bass onsets on the beats rather than between them.
+    pub on_beat_share: f64,
+    /// The player moved every bar half a beat later: the detection sat on the offbeat.
+    pub half_beat: bool,
 }
 
 impl BeatMap {
@@ -278,11 +323,25 @@ impl BeatMap {
             let Some(t) = self.beats.get(beat) else {
                 break;
             };
+            let t = if self.half_beat {
+                t + 0.5 * self.interval_s(beat)
+            } else {
+                *t
+            };
             let nudge = self.nudges.get(&bar).copied().unwrap_or(0.0);
             out.push(t + (self.shift_ms + nudge) / 1000.0);
             beat += (*n).max(1) as usize;
         }
         out
+    }
+
+    /// Seconds from beat `index` to the next one (the last: from the one before).
+    fn interval_s(&self, index: usize) -> f64 {
+        let next = self.beats.get(index + 1).zip(self.beats.get(index));
+        let before = index
+            .checked_sub(1)
+            .and_then(|i| self.beats.get(index).zip(self.beats.get(i)));
+        next.or(before).map_or(0.0, |(a, b)| a - b)
     }
 }
 
@@ -439,7 +498,7 @@ mod tests {
         let path = dir.join("settings.json");
         let settings = Settings {
             strings: 5,
-            fretless: true,
+            instrument: Bass::Double,
             ..Settings::default()
         };
         save(&path, &settings).unwrap();
@@ -447,6 +506,24 @@ mod tests {
         std::fs::write(&path, "{ broken").unwrap();
         assert_eq!(load::<Settings>(&path), Settings::default());
         assert!(path.with_extension("json.broken").exists());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// Files from before LH-EIN-09 kept `fretless`; it becomes the instrument (an e-bass).
+    #[test]
+    fn old_fretless_becomes_instrument() {
+        let dir = std::env::temp_dir().join(format!("kontra-store-bass-{}", std::process::id()));
+        let path = dir.join("settings.json");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(&path, r#"{ "fretless": true, "input_kind": "Microphone" }"#).unwrap();
+        let settings: Settings = load(&path);
+        assert_eq!(settings.instrument, Bass::Fretless);
+        assert_eq!(settings.input_kind, InputKind::Microphone);
+        std::fs::write(&path, r#"{ "fretless": false }"#).unwrap();
+        assert_eq!(load::<Settings>(&path).instrument, Bass::Fretted);
+        save(&path, &load::<Settings>(&path)).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains(r#""instrument": "Fretted""#) && !text.contains("fretless"));
         std::fs::remove_dir_all(dir).unwrap();
     }
 

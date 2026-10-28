@@ -25,7 +25,7 @@ pub use i18n::{Catalog, Language};
 pub use kontra_session::{exercise, Blocks, ChainOrder, Density};
 pub use package::PackageAudio;
 pub use store::{
-    data_dir, InputKind, Library, RecentEntry, SectionBars, SectionDensity, Setlist, Settings,
+    data_dir, Bass, InputKind, Library, RecentEntry, SectionBars, SectionDensity, Setlist, Settings,
 };
 
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Judging, Technique, Tuning};
@@ -51,10 +51,15 @@ const A4_MAX_HZ: f64 = 450.0;
 /// Range of the free timing window (LH-BEW-02).
 const WINDOW_MIN_MS: f64 = 20.0;
 const WINDOW_MAX_MS: f64 = 150.0;
+/// Beat map trusted to sit on the beat: this share of kick and bass onsets on the beats (0.5 is
+/// a coin toss; a band with kick on 1 and 3 reaches 0.9).
+const SURE_ON_BEAT_SHARE: f64 = 0.7;
 /// Notes a string of a custom tuning may have: G0 (MIDI 19) to G3 (MIDI 55).
 const CUSTOM_NOTES: std::ops::RangeInclusive<u8> = 19..=55;
 /// Keyboard view without an instrument range: E1 to G4, a four-string bass.
 const DEFAULT_KEYS: (u8, u8) = (28, 67);
+/// Middle C (MIDI 60): any octave names the twelve keys of the keyboard view.
+const MIDDLE_C: u8 = 60;
 /// Tunings the settings offer (LH-TUN-02); "drop" lowers the lowest string a whole step.
 const TUNINGS: [&str; 5] = ["standard", "drop", "half-down", "whole-down", "custom"];
 
@@ -341,6 +346,12 @@ impl Core {
             .collect()
     }
 
+    /// A pitch spelled in a key, in the user's language: MIDI 34 in B♭ is "B♭1" ("B1" in German),
+    /// as the notation writes it (QA 27.10., M4).
+    fn pitch_label(&self, pitch: kontra_model::Pitch, key_fifths: i8) -> String {
+        self.note_label(&pitch.spelled(key_fifths))
+    }
+
     /// An import error in the user's language (QA P2: the English reason showed in German).
     fn import_error(&self, e: &kontra_session::ImportError) -> String {
         use kontra_session::ImportError as E;
@@ -369,16 +380,18 @@ impl Core {
             .string
             .and_then(|s| a.instrument.tuning.strings.get(usize::from(s)))
             .map_or_else(String::new, |p| self.note_label(&p.name().to_string()));
+        let key = key_at(a, n.start_ticks);
         let args = [
-            ("note", self.note_label(&n.pitch.to_string())),
+            ("note", self.pitch_label(n.pitch, key)),
             ("string", string),
             ("fret", n.fret.unwrap_or(0).to_string()),
         ];
         let wanted = self.tr("waiting.for", &args);
         Some(match played_midi {
             Some(m) => {
-                let played = kontra_model::Pitch(m.round().clamp(0.0, 127.0) as u8).to_string();
-                let played = self.tr("waiting.played", &[("played", self.note_label(&played))]);
+                let played = kontra_model::Pitch(m.round().clamp(0.0, 127.0) as u8);
+                let played = self.pitch_label(played, key);
+                let played = self.tr("waiting.played", &[("played", played)]);
                 format!("{played} {wanted}")
             }
             None => wanted,
@@ -865,6 +878,42 @@ impl Core {
         Ok(())
     }
 
+    /// The instrument as the UI offers it (LH-EIN-09): MIDI input, else the stored bass.
+    pub fn instrument_choice(&self) -> InstrumentChoice {
+        match (self.settings.input_kind, self.settings.instrument) {
+            (InputKind::Midi, _) => InstrumentChoice::Midi,
+            (_, Bass::Double) => InstrumentChoice::Double,
+            (_, Bass::Fretted | Bass::Fretless) => InstrumentChoice::EBass,
+        }
+    }
+
+    /// Chooses the instrument (LH-EIN-09) and suggests its input: a double bass the microphone
+    /// (a pickup chosen after stays), an e-bass the cable, bass over MIDI the MIDI input.
+    pub fn choose_instrument(&mut self, choice: InstrumentChoice) -> Result<(), String> {
+        self.retune(|s| {
+            let was_double = s.instrument == Bass::Double;
+            match choice {
+                InstrumentChoice::Midi => s.input_kind = InputKind::Midi,
+                InstrumentChoice::Double => {
+                    if !was_double || s.input_kind == InputKind::Midi {
+                        s.input_kind = InputKind::Microphone;
+                    }
+                    s.instrument = Bass::Double;
+                    s.strings = s.strings.min(Bass::Double.strings_max());
+                }
+                InstrumentChoice::EBass => {
+                    let mic_of_double = was_double && s.input_kind == InputKind::Microphone;
+                    if mic_of_double || s.input_kind == InputKind::Midi {
+                        s.input_kind = InputKind::Line;
+                    }
+                    if was_double {
+                        s.instrument = Bass::Fretted;
+                    }
+                }
+            }
+        })
+    }
+
     /// Chooses a tuning by name (`TUNINGS`); "custom" starts from the strings in use.
     pub fn set_tuning(&mut self, name: &str) -> Result<(), String> {
         if !TUNINGS.contains(&name) {
@@ -1261,8 +1310,10 @@ impl Core {
                 kontra_session::assign_tab(&mut arrangement);
             }
         }
-        if self.settings.fretless {
-            arrangement.instrument.kind = InstrumentKind::Fretless;
+        // The profile's kind (fretless, double bass, MIDI) decides scoring and lessons.
+        let kind = instrument_from(&self.settings).kind;
+        if kind != InstrumentKind::Fretted {
+            arrangement.instrument.kind = kind;
         }
         arrangement.instrument.a4_hz = self.a4_hz();
         self.stop_live();
@@ -1336,6 +1387,20 @@ impl Core {
             .unwrap_or_default()
     }
 
+    /// What the loaded bundled exercise trains, in the UI's language ("" for any other piece).
+    pub fn loaded_goal(&self) -> String {
+        let Some(path) = self.loaded_path() else {
+            return String::new();
+        };
+        if !self.is_bundled(path) {
+            return String::new();
+        }
+        let stem = path
+            .file_stem()
+            .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+        self.bundled_goal(&stem)
+    }
+
     pub fn loaded_path(&self) -> Option<&Path> {
         self.loaded.as_ref().map(|l| l.path.as_path())
     }
@@ -1395,7 +1460,7 @@ impl Core {
                     "endings": (0..32).filter(|i| b.endings & (1 << i) != 0).map(|i| i + 1).collect::<Vec<u32>>(),
                     // Key per bar and chord symbols (Kante 1.27 KanteBassStaff).
                     "keyFifths": b.key_fifths,
-                    "chord": a.markers.iter().find(|m| m.tick == b.start_ticks && is_chord_name(&m.name)).map(|m| m.name.clone()),
+                    "chord": a.markers.iter().find(|m| m.tick == b.start_ticks && is_chord(m)).map(|m| m.name.clone()),
                 })
             })
             .collect();
@@ -1426,16 +1491,21 @@ impl Core {
     }
 
     /// Keys of the keyboard view (J-E1): the instrument's range as MIDI numbers and the
-    /// twelve note names in the user's language, e.g. {"low": 28, "high": 67, "names":
-    /// ["C", "C#", …, "H"]} for a four-string bass with 24 frets, in German.
+    /// twelve note names in the user's language, spelled in the piece's first key, e.g.
+    /// {"low": 28, "high": 67, "names": ["C", "C♯", …, "H"]} for a four-string bass with 24
+    /// frets, in German.
     pub fn key_range_json(&self) -> String {
         let (low, high) = self
             .instrument()
             .range()
             .map_or(DEFAULT_KEYS, |(low, high)| (low.0, high.0));
-        let names: Vec<String> = kontra_model::NoteName::ALL
-            .iter()
-            .map(|n| self.note_label(&n.to_string()))
+        let key = self.arrangement().map_or(0, |a| key_at(a, 0));
+        let names: Vec<String> = (0..12)
+            .map(|pc| self.pitch_label(kontra_model::Pitch(MIDDLE_C + pc), key))
+            .map(|name| {
+                name.trim_end_matches(|c: char| c.is_ascii_digit())
+                    .to_string()
+            })
             .collect();
         json!({ "low": low, "high": high, "names": names }).to_string()
     }
@@ -2461,6 +2531,7 @@ impl Core {
             store::BeatMap {
                 beats: grid.beats,
                 bpm: grid.bpm,
+                on_beat_share: grid.on_beat_share,
                 ..store::BeatMap::default()
             },
         );
@@ -2488,6 +2559,16 @@ impl Core {
         self.apply_beat_map()
     }
 
+    /// Moves every bar half a beat later, or back (QA 27.10., J3: the grid sat on the offbeat).
+    pub fn backing_half_beat(&mut self) -> Result<(), String> {
+        let path = self.loaded_path().ok_or("nothing loaded")?.to_path_buf();
+        let Some(map) = self.library.beat_maps.get_mut(&path) else {
+            return Ok(());
+        };
+        map.half_beat = !map.half_beat;
+        self.apply_beat_map()
+    }
+
     /// Back to the piece's own tempo, the backing starting at its old offset.
     pub fn backing_clear(&mut self) -> Result<(), String> {
         let path = self.loaded_path().ok_or("nothing loaded")?.to_path_buf();
@@ -2505,7 +2586,8 @@ impl Core {
     }
 
     /// The beat map in words for the alignment sheet:
-    /// `{"analysed", "bpm", "firstS", "mapped", "bars", "text"}`.
+    /// `{"analysed", "bpm", "firstS", "mapped", "bars", "sure", "halfBeat", "text"}`. Not `sure`: kick and
+    /// bass do not show where the beat is, the grid may sit on the offbeat.
     pub fn backing_json(&self) -> String {
         let Some(path) = self.loaded_path() else {
             return "{}".into();
@@ -2519,13 +2601,22 @@ impl Core {
             .map(|a| map.bar_times(&quarters_per_bar(a)))
             .unwrap_or_default();
         let first = times.first().copied().unwrap_or(0.0);
+        // Moved by hand, the player has listened: no warning, but the text says so.
+        let sure = map.on_beat_share >= SURE_ON_BEAT_SHARE || map.half_beat;
+        let key = match (map.half_beat, sure) {
+            (true, _) => "backing.aligned.half",
+            (false, true) => "backing.aligned",
+            (false, false) => "backing.unsure",
+        };
         json!({
             "analysed": true,
             "bpm": map.bpm,
             "firstS": first,
             "mapped": times.len(),
             "bars": bars,
-            "text": self.tr("backing.aligned", &[
+            "sure": sure,
+            "halfBeat": map.half_beat,
+            "text": self.tr(key, &[
                 ("bpm", format!("{:.0}", map.bpm)),
                 ("first", format!("{first:.2}")),
                 ("mapped", times.len().to_string()),
@@ -2734,9 +2825,10 @@ impl Core {
                     .bar
                     .and_then(|b| a.bars.get(b))
                     .map_or(0, |b| b.source_index + 1);
+                let key = key_at(a, note.start_ticks);
                 let mut parts = vec![
                     self.tr("summary.note.bar", &[("bar", bar.to_string())]),
-                    self.note_label(&note.pitch.to_string()),
+                    self.pitch_label(note.pitch, key),
                 ];
                 // Early and late say it with the milliseconds below.
                 if !matches!(state, "early" | "late") {
@@ -2771,7 +2863,7 @@ impl Core {
                     (Outcome::WrongPitch { played_midi }, _) => {
                         let played =
                             kontra_model::Pitch(played_midi.round().clamp(0.0, 127.0) as u8);
-                        let played = self.note_label(&played.to_string());
+                        let played = self.pitch_label(played, key);
                         parts.push(self.tr("summary.note.played", &[("played", played)]));
                     }
                     (_, Some(c)) => {
@@ -3949,7 +4041,7 @@ fn written_ticks(duration_ticks: u64) -> u64 {
 const WRITTEN_OCTAVE_UP: u8 = 12;
 
 fn empty_staff() -> serde_json::Value {
-    json!({ "notes": [], "rests": [], "keyFifths": 0 })
+    json!({ "notes": [], "rests": [], "keyFifths": 0, "chords": [] })
 }
 
 /// `staff_json` for an arrangement. The staff shows one key; it is the first bar's.
@@ -3980,7 +4072,22 @@ fn staff(a: &Arrangement) -> serde_json::Value {
         })
         .collect();
     let key = a.bars.first().map_or(0, |b| b.key_fifths);
-    json!({ "notes": notes, "rests": rests, "keyFifths": key })
+    // Chord symbols within a bar (MusicXML: B♭m7 on beat 3); those on a bar start come with
+    // `bars_json`.
+    let chords: Vec<_> = a
+        .markers
+        .iter()
+        .filter(|m| is_chord(m) && !a.bars.iter().any(|b| b.start_ticks == m.tick))
+        .map(|m| json!({ "time": a.tempo.seconds_at(m.tick), "text": m.name }))
+        .collect();
+    json!({ "notes": notes, "rests": rests, "keyFifths": key, "chords": chords })
+}
+
+/// Key signature of the bar holding `tick` (0 = C major without bars).
+fn key_at(a: &Arrangement, tick: u64) -> i8 {
+    a.bar_at(tick)
+        .and_then(|b| a.bars.get(b))
+        .map_or(0, |b| b.key_fifths)
 }
 
 /// Kontra marks the note that continues a tie (`tied`: no new attack); Kante's staff marks
@@ -4068,6 +4175,11 @@ fn split_rest(bar: u64, from: u64, to: u64, out: &mut Vec<(u64, u64)>) {
 
 /// A marker that names a chord ("Am7", "F#m7b5", "Bb/D") rather than a section ("Chorus").
 /// A bare letter ("A", "Bb") counts as a rehearsal mark: Guitar Pro files use those.
+/// A chord symbol: marked as one by the file, or a marker named like one (MIDI).
+fn is_chord(marker: &kontra_model::Marker) -> bool {
+    marker.kind == kontra_model::MarkerKind::Chord || is_chord_name(&marker.name)
+}
+
 fn is_chord_name(name: &str) -> bool {
     let mut chars = name.chars();
     if !matches!(chars.next(), Some('A'..='G')) {
@@ -4131,12 +4243,22 @@ fn tempo_from_bars(
     kontra_model::TempoMap::from_changes(changes)
 }
 
+/// The instrument choice of setup and settings (LH-EIN-09). Only a UI choice: `Midi` is the
+/// stored bass with the MIDI input, the data keeps instrument and input apart.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InstrumentChoice {
+    EBass,
+    Double,
+    Midi,
+}
+
 fn instrument_from(settings: &Settings) -> kontra_model::Instrument {
     // Bass over MIDI (P5): the same strings for tab and range, scored as keys.
-    let kind = match (settings.input_kind, settings.fretless) {
+    let kind = match (settings.input_kind, settings.instrument) {
         (InputKind::Midi, _) => InstrumentKind::Keys,
-        (_, true) => InstrumentKind::Fretless,
-        (_, false) => InstrumentKind::Fretted,
+        (_, Bass::Fretless) => InstrumentKind::Fretless,
+        (_, Bass::Double) => InstrumentKind::Double,
+        (_, Bass::Fretted) => InstrumentKind::Fretted,
     };
     let mut instrument = kontra_model::Instrument::new(kind, tuning_from(settings), 24)
         .unwrap_or_else(|_| kontra_model::Instrument::default_bass());
@@ -4667,6 +4789,45 @@ mod tests {
         assert_eq!(bars[1]["endings"], json!([1, 2]));
     }
 
+    /// QA 27.10. (M5): a chord symbol the file marks as one shows, also a plain triad ("C"),
+    /// which as a MIDI marker could be a rehearsal mark.
+    #[test]
+    fn bars_carry_chord_symbols() {
+        let mut a = arrangement(&[(0, 4 * Q, 34), (4 * Q, 4 * Q, 34)]);
+        a.markers.push(kontra_model::Marker {
+            tick: 0,
+            name: "C".into(),
+            kind: kontra_model::MarkerKind::Chord,
+        });
+        a.markers.push(kontra_model::Marker {
+            tick: 4 * Q,
+            name: "A".into(),
+            kind: kontra_model::MarkerKind::Section,
+        });
+        a.markers.push(kontra_model::Marker {
+            tick: 2 * Q,
+            name: "Bbm7".into(),
+            kind: kontra_model::MarkerKind::Chord,
+        });
+        let dir = temp_dir("chords");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.loaded = Some(Loaded {
+            path: dir.join("x.musicxml"),
+            full: a.clone(),
+            arrangement: a,
+            tracks: Vec::new(),
+            track: 0,
+        });
+        let bars: serde_json::Value = serde_json::from_str(&core.bars_json()).unwrap();
+        assert_eq!(bars[0]["chord"], "C");
+        assert_eq!(bars[1]["chord"], serde_json::Value::Null);
+        // Within a bar: for the staff's own chord list.
+        let staff = staff(core.arrangement().unwrap());
+        assert_eq!(staff["chords"][0]["text"], "Bbm7");
+        assert_eq!(staff["chords"].as_array().map(Vec::len), Some(1));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn staff_shows_the_key_of_the_first_bar() {
         let mut a = arrangement(&[(0, 4 * Q, 34), (4 * Q, 4 * Q, 34)]);
@@ -4973,6 +5134,76 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// LH-EIN-09 (QA 27.10. S11): the instrument is chosen on its own and stored apart from the
+    /// input; "bass over MIDI" is the bass profile with the MIDI input.
+    #[test]
+    fn instrument_is_chosen_apart_from_input() {
+        let dir = temp_dir("instrument");
+        let mut core = Core::new(&dir, QaOptions::default());
+        assert_eq!(core.instrument_choice(), InstrumentChoice::EBass);
+
+        // Double bass: no frets, microphone suggested, at most five strings, scored as double.
+        core.reconfigure(|s| s.strings = 6);
+        core.choose_instrument(InstrumentChoice::Double).unwrap();
+        assert_eq!(core.settings().instrument, Bass::Double);
+        assert_eq!(core.settings().input_kind, InputKind::Microphone);
+        assert_eq!(core.settings().strings, 5);
+        assert_eq!(core.instrument_choice(), InstrumentChoice::Double);
+        assert_eq!(
+            instrument_from(core.settings()).kind,
+            InstrumentKind::Double
+        );
+
+        // A pickup instead of the microphone stays when the double bass is chosen again.
+        core.reconfigure(|s| s.input_kind = InputKind::Line);
+        core.choose_instrument(InstrumentChoice::Double).unwrap();
+        assert_eq!(core.settings().input_kind, InputKind::Line);
+
+        // Bass over MIDI: the MIDI input, the bass profile kept underneath.
+        core.choose_instrument(InstrumentChoice::Midi).unwrap();
+        assert_eq!(core.settings().input_kind, InputKind::Midi);
+        assert_eq!(core.settings().instrument, Bass::Double);
+        assert_eq!(core.instrument_choice(), InstrumentChoice::Midi);
+        assert_eq!(instrument_from(core.settings()).kind, InstrumentKind::Keys);
+
+        // Back to the e-bass: frets, and a cable instead of MIDI.
+        core.choose_instrument(InstrumentChoice::EBass).unwrap();
+        assert_eq!(core.settings().instrument, Bass::Fretted);
+        assert_eq!(core.settings().input_kind, InputKind::Line);
+        assert_eq!(core.instrument_choice(), InstrumentChoice::EBass);
+
+        // An e-bass keeps being fretless when chosen again.
+        core.reconfigure(|s| s.instrument = Bass::Fretless);
+        core.choose_instrument(InstrumentChoice::EBass).unwrap();
+        assert_eq!(core.settings().instrument, Bass::Fretless);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A piece opened for a double bass is scored as one (intonation, double-bass lessons).
+    #[test]
+    fn piece_takes_the_double_bass() {
+        let dir = temp_dir("instrument-piece");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.choose_instrument(InstrumentChoice::Double).unwrap();
+        core.reconfigure(|s| s.input_kind = InputKind::Line);
+        core.open(&demo()).unwrap();
+        let kind = core.arrangement().unwrap().instrument.kind;
+        assert_eq!(kind, InstrumentKind::Double);
+        assert_eq!(core.score_settings(kind).pitch_cents, 30.0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A double bass at the microphone leaves it for a cable when the e-bass is chosen.
+    #[test]
+    fn ebass_after_double_bass_takes_the_cable() {
+        let dir = temp_dir("instrument-mic");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.choose_instrument(InstrumentChoice::Double).unwrap();
+        core.choose_instrument(InstrumentChoice::EBass).unwrap();
+        assert_eq!(core.settings().input_kind, InputKind::Line);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// LH-TUN-03: guided tuning walks the profile's strings, lowest first.
     #[test]
     fn tuning_lists_the_profile_strings() {
@@ -5247,6 +5478,49 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// QA 27.10. (M4): in B♭ the note list said A♯1 where the notation writes B♭; names follow
+    /// the key of the note's bar, as in the notation.
+    #[test]
+    fn note_list_spells_in_the_key() {
+        let mut a = arrangement(&[(0, 4 * Q, 34), (4 * Q, 4 * Q, 37)]);
+        a.bars[0].key_fifths = -2;
+        a.bars[1].key_fifths = 2;
+        let dir = temp_dir("spelling");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("en".into()));
+        core.loaded = Some(Loaded {
+            path: dir.join("x.mid"),
+            full: a.clone(),
+            arrangement: a,
+            tracks: Vec::new(),
+            track: 0,
+        });
+        let result = |note: usize, played: u8| NoteResult {
+            pass: 0,
+            note: Some(note),
+            bar: Some(note),
+            outcome: Outcome::WrongPitch {
+                played_midi: f64::from(played),
+            },
+            offset_ms: Some(0.0),
+            cents: None,
+            position_s: 0.0,
+        };
+        let notes = core.note_details(&[result(0, 39), result(1, 39)], &[], &[]);
+        let flat = notes[0]["text"].as_str().unwrap();
+        assert!(flat.contains("B♭1") && flat.contains("E♭2"), "{flat}");
+        let sharp = notes[1]["text"].as_str().unwrap();
+        assert!(sharp.contains("C♯2") && sharp.contains("D♯2"), "{sharp}");
+        assert!(core.wait_text(0, None).unwrap().contains("B♭1"));
+        // The keyboard names the keys in the piece's key too.
+        let keys: serde_json::Value = serde_json::from_str(&core.key_range_json()).unwrap();
+        assert_eq!(
+            (keys["names"][10].as_str(), keys["names"][1].as_str()),
+            (Some("B♭"), Some("D♭"))
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// QA 13.10.: the open question is not counted. Before any answer there is no score (it read
     /// "0 of 1 found"); a solved question counts, a skipped one counts once the next is asked.
     #[test]
@@ -5309,6 +5583,54 @@ mod tests {
         );
         core.backing_clear().unwrap();
         assert_eq!(core.arrangement().unwrap().tempo.bpm_at(0), 100.0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA 27.10. (J3): hi-hats alone cannot tell beat from offbeat; the sheet must say so instead
+    /// of "8 of 8 bars follow the recording".
+    #[test]
+    fn backing_without_low_beats_is_unsure() {
+        let dir = temp_dir("beats-unsure");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("en".into()));
+        core.open(&demo()).unwrap();
+        let rate = 44_100u32;
+        let mut audio = vec![0.0f32; rate as usize * 22];
+        let mut noise = 1u32;
+        for beat in 0..36 {
+            let start = ((1.0 + f64::from(beat) * 60.0 / 105.0) * f64::from(rate)) as usize;
+            let mut last = 0.0f32;
+            for i in 0..1500 {
+                noise = noise.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let n = (noise >> 9) as f32 / (1u32 << 23) as f32 - 0.5;
+                if let Some(s) = audio.get_mut(start + i) {
+                    *s += (n - last) * (-(i as f32) / 600.0).exp();
+                }
+                last = n;
+            }
+        }
+        let wav = dir.join("hats.wav");
+        kontra_session::write_mono_wav(&wav, &audio, rate).unwrap();
+        core.set_backing(Some(wav), 0.0);
+        core.backing_analyse().unwrap();
+        let info: serde_json::Value = serde_json::from_str(&core.backing_json()).unwrap();
+        assert_eq!(info["sure"], false, "{info}");
+        assert!(!info["text"].as_str().unwrap().contains("follow"), "{info}");
+
+        // Half a beat by hand (PR-Agent #155): the warning goes, bar 1 moves half a beat; a
+        // second click takes it back instead of moving a whole beat.
+        let first = info["firstS"].as_f64().unwrap();
+        let half_s = 30.0 / info["bpm"].as_f64().unwrap();
+        core.backing_half_beat().unwrap();
+        let moved: serde_json::Value = serde_json::from_str(&core.backing_json()).unwrap();
+        assert_eq!(moved["sure"], true, "{moved}");
+        assert_eq!(moved["halfBeat"], true, "{moved}");
+        let at = moved["firstS"].as_f64().unwrap();
+        assert!((at - first - half_s).abs() < 0.02, "{moved}");
+        core.backing_half_beat().unwrap();
+        let back: serde_json::Value = serde_json::from_str(&core.backing_json()).unwrap();
+        assert_eq!(back["firstS"], info["firstS"], "{back}");
+        assert_eq!(back["sure"], false, "{back}");
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -6531,6 +6853,26 @@ mod tests {
             .collect();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].last_unix, 2);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-ANZ-11 (round 15): the practice page names the exercise's aim under its title; a
+    /// simple view is off until the setup or the settings switch it on.
+    #[test]
+    fn loaded_goal_names_the_aim() {
+        let dir = temp_dir("loadedgoal");
+        let mut core = Core::new(&dir, QaOptions::default());
+        assert!(!core.settings().simple_view);
+        core.update_settings(|s| s.language = Some("de".into()));
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let item = &levels[0]["items"][0];
+        core.open(Path::new(item["path"].as_str().unwrap()))
+            .unwrap();
+        assert!(!item["goal"].as_str().unwrap().is_empty());
+        assert_eq!(core.loaded_goal(), item["goal"].as_str().unwrap());
+
+        core.open(&Core::demo_path()).unwrap();
+        assert_eq!(core.loaded_goal(), "");
         let _ = std::fs::remove_dir_all(dir);
     }
 

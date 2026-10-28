@@ -9,6 +9,21 @@ const A4_MIDI: f64 = 69.0;
 const CENTS_PER_OCTAVE: f64 = 1200.0;
 const SEMITONES_PER_OCTAVE: i32 = 12;
 
+/// Letters C..B with their pitch class.
+const LETTERS: [(char, i32); 7] = [
+    ('C', 0),
+    ('D', 2),
+    ('E', 4),
+    ('F', 5),
+    ('G', 7),
+    ('A', 9),
+    ('B', 11),
+];
+/// Letters (index into `LETTERS`) in the order a key signature adds sharps: F C G D A E B.
+const SHARP_ORDER: [usize; 7] = [3, 0, 4, 1, 5, 2, 6];
+/// Letters in the order a key signature adds flats: B E A D G C F.
+const FLAT_ORDER: [usize; 7] = [6, 2, 5, 1, 4, 0, 3];
+
 /// Frequency of a (fractional) MIDI note number, e.g. 28 → 41.2 Hz (E1).
 pub fn midi_to_hz(midi: f64, a4_hz: f64) -> f64 {
     a4_hz * 2f64.powf((midi - A4_MIDI) / 12.0)
@@ -63,6 +78,34 @@ impl Pitch {
         NoteName::ALL[usize::from(self.0) % 12]
     }
 
+    /// Name with octave as the notation spells it in a key (`key_fifths`: 1..7 sharps, -1..-7
+    /// flats): in B♭ (-2) MIDI 34 is "Bb1", 37 "Db2"; in D (2) 37 is "C#2". First the key's own
+    /// sign, then a natural, then flats in flat keys and sharps otherwise (as Kante's
+    /// `KanteBassStaff`, so list and notation agree).
+    pub fn spelled(self, key_fifths: i8) -> String {
+        let midi = i32::from(self.0);
+        let pc = midi.rem_euclid(SEMITONES_PER_OCTAVE);
+
+        // Semitones from a letter to this pitch class, e.g. B to C is +1.
+        let alter = |letter: usize| (pc - LETTERS[letter].1 + 6).rem_euclid(12) - 6;
+        let side = if key_fifths < 0 { -1 } else { 1 };
+        let find = |wanted: &dyn Fn(usize) -> i32| (0..7).find(|&l| alter(l) == wanted(l));
+        let letter = find(&|l| key_alter(l, key_fifths))
+            .or_else(|| find(&|_| 0))
+            .or_else(|| find(&|_| side))
+            .unwrap_or(0);
+
+        let shift = alter(letter);
+        let sign = match shift {
+            1 => "#",
+            -1 => "b",
+            _ => "",
+        };
+        // C♭ belongs to the octave above its B, B♯ to the one below its C.
+        let octave = (midi - shift).div_euclid(SEMITONES_PER_OCTAVE) - 1;
+        format!("{}{sign}{octave}", LETTERS[letter].0)
+    }
+
     /// Parses names like `E1`, `C#2`, `Bb0`.
     pub fn parse(text: &str) -> Option<Pitch> {
         let text = text.trim();
@@ -73,6 +116,18 @@ impl Pitch {
         let midi = (octave + 1) * SEMITONES_PER_OCTAVE + class as i32;
         u8::try_from(midi).ok().filter(|v| *v <= 127).map(Pitch)
     }
+}
+
+/// Sign the key signature gives a letter: +1 sharp, -1 flat, 0 none.
+fn key_alter(letter: usize, key_fifths: i8) -> i32 {
+    let count = usize::from(key_fifths.unsigned_abs().min(7));
+    if key_fifths > 0 && SHARP_ORDER[..count].contains(&letter) {
+        return 1;
+    }
+    if key_fifths < 0 && FLAT_ORDER[..count].contains(&letter) {
+        return -1;
+    }
+    0
 }
 
 impl fmt::Display for Pitch {
@@ -182,5 +237,19 @@ mod tests {
         assert_eq!(Pitch::parse("Bb1"), Pitch::parse("A#1"));
         assert_eq!(Pitch::parse("H1"), Pitch::parse("B1"));
         assert_eq!(Pitch::parse("X1"), None);
+    }
+
+    /// QA 27.10. (M4): names follow the key as the notation writes them.
+    #[test]
+    fn spelling_follows_the_key() {
+        const B_FLAT: i8 = -2;
+        const D_MAJOR: i8 = 2;
+        assert_eq!(Pitch(34).spelled(B_FLAT), "Bb1");
+        assert_eq!(Pitch(37).spelled(B_FLAT), "Db2");
+        assert_eq!(Pitch(34).spelled(0), "A#1");
+        assert_eq!(Pitch(37).spelled(D_MAJOR), "C#2");
+        assert_eq!(Pitch(35).spelled(-6), "Cb2");
+        assert_eq!(Pitch(41).spelled(6), "E#2");
+        assert_eq!(Pitch(28).spelled(B_FLAT), "E1");
     }
 }
