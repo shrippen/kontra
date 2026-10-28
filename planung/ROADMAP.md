@@ -347,14 +347,15 @@ Orca nicht genutzt, statt dessen der AT-SPI-Baum.
   „Seitenleiste schließen“ 1,4:1, gesperrtes „Üben“ 1,7:1 (L1 nur teils behoben).
 - [x] B3 (mittel, #176 mit Kante 1.51): Auswertung ohne Fokus-Käfig: Tab geht in die Seitenleiste, der Screenreader liest die Seite
   dahinter; nach Esc bleibt der Fokus auf dem versteckten „Schließen“.
-- [ ] B4 (mittel): Einrichtung Schritt 3 bei 200 %: Ton, Cent und Drehrichtung unter dem Seitenfuß, per Tastatur
+- [x] B4 (mittel, #178): Einrichtung Schritt 3 bei 200 %: Ton, Cent und Drehrichtung unter dem Seitenfuß, per Tastatur
   nicht erreichbar (Bild ab, Strg+Ende, Pfeile).
 - [x] B5 (mittel, #176 mit Kante 1.51): Glossar aus der Übungsliste („?“), dann „Zurück“: Fokus weg, die erste Übung per Tab nicht mehr
   erreichbar.
-- [ ] B6 (mittel): Werkstatt bei 200 %: die Regler füllen die Seite, Tab oder Lane nicht zu sehen.
+- [ ] B6 (mittel): Werkstatt bei 200 %: die Regler füllen die Seite, Tab oder Lane nicht zu sehen. Beim Spielen
+  behoben (#178); vor dem Abspielen offen (Aufgabe „Extreme Vergrößerung“).
 - [x] B7 (mittel, Kante 1.51, übernommen #176): Saitenfarben der Tabulatur in Kante Light auf hellem Grund 1,7–2,6:1, am Beamer kaum lesbar.
 - [ ] B8 (niedrig): Nach Seitenwechsel Fokus auf der ScrollView; Trenner der Seitenleiste als unbenannte
-  Listeneinträge (behoben #176); Tempo-Regler mit zwei Tab-Halten; nach „Klinke direkt“ zeigt der Eingang weiter „Automatisch:
+  Listeneinträge (gehört nach Kante: `KanteScope.popup`); Tempo-Regler mit zwei Tab-Halten; nach „Klinke direkt“ zeigt der Eingang weiter „Automatisch:
   Scarlett Solo …“; nach Esc aus der Präsentation Seitenleiste 216 statt 260 px; Saitenbuchstaben und Taktzahlen in
   der Präsentation etwa 8 px; frühe Note (orange) unter Deuteranopie wie eine D-Saiten-Note, nur das kleine Abzeichen
   trägt.
@@ -364,9 +365,9 @@ Orca nicht genutzt, statt dessen der AT-SPI-Baum.
   vom ersten zum letzten), die Seite dahinter ist verborgen, Esc setzt den Fokus auf „Abspielen“; B5 „Zurück“ setzt
   den Fokus auf das „?“, jede Übung per Tab und Umschalt+Tab erreichbar; B7 Ziffern in Kante Light 4,9:1 (Himbeere),
   5,8:1 (Blau), 5,2:1 (Ocker) auf #eff0f1. B9 nur per QML-Test (Balkenname „+10 to +20 ms: 3 notes“), Orca nicht
-  genutzt. QML-Tests: `tst_summarysheet`, `tst_glossaryreturn`, `tst_drawerseparators`.
+  genutzt. QML-Tests: `tst_summarysheet`, `tst_glossaryreturn`.
 - Vorfall: eine eigene D-Bus-Sitzung für AT-SPI startete `xdg-desktop-portal-kde` mit dem echten Wayland-Display;
-  sofort beendet, nichts erschienen. Regel: kein eigener Session-Bus für QA.
+  sofort beendet, nichts erschienen. Regel: eigener Session-Bus nur für den Screenreader-Test, ganz vom Desktop getrennt (#179).
 
 ### QA-Runde 27.10.2026 (Nacht: alle Personas, alle Funktionen, echtes Fenster)
 

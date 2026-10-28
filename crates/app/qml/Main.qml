@@ -209,7 +209,6 @@ Kirigami.ApplicationWindow {
     }
 
     DrawerFocus { drawer: root.globalDrawer }
-    DrawerSeparators { drawer: root.globalDrawer }
 
     // Audio and session are polled here, ~60 times a second.
     Timer {
