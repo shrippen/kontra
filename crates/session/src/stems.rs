@@ -97,19 +97,26 @@ impl BassRemoval {
     }
 
     fn target(&self, song: &Path) -> Option<PathBuf> {
-        let meta = std::fs::metadata(song).ok()?;
-        let modified = meta
-            .modified()
-            .ok()
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map_or(0, |d| d.as_secs());
-        let mut hash = FNV_OFFSET;
-        let key = format!("{}|{}|{modified}", song.display(), meta.len());
-        for byte in key.bytes() {
-            hash = (hash ^ u64::from(byte)).wrapping_mul(FNV_PRIME);
-        }
+        let hash = file_key(song, "")?;
         Some(self.cache_dir.join(format!("{hash:016x}.{RESULT_EXT}")))
     }
+}
+
+/// A key that changes with the file's path, size and modification time (and `extra`); `None`
+/// when the file is not there.
+pub(crate) fn file_key(song: &Path, extra: &str) -> Option<u64> {
+    let meta = std::fs::metadata(song).ok()?;
+    let modified = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or(0, |d| d.as_secs());
+    let mut hash = FNV_OFFSET;
+    let key = format!("{}|{}|{modified}{extra}", song.display(), meta.len());
+    for byte in key.bytes() {
+        hash = (hash ^ u64::from(byte)).wrapping_mul(FNV_PRIME);
+    }
+    Some(hash)
 }
 
 /// A running separation of one song.

@@ -633,6 +633,7 @@ impl Core {
                 source: self.source(),
                 backing: None,
                 original: None,
+                backing_cache: None,
             };
             let mut live_ear = LiveEar::start(&setup, &self.instrument())
                 .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;

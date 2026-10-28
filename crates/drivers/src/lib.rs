@@ -14,7 +14,7 @@ pub use audio::{
     audio_priority, list_devices, AudioError, Connection, DeviceInfo, Direction, InputStream,
     OutputStream, Priority, StreamConfig, NULL_DEVICE,
 };
-pub use file::{read_audio, write_wav, AudioBuffer, FileError};
+pub use file::{read_audio, write_wav, write_wav_16, AudioBuffer, FileError};
 pub use folder::{download_dir, recent_files, RecentFile};
 pub use http::{FileHttp, Http, HttpError, Web};
 pub use midi::{

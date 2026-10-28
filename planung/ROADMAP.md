@@ -358,8 +358,8 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - M27 (mittel, behoben #137): `kontra --help` startete die App mit echtem Eingang.
 - **P2 Jens (J-B1, J-B3, J-B6, J-C6, J-C7, J-C9, J-D1, J-G2, J-G5): bestanden nach Befunden.**
   - J1 (mittel, behoben #141): Meldungen nach dem Start (Import, kaputte Datei) erschienen nie.
-  - J2 (mittel, offen): MP3-Backing wird bei jedem Start dekodiert; Debug-Build 20 s eingefroren, Release ~1 s.
-    Cache und Ladeanzeige fehlen.
+  - J2 (mittel, behoben #PR): MP3-Backing wurde bei jedem Start dekodiert; Debug-Build 20 s eingefroren, Release ~1 s.
+    Jetzt Cache, Vorbereitung im Hintergrund, Ladeanzeige.
   - J3 (mittel, offen): Takterkennung rastet auf dem Offbeat ein (+310 ms) und meldet trotzdem „8 von 8 Takten“.
   - J4 (niedrig, behoben #150): Bibliothek zeigte den internen GP-Titel („001“) statt des Dateinamens; Umbenennen fehlt weiter.
   - J7 (mittel, behoben #142): Nach Eingabe in „Takte“ blieben K und Fußschalter tot; Return/Esc geben frei.

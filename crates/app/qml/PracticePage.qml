@@ -571,6 +571,22 @@ Kirigami.Page {
             }
         }
 
+        // The backing track is decoded in the background; play waits for it (QA 27.10., J2).
+        RowLayout {
+            Layout.fillWidth: true
+            visible: !page.presenting && ctl.backingLoading
+            spacing: KanteStyle.unit(8)
+            KanteLoader { running: parent.visible }
+            QQC2.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                text: texts.t("backing.loading")
+                color: KanteStyle.mutedTextColor
+                Accessible.role: Accessible.StaticText
+                Accessible.name: text
+            }
+        }
+
         // Workshop (LH-MOD-04): which bars, and how the tempo follows the hit rate (target band).
         RowLayout {
             id: workshopRow

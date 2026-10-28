@@ -12,6 +12,7 @@ mod i18n;
 mod learn;
 pub mod level;
 mod package;
+mod prepare;
 pub mod quiz;
 mod report;
 mod songsterr;
@@ -134,6 +135,8 @@ pub enum UiEvent {
     InputBack(String),
     /// Bass removal of the backing track changed (`Core::stems_json`).
     Stems(String),
+    /// The backing track is being prepared (true) or ready (false); play waits for it.
+    BackingLoading(bool),
     /// Building blocks moved on (DIDAKTIK I6): the new step (`Core::chain_json`) is the loop,
     /// its run starts with a count-in.
     ChainStep {
@@ -229,6 +232,8 @@ pub struct Core {
     started_at: std::time::Instant,
     /// Backing tracks without bass (LH-BIB-09).
     stems: stems::Stems,
+    /// Backing track decoded in the background (QA 27.10., J2).
+    prepare: prepare::Prepare,
     /// Where the browser saves downloads (LH-BIB-11).
     downloads: Option<PathBuf>,
     /// Songsterr search (LH-BIB-11, round 12).
@@ -281,6 +286,7 @@ impl Core {
             level_told: (level::LevelState::Waiting, false),
             started_at: std::time::Instant::now(),
             stems: stems::Stems::default(),
+            prepare: prepare::Prepare::default(),
             downloads: kontra_session::download_dir(),
             finder: songsterr::Finder::default(),
             probe: None,
@@ -1462,6 +1468,9 @@ impl Core {
     }
 
     pub fn play(&mut self) -> Vec<UiEvent> {
+        if self.backing_loading() {
+            return vec![UiEvent::Message(self.tr("backing.preparing", &[]))];
+        }
         let mut events = Vec::new();
         if let Some((path, _)) = self.backing().filter(|(p, _)| !p.exists()) {
             let name = path
@@ -2043,6 +2052,7 @@ impl Core {
             // A backing file that is gone is skipped (play() says so), not an error.
             backing: self.backing().map(|(path, _)| path).filter(|p| p.exists()),
             original: self.backing_original(),
+            backing_cache: Some(self.backing_cache_dir()),
         };
         let mut live = Live::start(arrangement, self.mode(), settings, options, &setup)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
@@ -2088,6 +2098,7 @@ impl Core {
         let ear_event = self.ear_heard(&mut raw);
         let mut events: Vec<UiEvent> = raw.into_iter().filter_map(|e| self.translate(e)).collect();
         events.extend(ear_event);
+        events.extend(self.prepare_backing());
         events.extend(self.advise_level(&events));
         // The meter holds the peak the advice judges, so both say the same.
         let held = f64::from(self.level.held_peak_db());
@@ -2202,6 +2213,7 @@ impl Core {
             source: self.source(),
             backing: None,
             original: None,
+            backing_cache: None,
         };
         let calibration = LiveCalibration::start(&setup, &instrument, CALIBRATION_LEAD_S)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
@@ -3431,6 +3443,7 @@ impl Core {
             source: self.source(),
             backing: None,
             original: None,
+            backing_cache: None,
         };
         let mut live_ear = LiveEar::start(&setup, &instrument)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
@@ -5212,6 +5225,54 @@ mod tests {
 
     /// LH-BIB-06: the beats of a backing track become the piece's tempo map and offset; bar 1
     /// can be moved by a beat.
+    /// QA 27.10. (J2): the backing track was decoded in the UI thread on every first play after
+    /// opening. Now a thread prepares it once; play waits for it and then reads the cache.
+    #[test]
+    fn backing_is_prepared_in_the_background() {
+        let dir = temp_dir("prepare");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        let rate = 44_100u32;
+        let audio: Vec<f32> = (0..rate * 3)
+            .map(|i| 0.3 * (2.0 * std::f32::consts::PI * 110.0 * i as f32 / rate as f32).sin())
+            .collect();
+        let wav = dir.join("band.wav");
+        kontra_session::write_mono_wav(&wav, &audio, rate).unwrap();
+        core.set_backing(Some(wav), 0.0);
+
+        let events = core.tick();
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, UiEvent::BackingLoading(true))),
+            "{events:?}"
+        );
+        assert!(core.backing_loading());
+        let waits = core.play();
+        assert!(
+            waits.iter().any(|e| matches!(e, UiEvent::Message(_))) && !core.has_run(),
+            "{waits:?}"
+        );
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        while core.backing_loading() && std::time::Instant::now() < end {
+            core.tick();
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert!(!core.backing_loading());
+        let cache = kontra_session::BackingCache::new(&core.backing_cache_dir());
+        assert_eq!(cache.usage().0, 1);
+
+        // Opened again: nothing to prepare, it plays at once.
+        core.stop_live();
+        core.open(&demo()).unwrap();
+        core.tick();
+        assert!(!core.backing_loading());
+        let _ = core.play();
+        assert!(core.has_run());
+        core.stop_live();
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn backing_beats_set_the_tempo() {
         let dir = temp_dir("beats");

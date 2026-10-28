@@ -134,6 +134,7 @@ fn setup(a: &CheckArgs) -> session::LiveSetup {
         source,
         backing: None,
         original: None,
+        backing_cache: None,
     }
 }
 

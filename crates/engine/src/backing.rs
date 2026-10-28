@@ -1,7 +1,7 @@
 //! Loads a backing track for the output: decode, resample to the device rate, stereo.
 
 use crate::{BackingAudio, EngineError};
-use kontra_drivers::read_audio;
+use kontra_drivers::{read_audio, write_wav_16, AudioBuffer};
 use kontra_dsp::resample;
 pub use kontra_stretch::Resolution;
 use std::path::Path;
@@ -31,6 +31,16 @@ impl BackingTrack {
             right: resample(&right, buffer.sample_rate, sample_rate),
             bass: None,
         })
+    }
+
+    /// Keeps the track as a 16-bit WAV at its rate; `load` of that file at the same rate
+    /// reads it back without resampling (the backing cache).
+    pub fn save(&self, path: &Path) -> Result<(), EngineError> {
+        let buffer = AudioBuffer {
+            sample_rate: self.sample_rate,
+            channels: vec![self.left.clone(), self.right.clone()],
+        };
+        Ok(write_wav_16(path, &buffer)?)
     }
 
     /// This song without its bass, plus the bass taken from `original` (the difference), so the

@@ -655,6 +655,8 @@
   "backing.nobacking": "Wähle zuerst einen Backing-Track.",
   "backing.nobeats": "In dieser Aufnahme hat Kontra keine klaren Schläge gefunden. Du kannst sie trotzdem mit festem Tempo nutzen.",
   "backing.aligned": "Erkannt: {bpm} BPM · Takt 1 bei {first} s · {mapped} von {bars} Takten folgen der Aufnahme",
+  "backing.preparing": "Der Backing-Track wird noch vorbereitet. Gleich geht es los.",
+  "backing.loading": "Backing-Track wird vorbereitet …",
   "backing.notaligned": "Noch nicht abgeglichen: das Stück läuft mit seinem eigenen Tempo.",
   "backing.earlier": "Takt 1 einen Schlag früher",
   "backing.later": "Takt 1 einen Schlag später",

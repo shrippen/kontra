@@ -655,6 +655,8 @@
   "backing.nobacking": "Choose a backing track first.",
   "backing.nobeats": "Kontra found no clear beats in this recording. You can still use it at a fixed tempo.",
   "backing.aligned": "Found: {bpm} BPM · bar 1 at {first} s · {mapped} of {bars} bars follow the recording",
+  "backing.preparing": "The backing track is still being prepared. One moment.",
+  "backing.loading": "Preparing the backing track …",
   "backing.notaligned": "Not aligned yet: the piece runs at its own tempo.",
   "backing.earlier": "Bar 1 one beat earlier",
   "backing.later": "Bar 1 one beat later",
