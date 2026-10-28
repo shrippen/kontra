@@ -22,6 +22,7 @@ mod c6_probe;
 mod c8_pulse;
 mod c9_blocks;
 mod d1_backing;
+mod d2_package;
 mod e1_midi;
 mod e3_settling;
 mod f_restart;

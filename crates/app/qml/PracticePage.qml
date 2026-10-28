@@ -671,6 +671,63 @@ Kirigami.Page {
             }
         }
 
+        // Kept loops and target tempo of the piece (LH-BIB-07, Runde 15): a teacher sets them, a
+        // Kontra package hands them on. A chip loops its bars; the cross drops it.
+        Flow {
+            id: loopsRow
+            Layout.fillWidth: true
+            visible: ctl.mode === "workshop" && !page.presenting
+            spacing: KanteStyle.unit(8)
+            readonly property var loops: JSON.parse(ctl.savedLoopsJson)
+            function barsText(loop) {
+                return loop.from === loop.to ? texts.t("workshop.loop.bar", { from: loop.from + 1 })
+                    : texts.t("workshop.loop.bars", { from: loop.from + 1, to: loop.to + 1 })
+            }
+
+            KanteHud { fullText: texts.t("workshop.target"); color: KanteStyle.mutedTextColor }
+            KanteSpinBox {
+                id: targetSpin
+                from: 25
+                to: 150
+                stepSize: 5
+                value: Math.round(ctl.targetSpeed * 100)
+                editable: true
+                textFromValue: function(v) { return v + " %" }
+                valueFromText: function(t) { return parseInt(t) }
+                Accessible.name: texts.t("workshop.target.name")
+                onValueModified: ctl.changeTargetSpeed(value / 100)
+                Keys.onReturnPressed: page.endField()
+                Keys.onEnterPressed: page.endField()
+                Keys.onEscapePressed: page.cancelField(targetSpin)
+            }
+            KanteButton {
+                enabled: ctl.loopStart >= 0
+                text: texts.t("workshop.loop.save")
+                emphasis: KanteButton.Emphasis.Quiet
+                Accessible.description: texts.t("workshop.loop.save.hint")
+                onClicked: ctl.saveLoop()
+            }
+            KanteHud {
+                visible: loopsRow.loops.length > 0
+                fullText: texts.t("workshop.loops")
+                color: KanteStyle.mutedTextColor
+            }
+            Repeater {
+                model: loopsRow.loops
+                delegate: KanteChip {
+                    required property var modelData
+                    required property int index
+                    text: loopsRow.barsText(modelData)
+                    // Filled while its bars are the loop (the bar fields say the same in numbers).
+                    checked: workshopRow.fromBar === modelData.from + 1 && workshopRow.toBar === modelData.to + 1
+                    removable: true
+                    removeText: texts.t("workshop.loop.remove", { bars: text })
+                    onClicked: ctl.loopBars(modelData.from, modelData.to)
+                    onRemoveRequested: ctl.removeLoop(index)
+                }
+            }
+        }
+
         // Building blocks (DIDAKTIK I6, LH-MOD-08): the bars in blocks, joined step by step.
         Flow {
             id: chainRow

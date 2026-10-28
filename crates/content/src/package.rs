@@ -1,11 +1,12 @@
 //! `.kontra` packages (LH-BIB-07): a zip with the score file as it was imported, the practice
-//! progress and optionally the backing track. Specified in `FORMAT.md`.
+//! loops and target tempo, and optionally the backing track with its alignment. Never the
+//! sender's progress (Runde 15). Specified in `FORMAT.md`.
 //!
 //! ```text
 //! song.kontra (zip)
-//! ├── manifest.json     format, version, title, track, backing
+//! ├── manifest.json     format, version, title, track, loops, target speed, backing
 //! ├── score/<file>      the original Guitar Pro, MIDI or MusicXML file
-//! ├── progress.json     optional, opaque here (the session's progress)
+//! ├── alignment.json    optional, opaque here (the backing's beat map)
 //! └── audio/<file>      optional, only when the backing is embedded
 //! ```
 
@@ -15,9 +16,11 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 pub const PACKAGE_FORMAT: &str = "kontra-package";
-pub const PACKAGE_VERSION: u32 = 1;
+pub const PACKAGE_VERSION: u32 = 2;
+/// Largest backing track a package embeds: what one zip entry may hold when read.
+pub const PACKAGE_AUDIO_MAX_BYTES: u64 = zip::MAX_ENTRY;
 const MANIFEST: &str = "manifest.json";
-const PROGRESS: &str = "progress.json";
+const ALIGNMENT: &str = "alignment.json";
 const SCORE_DIR: &str = "score/";
 const AUDIO_DIR: &str = "audio/";
 /// Packages may carry a backing track; refuse anything far beyond a long song in WAV.
@@ -33,6 +36,13 @@ pub enum PackageBacking {
     Linked { path: String, offset_s: f64 },
 }
 
+/// A practice loop: bars `from..=to`, indices from 0 into the bars with repeats unrolled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PackageLoop {
+    pub from: usize,
+    pub to: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Manifest {
     pub format: String,
@@ -45,6 +55,12 @@ pub struct Manifest {
     /// Track of the score that is played.
     #[serde(default)]
     pub track: usize,
+    /// Practice loops the sender set for the piece.
+    #[serde(default)]
+    pub loops: Vec<PackageLoop>,
+    /// Target speed of the workshop, 1.0 = as written; `None`: as written.
+    #[serde(default)]
+    pub target_speed: Option<f64>,
     #[serde(default)]
     pub backing: Option<PackageBacking>,
 }
@@ -56,8 +72,8 @@ pub struct Package {
     pub score: Vec<u8>,
     /// Content of the embedded backing file, if any.
     pub backing: Option<Vec<u8>>,
-    /// The progress JSON, if any.
-    pub progress: Option<Vec<u8>>,
+    /// Where the bars fall in the backing track (JSON), if aligned.
+    pub alignment: Option<Vec<u8>>,
 }
 
 /// Writes `package` to `path`.
@@ -69,8 +85,8 @@ pub fn write_package(path: &Path, package: &Package) -> Result<(), ImportError> 
     let score = format!("{SCORE_DIR}{}", m.score);
     let mut entries: Vec<(String, &[u8])> =
         vec![(MANIFEST.into(), &manifest), (score, &package.score)];
-    if let Some(progress) = &package.progress {
-        entries.push((PROGRESS.into(), progress));
+    if let Some(alignment) = &package.alignment {
+        entries.push((ALIGNMENT.into(), alignment));
     }
     if let (Some(PackageBacking::Embedded { file, .. }), Some(audio)) =
         (&m.backing, &package.backing)
@@ -111,16 +127,16 @@ pub fn read_package(path: &Path) -> Result<Package, ImportError> {
         }
         _ => None,
     };
-    let progress = zip
+    let alignment = zip
         .names()
-        .any(|n| n == PROGRESS)
-        .then(|| zip.read(PROGRESS))
+        .any(|n| n == ALIGNMENT)
+        .then(|| zip.read(ALIGNMENT))
         .transpose()?;
     Ok(Package {
         manifest,
         score,
         backing,
-        progress,
+        alignment,
     })
 }
 
@@ -147,11 +163,16 @@ mod tests {
                 artist: "Band".into(),
                 score: "riff.gp5".into(),
                 track: 2,
+                loops: vec![
+                    PackageLoop { from: 0, to: 3 },
+                    PackageLoop { from: 4, to: 7 },
+                ],
+                target_speed: Some(0.8),
                 backing,
             },
             score: b"score bytes".to_vec(),
             backing: Some(b"audio bytes".to_vec()),
-            progress: Some(b"{\"runs\": []}".to_vec()),
+            alignment: Some(b"{\"beats\": [0.5, 1.0]}".to_vec()),
         }
     }
 
@@ -178,6 +199,27 @@ mod tests {
         let read = read_package(&path).unwrap();
         assert_eq!(read.backing, None);
         assert_eq!(read.manifest, linked.manifest);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    /// Runde 15: loops, target speed and alignment travel; a sender's progress never does.
+    #[test]
+    fn carries_loops_tempo_not_progress() {
+        let path = temp("practice");
+        let embedded = package(Some(PackageBacking::Embedded {
+            file: "song.wav".into(),
+            offset_s: 0.5,
+        }));
+        write_package(&path, &embedded).unwrap();
+        let data = std::fs::read(&path).unwrap();
+        let zip = Zip::open(&data).unwrap();
+        assert!(zip.names().any(|n| n == ALIGNMENT));
+        assert!(!zip.names().any(|n| n.contains("progress")));
+        let read = read_package(&path).unwrap();
+        assert_eq!(read.manifest.loops, embedded.manifest.loops);
+        assert_eq!(read.manifest.target_speed, Some(0.8));
+        assert_eq!(read.alignment, embedded.alignment);
+        assert_eq!(read.manifest.version, 2);
         std::fs::remove_file(path).unwrap();
     }
 

@@ -233,6 +233,19 @@ pub struct RecentEntry {
     /// Play the backing track with its bass removed (LH-BIB-09), once separated.
     #[serde(default)]
     pub backing_without_bass: bool,
+    /// Loops set for practice (LH-BIB-07: a package hands them on).
+    #[serde(default)]
+    pub loops: Vec<PracticeLoop>,
+    /// The workshop's target speed (1.0 = as written); `None`: as written.
+    #[serde(default)]
+    pub target_speed: Option<f64>,
+}
+
+/// Bars `from..=to` of a piece, indices into its bars with repeats unrolled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PracticeLoop {
+    pub from: usize,
+    pub to: usize,
 }
 
 /// Note density chosen for a section (`None`: the whole piece), 1 (few notes) to 3 (all).
@@ -328,6 +341,10 @@ impl Library {
                 entry.transpose_semitones = old.transpose_semitones;
             }
             entry.backing_without_bass |= old.backing_without_bass;
+            if entry.loops.is_empty() {
+                entry.loops = old.loops.clone();
+            }
+            entry.target_speed = entry.target_speed.or(old.target_speed);
         }
         self.recent.retain(|e| e.path != entry.path);
         self.recent.insert(0, entry);
@@ -531,6 +548,8 @@ mod tests {
             densities: Vec::new(),
             transpose_semitones: 0,
             backing_without_bass: false,
+            loops: Vec::new(),
+            target_speed: None,
         };
         library.touch(entry("a"));
         library.touch(entry("b"));

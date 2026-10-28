@@ -119,6 +119,23 @@ fn varlen(mut value: u32) -> Vec<u8> {
     out
 }
 
+/// A band as noise clicks on 24 beats at `bpm` from `start_s`, as in the beat tracker's tests.
+pub fn band(path: &Path, bpm: f64, start_s: f64) {
+    let mut audio = vec![0.0f32; RATE as usize * 14];
+    let mut noise = 1u32;
+    for beat in 0..24 {
+        let start = ((start_s + f64::from(beat) * 60.0 / bpm) * f64::from(RATE)) as usize;
+        for i in 0..1500 {
+            noise = noise.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            let n = (noise >> 9) as f32 / (1u32 << 23) as f32 - 0.5;
+            if let Some(s) = audio.get_mut(start + i) {
+                *s += n * (-(i as f32) / 600.0).exp();
+            }
+        }
+    }
+    kontra_session::write_mono_wav(path, &audio, RATE).unwrap();
+}
+
 /// Renders `a` as played after the count-in, with `mistakes`, and writes it as WAV.
 pub fn render(path: &Path, a: &Arrangement, mistakes: kontra_session::Mistakes) {
     let samples = kontra_session::render_performance(a, 1.0, COUNT_IN_S, mistakes, RATE);
