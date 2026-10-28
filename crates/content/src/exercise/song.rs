@@ -94,6 +94,22 @@ enum Section {
     Outro,
 }
 
+impl Section {
+    /// The rehearsal mark over the part's first bar, as German bands say it (LH-BIB-12); the
+    /// shuffle's twelve bars of blues are a chorus. The app shows Strophe and Refrain in its
+    /// language (`GENERATED_PARTS` in appcore).
+    fn mark(self, style: Style) -> &'static str {
+        match (self, style) {
+            (Section::Intro, _) => "Intro",
+            (Section::Verse, Style::Shuffle) => "Chorus",
+            (Section::Verse, _) => "Strophe",
+            (Section::Chorus, _) => "Refrain",
+            (Section::Bridge, _) => "Bridge",
+            (Section::Outro, _) => "Outro",
+        }
+    }
+}
+
 /// One part of the form: its chords played `times` in a row.
 #[derive(Debug, Clone, Copy)]
 struct Part {
@@ -220,6 +236,17 @@ impl Style {
             Style::Shuffle => "Stück Shuffle",
         }
     }
+}
+
+/// The rehearsal marks of the piece: (tick of the part's first bar, name).
+pub(super) fn parts(style: Style) -> Vec<(u32, String)> {
+    let mut start = 0;
+    let mut marks = Vec::new();
+    for p in style.form() {
+        marks.push((start, p.section.mark(style).to_string()));
+        start += p.times * bars_len(p.progression, p.rhythm.meter());
+    }
+    marks
 }
 
 /// The whole piece as one pass, closing on a whole-bar tonic; and its drums.

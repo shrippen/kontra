@@ -1460,7 +1460,8 @@ impl Core {
         let bars: Vec<_> = a
             .bars
             .iter()
-            .map(|b| {
+            .enumerate()
+            .map(|(i, b)| {
                 json!({
                     "time": a.tempo.seconds_at(b.start_ticks),
                     "number": b.source_index + 1,
@@ -1473,10 +1474,22 @@ impl Core {
                     // Key per bar and chord symbols (Kante 1.27 KanteBassStaff).
                     "keyFifths": b.key_fifths,
                     "chord": a.markers.iter().find(|m| m.tick == b.start_ticks && is_chord(m)).map(|m| m.name.clone()),
+                    // Rehearsal marks (Kante 1.50): the parts beginning in this bar.
+                    "section": bar_sections(a, i)
+                        .map(|names| names.iter().map(|n| self.part_name(n)).collect::<Vec<_>>()),
                 })
             })
             .collect();
         serde_json::Value::Array(bars).to_string()
+    }
+
+    /// A part name in the UI's language where Kontra's generator wrote it ("Strophe" → "Verse");
+    /// any other name as the file has it. Intro, Bridge, Outro and Chorus read alike.
+    fn part_name(&self, name: &str) -> String {
+        GENERATED_PARTS
+            .iter()
+            .find(|(written, _)| *written == name)
+            .map_or_else(|| name.to_string(), |(_, key)| self.tr(key, &[]))
     }
 
     /// The notation view (Kante `KanteBassStaff`): notes in the order of `notes_json`, rests,
@@ -4276,6 +4289,22 @@ fn split_rest(bar: u64, from: u64, to: u64, out: &mut Vec<(u64, u64)>) {
     }
 }
 
+/// Part names the exercise generator writes in German (`exercise/song.rs`), with their keys.
+const GENERATED_PARTS: [(&str, &str); 2] = [("Strophe", "part.verse"), ("Refrain", "part.chorus")];
+
+/// Names of the parts that begin in bar `index`, e.g. `["Chorus", "B"]`; `None` without one.
+fn bar_sections(a: &Arrangement, index: usize) -> Option<Vec<String>> {
+    let start = a.bars.get(index)?.start_ticks;
+    let end = a.bars.get(index + 1).map_or(u64::MAX, |b| b.start_ticks);
+    let names: Vec<String> = a
+        .markers
+        .iter()
+        .filter(|m| (start..end).contains(&m.tick) && !is_chord(m))
+        .map(|m| m.name.clone())
+        .collect();
+    (!names.is_empty()).then_some(names)
+}
+
 /// A marker that names a chord ("Am7", "F#m7b5", "Bb/D") rather than a section ("Chorus").
 /// A bare letter ("A", "Bb") counts as a rehearsal mark: Guitar Pro files use those.
 /// A chord symbol: marked as one by the file, or a marker named like one (MIDI).
@@ -4928,6 +4957,56 @@ mod tests {
         let staff = staff(core.arrangement().unwrap());
         assert_eq!(staff["chords"][0]["text"], "Bbm7");
         assert_eq!(staff["chords"].as_array().map(Vec::len), Some(1));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Rehearsal marks (LH-BIB-12, J10, Kante 1.50): the parts that begin in a bar, also
+    /// several, e.g. a MIDI file with "Chorus" and "B" in one bar; a chord name is none.
+    #[test]
+    fn bars_carry_sections() {
+        let mut a = arrangement(&[(0, 4 * Q, 34), (4 * Q, 4 * Q, 34), (8 * Q, 4 * Q, 34)]);
+        for (tick, name) in [
+            (0, "Intro"),
+            (4 * Q, "Chorus"),
+            (5 * Q, "B"),
+            (8 * Q, "Am7"),
+        ] {
+            a.markers.push(kontra_model::Marker {
+                tick,
+                name: name.into(),
+                kind: kontra_model::MarkerKind::Section,
+            });
+        }
+        let dir = temp_dir("sections");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.loaded = Some(Loaded {
+            path: dir.join("x.mid"),
+            full: a.clone(),
+            arrangement: a,
+            tracks: Vec::new(),
+            track: 0,
+        });
+        let bars: serde_json::Value = serde_json::from_str(&core.bars_json()).unwrap();
+        assert_eq!(bars[0]["section"], serde_json::json!(["Intro"]));
+        assert_eq!(bars[1]["section"], serde_json::json!(["Chorus", "B"]));
+        assert_eq!(bars[2]["section"], serde_json::Value::Null);
+
+        // Review #174: a generated piece names its parts in the UI's language.
+        let pop = Core::exercise_spec("song", "pop", "", 7, 90.0, "").unwrap();
+        let piece = core.generate_exercise(&pop).unwrap();
+        core.open(&piece).unwrap();
+        let parts = |core: &Core| {
+            let bars: Vec<serde_json::Value> = serde_json::from_str(&core.bars_json()).unwrap();
+            bars.iter()
+                .filter_map(|b| b["section"].as_array().cloned())
+                .flatten()
+                .filter_map(|n| n.as_str().map(str::to_string))
+                .collect::<Vec<_>>()
+        };
+        core.update_settings(|s| s.language = Some("en".into()));
+        assert_eq!(parts(&core)[..3], ["Intro", "Verse", "Chorus"]);
+        core.update_settings(|s| s.language = Some("de".into()));
+        assert_eq!(parts(&core)[..3], ["Intro", "Strophe", "Refrain"]);
         let _ = std::fs::remove_dir_all(dir);
     }
 

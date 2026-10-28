@@ -278,7 +278,7 @@ impl PartReader {
             target.repeat_open = head.repeat_open;
             target.repeat_plays = head.repeat_plays;
             target.endings = head.endings;
-            target.marker = head.marker;
+            target.markers = head.markers;
             target.targets = head.targets;
             target.jumps = head.jumps;
         }
@@ -731,8 +731,8 @@ fn direction(direction: &Element, position: u64, head: &mut BarHead) {
         }
     }
     if let Some(text) = direction.find("rehearsal").map(Element::text) {
-        if !text.is_empty() && head.marker.is_none() {
-            head.marker = Some(text.to_string());
+        if !text.is_empty() && !head.markers.iter().any(|m| m == text) {
+            head.markers.push(text.to_string());
         }
     }
     let Some(metronome) = direction.find("metronome") else {

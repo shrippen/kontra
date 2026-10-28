@@ -2,7 +2,7 @@
 //! ticks are rescaled to 960 per quarter, bars come from the time signature events.
 
 use crate::error::ImportError;
-use crate::exercise::{POSITION_TEXT, TECHNIQUE_TEXTS, TIMING_TEXT};
+use crate::exercise::{CHORD_TEXT, POSITION_TEXT, TECHNIQUE_TEXTS, TIMING_TEXT};
 use crate::score::{self, BarHead, Part, RawNote, Score, DEFAULT_BPM};
 use crate::unroll::MAX_BARS;
 use kontra_model::{Judging, Pitch, Technique, TimeSignature, Tuning, TICKS_PER_QUARTER};
@@ -64,6 +64,7 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
     let mut signatures: Vec<(u64, TimeSignature)> = Vec::new();
     let mut keys: Vec<(u64, i8)> = Vec::new();
     let mut markers: Vec<(u64, String)> = Vec::new();
+    let mut chords: Vec<(u64, String)> = Vec::new();
     let mut judging = Judging::PitchAndTime;
     let mut tracks = Vec::new();
     for events in &smf.tracks {
@@ -92,6 +93,12 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
                         }
                         if text == TIMING_TEXT.as_bytes() {
                             judging = Judging::TimeOnly;
+                        }
+                        if let Some(name) = text.strip_prefix(CHORD_TEXT.as_bytes()) {
+                            let name = String::from_utf8_lossy(name).trim().to_string();
+                            if !name.is_empty() {
+                                chords.push((at, name));
+                            }
                         }
                     }
                     if let MetaMessage::Marker(text) = meta {
@@ -140,6 +147,7 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
     place_tempos(&mut score, &starts, &tempos);
     place_keys(&mut score, &starts, &keys);
     place_markers(&mut score, &starts, &markers);
+    place_chords(&mut score, &starts, &chords);
     parts(&mut score, &starts, &tracks);
     Ok(score)
 }
@@ -249,12 +257,24 @@ fn place_keys(score: &mut Score, starts: &[u64], keys: &[(u64, i8)]) {
     }
 }
 
-/// Marker events name the bar they fall in (rehearsal marks, chord names of exercises).
+/// Marker events name the bar they fall in (rehearsal marks; every one of a bar, J10).
 fn place_markers(score: &mut Score, starts: &[u64], markers: &[(u64, String)]) {
     for (tick, text) in markers {
         let (bar, _) = locate(starts, *tick);
         if let Some(head) = score.bars.get_mut(bar) {
-            head.marker.get_or_insert_with(|| text.clone());
+            if !head.markers.contains(text) {
+                head.markers.push(text.clone());
+            }
+        }
+    }
+}
+
+/// Chord texts of Kontra's exercises ("chord G") become chord symbols, at their offset.
+fn place_chords(score: &mut Score, starts: &[u64], chords: &[(u64, String)]) {
+    for (tick, name) in chords {
+        let (bar, offset) = locate(starts, *tick);
+        if let Some(head) = score.bars.get_mut(bar) {
+            head.chords.push((offset, name.clone()));
         }
     }
 }

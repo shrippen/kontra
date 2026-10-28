@@ -283,6 +283,10 @@ const POP_TEXT: &str = "pop";
 /// lowest of a four-string bass in standard tuning).
 pub(crate) const POSITION_TEXT: &str = "pos";
 
+/// Text event "chord <name>" over the chord's tick ("chord G"); markers name the parts. A plain
+/// "G" as marker would read as a rehearsal letter (round 16).
+pub(crate) const CHORD_TEXT: &str = "chord ";
+
 /// Text event at the start: the file is judged by time only (`Judging::TimeOnly`, DIDAKTIK I4).
 pub(crate) const TIMING_TEXT: &str = "kontra:timing";
 /// Suffix of a file title judged by time only; the UI's twin is `exercise.title.timing`.
@@ -918,9 +922,15 @@ pub fn generate(spec: &ExerciseSpec) -> Exercise {
     let tempos: Vec<(u32, f64)> = (0..changes)
         .map(|p| (p * pass.length, spec.bpm + f64::from(p) * spec.ramp_bpm))
         .collect();
+    // A piece names its parts over their first bar (rehearsal marks, J10).
+    let parts = match spec.kind {
+        ExerciseKind::Song(style, _) => song::parts(style),
+        _ => Vec::new(),
+    };
     let line = Line {
         tones: &tones,
         markers: &markers,
+        parts: &parts,
         drums: &drums,
         tempos: &tempos,
         meter,
@@ -1097,7 +1107,10 @@ fn scale_pass(scale: ScaleKind, tones: Vec<Tone>, length: u32, label: String) ->
 /// What `write` puts into the file besides the header data.
 struct Line<'a> {
     tones: &'a [Tone],
+    /// (tick, chord name).
     markers: &'a [(u32, String)],
+    /// (tick, part name).
+    parts: &'a [(u32, String)],
     /// (tick, General MIDI drum key).
     drums: &'a [(u32, u8)],
     /// (tick, BPM): the first at 0, more for a tempo ramp.
@@ -1606,7 +1619,17 @@ fn write(title: &str, fifths: i8, minor: bool, line: &Line) -> Vec<u8> {
             TrackEventKind::Meta(MetaMessage::Text(TIMING_TEXT.as_bytes())),
         ));
     }
-    conductor.extend(markers.iter().map(|(at, text)| {
+    let chords: Vec<(u32, String)> = markers
+        .iter()
+        .map(|(at, name)| (*at, format!("{CHORD_TEXT}{name}")))
+        .collect();
+    conductor.extend(chords.iter().map(|(at, text)| {
+        (
+            *at,
+            TrackEventKind::Meta(MetaMessage::Text(text.as_bytes())),
+        )
+    }));
+    conductor.extend(line.parts.iter().map(|(at, text)| {
         (
             *at,
             TrackEventKind::Meta(MetaMessage::Marker(text.as_bytes())),
@@ -1758,6 +1781,7 @@ fn file_name(title: &str) -> String {
 mod tests {
     use super::*;
     use crate::{import_bytes, FileKind};
+    use kontra_model::MarkerKind;
 
     #[test]
     fn level_1_order_holds_every_level_1_exercise() {
@@ -1946,6 +1970,62 @@ mod tests {
             names(Progression::Turnaround, Rhythm::Quarters)[..4],
             ["Cmaj7", "Am7", "Dm7", "G7"]
         );
+    }
+
+    /// J10 (round 16): a piece names its parts over their first bar, as rehearsal marks; the
+    /// shuffle's twelve-bar parts are choruses.
+    #[test]
+    fn songs_name_their_parts() {
+        let parts = |style| {
+            let a = arrangement(&generate(&spec(
+                ExerciseKind::Song(style, Level::Medium),
+                0,
+            )));
+            let starts: Vec<u64> = a.bars.iter().map(|b| b.start_ticks).collect();
+            a.markers
+                .iter()
+                .filter(|m| {
+                    ["Intro", "Strophe", "Refrain", "Bridge", "Chorus", "Outro"]
+                        .contains(&m.name.as_str())
+                })
+                .map(|m| {
+                    assert!(starts.contains(&m.tick), "{} inside a bar", m.name);
+                    m.name.clone()
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            parts(Style::Pop),
+            ["Intro", "Strophe", "Refrain", "Strophe", "Refrain", "Bridge", "Refrain", "Outro"]
+        );
+        assert_eq!(
+            parts(Style::Shuffle),
+            ["Intro", "Chorus", "Chorus", "Chorus", "Chorus", "Outro"]
+        );
+    }
+
+    /// Round 16 (screenshot of "Stück Pop in G"): a plain major chord ("G", "D") read as a
+    /// rehearsal letter, and the first bar lost its chord beside "Intro". Chords stay chords,
+    /// every part name stays.
+    #[test]
+    fn chords_and_parts_share_a_bar() {
+        let a = arrangement(&generate(&spec(
+            ExerciseKind::Song(Style::Pop, Level::Medium),
+            7,
+        )));
+        let first: Vec<(&str, MarkerKind)> = a
+            .markers
+            .iter()
+            .filter(|m| m.tick == 0)
+            .map(|m| (m.name.as_str(), m.kind))
+            .collect();
+        assert!(first.contains(&("Intro", MarkerKind::Section)), "{first:?}");
+        assert!(first.contains(&("G", MarkerKind::Chord)), "{first:?}");
+        assert!(a
+            .markers
+            .iter()
+            .filter(|m| m.name.len() == 1)
+            .all(|m| m.kind == MarkerKind::Chord));
     }
 
     #[test]

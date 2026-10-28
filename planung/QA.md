@@ -192,7 +192,8 @@ der Baustein davor mindestens zwei Takte behält.
 1. Lea: Übungen, Stufe „9 Stücke“, die Ballade im Durchlauf von vorn bis hinten; danach „Übung erzeugen“, Stück Pop, Schwierigkeit „Leicht“.
 2. Jens: „Übung erzeugen“, Art „Stück“, Stil Rock in E, 100 BPM; den ersten Refrain in der Werkstatt üben.
 3. Thomas: dasselbe Stück am Beamer in Noten + Tab für die Klasse, Stil Funk in Am.
-Erwartet: Stück läuft zwei bis drei Minuten (Rock bei 100 BPM gut zwei); Akkordname über jedem Takt; Schlagzeug, vor jedem neuen Teil ein Fill;
+Erwartet: Stück läuft zwei bis drei Minuten (Rock bei 100 BPM gut zwei); Akkordname über jedem Takt; Probenzeichen
+(Intro, Strophe, Refrain …) über dem ersten Takt jedes Teils, in Lane, Tab und Noten, der Screenreader nennt den Teil; Schlagzeug, vor jedem neuen Teil ein Fill;
 letzter Takt auf der Tonika; Titel in der Oberflächensprache („Stück Rock“ / „Rock piece“); der Generator passt in ein
 schmales Fenster. Leicht: Pop mit Intro und Outro in Halben, Strophe und Bridge in Vierteln, Refrain in Achteln, ohne Synkopen; Titel „Stück Pop (leicht)“, Form und Schlagzeug wie
 mittel; „Schwierigkeit“ steht nur bei der Art „Stück“.

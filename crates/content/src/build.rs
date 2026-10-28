@@ -41,7 +41,7 @@ pub(crate) fn arrangement(score: &Score, index: usize) -> Result<Arrangement, Im
             repeat_close: head.repeat_plays > 0,
             endings: head.endings,
         });
-        if let Some(name) = &head.marker {
+        for name in &head.markers {
             arrangement.markers.push(Marker {
                 tick,
                 name: name.clone(),

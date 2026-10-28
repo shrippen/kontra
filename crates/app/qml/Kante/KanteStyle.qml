@@ -293,6 +293,30 @@ QtObject {
         return parts.join(", ")
     }
     /**
+     * Rehearsal marks (Kante 1.50): the part names of one bar as one label. A name or a list
+     * of names; blanks and repeats are left out, the rest joined with " · ":
+     *   "Intro"                 "Intro"
+     *   ["Refrain", "B"]        "Refrain · B"
+     *   undefined, [], [""]     ""
+     */
+    function rehearsalText(names) {
+        if (names === undefined || names === null) {
+            return ""
+        }
+        // A list from QML or C++ is not always a JS Array: test for a length.
+        const list = typeof names === "string" || names.length === undefined ? [names] : names
+        const out = []
+        for (let i = 0; i < list.length; i++) {
+            const n = list[i] === undefined || list[i] === null ? "" : String(list[i]).trim()
+            if (n !== "" && out.indexOf(n) < 0) {
+                out.push(n)
+            }
+        }
+        return out.join(" \u00b7 ")
+    }
+    /** A rehearsal mark for screen readers (1.50), %1 the label: "Teil Refrain · B". An app translates it once. */
+    property string partText: "Teil %1"
+    /**
      * String colours (Kante 1.28), one per string, string 0 = the lowest, kept apart from the
      * note state colours. Presets (`stringPalettes`): "kante" six roles that differ in hue
      * (purple, cyan, yellow, strong text, muted, info), "mono" every string in the strong

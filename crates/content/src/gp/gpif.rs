@@ -196,7 +196,7 @@ fn head(master: &Element) -> Result<BarHead, ImportError> {
     if let Some(section) = master.child("Section") {
         let text = section.value("Text").filter(|t| !t.is_empty());
         let name = text.or_else(|| section.value("Letter").filter(|t| !t.is_empty()));
-        head.marker = name.map(str::to_string);
+        head.markers.extend(name.map(str::to_string));
     }
     Ok(head)
 }
