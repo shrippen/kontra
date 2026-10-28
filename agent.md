@@ -225,6 +225,6 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
   Antworten liegen dort in der Datenbank-Sammlung „antworten“, ein Dokument je Runde. Umgesetzte Entscheidungen
   kommen ins Lastenheft und in die Roadmap (Abschnitt der jeweiligen Runde).
 - Kontra-PRs merged Claude selbst, wenn `github / test` grün ist und das Review kein **Wichtig** offen lässt (siehe
-  Repository rule). Kante-PRs prüft und merged der Eigentümer.
+  Repository rule). Kante-PRs ebenso, nach Kantes eigener Regel (Eigentümer, Runde 15, 28.10.2026).
 - Jede neue `pub`-Schnittstelle wird in der nächsten Runde zur Freigabe gelistet.
 - Der laufende Arbeitsstand steht in `planung/STAND.md`.
