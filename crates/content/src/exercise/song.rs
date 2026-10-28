@@ -96,7 +96,8 @@ enum Section {
 
 impl Section {
     /// The rehearsal mark over the part's first bar, as German bands say it (LH-BIB-12); the
-    /// shuffle's twelve bars of blues are a chorus.
+    /// shuffle's twelve bars of blues are a chorus. The app shows Strophe and Refrain in its
+    /// language (`GENERATED_PARTS` in appcore).
     fn mark(self, style: Style) -> &'static str {
         match (self, style) {
             (Section::Intro, _) => "Intro",

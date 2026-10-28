@@ -187,8 +187,8 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 ## Entscheidungen Runde 16 (28.10.2026)
 
 - [x] Kante #86: `scheme` herausgenommen, Rest nach Review gemerged; Kante 1.49 veröffentlicht, in Kontra #170. Hell/Dunkel als eigener Kante-PR mit der Einstellung in Kontra (M20).
-- [ ] Probenzeichen: Kante-Baustein, dann Generator und MIDI-Import (mehrere Marker je Takt zusammengefasst,
-      LH-BIB-12, J10).
+- [x] Probenzeichen: Kante-Baustein, dann Generator und MIDI-Import (mehrere Marker je Takt zusammengefasst,
+      LH-BIB-12, J10; Kante 1.50, #174).
 - [x] Pop und Ballade in Dreiklängen, Septimen bei Funk und Shuffle, Rock in Powerchords (LH-BIB-12, J10, #169).
 - [x] Einstellungen → Daten: Backing-Cache und getrennte Songs mit Größe, je Eintrag löschen, „alles leeren“
       (LH-BIB-09, #172).
