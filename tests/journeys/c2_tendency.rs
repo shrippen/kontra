@@ -51,11 +51,13 @@ fn summary_shows_tendency_and_counts() {
         .contains(&tendency),
         "{tendency}"
     );
-    // 18 ms early against 10 to 30 ms behind: 28 ms too early.
+    // 18 ms early against 10 to 30 ms behind: 28 ms before the target range.
     let pocket = s["pocketText"].as_str().unwrap();
     assert!(
         [27, 28, 29]
-            .map(|ms| format!("Ziel laid-back (10 bis 30 ms dahinter): verfehlt, {ms} ms zu früh"))
+            .map(|ms| format!(
+                "Ziel laid-back (10 bis 30 ms dahinter): verfehlt, {ms} ms vor dem Zielbereich"
+            ))
             .contains(&pocket.to_owned()),
         "{pocket}"
     );

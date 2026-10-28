@@ -3258,7 +3258,8 @@ impl Core {
     }
 
     /// Whether the run held the chosen aim against the beat (LH-BEW-08), e.g. "Ziel laid-back
-    /// (10 bis 30 ms dahinter): verfehlt, 6 ms zu früh"; empty without an aim or timed notes.
+    /// (10 bis 30 ms dahinter): verfehlt, 6 ms vor dem Zielbereich"; empty without an aim or
+    /// timed notes.
     fn pocket_text(&self, s: &Summary) -> String {
         let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
         // Whole ms, as the text shows them: +9.6 is laid-back, not "missed by 0 ms".
@@ -5893,7 +5894,7 @@ mod tests {
         core.update_settings(|s| s.pocket = "laidback".into());
         assert_eq!(
             text(&core, &s),
-            "Ziel laid-back (10 bis 30 ms dahinter): verfehlt, 6 ms zu früh"
+            "Ziel laid-back (10 bis 30 ms dahinter): verfehlt, 6 ms vor dem Zielbereich"
         );
         core.update_settings(|s| s.pocket = "onbeat".into());
         assert_eq!(text(&core, &s), "Ziel auf den Punkt (±5 ms): gehalten");
@@ -5904,7 +5905,7 @@ mod tests {
         s.mean_offset_ms = Some(5.6);
         assert_eq!(
             text(&core, &s),
-            "Ziel auf den Punkt (±5 ms): verfehlt, 1 ms zu spät"
+            "Ziel auf den Punkt (±5 ms): verfehlt, 1 ms hinter dem Zielbereich"
         );
         let _ = std::fs::remove_dir_all(dir);
     }
