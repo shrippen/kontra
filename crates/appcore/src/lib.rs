@@ -4289,9 +4289,6 @@ fn split_rest(bar: u64, from: u64, to: u64, out: &mut Vec<(u64, u64)>) {
     }
 }
 
-/// A marker that names a chord ("Am7", "F#m7b5", "Bb/D") rather than a section ("Chorus").
-/// A bare letter ("A", "Bb") counts as a rehearsal mark: Guitar Pro files use those.
-/// A chord symbol: marked as one by the file, or a marker named like one (MIDI).
 /// Part names the exercise generator writes in German (`exercise/song.rs`), with their keys.
 const GENERATED_PARTS: [(&str, &str); 2] = [("Strophe", "part.verse"), ("Refrain", "part.chorus")];
 
@@ -4308,6 +4305,9 @@ fn bar_sections(a: &Arrangement, index: usize) -> Option<Vec<String>> {
     (!names.is_empty()).then_some(names)
 }
 
+/// A marker that names a chord ("Am7", "F#m7b5", "Bb/D") rather than a section ("Chorus").
+/// A bare letter ("A", "Bb") counts as a rehearsal mark: Guitar Pro files use those.
+/// A chord symbol: marked as one by the file, or a marker named like one (MIDI).
 fn is_chord(marker: &kontra_model::Marker) -> bool {
     marker.kind == kontra_model::MarkerKind::Chord || is_chord_name(&marker.name)
 }
@@ -4991,20 +4991,22 @@ mod tests {
         assert_eq!(bars[1]["section"], serde_json::json!(["Chorus", "B"]));
         assert_eq!(bars[2]["section"], serde_json::Value::Null);
 
-        // Review #174: the generator's German part names in the UI's language.
-        if let Some(loaded) = core.loaded.as_mut() {
-            loaded.arrangement.markers[1].name = "Strophe".into();
-            loaded.arrangement.markers[2].name = "Refrain".into();
-        }
+        // Review #174: a generated piece names its parts in the UI's language.
+        let pop = Core::exercise_spec("song", "pop", "", 7, 90.0, "").unwrap();
+        let piece = core.generate_exercise(&pop).unwrap();
+        core.open(&piece).unwrap();
+        let parts = |core: &Core| {
+            let bars: Vec<serde_json::Value> = serde_json::from_str(&core.bars_json()).unwrap();
+            bars.iter()
+                .filter_map(|b| b["section"].as_array().cloned())
+                .flatten()
+                .filter_map(|n| n.as_str().map(str::to_string))
+                .collect::<Vec<_>>()
+        };
         core.update_settings(|s| s.language = Some("en".into()));
-        let bars: serde_json::Value = serde_json::from_str(&core.bars_json()).unwrap();
-        assert_eq!(bars[1]["section"], serde_json::json!(["Verse", "Chorus"]));
+        assert_eq!(parts(&core)[..3], ["Intro", "Verse", "Chorus"]);
         core.update_settings(|s| s.language = Some("de".into()));
-        let bars: serde_json::Value = serde_json::from_str(&core.bars_json()).unwrap();
-        assert_eq!(
-            bars[1]["section"],
-            serde_json::json!(["Strophe", "Refrain"])
-        );
+        assert_eq!(parts(&core)[..3], ["Intro", "Strophe", "Refrain"]);
         let _ = std::fs::remove_dir_all(dir);
     }
 
