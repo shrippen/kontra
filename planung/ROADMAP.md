@@ -189,7 +189,7 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 - [ ] Kante #86: `scheme` herausgenommen, Rest nach Review mergen; Release Kante 1.49 (bestätigt im Chat). Hell/Dunkel als eigener Kante-PR mit der Einstellung in Kontra (M20).
 - [ ] Probenzeichen: Kante-Baustein, dann Generator und MIDI-Import (mehrere Marker je Takt zusammengefasst,
       LH-BIB-12, J10).
-- [ ] Pop in Dreiklängen, Septimen nur bei Soul/Jazz (LH-BIB-12, J10).
+- [x] Pop und Ballade in Dreiklängen, Septimen bei Funk und Shuffle, Rock in Powerchords (LH-BIB-12, J10, #169).
 - [ ] Einstellungen → Daten: Backing-Cache und getrennte Songs mit Größe, je Eintrag löschen, „alles leeren“
       (LH-BIB-09).
 - [ ] Notenansicht zeigt Pegel und Toleranz immer, die Noten schrumpfen (S12).
