@@ -106,7 +106,7 @@ Erwartet: Cent-Werte pro Note weichen ≤ 3 Cent vom annotierten Wert ab; „All
 2. Übung öffnen, kombinierte Ansicht Noten über Tab, Modus „Frei spielen“.
 3. Stil auf Kante Light wechseln (heller Raum).
 4. Präsentation (F5 oder Knopf neben dem Mixer), durchspielen, mit Esc beenden.
-Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreichend; in der Präsentation Vollbild ohne Seitenleiste, nur Titel, Noten und Transport, Notenlinien größer; Esc stellt das Fenster wieder her wie vorher.
+Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreichend; in der Präsentation Vollbild ohne Seitenleiste, nur Titel, Noten und Transport, Notenlinien größer; Esc stellt das Fenster wieder her wie vorher; nach dem Durchspielen lässt „Fertig gespielt“ Noten und Tab lesbar stehen.
 
 **J-B6 Song aus dem Netz** ⚙ 🔍 · Personas: P2 Jens, P3 Mira, P1 Lea, P7 Sam · Phase 2 · LH-BIB-10, -11
 1. Jens: Bibliothek, „Seven Nation Army“ eintippen, Enter (oder „Suchen“); einen Treffer mit Bassspur anklicken.
@@ -285,7 +285,7 @@ Erwartet: Fehler mit Datei und Zeile; die Vorschau sieht aus wie in Kontra; das 
 2. J-A1 und J-B3 nur mit Tastatur, dazu Saitenwahl im Stimmgerät und Auswertung schließen (Esc).
 3. Mit Orca: Bibliothek, Einstellungen und Auswertung vorlesen lassen.
 4. Bei 1280×720 und 150 % ein Stück in jeder Ansicht (Lane, Tab, Noten, Noten + Tab, Klaviatur) abspielen.
-Erwartet: Fokus immer sichtbar; Treffer/Fehler/früh/spät ohne Farbe unterscheidbar; alle Bedienelemente haben Namen; keine abgeschnittenen Texte; Animationen reduziert; Pegel und Pegel-Hinweis in jeder Ansicht unter den Noten, nichts überlappt.
+Erwartet: Fokus immer sichtbar; Treffer/Fehler/früh/spät ohne Farbe unterscheidbar; alle Bedienelemente haben Namen; keine abgeschnittenen Texte; Animationen reduziert; Pegel und Pegel-Hinweis in jeder Ansicht unter den Noten, nichts überlappt; im niedrigen Fenster treten Transponieren, Timing und Notendichte beim Spielen zurück, der Tab zeigt alle Saiten.
 
 **J-F2 Sprache** · alle · Phase 1 · LH-ALL-01
 1. System auf Englisch, J-A1 und J-B1.
