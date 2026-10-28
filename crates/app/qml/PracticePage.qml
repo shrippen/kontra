@@ -246,6 +246,9 @@ Kirigami.Page {
     // Half a laptop screen (beside a video or a tab): one column, no fretboard (QA 13.10.).
     readonly property bool slim: width < KanteStyle.unit(700)
     readonly property bool compact: height < KanteStyle.unit(560)
+    // A low window during a run or at its end (QA 28.10., P4 at 1280×720, 150 %): transpose,
+    // timing aim and density step aside, so tab and staff keep their height.
+    readonly property bool lean: compact && (ctl.playing || page.summaryReady)
     // Five views as buttons need about 470 px: below this width a list, so modes, view and
     // transposing share one row (QA 14.10., 1280 px with the sidebar).
     readonly property bool viewsAsList: width < KanteStyle.unit(1300)
@@ -421,7 +424,7 @@ Kirigami.Page {
             // Transpose (LH-WIE-02): piece and backing move together; the notes are laid out
             // again. Beside modes and views, so the notes keep the height (QA 13.10.).
             Row {
-            visible: !page.simple
+            visible: !page.simple && !page.lean
             spacing: KanteStyle.unit(8)
             height: KanteStyle.heightMedium
             KanteHud {
@@ -450,7 +453,7 @@ Kirigami.Page {
             }
             // Aim against the beat (LH-BEW-08, DIDAKTIK I5): the summary says if the run held it.
             Row {
-                visible: !page.simple
+                visible: !page.simple && !page.lean
                 readonly property var pockets: ["free", "onbeat", "laidback", "pushed"]
                 spacing: KanteStyle.unit(8)
                 height: KanteStyle.heightMedium
@@ -833,7 +836,7 @@ Kirigami.Page {
         Flow {
             id: densityRow
             Layout.fillWidth: true
-            visible: (ctl.mode === "song" || ctl.mode === "workshop") && !page.presenting && !page.simple
+            visible: (ctl.mode === "song" || ctl.mode === "workshop") && !page.presenting && !page.simple && !page.lean
             spacing: KanteStyle.unit(8)
             // In a run-through the part is the whole piece (QA 14.10.: "this section" without one).
             readonly property string fixedText: ctl.mode === "workshop" ? texts.t("density.fixed") : texts.t("density.fixed.piece")
@@ -1093,8 +1096,9 @@ Kirigami.Page {
             // view (no fretboard) it took the notes' room (QA 13.10.).
             Layout.fillHeight: false
             // Level and its advice stay at any height, the notes shrink (QA 27.10., S12: P7 at
-            // 150 % found neither); a low window leaves out the fretboard only.
-            visible: !page.presenting
+            // 150 % found neither); a low window leaves out the fretboard only. After a run the level
+            // is idle: there its line makes room for "Show summary" (QA 28.10.).
+            visible: !page.presenting && !(page.lean && !ctl.playing)
             spacing: KanteStyle.unit(16)
             ColumnLayout {
             Layout.fillWidth: true
