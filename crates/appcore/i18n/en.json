@@ -973,6 +973,7 @@
   "histogram.axis": "Notes",
   "progress.axis.seconds": "Seconds",
   "progress.axis.minutes": "Minutes",
+  "setup.state.step": "Step %1 of %2",
   "setup.state.done": "done",
   "setup.state.current": "current",
   "setup.state.upcoming": "open",
