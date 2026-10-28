@@ -127,6 +127,8 @@ Kirigami.ApplicationWindow {
     // The lesson open on the lesson page and its step, kept while the tuner or an exercise runs.
     property string lessonId: ""
     property int lessonPage: 0
+    // The exercise level to open first (setup "Ich spiele schon": the basics); -1 = the plan's.
+    property int exerciseLevel: -1
     // The chapter "Kann ich schon" checks on the review page ("" = the questions due).
     property string checkChapter: ""
 

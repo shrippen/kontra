@@ -14,6 +14,36 @@ Kirigami.ScrollablePage {
     readonly property var inputs: JSON.parse(ctl.inputDevicesJson)
     readonly property var steps: ["instrument", "connection", "level", "latency", "done"]
     property int step: 0
+    // The player's answer on the last step (LH-EIN-13): "new", "player" or "songs".
+    property string level: ""
+    readonly property var levels: ["new", "player", "songs"]
+
+    // Where the setup leads (QA 27.10., L5: everybody landed in "Groove Viertel").
+    //   new     first lesson, simple practice page
+    //   player  the exercises, the basics level open
+    //   songs   the library
+    function finish() {
+        ctl.finishSetup()
+        var app = applicationWindow()
+        if (level === "new") {
+            ctl.changeSimpleView(true)
+            var next = JSON.parse(ctl.learnJson()).next
+            if (!next) {
+                app.show("learn")
+                return
+            }
+            app.lessonId = next.id
+            app.lessonPage = 0
+            app.show("lesson")
+            return
+        }
+        if (level === "player") {
+            app.exerciseLevel = 1
+            app.show("exercises")
+            return
+        }
+        app.show("library")
+    }
 
     title: texts.t("setup.title")
     background: Rectangle { color: KanteStyle.backgroundColor }
@@ -55,10 +85,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.15
-            // The last step names the exercise "start" opens.
-            text: texts.t("setup." + page.steps[page.step] + ".hint",
-                          { title: page.step === page.steps.length - 1 && JSON.parse(ctl.homeJson()).next
-                                   ? JSON.parse(ctl.homeJson()).next.title : "" })
+            text: texts.t("setup." + page.steps[page.step] + ".hint")
             color: KanteStyle.textColor
         }
 
@@ -202,6 +229,27 @@ Kirigami.ScrollablePage {
                 color: KanteStyle.mutedTextColor
             }
         }
+
+        // 5 Done: where to go first (LH-EIN-13).
+        ColumnLayout {
+            visible: page.steps[page.step] === "done"
+            Layout.fillWidth: true
+            spacing: 0
+            Accessible.role: Accessible.List
+            Accessible.name: texts.t("setup.done.question")
+            KanteSectionLabel { text: texts.t("setup.done.question") }
+            Repeater {
+                model: page.levels
+                delegate: KanteListRow {
+                    required property string modelData
+                    Layout.fillWidth: true
+                    selected: page.level === modelData
+                    text: texts.t("setup.done." + modelData)
+                    subtitle: texts.t("setup.done." + modelData + ".hint")
+                    onClicked: page.level = modelData
+                }
+            }
+        }
     }
 
     // Back, skip and next stay in one place on every step (QA 27.10.: they moved with each step
@@ -243,18 +291,11 @@ Kirigami.ScrollablePage {
                 }
             }
             KanteButton {
-                text: texts.t("setup.finish")
+                text: texts.t("setup.go")
                 emphasis: KanteButton.Emphasis.Primary
                 visible: page.step === page.steps.length - 1
-                onClicked: {
-                    ctl.finishSetup()
-                    // The plan's first exercise, as the start page offers it (QA 14.10.: the
-                    // demo étude opened instead).
-                    var next = JSON.parse(ctl.homeJson()).next
-                    if (next ? ctl.openFile(next.path) : ctl.openDemo()) {
-                        applicationWindow().show("practice")
-                    }
-                }
+                enabled: page.level !== ""
+                onClicked: page.finish()
             }
         }
     }

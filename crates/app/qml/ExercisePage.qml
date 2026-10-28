@@ -68,6 +68,15 @@ Kirigami.ScrollablePage {
 
     Component.onCompleted: {
         reload()
+        // Asked once by the setup: that level stands open instead of the plan's.
+        var asked = applicationWindow().exerciseLevel
+        if (asked >= 0 && asked < levels.length) {
+            var f = {}
+            f[currentLevel] = false
+            f[asked] = true
+            folded = f
+        }
+        applicationWindow().exerciseLevel = -1
         sectionTimer.running = ctl.startSection === "make"
     }
 

@@ -1336,6 +1336,20 @@ impl Core {
             .unwrap_or_default()
     }
 
+    /// What the loaded bundled exercise trains, in the UI's language ("" for any other piece).
+    pub fn loaded_goal(&self) -> String {
+        let Some(path) = self.loaded_path() else {
+            return String::new();
+        };
+        if !self.is_bundled(path) {
+            return String::new();
+        }
+        let stem = path
+            .file_stem()
+            .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+        self.bundled_goal(&stem)
+    }
+
     pub fn loaded_path(&self) -> Option<&Path> {
         self.loaded.as_ref().map(|l| l.path.as_path())
     }
@@ -6476,6 +6490,26 @@ mod tests {
             .collect();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].last_unix, 2);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-ANZ-11 (round 15): the practice page names the exercise's aim under its title; a
+    /// simple view is off until the setup or the settings switch it on.
+    #[test]
+    fn loaded_goal_names_the_aim() {
+        let dir = temp_dir("loadedgoal");
+        let mut core = Core::new(&dir, QaOptions::default());
+        assert!(!core.settings().simple_view);
+        core.update_settings(|s| s.language = Some("de".into()));
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let item = &levels[0]["items"][0];
+        core.open(Path::new(item["path"].as_str().unwrap()))
+            .unwrap();
+        assert!(!item["goal"].as_str().unwrap().is_empty());
+        assert_eq!(core.loaded_goal(), item["goal"].as_str().unwrap());
+
+        core.open(&Core::demo_path()).unwrap();
+        assert_eq!(core.loaded_goal(), "");
         let _ = std::fs::remove_dir_all(dir);
     }
 

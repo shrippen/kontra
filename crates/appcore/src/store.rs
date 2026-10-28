@@ -134,6 +134,8 @@ pub struct Settings {
     pub monitor_warmth: f64,
     /// Suggest more or fewer notes between runs (LH-MOD-06).
     pub adaptive: bool,
+    /// The practice page leaves its rare controls out (LH-ANZ-11, round 15).
+    pub simple_view: bool,
     /// Tuning (LH-TUN-02): "standard", "drop" (lowest string a whole step down),
     /// "half-down", "whole-down" or "custom".
     pub tuning: String,
@@ -190,6 +192,7 @@ impl Default for Settings {
             monitor_compress: 0.0,
             monitor_warmth: 0.0,
             adaptive: true,
+            simple_view: false,
             tuning: "standard".into(),
             custom_tuning: Vec::new(),
             a4_hz: A4_HZ,
