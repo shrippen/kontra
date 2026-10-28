@@ -112,6 +112,7 @@
   "practice.empty.exercises": "Zu den Übungen",
   "practice.empty.library": "Zur Bibliothek",
   "lane.name": "Tab-Lane",
+  "lane.part": "Teil %1",
   "fretboard.name": "Griffbrett",
   "fretboard.marker": "%1: Saite %2, Bund %3",
   "histogram.mean": "Mittel",

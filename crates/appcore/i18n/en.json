@@ -112,6 +112,7 @@
   "practice.empty.exercises": "Go to exercises",
   "practice.empty.library": "Go to library",
   "lane.name": "Tab lane",
+  "lane.part": "Part %1",
   "fretboard.name": "Fretboard",
   "fretboard.marker": "%1: string %2, fret %3",
   "histogram.mean": "mean",

@@ -1459,7 +1459,8 @@ impl Core {
         let bars: Vec<_> = a
             .bars
             .iter()
-            .map(|b| {
+            .enumerate()
+            .map(|(i, b)| {
                 json!({
                     "time": a.tempo.seconds_at(b.start_ticks),
                     "number": b.source_index + 1,
@@ -1472,6 +1473,8 @@ impl Core {
                     // Key per bar and chord symbols (Kante 1.27 KanteBassStaff).
                     "keyFifths": b.key_fifths,
                     "chord": a.markers.iter().find(|m| m.tick == b.start_ticks && is_chord(m)).map(|m| m.name.clone()),
+                    // Rehearsal marks (Kante 1.50): the parts beginning in this bar.
+                    "section": bar_sections(a, i),
                 })
             })
             .collect();
@@ -4278,6 +4281,19 @@ fn split_rest(bar: u64, from: u64, to: u64, out: &mut Vec<(u64, u64)>) {
 /// A marker that names a chord ("Am7", "F#m7b5", "Bb/D") rather than a section ("Chorus").
 /// A bare letter ("A", "Bb") counts as a rehearsal mark: Guitar Pro files use those.
 /// A chord symbol: marked as one by the file, or a marker named like one (MIDI).
+/// Names of the parts that begin in bar `index`, e.g. `["Chorus", "B"]`; `None` without one.
+fn bar_sections(a: &Arrangement, index: usize) -> Option<Vec<String>> {
+    let start = a.bars.get(index)?.start_ticks;
+    let end = a.bars.get(index + 1).map_or(u64::MAX, |b| b.start_ticks);
+    let names: Vec<String> = a
+        .markers
+        .iter()
+        .filter(|m| (start..end).contains(&m.tick) && !is_chord(m))
+        .map(|m| m.name.clone())
+        .collect();
+    (!names.is_empty()).then_some(names)
+}
+
 fn is_chord(marker: &kontra_model::Marker) -> bool {
     marker.kind == kontra_model::MarkerKind::Chord || is_chord_name(&marker.name)
 }
@@ -4927,6 +4943,39 @@ mod tests {
         let staff = staff(core.arrangement().unwrap());
         assert_eq!(staff["chords"][0]["text"], "Bbm7");
         assert_eq!(staff["chords"].as_array().map(Vec::len), Some(1));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Rehearsal marks (LH-BIB-12, J10, Kante 1.50): the parts that begin in a bar, also
+    /// several, e.g. a MIDI file with "Chorus" and "B" in one bar; a chord name is none.
+    #[test]
+    fn bars_carry_sections() {
+        let mut a = arrangement(&[(0, 4 * Q, 34), (4 * Q, 4 * Q, 34), (8 * Q, 4 * Q, 34)]);
+        for (tick, name) in [
+            (0, "Intro"),
+            (4 * Q, "Chorus"),
+            (5 * Q, "B"),
+            (8 * Q, "Am7"),
+        ] {
+            a.markers.push(kontra_model::Marker {
+                tick,
+                name: name.into(),
+                kind: kontra_model::MarkerKind::Section,
+            });
+        }
+        let dir = temp_dir("sections");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.loaded = Some(Loaded {
+            path: dir.join("x.mid"),
+            full: a.clone(),
+            arrangement: a,
+            tracks: Vec::new(),
+            track: 0,
+        });
+        let bars: serde_json::Value = serde_json::from_str(&core.bars_json()).unwrap();
+        assert_eq!(bars[0]["section"], serde_json::json!(["Intro"]));
+        assert_eq!(bars[1]["section"], serde_json::json!(["Chorus", "B"]));
+        assert_eq!(bars[2]["section"], serde_json::Value::Null);
         let _ = std::fs::remove_dir_all(dir);
     }
 

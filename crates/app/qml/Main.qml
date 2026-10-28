@@ -113,6 +113,8 @@ Kirigami.ApplicationWindow {
             unheard: texts.t("technique.result.unheard")
         })
     }
+    // Rehearsal marks for screen readers (Kante 1.50): "Teil Refrain · B".
+    Binding { target: KanteStyle; property: "partText"; value: texts.t("lane.part") }
     // String colours (LH-ANZ-06): Kante's palettes ("kante", "mono", "bright"); lane, staff and
     // fretboard take them from KanteStyle (Kante 1.28). States keep their own colours and shapes.
     Binding { target: KanteStyle; property: "stringPalette"; value: ctl.stringColors }
