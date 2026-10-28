@@ -351,7 +351,10 @@ Orca nicht genutzt, statt dessen der AT-SPI-Baum.
   nicht erreichbar (Bild ab, Strg+Ende, Pfeile).
 - [ ] B5 (mittel): Glossar aus der Übungsliste („?“), dann „Zurück“: Fokus weg, die erste Übung per Tab nicht mehr
   erreichbar.
-- [ ] B6 (mittel): Werkstatt bei 200 %: die Regler füllen die Seite, Tab oder Lane nicht zu sehen.
+- [ ] B6 (mittel, beim Spielen behoben #178): Werkstatt bei 200 %: die Regler füllen die Seite, Tab oder Lane nicht zu sehen.
+- [ ] Extreme Vergrößerung und kleine Auflösungen (Eigentümer, 28.10.): getrennt anschauen, jede Seite und jeder Modus
+  bei 200 % und mehr sowie bei kleinen Auflösungen als Screenshot, dazu Ideen je Seite; mit dem Eigentümer
+  entscheiden. Dazu gehört B6 vor dem Abspielen (Vorschlag: Klappe „Einstellungen“).
 - [ ] B7 (mittel, Kante): Saitenfarben der Tabulatur in Kante Light auf hellem Grund 1,7–2,6:1, am Beamer kaum lesbar.
 - [ ] B8 (niedrig): Nach Seitenwechsel Fokus auf der ScrollView; Trenner der Seitenleiste als unbenannte
   Listeneinträge; Tempo-Regler mit zwei Tab-Halten; nach „Klinke direkt“ zeigt der Eingang weiter „Automatisch:

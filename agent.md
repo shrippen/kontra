@@ -151,6 +151,9 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Tests, die ein Skript schreiben und starten, laufen parallel zu anderen, die Prozesse starten: Ein geforktes Kind hält
   die frische Datei offen, `exec` scheitert mit „Text file busy“ (ETXTBSY, etwa 1 von 40 Läufen). Solche Tests über
   einen gemeinsamen `Mutex` nacheinander laufen lassen (`separator.rs`).
+- Eigener Session-Bus (`dbus-run-session`) nur für den Screenreader-Test (AT-SPI, Orca) und dann ohne `WAYLAND_DISPLAY`
+  und `DISPLAY` des Desktops (`env -u WAYLAND_DISPLAY DISPLAY=:<xvfb>`): Am 28.10. startete D-Bus auf einem eigenen Bus
+  `xdg-desktop-portal-kde`, das sich an den echten Wayland-Desktop des Eigentümers hängte (Eigentümer, 28.10.2026).
 
 ## Persona rule
 
