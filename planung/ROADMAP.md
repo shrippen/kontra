@@ -192,7 +192,7 @@ Nach der QA-Nacht 27.10.:
 - [ ] Einstellung „Einfache Ansicht“ (LH-ANZ-11), für „Neu am Bass“ an; Ziel der Übung unter dem Titel.
 - [ ] „Lage“ als Timing-Ziel heißt in der Oberfläche „Timing“ (LH-BEW-08).
 - [ ] Instrument jetzt eigens wählbar: E-Bass, Kontrabass, Bass über MIDI (LH-EIN-09).
-- [ ] `.kontra` mit Loops und Zieltempo, ohne Fortschritt; Pakete können Backing Tracks enthalten (LH-BIB-07).
+- [x] `.kontra` mit Loops und Zieltempo, ohne Fortschritt; Pakete können Backing Tracks enthalten (LH-BIB-07, #164).
 - [ ] Kante Light ist die abgespeckte Kante (Systemfarben), nicht hell. Hell/dunkel als eigene Einstellung, im
       Präsentationsmodus als Schalter (LH-ALL-02).
 - [ ] Fehlende Kante-Bausteine als Kante-PR; Claude merged Kante-PRs nach Review wie Kontra-PRs (`agent.md`).
@@ -370,7 +370,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - M21 (mittel, behoben #145): Bei 853 px fehlte der Präsentations-Knopf; nur F5 half.
   - M22 (mittel, behoben #145): Nach Esc aus der Präsentation fehlte die Seitenleiste.
   - M24 (niedrig, offen): Dieselbe Etüde doppelt in der Bibliothek (zwei Pfade).
-  - M25 (mittel, Entscheidung): `.kontra` ohne Loops und Zieltempo, trägt den Fortschritt der Lehrkraft.
+  - M25 (mittel, behoben #164): `.kontra` ohne Loops und Zieltempo, trägt den Fortschritt der Lehrkraft.
   - M26 (mittel, Entscheidung): Kurs nur per CLI anlegbar, Platzhalter „Mein Kurs“ besteht die Prüfung.
   - M27 (mittel, behoben #137): `kontra --help` startete die App mit echtem Eingang.
 - **P2 Jens (J-B1, J-B3, J-B6, J-C6, J-C7, J-C9, J-D1, J-G2, J-G5): bestanden nach Befunden.**
