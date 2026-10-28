@@ -337,7 +337,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   prüfbar: der Abzug zieht nur Kontras eigenes Backing ab.
 - **P3 Mira (J-A3, J-B4, J-C2, J-C3, J-C5, J-E3): J-E3 nicht bestanden, Rest bestanden nach Befunden.**
   - M1 (hoch, behoben #139): Bundlos und im strengen Fenster blieb ein von unten einschwingender Ton „falsch“.
-  - M2 (mittel, offen): Strenges Fenster, alle Noten 40 ms früh: „0 % getroffen, 128 ausgelassen“ statt „zu früh“.
+  - M2 (mittel, behoben #147): Strenges Fenster, alle Noten 40 ms früh: „0 % getroffen, 128 ausgelassen“ ohne „zu früh“.
   - M3 (mittel, offen): Pocket-Satz widersprüchlich („2 ms zu früh · meist 8 ms zu spät“).
   - M4 (mittel, offen): Enharmonik in B♭: Liste A♯1, Noten D♭ aus C♯.
   - M5 (mittel, offen): MusicXML-Akkordsymbole (`<harmony>`) werden nicht gelesen (LH-BIB-03).
@@ -363,7 +363,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - J3 (mittel, offen): Takterkennung rastet auf dem Offbeat ein (+310 ms) und meldet trotzdem „8 von 8 Takten“.
   - J4 (niedrig, offen): Bibliothek zeigt den internen GP-Titel („001“) statt des Dateinamens, kein Umbenennen.
   - J7 (mittel, behoben #142): Nach Eingabe in „Takte“ blieben K und Fußschalter tot; Return/Esc geben frei.
-  - J8 (mittel, offen): „Ohne Hilfe prüfen“ fließt in Werkstatt-Durchläufe und Dichte-Vorschlag ein.
+  - J8 (mittel, behoben #148): „Ohne Hilfe prüfen“ floss in Werkstatt-Durchläufe und Dichte-Vorschlag ein.
   - J9 (mittel, behoben #146): Erzeugtes Stück erbte Loop und Tempo des vorigen.
   - J10 (mittel, offen): Erzeugtes Stück ohne Teilnamen; „Rock in E“ mit maj7-Akkorden.
   - J11 (mittel, Inhalt): Glossar ohne Abbildungen und Hörbeispiele.
