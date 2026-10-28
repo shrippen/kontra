@@ -140,6 +140,10 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
   Ohne Datei öffnete Kontra (über ALSA) das echte Interface des Eigentümers; WirePlumber fand es „belegt“ und legte
   den Eingangsknoten des Scarlett Solo nicht wieder an (13.10., 23:45). Abhilfe: Interface neu einstecken oder
   `systemctl --user restart wireplumber`. Nie PipeWire-Knoten anderer zerstören oder Profile umstellen.
+- App-Start in Testläufen nur mit `env -u WAYLAND_DISPLAY QT_QPA_PLATFORM=xcb DISPLAY=:<xvfb>`, eigenem
+  `KONTRA_DATA_DIR` mit `{"output_device":"kontra:null"}` und `--input-file` auf eine vorhandene Datei. Qt nimmt
+  sonst `WAYLAND_DISPLAY` und öffnet das Fenster auf dem echten Desktop, auch wenn `DISPLAY` auf Xvfb zeigt
+  (28.10.: etwa 6 s). Tests in Rust genauso: ohne `input_file` öffnet `Core::play` das echte Mikrofon (#162).
 - Neue Abhängigkeiten: `cargo deny check licenses bans sources` (`~/.cargo/bin/cargo-deny`) vor dem Push; transitive
   Lizenzen fallen sonst erst in der CI auf (14.10.: `webpki-root-certs` über ureqs `platform-verifier`).
 - Gestapelte PRs: Konflikte (i18n-Enden, Importlisten) vorab lösen, indem die untere Branch in die
