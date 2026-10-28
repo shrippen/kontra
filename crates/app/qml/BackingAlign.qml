@@ -49,7 +49,8 @@ KanteCard {
         }
         KanteCallout {
             Layout.fillWidth: true
-            kind: sheet.info.analysed ? KanteCallout.Kind.Ok : KanteCallout.Kind.Info
+            kind: !sheet.info.analysed ? KanteCallout.Kind.Info
+                : sheet.info.sure ? KanteCallout.Kind.Ok : KanteCallout.Kind.Warn
             autoHide: false
             title: sheet.info.analysed ? sheet.info.text : texts.t("backing.notaligned")
             Accessible.name: title
@@ -70,6 +71,8 @@ KanteCard {
                 spacing: KanteStyle.unit(8)
                 KanteButton { text: texts.t("backing.earlier"); onClicked: ctl.backingAdjust(-1, 0, -1, 0) }
                 KanteButton { text: texts.t("backing.later"); onClicked: ctl.backingAdjust(1, 0, -1, 0) }
+                // Half a beat (ms at the found tempo): the grid sat on the offbeat (J3).
+                KanteButton { text: texts.t("backing.halfbeat"); onClicked: ctl.backingAdjust(0, 30000 / sheet.info.bpm, -1, 0) }
             }
             KanteSettingRow {
                 Layout.fillWidth: true

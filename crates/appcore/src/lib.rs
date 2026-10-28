@@ -51,6 +51,9 @@ const A4_MAX_HZ: f64 = 450.0;
 /// Range of the free timing window (LH-BEW-02).
 const WINDOW_MIN_MS: f64 = 20.0;
 const WINDOW_MAX_MS: f64 = 150.0;
+/// Beat map trusted to sit on the beat: this share of kick and bass onsets on the beats (0.5 is
+/// a coin toss; a band with kick on 1 and 3 reaches 0.9).
+const SURE_ON_BEAT_SHARE: f64 = 0.7;
 /// Notes a string of a custom tuning may have: G0 (MIDI 19) to G3 (MIDI 55).
 const CUSTOM_NOTES: std::ops::RangeInclusive<u8> = 19..=55;
 /// Keyboard view without an instrument range: E1 to G4, a four-string bass.
@@ -2461,6 +2464,7 @@ impl Core {
             store::BeatMap {
                 beats: grid.beats,
                 bpm: grid.bpm,
+                on_beat_share: grid.on_beat_share,
                 ..store::BeatMap::default()
             },
         );
@@ -2505,7 +2509,8 @@ impl Core {
     }
 
     /// The beat map in words for the alignment sheet:
-    /// `{"analysed", "bpm", "firstS", "mapped", "bars", "text"}`.
+    /// `{"analysed", "bpm", "firstS", "mapped", "bars", "sure", "text"}`. Not `sure`: kick and
+    /// bass do not show where the beat is, the grid may sit on the offbeat.
     pub fn backing_json(&self) -> String {
         let Some(path) = self.loaded_path() else {
             return "{}".into();
@@ -2519,13 +2524,20 @@ impl Core {
             .map(|a| map.bar_times(&quarters_per_bar(a)))
             .unwrap_or_default();
         let first = times.first().copied().unwrap_or(0.0);
+        let sure = map.on_beat_share >= SURE_ON_BEAT_SHARE;
+        let key = if sure {
+            "backing.aligned"
+        } else {
+            "backing.unsure"
+        };
         json!({
             "analysed": true,
             "bpm": map.bpm,
             "firstS": first,
             "mapped": times.len(),
             "bars": bars,
-            "text": self.tr("backing.aligned", &[
+            "sure": sure,
+            "text": self.tr(key, &[
                 ("bpm", format!("{:.0}", map.bpm)),
                 ("first", format!("{first:.2}")),
                 ("mapped", times.len().to_string()),
@@ -5254,6 +5266,39 @@ mod tests {
         );
         core.backing_clear().unwrap();
         assert_eq!(core.arrangement().unwrap().tempo.bpm_at(0), 100.0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA 27.10. (J3): hi-hats alone cannot tell beat from offbeat; the sheet must say so instead
+    /// of "8 of 8 bars follow the recording".
+    #[test]
+    fn backing_without_low_beats_is_unsure() {
+        let dir = temp_dir("beats-unsure");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("en".into()));
+        core.open(&demo()).unwrap();
+        let rate = 44_100u32;
+        let mut audio = vec![0.0f32; rate as usize * 22];
+        let mut noise = 1u32;
+        for beat in 0..36 {
+            let start = ((1.0 + f64::from(beat) * 60.0 / 105.0) * f64::from(rate)) as usize;
+            let mut last = 0.0f32;
+            for i in 0..1500 {
+                noise = noise.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let n = (noise >> 9) as f32 / (1u32 << 23) as f32 - 0.5;
+                if let Some(s) = audio.get_mut(start + i) {
+                    *s += (n - last) * (-(i as f32) / 600.0).exp();
+                }
+                last = n;
+            }
+        }
+        let wav = dir.join("hats.wav");
+        kontra_session::write_mono_wav(&wav, &audio, rate).unwrap();
+        core.set_backing(Some(wav), 0.0);
+        core.backing_analyse().unwrap();
+        let info: serde_json::Value = serde_json::from_str(&core.backing_json()).unwrap();
+        assert_eq!(info["sure"], false, "{info}");
+        assert!(!info["text"].as_str().unwrap().contains("follow"), "{info}");
         let _ = std::fs::remove_dir_all(dir);
     }
 

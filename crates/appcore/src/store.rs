@@ -267,6 +267,8 @@ pub struct BeatMap {
     pub shift_ms: f64,
     /// Per-bar corrections, ms: bar index → shift of that bar's start.
     pub nudges: std::collections::BTreeMap<usize, f64>,
+    /// Share (0–1) of kick and bass onsets on the beats rather than between them.
+    pub on_beat_share: f64,
 }
 
 impl BeatMap {
