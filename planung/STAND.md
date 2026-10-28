@@ -5,17 +5,14 @@ nur, was offen ist und wo es liegt.
 
 ## Übergabe (28.10.2026, QA-Nacht)
 
-QA-Runde 27.10. mit allen Personas (ROADMAP). Offene PRs aus der Nacht, je mit `/review` und CI: #137 (Einrichtung,
-Tastatur, Texte, `--help`), #138 (Einstieg-Reihenfolge), #139 (Bundlos einschwingen), #140 (Generator-Schluss),
-#141 (Meldungen nach dem Start) sind gemerged. Offen: #142 (Zahlenfeld mit Return/Esc verlassen), #143 (Alt+5,
-Tastenliste), #145 (Präsentation), #147 (Timing außerhalb des Fensters), #148 (Prüfung getrennt), dazu dieser Bericht (#144,
-als letzter). #143 und #146 sind gemerged.
+QA-Runde 27.10. mit allen Personas (ROADMAP). Die Korrekturen der Nacht sind als #137–#143 und #145–#150 gemerged,
+dieser Bericht als #144 zuletzt.
 
 Runde 15 steht im Entscheidungs-Artefakt (Einrichtung, Übungsseite, „Lage“, Instrument, `.kontra`, Kante Light,
 Kante-Bausteine, Demo-Modus, Kurs aus Ordner, QA-Schalter, pub, Reihenfolge). Nach den Antworten: Lastenheft und
 ROADMAP-Abschnitt „Entscheidungen Runde 15“.
 
-Offene Befunde mittel (ROADMAP, QA-Runde 27.10.): M3, M4, M5, M6, M9, S3, S12, J2, J3, J10.
+Offene Befunde mittel (ROADMAP, QA-Runde 27.10.): M4, M5, M6, M9, S3, S12, J2, J3, J10.
 In `pocket-band` (unten) liegt weiter das Ziel-Band; Kante-Stand der Kopie 1.40, Kante `main` 1.48.
 
 ## Übergabe (25.10.2026, abends)
