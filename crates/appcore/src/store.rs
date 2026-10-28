@@ -308,6 +308,10 @@ pub struct BeatMap {
     pub shift_ms: f64,
     /// Per-bar corrections, ms: bar index → shift of that bar's start.
     pub nudges: std::collections::BTreeMap<usize, f64>,
+    /// Share (0–1) of kick and bass onsets on the beats rather than between them.
+    pub on_beat_share: f64,
+    /// The player moved every bar half a beat later: the detection sat on the offbeat.
+    pub half_beat: bool,
 }
 
 impl BeatMap {
@@ -319,11 +323,25 @@ impl BeatMap {
             let Some(t) = self.beats.get(beat) else {
                 break;
             };
+            let t = if self.half_beat {
+                t + 0.5 * self.interval_s(beat)
+            } else {
+                *t
+            };
             let nudge = self.nudges.get(&bar).copied().unwrap_or(0.0);
             out.push(t + (self.shift_ms + nudge) / 1000.0);
             beat += (*n).max(1) as usize;
         }
         out
+    }
+
+    /// Seconds from beat `index` to the next one (the last: from the one before).
+    fn interval_s(&self, index: usize) -> f64 {
+        let next = self.beats.get(index + 1).zip(self.beats.get(index));
+        let before = index
+            .checked_sub(1)
+            .and_then(|i| self.beats.get(index).zip(self.beats.get(i)));
+        next.or(before).map_or(0.0, |(a, b)| a - b)
     }
 }
 
