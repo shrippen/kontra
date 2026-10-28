@@ -24,7 +24,7 @@ fn low_fretless_line_reads_its_cents() {
     let mut core = profile.core(None);
     core.reconfigure(|s| {
         s.strings = 5;
-        s.fretless = true;
+        s.instrument = kontra_appcore::Bass::Fretless;
         s.strictness = "strict".into();
     });
     core.open(&score).unwrap();

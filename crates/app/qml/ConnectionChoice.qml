@@ -9,8 +9,11 @@ ColumnLayout {
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
-    // [key, available]
-    readonly property var entries: [["line", true], ["laptop", true], ["midi", true], ["mic", true]]
+    // [key, available], by instrument (LH-EIN-09): MIDI comes with "bass over MIDI", a double
+    // bass suggests the microphone first, its pickup goes through the interface.
+    readonly property var entries: ctl.instrument === "midi" ? [["midi", true]]
+        : ctl.instrument === "double" ? [["mic", true], ["line", true], ["laptop", true]]
+        : [["line", true], ["laptop", true], ["mic", true]]
     // MIDI devices (LH-EIN-12, round 9): {ports: [{name, chosen}], missingText}.
     readonly property var midi: ctl.midiPortsJson !== "" ? JSON.parse(ctl.midiPortsJson) : ({ ports: [], missingText: "" })
 
@@ -27,7 +30,8 @@ ColumnLayout {
             selected: enabled && ctl.connection === modelData[0]
             text: texts.t("settings.source." + modelData[0])
             // MIDI says which keyboard it found, or that none is connected.
-            subtitle: modelData[0] !== "midi" ? texts.t("settings.source." + modelData[0] + ".hint")
+            subtitle: modelData[0] === "line" && ctl.instrument === "double" ? texts.t("settings.source.line.double.hint")
+                : modelData[0] !== "midi" ? texts.t("settings.source." + modelData[0] + ".hint")
                 : ctl.midiPortName !== "" ? texts.t("settings.source.midi.found", { name: ctl.midiPortName })
                 : texts.t("settings.source.midi.none")
             disabledReason: texts.t("settings.later.short") + " " + texts.t("settings.source." + modelData[0] + ".hint")

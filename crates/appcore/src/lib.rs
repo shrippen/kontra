@@ -25,7 +25,7 @@ pub use i18n::{Catalog, Language};
 pub use kontra_session::{exercise, Blocks, ChainOrder, Density};
 pub use package::PackageAudio;
 pub use store::{
-    data_dir, InputKind, Library, RecentEntry, SectionBars, SectionDensity, Setlist, Settings,
+    data_dir, Bass, InputKind, Library, RecentEntry, SectionBars, SectionDensity, Setlist, Settings,
 };
 
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Judging, Technique, Tuning};
@@ -875,6 +875,42 @@ impl Core {
         Ok(())
     }
 
+    /// The instrument as the UI offers it (LH-EIN-09): MIDI input, else the stored bass.
+    pub fn instrument_choice(&self) -> InstrumentChoice {
+        match (self.settings.input_kind, self.settings.instrument) {
+            (InputKind::Midi, _) => InstrumentChoice::Midi,
+            (_, Bass::Double) => InstrumentChoice::Double,
+            (_, Bass::Fretted | Bass::Fretless) => InstrumentChoice::EBass,
+        }
+    }
+
+    /// Chooses the instrument (LH-EIN-09) and suggests its input: a double bass the microphone
+    /// (a pickup chosen after stays), an e-bass the cable, bass over MIDI the MIDI input.
+    pub fn choose_instrument(&mut self, choice: InstrumentChoice) -> Result<(), String> {
+        self.retune(|s| {
+            let was_double = s.instrument == Bass::Double;
+            match choice {
+                InstrumentChoice::Midi => s.input_kind = InputKind::Midi,
+                InstrumentChoice::Double => {
+                    if !was_double || s.input_kind == InputKind::Midi {
+                        s.input_kind = InputKind::Microphone;
+                    }
+                    s.instrument = Bass::Double;
+                    s.strings = s.strings.min(Bass::Double.strings_max());
+                }
+                InstrumentChoice::EBass => {
+                    let mic_of_double = was_double && s.input_kind == InputKind::Microphone;
+                    if mic_of_double || s.input_kind == InputKind::Midi {
+                        s.input_kind = InputKind::Line;
+                    }
+                    if was_double {
+                        s.instrument = Bass::Fretted;
+                    }
+                }
+            }
+        })
+    }
+
     /// Chooses a tuning by name (`TUNINGS`); "custom" starts from the strings in use.
     pub fn set_tuning(&mut self, name: &str) -> Result<(), String> {
         if !TUNINGS.contains(&name) {
@@ -1271,8 +1307,10 @@ impl Core {
                 kontra_session::assign_tab(&mut arrangement);
             }
         }
-        if self.settings.fretless {
-            arrangement.instrument.kind = InstrumentKind::Fretless;
+        // The profile's kind (fretless, double bass, MIDI) decides scoring and lessons.
+        let kind = instrument_from(&self.settings).kind;
+        if kind != InstrumentKind::Fretted {
+            arrangement.instrument.kind = kind;
         }
         arrangement.instrument.a4_hz = self.a4_hz();
         self.stop_live();
@@ -4137,12 +4175,22 @@ fn tempo_from_bars(
     kontra_model::TempoMap::from_changes(changes)
 }
 
+/// The instrument choice of setup and settings (LH-EIN-09). Only a UI choice: `Midi` is the
+/// stored bass with the MIDI input, the data keeps instrument and input apart.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InstrumentChoice {
+    EBass,
+    Double,
+    Midi,
+}
+
 fn instrument_from(settings: &Settings) -> kontra_model::Instrument {
     // Bass over MIDI (P5): the same strings for tab and range, scored as keys.
-    let kind = match (settings.input_kind, settings.fretless) {
+    let kind = match (settings.input_kind, settings.instrument) {
         (InputKind::Midi, _) => InstrumentKind::Keys,
-        (_, true) => InstrumentKind::Fretless,
-        (_, false) => InstrumentKind::Fretted,
+        (_, Bass::Fretless) => InstrumentKind::Fretless,
+        (_, Bass::Double) => InstrumentKind::Double,
+        (_, Bass::Fretted) => InstrumentKind::Fretted,
     };
     let mut instrument = kontra_model::Instrument::new(kind, tuning_from(settings), 24)
         .unwrap_or_else(|_| kontra_model::Instrument::default_bass());
@@ -4976,6 +5024,76 @@ mod tests {
         let chosen = core.score_settings(InstrumentKind::Fretless);
         assert_eq!(chosen.strictness.window_ms(), 25.0);
         assert_eq!(chosen.pitch_cents, 20.0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-EIN-09 (QA 27.10. S11): the instrument is chosen on its own and stored apart from the
+    /// input; "bass over MIDI" is the bass profile with the MIDI input.
+    #[test]
+    fn instrument_is_chosen_apart_from_input() {
+        let dir = temp_dir("instrument");
+        let mut core = Core::new(&dir, QaOptions::default());
+        assert_eq!(core.instrument_choice(), InstrumentChoice::EBass);
+
+        // Double bass: no frets, microphone suggested, at most five strings, scored as double.
+        core.reconfigure(|s| s.strings = 6);
+        core.choose_instrument(InstrumentChoice::Double).unwrap();
+        assert_eq!(core.settings().instrument, Bass::Double);
+        assert_eq!(core.settings().input_kind, InputKind::Microphone);
+        assert_eq!(core.settings().strings, 5);
+        assert_eq!(core.instrument_choice(), InstrumentChoice::Double);
+        assert_eq!(
+            instrument_from(core.settings()).kind,
+            InstrumentKind::Double
+        );
+
+        // A pickup instead of the microphone stays when the double bass is chosen again.
+        core.reconfigure(|s| s.input_kind = InputKind::Line);
+        core.choose_instrument(InstrumentChoice::Double).unwrap();
+        assert_eq!(core.settings().input_kind, InputKind::Line);
+
+        // Bass over MIDI: the MIDI input, the bass profile kept underneath.
+        core.choose_instrument(InstrumentChoice::Midi).unwrap();
+        assert_eq!(core.settings().input_kind, InputKind::Midi);
+        assert_eq!(core.settings().instrument, Bass::Double);
+        assert_eq!(core.instrument_choice(), InstrumentChoice::Midi);
+        assert_eq!(instrument_from(core.settings()).kind, InstrumentKind::Keys);
+
+        // Back to the e-bass: frets, and a cable instead of MIDI.
+        core.choose_instrument(InstrumentChoice::EBass).unwrap();
+        assert_eq!(core.settings().instrument, Bass::Fretted);
+        assert_eq!(core.settings().input_kind, InputKind::Line);
+        assert_eq!(core.instrument_choice(), InstrumentChoice::EBass);
+
+        // An e-bass keeps being fretless when chosen again.
+        core.reconfigure(|s| s.instrument = Bass::Fretless);
+        core.choose_instrument(InstrumentChoice::EBass).unwrap();
+        assert_eq!(core.settings().instrument, Bass::Fretless);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A piece opened for a double bass is scored as one (intonation, double-bass lessons).
+    #[test]
+    fn piece_takes_the_double_bass() {
+        let dir = temp_dir("instrument-piece");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.choose_instrument(InstrumentChoice::Double).unwrap();
+        core.reconfigure(|s| s.input_kind = InputKind::Line);
+        core.open(&demo()).unwrap();
+        let kind = core.arrangement().unwrap().instrument.kind;
+        assert_eq!(kind, InstrumentKind::Double);
+        assert_eq!(core.score_settings(kind).pitch_cents, 30.0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A double bass at the microphone leaves it for a cable when the e-bass is chosen.
+    #[test]
+    fn ebass_after_double_bass_takes_the_cable() {
+        let dir = temp_dir("instrument-mic");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.choose_instrument(InstrumentChoice::Double).unwrap();
+        core.choose_instrument(InstrumentChoice::EBass).unwrap();
+        assert_eq!(core.settings().input_kind, InputKind::Line);
         let _ = std::fs::remove_dir_all(dir);
     }
 
