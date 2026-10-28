@@ -162,7 +162,6 @@ fn show(event: &PracticeEvent, arrangement: &kontra_model::Arrangement) -> bool 
     false
 }
 
-/// `5-8` → loop over bars 5 to 8 (1-based, inclusive, original bar numbers of the first pass).
 /// The output device: a recording as input (QA) plays silently unless `--output` names one.
 fn output_for(input_file: Option<&std::path::Path>, output: Option<&str>) -> Option<String> {
     if output.is_none() && input_file.is_some() {
@@ -171,6 +170,7 @@ fn output_for(input_file: Option<&std::path::Path>, output: Option<&str>) -> Opt
     output.map(str::to_string)
 }
 
+/// `5-8` → loop over bars 5 to 8 (1-based, inclusive, original bar numbers of the first pass).
 fn parse_loop(text: &str, arrangement: &kontra_model::Arrangement) -> Result<LoopRange, String> {
     let (from, to) = text.split_once('-').ok_or("loop must look like 5-8")?;
     let from: u32 = from
