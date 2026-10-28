@@ -40,6 +40,12 @@ ColumnLayout {
     }
 
     function browse(url) {
+        // QA: the browser stays shut; the log tells what would open.
+        if (ctl.qaRun) {
+            console.log("qa: open " + url)
+            failedUrl = ""
+            return
+        }
         failedUrl = Qt.openUrlExternally(url) ? "" : url
     }
 

@@ -5,7 +5,7 @@ use crate::{instrument, load_arrangement, print_summary, CliResult};
 use kontra_model::InputSource;
 use kontra_session::{
     InputChoice, Live, LiveSetup, LiveTuner, LoopRange, Mode, Outcome, PracticeEvent,
-    PracticeOptions, ScoreSettings, SessionEvent, Workshop,
+    PracticeOptions, ScoreSettings, SessionEvent, Workshop, NULL_DEVICE,
 };
 use std::time::{Duration, Instant};
 
@@ -49,7 +49,7 @@ pub fn practice(a: &PracticeArgs) -> CliResult {
     };
     let setup = LiveSetup {
         input,
-        output_device: a.output.clone(),
+        output_device: output_for(a.input_file.as_deref(), a.output.as_deref()),
         source,
         backing: a.backing.clone(),
         original: None,
@@ -163,6 +163,14 @@ fn show(event: &PracticeEvent, arrangement: &kontra_model::Arrangement) -> bool 
 }
 
 /// `5-8` → loop over bars 5 to 8 (1-based, inclusive, original bar numbers of the first pass).
+/// The output device: a recording as input (QA) plays silently unless `--output` names one.
+fn output_for(input_file: Option<&std::path::Path>, output: Option<&str>) -> Option<String> {
+    if output.is_none() && input_file.is_some() {
+        return Some(NULL_DEVICE.to_string());
+    }
+    output.map(str::to_string)
+}
+
 fn parse_loop(text: &str, arrangement: &kontra_model::Arrangement) -> Result<LoopRange, String> {
     let (from, to) = text.split_once('-').ok_or("loop must look like 5-8")?;
     let from: u32 = from
@@ -224,4 +232,19 @@ pub fn tune(a: &TuneArgs) -> CliResult {
         std::thread::sleep(POLL);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    // QA 27.10.: "practice --input-file … --backing …" played the backing on the owner's speakers.
+    #[test]
+    fn a_recording_plays_silently() {
+        let take = Some(Path::new("take.wav"));
+        assert_eq!(output_for(take, None).as_deref(), Some(NULL_DEVICE));
+        assert_eq!(output_for(take, Some("hw:1")).as_deref(), Some("hw:1"));
+        assert_eq!(output_for(None, None), None);
+    }
 }

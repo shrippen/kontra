@@ -1240,6 +1240,10 @@ Kirigami.Page {
     }
 
     FileDialog {
+
+        // QA: Qt's dialog in the window, never the desktop portal.
+
+        options: ctl.qaRun ? FileDialog.DontUseNativeDialog : 0
         id: backingDialog
         title: texts.t("dialog.backing")
         // Recordings of songs usually live in Music (QA 14.10.: it opened in the working folder).

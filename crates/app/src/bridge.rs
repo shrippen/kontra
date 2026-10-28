@@ -166,6 +166,9 @@ pub mod qobject {
         #[qproperty(QString, screenshot_path, cxx_name = "screenshotPath")]
         #[qproperty(i32, screenshot_after, cxx_name = "screenshotAfter")]
         #[qproperty(i32, quit_after, cxx_name = "quitAfter")]
+        /// QA: a recording replaces the input (`--input-file`); no portal dialog, no browser
+        /// (QA 27.10.: both opened on the owner's desktop).
+        #[qproperty(bool, qa_run, cxx_name = "qaRun")]
         type Controller = super::ControllerRust;
 
         /// Opens a score from a `file://` URL or a path.
@@ -901,6 +904,7 @@ pub struct ControllerRust {
     screenshot_path: QString,
     screenshot_after: i32,
     quit_after: i32,
+    qa_run: bool,
     core: Core,
 }
 
@@ -1062,6 +1066,7 @@ impl Default for ControllerRust {
                 .unwrap_or_default()),
             screenshot_after: args.screenshot_after_ms,
             quit_after: args.quit_after_ms,
+            qa_run: args.input_file.is_some(),
             core,
         };
         controller.song_search_json = q(&match &args.song_search {

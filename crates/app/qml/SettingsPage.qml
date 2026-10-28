@@ -501,6 +501,10 @@ Kirigami.ScrollablePage {
     }
 
     FileDialog {
+
+        // QA: Qt's dialog in the window, never the desktop portal.
+
+        options: ctl.qaRun ? FileDialog.DontUseNativeDialog : 0
         id: exportDialog
         title: texts.t("dialog.export")
         fileMode: FileDialog.SaveFile
@@ -510,6 +514,8 @@ Kirigami.ScrollablePage {
         onAccepted: ctl.exportData(selectedFile.toString())
     }
     FileDialog {
+        // QA: Qt's dialog in the window, never the desktop portal.
+        options: ctl.qaRun ? FileDialog.DontUseNativeDialog : 0
         id: importDialog
         title: texts.t("dialog.import")
         nameFilters: [texts.t("data.files") + " (*.json)"]
