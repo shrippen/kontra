@@ -103,6 +103,8 @@ pub(crate) struct BarHead {
     /// Alternate endings: bit 0 = played on the first pass, bit 1 on the second, ...; 0 = always.
     pub(crate) endings: u32,
     pub(crate) marker: Option<String>,
+    /// Chord symbols as (offset in ticks from the bar start, name), e.g. (1920, "Bbm7").
+    pub(crate) chords: Vec<(u64, String)>,
     /// Signs a jump may land on (segno, coda) or stop at (fine).
     pub(crate) targets: Vec<Target>,
     /// Jumps taken after the bar is played (D.C., D.S., to coda).
@@ -121,6 +123,7 @@ impl BarHead {
             repeat_plays: 0,
             endings: 0,
             marker: None,
+            chords: Vec::new(),
             targets: Vec::new(),
             jumps: Vec::new(),
             tempos: Vec::new(),
