@@ -11,10 +11,11 @@ Item {
     width: 800
     height: 900
 
-    // SummarySheet reads ctl and texts from the application window; keys stand for the texts.
+    // SummarySheet reads ctl and texts from the application window; keys stand for the texts,
+    // the histogram's in English.
     readonly property QtObject texts: QtObject {
-        readonly property var map: ({})
-        function t(key) { return key }
+        readonly property var map: ({ "histogram.bin": "%1 to %2 %3: %4", "histogram.count": "%1 notes" })
+        function t(key) { return map[key] || key }
     }
     readonly property QtObject ctl: QtObject {
         readonly property string summaryJson: JSON.stringify({
@@ -64,6 +65,27 @@ Item {
                 }
             }
             return false
+        }
+
+        // The first item below `item` that has a function `name`.
+        function having(item, name) {
+            if (typeof item[name] === "function") {
+                return item
+            }
+            for (var i = 0; i < item.children.length; i++) {
+                var found = having(item.children[i], name)
+                if (found) {
+                    return found
+                }
+            }
+            return null
+        }
+
+        // Screen readers hear each bar's range and count in the app's language (QA 28.10. B9).
+        function test_bar_names_translated() {
+            var hist = having(sheet, "binName")
+            verify(hist !== null)
+            compare(hist.binName(2), "+10 to +20 ms: 3 notes")
         }
 
         function test_trap_and_return() {

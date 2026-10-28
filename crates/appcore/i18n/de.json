@@ -120,6 +120,7 @@
   "histogram.mean": "Mittel",
   "histogram.count": "%1 Noten",
   "histogram.name": "Timing",
+  "histogram.bin": "%1 bis %2 %3: %4",
   "tuner.name": "Stimmgerät",
   "settings.connection": "Anschluss",
   "calibration.title": "Latenz messen",

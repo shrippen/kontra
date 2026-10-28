@@ -149,6 +149,7 @@ KanteCard {
             lateText: texts.t("result.late")
             meanText: texts.t("histogram.mean")
             countText: texts.t("histogram.count")
+            binText: texts.t("histogram.bin")
             axisTitle: texts.t("histogram.axis")
             accessibleName: texts.t("histogram.name")
         }
