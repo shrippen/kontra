@@ -340,7 +340,7 @@ Orca nicht genutzt, statt dessen der AT-SPI-Baum.
 
 - Behoben bestätigt: S1 (Return löst Knöpfe aus), S2 (Seite scrollt zum Fokus), S4 (Fokus auf „Schließen“),
   S6 (Treffer, Fehler, Ausgelassen über die Form), S12 (Pegel in jeder Ansicht), M21, M22.
-- [ ] B1 (hoch): In niedrigen Fenstern (1280×720 bei 150 %) bleiben den Noten etwa 100 px: Tab schneidet die tiefe
+- [x] B1 (hoch, #175): In niedrigen Fenstern (1280×720 bei 150 %) bleiben den Noten etwa 100 px: Tab schneidet die tiefe
   Saite ab, Noten + Tab überlappen, Lane 4 Saiten auf 70 px. Am Ende eines Laufs drückt der Hinweis „Fertig
   gespielt“ Noten und Tab auf null.
 - [ ] B2 (mittel): Die Seitenleiste nimmt den Hintergrund aus der Systempalette; Kante dunkel auf hellem System:
