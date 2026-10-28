@@ -14,6 +14,8 @@ const HARDEST_BARS: usize = 3;
 const HESITATE_MS: f64 = 80.0;
 /// A played note this close (real ms) to a missed one counts as that note outside the window.
 const OUTSIDE_LIMIT_MS: f64 = 150.0;
+/// Offsets this close count as the same timing.
+const OUTSIDE_TOLERANCE_MS: f64 = 15.0;
 
 /// Counts of timing offsets in 10 ms bins from −100 to +100 ms; outliers go to the edge bins.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -131,10 +133,12 @@ impl Summary {
     }
 }
 
-/// Where the notes fell that missed the timing window: for each missed note the nearest extra
-/// note of its pass within `OUTSIDE_LIMIT_MS`, the median of their offsets in real ms (score
-/// seconds / `speed`; negative = early). `None` unless at least half the missed notes have one.
-/// Example: window ±25 ms, every note 40 ms early → all missed, −40.
+/// Where the notes fell that missed the timing window, in real ms (score seconds / `speed`;
+/// negative = early). Every extra note of a pass within `OUTSIDE_LIMIT_MS` of a missed note is
+/// a candidate offset; the one most missed notes share (within `OUTSIDE_TOLERANCE_MS`) wins,
+/// the nearer on a tie, and the median of the offsets near it is told. `None` unless at least
+/// half the missed notes share it. Example: sixteenths 125 ms apart, every note 70 ms late:
+/// +70 fits all eight notes, −55 (the note before, late) only seven.
 pub(crate) fn outside_offset_ms(results: &[NoteResult], speed: f64) -> Option<f64> {
     let speed = speed.max(f64::EPSILON);
     let missed: Vec<NoteResult> = final_per_note(results)
@@ -145,20 +149,45 @@ pub(crate) fn outside_offset_ms(results: &[NoteResult], speed: f64) -> Option<f6
         .iter()
         .filter(|r| matches!(r.outcome, Outcome::Extra { .. }))
         .collect();
-    let mut offsets: Vec<f64> = missed
+
+    // Per missed note, the offsets of the extra notes around it.
+    let around: Vec<Vec<f64>> = missed
         .iter()
-        .filter_map(|m| {
+        .map(|m| {
             extras
                 .iter()
                 .filter(|e| e.pass == m.pass)
                 .map(|e| (e.position_s - m.position_s) * 1000.0 / speed)
                 .filter(|ms| ms.abs() <= OUTSIDE_LIMIT_MS)
-                .min_by(|a, b| a.abs().total_cmp(&b.abs()))
+                .collect()
         })
         .collect();
-    if missed.is_empty() || offsets.len() * 2 < missed.len() {
+    // For an offset, each missed note's nearest one to it, if close enough.
+    let near = |at: f64| -> Vec<f64> {
+        around
+            .iter()
+            .filter_map(|offsets| {
+                offsets
+                    .iter()
+                    .copied()
+                    .min_by(|a, b| (a - at).abs().total_cmp(&(b - at).abs()))
+                    .filter(|o| (o - at).abs() <= OUTSIDE_TOLERANCE_MS)
+            })
+            .collect()
+    };
+    // Candidates to the whole ms: a long run has thousands of notes but few distinct offsets.
+    let mut candidates: Vec<f64> = around.iter().flatten().map(|o| o.round()).collect();
+    candidates.sort_by(f64::total_cmp);
+    candidates.dedup();
+    let best = candidates
+        .into_iter()
+        .map(|at| (near(at).len(), at))
+        .max_by(|(n, a), (m, b)| n.cmp(m).then(b.abs().total_cmp(&a.abs())))?;
+    let (count, at) = best;
+    if count * 2 < missed.len() {
         return None;
     }
+    let mut offsets = near(at);
     offsets.sort_by(f64::total_cmp);
     Some(offsets[offsets.len() / 2])
 }
@@ -292,6 +321,27 @@ mod tests {
         // Nothing played near the missed notes: nothing to tell.
         let far = played(&[missed, missed]);
         assert_eq!(outside_offset_ms(&far, 1.0), None);
+
+        // Sixteenths at 120 BPM (125 ms apart): 70 ms late lies nearer the next note than its
+        // own; it must still read late (PR-Agent #147: it read "55 ms early").
+        let dense = |shift: f64| {
+            let mut r: Vec<NoteResult> = (0..8)
+                .map(|i| NoteResult {
+                    position_s: f64::from(i) * 0.125,
+                    ..played(&[missed])[0]
+                })
+                .enumerate()
+                .map(|(i, r)| NoteResult { note: Some(i), ..r })
+                .collect();
+            r.extend((0..8).map(|i| extra(f64::from(i) * 0.125 + shift)));
+            r
+        };
+        let early = outside_offset_ms(&dense(-0.040), 1.0).expect("an offset");
+        assert!((early + 40.0).abs() < 1e-6, "{early}");
+        let late = outside_offset_ms(&dense(0.070), 1.0).expect("an offset");
+        assert!((late - 70.0).abs() < 1e-6, "{late}");
+        let early = outside_offset_ms(&dense(-0.070), 1.0).expect("an offset");
+        assert!((early + 70.0).abs() < 1e-6, "{early}");
     }
 
     #[test]
