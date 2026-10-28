@@ -7,8 +7,9 @@ import Kante
 // and the view follows it. Run by scripts/check-video.sh.
 Item {
     id: root
+    // Lower than 540: with the CI runner's smaller fonts the step fit at 540 (#178).
     width: 960
-    height: 540
+    height: 360
 
     // SetupPage reads ctl and texts from the application window; keys stand for the texts.
     readonly property QtObject texts: QtObject {
