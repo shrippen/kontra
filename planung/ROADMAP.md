@@ -342,7 +342,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - M4 (mittel, offen): Enharmonik in B♭: Liste A♯1, Noten D♭ aus C♯.
   - M5 (mittel, offen): MusicXML-Akkordsymbole (`<harmony>`) werden nicht gelesen (LH-BIB-03).
   - M6 (mittel, offen): „Alle Noten“ ohne Timing je Note (LH-BEW-01).
-  - M9 (mittel, offen): Sechzehntel unlesbar, acht Takte in einer Zeile.
+  - M9 (mittel, behoben #157): Sechzehntel unlesbar, acht Takte in einer Zeile.
   - M10 (mittel, behoben #140): Generator: Schlusston über sieben Achtel, Takt las sich als 3/4.
   - M15 (mittel, behoben #143): Alt+5 (Klaviatur) fehlte, Tastenliste nannte alte Modi.
   - Offen (niedrig): M7 Liste „zweiter Blick“ unsortiert; M8 Live-Etikett überdeckt Marken; M11 Fähnchen, Hälse;
