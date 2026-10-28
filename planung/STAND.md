@@ -13,6 +13,7 @@ Kante-Bausteine, Demo-Modus, Kurs aus Ordner, QA-Schalter, pub, Reihenfolge). Na
 ROADMAP-Abschnitt „Entscheidungen Runde 15“.
 
 Offene Befunde mittel (ROADMAP, QA-Runde 27.10.): M4, M5, M6, M9, S3, S12, J2, J3, J10.
+Offen in Kante (J-F1 hängt daran): S1-Rest (Return löst `KanteButton` nicht aus), S2 (Scrollen zum Fokus), S6 (Deuteranopie).
 In `pocket-band` (unten) liegt weiter das Ziel-Band; Kante-Stand der Kopie 1.40, Kante `main` 1.48.
 
 ## Übergabe (25.10.2026, abends)
