@@ -2519,7 +2519,7 @@ impl Core {
     }
 
     /// The beat map in words for the alignment sheet:
-    /// `{"analysed", "bpm", "firstS", "mapped", "bars", "sure", "text"}`. Not `sure`: kick and
+    /// `{"analysed", "bpm", "firstS", "mapped", "bars", "sure", "halfBeat", "text"}`. Not `sure`: kick and
     /// bass do not show where the beat is, the grid may sit on the offbeat.
     pub fn backing_json(&self) -> String {
         let Some(path) = self.loaded_path() else {
