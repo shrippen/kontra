@@ -138,28 +138,13 @@ Kirigami.ScrollablePage {
             color: KanteStyle.mutedTextColor
             text: ctl.calibrationText !== "" ? ctl.calibrationText : texts.t("calibration.hint")
         }
-        KanteSettingRow {
+        InstrumentChoice {
             Layout.fillWidth: true
             section: texts.t("settings.section.instrument")
-            title: texts.t("settings.strings")
-            KanteSegmented {
-                Accessible.name: texts.t("settings.strings")
-                model: ["4", "5", "6"]
-                currentIndex: ctl.strings - 4
-                onActivated: function(index) { ctl.changeInstrument(index + 4, ctl.fretless, ctl.laptopJack) }
-            }
-        }
-        // Title above the presets once they no longer fit beside it, a list below 560.
-        KanteSettingRow {
-            id: tuningRow
-            Layout.fillWidth: true
-            narrow: width < KanteStyle.unit(840)
-            title: texts.t("settings.tuning")
-            hint: texts.t("settings.tuning.hint")
-            TuningChoice { asList: tuningRow.width < KanteStyle.unit(560) }
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            visible: ctl.instrument !== "midi"
             title: texts.t("settings.reference")
             hint: texts.t("settings.reference.hint")
             KanteSpinBox {
@@ -171,15 +156,6 @@ Kirigami.ScrollablePage {
                 textFromValue: function(value) { return value + " Hz" }
                 valueFromText: function(text) { return parseInt(text) }
                 onValueModified: ctl.changeReference(value)
-            }
-        }
-        KanteSettingRow {
-            Layout.fillWidth: true
-            title: texts.t("settings.fretless")
-            KanteSwitch {
-                Accessible.name: texts.t("settings.fretless")
-                checked: ctl.fretless
-                onToggled: ctl.changeInstrument(ctl.strings, checked, ctl.laptopJack)
             }
         }
         KanteSettingRow {

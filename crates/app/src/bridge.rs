@@ -70,6 +70,8 @@ pub mod qobject {
         #[qproperty(QString, output_device, cxx_name = "outputDevice")]
         #[qproperty(i32, strings)]
         #[qproperty(bool, fretless)]
+        /// The instrument as setup and settings offer it: "ebass", "double" or "midi".
+        #[qproperty(QString, instrument)]
         #[qproperty(bool, laptop_jack, cxx_name = "laptopJack")]
         /// How the bass arrives: "line", "laptop", "midi" (LH-EIN-12) or "mic" (LH-EIN-11).
         #[qproperty(QString, connection)]
@@ -296,9 +298,15 @@ pub mod qobject {
         #[cxx_name = "chooseOutput"]
         fn choose_output(self: Pin<&mut Self>, id: &QString);
 
+        /// Strings and frets of the bass; a double bass stays fretless.
         #[qinvokable]
         #[cxx_name = "changeInstrument"]
-        fn change_instrument(self: Pin<&mut Self>, strings: i32, fretless: bool, laptop_jack: bool);
+        fn change_instrument(self: Pin<&mut Self>, strings: i32, fretless: bool);
+
+        /// Chooses the instrument (LH-EIN-09): "ebass", "double" or "midi".
+        #[qinvokable]
+        #[cxx_name = "chooseInstrument"]
+        fn choose_instrument(self: Pin<&mut Self>, key: &QString);
 
         /// Chooses how the bass arrives: "line", "laptop" or "midi".
         #[qinvokable]
@@ -786,8 +794,8 @@ use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
 use kontra_appcore::{
-    data_dir, Blocks, ChainOrder, Core, DataImport, Density, DensityLock, LoopEdge, Opened,
-    PackageAudio, QaOptions, UiEvent,
+    data_dir, Bass, Blocks, ChainOrder, Core, DataImport, Density, DensityLock, InstrumentChoice,
+    LoopEdge, Opened, PackageAudio, QaOptions, UiEvent,
 };
 use std::path::PathBuf;
 
@@ -847,6 +855,7 @@ pub struct ControllerRust {
     output_device: QString,
     strings: i32,
     fretless: bool,
+    instrument: QString,
     laptop_jack: bool,
     connection: QString,
     midi_port_name: QString,
@@ -1002,7 +1011,8 @@ impl Default for ControllerRust {
             input_device: q(s.input_device.as_deref().unwrap_or("")),
             output_device: q(s.output_device.as_deref().unwrap_or("")),
             strings: i32::from(s.strings),
-            fretless: s.fretless,
+            fretless: s.instrument == kontra_appcore::Bass::Fretless,
+            instrument: q(instrument_key(core.instrument_choice())),
             laptop_jack: s.input_kind == kontra_appcore::InputKind::LaptopJack || args.laptop_jack,
             connection: q(connection_key(s.input_kind)),
             midi_port_name: QString::default(),
@@ -1179,6 +1189,15 @@ fn connection_key(kind: kontra_appcore::InputKind) -> &'static str {
         kontra_appcore::InputKind::LaptopJack => "laptop",
         kontra_appcore::InputKind::Midi => "midi",
         kontra_appcore::InputKind::Microphone => "mic",
+    }
+}
+
+/// The instrument choice's key for QML.
+fn instrument_key(choice: InstrumentChoice) -> &'static str {
+    match choice {
+        InstrumentChoice::EBass => "ebass",
+        InstrumentChoice::Double => "double",
+        InstrumentChoice::Midi => "midi",
     }
 }
 
@@ -1673,9 +1692,7 @@ impl qobject::Controller {
             _ => kontra_appcore::InputKind::Line,
         };
         let result = self.as_mut().core().retune(|s| s.input_kind = kind);
-        self.as_mut().set_connection(q(connection_key(kind)));
-        self.as_mut()
-            .set_laptop_jack(kind == kontra_appcore::InputKind::LaptopJack);
+        self.as_mut().refresh_instrument();
         self.as_mut().refresh_devices();
         self.as_mut().after_retune(result);
     }
@@ -1712,27 +1729,48 @@ impl qobject::Controller {
         self.as_mut().set_output_device(q(&id));
     }
 
-    fn change_instrument(
-        mut self: Pin<&mut Self>,
-        strings: i32,
-        fretless: bool,
-        laptop_jack: bool,
-    ) {
-        let count = u8::try_from(strings.clamp(4, 6)).unwrap_or(4);
+    fn change_instrument(mut self: Pin<&mut Self>, strings: i32, fretless: bool) {
         let result = self.as_mut().core().retune(|s| {
-            s.strings = count;
-            s.fretless = fretless;
-            // A MIDI keyboard stays chosen when only the strings change.
-            s.input_kind = match (laptop_jack, s.input_kind) {
-                (true, _) => kontra_appcore::InputKind::LaptopJack,
-                (false, kontra_appcore::InputKind::Midi) => kontra_appcore::InputKind::Midi,
-                (false, _) => kontra_appcore::InputKind::Line,
-            };
+            let max = i32::from(s.instrument.strings_max());
+            s.strings = u8::try_from(strings.clamp(4, max)).unwrap_or(4);
+            if s.instrument != Bass::Double {
+                s.instrument = if fretless {
+                    Bass::Fretless
+                } else {
+                    Bass::Fretted
+                };
+            }
         });
-        self.as_mut().set_strings(i32::from(count));
-        self.as_mut().set_fretless(fretless);
-        self.as_mut().set_laptop_jack(laptop_jack);
+        self.as_mut().refresh_instrument();
         self.as_mut().after_retune(result);
+    }
+
+    fn choose_instrument(mut self: Pin<&mut Self>, key: &QString) {
+        let choice = match key.to_string().as_str() {
+            "double" => InstrumentChoice::Double,
+            "midi" => InstrumentChoice::Midi,
+            _ => InstrumentChoice::EBass,
+        };
+        let result = self.as_mut().core().choose_instrument(choice);
+        self.as_mut().refresh_instrument();
+        self.as_mut().refresh_devices();
+        self.as_mut().after_retune(result);
+    }
+
+    /// Instrument and input as stored, for setup and settings.
+    fn refresh_instrument(mut self: Pin<&mut Self>) {
+        let (s, choice) = {
+            let this = self.as_ref();
+            let core = &this.rust().core;
+            (core.settings().clone(), core.instrument_choice())
+        };
+        self.as_mut().set_strings(i32::from(s.strings));
+        self.as_mut().set_fretless(s.instrument == Bass::Fretless);
+        self.as_mut().set_instrument(q(instrument_key(choice)));
+        self.as_mut()
+            .set_laptop_jack(s.input_kind == kontra_appcore::InputKind::LaptopJack);
+        self.as_mut()
+            .set_connection(q(connection_key(s.input_kind)));
     }
 
     /// After an instrument change: new strings everywhere, or the error.
@@ -2542,7 +2580,7 @@ impl qobject::Controller {
 
     /// Every settings property and list from the core, after the data changed underneath.
     fn sync_settings(mut self: Pin<&mut Self>) {
-        let (s, texts, recent, tuning, keys) = {
+        let (s, texts, recent, tuning, keys, choice) = {
             let this = self.as_ref();
             let core = &this.rust().core;
             (
@@ -2551,6 +2589,7 @@ impl qobject::Controller {
                 core.recent_json(),
                 core.tuning_json(),
                 core.key_range_json(),
+                core.instrument_choice(),
             )
         };
         self.as_mut().set_texts(q(&texts));
@@ -2568,7 +2607,8 @@ impl qobject::Controller {
         self.as_mut()
             .set_output_device(q(s.output_device.as_deref().unwrap_or("")));
         self.as_mut().set_strings(i32::from(s.strings));
-        self.as_mut().set_fretless(s.fretless);
+        self.as_mut().set_fretless(s.instrument == Bass::Fretless);
+        self.as_mut().set_instrument(q(instrument_key(choice)));
         self.as_mut()
             .set_laptop_jack(s.input_kind == kontra_appcore::InputKind::LaptopJack);
         self.as_mut()

@@ -21,6 +21,7 @@ const PAGES: [&str; 29] = [
     "qml/EarPage.qml",
     "qml/BackingAlign.qml",
     "qml/ConnectionChoice.qml",
+    "qml/InstrumentChoice.qml",
     "qml/TuningChoice.qml",
     "qml/SongSources.qml",
     "qml/LearnPage.qml",
