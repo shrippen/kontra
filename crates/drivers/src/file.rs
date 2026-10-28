@@ -202,27 +202,6 @@ pub fn write_wav(path: &Path, buffer: &AudioBuffer) -> Result<(), FileError> {
     writer.finalize().map_err(|e| decode_error(path, e))
 }
 
-/// Writes 16-bit WAV: half the size of float, for audio that is only listened to (a cache).
-pub fn write_wav_16(path: &Path, buffer: &AudioBuffer) -> Result<(), FileError> {
-    let spec = hound::WavSpec {
-        channels: buffer.channels.len().max(1) as u16,
-        sample_rate: buffer.sample_rate,
-        bits_per_sample: 16,
-        sample_format: hound::SampleFormat::Int,
-    };
-    let mut writer = hound::WavWriter::create(path, spec).map_err(|e| decode_error(path, e))?;
-    let full = f32::from(i16::MAX);
-    for i in 0..buffer.frames() {
-        for channel in &buffer.channels {
-            let sample = (channel[i].clamp(-1.0, 1.0) * full).round() as i16;
-            writer
-                .write_sample(sample)
-                .map_err(|e| decode_error(path, e))?;
-        }
-    }
-    writer.finalize().map_err(|e| decode_error(path, e))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

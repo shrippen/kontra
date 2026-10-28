@@ -4,7 +4,7 @@
 //! backing track is open.
 //!
 //! ```text
-//! open piece ─► BackingCache::prepare (thread) ─► <cache>/<key>.wav (16 bit, output rate)
+//! open piece ─► BackingCache::prepare (thread) ─► <cache>/<key>.wav (float, output rate)
 //! play       ─► BackingCache::load ─ cached? ─yes─► read the WAV (no resampling)
 //!                                       └─no──► decode, resample, keep
 //! ```
@@ -197,7 +197,7 @@ mod tests {
             .zip(&again.left)
             .map(|(a, b)| (a - b).abs())
             .fold(0.0f32, f32::max);
-        assert!(worst < 1e-4, "16 bit: {worst}");
+        assert!(worst < 1e-4, "float: {worst}");
 
         // Another rate is another file.
         assert!(!cache.cached(&song, RATE));

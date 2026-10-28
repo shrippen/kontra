@@ -5223,8 +5223,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// LH-BIB-06: the beats of a backing track become the piece's tempo map and offset; bar 1
-    /// can be moved by a beat.
     /// QA 27.10. (J2): the backing track was decoded in the UI thread on every first play after
     /// opening. Now a thread prepares it once; play waits for it and then reads the cache.
     #[test]
@@ -5278,10 +5276,14 @@ mod tests {
         assert!(!core.backing_loading());
         let _ = core.play();
         assert!(core.has_run());
+        // Played from the prepared file: no second one at another rate (review #162).
+        assert_eq!(cache.usage().0, 1);
         core.stop_live();
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// LH-BIB-06: the beats of a backing track become the piece's tempo map and offset; bar 1
+    /// can be moved by a beat.
     #[test]
     fn backing_beats_set_the_tempo() {
         let dir = temp_dir("beats");

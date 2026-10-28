@@ -13,10 +13,11 @@ use std::path::PathBuf;
 
 const CACHE_DIR: &str = "backing";
 
-/// The songs last prepared (or being prepared) and the running job.
+/// The songs and output last prepared for (or being prepared) and the running job.
 #[derive(Debug, Default)]
 pub(crate) struct Prepare {
     songs: Vec<PathBuf>,
+    device: Option<String>,
     job: Option<Preparing>,
 }
 
@@ -45,16 +46,18 @@ impl Core {
             return None;
         }
         let songs = self.backing_songs();
-        if songs == self.prepare.songs {
+        // The saved device as it is: listing devices is left to the thread. Another output may
+        // play at another rate, so a change prepares again (review #162).
+        let device = self.settings.output_device.clone();
+        if songs == self.prepare.songs && device == self.prepare.device {
             return None;
         }
         self.prepare.songs = songs.clone();
+        self.prepare.device = device.clone();
         if songs.is_empty() {
             return None;
         }
         let cache = BackingCache::new(&self.backing_cache_dir());
-        // The saved device as it is: listing devices is left to the thread.
-        let device = self.settings.output_device.clone();
         self.prepare.job = Some(cache.prepare(songs, device));
         Some(UiEvent::BackingLoading(true))
     }
