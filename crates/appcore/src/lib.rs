@@ -7030,6 +7030,51 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// Review #164: a package without a backing track keeps its loops and target speed after a
+    /// restart; opening it again keeps the student's own target speed when it brings none.
+    #[test]
+    fn package_without_backing_is_kept() {
+        let dir = temp_dir("package-plain");
+        let mut teacher = Core::new(&dir.join("thomas"), QaOptions::default());
+        teacher.open(&demo()).unwrap();
+        teacher.set_loop(2, 3);
+        teacher.save_loop();
+        teacher.set_target_speed(0.8);
+        let package = dir.join("plain.kontra");
+        teacher
+            .export_package(&demo(), &package, PackageAudio::Link)
+            .unwrap();
+
+        let student_dir = dir.join("schueler");
+        let mut student = Core::new(&student_dir, QaOptions::default());
+        student.open(&package).unwrap();
+        assert!(student.backing().is_none());
+        let score = student.loaded_path().unwrap().to_path_buf();
+        drop(student);
+
+        let mut again = Core::new(&student_dir, QaOptions::default());
+        again.open(&score).unwrap();
+        assert_eq!(again.saved_loops(), vec![(2, 3)]);
+        assert_eq!(again.target_speed(), 0.8);
+
+        // A package without a target speed leaves the student's own.
+        let mut other = Core::new(&dir.join("andere"), QaOptions::default());
+        other.open(&demo()).unwrap();
+        // The same package again, now without a target speed.
+        std::fs::create_dir_all(dir.join("neu")).unwrap();
+        let bare = dir.join("neu").join("plain.kontra");
+        other
+            .export_package(&demo(), &bare, PackageAudio::Link)
+            .unwrap();
+        again.open(&score).unwrap();
+        again.set_target_speed(0.7);
+        let own_score = again.loaded_path().unwrap().to_path_buf();
+        again.open(&bare).unwrap();
+        assert_eq!(again.loaded_path().unwrap(), own_score.as_path());
+        assert_eq!(again.target_speed(), 0.7);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// Runde 15: the workshop climbs to the piece's target speed; a loop can be dropped again.
     #[test]
     fn target_speed_and_loops_per_piece() {

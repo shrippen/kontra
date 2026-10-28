@@ -152,8 +152,11 @@ impl Core {
                 entry.loops.push(practice);
             }
         }
-        entry.target_speed = m.target_speed.map(clamp_speed);
-        let loops = entry.loops.len();
+        // The sender's target speed, if it brings one; else the student's own stays (review #164).
+        if let Some(speed) = m.target_speed {
+            entry.target_speed = Some(clamp_speed(speed));
+        }
+        let loops = m.loops.len();
         if let Some((audio, offset_s)) = backing {
             entry.backing = Some(audio);
             entry.backing_offset_s = offset_s;
