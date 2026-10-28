@@ -247,8 +247,8 @@ zeigt „Weiter: <nächste Lektion>“; ohne Eingang antwortet ein Klick auf die
 2. Lea: in der Auswertung „Slide: 3 von 5“, „?“ an „Slide“; zurück.
 3. Jens: Walking-Übung II-V-I in der Ansicht „Noten“; unter dem Griffbrett „Akkordsymbol ?“; ein Stück mit Techniken
    zeigt dort seine Zeichen (h Hammer-on ?, sl Slide ? …).
-Erwartet: Eintrag kurz mit Abbildung und Verweis auf die Lektion; zurück an dieselbe Stelle (auch gescrollt), nichts
-verstellt. Eine Auswahl ohne Begriff (Funk) zeigt kein „?“; „Akkordsymbol“ nur, wo Akkordsymbole stehen (Noten).
+Erwartet: Eintrag kurz mit Abbildung und Verweis auf die Lektion; zurück an dieselbe Stelle (auch gescrollt), der Fokus
+wieder auf dem „?“, nichts verstellt. Eine Auswahl ohne Begriff (Funk) zeigt kein „?“; „Akkordsymbol“ nur, wo Akkordsymbole stehen (Noten).
 
 **J-G3 Wiederholen** · Persona: P1 Lea · Phase 2 · LH-LRN-10
 1. Prüffragen von Kapitel 1, eine falsch.
@@ -285,7 +285,7 @@ Erwartet: Fehler mit Datei und Zeile; die Vorschau sieht aus wie in Kontra; das 
 2. J-A1 und J-B3 nur mit Tastatur, dazu Saitenwahl im Stimmgerät und Auswertung schließen (Esc).
 3. Mit Orca: Bibliothek, Einstellungen und Auswertung vorlesen lassen.
 4. Bei 1280×720 und 150 % ein Stück in jeder Ansicht (Lane, Tab, Noten, Noten + Tab, Klaviatur) abspielen.
-Erwartet: Fokus immer sichtbar; Treffer/Fehler/früh/spät ohne Farbe unterscheidbar; alle Bedienelemente haben Namen; keine abgeschnittenen Texte; Animationen reduziert; Pegel und Pegel-Hinweis in jeder Ansicht unter den Noten, nichts überlappt; im niedrigen Fenster treten Transponieren, Timing und Notendichte beim Spielen zurück, der Tab zeigt alle Saiten.
+Erwartet: Fokus immer sichtbar; Treffer/Fehler/früh/spät ohne Farbe unterscheidbar; alle Bedienelemente haben Namen; keine abgeschnittenen Texte; Animationen reduziert; Pegel und Pegel-Hinweis in jeder Ansicht unter den Noten, nichts überlappt; im niedrigen Fenster treten Transponieren, Timing und Notendichte (in der Werkstatt auch Zieltempo, gemerkte Loops und Bausteine) beim Spielen zurück, der Tab zeigt alle Saiten; im Einrichtungsschritt „Pegel und Stimmen“ erreicht Tab das Stimmgerät und zeigt Ton, Cent und Drehrichtung; jede Übung der Liste ist mit Tab und Umschalt+Tab erreichbar, auch nach einem „?“.
 
 **J-F2 Sprache** · alle · Phase 1 · LH-ALL-01
 1. System auf Englisch, J-A1 und J-B1.

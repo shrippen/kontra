@@ -247,7 +247,8 @@ Kirigami.Page {
     readonly property bool slim: width < KanteStyle.unit(700)
     readonly property bool compact: height < KanteStyle.unit(560)
     // A low window during a run or at its end (QA 28.10., P4 at 1280×720, 150 %): transpose,
-    // timing aim and density step aside, so tab and staff keep their height.
+    // timing aim and density step aside, so tab and staff keep their height; in the workshop also
+    // target tempo, kept loops and the block choice (B6, P7 at 200 %). Bars and pass stay.
     readonly property bool lean: compact && (ctl.playing || page.summaryReady)
     // Five views as buttons need about 470 px: below this width a list, so modes, view and
     // transposing share one row (QA 14.10., 1280 px with the sidebar).
@@ -709,7 +710,7 @@ Kirigami.Page {
         Flow {
             id: loopsRow
             Layout.fillWidth: true
-            visible: ctl.mode === "workshop" && !page.presenting
+            visible: ctl.mode === "workshop" && !page.presenting && !page.lean
             spacing: KanteStyle.unit(8)
             readonly property var loops: JSON.parse(ctl.savedLoopsJson)
             function barsText(loop) {
@@ -765,7 +766,9 @@ Kirigami.Page {
         Flow {
             id: chainRow
             Layout.fillWidth: true
+            // Lean: only the step reached ("block 2 of 4") stays.
             visible: ctl.mode === "workshop" && !page.presenting && !page.simple
+                     && (!page.lean || chain !== null)
             spacing: KanteStyle.unit(8)
             readonly property var chain: JSON.parse(ctl.chainJson)
             // Bars per block or phrases (cut at rests), as ctl.startChain takes them.
@@ -778,6 +781,7 @@ Kirigami.Page {
                 ctl.startChain(size, chainRow.order)
             }
             Row {
+                visible: !page.lean
                 spacing: KanteStyle.unit(8)
                 height: KanteStyle.heightMedium
                 KanteHud {
