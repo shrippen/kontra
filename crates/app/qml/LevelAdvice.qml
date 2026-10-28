@@ -10,6 +10,8 @@ ColumnLayout {
 
     /// Only shown while sound is expected (playing, or the setup's level step).
     property bool listening: true
+    /// Only the advice, without what gain is: a low window keeps its room for the notes (S12).
+    property bool brief: false
     signal useLaptopJack()
 
     readonly property var ctl: applicationWindow().ctl
@@ -31,7 +33,7 @@ ColumnLayout {
     QQC2.Label {
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
-        visible: advice.state === "quiet" || advice.state === "loud" || advice.state === "clip"
+        visible: !advice.brief && (advice.state === "quiet" || advice.state === "loud" || advice.state === "clip")
         text: advice.texts.t("advice.gain")
         color: KanteStyle.mutedTextColor
         font: KanteStyle.smallFont

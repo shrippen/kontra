@@ -350,7 +350,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - S9 (mittel, behoben #137), S10, S13, S15 (niedrig, behoben #137): springende Knöpfe, MIDI-Hinweis ohne Keyboard,
     englische Formulierungen, Glossar sortierte „Dämpfen“ nach „Durchgangston“.
   - S11 (mittel, behoben #163): Kein Instrument „Kontrabass“ oder „MIDI-Bass“ wählbar (LH-EIN-09).
-  - S12 (mittel, offen): Notenansicht ohne Pegel und Toleranz-Hinweis, untere Hälfte leer.
+  - S12 (mittel, behoben #PR): Notenansicht ohne Pegel und Toleranz-Hinweis, untere Hälfte leer; Pegel jetzt immer.
   - S14 (niedrig, Kante): Einstöckiges „a“ der Kante-Schrift liest sich bei 100 % wie „o“.
 - **P5 Aylin (J-A4, J-E1), P6 Karl (J-A4, J-E2): bestanden.** J-E2 mit Band im Raum (`room-double-backing`) nicht
   prüfbar: der Abzug zieht nur Kontras eigenes Backing ab.

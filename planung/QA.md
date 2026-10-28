@@ -282,7 +282,8 @@ Erwartet: Fehler mit Datei und Zeile; die Vorschau sieht aus wie in Kontra; das 
 1. Skalierung 200 %, Farbfilter Deuteranopie, „Bewegung reduzieren“ an.
 2. J-A1 und J-B3 nur mit Tastatur, dazu Saitenwahl im Stimmgerät und Auswertung schließen (Esc).
 3. Mit Orca: Bibliothek, Einstellungen und Auswertung vorlesen lassen.
-Erwartet: Fokus immer sichtbar; Treffer/Fehler/früh/spät ohne Farbe unterscheidbar; alle Bedienelemente haben Namen; keine abgeschnittenen Texte; Animationen reduziert.
+4. Bei 1280×720 und 150 % ein Stück in jeder Ansicht (Lane, Tab, Noten, Noten + Tab, Klaviatur) abspielen.
+Erwartet: Fokus immer sichtbar; Treffer/Fehler/früh/spät ohne Farbe unterscheidbar; alle Bedienelemente haben Namen; keine abgeschnittenen Texte; Animationen reduziert; Pegel und Pegel-Hinweis in jeder Ansicht unter den Noten, nichts überlappt.
 
 **J-F2 Sprache** · alle · Phase 1 · LH-ALL-01
 1. System auf Englisch, J-A1 und J-B1.
