@@ -32,7 +32,7 @@ use kontra_model::{Arrangement, InputSource, InstrumentKind, Judging, Technique,
 use kontra_session::{
     import_file, list_devices, run_from, technique_signs, CalibrationResult, Chain, Connection,
     DeviceInfo, Direction, Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveEar,
-    LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Outcome, Pocket, PocketVerdict,
+    LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Outcome, OutsideNote, Pocket, PocketVerdict,
     PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings, SessionEvent, Shaping,
     Summary, TechniqueOutcome, TechniqueResult, Workshop,
 };
@@ -2796,11 +2796,13 @@ impl Core {
 
     /// Every judged note of the run (LH-BEW-01), the last attempt per pass and note, in order:
     /// `{index, pass, bar, state, offsetMs, cents, severity, technique, techniqueResult, text}`;
-    /// `text` reads like "Takt 3 · G1 · 42 ms zu spät · +12 Cent · Slap: andere Technik".
+    /// `text` reads like "Takt 3 · G1 · 42 ms zu spät · +12 Cent · Slap: andere Technik"; a
+    /// missed note in `outside` tells where it fell beside the window.
     fn note_details(
         &self,
         results: &[NoteResult],
         techniques: &[TechniqueResult],
+        outside: &[OutsideNote],
     ) -> Vec<serde_json::Value> {
         let Some(a) = self.arrangement() else {
             return Vec::new();
@@ -2839,7 +2841,22 @@ impl Core {
                     Some(ms) if ms >= 1.0 => {
                         parts.push(self.tr("summary.note.late", &[("ms", format!("{ms:.0}"))]))
                     }
-                    _ => {}
+                    Some(_) => parts.push(self.tr("summary.note.ontime", &[])),
+                    None => {}
+                }
+                // A missed note played beside the window: where it fell (M6).
+                let beside = outside
+                    .iter()
+                    .find(|o| o.pass == pass && o.note == index)
+                    .map(|o| o.offset_ms);
+                match beside {
+                    Some(ms) if ms < 0.0 => parts.push(self.tr(
+                        "summary.note.outside.early",
+                        &[("ms", format!("{:.0}", -ms))],
+                    )),
+                    Some(ms) => parts
+                        .push(self.tr("summary.note.outside.late", &[("ms", format!("{ms:.0}"))])),
+                    None => {}
                 }
                 // A wrong note names what was played; cents only for the right note's intonation.
                 match (r.outcome, r.cents) {
@@ -2896,7 +2913,7 @@ impl Core {
         results: &[NoteResult],
         techniques: &[TechniqueResult],
     ) -> String {
-        let notes = self.note_details(results, techniques);
+        let notes = self.note_details(results, techniques, &s.outside_notes);
         // Techniques apart from the hit rate (round 9): "Slide: 8 von 10".
         let technique_list: Vec<_> = s
             .techniques
@@ -5412,7 +5429,7 @@ mod tests {
             cents: Some(110.0),
             position_s: 0.0,
         };
-        let notes = core.note_details(&[result], &[]);
+        let notes = core.note_details(&[result], &[], &[]);
         let text = notes[0]["text"].as_str().unwrap();
         let name = core.note_label(&played.to_string());
         assert!(
@@ -5420,6 +5437,44 @@ mod tests {
             "{text}"
         );
         assert!(!text.contains("Cent"), "{text}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// QA 27.10. (P3 Mira, M6): "Alle Noten" gave no timing for a note within a millisecond
+    /// (a played take is that exact); LH-BEW-01 wants every note's timing in ms.
+    #[test]
+    fn every_note_tells_its_timing() {
+        let dir = temp_dir("note-timing");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("en".into()));
+        core.open(&demo()).unwrap();
+        let result = NoteResult {
+            pass: 0,
+            note: Some(0),
+            bar: Some(0),
+            outcome: Outcome::Hit,
+            offset_ms: Some(0.4),
+            cents: Some(3.0),
+            position_s: 0.0,
+        };
+        // A missed note played 40 ms early, beside a strict window (M2): its own timing too.
+        let missed = NoteResult {
+            note: Some(1),
+            outcome: Outcome::Missed,
+            offset_ms: None,
+            cents: None,
+            ..result
+        };
+        let outside = OutsideNote {
+            pass: 0,
+            note: 1,
+            offset_ms: -40.0,
+        };
+        let notes = core.note_details(&[result, missed], &[], &[outside]);
+        let text = notes[0]["text"].as_str().unwrap();
+        assert!(text.contains("0 ms"), "{text}");
+        let text = notes[1]["text"].as_str().unwrap();
+        assert!(text.contains("40 ms early"), "{text}");
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -5451,7 +5506,7 @@ mod tests {
             cents: None,
             position_s: 0.0,
         };
-        let notes = core.note_details(&[result(0, 39), result(1, 39)], &[]);
+        let notes = core.note_details(&[result(0, 39), result(1, 39)], &[], &[]);
         let flat = notes[0]["text"].as_str().unwrap();
         assert!(flat.contains("B♭1") && flat.contains("E♭2"), "{flat}");
         let sharp = notes[1]["text"].as_str().unwrap();

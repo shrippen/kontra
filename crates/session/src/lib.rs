@@ -64,7 +64,7 @@ pub use settings::{ScoreSettings, Strictness};
 pub use songsterr::{BassTrack, SearchError, SearchStart, SongHit, SongSearch};
 pub use sources::{download_dir, recent_scores, search_url, SongSite};
 pub use stems::{BassRemoval, StemJob};
-pub use summary::{Summary, TimingHistogram};
+pub use summary::{OutsideNote, Summary, TimingHistogram};
 pub use technique::{
     technique_signs, technique_targets, told_techniques, TechniqueOutcome, TechniqueResult,
     TechniqueTally, TechniqueTarget,
