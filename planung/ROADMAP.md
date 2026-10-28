@@ -189,7 +189,7 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 - [x] Kante #86: `scheme` herausgenommen, Rest nach Review gemerged; Kante 1.49 veröffentlicht, in Kontra #170. Hell/Dunkel als eigener Kante-PR mit der Einstellung in Kontra (M20).
 - [ ] Probenzeichen: Kante-Baustein, dann Generator und MIDI-Import (mehrere Marker je Takt zusammengefasst,
       LH-BIB-12, J10).
-- [ ] Pop in Dreiklängen, Septimen nur bei Soul/Jazz (LH-BIB-12, J10).
+- [x] Pop und Ballade in Dreiklängen, Septimen bei Funk und Shuffle, Rock in Powerchords (LH-BIB-12, J10, #169).
 - [x] Einstellungen → Daten: Backing-Cache und getrennte Songs mit Größe, je Eintrag löschen, „alles leeren“
       (LH-BIB-09, #172).
 - [x] Notenansicht zeigt Pegel und Toleranz immer, die Noten schrumpfen (S12, #171).
@@ -400,8 +400,8 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - J7 (mittel, behoben #142): Nach Eingabe in „Takte“ blieben K und Fußschalter tot; Return/Esc geben frei.
   - J8 (mittel, behoben #148): „Ohne Hilfe prüfen“ floss in Werkstatt-Durchläufe und Dichte-Vorschlag ein.
   - J9 (mittel, behoben #146): Erzeugtes Stück erbte Loop und Tempo des vorigen.
-  - J10 (mittel, teils behoben #158): Erzeugtes Stück ohne Teilnamen; „Rock in E“ mit maj7-Akkorden. Akkorde behoben
-    (Powerchords); Teilnamen brauchen Probenzeichen in Kante.
+  - J10 (mittel, teils behoben #158, #169): Erzeugtes Stück ohne Teilnamen; „Rock in E“ mit maj7-Akkorden. Akkorde behoben
+    (Rock Powerchords #158; Pop, Ballade und Pop-Grooves Dreiklänge #169, Runde 16); Teilnamen brauchen Probenzeichen in Kante.
   - J11 (mittel, Inhalt): Glossar ohne Abbildungen und Hörbeispiele.
   - Offen (niedrig): J1b englischer Rohfehler im Kurs-Satz; J5 Mithör-Hinweis ohne ms; J6 Lane 45 px bei Mixer,
     Mithören und Callout; J12 „bestes Ergebnis“ aus Frei spielen; J13 Sammelbefund („1 Stücke“, Schlagzeug-Regler
