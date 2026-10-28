@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
 
 const RESULT_EXT: &str = "wav";
-/// Prepared tracks kept; about 46 MB for four minutes at 48 kHz.
+/// Prepared tracks kept; about 92 MB each for four minutes at 48 kHz (float stereo).
 const KEEP_FILES: usize = 4;
 /// Output rate when no device tells one (also the rate of the silent output).
 const FALLBACK_RATE: u32 = 48_000;
