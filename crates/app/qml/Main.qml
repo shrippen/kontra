@@ -122,8 +122,12 @@ Kirigami.ApplicationWindow {
     readonly property bool systemReducesMotion: Kirigami.Units.longDuration === 0
     Binding { target: KanteStyle; property: "motion"; value: ctl.motion !== "reduce" }
     KanteScope { target: root.contentItem }
-    // Its labels take the highlighted text colour from Kirigami's theme.
-    KanteScope { target: root.globalDrawer ? root.globalDrawer.contentItem : null }
+    // Its labels take the highlighted text colour from Kirigami's theme; its ground and disabled
+    // entries Kante's too (Kante 1.51; QA 28.10., P1 on a light system: white, 1.4:1).
+    KanteScope {
+        target: root.globalDrawer ? root.globalDrawer.contentItem : null
+        popup: root.globalDrawer
+    }
     color: KanteStyle.themed ? KanteStyle.backgroundColor : Kirigami.Theme.backgroundColor
 
     // The lesson open on the lesson page and its step, kept while the tuner or an exercise runs.
@@ -205,7 +209,7 @@ Kirigami.ApplicationWindow {
     }
 
     DrawerFocus { drawer: root.globalDrawer }
-    DrawerSkin { drawer: root.globalDrawer }
+    DrawerSeparators { drawer: root.globalDrawer }
 
     // Audio and session are polled here, ~60 times a second.
     Timer {

@@ -23,8 +23,16 @@ KanteCard {
         }
     }
     function close() { visible = false }
-    // Tab stays in the sheet while it is open (QA 28.10., P7).
-    FocusTrap { area: sheet; first: closeButton }
+    // Tab stays in the sheet while it is open; closed, the focus goes to `returnTo`. What lies
+    // in `behind` is hidden meanwhile, also for screen readers (QA 28.10., P7).
+    property alias returnTo: trap.returnTo
+    property alias behind: trap.behind
+    KanteFocusTrap {
+        id: trap
+        area: sheet
+        first: closeButton
+        behindMode: KanteFocusTrap.Behind.Hide
+    }
 
     visible: false
     barColor: KanteStyle.accentColor
