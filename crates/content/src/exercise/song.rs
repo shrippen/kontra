@@ -348,12 +348,22 @@ mod tests {
     #[test]
     fn pop_chords_are_triads() {
         let sevenths = |n: &str| n.ends_with("maj7") || n.ends_with('7') || n.ends_with("7b5");
-        for style in [Style::Pop, Style::Ballad] {
-            let (pass, _) = song(style, Level::Medium, 0);
+        // Every level (review #169: the hard line is denser), in C and two other keys.
+        let cases = [Style::Pop, Style::Ballad]
+            .into_iter()
+            .flat_map(|s| [Level::Easy, Level::Medium, Level::Hard].map(|l| (s, l)))
+            .flat_map(|(s, l)| [0, 3, 7].map(|key| (s, l, key)));
+        for (style, level, key) in cases {
+            let (pass, _) = song(style, level, key);
             let names: Vec<&str> = pass.markers.iter().map(|m| m.1.as_str()).collect();
-            assert!(!names.iter().any(|n| sevenths(n)), "{style:?}: {names:?}");
-            assert_eq!(names.first(), Some(&"C"), "{style:?}");
-            assert!(names.contains(&"Am"), "{style:?}: {names:?}");
+            assert!(
+                !names.iter().any(|n| sevenths(n)),
+                "{style:?} {level:?}: {names:?}"
+            );
+            if key == 0 {
+                assert_eq!(names.first(), Some(&"C"), "{style:?}");
+                assert!(names.contains(&"Am"), "{style:?}: {names:?}");
+            }
 
             // No tone a major seventh (11) or minor seventh (10) above the bar's root.
             let roots: Vec<(u32, i32)> = pass
@@ -367,7 +377,10 @@ mod tests {
                     continue;
                 };
                 let interval = (tone.key - root).rem_euclid(12);
-                assert!(interval != 10 && interval != 11, "{style:?}: {tone:?}");
+                assert!(
+                    interval != 10 && interval != 11,
+                    "{style:?} {level:?}: {tone:?}"
+                );
             }
         }
         for style in [Style::Funk, Style::Shuffle] {
