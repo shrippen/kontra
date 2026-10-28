@@ -96,6 +96,7 @@ Kirigami.ScrollablePage {
             model: page.steps.map(function(s) { return texts.t("setup.step." + s) })
             current: page.step
             skipped: page.skippedSteps
+            stepText: texts.t("setup.state.step")
             stateNames: ({ done: texts.t("setup.state.done"), current: texts.t("setup.state.current"),
                            upcoming: texts.t("setup.state.upcoming"), skipped: texts.t("setup.state.skipped") })
         }

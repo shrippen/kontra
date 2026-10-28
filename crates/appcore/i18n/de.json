@@ -961,6 +961,7 @@
   "histogram.axis": "Noten",
   "progress.axis.seconds": "Sekunden",
   "progress.axis.minutes": "Minuten",
+  "setup.state.step": "Schritt %1 von %2",
   "setup.state.done": "erledigt",
   "setup.state.current": "aktuell",
   "setup.state.upcoming": "offen",
