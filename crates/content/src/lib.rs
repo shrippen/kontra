@@ -27,7 +27,8 @@ mod zip;
 
 pub use error::ImportError;
 pub use package::{
-    read_package, write_package, Manifest, Package, PackageBacking, PACKAGE_FORMAT, PACKAGE_VERSION,
+    read_package, write_package, Manifest, Package, PackageBacking, PackageLoop,
+    PACKAGE_AUDIO_MAX_BYTES, PACKAGE_FORMAT, PACKAGE_VERSION,
 };
 pub use tab::assign_tab;
 pub use transpose::{transpose, TRANSPOSE_MAX};

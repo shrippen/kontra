@@ -57,6 +57,10 @@ pub mod qobject {
         #[qproperty(QString, holding_text, cxx_name = "holdingText")]
         #[qproperty(QString, summary_json, cxx_name = "summaryJson")]
         #[qproperty(QString, chain_json, cxx_name = "chainJson")]
+        /// Loops kept with the piece: `[{"from", "to"}]`, bar indices (LH-BIB-07).
+        #[qproperty(QString, saved_loops_json, cxx_name = "savedLoopsJson")]
+        /// The workshop's target speed for the piece, 1.0 = as written.
+        #[qproperty(f64, target_speed, cxx_name = "targetSpeed")]
         #[qproperty(QString, recent_json, cxx_name = "recentJson")]
         #[qproperty(QString, setlists_json, cxx_name = "setlistsJson")]
         /// Tracks of the loaded file: `{"names": [...], "current": i}`.
@@ -240,6 +244,21 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "clearLoop"]
         fn clear_loop(self: Pin<&mut Self>);
+
+        /// Keeps the current loop with the piece.
+        #[qinvokable]
+        #[cxx_name = "saveLoop"]
+        fn save_loop(self: Pin<&mut Self>);
+
+        /// Drops the kept loop at `index` (of `savedLoopsJson`).
+        #[qinvokable]
+        #[cxx_name = "removeLoop"]
+        fn remove_loop(self: Pin<&mut Self>, index: i32);
+
+        /// Sets the workshop's target speed for the piece (0.25..=1.5).
+        #[qinvokable]
+        #[cxx_name = "changeTargetSpeed"]
+        fn change_target_speed(self: Pin<&mut Self>, speed: f64);
 
         /// Note density 1..=3 for the current section; `lock` "fixed" stops suggestions.
         #[qinvokable]
@@ -851,6 +870,8 @@ pub struct ControllerRust {
     holding_text: QString,
     summary_json: QString,
     chain_json: QString,
+    saved_loops_json: QString,
+    target_speed: f64,
     recent_json: QString,
     setlists_json: QString,
     next_title: QString,
@@ -1009,6 +1030,8 @@ impl Default for ControllerRust {
             holding_text: QString::default(),
             summary_json: QString::default(),
             chain_json: q("null"),
+            saved_loops_json: q("[]"),
+            target_speed: 1.0,
             recent_json: q(&core.recent_json()),
             setlists_json: q(&core.setlists_json()),
             next_title: QString::default(),
@@ -1152,6 +1175,8 @@ impl ControllerRust {
                 self.backing_name = q(&self.core.backing_name());
                 self.stems_json = q(&self.core.stems_json());
                 self.transpose = self.core.transpose();
+                self.saved_loops_json = q(&self.core.saved_loops_json());
+                self.target_speed = self.core.target_speed();
                 self.view = q(&self.core.view());
                 self.tracks_json = q(&self.core.tracks_json());
                 let (density, lock) = self.core.density();
@@ -1260,7 +1285,38 @@ impl qobject::Controller {
         self.as_mut().set_holding_index(-1);
         self.as_mut().refresh_density();
         self.as_mut().refresh_chain();
+        self.as_mut().refresh_practice();
         self.as_mut().arrangement_loaded();
+    }
+
+    /// Kept loops and target speed of the loaded piece.
+    fn refresh_practice(mut self: Pin<&mut Self>) {
+        let (loops, target) = {
+            let this = self.as_ref();
+            let core = &this.rust().core;
+            (core.saved_loops_json(), core.target_speed())
+        };
+        self.as_mut().set_saved_loops_json(q(&loops));
+        self.as_mut().set_target_speed(target);
+    }
+
+    fn save_loop(mut self: Pin<&mut Self>) {
+        if self.as_mut().core().save_loop() {
+            self.as_mut().refresh_practice();
+        }
+    }
+
+    fn remove_loop(mut self: Pin<&mut Self>, index: i32) {
+        let Ok(index) = usize::try_from(index) else {
+            return;
+        };
+        self.as_mut().core().remove_loop(index);
+        self.as_mut().refresh_practice();
+    }
+
+    fn change_target_speed(mut self: Pin<&mut Self>, speed: f64) {
+        self.as_mut().core().set_target_speed(speed);
+        self.as_mut().refresh_practice();
     }
 
     /// Density of the current section; a pending suggestion goes (it was for another one).

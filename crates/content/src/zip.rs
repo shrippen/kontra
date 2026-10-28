@@ -15,7 +15,7 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter};
 use crate::error::ImportError;
 
 /// Upper bound for one inflated entry; scores are far smaller.
-const MAX_ENTRY: u64 = 256 * 1024 * 1024;
+pub(crate) const MAX_ENTRY: u64 = 256 * 1024 * 1024;
 /// Upper bound for a score's XML: the parsed tree takes several times that (deflate bomb).
 const MAX_SCORE_XML: usize = 32 * 1024 * 1024;
 /// Most a read allocates before data arrives.
@@ -121,6 +121,11 @@ pub(crate) fn write(entries: &[(&str, &[u8])]) -> Result<Vec<u8>, ImportError> {
         .compression_level(Some(DEFLATE_LEVEL));
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     for (name, content) in entries {
+        // What a read refuses is never written.
+        let size = content.len() as u64;
+        if size > MAX_ENTRY {
+            return Err(ImportError::TooLarge(size));
+        }
         writer.start_file(*name, options).map_err(archive_error)?;
         writer.write_all(content)?;
     }

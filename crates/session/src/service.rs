@@ -13,8 +13,8 @@ use std::sync::mpsc::channel;
 pub use kontra_content::exercise;
 pub use kontra_content::{
     assign_tab, import_file, read_package, transpose, write_package, FileKind, ImportError,
-    ImportResult, Manifest, Package, PackageBacking, TrackInfo, PACKAGE_FORMAT, PACKAGE_VERSION,
-    TRANSPOSE_MAX,
+    ImportResult, Manifest, Package, PackageBacking, PackageLoop, TrackInfo,
+    PACKAGE_AUDIO_MAX_BYTES, PACKAGE_FORMAT, PACKAGE_VERSION, TRANSPOSE_MAX,
 };
 pub use kontra_engine::{
     audio_priority, evaluate as evaluate_korpus,

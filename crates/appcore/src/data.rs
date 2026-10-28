@@ -134,6 +134,8 @@ mod tests {
             densities: Default::default(),
             transpose_semitones: 0,
             backing_without_bass: false,
+            loops: Vec::new(),
+            target_speed: None,
         }
     }
 

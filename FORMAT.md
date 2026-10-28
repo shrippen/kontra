@@ -1,15 +1,16 @@
-# Kontra-Paket `.kontra` (Format 1)
+# Kontra-Paket `.kontra` (Format 2)
 
-Offenes Paketformat zum Weitergeben eines Stücks mit Übungsstand (LH-BIB-07, Journey J-D2).
+Offenes Paketformat zum Weitergeben eines Stücks zum Üben (LH-BIB-07, Journey J-D2): Noten, Loops, Zieltempo und
+auf Wunsch die abgeglichene Begleitspur. Der Fortschritt des Absenders kommt nicht mit (Runde 15).
 Ein `.kontra` ist ein gewöhnliches Zip-Archiv (Deflate oder unkomprimiert, kein Zip64, Namen in UTF-8);
 jedes Zip-Programm kann es öffnen. MIME-Typ: `application/x-kontra-package`.
 
 ```text
 lied.kontra
-├── manifest.json      Pflicht: Format, Version, Titel, Notendatei, Spur, Begleitspur
+├── manifest.json      Pflicht: Format, Version, Titel, Notendatei, Spur, Loops, Zieltempo, Begleitspur
 ├── score/<datei>      Pflicht: die Notendatei, wie sie importiert wurde (Guitar Pro, MIDI, MusicXML)
-├── progress.json      optional: Übungsstand
-└── audio/<datei>      optional: Begleitspur, nur wenn beim Export ausdrücklich gewählt
+├── alignment.json     optional: wo die Takte in der Begleitspur liegen (Beat-Map)
+└── audio/<datei>      optional: Begleitspur, nur wenn beim Export ausdrücklich gewählt (höchstens 256 MiB)
 ```
 
 Die Notendatei liegt unverändert im Paket: Kontra liest sie beim Öffnen genauso wie beim ersten Import,
@@ -20,11 +21,13 @@ deshalb sieht das Stück auf dem zweiten Rechner gleich aus.
 ```json
 {
   "format": "kontra-package",
-  "version": 1,
+  "version": 2,
   "title": "Etude 1",
   "artist": "",
   "score": "etude-1.mid",
   "track": 0,
+  "loops": [{ "from": 0, "to": 1 }, { "from": 4, "to": 7 }],
+  "target_speed": 0.8,
   "backing": { "kind": "embedded", "file": "song.mp3", "offset_s": 0.5 }
 }
 ```
@@ -36,6 +39,8 @@ deshalb sieht das Stück auf dem zweiten Rechner gleich aus.
 | `title`, `artist` | `title` ja | Anzeige |
 | `score` | ja | Dateiname unter `score/` |
 | `track` | nein (0) | gespielte Spur der Notendatei, ab 0 |
+| `loops` | nein (keine) | Loops zum Üben: Takte `from` bis `to`, Indizes ab 0 nach dem Ausrollen der Wiederholungen |
+| `target_speed` | nein (1.0) | Zieltempo der Werkstatt, 1.0 = wie notiert, 0.25 bis 1.5 in 5-%-Schritten |
 | `backing` | nein | Begleitspur, siehe unten |
 
 `backing` ist eines von:
@@ -48,33 +53,28 @@ deshalb sieht das Stück auf dem zweiten Rechner gleich aus.
 Dateinamen (`score`, `file`) sind reine Namen: ohne `/`, `\`, `..` und nicht leer. Pakete mit anderen Namen
 lehnt Kontra ab.
 
-## `progress.json`
+## `alignment.json`
 
-Der Fortschritt des Stücks wie in Kontras Datenordner (`progress/<id>.json`):
+Die Beat-Map der Begleitspur wie in Kontras Bibliothek, nur zusammen mit `backing`. Damit liegen die Takte beim
+Empfänger so auf der Aufnahme wie beim Absender, ohne neuen Abgleich:
 
 ```json
-{
-  "song_id": "1f3c…",
-  "title": "Etude 1",
-  "artist": "",
-  "runs": [
-    { "finished_unix": 1791504000, "practice_s": 600.0, "speed": 0.8, "hit_rate": 0.92,
-      "mode": "workshop", "section": [2.0, 4.0], "hardest_bars": [3, 7] }
-  ]
-}
+{ "beats": [0.25, 0.75, 1.25], "bpm": 120.0, "first": 0, "shift_ms": 15.0, "nudges": { "3": -20.0 } }
 ```
 
-Beim Öffnen werden die Durchläufe zum eigenen Fortschritt des Stücks hinzugefügt; ein Durchlauf mit
-gleicher Endzeit und Dauer wird nicht doppelt gezählt. `song_id` wird beim Öffnen neu berechnet.
+`beats`: Schlagzeiten in der Audiodatei (s); `first`: Index des ersten Schlags von Takt 1; `shift_ms`: Verschiebung
+aller Takte; `nudges`: Verschiebung einzelner Takte (Takt-Index → ms).
 
 ## Öffnen
 
-Kontra entpackt ein Paket nach `<Datenordner>/packages/<Paketname>/` und nimmt das Stück in die Bibliothek
-auf. Öffnen über die Bibliothek („Öffnen …“), per Dateimanager oder `kontra lied.kontra`.
+Kontra entpackt ein Paket nach `<Datenordner>/packages/<Paketname>/` (Notendatei und eingebettete Begleitspur) und
+nimmt das Stück mit Loops, Zieltempo und Abgleich in die Bibliothek auf. Der eigene Fortschritt bleibt unberührt;
+für ein neues Stück beginnt er bei null. Öffnen über die Bibliothek („Öffnen …“), per Dateimanager oder `kontra lied.kontra`.
 
 ## Versionen
 
-- **1** (Kontra 0.1): erste Fassung.
+- **1**: erste Fassung, mit `progress.json` (Fortschritt des Absenders).
+- **2** (Runde 15): Loops, Zieltempo und Abgleich der Begleitspur; kein Fortschritt mehr.
 
 Neue Felder bekommen einen Standardwert, damit ältere Pakete lesbar bleiben; eine inkompatible Änderung erhöht `version`.
 

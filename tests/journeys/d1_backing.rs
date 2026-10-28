@@ -3,7 +3,7 @@
 //! The band is rendered as clicks (no committed audio); "no audible offset over four minutes"
 //! needs ears and a device and stays a manual step.
 
-use crate::common::{judged, run_until, write_midi, Profile, COUNT_IN_S, RATE};
+use crate::common::{band, judged, run_until, write_midi, Profile, COUNT_IN_S, RATE};
 use kontra_appcore::UiEvent;
 use kontra_model::Arrangement;
 use std::path::Path;
@@ -16,23 +16,6 @@ const BAND_START_S: f64 = 1.0;
 const SLOW: f64 = 0.75;
 const NUDGE_MS: f64 = 20.0;
 const UP: i32 = 2;
-
-/// Noise clicks on every beat of the band, as in the beat tracker's tests.
-fn band(path: &Path) {
-    let mut audio = vec![0.0f32; RATE as usize * 14];
-    let mut noise = 1u32;
-    for beat in 0..24 {
-        let start = ((BAND_START_S + f64::from(beat) * 60.0 / BAND_BPM) * f64::from(RATE)) as usize;
-        for i in 0..1500 {
-            noise = noise.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-            let n = (noise >> 9) as f32 / (1u32 << 23) as f32 - 0.5;
-            if let Some(s) = audio.get_mut(start + i) {
-                *s += n * (-(i as f32) / 600.0).exp();
-            }
-        }
-    }
-    kontra_session::write_mono_wav(path, &audio, RATE).unwrap();
-}
 
 /// The bass played along `a` at `speed`, after the count-in bar.
 fn take(path: &Path, a: &Arrangement, speed: f64) {
@@ -62,7 +45,7 @@ fn backing_beats_slow_and_transposed() {
     let score = profile.dir.join("Riff.mid");
     write_midi(&score, "Riff", &RIFF);
     let wav = profile.dir.join("band.wav");
-    band(&wav);
+    band(&wav, BAND_BPM, BAND_START_S);
     let slow_take = profile.dir.join("slow.wav");
     let up_take = profile.dir.join("up.wav");
 
@@ -174,7 +157,7 @@ fn bass_removed_once_and_kept() {
     let score = profile.dir.join("Riff.mid");
     write_midi(&score, "Riff", &RIFF);
     let wav = profile.dir.join("band.wav");
-    band(&wav);
+    band(&wav, BAND_BPM, BAND_START_S);
     // A recording as input: no sound card needed.
     let mut core = profile.core(None);
     core.open(&score).unwrap();

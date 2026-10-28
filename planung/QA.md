@@ -207,11 +207,11 @@ mittel; „Schwierigkeit“ steht nur bei der Art „Stück“.
 5. Unter „Bass der Aufnahme“ „Ohne Bass“ wählen (erst ohne Demucs, dann mit), einmal abbrechen, nach der Trennung durchspielen, dabei im Mixer „Original-Bass“ auf 30 % und zurück auf 0 % ziehen, Kontra neu starten, die getrennte Datei löschen.
 Erwartet: kein hörbarer Versatz > 20 ms über 4 Minuten; die Erkennung liegt auf dem Schlag, nicht auf dem Offbeat, und zeigen Kick und Bass den Schlag nicht, sagt sie „unsicher“ (Warnung statt Haken) und bietet „einen halben Schlag später“ an; nach dem Öffnen bereitet Kontra den Backing-Track im Hintergrund vor (Ladeanzeige, die Oberfläche bleibt bedienbar, Abspielen wartet mit Hinweis), beim nächsten Öffnen kommt er sofort aus dem Cache; der Wechsel hält das Lied nicht an, Bewertetes bleibt; transponiert passen Tab und Audio zusammen (gleiche Tonart, gleiche Takte), Bünde aus der Datei bleiben, wo es geht; die Einstellung bleibt beim Stück, der Fortschritt auch. Ohne Demucs ist „Ohne Bass“ ausgegraut und „?“ sagt, wie man es installiert; mit Demucs läuft die Trennung im Hintergrund (niedrige Priorität) mit Prozent, Restzeit und Abbrechen; Abbrechen lässt keine Dateien zurück. Danach spielt der Backing-Track ohne Bass, im selben Abgleich, und beim nächsten Mal ohne neue Trennung; die Datei liegt im Cache-Ordner, „?“ nennt Ort und Größe, „Getrennte Datei löschen“ gibt den Platz frei. „Original-Bass“ steht im Mixer nur, solange ohne Bass gespielt wird, und wirkt sofort (30 %: Bass leise hörbar, im Takt mit dem Rest; 0 %: weg). Ein Fehler nennt die Meldung von Demucs und was zu tun ist und bleibt bei seinem Song.
 
-**J-D2 Übung an Schüler geben** · Persona: P4 Thomas · Phase 3 · LH-BIB-07, LH-FOR-04
-1. Übung aus Guitar Pro importieren, Loop-Bereiche und Zieltempo festlegen, als `.kontra` exportieren.
+**J-D2 Übung an Schüler geben** ⚙ · Persona: P4 Thomas · Phase 3 · LH-BIB-07, LH-FOR-04
+1. Übung aus Guitar Pro importieren, Begleitspur wählen und abgleichen, in der Werkstatt Loops merken („Loop merken“) und das Zieltempo setzen, einmal üben, als `.kontra` exportieren (mit Begleitspur).
 2. Auf zweitem Profil importieren.
 3. Fortschrittsbericht exportieren.
-Erwartet: identische Darstellung und Loop-Bereiche; Audio wird nur mitgegeben, wenn er es ausdrücklich wählt.
+Erwartet: identische Darstellung, Loops und Zieltempo; die Begleitspur liegt im Datenordner des Schülers und spielt ohne neuen Abgleich; der Fortschritt des Schülers beginnt bei null (der des Lehrers kommt nicht mit). Audio wird nur mitgegeben, wenn er es ausdrücklich wählt; eine Begleitspur über 256 MiB lehnt der Export mit Grund ab. Der automatische Test gleicht eine Klick-Band ab, merkt zwei Loops, exportiert und spielt das Stück auf dem zweiten Profil mit Begleitspur.
 
 ## E. Weitere Bass-Eingänge (ab Phase 4)
 

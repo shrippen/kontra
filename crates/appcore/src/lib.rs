@@ -26,7 +26,8 @@ pub use i18n::{Catalog, Language};
 pub use kontra_session::{exercise, Blocks, ChainOrder, Density};
 pub use package::PackageAudio;
 pub use store::{
-    data_dir, Bass, InputKind, Library, RecentEntry, SectionBars, SectionDensity, Setlist, Settings,
+    data_dir, Bass, InputKind, Library, PracticeLoop, RecentEntry, SectionBars, SectionDensity,
+    Setlist, Settings,
 };
 
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Judging, Technique, Tuning};
@@ -1099,6 +1100,8 @@ impl Core {
                         densities: Vec::new(),
                         transpose_semitones: 0,
                         backing_without_bass: false,
+                        loops: Vec::new(),
+                        target_speed: None,
                     });
                     added.push(path);
                 }
@@ -1346,6 +1349,8 @@ impl Core {
             densities: Vec::new(),
             transpose_semitones: 0,
             backing_without_bass: false,
+            loops: Vec::new(),
+            target_speed: None,
         });
         // A backing track with a beat map: the bars follow the band (LH-BIB-06).
         if self
@@ -1732,6 +1737,77 @@ impl Core {
         self.rethin()
     }
 
+    /// Keeps the current loop with the piece (LH-BIB-07: a package hands it on); a loop kept
+    /// already is not kept twice. Returns true if one was added.
+    pub fn save_loop(&mut self) -> bool {
+        let Some((from, to)) = self.looping else {
+            return false;
+        };
+        let Some(entry) = self.loaded_entry_mut() else {
+            return false;
+        };
+        let practice = PracticeLoop { from, to };
+        if entry.loops.contains(&practice) {
+            return false;
+        }
+        entry.loops.push(practice);
+        self.save_library();
+        true
+    }
+
+    /// Drops the kept loop at `index` (as `saved_loops` lists them).
+    pub fn remove_loop(&mut self, index: usize) {
+        let Some(entry) = self.loaded_entry_mut() else {
+            return;
+        };
+        if index >= entry.loops.len() {
+            return;
+        }
+        entry.loops.remove(index);
+        self.save_library();
+    }
+
+    /// Loops kept with the loaded piece, as bar indices `(from, to)`.
+    pub fn saved_loops(&self) -> Vec<(usize, usize)> {
+        self.loaded_path()
+            .and_then(|p| self.library.entry(p))
+            .map_or_else(Vec::new, |e| {
+                e.loops.iter().map(|l| (l.from, l.to)).collect()
+            })
+    }
+
+    /// Kept loops for the UI: `[{"from", "to"}]`, bar indices from 0.
+    pub fn saved_loops_json(&self) -> String {
+        let loops: Vec<_> = self
+            .saved_loops()
+            .into_iter()
+            .map(|(from, to)| json!({ "from": from, "to": to }))
+            .collect();
+        serde_json::Value::from(loops).to_string()
+    }
+
+    /// The workshop's target speed for the loaded piece (1.0 = as written).
+    pub fn target_speed(&self) -> f64 {
+        self.loaded_path()
+            .and_then(|p| self.library.entry(p))
+            .and_then(|e| e.target_speed)
+            .unwrap_or(1.0)
+    }
+
+    /// Sets the target speed of the loaded piece, in the workshop's 5 % steps.
+    pub fn set_target_speed(&mut self, speed: f64) {
+        let Some(entry) = self.loaded_entry_mut() else {
+            return;
+        };
+        entry.target_speed = Some(clamp_speed(speed));
+        self.save_library();
+    }
+
+    fn loaded_entry_mut(&mut self) -> Option<&mut RecentEntry> {
+        let path = self.loaded_path()?.to_path_buf();
+        self.library.entry_mut(&path)
+    }
+
     /// Indices of the bars from `start_s` to `end_s` (a saved section), if bars begin and end
     /// there.
     pub fn bars_at(&self, start_s: f64, end_s: f64) -> Option<(usize, usize)> {
@@ -1985,7 +2061,10 @@ impl Core {
         match self.settings.mode.as_str() {
             "song" => Mode::Song,
             "wait" => Mode::Wait,
-            "workshop" => Mode::Workshop(Workshop::default()),
+            "workshop" => Mode::Workshop(Workshop {
+                target_speed: self.target_speed(),
+                ..Workshop::default()
+            }),
             _ => Mode::Play,
         }
     }
@@ -3927,6 +4006,16 @@ fn playable(imported: &ImportResult) -> impl Iterator<Item = (usize, String)> + 
         .enumerate()
         .filter(|(_, t)| !t.is_percussion())
         .map(|(i, t)| (i, t.name().to_string()))
+}
+
+/// Speeds come in 5 % steps (LH-MOD-04).
+const SPEED_STEPS_PER_UNIT: f64 = 20.0;
+const SPEED_MIN: f64 = 0.25;
+const SPEED_MAX: f64 = 1.5;
+
+/// `speed` on the workshop's 5 % steps, 25 to 150 %: 0.72 → 0.7.
+pub(crate) fn clamp_speed(speed: f64) -> f64 {
+    (speed.clamp(SPEED_MIN, SPEED_MAX) * SPEED_STEPS_PER_UNIT).round() / SPEED_STEPS_PER_UNIT
 }
 
 /// The goal key of a bundled exercise ("07 …" is plan entry 7), e.g. "scale".
@@ -7247,8 +7336,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// LH-BIB-07 / J-D2: a piece shared as `.kontra` opens on a second profile with the same
-    /// notes, track, backing (only if embedded) and progress; opening it twice adds no runs.
+    /// LH-BIB-07 / J-D2 (Runde 15): a piece shared as `.kontra` opens on a second profile with
+    /// the same notes, track, loops, target speed and aligned backing (only if embedded, copied
+    /// into the data folder); the teacher's progress stays home. Opening it twice adds nothing.
     #[test]
     fn package_moves_a_piece_to_another_profile() {
         let dir = temp_dir("package");
@@ -7258,6 +7348,24 @@ mod tests {
         let mut teacher = Core::new(&dir.join("thomas"), QaOptions::default());
         teacher.open(&demo()).unwrap();
         teacher.set_backing(Some(backing.clone()), 0.5);
+        // An alignment as the beat sheet makes it: beats every half second from 0.25 s.
+        let beats = (0..200).map(|i| 0.25 + f64::from(i) * 0.5).collect();
+        teacher.library.beat_maps.insert(
+            teacher.loaded_path().unwrap().to_path_buf(),
+            store::BeatMap {
+                beats,
+                bpm: 120.0,
+                shift_ms: 15.0,
+                ..store::BeatMap::default()
+            },
+        );
+        teacher.apply_beat_map().unwrap();
+        teacher.set_loop(0, 1);
+        teacher.save_loop();
+        teacher.set_loop(4, 7);
+        teacher.save_loop();
+        teacher.save_loop();
+        teacher.set_target_speed(0.8);
         let a = teacher.arrangement().unwrap().clone();
         let run = kontra_session::Run {
             spread_ms: None,
@@ -7271,6 +7379,11 @@ mod tests {
             hesitant_bars: Vec::new(),
         };
         teacher.progress_store().record(&a, run).unwrap();
+        assert_eq!(
+            teacher.saved_loops(),
+            vec![(0, 1), (4, 7)],
+            "no double loop"
+        );
         let linked = dir.join("etude-link.kontra");
         let embedded = dir.join("etude.kontra");
         teacher
@@ -7282,21 +7395,113 @@ mod tests {
         assert!(
             std::fs::metadata(&embedded).unwrap().len() > std::fs::metadata(&linked).unwrap().len()
         );
+        // The student has no access to the teacher's file: only the copy in the package plays.
+        std::fs::remove_file(&backing).unwrap();
 
-        let mut student = Core::new(&dir.join("schueler"), QaOptions::default());
+        let student_dir = dir.join("schueler");
+        let mut student = Core::new(&student_dir, QaOptions::default());
         assert_eq!(student.open(&embedded).unwrap(), Opened::Ready);
         assert_eq!(student.notes_json(), teacher.notes_json());
-        assert_eq!(student.bars_json(), teacher.bars_json());
+        assert_eq!(student.bars_json(), teacher.bars_json(), "aligned bars");
+        assert_eq!(student.backing_json(), teacher.backing_json());
         assert_eq!(student.backing_name(), "song.wav");
+        let (audio, offset_s) = student.backing().unwrap();
+        assert!(
+            audio.starts_with(&student_dir) && audio.exists(),
+            "{audio:?}"
+        );
+        assert_eq!(offset_s, teacher.backing().unwrap().1);
+        assert_eq!(student.saved_loops(), vec![(0, 1), (4, 7)]);
+        assert_eq!(student.target_speed(), 0.8);
         assert!(student.take_notice().is_some());
         let p: serde_json::Value = serde_json::from_str(&student.progress_json()).unwrap();
-        assert_eq!(p["pieces"][0]["runs"], 1);
+        assert_eq!(
+            p["pieces"].as_array().unwrap().len(),
+            0,
+            "no teacher progress"
+        );
+
         student.open(&embedded).unwrap();
-        let p: serde_json::Value = serde_json::from_str(&student.progress_json()).unwrap();
-        assert_eq!(p["pieces"][0]["runs"], 1, "no doubled runs");
+        assert_eq!(
+            student.saved_loops(),
+            vec![(0, 1), (4, 7)],
+            "no doubled loops"
+        );
 
         std::fs::write(&linked, b"PK\x03\x04 broken").unwrap();
         assert!(student.open(&linked).is_err());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Review #164: a package without a backing track keeps its loops and target speed after a
+    /// restart; opening it again keeps the student's own target speed when it brings none.
+    #[test]
+    fn package_without_backing_is_kept() {
+        let dir = temp_dir("package-plain");
+        let mut teacher = Core::new(&dir.join("thomas"), QaOptions::default());
+        teacher.open(&demo()).unwrap();
+        teacher.set_loop(2, 3);
+        teacher.save_loop();
+        teacher.set_target_speed(0.8);
+        let package = dir.join("plain.kontra");
+        teacher
+            .export_package(&demo(), &package, PackageAudio::Link)
+            .unwrap();
+
+        let student_dir = dir.join("schueler");
+        let mut student = Core::new(&student_dir, QaOptions::default());
+        student.open(&package).unwrap();
+        assert!(student.backing().is_none());
+        let score = student.loaded_path().unwrap().to_path_buf();
+        drop(student);
+
+        let mut again = Core::new(&student_dir, QaOptions::default());
+        again.open(&score).unwrap();
+        assert_eq!(again.saved_loops(), vec![(2, 3)]);
+        assert_eq!(again.target_speed(), 0.8);
+
+        // A package without a target speed leaves the student's own.
+        let mut other = Core::new(&dir.join("andere"), QaOptions::default());
+        other.open(&demo()).unwrap();
+        // The same package again, now without a target speed.
+        std::fs::create_dir_all(dir.join("neu")).unwrap();
+        let bare = dir.join("neu").join("plain.kontra");
+        other
+            .export_package(&demo(), &bare, PackageAudio::Link)
+            .unwrap();
+        again.open(&score).unwrap();
+        again.set_target_speed(0.7);
+        let own_score = again.loaded_path().unwrap().to_path_buf();
+        again.open(&bare).unwrap();
+        assert_eq!(again.loaded_path().unwrap(), own_score.as_path());
+        assert_eq!(again.target_speed(), 0.7);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Runde 15: the workshop climbs to the piece's target speed; a loop can be dropped again.
+    #[test]
+    fn target_speed_and_loops_per_piece() {
+        let dir = temp_dir("target");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.open(&demo()).unwrap();
+        assert_eq!(core.target_speed(), 1.0);
+        core.set_target_speed(0.72);
+        assert_eq!(core.target_speed(), 0.7, "steps of 5 %");
+        core.update_settings(|s| s.mode = "workshop".into());
+        let Mode::Workshop(w) = core.mode() else {
+            panic!("workshop");
+        };
+        assert_eq!(w.target_speed, 0.7);
+        core.set_loop(2, 3);
+        core.save_loop();
+        core.set_loop(0, 0);
+        core.save_loop();
+        core.remove_loop(0);
+        assert_eq!(core.saved_loops(), vec![(0, 0)]);
+        let mut again = Core::new(&dir, QaOptions::default());
+        again.open(&demo()).unwrap();
+        assert_eq!(again.target_speed(), 0.7);
+        assert_eq!(again.saved_loops(), vec![(0, 0)]);
         let _ = std::fs::remove_dir_all(dir);
     }
 

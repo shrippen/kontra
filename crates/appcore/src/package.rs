@@ -1,18 +1,22 @@
-//! `.kontra` packages in the library (LH-BIB-07, J-D2): share a piece with its progress and,
-//! only when chosen, its backing audio; a package opens like a score. Format: `FORMAT.md`.
+//! `.kontra` packages in the library (LH-BIB-07, J-D2): share a piece with its loops, target
+//! speed and, only when chosen, its backing audio with the alignment; a package opens like a
+//! score. The sender's progress stays home (Runde 15). Format: `FORMAT.md`.
 //!
 //! Opening unpacks into the data folder, so the piece stays in the library:
 //! `<data>/packages/<package name>/<score file>` (+ backing file).
 
-use crate::{data, file_name, Core};
+use crate::store::{BeatMap, PracticeLoop};
+use crate::{clamp_speed, file_name, Core};
 use kontra_session::{
-    import_file, read_package, write_package, Manifest, Package, PackageBacking, ProgressStore,
-    SongProgress, PACKAGE_FORMAT, PACKAGE_VERSION,
+    import_file, read_package, write_package, Manifest, Package, PackageBacking, PackageLoop,
+    PACKAGE_AUDIO_MAX_BYTES, PACKAGE_FORMAT, PACKAGE_VERSION,
 };
 use std::path::{Path, PathBuf};
 
 const EXTENSION: &str = "kontra";
 const UNPACK_DIR: &str = "packages";
+
+const BYTES_PER_MB: u64 = 1_000_000;
 
 /// Whether the backing audio goes into the package or is only named.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,6 +47,12 @@ impl Core {
         let (backing, audio_bytes) = match (&entry.backing, audio) {
             (None, _) => (None, None),
             (Some(path), PackageAudio::Embed) => {
+                let size = std::fs::metadata(path).map_err(|_| read_error(path))?.len();
+                if size > PACKAGE_AUDIO_MAX_BYTES {
+                    let mb = |b: u64| (b / BYTES_PER_MB).to_string();
+                    let args = [("size", mb(size)), ("max", mb(PACKAGE_AUDIO_MAX_BYTES))];
+                    return Err(self.tr("package.error.large", &args));
+                }
                 let bytes = std::fs::read(path).map_err(|_| read_error(path))?;
                 let file = PackageBacking::Embedded {
                     file: file_name(path),
@@ -58,10 +68,20 @@ impl Core {
                 (Some(link), None)
             }
         };
-        let progress = self
-            .progress_store()
-            .load_id(&entry.song_id)
-            .and_then(|p| serde_json::to_vec_pretty(&p).ok());
+        // The alignment belongs to the backing: without one it says nothing.
+        let alignment = entry
+            .backing
+            .as_ref()
+            .and_then(|_| self.library.beat_maps.get(piece))
+            .and_then(|map| serde_json::to_vec_pretty(map).ok());
+        let loops = entry
+            .loops
+            .iter()
+            .map(|l| PackageLoop {
+                from: l.from,
+                to: l.to,
+            })
+            .collect();
         let package = Package {
             manifest: Manifest {
                 format: PACKAGE_FORMAT.into(),
@@ -70,11 +90,13 @@ impl Core {
                 artist: entry.artist.clone(),
                 score: file_name(piece),
                 track: entry.track,
+                loops,
+                target_speed: entry.target_speed,
                 backing,
             },
             score,
             backing: audio_bytes,
-            progress,
+            alignment,
         };
         write_package(out, &package)
             .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
@@ -85,8 +107,8 @@ impl Core {
         Ok(self.tr(key, &[("name", file_name(out))]))
     }
 
-    /// Unpacks a package into the data folder, opens its piece, sets its backing and joins
-    /// its progress with the own (runs already there are not doubled).
+    /// Unpacks a package into the data folder, opens its piece and gives it the package's
+    /// loops, target speed and aligned backing. Own progress is not touched.
     pub(crate) fn open_package(&mut self, path: &Path) -> Result<(), String> {
         let package = read_package(path).map_err(|e| self.import_error(&e))?;
         let m = &package.manifest;
@@ -110,49 +132,54 @@ impl Core {
             }
             _ => None,
         };
+        let alignment = package
+            .alignment
+            .as_deref()
+            .and_then(|b| serde_json::from_slice::<BeatMap>(b).ok());
 
         let imported = import_file(&score).map_err(|e| self.import_error(&e))?;
         let track = m.track.min(imported.tracks().len().saturating_sub(1));
         self.load(&score, &imported, track)?;
-        if let Some((audio, offset_s)) = backing {
-            if let Some(entry) = self.library.entry_mut(&score) {
-                entry.backing = Some(audio);
-                entry.backing_offset_s = offset_s;
+        let Some(entry) = self.library.entry_mut(&score) else {
+            return Ok(());
+        };
+        for l in &m.loops {
+            let practice = PracticeLoop {
+                from: l.from.min(l.to),
+                to: l.from.max(l.to),
+            };
+            if !entry.loops.contains(&practice) {
+                entry.loops.push(practice);
             }
-            self.save_library();
         }
-        let runs = self.merge_package_progress(package.progress.as_deref());
+        // The sender's target speed, if it brings one; else the student's own stays (review #164).
+        if let Some(speed) = m.target_speed {
+            entry.target_speed = Some(clamp_speed(speed));
+        }
+        let loops = m.loops.len();
+        if let Some((audio, offset_s)) = backing {
+            entry.backing = Some(audio);
+            entry.backing_offset_s = offset_s;
+            match alignment {
+                Some(map) => self.library.beat_maps.insert(score.clone(), map),
+                None => self.library.beat_maps.remove(&score),
+            };
+        }
+        // Saves the library and lays the bars on the backing as the sender aligned them.
+        self.apply_beat_map()?;
+
         let title = self
             .arrangement()
             .map_or_else(String::new, |a| a.title.clone());
+        let percent = (self.target_speed() * 100.0).round().to_string();
         self.notice = Some(self.tr(
             "package.opened",
-            &[("title", title), ("runs", runs.to_string())],
+            &[
+                ("title", title),
+                ("loops", loops.to_string()),
+                ("percent", percent),
+            ],
         ));
         Ok(())
-    }
-
-    /// Adds the package's runs to the loaded piece's progress; returns how many were new.
-    fn merge_package_progress(&self, progress: Option<&[u8]>) -> usize {
-        let Some(incoming) = progress.and_then(|b| serde_json::from_slice::<SongProgress>(b).ok())
-        else {
-            return 0;
-        };
-        let Some(arrangement) = self.arrangement() else {
-            return 0;
-        };
-        let store = self.progress_store();
-        // The id comes from the piece as loaded here, not from the file (it names a path).
-        let mut own = store.load(arrangement).unwrap_or_else(|_| SongProgress {
-            song_id: ProgressStore::song_id(arrangement),
-            title: arrangement.title.clone(),
-            artist: arrangement.artist.clone(),
-            runs: Vec::new(),
-        });
-        let added = data::merge_runs(&mut own, incoming);
-        if store.save(&own).is_err() {
-            return 0;
-        }
-        added
     }
 }
