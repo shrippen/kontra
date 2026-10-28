@@ -327,7 +327,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
     Glossar-Links im Lektionstext nicht per Tab erreichbar.
   - S6 (mittel, Kante): Bei Deuteranopie gleicht ein verfehlter Ton (rot) einer D-Saiten-Note (ocker).
   - S7 (mittel, behoben #137): Bibliothek zeigte Ergebnisse erst nach Neustart.
-  - S8 (mittel, Entscheidung): „Lage“ heißt im Übungskopf das Timing-Ziel, sonst die Handposition.
+  - S8 (mittel, behoben #154): „Lage“ hieß im Übungskopf das Timing-Ziel, sonst die Handposition; jetzt „Timing“.
   - S9 (mittel, behoben #137), S10, S13, S15 (niedrig, behoben #137): springende Knöpfe, MIDI-Hinweis ohne Keyboard,
     englische Formulierungen, Glossar sortierte „Dämpfen“ nach „Durchgangston“.
   - S11 (mittel, Entscheidung): Kein Instrument „Kontrabass“ oder „MIDI-Bass“ wählbar (LH-EIN-09).
