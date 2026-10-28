@@ -38,8 +38,8 @@ Markierungen: ⚙ automatisiert · 🔍 auch mit 200 % Skalierung und Farbfilter
 2. Assistent: Instrument „E-Bass, 4 Saiten“, Stimmung „Standard“; Anschluss „Klinke direkt in den Laptop“ (MIDI und Mikrofon stehen als „kommt später“ in der Liste); Eingang wählen (ein Interface ist vorgewählt). Pegel ist zu leise.
 3. Den Hinweis lesen und befolgen (Lautstärke am Bass auf, Gain im Assistenten).
 4. Kalibrierung überspringen.
-5. Erste Übung wählen: von der Startseite („Nächste Übung“) oder aus der leeren Bibliothek („Mit einer Übung anfangen“), ersten Ton spielen.
-Erwartet: ≤ 60 s bis zum ersten bewerteten Ton; der Hinweis zur Laptop-Buchse erklärt in einem Satz, warum es dumpf klingt, und verweigert nichts; kein Fachbegriff ohne Erklärung.
+5. Am Ende „Wie spielst du bisher?“: „Neu am Bass“ öffnet die erste Lektion und schaltet die einfache Ansicht ein; „Ich spiele schon“ (P3 Mira) öffnet die Übungen mit den Grundlagen; „Eigene Songs“ (P2 Jens) die Bibliothek. Ersten Ton spielen.
+Erwartet: ≤ 60 s bis zum ersten bewerteten Ton; die Übungsseite zeigt Lea nur Modus, Ansicht, Tempo und das Ziel der Übung; der Hinweis zur Laptop-Buchse erklärt in einem Satz, warum es dumpf klingt, und verweigert nichts; kein Fachbegriff ohne Erklärung.
 
 **J-A2 Stimmen ohne Vorwissen** ⚙ 🔍 · Persona: P1 Lea · Phase 1 · LH-TUN-01, -02, -03, -04
 1. Stimmgerät öffnen, „Geführt“.

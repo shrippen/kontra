@@ -124,6 +124,8 @@ pub mod qobject {
         #[qproperty(i32, density_suggestion, cxx_name = "densitySuggestion")]
         #[qproperty(QString, density_text, cxx_name = "densityText")]
         #[qproperty(bool, adaptive)]
+        /// The practice page without its rare controls (LH-ANZ-11).
+        #[qproperty(bool, simple_view, cxx_name = "simpleView")]
         #[qproperty(bool, calibrating)]
         /// The calibration's click: −4..−1 count-in, 0..7 measured, −99 none.
         #[qproperty(i32, calibration_beat, cxx_name = "calibrationBeat")]
@@ -249,6 +251,16 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "changeAdaptive"]
         fn change_adaptive(self: Pin<&mut Self>, on: bool);
+
+        /// The simple practice page on or off (LH-ANZ-11).
+        #[qinvokable]
+        #[cxx_name = "changeSimpleView"]
+        fn change_simple_view(self: Pin<&mut Self>, on: bool);
+
+        /// What the loaded bundled exercise trains ("" for other pieces).
+        #[qinvokable]
+        #[cxx_name = "loadedGoal"]
+        fn loaded_goal(self: &Self) -> QString;
 
         /// Sets the loop's "start" or "end" to the bar at the current position (LH-MOD-07).
         #[qinvokable]
@@ -875,6 +887,7 @@ pub struct ControllerRust {
     density_suggestion: i32,
     density_text: QString,
     adaptive: bool,
+    simple_view: bool,
     calibrating: bool,
     calibration_beat: i32,
     calibration_text: QString,
@@ -1030,6 +1043,7 @@ impl Default for ControllerRust {
             density_suggestion: 0,
             density_text: QString::default(),
             adaptive: s.adaptive,
+            simple_view: s.simple_view,
             calibrating: false,
             calibration_beat: NO_BEAT,
             calibration_text: QString::default(),
@@ -1279,6 +1293,15 @@ impl qobject::Controller {
 
     fn decline_density(mut self: Pin<&mut Self>) {
         self.as_mut().set_density_suggestion(0);
+    }
+
+    fn change_simple_view(mut self: Pin<&mut Self>, on: bool) {
+        self.as_mut().core().update_settings(|s| s.simple_view = on);
+        self.as_mut().set_simple_view(on);
+    }
+
+    fn loaded_goal(&self) -> QString {
+        q(&self.rust().core.loaded_goal())
     }
 
     fn change_adaptive(mut self: Pin<&mut Self>, on: bool) {
@@ -2567,6 +2590,7 @@ impl qobject::Controller {
         self.as_mut().set_bass_volume(s.bass_volume);
         self.as_mut().set_prompt_volume(s.prompt_volume);
         self.as_mut().set_adaptive(s.adaptive);
+        self.as_mut().set_simple_view(s.simple_view);
         self.as_mut().set_tuning(q(&s.tuning));
         self.as_mut().set_a4_hz(s.a4_hz);
         self.as_mut().set_window_ms(s.window_ms);

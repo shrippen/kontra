@@ -324,8 +324,8 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
 - **P1 Lea (J-A1, J-A2, J-B2, J-C8, J-G1): bestanden nach Befunden.**
   - L1 (mittel, behoben #137): Seitenleiste in Systemfarben (grüner Akzent), Lektionslinks grün; jetzt Kante.
   - L3 (mittel, behoben #137): Pegel-Hinweise verschoben „Weiter“; die Knöpfe stehen jetzt fest im Seitenfuß.
-  - L5 (mittel, Entscheidung): Einrichtung endet immer mit „Groove Viertel“, ohne Frage nach dem Stand (auch M17).
-  - L6 (mittel, Entscheidung): Übungsseite zeigt einer Anfängerin alle Regler; Ziel der Übung fehlt auf der Seite.
+  - L5 (mittel, behoben #161): Einrichtung endete immer mit „Groove Viertel“, ohne Frage nach dem Stand (auch M17).
+  - L6 (mittel, behoben #161): Übungsseite zeigte einer Anfängerin alle Regler; Ziel der Übung fehlte auf der Seite.
   - L8 (niedrig, behoben #137): Auswertung: „Sitzt“-Karte trug den Titel der nächsten Übung ohne Hinweis.
   - L11 (niedrig, behoben #137): Geführtes Stimmen endete ohne Weg weiter.
   - L15, L16 (niedrig, behoben #137): Lektion: Überschrift doppelt, Griffbrett zu hoch für 768 px.
