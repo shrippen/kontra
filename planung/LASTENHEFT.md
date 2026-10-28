@@ -101,10 +101,11 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-EIN-06 | Warnung bei Bluetooth-Ausgabe (hohe, schwankende Latenz) mit Empfehlung für Kabel-Kopfhörer. | Soll | 1 | P1 | Bluetooth-Senke ausgewählt → Hinweis. |
 | LH-EIN-07 | Hinweis, wenn das PipeWire-Quantum die Latenz-Ziele verhindert, mit Erklärung, wie man es ändert. | Soll | 1 | P3 | Quantum 2048 → Hinweis mit Wert und Anleitung. |
 | LH-EIN-08 | Monitoring des eigenen Instruments über Kontra an/aus, mit einfacher Klangformung (EQ, Kompressor, leichte Sättigung). | Soll | 1 | P1, P2 | Ein/Aus wirkt sofort, kein Knacken. |
-| LH-EIN-09 | Instrument und Eingang sind getrennte, austauschbare Profile (Datenmodell und Oberfläche), damit spätere Instrumente und Eingänge kein Umbau sind. | Muss | 1 | P5, P6 | Architektur-Review: neues Profil ohne Änderung an Session und Bewertung möglich (Test mit Dummy-Profil). |
+| LH-EIN-09 | Instrument und Eingang sind getrennte, austauschbare Profile (Datenmodell und Oberfläche), damit spätere Instrumente und Eingänge kein Umbau sind. Einrichtung und Einstellungen fragen das Instrument eigens: E-Bass, Kontrabass oder Bass über MIDI; „Bass über MIDI“ ist nur in der Oberfläche eine Wahl und setzt das Bass-Profil mit dem MIDI-Eingang, das Datenmodell bleibt getrennt. Bundlos und Stimmung nur, wo sie gelten (Runde 15). | Muss | 1 | P5, P6 | Architektur-Review: neues Profil ohne Änderung an Session und Bewertung möglich (Test mit Dummy-Profil). |
 | LH-EIN-10 | Nicht unterstützte Eingänge (MIDI, Mikrofon vor Phase 4) werden in der Auswahl als „kommt später“ gezeigt, nicht stillschweigend weggelassen oder als defekt gemeldet. | Soll | 1 | P5, P6 | MIDI-Keyboard angesteckt → klare Meldung. |
 | LH-EIN-11 | Mikrofon-Eingang mit Rauschsperre und Abzug des eigenen Backing Tracks; Toleranzen werden weiter und die Oberfläche sagt das. | Muss | 4 | P6 | J-E2 ohne Kopfhörer: Trefferquote ≥ 90 % auf dem Testkorpus „Kontrabass Raum“. |
 | LH-EIN-12 | MIDI-Eingang (USB, ALSA-Seq) als Bass-Eingang: Note-On/Off werden wie erkannte Töne bewertet. Bei mehreren Geräten Auswahl unter Anschluss, die Wahl bleibt gespeichert; fehlt das gewählte, nimmt Kontra das erste und sagt es (Runde 9). | Muss | 4 | P5 | J-E1 durchspielbar, Timing aus MIDI-Zeitstempeln. |
+| LH-EIN-13 | Am Ende der Einrichtung fragt Kontra nach dem Stand: „Neu am Bass“ führt zu Lektion 1, „Ich spiele schon“ zu den Übungen der passenden Stufe, „Eigene Songs“ in die Bibliothek (Runde 15). | Soll | 1 | P1, P3, P2 | J-A1: Lea landet in Lektion 1, Mira bei den Übungen, Jens („Eigene Songs“) in der Bibliothek. |
 
 ### 4.2 Stimmgerät (TUN)
 
@@ -147,6 +148,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-ANZ-08 | Linkshänder-Darstellung für Griffbrett. | Kann | 2 | – | Spiegelung korrekt. |
 | LH-ANZ-09 | Präsentationsmodus: große Darstellung, ruhige Oberfläche, für Beamer. | Soll | 2 | P4 | Bei 1280×720 und 150 % Schrift keine abgeschnittenen Elemente. |
 | LH-ANZ-10 | 3D-Highway. | entfällt bis 1.0 | – | – | – |
+| LH-ANZ-11 | Einstellung „Einfache Ansicht“: blendet auf der Übungsseite die seltenen Regler aus (Transponieren, Timing-Ziel, Notendichte, Bausteine, Backing, Präsentation); die Einrichtung schaltet sie für „Neu am Bass“ ein. Das Ziel der Übung steht als Zeile unter dem Titel (Runde 15). | Soll | 1 | P1, P6 | J-A2: Lea sieht Modus, Tempo, Metronom und das Ziel. |
 
 ### 4.5 Modi (MOD)
 
@@ -172,7 +174,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-BEW-05 | Bundlos-Modus: Intonation in Cent sichtbar, Treffergrenze für Tonhöhe einstellbar (Standard ±30 Cent, streng ±10). Der richtige Ton außerhalb der Grenze ist „unsauber“ (eigener Zustand mit eigener Form, nicht „falsch“). | Muss | 1 | P3 | Testkorpus bundlos: Anzeige weicht ≤ 3 Cent vom Referenzwert ab. |
 | LH-BEW-06 | Techniken erkennen: Slides, Hammer-on/Pull-off, Slap/Pop, Ghost Notes. Soll-Technik aus der Partitur wird mit der erkannten verglichen und in einer eigenen Auswertung gezählt („Slide: 8 von 10“), getrennt von der Trefferquote (Runde 9); Zeichen und Ergebnis an der Note in Tab-Lane, Tabulatur und Noten, ein Slide an der Ausgangsnote (Runde 10). Dead Notes (x) werden als gedämpft bewertet, Ghost Notes ( ) nur angezeigt; Palm Mute behält die Tonhöhe (Runde 10). Bis zwei Bünde zählen Slide und Hammer-on/Pull-off füreinander (Runde 11: über einen nicht unterscheidbar; Runde 12: echte Zwei-Bund-Slides als Hammer-on gehört). Was der Eingang nicht erkennen kann (Slap/Pop am Mikrofon, alles über MIDI), wird nicht bewertet und so genannt. | Soll | 4 | P2, P3, P4 | Testkorpus Techniken: ≥ 85 % korrekt klassifiziert; J-C5. |
 | LH-BEW-07 | Tonhöhe nach dem Einschwingen (Runde 11): Die Note wird so schnell angezeigt wie bisher; beginnt der Ton tiefer und steigt binnen rund 100 ms auf seine Tonhöhe (Kontrabass, Anschlag mit Anteil eine Oktave tiefer), wird die Note danach mit der eingeschwungenen Tonhöhe neu bewertet. Ihre Markierung darf sich kurz nach dem Anschlag ändern. Nur nach oben (ein Halbton, eine Oktave; am Mikrofon nur ein Halbton). | Soll | 4 | P6, P3 | FiloBass: Halbton-Fehler deutlich weniger, keine richtige Note kippt; IDMT und eigene Aufnahmen nicht schlechter; J-E3. |
-| LH-BEW-08 | **Lage-Ziel** (DIDAKTIK I5, 24.10.): Auf der Übungsseite wählbar „Frei“, „Auf den Punkt“ (±5 ms), „Laid-back“ (10 bis 30 ms hinter dem Schlag) oder „Vorn“ (10 bis 30 ms davor). Die Auswertung sagt in einem Satz, ob die mittlere Lage im Ziel lag, und sonst, um wie viele ms zu früh oder zu spät. | Soll | 2 | P3, P2, P5 | J-C2: Ziel laid-back, Aufnahme 18 ms zu früh → „verfehlt, 28 ms zu früh“. |
+| LH-BEW-08 | **Timing-Ziel** (DIDAKTIK I5, 24.10.; in der Oberfläche „Timing“, Runde 15, weil „Lage“ die Handposition ist): Auf der Übungsseite wählbar „Frei“, „Auf den Punkt“ (±5 ms), „Laid-back“ (10 bis 30 ms hinter dem Schlag) oder „Vorn“ (10 bis 30 ms davor). Die Auswertung sagt in einem Satz, ob das mittlere Timing im Ziel lag, und sonst, um wie viele ms zu früh oder zu spät. | Soll | 2 | P3, P2, P5 | J-C2: Ziel laid-back, Aufnahme 18 ms zu früh → „verfehlt, 28 ms zu früh“. |
 
 ### 4.7 Lernmodule (LRN)
 
@@ -216,7 +218,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | ID | Anforderung | Prio | Ph. | Personas | Abnahme |
 |---|---|---|---|---|---|
 | LH-ALL-01 | Oberfläche auf Deutsch und Englisch; Sprache folgt dem System, umschaltbar. | Muss | 1 | alle | Keine rohen Übersetzungsschlüssel, kein Sprachmix (J-F2). |
-| LH-ALL-02 | Stilwahl: Kante (Standard), Kante Light, System (Breeze). | Muss | 1 | P7 | Alle Ansichten in allen drei Stilen lesbar (Kontrast ≥ 4,5:1 für Text). |
+| LH-ALL-02 | Stilwahl: Kante (Standard), Kante Light (abgespeckte Kante mit den Systemfarben), System (Breeze). Hell oder dunkel ist eine eigene Einstellung (wie System, hell, dunkel), im Präsentationsmodus auch als Schalter (Runde 15). | Muss | 1 | P7 | Alle Ansichten in jeder Kombination aus Stil und hell/dunkel lesbar (Kontrast ≥ 4,5:1 für Text). |
 | LH-ALL-03 | Alle Einstellungen wirken sofort und überstehen einen Neustart. | Muss | 1 | alle | – |
 | LH-ALL-04 | Kontra stürzt bei abgezogenem Interface nicht ab; meldet es und bietet den nächsten Eingang an; beim Wiederanstecken wird das Interface wieder genutzt. | Muss | 1 | P2 | Ab- und Anstecken während des Spiels, 10-mal. |
 | LH-ALL-05 | Hilfe im Programm: kurze Erklärungen an Ort und Stelle (Latenz, Hi-Z, Zeitfenster), keine Pflichtlektüre. | Soll | 1 | P1, P6 | Jeder Fachbegriff in der Oberfläche hat eine Erklärung per Tooltip oder Info-Knopf. |

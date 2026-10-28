@@ -950,31 +950,11 @@ Kirigami.Page {
                 loopStart: ctl.loopStart
                 loopEnd: ctl.loopEnd
             }
-            KanteBassStaff {
+            NotationStaff {
                 id: bassStaff
                 anchors.fill: parent
-                // Smaller where one line does not fit (beamer at 150 %): cut off, its beams ran
-                // over the transport (G18). A KanteBassStaff line is 14.5 staff spaces, 16.5 with
-                // chord symbols.
-                // Two lines rather than one with room left under it, as long as their staff space
-                // keeps three quarters of the wanted one (QA 14.10., presentation at the beamer:
-                // two bars and a third of the screen empty).
-                // A short piece grows up to half again while all its lines still fit (QA 14.10.);
-                // a bar is 18 staff spaces wide, the clef and key about 8.
-                staffSpace: {
-                    var wanted = KanteStyle.unit(10) * page.presentScale
-                    var lineSpaces = hasChords ? 16.5 : 14.5
-                    for (var grown = wanted * 1.5; grown > wanted; grown -= wanted * 0.05) {
-                        var perLine = Math.max(1, Math.floor((width - grown * 8) / (grown * 18)))
-                        if (Math.ceil(page.bars.length / perLine) * lineSpaces * grown <= height) {
-                            return grown
-                        }
-                    }
-                    var line = height / lineSpaces
-                    return Math.min(wanted, line / 2 >= wanted * 0.75 ? line / 2 : line)
-                }
-                // As many lines as fit, as in the tablature (QA 13.10.: one line, the rest empty).
-                systems: Math.max(1, Math.floor(height / systemHeight))
+                presentScale: page.presentScale
+                densestBar: page.densestBar
                 visible: ctl.view === "notation"
                 notes: visible ? page.shownStaff : []
                 rests: page.staff.rests

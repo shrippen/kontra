@@ -184,6 +184,23 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
   91,2/81,2 %; eigene Aufnahmen unverändert (testdata/korpus/QUELLEN.md, „Tonhöhen-Revision“).
 - Hardware-Prüfung gemeinsam: am 13.10. begonnen (Abschnitt Hardware-Prüfung unter QA-Runden).
 
+## Entscheidungen Runde 15 (28.10.2026)
+
+Nach der QA-Nacht 27.10.:
+
+- [ ] Einrichtung fragt am Ende nach dem Stand (LH-EIN-13): Lektion 1, Übungen der Stufe oder Bibliothek.
+- [ ] Einstellung „Einfache Ansicht“ (LH-ANZ-11), für „Neu am Bass“ an; Ziel der Übung unter dem Titel.
+- [ ] „Lage“ als Timing-Ziel heißt in der Oberfläche „Timing“ (LH-BEW-08).
+- [ ] Instrument jetzt eigens wählbar: E-Bass, Kontrabass, Bass über MIDI (LH-EIN-09).
+- [ ] `.kontra` mit Loops und Zieltempo, ohne Fortschritt; Pakete können Backing Tracks enthalten (LH-BIB-07).
+- [ ] Kante Light ist die abgespeckte Kante (Systemfarben), nicht hell. Hell/dunkel als eigene Einstellung, im
+      Präsentationsmodus als Schalter (LH-ALL-02).
+- [ ] Fehlende Kante-Bausteine als Kante-PR; Claude merged Kante-PRs nach Review wie Kontra-PRs (`agent.md`).
+- Demo-Modus „Studio Weber“ nach 0.1; „Kurs aus Ordner“ bleibt bei der Kurswerkstatt (1.0).
+- [ ] QA-Läufe mit `--input-file`: kein Portal-Dialog, kein Browser, `kontra-cli` mit stummem Ausgang.
+- Neue pub-Schnittstellen aus #137, #138, #141 und #147 freigegeben.
+- Danach zuerst die offenen Befunde der QA-Runde 27.10., dann J-F1 und J-B5 erneut spielen.
+
 ## Entscheidungen Runde 14 (25.10.2026)
 
 Kurspakete (LH-LRN-14):
@@ -342,7 +359,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - M4 (mittel, behoben #152): Enharmonik in B♭: Liste A♯1, Noten D♭ aus C♯.
   - M5 (mittel, offen): MusicXML-Akkordsymbole (`<harmony>`) werden nicht gelesen (LH-BIB-03).
   - M6 (mittel, offen): „Alle Noten“ ohne Timing je Note (LH-BEW-01).
-  - M9 (mittel, offen): Sechzehntel unlesbar, acht Takte in einer Zeile.
+  - M9 (mittel, behoben #157): Sechzehntel unlesbar, acht Takte in einer Zeile.
   - M10 (mittel, behoben #140): Generator: Schlusston über sieben Achtel, Takt las sich als 3/4.
   - M15 (mittel, behoben #143): Alt+5 (Klaviatur) fehlte, Tastenliste nannte alte Modi.
   - Offen (niedrig): M7 Liste „zweiter Blick“ unsortiert; M8 Live-Etikett überdeckt Marken; M11 Fähnchen, Hälse;
@@ -365,7 +382,8 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - J7 (mittel, behoben #142): Nach Eingabe in „Takte“ blieben K und Fußschalter tot; Return/Esc geben frei.
   - J8 (mittel, behoben #148): „Ohne Hilfe prüfen“ floss in Werkstatt-Durchläufe und Dichte-Vorschlag ein.
   - J9 (mittel, behoben #146): Erzeugtes Stück erbte Loop und Tempo des vorigen.
-  - J10 (mittel, offen): Erzeugtes Stück ohne Teilnamen; „Rock in E“ mit maj7-Akkorden.
+  - J10 (mittel, teils behoben #158): Erzeugtes Stück ohne Teilnamen; „Rock in E“ mit maj7-Akkorden. Akkorde behoben
+    (Powerchords); Teilnamen brauchen Probenzeichen in Kante.
   - J11 (mittel, Inhalt): Glossar ohne Abbildungen und Hörbeispiele.
   - Offen (niedrig): J1b englischer Rohfehler im Kurs-Satz; J5 Mithör-Hinweis ohne ms; J6 Lane 45 px bei Mixer,
     Mithören und Callout; J12 „bestes Ergebnis“ aus Frei spielen; J13 Sammelbefund („1 Stücke“, Schlagzeug-Regler
