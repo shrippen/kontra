@@ -5230,7 +5230,16 @@ mod tests {
     #[test]
     fn backing_is_prepared_in_the_background() {
         let dir = temp_dir("prepare");
-        let mut core = Core::new(&dir, QaOptions::default());
+        // A recording as input: never the real microphone (CI has none, QA 28.10.).
+        let take = dir.join("take.wav");
+        kontra_session::write_mono_wav(&take, &vec![0.0; 48_000], 48_000).unwrap();
+        let mut core = Core::new(
+            &dir,
+            QaOptions {
+                input_file: Some(take),
+                laptop_jack: false,
+            },
+        );
         core.open(&demo()).unwrap();
         let rate = 44_100u32;
         let audio: Vec<f32> = (0..rate * 3)
