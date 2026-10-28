@@ -1737,9 +1737,12 @@ impl Core {
     }
 
     /// The suggestion after a pass or run with `hit_rate` (LH-MOD-06): song and workshop only,
-    /// not for a fixed section, not when switched off.
+    /// not for a fixed section, not when switched off, not after a probe (it only judges).
     fn density_hint(&self, hit_rate: f64) -> Option<UiEvent> {
         if !self.settings.adaptive || !matches!(self.settings.mode.as_str(), "song" | "workshop") {
+            return None;
+        }
+        if self.probe.is_some() {
             return None;
         }
         let (density, lock) = self.density();
@@ -2109,6 +2112,11 @@ impl Core {
             events.extend(self.input_lost());
         }
         events.extend(self.watch_lost());
+        // A probe's pass is no workshop pass: no pass count, no building-block step (QA
+        // 27.10., P2 Jens: "pass 4: 10 %" after the probe).
+        if self.probe.is_some() {
+            events.retain(|e| !matches!(e, UiEvent::PassComplete { .. }));
+        }
         let finished = events.iter().any(|e| matches!(e, UiEvent::Finished { .. }));
         let rate = events.iter().find_map(|e| match e {
             UiEvent::PassComplete { hit_rate, .. } => Some(*hit_rate),
@@ -5480,6 +5488,11 @@ mod tests {
         core.set_density(Density::Beats, DensityLock::Free);
         core.update_settings(|s| s.adaptive = false);
         assert!(core.density_hint(0.95).is_none());
+        // Not after a probe without help: it judges, it adapts nothing (QA 27.10., J8).
+        core.update_settings(|s| s.adaptive = true);
+        core.probe = Some(Probe { speed: 1.0 });
+        assert!(core.density_hint(0.95).is_none());
+        core.probe = None;
 
         // Kept after a restart.
         let mut again = Core::new(&dir, QaOptions::default());

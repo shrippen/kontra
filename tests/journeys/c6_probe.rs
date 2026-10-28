@@ -60,6 +60,14 @@ fn probe_compares_with_the_workshop() {
             _ => None,
         })
         .expect("the probe ends after one pass");
+    // It only judges: no workshop pass and no density suggestion (QA 27.10., P2 Jens, J8).
+    assert!(
+        !events.iter().any(|e| matches!(
+            e,
+            UiEvent::PassComplete { .. } | UiEvent::DensitySuggestion { .. }
+        )),
+        "{events:?}"
+    );
     let s: serde_json::Value = serde_json::from_str(&summary).unwrap();
 
     // The workshop run holds the start of its second pass too; the probe has one pass only.
