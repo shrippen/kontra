@@ -360,7 +360,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - J1 (mittel, behoben #141): Meldungen nach dem Start (Import, kaputte Datei) erschienen nie.
   - J2 (mittel, offen): MP3-Backing wird bei jedem Start dekodiert; Debug-Build 20 s eingefroren, Release ~1 s.
     Cache und Ladeanzeige fehlen.
-  - J3 (mittel, behoben #PR): Takterkennung rastete auf dem Offbeat ein (+310 ms) und meldete trotzdem „8 von 8 Takten“.
+  - J3 (mittel, behoben #155): Takterkennung rastete auf dem Offbeat ein (+310 ms) und meldete trotzdem „8 von 8 Takten“.
   - J4 (niedrig, behoben #150): Bibliothek zeigte den internen GP-Titel („001“) statt des Dateinamens; Umbenennen fehlt weiter.
   - J7 (mittel, behoben #142): Nach Eingabe in „Takte“ blieben K und Fußschalter tot; Return/Esc geben frei.
   - J8 (mittel, behoben #148): „Ohne Hilfe prüfen“ floss in Werkstatt-Durchläufe und Dichte-Vorschlag ein.
