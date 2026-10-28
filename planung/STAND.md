@@ -3,6 +3,25 @@
 Übergabe zwischen Sitzungen. Stand: 2026-10-28. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
 
+## Übergabe (28.10.2026, nach Runde 15)
+
+Keine offenen Kontra-PRs; `main` mit #151–#165. Runde 16 steht im Entscheidungs-Artefakt (Dokument
+`antworten/runde-16`).
+
+Offen:
+- Kante #86 (1.49: Return auf Knöpfen, `KanteFocusFollow`, `KanteStyle.scheme`, `KanteSteps.skipped`,
+  `axisTitle`, Rahmen um falsche Töne): drei Review-Runden, offen ein Wichtig (`scheme` schaltet auch Kante Light
+  dunkel). Angehalten nach der Review-Regel; Runde 16 fragt, ob `scheme` herausgenommen wird, und bestätigt das
+  Release 1.49.
+- Nach Kante 1.49: Kante in Kontra übernehmen (`scripts/sync-kante.sh`), `KanteFocusFollow` auf langen Seiten,
+  `skipped` für die übersprungene Latenz in der Einrichtung, Histogramm-`axisTitle` übersetzen; Hell/Dunkel als
+  Einstellung mit Schalter im Präsentationsmodus (M20); dann J-F1 und J-B5 erneut spielen.
+- Kleinigkeiten aus den Reviews, nicht behoben: `.part`-Reste im Backing-Cache bei Abbruch (#162); Hinweis
+  „Paket geöffnet“ nennt Zieltempo und „Fortschritt bei null“ auch, wenn nichts übernommen wurde (#164);
+  Grenzen der Paketgröße ohne Test (#164); MusicXML `<degree>` und negativer `<offset>` (#156).
+- Offene Befunde mittel: S12, J10 (Teilnamen, Kante-Baustein), J11 (Glossar ohne Bilder/Hörbeispiele).
+- Zur Freigabe in Runde 16 gelistet: die neuen pub-Schnittstellen aus #152–#164 und Kante 1.49.
+
 ## Übergabe (28.10.2026, QA-Nacht)
 
 QA-Runde 27.10. mit allen Personas (ROADMAP). Die Korrekturen der Nacht sind als #137–#143 und #145–#150 gemerged,
