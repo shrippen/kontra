@@ -137,25 +137,41 @@ Kirigami.ApplicationWindow {
     // A glossary entry ("" the index) as a layer over the page that asked (J-G2). The page loses
     // its scroll position under the layer; it is put back when the last layer closes.
     property real glossaryReturnY: -1
+    // The control that opened it ("?" or link) gets the focus back (QA 28.10. B5: it was gone).
+    property Item glossaryReturnFocus: null
+    property int glossaryReturnReason: Qt.OtherFocusReason
     function glossary(id) {
         var under = pageStack.currentItem
         if (pageStack.layers.depth === 1 && under && under.flickable) {
             glossaryReturnY = under.flickable.contentY
+        }
+        if (pageStack.layers.depth === 1) {
+            glossaryReturnFocus = activeFocusItem
+            glossaryReturnReason = activeFocusItem ? activeFocusItem.focusReason : Qt.OtherFocusReason
         }
         pageStack.layers.push(Qt.resolvedUrl("GlossaryPage.qml"), { termId: id })
     }
     Connections {
         target: pageStack.layers
         function onDepthChanged() {
-            if (pageStack.layers.depth > 1 || root.glossaryReturnY < 0) {
+            if (pageStack.layers.depth > 1) {
                 return
             }
             var under = pageStack.currentItem
             var y = root.glossaryReturnY
+            var opener = root.glossaryReturnFocus
+            var reason = root.glossaryReturnReason
             root.glossaryReturnY = -1
-            if (under && under.flickable) {
-                Qt.callLater(function() { under.flickable.contentY = y })
-            }
+            root.glossaryReturnFocus = null
+            // Scroll first, then focus: the opener lies in view at the old position.
+            Qt.callLater(function() {
+                if (y >= 0 && under && under.flickable) {
+                    under.flickable.contentY = y
+                }
+                if (opener) {
+                    opener.forceActiveFocus(reason)
+                }
+            })
         }
     }
 
@@ -172,8 +188,9 @@ Kirigami.ApplicationWindow {
             console.warn(component.errorString())
             return
         }
-        // Another page: no scroll position to put back.
+        // Another page: no scroll position or focus to put back.
         glossaryReturnY = -1
+        glossaryReturnFocus = null
         while (pageStack.layers.depth > 1) {
             pageStack.layers.pop()
         }
