@@ -1395,7 +1395,7 @@ impl Core {
                     "endings": (0..32).filter(|i| b.endings & (1 << i) != 0).map(|i| i + 1).collect::<Vec<u32>>(),
                     // Key per bar and chord symbols (Kante 1.27 KanteBassStaff).
                     "keyFifths": b.key_fifths,
-                    "chord": a.markers.iter().find(|m| m.tick == b.start_ticks && is_chord_name(&m.name)).map(|m| m.name.clone()),
+                    "chord": a.markers.iter().find(|m| m.tick == b.start_ticks && is_chord(m)).map(|m| m.name.clone()),
                 })
             })
             .collect();
@@ -3932,7 +3932,7 @@ fn written_ticks(duration_ticks: u64) -> u64 {
 const WRITTEN_OCTAVE_UP: u8 = 12;
 
 fn empty_staff() -> serde_json::Value {
-    json!({ "notes": [], "rests": [], "keyFifths": 0 })
+    json!({ "notes": [], "rests": [], "keyFifths": 0, "chords": [] })
 }
 
 /// `staff_json` for an arrangement. The staff shows one key; it is the first bar's.
@@ -3963,7 +3963,15 @@ fn staff(a: &Arrangement) -> serde_json::Value {
         })
         .collect();
     let key = a.bars.first().map_or(0, |b| b.key_fifths);
-    json!({ "notes": notes, "rests": rests, "keyFifths": key })
+    // Chord symbols within a bar (MusicXML: B♭m7 on beat 3); those on a bar start come with
+    // `bars_json`.
+    let chords: Vec<_> = a
+        .markers
+        .iter()
+        .filter(|m| is_chord(m) && !a.bars.iter().any(|b| b.start_ticks == m.tick))
+        .map(|m| json!({ "time": a.tempo.seconds_at(m.tick), "text": m.name }))
+        .collect();
+    json!({ "notes": notes, "rests": rests, "keyFifths": key, "chords": chords })
 }
 
 /// Kontra marks the note that continues a tie (`tied`: no new attack); Kante's staff marks
@@ -4051,6 +4059,11 @@ fn split_rest(bar: u64, from: u64, to: u64, out: &mut Vec<(u64, u64)>) {
 
 /// A marker that names a chord ("Am7", "F#m7b5", "Bb/D") rather than a section ("Chorus").
 /// A bare letter ("A", "Bb") counts as a rehearsal mark: Guitar Pro files use those.
+/// A chord symbol: marked as one by the file, or a marker named like one (MIDI).
+fn is_chord(marker: &kontra_model::Marker) -> bool {
+    marker.kind == kontra_model::MarkerKind::Chord || is_chord_name(&marker.name)
+}
+
 fn is_chord_name(name: &str) -> bool {
     let mut chars = name.chars();
     if !matches!(chars.next(), Some('A'..='G')) {
@@ -4648,6 +4661,45 @@ mod tests {
         assert_eq!(bars[0]["repeatEnd"], false);
         assert_eq!(bars[1]["repeatEnd"], true);
         assert_eq!(bars[1]["endings"], json!([1, 2]));
+    }
+
+    /// QA 27.10. (M5): a chord symbol the file marks as one shows, also a plain triad ("C"),
+    /// which as a MIDI marker could be a rehearsal mark.
+    #[test]
+    fn bars_carry_chord_symbols() {
+        let mut a = arrangement(&[(0, 4 * Q, 34), (4 * Q, 4 * Q, 34)]);
+        a.markers.push(kontra_model::Marker {
+            tick: 0,
+            name: "C".into(),
+            kind: kontra_model::MarkerKind::Chord,
+        });
+        a.markers.push(kontra_model::Marker {
+            tick: 4 * Q,
+            name: "A".into(),
+            kind: kontra_model::MarkerKind::Section,
+        });
+        a.markers.push(kontra_model::Marker {
+            tick: 2 * Q,
+            name: "Bbm7".into(),
+            kind: kontra_model::MarkerKind::Chord,
+        });
+        let dir = temp_dir("chords");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.loaded = Some(Loaded {
+            path: dir.join("x.musicxml"),
+            full: a.clone(),
+            arrangement: a,
+            tracks: Vec::new(),
+            track: 0,
+        });
+        let bars: serde_json::Value = serde_json::from_str(&core.bars_json()).unwrap();
+        assert_eq!(bars[0]["chord"], "C");
+        assert_eq!(bars[1]["chord"], serde_json::Value::Null);
+        // Within a bar: for the staff's own chord list.
+        let staff = staff(core.arrangement().unwrap());
+        assert_eq!(staff["chords"][0]["text"], "Bbm7");
+        assert_eq!(staff["chords"].as_array().map(Vec::len), Some(1));
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

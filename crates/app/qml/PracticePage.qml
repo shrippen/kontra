@@ -922,6 +922,7 @@ Kirigami.Page {
                 notes: visible ? page.shownStaff : []
                 rests: page.staff.rests
                 keyFifths: page.staff.keyFifths
+                chords: page.staff.chords
                 marks: page.marks
                 onNotesChanged: Qt.callLater(function() { page.catchUp(bassStaff) })
                 bars: page.bars
@@ -948,6 +949,7 @@ Kirigami.Page {
                     notes: combined.visible ? page.shownStaff : []
                     rests: page.staff.rests
                     keyFifths: page.staff.keyFifths
+                    chords: page.staff.chords
                     marks: page.marks
                     onNotesChanged: Qt.callLater(function() { page.catchUp(combinedBass) })
                     bars: page.bars
