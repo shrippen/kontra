@@ -1948,6 +1948,38 @@ mod tests {
         );
     }
 
+    /// J10 (round 16): a piece names its parts over their first bar, as rehearsal marks; the
+    /// shuffle's twelve-bar parts are choruses.
+    #[test]
+    fn songs_name_their_parts() {
+        let parts = |style| {
+            let a = arrangement(&generate(&spec(
+                ExerciseKind::Song(style, Level::Medium),
+                0,
+            )));
+            let starts: Vec<u64> = a.bars.iter().map(|b| b.start_ticks).collect();
+            a.markers
+                .iter()
+                .filter(|m| {
+                    ["Intro", "Strophe", "Refrain", "Bridge", "Chorus", "Outro"]
+                        .contains(&m.name.as_str())
+                })
+                .map(|m| {
+                    assert!(starts.contains(&m.tick), "{} inside a bar", m.name);
+                    m.name.clone()
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            parts(Style::Pop),
+            ["Intro", "Strophe", "Refrain", "Strophe", "Refrain", "Bridge", "Refrain", "Outro"]
+        );
+        assert_eq!(
+            parts(Style::Shuffle),
+            ["Intro", "Chorus", "Chorus", "Chorus", "Chorus", "Outro"]
+        );
+    }
+
     #[test]
     fn triads_are_named_as_triads() {
         let names = |progression, key| {
