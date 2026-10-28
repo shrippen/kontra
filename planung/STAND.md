@@ -1,7 +1,28 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-10-28. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+Übergabe zwischen Sitzungen. Stand: 2026-10-28 (Nachmittag). Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
+
+## Übergabe (28.10.2026, nach Runde 16)
+
+`main` mit #169–#175: Runde 16 umgesetzt (Kante 1.49 und 1.50, Probenzeichen, Pop in Dreiklängen, Zwischenspeicher,
+Pegel in der Notenansicht, Wayland-Regel). QA-Runde 28.10. (J-B5, J-F1) in der ROADMAP, B1 behoben (#175).
+
+Offen:
+- Kante 1.51 (PR in Kante): `KanteScope` für deaktivierte Kirigami-Items, Fokus-Käfig für Sheets, `KanteCallout`
+  ohne leere Zeile, Saitenfarben Kante Light (B7), Balkenwerte im Histogramm (B9), Changelog 1.50. Release braucht
+  die Bestätigung des Eigentümers in Worten.
+- Kontra #176 (B2, B3, Trenner): angehalten, bis Kante 1.51 da ist; dann auf die Kante-Bausteine umstellen
+  (`DrawerSkin`, `FocusTrap` entfallen).
+- B4–B6 (Tastatur und 200 %: Einrichtung Schritt 3, Glossar-Fokus, Werkstatt): PR `tastatur-200` in Arbeit.
+- Danach Hell/Dunkel (M20) als Kante-PR mit Einstellung in Kontra; B8 (niedrig).
+- Zur Freigabe in der nächsten Runde: pub aus #172 (`CacheEntry`, `BackingCache::{entries, forget, clear}`,
+  `BassRemoval::{entries, forget, clear}`, `Core::{caches_json, forget_cached, clear_cache}`), #174 (`song::parts`,
+  `CHORD_TEXT`, `BarHead.markers`), Kante 1.50 (`KanteRehearsalMark`, `KanteStyle.partText`, `rehearsalText`).
+- Kleinigkeiten: `pressByKey` ohne `toggle` (Qt < 6.8); Hinweis „Paket geöffnet“ (#164); Paketgröße ohne Test;
+  MusicXML `<degree>`/`<offset>`; `staffSpace` ohne Untergrenze (#171); Werkstatt- und Warten-Zeilen in niedrigen
+  Fenstern (#175).
+- Bruch (#174): vor dem 28.10. erzeugte Stücke tragen Akkorde als MIDI-Marker; neu erzeugen.
 
 ## Übergabe (28.10.2026, nach Runde 15)
 

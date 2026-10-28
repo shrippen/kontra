@@ -332,6 +332,36 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 
 ## QA-Runden
 
+### QA-Runde 28.10.2026 (J-B5 und J-F1 erneut, nach Runde 16)
+
+P4 am Beamer (1280×720, 150 %, Kante Light), P7 (1920×1080, 200 %, Deuteranopie simuliert, Bewegung „Weniger“, nur
+Tastatur); `main` 05f033e, Xvfb, Takes aus `etude-1.mid` (+20 ms und −45 ms, falsche und ausgelassene Noten).
+Orca nicht genutzt, statt dessen der AT-SPI-Baum.
+
+- Behoben bestätigt: S1 (Return löst Knöpfe aus), S2 (Seite scrollt zum Fokus), S4 (Fokus auf „Schließen“),
+  S6 (Treffer, Fehler, Ausgelassen über die Form), S12 (Pegel in jeder Ansicht), M21, M22.
+- [x] B1 (hoch, #175): In niedrigen Fenstern (1280×720 bei 150 %) bleiben den Noten etwa 100 px: Tab schneidet die tiefe
+  Saite ab, Noten + Tab überlappen, Lane 4 Saiten auf 70 px. Am Ende eines Laufs drückt der Hinweis „Fertig
+  gespielt“ Noten und Tab auf null.
+- [ ] B2 (mittel): Die Seitenleiste nimmt den Hintergrund aus der Systempalette; Kante dunkel auf hellem System:
+  „Seitenleiste schließen“ 1,4:1, gesperrtes „Üben“ 1,7:1 (L1 nur teils behoben).
+- [ ] B3 (mittel): Auswertung ohne Fokus-Käfig: Tab geht in die Seitenleiste, der Screenreader liest die Seite
+  dahinter; nach Esc bleibt der Fokus auf dem versteckten „Schließen“.
+- [ ] B4 (mittel): Einrichtung Schritt 3 bei 200 %: Ton, Cent und Drehrichtung unter dem Seitenfuß, per Tastatur
+  nicht erreichbar (Bild ab, Strg+Ende, Pfeile).
+- [ ] B5 (mittel): Glossar aus der Übungsliste („?“), dann „Zurück“: Fokus weg, die erste Übung per Tab nicht mehr
+  erreichbar.
+- [ ] B6 (mittel): Werkstatt bei 200 %: die Regler füllen die Seite, Tab oder Lane nicht zu sehen.
+- [ ] B7 (mittel, Kante): Saitenfarben der Tabulatur in Kante Light auf hellem Grund 1,7–2,6:1, am Beamer kaum lesbar.
+- [ ] B8 (niedrig): Nach Seitenwechsel Fokus auf der ScrollView; Trenner der Seitenleiste als unbenannte
+  Listeneinträge; Tempo-Regler mit zwei Tab-Halten; nach „Klinke direkt“ zeigt der Eingang weiter „Automatisch:
+  Scarlett Solo …“; nach Esc aus der Präsentation Seitenleiste 216 statt 260 px; Saitenbuchstaben und Taktzahlen in
+  der Präsentation etwa 8 px; frühe Note (orange) unter Deuteranopie wie eine D-Saiten-Note, nur das kleine Abzeichen
+  trägt.
+- [ ] B9 (niedrig, Kante): Timing-Histogramm nennt dem Screenreader keine Balkenwerte (S5 nur teils).
+- Vorfall: eine eigene D-Bus-Sitzung für AT-SPI startete `xdg-desktop-portal-kde` mit dem echten Wayland-Display;
+  sofort beendet, nichts erschienen. Regel: kein eigener Session-Bus für QA.
+
 ### QA-Runde 27.10.2026 (Nacht: alle Personas, alle Funktionen, echtes Fenster)
 
 Echtes X-Fenster (Xvfb, ohne Fenstermanager), stummer Ausgang, Aufnahmen aus `testdata/korpus/` und synthetische
