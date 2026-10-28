@@ -241,7 +241,7 @@ Kirigami.Page {
     }
 
     // Small screens and beamers (QA P4: 1280×720 at 150 %): the title gets its own row and the
-    // fretboard and level make room for the notes.
+    // fretboard makes room for the notes (the level stays, S12).
     readonly property bool narrow: width < KanteStyle.unit(1000)
     // Half a laptop screen (beside a video or a tab): one column, no fretboard (QA 13.10.).
     readonly property bool slim: width < KanteStyle.unit(700)
@@ -1009,8 +1009,11 @@ Kirigami.Page {
                     Layout.fillHeight: true
                     // Half the room is the staff's (G18); from the column, not its own height,
                     // which follows its size.
+                    // In a low window the tablature keeps its height, the staff takes the rest (S12).
                     staffSpace: Math.min(KanteStyle.unit(10) * page.presentScale,
-                                         (combined.height - combined.spacing) / 2 / (hasChords ? 16.5 : 14.5))
+                                         (combined.height - combined.spacing) / 2 / (hasChords ? 16.5 : 14.5),
+                                         (combined.height - combined.spacing - combinedTab.implicitHeight)
+                                         / (hasChords ? 16.5 : 14.5))
                     // The same bars as the tablature below, so each bar sits over its tab.
                     barsPerSystem: combinedTab.perSystem
                     notes: combined.visible ? page.shownStaff : []
@@ -1028,7 +1031,10 @@ Kirigami.Page {
                     id: combinedTab
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    Layout.minimumHeight: implicitHeight
                     lineSpacing: KanteStyle.unit(14) * page.presentScale
+                    // A low window keeps the level below (S12): the staff above shows the rhythm.
+                    rhythm: !page.compact
                     minBarWidth: Math.max(KanteStyle.unit(200), page.densestBar * page.tabNoteWidth)
                     strings: page.stringNames.length
                     stringNames: page.stringNames
@@ -1067,7 +1073,8 @@ Kirigami.Page {
                 }
                 KanteKeyboard {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: KanteStyle.unit(90)
+                    // Lower in a low window, so the falling notes keep room above the level (S12).
+                    Layout.preferredHeight: KanteStyle.unit(page.compact ? 50 : 90)
                     low: page.keys.low
                     high: page.keys.high
                     noteNames: page.keys.names
@@ -1085,12 +1092,14 @@ Kirigami.Page {
             // Only as high as its content: a nested layout fills by default, and in the keyboard
             // view (no fretboard) it took the notes' room (QA 13.10.).
             Layout.fillHeight: false
-            visible: !page.compact && !page.presenting
+            // Level and its advice stay at any height, the notes shrink (QA 27.10., S12: P7 at
+            // 150 % found neither); a low window leaves out the fretboard only.
+            visible: !page.presenting
             spacing: KanteStyle.unit(16)
             ColumnLayout {
             Layout.fillWidth: true
             // The keyboard view has its own keys; a fretboard beside them would only distract.
-            visible: ctl.view !== "keys" && !page.slim
+            visible: ctl.view !== "keys" && !page.slim && !page.compact
             spacing: KanteStyle.unit(4)
             KanteFretboard {
                 Layout.fillWidth: true
@@ -1176,8 +1185,8 @@ Kirigami.Page {
             }
             ColumnLayout {
             Layout.preferredWidth: meter.implicitWidth
-            // Alone in the row (keyboard view, slim window): the whole width.
-            Layout.fillWidth: ctl.view === "keys" || page.slim
+            // Alone in the row (keyboard view, slim or low window): the whole width.
+            Layout.fillWidth: ctl.view === "keys" || page.slim || page.compact
             // Kontra listens only while playing; before, "−∞ dB · too quiet" read as a fault
             // (QA 14.10.). The meter's place keeps a line saying when it shows.
             // A MIDI keyboard has no level (P5): a line instead of "−∞ dB · too quiet".
@@ -1210,6 +1219,7 @@ Kirigami.Page {
             LevelAdvice {
                 Layout.fillWidth: true
                 listening: ctl.playing && ctl.connection !== "midi"
+                brief: page.compact
                 onUseLaptopJack: ctl.changeConnection("laptop")
             }
             }
