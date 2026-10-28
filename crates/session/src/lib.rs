@@ -11,6 +11,7 @@
 //! Two clocks: *real time* (seconds on the engine's audio clock) and *position* (seconds of the
 //! arrangement at original tempo). At speed 0.5 the position advances half as fast.
 
+mod backing_cache;
 mod calibration;
 mod chain;
 mod check;
@@ -33,6 +34,7 @@ mod summary;
 mod technique;
 mod transport;
 
+pub use backing_cache::{BackingCache, Preparing};
 pub use calibration::{
     CalibrationResult, CLICKS as CALIBRATION_CLICKS, INTERVAL_S as CALIBRATION_INTERVAL_S,
 };

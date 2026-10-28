@@ -36,6 +36,8 @@ pub struct LiveSetup {
     /// The song with its bass when `backing` is it without (LH-BIB-09): the mixer can bring the
     /// bass back (`Gains::bass`).
     pub original: Option<PathBuf>,
+    /// Folder of prepared backing tracks (`BackingCache`); `None` decodes every time.
+    pub backing_cache: Option<PathBuf>,
 }
 
 /// Either a real player or silence; lets `Practice` run without a sound card.
@@ -123,16 +125,13 @@ impl Live {
         let mut output = open_output(setup.output_device.as_deref(), &clock, tx.clone());
         let output_is_silent = matches!(output, LiveOutput::Silent(_));
         let sample_rate = output.sample_rate();
-        let backing = setup
-            .backing
-            .as_deref()
-            .map(|p| BackingTrack::load(p, sample_rate))
-            .transpose()?;
+        let load = |path: &std::path::Path| match &setup.backing_cache {
+            Some(dir) => crate::BackingCache::new(dir).load(path, sample_rate),
+            None => BackingTrack::load(path, sample_rate),
+        };
+        let backing = setup.backing.as_deref().map(load).transpose()?;
         // An original that does not load leaves the song without its bass, nothing more.
-        let original = setup
-            .original
-            .as_deref()
-            .and_then(|p| BackingTrack::load(p, sample_rate).ok());
+        let original = setup.original.as_deref().and_then(|p| load(p).ok());
         let backing = match (backing, original) {
             (Some(without), Some(original)) => Some(without.with_bass_of(&original)),
             (backing, _) => backing,

@@ -134,6 +134,8 @@ pub mod qobject {
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
         #[qproperty(QString, backing_name, cxx_name = "backingName")]
         #[qproperty(QString, stems_json, cxx_name = "stemsJson")]
+        /// The backing track is prepared in the background; play waits (QA 27.10., J2).
+        #[qproperty(bool, backing_loading, cxx_name = "backingLoading")]
         /// Songsterr search: state, reason and hits as JSON (LH-BIB-11).
         #[qproperty(QString, song_search_json, cxx_name = "songSearchJson")]
         /// A course package fetched from an address, see `Core::course_fetch_poll`.
@@ -907,6 +909,7 @@ pub struct ControllerRust {
     calibration_text: QString,
     backing_name: QString,
     stems_json: QString,
+    backing_loading: bool,
     song_search_json: QString,
     course_fetch_json: QString,
     run_kept: bool,
@@ -1064,6 +1067,7 @@ impl Default for ControllerRust {
             calibration_text: QString::default(),
             backing_name: QString::default(),
             stems_json: QString::default(),
+            backing_loading: false,
             song_search_json: QString::default(),
             course_fetch_json: QString::default(),
             run_kept: false,
@@ -1654,6 +1658,7 @@ impl qobject::Controller {
                     self.as_mut().set_density_text(q(&text));
                 }
                 UiEvent::Stems(state) => self.as_mut().set_stems_json(q(&state)),
+                UiEvent::BackingLoading(loading) => self.as_mut().set_backing_loading(loading),
                 UiEvent::ChainStep { chain_json } => {
                     // A new run: the marks of the last step go.
                     self.as_mut().refresh_arrangement();

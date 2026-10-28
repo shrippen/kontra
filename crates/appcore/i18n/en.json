@@ -674,6 +674,8 @@
   "backing.nobacking": "Choose a backing track first.",
   "backing.nobeats": "Kontra found no clear beats in this recording. You can still use it at a fixed tempo.",
   "backing.aligned": "Found: {bpm} BPM · bar 1 at {first} s · {mapped} of {bars} bars follow the recording",
+  "backing.preparing": "The backing track is still being prepared. One moment.",
+  "backing.loading": "Preparing the backing track …",
   "backing.aligned.half": "Found: {bpm} BPM · bar 1 at {first} s · moved half a beat later by hand",
   "backing.unsure": "Found: {bpm} BPM · bar 1 at {first} s · unsure: kick and bass do not show where the beat is. Listen while it plays whether the bars sit; if they are half a beat off, use “Move all bars half a beat later”.",
   "backing.notaligned": "Not aligned yet: the piece runs at its own tempo.",
