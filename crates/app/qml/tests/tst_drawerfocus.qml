@@ -67,5 +67,16 @@ Item {
             library.forceActiveFocus(Qt.TabFocusReason)
             verify(brackets.parent === library)
         }
+
+        // Review #153: a click gives the entry focus too; brackets are for the keyboard only.
+        function test_no_brackets_after_click() {
+            drawer.open()
+            var brackets = loader.item
+            entry(drawer.contentItem, "home").forceActiveFocus(Qt.TabFocusReason)
+            var library = entry(drawer.contentItem, "library")
+            library.forceActiveFocus(Qt.MouseFocusReason)
+            wait(20)
+            verify(!brackets.active)
+        }
     }
 }

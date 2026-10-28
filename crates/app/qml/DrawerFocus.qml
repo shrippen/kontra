@@ -25,5 +25,6 @@ KanteBrackets {
     parent: entry
     anchors.fill: parent
     z: 1
-    active: entry !== null
+    // Only for the keyboard: a click focuses the entry too (review #153).
+    active: entry !== null && entry.focusReason !== Qt.MouseFocusReason
 }
