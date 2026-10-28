@@ -151,6 +151,13 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Tests, die ein Skript schreiben und starten, laufen parallel zu anderen, die Prozesse starten: Ein geforktes Kind hält
   die frische Datei offen, `exec` scheitert mit „Text file busy“ (ETXTBSY, etwa 1 von 40 Läufen). Solche Tests über
   einen gemeinsamen `Mutex` nacheinander laufen lassen (`separator.rs`).
+- Eigener Session-Bus (`dbus-run-session`) nur für den Screenreader-Test (AT-SPI, Orca), und dann ganz vom Desktop
+  getrennt: `env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE XDG_RUNTIME_DIR=<leerer Ordner unter ~/.cache, 700>
+  QT_QPA_PLATFORM=xcb DISPLAY=:<xvfb> dbus-run-session -- <Test>`. `env` steht vor `dbus-run-session`, sonst erbt
+  der Bus (und jedes Portal, das er startet) die Umgebung des Desktops. Kontra auch hier nur mit `--input-file` und
+  `kontra:null`; den Ordner danach löschen. Ohne eigenes `XDG_RUNTIME_DIR` findet libwayland `wayland-0` des Desktops auch
+  ohne `WAYLAND_DISPLAY`. Am 28.10. startete D-Bus auf einem eigenen Bus `xdg-desktop-portal-kde`, das sich an den
+  echten Wayland-Desktop des Eigentümers hängte (Eigentümer, 28.10.2026).
 
 ## Persona rule
 

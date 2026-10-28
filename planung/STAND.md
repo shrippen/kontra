@@ -13,6 +13,8 @@ Offen:
   wartet auf Review und Merge.
 - Trenner der Seitenleiste für Screenreader stumm schalten: in Kante (`KanteScope.popup`), nicht lokal.
 - Danach Hell/Dunkel (M20) als Kante-PR mit Einstellung in Kontra; B8 (niedrig).
+- Extreme Vergrößerung und kleine Auflösungen getrennt anschauen: Screenshots je Seite, Ideen, Entscheidung mit dem
+  Eigentümer (ROADMAP, QA-Runde 28.10.; enthält B6 vor dem Abspielen).
 - Zur Freigabe in der nächsten Runde: pub aus #172 (`CacheEntry`, `BackingCache::{entries, forget, clear}`,
   `BassRemoval::{entries, forget, clear}`, `Core::{caches_json, forget_cached, clear_cache}`), #174 (`song::parts`,
   `CHORD_TEXT`, `BarHead.markers`), Kante 1.50 (`KanteRehearsalMark`, `KanteStyle.partText`, `rehearsalText`), #176
