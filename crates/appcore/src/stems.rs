@@ -84,7 +84,7 @@ impl Core {
     }
 
     /// The cache alone, without looking for the separator.
-    fn cached_stems(&self) -> BassRemoval {
+    pub(crate) fn cached_stems(&self) -> BassRemoval {
         BassRemoval::with_separator(None, &self.stems_cache())
     }
 
@@ -188,7 +188,7 @@ impl Core {
         .to_string()
     }
 
-    fn megabytes(&self, bytes: u64) -> String {
+    pub(crate) fn megabytes(&self, bytes: u64) -> String {
         let mb = (bytes as f64 / BYTES_PER_MB).ceil();
         self.tr("stems.mb", &[("mb", format!("{mb:.0}"))])
     }

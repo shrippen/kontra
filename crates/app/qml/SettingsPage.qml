@@ -23,6 +23,19 @@ Kirigami.ScrollablePage {
     readonly property var styles: ["kante", "kante-light", "system"]
     // LH-FOR-03: how a loaded backup is taken over.
     property string dataHow: "merge"
+    // Round 16 (P3, P4): prepared backing tracks and separated songs, by song.
+    property var caches: JSON.parse(ctl.cachesJson())
+    readonly property var cacheGroups: [
+        { id: "backing", title: texts.t("cache.backing"), hint: "cache.backing.hint" },
+        { id: "stems", title: texts.t("cache.stems"), hint: "cache.stems.hint" }
+    ]
+    function refreshCaches() { caches = JSON.parse(ctl.cachesJson()) }
+    // Preparing or separating ends while the page is open: the list follows.
+    Connections {
+        target: ctl
+        function onBackingLoadingChanged() { page.refreshCaches() }
+        function onStemsJsonChanged() { page.refreshCaches() }
+    }
 
     // Kirigami pages paint the platform background; Kante's ground replaces it.
     background: Rectangle { color: KanteStyle.backgroundColor }
@@ -378,6 +391,68 @@ Kirigami.ScrollablePage {
                 Accessible.name: texts.t("data.import")
                 onClicked: importDialog.open()
             }
+        }
+
+        // Round 16: each cache with its size, each entry by its song; delete one or all.
+        Repeater {
+            model: page.cacheGroups
+            delegate: ColumnLayout {
+                id: group
+                required property var modelData
+                required property int index
+                readonly property var cache: page.caches[modelData.id]
+                Layout.fillWidth: true
+                spacing: 0
+                KanteSettingRow {
+                    Layout.fillWidth: true
+                    section: group.index === 0 ? texts.t("cache.title") : ""
+                    title: group.modelData.title
+                    hint: texts.t(group.modelData.hint, { size: group.cache.total })
+                    KanteButton {
+                        text: texts.t("cache.clear")
+                        // Also when only half-written files are left.
+                        enabled: group.cache.bytes > 0
+                        Accessible.name: texts.t("cache.clear.name", { cache: group.modelData.title })
+                        onClicked: {
+                            ctl.clearCache(group.modelData.id)
+                            page.refreshCaches()
+                        }
+                    }
+                }
+                QQC2.Label {
+                    visible: group.cache.entries.length === 0
+                    text: texts.t("cache.empty")
+                    color: KanteStyle.mutedTextColor
+                }
+                Repeater {
+                    model: group.cache.entries
+                    delegate: KanteListRow {
+                        id: entry
+                        required property var modelData
+                        Layout.fillWidth: true
+                        text: modelData.name
+                        meta: modelData.size
+                        focusOnClick: false
+                        trailing: KanteButton {
+                            text: texts.t("cache.delete")
+                            emphasis: KanteButton.Emphasis.Quiet
+                            size: KanteButton.Size.Small
+                            Accessible.name: texts.t("cache.delete.name", { name: entry.modelData.name })
+                            onClicked: {
+                                ctl.forgetCached(group.modelData.id, entry.modelData.key)
+                                page.refreshCaches()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            Layout.bottomMargin: KanteStyle.unit(8)
+            color: KanteStyle.mutedTextColor
+            text: texts.t("cache.hint")
         }
 
         // LH-NF-04: audio dropouts since the start, for bug reports.

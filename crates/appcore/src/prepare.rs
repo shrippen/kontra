@@ -62,6 +62,12 @@ impl Core {
         Some(UiEvent::BackingLoading(true))
     }
 
+    /// Forgets what was prepared (the cache was emptied): the next tick prepares again.
+    pub(crate) fn prepare_again(&mut self) {
+        self.prepare.songs.clear();
+        self.prepare.device = None;
+    }
+
     /// Files the next run plays: the backing track and, without bass, the original.
     fn backing_songs(&self) -> Vec<PathBuf> {
         let played = self.backing().map(|(path, _)| path).filter(|p| p.exists());
