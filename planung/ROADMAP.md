@@ -341,7 +341,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - M3 (mittel, behoben #149): Pocket-Satz widersprüchlich („2 ms zu früh · meist 8 ms zu spät“).
   - M4 (mittel, offen): Enharmonik in B♭: Liste A♯1, Noten D♭ aus C♯.
   - M5 (mittel, offen): MusicXML-Akkordsymbole (`<harmony>`) werden nicht gelesen (LH-BIB-03).
-  - M6 (mittel, behoben #PR): „Alle Noten“ ohne Timing je Note (LH-BEW-01).
+  - M6 (mittel, behoben #160): „Alle Noten“ ohne Timing je Note (LH-BEW-01).
   - M9 (mittel, offen): Sechzehntel unlesbar, acht Takte in einer Zeile.
   - M10 (mittel, behoben #140): Generator: Schlusston über sieben Achtel, Takt las sich als 3/4.
   - M15 (mittel, behoben #143): Alt+5 (Klaviatur) fehlte, Tastenliste nannte alte Modi.
