@@ -1,7 +1,8 @@
 //! A steady tone under the input (mains hum) apart from played notes (LH-NF-16, F3): an attack
 //! that only leaves the background's pitch behind it is told `over_background`; the session
 //! judges such a note only where one is due (a click on hum is no extra note, the same note
-//! struck again on a ringing one still counts).
+//! struck again on a ringing one still counts). Since E8 the hum itself is subtracted first
+//! (`dehum`); this rule stays for the seconds before it is found and for a ringing note.
 
 use super::{NoteTracker, Pending, RISE_GAP_S};
 use crate::yin::power_at;
@@ -22,8 +23,8 @@ const BACKGROUND_CONFIDENCE: f32 = 0.9;
 
 impl NoteTracker {
     /// Whether the pitch found after the attack is new, not that of a steady tone before it.
-    /// A click or scrape on mains hum leaves the hum's pitch after it: no note, the attack stays
-    /// pitchless (LH-NF-16, idle-line: 31 false notes a minute at 50 Hz). Steady means heard
+    /// A click or scrape on mains hum leaves the hum's pitch after it: no note of its own, the
+    /// attack is told `over_background` (LH-NF-16, idle-line: 31 false notes a minute at 50 Hz). Steady means heard
     /// just before the attack and `BACKGROUND_EARLIER_S` before that: a played pitch often
     /// sounds a little before its attack is found (legato, the fretting finger), rarely that
     /// long. The note before still ringing is a background too: struck again, it is told

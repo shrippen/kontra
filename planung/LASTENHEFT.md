@@ -264,7 +264,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-NF-13 | **Testbarkeit:** Engine läuft ohne Hardware gegen WAV-Dateien und virtuelle MIDI-Quellen; Journey-Tests laufen in CI. | Muss | 0 | CI-Lauf mit Testkorpus grün. |
 | LH-NF-14 | **Erweiterbarkeit:** neue Instrumente und Eingänge als Profile und Adapter, ohne Änderung an Session und Bewertung. | Muss | 1 | Dummy-Profil im Test. |
 | LH-NF-15 | **Rückmeldung:** Eine Note ist im Korpus spätestens 70 ms nach ihrem Anschlag mit Tonhöhe gemeldet (p95, Linien-Sätze; Wert nach der ersten Messung bestätigen). LH-NF-01 misst Gerät und Puffer im Rundlauf, diese Anforderung die Zeit der Erkennung danach; ob beide zusammen das Ziel von LH-NF-01 halten, zeigt die Hardware-Prüfung. P1, P2, P7 (Harmonicon-Analyse, 29.10.). | Soll | 1 | `kontra-cli korpus check` mit Obergrenze. |
-| LH-NF-16 | **Keine Falschnoten im Leerlauf:** Sätze ohne gespielte Noten (Saitengeräusch, Abdämpfen, Kabelknacken, Raum, Brummen) erzeugen höchstens 1 Falschnote je Minute. P1, P6, P7 (Harmonicon-Analyse, 29.10.). | Soll | 1 | Korpus-Sätze ohne Noten in der CI (29.10.: 0 je Minute). |
+| LH-NF-16 | **Keine Falschnoten im Leerlauf:** Sätze ohne gespielte Noten (Saitengeräusch, Abdämpfen, Kabelknacken, Raum, Brummen) erzeugen höchstens 1 Falschnote je Minute. P1, P6, P7 (Harmonicon-Analyse, 29.10.). | Soll | 1 | Korpus-Sätze ohne Noten in der CI (29.10.: 0 je Minute; seit E8 mit Brummen vor der Erkennung abgezogen). |
 
 ---
 

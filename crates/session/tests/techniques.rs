@@ -223,6 +223,20 @@ fn pitchless_attack_off_the_notes_is_no_extra() {
     );
 }
 
+/// A dead note with a pitch where no note is due is no extra either: its pitch is noise (a hand
+/// on the strings, idle-room once hum was removed before detection, E8).
+#[test]
+fn dead_note_with_pitch_off_the_notes_is_no_extra() {
+    let mut s = Session::new(piece(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    run(&mut s, &[played(0.25, 36.86, Some(Technique::Muted))], 0.6);
+    assert!(
+        s.results().iter().all(|r| r.note.is_some()),
+        "{:?}",
+        s.results()
+    );
+}
+
 /// A pitch only the background's (a click on hum, the same note struck again) is no extra off
 /// the notes, but a hit on a due note (review #193, round 4: re-struck notes counted wrong).
 #[test]

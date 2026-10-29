@@ -36,6 +36,7 @@
 //!                                               octave above, half the estimates near it? ─► revise
 //! ```
 
+use crate::dehum::Dehum;
 use crate::hum::HumFilter;
 use crate::intonation::refine_hz;
 use crate::level::amplitude_to_db;
@@ -412,9 +413,11 @@ pub struct NoteTracker {
     config: TrackerConfig,
     sample_rate: f64,
     onsets: OnsetDetector,
-    /// Mains hum removed before anything else, where the input picks it up (laptop jack).
+    /// Mains hum removed before anything else, where the input picks it up (laptop jack) …
     hum: Option<HumFilter>,
-    /// The current block after `hum`.
+    /// … and on every input followed and subtracted (E8).
+    dehum: Dehum,
+    /// The current block after `hum` and `dehum`.
     filtered: Vec<f32>,
     /// The input before `hum` (empty without), for `refine_hz`: the notches ring after an
     /// attack and moved the fine pitch by up to 25 ct (synthetic laptop set: p95 4.6 → 18.7 ct).
@@ -449,6 +452,7 @@ impl NoteTracker {
         let raw_len = |len: usize| if hum.is_some() { len } else { 0 };
         NoteTracker {
             onsets: OnsetDetector::new(sample_rate, config.onset),
+            dehum: Dehum::new(sample_rate),
             hum,
             filtered: Vec::with_capacity((RETRY_S * sample_rate) as usize + 1),
             raw_ring: vec![0.0; raw_len(ring_len)],
@@ -500,15 +504,18 @@ impl NoteTracker {
         let block = (RETRY_S * self.sample_rate) as usize;
         let mut filtered = std::mem::take(&mut self.filtered);
         for raw in samples.chunks(block.max(1)) {
-            let chunk = match self.hum.as_mut() {
-                Some(hum) => {
-                    filtered.clear();
-                    filtered.extend(raw.iter().map(|x| hum.process(*x)));
-                    &filtered[..]
-                }
-                None => raw,
-            };
+            // Notches first: they ring when their input changes, as it would once hum is
+            // subtracted (a G2 heard as the hum, 31.1, on the laptop jack).
+            filtered.clear();
+            filtered.extend_from_slice(raw);
+            if let Some(hum) = self.hum.as_mut() {
+                filtered.iter_mut().for_each(|x| *x = hum.process(*x));
+            }
+            filtered
+                .iter_mut()
+                .for_each(|x| *x = self.dehum.process(*x));
             self.store_raw(raw);
+            let chunk = &filtered[..];
             self.store(chunk);
             let count = self.onsets.push(chunk).len();
             for i in 0..count {

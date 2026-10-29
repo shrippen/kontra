@@ -3,6 +3,12 @@
 Übergabe zwischen Sitzungen. Stand: 2026-10-29. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
 
+## Übergabe (29.10.2026, E8 Brummen)
+
+PR `hum` (E8): Brummen wird vor der Erkennung abgezogen, F3-Regel bleibt als zweite Linie. Neue öffentliche
+Schnittstelle zur Freigabe: `KorpusSet::HumLine` (Satz `hum-line`). Geändert: `DetectedNote::stands_out` ist für tote
+Noten (`Muted`) falsch. Offen: Abzug unter langem Spiel ohne Pause (> 8 s), Stimmgerät nutzt noch die Kerbfilter.
+
 ## Übergabe (29.10.2026, Harmonicon-Analyse)
 
 Harmonicon untersucht, 39 Vorschläge gewählt (ROADMAP, „Entscheidungen Harmonicon-Analyse“; Lastenheft ergänzt).
