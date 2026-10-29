@@ -315,8 +315,11 @@ pub(crate) fn print_summary(s: &session::Summary, arrangement: &kontra_model::Ar
         };
         println!("timing: {tendency}, spread ±{spread:.0} ms");
     }
-    if let Some(cents) = s.mean_abs_cents {
-        println!("intonation: {cents:.1} cents average deviation");
+    if let Some(i) = s.intonation {
+        println!(
+            "intonation: {:+.1} cents on average, spread ±{:.1}",
+            i.mean_cent, i.spread_cent
+        );
     }
     let max = s.histogram.counts.iter().copied().max().unwrap_or(0).max(1);
     for (i, count) in s.histogram.counts.iter().enumerate() {
