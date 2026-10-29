@@ -2,7 +2,7 @@
 
 use std::f64::consts::TAU;
 
-use kontra_stretch::{stretch_buffer, Stretcher};
+use kontra_stretch::{stretch_buffer, Resolution, Stretcher};
 use rustfft::num_complex::Complex;
 use rustfft::FftPlanner;
 
@@ -474,4 +474,156 @@ fn fine_resolution_low_b() {
         (20.0 * (rms_out / rms_in).log10()).abs() < 1.0,
         "level {rms_in} -> {rms_out}"
     );
+}
+
+/// Clicks every `spacing` samples over a bass line, `count` of them, the
+/// first after `first_ms`. Returns the signal and the click positions.
+fn click_train(spacing: usize, count: usize, first_ms: f64) -> (Vec<f32>, Vec<usize>) {
+    let first = (first_ms / 1000.0 * SRF) as usize;
+    let len = first + (count + 2) * spacing;
+    let mut x = bass(55.0, 0.2, len as f64 / SRF);
+    x.resize(len, 0.0);
+    let at: Vec<usize> = (0..count).map(|i| first + i * spacing).collect();
+    for &p in &at {
+        x[p] += 0.8;
+    }
+    (x, at)
+}
+
+/// Click spacing per resolution: sixteenths at 120 BPM for Standard,
+/// eighths for Fine (its window is longer than a sixteenth, see the crate
+/// docs on close transients).
+fn spacing_for(resolution: Resolution) -> usize {
+    match resolution {
+        Resolution::Standard => SR as usize / 8,
+        Resolution::Fine => SR as usize / 4,
+    }
+}
+
+/// Feeds all of `x` in blocks of 512 and returns what comes out.
+fn feed(st: &mut Stretcher, x: &[f32]) -> Vec<f32> {
+    let block = 512;
+    let mut out = Vec::new();
+    let mut buf = vec![0.0; block];
+    let mut fed = 0;
+    while fed < x.len() {
+        let need = st.required_input().clamp(1, block).min(x.len() - fed);
+        fed += st.push(&[&x[fed..fed + need]]);
+        loop {
+            let got = st.pull(&mut [&mut buf[..]]);
+            out.extend_from_slice(&buf[..got]);
+            if got == 0 {
+                break;
+            }
+        }
+    }
+    out
+}
+
+/// Pins the buffering delay at 48 kHz: the short steering lead saves
+/// 37 ms (Standard) and 75 ms (Fine) against a lead of half a window.
+#[test]
+fn latency_figures() {
+    for (resolution, want_ms) in [(Resolution::Standard, 96.0), (Resolution::Fine, 192.0)] {
+        let lat = Stretcher::with_resolution(2, SR, 512, resolution).latency_samples();
+        let ms = lat as f64 / SRF * 1000.0;
+        println!("{resolution:?}: latency {lat} samples ({ms:.1} ms)");
+        assert!((ms - want_ms).abs() < 0.5, "{resolution:?}: {ms} ms");
+    }
+}
+
+/// Dense onsets right after a seek stay sharp and on time, although the
+/// planner sees them only a short lead ahead.
+#[test]
+fn dense_clicks_after_seek() {
+    let speed = 0.5;
+    for resolution in [Resolution::Standard, Resolution::Fine] {
+        let spacing = spacing_for(resolution);
+        let mut st = Stretcher::with_resolution(1, SR, 512, resolution);
+        st.set_speed(speed);
+        let (before, _) = click_train(spacing, 6, 50.0);
+        feed(&mut st, &before);
+
+        // Seek: the new material starts with clicks 0.2 s in (see the
+        // crate docs on onsets right after a reset).
+        st.reset();
+        let (x, at) = click_train(spacing, 16, 200.0);
+        let y = feed(&mut st, &x);
+
+        let hp: Vec<f32> = y.windows(3).map(|w| w[2] - 2.0 * w[1] + w[0]).collect();
+        let expect: Vec<usize> = at.iter().map(|&p| (p as f64 / speed) as usize).collect();
+        let half = (spacing as f64 / speed / 2.0) as usize;
+        let stats = click_stats(&hp, &expect, half);
+        let share = stats.iter().map(|s| s.1).fold(1.0, f64::min);
+        let off = stats
+            .iter()
+            .zip(&expect)
+            .map(|(s, &e)| ((s.0 as f64 - e as f64) / SRF * 1000.0).abs())
+            .fold(0.0, f64::max);
+        println!(
+            "{resolution:?} after seek: worst share {:.1} %, worst offset {off:.2} ms",
+            share * 100.0
+        );
+        assert!(share >= 0.9, "{resolution:?}: share {share}");
+        assert!(off < 2.0, "{resolution:?}: offset {off} ms");
+    }
+}
+
+/// Clicks in `hp` found one after another: each within `gaps` (output
+/// samples) after the previous one. Returns (peak, share within ±5 ms of
+/// the energy within ±`half`) per click.
+fn chain_clicks(hp: &[f32], first: usize, count: usize, gaps: (usize, usize)) -> Vec<(usize, f64)> {
+    let near = (SRF * 0.005) as usize;
+    let half = gaps.0 * 2 / 5;
+    let energy = |a: usize, b: usize| hp[a..b].iter().map(|&v| f64::from(v).powi(2)).sum::<f64>();
+    let loudest = |lo: usize, hi: usize| {
+        (lo..hi.min(hp.len()))
+            .max_by(|&i, &j| hp[i].abs().total_cmp(&hp[j].abs()))
+            .unwrap_or(lo)
+    };
+
+    let mut out = Vec::new();
+    let mut peak = loudest(first - half, first + half);
+    for _ in 0..count {
+        let (lo, hi) = (peak - half, (peak + half).min(hp.len()));
+        out.push((peak, energy(peak - near, peak + near) / energy(lo, hi)));
+        peak = loudest(peak + gaps.0 * 3 / 5, peak + gaps.1 + gaps.0 / 10);
+    }
+    out
+}
+
+/// Dense onsets right after a tempo change stay sharp and take the new
+/// spacing once the speed has glided (about 0.1 s).
+#[test]
+fn dense_clicks_after_tempo_change() {
+    let (from, to) = (0.75, 0.4);
+    for resolution in [Resolution::Standard, Resolution::Fine] {
+        let spacing = spacing_for(resolution);
+        let mut st = Stretcher::with_resolution(1, SR, 512, resolution);
+        st.set_speed(from);
+        let (x, at) = click_train(spacing, 24, 200.0);
+
+        // Change halfway through the train.
+        let change = at[at.len() / 2] - spacing / 2;
+        let mut y = feed(&mut st, &x[..change]);
+        st.set_speed(to);
+        y.extend(feed(&mut st, &x[change..]));
+
+        let hp: Vec<f32> = y.windows(3).map(|w| w[2] - 2.0 * w[1] + w[0]).collect();
+        let (short, long) = (spacing as f64 / from, spacing as f64 / to);
+        let first = (at[0] as f64 / from) as usize;
+        let stats = chain_clicks(&hp, first, at.len(), (short as usize, long as usize));
+        let share = stats.iter().map(|s| s.1).fold(1.0, f64::min);
+        println!(
+            "{resolution:?} tempo change: worst share {:.1} %",
+            share * 100.0
+        );
+        assert!(share >= 0.9, "{resolution:?}: share {share}");
+
+        // The last quarter is well past the glide: new spacing.
+        for w in stats[stats.len() * 3 / 4..].windows(2) {
+            let err_ms = ((w[1].0 - w[0].0) as f64 - long) / SRF * 1000.0;
+            assert!(err_ms.abs() < 2.0, "{resolution:?}: gap off by {err_ms} ms");
+        }
+    }
 }

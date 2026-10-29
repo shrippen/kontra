@@ -16,6 +16,13 @@ const DET_RATIO: usize = 4;
 /// Onset detector overlap (hop 256 at 48 kHz, 5 ms).
 const DET_OVERLAP: usize = 4;
 
+/// Steering lead relative to the main window (256 at 48 kHz, 5 ms).
+/// The planner looks one hop beyond the window anyway, so it starts
+/// steering at least a frame before a transient run; half a window (the
+/// former lead) cost 37 ms latency (Standard) and 75 ms (Fine) for the
+/// same click timing and sharpness (R9, 29.10.2026).
+const LEAD_DIV: usize = 16;
+
 /// Smallest and largest window exponent (1024 … 32768 samples).
 const WIN_LOG2_MIN: i32 = 10;
 const WIN_LOG2_MAX: i32 = 15;
@@ -50,7 +57,7 @@ impl Sizes {
             hop: win / OVERLAP,
             det_win,
             det_hop: det_win / DET_OVERLAP,
-            lead: win / 2,
+            lead: win / LEAD_DIV,
         }
     }
 
