@@ -200,20 +200,38 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             RowLayout {
                 Layout.fillWidth: true
-                QQC2.Label { text: texts.t("calibration.hint"); wrapMode: Text.WordWrap; Layout.fillWidth: true; color: KanteStyle.textColor }
+                QQC2.Label {
+                    text: ctl.laptopJack ? texts.t("calibration.hint") : texts.t("calibration.loopback.hint") + " " + texts.t("calibration.hint")
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                    color: KanteStyle.textColor
+                }
                 KanteInfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency"); accessibleName: texts.t("help.about", { term: texts.t("settings.latency") }) }
             }
             RowLayout {
+                // The laptop's combo jack is input and output at once: no cable fits (P1).
+                KanteButton {
+                    visible: !ctl.laptopJack
+                    text: texts.t("calibration.loopback.start")
+                    busy: ctl.calibrating && ctl.cableMeasuring
+                    enabled: !ctl.calibrating
+                    onClicked: ctl.startLoopback()
+                }
                 KanteButton {
                     text: texts.t("calibration.start")
-                    busy: ctl.calibrating
+                    busy: ctl.calibrating && !ctl.cableMeasuring
                     enabled: !ctl.calibrating
                     onClicked: ctl.startCalibration()
                 }
-                // "0 ms" before any measurement read like a result (QA 14.10.).
+                // "0 ms" before any measurement read like a result (QA 14.10.); the source and
+                // the lean in words beside it (R4).
                 QQC2.Label {
-                    text: ctl.latencyMs > 0 ? Math.round(ctl.latencyMs) + " ms" : texts.t("calibration.none")
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    text: ctl.latencyMs > 0 ? Math.round(ctl.latencyMs) + " ms" + (ctl.latencyNote !== "" ? " · " + ctl.latencyNote : "") : texts.t("calibration.none")
                     color: ctl.latencyMs > 0 ? KanteStyle.textColor : KanteStyle.mutedTextColor
+                    Accessible.role: Accessible.StaticText
+                    Accessible.name: texts.t("settings.latency") + ": " + text
                 }
             }
             CalibrationBeat { Layout.fillWidth: true }

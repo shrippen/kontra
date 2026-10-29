@@ -179,6 +179,10 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 - F3: `DetectedNote::{is_pitchless, stands_out, over_background}`, `Evaluation::pitched`; `pub(crate) yin::power_at`.
 - A2: `Summary::recalibrate`, `Summary::{before_beat_hits, after_beat_hits}`.
+- R4 (loopback-cal): `LiveLoopback` (`start`, `poll`), `LoopbackResult` (`from_trip`), `LatencyFrom`,
+  `Settings::{latency_from, loopback_ms, click_ms}`, `Core::{start_loopback, lean_ms, latency_note}`,
+  `pub(crate) Core::{poll_calibration, latency_hint}`; Brücke: Invokable `startLoopback`, Properties
+  `cableMeasuring`, `latencyNote`. `CalibrationResult::Measured::latency_ms` kann jetzt negativ sein.
 
 ## Für den Eigentümer
 

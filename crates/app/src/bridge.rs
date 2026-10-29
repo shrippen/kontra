@@ -136,6 +136,10 @@ pub mod qobject {
         /// The calibration's click: −4..−1 count-in, 0..7 measured, −99 none.
         #[qproperty(i32, calibration_beat, cxx_name = "calibrationBeat")]
         #[qproperty(QString, calibration_text, cxx_name = "calibrationText")]
+        /// The running measurement is the one by cable (no clicks to count).
+        #[qproperty(bool, cable_measuring, cxx_name = "cableMeasuring")]
+        /// Where the latency comes from, with the player's lean: "mit Kabel gemessen · …".
+        #[qproperty(QString, latency_note, cxx_name = "latencyNote")]
         #[qproperty(QString, backing_name, cxx_name = "backingName")]
         #[qproperty(QString, stems_json, cxx_name = "stemsJson")]
         /// The backing track is prepared in the background; play waits (QA 27.10., J2).
@@ -511,6 +515,11 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "startCalibration"]
         fn start_calibration(self: Pin<&mut Self>);
+
+        /// Latency by cable, output into input (LH-EIN-05).
+        #[qinvokable]
+        #[cxx_name = "startLoopback"]
+        fn start_loopback(self: Pin<&mut Self>);
 
         /// Backing track for the loaded piece (LH-WIE-01); an empty URL removes it.
         #[qinvokable]
@@ -943,6 +952,8 @@ pub struct ControllerRust {
     calibrating: bool,
     calibration_beat: i32,
     calibration_text: QString,
+    cable_measuring: bool,
+    latency_note: QString,
     backing_name: QString,
     stems_json: QString,
     backing_loading: bool,
@@ -1103,6 +1114,8 @@ impl Default for ControllerRust {
             calibrating: false,
             calibration_beat: NO_BEAT,
             calibration_text: QString::default(),
+            cable_measuring: false,
+            latency_note: q(&core.latency_note()),
             backing_name: QString::default(),
             stems_json: QString::default(),
             backing_loading: false,
@@ -1744,6 +1757,9 @@ impl qobject::Controller {
                     }
                     self.as_mut().set_calibration_text(q(&text));
                     self.as_mut().set_calibrating(false);
+                    self.as_mut().set_cable_measuring(false);
+                    let note = self.as_ref().rust().core.latency_note();
+                    self.as_mut().set_latency_note(q(&note));
                 }
             }
         }
@@ -2200,8 +2216,12 @@ impl qobject::Controller {
 
     fn change_latency(mut self: Pin<&mut Self>, latency_ms: f64) {
         let value = latency_ms.clamp(0.0, 500.0);
-        self.as_mut().core().reconfigure(|s| s.latency_ms = value);
+        self.as_mut().core().reconfigure(|s| {
+            s.latency_ms = value;
+            s.latency_from = kontra_appcore::LatencyFrom::Manual;
+        });
         self.as_mut().set_latency_ms(value);
+        self.as_mut().set_latency_note(QString::default());
         self.as_mut().set_playing(false);
     }
 
@@ -2308,6 +2328,24 @@ impl qobject::Controller {
             Ok(()) => {
                 let text = self.as_ref().rust().core.tr("calibration.running", &[]);
                 self.as_mut().set_calibration_text(q(&text));
+                self.as_mut().set_calibrating(true);
+            }
+            Err(e) => self.as_mut().show_error(&e),
+        }
+    }
+
+    fn start_loopback(mut self: Pin<&mut Self>) {
+        self.as_mut().set_playing(false);
+        self.as_mut().set_tuner_active(false);
+        match self.as_mut().core().start_loopback() {
+            Ok(()) => {
+                let text = self
+                    .as_ref()
+                    .rust()
+                    .core
+                    .tr("calibration.loopback.running", &[]);
+                self.as_mut().set_calibration_text(q(&text));
+                self.as_mut().set_cable_measuring(true);
                 self.as_mut().set_calibrating(true);
             }
             Err(e) => self.as_mut().show_error(&e),
@@ -2726,6 +2764,8 @@ impl qobject::Controller {
         self.as_mut().set_pocket(q(&s.pocket));
         self.as_mut().set_pitch_cents(s.pitch_cents);
         self.as_mut().set_latency_ms(s.latency_ms);
+        let note = self.as_ref().rust().core.latency_note();
+        self.as_mut().set_latency_note(q(&note));
         self.as_mut().set_backing_volume(s.backing_volume);
         self.as_mut().set_metronome_volume(s.metronome_volume);
         self.as_mut().set_tone_volume(s.tone_volume);
