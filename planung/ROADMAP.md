@@ -186,8 +186,8 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 
 ## Forschung zur Audio-Engine (29.10.2026)
 
-Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, gleiche Daten; Berichte unter
-`~/.cache/claude/kontra-exp/`, Branches `exp-*` nur lokal). Eigentümer 29.10.: umsetzen, soweit es trägt.
+Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, gleiche Daten; Berichte in
+[FORSCHUNG-AUDIO.md](FORSCHUNG-AUDIO.md)). Eigentümer 29.10.: umsetzen, soweit es trägt.
 
 - [ ] R1 Meldezeit (LH-NF-15): YIN ab dem Anschlag mit wachsendem Fenster (1 Periode, Bestätigung), das volle Fenster
   revidiert in beide Richtungen, auch nur die Cent. Prototyp: IDMT Median 79 → 61 ms, `line-4`/`line-5` p95 81 → 69,
