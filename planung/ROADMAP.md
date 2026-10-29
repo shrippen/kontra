@@ -184,6 +184,62 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
   91,2/81,2 %; eigene Aufnahmen unverändert (testdata/korpus/QUELLEN.md, „Tonhöhen-Revision“).
 - Hardware-Prüfung gemeinsam: am 13.10. begonnen (Abschnitt Hardware-Prüfung unter QA-Runden).
 
+## Entscheidungen Harmonicon-Analyse (29.10.2026)
+
+Harmonicon (tcanabrava/harmonicon, MIT, Bevy, Mundharmonika) untersucht; Vorschläge in
+https://claude.ai/artifact/XMBQvJcxcUE71NqwDeBdBG, Auswahl in `auswahl/harmonicon`. 39 von 40 gewählt, W10 (Skills
+und CLAUDE.md je Crate) abgelehnt. Code übernimmt Kontra kaum (Erkennung grob, 46-ms-Raster), Methoden und Messungen
+schon. Bevy: kein Wechsel; Fernsteuerung über AT-SPI, Hot-Reload nur für Kurse und QML.
+
+Fehler (zuerst roter Test):
+- [ ] F1 Volle Eingangs-Ringe verwerfen Samples stumm, spätere Zeitstempel zu früh (`engine/src/input.rs`).
+- [ ] F2 Schwierigste Takte nach Fehlerzahl, „Stelle üben“ aus dem dichtesten Fenster (LH-BEW-03).
+
+Rückmeldung und Lernen:
+- [ ] A1 Eine Beobachtung je Durchlauf (LH-BEW-09).
+- [ ] A2 Hinweis „Neu kalibrieren?“ (LH-EIN-14).
+- [ ] A3 Improvisation bewerten (LH-BEW-13).
+- [ ] A4 Adaptive Dichte über Abschnitts-Anteile (LH-MOD-06).
+- [ ] L1 Stellen wiederholen (LH-LRN-16).
+- [ ] L2 Übungsserie, standardmäßig aus (LH-FOR-05).
+- [ ] L3 Übungsleiter je Lektion (LH-LRN-17).
+- [ ] L4 Griffbrett-Quiz gewichtet (LH-LRN-18).
+- [ ] L5 Intonation als Richtung und Streuung (LH-BEW-12).
+- [ ] L6 Verstimmte Saite erkennen (LH-TUN-05).
+- [ ] L7 Liedkarte, Kante-Baustein (LH-FOR-06).
+- [ ] L8 Ruf und Antwort (LH-LRN-19).
+- [ ] L9 Reagierende Band (LH-WIE-05).
+- [ ] L10 Ziel je Lektion (LH-LRN-20).
+- [ ] L11 Shuffle-Klick (LH-WIE-04).
+
+Erkennung und Messung:
+- [ ] A5 `korpus confusion`: Verwechslung nach Intervall und Register.
+- [ ] E1 Meldezeit je Note im Korpus (LH-NF-15).
+- [ ] E2 Sätze ohne Noten, Falschnoten je Minute (LH-NF-16).
+- [ ] E3 Wächter und dauerhafter Eingangszustand (LH-EIN-15).
+- [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).
+- [ ] E5 Notenende (LH-BEW-10).
+- [ ] E6 Rauschboden bei der Kalibrierung (LH-EIN-16).
+- [ ] E7 Erste echte Aufnahmen als eingefrorene Basis, neue als eigene Gruppen.
+
+Mehrere Töne (offen für Gitarre und Tasten):
+- [ ] M1 Doppelgriffe: Korpus-Satz, Merker „zwei Töne“, Fähigkeit je Eingang (LH-BEW-11).
+- [ ] M2 Akkorde im Korpus als ganze Menge werten, zuerst MIDI.
+- [ ] M3 Saiten-Plausibilität für Akkordkandidaten im Instrumentprofil.
+- [ ] M4 Machbarkeitsstudie NNLS mit Vorlagen je Saite, Log-Frequenz (nach 1.0).
+
+Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in Worten je PR):
+- [ ] W1 `scripts/qactl.py` über AT-SPI; Socket nur im Cargo-Feature `qa`.
+- [ ] W2 `scripts/qa-session.sh` für jeden isolierten Testlauf.
+- [ ] W3 Layout-Prüfung je Seite bei P4- und P7-Auflösung (LH-ANZ-09).
+- [ ] W4 Tabelle Regel → Prüfung, Git-Hooks, CI-Prüfung der Commit-Nachrichten.
+- [ ] W5 Test für Crate-Kanten und Dateigröße mit Abbauliste.
+- [ ] W6 `scripts/release.sh`, metainfo `<releases>`/`<screenshots>`, AppStream- und Flatpak-Lint.
+- [ ] W7 `cargo deny` mit `[advisories]`, eigener Job und wöchentlich.
+- [ ] W8 JSON-Schemas für Pakete und Kurse aus den serde-Strukturen.
+- [ ] W9 Kurs aus Ordner live (LH-LRN-21); QML von der Platte in Entwicklung.
+- [ ] W11 Glyphen-Test für Sonderzeichen.
+
 ## Entscheidungen Runde 16 (28.10.2026)
 
 - [x] Kante #86: `scheme` herausgenommen, Rest nach Review gemerged; Kante 1.49 veröffentlicht, in Kontra #170. Hell/Dunkel als eigener Kante-PR mit der Einstellung in Kontra (M20).
