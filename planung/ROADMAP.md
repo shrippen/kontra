@@ -198,8 +198,8 @@ Fehler (zuerst roter Test):
   einen Anschlag aus, die Tonhöhe kam vom Netzbrummen (50 Hz, MIDI 31,35) oder fehlte. `idle-line` 41, `idle-room` 26
   Falschnoten je Minute statt höchstens 1. Behoben: Eine Tonhöhe, die schon 200 ms vor dem Anschlag klar zu hören war
   (nicht die der letzten Note) und bei ihrer Frequenz nicht um 12 dB lauter wird, ist Hintergrund, der Anschlag bleibt
-  tonlos; ein tonloser Anschlag zählt in der Session nur, wo eine Dead Note erwartet wird. Jetzt 0 je Minute; IDMT
-  89,9 % / 80,4 % (vorher 90,1 / 80,6: zwei echte Noten mit Hintergrund gleicher Tonhöhe), synthetische Sätze gleich.
+  tonlos (auch nach einer leisen Note nahe der Brummfrequenz); ein tonloser Anschlag zählt in der Session nur, wo eine
+  Note fällig ist. Jetzt 0 je Minute; IDMT 89,9 % / 80,4 % (vorher 90,1 / 80,6: zwei echte Noten mit Hintergrund gleicher Tonhöhe), synthetische Sätze gleich.
 
 Rückmeldung und Lernen:
 - [ ] A1 Eine Beobachtung je Durchlauf (LH-BEW-09).

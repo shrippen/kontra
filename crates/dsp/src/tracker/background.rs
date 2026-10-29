@@ -15,6 +15,11 @@ const BACKGROUND_RISE: f64 = 16.0;
 /// A note still rings while its level stays above this share of its peak (−30 dB); a hum at
 /// −50 dBFS lies 35 dB under a pluck.
 const RINGING_FLOOR: f32 = 0.03;
+/// A note this close to its peak (−10 dB) rings for sure: a hum 10 dB under a note is rare.
+const RINGING_NEAR: f32 = 0.3;
+/// Otherwise a ringing note was this much louder `BACKGROUND_EARLIER_S` before (+2 dB): it fades, a hum
+/// does not.
+const RINGING_FADE: f32 = 1.25;
 /// How long before the attack a steady background tone must already sound (see `stands_out`).
 const BACKGROUND_EARLIER_S: f64 = 0.2;
 /// A background counts as a tone of its own only this clear: mains hum 0.98; a ringing or
@@ -43,19 +48,21 @@ impl NoteTracker {
         let sr = self.sample_rate;
         let before_end = p.onset.saturating_sub((RISE_GAP_S * sr) as u64);
 
-        // Closer to the last note than a new note would be, and loud enough to be it: that note
-        // ringing, glided a little (fretless). Faded under the hum, it lets no hum through.
-        let before = self.peak(
-            before_end.saturating_sub(self.yin.needed() as u64),
-            before_end,
-        );
+        let needed = self.yin.needed() as u64;
+        let earlier_end = before_end.saturating_sub((BACKGROUND_EARLIER_S * sr) as u64);
+
+        // Closer to the last note than a new note would be, loud enough to be it, and still near its
+        // peak or fading: that note ringing, glided a little (fretless). A hum stays as loud; a
+        // soft note near its pitch that faded into it lets no hum through (review #193).
+        let before = self.peak(before_end.saturating_sub(needed), before_end);
+        let earlier = self.peak(earlier_end.saturating_sub(needed), earlier_end);
         if self.last_note.is_some_and(|(midi, peak)| {
             (midi - found).abs() * CENTS_PER_SEMITONE < LEGATO_CENTS
                 && before >= peak * RINGING_FLOOR
+                && (before >= peak * RINGING_NEAR || earlier >= before * RINGING_FADE)
         }) {
             return true;
         }
-        let earlier_end = before_end.saturating_sub((BACKGROUND_EARLIER_S * sr) as u64);
         let steady = [before_end, earlier_end]
             .into_iter()
             .all(|end| self.background(end).is_some_and(|m| near(m, found)));

@@ -642,8 +642,8 @@ impl NoteTracker {
         // A new attack ends the ringing note (told with what was heard before it); a legato note
         // just before it was this attack.
         if let Some(mut s) = self.sounding {
-            self.last_note = Some((s.midi, s.peak));
             self.settle(&mut s, onset);
+            self.last_note = Some((s.midi, s.peak));
         }
         self.sounding = None;
         self.legato = None;
