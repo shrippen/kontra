@@ -83,6 +83,25 @@ KanteCard {
             text: content.observation ? content.observation.text : ""
         }
 
+        // The hits lean so steadily that the latency may be wrong (LH-EIN-14): a hint with the
+        // way to calibrate, never a correction.
+        readonly property string recalibrate: sheet.summary && sheet.summary.recalibrateText ? sheet.summary.recalibrateText : ""
+        KanteCallout {
+            Layout.fillWidth: true
+            visible: content.recalibrate !== ""
+            kind: KanteCallout.Kind.Info
+            autoHide: false
+            text: content.recalibrate
+            KanteButton {
+                text: texts.t("summary.recalibrate.button")
+                // To the settings: the calibration there says how it goes before it starts.
+                onClicked: {
+                    sheet.close()
+                    applicationWindow().show("settings")
+                }
+            }
+        }
+
         // Blind probe (DIDAKTIK I1): without help next to the workshop with notes, in figures and
         // a sentence (not colour alone).
         readonly property var probe: sheet.summary ? sheet.summary.probe : null

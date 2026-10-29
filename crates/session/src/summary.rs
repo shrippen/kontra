@@ -42,6 +42,9 @@ const MANY_MISSED: f64 = 0.35;
 const LOPSIDED: f64 = 0.6;
 /// Hits this close to the beat count as on time for the lean.
 const ON_TIME_MS: f64 = 10.0;
+/// A mean this far from the beat, with the hits lopsided the same way, may be a wrong latency
+/// (LH-EIN-14).
+const RECALIBRATE_MS: f64 = 5.0;
 
 /// Counts of timing offsets in 10 ms bins from −100 to +100 ms; outliers go to the edge bins.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -118,6 +121,12 @@ pub struct Summary {
     /// Hits more than `ON_TIME_MS` after the beat.
     #[serde(default)]
     pub late_hits: u32,
+    /// Hits before the beat, however close (LH-EIN-14).
+    #[serde(default)]
+    pub before_beat_hits: u32,
+    /// Hits after the beat, however close.
+    #[serde(default)]
+    pub after_beat_hits: u32,
 }
 
 /// The one thing a run most wants the player to hear (LH-BEW-09, after Harmonicon's coaching).
@@ -289,13 +298,47 @@ impl Summary {
             outside_notes: Vec::new(),
             early_hits: offsets.iter().filter(|o| **o < -ON_TIME_MS).count() as u32,
             late_hits: offsets.iter().filter(|o| **o > ON_TIME_MS).count() as u32,
+            before_beat_hits: offsets.iter().filter(|o| **o < 0.0).count() as u32,
+            after_beat_hits: offsets.iter().filter(|o| **o > 0.0).count() as u32,
+        }
+    }
+
+    /// The side the hits lean to so steadily that the latency may be wrong (LH-EIN-14): at
+    /// least `OBSERVE_MIN_HITS` hits, `LOPSIDED` of them on one side, the mean `RECALIBRATE_MS`
+    /// off the beat. Only a hint, never a correction: a lean the chosen aim covers (laid back)
+    /// is played on purpose.
+    pub fn recalibrate(&self, pocket: Pocket) -> Option<Side> {
+        if self.hits < OBSERVE_MIN_HITS {
+            return None;
+        }
+        let mean = self.mean_offset_ms?;
+        if mean.abs() < RECALIBRATE_MS {
+            return None;
+        }
+
+        let (side, same) = if mean < 0.0 {
+            (Side::Early, self.before_beat_hits)
+        } else {
+            (Side::Late, self.after_beat_hits)
+        };
+        if f64::from(same) < LOPSIDED * f64::from(self.hits) {
+            return None;
+        }
+
+        // With an aim, only a mean outside it on the same side.
+        match (pocket.judge(mean.round()), side) {
+            (None, _)
+            | (Some(PocketVerdict::Early(_)), Side::Early)
+            | (Some(PocketVerdict::Late(_)), Side::Late) => Some(side),
+            _ => None,
         }
     }
 
     /// The observation for this run, picked in a fixed order, most specific first: a weak
     /// technique, notes played beside the window, many notes missed, a missed timing aim
-    /// (`pocket`), a lean (only without an aim), else solid. `None` below `OBSERVE_MIN_NOTES`:
-    /// one missed slide is no diagnosis.
+    /// (`pocket`), a lean (only without an aim), else solid. `None` below `OBSERVE_MIN_NOTES`
+    /// (one missed slide is no diagnosis), and below `OBSERVE_MIN_HITS` hits when none of the
+    /// first three applies.
     pub fn observation(&self, pocket: Pocket) -> Option<Observation> {
         if self.judged < OBSERVE_MIN_NOTES {
             return None;
@@ -615,6 +658,48 @@ mod tests {
         assert!((late - 70.0).abs() < 1e-6, "{late}");
         let early = outside_offset_ms(&dense(-0.070), 1.0).expect("an offset");
         assert!((early + 70.0).abs() < 1e-6, "{early}");
+    }
+
+    /// LH-EIN-14: a steady lean off the beat asks for a new calibration; scatter, too few hits
+    /// or a lean the aim covers do not.
+    #[test]
+    fn steady_lean_asks_to_recalibrate() {
+        let arrangement = Arrangement::new("Run", kontra_model::Instrument::default_bass());
+        let summary = |offsets: &[f64]| {
+            let notes: Vec<(Outcome, Option<f64>)> =
+                offsets.iter().map(|o| (Outcome::Hit, Some(*o))).collect();
+            Summary::from_results(&played(&notes), &arrangement)
+        };
+
+        let late = summary(&[25.0; 10]);
+        assert_eq!(late.recalibrate(Pocket::Free), Some(Side::Late));
+        assert_eq!(late.recalibrate(Pocket::OnBeat), Some(Side::Late));
+        assert_eq!(
+            late.recalibrate(Pocket::LaidBack),
+            None,
+            "played behind on purpose"
+        );
+        assert_eq!(
+            summary(&[-8.0; 10]).recalibrate(Pocket::Free),
+            Some(Side::Early)
+        );
+
+        // Symmetric scatter with a mean of 8 ms: half on each side.
+        let scatter = [
+            -30.0, 46.0, -30.0, 46.0, -30.0, 46.0, -30.0, 46.0, -30.0, 46.0,
+        ];
+        assert_eq!(summary(&scatter).recalibrate(Pocket::Free), None);
+
+        assert_eq!(
+            summary(&[25.0; 7]).recalibrate(Pocket::Free),
+            None,
+            "too few hits"
+        );
+        assert_eq!(
+            summary(&[4.0; 10]).recalibrate(Pocket::Free),
+            None,
+            "near the beat"
+        );
     }
 
     /// LH-BEW-09: one observation per run, each only with enough notes behind it.

@@ -3092,6 +3092,7 @@ impl Core {
                 ("missed", s.missed.to_string()),
             ]),
             "observation": self.observation_json(s),
+            "recalibrateText": self.recalibrate_text(s),
             "tendencyText": tendency,
             // The few hits beside the missed notes tell no steadiness.
             "spreadText": s
@@ -3121,7 +3122,8 @@ impl Core {
         .to_string()
     }
 
-    /// The one observation of the run (LH-BEW-09), or null below the minimum of notes:
+    /// The one observation of the run (LH-BEW-09), or null below the minimum of notes (or of
+    /// hits, for timing):
     /// `{ solid: false, text: "Am meisten bringt jetzt: Slide, 2 von 6. …" }`.
     fn observation_json(&self, s: &Summary) -> serde_json::Value {
         let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
@@ -3179,6 +3181,18 @@ impl Core {
             Observation::Solid => self.tr("summary.observe.solid", &[]),
         };
         json!({ "solid": observation == Observation::Solid, "text": text })
+    }
+
+    /// "Die meisten Treffer liegen hinter dem Schlag, im Mittel 25 ms …" when the hits lean so steadily that the
+    /// latency may be wrong (LH-EIN-14), else "".
+    fn recalibrate_text(&self, s: &Summary) -> String {
+        let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
+        let ms = format!("{:.0}", s.mean_offset_ms.unwrap_or_default().abs());
+        match s.recalibrate(pocket) {
+            Some(Side::Early) => self.tr("summary.recalibrate.early", &[("ms", ms)]),
+            Some(Side::Late) => self.tr("summary.recalibrate.late", &[("ms", ms)]),
+            None => String::new(),
+        }
     }
 
     /// A blind probe next to the workshop before it (DIDAKTIK I1), or null:
@@ -6729,6 +6743,34 @@ mod tests {
 
         s.late_hits = 0;
         assert_eq!(observation(&core, &s)["solid"], true);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-EIN-14: hits steadily behind the beat bring the hint, with the mean; none otherwise.
+    #[test]
+    fn summary_asks_to_recalibrate() {
+        let dir = temp_dir("recalibrate");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        let hint = |core: &Core, s: &kontra_session::Summary| {
+            let v: serde_json::Value =
+                serde_json::from_str(&core.summary_json(s, &[], &[])).unwrap();
+            v["recalibrateText"].clone()
+        };
+        assert_eq!(hint(&core, &s), "");
+
+        s.judged = 10;
+        s.hits = 10;
+        s.mean_offset_ms = Some(25.0);
+        s.after_beat_hits = 10;
+        assert_eq!(
+            hint(&core, &s),
+            "Die meisten Treffer liegen hinter dem Schlag, im Mittel 25 ms. Spielst du nicht \
+             absichtlich zurückgelehnt, stimmt vielleicht die gemessene Latenz nicht mehr."
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 
