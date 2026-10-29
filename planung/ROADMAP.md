@@ -211,8 +211,13 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   Pop 66 → 15 % auf fremden Bässen. Schwellen auf beiden Sätzen wählen; Merkmale nach Abeßer erst mit mehr Bässen.
 - [ ] R7 Saite erkennen über Inharmonizität: 93,8 % auf fremden Bässen (Zufall 41,5 %), echte Linien 76 %, Palm-Mute
   nicht; Urteil etwa 280 ms nach dem Anschlag. Kandidaten aus R2.
-- [ ] R8 Doppelgriffe erkennen, wenn die Tab beide Töne vorgibt (Klapuri 2006): 95 % erkannt, 2,1 % Fehlalarm;
-  Oktaven nicht. Teil von M1 (LH-BEW-11).
+- [x] R8 Doppelgriffe erkennen, wenn die Tab beide Töne vorgibt (Klapuri 2006): 95 % erkannt, 2,1 % Fehlalarm;
+  Oktaven nicht. Teil von M1 (LH-BEW-11). Umgesetzt: `DyadCheck` im Tracker, Urteil `DoubleStopVerdict` je Anschlag,
+  Session wertet beide Töne (beide → zwei Treffer, einer → der andere ausgelassen). `korpus check`: synthetisch
+  168/168 beide, Oktaven 0 Aussagen, Einzelnoten 0 % (4 Sätze + room-double); `korpus double-stops` IDMT:
+  Mischungen 95,8 % (263), Einzelnoten im ganzen Stück 1,8 % als beide, 9 von 3416 als der andere Ton. FiloBass
+  (Kontrabass, Demucs-Stems): 77,8 % / 12,2 % Fehlalarm, offen. Unbewiesen: echte Doppelgriffe (Aufnahme mit dem
+  Eigentümer, ~15 min).
 - [ ] R9 Time-Stretch: kürzerer Steuer-Vorlauf (win/16) spart 37 ms (Standard) bzw. 75 ms (Fine), Messwerte gleich;
   Doku: Fine kostet 133 ms mehr, nicht 85. Zwei Auflösungen: abgelehnt. Hörtest B0 Standard gegen Fine offen.
 
@@ -272,7 +277,9 @@ Erkennung und Messung:
   die Hintergrund-Regel von F3 nicht mehr. Messen an IDMT und Sätzen mit Brummen.
 
 Mehrere Töne (offen für Gitarre und Tasten):
-- [ ] M1 Doppelgriffe: Korpus-Satz, Merker „zwei Töne“, Fähigkeit je Eingang (LH-BEW-11).
+- [x] M1 Doppelgriffe: Korpus-Satz, Merker „zwei Töne“, Fähigkeit je Eingang (LH-BEW-11). Mit R8: synthetischer
+  Satz in `korpus check`, IDMT-Mischungen in `korpus double-stops`, `ChordHearing` je Eingang. MIDI-Akkorde als
+  ganze Menge bleiben M2.
 - [ ] M2 Akkorde im Korpus als ganze Menge werten, zuerst MIDI.
 - [ ] M3 Saiten-Plausibilität für Akkordkandidaten im Instrumentprofil.
 - [ ] M4 Machbarkeitsstudie NNLS mit Vorlagen je Saite, Log-Frequenz (nach 1.0).

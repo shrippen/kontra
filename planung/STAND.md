@@ -183,6 +183,11 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   `Input::{expect, forget_expected}`, `Expecting`, `evaluate_expecting` (Session: `evaluate_korpus_expecting`),
   `Evaluation::{first_pitch_correct, turned_wrong, shifted_first, shifted_final, report_ms}`;
   `pub(crate)`: `Yin::estimate_expected`, `Session::{input_s, expected}`, `Practice::take_told`, `Told`.
+- R8: `DoubleStopVerdict`, `DoubleStopHeard`, `ChordHearing`, `InputSource::chord_hearing`,
+  `NoteTracker::double_stops`, `Event::DoubleStop`, `Session::on_double_stop`; Korpus: `generate_double_stops`,
+  `announce_second_tone`, `double_stop_mixtures`, `evaluate_double_stops`, `DoubleStopSet`, `DoubleStopStrike`,
+  `DoubleStopPlayed`, `DoubleStopTally` (`add`, `detected`, `false_alarms`), `DOUBLE_STOP_INTERVALS` (Session
+  reicht sie durch, ohne `DoubleStopPlayed`); `pub(crate)`: `dyad::{DyadCheck, Heard, FRAME_S, SKIP_S}`.
 
 ## Für den Eigentümer
 

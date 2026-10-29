@@ -38,7 +38,8 @@
 //!
 //! Strikes the tab expects (`expect`, R2) let an attack near one report the expected pitch
 //! before the full window is there, when the tracker's own estimate agrees; the full window
-//! still has the last word (`tracker/expect.rs`).
+//! still has the last word (`tracker/expect.rs`). An expected double stop gets a verdict on
+//! which of its tones sound (`tracker/double.rs`, R8).
 
 use crate::hum::HumFilter;
 use crate::intonation::refine_hz;
@@ -47,11 +48,12 @@ use crate::onset::{OnsetConfig, OnsetDetector};
 use crate::strike::{verdict_after_s, Strike};
 use crate::yin::{PitchEstimate, Yin};
 use kontra_model::{
-    cents_between, hz_to_midi, DetectedNote, ExpectedStrike, InputSource, Instrument,
-    PitchRevision, Technique, TechniqueRevision,
+    cents_between, hz_to_midi, DetectedNote, DoubleStopVerdict, ExpectedStrike, InputSource,
+    Instrument, PitchRevision, Technique, TechniqueRevision,
 };
 
 mod background;
+mod double;
 mod expect;
 
 const RETRY_S: f64 = 0.005;
@@ -446,6 +448,8 @@ pub struct NoteTracker {
     expected: expect::Expectations,
     /// A note told early, checked once its full window is there.
     confirm: Option<expect::Confirm>,
+    /// Expected double stops waiting for their verdict (R8).
+    double_stops: double::DoubleStops,
 }
 
 impl NoteTracker {
@@ -480,6 +484,7 @@ impl NoteTracker {
             pitch_revised: Vec::with_capacity(STRIKES_WAITING),
             expected: expect::Expectations::default(),
             confirm: None,
+            double_stops: double::DoubleStops::new(sample_rate),
         }
     }
 
@@ -516,11 +521,18 @@ impl NoteTracker {
         &self.pitch_revised
     }
 
+    /// Which tones of expected double stops sounded, told in the last `push` or `flush` for
+    /// notes emitted earlier (R8); valid until the next call.
+    pub fn double_stops(&self) -> &[DoubleStopVerdict] {
+        self.double_stops.told()
+    }
+
     /// Feeds samples; returns notes completed in this call (valid until the next call).
     pub fn push(&mut self, samples: &[f32]) -> &[DetectedNote] {
         self.out.clear();
         self.revised.clear();
         self.pitch_revised.clear();
+        self.double_stops.clear_told();
         let block = (RETRY_S * self.sample_rate) as usize;
         let mut filtered = std::mem::take(&mut self.filtered);
         for raw in samples.chunks(block.max(1)) {
@@ -549,6 +561,7 @@ impl NoteTracker {
             self.follow();
             self.release_legato();
             self.judge_strikes(Waiting::ForAudio);
+            self.judge_doubles(Waiting::ForAudio);
         }
         self.filtered = filtered;
         &self.out
@@ -559,6 +572,7 @@ impl NoteTracker {
         self.out.clear();
         self.revised.clear();
         self.pitch_revised.clear();
+        self.double_stops.clear_told();
         if let Some(mut s) = self.sounding {
             self.settle(&mut s, u64::MAX);
             self.sounding = Some(s);
@@ -574,6 +588,7 @@ impl NoteTracker {
         }
         self.finish_confirm();
         self.judge_strikes(Waiting::No);
+        self.judge_doubles(Waiting::No);
         &self.out
     }
 
@@ -666,6 +681,7 @@ impl NoteTracker {
             return;
         }
         self.finish_confirm();
+        self.cut_doubles(onset);
         // A new attack ends the ringing note (told with what was heard before it); a legato note
         // just before it was this attack.
         if let Some(mut s) = self.sounding {
@@ -828,6 +844,8 @@ impl NoteTracker {
                 }
             },
         };
+        // A double stop often has no clear single pitch: judged whatever was heard.
+        self.announce_double(&p);
         if p.best.is_some() {
             let peak = 10f32.powf(level_db / 20.0);
             let step = (FOLLOW_STEP_S * self.sample_rate) as u64;
