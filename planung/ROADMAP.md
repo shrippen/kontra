@@ -197,9 +197,10 @@ Fehler (zuerst roter Test):
 - [x] F3 Falschnoten im Leerlauf (LH-NF-16, gefunden mit E2, 29.10.): Jeder Knackser, jedes Kratzen und Dämpfen löste
   einen Anschlag aus, die Tonhöhe kam vom Netzbrummen (50 Hz, MIDI 31,35) oder fehlte. `idle-line` 41, `idle-room` 26
   Falschnoten je Minute statt höchstens 1. Behoben: Eine Tonhöhe, die schon 200 ms vor dem Anschlag klar zu hören war
-  (nicht die der letzten Note) und bei ihrer Frequenz nicht um 12 dB lauter wird, ist Hintergrund, der Anschlag bleibt
-  tonlos (auch nach einer leisen Note nahe der Brummfrequenz); ein tonloser Anschlag zählt in der Session nur, wo eine
-  Note fällig ist. Jetzt 0 je Minute; IDMT 89,9 % / 80,4 % (vorher 90,1 / 80,6: zwei echte Noten mit Hintergrund gleicher Tonhöhe), synthetische Sätze gleich.
+  und bei ihrer Frequenz nicht um 12 dB lauter wird, ist die des Hintergrunds (`over_background`); die Session wertet
+  solche Anschläge und tonlose nur, wo eine Note fällig ist. Eine Pegelregel für die noch klingende letzte Note scheiterte
+  in beide Richtungen (Brummen durch, dann Wiederanschlag tonlos; Review #193). Jetzt 0 je Minute; IDMT 90,1 % / 80,6 %
+  wie vorher, synthetische Sätze gleich. Der saubere Weg ist Brummen vor der Erkennung zu entfernen (E8).
 
 Rückmeldung und Lernen:
 - [x] A1 Eine Beobachtung je Durchlauf (LH-BEW-09, #184).
@@ -234,6 +235,9 @@ Erkennung und Messung:
 - [ ] E5 Notenende (LH-BEW-10).
 - [ ] E6 Rauschboden bei der Kalibrierung (LH-EIN-16).
 - [ ] E7 Erste echte Aufnahmen als eingefrorene Basis, neue als eigene Gruppen.
+- [ ] E8 Brummen vor der Erkennung entfernen (Eigentümer, 29.10.): Netzfrequenz verfolgen (49,8–50,2 Hz, 60 Hz),
+  Grundton und Obertöne abziehen statt sperren; Noten auf derselben Frequenz (G1, G2) bleiben. Dann braucht der Tracker
+  die Hintergrund-Regel von F3 nicht mehr. Messen an IDMT und Sätzen mit Brummen.
 
 Mehrere Töne (offen für Gitarre und Tasten):
 - [ ] M1 Doppelgriffe: Korpus-Satz, Merker „zwei Töne“, Fähigkeit je Eingang (LH-BEW-11).

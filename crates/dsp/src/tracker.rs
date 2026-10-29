@@ -428,9 +428,6 @@ pub struct NoteTracker {
     /// An onset waiting for the level after it (`RISE_AFTER_S`), at most one at a time.
     candidate: Option<u64>,
     sounding: Option<Sounding>,
-    /// Pitch (MIDI) and peak of the last note told, legato and revised ones too: a background
-    /// with its pitch, loud enough to be it, is that note ringing (`stands_out`).
-    last_note: Option<(f64, f32)>,
     /// A legato note waiting for `LEGATO_HOLD_S`, and the sample it is due at.
     legato: Option<(DetectedNote, u64)>,
     out: Vec<DetectedNote>,
@@ -465,7 +462,6 @@ impl NoteTracker {
             pending: None,
             candidate: None,
             sounding: None,
-            last_note: None,
             legato: None,
             out: Vec::with_capacity(16),
             strikes: [None; STRIKES_WAITING],
@@ -643,7 +639,6 @@ impl NoteTracker {
         // just before it was this attack.
         if let Some(mut s) = self.sounding {
             self.settle(&mut s, onset);
-            self.last_note = Some((s.midi, s.peak));
         }
         self.sounding = None;
         self.legato = None;
@@ -770,10 +765,8 @@ impl NoteTracker {
         }
     }
 
-    fn emit(&mut self, mut p: Pending) {
-        if !self.stands_out(&p) {
-            p.best = None;
-        }
+    fn emit(&mut self, p: Pending) {
+        let over_background = !self.stands_out(&p);
         let level_db = self.level_after(p.report);
         let (midi, confidence) = match p.best {
             Some(b) => (hz_to_midi(b.hz, self.config.a4_hz), b.confidence),
@@ -793,7 +786,6 @@ impl NoteTracker {
         };
         if p.best.is_some() {
             let peak = 10f32.powf(level_db / 20.0);
-            self.last_note = Some((midi, peak));
             let step = (FOLLOW_STEP_S * self.sample_rate) as u64;
             let muted = technique == Some(Technique::Muted);
             self.sounding = Some(Sounding {
@@ -816,6 +808,7 @@ impl NoteTracker {
             level_db,
             source: self.config.source,
             technique,
+            over_background,
         });
     }
 
@@ -936,6 +929,7 @@ impl NoteTracker {
                     level_db,
                     source: self.config.source,
                     technique: Some(technique),
+                    over_background: false,
                 },
                 until + (LEGATO_HOLD_S * self.sample_rate) as u64,
             ));

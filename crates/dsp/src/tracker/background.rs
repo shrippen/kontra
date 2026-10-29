@@ -1,7 +1,9 @@
 //! A steady tone under the input (mains hum) apart from played notes (LH-NF-16, F3): an attack
-//! that only leaves the background's pitch behind it has no pitch of its own.
+//! that only leaves the background's pitch behind it is told `over_background`; the session
+//! judges such a note only where one is due (a click on hum is no extra note, the same note
+//! struck again on a ringing one still counts).
 
-use super::{NoteTracker, Pending, LEGATO_CENTS, RISE_GAP_S};
+use super::{NoteTracker, Pending, RISE_GAP_S};
 use crate::yin::power_at;
 use kontra_model::hz_to_midi;
 
@@ -12,14 +14,6 @@ const BACKGROUND_CENTS: f64 = 50.0;
 /// A pitch near a steady background is a note of its own when this much stronger at that pitch
 /// (power, +12 dB). Hum −50 dBFS against a pluck at −15 dBFS: +35 dB; a click leaves it as it was.
 const BACKGROUND_RISE: f64 = 16.0;
-/// A note still rings while its level stays above this share of its peak (−30 dB); a hum at
-/// −50 dBFS lies 35 dB under a pluck.
-const RINGING_FLOOR: f32 = 0.03;
-/// A note this close to its peak (−10 dB) rings for sure: a hum 10 dB under a note is rare.
-const RINGING_NEAR: f32 = 0.3;
-/// Otherwise a ringing note was this much louder `BACKGROUND_EARLIER_S` before (+2 dB): it fades, a hum
-/// does not.
-const RINGING_FADE: f32 = 1.25;
 /// How long before the attack a steady background tone must already sound (see `stands_out`).
 const BACKGROUND_EARLIER_S: f64 = 0.2;
 /// A background counts as a tone of its own only this clear: mains hum 0.98; a ringing or
@@ -32,11 +26,12 @@ impl NoteTracker {
     /// pitchless (LH-NF-16, idle-line: 31 false notes a minute at 50 Hz). Steady means heard
     /// just before the attack and `BACKGROUND_EARLIER_S` before that: a played pitch often
     /// sounds a little before its attack is found (legato, the fretting finger), rarely that
-    /// long. The last note still ringing is that note: struck again, it keeps its pitch.
+    /// long. The note before still ringing is a background too: struck again, it is told
+    /// `over_background` with its pitch (a level rule for it failed both ways, review #193).
     ///
     /// ```text
     ///   ├─ YIN ─┤ ··· 200 ms ··· ├─ YIN ─┤ gap │ attack ─ YIN (best)
-    ///   both clear, both ≈ best, not the last note ringing, not +12 dB at best ─► pitchless
+    ///   both clear, both ≈ best, not +12 dB at best ─► over the background
     /// ```
     pub(super) fn stands_out(&mut self, p: &Pending) -> bool {
         let Some(best) = p.best else {
@@ -48,21 +43,8 @@ impl NoteTracker {
         let sr = self.sample_rate;
         let before_end = p.onset.saturating_sub((RISE_GAP_S * sr) as u64);
 
-        let needed = self.yin.needed() as u64;
         let earlier_end = before_end.saturating_sub((BACKGROUND_EARLIER_S * sr) as u64);
 
-        // Closer to the last note than a new note would be, loud enough to be it, and still near its
-        // peak or fading: that note ringing, glided a little (fretless). A hum stays as loud; a
-        // soft note near its pitch that faded into it lets no hum through (review #193).
-        let before = self.peak(before_end.saturating_sub(needed), before_end);
-        let earlier = self.peak(earlier_end.saturating_sub(needed), earlier_end);
-        if self.last_note.is_some_and(|(midi, peak)| {
-            (midi - found).abs() * CENTS_PER_SEMITONE < LEGATO_CENTS
-                && before >= peak * RINGING_FLOOR
-                && (before >= peak * RINGING_NEAR || earlier >= before * RINGING_FADE)
-        }) {
-            return true;
-        }
         let steady = [before_end, earlier_end]
             .into_iter()
             .all(|end| self.background(end).is_some_and(|m| near(m, found)));

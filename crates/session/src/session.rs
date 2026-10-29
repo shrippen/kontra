@@ -287,9 +287,10 @@ impl Session {
             self.events.push(SessionEvent::Technique(t));
             return;
         }
-        // Without a pitch an attack judges nothing on its own: where no note is due it is a click
-        // or scrape, not an extra note (LH-NF-16). Near a due note it is scored as before.
-        if note.is_pitchless() && !self.matcher.has_candidate(pass, position, window, range) {
+        // Without a pitch of its own (none, or the background's) an attack judges nothing on its
+        // own: where no note is due it is a click on hum or a scrape, not an extra note
+        // (LH-NF-16). Near a due note it is scored as before.
+        if !note.stands_out() && !self.matcher.has_candidate(pass, position, window, range) {
             return;
         }
         let (result, claim) = self.matcher.score(

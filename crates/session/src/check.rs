@@ -435,6 +435,7 @@ mod tests {
             level_db: -12.0,
             source: InputSource::Line,
             technique: None,
+            over_background: false,
         }
     }
 

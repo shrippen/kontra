@@ -39,6 +39,7 @@ fn played(onset_s: f64, midi: f64, technique: Option<Technique>) -> DetectedNote
         level_db: -12.0,
         source: InputSource::Line,
         technique,
+        over_background: false,
     }
 }
 
@@ -219,6 +220,25 @@ fn pitchless_attack_off_the_notes_is_no_extra() {
         s.results().iter().all(|r| r.note.is_some()),
         "{:?}",
         s.results()
+    );
+}
+
+/// A pitch only the background's (a click on hum, the same note struck again) is no extra off
+/// the notes, but a hit on a due note (review #193, round 4: re-struck notes counted wrong).
+#[test]
+fn background_pitch_counts_only_on_a_due_note() {
+    let mut s = Session::new(piece(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    let on_hum = |onset_s, midi| DetectedNote {
+        over_background: true,
+        ..played(onset_s, midi, None)
+    };
+    run(&mut s, &[on_hum(0.0, 28.0), on_hum(0.25, 31.35)], 0.4);
+    let results = s.results();
+    assert!(results.iter().all(|r| r.note.is_some()), "{results:?}");
+    assert!(
+        results.iter().any(|r| r.note == Some(0) && r.is_hit()),
+        "{results:?}"
     );
 }
 

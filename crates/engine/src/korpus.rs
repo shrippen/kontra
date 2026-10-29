@@ -683,7 +683,7 @@ fn compare(
         set,
         annotated: notes.len(),
         detected: detected.len(),
-        pitched: detected.iter().filter(|n| !n.is_pitchless()).count(),
+        pitched: detected.iter().filter(|n| n.stands_out()).count(),
         matched: onset_errors.len(),
         pitch_correct,
         technique_correct,

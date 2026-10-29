@@ -34,6 +34,7 @@ fn played(onset_s: f64, midi: f64, level_db: f32) -> DetectedNote {
         level_db,
         source: InputSource::Line,
         technique: (midi == 0.0).then_some(Technique::Muted),
+        over_background: false,
     }
 }
 
