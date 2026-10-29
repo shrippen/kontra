@@ -80,7 +80,8 @@ impl Tap {
 /// Marks a gap in the input ring: a NaN with its own payload, so a NaN from a device is not
 /// taken for one.
 const GAP_MARK: u32 = 0x7fc0_dead;
-/// Gaps the analysis may owe at once; more merge into the last one.
+/// Gaps the analysis may owe at once. Past that, the open gap grows: samples are dropped until
+/// the analysis reads one, even if the ring has room again.
 const GAPS: usize = 64;
 
 /// Audio callback side of the input ring. A full ring (analysis behind) drops samples rather

@@ -192,8 +192,8 @@ und CLAUDE.md je Crate) abgelehnt. Code übernimmt Kontra kaum (Erkennung grob, 
 schon. Bevy: kein Wechsel; Fernsteuerung über AT-SPI, Hot-Reload nur für Kurse und QML.
 
 Fehler (zuerst roter Test):
-- [ ] F1 Volle Eingangs-Ringe verwerfen Samples stumm, spätere Zeitstempel zu früh (`engine/src/input.rs`).
-- [ ] F2 Schwierigste Takte nach Fehlerzahl, „Stelle üben“ aus dem dichtesten Fenster (LH-BEW-03).
+- [x] F1 Volle Eingangs-Ringe verwerfen Samples stumm, spätere Zeitstempel zu früh (`crates/engine/src/input.rs`, #181).
+- [x] F2 Schwierigste Takte nach Fehlerzahl (LH-BEW-03, #182); offen: „Stelle üben“ aus dem dichtesten Fenster.
 
 Rückmeldung und Lernen:
 - [ ] A1 Eine Beobachtung je Durchlauf (LH-BEW-09).
