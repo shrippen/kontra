@@ -236,7 +236,7 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
 - [ ] W2 `scripts/qa-session.sh` für jeden isolierten Testlauf.
 - [ ] W3 Layout-Prüfung je Seite bei P4- und P7-Auflösung (LH-ANZ-09).
 - [ ] W4 Tabelle Regel → Prüfung, Git-Hooks, CI-Prüfung der Commit-Nachrichten.
-- [ ] W5 Test für Crate-Kanten und Dateigröße mit Abbauliste.
+- [x] W5 Test für Crate-Kanten und Dateigröße mit Abbauliste (`tests/physical_design.rs`, 1200 Zeilen je Datei; Abbauliste: appcore/lib.rs, bridge.rs, exercise.rs, PracticePage.qml, tracker.rs).
 - [ ] W6 `scripts/release.sh`, metainfo `<releases>`/`<screenshots>`, AppStream- und Flatpak-Lint.
 - [ ] W7 `cargo deny` mit `[advisories]`, eigener Job und wöchentlich.
 - [ ] W8 JSON-Schemas für Pakete und Kurse aus den serde-Strukturen.

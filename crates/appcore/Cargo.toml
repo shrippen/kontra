@@ -19,3 +19,8 @@ workspace = true
 [[test]]
 name = "journeys"
 path = "../../tests/journeys/main.rs"
+
+# Layers and file sizes of the whole repository (agent.md, Harmonicon W5).
+[[test]]
+name = "physical_design"
+path = "../../tests/physical_design.rs"
