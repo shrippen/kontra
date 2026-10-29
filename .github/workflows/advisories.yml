@@ -18,6 +18,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  CARGO_DENY: 0.20.2
+
 jobs:
   advisories:
     timeout-minutes: 15
@@ -31,6 +34,7 @@ jobs:
         continue-on-error: true
         with:
           path: ~/.cargo/bin/cargo-deny
-          key: cargo-deny-${{ runner.os }}
-      - run: command -v cargo-deny || cargo install --locked cargo-deny
+          # The version in the key: a newer advisory format needs a newer cargo-deny, raised here.
+          key: cargo-deny-${{ env.CARGO_DENY }}-${{ runner.os }}
+      - run: command -v cargo-deny || cargo install --locked cargo-deny@${{ env.CARGO_DENY }}
       - run: cargo deny check advisories
