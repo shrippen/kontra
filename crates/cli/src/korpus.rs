@@ -11,11 +11,8 @@ const FRETLESS_MAX_CENTS: f64 = 3.0;
 
 const CENTS_PER_SEMITONE: f64 = 100.0;
 
-/// LH-NF-16: at most one false note per minute where nothing is played. Not met yet (29.10.:
-/// 41 and 26 per minute, the hum's pitch at every crackle; ROADMAP F3): until the fix a guard
-/// against more.
+/// LH-NF-16: at most one false note per minute where nothing is played (met since F3, 29.10.).
 const IDLE_TARGET_PER_MINUTE: f64 = 1.0;
-const IDLE_GUARD_PER_MINUTE: f64 = 45.0;
 const S_PER_MINUTE: f64 = 60.0;
 
 /// LH-NF-15, line sets: p95 from attack to report. A guard 10 ms over the first measurement
@@ -356,23 +353,15 @@ fn check(dir: Option<&Path>) -> CliResult {
         // Nothing played: only false notes count (LH-NF-16).
         if set.is_idle() {
             let minutes = item.samples.len() as f64 / f64::from(item.sample_rate) / S_PER_MINUTE;
-            let per_minute = e.detected as f64 / minutes;
-            let ok = per_minute <= IDLE_GUARD_PER_MINUTE;
+            let per_minute = e.pitched as f64 / minutes;
+            let ok = per_minute <= IDLE_TARGET_PER_MINUTE;
             failed |= !ok;
-            // The guard decides; the target is told apart, so "ok" never reads as target met.
-            // Example: "41.0 per minute (target 1 missed, guard 45) ok".
-            let target = if per_minute <= IDLE_TARGET_PER_MINUTE {
-                "met"
-            } else {
-                "missed"
-            };
             println!(
-                "{:<14} {:>6} {:>6} false notes, {per_minute:.1} per minute (target {:.0} {target}, guard {:.0}) {}",
+                "{:<14} {:>6} {:>6} false notes, {per_minute:.1} per minute (target {:.0}) {}",
                 set.name(),
                 0,
-                e.detected,
+                e.pitched,
                 IDLE_TARGET_PER_MINUTE,
-                IDLE_GUARD_PER_MINUTE,
                 if ok { "ok" } else { "FAILED" }
             );
             continue;
@@ -562,6 +551,7 @@ mod tests {
             level_db: -20.0,
             source: InputSource::Line,
             technique,
+            over_background: false,
         }
     }
 

@@ -455,6 +455,10 @@ pub struct Evaluation {
     pub set: KorpusSet,
     pub annotated: usize,
     pub detected: usize,
+    /// Detections with a pitch. Where nothing is played these are the false notes a session
+    /// shows: a pitchless attack there judges nothing (LH-NF-16).
+    #[serde(default)]
+    pub pitched: usize,
     /// Annotated notes with a detection within ±30 ms.
     pub matched: usize,
     /// Matched notes whose rounded pitch is right.
@@ -679,6 +683,7 @@ fn compare(
         set,
         annotated: notes.len(),
         detected: detected.len(),
+        pitched: detected.iter().filter(|n| n.stands_out()).count(),
         matched: onset_errors.len(),
         pitch_correct,
         technique_correct,
@@ -724,8 +729,8 @@ mod tests {
         }
     }
 
-    /// False notes in a minute without notes, until F3 is fixed (29.10.: 41 and 26).
-    const IDLE_GUARD: usize = 45;
+    /// LH-NF-16: at most one false note in a minute without notes (the idle sets' length).
+    const IDLE_MAX_FALSE: usize = 1;
 
     /// Lastenheft LH-NF-02 (onset < 10 ms) and LH-NF-03 (pitch ≥ 98 % line, ≥ 95 % laptop jack,
     /// ≥ 90 % at a microphone in a room, LH-EIN-11).
@@ -735,13 +740,12 @@ mod tests {
             let item = generate(set);
             let e = evaluate(set, &item.samples, item.sample_rate, &item.notes);
             eprintln!("{e:?}");
-            // LH-NF-16 (one false note a minute) is not met yet (ROADMAP F3): a guard.
             if set.is_idle() {
                 assert!(
-                    e.detected <= IDLE_GUARD,
+                    e.pitched <= IDLE_MAX_FALSE,
                     "{}: {} false notes",
                     set.name(),
-                    e.detected
+                    e.pitched
                 );
                 continue;
             }

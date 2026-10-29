@@ -39,6 +39,7 @@ fn played(onset_s: f64, midi: f64, technique: Option<Technique>) -> DetectedNote
         level_db: -12.0,
         source: InputSource::Line,
         technique,
+        over_background: false,
     }
 }
 
@@ -206,6 +207,39 @@ fn dead_note_played_muted_hits() {
     run(&mut s, &[played(0.0, 0.0, Some(Technique::Muted))], 0.6);
     let first = s.results().iter().find(|r| r.note == Some(0)).unwrap();
     assert!(first.is_hit(), "{first:?}");
+}
+
+/// A pitchless attack where no note is due (a click or scrape on the strings, LH-NF-16) is no
+/// extra note: without a pitch it can only be a dead note, and none is written there.
+#[test]
+fn pitchless_attack_off_the_notes_is_no_extra() {
+    let mut s = Session::new(piece(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    run(&mut s, &[played(0.25, 0.0, Some(Technique::Muted))], 0.6);
+    assert!(
+        s.results().iter().all(|r| r.note.is_some()),
+        "{:?}",
+        s.results()
+    );
+}
+
+/// A pitch only the background's (a click on hum, the same note struck again) is no extra off
+/// the notes, but a hit on a due note (review #193, round 4: re-struck notes counted wrong).
+#[test]
+fn background_pitch_counts_only_on_a_due_note() {
+    let mut s = Session::new(piece(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    let on_hum = |onset_s, midi| DetectedNote {
+        over_background: true,
+        ..played(onset_s, midi, None)
+    };
+    run(&mut s, &[on_hum(0.0, 28.0), on_hum(0.25, 31.35)], 0.4);
+    let results = s.results();
+    assert!(results.iter().all(|r| r.note.is_some()), "{results:?}");
+    assert!(
+        results.iter().any(|r| r.note == Some(0) && r.is_hit()),
+        "{results:?}"
+    );
 }
 
 /// A dead note heard with a pitch is told muted only later (the attack needs more audio): the

@@ -34,6 +34,23 @@ pub struct DetectedNote {
     /// pluck or not known.
     #[serde(default)]
     pub technique: Option<crate::Technique>,
+    /// The pitch is that of a steady tone heard before the attack (mains hum, the note before
+    /// still ringing): a click on hum, or the same note struck again. Judged only where a note
+    /// is due (LH-NF-16).
+    #[serde(default)]
+    pub over_background: bool,
+}
+
+impl DetectedNote {
+    /// An attack without a pitch (`midi` 0): a dead note, or a click or scrape on the strings.
+    pub fn is_pitchless(&self) -> bool {
+        self.midi <= 0.0
+    }
+
+    /// Whether it is a note of its own off the notes: a pitch, and not just the background's.
+    pub fn stands_out(&self) -> bool {
+        !self.is_pitchless() && !self.over_background
+    }
 }
 
 /// A technique told after its note was emitted (LH-BEW-06): judging an attack needs about 110 ms
