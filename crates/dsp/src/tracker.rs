@@ -35,6 +35,10 @@
 //! onset ─ emit (12–66 ms) ─ follow 90–160 ms ─► median ≥ 50 ct higher, on the semitone or
 //!                                               octave above, half the estimates near it? ─► revise
 //! ```
+//!
+//! Strikes the tab expects (`expect`, R2) let an attack near one report the expected pitch
+//! before the full window is there, when the tracker's own estimate agrees; the full window
+//! still has the last word (`tracker/expect.rs`).
 
 use crate::hum::HumFilter;
 use crate::intonation::refine_hz;
@@ -43,11 +47,12 @@ use crate::onset::{OnsetConfig, OnsetDetector};
 use crate::strike::{verdict_after_s, Strike};
 use crate::yin::{PitchEstimate, Yin};
 use kontra_model::{
-    cents_between, hz_to_midi, DetectedNote, InputSource, Instrument, PitchRevision, Technique,
-    TechniqueRevision,
+    cents_between, hz_to_midi, DetectedNote, ExpectedStrike, InputSource, Instrument,
+    PitchRevision, Technique, TechniqueRevision,
 };
 
 mod background;
+mod expect;
 
 const RETRY_S: f64 = 0.005;
 const LEVEL_SPAN_S: f64 = 0.02;
@@ -232,6 +237,8 @@ struct Pending {
     next_try: u64,
     /// Whether the onset was checked for a precursor (`attack_start`).
     checked: bool,
+    /// The last early estimate on the expected pitch (`try_expected`).
+    early: Option<PitchEstimate>,
 }
 
 /// A note that rings on after it was emitted, whose pitch is followed.
@@ -435,6 +442,10 @@ pub struct NoteTracker {
     strikes: [Option<u64>; STRIKES_WAITING],
     revised: Vec<TechniqueRevision>,
     pitch_revised: Vec<PitchRevision>,
+    /// Strikes the tab expects, in samples (R2).
+    expected: expect::Expectations,
+    /// A note told early, checked once its full window is there.
+    confirm: Option<expect::Confirm>,
 }
 
 impl NoteTracker {
@@ -467,7 +478,20 @@ impl NoteTracker {
             strikes: [None; STRIKES_WAITING],
             revised: Vec::with_capacity(STRIKES_WAITING),
             pitch_revised: Vec::with_capacity(STRIKES_WAITING),
+            expected: expect::Expectations::default(),
+            confirm: None,
         }
+    }
+
+    /// A strike the tab expects; `onset_s` counts from the first sample pushed. Kept until it
+    /// lies behind the input; when more are waiting than fit, the earliest gives way.
+    pub fn expect(&mut self, strike: &ExpectedStrike) {
+        self.expected.add(strike, self.sample_rate, self.pushed);
+    }
+
+    /// Drops the expected strikes (the transport jumped, the plan changed).
+    pub fn forget_expected(&mut self) {
+        self.expected.clear();
     }
 
     pub fn config(&self) -> &TrackerConfig {
@@ -521,6 +545,7 @@ impl NoteTracker {
             }
             self.check_candidate();
             self.advance();
+            self.check_confirm();
             self.follow();
             self.release_legato();
             self.judge_strikes(Waiting::ForAudio);
@@ -547,6 +572,7 @@ impl NoteTracker {
         if let Some(p) = self.pending.take() {
             self.emit(p);
         }
+        self.finish_confirm();
         self.judge_strikes(Waiting::No);
         &self.out
     }
@@ -635,6 +661,11 @@ impl NoteTracker {
     }
 
     fn start(&mut self, onset: u64) {
+        // A second burst of an attack told early belongs to it (`MERGE_S`).
+        if self.joins_early(onset) {
+            return;
+        }
+        self.finish_confirm();
         // A new attack ends the ringing note (told with what was heard before it); a legato note
         // just before it was this attack.
         if let Some(mut s) = self.sounding {
@@ -646,15 +677,14 @@ impl NoteTracker {
             Some(p) => self.close_pending(p, onset),
             None => onset,
         };
-        let skip = (self.config.attack_skip_s * self.sample_rate) as u64;
-        let first_try = onset + skip + self.yin.needed() as u64;
         self.pending = Some(Pending {
             onset,
             report,
             last: None,
             best: None,
-            next_try: first_try,
+            next_try: self.first_try(report, onset),
             checked: false,
+            early: None,
         });
     }
 
@@ -688,19 +718,40 @@ impl NoteTracker {
         let Some(mut p) = self.pending else {
             return;
         };
+        if self.try_expected(&mut p) {
+            self.pending = None;
+            self.emit_early(p);
+            return;
+        }
+        if self.search(&mut p) {
+            self.pending = None;
+            self.emit(p);
+            return;
+        }
+        self.pending = Some(p);
+    }
+
+    /// The first full-window try after an attack at `onset`.
+    fn full_try(&self, onset: u64) -> u64 {
+        let skip = (self.config.attack_skip_s * self.sample_rate) as u64;
+        onset + skip + self.yin.needed() as u64
+    }
+
+    /// Full-window estimates due for `p`; true once two agree or the time is up (`p.best` is
+    /// the pitch then, if any).
+    fn search(&mut self, p: &mut Pending) -> bool {
         if !p.checked && p.next_try <= self.pushed {
             p.checked = true;
             let start = self.attack_start(p.onset);
             if start != p.onset {
-                let skip = (self.config.attack_skip_s * self.sample_rate) as u64;
                 p.onset = start;
                 p.report = start;
-                p.next_try = start + skip + self.yin.needed() as u64;
+                p.next_try = self.full_try(start);
             }
         }
         let timeout = p.onset + (self.config.timeout_s * self.sample_rate) as u64;
         while p.next_try <= self.pushed {
-            if let Some(estimate) = self.estimate(&p, p.next_try) {
+            if let Some(estimate) = self.estimate(p, p.next_try) {
                 if p.best.is_none_or(|b| estimate.confidence > b.confidence) {
                     p.best = Some(estimate);
                 }
@@ -709,20 +760,13 @@ impl NoteTracker {
                 });
                 if agrees {
                     p.best = Some(estimate);
-                    self.pending = None;
-                    self.emit(p);
-                    return;
+                    return true;
                 }
                 p.last = Some(estimate);
             }
             p.next_try += (RETRY_S * self.sample_rate) as u64;
         }
-        if self.pushed >= timeout {
-            self.pending = None;
-            self.emit(p);
-            return;
-        }
-        self.pending = Some(p);
+        self.pushed >= timeout
     }
 
     /// YIN over the newest `needed()` samples before `until` (all after the attack).

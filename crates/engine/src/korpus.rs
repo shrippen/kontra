@@ -3,13 +3,14 @@
 //! Real recordings go to `testdata/korpus/local/` later; until then these generated sets stand in.
 //! Each set is a WAV plus an annotation with the true onset and pitch of every note.
 
-use crate::offline::{analyze_reported, cancel_echo};
+use crate::offline::{analyze_reported, cancel_echo, Reported};
 use kontra_dsp::synth::{
     add_noise, laptop_jack, render, render_articulated, room, Articulation, Noise, Played,
     SynthNote, ToneShape,
 };
 use kontra_model::{
-    hz_to_midi, DetectedNote, InputSource, Instrument, InstrumentKind, Technique, Tuning, A4_HZ,
+    hz_to_midi, DetectedNote, ExpectedStrike, ExpectedTone, InputSource, Instrument,
+    InstrumentKind, Technique, Tuning, A4_HZ,
 };
 use serde::{Deserialize, Serialize};
 
@@ -480,6 +481,22 @@ pub struct Evaluation {
     pub p95_report_ms: f64,
     #[serde(default)]
     pub max_report_ms: f64,
+    /// Matched notes whose first report already had the right rounded pitch (R2).
+    #[serde(default)]
+    pub first_pitch_correct: usize,
+    /// Matched notes right at the first report and wrong in the end: a hit the player saw
+    /// turn into a miss.
+    #[serde(default)]
+    pub turned_wrong: usize,
+    /// With `Expecting::Annotated` shifted: matched notes told at the shifted (wrong) pitch, at
+    /// the first report and in the end. Without expectation the same count is the baseline.
+    #[serde(default)]
+    pub shifted_first: usize,
+    #[serde(default)]
+    pub shifted_final: usize,
+    /// From the annotated onset to the first report with a pitch, sorted (ms).
+    #[serde(skip)]
+    pub report_ms: Vec<f64>,
 }
 
 impl Evaluation {
@@ -537,6 +554,30 @@ impl Default for Matching {
     }
 }
 
+/// Strikes told to the tracker ahead (R2), from the annotated notes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Expecting {
+    Nothing,
+    /// Every annotated pitched note, moved by `shift_semitones` (0: as played; else a wrong
+    /// expectation, as if the player missed every note).
+    Annotated {
+        shift_semitones: i8,
+    },
+}
+
+impl Expecting {
+    fn shift(self) -> i8 {
+        match self {
+            Expecting::Nothing => 0,
+            Expecting::Annotated { shift_semitones } => shift_semitones,
+        }
+    }
+}
+
+/// Window of an expected strike in the corpus, as wide as the session's loose timing window
+/// plus 10 ms (the experiment's).
+const EXPECT_WINDOW_S: f64 = 0.1;
+
 /// Like `evaluate`, with chosen matching; also returns the detections for inspection.
 pub fn evaluate_with(
     set: KorpusSet,
@@ -545,7 +586,71 @@ pub fn evaluate_with(
     notes: &[Annotation],
     matching: Matching,
 ) -> (Evaluation, Vec<DetectedNote>) {
-    evaluate_as(set, set.source(), samples, sample_rate, notes, matching)
+    let told = Told {
+        expecting: Expecting::Nothing,
+        shift_semitones: 0,
+    };
+    evaluate_as(
+        set,
+        set.source(),
+        samples,
+        sample_rate,
+        notes,
+        matching,
+        told,
+    )
+}
+
+/// Like `evaluate_with`, with the annotated notes expected (`expecting`) and the notes told at
+/// `shift_semitones` counted (`Evaluation::shifted_*`).
+pub fn evaluate_expecting(
+    set: KorpusSet,
+    samples: &[f32],
+    sample_rate: u32,
+    notes: &[Annotation],
+    matching: Matching,
+    expecting: Expecting,
+    shift_semitones: i8,
+) -> (Evaluation, Vec<DetectedNote>) {
+    let told = Told {
+        expecting,
+        shift_semitones,
+    };
+    evaluate_as(
+        set,
+        set.source(),
+        samples,
+        sample_rate,
+        notes,
+        matching,
+        told,
+    )
+}
+
+/// What the tracker is told ahead and which wrong pitch is counted.
+#[derive(Debug, Clone, Copy)]
+struct Told {
+    expecting: Expecting,
+    shift_semitones: i8,
+}
+
+/// The strikes `expecting` tells for `notes`; muted notes have no pitch to expect.
+fn expected_strikes(notes: &[Annotation], expecting: Expecting) -> Vec<ExpectedStrike> {
+    if expecting == Expecting::Nothing {
+        return Vec::new();
+    }
+    let shift = f64::from(expecting.shift());
+    let mut strikes: Vec<ExpectedStrike> = notes
+        .iter()
+        .filter(|n| n.technique != Some(Technique::Muted))
+        .filter_map(|n| {
+            let midi = u8::try_from((n.midi.round() + shift) as i64).ok()?;
+            let tone = ExpectedTone { midi, string: None };
+            Some(ExpectedStrike::new(n.onset_s, EXPECT_WINDOW_S).with(tone))
+        })
+        .collect();
+    strikes.sort_by(|a, b| a.onset_s.total_cmp(&b.onset_s));
+    strikes
 }
 
 /// Like `evaluate_with`, with `samples` as heard through a laptop combo jack (level, band limit,
@@ -559,9 +664,13 @@ pub fn evaluate_laptop_jack(
 ) -> (Evaluation, Vec<DetectedNote>) {
     // Only a line recording goes through the jack; the others were heard through theirs.
     if set.source() != InputSource::Line {
-        return evaluate_as(set, set.source(), samples, sample_rate, notes, matching);
+        return evaluate_with(set, samples, sample_rate, notes, matching);
     }
     let heard = laptop_jack(samples, f64::from(sample_rate), 3);
+    let told = Told {
+        expecting: Expecting::Nothing,
+        shift_semitones: 0,
+    };
     evaluate_as(
         set,
         InputSource::LaptopJack,
@@ -569,6 +678,7 @@ pub fn evaluate_laptop_jack(
         sample_rate,
         notes,
         matching,
+        told,
     )
 }
 
@@ -579,6 +689,7 @@ fn evaluate_as(
     sample_rate: u32,
     notes: &[Annotation],
     matching: Matching,
+    told: Told,
 ) -> (Evaluation, Vec<DetectedNote>) {
     // With a band in the room, Kontra subtracts what it played (the band) first.
     let rate = f64::from(sample_rate);
@@ -590,9 +701,10 @@ fn evaluate_as(
         }
         _ => samples,
     };
-    let (detected, reported) = analyze_reported(heard, rate, &set.instrument(), source);
-    let evaluation = compare(set, notes, &detected, &reported, matching);
-    (evaluation, detected)
+    let expected = expected_strikes(notes, told.expecting);
+    let reported = analyze_reported(heard, rate, &set.instrument(), source, &expected);
+    let evaluation = compare(set, notes, &reported, matching, told.shift_semitones);
+    (evaluation, reported.notes)
 }
 
 /// A harmonic counts in any octave, as in the session (the tracker often hears it lower).
@@ -613,20 +725,23 @@ pub fn same_pitch(note: &Annotation, midi: f64) -> bool {
     semitones == 0.0
 }
 
-/// `reported`: when each detection was first told, seconds from the start.
+/// `shift_semitones`: the wrong pitch counted in `shifted_*` (0: none).
 fn compare(
     set: KorpusSet,
     notes: &[Annotation],
-    detected: &[DetectedNote],
-    reported: &[f64],
+    told: &Reported,
     matching: Matching,
+    shift_semitones: i8,
 ) -> Evaluation {
+    let detected = &told.notes;
+    let reported = &told.at_s;
     let mut used = vec![false; detected.len()];
     let mut onset_errors = Vec::new();
     let mut report_delays = Vec::new();
     let mut cents_errors = Vec::new();
     let mut pitch_correct = 0;
     let mut technique_correct = 0;
+    let mut first = FirstReports::default();
     for note in notes {
         let best = detected
             .iter()
@@ -652,8 +767,11 @@ fn compare(
         // A ghost note has no pitch to get right.
         if note.technique == Some(Technique::Muted) {
             pitch_correct += 1;
+            first.right += 1;
             continue;
         }
+        let first_midi = told.first_midi.get(index).copied().unwrap_or(d.midi);
+        first.count(note, first_midi, d.midi, shift_semitones);
         cents_errors.push(cents_off(note, d.midi).abs());
         if let Some(at_s) = reported.get(index) {
             report_delays.push((at_s - note.onset_s) * 1000.0);
@@ -695,6 +813,42 @@ fn compare(
         max_abs_cents: cents_errors.last().copied().unwrap_or(0.0),
         p95_report_ms: p95(&report_delays),
         max_report_ms: report_delays.last().copied().unwrap_or(0.0),
+        first_pitch_correct: first.right,
+        turned_wrong: first.turned_wrong,
+        shifted_first: first.shifted_first,
+        shifted_final: first.shifted_final,
+        report_ms: report_delays,
+    }
+}
+
+/// First reports against final pitches of matched notes (R2).
+#[derive(Debug, Default)]
+struct FirstReports {
+    right: usize,
+    turned_wrong: usize,
+    shifted_first: usize,
+    shifted_final: usize,
+}
+
+impl FirstReports {
+    fn count(&mut self, note: &Annotation, first_midi: f64, final_midi: f64, shift: i8) {
+        let right = same_pitch(note, first_midi);
+        if right {
+            self.right += 1;
+        }
+        if right && !same_pitch(note, final_midi) {
+            self.turned_wrong += 1;
+        }
+        if shift == 0 {
+            return;
+        }
+        let wrong = note.midi.round() + f64::from(shift);
+        if first_midi.round() == wrong {
+            self.shifted_first += 1;
+        }
+        if final_midi.round() == wrong {
+            self.shifted_final += 1;
+        }
     }
 }
 

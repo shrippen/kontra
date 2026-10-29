@@ -184,6 +184,10 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   `pub(crate) Core::{poll_calibration, latency_hint, check_audio_path, audio_path}`, `pub(crate) forget_on_switch`,
   `AudioPath`, `Settings::measured_on`; Brücke: Invokable `startLoopback`, Properties
   `cableMeasuring`, `latencyNote`. `CalibrationResult::Measured::latency_ms` kann jetzt negativ sein.
+- R2: `ExpectedStrike` (`new`, `with`, `tones`, `MAX_TONES`), `ExpectedTone`, `NoteTracker::{expect, forget_expected}`,
+  `Input::{expect, forget_expected}`, `Expecting`, `evaluate_expecting` (Session: `evaluate_korpus_expecting`),
+  `Evaluation::{first_pitch_correct, turned_wrong, shifted_first, shifted_final, report_ms}`;
+  `pub(crate)`: `Yin::estimate_expected`, `Session::{input_s, expected}`, `Practice::take_told`, `Told`.
 
 ## Für den Eigentümer
 

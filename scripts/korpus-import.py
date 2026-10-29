@@ -15,6 +15,7 @@ Output belongs in testdata/korpus/local/ (gitignored): the datasets' licences do
 
 Usage:
     korpus-import.py idmt-st  SRC_DIR OUT_DIR [--pad 0.5] [--normalize -6] [--exclude-expr HA,DN]
+    korpus-import.py idmt-sb  SRC_DIR OUT_DIR   (writes OUT_DIR/bass-1 … bass-3)
     korpus-import.py filobass SRC_DIR OUT_DIR [--max-seconds 60] [--limit 6]
     korpus-import.py nsynth   SRC_DIR OUT_DIR [--min-midi 23 --max-midi 67]
     korpus-import.py csv      WAV CSV OUT_DIR --name NAME --set Line4   (CSV: onset_s,midi per line)
@@ -38,10 +39,12 @@ SETS = ("Line4", "Line5", "LaptopJack4", "Fretless5", "Sixteenths")
 # --- audio -------------------------------------------------------------------------------------
 
 
-def read_wav_mono(path):
+def read_wav_mono(path, max_seconds=None):
     """Returns (samples as list of floats in -1..1, sample_rate). PCM 16/24/32 bit, any channel count."""
     with wave.open(path, "rb") as w:
         ch, width, sr, n = w.getnchannels(), w.getsampwidth(), w.getframerate(), w.getnframes()
+        if max_seconds:
+            n = min(n, int(max_seconds * sr))
         raw = w.readframes(n)
     if width == 2:
         data = array.array("h", raw)
@@ -306,6 +309,95 @@ def import_nsynth(src, out, args):
         write_item(out, "nsynth-" + inst, samples, sr, notes, args.set or ("Line5" if low < 28 else "Line4"), meta, 0.0)
 
 
+# IDMT-SMT-Bass (single notes): BS_<bass>_EQ_<pickup>_<pluck>_<expr>_<string>_<fret>.wav, string 1 = E.
+# Only the folders whose notes Kontra tells, or must leave plain (palm mute, vibrato, bend).
+IDMT_SB_OPEN_MIDI = {1: 28, 2: 33, 3: 38, 4: 43}
+IDMT_SB_FOLDERS = {
+    "PS/FS": None,
+    "PS/PK": None,
+    "PS/MU": "PalmMute",
+    "PS/ST": "Slap",
+    "PS/SP": "Pop",
+    "ES/DN": "Muted",
+    "ES/VI": "Vibrato",
+    "ES/BE": "Bend",
+}
+# Bass 1 is the bass of IDMT-SMT-Bass-Single-Track (description PDF in the archive).
+IDMT_SB_BASSES = {1: "Fame Baphomet NTB 4", 2: "Warwick 4", 3: "Yamaha BB604 Jazz Bass 4"}
+IDMT_SB_NOTE_S = 1.5
+IDMT_SB_GAP_S = 0.5
+IDMT_SB_FADE_S = 0.03
+IDMT_SB_ONSET_SHARE = 0.05
+IDMT_SB_BLOCK_S = 0.005
+
+
+def idmt_sb_attack(s, sr):
+    """Start of the attack that reaches the file's peak: back from the loudest 5-ms block while blocks
+    stay above 5 % of the peak, then the first sample above 5 % in that block. Many files have a soft
+    touch of the string 100-400 ms before the pluck (5-10 % of the peak); the first sample above 5 % of
+    the file would put the onset there."""
+    block = max(1, int(IDMT_SB_BLOCK_S * sr))
+    env = [max((abs(x) for x in s[i : i + block]), default=0.0) for i in range(0, len(s), block)]
+    if not env:
+        return 0
+    b = max(range(len(env)), key=env.__getitem__)
+    floor = IDMT_SB_ONSET_SHARE * env[b]
+    while b > 0 and env[b - 1] > floor:
+        b -= 1
+    return next((i for i in range(b * block, len(s)) if abs(s[i]) > floor), b * block)
+
+
+def idmt_sb_name(fn):
+    """(bass, pickup, string, fret) from a file name, None for other files."""
+    p = fn[:-4].split("_")
+    if not fn.endswith(".wav") or len(p) != 8 or p[0] != "BS" or not all(p[i].isdigit() for i in (1, 3, 6, 7)):
+        return None
+    return int(p[1]), int(p[3]), int(p[6]), int(p[7])
+
+
+def import_idmt_sb(src, out, args):
+    """IDMT-SMT-Bass: single notes of three basses, one WAV each. Concatenated per bass and folder into
+    OUT/bass-<n>/, each note cut to 1.5 s from its attack (`idmt_sb_attack`) with a short fade, after
+    0.5 s of silence."""
+    for folder, technique in IDMT_SB_FOLDERS.items():
+        by_bass = {}
+        for fn in sorted(os.listdir(os.path.join(src, folder))):
+            parsed = idmt_sb_name(fn)
+            if parsed is None or parsed[0] not in IDMT_SB_BASSES or parsed[2] not in IDMT_SB_OPEN_MIDI:
+                continue
+            by_bass.setdefault(parsed[0], []).append((parsed[2], parsed[3], parsed[1], fn))
+        for bass, files in sorted(by_bass.items()):
+            samples, notes, sr = [], [], None
+            for string, fret, pickup, fn in sorted(files):
+                s, rate = read_wav_mono(os.path.join(src, folder, fn), IDMT_SB_NOTE_S + 1.0)
+                if sr not in (None, rate):
+                    raise ValueError(f"{fn}: sample rate {rate}, expected {sr}")
+                sr = rate
+                start = idmt_sb_attack(s, sr)
+                s = s[start : start + int(IDMT_SB_NOTE_S * sr)]
+                fade = int(IDMT_SB_FADE_S * sr)
+                for k in range(min(fade, len(s))):
+                    s[-1 - k] *= k / fade
+                samples += [0.0] * int(IDMT_SB_GAP_S * sr)
+                notes.append(
+                    {
+                        "onset_s": len(samples) / sr,
+                        "midi": float(IDMT_SB_OPEN_MIDI[string] + fret),
+                        "technique": technique,
+                        "meta": {"string": string, "fret": fret, "pickup": pickup, "file": fn},
+                    }
+                )
+                samples += s
+            meta = {
+                "dataset": "IDMT-SMT-Bass (Zenodo 7188892), folder " + folder,
+                "licence": "CC BY-NC-ND 4.0 per Zenodo (PDF in archive says CC BY-SA 4.0); local use only",
+                "instrument": IDMT_SB_BASSES[bass],
+                "chain": "electric bass, line signal, single notes concatenated",
+            }
+            name = "idmt-sb-" + folder.replace("/", "-").lower()
+            write_item(os.path.join(out, f"bass-{bass}"), name, samples, sr, notes, args.set or "Line4", meta, 0.0)
+
+
 def import_csv(wav, csv_path, out, args):
     samples, sr = read_wav_mono(wav) if wav.lower().endswith(".wav") else decode_with_ffmpeg(wav)
     with open(csv_path) as f:
@@ -315,7 +407,7 @@ def import_csv(wav, csv_path, out, args):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("dataset", choices=["idmt-st", "filobass", "nsynth", "csv"])
+    ap.add_argument("dataset", choices=["idmt-st", "idmt-sb", "filobass", "nsynth", "csv"])
     ap.add_argument("paths", nargs="+", help="SRC OUT (csv: WAV CSV OUT)")
     ap.add_argument("--set", choices=SETS, help="KorpusSet written into the JSON (default per dataset)")
     ap.add_argument("--pad", type=float, default=0.5, help="silence in seconds before the audio (default 0.5)")
@@ -340,7 +432,8 @@ def main():
     if len(args.paths) != 2:
         ap.error("needs SRC OUT")
     src, out = args.paths
-    {"idmt-st": import_idmt_st, "filobass": import_filobass, "nsynth": import_nsynth}[args.dataset](src, out, args)
+    importers = {"idmt-st": import_idmt_st, "idmt-sb": import_idmt_sb, "filobass": import_filobass, "nsynth": import_nsynth}
+    importers[args.dataset](src, out, args)
 
 
 if __name__ == "__main__":

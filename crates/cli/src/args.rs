@@ -234,6 +234,13 @@ pub enum KorpusCommand {
         /// List misses and extra detections per file.
         #[arg(long)]
         verbose: bool,
+        /// Tell the tracker the annotated notes ahead, as the session tells the tab (R2).
+        #[arg(long)]
+        expect: bool,
+        /// Move the expected notes by this many semitones (a wrong expectation) and count the
+        /// notes told at that pitch; without `--expect` only counts (the baseline).
+        #[arg(long, default_value_t = 0, allow_hyphen_values = true)]
+        expect_shift: i8,
     },
     /// How the techniques of real recordings are told apart (LH-BEW-06): per annotated
     /// technique, what the tracker said. Needs annotations with techniques (IDMT import).
