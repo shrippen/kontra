@@ -11,6 +11,13 @@ const FRETLESS_MAX_CENTS: f64 = 3.0;
 
 const CENTS_PER_SEMITONE: f64 = 100.0;
 
+/// LH-NF-16: at most one false note per minute where nothing is played. Not met yet (29.10.:
+/// 41 and 26 per minute, the hum's pitch at every crackle; ROADMAP F3): until the fix a guard
+/// against more.
+const IDLE_TARGET_PER_MINUTE: f64 = 1.0;
+const IDLE_GUARD_PER_MINUTE: f64 = 45.0;
+const S_PER_MINUTE: f64 = 60.0;
+
 pub fn run(a: &KorpusArgs) -> CliResult {
     match &a.command {
         KorpusCommand::Write { dir } => write(dir),
@@ -212,6 +219,22 @@ fn check(dir: Option<&Path>) -> CliResult {
             None => session::generate_korpus(set),
         };
         let e = session::evaluate_korpus(set, &item.samples, item.sample_rate, &item.notes);
+        // Nothing played: only false notes count (LH-NF-16).
+        if set.is_idle() {
+            let minutes = item.samples.len() as f64 / f64::from(item.sample_rate) / S_PER_MINUTE;
+            let per_minute = e.detected as f64 / minutes;
+            let ok = per_minute <= IDLE_GUARD_PER_MINUTE;
+            failed |= !ok;
+            println!(
+                "{:<14} {:>6} {:>6} false notes, {per_minute:.1} per minute (target {:.0}) {}",
+                set.name(),
+                0,
+                e.detected,
+                IDLE_TARGET_PER_MINUTE,
+                if ok { "ok" } else { "FAILED" }
+            );
+            continue;
+        }
         // LH-EIN-11: a room through a microphone needs ≥ 90 % (acceptance of J-E2).
         let room = matches!(set, KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking);
         let needed = match set {
@@ -258,7 +281,7 @@ fn check(dir: Option<&Path>) -> CliResult {
         );
     }
     if failed {
-        return Err("corpus below LH-NF-02/03 or LH-BEW-05 targets".into());
+        return Err("corpus below LH-NF-02/03/16 or LH-BEW-05 targets".into());
     }
     Ok(())
 }
