@@ -1,0 +1,40 @@
+name: advisories
+
+# Known vulnerabilities in the dependencies (RustSec, Harmonicon W7). A job of its own and not part
+# of the status "github / test": an advisory published today must not turn unrelated pull requests
+# red. Runs on main and weekly, so a new advisory shows up even without a push; ignored ones carry
+# their reason in deny.toml.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: advisories-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_DENY: 0.20.2
+
+jobs:
+  advisories:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: actions/cache@v4
+        # Without the cache the job only takes longer.
+        continue-on-error: true
+        with:
+          path: ~/.cargo/bin/cargo-deny
+          # The version in the key: a newer advisory format needs a newer cargo-deny, raised here.
+          key: cargo-deny-${{ env.CARGO_DENY }}-${{ runner.os }}
+      - run: command -v cargo-deny || cargo install --locked cargo-deny@${{ env.CARGO_DENY }}
+      - run: cargo deny check advisories
