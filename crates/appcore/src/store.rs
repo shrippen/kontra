@@ -88,6 +88,15 @@ pub enum LatencyFrom {
     Click,
 }
 
+/// The devices a latency was measured on, as resolved then (automatic choice and fallbacks
+/// included): another resolution later means another latency (review #202).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AudioPath {
+    pub input: Option<String>,
+    pub output: Option<String>,
+    pub kind: InputKind,
+}
+
 /// The bass the player holds (LH-EIN-09), stored apart from how it reaches Kontra (`InputKind`):
 /// a double bass at a pickup is `Double` with `Line`, bass over MIDI any bass with `Midi`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -144,6 +153,8 @@ pub struct Settings {
     /// the player's lean); both kept, so the lean is `click_ms - loopback_ms`.
     pub loopback_ms: Option<f64>,
     pub click_ms: Option<f64>,
+    /// Where `loopback_ms` and `click_ms` were measured.
+    pub measured_on: Option<AudioPath>,
     pub metronome: bool,
     pub reference_tones: bool,
     pub count_in_bars: u32,
@@ -221,6 +232,7 @@ impl Default for Settings {
             latency_from: LatencyFrom::Manual,
             loopback_ms: None,
             click_ms: None,
+            measured_on: None,
             metronome: true,
             reference_tones: false,
             count_in_bars: 1,

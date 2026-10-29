@@ -7,18 +7,23 @@
 //!            without:               latency = click_ms (from Click, holds the lean)
 //! ```
 
-use crate::store::{LatencyFrom, Settings};
+use crate::store::{AudioPath, LatencyFrom, Settings};
 use crate::{Core, UiEvent, CALIBRATION_LEAD_S};
 use kontra_session::{
-    CalibrationResult, LiveCalibration, LiveLoopback, LiveSetup, LoopbackResult, Pocket, Side,
-    Summary,
+    list_devices, CalibrationResult, Direction, InputChoice, LiveCalibration, LiveLoopback,
+    LiveSetup, LoopbackResult, Pocket, Side, Summary,
 };
+
+/// Input of a recording fed in for QA: one device, whichever file.
+const FILE_INPUT: &str = "file";
 
 /// Unicode minus: "−14 ms" reads as a number, "-14 ms" as a dash.
 const MINUS: &str = "\u{2212}";
 
 impl Core {
     fn calibration_setup(&mut self) -> LiveSetup {
+        // A cable value from other devices is no base for a lean.
+        self.check_audio_path();
         self.stop_live();
         self.tuner = None;
         self.live_ear = None;
@@ -97,7 +102,11 @@ impl Core {
 
         // With a cable value the clicks measure the lean; the latency stays (R4).
         if self.settings.latency_from == LatencyFrom::Loopback {
-            self.reconfigure(|s| s.click_ms = Some(latency_ms));
+            let on = self.audio_path();
+            self.reconfigure(|s| {
+                s.click_ms = Some(latency_ms);
+                s.measured_on = Some(on);
+            });
             return UiEvent::Calibrated {
                 latency_ms: None,
                 text: self.lean_text(),
@@ -108,7 +117,9 @@ impl Core {
         // latency gives a median before the click, no latency is below zero.
         let click_ms = latency_ms;
         let latency_ms = latency_ms.max(0.0);
+        let on = self.audio_path();
         self.reconfigure(|s| {
+            s.measured_on = Some(on);
             s.click_ms = Some(click_ms);
             s.latency_ms = latency_ms;
             s.latency_from = LatencyFrom::Click;
@@ -164,7 +175,9 @@ impl Core {
         };
 
         // A lean comes only from clicks after this cable value (review #202).
+        let on = self.audio_path();
         self.reconfigure(|s| {
+            s.measured_on = Some(on);
             s.click_ms = None;
             s.loopback_ms = Some(latency_ms);
             s.latency_ms = latency_ms;
@@ -202,6 +215,41 @@ impl Core {
         }
     }
 
+    /// Forgets the measurements when the devices resolve differently from when they were
+    /// measured (an automatic choice picked another interface, a chosen one is gone).
+    pub(crate) fn check_audio_path(&mut self) {
+        let s = &self.settings;
+        if s.loopback_ms.is_none() && s.click_ms.is_none() {
+            return;
+        }
+
+        let now = self.audio_path();
+        if self.settings.measured_on.as_ref() == Some(&now) {
+            return;
+        }
+        self.update_settings(forget);
+    }
+
+    /// The devices in use now, resolved like a start resolves them; a recording (QA) stands
+    /// for one device.
+    pub(crate) fn audio_path(&self) -> AudioPath {
+        // `None` is the system default, which can change by itself: its id counts.
+        let input = match self.input_choice() {
+            InputChoice::Device { id: None, .. } => system_default(Direction::Input),
+            InputChoice::Device { id, .. } => id,
+            InputChoice::File { .. } => Some(FILE_INPUT.into()),
+            InputChoice::Midi { port } => port,
+        };
+        let output = self
+            .output_device()
+            .or_else(|| system_default(Direction::Output));
+        AudioPath {
+            input,
+            output,
+            kind: self.settings.input_kind,
+        }
+    }
+
     /// The side for "Neu kalibrieren?" (LH-EIN-14). Never with a cable value: that holds no
     /// lean, so a steady lean in the run is the player's (LH-BEW-09), not the latency's.
     pub(crate) fn latency_hint(&self, s: &Summary, pocket: Pocket) -> Option<Side> {
@@ -221,9 +269,23 @@ pub(crate) fn forget_on_switch(before: &Settings, after: &mut Settings) {
     if same {
         return;
     }
-    after.loopback_ms = None;
-    after.click_ms = None;
-    after.latency_from = LatencyFrom::Manual;
+    forget(after);
+}
+
+/// The id of the system's default device, if one is listed.
+fn system_default(direction: Direction) -> Option<String> {
+    list_devices(direction)
+        .into_iter()
+        .find(|d| d.is_default)
+        .map(|d| d.id)
+}
+
+/// Drops the measurements; the latency stays, as if typed in.
+fn forget(s: &mut Settings) {
+    s.loopback_ms = None;
+    s.click_ms = None;
+    s.measured_on = None;
+    s.latency_from = LatencyFrom::Manual;
 }
 
 /// Whole ms with sign: "−14 ms", "+6 ms", "0 ms".
@@ -247,7 +309,7 @@ mod tests {
     fn core(name: &str) -> (Core, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!("kontra-cal-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        let mut core = Core::new(&dir, QaOptions::default());
+        let mut core = file_core(&dir);
         core.update_settings(|s| s.output_device = Some("kontra:null".into()));
         (core, dir)
     }
@@ -287,6 +349,67 @@ mod tests {
         assert_eq!(core.latency_note(), core.tr("latency.from.loopback", &[]));
         core.calibrated(clicks(-10.0));
         assert_eq!(core.lean_ms(), Some(-30.0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A profile measured by cable (20 ms) and on the clicks (5 ms) on `on`.
+    fn measured_profile(name: &str, on: AudioPath) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("kontra-cal-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut core = file_core(&dir);
+        core.update_settings(|s| s.output_device = Some(kontra_session::NULL_DEVICE.into()));
+        core.update_settings(|s| {
+            s.latency_ms = 20.0;
+            s.latency_from = LatencyFrom::Loopback;
+            s.loopback_ms = Some(20.0);
+            s.click_ms = Some(5.0);
+            s.measured_on = Some(on);
+        });
+        dir
+    }
+
+    /// A core fed by a file: its input resolves without any device.
+    fn file_core(dir: &std::path::Path) -> Core {
+        let qa = QaOptions {
+            input_file: Some(dir.join("take.wav")),
+            laptop_jack: false,
+        };
+        Core::new(dir, qa)
+    }
+
+    // Review #202 round 2: with automatic choice the settings stay, the device changes. A
+    // start that resolves another input forgets the measurements; the hint may show again.
+    #[test]
+    fn other_resolved_device_forgets() {
+        let usb = AudioPath {
+            input: Some("alsa:front:CARD=USB,DEV=0".into()),
+            output: Some(kontra_session::NULL_DEVICE.into()),
+            kind: crate::InputKind::Line,
+        };
+        let dir = measured_profile("resolved-other", usb);
+        let core = file_core(&dir);
+        let s = &core.settings;
+        assert_eq!((s.loopback_ms, s.click_ms), (None, None));
+        assert_eq!(s.latency_from, LatencyFrom::Manual);
+        assert_eq!(s.latency_ms, 20.0, "the value stays as a starting point");
+        assert_eq!(core.lean_ms(), None);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn same_resolved_device_keeps() {
+        let dir = std::env::temp_dir().join(format!("kontra-cal-probe-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut probe = file_core(&dir);
+        probe.update_settings(|s| s.output_device = Some(kontra_session::NULL_DEVICE.into()));
+        let here = probe.audio_path();
+        drop(probe);
+        let _ = std::fs::remove_dir_all(&dir);
+
+        let dir = measured_profile("resolved-same", here);
+        let core = file_core(&dir);
+        assert_eq!(core.settings.latency_from, LatencyFrom::Loopback);
+        assert_eq!(core.lean_ms(), Some(-15.0));
         let _ = std::fs::remove_dir_all(dir);
     }
 

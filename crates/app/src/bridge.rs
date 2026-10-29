@@ -1469,6 +1469,8 @@ impl qobject::Controller {
         }
         let events = self.as_mut().core().play();
         self.as_mut().apply(events);
+        // A start that resolves other devices forgets the measurements (review #202).
+        self.as_mut().refresh_latency_note();
         let playing = self.as_ref().rust().core.is_playing();
         self.as_mut().set_playing(playing);
     }

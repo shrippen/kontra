@@ -28,8 +28,8 @@ pub use i18n::{Catalog, Language};
 pub use kontra_session::{exercise, Blocks, ChainOrder, Density};
 pub use package::PackageAudio;
 pub use store::{
-    data_dir, Bass, InputKind, LatencyFrom, Library, PracticeLoop, RecentEntry, SectionBars,
-    SectionDensity, Setlist, Settings,
+    data_dir, AudioPath, Bass, InputKind, LatencyFrom, Library, PracticeLoop, RecentEntry,
+    SectionBars, SectionDensity, Setlist, Settings,
 };
 
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Judging, Technique, Tuning};
@@ -285,7 +285,7 @@ impl Core {
             .language
             .as_deref()
             .map_or_else(Language::from_environment, Language::from_code);
-        Core {
+        let mut core = Core {
             courses: kontra_session::CourseStore::new(data_dir).load(),
             fetcher: course::Fetcher::default(),
             quiz: None,
@@ -323,7 +323,10 @@ impl Core {
             input_since: None,
             speed: 1.0,
             looping: None,
-        }
+        };
+        // Measured latencies hold only for the devices they were measured on (LH-EIN-05).
+        core.check_audio_path();
+        core
     }
 
     pub fn tr(&self, key: &str, args: &[(&str, String)]) -> String {
@@ -2205,6 +2208,7 @@ impl Core {
 
     /// Starts audio for the loaded arrangement; true if there is no sound output.
     fn start_live(&mut self) -> Result<bool, String> {
+        self.check_audio_path();
         let Some(loaded) = self.loaded.as_ref() else {
             return Err(self.tr("library.empty.hint", &[]));
         };

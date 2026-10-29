@@ -181,7 +181,8 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - A2: `Summary::recalibrate`, `Summary::{before_beat_hits, after_beat_hits}`.
 - R4 (loopback-cal): `LiveLoopback` (`start`, `poll`), `LoopbackResult` (`from_trip`), `LatencyFrom`,
   `Settings::{latency_from, loopback_ms, click_ms}`, `Core::{start_loopback, lean_ms, latency_note}`,
-  `pub(crate) Core::{poll_calibration, latency_hint}`; Brücke: Invokable `startLoopback`, Properties
+  `pub(crate) Core::{poll_calibration, latency_hint, check_audio_path, audio_path}`, `pub(crate) forget_on_switch`,
+  `AudioPath`, `Settings::measured_on`; Brücke: Invokable `startLoopback`, Properties
   `cableMeasuring`, `latencyNote`. `CalibrationResult::Measured::latency_ms` kann jetzt negativ sein.
 
 ## Für den Eigentümer
