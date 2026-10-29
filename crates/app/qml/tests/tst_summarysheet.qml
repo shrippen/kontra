@@ -23,7 +23,8 @@ Item {
             pocketText: "", tendencyText: "", spreadText: "", intonationText: "",
             counts: [1, 2, 3], firstBinMs: -10, binMs: 10, meanOffsetMs: 0,
             techniques: [], untoldText: "", hardestNotes: [], notes: [],
-            hardestBars: [{ number: 2 }, { number: 3 }]
+            hardestBars: [{ number: 2 }, { number: 3 }],
+            observation: { solid: false, text: "observe.text" }
         })
         function termJson(topic) { return "" }
     }
@@ -86,6 +87,27 @@ Item {
             var hist = having(sheet, "binName")
             verify(hist !== null)
             compare(hist.binName(2), "+10 to +20 ms: 3 notes")
+        }
+
+        // The first visible item below `item` showing `text`.
+        function showing(item, text) {
+            if (item.visible && item.text === text) {
+                return item
+            }
+            for (var i = 0; i < item.children.length; i++) {
+                var found = showing(item.children[i], text)
+                if (found) {
+                    return found
+                }
+            }
+            return null
+        }
+
+        // One observation in words above the details (LH-BEW-09).
+        function test_observation_shown() {
+            sheet.open()
+            verify(showing(sheet, "observe.text") !== null)
+            sheet.close()
         }
 
         function test_trap_and_return() {

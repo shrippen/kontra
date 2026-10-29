@@ -70,9 +70,59 @@ fn summary_shows_tendency_and_counts() {
     assert_eq!(counts, 5, "histogram holds the hits: {s}");
     assert!(!s["hardestBars"].as_array().unwrap().is_empty());
 
+    // One observation (LH-BEW-09): 3 of 8 notes not sitting outweigh the timing.
+    assert_eq!(
+        s["observation"]["text"],
+        "3 von 8 Noten saßen noch nicht. Langsamer üben bringt jetzt am meisten.",
+        "{s}"
+    );
+
     // Saved in the progress (LH-FOR-01).
     core.stop_live();
     let p: serde_json::Value = serde_json::from_str(&core.progress_json()).unwrap();
     assert_eq!(p["pieces"][0]["title"], "linie");
     assert_eq!(p["pieces"][0]["runs"], 1);
+}
+
+/// Step 4 (LH-EIN-14): every note 25 ms late without an aim asks to calibrate again; with the
+/// aim laid-back the same take is played on purpose and asks nothing.
+#[test]
+fn late_take_asks_to_recalibrate() {
+    let profile = Profile::new("c2-recalibrate");
+    let score = profile.dir.join("linie.mid");
+    write_midi(&score, "Linie", &LINE);
+    let take = profile.dir.join("take.wav");
+    let late = kontra_session::Mistakes {
+        offset_ms: 25.0,
+        ..Default::default()
+    };
+    render(&take, &piece("Linie", &LINE), late);
+
+    let hint = |pocket: &str| {
+        let mut core = profile.core(Some(&take));
+        core.update_settings(|s| s.pocket = pocket.into());
+        core.open(&score).unwrap();
+        core.set_mode("song");
+        core.play();
+        let events = run_until(&mut core, Duration::from_secs(12), |e| {
+            matches!(e, UiEvent::Finished { .. })
+        });
+        core.stop_live();
+        let summary = events
+            .iter()
+            .find_map(|e| match e {
+                UiEvent::Finished { summary_json } => Some(summary_json.clone()),
+                _ => None,
+            })
+            .expect("finished");
+        let s: serde_json::Value = serde_json::from_str(&summary).unwrap();
+        s["recalibrateText"].as_str().unwrap_or_default().to_owned()
+    };
+
+    let free = hint("free");
+    assert!(
+        free.starts_with("Liegen die Treffer so beständig hinter dem Schlag (im Mittel 2"),
+        "{free}"
+    );
+    assert_eq!(hint("laidback"), "");
 }

@@ -202,8 +202,9 @@ Fehler (zuerst roter Test):
   Note fällig ist. Jetzt 0 je Minute; IDMT 89,9 % / 80,4 % (vorher 90,1 / 80,6: zwei echte Noten mit Hintergrund gleicher Tonhöhe), synthetische Sätze gleich.
 
 Rückmeldung und Lernen:
-- [ ] A1 Eine Beobachtung je Durchlauf (LH-BEW-09).
-- [ ] A2 Hinweis „Neu kalibrieren?“ (LH-EIN-14).
+- [x] A1 Eine Beobachtung je Durchlauf (LH-BEW-09, #184).
+- [x] A2 Hinweis „Neu kalibrieren?“ (LH-EIN-14): in der Auswertung mit Knopf zur Kalibrierung in den Einstellungen;
+  nicht, wenn das gewählte Timing-Ziel die Neigung deckt (laid-back).
 - [ ] A3 Improvisation bewerten (LH-BEW-13).
 - [ ] A4 Adaptive Dichte über Abschnitts-Anteile (LH-MOD-06).
 - [ ] L1 Stellen wiederholen (LH-LRN-16).
@@ -219,7 +220,10 @@ Rückmeldung und Lernen:
 - [ ] L11 Shuffle-Klick (LH-WIE-04).
 
 Erkennung und Messung:
-- [ ] A5 `korpus confusion`: Verwechslung nach Intervall und Register.
+- [x] A5 `korpus confusion`: Verwechslung nach Intervall und Register. IDMT (29.10., ±80 ms): C1–B1 90,8 % richtig
+  (10 „other“, 11 verpasst), C2–B2 92,3 % (13 Halbtöne daneben), C3–B3 68,2 %, C4–B4 12,5 % (11 von 16 zwei Oktaven
+  tiefer gehört: Flageoletts, die Bewertung lässt sie in jeder Oktave gelten). Oktavfehler bei tiefen Tönen kaum (3 von
+  346 und 3 von 542).
 - [x] E1 Meldezeit je Note im Korpus (LH-NF-15): `korpus check` zeigt „p95 rep“. Erste Messung (29.10.): line-4 und
   laptop-jack-4 81 ms, line-5 und fretless-5 100 ms (tiefe H-Saite), sixteenths 82 ms, techniques 271 ms (Legato
   ohne Anschlag). Ziel 70 ms damit verfehlt; bis zur Entscheidung des Eigentümers eine Grenze bei 110 ms gegen
@@ -239,12 +243,12 @@ Mehrere Töne (offen für Gitarre und Tasten):
 
 Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in Worten je PR):
 - [ ] W1 `scripts/qactl.py` über AT-SPI; Socket nur im Cargo-Feature `qa`.
-- [ ] W2 `scripts/qa-session.sh` für jeden isolierten Testlauf.
+- [x] W2 `scripts/qa-session.sh` für jeden isolierten Testlauf.
 - [ ] W3 Layout-Prüfung je Seite bei P4- und P7-Auflösung (LH-ANZ-09).
 - [ ] W4 Tabelle Regel → Prüfung, Git-Hooks, CI-Prüfung der Commit-Nachrichten.
-- [ ] W5 Test für Crate-Kanten und Dateigröße mit Abbauliste.
+- [x] W5 Test für Crate-Kanten und Dateigröße mit Abbauliste (`tests/physical_design.rs`, 1200 Zeilen je Datei; Abbauliste: appcore/lib.rs, bridge.rs, exercise.rs, PracticePage.qml, tracker.rs).
 - [ ] W6 `scripts/release.sh`, metainfo `<releases>`/`<screenshots>`, AppStream- und Flatpak-Lint.
-- [ ] W7 `cargo deny` mit `[advisories]`, eigener Job und wöchentlich.
+- [x] W7 `cargo deny` mit `[advisories]`, eigener Job und wöchentlich (`advisories.yml`); rustls auf 0.23.46, RUSTSEC-2025-0044 (minimp3) mit Begründung ignoriert.
 - [ ] W8 JSON-Schemas für Pakete und Kurse aus den serde-Strukturen.
 - [ ] W9 Kurs aus Ordner live (LH-LRN-21); QML von der Platte in Entwicklung.
 - [ ] W11 Glyphen-Test für Sonderzeichen.

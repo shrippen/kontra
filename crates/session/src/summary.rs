@@ -1,7 +1,9 @@
 //! Evaluation after a run (LH-BEW-03): hit rate, timing histogram and tendency, hardest bars,
-//! bars the player hesitated at (DIDAKTIK I6), intonation as direction and spread (LH-BEW-12).
+//! bars the player hesitated at (DIDAKTIK I6), the one observation worth telling (LH-BEW-09),
+//! intonation as direction and spread (LH-BEW-12).
 
 use crate::matcher::{NoteResult, Outcome};
+use crate::pocket::{Pocket, PocketVerdict};
 use crate::technique::TechniqueTally;
 use kontra_model::{Arrangement, Technique};
 use serde::{Deserialize, Serialize};
@@ -22,6 +24,27 @@ const CENT_DIRECTION: f64 = 5.0;
 const INTONATION_MIN_NOTES: usize = 8;
 /// Frets per position: 0–4, 5–9, 10–14, …
 const POSITION_FRETS: u8 = 5;
+
+/// Judged notes a run needs before anything about it is told (LH-BEW-09).
+const OBSERVE_MIN_NOTES: u32 = 8;
+/// Notes a technique needs before its share counts as evidence.
+const OBSERVE_MIN_TECHNIQUE: u32 = 4;
+/// Hits needed before their timing reads as a lean.
+const OBSERVE_MIN_HITS: u32 = 8;
+/// A technique below this share is worth practising ...
+const WEAK_TECHNIQUE: f64 = 0.6;
+/// ... when it also trails the hit rate by this many percentage points, counted whole (all at
+/// 50 % is not about the technique; 55 % against 75 % is 20 points, not 19.99…).
+const TECHNIQUE_GAP_POINTS: f64 = 20.0;
+/// A run that missed this share of its notes is about the notes.
+const MANY_MISSED: f64 = 0.35;
+/// Share of hits on one side of the beat that reads as a lean rather than scatter.
+const LOPSIDED: f64 = 0.6;
+/// Hits this close to the beat count as on time for the lean.
+const ON_TIME_MS: f64 = 10.0;
+/// A mean this far from the beat, with the hits lopsided the same way, may be a wrong latency
+/// (LH-EIN-14).
+const RECALIBRATE_MS: f64 = 5.0;
 
 /// Counts of timing offsets in 10 ms bins from −100 to +100 ms; outliers go to the edge bins.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -92,6 +115,46 @@ pub struct Summary {
     /// The missed notes behind `outside_offset_ms`, each with its own offset (LH-BEW-01).
     #[serde(default)]
     pub outside_notes: Vec<OutsideNote>,
+    /// Hits more than `ON_TIME_MS` before the beat.
+    #[serde(default)]
+    pub early_hits: u32,
+    /// Hits more than `ON_TIME_MS` after the beat.
+    #[serde(default)]
+    pub late_hits: u32,
+    /// Hits before the beat, however close (LH-EIN-14).
+    #[serde(default)]
+    pub before_beat_hits: u32,
+    /// Hits after the beat, however close.
+    #[serde(default)]
+    pub after_beat_hits: u32,
+}
+
+/// The one thing a run most wants the player to hear (LH-BEW-09, after Harmonicon's coaching).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Observation {
+    /// A technique trails the plain notes: "Slide: 2 of 6".
+    Technique {
+        technique: Technique,
+        played: u32,
+        judged: u32,
+    },
+    /// Most notes missed the window but were played beside it, by this many ms.
+    Beside { offset_ms: f64 },
+    /// Many notes did not sit (wrong or missed).
+    Missed { notes: u32, judged: u32 },
+    /// Hits lean to one side of the beat: `share` of them.
+    Lean { side: Side, share: f64 },
+    /// The mean missed the chosen aim (LH-BEW-08) on this side, by this many ms.
+    Aim { side: Side, off_ms: f64 },
+    /// Enough was played and nothing stands out.
+    Solid,
+}
+
+/// Side of the beat.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Side {
+    Early,
+    Late,
 }
 
 /// Pitch deviation as direction and spread, no grade (LH-BEW-12): "9 cents flat on average,
@@ -233,7 +296,128 @@ impl Summary {
             untold_techniques: Vec::new(),
             outside_offset_ms: None,
             outside_notes: Vec::new(),
+            early_hits: offsets.iter().filter(|o| **o < -ON_TIME_MS).count() as u32,
+            late_hits: offsets.iter().filter(|o| **o > ON_TIME_MS).count() as u32,
+            before_beat_hits: offsets.iter().filter(|o| **o < 0.0).count() as u32,
+            after_beat_hits: offsets.iter().filter(|o| **o > 0.0).count() as u32,
         }
+    }
+
+    /// The side the hits lean to so steadily that the latency may be wrong (LH-EIN-14): at
+    /// least `OBSERVE_MIN_HITS` hits, `LOPSIDED` of them on one side, the mean `RECALIBRATE_MS`
+    /// off the beat. Only a hint, never a correction: a lean the chosen aim covers (laid back)
+    /// is played on purpose.
+    pub fn recalibrate(&self, pocket: Pocket) -> Option<Side> {
+        if self.hits < OBSERVE_MIN_HITS {
+            return None;
+        }
+        // Whole ms, like the aim: 5.3 ms is held on the beat.
+        let mean = self.mean_offset_ms?.round();
+        if mean.abs() < RECALIBRATE_MS {
+            return None;
+        }
+
+        let (side, same) = if mean < 0.0 {
+            (Side::Early, self.before_beat_hits)
+        } else {
+            (Side::Late, self.after_beat_hits)
+        };
+        if f64::from(same) < LOPSIDED * f64::from(self.hits) {
+            return None;
+        }
+
+        // With an aim, only a mean outside it on the same side.
+        match (pocket.judge(mean), side) {
+            (None, _)
+            | (Some(PocketVerdict::Early(_)), Side::Early)
+            | (Some(PocketVerdict::Late(_)), Side::Late) => Some(side),
+            _ => None,
+        }
+    }
+
+    /// The observation for this run, picked in a fixed order, most specific first: a weak
+    /// technique, notes played beside the window, many notes missed, a missed timing aim
+    /// (`pocket`), a lean (only without an aim), else solid. `None` below `OBSERVE_MIN_NOTES`
+    /// (one missed slide is no diagnosis), and below `OBSERVE_MIN_HITS` hits when none of the
+    /// first three applies.
+    pub fn observation(&self, pocket: Pocket) -> Option<Observation> {
+        if self.judged < OBSERVE_MIN_NOTES {
+            return None;
+        }
+
+        // The weakest technique with enough notes that trails the hit rate.
+        let weakest = self
+            .techniques
+            .iter()
+            .filter(|t| t.judged >= OBSERVE_MIN_TECHNIQUE)
+            .map(|t| (t, f64::from(t.played) / f64::from(t.judged)))
+            .filter(|(_, share)| {
+                *share < WEAK_TECHNIQUE
+                    && ((self.hit_rate - share) * 100.0).round() >= TECHNIQUE_GAP_POINTS
+            })
+            .min_by(|a, b| a.1.total_cmp(&b.1));
+        if let Some((t, _)) = weakest {
+            return Some(Observation::Technique {
+                technique: t.technique,
+                played: t.played,
+                judged: t.judged,
+            });
+        }
+
+        // Missed, but beside the window: the timing is the point, not the notes.
+        if let Some(offset_ms) = self.outside_offset_ms.filter(|_| self.missed > self.hits) {
+            return Some(Observation::Beside { offset_ms });
+        }
+
+        let not_sitting = self.wrong + self.missed;
+        if f64::from(not_sitting) >= MANY_MISSED * f64::from(self.judged) {
+            return Some(Observation::Missed {
+                notes: not_sitting,
+                judged: self.judged,
+            });
+        }
+
+        // Too few hits to tell the timing: nothing to say, not "solid".
+        if self.hits < OBSERVE_MIN_HITS {
+            return None;
+        }
+        // A missed aim outweighs a lean: the player chose where to sit. Judged in whole ms,
+        // like the pocket line: 5.3 ms against ±5 ms is held, not "0 ms behind".
+        let verdict = self.mean_offset_ms.and_then(|m| pocket.judge(m.round()));
+        match verdict {
+            Some(PocketVerdict::Early(off_ms)) => {
+                return Some(Observation::Aim {
+                    side: Side::Early,
+                    off_ms,
+                })
+            }
+            Some(PocketVerdict::Late(off_ms)) => {
+                return Some(Observation::Aim {
+                    side: Side::Late,
+                    off_ms,
+                })
+            }
+            _ => {}
+        }
+
+        if pocket == Pocket::Free {
+            let hits = f64::from(self.hits);
+            let early = f64::from(self.early_hits) / hits;
+            let late = f64::from(self.late_hits) / hits;
+            if late >= LOPSIDED {
+                return Some(Observation::Lean {
+                    side: Side::Late,
+                    share: late,
+                });
+            }
+            if early >= LOPSIDED {
+                return Some(Observation::Lean {
+                    side: Side::Early,
+                    share: early,
+                });
+            }
+        }
+        Some(Observation::Solid)
     }
 }
 
@@ -474,6 +658,151 @@ mod tests {
         assert!((late - 70.0).abs() < 1e-6, "{late}");
         let early = outside_offset_ms(&dense(-0.070), 1.0).expect("an offset");
         assert!((early + 70.0).abs() < 1e-6, "{early}");
+    }
+
+    /// LH-EIN-14: a steady lean off the beat asks for a new calibration; scatter, too few hits
+    /// or a lean the aim covers do not.
+    #[test]
+    fn steady_lean_asks_to_recalibrate() {
+        let arrangement = Arrangement::new("Run", kontra_model::Instrument::default_bass());
+        let summary = |offsets: &[f64]| {
+            let notes: Vec<(Outcome, Option<f64>)> =
+                offsets.iter().map(|o| (Outcome::Hit, Some(*o))).collect();
+            Summary::from_results(&played(&notes), &arrangement)
+        };
+
+        let late = summary(&[25.0; 10]);
+        assert_eq!(late.recalibrate(Pocket::Free), Some(Side::Late));
+        assert_eq!(late.recalibrate(Pocket::OnBeat), Some(Side::Late));
+        assert_eq!(
+            late.recalibrate(Pocket::LaidBack),
+            None,
+            "played behind on purpose"
+        );
+        assert_eq!(
+            summary(&[-8.0; 10]).recalibrate(Pocket::Free),
+            Some(Side::Early)
+        );
+
+        // Symmetric scatter with a mean of 8 ms: half on each side.
+        let scatter = [
+            -30.0, 46.0, -30.0, 46.0, -30.0, 46.0, -30.0, 46.0, -30.0, 46.0,
+        ];
+        assert_eq!(summary(&scatter).recalibrate(Pocket::Free), None);
+
+        assert_eq!(
+            summary(&[25.0; 7]).recalibrate(Pocket::Free),
+            None,
+            "too few hits"
+        );
+        assert_eq!(
+            summary(&[4.0; 10]).recalibrate(Pocket::Free),
+            None,
+            "near the beat"
+        );
+        // Judged in whole ms like the aim: 5.3 ms is held on the beat, no hint.
+        assert_eq!(summary(&[5.3; 10]).recalibrate(Pocket::OnBeat), None);
+    }
+
+    /// LH-BEW-09: one observation per run, each only with enough notes behind it.
+    #[test]
+    fn one_observation_with_enough_evidence() {
+        let arrangement = Arrangement::new("Run", kontra_model::Instrument::default_bass());
+        let hit = |ms: f64| (Outcome::Hit, Some(ms));
+        let missed = (Outcome::Missed, None);
+        let summary =
+            |notes: &[(Outcome, Option<f64>)]| Summary::from_results(&played(notes), &arrangement);
+        let slide = |played: u32, judged: u32| TechniqueTally {
+            technique: Technique::Slide,
+            played,
+            judged,
+        };
+
+        // Too few notes: nothing to tell.
+        assert_eq!(summary(&[hit(0.0); 7]).observation(Pocket::Free), None);
+
+        // One missed slide among ten good notes is no diagnosis.
+        let mut s = summary(&[hit(0.0); 10]);
+        s.techniques = vec![slide(0, 1)];
+        assert_eq!(s.observation(Pocket::Free), Some(Observation::Solid));
+
+        // Two of six slides at a 90 % hit rate: the slide is the point.
+        let mut notes = vec![hit(0.0); 9];
+        notes.push(missed);
+        let mut s = summary(&notes);
+        s.techniques = vec![slide(2, 6)];
+        let expected = Observation::Technique {
+            technique: Technique::Slide,
+            played: 2,
+            judged: 6,
+        };
+        assert_eq!(s.observation(Pocket::Free), Some(expected));
+
+        // Half the notes missed.
+        let mut notes = vec![hit(0.0); 5];
+        notes.extend([missed; 5]);
+        let expected = Observation::Missed {
+            notes: 5,
+            judged: 10,
+        };
+        assert_eq!(summary(&notes).observation(Pocket::Free), Some(expected));
+
+        // Missed, but played beside the window: the timing is told, not the misses.
+        let mut s = summary(&notes);
+        s.missed = 6;
+        s.outside_offset_ms = Some(-40.0);
+        let expected = Observation::Beside { offset_ms: -40.0 };
+        assert_eq!(s.observation(Pocket::Free), Some(expected));
+
+        // Eight of ten hits 25 ms late lean late; with a laid-back aim the pocket line tells it.
+        let mut notes = vec![hit(25.0); 8];
+        notes.extend([hit(0.0); 2]);
+        let s = summary(&notes);
+        let lean = Some(Observation::Lean {
+            side: Side::Late,
+            share: 0.8,
+        });
+        assert_eq!(s.observation(Pocket::Free), lean);
+        assert_eq!(s.observation(Pocket::LaidBack), Some(Observation::Solid));
+
+        // PR-Agent #184: an aim on the beat (±5 ms) missed by 20 ms is no "solid" run.
+        let s = summary(&[hit(25.0); 10]);
+        let aim = Some(Observation::Aim {
+            side: Side::Late,
+            off_ms: 20.0,
+        });
+        assert_eq!(s.observation(Pocket::OnBeat), aim);
+
+        // PR-Agent #184: 0.3 ms past ±5 ms reads "0 ms behind": held, as the pocket line says.
+        let s = summary(&[hit(5.3); 10]);
+        assert_eq!(s.observation(Pocket::OnBeat), Some(Observation::Solid));
+
+        // PR-Agent #184: seven hits 25 ms late and three missed: too few hits to name the aim,
+        // and then not "solid" either.
+        let mut notes = vec![hit(25.0); 7];
+        notes.extend([missed; 3]);
+        assert_eq!(summary(&notes).observation(Pocket::OnBeat), None);
+
+        // PR-Agent #184: 11 of 20 slides at 15 of 20 hits is exactly 20 points under.
+        let mut notes = vec![hit(0.0); 15];
+        notes.extend([missed; 5]);
+        let mut s = summary(&notes);
+        s.techniques = vec![slide(11, 20)];
+        let expected = Observation::Technique {
+            technique: Technique::Slide,
+            played: 11,
+            judged: 20,
+        };
+        assert_eq!(s.observation(Pocket::Free), Some(expected));
+
+        // Wide scatter both ways is no lean.
+        let notes: Vec<_> = (0..10)
+            .map(|i| hit(if i % 2 == 0 { 30.0 } else { -30.0 }))
+            .collect();
+        assert_eq!(
+            summary(&notes).observation(Pocket::Free),
+            Some(Observation::Solid)
+        );
     }
 
     /// LH-BEW-12: constant −10 cents reads "flat"; ±10 around 0 has no direction, only spread.

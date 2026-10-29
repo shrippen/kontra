@@ -35,9 +35,10 @@ use kontra_model::{Arrangement, InputSource, InstrumentKind, Judging, Technique,
 use kontra_session::{
     import_file, list_devices, run_from, technique_signs, CalibrationResult, Chain, Connection,
     DeviceInfo, Direction, Gains, ImportResult, InputChoice, Intonation, Leaning, Live,
-    LiveCalibration, LiveEar, LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Outcome,
-    OutsideNote, Pocket, PocketVerdict, PracticeEvent, PracticeOptions, ProgressStore, Run,
-    ScoreSettings, SessionEvent, Shaping, Summary, TechniqueOutcome, TechniqueResult, Workshop,
+    LiveCalibration, LiveEar, LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Observation,
+    Outcome, OutsideNote, Pocket, PocketVerdict, PracticeEvent, PracticeOptions, ProgressStore,
+    Run, ScoreSettings, SessionEvent, Shaping, Side, Summary, TechniqueOutcome, TechniqueResult,
+    Workshop,
 };
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -3090,6 +3091,8 @@ impl Core {
                 ("wrong", s.wrong.to_string()),
                 ("missed", s.missed.to_string()),
             ]),
+            "observation": self.observation_json(s),
+            "recalibrateText": self.recalibrate_text(s),
             "tendencyText": tendency,
             // The few hits beside the missed notes tell no steadiness.
             "spreadText": s
@@ -3117,6 +3120,94 @@ impl Core {
             },
         })
         .to_string()
+    }
+
+    /// The one observation of the run (LH-BEW-09), or null below the minimum of notes (or of
+    /// hits, for timing):
+    /// `{ solid: false, text: "Am meisten bringt jetzt: Slide, 2 von 6. …" }`.
+    fn observation_json(&self, s: &Summary) -> serde_json::Value {
+        let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
+        let Some(observation) = s.observation(pocket) else {
+            return serde_json::Value::Null;
+        };
+        // "Solid" would contradict the latency hint next to it (review #195): that hint alone.
+        if observation == Observation::Solid && s.recalibrate(pocket).is_some() {
+            return serde_json::Value::Null;
+        }
+        let percent = |share: f64| format!("{:.0}", share * 100.0);
+        let text = match observation {
+            Observation::Technique {
+                technique,
+                played,
+                judged,
+            } => self.tr(
+                "summary.observe.technique",
+                &[
+                    ("technique", self.technique_name(technique)),
+                    ("played", played.to_string()),
+                    ("judged", judged.to_string()),
+                ],
+            ),
+            Observation::Beside { offset_ms } if offset_ms < 0.0 => self.tr(
+                "summary.observe.beside.early",
+                &[("ms", format!("{:.0}", -offset_ms))],
+            ),
+            Observation::Beside { offset_ms } => self.tr(
+                "summary.observe.beside.late",
+                &[("ms", format!("{offset_ms:.0}"))],
+            ),
+            Observation::Missed { notes, judged } => self.tr(
+                "summary.observe.missed",
+                &[("notes", notes.to_string()), ("judged", judged.to_string())],
+            ),
+            Observation::Lean {
+                side: Side::Early,
+                share,
+            } => self.tr("summary.observe.early", &[("percent", percent(share))]),
+            Observation::Lean {
+                side: Side::Late,
+                share,
+            } => self.tr("summary.observe.late", &[("percent", percent(share))]),
+            Observation::Aim {
+                side: Side::Early,
+                off_ms,
+            } => self.tr(
+                "summary.observe.aim.early",
+                &[("ms", format!("{off_ms:.0}"))],
+            ),
+            Observation::Aim {
+                side: Side::Late,
+                off_ms,
+            } => self.tr(
+                "summary.observe.aim.late",
+                &[("ms", format!("{off_ms:.0}"))],
+            ),
+            Observation::Solid => self.tr("summary.observe.solid", &[]),
+        };
+        json!({ "solid": observation == Observation::Solid, "text": text })
+    }
+
+    /// The latency hint (LH-EIN-14), else "". After an observation of the same lean it follows
+    /// on ("Liegen die Treffer so beständig hinter dem Schlag (im Mittel 25 ms), kann auch …"),
+    /// otherwise it stands alone ("Die Treffer liegen beständig hinter dem Schlag …").
+    fn recalibrate_text(&self, s: &Summary) -> String {
+        let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
+        let Some(side) = s.recalibrate(pocket) else {
+            return String::new();
+        };
+        let follows = matches!(
+            s.observation(pocket),
+            Some(Observation::Lean { side: lean, .. } | Observation::Aim { side: lean, .. })
+                if lean == side
+        );
+        let key = match (side, follows) {
+            (Side::Early, true) => "summary.recalibrate.early",
+            (Side::Late, true) => "summary.recalibrate.late",
+            (Side::Early, false) => "summary.recalibrate.early.alone",
+            (Side::Late, false) => "summary.recalibrate.late.alone",
+        };
+        let ms = format!("{:.0}", s.mean_offset_ms.unwrap_or_default().abs());
+        self.tr(key, &[("ms", ms)])
     }
 
     /// A blind probe next to the workshop before it (DIDAKTIK I1), or null:
@@ -6624,6 +6715,89 @@ mod tests {
         assert_eq!(
             text(&core, &s),
             "Ziel auf den Punkt (±5 ms): verfehlt, 1 ms hinter dem Zielbereich"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-BEW-09: the summary tells one observation in words, none for a short run.
+    #[test]
+    fn summary_tells_one_observation() {
+        let dir = temp_dir("observation");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        let observation = |core: &Core, s: &kontra_session::Summary| {
+            let v: serde_json::Value =
+                serde_json::from_str(&core.summary_json(s, &[], &[])).unwrap();
+            v["observation"].clone()
+        };
+        assert!(observation(&core, &s).is_null(), "nothing played");
+
+        s.judged = 10;
+        s.hits = 5;
+        s.missed = 5;
+        s.hit_rate = 0.5;
+        let v = observation(&core, &s);
+        assert_eq!(
+            v["text"],
+            "5 von 10 Noten saßen noch nicht. Langsamer üben bringt jetzt am meisten."
+        );
+        assert_eq!(v["solid"], false);
+
+        s.hits = 10;
+        s.missed = 0;
+        s.hit_rate = 1.0;
+        s.late_hits = 8;
+        let v = observation(&core, &s);
+        assert_eq!(
+            v["text"],
+            "80 % der Treffer kamen nach dem Schlag. Spiel mit dem Klick, nicht hinterher."
+        );
+
+        s.late_hits = 0;
+        assert_eq!(observation(&core, &s)["solid"], true);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-EIN-14: hits steadily behind the beat bring the hint, with the mean; none otherwise.
+    #[test]
+    fn summary_asks_to_recalibrate() {
+        let dir = temp_dir("recalibrate");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        let hint = |core: &Core, s: &kontra_session::Summary| {
+            let v: serde_json::Value =
+                serde_json::from_str(&core.summary_json(s, &[], &[])).unwrap();
+            v["recalibrateText"].clone()
+        };
+        assert_eq!(hint(&core, &s), "");
+
+        s.judged = 10;
+        s.hits = 10;
+        s.mean_offset_ms = Some(25.0);
+        s.after_beat_hits = 10;
+        s.late_hits = 8;
+        assert_eq!(
+            hint(&core, &s),
+            "Liegen die Treffer so beständig hinter dem Schlag (im Mittel 25 ms), kann auch die \
+             gemessene Latenz nicht mehr stimmen."
+        );
+
+        // Review #195: 7 ms late is no lean yet ("solid"), but asks to calibrate. Not "solid"
+        // next to it, and the hint stands on its own.
+        s.mean_offset_ms = Some(7.0);
+        s.late_hits = 0;
+        let v: serde_json::Value = serde_json::from_str(&core.summary_json(&s, &[], &[])).unwrap();
+        assert!(v["observation"].is_null(), "{v}");
+        assert_eq!(
+            v["recalibrateText"],
+            "Die Treffer liegen beständig hinter dem Schlag (im Mittel 7 ms). Spielst du nicht \
+             absichtlich so, stimmt vielleicht die gemessene Latenz nicht mehr."
         );
         let _ = std::fs::remove_dir_all(dir);
     }

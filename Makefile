@@ -1,4 +1,4 @@
-.PHONY: check fmt lint test deny design video licences licences-check korpus run cli qt-env
+.PHONY: check fmt lint test deny advisories design video licences licences-check korpus run cli qt-env
 
 # Everything CI runs; run before every commit (agent.md).
 check: fmt lint test deny design video licences-check
@@ -15,6 +15,10 @@ test:
 # Licence policy (deny.toml); `cargo install --locked cargo-deny` once.
 deny:
 	cargo deny check licenses bans sources
+
+# Known vulnerabilities (needs the network; CI: .github/workflows/advisories.yml).
+advisories:
+	cargo deny check advisories
 
 # Kante only: no own colours, sizes or fonts in the app's QML (LH-NF-10).
 design:

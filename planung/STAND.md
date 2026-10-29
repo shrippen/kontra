@@ -133,8 +133,9 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   Slap/Pop (Aufnahmen weiterer Spieler), Echtzeit-Priorität ohne `realtime`-Gruppe (rtkit nur über MPL-Crate).
 - **Songsterr-Suche** (#71/#73): undokumentierte API; ändert Songsterr sie, sagt Kontra „unlesbar“. Flatpak hat jetzt
   `--share=network`, `--filesystem=xdg-download:ro`, `xdg-run/pipewire-0` (Flathub-Prüfung beachten).
-- **Flow-Tests im echten Fenster:** Xvfb `:99` + `xdotool` + `import`, App mit `-qwindowgeometry` (bei `QT_SCALE_FACTOR`
-  logische Größe), immer `--input-file` und Ausgang `kontra:null`, `QT_FORCE_STDERR_LOGGING=1`, `--focus-log`.
+- **Flow-Tests im echten Fenster:** `scripts/qa-session.sh --input-file <Datei> --run '<xdotool …; import -window
+  "$KONTRA_QA_WINDOW" shot.png>' -- -qwindowgeometry 1280x800+0+0 …` (bei `QT_SCALE_FACTOR` logische Größe),
+  `QT_FORCE_STDERR_LOGGING=1`, `--focus-log`; Fenster erst nach etwa 5 s zeichnen lassen, sonst ist das Bild schwarz.
 - **Flageoletts** (#51): Bewertung oktavtolerant; künstliche ohne eigenes Zeichen in Kante. GP4-Arten 15/17 mit echter
   GP4-Datei gegenprüfen; MusicXML-Naturflageolett ohne Saite/Bund bleibt beim gegriffenen Ton.
 - **Zweiter Leser 13.10.** (#50–#54): Befunde und Antworten in den PRs; offen: `heard()`-Testkopie (#50),
@@ -177,6 +178,7 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - #100: `exercise::Style` (`ALL`, `key`, `from_key`, `minor`), `ExerciseKind::Song`.
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 - F3: `DetectedNote::is_pitchless`, `Evaluation::pitched`; `pub(crate) yin::power_at`.
+- A2: `Summary::recalibrate`, `Summary::{before_beat_hits, after_beat_hits}`.
 
 ## Für den Eigentümer
 
