@@ -231,6 +231,8 @@ Erkennung und Messung:
   Verschlechterung.
 - [x] E2 Sätze ohne Noten, Falschnoten je Minute (LH-NF-16): `idle-line`, `idle-room` (60 s, Brummen, Rauschen, Knackser, Kratzen, Dämpfen); Ziel seit F3 erreicht.
 - [ ] E3 Wächter und dauerhafter Eingangszustand (LH-EIN-15); Wächter und Pause der Bewertung umgesetzt, offen: dauerhafte Anzeige mit „Erneut versuchen“.
+  Verlust aus Gerätestempeln über eine DLL (R3, erster Teil, Branch `device-clock`); offen aus R3: Wiedergabe- und
+  Eingangszeitachse an der DLL verankern (Ausgangsstempel), Loopback-Prüfung am Solo.
 - [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).
 - [ ] E5 Notenende (LH-BEW-10).
 - [ ] E6 Rauschboden bei der Kalibrierung (LH-EIN-16).

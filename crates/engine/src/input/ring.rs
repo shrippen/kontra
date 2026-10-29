@@ -7,6 +7,8 @@
 //!                      └─ stamps ───┘   skipped_s: device time not delivered as samples
 //! ```
 
+use crate::device_clock::DeviceClock;
+
 /// Marks a gap in the input ring: a NaN with its own payload, so a NaN from a device is not
 /// taken for one.
 const GAP_MARK: u32 = 0x7fc0_dead;
@@ -82,8 +84,8 @@ pub(super) struct Drain {
     owed: u64,
     /// Samples handed out since the start, silence for gaps included.
     read: u64,
-    /// Device time not delivered as samples, as of the newest block read.
-    skipped_s: f64,
+    /// The device clock from the stamps read; made with the first, when the rate is known.
+    clock: Option<DeviceClock>,
 }
 
 impl Drain {
@@ -112,22 +114,24 @@ impl Drain {
     }
 
     /// Device time since its first block that no sample covers, as of what was read: capture
-    /// time minus sample time. It grows only where the device skipped (a stall, an overrun);
-    /// late delivery, in one piece or many, leaves it as it is.
+    /// time minus sample time, on the smoothed device clock. It grows only where the device
+    /// skipped (a stall, an overrun) by a few ms or more; late delivery, in one piece or many,
+    /// and stamp jitter leave it as it is.
     ///
     /// ```text
     /// stamps   sample 0 @ 0.0 s   sample 4800 @ 0.1 s   sample 9600 @ 1.0 s   (48 kHz)
     /// skipped  0.0                0.0                   0.8
     /// ```
     pub(super) fn skipped_s(&mut self, rate: f64) -> f64 {
+        let clock = self.clock.get_or_insert_with(|| DeviceClock::new(rate));
         while let Ok(stamp) = self.stamps.peek().copied() {
             if stamp.sample >= self.read {
                 break;
             }
             let _ = self.stamps.pop();
-            self.skipped_s = stamp.captured_s - stamp.sample as f64 / rate;
+            clock.stamp(stamp.sample, stamp.captured_s);
         }
-        self.skipped_s
+        clock.skipped_s()
     }
 }
 
@@ -149,7 +153,7 @@ pub(super) fn input_ring(capacity: usize) -> (Capture, Drain) {
         stamps: stamps_consumer,
         owed: 0,
         read: 0,
-        skipped_s: 0.0,
+        clock: None,
     };
     (capture, drain)
 }

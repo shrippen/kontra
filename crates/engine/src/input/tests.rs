@@ -191,6 +191,153 @@ fn note_at_a_lossless_stall_is_kept() {
     );
 }
 
+/// Onsets told for a stall that loses nothing, the device stamps after it off by `jitter_s`
+/// (alternating): silence up to 1.0 s, nothing for 0.4 s, then the backlog with a note
+/// struck at 1.02 s, all through the input ring.
+fn jittered_stall_onsets(jitter_s: f64) -> Vec<f64> {
+    use kontra_dsp::synth::{bass_tone, ToneShape};
+
+    let rate = 48_000.0;
+    let mut analysis = Analysis::new(rate, &Instrument::default_bass(), InputSource::Line);
+    let mut watch = Watch::new(0.0);
+    let (mut capture, mut drain) = input_ring(rate as usize * 2);
+    let mut out = [0.0f32; BLOCK];
+    let (tx, rx) = std::sync::mpsc::channel();
+    let mut take = |analysis: &mut Analysis, watch: &mut Watch, now_s, at_s, block: &[f32]| {
+        capture.push(block, at_s);
+        let n = drain.read(&mut out);
+        let arrival = Arrival {
+            now_s,
+            start_s: Some(0.0),
+            skipped_s: drain.skipped_s(rate),
+        };
+        deliver(analysis, watch, arrival, &out[..n], &tx, |a, b| {
+            a.process(b, false, &tx)
+        });
+    };
+
+    let silence = vec![0.0f32; rate as usize];
+    for (i, block) in silence.chunks(BLOCK).enumerate() {
+        let at_s = (i * BLOCK) as f64 / rate;
+        take(
+            &mut analysis,
+            &mut watch,
+            at_s + BLOCK as f64 / rate,
+            at_s,
+            block,
+        );
+    }
+    assert!(watch.idle(1.4, analysis.heard_s()).is_some(), "stalled");
+
+    let mut late = vec![0.0f32; (0.02 * rate) as usize];
+    late.extend_from_slice(&bass_tone(55.0, rate, 1.0, ToneShape::Rich, 1));
+    for (i, block) in late.chunks(BLOCK).enumerate() {
+        let sign = if i % 2 == 0 { 1.0 } else { -1.0 };
+        let at_s = 1.0 + (i * BLOCK) as f64 / rate + sign * jitter_s;
+        take(
+            &mut analysis,
+            &mut watch,
+            1.4 + (i * BLOCK) as f64 / rate,
+            at_s,
+            block,
+        );
+    }
+
+    rx.try_iter()
+        .filter_map(|e| match e {
+            Event::Note(n) => Some(n.onset_s),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Review #186, round 7: device stamps jitter (cpal: "avail_delay() varies between cycles"),
+/// so a stall that lost nothing shows a skip of a few µs to 1 ms. That is no loss: the note
+/// struck at 1.02 s stays.
+#[test]
+fn jittered_stall_keeps_the_note() {
+    for jitter_s in [0.000_05, 0.000_2, 0.001] {
+        let onsets = jittered_stall_onsets(jitter_s);
+        assert!(
+            onsets.iter().any(|o| (o - 1.02).abs() < 0.03),
+            "jitter {jitter_s} s, the note at 1.02 s: {onsets:?}"
+        );
+    }
+}
+
+/// Onsets told around a stall that loses 0.8 s: silence (or, `ringing`, a note struck at
+/// 1.0 s) up to 1.06 s, then back at 1.86 s; a new note struck `lead_s` after that.
+fn resume_onsets(ringing: Ringing, lead_s: f64) -> Vec<f64> {
+    use kontra_dsp::synth::{bass_tone, ToneShape};
+
+    let rate = 48_000.0;
+    let mut analysis = Analysis::new(rate, &Instrument::default_bass(), InputSource::Line);
+    let mut watch = Watch::new(0.0);
+    let (tx, rx) = std::sync::mpsc::channel();
+    let tone = bass_tone(55.0, rate, 2.0, ToneShape::Rich, 1);
+    let take = |analysis: &mut Analysis, watch: &mut Watch, at_s: f64, skipped_s, block| {
+        let arrival = Arrival {
+            now_s: at_s + <[f32]>::len(block) as f64 / rate,
+            start_s: Some(0.0),
+            skipped_s,
+        };
+        deliver(analysis, watch, arrival, block, &tx, |a, b| {
+            a.process(b, false, &tx)
+        });
+    };
+    let sound = |from_s: f64, to_s: f64| -> Vec<f32> {
+        let range = (from_s * rate) as usize..(to_s * rate) as usize;
+        match ringing {
+            Ringing::Yes => tone[range].to_vec(),
+            Ringing::No => vec![0.0; range.len()],
+        }
+    };
+
+    let mut signal = vec![0.0f32; rate as usize];
+    signal.extend_from_slice(&sound(0.0, 0.06));
+    for (i, block) in signal.chunks(BLOCK).enumerate() {
+        let at_s = (i * BLOCK) as f64 / rate;
+        take(&mut analysis, &mut watch, at_s, 0.0, block);
+    }
+    assert!(watch.idle(1.4, analysis.heard_s()).is_some(), "stalled");
+
+    // The new note struck harder than the one ringing (+6 dB), so it stands out of it.
+    let mut after = sound(0.06, 0.06 + lead_s);
+    let struck = bass_tone(73.4, rate, 1.0, ToneShape::Rich, 2);
+    after.extend(struck.iter().map(|s| s * 2.0));
+    for (i, block) in after.chunks(BLOCK).enumerate() {
+        let at_s = 1.86 + (i * BLOCK) as f64 / rate;
+        take(&mut analysis, &mut watch, at_s, 0.8, block);
+    }
+
+    rx.try_iter()
+        .filter_map(|e| match e {
+            Event::Note(n) => Some(n.onset_s),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Whether a note rings into the stall (`resume_onsets`).
+#[derive(Debug, Clone, Copy)]
+enum Ringing {
+    Yes,
+    No,
+}
+
+/// Review #186, round 7: a note struck 30 ms after the input resumes from a real loss is
+/// played, not the jump back to the signal; it must be told.
+#[test]
+fn note_after_a_resume_is_kept() {
+    for ringing in [Ringing::No, Ringing::Yes] {
+        let onsets = resume_onsets(ringing, 0.03);
+        assert!(
+            onsets.iter().any(|o| (o - 1.89).abs() < 0.02),
+            "{ringing:?}: the note at 1.89 s: {onsets:?}"
+        );
+    }
+}
+
 /// LH-EIN-12: a MIDI file plays like a keyboard: note-ons at their times on the engine
 /// clock, exact pitch, note-offs dropped.
 #[test]

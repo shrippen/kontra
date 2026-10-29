@@ -46,6 +46,7 @@ use kontra_model::{
     cents_between, hz_to_midi, DetectedNote, InputSource, Instrument, PitchRevision, Technique,
     TechniqueRevision,
 };
+use std::ops::Range;
 
 mod background;
 
@@ -490,6 +491,12 @@ impl NoteTracker {
     /// settled (decision round 11); valid until the next call.
     pub fn pitch_revised(&self) -> &[PitchRevision] {
         &self.pitch_revised
+    }
+
+    /// Takes no onset at `samples` (counted from the first sample pushed): see
+    /// `OnsetDetector::mute`.
+    pub fn mute_onsets(&mut self, samples: Range<u64>) {
+        self.onsets.mute(samples);
     }
 
     /// Feeds samples; returns notes completed in this call (valid until the next call).

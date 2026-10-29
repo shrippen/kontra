@@ -31,9 +31,9 @@ const STALL_S: f64 = 0.25;
 /// (LH-NF-15), so one struck before the stretch ends in it; the rest only moves the clock.
 const BRIDGE_S: f64 = 0.5;
 /// Onsets this soon after a resume over a silence bridge are the jump back to the signal (a
-/// string ringing on), not a note: the tracker places them within a few ms of it. A note
-/// really struck there lost its attack in the stall anyway.
-const RESUME_GUARD_S: f64 = 0.05;
+/// string ringing on), not a note: the tracker places them within a few ms of it. They are
+/// not even taken as onsets, so a note struck 30 ms later keeps its own (review #186).
+const RESUME_GUARD_S: f64 = 0.01;
 /// MIDI velocity of a full-scale note.
 const VELOCITY_MAX: f32 = 127.0;
 const US_PER_S: f64 = 1e6;
@@ -190,11 +190,10 @@ fn deliver(
     let _ = events.send(Event::Resumed { at_s: resumed_s });
 
     // Silence where the stretch began, then the clock moves on by the rest. Only that jump from
-    // silence needs the guard: a backlog that lost nothing goes on seamlessly (review #186).
+    // silence back to a ringing string needs the guard: a backlog that lost nothing goes on
+    // seamlessly, and after silence the first onset is a note (review #186).
     let silent = (lost.lost_s.min(BRIDGE_S) * analysis.sample_rate) as usize;
-    if silent > 0 {
-        analysis.resumed_s = Some(resumed_s);
-    }
+    let sounding = analysis.sounding;
     let zeros = [0.0f32; BLOCK];
     let mut left = silent;
     while left > 0 {
@@ -204,6 +203,9 @@ fn deliver(
     }
     watch.shift_s += lost.lost_s - silent as f64 / analysis.sample_rate;
     restart(analysis, watch.shift_s);
+    if silent > 0 && sounding {
+        analysis.guard_resume(resumed_s);
+    }
     feed(analysis, block);
 }
 
@@ -354,11 +356,6 @@ impl Drop for Input {
     }
 }
 
-/// Whether `onset_s` is the jump at the resume `resumed_s` rather than a note.
-fn at_resume(resumed_s: Option<f64>, onset_s: f64) -> bool {
-    resumed_s.is_some_and(|at_s| (0.0..=RESUME_GUARD_S).contains(&(onset_s - at_s)))
-}
-
 /// Analysis shared by device and file input.
 struct Analysis {
     tracker: NoteTracker,
@@ -369,8 +366,8 @@ struct Analysis {
     sample_rate: f64,
     /// Samples analysed since the input started.
     analysed: u64,
-    /// Where the input resumed after the last stall: no onset is told there.
-    resumed_s: Option<f64>,
+    /// Whether the last block peaked above the tracker's onset gate: a note was sounding.
+    sounding: bool,
 }
 
 impl Analysis {
@@ -387,7 +384,7 @@ impl Analysis {
             start_s: 0.0,
             sample_rate,
             analysed: 0,
-            resumed_s: None,
+            sounding: false,
         }
     }
 
@@ -399,14 +396,21 @@ impl Analysis {
         Some(self.start_s + self.analysed as f64 / self.sample_rate)
     }
 
+    /// No onset is taken from `resumed_s` (on this input's clock) for `RESUME_GUARD_S`: there
+    /// the signal jumps from the bridge's silence back to a ringing string.
+    fn guard_resume(&mut self, resumed_s: f64) {
+        let from = ((resumed_s - self.start_s) * self.sample_rate)
+            .round()
+            .max(0.0) as u64;
+        let len = (RESUME_GUARD_S * self.sample_rate) as u64;
+        self.tracker.mute_onsets(from..from + len);
+    }
+
     fn process(&mut self, block: &[f32], tuner_on: bool, events: &Sender<Event>) {
-        let resumed_s = self.resumed_s;
+        self.sounding = peak_db(block) > self.tracker.config().onset.gate_db;
         for note in self.tracker.push(block) {
             let mut note = *note;
             note.onset_s += self.start_s;
-            if at_resume(resumed_s, note.onset_s) {
-                continue;
-            }
             let _ = events.send(Event::Note(note));
         }
         self.send_revisions(events);
@@ -439,13 +443,9 @@ impl Analysis {
     }
 
     fn finish(&mut self, events: &Sender<Event>) {
-        let resumed_s = self.resumed_s;
         for note in self.tracker.flush() {
             let mut note = *note;
             note.onset_s += self.start_s;
-            if at_resume(resumed_s, note.onset_s) {
-                continue;
-            }
             let _ = events.send(Event::Note(note));
         }
         self.send_revisions(events);
@@ -456,17 +456,11 @@ impl Analysis {
         for revision in self.tracker.revised() {
             let mut revision = *revision;
             revision.onset_s += self.start_s;
-            if at_resume(self.resumed_s, revision.onset_s) {
-                continue;
-            }
             let _ = events.send(Event::Technique(revision));
         }
         for revision in self.tracker.pitch_revised() {
             let mut revision = *revision;
             revision.onset_s += self.start_s;
-            if at_resume(self.resumed_s, revision.onset_s) {
-                continue;
-            }
             let _ = events.send(Event::Pitch(revision));
         }
     }
