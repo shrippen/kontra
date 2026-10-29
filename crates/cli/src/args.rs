@@ -250,6 +250,17 @@ pub enum KorpusCommand {
         #[arg(long, default_value_t = 80.0)]
         window_ms: f64,
     },
+    /// Double stops (R8): per recording, its notes mixed in pairs at the double-stop intervals
+    /// (told as both?) and every note announced with a second tone (false alarms).
+    DoubleStops {
+        dirs: Vec<PathBuf>,
+        /// Matching window in ms (score-grid annotations need 50–80).
+        #[arg(long, default_value_t = 80.0)]
+        window_ms: f64,
+        /// Mixed pairs per interval and recording at most.
+        #[arg(long, default_value_t = 6)]
+        per_interval: usize,
+    },
     /// Which pitches the tracker takes for which (Harmonicon A5): per register, how often it
     /// heard the annotated note, a semitone, an octave, a fifth or twelfth off, or missed it.
     Confusion {

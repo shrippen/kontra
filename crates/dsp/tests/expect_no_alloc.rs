@@ -115,3 +115,59 @@ fn expecting_does_not_allocate() {
     assert!(found >= notes.len() - 1, "{found} notes");
     assert_eq!(COUNT.with(|c| c.get()), 0, "allocations while tracking");
 }
+
+/// R8: announced double stops are judged on the analysis thread too, without allocating.
+#[test]
+fn double_stops_do_not_allocate() {
+    const SR: f64 = 48_000.0;
+    const BLOCK: usize = 480;
+    const SPACING_S: f64 = 0.3;
+    const AHEAD_S: f64 = 0.25;
+    const STRIKES: usize = 24;
+
+    // Fifths on E and A (every second strike an octave, which tells nothing at once), each
+    // tone on its own string, mixed.
+    let onset = |i: usize| 0.2 + i as f64 * SPACING_S;
+    let upper = |i: usize| if i.is_multiple_of(2) { 7 } else { 12 };
+    let mut signal = vec![0.0f32; (8.0 * SR) as usize];
+    for voice in 0..2u8 {
+        let notes: Vec<SynthNote> = (0..STRIKES)
+            .map(|i| SynthNote {
+                onset_s: onset(i),
+                hz: Pitch(33 + voice * upper(i)).hz(A4_HZ),
+                duration_s: SPACING_S * 0.9,
+                velocity: 0.4,
+            })
+            .collect();
+        let rendered = render(&notes, SR, 8.0, ToneShape::Rich, 5 + u64::from(voice));
+        for (out, x) in signal.iter_mut().zip(rendered) {
+            *out += x;
+        }
+    }
+    let tone = |midi| ExpectedTone { midi, string: None };
+    let strikes: Vec<ExpectedStrike> = (0..STRIKES)
+        .map(|i| {
+            ExpectedStrike::new(onset(i), 0.09)
+                .with(tone(33))
+                .with(tone(33 + upper(i)))
+        })
+        .collect();
+
+    let config = TrackerConfig::for_instrument(&Instrument::default_bass(), InputSource::Line);
+    let mut tracker = NoteTracker::new(SR, config);
+    let mut next = 0;
+    let mut told = 0;
+    for (i, block) in signal.chunks(BLOCK).enumerate() {
+        let end_s = ((i + 1) * BLOCK) as f64 / SR;
+        ARMED.with(|a| a.set(end_s > 1.0));
+        while let Some(s) = strikes.get(next).filter(|s| s.onset_s < end_s + AHEAD_S) {
+            tracker.expect(s);
+            next += 1;
+        }
+        tracker.push(block);
+        told += tracker.double_stops().len();
+        ARMED.with(|a| a.set(false));
+    }
+    assert!(told >= STRIKES - 1, "{told} verdicts");
+    assert_eq!(COUNT.with(|c| c.get()), 0, "allocations while judging");
+}

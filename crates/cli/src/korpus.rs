@@ -1,4 +1,5 @@
-//! `korpus write` / `korpus check` / `measure` / `techniques` / `confusion`.
+//! `korpus write` / `korpus check` / `measure` / `techniques` / `confusion` (`double-stops` in
+//! `double_stops.rs`).
 
 use crate::args::{KorpusArgs, KorpusCommand};
 use crate::CliResult;
@@ -62,6 +63,11 @@ pub fn run(a: &KorpusArgs) -> CliResult {
         }
         KorpusCommand::Techniques { dirs, window_ms } => techniques(dirs, window_ms / 1000.0),
         KorpusCommand::Confusion { dirs, window_ms } => confusion(dirs, window_ms / 1000.0),
+        KorpusCommand::DoubleStops {
+            dirs,
+            window_ms,
+            per_interval,
+        } => crate::double_stops::measure(dirs, *window_ms, *per_interval),
     }
 }
 
@@ -477,8 +483,12 @@ fn check(dir: Option<&Path>) -> CliResult {
             if ok { "ok" } else { "FAILED" }
         );
     }
+    // Generated only: real recordings go through `korpus double-stops`.
+    if dir.is_none() {
+        failed |= !crate::double_stops::check();
+    }
     if failed {
-        return Err("corpus below LH-NF-02/03/15/16 or LH-BEW-05 targets".into());
+        return Err("corpus below LH-NF-02/03/15/16, LH-BEW-05 or LH-BEW-11 targets".into());
     }
     Ok(())
 }

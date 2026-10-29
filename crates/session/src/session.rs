@@ -8,6 +8,8 @@ use crate::technique::{TechniqueJudge, TechniqueResult};
 use crate::transport::{LoopRange, Transport};
 use kontra_model::{Arrangement, DetectedNote, PitchRevision, Technique, TechniqueRevision};
 
+mod double_stop;
+
 /// Real seconds to wait before declaring a note missed: detected notes arrive up to ~150 ms
 /// after their onset (concept 6.3), plus margin.
 const DETECTION_GRACE_S: f64 = 0.25;
@@ -93,9 +95,10 @@ pub struct Session {
     /// Struck notes judged lately: (detected onset, pass, note), so a technique told later can
     /// be judged again (`on_revision`).
     struck: Vec<(f64, u32, usize)>,
-    /// Notes scored lately: (detected onset, index into `results`, technique), so a pitch told
-    /// later can judge them again (`on_pitch_revision`).
-    scored: Vec<(f64, usize, Option<Technique>)>,
+    /// Notes scored lately: (detected onset, index into `results`, technique, detected pitch),
+    /// so a pitch or double stop told later can judge them again (`on_pitch_revision`,
+    /// `on_double_stop`).
+    scored: Vec<(f64, usize, Option<Technique>, f64)>,
     results: Vec<NoteResult>,
     events: Vec<SessionEvent>,
     cursor_pass: u32,
@@ -358,7 +361,7 @@ impl Session {
             position_s: played_at(&earlier, self.transport.speed()),
             ..earlier
         };
-        for entry in self.scored.iter_mut().filter(|(_, i, _)| *i == at) {
+        for entry in self.scored.iter_mut().filter(|(_, i, _, _)| *i == at) {
             entry.1 = self.results.len();
         }
         self.results.push(extra);
@@ -366,7 +369,8 @@ impl Session {
         if self.scored.len() >= STRUCK_KEPT {
             self.scored.remove(0);
         }
-        self.scored.push((note.onset_s, at, note.technique));
+        self.scored
+            .push((note.onset_s, at, note.technique, note.midi));
 
         // The technique is judged on the attack, not the artifact.
         self.struck
@@ -460,14 +464,16 @@ impl Session {
     /// A pitch told after its note, once the tone settled (decision round 11): the note is
     /// judged again with it, e.g. a flat start judged a wrong note becomes a hit.
     pub fn on_pitch_revision(&mut self, revision: &PitchRevision) {
-        let Some(&(_, at, technique)) = self
+        let Some(entry) = self
             .scored
-            .iter()
+            .iter_mut()
             .rev()
-            .find(|(onset, _, _)| (onset - revision.onset_s).abs() < REVISION_MATCH_S)
+            .find(|(onset, ..)| (onset - revision.onset_s).abs() < REVISION_MATCH_S)
         else {
             return;
         };
+        entry.3 = revision.midi;
+        let (_, at, technique, _) = *entry;
         let last = self.results[at];
 
         // Only a note judged by its pitch (a dead note played as one has none).
@@ -528,7 +534,7 @@ impl Session {
             self.scored.remove(0);
         }
         self.scored
-            .push((note.onset_s, self.results.len(), note.technique));
+            .push((note.onset_s, self.results.len(), note.technique, note.midi));
     }
 
     /// The slot in the matcher's expected notes of `note` at `position_s`.

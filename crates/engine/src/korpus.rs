@@ -14,6 +14,13 @@ use kontra_model::{
 };
 use serde::{Deserialize, Serialize};
 
+mod double;
+
+pub use double::{
+    announce_second_tone, double_stop_mixtures, evaluate_double_stops, generate_double_stops,
+    DoubleStopPlayed, DoubleStopSet, DoubleStopStrike, DoubleStopTally, DOUBLE_STOP_INTERVALS,
+};
+
 pub const SAMPLE_RATE: u32 = 48_000;
 /// A detection counts as the annotated note if its onset is this close.
 const MATCH_S: f64 = 0.03;
