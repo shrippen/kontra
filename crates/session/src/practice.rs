@@ -271,6 +271,10 @@ impl<O: Output> Practice<O> {
                 self.session.on_pitch_revision(&revision);
                 None
             }
+            Event::String(verdict) => {
+                self.session.on_string(&verdict);
+                None
+            }
             Event::Level {
                 peak_db,
                 rms_db,

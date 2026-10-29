@@ -1,5 +1,5 @@
 //! The tracker with expected strikes (R2) runs on the analysis thread: `expect` and `push`
-//! must not allocate once it is set up.
+//! must not allocate once it is set up, the string check (R7) included.
 //!
 //! A counting global allocator needs `unsafe impl GlobalAlloc`; it only
 //! forwards to the system allocator, so it is sound.
@@ -90,7 +90,9 @@ fn expecting_does_not_allocate() {
         .enumerate()
         .map(|(i, n)| {
             let midi = kontra_model::hz_to_midi(n.hz, A4_HZ).round() as u8 + u8::from(i % 3 == 0);
-            ExpectedStrike::new(n.onset_s, 0.09).with(ExpectedTone { midi, string: None })
+            // On the D string, so that the string check (R7) runs too.
+            let string = Some(2);
+            ExpectedStrike::new(n.onset_s, 0.09).with(ExpectedTone { midi, string })
         })
         .collect();
 
@@ -98,6 +100,7 @@ fn expecting_does_not_allocate() {
     let mut tracker = NoteTracker::new(SR, config);
     let mut next = 0;
     let mut found = 0;
+    let mut strings = 0;
     for (i, block) in signal.chunks(BLOCK).enumerate() {
         // Warm-up: the first second runs unarmed.
         let end_s = ((i + 1) * BLOCK) as f64 / SR;
@@ -110,8 +113,10 @@ fn expecting_does_not_allocate() {
             tracker.forget_expected();
         }
         found += tracker.push(block).len();
+        strings += tracker.string_verdicts().len();
         ARMED.with(|a| a.set(false));
     }
     assert!(found >= notes.len() - 1, "{found} notes");
+    assert!(strings >= 10, "{strings} strings told");
     assert_eq!(COUNT.with(|c| c.get()), 0, "allocations while tracking");
 }

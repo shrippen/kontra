@@ -183,6 +183,11 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   `Input::{expect, forget_expected}`, `Expecting`, `evaluate_expecting` (Session: `evaluate_korpus_expecting`),
   `Evaluation::{first_pitch_correct, turned_wrong, shifted_first, shifted_final, report_ms}`;
   `pub(crate)`: `Yin::estimate_expected`, `Session::{input_s, expected}`, `Practice::take_told`, `Told`.
+- R7: `StringVerdict`, `StringHeard`, `Unclear`, `Instrument::string_log_b`, `InharmonicityMeter` (`new`, `window`,
+  `measure`), `Stiffness`, `StringModel` (`for_instrument`, `with_log_b`, `fret`, `pick`), `Pick`, `FROM_PEAK_S`,
+  `WINDOW_S`, `LOG_B_PER_FRET`, `TrackerConfig::strings`, `NoteTracker::string_verdicts`, `Event::String`,
+  `tell_strings`/`StringTold` (Session: `tell_korpus_strings`, `read_korpus_strings`), `Session::{on_string,
+  strings_heard}`, `Summary::strings`, `StringTally` (`of`); `pub(super)` `Expectations::near`.
 
 ## Für den Eigentümer
 

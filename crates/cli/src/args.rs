@@ -250,6 +250,18 @@ pub enum KorpusCommand {
         #[arg(long, default_value_t = 80.0)]
         window_ms: f64,
     },
+    /// Which string notes were heard on (R7, LH-BEW-15): every annotated note expected on its
+    /// string (converted IDMT JSON), the verdict against it, per pitch region, note length and
+    /// technique. Each directory is one bass.
+    Strings {
+        dirs: Vec<PathBuf>,
+        /// Matching window in ms (score-grid annotations need 50–80).
+        #[arg(long, default_value_t = 80.0)]
+        window_ms: f64,
+        /// Judge each directory with string values fitted on the others (leave one bass out).
+        #[arg(long)]
+        held_out: bool,
+    },
     /// Which pitches the tracker takes for which (Harmonicon A5): per register, how often it
     /// heard the annotated note, a semitone, an octave, a fifth or twelfth off, or missed it.
     Confusion {

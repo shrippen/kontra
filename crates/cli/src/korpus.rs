@@ -1,4 +1,4 @@
-//! `korpus write` / `korpus check` / `measure` / `techniques` / `confusion`.
+//! `korpus write` / `korpus check` / `measure` / `techniques` / `confusion` / `strings`.
 
 use crate::args::{KorpusArgs, KorpusCommand};
 use crate::CliResult;
@@ -62,6 +62,11 @@ pub fn run(a: &KorpusArgs) -> CliResult {
         }
         KorpusCommand::Techniques { dirs, window_ms } => techniques(dirs, window_ms / 1000.0),
         KorpusCommand::Confusion { dirs, window_ms } => confusion(dirs, window_ms / 1000.0),
+        KorpusCommand::Strings {
+            dirs,
+            window_ms,
+            held_out,
+        } => crate::strings::run(dirs, window_ms / 1000.0, *held_out),
     }
 }
 

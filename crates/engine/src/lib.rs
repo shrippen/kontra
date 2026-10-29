@@ -17,6 +17,7 @@ mod input;
 mod korpus;
 mod offline;
 mod player;
+mod strings_korpus;
 
 pub use backing::{BackingTrack, Resolution};
 pub use clock::Clock;
@@ -27,7 +28,9 @@ pub use kontra_drivers::{
     Http, HttpError, MidiPort, Priority, RecentFile, SeparationJob, Separator, SeparatorError,
     StreamConfig, Web, NULL_DEVICE,
 };
-pub use kontra_dsp::{track_beats, BeatGrid, Shaping, SHAPING_RANGE_DB};
+pub use kontra_dsp::{
+    track_beats, BeatGrid, Pick, Shaping, StringModel, LOG_B_PER_FRET, SHAPING_RANGE_DB,
+};
 pub use korpus::{
     band, evaluate, evaluate_expecting, evaluate_laptop_jack, evaluate_with, generate,
     render_performance, same_pitch, Annotation, Evaluation, Expecting, KorpusItem, KorpusSet,
@@ -35,9 +38,10 @@ pub use korpus::{
 };
 pub use offline::{analyze, analyze_without, revise, revise_pitch};
 pub use player::{Accent, BackingAudio, Gains, NullOutput, Output, Player, Sound};
+pub use strings_korpus::{tell_strings, StringTold};
 
 use kontra_dsp::TunerReading;
-use kontra_model::{DetectedNote, PitchRevision, TechniqueRevision};
+use kontra_model::{DetectedNote, PitchRevision, StringVerdict, TechniqueRevision};
 
 /// What the engine reports to the layer above.
 #[derive(Debug, Clone, PartialEq)]
@@ -47,6 +51,8 @@ pub enum Event {
     Technique(TechniqueRevision),
     /// A pitch told after its note, once the tone has settled (decision round 11).
     Pitch(PitchRevision),
+    /// The string a note was heard on, told after it (R7).
+    String(StringVerdict),
     /// Input level over the last 50 ms.
     Level {
         peak_db: f32,

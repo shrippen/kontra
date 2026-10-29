@@ -21,8 +21,8 @@ pub use kontra_engine::{
     evaluate_laptop_jack as evaluate_korpus_laptop_jack, evaluate_with as evaluate_korpus_with,
     generate as generate_korpus, list_devices, list_midi_inputs, render_performance, same_pitch,
     track_beats, Annotation, BackingTrack, BeatGrid, Connection, DeviceInfo, Direction, Evaluation,
-    Expecting, KorpusItem, KorpusSet, Matching, MidiPort, Mistakes, Playing, Priority,
-    StreamConfig, NULL_DEVICE,
+    Expecting, KorpusItem, KorpusSet, Matching, MidiPort, Mistakes, Pick, Playing, Priority,
+    StreamConfig, StringModel, StringTold, LOG_B_PER_FRET, NULL_DEVICE,
 };
 
 /// Writes mono audio as WAV (corpus export).
@@ -61,6 +61,53 @@ pub fn read_korpus_file(json: &Path) -> Result<KorpusItem, String> {
     item.sample_rate = audio.sample_rate;
     item.samples = audio.mono();
     Ok(item)
+}
+
+/// The string of each annotated note in `json` (index, 0 = lowest), where a converted
+/// recording names it (`meta.note_meta[i].string`, counted from 1 = lowest); one per note.
+pub fn read_korpus_strings(json: &Path) -> Result<Vec<Option<u8>>, String> {
+    #[derive(serde::Deserialize, Default)]
+    struct Meta {
+        #[serde(default)]
+        note_meta: Vec<NoteMeta>,
+    }
+    #[derive(serde::Deserialize)]
+    struct NoteMeta {
+        #[serde(default)]
+        string: Option<u8>,
+    }
+    #[derive(serde::Deserialize)]
+    struct File {
+        notes: Vec<serde_json::Value>,
+        #[serde(default)]
+        meta: Meta,
+    }
+    let text = std::fs::read_to_string(json).map_err(|e| format!("{}: {e}", json.display()))?;
+    let file: File = serde_json::from_str(&text).map_err(|e| format!("{}: {e}", json.display()))?;
+    let mut strings: Vec<Option<u8>> = file
+        .meta
+        .note_meta
+        .iter()
+        .map(|m| m.string.and_then(|s| s.checked_sub(1)))
+        .collect();
+    strings.resize(file.notes.len(), None);
+    Ok(strings)
+}
+
+/// Each annotated note expected on its string, and the verdicts told (R7).
+pub fn tell_korpus_strings(
+    item: &KorpusItem,
+    strings: &[Option<u8>],
+    window_s: f64,
+) -> Vec<StringTold> {
+    kontra_engine::tell_strings(
+        &item.samples,
+        item.sample_rate,
+        &item.notes,
+        strings,
+        &item.set.instrument(),
+        window_s,
+    )
 }
 
 /// Detects all notes in an audio file (as fast as possible).

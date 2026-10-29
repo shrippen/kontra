@@ -6,7 +6,10 @@ use crate::settings::ScoreSettings;
 use crate::summary::Summary;
 use crate::technique::{TechniqueJudge, TechniqueResult};
 use crate::transport::{LoopRange, Transport};
-use kontra_model::{Arrangement, DetectedNote, PitchRevision, Technique, TechniqueRevision};
+use kontra_model::{
+    Arrangement, DetectedNote, PitchRevision, StringHeard, StringVerdict, Technique,
+    TechniqueRevision,
+};
 
 /// Real seconds to wait before declaring a note missed: detected notes arrive up to ~150 ms
 /// after their onset (concept 6.3), plus margin.
@@ -96,6 +99,8 @@ pub struct Session {
     /// Notes scored lately: (detected onset, index into `results`, technique), so a pitch told
     /// later can judge them again (`on_pitch_revision`).
     scored: Vec<(f64, usize, Option<Technique>)>,
+    /// The string each struck note was heard on (pass, note, heard; R7), in the order told.
+    strings: Vec<(u32, usize, StringHeard)>,
     results: Vec<NoteResult>,
     events: Vec<SessionEvent>,
     cursor_pass: u32,
@@ -126,6 +131,7 @@ impl Session {
             techniques,
             struck: Vec::new(),
             scored: Vec::new(),
+            strings: Vec::new(),
             results: Vec::new(),
             events: Vec::new(),
             cursor_pass: 0,
@@ -423,6 +429,33 @@ impl Session {
         }
     }
 
+    /// The string a struck note was heard on (R7): feedback, the note's result stays. A note
+    /// the tab mutes with the palm is not told: its partials die before they tell the string.
+    pub fn on_string(&mut self, verdict: &StringVerdict) {
+        let Some(&(_, pass, note)) = self
+            .struck
+            .iter()
+            .rev()
+            .find(|(onset, _, _)| (onset - verdict.onset_s).abs() < REVISION_MATCH_S)
+        else {
+            return;
+        };
+        let palm_muted = self
+            .arrangement
+            .notes
+            .get(note)
+            .is_some_and(|n| n.techniques.contains(&Technique::PalmMute));
+        if palm_muted {
+            return;
+        }
+        self.strings.push((pass, note, verdict.heard));
+    }
+
+    /// The strings struck notes were heard on (pass, note, heard), in the order told.
+    pub fn strings_heard(&self) -> &[(u32, usize, StringHeard)] {
+        &self.strings
+    }
+
     /// A ghost or dead note judged by a pitch it does not have (its muted verdict came later):
     /// it hits after all, and in Wait mode the wait is over.
     fn unmute(&mut self, pass: u32, note: usize) {
@@ -598,6 +631,7 @@ impl Session {
         let mut summary = Summary::from_results(&self.results, &self.arrangement);
         summary.techniques = self.techniques.tally();
         summary.untold_techniques = self.techniques.untold().to_vec();
+        summary.strings = crate::summary::StringTally::of(&self.strings);
         summary.outside_offset_ms =
             crate::summary::outside_offset_ms(&self.results, self.transport.speed());
         summary.outside_notes =

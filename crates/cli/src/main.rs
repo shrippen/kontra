@@ -6,6 +6,7 @@ mod check;
 mod course;
 mod korpus;
 mod live;
+mod strings;
 mod tab;
 
 use args::{Cli, Command};

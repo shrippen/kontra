@@ -778,6 +778,8 @@
   "technique.result.unheard": "technique not heard",
   "summary.techniques": "Techniques",
   "summary.technique": "{technique}: {played} of {judged}",
+  "summary.strings.other": "{other} of {told} notes on another string than in the tab",
+  "summary.strings.unsupported": "Kontra cannot tell strings on this instrument yet (only fretted basses in E-A-D-G)",
   "summary.techniques.untold": "Not judged with this input: {techniques}",
   "summary.techniques.note": "Does not count towards the hit rate.",
   "summary.note.technique": "{technique}: {result}",

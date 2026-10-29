@@ -168,6 +168,14 @@ KanteCard {
             text: parts.join("\n")
             color: KanteStyle.mutedTextColor
         }
+        // Notes on another string than the tab's (R7): feedback, not part of the score.
+        QQC2.Label {
+            Layout.fillWidth: true
+            visible: text !== ""
+            wrapMode: Text.WordWrap
+            text: sheet.summary && sheet.summary.stringsText ? sheet.summary.stringsText : ""
+            color: KanteStyle.mutedTextColor
+        }
         KanteTimingHistogram {
             Layout.fillWidth: true
             // Lower on low screens, so the hardest bars stay in view.

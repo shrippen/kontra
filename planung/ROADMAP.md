@@ -209,8 +209,18 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   41 → 48/min); der Vorteil kam nur vom Warten.
 - [ ] R6 Techniken ehrlich messen: IDMT-SMT-Bass (Einzelnoten, drei Bässe) als zweiter Satz; Slap 80 → 42 %,
   Pop 66 → 15 % auf fremden Bässen. Schwellen auf beiden Sätzen wählen; Merkmale nach Abeßer erst mit mehr Bässen.
-- [ ] R7 Saite erkennen über Inharmonizität: 93,8 % auf fremden Bässen (Zufall 41,5 %), echte Linien 76 %, Palm-Mute
-  nicht; Urteil etwa 280 ms nach dem Anschlag. Kandidaten aus R2.
+- [x] R7 Saite erkennen über Inharmonizität: 93,8 % auf fremden Bässen (Zufall 41,5 %), echte Linien 76 %, Palm-Mute
+  nicht; Urteil etwa 280 ms nach dem Anschlag. Kandidaten aus R2. Umgesetzt (LH-BEW-15): `InharmonicityMeter` und
+  `StringModel` (dsp), Prüfung im `NoteTracker` nach jeder Note mit Saite aus der Tab, `StringVerdict` bis zur Session,
+  Zeile in der Auswertung; a_Saite im Profil (`Instrument::string_log_b`, nur E1/A1/D2/G2 bundiert).
+  `kontra-cli korpus strings [--held-out]`, Kandidaten bundiert 0–20 (Zufall 32,7 %): IDMT-SMT-Bass je Bass mit Werten
+  der anderen beiden 98,1 % richtig bei 93,3 % mit Aussage (Bass 1/2/3: 100/95,9/98,0 %), tiefster Bund 48,8 %;
+  IDMT-ST-Linien 93,0 % bei 58,9 % (< 0,2 s 88 % bei 40 %, 0,2–0,5 s 93 % bei 60 %, > 0,5 s 96 % bei 67 %).
+  Palm-Mute: Abklingen über 30 dB/s in den ersten 100 ms und in der Tab markiert ohne Aussage, die übrigen weiter
+  beim Zufall. Die Schwelle 14 Teiltöne ist auf IDMT-ST gewählt (mit 6: 84 % bei allen Noten). Notenerkennung
+  unverändert (`korpus check`, `measure` IDMT-ST/FiloBass, `techniques` gleich wie vorher). Offen: Messung am Bass
+  des Eigentümers (andere Mensur und Saiten verschieben a_Saite; Kalibrierung aus gespielten Noten), Anzeige je Note
+  in der Lane, tiefe H-Saite und andere Stimmungen.
 - [ ] R8 Doppelgriffe erkennen, wenn die Tab beide Töne vorgibt (Klapuri 2006): 95 % erkannt, 2,1 % Fehlalarm;
   Oktaven nicht. Teil von M1 (LH-BEW-11).
 - [ ] R9 Time-Stretch: kürzerer Steuer-Vorlauf (win/16) spart 37 ms (Standard) bzw. 75 ms (Fine), Messwerte gleich;

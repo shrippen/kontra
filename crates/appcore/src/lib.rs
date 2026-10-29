@@ -3012,6 +3012,23 @@ impl Core {
             .collect()
     }
 
+    /// Notes on another string than the tab's (R7); a profile that cannot tell says so.
+    fn strings_text(&self, strings: kontra_session::StringTally) -> String {
+        if strings.other > 0 {
+            return self.tr(
+                "summary.strings.other",
+                &[
+                    ("other", strings.other.to_string()),
+                    ("told", strings.told.to_string()),
+                ],
+            );
+        }
+        if strings.unsupported > 0 && strings.told == 0 {
+            return self.tr("summary.strings.unsupported", &[]);
+        }
+        String::new()
+    }
+
     /// Summary with ready-made texts for the evaluation sheet, and every note's result.
     pub fn summary_json(
         &self,
@@ -3105,6 +3122,8 @@ impl Core {
                 ("text", self.intonation_text(i)),
             ])),
             "intonationParts": intonation.map_or(Vec::new(), |_| self.intonation_parts(s)),
+            // Feedback beside the score (R7): notes on another string than the tab's.
+            "stringsText": self.strings_text(s.strings),
             "meanOffsetMs": s.mean_offset_ms.unwrap_or(0.0),
             "counts": s.histogram.counts,
             "firstBinMs": s.histogram.first_bin_ms,
@@ -6798,6 +6817,42 @@ mod tests {
             v["recalibrateText"],
             "Die Treffer liegen beständig hinter dem Schlag (im Mittel 7 ms). Spielst du nicht \
              absichtlich so, stimmt vielleicht die gemessene Latenz nicht mehr."
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// R7: notes on another string than the tab's get a line beside the score; none without.
+    #[test]
+    fn summary_tells_other_strings() {
+        let dir = temp_dir("strings");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        let text = |s: &kontra_session::Summary| {
+            let v: serde_json::Value =
+                serde_json::from_str(&core.summary_json(s, &[], &[])).unwrap();
+            v["stringsText"].as_str().unwrap_or_default().to_string()
+        };
+        assert_eq!(text(&s), "");
+        s.strings = kontra_session::StringTally {
+            told: 12,
+            other: 3,
+            unsupported: 0,
+        };
+        assert_eq!(
+            text(&s),
+            "3 von 12 Noten auf einer anderen Saite als in der Tab"
+        );
+        s.strings = kontra_session::StringTally {
+            told: 0,
+            other: 0,
+            unsupported: 5,
+        };
+        assert_eq!(
+            text(&s),
+            "Saiten erkennt Kontra mit diesem Instrument noch nicht (nur bundierte Bässe in E-A-D-G)"
         );
         let _ = std::fs::remove_dir_all(dir);
     }

@@ -48,11 +48,12 @@ use crate::strike::{verdict_after_s, Strike};
 use crate::yin::{PitchEstimate, Yin};
 use kontra_model::{
     cents_between, hz_to_midi, DetectedNote, ExpectedStrike, InputSource, Instrument,
-    PitchRevision, Technique, TechniqueRevision,
+    PitchRevision, StringVerdict, Technique, TechniqueRevision,
 };
 
 mod background;
 mod expect;
+mod strings;
 
 const RETRY_S: f64 = 0.005;
 const LEVEL_SPAN_S: f64 = 0.02;
@@ -129,6 +130,8 @@ pub struct TrackerConfig {
     pub min_confidence: f32,
     pub source: InputSource,
     pub onset: OnsetConfig,
+    /// The strings for telling which one a note was played on (R7); `None`: not told.
+    pub strings: Option<crate::StringModel>,
 }
 
 impl TrackerConfig {
@@ -157,6 +160,7 @@ impl TrackerConfig {
             min_confidence: 0.6,
             source,
             onset,
+            strings: crate::StringModel::for_instrument(instrument),
         }
     }
 }
@@ -446,6 +450,8 @@ pub struct NoteTracker {
     expected: expect::Expectations,
     /// A note told early, checked once its full window is there.
     confirm: Option<expect::Confirm>,
+    /// Notes waiting for the string they were played on (R7).
+    strings: strings::Strings,
 }
 
 impl NoteTracker {
@@ -480,6 +486,7 @@ impl NoteTracker {
             pitch_revised: Vec::with_capacity(STRIKES_WAITING),
             expected: expect::Expectations::default(),
             confirm: None,
+            strings: strings::Strings::new(config.strings, sample_rate),
         }
     }
 
@@ -516,11 +523,18 @@ impl NoteTracker {
         &self.pitch_revised
     }
 
+    /// Strings told in the last `push` or `flush` for notes emitted earlier (R7); valid until
+    /// the next call.
+    pub fn string_verdicts(&self) -> &[StringVerdict] {
+        self.strings.told()
+    }
+
     /// Feeds samples; returns notes completed in this call (valid until the next call).
     pub fn push(&mut self, samples: &[f32]) -> &[DetectedNote] {
         self.out.clear();
         self.revised.clear();
         self.pitch_revised.clear();
+        self.strings.clear_told();
         let block = (RETRY_S * self.sample_rate) as usize;
         let mut filtered = std::mem::take(&mut self.filtered);
         for raw in samples.chunks(block.max(1)) {
@@ -549,6 +563,7 @@ impl NoteTracker {
             self.follow();
             self.release_legato();
             self.judge_strikes(Waiting::ForAudio);
+            self.judge_strings(Waiting::ForAudio);
         }
         self.filtered = filtered;
         &self.out
@@ -559,6 +574,7 @@ impl NoteTracker {
         self.out.clear();
         self.revised.clear();
         self.pitch_revised.clear();
+        self.strings.clear_told();
         if let Some(mut s) = self.sounding {
             self.settle(&mut s, u64::MAX);
             self.sounding = Some(s);
@@ -574,6 +590,7 @@ impl NoteTracker {
         }
         self.finish_confirm();
         self.judge_strikes(Waiting::No);
+        self.judge_strings(Waiting::No);
         &self.out
     }
 
@@ -666,6 +683,7 @@ impl NoteTracker {
             return;
         }
         self.finish_confirm();
+        self.cut_strings(onset);
         // A new attack ends the ringing note (told with what was heard before it); a legato note
         // just before it was this attack.
         if let Some(mut s) = self.sounding {
@@ -845,6 +863,9 @@ impl NoteTracker {
                 )),
             });
         }
+        if p.best.is_some() && technique != Some(Technique::Muted) {
+            self.plan_string(p.report, midi);
+        }
         self.out.push(DetectedNote {
             onset_s: p.report as f64 / self.sample_rate,
             midi,
@@ -1003,6 +1024,7 @@ impl NoteTracker {
 
     /// A dead note told late: its settling pitch does not count.
     fn mark_muted(&mut self, onset: u64) {
+        self.mute_string(onset);
         let settle = self
             .sounding
             .as_mut()

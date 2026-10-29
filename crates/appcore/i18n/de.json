@@ -778,6 +778,8 @@
   "technique.result.unheard": "Technik nicht gehört",
   "summary.techniques": "Techniken",
   "summary.technique": "{technique}: {played} von {judged}",
+  "summary.strings.other": "{other} von {told} Noten auf einer anderen Saite als in der Tab",
+  "summary.strings.unsupported": "Saiten erkennt Kontra mit diesem Instrument noch nicht (nur bundierte Bässe in E-A-D-G)",
   "summary.techniques.untold": "Mit diesem Eingang nicht bewertet: {techniques}",
   "summary.techniques.note": "Zählt nicht zur Trefferquote.",
   "summary.note.technique": "{technique}: {result}",
