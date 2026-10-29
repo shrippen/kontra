@@ -7,7 +7,8 @@
 //! input ─┬────────────────────────────────────────────── − ──► output
 //!        │                                                ▲ Σ Re(a_k · e^{i·k·φ})
 //!        └─► every 100 ms: a_k at k · f, k = 1 … 8 ──► steady? (no note) ─► follow f, learn a_k
-//!                                                        subtract once steady for 2 s
+//!                                                        subtract once steady for 2 s,
+//!                                                        stop as soon as a quiet period is weaker
 //! ```
 //!
 //! A played note never becomes the model: it rotates against the grid (G1 is 1 Hz off 50 Hz),
@@ -50,6 +51,9 @@ const LOST_S: f64 = 1.0;
 /// Without a quiet block for this long (a long passage) the model is not subtracted: the grid
 /// drifts from it. The next quiet blocks that fit it take it up again.
 const HOLD_S: f64 = 8.0;
+/// A period counts for doubting the model only while it is at most this loud against the
+/// modelled hum (+3 dB): louder, something else sounds.
+const GLANCE_LOUDER: f64 = 2.0;
 /// Fainter partials are not followed (−90 dBFS).
 const FLOOR: f64 = 3e-5;
 /// A block is quiet when what the hum does not explain stays within this factor (+6 dB) of the
@@ -104,8 +108,8 @@ impl Dehum {
             self.filled = 0;
             self.energy = 0.0;
             let [a, b] = &mut self.grids;
-            a.end_block(self.block, power, b.present);
-            b.end_block(self.block, power, a.present);
+            a.end_block(self.block, power, OtherGrid::of(b));
+            b.end_block(self.block, power, OtherGrid::of(a));
         }
         y as f32
     }
@@ -113,6 +117,22 @@ impl Dehum {
     #[cfg(test)]
     fn present(&self) -> bool {
         self.grids.iter().any(|g| g.present)
+    }
+}
+
+/// Whether the other grid's hum is present: one mains frequency at a time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OtherGrid {
+    Present,
+    Absent,
+}
+
+impl OtherGrid {
+    fn of(grid: &Grid) -> OtherGrid {
+        match grid.present {
+            true => OtherGrid::Present,
+            false => OtherGrid::Absent,
+        }
     }
 }
 
@@ -142,6 +162,19 @@ struct Grid {
     present: bool,
     lost_s: f64,
     since_learned_s: f64,
+    /// One period of the grid (samples), the reference partial demodulated over the running
+    /// one, and how many samples it holds: a hum that stops or drops shows within 40–60 ms,
+    /// not only at the block's end (a 100 ms burst of the model from silence was an onset).
+    period: usize,
+    glance: C,
+    /// Sum of squares over the running period.
+    glance_energy: f64,
+    glanced: usize,
+    /// Whether the last period was weak (see `look`).
+    weak: bool,
+    /// Two quiet periods in a row had the reference below the model: not subtracted until a
+    /// block fits again.
+    doubt: bool,
     /// Power the hum did not explain in the quietest block lately.
     quiet: f64,
     /// Whether the last block was quiet: only two quiet blocks in a row tell how the hum turns
@@ -170,13 +203,21 @@ impl Grid {
             present: false,
             lost_s: 0.0,
             since_learned_s: 0.0,
+            period: (sample_rate / nominal_hz).round() as usize,
+            glance: C::ZERO,
+            glance_energy: 0.0,
+            glanced: 0,
+            weak: false,
+            doubt: false,
             quiet: f64::INFINITY,
             last_quiet: false,
         }
     }
 
+    /// Present, as modelled (a quiet block that did not fit stops it at once: the old model
+    /// would add a hum that is gone, PR-Agent #198) and learned lately.
     fn subtracts(&self) -> bool {
-        self.present && self.since_learned_s <= HOLD_S
+        self.present && !self.doubt && self.lost_s == 0.0 && self.since_learned_s <= HOLD_S
     }
 
     /// Demodulates `x` at each partial; returns the model's hum at this sample.
@@ -185,15 +226,44 @@ impl Grid {
         let mut turn = base;
         let mut hum = 0.0;
         for k in 0..self.partials {
-            self.sums[k] = self.sums[k] + turn.conj() * x;
+            let part = turn.conj() * x;
+            self.sums[k] = self.sums[k] + part;
+            if self.reference == Some(k) {
+                self.glance = self.glance + part;
+            }
             hum += (self.model[k] * turn).re;
             turn = turn * base;
         }
         self.phase = self.phase * self.step;
+        self.glance_energy += x * x;
+        self.glanced += 1;
+        if self.glanced == self.period {
+            self.look();
+        }
         hum
     }
 
-    fn end_block(&mut self, len: usize, power: f64, other_present: bool) {
+    /// Ends a period: doubts the model when its reference partial came out weaker in two
+    /// periods in a row while nothing louder than the hum sounded (the first period of a note
+    /// is still quiet and may cancel the hum: hum-line lost its removal so). Under a note one period cannot tell (G2 cancelled
+    /// the 60 Hz reference and left the hum unsubtracted until the note had faded).
+    fn look(&mut self) {
+        let len = self.period as f64;
+        let now = (self.glance * (2.0 / len)).abs();
+        let power = self.glance_energy / len;
+        self.glance = C::ZERO;
+        self.glance_energy = 0.0;
+        self.glanced = 0;
+        let Some(r) = self.reference.filter(|_| self.present) else {
+            return;
+        };
+        let model: f64 = self.model.iter().map(|c| c.abs() * c.abs() / 2.0).sum();
+        let weak = power <= GLANCE_LOUDER * model && now < self.model[r].abs() / SPREAD;
+        self.doubt |= weak && self.weak;
+        self.weak = weak;
+    }
+
+    fn end_block(&mut self, len: usize, power: f64, other: OtherGrid) {
         // Complex amplitude per partial: x ≈ Re(z · e^{i·k·φ}).
         let scale = 2.0 / len as f64;
         let mut z = [C::ZERO; MAX_PARTIALS];
@@ -216,10 +286,12 @@ impl Grid {
         match self.steady(&z, &last).filter(|_| both_quiet) {
             Some((reference, offset_hz)) if self.fits(z[reference]) => {
                 self.learn(&z, &last, offset_hz);
-                self.gather(reference, z[reference].abs(), other_present);
+                self.gather(reference, z[reference].abs(), other);
             }
-            // Steady hum at another level (a charger plugged in): learned anew.
+            // Steady hum at another level (a charger plugged in), or a quiet block without the
+            // hum as modelled (unplugged, quieter): not subtracted, learned anew.
             Some(_) => self.lose(),
+            None if quiet && self.misfits(&z) => self.lose(),
             None => self.unsteady(&z),
         }
     }
@@ -231,6 +303,11 @@ impl Grid {
         };
         let model = self.model[r].abs();
         (model / SPREAD..=model * SPREAD).contains(&now.abs())
+    }
+
+    /// Whether the hum is present but its reference partial does not match the model.
+    fn misfits(&self, z: &[C; MAX_PARTIALS]) -> bool {
+        self.present && self.reference.is_some_and(|r| !self.fits(z[r]))
     }
 
     /// The reference partial and the grid's frequency offset (Hz), if this block is hum alone:
@@ -283,8 +360,9 @@ impl Grid {
     }
 
     /// Counts steady time towards finding the hum: from one reference level, within `SPREAD`.
-    fn gather(&mut self, reference: usize, level: f64, other_present: bool) {
+    fn gather(&mut self, reference: usize, level: f64, other: OtherGrid) {
         self.lost_s = 0.0;
+        self.doubt = false;
         if self.present {
             return;
         }
@@ -296,7 +374,7 @@ impl Grid {
             self.gathered_s = 0.0;
         }
         self.gathered_s += BLOCK_S;
-        if self.gathered_s >= PRESENT_S && !other_present {
+        if self.gathered_s >= PRESENT_S && other == OtherGrid::Absent {
             self.present = true;
         }
     }
@@ -314,9 +392,9 @@ impl Grid {
             return;
         }
 
-        // Present: gone once the reference stays far below the model.
+        // Present: gone once the reference stays far below the model. A note on it tells
+        // nothing either way: only a block that fits takes the hum up again (`gather`).
         if z[r].abs() >= ABSENT_RATIO * self.model[r].abs() {
-            self.lost_s = 0.0;
             return;
         }
         self.lose();
@@ -409,6 +487,7 @@ impl Mul<f64> for C {
 mod tests {
     use super::*;
     use crate::synth::{add_noise, bass_tone, ToneShape};
+    use crate::yin::power_at;
     use kontra_model::{Pitch, A4_HZ};
 
     const SR: f64 = 48_000.0;
@@ -472,6 +551,32 @@ mod tests {
         let tail = (8.0 * SR) as usize;
         let left = rms(&out[tail..]) / rms(&signal[tail..]);
         assert!(left < 0.03, "{:.1} dB left", 20.0 * left.log10());
+    }
+
+    /// Hum that stops (a charger unplugged) or gets 6 or 12 dB quieter is no longer subtracted
+    /// once two periods (40 ms) have shown it: the old model would add a hum that is not there
+    /// (PR-Agent #198, "Phantom-Brummen"). Measured at 50 Hz up to 1 s after the change.
+    #[test]
+    fn quieter_hum_adds_no_phantom() {
+        let change = (4.0 * SR) as usize;
+        // From three periods on: the period the hum changes in, and two that show it.
+        let window = change + (0.06 * SR) as usize..change + SR as usize;
+        let full = hum(50.0, 7.0);
+        let hum_power = power_at(&full[window.clone()], 50.0, SR);
+        for gain in [0.0, 0.5, 0.25] {
+            let mut signal = full.clone();
+            signal[change..].iter_mut().for_each(|x| *x *= gain);
+            add_noise(&mut signal, -80.0, 5);
+            let (out, _) = run(&signal);
+            let input = power_at(&signal[window.clone()], 50.0, SR);
+            let output = power_at(&out[window.clone()], 50.0, SR);
+            let allowed = (input * 1.26).max(hum_power * 0.01);
+            assert!(
+                output <= allowed,
+                "gain {gain}: 50 Hz {:.1} dB over the input",
+                10.0 * (output / input).log10()
+            );
+        }
     }
 
     /// Hum that stops (a charger unplugged) is no longer subtracted: no hum is added.

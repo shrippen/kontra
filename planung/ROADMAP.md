@@ -240,8 +240,9 @@ Erkennung und Messung:
   für jeden Eingang vor Anschlag und Tonhöhe). Gelernt wird nur in ruhigen, stetigen 100-ms-Blöcken, abgezogen erst nach
   2 s stetigem Brummen; ein gehaltener G1 (5 s) wird nicht gelernt. Knackser auf Brummen sind jetzt tonlos statt
   `over_background` mit 31,35. Neuer Satz `hum-line` (G1 bis E3 auf Brummen −40 dBFS): Cent-Mittel 3,68 → 1,76, p95
-  12,35 → 6,57, max 17,8 → 9,1. IDMT, IDMT am Laptop-Eingang, Techniken und FiloBass unverändert (90,1 % / 80,6 %),
-  übrige Sätze gleich, 0 Falschnoten je Minute. Rechenzeit etwa 2 ms je Sekunde Audio. Ohne Brummen tauchten im
+  12,35 → 6,57, max 17,8 → 9,1. IDMT, IDMT am Laptop-Eingang, Techniken und FiloBass unverändert (IDMT neu umgewandelt: 91,6 % / 81,9 %),
+  übrige Sätze gleich, 0 Falschnoten je Minute. Rechenzeit etwa 2 ms je Sekunde Audio. Hört das Brummen auf oder wird leiser, endet der Abzug nach zwei ruhigen
+  Perioden (40 ms), nicht erst nach 1 s (sonst Phantom-Brummen, Review #198). Ohne Brummen tauchten im
   Leerlauf Tonhöhen aus Abdämpf-Geräusch auf (idle-room 2 je Minute); tote Noten (`Muted`) gelten deshalb abseits der
   Noten nicht mehr als eigene Note. Die Hintergrund-Regel von F3 bleibt als zweite Linie: für die ersten Sekunden, bevor
   das Brummen gefunden ist, und für die noch klingende Note (ohne sie scheitern zwei F3-Tests). Offen: Bei Spiel ohne

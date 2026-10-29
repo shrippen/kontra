@@ -92,6 +92,28 @@ fn noise_on_drifting_hum_has_no_pitch() {
     assert_noise_pitchless(49.8, 50.2);
 }
 
+/// Hum that stops (a charger unplugged), then a click 300 ms later: no note with the hum's pitch
+/// (PR-Agent #198: the old model was subtracted on for 1 s, a hum in anti-phase from silence).
+#[test]
+fn click_after_hum_stops_has_no_pitch() {
+    let stop_s = LEAD_IN_S + 1.0;
+    let mut signal = hum(stop_s, 50.0, 50.0);
+    signal.extend(std::iter::repeat_n(0.0, (3.0 * SR) as usize));
+    add_noise(&mut signal, -66.0, 4);
+    for (i, s) in signal[((stop_s + 0.3) * SR) as usize..]
+        .iter_mut()
+        .take((0.003 * SR) as usize)
+        .enumerate()
+    {
+        *s += 0.3 * (1.0 - i as f32 / (0.003 * SR) as f32) * if i % 2 == 0 { 1.0 } else { -1.0 };
+    }
+
+    let found = track(&signal);
+    let after: Vec<&DetectedNote> = found.iter().filter(|n| n.onset_s > stop_s).collect();
+    assert!(!after.is_empty(), "the click is heard: {found:?}");
+    assert!(after.iter().all(|n| !n.stands_out()), "{after:?}");
+}
+
 /// G1 (49 Hz, 35 ct below the hum) and G2 (98 Hz, the hum's second harmonic −35 ct), played on
 /// hum, soft and loud: each a note of its own with its own pitch.
 #[test]
