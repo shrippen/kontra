@@ -18,13 +18,13 @@ Item {
         function t(key) { return map[key] || key }
     }
     readonly property QtObject ctl: QtObject {
-        readonly property string summaryJson: JSON.stringify({
+        property string summaryJson: JSON.stringify({
             hitRateText: "80 %", countsText: "8/10", probe: null, next: null,
             pocketText: "", tendencyText: "", spreadText: "", intonationText: "",
             counts: [1, 2, 3], firstBinMs: -10, binMs: 10, meanOffsetMs: 0,
             techniques: [], untoldText: "", hardestNotes: [], notes: [],
             hardestBars: [{ number: 2 }, { number: 3 }],
-            observation: { solid: false, text: "observe.text" }
+            observation: { solid: false, text: "observe.text" }, recalibrateText: ""
         })
         function termJson(topic) { return "" }
     }
@@ -107,7 +107,23 @@ Item {
         function test_observation_shown() {
             sheet.open()
             verify(showing(sheet, "observe.text") !== null)
+            verify(showing(sheet, "summary.recalibrate.button") === null)
             sheet.close()
+        }
+
+        // The latency hint stands alone where "solid" would contradict it, with its button
+        // (LH-EIN-14, review #195).
+        function test_recalibrate_alone() {
+            var before = root.ctl.summaryJson
+            var summary = JSON.parse(before)
+            summary.observation = null
+            summary.recalibrateText = "recal.text"
+            root.ctl.summaryJson = JSON.stringify(summary)
+            sheet.open()
+            verify(showing(sheet, "recal.text") !== null)
+            verify(showing(sheet, "summary.recalibrate.button") !== null)
+            sheet.close()
+            root.ctl.summaryJson = before
         }
 
         function test_trap_and_return() {
