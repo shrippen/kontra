@@ -107,16 +107,23 @@ fn layered_deps(manifest: &str) -> Vec<String> {
 }
 
 /// The value of a `package = "…"` key in `line` (either quote), not "package" in a path.
+/// Every occurrence counts: `path = "../package/x", package = "kontra-…"` renames.
 fn package(line: &str) -> Option<&str> {
-    let (before, after) = line.split_once("package")?;
-    let key_starts = before.is_empty() || before.ends_with([' ', '{', ',']);
-    let value = after.trim_start().strip_prefix('=')?;
-    key_starts.then(|| value.trim_start().trim_start_matches(['"', '\'']))
+    line.match_indices("package").find_map(|(at, _)| {
+        let before = &line[..at];
+        let key_starts = before.is_empty() || before.ends_with([' ', '{', ',']);
+        let value = line[at + "package".len()..]
+            .trim_start()
+            .strip_prefix('=')?;
+        key_starts.then(|| value.trim_start().trim_start_matches(['"', '\'']))
+    })
 }
 
-/// "engine" from "kontra-engine…"; nothing for other crates.
+/// "engine" from "kontra-engine…" (quoted too); nothing for other crates.
 fn kontra_name(text: &str) -> Option<String> {
-    let name = text.strip_prefix("kontra-")?;
+    let name = text
+        .trim_start_matches(['"', '\''])
+        .strip_prefix("kontra-")?;
     let end = name
         .find(|c: char| !(c.is_ascii_alphanumeric() || c == '-'))
         .unwrap_or(name.len());
@@ -148,6 +155,16 @@ fn reads_every_spelling() {
         layered_deps(manifest),
         ["dsp", "model", "drivers", "engine"]
     );
+}
+
+/// Review #194: "package" in a path before the rename, quoted keys and tables.
+#[test]
+fn reads_quoted_and_late_renames() {
+    let manifest =
+        "[dependencies]\nstore = { path = \"../package/x\", package = \"kontra-drivers\" }\n\
+                    \"kontra-dsp\" = { workspace = true }\n\
+                    [dependencies.\"kontra-engine\"]\nworkspace = true\n";
+    assert_eq!(layered_deps(manifest), ["drivers", "dsp", "engine"]);
 }
 
 #[test]
