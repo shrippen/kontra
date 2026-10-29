@@ -136,14 +136,13 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Prüfkette vor einem Commit mit `&&` oder `set -e`, nicht mit `;`: sonst wird trotz rotem Test committet und gepusht.
   `set -e` wirkt nicht, wenn die ganze Kette selbst Teil einer `&&`/`||`-Liste ist (so betten manche Werkzeuge
   Befehle ein): am 14.10. ging ein Push trotz Build-Fehler durch. Sicher ist nur `a && b && git push`.
-- Flow-Tests im echten Fenster (Xvfb, xdotool): immer `--input-file` und den stummen Ausgang `kontra:null` setzen.
-  Ohne Datei öffnete Kontra (über ALSA) das echte Interface des Eigentümers; WirePlumber fand es „belegt“ und legte
-  den Eingangsknoten des Scarlett Solo nicht wieder an (13.10., 23:45). Abhilfe: Interface neu einstecken oder
-  `systemctl --user restart wireplumber`. Nie PipeWire-Knoten anderer zerstören oder Profile umstellen.
-- App-Start in Testläufen nur mit `env -u WAYLAND_DISPLAY QT_QPA_PLATFORM=xcb DISPLAY=:<xvfb>`, eigenem
-  `KONTRA_DATA_DIR` mit `{"output_device":"kontra:null"}` und `--input-file` auf eine vorhandene Datei. Qt nimmt
-  sonst `WAYLAND_DISPLAY` und öffnet das Fenster auf dem echten Desktop, auch wenn `DISPLAY` auf Xvfb zeigt
-  (28.10.: etwa 6 s). Tests in Rust genauso: ohne `input_file` öffnet `Core::play` das echte Mikrofon (#162).
+- Kontra im Testlauf nur über `scripts/qa-session.sh --input-file <Datei> [--a11y] [--run <Befehl>] -- <Argumente>`
+  starten (eigener Xvfb, xcb ohne Wayland, eigenes `XDG_RUNTIME_DIR` und Datenordner mit `kontra:null`, eigener
+  D-Bus nur mit `--a11y`, räumt auf). Vorfälle ohne diese Trennung: 13.10. öffnete Kontra das echte Interface, und
+  WirePlumber legte den Eingang des Scarlett Solo nicht wieder an (Abhilfe: neu einstecken oder
+  `systemctl --user restart wireplumber`; nie PipeWire-Knoten anderer zerstören oder Profile umstellen); 28.10. ein
+  Fenster auf dem echten Desktop (Qt nahm `WAYLAND_DISPLAY`) und ein Portal am echten Wayland (Eigentümer). Tests in
+  Rust genauso: ohne `input_file` öffnet `Core::play` das echte Mikrofon (#162).
 - Neue Abhängigkeiten: `cargo deny check licenses bans sources` (`~/.cargo/bin/cargo-deny`) vor dem Push; transitive
   Lizenzen fallen sonst erst in der CI auf (14.10.: `webpki-root-certs` über ureqs `platform-verifier`).
 - Gestapelte PRs: Konflikte (i18n-Enden, Importlisten) vorab lösen, indem die untere Branch in die
@@ -151,13 +150,6 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - Tests, die ein Skript schreiben und starten, laufen parallel zu anderen, die Prozesse starten: Ein geforktes Kind hält
   die frische Datei offen, `exec` scheitert mit „Text file busy“ (ETXTBSY, etwa 1 von 40 Läufen). Solche Tests über
   einen gemeinsamen `Mutex` nacheinander laufen lassen (`separator.rs`).
-- Eigener Session-Bus (`dbus-run-session`) nur für den Screenreader-Test (AT-SPI, Orca), und dann ganz vom Desktop
-  getrennt: `env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE XDG_RUNTIME_DIR=<leerer Ordner unter ~/.cache, 700>
-  QT_QPA_PLATFORM=xcb DISPLAY=:<xvfb> dbus-run-session -- <Test>`. `env` steht vor `dbus-run-session`, sonst erbt
-  der Bus (und jedes Portal, das er startet) die Umgebung des Desktops. Kontra auch hier nur mit `--input-file` und
-  `kontra:null`; den Ordner danach löschen. Ohne eigenes `XDG_RUNTIME_DIR` findet libwayland `wayland-0` des Desktops auch
-  ohne `WAYLAND_DISPLAY`. Am 28.10. startete D-Bus auf einem eigenen Bus `xdg-desktop-portal-kde`, das sich an den
-  echten Wayland-Desktop des Eigentümers hängte (Eigentümer, 28.10.2026).
 
 ## Persona rule
 
