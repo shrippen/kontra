@@ -82,4 +82,20 @@ fn low_fretless_line_reads_its_cents() {
         };
         assert_eq!(*state, expected, "note {index} at {wanted} ct");
     }
+
+    // The errors scatter around 0 (mean 0.6 ct, spread 24 ct): no direction, only the spread
+    // (LH-BEW-12).
+    let summary = events
+        .iter()
+        .find_map(|e| match e {
+            UiEvent::Finished { summary_json } => Some(summary_json.clone()),
+            _ => None,
+        })
+        .expect("finished");
+    let s: serde_json::Value = serde_json::from_str(&summary).unwrap();
+    let intonation = s["intonationText"].as_str().unwrap();
+    assert!(
+        intonation.starts_with("2 unsauber · im Schnitt richtig, Streuung ±2"),
+        "{intonation}"
+    );
 }

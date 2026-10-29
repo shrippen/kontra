@@ -1,5 +1,6 @@
 //! Evaluation after a run (LH-BEW-03): hit rate, timing histogram and tendency, hardest bars,
-//! bars the player hesitated at (DIDAKTIK I6), and the one observation worth telling (LH-BEW-09).
+//! bars the player hesitated at (DIDAKTIK I6), the one observation worth telling (LH-BEW-09),
+//! intonation as direction and spread (LH-BEW-12).
 
 use crate::matcher::{NoteResult, Outcome};
 use crate::pocket::{Pocket, PocketVerdict};
@@ -17,6 +18,12 @@ const HESITATE_MS: f64 = 80.0;
 const OUTSIDE_LIMIT_MS: f64 = 150.0;
 /// Offsets this close count as the same timing.
 const OUTSIDE_TOLERANCE_MS: f64 = 15.0;
+/// A mean deviation within this many cents has no direction, only a spread.
+const CENT_DIRECTION: f64 = 5.0;
+/// Notes a string in one position needs for its own intonation.
+const INTONATION_MIN_NOTES: usize = 8;
+/// Frets per position: 0–4, 5–9, 10–14, …
+const POSITION_FRETS: u8 = 5;
 
 /// Judged notes a run needs before anything about it is told (LH-BEW-09).
 const OBSERVE_MIN_NOTES: u32 = 8;
@@ -77,8 +84,12 @@ pub struct Summary {
     pub mean_offset_ms: Option<f64>,
     /// Standard deviation of the hit offsets in ms: the steadiness.
     pub spread_ms: Option<f64>,
-    /// Mean absolute pitch deviation of hits and off-pitch notes in cents (intonation).
-    pub mean_abs_cents: Option<f64>,
+    /// Pitch deviation of hits and off-pitch notes (intonation).
+    #[serde(default)]
+    pub intonation: Option<Intonation>,
+    /// The same per string and position, for those with enough notes, lowest string first.
+    #[serde(default)]
+    pub intonation_parts: Vec<IntonationPart>,
     pub histogram: TimingHistogram,
     /// Bars with the most missed notes, worst first; the hit rate breaks ties (index into
     /// `Arrangement::bars`).
@@ -136,6 +147,86 @@ pub enum Side {
     Late,
 }
 
+/// Pitch deviation as direction and spread, no grade (LH-BEW-12): "9 cents flat on average,
+/// spread ±6".
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Intonation {
+    /// Negative = flat.
+    pub mean_cent: f64,
+    /// Standard deviation around the mean.
+    pub spread_cent: f64,
+}
+
+/// Which way the intonation leans.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Leaning {
+    Flat,
+    Sharp,
+}
+
+impl Intonation {
+    fn from_cents(cents: &[f64]) -> Option<Intonation> {
+        let mean_cent = mean(cents)?;
+        Some(Intonation {
+            mean_cent,
+            spread_cent: spread(cents, mean_cent),
+        })
+    }
+
+    /// `None` when the mean lies within `CENT_DIRECTION`: only the spread tells.
+    pub fn leaning(&self) -> Option<Leaning> {
+        if self.mean_cent <= -CENT_DIRECTION {
+            return Some(Leaning::Flat);
+        }
+        if self.mean_cent >= CENT_DIRECTION {
+            return Some(Leaning::Sharp);
+        }
+        None
+    }
+}
+
+/// Intonation on one string in one position.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct IntonationPart {
+    /// 0 = lowest string.
+    pub string: u8,
+    pub first_fret: u8,
+    pub last_fret: u8,
+    pub intonation: Intonation,
+}
+
+/// Per string and position with at least `INTONATION_MIN_NOTES` notes. Example: eight notes on
+/// the E string at frets 5 to 9 → one part {string 0, first fret 5}.
+fn intonation_parts(results: &[NoteResult], arrangement: &Arrangement) -> Vec<IntonationPart> {
+    let mut cents: BTreeMap<(u8, u8), Vec<f64>> = BTreeMap::new();
+    for r in results {
+        if !matches!(r.outcome, Outcome::Hit | Outcome::OffPitch) {
+            continue;
+        }
+        let (Some(c), Some(note)) = (r.cents, r.note.and_then(|i| arrangement.notes.get(i))) else {
+            continue;
+        };
+        let (Some(string), Some(fret)) = (note.string, note.fret) else {
+            continue;
+        };
+        let first_fret = fret / POSITION_FRETS * POSITION_FRETS;
+        cents.entry((string, first_fret)).or_default().push(c);
+    }
+
+    cents
+        .into_iter()
+        .filter(|(_, c)| c.len() >= INTONATION_MIN_NOTES)
+        .filter_map(|((string, first_fret), c)| {
+            Some(IntonationPart {
+                string,
+                first_fret,
+                last_fret: first_fret + POSITION_FRETS - 1,
+                intonation: Intonation::from_cents(&c)?,
+            })
+        })
+        .collect()
+}
+
 /// A missed note played beside the timing window.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct OutsideNote {
@@ -168,12 +259,10 @@ impl Summary {
         let cents: Vec<f64> = final_results
             .iter()
             .filter(|r| matches!(r.outcome, Outcome::Hit | Outcome::OffPitch))
-            .filter_map(|r| r.cents.map(f64::abs))
+            .filter_map(|r| r.cents)
             .collect();
         let mean_offset = mean(&offsets);
-        let spread = mean_offset.map(|m| {
-            (offsets.iter().map(|o| (o - m).powi(2)).sum::<f64>() / offsets.len() as f64).sqrt()
-        });
+        let spread = mean_offset.map(|m| spread(&offsets, m));
         Summary {
             judged,
             hits,
@@ -188,7 +277,8 @@ impl Summary {
             },
             mean_offset_ms: mean_offset,
             spread_ms: spread,
-            mean_abs_cents: mean(&cents),
+            intonation: Intonation::from_cents(&cents),
+            intonation_parts: intonation_parts(&final_results, arrangement),
             histogram: TimingHistogram::from_offsets(&offsets),
             hardest_bars: hardest_bars(&final_results, arrangement),
             hesitant_bars: hesitant_bars(&final_results, mean_offset.unwrap_or(0.0)),
@@ -373,6 +463,11 @@ fn mean(values: &[f64]) -> Option<f64> {
         return None;
     }
     Some(values.iter().sum::<f64>() / values.len() as f64)
+}
+
+/// Standard deviation around `mean`.
+fn spread(values: &[f64], mean: f64) -> f64 {
+    (values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64).sqrt()
 }
 
 fn hardest_bars(results: &[NoteResult], arrangement: &Arrangement) -> Vec<usize> {
@@ -594,6 +689,47 @@ mod tests {
             summary(&notes).observation(Pocket::Free),
             Some(Observation::Solid)
         );
+    }
+
+    /// LH-BEW-12: constant −10 cents reads "flat"; ±10 around 0 has no direction, only spread.
+    #[test]
+    fn intonation_tells_direction_and_spread() {
+        let flat = Intonation::from_cents(&[-10.0; 8]).expect("intonation");
+        assert_eq!(flat.leaning(), Some(Leaning::Flat));
+        assert!(flat.spread_cent.abs() < 1e-9, "{flat:?}");
+
+        let scattered = Intonation::from_cents(&[-10.0, 10.0, -10.0, 10.0]).expect("intonation");
+        assert_eq!(scattered.leaning(), None);
+        assert!((scattered.spread_cent - 10.0).abs() < 1e-9, "{scattered:?}");
+
+        assert_eq!(Intonation::from_cents(&[]), None);
+    }
+
+    /// LH-BEW-12: per string and position only from eight notes on. Eight on the E string at
+    /// frets 5 to 9, three on the A string: one part.
+    #[test]
+    fn intonation_parts_need_eight_notes() {
+        use kontra_model::{Instrument, Note, Pitch};
+
+        let mut arrangement = Arrangement::new("Parts", Instrument::default_bass());
+        let place = |string: u8, fret: u8| Note {
+            string: Some(string),
+            fret: Some(fret),
+            ..Note::new(0, 1, Pitch(28 + fret))
+        };
+        arrangement
+            .notes
+            .extend((5..13).map(|i| place(0, 5 + i % 5)));
+        arrangement.notes.extend((0..3).map(|_| place(1, 2)));
+        let mut results = played(&[(Outcome::Hit, Some(0.0)); 11]);
+        for (i, r) in results.iter_mut().enumerate() {
+            r.cents = Some(if i < 8 { 12.0 } else { -20.0 });
+        }
+
+        let parts = intonation_parts(&results, &arrangement);
+        assert_eq!(parts.len(), 1, "{parts:?}");
+        assert_eq!((parts[0].string, parts[0].first_fret), (0, 5));
+        assert_eq!(parts[0].intonation.leaning(), Some(Leaning::Sharp));
     }
 
     /// Harmonicon analysis (29.10.): the hardest bar is the one that costs the most notes. A bar

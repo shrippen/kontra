@@ -147,6 +147,15 @@ KanteCard {
             TermTip { topic: sheet.summary && sheet.summary.pocketText !== "" ? "summary.pocket" : "" }
             TermTip { topic: sheet.summary && sheet.summary.spreadText !== "" ? "summary.spread" : "" }
         }
+        // Intonation per string and position (LH-BEW-12), one line each.
+        QQC2.Label {
+            Layout.fillWidth: true
+            readonly property var parts: sheet.summary && sheet.summary.intonationParts ? sheet.summary.intonationParts : []
+            visible: parts.length > 0
+            wrapMode: Text.WordWrap
+            text: parts.join("\n")
+            color: KanteStyle.mutedTextColor
+        }
         KanteTimingHistogram {
             Layout.fillWidth: true
             // Lower on low screens, so the hardest bars stay in view.
