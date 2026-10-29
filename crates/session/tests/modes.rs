@@ -446,7 +446,7 @@ fn off_pitch_is_its_own_outcome() {
     assert_eq!(r.outcome, Outcome::OffPitch);
     let summary = s.summary();
     assert_eq!((summary.off_pitch, summary.wrong, summary.hits), (1, 0, 0));
-    assert!((summary.mean_abs_cents.unwrap() - 40.0).abs() < 1e-6);
+    assert!((summary.intonation.unwrap().mean_cent - 40.0).abs() < 1e-6);
 }
 
 /// LH-WIE-02 while playing: transposed by +2 after the second note, the run goes on; the two

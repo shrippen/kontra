@@ -204,7 +204,7 @@ Rückmeldung und Lernen:
 - [ ] L2 Übungsserie, standardmäßig aus (LH-FOR-05).
 - [ ] L3 Übungsleiter je Lektion (LH-LRN-17).
 - [ ] L4 Griffbrett-Quiz gewichtet (LH-LRN-18).
-- [ ] L5 Intonation als Richtung und Streuung (LH-BEW-12).
+- [x] L5 Intonation als Richtung und Streuung (LH-BEW-12).
 - [ ] L6 Verstimmte Saite erkennen (LH-TUN-05).
 - [ ] L7 Liedkarte, Kante-Baustein (LH-FOR-06).
 - [ ] L8 Ruf und Antwort (LH-LRN-19).
