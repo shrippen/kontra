@@ -193,8 +193,13 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   revidiert in beide Richtungen, auch nur die Cent. Prototyp: IDMT Median 79 → 61 ms, `line-4`/`line-5` p95 81 → 69,
   100 → 80 ms, Endgenauigkeit gleich; erste Meldung 1–2,5 Punkte öfter falsch, Fingertipp vor dem Anschlag wird Note.
   Nur zusammen mit „Note zurückgenommen“ und vorläufigem Urteil in der Session.
-- [ ] R2 Erwartete Note an die Erkennung, nur als Torwächter der ersten Meldung, nie als Entscheider: locker gewertet
-  machte sie aus falsch gespielten Noten dreimal so viele Treffer. Grundlage für R7 und R8.
+- [x] R2 Erwartete Note an die Erkennung, nur als Torwächter der ersten Meldung, nie als Entscheider: locker gewertet
+  machte sie aus falsch gespielten Noten dreimal so viele Treffer. Grundlage für R7 und R8. Umgesetzt (LH-BEW-14):
+  Session → Eingang (rtrb) → `NoteTracker::expect`; `korpus measure --expect [--expect-shift N]`. Ohne wachsendes
+  Fenster (R1) ist der Gewinn klein: erste Meldung IDMT 94,7 → 95,1 %, FiloBass 64,4 → 65,2 %, IDMT Median
+  90,5 → 85,2 ms; Endgenauigkeit 95,3 → 95,5 % bzw. 74,5 → 74,4 %. Falsche Erwartung (±1, ±12, +5): Endurteil nie
+  öfter auf der verschobenen Tonhöhe als ohne; erste Meldung bis +6 (FiloBass −1: 104 → 110), danach korrigiert.
+  Toleranzen auf der Hälfte der Dateien bestätigt, auf der anderen gleich.
 - [ ] R3 Gerätezeitstempel (cpal `capture`/`playback`) mit DLL statt Anker am ersten Callback. Simulation: heute
   37 ms Fehler bei anderem Quantum als beim Kalibrieren, zwei Geräte nach 5 min p95 24 ms; mit Stempeln < 0,2 ms.
   Offen: Semantik der Stempel am Scarlett Solo (Loopback, etwa 15 min mit dem Eigentümer).

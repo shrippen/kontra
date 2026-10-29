@@ -19,7 +19,9 @@ pub use arrangement::{
     Arrangement, Bar, DrumHit, DrumKind, Judging, Marker, MarkerKind, Note, Technique,
     TimeSignature, TICKS_PER_QUARTER,
 };
-pub use event::{DetectedNote, InputSource, PitchRevision, TechniqueRevision};
+pub use event::{
+    DetectedNote, ExpectedStrike, ExpectedTone, InputSource, PitchRevision, TechniqueRevision,
+};
 pub use instrument::{Instrument, InstrumentError, InstrumentKind, KeyRange, ToneBands};
 pub use pitch::{cents_between, hz_to_midi, midi_to_hz, NoteName, Pitch, A4_HZ};
 pub use tempo::{TempoChange, TempoMap};

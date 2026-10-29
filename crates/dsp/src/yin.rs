@@ -48,6 +48,16 @@ pub struct PitchEstimate {
     pub confidence: f32,
 }
 
+/// An estimate on a short stretch with an expected period in view (`Yin::estimate_expected`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct ExpectedEstimate {
+    /// What YIN picks on its own.
+    pub free: PitchEstimate,
+    /// Normalized difference at the expected period and at twice it (the octave below).
+    pub at_period: f64,
+    pub at_octave_below: f64,
+}
+
 /// Reusable YIN estimator; all buffers are allocated in `new`.
 pub struct Yin {
     sample_rate: f64,
@@ -97,7 +107,8 @@ impl Yin {
             a: vec![Complex32::default(); size],
             b: vec![Complex32::default(); size],
             scratch: vec![Complex32::default(); scratch_len],
-            diff: vec![0.0; tau_max + 2],
+            // A short estimate (`estimate_expected`) may search lags past `tau_max`.
+            diff: vec![0.0; window + tau_max + 2],
             filtered: vec![0.0; 2 * (window + tau_max)],
         }
     }
@@ -117,6 +128,56 @@ impl Yin {
     /// check would follow other low sounds (a band's bass line from the speakers).
     pub fn estimate_attack(&mut self, samples: &[f32]) -> Option<PitchEstimate> {
         self.estimate_with(samples, Thump::Ignored)
+    }
+
+    /// YIN on all of `samples`, fewer than `needed()`, with lags up to `lag_max` and the rest as
+    /// the window; also reads the normalized difference at `period` (samples) and twice it.
+    /// `None` when the stretch is too short for `lag_max`, too long, or silent.
+    ///
+    /// ```text
+    /// samples   ├──── window ────┼────── lag_max ──────┤
+    /// lags      tau_min … period … 2·period ≤ lag_max
+    /// ```
+    pub(crate) fn estimate_expected(
+        &mut self,
+        samples: &[f32],
+        lag_max: usize,
+        period: f64,
+    ) -> Option<ExpectedEstimate> {
+        let fits = lag_max > self.tau_min + 2
+            && samples.len() > lag_max + 1
+            && samples.len() <= self.needed()
+            && lag_max + 2 <= self.diff.len();
+        if !fits {
+            return None;
+        }
+        let saved = (self.window, self.tau_max);
+        self.window = samples.len() - lag_max;
+        self.tau_max = lag_max;
+        let found = self.expected_inner(samples, period);
+        (self.window, self.tau_max) = saved;
+        found
+    }
+
+    fn expected_inner(&mut self, samples: &[f32], period: f64) -> Option<ExpectedEstimate> {
+        self.difference(samples)?;
+        self.normalize();
+        let at = |tau: f64| {
+            self.dip_near(tau.round() as usize)
+                .map_or(f64::INFINITY, |i| self.diff[i])
+        };
+        let (at_period, at_octave_below) = (at(period), at(2.0 * period));
+        let (tau, value) = self.pick()?;
+        let (tau, value) = self.above_thump(samples, tau, value);
+        let refined = self.interpolate(tau);
+        Some(ExpectedEstimate {
+            free: PitchEstimate {
+                hz: self.sample_rate / refined,
+                confidence: (1.0 - value).clamp(0.0, 1.0) as f32,
+            },
+            at_period,
+            at_octave_below,
+        })
     }
 
     fn estimate_with(&mut self, samples: &[f32], thump: Thump) -> Option<PitchEstimate> {

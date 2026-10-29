@@ -31,12 +31,27 @@ pub fn run(a: &KorpusArgs) -> CliResult {
             min_recall,
             min_precision,
             verbose,
+            expect,
+            expect_shift,
         } => {
             let matching = session::Matching {
                 window_s: window_ms / 1000.0,
                 require_pitch: *pitch,
             };
-            let (recall, precision) = measure(dirs, matching, *laptop_jack, *verbose)?;
+            let expecting = match expect {
+                true => session::Expecting::Annotated {
+                    shift_semitones: *expect_shift,
+                },
+                false => session::Expecting::Nothing,
+            };
+            if *laptop_jack && (*expect || *expect_shift != 0) {
+                return Err("--expect and --expect-shift work without --laptop-jack".into());
+            }
+            let told = Told {
+                expecting,
+                shift_semitones: *expect_shift,
+            };
+            let (recall, precision) = measure(dirs, matching, *laptop_jack, told, *verbose)?;
             let low = |floor: &Option<f64>, value: f64| floor.is_some_and(|m| value < m);
             if low(min_recall, recall) || low(min_precision, precision) {
                 return Err(format!(
@@ -421,11 +436,19 @@ fn check(dir: Option<&Path>) -> CliResult {
     Ok(())
 }
 
+/// What `measure` tells the tracker ahead, and which wrong pitch it counts (R2).
+#[derive(Debug, Clone, Copy)]
+struct Told {
+    expecting: session::Expecting,
+    shift_semitones: i8,
+}
+
 /// Prints one line per file and the total; returns total recall and precision in percent.
 fn measure(
     dirs: &[std::path::PathBuf],
     matching: session::Matching,
     laptop_jack: bool,
+    told: Told,
     verbose: bool,
 ) -> Result<(f64, f64), String> {
     let mut files: Vec<std::path::PathBuf> = Vec::new();
@@ -444,23 +467,32 @@ fn measure(
         "file", "notes", "found", "recall", "precision", "pitch", "mean ms", "cents"
     );
     let (mut annotated, mut detected, mut matched, mut pitch) = (0, 0, 0, 0);
+    let mut first = FirstTotal::default();
     for json in &files {
         let item = session::read_korpus_file(json)?;
-        let evaluate = match laptop_jack {
-            true => session::evaluate_korpus_laptop_jack,
-            false => session::evaluate_korpus_with,
+        let (e, found) = match laptop_jack {
+            true => session::evaluate_korpus_laptop_jack(
+                item.set,
+                &item.samples,
+                item.sample_rate,
+                &item.notes,
+                matching,
+            ),
+            false => session::evaluate_korpus_expecting(
+                item.set,
+                &item.samples,
+                item.sample_rate,
+                &item.notes,
+                matching,
+                told.expecting,
+                told.shift_semitones,
+            ),
         };
-        let (e, found) = evaluate(
-            item.set,
-            &item.samples,
-            item.sample_rate,
-            &item.notes,
-            matching,
-        );
         annotated += e.annotated;
         detected += e.detected;
         matched += e.matched;
         pitch += e.pitch_correct;
+        first.add(&e);
         let name = json
             .file_stem()
             .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
@@ -495,7 +527,56 @@ fn measure(
         pct(matched, detected),
         pct(pitch, matched)
     );
+    first.print(matched, pitch, told.shift_semitones);
     Ok((pct(matched, annotated), pct(matched, detected)))
+}
+
+/// First reports over all files (R2): how often they are right, how soon, and how often the
+/// shifted (wrong) pitch is told.
+#[derive(Debug, Default)]
+struct FirstTotal {
+    right: usize,
+    turned_wrong: usize,
+    shifted_first: usize,
+    shifted_final: usize,
+    report_ms: Vec<f64>,
+}
+
+impl FirstTotal {
+    fn add(&mut self, e: &session::Evaluation) {
+        self.right += e.first_pitch_correct;
+        self.turned_wrong += e.turned_wrong;
+        self.shifted_first += e.shifted_first;
+        self.shifted_final += e.shifted_final;
+        self.report_ms.extend_from_slice(&e.report_ms);
+    }
+
+    fn print(&mut self, matched: usize, final_right: usize, shift: i8) {
+        self.report_ms.sort_by(f64::total_cmp);
+        let at = |q: f64| {
+            let i = ((self.report_ms.len() as f64 * q) as usize).min(self.report_ms.len());
+            self.report_ms.get(i).or(self.report_ms.last()).copied()
+        };
+        let ms = |v: Option<f64>| v.map_or_else(|| "-".into(), |v| format!("{v:.1}"));
+        let pct = |a: usize| match matched {
+            0 => 0.0,
+            m => a as f64 / m as f64 * 100.0,
+        };
+        println!(
+            "first report: pitch {:.1}% (final {:.1}%), turned wrong {}, ms p50 {} p95 {}",
+            pct(self.right),
+            pct(final_right),
+            self.turned_wrong,
+            ms(at(0.5)),
+            ms(at(0.95))
+        );
+        if shift != 0 {
+            println!(
+                "told {shift:+} semitones: first {}, final {}",
+                self.shifted_first, self.shifted_final
+            );
+        }
+    }
 }
 
 /// Misses, wrong pitches and extra detections of one file (greedy nearest match, as evaluated).

@@ -71,3 +71,56 @@ pub struct PitchRevision {
     /// Fractional MIDI note number of the settled tone.
     pub midi: f64,
 }
+
+/// A tone of an `ExpectedStrike`: the pitch, and the string the tab puts it on, where known.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ExpectedTone {
+    pub midi: u8,
+    /// String index, 0 = lowest (as `Note::string`).
+    pub string: Option<u8>,
+}
+
+/// A strike the tab expects, told to the pitch detection ahead of time (R2). The detector may
+/// report an expected pitch sooner when its own estimate agrees; it never decides the pitch.
+/// A double stop has two tones. `onset_s` is on the receiver's clock: engine time for the
+/// engine, seconds from the first sample for the tracker (as `DetectedNote::onset_s`).
+///
+/// ```text
+///            onset_s
+///   ├─ window_s ─┼─ window_s ─┤   an attack in here may be this strike
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ExpectedStrike {
+    pub onset_s: f64,
+    /// Half width of the time window around `onset_s`.
+    pub window_s: f64,
+    tones: [ExpectedTone; ExpectedStrike::MAX_TONES],
+    len: u8,
+}
+
+impl ExpectedStrike {
+    /// One bass strikes at most six strings at once.
+    pub const MAX_TONES: usize = 6;
+
+    pub fn new(onset_s: f64, window_s: f64) -> ExpectedStrike {
+        ExpectedStrike {
+            onset_s,
+            window_s,
+            tones: [ExpectedTone::default(); ExpectedStrike::MAX_TONES],
+            len: 0,
+        }
+    }
+
+    /// Adds a tone; beyond `MAX_TONES` it is left out.
+    pub fn with(mut self, tone: ExpectedTone) -> ExpectedStrike {
+        if let Some(slot) = self.tones.get_mut(usize::from(self.len)) {
+            *slot = tone;
+            self.len += 1;
+        }
+        self
+    }
+
+    pub fn tones(&self) -> &[ExpectedTone] {
+        &self.tones[..usize::from(self.len)]
+    }
+}

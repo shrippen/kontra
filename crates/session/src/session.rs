@@ -19,6 +19,7 @@ const MAX_ANALYSIS_LAG_S: f64 = 2.0;
 const STRUCK_KEPT: usize = 16;
 /// A revision belongs to the note detected at the same onset (the engine's clock, exact).
 const REVISION_MATCH_S: f64 = 1e-6;
+const MS_PER_S: f64 = 1000.0;
 
 /// Riff-Werkstatt (LH-MOD-04): keeps the hit rate in a target band (decision round 5, after
 /// planung/DIDAKTIK.md idea I7). Above the band for `passes_needed` passes in a row → one step faster
@@ -236,7 +237,7 @@ impl Session {
         if self.finished && matches!(self.mode, Mode::Probe) {
             return;
         }
-        let real_s = note.onset_s - self.settings.latency_ms / 1000.0;
+        let real_s = self.real_s(note.onset_s);
         if matches!(self.mode, Mode::Wait) {
             self.wait_note(real_s, note);
             return;
@@ -392,7 +393,7 @@ impl Session {
     /// The analysis has heard the input up to `at_s` (engine clock); nothing after it is
     /// missed yet.
     pub fn on_heard(&mut self, at_s: f64) {
-        let real_s = at_s - self.settings.latency_ms / 1000.0;
+        let real_s = self.real_s(at_s);
         self.heard_s = Some(self.heard_s.map_or(real_s, |h| h.max(real_s)));
     }
 
@@ -570,6 +571,22 @@ impl Session {
         }
         self.check_finished();
         std::mem::take(&mut self.events)
+    }
+
+    /// Real (transport) time of a time on the input's clock: the measured latency taken off
+    /// (LH-EIN-05). `input_s` is the way back.
+    fn real_s(&self, input_s: f64) -> f64 {
+        input_s - self.settings.latency_ms / MS_PER_S
+    }
+
+    /// When a strike due at real time `real_s` reaches the input (R2): plus the latency.
+    pub(crate) fn input_s(&self, real_s: f64) -> f64 {
+        real_s + self.settings.latency_ms / MS_PER_S
+    }
+
+    /// The notes the player is to strike, one entry per attack.
+    pub(crate) fn expected(&self) -> &[crate::expected::ExpectedNote] {
+        self.matcher.expected()
     }
 
     /// The next note the player has to strike in the current pass.

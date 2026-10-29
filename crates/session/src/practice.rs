@@ -7,19 +7,29 @@
 //!                                                   └─► restart backing on play/seek/speed/loop
 //! ```
 
+use crate::expected::ExpectedNote;
 use crate::session::{Mode, Session, SessionEvent};
 use crate::settings::ScoreSettings;
 use crate::transport::LoopRange;
 use kontra_engine::{
     Accent, BackingAudio, BackingTrack, Clock, Event, Gains, Output, Resolution, Sound,
 };
-use kontra_model::{Arrangement, TICKS_PER_QUARTER};
+use kontra_model::{Arrangement, ExpectedStrike, ExpectedTone, TICKS_PER_QUARTER};
 use std::collections::{HashMap, HashSet};
 
 /// How far ahead sounds are scheduled.
 const LOOKAHEAD_S: f64 = 0.25;
 /// Delay between a user action and the first sound, so scheduling is never late.
 const START_LEAD_S: f64 = 0.08;
+const MS_PER_S: f64 = 1000.0;
+
+/// What the practice tells the input about the strikes the tab expects (R2).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum Told {
+    Strike(ExpectedStrike),
+    /// The plan changed: the strikes told so far no longer hold.
+    Forget,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PracticeOptions {
@@ -86,6 +96,8 @@ pub struct Practice<O: Output> {
     was_held: bool,
     /// Engine time the last count-in ends; its clicks are kept when plans change.
     count_in_end_s: f64,
+    /// For the input, until `Live` takes it (`take_told`).
+    told: Vec<Told>,
 }
 
 impl<O: Output> std::fmt::Debug for Practice<O> {
@@ -119,7 +131,21 @@ impl<O: Output> Practice<O> {
             last_pass: 0,
             was_held: false,
             count_in_end_s: 0.0,
+            told: Vec::new(),
         }
+    }
+
+    /// What to tell the input since the last call: strikes due soon on its clock, and when the
+    /// plan changed.
+    pub(crate) fn take_told(&mut self) -> Vec<Told> {
+        std::mem::take(&mut self.told)
+    }
+
+    /// Forgets everything planned: sounds and expected strikes are scheduled anew.
+    fn unplan(&mut self) {
+        self.scheduled.clear();
+        self.told.clear();
+        self.told.push(Told::Forget);
     }
 
     pub fn session(&self) -> &Session {
@@ -179,7 +205,7 @@ impl<O: Output> Practice<O> {
         let count_in = self.beats_per_bar() * self.options.count_in_bars as usize;
         let start = now + count_in as f64 * beat_s;
         self.output.clear_from(self.clock.now_s());
-        self.scheduled.clear();
+        self.unplan();
         for i in 0..count_in {
             let accent = if i % self.beats_per_bar().max(1) == 0 {
                 Accent::Downbeat
@@ -215,7 +241,7 @@ impl<O: Output> Practice<O> {
         self.session.pause(now);
         self.output.clear_from(now);
         self.output.stop_backing(now);
-        self.scheduled.clear();
+        self.unplan();
     }
 
     pub fn set_speed(&mut self, speed: f64) {
@@ -283,7 +309,7 @@ impl<O: Output> Practice<O> {
         if probe_done {
             self.output.clear_from(now);
             self.output.stop_backing(now);
-            self.scheduled.clear();
+            self.unplan();
             return events.into_iter().map(PracticeEvent::Session).collect();
         }
         let speed_changed = events
@@ -308,7 +334,7 @@ impl<O: Output> Practice<O> {
         let now = self.clock.now_s();
         self.output
             .clear_from((now + START_LEAD_S).max(self.count_in_end_s));
-        self.scheduled.clear();
+        self.unplan();
         if self.session.transport().is_running() {
             self.restart_backing(now + START_LEAD_S);
         }
@@ -380,6 +406,7 @@ impl<O: Output> Practice<O> {
             }
         }
         self.schedule_drums(pass, from, to, origin, speed);
+        self.expect_window(pass, from, to, origin, speed);
         if !self.options.reference_tones {
             return;
         }
@@ -412,6 +439,52 @@ impl<O: Output> Practice<O> {
                 self.output.schedule(origin + at / speed, sound);
             }
         }
+    }
+
+    /// Tells the input the strikes due in `[from, to)` of `pass` (R2). Not in Wait mode: the
+    /// clock holds there until the player strikes, whenever that is.
+    fn expect_window(&mut self, pass: u32, from: f64, to: f64, origin: f64, speed: f64) {
+        const EXPECT_KEYS: u64 = 3 << 40;
+        if matches!(self.session.mode(), Mode::Wait) {
+            return;
+        }
+        let window_s = self.session.settings().strictness.window_ms() / MS_PER_S;
+        let due: Vec<(u64, ExpectedStrike)> = self
+            .session
+            .expected()
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| e.position_s >= from && e.position_s < to)
+            .filter_map(|(slot, e)| {
+                let onset_s = self.session.input_s(origin + e.position_s / speed);
+                Some((
+                    EXPECT_KEYS | slot as u64,
+                    self.strike(e, onset_s, window_s)?,
+                ))
+            })
+            .collect();
+        for (key, strike) in due {
+            if self.scheduled.insert((pass, key)) {
+                self.told.push(Told::Strike(strike));
+            }
+        }
+    }
+
+    /// The strike of `note` with the strings the tab puts its tones on; none where the pitch
+    /// is not judged (dead notes, harmonics, time only).
+    fn strike(&self, note: &ExpectedNote, onset_s: f64, window_s: f64) -> Option<ExpectedStrike> {
+        if note.ghost || note.harmonic || note.any_pitch {
+            return None;
+        }
+        let notes = &self.session.arrangement().notes;
+        let tone = |index: usize, midi: u8| ExpectedTone {
+            midi,
+            string: notes.get(index).and_then(|n| n.string),
+        };
+        let strike = ExpectedStrike::new(onset_s, window_s).with(tone(note.index, note.midi));
+        Some(note.chord.iter().fold(strike, |strike, (index, midi)| {
+            strike.with(tone(index, midi))
+        }))
     }
 
     /// Drum accompaniment of the arrangement (LH-LRN-01); its volume is the mixer's drum bus.
@@ -758,5 +831,90 @@ mod tests {
         };
         p.set_gains(gains);
         assert_eq!(p.output().gains, Some(gains));
+    }
+
+    fn told_strikes(p: &mut Practice<Recorder>) -> Vec<ExpectedStrike> {
+        p.take_told()
+            .into_iter()
+            .filter_map(|t| match t {
+                Told::Strike(s) => Some(s),
+                Told::Forget => None,
+            })
+            .collect()
+    }
+
+    /// R2: the strikes due go to the input on its clock (latency added), with the chord's
+    /// tones and their strings; a seek forgets them.
+    #[test]
+    fn tells_the_input_what_is_due() {
+        const LATENCY_MS: f64 = 30.0;
+        const BEAT_S: f64 = 0.5;
+        let clock = Clock::new();
+        let mut a = arrangement();
+        let mut double = Note::new(2 * TICKS_PER_QUARTER, TICKS_PER_QUARTER, Pitch(35));
+        double.string = Some(1);
+        a.notes.push(double);
+        a.normalize();
+        let settings = ScoreSettings {
+            latency_ms: LATENCY_MS,
+            ..ScoreSettings::default()
+        };
+        let options = PracticeOptions {
+            count_in_bars: 0,
+            ..PracticeOptions::default()
+        };
+        let mut p = Practice::new(
+            a,
+            Mode::Song,
+            settings,
+            options,
+            Recorder::default(),
+            clock.clone(),
+        );
+        let start = clock.now_s();
+        p.play_from(start);
+        assert_eq!(p.take_told().first(), Some(&Told::Forget));
+        run(&mut p, &clock, 1.2);
+
+        // Each on its beat plus the latency; the double stop on beat 2 with its string.
+        let told = told_strikes(&mut p);
+        assert!(told.len() >= 2, "{told:?}");
+        let window_s = settings.strictness.window_ms() / MS_PER_S;
+        for s in &told {
+            let beats = (s.onset_s - start - LATENCY_MS / MS_PER_S) / BEAT_S;
+            assert!((beats - beats.round()).abs() < 1e-6, "{s:?}");
+            assert_eq!(s.window_s, window_s);
+        }
+        let chord = told
+            .iter()
+            .find(|s| s.tones().len() == 2)
+            .expect("the double stop");
+        let tones: Vec<(u8, Option<u8>)> =
+            chord.tones().iter().map(|t| (t.midi, t.string)).collect();
+        assert_eq!(tones, [(28, None), (35, Some(1))]);
+
+        p.seek(4.0);
+        assert_eq!(p.take_told(), [Told::Forget]);
+    }
+
+    /// In Wait mode the clock holds until the player strikes: no time to expect a strike at.
+    #[test]
+    fn wait_mode_expects_nothing() {
+        let clock = Clock::new();
+        let options = PracticeOptions {
+            count_in_bars: 0,
+            ..PracticeOptions::default()
+        };
+        let mut p = Practice::new(
+            arrangement(),
+            Mode::Wait,
+            ScoreSettings::default(),
+            options,
+            Recorder::default(),
+            clock.clone(),
+        );
+        p.play();
+        run(&mut p, &clock, 0.4);
+        assert!(told_strikes(&mut p).is_empty());
     }
 }
