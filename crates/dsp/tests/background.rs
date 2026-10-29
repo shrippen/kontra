@@ -83,3 +83,31 @@ fn note_on_hum_keeps_its_pitch() {
         "G1 at {expected:.2}: {found:?}"
     );
 }
+
+/// A note told once does not open the door for the hum later (PR-Agent #193): G1 (35 ct from
+/// the hum) played and faded, then clicks on the hum stay pitchless.
+#[test]
+fn faded_note_lets_no_hum_through() {
+    let hz = Pitch::parse("G1").unwrap().hz(A4_HZ);
+    let note = SynthNote {
+        onset_s: 0.5,
+        hz,
+        duration_s: 0.5,
+        velocity: 0.7,
+    };
+    let tone = render(&[note], SR, 5.0, ToneShape::Rich, 4);
+    let mut signal: Vec<f32> = hum(5.0).iter().zip(&tone).map(|(h, t)| h + t).collect();
+    let mut noise = Noise::new(9);
+    for at_s in [2.5, 3.5, 4.5] {
+        let at = (at_s * SR) as usize;
+        let len = (0.003 * SR) as usize;
+        for (i, s) in signal[at..at + len].iter_mut().enumerate() {
+            *s += 0.3 * (1.0 - i as f32 / len as f32) * noise.sample();
+        }
+    }
+
+    let found = track(&signal);
+    let after: Vec<&DetectedNote> = found.iter().filter(|n| n.onset_s > 2.0).collect();
+    assert!(!after.is_empty(), "the clicks are heard: {found:?}");
+    assert!(after.iter().all(|n| n.midi == 0.0), "{after:?}");
+}

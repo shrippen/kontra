@@ -12,6 +12,9 @@ const BACKGROUND_CENTS: f64 = 50.0;
 /// A pitch near a steady background is a note of its own when this much stronger at that pitch
 /// (power, +12 dB). Hum −50 dBFS against a pluck at −15 dBFS: +35 dB; a click leaves it as it was.
 const BACKGROUND_RISE: f64 = 16.0;
+/// A note still rings while its level stays above this share of its peak (−30 dB); a hum at
+/// −50 dBFS lies 35 dB under a pluck.
+const RINGING_FLOOR: f32 = 0.03;
 /// How long before the attack a steady background tone must already sound (see `stands_out`).
 const BACKGROUND_EARLIER_S: f64 = 0.2;
 /// A background counts as a tone of its own only this clear: mains hum 0.98; a ringing or
@@ -24,11 +27,11 @@ impl NoteTracker {
     /// pitchless (LH-NF-16, idle-line: 31 false notes a minute at 50 Hz). Steady means heard
     /// just before the attack and `BACKGROUND_EARLIER_S` before that: a played pitch often
     /// sounds a little before its attack is found (legato, the fretting finger), rarely that
-    /// long. The last note's pitch is that note ringing: struck again, it keeps its pitch.
+    /// long. The last note still ringing is that note: struck again, it keeps its pitch.
     ///
     /// ```text
     ///   ├─ YIN ─┤ ··· 200 ms ··· ├─ YIN ─┤ gap │ attack ─ YIN (best)
-    ///   both clear, both ≈ best, ≠ last note, not +12 dB at best ─► pitchless
+    ///   both clear, both ≈ best, not the last note ringing, not +12 dB at best ─► pitchless
     /// ```
     pub(super) fn stands_out(&mut self, p: &Pending) -> bool {
         let Some(best) = p.best else {
@@ -37,15 +40,21 @@ impl NoteTracker {
         let a4_hz = self.config.a4_hz;
         let found = hz_to_midi(best.hz, a4_hz);
         let near = |a: f64, b: f64| (a - b).abs() * CENTS_PER_SEMITONE < BACKGROUND_CENTS;
-        // Closer to the last note than a new note would be: that note, glided a little (fretless).
-        if self
-            .last_midi
-            .is_some_and(|m| (m - found).abs() * CENTS_PER_SEMITONE < LEGATO_CENTS)
-        {
-            return true;
-        }
         let sr = self.sample_rate;
         let before_end = p.onset.saturating_sub((RISE_GAP_S * sr) as u64);
+
+        // Closer to the last note than a new note would be, and loud enough to be it: that note
+        // ringing, glided a little (fretless). Faded under the hum, it lets no hum through.
+        let before = self.peak(
+            before_end.saturating_sub(self.yin.needed() as u64),
+            before_end,
+        );
+        if self.last_note.is_some_and(|(midi, peak)| {
+            (midi - found).abs() * CENTS_PER_SEMITONE < LEGATO_CENTS
+                && before >= peak * RINGING_FLOOR
+        }) {
+            return true;
+        }
         let earlier_end = before_end.saturating_sub((BACKGROUND_EARLIER_S * sr) as u64);
         let steady = [before_end, earlier_end]
             .into_iter()
