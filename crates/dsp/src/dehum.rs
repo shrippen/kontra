@@ -15,6 +15,7 @@
 //! and one inside the grid's tolerance decays faster than hum may change while it is learned.
 //! While anything else sounds the model is held, not learned.
 
+use kontra_model::hz_to_midi;
 use std::f64::consts::TAU;
 use std::ops::{Add, Mul, Sub};
 
@@ -54,6 +55,11 @@ const HOLD_S: f64 = 8.0;
 /// A period counts for doubting the model only while it is at most this loud against the
 /// modelled hum (+3 dB): louder, something else sounds.
 const GLANCE_LOUDER: f64 = 2.0;
+/// A model held this long (under notes) may have drifted from the grid: what is left of the hum
+/// can come out when the note ends (review #198: 49.8→50.2 Hz, a pull-off to 31.38).
+const HELD_S: f64 = 0.5;
+/// A pitch this close to a partial of the grid is the hum's (as `BACKGROUND_CENTS`).
+const GRID_SEMITONES: f64 = 0.5;
 /// Fainter partials are not followed (−90 dBFS).
 const FLOOR: f64 = 3e-5;
 /// A block is quiet when what the hum does not explain stays within this factor (+6 dB) of the
@@ -75,6 +81,8 @@ pub(crate) struct Dehum {
     filled: usize,
     /// Sum of squares of the running block.
     energy: f64,
+    /// Samples processed.
+    at: u64,
 }
 
 impl Dehum {
@@ -85,6 +93,7 @@ impl Dehum {
             block: (BLOCK_S * sample_rate).round() as usize,
             filled: 0,
             energy: 0.0,
+            at: 0,
         }
     }
 
@@ -108,10 +117,19 @@ impl Dehum {
             self.filled = 0;
             self.energy = 0.0;
             let [a, b] = &mut self.grids;
-            a.end_block(self.block, power, OtherGrid::of(b));
-            b.end_block(self.block, power, OtherGrid::of(a));
+            a.end_block(self.block, power, OtherGrid::of(b), self.at);
+            b.end_block(self.block, power, OtherGrid::of(a), self.at);
         }
+        self.at += 1;
         y as f32
+    }
+
+    /// Whether a pitch from `onset` (sample) on may be what is left of the hum: on a partial of
+    /// a grid found, while its model was held under notes for `HELD_S` or longer.
+    pub(crate) fn stale(&self, onset: u64, midi: f64, a4_hz: f64) -> bool {
+        self.grids
+            .iter()
+            .any(|g| g.present && g.on_grid(midi, a4_hz) && g.held_at(onset))
     }
 
     #[cfg(test)]
@@ -162,6 +180,9 @@ struct Grid {
     present: bool,
     lost_s: f64,
     since_learned_s: f64,
+    /// Sample of the last learned block, and the last gap of `HELD_S` or more between two.
+    learned_at: u64,
+    gap: (u64, u64),
     /// One period of the grid (samples), the reference partial demodulated over the running
     /// one, and how many samples it holds: a hum that stops or drops shows within 40–60 ms,
     /// not only at the block's end (a 100 ms burst of the model from silence was an onset).
@@ -203,6 +224,8 @@ impl Grid {
             present: false,
             lost_s: 0.0,
             since_learned_s: 0.0,
+            learned_at: 0,
+            gap: (0, 0),
             period: (sample_rate / nominal_hz).round() as usize,
             glance: C::ZERO,
             glance_energy: 0.0,
@@ -263,7 +286,7 @@ impl Grid {
         self.weak = weak;
     }
 
-    fn end_block(&mut self, len: usize, power: f64, other: OtherGrid) {
+    fn end_block(&mut self, len: usize, power: f64, other: OtherGrid, at: u64) {
         // Complex amplitude per partial: x ≈ Re(z · e^{i·k·φ}).
         let scale = 2.0 / len as f64;
         let mut z = [C::ZERO; MAX_PARTIALS];
@@ -285,7 +308,7 @@ impl Grid {
 
         match self.steady(&z, &last).filter(|_| both_quiet) {
             Some((reference, offset_hz)) if self.fits(z[reference]) => {
-                self.learn(&z, &last, offset_hz);
+                self.learn(&z, &last, offset_hz, at);
                 self.gather(reference, z[reference].abs(), other);
             }
             // Steady hum at another level (a charger plugged in), or a quiet block without the
@@ -303,6 +326,26 @@ impl Grid {
         };
         let model = self.model[r].abs();
         (model / SPREAD..=model * SPREAD).contains(&now.abs())
+    }
+
+    /// `HELD_S` in samples.
+    fn held(&self) -> u64 {
+        (HELD_S * self.sample_rate) as u64
+    }
+
+    /// Whether the model had been held for `HELD_S` at `sample`: in the running gap since the
+    /// last learned block, or in the last long one.
+    fn held_at(&self, sample: u64) -> bool {
+        let (from, to) = self.gap;
+        sample >= self.learned_at + self.held() || (sample >= from + self.held() && sample <= to)
+    }
+
+    /// Whether `midi` lies on a partial of this grid, as followed.
+    fn on_grid(&self, midi: f64, a4_hz: f64) -> bool {
+        (1..=self.partials).any(|k| {
+            let partial = hz_to_midi(k as f64 * self.hz, a4_hz);
+            (midi - partial).abs() < GRID_SEMITONES
+        })
     }
 
     /// Whether the hum is present but its reference partial does not match the model.
@@ -339,7 +382,11 @@ impl Grid {
     }
 
     /// Follows the grid's frequency and learns each partial that held steady.
-    fn learn(&mut self, z: &[C; MAX_PARTIALS], last: &[C; MAX_PARTIALS], offset_hz: f64) {
+    fn learn(&mut self, z: &[C; MAX_PARTIALS], last: &[C; MAX_PARTIALS], offset_hz: f64, at: u64) {
+        if at >= self.learned_at + self.held() {
+            self.gap = (self.learned_at, at);
+        }
+        self.learned_at = at;
         let lo = self.nominal_hz - DRIFT_HZ;
         let hi = self.nominal_hz + DRIFT_HZ;
         self.hz = (self.hz + FOLLOW * offset_hz).clamp(lo, hi);

@@ -165,3 +165,79 @@ fn note_on_hum(hz: f64, velocity: f32, from_hz: f64, to_hz: f64) {
         .collect();
     assert!(extra.is_empty(), "{hz:.1} Hz: extra notes {extra:?}");
 }
+
+/// Whether `midi` lies on a partial (1–8) of the grid `grid_hz`, within 50 ct.
+fn on_grid(midi: f64, grid_hz: f64) -> bool {
+    (1..=8).any(|k| (midi - hz_to_midi(k as f64 * grid_hz, A4_HZ)).abs() < 0.5)
+}
+
+/// The hum's level changes (unplugged, a hand on a passive bass, a charger plugged in) at 4 s
+/// and 8 phase positions: no note with the hum's pitch stands out, from the change on (review
+/// #198, round 2: the subtraction stopped 40–60 ms late, the jump came out as G1 or A#1).
+#[test]
+fn hum_level_change_is_no_note() {
+    for grid_hz in [50.0, 60.0] {
+        for factor in [0.0f32, 0.1, 0.25, 0.5, 1.5, 2.0] {
+            for i in 0..8 {
+                let change_s = 4.0 + f64::from(i) * 0.0027;
+                let mut signal = hum(7.0, grid_hz, grid_hz);
+                let change = (change_s * SR) as usize;
+                signal[change..].iter_mut().for_each(|x| *x *= factor);
+                add_noise(&mut signal, -66.0, 9);
+
+                let found = track(&signal);
+                let false_notes: Vec<&DetectedNote> = found
+                    .iter()
+                    .filter(|n| n.onset_s > change_s - 0.1)
+                    .filter(|n| n.stands_out() && on_grid(n.midi, grid_hz))
+                    .collect();
+                assert!(
+                    false_notes.is_empty(),
+                    "{grid_hz} Hz × {factor} at {change_s:.4} s: {false_notes:?}"
+                );
+            }
+        }
+    }
+}
+
+/// Notes on a hum whose grid drifts fast (49.8→50.2 Hz in 7 s): after each note fades, no hum
+/// comes out as a note (review #198, round 2: an extra at MIDI 31.38 after 6.2 s).
+#[test]
+fn drifting_hum_after_notes_is_no_note() {
+    for name in ["A1", "A#1", "B1", "A#2", "D3", "D#3", "F#3"] {
+        let hz = Pitch::parse(name).unwrap().hz(A4_HZ);
+        note_on_hum(hz, 0.3, 49.8, 50.2);
+    }
+}
+
+/// G1 played 50 ms after the hum changed (a charger plugged in: hum from silence, or twice as
+/// loud) is still a note of its own: it is much louder at its pitch than the hum was.
+#[test]
+fn g1_right_after_a_hum_change_stands_out() {
+    let hz = Pitch::parse("G1").unwrap().hz(A4_HZ);
+    let expected = hz_to_midi(hz, A4_HZ);
+    for (before, after) in [(0.0f32, 1.0f32), (1.0, 2.0)] {
+        for velocity in [0.7, 0.3] {
+            let mut signal = hum(6.0, 50.0, 50.0);
+            let change = (4.0 * SR) as usize;
+            signal[..change].iter_mut().for_each(|x| *x *= before);
+            signal[change..].iter_mut().for_each(|x| *x *= after);
+            let note = SynthNote {
+                onset_s: 4.05,
+                hz,
+                duration_s: 1.0,
+                velocity,
+            };
+            let tone = render(&[note], SR, 6.0, ToneShape::Rich, 4);
+            signal.iter_mut().zip(&tone).for_each(|(s, t)| *s += t);
+
+            let found = track(&signal);
+            assert!(
+                found.iter().any(|n| (n.onset_s - 4.05).abs() < 0.03
+                    && (n.midi - expected).abs() < 0.2
+                    && n.stands_out()),
+                "hum ×{before}→×{after}, velocity {velocity}: {found:?}"
+            );
+        }
+    }
+}

@@ -423,6 +423,9 @@ pub struct NoteTracker {
     /// attack and moved the fine pitch by up to 25 ct (synthetic laptop set: p95 4.6 → 18.7 ct).
     raw_ring: Vec<f32>,
     raw_scratch: Vec<f32>,
+    /// The input before `dehum` (after `hum`), for the background (`stands_out`): a change of
+    /// the hum's level leaves a step after the subtraction, but none in the hum heard.
+    heard: Vec<f32>,
     yin: Yin,
     ring: Vec<f32>,
     scratch: Vec<f32>,
@@ -457,6 +460,7 @@ impl NoteTracker {
             filtered: Vec::with_capacity((RETRY_S * sample_rate) as usize + 1),
             raw_ring: vec![0.0; raw_len(ring_len)],
             raw_scratch: vec![0.0; raw_len(estimate_len)],
+            heard: vec![0.0; ring_len],
             config,
             sample_rate,
             yin,
@@ -511,6 +515,7 @@ impl NoteTracker {
             if let Some(hum) = self.hum.as_mut() {
                 filtered.iter_mut().for_each(|x| *x = hum.process(*x));
             }
+            self.store_heard(&filtered);
             filtered
                 .iter_mut()
                 .for_each(|x| *x = self.dehum.process(*x));
@@ -566,6 +571,14 @@ impl NoteTracker {
         }
         for (i, &x) in raw.iter().enumerate() {
             self.raw_ring[((self.pushed + i as u64) % len) as usize] = x;
+        }
+    }
+
+    /// Keeps the input before `dehum`, from `pushed` on; call before `store`.
+    fn store_heard(&mut self, chunk: &[f32]) {
+        let len = self.heard.len() as u64;
+        for (i, &x) in chunk.iter().enumerate() {
+            self.heard[((self.pushed + i as u64) % len) as usize] = x;
         }
     }
 
@@ -936,7 +949,7 @@ impl NoteTracker {
                     level_db,
                     source: self.config.source,
                     technique: Some(technique),
-                    over_background: false,
+                    over_background: self.dehum.stale(onset, midi, self.config.a4_hz),
                 },
                 until + (LEGATO_HOLD_S * self.sample_rate) as u64,
             ));
