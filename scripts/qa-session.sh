@@ -17,7 +17,10 @@
 #
 # Kontra binary: $KONTRA_BIN, else $CARGO_TARGET_DIR/debug/kontra, else target/debug/kontra.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# Paths given by the caller (--input-file, KONTRA_BIN, CARGO_TARGET_DIR) and --run hold from the
+# caller's folder; only the default binary is looked up in the repository.
+caller="$PWD"
+repo="$(cd "$(dirname "$0")/.." && pwd)"
 
 input="" a11y=0 size="1920x1080" keep=0 run=""
 while [ $# -gt 0 ]; do
@@ -32,6 +35,9 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+if [ -n "$input" ] && [ -f "$input" ]; then
+    input="$(realpath "$input")"
+fi
 if [ -z "$input" ] || [ ! -f "$input" ]; then
     echo "qa-session: --input-file with an existing file is required (never the real interface)" >&2
     exit 2
@@ -43,7 +49,8 @@ for arg in "$@"; do
     fi
 done
 
-app="${KONTRA_BIN:-${CARGO_TARGET_DIR:-target}/debug/kontra}"
+app="${KONTRA_BIN:-${CARGO_TARGET_DIR:-$repo/target}/debug/kontra}"
+app="$(realpath -m "$app")"
 if [ ! -x "$app" ]; then
     echo "qa-session: $app not found; cargo build -p kontra-app first" >&2
     exit 2
@@ -122,7 +129,7 @@ fi
 echo "qa-session: DISPLAY=:$display window $window data $work/data"
 
 if [ -n "$run" ]; then
-    DISPLAY=":$display" KONTRA_QA_WINDOW="$window" bash -c "$run"
+    (cd "$caller" && DISPLAY=":$display" KONTRA_QA_WINDOW="$window" bash -c "$run")
     exit $?
 fi
 wait "$app_pid"

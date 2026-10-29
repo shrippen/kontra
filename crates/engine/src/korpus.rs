@@ -5,8 +5,8 @@
 
 use crate::offline::{analyze_reported, cancel_echo};
 use kontra_dsp::synth::{
-    laptop_jack, render, render_articulated, room, Articulation, Noise, Played, SynthNote,
-    ToneShape,
+    add_noise, laptop_jack, render, render_articulated, room, Articulation, Noise, Played,
+    SynthNote, ToneShape,
 };
 use kontra_model::{
     hz_to_midi, DetectedNote, InputSource, Instrument, InstrumentKind, Technique, Tuning, A4_HZ,
@@ -51,10 +51,15 @@ pub enum KorpusSet {
     RoomDoubleBacking,
     /// Hammer-on, pull-off, slide, slap, pop and ghost notes among plucks (LH-BEW-06).
     Techniques,
+    /// No notes, line input (LH-NF-16): hum, noise floor, cable crackle, fingers on the
+    /// strings, a hand muting them.
+    IdleLine,
+    /// The same through a microphone in a room (P6).
+    IdleRoom,
 }
 
 impl KorpusSet {
-    pub const ALL: [KorpusSet; 8] = [
+    pub const ALL: [KorpusSet; 10] = [
         KorpusSet::Line4,
         KorpusSet::Line5,
         KorpusSet::LaptopJack4,
@@ -63,6 +68,8 @@ impl KorpusSet {
         KorpusSet::RoomDouble,
         KorpusSet::RoomDoubleBacking,
         KorpusSet::Techniques,
+        KorpusSet::IdleLine,
+        KorpusSet::IdleRoom,
     ];
 
     pub fn name(self) -> &'static str {
@@ -75,7 +82,14 @@ impl KorpusSet {
             KorpusSet::RoomDouble => "room-double",
             KorpusSet::RoomDoubleBacking => "room-double-backing",
             KorpusSet::Techniques => "techniques",
+            KorpusSet::IdleLine => "idle-line",
+            KorpusSet::IdleRoom => "idle-room",
         }
+    }
+
+    /// A set without notes: judged by false notes per minute, not by recall.
+    pub fn is_idle(self) -> bool {
+        matches!(self, KorpusSet::IdleLine | KorpusSet::IdleRoom)
     }
 
     pub fn instrument(self) -> Instrument {
@@ -83,10 +97,11 @@ impl KorpusSet {
             KorpusSet::Line4
             | KorpusSet::LaptopJack4
             | KorpusSet::Sixteenths
-            | KorpusSet::Techniques => (InstrumentKind::Fretted, Tuning::bass4_standard()),
+            | KorpusSet::Techniques
+            | KorpusSet::IdleLine => (InstrumentKind::Fretted, Tuning::bass4_standard()),
             KorpusSet::Line5 => (InstrumentKind::Fretted, Tuning::bass5_standard()),
             KorpusSet::Fretless5 => (InstrumentKind::Fretless, Tuning::bass5_standard()),
-            KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking => {
+            KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking | KorpusSet::IdleRoom => {
                 (InstrumentKind::Double, Tuning::bass4_standard())
             }
         };
@@ -96,7 +111,9 @@ impl KorpusSet {
     pub fn source(self) -> InputSource {
         match self {
             KorpusSet::LaptopJack4 => InputSource::LaptopJack,
-            KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking => InputSource::Microphone,
+            KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking | KorpusSet::IdleRoom => {
+                InputSource::Microphone
+            }
             _ => InputSource::Line,
         }
     }
@@ -171,6 +188,91 @@ pub fn band(len: usize, sample_rate: f64) -> Vec<f32> {
         *s += chords.get(i).copied().unwrap_or(0.0) + bass.get(i).copied().unwrap_or(0.0);
     }
     out
+}
+
+/// Length of a set without notes: long enough that "per minute" means something.
+const IDLE_S: f64 = 60.0;
+/// Mains hum (Europe); a ground loop brings it with odd harmonics.
+const HUM_HZ: f64 = 50.0;
+/// Hum partials as (multiple of `HUM_HZ`, level in dBFS).
+const HUM: [(f64, f32); 3] = [(1.0, -50.0), (3.0, -58.0), (5.0, -64.0)];
+const NOISE_FLOOR_DB: f32 = -66.0;
+/// Mean gap between two noises; each gap varies by ±0.5 s.
+const IDLE_EVERY_S: f64 = 1.5;
+
+/// A set without played notes (LH-NF-16): what a bass sounds like between the notes. Hum and a
+/// noise floor throughout, and every 1.5 s or so, in turn, a cable crackle, fingers on wound
+/// strings or a hand muting them; `IdleRoom` adds a room.
+///
+/// ```text
+/// ~~~~~~~~ hum + noise ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///   ┃ crackle      ░░ scrape      ▄ thump      ┃ crackle   …   (60 s)
+/// ```
+fn idle(set: KorpusSet) -> KorpusItem {
+    let sr = f64::from(SAMPLE_RATE);
+    let len = (IDLE_S * sr) as usize;
+    let amp = |db: f32| 10f32.powf(db / 20.0);
+    let mut samples: Vec<f32> = (0..len)
+        .map(|i| {
+            let t = i as f64 / sr;
+            HUM.iter()
+                .map(|(k, db)| amp(*db) * (std::f64::consts::TAU * HUM_HZ * k * t).sin() as f32)
+                .sum()
+        })
+        .collect();
+    add_noise(&mut samples, NOISE_FLOOR_DB, set as u64 + 13);
+
+    let mut noise = Noise::new(set as u64 + 11);
+    let mut t = 0.5;
+    let mut turn = 0;
+    while t < IDLE_S - 0.5 {
+        let at = &mut samples[(t * sr) as usize..];
+        match turn % 3 {
+            0 => crackle(at, sr, &mut noise),
+            1 => scrape(at, sr, &mut noise),
+            _ => thump(at, sr, &mut noise),
+        }
+        t += IDLE_EVERY_S + f64::from(noise.sample()) * 0.5;
+        turn += 1;
+    }
+
+    if set == KorpusSet::IdleRoom {
+        samples = room(&samples, sr, 5);
+    }
+    KorpusItem {
+        set,
+        sample_rate: SAMPLE_RATE,
+        notes: Vec::new(),
+        samples,
+    }
+}
+
+/// A loose plug: 3 ms of loud, fast-decaying noise.
+fn crackle(out: &mut [f32], sr: f64, noise: &mut Noise) {
+    let len = (0.003 * sr) as usize;
+    for (i, s) in out.iter_mut().take(len).enumerate() {
+        *s += 0.3 * noise.sample() * (-(i as f32) / (len as f32 / 4.0)).exp();
+    }
+}
+
+/// Fingers sliding on wound strings: 120 ms of hiss, swelling and fading, about −30 dBFS.
+fn scrape(out: &mut [f32], sr: f64, noise: &mut Noise) {
+    let len = (0.12 * sr) as usize;
+    for (i, s) in out.iter_mut().take(len).enumerate() {
+        let swell = (std::f32::consts::PI * i as f32 / len as f32).sin();
+        *s += 0.03 * swell * noise.sample();
+    }
+}
+
+/// A hand muting the strings: 30 ms of low, dull noise (one-pole low-pass at about 200 Hz).
+fn thump(out: &mut [f32], sr: f64, noise: &mut Noise) {
+    let len = (0.03 * sr) as usize;
+    let k = (std::f64::consts::TAU * 200.0 / sr) as f32;
+    let mut low = 0.0f32;
+    for (i, s) in out.iter_mut().take(len).enumerate() {
+        low += k * (noise.sample() - low);
+        *s += 1.5 * low * (-(i as f32) / (len as f32 / 3.0)).exp();
+    }
 }
 
 /// Generated audio with its annotation.
@@ -257,6 +359,9 @@ const TECHNIQUE_GLIDE_S: f64 = 0.08;
 pub fn generate(set: KorpusSet) -> KorpusItem {
     if set == KorpusSet::Techniques {
         return techniques();
+    }
+    if set.is_idle() {
+        return idle(set);
     }
     let instrument = set.instrument();
     let sr = f64::from(SAMPLE_RATE);
@@ -619,6 +724,9 @@ mod tests {
         }
     }
 
+    /// False notes in a minute without notes, until F3 is fixed (29.10.: 41 and 26).
+    const IDLE_GUARD: usize = 45;
+
     /// Lastenheft LH-NF-02 (onset < 10 ms) and LH-NF-03 (pitch ≥ 98 % line, ≥ 95 % laptop jack,
     /// ≥ 90 % at a microphone in a room, LH-EIN-11).
     #[test]
@@ -627,6 +735,16 @@ mod tests {
             let item = generate(set);
             let e = evaluate(set, &item.samples, item.sample_rate, &item.notes);
             eprintln!("{e:?}");
+            // LH-NF-16 (one false note a minute) is not met yet (ROADMAP F3): a guard.
+            if set.is_idle() {
+                assert!(
+                    e.detected <= IDLE_GUARD,
+                    "{}: {} false notes",
+                    set.name(),
+                    e.detected
+                );
+                continue;
+            }
             // LH-EIN-11: a microphone in a room needs ≥ 90 %.
             let room = matches!(set, KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking);
             let found = if room { 0.9 } else { 0.99 };

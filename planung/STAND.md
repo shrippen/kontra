@@ -177,6 +177,7 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - #111: `exercise::Level` (`ALL`, `key`, `from_key`, `Default`); `ExerciseKind::Song(Style, Level)`.
 - #100: `exercise::Style` (`ALL`, `key`, `from_key`, `minor`), `ExerciseKind::Song`.
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
+- A2: `Summary::recalibrate`, `Summary::{before_beat_hits, after_beat_hits}`.
 
 ## Für den Eigentümer
 

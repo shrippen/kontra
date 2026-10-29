@@ -194,10 +194,14 @@ schon. Bevy: kein Wechsel; Fernsteuerung über AT-SPI, Hot-Reload nur für Kurse
 Fehler (zuerst roter Test):
 - [x] F1 Volle Eingangs-Ringe verwerfen Samples stumm, spätere Zeitstempel zu früh (`crates/engine/src/input.rs`, #181).
 - [x] F2 Schwierigste Takte nach Fehlerzahl (LH-BEW-03, #182); offen: „Stelle üben“ aus dem dichtesten Fenster.
+- [ ] F3 Falschnoten im Leerlauf (LH-NF-16, gefunden mit E2, 29.10.): Jeder Knackser, jedes Kratzen und Dämpfen löst
+  einen Anschlag aus, die Tonhöhe kommt vom Netzbrummen (50 Hz, MIDI 31,35) oder fehlt. `idle-line` 41, `idle-room` 26
+  Falschnoten je Minute statt höchstens 1. Bis zum Fix hält eine Grenze (45) Verschlechterungen auf.
 
 Rückmeldung und Lernen:
-- [ ] A1 Eine Beobachtung je Durchlauf (LH-BEW-09).
-- [ ] A2 Hinweis „Neu kalibrieren?“ (LH-EIN-14).
+- [x] A1 Eine Beobachtung je Durchlauf (LH-BEW-09, #184).
+- [x] A2 Hinweis „Neu kalibrieren?“ (LH-EIN-14): in der Auswertung mit Knopf zur Kalibrierung in den Einstellungen;
+  nicht, wenn das gewählte Timing-Ziel die Neigung deckt (laid-back).
 - [ ] A3 Improvisation bewerten (LH-BEW-13).
 - [ ] A4 Adaptive Dichte über Abschnitts-Anteile (LH-MOD-06).
 - [ ] L1 Stellen wiederholen (LH-LRN-16).
@@ -213,12 +217,15 @@ Rückmeldung und Lernen:
 - [ ] L11 Shuffle-Klick (LH-WIE-04).
 
 Erkennung und Messung:
-- [ ] A5 `korpus confusion`: Verwechslung nach Intervall und Register.
+- [x] A5 `korpus confusion`: Verwechslung nach Intervall und Register. IDMT (29.10., ±80 ms): C1–B1 90,8 % richtig
+  (10 „other“, 11 verpasst), C2–B2 92,3 % (13 Halbtöne daneben), C3–B3 68,2 %, C4–B4 12,5 % (11 von 16 zwei Oktaven
+  tiefer gehört: Flageoletts, die Bewertung lässt sie in jeder Oktave gelten). Oktavfehler bei tiefen Tönen kaum (3 von
+  346 und 3 von 542).
 - [x] E1 Meldezeit je Note im Korpus (LH-NF-15): `korpus check` zeigt „p95 rep“. Erste Messung (29.10.): line-4 und
   laptop-jack-4 81 ms, line-5 und fretless-5 100 ms (tiefe H-Saite), sixteenths 82 ms, techniques 271 ms (Legato
   ohne Anschlag). Ziel 70 ms damit verfehlt; bis zur Entscheidung des Eigentümers eine Grenze bei 110 ms gegen
   Verschlechterung.
-- [ ] E2 Sätze ohne Noten, Falschnoten je Minute (LH-NF-16).
+- [x] E2 Sätze ohne Noten, Falschnoten je Minute (LH-NF-16): `idle-line`, `idle-room` (60 s, Brummen, Rauschen, Knackser, Kratzen, Dämpfen); Ziel verfehlt, siehe F3.
 - [ ] E3 Wächter und dauerhafter Eingangszustand (LH-EIN-15); Wächter und Pause der Bewertung umgesetzt, offen: dauerhafte Anzeige mit „Erneut versuchen“.
 - [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).
 - [ ] E5 Notenende (LH-BEW-10).
@@ -238,7 +245,7 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
 - [ ] W4 Tabelle Regel → Prüfung, Git-Hooks, CI-Prüfung der Commit-Nachrichten.
 - [x] W5 Test für Crate-Kanten und Dateigröße mit Abbauliste (`tests/physical_design.rs`, 1200 Zeilen je Datei; Abbauliste: appcore/lib.rs, bridge.rs, exercise.rs, PracticePage.qml, tracker.rs).
 - [ ] W6 `scripts/release.sh`, metainfo `<releases>`/`<screenshots>`, AppStream- und Flatpak-Lint.
-- [ ] W7 `cargo deny` mit `[advisories]`, eigener Job und wöchentlich.
+- [x] W7 `cargo deny` mit `[advisories]`, eigener Job und wöchentlich (`advisories.yml`); rustls auf 0.23.46, RUSTSEC-2025-0044 (minimp3) mit Begründung ignoriert.
 - [ ] W8 JSON-Schemas für Pakete und Kurse aus den serde-Strukturen.
 - [ ] W9 Kurs aus Ordner live (LH-LRN-21); QML von der Platte in Entwicklung.
 - [ ] W11 Glyphen-Test für Sonderzeichen.
