@@ -77,6 +77,97 @@ impl Tap {
     }
 }
 
+/// Marks a gap in the input ring: a NaN with its own payload, so a NaN from a device is not
+/// taken for one.
+const GAP_MARK: u32 = 0x7fc0_dead;
+/// Gaps the analysis may owe at once; more merge into the last one.
+const GAPS: usize = 64;
+
+/// Audio callback side of the input ring. A full ring (analysis behind) drops samples rather
+/// than block; their count goes to the analysis as a marker at the place they were lost, so
+/// the time of everything after stays right.
+///
+/// ```text
+/// samples  a b c [d e dropped] f     gap ring: 2
+/// ring     a b c  MARK          f    analysis: a b c 0 0 f
+/// ```
+struct Capture {
+    ring: rtrb::Producer<f32>,
+    gaps: rtrb::Producer<u64>,
+    /// Samples dropped since the last marker.
+    gap: u64,
+}
+
+impl Capture {
+    /// Copies `samples` into the ring without blocking or allocating.
+    fn push(&mut self, samples: &[f32]) {
+        for &s in samples {
+            if self.gap > 0 {
+                self.close_gap();
+            }
+            if self.gap > 0 || self.ring.push(s).is_err() {
+                self.gap += 1;
+            }
+        }
+    }
+
+    /// Writes the marker once the ring has room again.
+    fn close_gap(&mut self) {
+        if self.ring.slots() == 0 || self.gaps.slots() == 0 {
+            return;
+        }
+        let _ = self.gaps.push(self.gap);
+        let _ = self.ring.push(f32::from_bits(GAP_MARK));
+        self.gap = 0;
+    }
+}
+
+/// Analysis side of the input ring: gives the lost samples back as silence.
+struct Drain {
+    ring: rtrb::Consumer<f32>,
+    gaps: rtrb::Consumer<u64>,
+    /// Silent samples still owed for a gap.
+    owed: u64,
+}
+
+impl Drain {
+    /// Fills the front of `out` with the next samples; returns how many.
+    fn read(&mut self, out: &mut [f32]) -> usize {
+        let mut n = 0;
+        while n < out.len() {
+            if self.owed > 0 {
+                out[n] = 0.0;
+                self.owed -= 1;
+                n += 1;
+                continue;
+            }
+            let Ok(s) = self.ring.pop() else {
+                break;
+            };
+            if s.to_bits() == GAP_MARK {
+                self.owed = self.gaps.pop().unwrap_or(0);
+                continue;
+            }
+            out[n] = s;
+            n += 1;
+        }
+        n
+    }
+}
+
+/// The input ring for `capacity` samples.
+fn input_ring(capacity: usize) -> (Capture, Drain) {
+    let (ring, consumer) = rtrb::RingBuffer::<f32>::new(capacity);
+    let (gaps, gaps_consumer) = rtrb::RingBuffer::<u64>::new(GAPS);
+    let capture = Capture { ring, gaps, gap: 0 };
+    let drain = Drain {
+        ring: consumer,
+        gaps: gaps_consumer,
+        owed: 0,
+    };
+    (capture, drain)
+}
+
 /// Raw input kept for a take (hardware checks): the analysis thread, not the audio callback,
 /// appends while it is on.
 #[derive(Debug, Default)]
@@ -325,7 +416,7 @@ fn start_device(
     reference: Option<(Reference, u32)>,
 ) -> Result<Input, EngineError> {
     // The ring size depends on the sample rate, which we only know after opening; 192 kHz is the cap.
-    let (mut producer, mut consumer) = rtrb::RingBuffer::<f32>::new((RING_S * 192_000.0) as usize);
+    let (mut capture, mut drain) = input_ring((RING_S * 192_000.0) as usize);
     let started = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
     let started_cb = Arc::clone(&started);
     let started_input = Arc::clone(&started);
@@ -350,10 +441,7 @@ fn start_device(
                 u32::try_from(samples.len()).unwrap_or(u32::MAX),
                 Ordering::Relaxed,
             );
-            for &s in samples {
-                // A full ring means the analysis fell behind; dropping is better than blocking.
-                let _ = producer.push(s);
-            }
+            capture.push(samples);
             if let Some(tap) = tap.as_mut().filter(|_| monitor_cb.load(Ordering::Relaxed)) {
                 tap.push(samples);
             }
@@ -378,7 +466,7 @@ fn start_device(
         .spawn(move || {
             let mut block = vec![0.0f32; BLOCK];
             while !stop_worker.load(Ordering::Relaxed) {
-                let available = consumer.slots().min(BLOCK);
+                let available = drain.read(&mut block);
                 if available == 0 {
                     std::thread::sleep(IDLE);
                     continue;
@@ -386,9 +474,6 @@ fn start_device(
                 let start = f64::from_bits(started.load(Ordering::Relaxed));
                 if !start.is_nan() {
                     analysis.start_s = start;
-                }
-                for slot in block.iter_mut().take(available) {
-                    *slot = consumer.pop().unwrap_or(0.0);
                 }
                 recorder_worker.feed(&block[..available]);
                 let tuner = tuner_worker.load(Ordering::Relaxed);
@@ -682,6 +767,71 @@ fn start_midi_file(
 mod tests {
     use super::*;
     use kontra_drivers::{write_wav, AudioBuffer};
+
+    /// A ring that overflows (analysis behind) keeps the timeline: what was dropped comes out as
+    /// silence in its place, so a later sample keeps its position and every note after the gap
+    /// its time.
+    ///
+    /// ```text
+    /// pushed   0 0 0 0 0 0 | 1        ring holds 4, drops 2
+    /// drained  0 0 0 0 0 0 | 1        1 at index 6, not 4
+    /// ```
+    #[test]
+    fn overflow_keeps_the_timeline() {
+        let (mut capture, mut drain) = input_ring(4);
+        let mut out = vec![0.0f32; 16];
+        let mut drained = Vec::new();
+
+        capture.push(&[0.0; 6]);
+        let n = drain.read(&mut out);
+        drained.extend_from_slice(&out[..n]);
+
+        capture.push(&[1.0]);
+        loop {
+            let n = drain.read(&mut out);
+            if n == 0 {
+                break;
+            }
+            drained.extend_from_slice(&out[..n]);
+        }
+
+        assert_eq!(
+            drained.iter().position(|s| *s == 1.0),
+            Some(6),
+            "{drained:?}"
+        );
+    }
+
+    /// Two overflows with reading in between: each gap comes back in its place.
+    #[test]
+    fn gaps_stay_in_order() {
+        let (mut capture, mut drain) = input_ring(4);
+        let mut out = vec![0.0f32; 4];
+        let mut drained = Vec::new();
+        let mut read_all = |drain: &mut Drain, drained: &mut Vec<f32>| loop {
+            let n = drain.read(&mut out);
+            if n == 0 {
+                break;
+            }
+            drained.extend_from_slice(&out[..n]);
+        };
+
+        capture.push(&[0.1, 0.1, 0.1, 0.1, 0.1]);
+        read_all(&mut drain, &mut drained);
+        capture.push(&[0.2, 0.3, 0.3, 0.3, 0.3, 0.3]);
+        read_all(&mut drain, &mut drained);
+        capture.push(&[0.4]);
+        read_all(&mut drain, &mut drained);
+
+        // 5 + 6 + 1 samples; the dropped ones (one 0.1, two 0.3) come back as silence.
+        assert_eq!(drained.len(), 12, "{drained:?}");
+        assert_eq!(
+            drained.iter().position(|s| *s == 0.2),
+            Some(5),
+            "{drained:?}"
+        );
+        assert_eq!(drained.last(), Some(&0.4), "{drained:?}");
+    }
 
     /// LH-EIN-12: a MIDI file plays like a keyboard: note-ons at their times on the engine
     /// clock, exact pitch, note-offs dropped.
