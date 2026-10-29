@@ -4,7 +4,8 @@
 //! device / file ─► input callback ─► ring ─► analysis thread ─┬─ NoteTracker ─► Event::Note
 //!                                                             ├─ Tuner ───────► Event::Tuner
 //!                                                             ├─ level ───────► Event::Level
-//!                                                             └─ heard until ─► Event::Heard
+//!                                                             ├─ heard until ─► Event::Heard
+//!                                                             └─ watch ───────► Event::Stalled/Resumed
 //! MIDI keyboard / .mid ─► note-on (exact, no analysis) ─────────────────────────► Event::Note
 //! control ─► command ring ─► output callback (clicks, reference tones) ─► device
 //! ```
@@ -58,6 +59,14 @@ pub enum Event {
     /// The analysis has heard the input up to `at_s`; under load it runs behind the clock,
     /// and a note may still come for any time after it.
     Heard {
+        at_s: f64,
+    },
+    /// The device stopped delivering (LH-EIN-15): heard up to `at_s`, nothing since for 250 ms.
+    Stalled {
+        at_s: f64,
+    },
+    /// The device delivers again from `at_s`; the time since `Stalled` was not heard.
+    Resumed {
         at_s: f64,
     },
     /// File input reached its end.

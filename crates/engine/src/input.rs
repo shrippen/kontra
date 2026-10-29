@@ -22,6 +22,8 @@ const LEVEL_S: f64 = 0.05;
 const BLOCK: usize = 480;
 const IDLE: Duration = Duration::from_millis(2);
 const CLIP_DB: f32 = -0.5;
+/// No data from the device this long: it has stopped delivering (LH-EIN-15).
+const STALL_S: f64 = 0.25;
 /// MIDI velocity of a full-scale note.
 const VELOCITY_MAX: f32 = 127.0;
 const US_PER_S: f64 = 1e6;
@@ -153,6 +155,68 @@ impl Drain {
             n += 1;
         }
         n
+    }
+
+    /// Samples waiting to be read, lost ones included.
+    fn backlog(&self) -> usize {
+        usize::try_from(self.owed).unwrap_or(usize::MAX) + self.ring.slots()
+    }
+}
+
+/// Watches a device for stalls (LH-EIN-15): no data for `STALL_S` → `Event::Stalled`; data
+/// again → `Event::Resumed`. The device dropped what it did not deliver, so the samples after
+/// a stall count from when they came, not from where the count stopped.
+///
+/// ```text
+/// device   ██████·········· nothing for 0.8 s ··········██████
+/// events         Stalled{at_s: 2.0}                     Resumed{at_s: 2.8}
+/// stamps   …1.9 2.0                                     2.8 2.9…   (shift 0.8 s)
+/// ```
+struct Watch {
+    last_data_s: f64,
+    stalled: bool,
+    /// Time lost in stalls, added to the input's start.
+    shift_s: f64,
+}
+
+impl Watch {
+    fn new(now_s: f64) -> Watch {
+        Watch {
+            last_data_s: now_s,
+            stalled: false,
+            shift_s: 0.0,
+        }
+    }
+
+    /// No data at `now_s`; heard up to `heard_s` (`None`: nothing yet, since the watch began).
+    fn idle(&mut self, now_s: f64, heard_s: Option<f64>) -> Option<Event> {
+        if self.stalled || now_s - self.last_data_s < STALL_S {
+            return None;
+        }
+        self.stalled = true;
+        Some(Event::Stalled {
+            at_s: heard_s.unwrap_or(self.last_data_s),
+        })
+    }
+
+    /// Data at `now_s` with `backlog_s` of it waiting; without a new shift it would continue at
+    /// `heard_s` (`None`: the first data, its start is taken as it comes).
+    fn data(&mut self, now_s: f64, heard_s: Option<f64>, backlog_s: f64) -> Option<Event> {
+        self.last_data_s = now_s;
+        if !std::mem::take(&mut self.stalled) {
+            return None;
+        }
+        let Some(heard_s) = heard_s else {
+            return Some(Event::Resumed {
+                at_s: now_s - backlog_s,
+            });
+        };
+        // What is waiting ends now; the time before it that no sample covers was lost.
+        let lost_s = (now_s - backlog_s - heard_s).max(0.0);
+        self.shift_s += lost_s;
+        Some(Event::Resumed {
+            at_s: heard_s + lost_s,
+        })
     }
 }
 
@@ -345,6 +409,14 @@ impl Analysis {
         }
     }
 
+    /// Heard up to here; `None` before the first sample.
+    fn heard_s(&self) -> Option<f64> {
+        if self.analysed == 0 {
+            return None;
+        }
+        Some(self.start_s + self.analysed as f64 / self.sample_rate)
+    }
+
     fn process(&mut self, block: &[f32], tuner_on: bool, events: &Sender<Event>) {
         for note in self.tracker.push(block) {
             let mut note = *note;
@@ -462,19 +534,34 @@ fn start_device(
     let tuner_worker = Arc::clone(&tuner_on);
     let recorder = Arc::new(Recorder::default());
     let recorder_worker = Arc::clone(&recorder);
+    let clock_worker = clock.clone();
     let worker = std::thread::Builder::new()
         .name("kontra-analysis".into())
         .spawn(move || {
             let mut block = vec![0.0f32; BLOCK];
+            let mut watch = Watch::new(clock_worker.now_s());
+            let rate = f64::from(sample_rate);
             while !stop_worker.load(Ordering::Relaxed) {
+                let backlog = drain.backlog();
                 let available = drain.read(&mut block);
                 if available == 0 {
+                    if let Some(e) = watch.idle(clock_worker.now_s(), analysis.heard_s()) {
+                        let _ = events.send(e);
+                    }
                     std::thread::sleep(IDLE);
                     continue;
                 }
+                let resumed = watch.data(
+                    clock_worker.now_s(),
+                    analysis.heard_s(),
+                    backlog as f64 / rate,
+                );
                 let start = f64::from_bits(started.load(Ordering::Relaxed));
                 if !start.is_nan() {
-                    analysis.start_s = start;
+                    analysis.start_s = start + watch.shift_s;
+                }
+                if let Some(e) = resumed {
+                    let _ = events.send(e);
                 }
                 recorder_worker.feed(&block[..available]);
                 let tuner = tuner_worker.load(Ordering::Relaxed);
@@ -768,6 +855,41 @@ fn start_midi_file(
 mod tests {
     use super::*;
     use kontra_drivers::{write_wav, AudioBuffer};
+
+    /// LH-EIN-15: 0.8 s without data → one Stalled after 250 ms, then Resumed where the new
+    /// samples really start; the lost time shifts the stamps after it.
+    #[test]
+    fn stall_is_told_and_shifts_the_time() {
+        let mut watch = Watch::new(0.0);
+        assert!(watch.data(0.01, None, 0.01).is_none(), "no stall yet");
+        assert!(watch.idle(0.2, Some(1.0)).is_none(), "under 250 ms");
+        assert!(matches!(watch.idle(1.3, Some(1.0)), Some(Event::Stalled { at_s }) if at_s == 1.0));
+        assert!(watch.idle(1.5, Some(1.0)).is_none(), "told once");
+
+        // Data again at 1.8 s, 10 ms of it waiting: 1.0 to 1.79 was lost.
+        let Some(Event::Resumed { at_s }) = watch.data(1.8, Some(1.0), 0.01) else {
+            panic!("resumed");
+        };
+        assert!((at_s - 1.79).abs() < 1e-9, "{at_s}");
+        assert!((watch.shift_s - 0.79).abs() < 1e-9, "{}", watch.shift_s);
+        assert!(watch.data(1.81, Some(1.8), 0.01).is_none());
+    }
+
+    /// A device that delivers late but all of it (a burst) lost nothing: no shift.
+    #[test]
+    fn late_burst_keeps_the_time() {
+        let mut watch = Watch::new(0.0);
+        assert!(watch.idle(0.3, None).is_some());
+        assert!(matches!(watch.data(0.4, None, 0.4), Some(Event::Resumed { at_s }) if at_s == 0.0));
+
+        let mut watch = Watch::new(0.0);
+        watch.data(0.0, None, 0.0);
+        watch.idle(1.4, Some(1.0));
+        let Some(Event::Resumed { at_s }) = watch.data(1.5, Some(1.0), 0.5) else {
+            panic!("resumed");
+        };
+        assert_eq!((at_s, watch.shift_s), (1.0, 0.0));
+    }
 
     /// A ring that overflows (analysis behind) keeps the timeline: what was dropped comes out as
     /// silence in its place, so a later sample keeps its position and every note after the gap

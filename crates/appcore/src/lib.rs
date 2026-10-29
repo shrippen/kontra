@@ -2844,6 +2844,9 @@ impl Core {
             PracticeEvent::Error(m) => Some(UiEvent::DeviceLost(
                 self.tr("error.device.lost", &[("reason", m)]),
             )),
+            // The device stopped delivering (LH-EIN-15): judging pauses, the player hears why.
+            PracticeEvent::InputStalled => Some(UiEvent::Message(self.tr("input.stalled", &[]))),
+            PracticeEvent::InputResumed => Some(UiEvent::Message(self.tr("input.resumed", &[]))),
             PracticeEvent::InputEnded | PracticeEvent::Heard { .. } => None,
             PracticeEvent::Session(e) => self.session_event(e),
         }

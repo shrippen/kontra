@@ -197,6 +197,8 @@
   "settings.playmarks.off": "Off",
   "settings.playmarks.full": "Full",
   "error.device.lost": "The audio device is gone ({reason}). Plug it back in and press play.",
+  "input.stalled": "No signal from the device: scoring pauses until sound comes again.",
+  "input.resumed": "The device delivers again; the gap does not count as mistakes.",
   "workshop.bars": "Bars",
   "workshop.from": "From bar",
   "workshop.to": "to",

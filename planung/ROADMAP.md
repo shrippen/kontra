@@ -216,7 +216,7 @@ Erkennung und Messung:
 - [ ] A5 `korpus confusion`: Verwechslung nach Intervall und Register.
 - [ ] E1 Meldezeit je Note im Korpus (LH-NF-15).
 - [ ] E2 Sätze ohne Noten, Falschnoten je Minute (LH-NF-16).
-- [ ] E3 Wächter und dauerhafter Eingangszustand (LH-EIN-15).
+- [ ] E3 Wächter und dauerhafter Eingangszustand (LH-EIN-15); Wächter und Pause der Bewertung umgesetzt, offen: dauerhafte Anzeige mit „Erneut versuchen“.
 - [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).
 - [ ] E5 Notenende (LH-BEW-10).
 - [ ] E6 Rauschboden bei der Kalibrierung (LH-EIN-16).
