@@ -199,8 +199,9 @@ Fehler (zuerst roter Test):
   Falschnoten je Minute statt höchstens 1. Bis zum Fix hält eine Grenze (45) Verschlechterungen auf.
 
 Rückmeldung und Lernen:
-- [ ] A1 Eine Beobachtung je Durchlauf (LH-BEW-09).
-- [ ] A2 Hinweis „Neu kalibrieren?“ (LH-EIN-14).
+- [x] A1 Eine Beobachtung je Durchlauf (LH-BEW-09, #184).
+- [x] A2 Hinweis „Neu kalibrieren?“ (LH-EIN-14): in der Auswertung mit Knopf zur Kalibrierung in den Einstellungen;
+  nicht, wenn das gewählte Timing-Ziel die Neigung deckt (laid-back).
 - [ ] A3 Improvisation bewerten (LH-BEW-13).
 - [ ] A4 Adaptive Dichte über Abschnitts-Anteile (LH-MOD-06).
 - [ ] L1 Stellen wiederholen (LH-LRN-16).
