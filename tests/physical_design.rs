@@ -46,37 +46,72 @@ fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
+/// Where a line of a `Cargo.toml` stands, for the layers.
+enum Section {
+    /// Not a layered dependency section (`[package]`, `[dev-dependencies]`, …).
+    Other,
+    /// `[dependencies]`, `[build-dependencies]`: one dependency per line.
+    List,
+    /// `[dependencies.engine]`: one dependency, named by the table or its `package`.
+    Table(String),
+}
+
+impl Section {
+    fn of(header: &str) -> Section {
+        if header.contains("dev-dependencies") {
+            return Section::Other;
+        }
+        if header.ends_with("dependencies") {
+            return Section::List;
+        }
+        match header.rsplit_once('.') {
+            Some((section, key)) if section.ends_with("dependencies") => {
+                Section::Table(key.to_string())
+            }
+            _ => Section::Other,
+        }
+    }
+}
+
 /// The Kontra crates in the dependency sections of a `Cargo.toml` that count for the layers.
 /// Example: `kontra-model.workspace = true` under `[dependencies]` → "model"; so do
 /// `[dependencies.kontra-model]` and `model = { package = "kontra-model", … }`.
 fn layered_deps(manifest: &str) -> Vec<String> {
     let mut deps = Vec::new();
-    let mut counts = false;
+    let mut section = Section::Other;
     for line in manifest.lines() {
         // Comments off: `[dependencies] # …` is still the header.
         let line = line.split('#').next().unwrap_or_default().trim();
         if let Some(header) = line.strip_prefix('[').and_then(|l| l.strip_suffix(']')) {
-            let layered = !header.contains("dev-dependencies");
-            counts = layered && header.ends_with("dependencies");
-            // `[dependencies.kontra-engine]`: the table names the crate.
-            if let Some((section, dep)) = header.rsplit_once('.') {
-                if layered && section.ends_with("dependencies") {
-                    deps.extend(kontra_name(dep));
+            if let Section::Table(name) = &section {
+                deps.extend(kontra_name(name));
+            }
+            section = Section::of(header);
+            continue;
+        }
+        match &mut section {
+            Section::Other => {}
+            // A renamed dependency counts by its package, not its key.
+            Section::List => deps.extend(kontra_name(package(line).unwrap_or(line))),
+            Section::Table(name) => {
+                if let Some(renamed) = package(line) {
+                    *name = renamed.to_string();
                 }
             }
-            continue;
         }
-        if !counts {
-            continue;
-        }
-        // A renamed dependency counts by its package, not its key.
-        let name = match line.split_once("package") {
-            Some((_, rest)) => rest.trim_start_matches([' ', '=', '"']),
-            None => line,
-        };
+    }
+    if let Section::Table(name) = &section {
         deps.extend(kontra_name(name));
     }
     deps
+}
+
+/// The value of a `package = "…"` key in `line` (either quote), not "package" in a path.
+fn package(line: &str) -> Option<&str> {
+    let (before, after) = line.split_once("package")?;
+    let key_starts = before.is_empty() || before.ends_with([' ', '{', ',']);
+    let value = after.trim_start().strip_prefix('=')?;
+    key_starts.then(|| value.trim_start().trim_start_matches(['"', '\'']))
 }
 
 /// "engine" from "kontra-engine…"; nothing for other crates.
@@ -103,6 +138,16 @@ fn reads_every_spelling() {
                     [dependencies] # layered\nengine = { package = \"kontra-dsp\", path = \"x\" }\n\
                     [dev-dependencies.kontra-session]\nworkspace = true\n";
     assert_eq!(layered_deps(manifest), ["engine", "dsp"]);
+
+    // "package" in a path is no rename; single quotes are TOML too; a table renames as well.
+    let manifest = "[dependencies]\nkontra-dsp = { path = \"../package/dsp\" }\n\
+                    model = { package = 'kontra-model' }\n\
+                    [dependencies.store]\npackage = \"kontra-drivers\"\n\
+                    [build-dependencies.kontra-engine]\nworkspace = true\n";
+    assert_eq!(
+        layered_deps(manifest),
+        ["dsp", "model", "drivers", "engine"]
+    );
 }
 
 #[test]
