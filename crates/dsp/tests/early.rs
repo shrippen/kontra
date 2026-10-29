@@ -107,3 +107,28 @@ fn early_tap_before_the_pluck_is_taken_back() {
     assert!((told[0].onset_s - 0.26).abs() < 0.005, "{told:?}");
     assert!(told[0].level_db > -6.0, "{told:?}");
 }
+
+#[test]
+fn soft_note_stays_before_a_later_accent() {
+    // A soft note told early, then an accent 300 ms or 1 s later: no precursor, it stays.
+    // The full window's search ends at the pitch timeout (150 ms) with or without a pitch;
+    // only an attack before that can take the note back. The short soft note gives the full
+    // window little to hear.
+    let hz = Pitch::parse("G2").map_or(0.0, |p| p.hz(A4_HZ));
+    for soft_s in [0.045, 0.25] {
+        for gap_s in [0.3, 1.0] {
+            let soft = bass_tone(hz, SR, soft_s, ToneShape::Rich, 10);
+            let accent = bass_tone(hz, SR, 0.5, ToneShape::Rich, 11);
+            let mut signal = vec![0.0; (LEAD_S * SR) as usize];
+            signal.extend(soft.iter().map(|x| x * 0.03));
+            signal.resize(((LEAD_S + gap_s) * SR) as usize, 0.0);
+            signal.extend(accent.iter().map(|x| x * 0.9));
+            signal.extend(std::iter::repeat_n(0.0, (0.3 * SR) as usize));
+            let (told, retracted) = track(&signal);
+            let at = format!("{soft_s} s soft, accent after {gap_s} s");
+            assert!(retracted.is_empty(), "{at}: {retracted:?}");
+            assert_eq!(told.len(), 2, "{at}: {told:?}");
+            assert!((told[0].onset_s - LEAD_S).abs() < 0.005, "{at}: {told:?}");
+        }
+    }
+}

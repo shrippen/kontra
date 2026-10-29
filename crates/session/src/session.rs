@@ -547,23 +547,27 @@ impl Session {
         self.struck
             .retain(|(onset, _, _)| (onset - retraction.onset_s).abs() >= REVISION_MATCH_S);
 
-        // Each note it took is open again.
+        // Each note it took is open again; Wait mode waits for the first of them in this pass.
+        let mut first: Option<usize> = None;
         for r in removed {
             let Some(slot) = r.note.and_then(|note| self.slot_of(note, r.position_s)) else {
                 continue;
             };
             self.reopen(r.pass, slot);
+            if r.pass == self.transport.pass() {
+                first = Some(first.map_or(slot, |f| f.min(slot)));
+            }
+        }
+        if let Some(slot) = first.filter(|_| matches!(self.mode, Mode::Wait)) {
+            self.cursor_slot = self.cursor_slot.min(slot);
         }
     }
 
     /// The note at `slot` of `pass` lost its detection: open for the next one, or missed when
-    /// the clock already passed it. Wait mode waits for it again.
+    /// the clock already passed it (not in Wait mode, which waits for it again).
     fn reopen(&mut self, pass: u32, slot: usize) {
         self.matcher.release(pass, slot);
         if matches!(self.mode, Mode::Wait) {
-            if self.cursor_slot == slot + 1 {
-                self.cursor_slot = slot;
-            }
             return;
         }
         let passed = (self.cursor_pass, self.cursor_slot) > (pass, slot);
@@ -816,6 +820,10 @@ impl Session {
         self.remember_struck(note.onset_s, pass, target.index);
         self.matcher.resolve(pass, self.cursor_slot);
         self.cursor_slot += 1;
+        // Notes already played after a note taken back and played again (`on_retraction`).
+        while self.matcher.is_resolved(pass, self.cursor_slot) {
+            self.cursor_slot += 1;
+        }
         if self.holding {
             self.holding = false;
             self.transport.release(real_s);

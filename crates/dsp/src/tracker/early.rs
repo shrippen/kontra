@@ -59,7 +59,8 @@ impl NoteTracker {
             return false;
         };
         // The search sees the new attack only once it runs (`RISE_AFTER_S` later); what counts
-        // is whether its first full window ends before the attack.
+        // is whether its first full window ends before the attack. Without a pitch it still
+        // ends at the timeout (150 ms, `search`): a later attack finds no `confirm` here.
         if onset >= self.full_try(c.search.onset) && c.search.best.is_some() {
             return false;
         }

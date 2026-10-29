@@ -131,3 +131,19 @@ fn wait_mode_waits_again() {
     assert_eq!(s.next_expected().map(|e| e.index), Some(1));
     assert_eq!(of_note(&s, 0), vec![Outcome::Hit], "{:?}", s.results());
 }
+
+#[test]
+fn wait_mode_goes_back_to_the_reopened_note() {
+    // The cursor moved on past the next note before the tap was taken back: Kontra waits for
+    // the reopened D2 again, then goes on after the notes already played.
+    let mut s = Session::new(piece(), Mode::Wait, ScoreSettings::default());
+    s.play(0.0);
+    run(&mut s, 0.0, 0.05);
+    s.on_note(&played(0.04, 38.0, -32.0));
+    s.on_note(&played(0.05, 40.0, -3.0));
+    assert_eq!(s.next_expected().map(|e| e.index), Some(2));
+    s.on_retraction(&taken_back(0.04));
+    assert_eq!(s.next_expected().map(|e| e.index), Some(0), "waits again");
+    s.on_note(&played(0.1, 38.0, -3.0));
+    assert_eq!(s.next_expected().map(|e| e.index), Some(2), "E2 was played");
+}
