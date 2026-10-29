@@ -47,6 +47,8 @@ use kontra_model::{
     TechniqueRevision,
 };
 
+mod background;
+
 const RETRY_S: f64 = 0.005;
 const LEVEL_SPAN_S: f64 = 0.02;
 /// Level before an onset: peak over this span, ending `RISE_GAP_S` before it (−20..−8 ms). The
@@ -426,6 +428,9 @@ pub struct NoteTracker {
     /// An onset waiting for the level after it (`RISE_AFTER_S`), at most one at a time.
     candidate: Option<u64>,
     sounding: Option<Sounding>,
+    /// Pitch (MIDI) of the last note told, legato and revised ones too: a background with it is
+    /// that note ringing, not a sound of its own (`stands_out`).
+    last_midi: Option<f64>,
     /// A legato note waiting for `LEGATO_HOLD_S`, and the sample it is due at.
     legato: Option<(DetectedNote, u64)>,
     out: Vec<DetectedNote>,
@@ -460,6 +465,7 @@ impl NoteTracker {
             pending: None,
             candidate: None,
             sounding: None,
+            last_midi: None,
             legato: None,
             out: Vec::with_capacity(16),
             strikes: [None; STRIKES_WAITING],
@@ -637,6 +643,7 @@ impl NoteTracker {
         // just before it was this attack.
         if let Some(mut s) = self.sounding {
             self.settle(&mut s, onset);
+            self.last_midi = Some(s.midi);
         }
         self.sounding = None;
         self.legato = None;
@@ -763,12 +770,18 @@ impl NoteTracker {
         }
     }
 
-    fn emit(&mut self, p: Pending) {
+    fn emit(&mut self, mut p: Pending) {
+        if !self.stands_out(&p) {
+            p.best = None;
+        }
         let level_db = self.level_after(p.report);
         let (midi, confidence) = match p.best {
             Some(b) => (hz_to_midi(b.hz, self.config.a4_hz), b.confidence),
             None => (0.0, 0.0),
         };
+        if p.best.is_some() {
+            self.last_midi = Some(midi);
+        }
         // An attack without a pitch is a dead (muted) note; one with a pitch is judged on its
         // attack, now or, when its audio is not there yet, by a revision later.
         let technique = match p.best {

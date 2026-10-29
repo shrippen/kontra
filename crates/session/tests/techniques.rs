@@ -208,6 +208,20 @@ fn dead_note_played_muted_hits() {
     assert!(first.is_hit(), "{first:?}");
 }
 
+/// A pitchless attack where no note is due (a click or scrape on the strings, LH-NF-16) is no
+/// extra note: without a pitch it can only be a dead note, and none is written there.
+#[test]
+fn pitchless_attack_off_the_notes_is_no_extra() {
+    let mut s = Session::new(piece(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    run(&mut s, &[played(0.25, 0.0, Some(Technique::Muted))], 0.6);
+    assert!(
+        s.results().iter().all(|r| r.note.is_some()),
+        "{:?}",
+        s.results()
+    );
+}
+
 /// A dead note heard with a pitch is told muted only later (the attack needs more audio): the
 /// revision turns its wrong pitch into a hit, in song mode and while waiting.
 #[test]

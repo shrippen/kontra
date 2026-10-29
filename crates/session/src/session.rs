@@ -287,6 +287,11 @@ impl Session {
             self.events.push(SessionEvent::Technique(t));
             return;
         }
+        // Without a pitch an attack can only be a dead note: where none is due it is a click or
+        // scrape, not an extra note (LH-NF-16).
+        if note.is_pitchless() && !self.matcher.has_candidate(pass, position, window, range) {
+            return;
+        }
         let (result, claim) = self.matcher.score(
             pass,
             position,

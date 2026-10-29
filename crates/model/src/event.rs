@@ -36,6 +36,13 @@ pub struct DetectedNote {
     pub technique: Option<crate::Technique>,
 }
 
+impl DetectedNote {
+    /// An attack without a pitch (`midi` 0): a dead note, or a click or scrape on the strings.
+    pub fn is_pitchless(&self) -> bool {
+        self.midi <= 0.0
+    }
+}
+
 /// A technique told after its note was emitted (LH-BEW-06): judging an attack needs about 110 ms
 /// of it, more than the note waits for its pitch. Matches the note by its `onset_s`.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
