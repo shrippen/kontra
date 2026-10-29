@@ -214,7 +214,10 @@ Rückmeldung und Lernen:
 
 Erkennung und Messung:
 - [ ] A5 `korpus confusion`: Verwechslung nach Intervall und Register.
-- [ ] E1 Meldezeit je Note im Korpus (LH-NF-15).
+- [x] E1 Meldezeit je Note im Korpus (LH-NF-15): `korpus check` zeigt „p95 rep“. Erste Messung (29.10.): line-4 und
+  laptop-jack-4 81 ms, line-5 und fretless-5 100 ms (tiefe H-Saite), sixteenths 82 ms, techniques 271 ms (Legato
+  ohne Anschlag). Ziel 70 ms damit verfehlt; bis zur Entscheidung des Eigentümers eine Grenze bei 110 ms gegen
+  Verschlechterung.
 - [ ] E2 Sätze ohne Noten, Falschnoten je Minute (LH-NF-16).
 - [ ] E3 Wächter und dauerhafter Eingangszustand (LH-EIN-15).
 - [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).
