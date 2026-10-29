@@ -121,7 +121,7 @@ fn late_take_asks_to_recalibrate() {
 
     let free = hint("free");
     assert!(
-        free.starts_with("Die meisten Treffer liegen hinter dem Schlag, im Mittel 2"),
+        free.starts_with("Liegen die Treffer so beständig hinter dem Schlag (im Mittel 2"),
         "{free}"
     );
     assert_eq!(hint("laidback"), "");

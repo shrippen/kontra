@@ -311,7 +311,8 @@ impl Summary {
         if self.hits < OBSERVE_MIN_HITS {
             return None;
         }
-        let mean = self.mean_offset_ms?;
+        // Whole ms, like the aim: 5.3 ms is held on the beat.
+        let mean = self.mean_offset_ms?.round();
         if mean.abs() < RECALIBRATE_MS {
             return None;
         }
@@ -326,7 +327,7 @@ impl Summary {
         }
 
         // With an aim, only a mean outside it on the same side.
-        match (pocket.judge(mean.round()), side) {
+        match (pocket.judge(mean), side) {
             (None, _)
             | (Some(PocketVerdict::Early(_)), Side::Early)
             | (Some(PocketVerdict::Late(_)), Side::Late) => Some(side),
@@ -380,7 +381,6 @@ impl Summary {
         if self.hits < OBSERVE_MIN_HITS {
             return None;
         }
-
         // A missed aim outweighs a lean: the player chose where to sit. Judged in whole ms,
         // like the pocket line: 5.3 ms against ±5 ms is held, not "0 ms behind".
         let verdict = self.mean_offset_ms.and_then(|m| pocket.judge(m.round()));
@@ -700,6 +700,8 @@ mod tests {
             None,
             "near the beat"
         );
+        // Judged in whole ms like the aim: 5.3 ms is held on the beat, no hint.
+        assert_eq!(summary(&[5.3; 10]).recalibrate(Pocket::OnBeat), None);
     }
 
     /// LH-BEW-09: one observation per run, each only with enough notes behind it.

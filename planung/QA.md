@@ -138,8 +138,9 @@ Erwartet: Histogramm mit Achse und Legende; Tendenz in Worten („meist 18 ms zu
 Unter der Trefferquote genau eine Beobachtung mit dem nächsten Schritt („3 von 8 Noten saßen noch nicht. Langsamer üben …“);
 nach einem kurzen Lauf (unter 8 Noten) keine, ebenso unter 8 Treffern ohne andere Aussage.
 4. Ziel auf „Frei“, Aufnahme mit konstanter Tendenz „25 ms zu spät“.
-Erwartet: Hinweis „Die meisten Treffer liegen hinter dem Schlag, im Mittel 25 ms …“ mit Knopf „Neu kalibrieren“, der zur
-Kalibrierung in den Einstellungen führt; keine Korrektur ohne Zutun. Mit Ziel laid-back kein Hinweis (LH-EIN-14).
+Erwartet: in derselben Beobachtung der Zusatz „… kann auch die gemessene Latenz nicht mehr stimmen“ mit Knopf „Neu
+kalibrieren“, der zur Kalibrierung in den Einstellungen führt; keine Korrektur ohne Zutun. Mit Ziel laid-back kein
+Zusatz (LH-EIN-14).
 
 **J-C3 MusicXML und Groove** · Persona: P3 Mira · Phase 2 · LH-BIB-03, LH-LRN-01, LH-LRN-04
 1. MuseScore-Export (MusicXML) importieren, in der Notenansicht spielen.

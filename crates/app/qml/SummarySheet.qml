@@ -73,26 +73,19 @@ KanteCard {
             label: sheet.summary ? sheet.summary.countsText : ""
         }
 
-        // The one thing to hear from this run (LH-BEW-09); none for a short run.
+        // The one thing to hear from this run (LH-BEW-09); none for a short run. A lean that may
+        // be the latency says so in the same hint, with the way to calibrate, never a correction
+        // (LH-EIN-14).
         readonly property var observation: sheet.summary ? sheet.summary.observation : null
-        KanteCallout {
-            Layout.fillWidth: true
-            visible: content.observation !== null && content.observation !== undefined
-            kind: content.observation && content.observation.solid ? KanteCallout.Kind.Ok : KanteCallout.Kind.Info
-            autoHide: false
-            text: content.observation ? content.observation.text : ""
-        }
-
-        // The hits lean so steadily that the latency may be wrong (LH-EIN-14): a hint with the
-        // way to calibrate, never a correction.
         readonly property string recalibrate: sheet.summary && sheet.summary.recalibrateText ? sheet.summary.recalibrateText : ""
         KanteCallout {
             Layout.fillWidth: true
-            visible: content.recalibrate !== ""
-            kind: KanteCallout.Kind.Info
+            visible: (content.observation !== null && content.observation !== undefined) || content.recalibrate !== ""
+            kind: content.observation && content.observation.solid && content.recalibrate === "" ? KanteCallout.Kind.Ok : KanteCallout.Kind.Info
             autoHide: false
-            text: content.recalibrate
+            text: [content.observation ? content.observation.text : "", content.recalibrate].filter(function(t) { return t !== "" }).join(" ")
             KanteButton {
+                visible: content.recalibrate !== ""
                 text: texts.t("summary.recalibrate.button")
                 // To the settings: the calibration there says how it goes before it starts.
                 onClicked: {

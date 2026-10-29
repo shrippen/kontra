@@ -3183,8 +3183,9 @@ impl Core {
         json!({ "solid": observation == Observation::Solid, "text": text })
     }
 
-    /// "Die meisten Treffer liegen hinter dem Schlag, im Mittel 25 ms …" when the hits lean so steadily that the
-    /// latency may be wrong (LH-EIN-14), else "".
+    /// "Liegen die Treffer so beständig hinter dem Schlag (im Mittel 25 ms), kann auch …" when
+    /// the hits lean so steadily that the latency may be wrong (LH-EIN-14), else "". Shown
+    /// with the observation, as one hint.
     fn recalibrate_text(&self, s: &Summary) -> String {
         let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
         let ms = format!("{:.0}", s.mean_offset_ms.unwrap_or_default().abs());
@@ -6768,8 +6769,8 @@ mod tests {
         s.after_beat_hits = 10;
         assert_eq!(
             hint(&core, &s),
-            "Die meisten Treffer liegen hinter dem Schlag, im Mittel 25 ms. Spielst du nicht \
-             absichtlich zurückgelehnt, stimmt vielleicht die gemessene Latenz nicht mehr."
+            "Liegen die Treffer so beständig hinter dem Schlag (im Mittel 25 ms), kann auch die \
+             gemessene Latenz nicht mehr stimmen."
         );
         let _ = std::fs::remove_dir_all(dir);
     }
