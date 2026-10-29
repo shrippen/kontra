@@ -18,6 +18,10 @@ const IDLE_TARGET_PER_MINUTE: f64 = 1.0;
 const IDLE_GUARD_PER_MINUTE: f64 = 45.0;
 const S_PER_MINUTE: f64 = 60.0;
 
+/// LH-NF-15, line sets: p95 from attack to report. A guard 10 ms over the first measurement
+/// (29.10.: 81 and 100 ms) until the owner confirms the target (70 ms).
+const REPORT_GUARD_MS: f64 = 110.0;
+
 pub fn run(a: &KorpusArgs) -> CliResult {
     match &a.command {
         KorpusCommand::Write { dir } => write(dir),
@@ -200,7 +204,7 @@ fn write(dir: &Path) -> CliResult {
 
 fn check(dir: Option<&Path>) -> CliResult {
     println!(
-        "{:<14} {:>6} {:>8} {:>9} {:>7} {:>7} {:>9} {:>8} {:>8} {:>8}",
+        "{:<14} {:>6} {:>8} {:>9} {:>7} {:>7} {:>9} {:>8} {:>8} {:>8} {:>8}",
         "set",
         "notes",
         "recall",
@@ -210,7 +214,8 @@ fn check(dir: Option<&Path>) -> CliResult {
         "p95 ms",
         "cents",
         "p95 ct",
-        "max ct"
+        "max ct",
+        "p95 rep"
     );
     let mut failed = false;
     for set in KorpusSet::ALL {
@@ -225,12 +230,20 @@ fn check(dir: Option<&Path>) -> CliResult {
             let per_minute = e.detected as f64 / minutes;
             let ok = per_minute <= IDLE_GUARD_PER_MINUTE;
             failed |= !ok;
+            // The guard decides; the target is told apart, so "ok" never reads as target met.
+            // Example: "41.0 per minute (target 1 missed, guard 45) ok".
+            let target = if per_minute <= IDLE_TARGET_PER_MINUTE {
+                "met"
+            } else {
+                "missed"
+            };
             println!(
-                "{:<14} {:>6} {:>6} false notes, {per_minute:.1} per minute (target {:.0}) {}",
+                "{:<14} {:>6} {:>6} false notes, {per_minute:.1} per minute (target {:.0} {target}, guard {:.0}) {}",
                 set.name(),
                 0,
                 e.detected,
                 IDLE_TARGET_PER_MINUTE,
+                IDLE_GUARD_PER_MINUTE,
                 if ok { "ok" } else { "FAILED" }
             );
             continue;
@@ -258,15 +271,18 @@ fn check(dir: Option<&Path>) -> CliResult {
         } else {
             0.95
         };
+        let report_ok = !matches!(set, KorpusSet::Line4 | KorpusSet::Line5)
+            || e.p95_report_ms <= REPORT_GUARD_MS;
         let ok = e.recall() >= found
             && e.precision() >= found
             && e.pitch_accuracy() >= needed
             && e.technique_accuracy() >= technique_needed
             && e.p95_abs_onset_ms < onset_ms
-            && cents_ok;
+            && cents_ok
+            && report_ok;
         failed |= !ok;
         println!(
-            "{:<14} {:>6} {:>7.1}% {:>8.1}% {:>6.1}% {:>6.1}% {:>9.2} {:>8.2} {:>8.2} {:>8.2} {}",
+            "{:<14} {:>6} {:>7.1}% {:>8.1}% {:>6.1}% {:>6.1}% {:>9.2} {:>8.2} {:>8.2} {:>8.2} {:>8.1} {}",
             set.name(),
             e.annotated,
             e.recall() * 100.0,
@@ -277,11 +293,12 @@ fn check(dir: Option<&Path>) -> CliResult {
             e.mean_abs_cents,
             e.p95_abs_cents,
             e.max_abs_cents,
+            e.p95_report_ms,
             if ok { "ok" } else { "FAILED" }
         );
     }
     if failed {
-        return Err("corpus below LH-NF-02/03/16 or LH-BEW-05 targets".into());
+        return Err("corpus below LH-NF-02/03/15/16 or LH-BEW-05 targets".into());
     }
     Ok(())
 }
