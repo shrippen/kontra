@@ -54,6 +54,8 @@
   "summary.observe.missed": "{notes} of {judged} notes did not sit yet. Practising slower helps most now.",
   "summary.observe.early": "{percent} % of the hits came before the beat. Let the click come to you.",
   "summary.observe.late": "{percent} % of the hits came after the beat. Play with the click, not behind it.",
+  "summary.observe.aim.early": "{ms} ms ahead of your aim on average. Let the beat come.",
+  "summary.observe.aim.late": "{ms} ms behind your aim on average. Play a little earlier.",
   "summary.observe.solid": "Solid: nothing stands out.",
   "summary.pocket.held": "Aim {aim}: held",
   "summary.pocket.early": "Aim {aim}: missed, {ms} ms before the target range",

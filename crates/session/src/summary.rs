@@ -2,7 +2,7 @@
 //! bars the player hesitated at (DIDAKTIK I6), and the one observation worth telling (LH-BEW-09).
 
 use crate::matcher::{NoteResult, Outcome};
-use crate::pocket::Pocket;
+use crate::pocket::{Pocket, PocketVerdict};
 use crate::technique::TechniqueTally;
 use kontra_model::{Arrangement, Technique};
 use serde::{Deserialize, Serialize};
@@ -123,6 +123,8 @@ pub enum Observation {
     Missed { notes: u32, judged: u32 },
     /// Hits lean to one side of the beat: `share` of them.
     Lean { side: Side, share: f64 },
+    /// The mean missed the chosen aim (LH-BEW-08) on this side, by this many ms.
+    Aim { side: Side, off_ms: f64 },
     /// Enough was played and nothing stands out.
     Solid,
 }
@@ -200,8 +202,8 @@ impl Summary {
     }
 
     /// The observation for this run, picked in a fixed order, most specific first: a weak
-    /// technique, notes played beside the window, many notes missed, a lean (only without a
-    /// timing aim, which `pocket` judges itself), else solid. `None` below `OBSERVE_MIN_NOTES`:
+    /// technique, notes played beside the window, many notes missed, a missed timing aim
+    /// (`pocket`), a lean (only without an aim), else solid. `None` below `OBSERVE_MIN_NOTES`:
     /// one missed slide is no diagnosis.
     pub fn observation(&self, pocket: Pocket) -> Option<Observation> {
         if self.judged < OBSERVE_MIN_NOTES {
@@ -235,6 +237,24 @@ impl Summary {
                 notes: not_sitting,
                 judged: self.judged,
             });
+        }
+
+        // A missed aim outweighs a lean: the player chose where to sit.
+        let verdict = self.mean_offset_ms.and_then(|m| pocket.judge(m));
+        match verdict.filter(|_| self.hits >= OBSERVE_MIN_HITS) {
+            Some(PocketVerdict::Early(off_ms)) => {
+                return Some(Observation::Aim {
+                    side: Side::Early,
+                    off_ms,
+                })
+            }
+            Some(PocketVerdict::Late(off_ms)) => {
+                return Some(Observation::Aim {
+                    side: Side::Late,
+                    off_ms,
+                })
+            }
+            _ => {}
         }
 
         if pocket == Pocket::Free && self.hits >= OBSERVE_MIN_HITS {
@@ -552,6 +572,14 @@ mod tests {
         });
         assert_eq!(s.observation(Pocket::Free), lean);
         assert_eq!(s.observation(Pocket::LaidBack), Some(Observation::Solid));
+
+        // PR-Agent #184: an aim on the beat (±5 ms) missed by 20 ms is no "solid" run.
+        let s = summary(&[hit(25.0); 10]);
+        let aim = Some(Observation::Aim {
+            side: Side::Late,
+            off_ms: 20.0,
+        });
+        assert_eq!(s.observation(Pocket::OnBeat), aim);
 
         // Wide scatter both ways is no lean.
         let notes: Vec<_> = (0..10)

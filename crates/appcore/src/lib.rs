@@ -3160,6 +3160,20 @@ impl Core {
                 side: Side::Late,
                 share,
             } => self.tr("summary.observe.late", &[("percent", percent(share))]),
+            Observation::Aim {
+                side: Side::Early,
+                off_ms,
+            } => self.tr(
+                "summary.observe.aim.early",
+                &[("ms", format!("{off_ms:.0}"))],
+            ),
+            Observation::Aim {
+                side: Side::Late,
+                off_ms,
+            } => self.tr(
+                "summary.observe.aim.late",
+                &[("ms", format!("{off_ms:.0}"))],
+            ),
             Observation::Solid => self.tr("summary.observe.solid", &[]),
         };
         json!({ "solid": observation == Observation::Solid, "text": text })

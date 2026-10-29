@@ -54,6 +54,8 @@
   "summary.observe.missed": "{notes} von {judged} Noten saßen noch nicht. Langsamer üben bringt jetzt am meisten.",
   "summary.observe.early": "{percent} % der Treffer kamen vor dem Schlag. Lass den Klick kommen.",
   "summary.observe.late": "{percent} % der Treffer kamen nach dem Schlag. Spiel mit dem Klick, nicht hinterher.",
+  "summary.observe.aim.early": "Im Schnitt {ms} ms vor deinem Ziel. Lass den Schlag kommen.",
+  "summary.observe.aim.late": "Im Schnitt {ms} ms hinter deinem Ziel. Spiel etwas früher.",
   "summary.observe.solid": "Solide: nichts sticht heraus.",
   "summary.pocket.held": "Ziel {aim}: gehalten",
   "summary.pocket.early": "Ziel {aim}: verfehlt, {ms} ms vor dem Zielbereich",
