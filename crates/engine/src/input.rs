@@ -257,6 +257,12 @@ fn deliver(
         return;
     };
 
+    // Told first: the silence below is reported heard, and the session must already know it
+    // lies in the stretch.
+    let _ = events.send(Event::Resumed {
+        at_s: lost.from_s + lost.lost_s,
+    });
+
     // Silence where the stretch began, then the clock moves on by the rest.
     let silent = (lost.lost_s.min(BRIDGE_S) * analysis.sample_rate) as usize;
     let zeros = [0.0f32; BLOCK];
@@ -268,9 +274,6 @@ fn deliver(
     }
     watch.shift_s += lost.lost_s - silent as f64 / analysis.sample_rate;
     restart(analysis, watch.shift_s);
-    let _ = events.send(Event::Resumed {
-        at_s: lost.from_s + lost.lost_s,
-    });
     feed(analysis, block);
 }
 
@@ -977,8 +980,9 @@ mod tests {
         }
         assert!(watch.idle(1.4, analysis.heard_s()).is_some(), "stalled");
 
-        // Back at 1.86 s; the string still rings.
-        let after = &tone[(0.06 * rate) as usize..];
+        // Back at 1.86 s; the string still rings for 0.5 s, then a new note (D) at 2.36 s.
+        let mut after = tone[(0.06 * rate) as usize..(0.56 * rate) as usize].to_vec();
+        after.extend_from_slice(&bass_tone(73.4, rate, 1.0, ToneShape::Rich, 2));
         for (i, block) in after.chunks(BLOCK).enumerate() {
             take(
                 &mut analysis,
@@ -1002,6 +1006,10 @@ mod tests {
         assert!(
             !onsets.iter().any(|o| (1.1..1.8).contains(o)),
             "nothing inside the stall: {onsets:?}"
+        );
+        assert!(
+            onsets.iter().any(|o| (o - 2.36).abs() < 0.03),
+            "the note after the stall at 2.36 s: {onsets:?}"
         );
     }
 

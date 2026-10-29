@@ -580,6 +580,29 @@ fn a_stalled_device_judges_no_gap() {
     );
 }
 
+/// PR-Agent #186: after a stall the engine feeds silence and reports it heard before it tells
+/// the resume. Heard inside the stall must not judge the notes there.
+#[test]
+fn heard_inside_a_stall_judges_nothing() {
+    let mut s = Session::new(riff(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    s.on_note(&played(0.0, 28.0));
+    s.on_heard(0.4);
+    s.on_stalled(0.4);
+    s.on_heard(0.9);
+    s.update(2.0);
+    s.on_resumed(1.9);
+    s.on_heard(3.0);
+    s.update(3.0);
+    let gap = |r: &&NoteResult| (0.4..1.9).contains(&r.position_s);
+    assert_eq!(
+        s.results().iter().filter(gap).count(),
+        0,
+        "{:?}",
+        s.results()
+    );
+}
+
 /// A stalled input (heard stands still) holds notes 2 s at most; after a file's end only the
 /// clock counts.
 #[test]

@@ -393,6 +393,10 @@ impl Session {
     /// The analysis has heard the input up to `at_s` (engine clock); nothing after it is
     /// missed yet.
     pub fn on_heard(&mut self, at_s: f64) {
+        // A stalled input holds judging where it stopped until it resumes (LH-EIN-15).
+        if self.stalled_s.is_some() {
+            return;
+        }
         let real_s = at_s - self.settings.latency_ms / 1000.0;
         self.heard_s = Some(self.heard_s.map_or(real_s, |h| h.max(real_s)));
     }
