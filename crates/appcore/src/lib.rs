@@ -34,10 +34,11 @@ pub use store::{
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Judging, Technique, Tuning};
 use kontra_session::{
     import_file, list_devices, run_from, technique_signs, CalibrationResult, Chain, Connection,
-    DeviceInfo, Direction, Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveEar,
-    LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Outcome, OutsideNote, Pocket, PocketVerdict,
-    PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings, SessionEvent, Shaping,
-    Summary, TechniqueOutcome, TechniqueResult, Workshop,
+    DeviceInfo, Direction, Gains, ImportResult, InputChoice, Intonation, Leaning, Live,
+    LiveCalibration, LiveEar, LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Observation,
+    Outcome, OutsideNote, Pocket, PocketVerdict, PracticeEvent, PracticeOptions, ProgressStore,
+    Run, ScoreSettings, SessionEvent, Shaping, Side, Summary, TechniqueOutcome, TechniqueResult,
+    Workshop,
 };
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -3050,6 +3051,10 @@ impl Core {
         // Most notes missed the window but were played beside it: their offset is the tendency
         // (QA 27.10., M2: strict window, all 40 ms early read "0 % hit" without a word on time).
         let outside = s.outside_offset_ms.filter(|_| s.missed > s.hits);
+        // Intonation only where it is scored: a fretless or double bass, or off-pitch notes.
+        let intonation = s
+            .intonation
+            .filter(|_| s.off_pitch > 0 || self.scored_intonation());
         let tendency = match (outside, s.mean_offset_ms) {
             (Some(m), _) if m < 0.0 => {
                 self.tr("summary.outside.early", &[("ms", format!("{:.0}", -m))])
@@ -3089,6 +3094,7 @@ impl Core {
                 ("wrong", s.wrong.to_string()),
                 ("missed", s.missed.to_string()),
             ]),
+            "observation": self.observation_json(s),
             "tendencyText": tendency,
             // The few hits beside the missed notes tell no steadiness.
             "spreadText": s
@@ -3096,14 +3102,11 @@ impl Core {
                 .filter(|_| outside.is_none())
                 .map_or(String::new(), |v| self.spread_text(v, judging)),
             "pocketText": self.pocket_text(s),
-            // Intonation only where it is scored: a fretless or double bass, or off-pitch notes.
-            "intonationText": match s.mean_abs_cents {
-                Some(c) if s.off_pitch > 0 || self.scored_intonation() => self.tr("summary.intonation", &[
-                    ("offpitch", s.off_pitch.to_string()),
-                    ("cents", format!("{c:.0}")),
-                ]),
-                _ => String::new(),
-            },
+            "intonationText": intonation.map_or(String::new(), |i| self.tr("summary.intonation", &[
+                ("offpitch", s.off_pitch.to_string()),
+                ("text", self.intonation_text(i)),
+            ])),
+            "intonationParts": intonation.map_or(Vec::new(), |_| self.intonation_parts(s)),
             "meanOffsetMs": s.mean_offset_ms.unwrap_or(0.0),
             "counts": s.histogram.counts,
             "firstBinMs": s.histogram.first_bin_ms,
@@ -3119,6 +3122,66 @@ impl Core {
             },
         })
         .to_string()
+    }
+
+    /// The one observation of the run (LH-BEW-09), or null below the minimum of notes:
+    /// `{ solid: false, text: "Am meisten bringt jetzt: Slide, 2 von 6. …" }`.
+    fn observation_json(&self, s: &Summary) -> serde_json::Value {
+        let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
+        let Some(observation) = s.observation(pocket) else {
+            return serde_json::Value::Null;
+        };
+        let percent = |share: f64| format!("{:.0}", share * 100.0);
+        let text = match observation {
+            Observation::Technique {
+                technique,
+                played,
+                judged,
+            } => self.tr(
+                "summary.observe.technique",
+                &[
+                    ("technique", self.technique_name(technique)),
+                    ("played", played.to_string()),
+                    ("judged", judged.to_string()),
+                ],
+            ),
+            Observation::Beside { offset_ms } if offset_ms < 0.0 => self.tr(
+                "summary.observe.beside.early",
+                &[("ms", format!("{:.0}", -offset_ms))],
+            ),
+            Observation::Beside { offset_ms } => self.tr(
+                "summary.observe.beside.late",
+                &[("ms", format!("{offset_ms:.0}"))],
+            ),
+            Observation::Missed { notes, judged } => self.tr(
+                "summary.observe.missed",
+                &[("notes", notes.to_string()), ("judged", judged.to_string())],
+            ),
+            Observation::Lean {
+                side: Side::Early,
+                share,
+            } => self.tr("summary.observe.early", &[("percent", percent(share))]),
+            Observation::Lean {
+                side: Side::Late,
+                share,
+            } => self.tr("summary.observe.late", &[("percent", percent(share))]),
+            Observation::Aim {
+                side: Side::Early,
+                off_ms,
+            } => self.tr(
+                "summary.observe.aim.early",
+                &[("ms", format!("{off_ms:.0}"))],
+            ),
+            Observation::Aim {
+                side: Side::Late,
+                off_ms,
+            } => self.tr(
+                "summary.observe.aim.late",
+                &[("ms", format!("{off_ms:.0}"))],
+            ),
+            Observation::Solid => self.tr("summary.observe.solid", &[]),
+        };
+        json!({ "solid": observation == Observation::Solid, "text": text })
     }
 
     /// A blind probe next to the workshop before it (DIDAKTIK I1), or null:
@@ -3471,6 +3534,53 @@ impl Core {
             ramp_bpm: 0.0,
             judging,
         })
+    }
+
+    /// Direction and spread, e.g. "im Schnitt 9 Cent zu tief, Streuung ±6"; without a direction
+    /// only the spread (LH-BEW-12).
+    fn intonation_text(&self, i: Intonation) -> String {
+        let key = match i.leaning() {
+            Some(Leaning::Flat) => "summary.intonation.flat",
+            Some(Leaning::Sharp) => "summary.intonation.sharp",
+            None => "summary.intonation.centred",
+        };
+        self.tr(
+            key,
+            &[
+                ("cents", format!("{:.0}", i.mean_cent.abs())),
+                ("spread", format!("{:.0}", i.spread_cent)),
+            ],
+        )
+    }
+
+    /// Per string and position, e.g. "E-Saite, Bund 5 bis 9: …" (LH-BEW-12); none for a single
+    /// part, it would repeat the line above.
+    fn intonation_parts(&self, s: &Summary) -> Vec<String> {
+        if s.intonation_parts.len() < 2 {
+            return Vec::new();
+        }
+
+        let strings = self
+            .arrangement()
+            .map(|a| a.instrument.tuning.strings.clone())
+            .unwrap_or_default();
+        s.intonation_parts
+            .iter()
+            .map(|p| {
+                let string = strings
+                    .get(usize::from(p.string))
+                    .map_or_else(|| (p.string + 1).to_string(), |s| s.name().to_string());
+                self.tr(
+                    "summary.intonation.part",
+                    &[
+                        ("string", string),
+                        ("from", p.first_fret.to_string()),
+                        ("to", p.last_fret.to_string()),
+                        ("text", self.intonation_text(p.intonation)),
+                    ],
+                )
+            })
+            .collect()
     }
 
     /// The spread, e.g. "Streuung ±18 ms"; judged by time only with the aim for the frets
@@ -6580,6 +6690,100 @@ mod tests {
             text(&core, &s),
             "Ziel auf den Punkt (±5 ms): verfehlt, 1 ms hinter dem Zielbereich"
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-BEW-09: the summary tells one observation in words, none for a short run.
+    #[test]
+    fn summary_tells_one_observation() {
+        let dir = temp_dir("observation");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        let observation = |core: &Core, s: &kontra_session::Summary| {
+            let v: serde_json::Value =
+                serde_json::from_str(&core.summary_json(s, &[], &[])).unwrap();
+            v["observation"].clone()
+        };
+        assert!(observation(&core, &s).is_null(), "nothing played");
+
+        s.judged = 10;
+        s.hits = 5;
+        s.missed = 5;
+        s.hit_rate = 0.5;
+        let v = observation(&core, &s);
+        assert_eq!(
+            v["text"],
+            "5 von 10 Noten saßen noch nicht. Langsamer üben bringt jetzt am meisten."
+        );
+        assert_eq!(v["solid"], false);
+
+        s.hits = 10;
+        s.missed = 0;
+        s.hit_rate = 1.0;
+        s.late_hits = 8;
+        let v = observation(&core, &s);
+        assert_eq!(
+            v["text"],
+            "80 % der Treffer kamen nach dem Schlag. Spiel mit dem Klick, nicht hinterher."
+        );
+
+        s.late_hits = 0;
+        assert_eq!(observation(&core, &s)["solid"], true);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-BEW-12: intonation in words as direction and spread, per string and position from two
+    /// parts on; none where intonation is not scored (fretted bass, no off-pitch note).
+    #[test]
+    fn summary_tells_intonation() {
+        use kontra_session::{Intonation, IntonationPart};
+
+        let dir = temp_dir("intonation");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        let flat = Intonation {
+            mean_cent: -9.0,
+            spread_cent: 6.0,
+        };
+        s.intonation = Some(flat);
+        let summary = |core: &Core, s: &kontra_session::Summary| -> serde_json::Value {
+            serde_json::from_str(&core.summary_json(s, &[], &[])).unwrap()
+        };
+        assert_eq!(summary(&core, &s)["intonationText"], "", "not scored");
+
+        s.off_pitch = 2;
+        let part = |string: u8, mean_cent: f64| IntonationPart {
+            string,
+            first_fret: 5,
+            last_fret: 9,
+            intonation: Intonation {
+                mean_cent,
+                spread_cent: 10.0,
+            },
+        };
+        s.intonation_parts = vec![part(0, -12.0), part(1, 2.0)];
+        let v = summary(&core, &s);
+        assert_eq!(
+            v["intonationText"],
+            "2 unsauber · im Schnitt 9 Cent zu tief, Streuung ±6"
+        );
+        assert_eq!(
+            v["intonationParts"],
+            serde_json::json!([
+                "E-Saite, Bund 5 bis 9: im Schnitt 12 Cent zu tief, Streuung ±10",
+                "A-Saite, Bund 5 bis 9: im Schnitt richtig, Streuung ±10 Cent"
+            ])
+        );
+
+        // One part repeats the line: none.
+        s.intonation_parts.truncate(1);
+        assert_eq!(summary(&core, &s)["intonationParts"], serde_json::json!([]));
         let _ = std::fs::remove_dir_all(dir);
     }
 

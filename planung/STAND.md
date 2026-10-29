@@ -133,8 +133,9 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   Slap/Pop (Aufnahmen weiterer Spieler), Echtzeit-Priorität ohne `realtime`-Gruppe (rtkit nur über MPL-Crate).
 - **Songsterr-Suche** (#71/#73): undokumentierte API; ändert Songsterr sie, sagt Kontra „unlesbar“. Flatpak hat jetzt
   `--share=network`, `--filesystem=xdg-download:ro`, `xdg-run/pipewire-0` (Flathub-Prüfung beachten).
-- **Flow-Tests im echten Fenster:** Xvfb `:99` + `xdotool` + `import`, App mit `-qwindowgeometry` (bei `QT_SCALE_FACTOR`
-  logische Größe), immer `--input-file` und Ausgang `kontra:null`, `QT_FORCE_STDERR_LOGGING=1`, `--focus-log`.
+- **Flow-Tests im echten Fenster:** `scripts/qa-session.sh --input-file <Datei> --run '<xdotool …; import -window
+  "$KONTRA_QA_WINDOW" shot.png>' -- -qwindowgeometry 1280x800+0+0 …` (bei `QT_SCALE_FACTOR` logische Größe),
+  `QT_FORCE_STDERR_LOGGING=1`, `--focus-log`; Fenster erst nach etwa 5 s zeichnen lassen, sonst ist das Bild schwarz.
 - **Flageoletts** (#51): Bewertung oktavtolerant; künstliche ohne eigenes Zeichen in Kante. GP4-Arten 15/17 mit echter
   GP4-Datei gegenprüfen; MusicXML-Naturflageolett ohne Saite/Bund bleibt beim gegriffenen Ton.
 - **Zweiter Leser 13.10.** (#50–#54): Befunde und Antworten in den PRs; offen: `heard()`-Testkopie (#50),
@@ -178,6 +179,10 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 
 ## Für den Eigentümer
+
+- LH-NF-15 (Meldezeit): erste Messung 81 ms (4 Saiten) und 100 ms (5 Saiten, tiefe H-Saite) statt 70 ms. Frage für
+  die nächste Runde: Ziel anheben (etwa 90/110 ms) oder die Erkennung schneller machen (früher melden, Tonhöhe
+  nachreichen wie bei `PitchRevision`).
 
 - #131 (Kurspakete): drei Review-Runden mit offenem Wichtig (pub-Liste, Zip-Bombe über Deflate, dann über STORED).
   Nach der Review-Regel angehalten; Vorschlag im PR (eigene Zip-Lesung behalten, Größen zentral erzwungen). Merge

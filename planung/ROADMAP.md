@@ -204,7 +204,7 @@ Rückmeldung und Lernen:
 - [ ] L2 Übungsserie, standardmäßig aus (LH-FOR-05).
 - [ ] L3 Übungsleiter je Lektion (LH-LRN-17).
 - [ ] L4 Griffbrett-Quiz gewichtet (LH-LRN-18).
-- [ ] L5 Intonation als Richtung und Streuung (LH-BEW-12).
+- [x] L5 Intonation als Richtung und Streuung (LH-BEW-12).
 - [ ] L6 Verstimmte Saite erkennen (LH-TUN-05).
 - [ ] L7 Liedkarte, Kante-Baustein (LH-FOR-06).
 - [ ] L8 Ruf und Antwort (LH-LRN-19).
@@ -214,7 +214,10 @@ Rückmeldung und Lernen:
 
 Erkennung und Messung:
 - [ ] A5 `korpus confusion`: Verwechslung nach Intervall und Register.
-- [ ] E1 Meldezeit je Note im Korpus (LH-NF-15).
+- [x] E1 Meldezeit je Note im Korpus (LH-NF-15): `korpus check` zeigt „p95 rep“. Erste Messung (29.10.): line-4 und
+  laptop-jack-4 81 ms, line-5 und fretless-5 100 ms (tiefe H-Saite), sixteenths 82 ms, techniques 271 ms (Legato
+  ohne Anschlag). Ziel 70 ms damit verfehlt; bis zur Entscheidung des Eigentümers eine Grenze bei 110 ms gegen
+  Verschlechterung.
 - [ ] E2 Sätze ohne Noten, Falschnoten je Minute (LH-NF-16).
 - [ ] E3 Wächter und dauerhafter Eingangszustand (LH-EIN-15); Wächter und Pause der Bewertung umgesetzt, offen: dauerhafte Anzeige mit „Erneut versuchen“.
 - [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).
@@ -230,10 +233,10 @@ Mehrere Töne (offen für Gitarre und Tasten):
 
 Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in Worten je PR):
 - [ ] W1 `scripts/qactl.py` über AT-SPI; Socket nur im Cargo-Feature `qa`.
-- [ ] W2 `scripts/qa-session.sh` für jeden isolierten Testlauf.
+- [x] W2 `scripts/qa-session.sh` für jeden isolierten Testlauf.
 - [ ] W3 Layout-Prüfung je Seite bei P4- und P7-Auflösung (LH-ANZ-09).
 - [ ] W4 Tabelle Regel → Prüfung, Git-Hooks, CI-Prüfung der Commit-Nachrichten.
-- [ ] W5 Test für Crate-Kanten und Dateigröße mit Abbauliste.
+- [x] W5 Test für Crate-Kanten und Dateigröße mit Abbauliste (`tests/physical_design.rs`, 1200 Zeilen je Datei; Abbauliste: appcore/lib.rs, bridge.rs, exercise.rs, PracticePage.qml, tracker.rs).
 - [ ] W6 `scripts/release.sh`, metainfo `<releases>`/`<screenshots>`, AppStream- und Flatpak-Lint.
 - [ ] W7 `cargo deny` mit `[advisories]`, eigener Job und wöchentlich.
 - [ ] W8 JSON-Schemas für Pakete und Kurse aus den serde-Strukturen.

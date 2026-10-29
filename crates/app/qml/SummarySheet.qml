@@ -73,6 +73,16 @@ KanteCard {
             label: sheet.summary ? sheet.summary.countsText : ""
         }
 
+        // The one thing to hear from this run (LH-BEW-09); none for a short run.
+        readonly property var observation: sheet.summary ? sheet.summary.observation : null
+        KanteCallout {
+            Layout.fillWidth: true
+            visible: content.observation !== null && content.observation !== undefined
+            kind: content.observation && content.observation.solid ? KanteCallout.Kind.Ok : KanteCallout.Kind.Info
+            autoHide: false
+            text: content.observation ? content.observation.text : ""
+        }
+
         // Blind probe (DIDAKTIK I1): without help next to the workshop with notes, in figures and
         // a sentence (not colour alone).
         readonly property var probe: sheet.summary ? sheet.summary.probe : null
@@ -136,6 +146,15 @@ KanteCard {
             }
             TermTip { topic: sheet.summary && sheet.summary.pocketText !== "" ? "summary.pocket" : "" }
             TermTip { topic: sheet.summary && sheet.summary.spreadText !== "" ? "summary.spread" : "" }
+        }
+        // Intonation per string and position (LH-BEW-12), one line each.
+        QQC2.Label {
+            Layout.fillWidth: true
+            readonly property var parts: sheet.summary && sheet.summary.intonationParts ? sheet.summary.intonationParts : []
+            visible: parts.length > 0
+            wrapMode: Text.WordWrap
+            text: parts.join("\n")
+            color: KanteStyle.mutedTextColor
         }
         KanteTimingHistogram {
             Layout.fillWidth: true

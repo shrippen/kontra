@@ -70,6 +70,13 @@ fn summary_shows_tendency_and_counts() {
     assert_eq!(counts, 5, "histogram holds the hits: {s}");
     assert!(!s["hardestBars"].as_array().unwrap().is_empty());
 
+    // One observation (LH-BEW-09): 3 of 8 notes not sitting outweigh the timing.
+    assert_eq!(
+        s["observation"]["text"],
+        "3 von 8 Noten saßen noch nicht. Langsamer üben bringt jetzt am meisten.",
+        "{s}"
+    );
+
     // Saved in the progress (LH-FOR-01).
     core.stop_live();
     let p: serde_json::Value = serde_json::from_str(&core.progress_json()).unwrap();

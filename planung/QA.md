@@ -95,11 +95,11 @@ Erwartet: Lied wartet ohne Zeitdruck; falscher Ton wird freundlich angezeigt (we
 6. Alles nur mit Tastatur wiederholen (Loop mit `[` und `]` setzen, Pos1 springt an den Loop-Anfang), dann mit einem Fußschalter (Bild ab/auf).
 Erwartet: Bereich und Tempo stimmen; Backing Track bei 60 % ohne metallischen Klang; Steigerung sichtbar; jede Funktion per Tastenkürzel; jeder Durchgang beginnt mit neutralen Noten (keine Marken des vorigen vor der Spiellinie).
 
-**J-B4 Bundlos und tief** ⚙ · Persona: P3 Mira · Phase 1 · LH-TUN-01, LH-BEW-01, -02, -05, LH-NF-03, LH-ANZ-03
+**J-B4 Bundlos und tief** ⚙ · Persona: P3 Mira · Phase 1 · LH-TUN-01, LH-BEW-01, -02, -05, -12, LH-NF-03, LH-ANZ-03
 1. Instrument „5 Saiten, bundlos“ anlegen.
 2. Walking-Bass-Etüde in der Notenansicht, Zeitfenster „streng“.
 3. Aufnahme mit absichtlichen Intonationsfehlern (±10 bis ±40 Cent) und tiefen Tönen auf der B-Saite einspeisen.
-Erwartet: Cent-Werte pro Note weichen ≤ 3 Cent vom annotierten Wert ab; „Alle Noten“ nennt je Note das Timing in ms (auch „pünktlich (0 ms)“ und bei ausgelassenen Noten neben dem Fenster „40 ms zu früh, außerhalb des Zeitfensters“); B0 bis D1 sicher erkannt; Noten im Bassschlüssel korrekt.
+Erwartet: Cent-Werte pro Note weichen ≤ 3 Cent vom annotierten Wert ab; die Auswertung nennt die Intonation als Richtung und Streuung („2 unsauber · im Schnitt richtig, Streuung ±24 Cent“), keine Note dafür; „Alle Noten“ nennt je Note das Timing in ms (auch „pünktlich (0 ms)“ und bei ausgelassenen Noten neben dem Fenster „40 ms zu früh, außerhalb des Zeitfensters“); B0 bis D1 sicher erkannt; Noten im Bassschlüssel korrekt.
 
 **J-B5 Unterricht am Beamer** 📽 🔍 · Persona: P4 Thomas · Phase 1 (Präsentationsmodus Phase 2) · LH-ANZ-02, -04, -09, LH-ALL-02, LH-MOD-07
 1. Auflösung 1280×720, Schrift 150 %.
@@ -129,12 +129,14 @@ Erwartet: Übungszeit und Verbesserung sichtbar; Formulierungen ermutigend, kein
 Liegt eine Übung nach dem Lauf über 90 %, bietet die Auswertung die nächste im Plan an; die Übungsliste zeigt sie mit
 Häkchen.
 
-**J-C2 Timing-Tendenz** ⚙ · Persona: P3 Mira · Phase 1 · LH-BEW-03, LH-BEW-08, LH-FOR-02
+**J-C2 Timing-Tendenz** ⚙ · Persona: P3 Mira · Phase 1 · LH-BEW-03, LH-BEW-08, LH-BEW-09, LH-FOR-02
 1. Auf der Übungsseite „Timing: Laid-back“ wählen, Hilfe dazu lesen.
 2. Aufnahme mit konstanter Tendenz „18 ms zu früh“ im Modus „Durchlauf“.
 3. Auswertung lesen.
 Erwartet: Histogramm mit Achse und Legende; Tendenz in Worten („meist 18 ms zu früh“); zum Ziel ein Satz in Worten
 („Ziel laid-back (10 bis 30 ms dahinter): verfehlt, 28 ms vor dem Zielbereich“), nicht nur Farbe.
+Unter der Trefferquote genau eine Beobachtung mit dem nächsten Schritt („3 von 8 Noten saßen noch nicht. Langsamer üben …“);
+nach einem kurzen Lauf (unter 8 Noten) keine.
 
 **J-C3 MusicXML und Groove** · Persona: P3 Mira · Phase 2 · LH-BIB-03, LH-LRN-01, LH-LRN-04
 1. MuseScore-Export (MusicXML) importieren, in der Notenansicht spielen.
