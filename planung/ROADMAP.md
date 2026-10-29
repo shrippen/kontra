@@ -213,7 +213,10 @@ Rückmeldung und Lernen:
 - [ ] L11 Shuffle-Klick (LH-WIE-04).
 
 Erkennung und Messung:
-- [ ] A5 `korpus confusion`: Verwechslung nach Intervall und Register.
+- [x] A5 `korpus confusion`: Verwechslung nach Intervall und Register. IDMT (29.10., ±80 ms): C1–B1 90,8 % richtig
+  (10 „other“, 11 verpasst), C2–B2 92,3 % (13 Halbtöne daneben), C3–B3 68,2 %, C4–B4 12,5 % (11 von 16 zwei Oktaven
+  tiefer gehört: Flageoletts, die Bewertung lässt sie in jeder Oktave gelten). Oktavfehler bei tiefen Tönen kaum (3 von
+  346 und 3 von 542).
 - [x] E1 Meldezeit je Note im Korpus (LH-NF-15): `korpus check` zeigt „p95 rep“. Erste Messung (29.10.): line-4 und
   laptop-jack-4 81 ms, line-5 und fretless-5 100 ms (tiefe H-Saite), sixteenths 82 ms, techniques 271 ms (Legato
   ohne Anschlag). Ziel 70 ms damit verfehlt; bis zur Entscheidung des Eigentümers eine Grenze bei 110 ms gegen
