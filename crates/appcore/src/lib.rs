@@ -35,9 +35,9 @@ use kontra_model::{Arrangement, InputSource, InstrumentKind, Judging, Technique,
 use kontra_session::{
     import_file, list_devices, run_from, technique_signs, CalibrationResult, Chain, Connection,
     DeviceInfo, Direction, Gains, ImportResult, InputChoice, Live, LiveCalibration, LiveEar,
-    LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Outcome, OutsideNote, Pocket, PocketVerdict,
-    PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings, SessionEvent, Shaping,
-    Summary, TechniqueOutcome, TechniqueResult, Workshop,
+    LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Observation, Outcome, OutsideNote, Pocket,
+    PocketVerdict, PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings, SessionEvent,
+    Shaping, Side, Summary, TechniqueOutcome, TechniqueResult, Workshop,
 };
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -3086,6 +3086,7 @@ impl Core {
                 ("wrong", s.wrong.to_string()),
                 ("missed", s.missed.to_string()),
             ]),
+            "observation": self.observation_json(s),
             "tendencyText": tendency,
             // The few hits beside the missed notes tell no steadiness.
             "spreadText": s
@@ -3116,6 +3117,52 @@ impl Core {
             },
         })
         .to_string()
+    }
+
+    /// The one observation of the run (LH-BEW-09), or null below the minimum of notes:
+    /// `{ solid: false, text: "Am meisten bringt jetzt: Slide, 2 von 6. …" }`.
+    fn observation_json(&self, s: &Summary) -> serde_json::Value {
+        let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
+        let Some(observation) = s.observation(pocket) else {
+            return serde_json::Value::Null;
+        };
+        let percent = |share: f64| format!("{:.0}", share * 100.0);
+        let text = match observation {
+            Observation::Technique {
+                technique,
+                played,
+                judged,
+            } => self.tr(
+                "summary.observe.technique",
+                &[
+                    ("technique", self.technique_name(technique)),
+                    ("played", played.to_string()),
+                    ("judged", judged.to_string()),
+                ],
+            ),
+            Observation::Beside { offset_ms } if offset_ms < 0.0 => self.tr(
+                "summary.observe.beside.early",
+                &[("ms", format!("{:.0}", -offset_ms))],
+            ),
+            Observation::Beside { offset_ms } => self.tr(
+                "summary.observe.beside.late",
+                &[("ms", format!("{offset_ms:.0}"))],
+            ),
+            Observation::Missed { notes, judged } => self.tr(
+                "summary.observe.missed",
+                &[("notes", notes.to_string()), ("judged", judged.to_string())],
+            ),
+            Observation::Lean {
+                side: Side::Early,
+                share,
+            } => self.tr("summary.observe.early", &[("percent", percent(share))]),
+            Observation::Lean {
+                side: Side::Late,
+                share,
+            } => self.tr("summary.observe.late", &[("percent", percent(share))]),
+            Observation::Solid => self.tr("summary.observe.solid", &[]),
+        };
+        json!({ "solid": observation == Observation::Solid, "text": text })
     }
 
     /// A blind probe next to the workshop before it (DIDAKTIK I1), or null:
@@ -6577,6 +6624,48 @@ mod tests {
             text(&core, &s),
             "Ziel auf den Punkt (±5 ms): verfehlt, 1 ms hinter dem Zielbereich"
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// LH-BEW-09: the summary tells one observation in words, none for a short run.
+    #[test]
+    fn summary_tells_one_observation() {
+        let dir = temp_dir("observation");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        let observation = |core: &Core, s: &kontra_session::Summary| {
+            let v: serde_json::Value =
+                serde_json::from_str(&core.summary_json(s, &[], &[])).unwrap();
+            v["observation"].clone()
+        };
+        assert!(observation(&core, &s).is_null(), "nothing played");
+
+        s.judged = 10;
+        s.hits = 5;
+        s.missed = 5;
+        s.hit_rate = 0.5;
+        let v = observation(&core, &s);
+        assert_eq!(
+            v["text"],
+            "5 von 10 Noten saßen noch nicht. Langsamer üben bringt jetzt am meisten."
+        );
+        assert_eq!(v["solid"], false);
+
+        s.hits = 10;
+        s.missed = 0;
+        s.hit_rate = 1.0;
+        s.late_hits = 8;
+        let v = observation(&core, &s);
+        assert_eq!(
+            v["text"],
+            "80 % der Treffer kamen nach dem Schlag. Spiel mit dem Klick, nicht hinterher."
+        );
+
+        s.late_hits = 0;
+        assert_eq!(observation(&core, &s)["solid"], true);
         let _ = std::fs::remove_dir_all(dir);
     }
 

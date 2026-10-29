@@ -1,7 +1,8 @@
 //! Evaluation after a run (LH-BEW-03): hit rate, timing histogram and tendency, hardest bars,
-//! bars the player hesitated at (DIDAKTIK I6).
+//! bars the player hesitated at (DIDAKTIK I6), and the one observation worth telling (LH-BEW-09).
 
 use crate::matcher::{NoteResult, Outcome};
+use crate::pocket::Pocket;
 use crate::technique::TechniqueTally;
 use kontra_model::{Arrangement, Technique};
 use serde::{Deserialize, Serialize};
@@ -16,6 +17,23 @@ const HESITATE_MS: f64 = 80.0;
 const OUTSIDE_LIMIT_MS: f64 = 150.0;
 /// Offsets this close count as the same timing.
 const OUTSIDE_TOLERANCE_MS: f64 = 15.0;
+
+/// Judged notes a run needs before anything about it is told (LH-BEW-09).
+const OBSERVE_MIN_NOTES: u32 = 8;
+/// Notes a technique needs before its share counts as evidence.
+const OBSERVE_MIN_TECHNIQUE: u32 = 4;
+/// Hits needed before their timing reads as a lean.
+const OBSERVE_MIN_HITS: u32 = 8;
+/// A technique below this share is worth practising ...
+const WEAK_TECHNIQUE: f64 = 0.6;
+/// ... when it also trails the hit rate by this much (all at 50 % is not about the technique).
+const TECHNIQUE_GAP: f64 = 0.2;
+/// A run that missed this share of its notes is about the notes.
+const MANY_MISSED: f64 = 0.35;
+/// Share of hits on one side of the beat that reads as a lean rather than scatter.
+const LOPSIDED: f64 = 0.6;
+/// Hits this close to the beat count as on time for the lean.
+const ON_TIME_MS: f64 = 10.0;
 
 /// Counts of timing offsets in 10 ms bins from −100 to +100 ms; outliers go to the edge bins.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -82,6 +100,38 @@ pub struct Summary {
     /// The missed notes behind `outside_offset_ms`, each with its own offset (LH-BEW-01).
     #[serde(default)]
     pub outside_notes: Vec<OutsideNote>,
+    /// Hits more than `ON_TIME_MS` before the beat.
+    #[serde(default)]
+    pub early_hits: u32,
+    /// Hits more than `ON_TIME_MS` after the beat.
+    #[serde(default)]
+    pub late_hits: u32,
+}
+
+/// The one thing a run most wants the player to hear (LH-BEW-09, after Harmonicon's coaching).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Observation {
+    /// A technique trails the plain notes: "Slide: 2 of 6".
+    Technique {
+        technique: Technique,
+        played: u32,
+        judged: u32,
+    },
+    /// Most notes missed the window but were played beside it, by this many ms.
+    Beside { offset_ms: f64 },
+    /// Many notes did not sit (wrong or missed).
+    Missed { notes: u32, judged: u32 },
+    /// Hits lean to one side of the beat: `share` of them.
+    Lean { side: Side, share: f64 },
+    /// Enough was played and nothing stands out.
+    Solid,
+}
+
+/// Side of the beat.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Side {
+    Early,
+    Late,
 }
 
 /// A missed note played beside the timing window.
@@ -144,7 +194,67 @@ impl Summary {
             untold_techniques: Vec::new(),
             outside_offset_ms: None,
             outside_notes: Vec::new(),
+            early_hits: offsets.iter().filter(|o| **o < -ON_TIME_MS).count() as u32,
+            late_hits: offsets.iter().filter(|o| **o > ON_TIME_MS).count() as u32,
         }
+    }
+
+    /// The observation for this run, picked in a fixed order, most specific first: a weak
+    /// technique, notes played beside the window, many notes missed, a lean (only without a
+    /// timing aim, which `pocket` judges itself), else solid. `None` below `OBSERVE_MIN_NOTES`:
+    /// one missed slide is no diagnosis.
+    pub fn observation(&self, pocket: Pocket) -> Option<Observation> {
+        if self.judged < OBSERVE_MIN_NOTES {
+            return None;
+        }
+
+        // The weakest technique with enough notes that trails the hit rate.
+        let weakest = self
+            .techniques
+            .iter()
+            .filter(|t| t.judged >= OBSERVE_MIN_TECHNIQUE)
+            .map(|t| (t, f64::from(t.played) / f64::from(t.judged)))
+            .filter(|(_, share)| *share < WEAK_TECHNIQUE && self.hit_rate - share >= TECHNIQUE_GAP)
+            .min_by(|a, b| a.1.total_cmp(&b.1));
+        if let Some((t, _)) = weakest {
+            return Some(Observation::Technique {
+                technique: t.technique,
+                played: t.played,
+                judged: t.judged,
+            });
+        }
+
+        // Missed, but beside the window: the timing is the point, not the notes.
+        if let Some(offset_ms) = self.outside_offset_ms.filter(|_| self.missed > self.hits) {
+            return Some(Observation::Beside { offset_ms });
+        }
+
+        let not_sitting = self.wrong + self.missed;
+        if f64::from(not_sitting) >= MANY_MISSED * f64::from(self.judged) {
+            return Some(Observation::Missed {
+                notes: not_sitting,
+                judged: self.judged,
+            });
+        }
+
+        if pocket == Pocket::Free && self.hits >= OBSERVE_MIN_HITS {
+            let hits = f64::from(self.hits);
+            let early = f64::from(self.early_hits) / hits;
+            let late = f64::from(self.late_hits) / hits;
+            if late >= LOPSIDED {
+                return Some(Observation::Lean {
+                    side: Side::Late,
+                    share: late,
+                });
+            }
+            if early >= LOPSIDED {
+                return Some(Observation::Lean {
+                    side: Side::Early,
+                    share: early,
+                });
+            }
+        }
+        Some(Observation::Solid)
     }
 }
 
@@ -380,6 +490,77 @@ mod tests {
         assert!((late - 70.0).abs() < 1e-6, "{late}");
         let early = outside_offset_ms(&dense(-0.070), 1.0).expect("an offset");
         assert!((early + 70.0).abs() < 1e-6, "{early}");
+    }
+
+    /// LH-BEW-09: one observation per run, each only with enough notes behind it.
+    #[test]
+    fn one_observation_with_enough_evidence() {
+        let arrangement = Arrangement::new("Run", kontra_model::Instrument::default_bass());
+        let hit = |ms: f64| (Outcome::Hit, Some(ms));
+        let missed = (Outcome::Missed, None);
+        let summary =
+            |notes: &[(Outcome, Option<f64>)]| Summary::from_results(&played(notes), &arrangement);
+        let slide = |played: u32, judged: u32| TechniqueTally {
+            technique: Technique::Slide,
+            played,
+            judged,
+        };
+
+        // Too few notes: nothing to tell.
+        assert_eq!(summary(&[hit(0.0); 7]).observation(Pocket::Free), None);
+
+        // One missed slide among ten good notes is no diagnosis.
+        let mut s = summary(&[hit(0.0); 10]);
+        s.techniques = vec![slide(0, 1)];
+        assert_eq!(s.observation(Pocket::Free), Some(Observation::Solid));
+
+        // Two of six slides at a 90 % hit rate: the slide is the point.
+        let mut notes = vec![hit(0.0); 9];
+        notes.push(missed);
+        let mut s = summary(&notes);
+        s.techniques = vec![slide(2, 6)];
+        let expected = Observation::Technique {
+            technique: Technique::Slide,
+            played: 2,
+            judged: 6,
+        };
+        assert_eq!(s.observation(Pocket::Free), Some(expected));
+
+        // Half the notes missed.
+        let mut notes = vec![hit(0.0); 5];
+        notes.extend([missed; 5]);
+        let expected = Observation::Missed {
+            notes: 5,
+            judged: 10,
+        };
+        assert_eq!(summary(&notes).observation(Pocket::Free), Some(expected));
+
+        // Missed, but played beside the window: the timing is told, not the misses.
+        let mut s = summary(&notes);
+        s.missed = 6;
+        s.outside_offset_ms = Some(-40.0);
+        let expected = Observation::Beside { offset_ms: -40.0 };
+        assert_eq!(s.observation(Pocket::Free), Some(expected));
+
+        // Eight of ten hits 25 ms late lean late; with a laid-back aim the pocket line tells it.
+        let mut notes = vec![hit(25.0); 8];
+        notes.extend([hit(0.0); 2]);
+        let s = summary(&notes);
+        let lean = Some(Observation::Lean {
+            side: Side::Late,
+            share: 0.8,
+        });
+        assert_eq!(s.observation(Pocket::Free), lean);
+        assert_eq!(s.observation(Pocket::LaidBack), Some(Observation::Solid));
+
+        // Wide scatter both ways is no lean.
+        let notes: Vec<_> = (0..10)
+            .map(|i| hit(if i % 2 == 0 { 30.0 } else { -30.0 }))
+            .collect();
+        assert_eq!(
+            summary(&notes).observation(Pocket::Free),
+            Some(Observation::Solid)
+        );
     }
 
     /// Harmonicon analysis (29.10.): the hardest bar is the one that costs the most notes. A bar
