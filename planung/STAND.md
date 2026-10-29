@@ -183,12 +183,16 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   `Input::{expect, forget_expected}`, `Expecting`, `evaluate_expecting` (Session: `evaluate_korpus_expecting`),
   `Evaluation::{first_pitch_correct, turned_wrong, shifted_first, shifted_final, report_ms}`;
   `pub(crate)`: `Yin::estimate_expected`, `Session::{input_s, expected}`, `Practice::take_told`, `Told`.
+- R1: `NoteRetraction`, `NoteTracker::retracted`, `Event::Retracted`, `kontra_engine::retract`,
+  `Session::on_retraction`, `Evaluation::retracted`; `pub(crate)`: `Yin::estimate_short`, `ShortEstimate`,
+  `Matcher::release`.
 
 ## Für den Eigentümer
 
-- LH-NF-15 (Meldezeit): erste Messung 81 ms (4 Saiten) und 100 ms (5 Saiten, tiefe H-Saite) statt 70 ms. Frage für
-  die nächste Runde: Ziel anheben (etwa 90/110 ms) oder die Erkennung schneller machen (früher melden, Tonhöhe
-  nachreichen wie bei `PitchRevision`).
+- LH-NF-15 (Meldezeit): erste Messung 81 ms (4 Saiten) und 100 ms (5 Saiten, tiefe H-Saite) statt 70 ms; mit R1
+  (frühe Meldung) 69 und 80 ms. Die 5 Saiten verfehlen das Ziel physikalisch (H0: zwei Perioden 65 ms). Frage für die
+  nächste Runde: Ziel für 5 Saiten auf 80 ms setzen. Am echten Bass offen: Fingertipp vor dem Anschlag wird
+  zurückgenommen (etwa 5 min).
 
 - #131 (Kurspakete): drei Review-Runden mit offenem Wichtig (pub-Liste, Zip-Bombe über Deflate, dann über STORED).
   Nach der Review-Regel angehalten; Vorschlag im PR (eigene Zip-Lesung behalten, Größen zentral erzwungen). Merge

@@ -2,7 +2,7 @@
 //! whose notes reach Kontra with the same delay is judged on time. Step 4 (PipeWire quantum
 //! 2048) needs the audio server and stays a manual step.
 
-use crate::common::{piece, run_until, write_midi, Profile, COUNT_IN_S, RATE};
+use crate::common::{last_judged, piece, run_until, write_midi, Profile, COUNT_IN_S, RATE};
 use kontra_appcore::UiEvent;
 use kontra_model::{Arrangement, Instrument, Note, Pitch, TempoMap, TICKS_PER_QUARTER};
 use std::time::Duration;
@@ -80,15 +80,9 @@ fn calibrated_latency_makes_late_notes_on_time() {
     let events = run_until(&mut song, Duration::from_secs(9), |e| {
         matches!(e, UiEvent::Finished { .. })
     });
-    let offsets: Vec<f64> = events
-        .iter()
-        .filter_map(|e| match e {
-            UiEvent::Judged {
-                state, offset_ms, ..
-            } => Some((*state, *offset_ms)),
-            _ => None,
-        })
-        .map(|(state, offset)| {
+    let offsets: Vec<f64> = last_judged(&events)
+        .into_values()
+        .map(|(state, offset, _)| {
             assert_eq!(state, "hit");
             offset
         })

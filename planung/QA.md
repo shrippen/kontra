@@ -234,9 +234,11 @@ Erwartet: Timing aus MIDI-Zeitstempeln, gleiche Auswertung wie beim E-Bass. Die 
 3. Auf Mindest-Hardware.
 Erwartet: Hinweis, dass die Toleranzen weiter sind; Trefferquote ≥ 90 % auf dem Testkorpus; Lane flüssig. Testkorpus: `room-double` (ohne Band, erfüllt) und `room-double-backing` (Band aus den Lautsprechern, mit Abzug erfüllt).
 
-**J-E3 Ton schwingt ein** ⚙ · Personas: P6 Karl, P3 Mira · Phase 4 · LH-BEW-07
+**J-E3 Ton schwingt ein** ⚙ · Personas: P6 Karl, P3 Mira · Phase 4 · LH-BEW-07, LH-BEW-15
 1. Walking-Linie im Song-Modus auf einem Kontrabass, dessen Töne zu tief beginnen und in rund 100 ms auf ihre Tonhöhe steigen.
 Erwartet: Jede Note wird so schnell markiert wie sonst; eine Note, die beim Anschlag als falscher Ton gilt, wird binnen etwa 0,2 s zum Treffer. Keine zusätzlichen Noten (Hammer-on) für das Einschwingen. Der automatische Test spielt eine synthetische Linie (D2 E2 F2 G2, 140 Cent zu tief, 120 ms Anstieg).
+2. Seit R1 (LH-BEW-15): vor einzelnen Anschlägen die Saite mit dem greifenden Finger leise antippen.
+Erwartet: Der Fingertipp erscheint nicht als eigene Note; eine kurz markierte Note wechselt binnen etwa 0,1 s auf das Urteil des Anschlags. Automatisch geprüft in `early_tap_before_the_pluck_is_taken_back` (Erkennung) und `crates/session/tests/retraction.rs` (Urteil).
 
 ## G. Lernen
 

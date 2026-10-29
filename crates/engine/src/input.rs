@@ -439,7 +439,7 @@ impl Analysis {
         self.send_revisions(events);
     }
 
-    /// Techniques and pitches told late, on the same clock as the notes.
+    /// Techniques and pitches told late and notes taken back, on the same clock as the notes.
     fn send_revisions(&self, events: &Sender<Event>) {
         for revision in self.tracker.revised() {
             let mut revision = *revision;
@@ -450,6 +450,11 @@ impl Analysis {
             let mut revision = *revision;
             revision.onset_s += self.start_s;
             let _ = events.send(Event::Pitch(revision));
+        }
+        for retraction in self.tracker.retracted() {
+            let mut retraction = *retraction;
+            retraction.onset_s += self.start_s;
+            let _ = events.send(Event::Retracted(retraction));
         }
     }
 }
@@ -1057,13 +1062,20 @@ mod tests {
         assert_eq!(input.stop_recording(), None, "handed over once");
     }
 
+    const BLUR_RATIO: f64 = 2.71;
+    const BLUR: f32 = 0.4;
+
     /// Blocks until the analysis tells the note (none: past the end).
     fn told_after(expect: Option<ExpectedStrike>, start_s: f64) -> Option<usize> {
         use kontra_dsp::synth::{bass_tone, ToneShape};
         const SR: f64 = 48_000.0;
         let a2 = kontra_model::midi_to_hz(45.0, kontra_model::A4_HZ);
+        // A2 with an inharmonic tone (2.71×, −8 dB) that blurs its period: too unclear to tell
+        // early on its own (R1), clear enough to confirm the expected A2 (R2).
         let mut signal = vec![0.0f32; (0.2 * SR) as usize];
-        signal.extend(bass_tone(a2, SR, 0.5, ToneShape::Rich, 3));
+        let tone = bass_tone(a2, SR, 0.5, ToneShape::Rich, 3);
+        let other = bass_tone(a2 * BLUR_RATIO, SR, 0.5, ToneShape::Rich, 4);
+        signal.extend(tone.iter().zip(&other).map(|(a, b)| a + BLUR * b));
         let (mut analysis, mut tx) =
             Analysis::new(SR, &Instrument::default_bass(), InputSource::Line);
         analysis.start_s = start_s;

@@ -6,7 +6,9 @@ use crate::settings::ScoreSettings;
 use crate::summary::Summary;
 use crate::technique::{TechniqueJudge, TechniqueResult};
 use crate::transport::{LoopRange, Transport};
-use kontra_model::{Arrangement, DetectedNote, PitchRevision, Technique, TechniqueRevision};
+use kontra_model::{
+    Arrangement, DetectedNote, NoteRetraction, PitchRevision, Technique, TechniqueRevision,
+};
 
 /// Real seconds to wait before declaring a note missed: detected notes arrive up to ~150 ms
 /// after their onset (concept 6.3), plus margin.
@@ -506,6 +508,81 @@ impl Session {
             self.events.push(SessionEvent::Technique(t));
         }
         self.end_wait(last.pass, slot);
+    }
+
+    /// A note taken back (R1): told early, it proved to be no note of its own, e.g. the finger
+    /// tapping the string before the pluck. Its result goes (with its chord tones), and the
+    /// note it took is open again: for the pluck that follows, or missed.
+    ///
+    /// ```text
+    /// tap told early ─► hit (60 ms early) ─► taken back: no result, D2 open
+    /// pluck          ─────────────────────────────────► hit (on time)
+    /// ```
+    pub fn on_retraction(&mut self, retraction: &NoteRetraction) {
+        let Some(entry) = self
+            .scored
+            .iter()
+            .rposition(|(onset, _, _)| (onset - retraction.onset_s).abs() < REVISION_MATCH_S)
+        else {
+            return;
+        };
+        let (_, at, _) = self.scored.remove(entry);
+        let taken = self.results[at];
+
+        // The result and the chord tones recorded with it.
+        let tone = |r: &NoteResult| {
+            r.pass == taken.pass
+                && r.position_s == taken.position_s
+                && r.outcome == taken.outcome
+                && r.note.is_some()
+                && taken.note.is_some()
+        };
+        let end = (at + 1..self.results.len())
+            .find(|&i| !tone(&self.results[i]))
+            .unwrap_or(self.results.len());
+        let removed: Vec<NoteResult> = self.results.drain(at..end).collect();
+        for entry in self.scored.iter_mut().filter(|(_, i, _)| *i >= end) {
+            entry.1 -= end - at;
+        }
+        self.struck
+            .retain(|(onset, _, _)| (onset - retraction.onset_s).abs() >= REVISION_MATCH_S);
+
+        // Each note it took is open again.
+        for r in removed {
+            let Some(slot) = r.note.and_then(|note| self.slot_of(note, r.position_s)) else {
+                continue;
+            };
+            self.reopen(r.pass, slot);
+        }
+    }
+
+    /// The note at `slot` of `pass` lost its detection: open for the next one, or missed when
+    /// the clock already passed it. Wait mode waits for it again.
+    fn reopen(&mut self, pass: u32, slot: usize) {
+        self.matcher.release(pass, slot);
+        if matches!(self.mode, Mode::Wait) {
+            if self.cursor_slot == slot + 1 {
+                self.cursor_slot = slot;
+            }
+            return;
+        }
+        let passed = (self.cursor_pass, self.cursor_slot) > (pass, slot);
+        if !passed {
+            return;
+        }
+        let e = self.matcher.expected()[slot];
+        self.matcher.resolve(pass, slot);
+        let missed = NoteResult {
+            pass,
+            note: Some(e.index),
+            bar: e.bar,
+            outcome: Outcome::Missed,
+            offset_ms: None,
+            cents: None,
+            position_s: e.position_s,
+        };
+        self.record(missed);
+        self.judge_struck(&missed, None);
     }
 
     /// Wait mode: the note at `slot` was played after all; the wait is over.

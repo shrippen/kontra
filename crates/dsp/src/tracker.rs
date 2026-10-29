@@ -36,9 +36,9 @@
 //!                                               octave above, half the estimates near it? ─► revise
 //! ```
 //!
-//! Strikes the tab expects (`expect`, R2) let an attack near one report the expected pitch
-//! before the full window is there, when the tracker's own estimate agrees; the full window
-//! still has the last word (`tracker/expect.rs`).
+//! A note goes out before the full window when a short one shows its period unambiguously
+//! (R1, `tracker/early.rs`) or holds a pitch the tab expects (R2, `tracker/expect.rs`); the
+//! full window still has the last word, and a note that proves a precursor is taken back.
 
 use crate::hum::HumFilter;
 use crate::intonation::refine_hz;
@@ -48,10 +48,11 @@ use crate::strike::{verdict_after_s, Strike};
 use crate::yin::{PitchEstimate, Yin};
 use kontra_model::{
     cents_between, hz_to_midi, DetectedNote, ExpectedStrike, InputSource, Instrument,
-    PitchRevision, Technique, TechniqueRevision,
+    NoteRetraction, PitchRevision, Technique, TechniqueRevision,
 };
 
 mod background;
+mod early;
 mod expect;
 
 const RETRY_S: f64 = 0.005;
@@ -237,7 +238,7 @@ struct Pending {
     next_try: u64,
     /// Whether the onset was checked for a precursor (`attack_start`).
     checked: bool,
-    /// The last early estimate on the expected pitch (`try_expected`).
+    /// The last early estimate (`try_early`).
     early: Option<PitchEstimate>,
 }
 
@@ -442,6 +443,7 @@ pub struct NoteTracker {
     strikes: [Option<u64>; STRIKES_WAITING],
     revised: Vec<TechniqueRevision>,
     pitch_revised: Vec<PitchRevision>,
+    retracted: Vec<NoteRetraction>,
     /// Strikes the tab expects, in samples (R2).
     expected: expect::Expectations,
     /// A note told early, checked once its full window is there.
@@ -478,6 +480,7 @@ impl NoteTracker {
             strikes: [None; STRIKES_WAITING],
             revised: Vec::with_capacity(STRIKES_WAITING),
             pitch_revised: Vec::with_capacity(STRIKES_WAITING),
+            retracted: Vec::with_capacity(STRIKES_WAITING),
             expected: expect::Expectations::default(),
             confirm: None,
         }
@@ -516,11 +519,18 @@ impl NoteTracker {
         &self.pitch_revised
     }
 
+    /// Notes taken back in the last `push` or `flush`: told early, then shown to be no note of
+    /// their own (R1); valid until the next call.
+    pub fn retracted(&self) -> &[NoteRetraction] {
+        &self.retracted
+    }
+
     /// Feeds samples; returns notes completed in this call (valid until the next call).
     pub fn push(&mut self, samples: &[f32]) -> &[DetectedNote] {
         self.out.clear();
         self.revised.clear();
         self.pitch_revised.clear();
+        self.retracted.clear();
         let block = (RETRY_S * self.sample_rate) as usize;
         let mut filtered = std::mem::take(&mut self.filtered);
         for raw in samples.chunks(block.max(1)) {
@@ -559,6 +569,7 @@ impl NoteTracker {
         self.out.clear();
         self.revised.clear();
         self.pitch_revised.clear();
+        self.retracted.clear();
         if let Some(mut s) = self.sounding {
             self.settle(&mut s, u64::MAX);
             self.sounding = Some(s);
@@ -665,6 +676,7 @@ impl NoteTracker {
         if self.joins_early(onset) {
             return;
         }
+        self.retracts_early(onset);
         self.finish_confirm();
         // A new attack ends the ringing note (told with what was heard before it); a legato note
         // just before it was this attack.
@@ -682,7 +694,7 @@ impl NoteTracker {
             report,
             last: None,
             best: None,
-            next_try: self.first_try(report, onset),
+            next_try: self.first_try(onset),
             checked: false,
             early: None,
         });
@@ -718,7 +730,7 @@ impl NoteTracker {
         let Some(mut p) = self.pending else {
             return;
         };
-        if self.try_expected(&mut p) {
+        if self.try_early(&mut p) {
             self.pending = None;
             self.emit_early(p);
             return;
@@ -907,7 +919,7 @@ impl NoteTracker {
 
     /// Follows the ringing note's pitch; emits a legato note when it moves to a new one.
     fn follow(&mut self) {
-        if self.pending.is_some() {
+        if self.pending.is_some() || self.confirm.is_some() {
             return;
         }
         let Some(mut s) = self.sounding else {
@@ -1077,9 +1089,20 @@ mod tests {
         let mut out = Vec::new();
         for block in signal.chunks(480) {
             out.extend_from_slice(t.push(block));
+            apply(&t, &mut out);
         }
         out.extend_from_slice(t.flush());
+        apply(&t, &mut out);
         out
+    }
+
+    /// The last call's revisions and retractions applied, as the session does (R1).
+    fn apply(t: &NoteTracker, notes: &mut Vec<DetectedNote>) {
+        for r in t.pitch_revised() {
+            let of = notes.iter_mut().filter(|n| n.onset_s == r.onset_s);
+            of.for_each(|n| n.midi = r.midi);
+        }
+        notes.retain(|n| t.retracted().iter().all(|r| r.onset_s != n.onset_s));
     }
 
     fn assert_matches(found: &[DetectedNote], notes: &[SynthNote], max_ms: f64, max_cents: f64) {
@@ -1347,9 +1370,9 @@ mod tests {
             37.0,
             "emitted during the rise: {notes:?}"
         );
-        assert_eq!(revisions.len(), 1, "{revisions:?}");
-        assert_eq!(revisions[0].onset_s, notes[0].onset_s);
-        assert_eq!(revisions[0].midi.round(), 38.0, "{revisions:?}");
+        let last = revisions.last().map(|r| r.midi.round());
+        assert_eq!(last, Some(38.0), "{revisions:?}");
+        assert!(revisions.iter().all(|r| r.onset_s == notes[0].onset_s));
     }
 
     #[test]
@@ -1362,9 +1385,9 @@ mod tests {
     #[test]
     fn falling_tone_is_not_revised() {
         // Only a rise is settling (a flat start, an octave below at the attack); a fall after
-        // the note is a pull-off or a decay.
+        // the note is a pull-off or a decay. Only the full window may correct an early report.
         let (_, revisions) = track_revised(&rising_tone(140.0, 0.12));
-        assert!(revisions.is_empty(), "{revisions:?}");
+        assert!(revisions.len() <= 1, "{revisions:?}");
     }
 
     /// A settle window holding `estimates`, after a note emitted as `emitted`.

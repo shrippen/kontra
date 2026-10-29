@@ -58,6 +58,16 @@ pub(crate) struct ExpectedEstimate {
     pub at_octave_below: f64,
 }
 
+/// A free estimate on a short stretch (`Yin::estimate_short`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct ShortEstimate {
+    pub estimate: PitchEstimate,
+    /// The period picked, in samples.
+    pub period: f64,
+    /// Whether the period is a dip below the threshold (else the deepest one, less sure).
+    pub clear: bool,
+}
+
 /// Reusable YIN estimator; all buffers are allocated in `new`.
 pub struct Yin {
     sample_rate: f64,
@@ -144,11 +154,7 @@ impl Yin {
         lag_max: usize,
         period: f64,
     ) -> Option<ExpectedEstimate> {
-        let fits = lag_max > self.tau_min + 2
-            && samples.len() > lag_max + 1
-            && samples.len() <= self.needed()
-            && lag_max + 2 <= self.diff.len();
-        if !fits {
+        if !self.fits_short(samples.len(), lag_max) {
             return None;
         }
         let saved = (self.window, self.tau_max);
@@ -157,6 +163,47 @@ impl Yin {
         let found = self.expected_inner(samples, period);
         (self.window, self.tau_max) = saved;
         found
+    }
+
+    /// YIN on all of `samples`, fewer than `needed()`, with lags up to `lag_max` and the rest as
+    /// the window (as `estimate_expected`).
+    pub(crate) fn estimate_short(
+        &mut self,
+        samples: &[f32],
+        lag_max: usize,
+    ) -> Option<ShortEstimate> {
+        if !self.fits_short(samples.len(), lag_max) {
+            return None;
+        }
+        let saved = (self.window, self.tau_max);
+        self.window = samples.len() - lag_max;
+        self.tau_max = lag_max;
+        let found = self.short_inner(samples);
+        (self.window, self.tau_max) = saved;
+        found
+    }
+
+    fn fits_short(&self, len: usize, lag_max: usize) -> bool {
+        lag_max > self.tau_min + 2
+            && len > lag_max + 1
+            && len <= self.needed()
+            && lag_max + 2 <= self.diff.len()
+    }
+
+    fn short_inner(&mut self, samples: &[f32]) -> Option<ShortEstimate> {
+        self.difference(samples)?;
+        self.normalize();
+        let (tau, value) = self.pick()?;
+        let (tau, value) = self.above_thump(samples, tau, value);
+        let period = self.interpolate(tau);
+        Some(ShortEstimate {
+            estimate: PitchEstimate {
+                hz: self.sample_rate / period,
+                confidence: (1.0 - value).clamp(0.0, 1.0) as f32,
+            },
+            period,
+            clear: value < THRESHOLD,
+        })
     }
 
     fn expected_inner(&mut self, samples: &[f32], period: f64) -> Option<ExpectedEstimate> {
