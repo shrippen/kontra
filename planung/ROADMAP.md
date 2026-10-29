@@ -202,8 +202,21 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   (15 ms früh gilt als „Auf den Punkt“). Klick zeigt danach nur „deine Neigung“; LH-EIN-14 und LH-BEW-09 passen sich an.
 - [x] R5 pYIN statt fester Schwelle: abgelehnt, bei gleicher Meldezeit schlechter (IDMT 91,6 → 90 %, Leerlauf
   41 → 48/min); der Vorteil kam nur vom Warten.
-- [ ] R6 Techniken ehrlich messen: IDMT-SMT-Bass (Einzelnoten, drei Bässe) als zweiter Satz; Slap 80 → 42 %,
+- [x] R6 Techniken ehrlich messen: IDMT-SMT-Bass (Einzelnoten, drei Bässe) als zweiter Satz; Slap 80 → 42 %,
   Pop 66 → 15 % auf fremden Bässen. Schwellen auf beiden Sätzen wählen; Merkmale nach Abeßer erst mit mehr Bässen.
+  Umgesetzt 29.10. (Branch `tech-sb`): Konverter `idmt-sb`, `korpus techniques` je Bass mit Zeilen für Palm Mute,
+  Vibrato und Bending (müssen normal bleiben), `make korpus-real`. Richtig je Bass (Fame = Bass der Linien / Warwick /
+  Yamaha): Slap 67 / 19 / 44 %, Pop 30 / 1 / 14 %, Dead Note 99 / 97 / 95 %, normal 98 / 100 / 90 %.
+  Nebenbefund „Vibrato 15,6 % als Muted, Bending 8 %“ kam vom Konverter des Prototyps: Er setzte den Einsatz auf ein
+  leises Antippen der Saite 100–400 ms vor dem Anschlag, Kontra hörte dort richtig eine tonlose Note. Mit dem Einsatz
+  am Anschlag: Vibrato 99,8 %, Bending 100 %, Palm Mute 100 %; normale Noten als Technik 9,7 → 1,8 %.
+  Schwellen bleiben: Neu gewählt auf Linien + Einzelnoten (Raster über alle fünf Schwellen, je ohne einen Bass gewählt
+  und an ihm geprüft) gewinnt Slap nur auf Kosten von Pop oder normalen Noten. Bestes Maß (Mittel der F1): Einzelnoten
+  Slap 43 → 59 %, Pop 15 → 17 %, aber normale Noten als Technik 1,8 → 9,2 %, Linien 1,4 → 6,1 %. Mit der Bedingung
+  „nicht mehr Fehlalarme als heute“: Slap 43 → 53 %, Pop 15 → 8 %, Linien-Pop 66 → 20 %. Die zwei Merkmale
+  (Höhenanteil, Abklingen) tragen nicht über Bässe: am Warwick wird ein Pop zu 79 % als normal gehört.
+  Offen: Merkmale nach Abeßer mit Klassifikator, erst mit Aufnahmen weiterer Bässe und Spieler (`AUFNAHME.md`), sonst
+  lernt er einen Bass.
 - [ ] R7 Saite erkennen über Inharmonizität: 93,8 % auf fremden Bässen (Zufall 41,5 %), echte Linien 76 %, Palm-Mute
   nicht; Urteil etwa 280 ms nach dem Anschlag. Kandidaten aus R2.
 - [ ] R8 Doppelgriffe erkennen, wenn die Tab beide Töne vorgibt (Klapuri 2006): 95 % erkannt, 2,1 % Fehlalarm;
