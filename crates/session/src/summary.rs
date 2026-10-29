@@ -239,8 +239,9 @@ impl Summary {
             });
         }
 
-        // A missed aim outweighs a lean: the player chose where to sit.
-        let verdict = self.mean_offset_ms.and_then(|m| pocket.judge(m));
+        // A missed aim outweighs a lean: the player chose where to sit. Judged in whole ms,
+        // like the pocket line: 5.3 ms against ±5 ms is held, not "0 ms behind".
+        let verdict = self.mean_offset_ms.and_then(|m| pocket.judge(m.round()));
         match verdict.filter(|_| self.hits >= OBSERVE_MIN_HITS) {
             Some(PocketVerdict::Early(off_ms)) => {
                 return Some(Observation::Aim {
@@ -580,6 +581,10 @@ mod tests {
             off_ms: 20.0,
         });
         assert_eq!(s.observation(Pocket::OnBeat), aim);
+
+        // PR-Agent #184: 0.3 ms past ±5 ms reads "0 ms behind": held, as the pocket line says.
+        let s = summary(&[hit(5.3); 10]);
+        assert_eq!(s.observation(Pocket::OnBeat), Some(Observation::Solid));
 
         // Wide scatter both ways is no lean.
         let notes: Vec<_> = (0..10)
