@@ -47,27 +47,45 @@ fn root() -> PathBuf {
 }
 
 /// The Kontra crates in the dependency sections of a `Cargo.toml` that count for the layers.
-/// Example: `kontra-model.workspace = true` under `[dependencies]` → "model".
+/// Example: `kontra-model.workspace = true` under `[dependencies]` → "model"; so do
+/// `[dependencies.kontra-model]` and `model = { package = "kontra-model", … }`.
 fn layered_deps(manifest: &str) -> Vec<String> {
     let mut deps = Vec::new();
     let mut counts = false;
-    for line in manifest.lines().map(str::trim) {
-        if line.starts_with('[') {
-            counts = line.ends_with("dependencies]") && !line.contains("dev-dependencies");
+    for line in manifest.lines() {
+        // Comments off: `[dependencies] # …` is still the header.
+        let line = line.split('#').next().unwrap_or_default().trim();
+        if let Some(header) = line.strip_prefix('[').and_then(|l| l.strip_suffix(']')) {
+            let layered = !header.contains("dev-dependencies");
+            counts = layered && header.ends_with("dependencies");
+            // `[dependencies.kontra-engine]`: the table names the crate.
+            if let Some((section, dep)) = header.rsplit_once('.') {
+                if layered && section.ends_with("dependencies") {
+                    deps.extend(kontra_name(dep));
+                }
+            }
             continue;
         }
         if !counts {
             continue;
         }
-        let Some(name) = line.strip_prefix("kontra-") else {
-            continue;
+        // A renamed dependency counts by its package, not its key.
+        let name = match line.split_once("package") {
+            Some((_, rest)) => rest.trim_start_matches([' ', '=', '"']),
+            None => line,
         };
-        let end = name
-            .find(|c: char| !(c.is_ascii_alphanumeric() || c == '-'))
-            .unwrap_or(name.len());
-        deps.push(name[..end].to_string());
+        deps.extend(kontra_name(name));
     }
     deps
+}
+
+/// "engine" from "kontra-engine…"; nothing for other crates.
+fn kontra_name(text: &str) -> Option<String> {
+    let name = text.strip_prefix("kontra-")?;
+    let end = name
+        .find(|c: char| !(c.is_ascii_alphanumeric() || c == '-'))
+        .unwrap_or(name.len());
+    Some(name[..end].to_string())
 }
 
 #[test]
@@ -76,6 +94,15 @@ fn reads_only_layered_sections() {
                     [dev-dependencies]\nkontra-session.workspace = true\n\
                     [build-dependencies]\nkontra-drivers.workspace = true\n";
     assert_eq!(layered_deps(manifest), ["model", "dsp", "drivers"]);
+}
+
+/// Other spellings Cargo takes: a table per dependency, a renamed package, a commented header.
+#[test]
+fn reads_every_spelling() {
+    let manifest = "[dependencies.kontra-engine]\nworkspace = true\n\
+                    [dependencies] # layered\nengine = { package = \"kontra-dsp\", path = \"x\" }\n\
+                    [dev-dependencies.kontra-session]\nworkspace = true\n";
+    assert_eq!(layered_deps(manifest), ["engine", "dsp"]);
 }
 
 #[test]
