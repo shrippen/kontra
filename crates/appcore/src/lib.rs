@@ -3130,6 +3130,10 @@ impl Core {
         let Some(observation) = s.observation(pocket) else {
             return serde_json::Value::Null;
         };
+        // "Solid" would contradict the latency hint next to it (review #195): that hint alone.
+        if observation == Observation::Solid && s.recalibrate(pocket).is_some() {
+            return serde_json::Value::Null;
+        }
         let percent = |share: f64| format!("{:.0}", share * 100.0);
         let text = match observation {
             Observation::Technique {
@@ -3183,17 +3187,27 @@ impl Core {
         json!({ "solid": observation == Observation::Solid, "text": text })
     }
 
-    /// "Liegen die Treffer so beständig hinter dem Schlag (im Mittel 25 ms), kann auch …" when
-    /// the hits lean so steadily that the latency may be wrong (LH-EIN-14), else "". Shown
-    /// with the observation, as one hint.
+    /// The latency hint (LH-EIN-14), else "". After an observation of the same lean it follows
+    /// on ("Liegen die Treffer so beständig hinter dem Schlag (im Mittel 25 ms), kann auch …"),
+    /// otherwise it stands alone ("Die Treffer liegen beständig hinter dem Schlag …").
     fn recalibrate_text(&self, s: &Summary) -> String {
         let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
+        let Some(side) = s.recalibrate(pocket) else {
+            return String::new();
+        };
+        let follows = matches!(
+            s.observation(pocket),
+            Some(Observation::Lean { side: lean, .. } | Observation::Aim { side: lean, .. })
+                if lean == side
+        );
+        let key = match (side, follows) {
+            (Side::Early, true) => "summary.recalibrate.early",
+            (Side::Late, true) => "summary.recalibrate.late",
+            (Side::Early, false) => "summary.recalibrate.early.alone",
+            (Side::Late, false) => "summary.recalibrate.late.alone",
+        };
         let ms = format!("{:.0}", s.mean_offset_ms.unwrap_or_default().abs());
-        match s.recalibrate(pocket) {
-            Some(Side::Early) => self.tr("summary.recalibrate.early", &[("ms", ms)]),
-            Some(Side::Late) => self.tr("summary.recalibrate.late", &[("ms", ms)]),
-            None => String::new(),
-        }
+        self.tr(key, &[("ms", ms)])
     }
 
     /// A blind probe next to the workshop before it (DIDAKTIK I1), or null:
@@ -6767,10 +6781,23 @@ mod tests {
         s.hits = 10;
         s.mean_offset_ms = Some(25.0);
         s.after_beat_hits = 10;
+        s.late_hits = 8;
         assert_eq!(
             hint(&core, &s),
             "Liegen die Treffer so beständig hinter dem Schlag (im Mittel 25 ms), kann auch die \
              gemessene Latenz nicht mehr stimmen."
+        );
+
+        // Review #195: 7 ms late is no lean yet ("solid"), but asks to calibrate. Not "solid"
+        // next to it, and the hint stands on its own.
+        s.mean_offset_ms = Some(7.0);
+        s.late_hits = 0;
+        let v: serde_json::Value = serde_json::from_str(&core.summary_json(&s, &[], &[])).unwrap();
+        assert!(v["observation"].is_null(), "{v}");
+        assert_eq!(
+            v["recalibrateText"],
+            "Die Treffer liegen beständig hinter dem Schlag (im Mittel 7 ms). Spielst du nicht \
+             absichtlich so, stimmt vielleicht die gemessene Latenz nicht mehr."
         );
         let _ = std::fs::remove_dir_all(dir);
     }

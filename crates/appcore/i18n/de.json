@@ -59,6 +59,8 @@
   "summary.observe.solid": "Solide: nichts sticht heraus.",
   "summary.recalibrate.early": "Liegen die Treffer so beständig vor dem Schlag (im Mittel {ms} ms), kann auch die gemessene Latenz nicht mehr stimmen.",
   "summary.recalibrate.late": "Liegen die Treffer so beständig hinter dem Schlag (im Mittel {ms} ms), kann auch die gemessene Latenz nicht mehr stimmen.",
+  "summary.recalibrate.early.alone": "Die Treffer liegen beständig vor dem Schlag (im Mittel {ms} ms). Spielst du nicht absichtlich so, stimmt vielleicht die gemessene Latenz nicht mehr.",
+  "summary.recalibrate.late.alone": "Die Treffer liegen beständig hinter dem Schlag (im Mittel {ms} ms). Spielst du nicht absichtlich so, stimmt vielleicht die gemessene Latenz nicht mehr.",
   "summary.recalibrate.button": "Neu kalibrieren",
   "summary.pocket.held": "Ziel {aim}: gehalten",
   "summary.pocket.early": "Ziel {aim}: verfehlt, {ms} ms vor dem Zielbereich",

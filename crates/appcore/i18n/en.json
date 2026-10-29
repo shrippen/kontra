@@ -59,6 +59,8 @@
   "summary.observe.solid": "Solid: nothing stands out.",
   "summary.recalibrate.early": "Hits this steadily before the beat ({ms} ms on average) can also mean the measured latency is off.",
   "summary.recalibrate.late": "Hits this steadily behind the beat ({ms} ms on average) can also mean the measured latency is off.",
+  "summary.recalibrate.early.alone": "Hits lie steadily before the beat ({ms} ms on average). Unless you play so on purpose, the measured latency may be off.",
+  "summary.recalibrate.late.alone": "Hits lie steadily behind the beat ({ms} ms on average). Unless you play so on purpose, the measured latency may be off.",
   "summary.recalibrate.button": "Calibrate again",
   "summary.pocket.held": "Aim {aim}: held",
   "summary.pocket.early": "Aim {aim}: missed, {ms} ms before the target range",
