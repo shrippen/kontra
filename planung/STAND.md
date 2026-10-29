@@ -1,7 +1,13 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-10-28 (Nachmittag). Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+Übergabe zwischen Sitzungen. Stand: 2026-10-29. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
+
+## Übergabe (29.10.2026, Harmonicon-Analyse)
+
+Harmonicon untersucht, 39 Vorschläge gewählt (ROADMAP, „Entscheidungen Harmonicon-Analyse“; Lastenheft ergänzt).
+Zuerst F1 und F2 (Fehler, je ein PR mit rotem Test), dann nach Wert und Aufwand: A1, A2, L5 (Auswertung), E3, A5, E1,
+E2, W2, W5. W2, W4, W6, W7 brauchen beim PR die Bestätigung des Eigentümers in Worten.
 
 ## Übergabe (28.10.2026, nach Runde 16)
 
