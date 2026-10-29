@@ -580,8 +580,8 @@ fn a_stalled_device_judges_no_gap() {
     );
 }
 
-/// PR-Agent #186: after a stall the engine feeds silence and reports it heard before it tells
-/// the resume. Heard inside the stall must not judge the notes there.
+/// PR-Agent #186: after a stall the engine tells the resume, then feeds silence and reports it
+/// heard. Heard inside the stall must not judge the notes there.
 #[test]
 fn heard_inside_a_stall_judges_nothing() {
     let mut s = Session::new(riff(), Mode::Song, ScoreSettings::default());

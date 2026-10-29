@@ -31,13 +31,12 @@ const BUDGET: usize = 1200;
 
 /// Files over `BUDGET`, each with the most lines it may grow to until it is split (break-up
 /// list, 29.10.2026). Lower a limit when a file shrinks; drop the entry once it fits.
-const OVER_BUDGET: [(&str, usize); 6] = [
+const OVER_BUDGET: [(&str, usize); 5] = [
     ("crates/appcore/src/lib.rs", 8200),
     ("crates/app/src/bridge.rs", 2900),
     ("crates/content/src/exercise.rs", 2450),
     ("crates/app/qml/PracticePage.qml", 1400),
     ("crates/dsp/src/tracker.rs", 1450),
-    ("crates/engine/src/input.rs", 1300),
 ];
 
 /// Copied unchanged from Kante (`scripts/sync-kante.sh`), not ours to split.

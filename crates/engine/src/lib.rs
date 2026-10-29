@@ -65,7 +65,8 @@ pub enum Event {
     Stalled {
         at_s: f64,
     },
-    /// The device delivers again from `at_s`; the time since `Stalled` was not heard.
+    /// The device delivers again from `at_s`; it skipped the time since `Stalled`. Told before
+    /// the silence (up to 0.5 s) the engine then feeds and reports heard inside that time.
     Resumed {
         at_s: f64,
     },

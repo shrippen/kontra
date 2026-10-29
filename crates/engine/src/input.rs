@@ -1,6 +1,8 @@
 //! Input: a sound device or a file, analyzed on a worker thread and optionally monitored
 //! (copied to a player's output); or MIDI (LH-EIN-12), whose note-ons are the notes as played.
 
+mod ring;
+
 use crate::clock::Clock;
 use crate::player::{Player, Reference};
 use crate::{EngineError, Event};
@@ -10,6 +12,7 @@ use kontra_drivers::{
 use kontra_dsp::synth::laptop_jack;
 use kontra_dsp::{peak_db, rms_db, EchoCanceller, NoteTracker, TrackerConfig, Tuner, ECHO_BLOCK};
 use kontra_model::{DetectedNote, InputSource, Instrument};
+use ring::input_ring;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
@@ -82,90 +85,6 @@ impl Tap {
     }
 }
 
-/// Marks a gap in the input ring: a NaN with its own payload, so a NaN from a device is not
-/// taken for one.
-const GAP_MARK: u32 = 0x7fc0_dead;
-/// Gaps the analysis may owe at once. Past that, the open gap grows: samples are dropped until
-/// the analysis reads one, even if the ring has room again.
-const GAPS: usize = 64;
-
-/// Audio callback side of the input ring. A full ring (analysis behind) drops samples rather
-/// than block; their count goes to the analysis as a marker at the place they were lost, so
-/// the time of everything after stays right.
-///
-/// ```text
-/// samples  a b c [d e dropped] f     gap ring: 2
-/// ring     a b c  MARK          f    analysis: a b c 0 0 f
-/// ```
-struct Capture {
-    ring: rtrb::Producer<f32>,
-    gaps: rtrb::Producer<u64>,
-    /// Samples dropped since the last marker.
-    gap: u64,
-}
-
-impl Capture {
-    /// Copies `samples` into the ring without blocking or allocating.
-    fn push(&mut self, samples: &[f32]) {
-        for &s in samples {
-            if self.gap > 0 {
-                self.close_gap();
-            }
-            if self.gap > 0 || self.ring.push(s).is_err() {
-                self.gap += 1;
-            }
-        }
-    }
-
-    /// Writes the marker once the ring has room again.
-    fn close_gap(&mut self) {
-        if self.ring.slots() == 0 || self.gaps.slots() == 0 {
-            return;
-        }
-        let _ = self.gaps.push(self.gap);
-        let _ = self.ring.push(f32::from_bits(GAP_MARK));
-        self.gap = 0;
-    }
-}
-
-/// Analysis side of the input ring: gives the lost samples back as silence.
-struct Drain {
-    ring: rtrb::Consumer<f32>,
-    gaps: rtrb::Consumer<u64>,
-    /// Silent samples still owed for a gap.
-    owed: u64,
-}
-
-impl Drain {
-    /// Fills the front of `out` with the next samples; returns how many.
-    fn read(&mut self, out: &mut [f32]) -> usize {
-        let mut n = 0;
-        while n < out.len() {
-            if self.owed > 0 {
-                out[n] = 0.0;
-                self.owed -= 1;
-                n += 1;
-                continue;
-            }
-            let Ok(s) = self.ring.pop() else {
-                break;
-            };
-            if s.to_bits() == GAP_MARK {
-                self.owed = self.gaps.pop().unwrap_or(0);
-                continue;
-            }
-            out[n] = s;
-            n += 1;
-        }
-        n
-    }
-
-    /// Samples waiting to be read, lost ones included.
-    fn backlog(&self) -> usize {
-        usize::try_from(self.owed).unwrap_or(usize::MAX) + self.ring.slots()
-    }
-}
-
 /// Watches a device for stalls (LH-EIN-15): no data for `STALL_S` → `Event::Stalled`; data
 /// again → `Event::Resumed`. The device dropped what it did not deliver: `deliver` puts
 /// silence where the stretch began, so notes struck before it end at their own time, and moves
@@ -181,6 +100,8 @@ struct Watch {
     stalled: bool,
     /// Time lost in stalls and not filled with silence, added to the input's start.
     shift_s: f64,
+    /// Device time skipped as of the last data (`Drain::skipped_s`).
+    skipped_s: f64,
 }
 
 /// The end of a stall on the input's own count, and the seconds the device did not deliver.
@@ -196,6 +117,7 @@ impl Watch {
             last_data_s: now_s,
             stalled: false,
             shift_s: 0.0,
+            skipped_s: 0.0,
         }
     }
 
@@ -210,18 +132,19 @@ impl Watch {
         Some(Event::Stalled { at_s })
     }
 
-    /// Data at `now_s` with `backlog_s` of it waiting; without a gap it would continue at
-    /// `heard_s`. After a stall, what was lost.
-    fn data(&mut self, now_s: f64, heard_s: Option<f64>, backlog_s: f64) -> Option<Lost> {
+    /// Data at `now_s`, the device having skipped `skipped_s` so far; without a gap it would
+    /// continue at `heard_s`. After a stall, what was lost: what the device skipped meanwhile.
+    /// Data captured during the stall and delivered late, in one piece or many, was not lost.
+    fn data(&mut self, now_s: f64, heard_s: Option<f64>, skipped_s: f64) -> Option<Lost> {
         self.last_data_s = now_s;
+        let before_s = std::mem::replace(&mut self.skipped_s, skipped_s);
         if !std::mem::take(&mut self.stalled) {
             return None;
         }
         let from_s = heard_s?;
-        // What is waiting ends now; the time before it that no sample covers was lost.
         Some(Lost {
             from_s,
-            lost_s: (now_s - backlog_s - from_s).max(0.0),
+            lost_s: (skipped_s - before_s).max(0.0),
         })
     }
 }
@@ -231,8 +154,8 @@ struct Arrival {
     now_s: f64,
     /// The input's first sample on the engine clock; `None` until the callback stamped it.
     start_s: Option<f64>,
-    /// Data waiting in the ring, this block included.
-    backlog_s: f64,
+    /// Device time skipped so far (`Drain::skipped_s`).
+    skipped_s: f64,
 }
 
 /// One block of device data past `watch` (LH-EIN-15) into `feed`, which runs the analysis
@@ -245,7 +168,7 @@ fn deliver(
     events: &Sender<Event>,
     mut feed: impl FnMut(&mut Analysis, &[f32]),
 ) {
-    let lost = watch.data(arrival.now_s, analysis.heard_s(), arrival.backlog_s);
+    let lost = watch.data(arrival.now_s, analysis.heard_s(), arrival.skipped_s);
     let restart = |analysis: &mut Analysis, shift_s: f64| {
         if let Some(start) = arrival.start_s {
             analysis.start_s = start + shift_s;
@@ -275,19 +198,6 @@ fn deliver(
     watch.shift_s += lost.lost_s - silent as f64 / analysis.sample_rate;
     restart(analysis, watch.shift_s);
     feed(analysis, block);
-}
-
-/// The input ring for `capacity` samples.
-fn input_ring(capacity: usize) -> (Capture, Drain) {
-    let (ring, consumer) = rtrb::RingBuffer::<f32>::new(capacity);
-    let (gaps, gaps_consumer) = rtrb::RingBuffer::<u64>::new(GAPS);
-    let capture = Capture { ring, gaps, gap: 0 };
-    let drain = Drain {
-        ring: consumer,
-        gaps: gaps_consumer,
-        owed: 0,
-    };
-    (capture, drain)
 }
 
 /// Raw input kept for a take (hardware checks): the analysis thread, not the audio callback,
@@ -562,7 +472,7 @@ fn start_device(
     let monitor_cb = Arc::clone(&monitor_on);
     let stream = InputStream::open(
         config,
-        move |samples: &[f32]| {
+        move |samples: &[f32], captured_s: f64| {
             if f64::from_bits(started_cb.load(Ordering::Relaxed)).is_nan() {
                 // First block: the stream started about one block earlier; calibration absorbs the rest.
                 started_cb.store(clock_cb.now_s().to_bits(), Ordering::Relaxed);
@@ -571,7 +481,7 @@ fn start_device(
                 u32::try_from(samples.len()).unwrap_or(u32::MAX),
                 Ordering::Relaxed,
             );
-            capture.push(samples);
+            capture.push(samples, captured_s);
             if let Some(tap) = tap.as_mut().filter(|_| monitor_cb.load(Ordering::Relaxed)) {
                 tap.push(samples);
             }
@@ -599,7 +509,6 @@ fn start_device(
             let mut watch = Watch::new(clock_worker.now_s());
             let rate = f64::from(sample_rate);
             while !stop_worker.load(Ordering::Relaxed) {
-                let backlog = drain.backlog();
                 let available = drain.read(&mut block);
                 if available == 0 {
                     if let Some(e) = watch.idle(clock_worker.now_s(), analysis.heard_s()) {
@@ -612,7 +521,7 @@ fn start_device(
                 let arrival = Arrival {
                     now_s: clock_worker.now_s(),
                     start_s: (!start.is_nan()).then_some(start),
-                    backlog_s: backlog as f64 / rate,
+                    skipped_s: drain.skipped_s(rate),
                 };
                 let tuner = tuner_worker.load(Ordering::Relaxed);
                 let feed = |analysis: &mut Analysis, samples: &[f32]| {
@@ -922,16 +831,16 @@ mod tests {
     #[test]
     fn stall_is_told_with_what_was_lost() {
         let mut watch = Watch::new(0.0);
-        assert!(watch.data(0.01, None, 0.01).is_none(), "no stall yet");
+        assert!(watch.data(0.01, None, 0.0).is_none(), "no stall yet");
         assert!(watch.idle(0.2, Some(1.0)).is_none(), "under 250 ms");
         assert!(matches!(watch.idle(1.3, Some(1.0)), Some(Event::Stalled { at_s }) if at_s == 1.0));
         assert!(watch.idle(1.5, Some(1.0)).is_none(), "told once");
 
-        // Data again at 1.8 s, 10 ms of it waiting: 1.0 to 1.79 was lost.
-        let lost = watch.data(1.8, Some(1.0), 0.01).expect("resumed");
+        // Data again at 1.8 s; the device skipped 0.79 s meanwhile.
+        let lost = watch.data(1.8, Some(1.0), 0.79).expect("resumed");
         assert_eq!(lost.from_s, 1.0);
         assert!((lost.lost_s - 0.79).abs() < 1e-9, "{lost:?}");
-        assert!(watch.data(1.81, Some(1.8), 0.01).is_none());
+        assert!(watch.data(1.81, Some(1.8), 0.79).is_none());
     }
 
     /// A device slow to start is no stall (PR-Agent #186); one that delivers late but all of
@@ -946,8 +855,34 @@ mod tests {
 
         watch.data(0.31, None, 0.0);
         watch.idle(1.4, Some(1.0));
-        let lost = watch.data(1.5, Some(1.0), 0.5).expect("resumed");
+        let lost = watch.data(1.5, Some(1.0), 0.0).expect("resumed");
         assert_eq!(lost.lost_s, 0.0);
+    }
+
+    /// Review #186, round 3: the device captured on, but delivers the 0.8 s late and in pieces
+    /// of 0.1 s. Nothing was lost, though the first piece alone shows a small backlog.
+    #[test]
+    fn late_pieces_lose_nothing() {
+        let rate = 1000.0;
+        let (mut capture, mut drain) = input_ring(1000);
+        let mut out = [0.0f32; 100];
+        let mut watch = Watch::new(0.0);
+        capture.push(&[0.0; 100], 0.0);
+        drain.read(&mut out);
+        watch.data(0.1, Some(0.1), drain.skipped_s(rate));
+        assert!(watch.idle(0.5, Some(0.1)).is_some(), "stalled");
+
+        // Captured on from 0.1 s, delivered from 0.9 s in pieces.
+        let mut lost = None;
+        for piece in 0..8 {
+            let at_s = f64::from(piece) * 0.1;
+            capture.push(&[0.0; 100], 0.1 + at_s);
+            drain.read(&mut out);
+            let skipped_s = drain.skipped_s(rate);
+            lost = lost.or(watch.data(0.9 + at_s, Some(0.1 + at_s), skipped_s));
+        }
+        let lost = lost.expect("resumed");
+        assert!(lost.lost_s.abs() < 1e-9, "{lost:?}");
     }
 
     /// PR-Agent #186: a note struck 60 ms before the device stalls for 0.8 s is told after the
@@ -961,11 +896,12 @@ mod tests {
         let mut watch = Watch::new(0.0);
         let (tx, rx) = std::sync::mpsc::channel();
         let tone = bass_tone(55.0, rate, 2.0, ToneShape::Rich, 1);
-        let take = |analysis: &mut Analysis, watch: &mut Watch, at_s: f64, block: &[f32]| {
+        // A block captured at `at_s`, the device having skipped `skipped_s` so far.
+        let take = |analysis: &mut Analysis, watch: &mut Watch, at_s: f64, skipped_s, block| {
             let arrival = Arrival {
-                now_s: at_s + block.len() as f64 / rate,
+                now_s: at_s + <[f32]>::len(block) as f64 / rate,
                 start_s: Some(0.0),
-                backlog_s: block.len() as f64 / rate,
+                skipped_s,
             };
             deliver(analysis, watch, arrival, block, &tx, |a, b| {
                 a.process(b, false, &tx)
@@ -976,11 +912,18 @@ mod tests {
         let mut signal = vec![0.0f32; rate as usize];
         signal.extend_from_slice(&tone[..(0.06 * rate) as usize]);
         for (i, block) in signal.chunks(BLOCK).enumerate() {
-            take(&mut analysis, &mut watch, (i * BLOCK) as f64 / rate, block);
+            take(
+                &mut analysis,
+                &mut watch,
+                (i * BLOCK) as f64 / rate,
+                0.0,
+                block,
+            );
         }
         assert!(watch.idle(1.4, analysis.heard_s()).is_some(), "stalled");
 
-        // Back at 1.86 s; the string still rings for 0.5 s, then a new note (D) at 2.36 s.
+        // Back at 1.86 s, 0.8 s skipped; the string still rings for 0.5 s, then a new note (D)
+        // at 2.36 s.
         let mut after = tone[(0.06 * rate) as usize..(0.56 * rate) as usize].to_vec();
         after.extend_from_slice(&bass_tone(73.4, rate, 1.0, ToneShape::Rich, 2));
         for (i, block) in after.chunks(BLOCK).enumerate() {
@@ -988,6 +931,7 @@ mod tests {
                 &mut analysis,
                 &mut watch,
                 1.86 + (i * BLOCK) as f64 / rate,
+                0.8,
                 block,
             );
         }
@@ -1011,71 +955,6 @@ mod tests {
             onsets.iter().any(|o| (o - 2.36).abs() < 0.03),
             "the note after the stall at 2.36 s: {onsets:?}"
         );
-    }
-
-    /// A ring that overflows (analysis behind) keeps the timeline: what was dropped comes out as
-    /// silence in its place, so a later sample keeps its position and every note after the gap
-    /// its time.
-    ///
-    /// ```text
-    /// pushed   0 0 0 0 0 0 | 1        ring holds 4, drops 2
-    /// drained  0 0 0 0 0 0 | 1        1 at index 6, not 4
-    /// ```
-    #[test]
-    fn overflow_keeps_the_timeline() {
-        let (mut capture, mut drain) = input_ring(4);
-        let mut out = vec![0.0f32; 16];
-        let mut drained = Vec::new();
-
-        capture.push(&[0.0; 6]);
-        let n = drain.read(&mut out);
-        drained.extend_from_slice(&out[..n]);
-
-        capture.push(&[1.0]);
-        loop {
-            let n = drain.read(&mut out);
-            if n == 0 {
-                break;
-            }
-            drained.extend_from_slice(&out[..n]);
-        }
-
-        assert_eq!(
-            drained.iter().position(|s| *s == 1.0),
-            Some(6),
-            "{drained:?}"
-        );
-    }
-
-    /// Two overflows with reading in between: each gap comes back in its place.
-    #[test]
-    fn gaps_stay_in_order() {
-        let (mut capture, mut drain) = input_ring(4);
-        let mut out = vec![0.0f32; 4];
-        let mut drained = Vec::new();
-        let mut read_all = |drain: &mut Drain, drained: &mut Vec<f32>| loop {
-            let n = drain.read(&mut out);
-            if n == 0 {
-                break;
-            }
-            drained.extend_from_slice(&out[..n]);
-        };
-
-        capture.push(&[0.1, 0.1, 0.1, 0.1, 0.1]);
-        read_all(&mut drain, &mut drained);
-        capture.push(&[0.2, 0.3, 0.3, 0.3, 0.3, 0.3]);
-        read_all(&mut drain, &mut drained);
-        capture.push(&[0.4]);
-        read_all(&mut drain, &mut drained);
-
-        // 5 + 6 + 1 samples; the dropped ones (one 0.1, two 0.3) come back as silence.
-        assert_eq!(drained.len(), 12, "{drained:?}");
-        assert_eq!(
-            drained.iter().position(|s| *s == 0.2),
-            Some(5),
-            "{drained:?}"
-        );
-        assert_eq!(drained.last(), Some(&0.4), "{drained:?}");
     }
 
     /// LH-EIN-12: a MIDI file plays like a keyboard: note-ons at their times on the engine
