@@ -22,6 +22,9 @@ const STRUCK_KEPT: usize = 16;
 /// A revision belongs to the note detected at the same onset (the engine's clock, exact).
 const REVISION_MATCH_S: f64 = 1e-6;
 const MS_PER_S: f64 = 1000.0;
+/// Notes this soon after one taken back are scored again with it gone: the tracker takes a note
+/// back before the full window would have told it (about 90 ms), at the pluck's rise check.
+const RESCORE_S: f64 = 0.3;
 
 /// Riff-Werkstatt (LH-MOD-04): keeps the hit rate in a target band (decision round 5, after
 /// planung/DIDAKTIK.md idea I7). Above the band for `passes_needed` passes in a row → one step faster
@@ -98,6 +101,9 @@ pub struct Session {
     /// Notes scored lately: (detected onset, index into `results`, technique), so a pitch told
     /// later can judge them again (`on_pitch_revision`).
     scored: Vec<(f64, usize, Option<Technique>)>,
+    /// Notes heard lately, so those scored after a note taken back are scored again
+    /// (`on_retraction`).
+    heard: Vec<DetectedNote>,
     results: Vec<NoteResult>,
     events: Vec<SessionEvent>,
     cursor_pass: u32,
@@ -128,6 +134,7 @@ impl Session {
             techniques,
             struck: Vec::new(),
             scored: Vec::new(),
+            heard: Vec::new(),
             results: Vec::new(),
             events: Vec::new(),
             cursor_pass: 0,
@@ -239,6 +246,10 @@ impl Session {
         if self.finished && matches!(self.mode, Mode::Probe) {
             return;
         }
+        if self.heard.len() >= STRUCK_KEPT {
+            self.heard.remove(0);
+        }
+        self.heard.push(*note);
         let real_s = self.real_s(note.onset_s);
         if matches!(self.mode, Mode::Wait) {
             self.wait_note(real_s, note);
@@ -512,19 +523,51 @@ impl Session {
 
     /// A note taken back (R1): told early, it proved to be no note of its own, e.g. the finger
     /// tapping the string before the pluck. Its result goes (with its chord tones), and the
-    /// note it took is open again: for the pluck that follows, or missed.
+    /// note it took is open again: for the pluck that follows, or missed. A pluck already
+    /// scored behind it is scored again.
     ///
     /// ```text
     /// tap told early ─► hit (60 ms early) ─► taken back: no result, D2 open
     /// pluck          ─────────────────────────────────► hit (on time)
     /// ```
     pub fn on_retraction(&mut self, retraction: &NoteRetraction) {
-        let Some(entry) = self
-            .scored
+        let onset_s = retraction.onset_s;
+
+        // Notes scored after it may have been judged behind it (the engine can tell the pluck
+        // before the tap's retraction): taken off too, and scored again once it is gone.
+        let later: Vec<DetectedNote> = self
+            .heard
             .iter()
-            .rposition(|(onset, _, _)| (onset - retraction.onset_s).abs() < REVISION_MATCH_S)
-        else {
+            .filter(|n| n.onset_s > onset_s && n.onset_s - onset_s <= RESCORE_S)
+            .filter(|n| self.scored_at(n.onset_s).is_some())
+            .copied()
+            .collect();
+        if !self.unscore(onset_s) {
             return;
+        }
+        self.heard.retain(|n| !same_onset(n.onset_s, onset_s));
+        for note in &later {
+            self.unscore(note.onset_s);
+        }
+        self.heard
+            .retain(|n| !later.iter().any(|l| same_onset(l.onset_s, n.onset_s)));
+        for note in &later {
+            self.on_note(note);
+        }
+    }
+
+    /// Where the note detected at `onset_s` is in `scored`.
+    fn scored_at(&self, onset_s: f64) -> Option<usize> {
+        self.scored
+            .iter()
+            .rposition(|(onset, _, _)| same_onset(*onset, onset_s))
+    }
+
+    /// Takes the result of the note detected at `onset_s` off (with its chord tones); the notes
+    /// it took are open again. Returns whether it had one.
+    fn unscore(&mut self, onset_s: f64) -> bool {
+        let Some(entry) = self.scored_at(onset_s) else {
+            return false;
         };
         let (_, at, _) = self.scored.remove(entry);
         let taken = self.results[at];
@@ -545,7 +588,7 @@ impl Session {
             entry.1 -= end - at;
         }
         self.struck
-            .retain(|(onset, _, _)| (onset - retraction.onset_s).abs() >= REVISION_MATCH_S);
+            .retain(|(onset, _, _)| !same_onset(*onset, onset_s));
 
         // Each note it took is open again; Wait mode waits for the first of them in this pass.
         let mut first: Option<usize> = None;
@@ -561,6 +604,7 @@ impl Session {
         if let Some(slot) = first.filter(|_| matches!(self.mode, Mode::Wait)) {
             self.cursor_slot = self.cursor_slot.min(slot);
         }
+        true
     }
 
     /// The note at `slot` of `pass` lost its detection: open for the next one, or missed when
@@ -955,6 +999,11 @@ impl Session {
             self.events.push(SessionEvent::Finished);
         }
     }
+}
+
+/// Whether two detections are the same (the engine's clock, exact).
+fn same_onset(a: f64, b: f64) -> bool {
+    (a - b).abs() < REVISION_MATCH_S
 }
 
 /// Arrangement position a judged detection was played at.

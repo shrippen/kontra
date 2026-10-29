@@ -396,12 +396,8 @@ impl Analysis {
 
     fn process(&mut self, block: &[f32], tuner_on: bool, events: &Sender<Event>) {
         self.take_expected();
-        for note in self.tracker.push(block) {
-            let mut note = *note;
-            note.onset_s += self.start_s;
-            let _ = events.send(Event::Note(note));
-        }
-        self.send_revisions(events);
+        self.tracker.push(block);
+        self.send_told(events);
         if tuner_on {
             if let Some(reading) = self.tuner.push(block) {
                 let _ = events.send(Event::Tuner(reading));
@@ -431,7 +427,19 @@ impl Analysis {
     }
 
     fn finish(&mut self, events: &Sender<Event>) {
-        for note in self.tracker.flush() {
+        self.tracker.flush();
+        self.send_told(events);
+    }
+
+    /// What the last `push` or `flush` told. Notes taken back go first: a pluck told in the same
+    /// block as its tap's retraction (from about F#2 up) then finds its note free.
+    fn send_told(&self, events: &Sender<Event>) {
+        for retraction in self.tracker.retracted() {
+            let mut retraction = *retraction;
+            retraction.onset_s += self.start_s;
+            let _ = events.send(Event::Retracted(retraction));
+        }
+        for note in self.tracker.told() {
             let mut note = *note;
             note.onset_s += self.start_s;
             let _ = events.send(Event::Note(note));
@@ -439,7 +447,7 @@ impl Analysis {
         self.send_revisions(events);
     }
 
-    /// Techniques and pitches told late and notes taken back, on the same clock as the notes.
+    /// Techniques and pitches told late, on the same clock as the notes.
     fn send_revisions(&self, events: &Sender<Event>) {
         for revision in self.tracker.revised() {
             let mut revision = *revision;
@@ -450,11 +458,6 @@ impl Analysis {
             let mut revision = *revision;
             revision.onset_s += self.start_s;
             let _ = events.send(Event::Pitch(revision));
-        }
-        for retraction in self.tracker.retracted() {
-            let mut retraction = *retraction;
-            retraction.onset_s += self.start_s;
-            let _ = events.send(Event::Retracted(retraction));
         }
     }
 }
@@ -1095,6 +1098,43 @@ mod tests {
             }
         }
         None
+    }
+
+    /// R1: a tap 60 ms before a G2, 30 dB quieter, is told early and taken back in the same
+    /// block as the pluck is told (from about F#2 up). The retraction goes first, so the
+    /// session frees the note before the pluck claims it.
+    #[test]
+    fn retraction_goes_before_the_pluck() {
+        use kontra_dsp::synth::{bass_tone, ToneShape};
+        const SR: f64 = 48_000.0;
+        let g2 = kontra_model::midi_to_hz(43.0, kontra_model::A4_HZ);
+        let mut signal = vec![0.0f32; (0.2 * SR) as usize];
+        let tap = bass_tone(g2, SR, 0.06, ToneShape::Rich, 10);
+        let pluck = bass_tone(g2, SR, 0.5, ToneShape::Rich, 11);
+        signal.extend(tap.iter().map(|x| x * 0.03));
+        signal.extend(pluck.iter().map(|x| x * 0.9));
+        let (mut analysis, _tx) = Analysis::new(SR, &Instrument::default_bass(), InputSource::Line);
+        let (events, rx) = std::sync::mpsc::channel();
+        let mut both = None;
+        for block in signal.chunks(BLOCK) {
+            analysis.process(block, false, &events);
+            let told: Vec<&str> = rx
+                .try_iter()
+                .filter_map(|e| match e {
+                    Event::Note(n) if (n.onset_s - 0.26).abs() < 0.005 => Some("pluck"),
+                    Event::Retracted(_) => Some("retracted"),
+                    _ => None,
+                })
+                .collect();
+            if told.len() == 2 {
+                both = Some(told);
+            }
+        }
+        assert_eq!(
+            both,
+            Some(vec!["retracted", "pluck"]),
+            "in one block, retraction first"
+        );
     }
 
     /// R2: a strike told on the engine clock reaches the tracker on its own clock (from the

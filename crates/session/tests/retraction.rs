@@ -134,16 +134,50 @@ fn wait_mode_waits_again() {
 
 #[test]
 fn wait_mode_goes_back_to_the_reopened_note() {
-    // The cursor moved on past the next note before the tap was taken back: Kontra waits for
-    // the reopened D2 again, then goes on after the notes already played.
+    // The cursor moved on past the next note before the tap was taken back (E2 played later
+    // than notes are scored again, `RESCORE_S`): Kontra waits for the reopened D2 again, then
+    // goes on after the notes already played.
     let mut s = Session::new(piece(), Mode::Wait, ScoreSettings::default());
     s.play(0.0);
     run(&mut s, 0.0, 0.05);
     s.on_note(&played(0.04, 38.0, -32.0));
-    s.on_note(&played(0.05, 40.0, -3.0));
+    s.on_note(&played(0.4, 40.0, -3.0));
     assert_eq!(s.next_expected().map(|e| e.index), Some(2));
     s.on_retraction(&taken_back(0.04));
     assert_eq!(s.next_expected().map(|e| e.index), Some(0), "waits again");
-    s.on_note(&played(0.1, 38.0, -3.0));
+    s.on_note(&played(0.5, 38.0, -3.0));
     assert_eq!(s.next_expected().map(|e| e.index), Some(2), "E2 was played");
+}
+
+#[test]
+fn taken_back_after_the_pluck_was_scored() {
+    // The engine may tell the pluck before the tap's retraction: the pluck, judged an extra
+    // note behind the tap, takes the note once the tap is gone. One hit, no extra, no miss.
+    let mut s = Session::new(piece(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    s.on_note(&played(-0.06, 38.0, -32.0));
+    s.on_note(&played(0.0, 38.0, -3.0));
+    s.on_retraction(&taken_back(-0.06));
+    run(&mut s, 0.0, 0.45);
+    assert_eq!(of_note(&s, 0), vec![Outcome::Hit], "{:?}", s.results());
+    let first = s.results().iter().find(|r| r.note == Some(0)).copied();
+    assert!(first
+        .and_then(|r| r.offset_ms)
+        .is_some_and(|ms| ms.abs() < 1.0));
+    assert!(s.results().iter().all(|r| r.note.is_some()), "no extra");
+}
+
+#[test]
+fn wait_mode_taken_back_after_the_pluck() {
+    // Wait mode: the tap ended the wait on D2, the pluck was judged against E2 (wrong); taken
+    // back, the pluck is D2 and the wait is on E2.
+    let mut s = Session::new(piece(), Mode::Wait, ScoreSettings::default());
+    s.play(0.0);
+    run(&mut s, 0.0, 0.05);
+    s.on_note(&played(0.04, 38.0, -32.0));
+    s.on_note(&played(0.1, 38.0, -3.0));
+    s.on_retraction(&taken_back(0.04));
+    assert_eq!(s.next_expected().map(|e| e.index), Some(1));
+    assert_eq!(of_note(&s, 0), vec![Outcome::Hit], "{:?}", s.results());
+    assert!(of_note(&s, 1).is_empty(), "{:?}", s.results());
 }

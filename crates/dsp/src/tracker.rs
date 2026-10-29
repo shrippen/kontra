@@ -519,6 +519,12 @@ impl NoteTracker {
         &self.pitch_revised
     }
 
+    /// Notes completed in the last `push` or `flush` (what they returned); valid until the next
+    /// call.
+    pub fn told(&self) -> &[DetectedNote] {
+        &self.out
+    }
+
     /// Notes taken back in the last `push` or `flush`: told early, then shown to be no note of
     /// their own (R1); valid until the next call.
     pub fn retracted(&self) -> &[NoteRetraction] {
@@ -1385,9 +1391,11 @@ mod tests {
     #[test]
     fn falling_tone_is_not_revised() {
         // Only a rise is settling (a flat start, an octave below at the attack); a fall after
-        // the note is a pull-off or a decay. Only the full window may correct an early report.
+        // the note is a pull-off or a decay. Only the full window may correct an early report,
+        // and it still hears the fall's start (above D2), not the tone it falls to.
         let (_, revisions) = track_revised(&rising_tone(140.0, 0.12));
         assert!(revisions.len() <= 1, "{revisions:?}");
+        assert!(revisions.iter().all(|r| r.midi > 38.5), "{revisions:?}");
     }
 
     /// A settle window holding `estimates`, after a note emitted as `emitted`.

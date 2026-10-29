@@ -105,6 +105,10 @@ fn settles_into_hits(name: &str, choose: impl FnOnce(&mut kontra_appcore::Settin
 const TAP_S: f64 = 0.06;
 const TAP_LEVEL: f64 = 0.03;
 
+/// Each plucked note sounds this long: the tap before the next falls into silence and is told
+/// (from F#2 up in the same block as the pluck after it).
+const PLUCK_S: f64 = 0.3;
+
 /// The line in tune, each note after a faint tap on its own pitch.
 fn tapped_line() -> Vec<f32> {
     let rate = f64::from(RATE);
@@ -113,10 +117,9 @@ fn tapped_line() -> Vec<f32> {
     for (i, midi) in LINE.iter().enumerate() {
         let hz = Pitch(*midi).hz(A4_HZ);
         let pluck_s = COUNT_IN_S + i as f64 * QUARTER_S;
-        for (start_s, length_s, level) in [
-            (pluck_s - TAP_S, TAP_S, TAP_LEVEL),
-            (pluck_s, QUARTER_S * 0.9, 1.0),
-        ] {
+        for (start_s, length_s, level) in
+            [(pluck_s - TAP_S, TAP_S, TAP_LEVEL), (pluck_s, PLUCK_S, 1.0)]
+        {
             let from = (start_s * rate) as usize;
             let len = (length_s * rate) as usize;
             for (k, slot) in out[from..from + len].iter_mut().enumerate() {
@@ -134,14 +137,23 @@ fn tapped_line() -> Vec<f32> {
 
 #[test]
 fn tap_before_the_pluck_is_taken_back() {
-    let profile = Profile::new("e3-tap");
+    taps_taken_back("e3-tap", "song");
+}
+
+#[test]
+fn tap_before_the_pluck_is_taken_back_waiting() {
+    taps_taken_back("e3-tap-wait", "wait");
+}
+
+fn taps_taken_back(name: &str, mode: &str) {
+    let profile = Profile::new(name);
     let score = profile.dir.join("Walking.mid");
     write_midi(&score, "Walking", &LINE);
     let take = profile.dir.join("tippen.wav");
     kontra_session::write_mono_wav(&take, &tapped_line(), RATE).unwrap();
     let mut core = profile.core(Some(&take));
     core.open(&score).unwrap();
-    core.set_mode("song");
+    core.set_mode(mode);
     core.play();
     let events = run_until(&mut core, Duration::from_secs(8), |e| {
         matches!(e, UiEvent::Finished { .. })

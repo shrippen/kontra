@@ -183,7 +183,7 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   `Input::{expect, forget_expected}`, `Expecting`, `evaluate_expecting` (Session: `evaluate_korpus_expecting`),
   `Evaluation::{first_pitch_correct, turned_wrong, shifted_first, shifted_final, report_ms}`;
   `pub(crate)`: `Yin::estimate_expected`, `Session::{input_s, expected}`, `Practice::take_told`, `Told`.
-- R1: `NoteRetraction`, `NoteTracker::retracted`, `Event::Retracted`, `kontra_engine::retract`,
+- R1: `NoteRetraction`, `NoteTracker::{retracted, told}`, `Event::Retracted`, `kontra_engine::retract`,
   `Session::on_retraction`, `Evaluation::retracted`; `pub(crate)`: `Yin::estimate_short`, `ShortEstimate`,
   `Matcher::release`.
 
