@@ -30,6 +30,10 @@ const STALL_S: f64 = 0.25;
 /// Silence fed for a stretch the device lost, at most: a bass note is told within about 100 ms
 /// (LH-NF-15), so one struck before the stretch ends in it; the rest only moves the clock.
 const BRIDGE_S: f64 = 0.5;
+/// Onsets this close to a resume are the jump from the silence bridge back to the signal (a
+/// string ringing on), not a note: the tracker places them within a few ms of it. A note
+/// really struck there lost its attack in the stall anyway.
+const RESUME_GUARD_S: f64 = 0.05;
 /// MIDI velocity of a full-scale note.
 const VELOCITY_MAX: f32 = 127.0;
 const US_PER_S: f64 = 1e6;
@@ -182,9 +186,9 @@ fn deliver(
 
     // Told first: the silence below is reported heard, and the session must already know it
     // lies in the stretch.
-    let _ = events.send(Event::Resumed {
-        at_s: lost.from_s + lost.lost_s,
-    });
+    let resumed_s = lost.from_s + lost.lost_s;
+    let _ = events.send(Event::Resumed { at_s: resumed_s });
+    analysis.resumed_s = Some(resumed_s);
 
     // Silence where the stretch began, then the clock moves on by the rest.
     let silent = (lost.lost_s.min(BRIDGE_S) * analysis.sample_rate) as usize;
@@ -347,6 +351,11 @@ impl Drop for Input {
     }
 }
 
+/// Whether `onset_s` is the jump at the resume `resumed_s` rather than a note.
+fn at_resume(resumed_s: Option<f64>, onset_s: f64) -> bool {
+    resumed_s.is_some_and(|at_s| (onset_s - at_s).abs() <= RESUME_GUARD_S)
+}
+
 /// Analysis shared by device and file input.
 struct Analysis {
     tracker: NoteTracker,
@@ -357,6 +366,8 @@ struct Analysis {
     sample_rate: f64,
     /// Samples analysed since the input started.
     analysed: u64,
+    /// Where the input resumed after the last stall: no onset is told there.
+    resumed_s: Option<f64>,
 }
 
 impl Analysis {
@@ -373,6 +384,7 @@ impl Analysis {
             start_s: 0.0,
             sample_rate,
             analysed: 0,
+            resumed_s: None,
         }
     }
 
@@ -385,9 +397,13 @@ impl Analysis {
     }
 
     fn process(&mut self, block: &[f32], tuner_on: bool, events: &Sender<Event>) {
+        let resumed_s = self.resumed_s;
         for note in self.tracker.push(block) {
             let mut note = *note;
             note.onset_s += self.start_s;
+            if at_resume(resumed_s, note.onset_s) {
+                continue;
+            }
             let _ = events.send(Event::Note(note));
         }
         self.send_revisions(events);
@@ -420,9 +436,13 @@ impl Analysis {
     }
 
     fn finish(&mut self, events: &Sender<Event>) {
+        let resumed_s = self.resumed_s;
         for note in self.tracker.flush() {
             let mut note = *note;
             note.onset_s += self.start_s;
+            if at_resume(resumed_s, note.onset_s) {
+                continue;
+            }
             let _ = events.send(Event::Note(note));
         }
         self.send_revisions(events);
@@ -433,11 +453,17 @@ impl Analysis {
         for revision in self.tracker.revised() {
             let mut revision = *revision;
             revision.onset_s += self.start_s;
+            if at_resume(self.resumed_s, revision.onset_s) {
+                continue;
+            }
             let _ = events.send(Event::Technique(revision));
         }
         for revision in self.tracker.pitch_revised() {
             let mut revision = *revision;
             revision.onset_s += self.start_s;
+            if at_resume(self.resumed_s, revision.onset_s) {
+                continue;
+            }
             let _ = events.send(Event::Pitch(revision));
         }
     }
@@ -947,9 +973,10 @@ mod tests {
             onsets.iter().any(|o| (o - 1.0).abs() < 0.03),
             "the note at 1.0 s: {onsets:?}"
         );
+        // Review #186, round 4: the string ringing on after the silence is no new note either.
         assert!(
-            !onsets.iter().any(|o| (1.1..1.8).contains(o)),
-            "nothing inside the stall: {onsets:?}"
+            !onsets.iter().any(|o| (1.1..2.3).contains(o)),
+            "nothing inside the stall or at the resume (1.86 s): {onsets:?}"
         );
         assert!(
             onsets.iter().any(|o| (o - 2.36).abs() < 0.03),
