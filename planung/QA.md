@@ -48,12 +48,17 @@ Erwartet: ≤ 60 s bis zum ersten bewerteten Ton; die Übungsseite zeigt Lea nur
 4. Einstellungen: Stimmung „Drop D“, dann „Eigene“ (oberste Saite F), Kammerton 442 Hz; Stimmgerät erneut öffnen, eine MIDI-Datei öffnen.
 Erwartet: Anweisung in Worten („etwas höher drehen“) und Symbol; Erfolg pro Saite eindeutig, auch ohne Farbe. Nach Schritt 4 führt das Stimmgerät durch D A D F, Cent beziehen sich auf 442 Hz, die Tab liegt auf den neuen Saiten; alles bleibt nach einem Neustart.
 
-**J-A3 Latenz kalibrieren** ⚙ · Persona: P3 Mira · Phase 1 · LH-EIN-05, -07
-1. Einstellungen → Eingang → Kalibrieren, „Spiel auf den Klick“.
+**J-A3 Latenz kalibrieren** ⚙ · Personas: P3 Mira, P2 Jens, P1 Lea, P7 Sam · Phase 1 · LH-EIN-05, -07, -14, LH-BEW-08
+1. Einstellungen → Eingang → Latenz, „Auf den Klick spielen“.
 2. Nach vier Klicks Vorzähler acht Anschläge mit +40 ms Versatz einspeisen.
 3. Modus „Durchlauf“, pünktlich gespielte Aufnahme einspeisen.
 4. PipeWire-Quantum auf 2048 setzen, Kontra neu starten.
-Erwartet: gemessene Latenz ≈ 40 ms angezeigt; danach Bewertung pünktlich (±5 ms); bei Quantum 2048 Hinweis mit Wert und Anleitung. Während der Messung zählt die Seite mit („Vorzähler 3“, „Schlag 4 von 8“).
+Erwartet: gemessene Latenz ≈ 40 ms angezeigt, daneben „auf den Klick gemessen, enthält deine Neigung“; danach Bewertung pünktlich (±5 ms); bei Quantum 2048 Hinweis mit Wert und Anleitung. Während der Messung zählt die Seite mit („Vorzähler 3“, „Schlag 4 von 8“).
+5. (P2 Jens, Interface) „Mit Kabel messen“: Kabel vom Kopfhörer-Ausgang in den Eingang; die Töne kommen 20 ms später zurück.
+6. Bass wieder einstecken, „Auf den Klick spielen“, jeder Anschlag 15 ms vor dem Klick.
+7. Ziel „Auf den Punkt“, ein Lied mit derselben Neigung; dann Ziel „Frei“.
+8. Ohne Kabel „Mit Kabel messen“ (es kommt nichts zurück); Anschluss „Klinke direkt in den Laptop“ (P1 Lea).
+Erwartet: nach 5 „20 ms“ und „mit Kabel gemessen“; nach 6 bleibt die Latenz 20 ms, der Text sagt „Deine Neigung: −15 ms, du spielst vor dem Klick“, neben dem Wert „deine Neigung: −15 ms“. In 7 „Ziel auf den Punkt: verfehlt“ (nicht „gehalten“), nie „Neu kalibrieren“; mit „Frei“ die Neigung als Beobachtung. In 8 „Nur 0 von 12 Tönen kamen zurück … Ohne Kabel: auf den Klick spielen“, die Latenz bleibt; an der Laptop-Buchse und bei MIDI gibt es den Kabel-Knopf nicht, ein Satz sagt warum. Ein anderer Ein- oder Ausgang verwirft Kabel- und Klick-Wert (die Latenz bleibt als Startwert, ohne Herkunft), auch wenn ihn die automatische Wahl ändert (Interface abgesteckt, Kontra neu gestartet). Screenreader (P7) liest Wert, Herkunft und Neigung als Text, nichts nur über Farbe.
 
 **J-A4 Eingang, den es noch nicht gibt** · Personas: P5 Aylin, P6 Karl · Phase 1 bis 3 · LH-EIN-09, -10, -12
 1. MIDI-Keyboard anstecken, Kontra starten, Einrichtung bzw. Einstellungen → Instrument „Bass über MIDI“ (P5). Danach Instrument „Kontrabass“ mit USB-Mikrofon (P6).
@@ -140,7 +145,7 @@ nach einem kurzen Lauf (unter 8 Noten) keine, ebenso unter 8 Treffern ohne ander
 4. Ziel auf „Frei“, Aufnahme mit konstanter Tendenz „25 ms zu spät“.
 Erwartet: in derselben Beobachtung der Zusatz „… kann auch die gemessene Latenz nicht mehr stimmen“ mit Knopf „Neu
 kalibrieren“, der zur Kalibrierung in den Einstellungen führt; keine Korrektur ohne Zutun. Mit Ziel laid-back kein
-Zusatz (LH-EIN-14).
+Zusatz (LH-EIN-14), ebenso nie bei einer mit Kabel gemessenen Latenz (J-A3).
 
 **J-C3 MusicXML und Groove** · Persona: P3 Mira · Phase 2 · LH-BIB-03, LH-LRN-01, LH-LRN-04
 1. MuseScore-Export (MusicXML) importieren, in der Notenansicht spielen.

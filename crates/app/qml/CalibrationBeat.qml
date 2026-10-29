@@ -12,7 +12,8 @@ ColumnLayout {
     // The count-in's four clicks, then the eight measured ones.
     readonly property int total: 12
 
-    visible: ctl.calibrating
+    // The measurement by cable plays tones, no clicks to count.
+    visible: ctl.calibrating && !ctl.cableMeasuring
     spacing: KanteStyle.unit(6)
 
     QQC2.Label {
