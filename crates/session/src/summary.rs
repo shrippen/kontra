@@ -62,7 +62,8 @@ pub struct Summary {
     /// Mean absolute pitch deviation of hits and off-pitch notes in cents (intonation).
     pub mean_abs_cents: Option<f64>,
     pub histogram: TimingHistogram,
-    /// Bars with the lowest hit rate, worst first (index into `Arrangement::bars`).
+    /// Bars with the most missed notes, worst first; the hit rate breaks ties (index into
+    /// `Arrangement::bars`).
     pub hardest_bars: Vec<usize>,
     /// Bars the player hesitated at, in order (index into `Arrangement::bars`); see
     /// `hesitant_bars`.
@@ -255,15 +256,16 @@ fn hardest_bars(results: &[NoteResult], arrangement: &Arrangement) -> Vec<usize>
             entry.0 += 1;
         }
     }
-    let mut bars: Vec<(usize, f64)> = per_bar
+    // Most missed notes first: 6 of 8 missed is harder than 1 of 1. The rate breaks ties.
+    let mut bars: Vec<(usize, u32, f64)> = per_bar
         .into_iter()
         .filter(|(bar, (hits, total))| hits < total && *bar < arrangement.bars.len())
-        .map(|(bar, (hits, total))| (bar, f64::from(hits) / f64::from(total)))
+        .map(|(bar, (hits, total))| (bar, total - hits, f64::from(hits) / f64::from(total)))
         .collect();
-    bars.sort_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
+    bars.sort_by(|a, b| b.1.cmp(&a.1).then(a.2.total_cmp(&b.2)).then(a.0.cmp(&b.0)));
     bars.into_iter()
         .take(HARDEST_BARS)
-        .map(|(bar, _)| bar)
+        .map(|(bar, _, _)| bar)
         .collect()
 }
 
@@ -378,6 +380,42 @@ mod tests {
         assert!((late - 70.0).abs() < 1e-6, "{late}");
         let early = outside_offset_ms(&dense(-0.070), 1.0).expect("an offset");
         assert!((early + 70.0).abs() < 1e-6, "{early}");
+    }
+
+    /// Harmonicon analysis (29.10.): the hardest bar is the one that costs the most notes. A bar
+    /// with its one note missed (0 of 1) ranked above one with 6 of 8 missed (2 of 8).
+    #[test]
+    fn hardest_bars_rank_by_misses() {
+        use kontra_model::{Instrument, Note, Pitch, TempoMap, TICKS_PER_QUARTER};
+
+        let mut arrangement = Arrangement::new("Bars", Instrument::default_bass());
+        arrangement.tempo = TempoMap::constant(120.0);
+        for i in 0..16 {
+            let start = i * TICKS_PER_QUARTER;
+            arrangement
+                .notes
+                .push(Note::new(start, TICKS_PER_QUARTER, Pitch(28)));
+        }
+        arrangement.normalize();
+
+        let hit = (Outcome::Hit, Some(0.0));
+        let missed = (Outcome::Missed, None);
+        let in_bar = |bar: usize, notes: &[(Outcome, Option<f64>)]| -> Vec<NoteResult> {
+            played(notes)
+                .into_iter()
+                .map(|r| NoteResult {
+                    bar: Some(bar),
+                    ..r
+                })
+                .collect()
+        };
+        let mut results = in_bar(0, &[missed]);
+        results.extend(in_bar(
+            1,
+            &[hit, hit, missed, missed, missed, missed, missed, missed],
+        ));
+
+        assert_eq!(hardest_bars(&results, &arrangement), vec![1, 0]);
     }
 
     #[test]
