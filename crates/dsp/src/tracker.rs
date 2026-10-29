@@ -47,6 +47,8 @@ use kontra_model::{
     TechniqueRevision,
 };
 
+mod background;
+
 const RETRY_S: f64 = 0.005;
 const LEVEL_SPAN_S: f64 = 0.02;
 /// Level before an onset: peak over this span, ending `RISE_GAP_S` before it (−20..−8 ms). The
@@ -764,6 +766,7 @@ impl NoteTracker {
     }
 
     fn emit(&mut self, p: Pending) {
+        let over_background = !self.stands_out(&p);
         let level_db = self.level_after(p.report);
         let (midi, confidence) = match p.best {
             Some(b) => (hz_to_midi(b.hz, self.config.a4_hz), b.confidence),
@@ -805,6 +808,7 @@ impl NoteTracker {
             level_db,
             source: self.config.source,
             technique,
+            over_background,
         });
     }
 
@@ -925,6 +929,7 @@ impl NoteTracker {
                     level_db,
                     source: self.config.source,
                     technique: Some(technique),
+                    over_background: false,
                 },
                 until + (LEGATO_HOLD_S * self.sample_rate) as u64,
             ));

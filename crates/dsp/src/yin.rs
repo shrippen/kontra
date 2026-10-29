@@ -305,16 +305,8 @@ impl Yin {
         lowest.1 * note.0 < THUMP_FADE * lowest.0 * note.1
     }
 
-    /// Power at `hz` over `samples` (Goertzel).
     fn power_at(&self, samples: &[f32], hz: f64) -> f64 {
-        let coeff = 2.0 * (std::f64::consts::TAU * hz / self.sample_rate).cos();
-        let (mut s1, mut s2) = (0.0, 0.0);
-        for x in samples {
-            let s = f64::from(*x) + coeff * s1 - s2;
-            s2 = s1;
-            s1 = s;
-        }
-        s1 * s1 + s2 * s2 - coeff * s1 * s2
+        power_at(samples, hz, self.sample_rate)
     }
 
     /// The local minimum within ±3 % of `tau`, if that range lies inside the search range.
@@ -340,6 +332,18 @@ impl Yin {
         }
         tau as f64 + 0.5 * (a - c) / denom
     }
+}
+
+/// Power at `hz` over `samples` (Goertzel).
+pub(crate) fn power_at(samples: &[f32], hz: f64, sample_rate: f64) -> f64 {
+    let coeff = 2.0 * (std::f64::consts::TAU * hz / sample_rate).cos();
+    let (mut s1, mut s2) = (0.0, 0.0);
+    for x in samples {
+        let s = f64::from(*x) + coeff * s1 - s2;
+        s2 = s1;
+        s1 = s;
+    }
+    s1 * s1 + s2 * s2 - coeff * s1 * s2
 }
 
 #[cfg(test)]

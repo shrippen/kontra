@@ -194,9 +194,13 @@ schon. Bevy: kein Wechsel; Fernsteuerung über AT-SPI, Hot-Reload nur für Kurse
 Fehler (zuerst roter Test):
 - [x] F1 Volle Eingangs-Ringe verwerfen Samples stumm, spätere Zeitstempel zu früh (`crates/engine/src/input.rs`, #181).
 - [x] F2 Schwierigste Takte nach Fehlerzahl (LH-BEW-03, #182); offen: „Stelle üben“ aus dem dichtesten Fenster.
-- [ ] F3 Falschnoten im Leerlauf (LH-NF-16, gefunden mit E2, 29.10.): Jeder Knackser, jedes Kratzen und Dämpfen löst
-  einen Anschlag aus, die Tonhöhe kommt vom Netzbrummen (50 Hz, MIDI 31,35) oder fehlt. `idle-line` 41, `idle-room` 26
-  Falschnoten je Minute statt höchstens 1. Bis zum Fix hält eine Grenze (45) Verschlechterungen auf.
+- [x] F3 Falschnoten im Leerlauf (LH-NF-16, gefunden mit E2, 29.10.): Jeder Knackser, jedes Kratzen und Dämpfen löste
+  einen Anschlag aus, die Tonhöhe kam vom Netzbrummen (50 Hz, MIDI 31,35) oder fehlte. `idle-line` 41, `idle-room` 26
+  Falschnoten je Minute statt höchstens 1. Behoben: Eine Tonhöhe, die schon 200 ms vor dem Anschlag klar zu hören war
+  und bei ihrer Frequenz nicht um 12 dB lauter wird, ist die des Hintergrunds (`over_background`); die Session wertet
+  solche Anschläge und tonlose nur, wo eine Note fällig ist. Eine Pegelregel für die noch klingende letzte Note scheiterte
+  in beide Richtungen (Brummen durch, dann Wiederanschlag tonlos; Review #193). Jetzt 0 je Minute; IDMT 90,1 % / 80,6 %
+  wie vorher, synthetische Sätze gleich. Der saubere Weg ist Brummen vor der Erkennung zu entfernen (E8).
 
 Rückmeldung und Lernen:
 - [x] A1 Eine Beobachtung je Durchlauf (LH-BEW-09, #184).
@@ -225,12 +229,15 @@ Erkennung und Messung:
   laptop-jack-4 81 ms, line-5 und fretless-5 100 ms (tiefe H-Saite), sixteenths 82 ms, techniques 271 ms (Legato
   ohne Anschlag). Ziel 70 ms damit verfehlt; bis zur Entscheidung des Eigentümers eine Grenze bei 110 ms gegen
   Verschlechterung.
-- [x] E2 Sätze ohne Noten, Falschnoten je Minute (LH-NF-16): `idle-line`, `idle-room` (60 s, Brummen, Rauschen, Knackser, Kratzen, Dämpfen); Ziel verfehlt, siehe F3.
+- [x] E2 Sätze ohne Noten, Falschnoten je Minute (LH-NF-16): `idle-line`, `idle-room` (60 s, Brummen, Rauschen, Knackser, Kratzen, Dämpfen); Ziel seit F3 erreicht.
 - [ ] E3 Wächter und dauerhafter Eingangszustand (LH-EIN-15).
 - [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).
 - [ ] E5 Notenende (LH-BEW-10).
 - [ ] E6 Rauschboden bei der Kalibrierung (LH-EIN-16).
 - [ ] E7 Erste echte Aufnahmen als eingefrorene Basis, neue als eigene Gruppen.
+- [ ] E8 Brummen vor der Erkennung entfernen (Eigentümer, 29.10.): Netzfrequenz verfolgen (49,8–50,2 Hz, 60 Hz),
+  Grundton und Obertöne abziehen statt sperren; Noten auf derselben Frequenz (G1, G2) bleiben. Dann braucht der Tracker
+  die Hintergrund-Regel von F3 nicht mehr. Messen an IDMT und Sätzen mit Brummen.
 
 Mehrere Töne (offen für Gitarre und Tasten):
 - [ ] M1 Doppelgriffe: Korpus-Satz, Merker „zwei Töne“, Fähigkeit je Eingang (LH-BEW-11).

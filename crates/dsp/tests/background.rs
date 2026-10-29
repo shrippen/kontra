@@ -1,0 +1,168 @@
+//! Mains hum under a line input (LH-NF-16, F3): noise on it is no note with the hum's pitch, a
+//! note played on it keeps its own.
+
+use kontra_dsp::synth::{add_noise, render, Noise, SynthNote, ToneShape};
+use kontra_dsp::{NoteTracker, TrackerConfig};
+use kontra_model::{hz_to_midi, DetectedNote, InputSource, Instrument, Pitch, A4_HZ};
+
+const SR: f64 = 48_000.0;
+const HUM_HZ: f64 = 50.0;
+/// Hum at −50 dBFS, as in the corpus set idle-line.
+const HUM_AMPLITUDE: f32 = 0.003;
+
+/// `len_s` of hum with a little noise.
+fn hum(len_s: f64) -> Vec<f32> {
+    let mut signal: Vec<f32> = (0..(len_s * SR) as usize)
+        .map(|i| {
+            let t = i as f64 / SR;
+            HUM_AMPLITUDE * (std::f64::consts::TAU * HUM_HZ * t).sin() as f32
+        })
+        .collect();
+    add_noise(&mut signal, -66.0, 3);
+    signal
+}
+
+fn track(signal: &[f32]) -> Vec<DetectedNote> {
+    let config = TrackerConfig::for_instrument(&Instrument::default_bass(), InputSource::Line);
+    let mut tracker = NoteTracker::new(SR, config);
+    let mut found = Vec::new();
+    for block in signal.chunks(480) {
+        found.extend_from_slice(tracker.push(block));
+    }
+    found.extend_from_slice(tracker.flush());
+    found
+}
+
+/// A click (3 ms), a scrape (120 ms of hiss) and a hand on the strings (30 ms, low): before the
+/// fix each came out as a note at MIDI 31.35, the hum's pitch; now none stands out.
+#[test]
+fn noise_on_hum_stands_not_out() {
+    let mut signal = hum(4.0);
+    let mut noise = Noise::new(7);
+    let mut low = 0.0f32;
+    let k = (std::f64::consts::TAU * 200.0 / SR) as f32;
+    // (at s, length s, amplitude, low-passed)
+    let sounds = [
+        (1.0, 0.003, 0.3, false),
+        (2.0, 0.12, 0.03, false),
+        (3.0, 0.03, 1.5, true),
+    ];
+    for (at_s, len_s, amplitude, dull) in sounds {
+        let at = (at_s * SR) as usize;
+        let len = (len_s * SR) as usize;
+        for (i, s) in signal[at..at + len].iter_mut().enumerate() {
+            let fade = 1.0 - i as f32 / len as f32;
+            low += k * (noise.sample() - low);
+            let x = if dull { low } else { noise.sample() };
+            *s += amplitude * fade * x;
+        }
+    }
+
+    let found = track(&signal);
+    assert!(!found.is_empty(), "the attacks are heard");
+    assert!(found.iter().all(|n| !n.stands_out()), "{found:?}");
+}
+
+/// G1 (49 Hz) lies 35 ct below the hum: played on it, it is a note with its own pitch.
+#[test]
+fn note_on_hum_keeps_its_pitch() {
+    let hz = Pitch::parse("G1").unwrap().hz(A4_HZ);
+    let note = SynthNote {
+        onset_s: 1.0,
+        hz,
+        duration_s: 0.8,
+        velocity: 0.7,
+    };
+    let tone = render(&[note], SR, 2.0, ToneShape::Rich, 4);
+    let signal: Vec<f32> = hum(2.0).iter().zip(&tone).map(|(h, t)| h + t).collect();
+
+    let found = track(&signal);
+    let expected = hz_to_midi(hz, A4_HZ);
+    assert!(
+        found
+            .iter()
+            .any(|n| (n.midi - expected).abs() < 0.3 && n.stands_out()),
+        "G1 at {expected:.2}: {found:?}"
+    );
+}
+
+/// A note told once does not open the door for the hum later (PR-Agent #193): G1 (35 ct from
+/// the hum) played and faded, loud or soft (down to −30 dBFS, review round 2), then clicks on the hum
+/// do not stand out.
+#[test]
+fn faded_note_lets_no_hum_through() {
+    let hz = Pitch::parse("G1").unwrap().hz(A4_HZ);
+    for velocity in [0.7, 0.1, 0.07, 0.05, 0.03] {
+        clicks_after(hz, velocity);
+    }
+}
+
+fn clicks_after(hz: f64, velocity: f32) {
+    let note = SynthNote {
+        onset_s: 0.5,
+        hz,
+        duration_s: 0.5,
+        velocity,
+    };
+    let tone = render(&[note], SR, 5.0, ToneShape::Rich, 4);
+    let mut signal: Vec<f32> = hum(5.0).iter().zip(&tone).map(|(h, t)| h + t).collect();
+    let mut noise = Noise::new(9);
+    for at_s in [2.5, 3.5, 4.5] {
+        let at = (at_s * SR) as usize;
+        let len = (0.003 * SR) as usize;
+        for (i, s) in signal[at..at + len].iter_mut().enumerate() {
+            *s += 0.3 * (1.0 - i as f32 / len as f32) * noise.sample();
+        }
+    }
+
+    let found = track(&signal);
+    let after: Vec<&DetectedNote> = found.iter().filter(|n| n.onset_s > 2.0).collect();
+    assert!(!after.is_empty(), "the clicks are heard: {found:?}");
+    assert!(
+        after.iter().all(|n| !n.stands_out()),
+        "velocity {velocity}: {after:?}"
+    );
+}
+
+/// The same note struck again while the first still rings keeps its pitch (review #193, round
+/// 4): 2–3.5 s later, at the same or a softer touch, it came out pitchless.
+#[test]
+fn restruck_note_keeps_its_pitch() {
+    for name in ["E1", "A1", "D2", "G2"] {
+        let hz = Pitch::parse(name).unwrap().hz(A4_HZ);
+        for velocity in [0.7, 0.5, 0.35] {
+            for gap_s in [2.0, 2.5, 3.0, 3.5] {
+                restrike(hz, velocity, gap_s);
+            }
+        }
+    }
+}
+
+fn restrike(hz: f64, velocity: f32, gap_s: f64) {
+    let first = SynthNote {
+        onset_s: 0.5,
+        hz,
+        duration_s: 8.0,
+        velocity: 0.7,
+    };
+    let again = SynthNote {
+        onset_s: 0.5 + gap_s,
+        hz,
+        duration_s: 2.0,
+        velocity,
+    };
+    let len_s = gap_s + 3.0;
+    let mut signal = render(&[first, again], SR, len_s, ToneShape::Rich, 4);
+    add_noise(&mut signal, -66.0, 3);
+
+    let found = track(&signal);
+    let expected = hz_to_midi(hz, A4_HZ);
+    let second: Vec<&DetectedNote> = found
+        .iter()
+        .filter(|n| (n.onset_s - again.onset_s).abs() < 0.1)
+        .collect();
+    assert!(
+        second.iter().any(|n| (n.midi - expected).abs() < 0.3),
+        "{hz:.1} Hz, velocity {velocity}, gap {gap_s} s: {found:?}"
+    );
+}
