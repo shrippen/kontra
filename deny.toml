@@ -29,3 +29,14 @@ allow-wildcard-paths = true
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
+
+# Known vulnerabilities (Harmonicon W7): a job of its own in .github/workflows/advisories.yml, on
+# main and weekly, so a new advisory does not turn unrelated pull requests red.
+[advisories]
+ignore = [
+    # slice-ring-buffer via minimp3 (MP3 decoding): the double frees need a Clone or Drop of the
+    # elements that panics, or one of four functions minimp3 does not call. minimp3 keeps bytes
+    # (u8) and only uses `extend` over `&u8` and `truncate_front`. Checked 29.10.2026; drop this
+    # when minimp3 or its ring buffer is replaced.
+    { id = "RUSTSEC-2025-0044", reason = "minimp3 uses none of the affected paths (u8, extend, truncate_front)" },
+]

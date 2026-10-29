@@ -238,7 +238,7 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
 - [ ] W4 Tabelle Regel → Prüfung, Git-Hooks, CI-Prüfung der Commit-Nachrichten.
 - [ ] W5 Test für Crate-Kanten und Dateigröße mit Abbauliste.
 - [ ] W6 `scripts/release.sh`, metainfo `<releases>`/`<screenshots>`, AppStream- und Flatpak-Lint.
-- [ ] W7 `cargo deny` mit `[advisories]`, eigener Job und wöchentlich.
+- [x] W7 `cargo deny` mit `[advisories]`, eigener Job und wöchentlich (`advisories.yml`); rustls auf 0.23.46, RUSTSEC-2025-0044 (minimp3) mit Begründung ignoriert.
 - [ ] W8 JSON-Schemas für Pakete und Kurse aus den serde-Strukturen.
 - [ ] W9 Kurs aus Ordner live (LH-LRN-21); QML von der Platte in Entwicklung.
 - [ ] W11 Glyphen-Test für Sonderzeichen.
