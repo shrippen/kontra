@@ -33,8 +33,9 @@ const OBSERVE_MIN_TECHNIQUE: u32 = 4;
 const OBSERVE_MIN_HITS: u32 = 8;
 /// A technique below this share is worth practising ...
 const WEAK_TECHNIQUE: f64 = 0.6;
-/// ... when it also trails the hit rate by this much (all at 50 % is not about the technique).
-const TECHNIQUE_GAP: f64 = 0.2;
+/// ... when it also trails the hit rate by this many percentage points, counted whole (all at
+/// 50 % is not about the technique; 55 % against 75 % is 20 points, not 19.99…).
+const TECHNIQUE_GAP_POINTS: f64 = 20.0;
 /// A run that missed this share of its notes is about the notes.
 const MANY_MISSED: f64 = 0.35;
 /// Share of hits on one side of the beat that reads as a lean rather than scatter.
@@ -306,7 +307,10 @@ impl Summary {
             .iter()
             .filter(|t| t.judged >= OBSERVE_MIN_TECHNIQUE)
             .map(|t| (t, f64::from(t.played) / f64::from(t.judged)))
-            .filter(|(_, share)| *share < WEAK_TECHNIQUE && self.hit_rate - share >= TECHNIQUE_GAP)
+            .filter(|(_, share)| {
+                *share < WEAK_TECHNIQUE
+                    && ((self.hit_rate - share) * 100.0).round() >= TECHNIQUE_GAP_POINTS
+            })
             .min_by(|a, b| a.1.total_cmp(&b.1));
         if let Some((t, _)) = weakest {
             return Some(Observation::Technique {
@@ -329,10 +333,15 @@ impl Summary {
             });
         }
 
+        // Too few hits to tell the timing: nothing to say, not "solid".
+        if self.hits < OBSERVE_MIN_HITS {
+            return None;
+        }
+
         // A missed aim outweighs a lean: the player chose where to sit. Judged in whole ms,
         // like the pocket line: 5.3 ms against ±5 ms is held, not "0 ms behind".
         let verdict = self.mean_offset_ms.and_then(|m| pocket.judge(m.round()));
-        match verdict.filter(|_| self.hits >= OBSERVE_MIN_HITS) {
+        match verdict {
             Some(PocketVerdict::Early(off_ms)) => {
                 return Some(Observation::Aim {
                     side: Side::Early,
@@ -348,7 +357,7 @@ impl Summary {
             _ => {}
         }
 
-        if pocket == Pocket::Free && self.hits >= OBSERVE_MIN_HITS {
+        if pocket == Pocket::Free {
             let hits = f64::from(self.hits);
             let early = f64::from(self.early_hits) / hits;
             let late = f64::from(self.late_hits) / hits;
@@ -680,6 +689,24 @@ mod tests {
         // PR-Agent #184: 0.3 ms past ±5 ms reads "0 ms behind": held, as the pocket line says.
         let s = summary(&[hit(5.3); 10]);
         assert_eq!(s.observation(Pocket::OnBeat), Some(Observation::Solid));
+
+        // PR-Agent #184: seven hits 25 ms late and three missed: too few hits to name the aim,
+        // and then not "solid" either.
+        let mut notes = vec![hit(25.0); 7];
+        notes.extend([missed; 3]);
+        assert_eq!(summary(&notes).observation(Pocket::OnBeat), None);
+
+        // PR-Agent #184: 11 of 20 slides at 15 of 20 hits is exactly 20 points under.
+        let mut notes = vec![hit(0.0); 15];
+        notes.extend([missed; 5]);
+        let mut s = summary(&notes);
+        s.techniques = vec![slide(11, 20)];
+        let expected = Observation::Technique {
+            technique: Technique::Slide,
+            played: 11,
+            judged: 20,
+        };
+        assert_eq!(s.observation(Pocket::Free), Some(expected));
 
         // Wide scatter both ways is no lean.
         let notes: Vec<_> = (0..10)
