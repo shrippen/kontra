@@ -11,6 +11,10 @@ const FRETLESS_MAX_CENTS: f64 = 3.0;
 
 const CENTS_PER_SEMITONE: f64 = 100.0;
 
+/// LH-NF-15, line sets: p95 from attack to report. A guard 10 ms over the first measurement
+/// (29.10.: 81 and 100 ms) until the owner confirms the target (70 ms).
+const REPORT_GUARD_MS: f64 = 110.0;
+
 pub fn run(a: &KorpusArgs) -> CliResult {
     match &a.command {
         KorpusCommand::Write { dir } => write(dir),
@@ -322,7 +326,7 @@ fn write(dir: &Path) -> CliResult {
 
 fn check(dir: Option<&Path>) -> CliResult {
     println!(
-        "{:<14} {:>6} {:>8} {:>9} {:>7} {:>7} {:>9} {:>8} {:>8} {:>8}",
+        "{:<14} {:>6} {:>8} {:>9} {:>7} {:>7} {:>9} {:>8} {:>8} {:>8} {:>8}",
         "set",
         "notes",
         "recall",
@@ -332,7 +336,8 @@ fn check(dir: Option<&Path>) -> CliResult {
         "p95 ms",
         "cents",
         "p95 ct",
-        "max ct"
+        "max ct",
+        "p95 rep"
     );
     let mut failed = false;
     for set in KorpusSet::ALL {
@@ -364,15 +369,18 @@ fn check(dir: Option<&Path>) -> CliResult {
         } else {
             0.95
         };
+        let report_ok = !matches!(set, KorpusSet::Line4 | KorpusSet::Line5)
+            || e.p95_report_ms <= REPORT_GUARD_MS;
         let ok = e.recall() >= found
             && e.precision() >= found
             && e.pitch_accuracy() >= needed
             && e.technique_accuracy() >= technique_needed
             && e.p95_abs_onset_ms < onset_ms
-            && cents_ok;
+            && cents_ok
+            && report_ok;
         failed |= !ok;
         println!(
-            "{:<14} {:>6} {:>7.1}% {:>8.1}% {:>6.1}% {:>6.1}% {:>9.2} {:>8.2} {:>8.2} {:>8.2} {}",
+            "{:<14} {:>6} {:>7.1}% {:>8.1}% {:>6.1}% {:>6.1}% {:>9.2} {:>8.2} {:>8.2} {:>8.2} {:>8.1} {}",
             set.name(),
             e.annotated,
             e.recall() * 100.0,
@@ -383,11 +391,12 @@ fn check(dir: Option<&Path>) -> CliResult {
             e.mean_abs_cents,
             e.p95_abs_cents,
             e.max_abs_cents,
+            e.p95_report_ms,
             if ok { "ok" } else { "FAILED" }
         );
     }
     if failed {
-        return Err("corpus below LH-NF-02/03 or LH-BEW-05 targets".into());
+        return Err("corpus below LH-NF-02/03/15 or LH-BEW-05 targets".into());
     }
     Ok(())
 }

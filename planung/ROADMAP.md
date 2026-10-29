@@ -204,7 +204,7 @@ Rückmeldung und Lernen:
 - [ ] L2 Übungsserie, standardmäßig aus (LH-FOR-05).
 - [ ] L3 Übungsleiter je Lektion (LH-LRN-17).
 - [ ] L4 Griffbrett-Quiz gewichtet (LH-LRN-18).
-- [ ] L5 Intonation als Richtung und Streuung (LH-BEW-12).
+- [x] L5 Intonation als Richtung und Streuung (LH-BEW-12).
 - [ ] L6 Verstimmte Saite erkennen (LH-TUN-05).
 - [ ] L7 Liedkarte, Kante-Baustein (LH-FOR-06).
 - [ ] L8 Ruf und Antwort (LH-LRN-19).
@@ -217,7 +217,10 @@ Erkennung und Messung:
   (10 „other“, 11 verpasst), C2–B2 92,3 % (13 Halbtöne daneben), C3–B3 68,2 %, C4–B4 12,5 % (11 von 16 zwei Oktaven
   tiefer gehört: Flageoletts, die Bewertung lässt sie in jeder Oktave gelten). Oktavfehler bei tiefen Tönen kaum (3 von
   346 und 3 von 542).
-- [ ] E1 Meldezeit je Note im Korpus (LH-NF-15).
+- [x] E1 Meldezeit je Note im Korpus (LH-NF-15): `korpus check` zeigt „p95 rep“. Erste Messung (29.10.): line-4 und
+  laptop-jack-4 81 ms, line-5 und fretless-5 100 ms (tiefe H-Saite), sixteenths 82 ms, techniques 271 ms (Legato
+  ohne Anschlag). Ziel 70 ms damit verfehlt; bis zur Entscheidung des Eigentümers eine Grenze bei 110 ms gegen
+  Verschlechterung.
 - [ ] E2 Sätze ohne Noten, Falschnoten je Minute (LH-NF-16).
 - [ ] E3 Wächter und dauerhafter Eingangszustand (LH-EIN-15).
 - [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).

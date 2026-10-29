@@ -3,7 +3,7 @@
 //! Real recordings go to `testdata/korpus/local/` later; until then these generated sets stand in.
 //! Each set is a WAV plus an annotation with the true onset and pitch of every note.
 
-use crate::offline::{analyze, analyze_without};
+use crate::offline::{analyze_reported, cancel_echo};
 use kontra_dsp::synth::{
     laptop_jack, render, render_articulated, room, Articulation, Noise, Played, SynthNote,
     ToneShape,
@@ -366,6 +366,11 @@ pub struct Evaluation {
     pub p95_abs_cents: f64,
     /// Largest of it; LH-BEW-05 holds per note.
     pub max_abs_cents: f64,
+    /// From the annotated onset to the first report with a pitch, 95th percentile (LH-NF-15).
+    #[serde(default)]
+    pub p95_report_ms: f64,
+    #[serde(default)]
+    pub max_report_ms: f64,
 }
 
 impl Evaluation {
@@ -467,17 +472,17 @@ fn evaluate_as(
     matching: Matching,
 ) -> (Evaluation, Vec<DetectedNote>) {
     // With a band in the room, Kontra subtracts what it played (the band) first.
-    let detected = match set {
-        KorpusSet::RoomDoubleBacking => analyze_without(
-            samples,
-            &band(samples.len(), f64::from(sample_rate)),
-            f64::from(sample_rate),
-            &set.instrument(),
-            source,
-        ),
-        _ => analyze(samples, f64::from(sample_rate), &set.instrument(), source),
+    let rate = f64::from(sample_rate);
+    let cleaned;
+    let heard = match set {
+        KorpusSet::RoomDoubleBacking => {
+            cleaned = cancel_echo(samples, &band(samples.len(), rate));
+            &cleaned
+        }
+        _ => samples,
     };
-    let evaluation = compare(set, notes, &detected, matching);
+    let (detected, reported) = analyze_reported(heard, rate, &set.instrument(), source);
+    let evaluation = compare(set, notes, &detected, &reported, matching);
     (evaluation, detected)
 }
 
@@ -499,14 +504,17 @@ pub fn same_pitch(note: &Annotation, midi: f64) -> bool {
     semitones == 0.0
 }
 
+/// `reported`: when each detection was first told, seconds from the start.
 fn compare(
     set: KorpusSet,
     notes: &[Annotation],
     detected: &[DetectedNote],
+    reported: &[f64],
     matching: Matching,
 ) -> Evaluation {
     let mut used = vec![false; detected.len()];
     let mut onset_errors = Vec::new();
+    let mut report_delays = Vec::new();
     let mut cents_errors = Vec::new();
     let mut pitch_correct = 0;
     let mut technique_correct = 0;
@@ -538,12 +546,16 @@ fn compare(
             continue;
         }
         cents_errors.push(cents_off(note, d.midi).abs());
+        if let Some(at_s) = reported.get(index) {
+            report_delays.push((at_s - note.onset_s) * 1000.0);
+        }
         if same_pitch(note, d.midi) {
             pitch_correct += 1;
         }
     }
     onset_errors.sort_by(f64::total_cmp);
     cents_errors.sort_by(f64::total_cmp);
+    report_delays.sort_by(f64::total_cmp);
     let mean = |v: &[f64]| {
         if v.is_empty() {
             0.0
@@ -571,12 +583,17 @@ fn compare(
         mean_abs_cents: mean(&cents_errors),
         p95_abs_cents: p95(&cents_errors),
         max_abs_cents: cents_errors.last().copied().unwrap_or(0.0),
+        p95_report_ms: p95(&report_delays),
+        max_report_ms: report_delays.last().copied().unwrap_or(0.0),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Guard for LH-NF-15 until its target is confirmed: 10 ms over the first measurement.
+    const REPORT_GUARD_MS: f64 = 110.0;
 
     /// Sets already heard through another input keep it: `korpus measure --laptop-jack` over a
     /// `korpus write` folder simulated laptop-jack-4 twice (second reader, 13.10.).
@@ -661,6 +678,17 @@ mod tests {
                 set.name(),
                 e.technique_accuracy()
             );
+            // LH-NF-15: told with a pitch soon after the attack. The target (70 ms, p95, line
+            // sets) waits for the owner's word on the first measurement (29.10.: line-4 81 ms,
+            // line-5 100 ms); until then a guard against getting slower.
+            if matches!(set, KorpusSet::Line4 | KorpusSet::Line5) {
+                assert!(
+                    e.p95_report_ms > 0.0 && e.p95_report_ms <= REPORT_GUARD_MS,
+                    "{}: p95 report {:.1} ms",
+                    set.name(),
+                    e.p95_report_ms
+                );
+            }
             if set == KorpusSet::Fretless5 {
                 assert!(
                     e.mean_abs_cents < 6.0,
