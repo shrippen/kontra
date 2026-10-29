@@ -179,6 +179,10 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 - F3: `DetectedNote::{is_pitchless, stands_out, over_background}`, `Evaluation::pitched`; `pub(crate) yin::power_at`.
 - A2: `Summary::recalibrate`, `Summary::{before_beat_hits, after_beat_hits}`.
+- R2: `ExpectedStrike` (`new`, `with`, `tones`, `MAX_TONES`), `ExpectedTone`, `NoteTracker::{expect, forget_expected}`,
+  `Input::{expect, forget_expected}`, `Expecting`, `evaluate_expecting` (Session: `evaluate_korpus_expecting`),
+  `Evaluation::{first_pitch_correct, turned_wrong, shifted_first, shifted_final, report_ms}`;
+  `pub(crate)`: `Yin::estimate_expected`, `Session::{input_s, expected}`, `Practice::take_told`, `Told`.
 
 ## Für den Eigentümer
 

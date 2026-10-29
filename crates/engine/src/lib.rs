@@ -29,8 +29,9 @@ pub use kontra_drivers::{
 };
 pub use kontra_dsp::{track_beats, BeatGrid, Shaping, SHAPING_RANGE_DB};
 pub use korpus::{
-    band, evaluate, evaluate_laptop_jack, evaluate_with, generate, render_performance, same_pitch,
-    Annotation, Evaluation, KorpusItem, KorpusSet, Matching, Mistakes, Playing,
+    band, evaluate, evaluate_expecting, evaluate_laptop_jack, evaluate_with, generate,
+    render_performance, same_pitch, Annotation, Evaluation, Expecting, KorpusItem, KorpusSet,
+    Matching, Mistakes, Playing,
 };
 pub use offline::{analyze, analyze_without, revise, revise_pitch};
 pub use player::{Accent, BackingAudio, Gains, NullOutput, Output, Player, Sound};
