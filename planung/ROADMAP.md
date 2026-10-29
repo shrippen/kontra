@@ -184,6 +184,33 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
   91,2/81,2 %; eigene Aufnahmen unverändert (testdata/korpus/QUELLEN.md, „Tonhöhen-Revision“).
 - Hardware-Prüfung gemeinsam: am 13.10. begonnen (Abschnitt Hardware-Prüfung unter QA-Runden).
 
+## Forschung zur Audio-Engine (29.10.2026)
+
+Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, gleiche Daten; Berichte in
+[FORSCHUNG-AUDIO.md](FORSCHUNG-AUDIO.md)). Eigentümer 29.10.: umsetzen, soweit es trägt.
+
+- [ ] R1 Meldezeit (LH-NF-15): YIN ab dem Anschlag mit wachsendem Fenster (1 Periode, Bestätigung), das volle Fenster
+  revidiert in beide Richtungen, auch nur die Cent. Prototyp: IDMT Median 79 → 61 ms, `line-4`/`line-5` p95 81 → 69,
+  100 → 80 ms, Endgenauigkeit gleich; erste Meldung 1–2,5 Punkte öfter falsch, Fingertipp vor dem Anschlag wird Note.
+  Nur zusammen mit „Note zurückgenommen“ und vorläufigem Urteil in der Session.
+- [ ] R2 Erwartete Note an die Erkennung, nur als Torwächter der ersten Meldung, nie als Entscheider: locker gewertet
+  machte sie aus falsch gespielten Noten dreimal so viele Treffer. Grundlage für R7 und R8.
+- [ ] R3 Gerätezeitstempel (cpal `capture`/`playback`) mit DLL statt Anker am ersten Callback. Simulation: heute
+  37 ms Fehler bei anderem Quantum als beim Kalibrieren, zwei Geräte nach 5 min p95 24 ms; mit Stempeln < 0,2 ms.
+  Offen: Semantik der Stempel am Scarlett Solo (Loopback, etwa 15 min mit dem Eigentümer).
+- [ ] R4 Latenz per Loopback oder Gerät, nicht per Klick: die Klick-Kalibrierung zieht die Neigung des Spielers ab
+  (15 ms früh gilt als „Auf den Punkt“). Klick zeigt danach nur „deine Neigung“; LH-EIN-14 und LH-BEW-09 passen sich an.
+- [x] R5 pYIN statt fester Schwelle: abgelehnt, bei gleicher Meldezeit schlechter (IDMT 91,6 → 90 %, Leerlauf
+  41 → 48/min); der Vorteil kam nur vom Warten.
+- [ ] R6 Techniken ehrlich messen: IDMT-SMT-Bass (Einzelnoten, drei Bässe) als zweiter Satz; Slap 80 → 42 %,
+  Pop 66 → 15 % auf fremden Bässen. Schwellen auf beiden Sätzen wählen; Merkmale nach Abeßer erst mit mehr Bässen.
+- [ ] R7 Saite erkennen über Inharmonizität: 93,8 % auf fremden Bässen (Zufall 41,5 %), echte Linien 76 %, Palm-Mute
+  nicht; Urteil etwa 280 ms nach dem Anschlag. Kandidaten aus R2.
+- [ ] R8 Doppelgriffe erkennen, wenn die Tab beide Töne vorgibt (Klapuri 2006): 95 % erkannt, 2,1 % Fehlalarm;
+  Oktaven nicht. Teil von M1 (LH-BEW-11).
+- [ ] R9 Time-Stretch: kürzerer Steuer-Vorlauf (win/16) spart 37 ms (Standard) bzw. 75 ms (Fine), Messwerte gleich;
+  Doku: Fine kostet 133 ms mehr, nicht 85. Zwei Auflösungen: abgelehnt. Hörtest B0 Standard gegen Fine offen.
+
 ## Entscheidungen Harmonicon-Analyse (29.10.2026)
 
 Harmonicon (tcanabrava/harmonicon, MIT, Bevy, Mundharmonika) untersucht; Vorschläge in
