@@ -7,7 +7,7 @@
 //!            without:               latency = click_ms (from Click, holds the lean)
 //! ```
 
-use crate::store::LatencyFrom;
+use crate::store::{LatencyFrom, Settings};
 use crate::{Core, UiEvent, CALIBRATION_LEAD_S};
 use kontra_session::{
     CalibrationResult, LiveCalibration, LiveLoopback, LiveSetup, LoopbackResult, Pocket, Side,
@@ -106,9 +106,10 @@ impl Core {
 
         // Without one the clicks are the latency, lean included; a lean ahead of a short
         // latency gives a median before the click, no latency is below zero.
+        let click_ms = latency_ms;
         let latency_ms = latency_ms.max(0.0);
         self.reconfigure(|s| {
-            s.click_ms = Some(latency_ms);
+            s.click_ms = Some(click_ms);
             s.latency_ms = latency_ms;
             s.latency_from = LatencyFrom::Click;
         });
@@ -162,7 +163,9 @@ impl Core {
             }
         };
 
+        // A lean comes only from clicks after this cable value (review #202).
         self.reconfigure(|s| {
+            s.click_ms = None;
             s.loopback_ms = Some(latency_ms);
             s.latency_ms = latency_ms;
             s.latency_from = LatencyFrom::Loopback;
@@ -209,6 +212,20 @@ impl Core {
     }
 }
 
+/// Another input or output (device or connection) has another latency: its measurements no
+/// longer hold. The value stays as a starting point, typed in from now on (review #202).
+pub(crate) fn forget_on_switch(before: &Settings, after: &mut Settings) {
+    let same = before.input_device == after.input_device
+        && before.output_device == after.output_device
+        && before.input_kind == after.input_kind;
+    if same {
+        return;
+    }
+    after.loopback_ms = None;
+    after.click_ms = None;
+    after.latency_from = LatencyFrom::Manual;
+}
+
 /// Whole ms with sign: "−14 ms", "+6 ms", "0 ms".
 fn signed_ms(ms: f64) -> String {
     let ms = ms.round();
@@ -224,6 +241,71 @@ fn signed_ms(ms: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::QaOptions;
+
+    /// A core on a fresh data folder with the silent output.
+    fn core(name: &str) -> (Core, std::path::PathBuf) {
+        let dir = std::env::temp_dir().join(format!("kontra-cal-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.output_device = Some("kontra:null".into()));
+        (core, dir)
+    }
+
+    fn clicks(latency_ms: f64) -> CalibrationResult {
+        CalibrationResult::Measured {
+            latency_ms,
+            spread_ms: 1.0,
+        }
+    }
+
+    fn cable(latency_ms: f64) -> LoopbackResult {
+        LoopbackResult::Measured {
+            latency_ms,
+            spread_ms: 0.5,
+        }
+    }
+
+    // Review #202: a player 30 ms ahead at 20 ms latency is heard 10 ms before the click; the
+    // latency is clamped to 0, the click value keeps −10 for a later lean.
+    #[test]
+    fn keeps_the_click_median_unclamped() {
+        let (mut core, dir) = core("unclamped");
+        core.calibrated(clicks(-10.0));
+        assert_eq!(core.settings.latency_ms, 0.0);
+        assert_eq!(core.settings.click_ms, Some(-10.0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    // Review #202: a click value from before the cable is no lean; only clicks after it are.
+    #[test]
+    fn cable_forgets_earlier_clicks() {
+        let (mut core, dir) = core("cable-after");
+        core.calibrated(clicks(-10.0));
+        core.looped(cable(20.0));
+        assert_eq!(core.lean_ms(), None);
+        assert_eq!(core.latency_note(), core.tr("latency.from.loopback", &[]));
+        core.calibrated(clicks(-10.0));
+        assert_eq!(core.lean_ms(), Some(-30.0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    // Review #202: another device has another latency; its measurements no longer hold.
+    #[test]
+    fn device_change_forgets_measurements() {
+        let (mut core, dir) = core("device");
+        core.looped(cable(20.0));
+        core.calibrated(clicks(5.0));
+        core.update_settings(|s| s.output_device = Some("kontra:null".into()));
+        assert_eq!(core.lean_ms(), Some(-15.0), "same device: kept");
+
+        core.reconfigure(|s| s.input_device = Some("other".into()));
+        let s = &core.settings;
+        assert_eq!((s.loopback_ms, s.click_ms), (None, None));
+        assert_eq!(s.latency_from, LatencyFrom::Manual);
+        assert_eq!(s.latency_ms, 20.0, "the value stays as a starting point");
+        let _ = std::fs::remove_dir_all(dir);
+    }
 
     #[test]
     fn signs_whole_ms() {

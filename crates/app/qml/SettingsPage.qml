@@ -138,9 +138,9 @@ Kirigami.ScrollablePage {
                     valueFromText: function(t) { return parseInt(t) }
                     onValueModified: ctl.changeLatency(value)
                 }
-                // The laptop's combo jack is input and output at once: no cable fits (P1).
+                // No cable fits the laptop's combo jack (P1); MIDI sends no sound (review #202).
                 KanteButton {
-                    visible: !ctl.laptopJack
+                    visible: !ctl.laptopJack && ctl.connection !== "midi"
                     text: texts.t("calibration.loopback.start")
                     busy: ctl.calibrating && ctl.cableMeasuring
                     enabled: !ctl.calibrating
@@ -171,7 +171,8 @@ Kirigami.ScrollablePage {
             wrapMode: Text.WordWrap
             color: KanteStyle.mutedTextColor
             text: ctl.calibrationText !== "" ? ctl.calibrationText
-                : ctl.laptopJack ? texts.t("calibration.hint")
+                : ctl.laptopJack ? texts.t("calibration.loopback.jack") + " " + texts.t("calibration.hint")
+                : ctl.connection === "midi" ? texts.t("calibration.loopback.midi") + " " + texts.t("calibration.hint")
                 : texts.t("calibration.loopback.hint") + " " + texts.t("calibration.hint")
         }
         InstrumentChoice {

@@ -154,6 +154,8 @@
   "calibration.beat": "Schlag {n} von 8",
   "calibration.loopback.start": "Mit Kabel messen",
   "calibration.loopback.hint": "Am genauesten mit Kabel: Steck ein Klinkenkabel vom Kopfhörer-Ausgang in den Eingang des Interfaces, Monitoring aus, Lautstärke halb. Kontra spielt zwölf Töne und misst, wann sie zurückkommen. Danach den Bass wieder einstecken und auf den Klick spielen: das misst deine Neigung.",
+  "calibration.loopback.jack": "Mit Kabel messen geht an der Laptop-Buchse nicht: Ein- und Ausgang sind dort eine Buchse. Der Klick-Wert enthält deshalb deine Neigung.",
+  "calibration.loopback.midi": "Mit Kabel messen gibt es bei MIDI nicht: MIDI schickt Noten, keinen Ton, der durch ein Kabel zurückkommt.",
   "calibration.loopback.running": "Zwölf Töne laufen durch das Kabel …",
   "calibration.loopback.done": "Mit Kabel gemessen: {ms} ms. Wird ab jetzt abgezogen. Steck den Bass wieder ein; auf den Klick gespielt zeigt Kontra dann deine Neigung.",
   "calibration.loopback.silent": "Nur {heard} von 12 Tönen kamen zurück. Steckt das Kabel vom Ausgang im Eingang, ist die Lautstärke halb auf? Ohne Kabel (etwa an der Laptop-Buchse): auf den Klick spielen.",

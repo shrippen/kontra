@@ -154,6 +154,8 @@
   "calibration.beat": "Pluck {n} of 8",
   "calibration.loopback.start": "Measure with a cable",
   "calibration.loopback.hint": "Most exact with a cable: plug a jack cable from the headphone output into the interface's input, monitoring off, volume at half. Kontra plays twelve tones and measures when they come back. Then plug the bass back in and play on the click: that measures your lean.",
+  "calibration.loopback.jack": "Measuring with a cable does not work at the laptop jack: input and output are one socket there. So the click value holds your lean.",
+  "calibration.loopback.midi": "There is no measuring with a cable for MIDI: MIDI sends notes, no sound that comes back through a cable.",
   "calibration.loopback.running": "Twelve tones are going through the cable …",
   "calibration.loopback.done": "Measured with a cable: {ms} ms. Subtracted from now on. Plug the bass back in; played on the click, Kontra then shows your lean.",
   "calibration.loopback.silent": "Only {heard} of 12 tones came back. Does the cable run from the output into the input, is the volume at half? Without a cable (say, at the laptop jack): play on the click.",

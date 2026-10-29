@@ -201,7 +201,9 @@ Kirigami.ScrollablePage {
             RowLayout {
                 Layout.fillWidth: true
                 QQC2.Label {
-                    text: ctl.laptopJack ? texts.t("calibration.hint") : texts.t("calibration.loopback.hint") + " " + texts.t("calibration.hint")
+                    text: (ctl.laptopJack ? texts.t("calibration.loopback.jack")
+                        : ctl.connection === "midi" ? texts.t("calibration.loopback.midi")
+                        : texts.t("calibration.loopback.hint")) + " " + texts.t("calibration.hint")
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                     color: KanteStyle.textColor
@@ -209,9 +211,9 @@ Kirigami.ScrollablePage {
                 KanteInfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency"); accessibleName: texts.t("help.about", { term: texts.t("settings.latency") }) }
             }
             RowLayout {
-                // The laptop's combo jack is input and output at once: no cable fits (P1).
+                // No cable fits the laptop's combo jack (P1); MIDI sends no sound (review #202).
                 KanteButton {
-                    visible: !ctl.laptopJack
+                    visible: !ctl.laptopJack && ctl.connection !== "midi"
                     text: texts.t("calibration.loopback.start")
                     busy: ctl.calibrating && ctl.cableMeasuring
                     enabled: !ctl.calibrating

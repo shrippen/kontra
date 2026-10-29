@@ -861,7 +861,9 @@ impl Core {
 
     /// Changes settings that do not affect a running practice (view, style, language) and saves.
     pub fn update_settings(&mut self, change: impl FnOnce(&mut Settings)) {
+        let before = self.settings.clone();
         change(&mut self.settings);
+        calibrate::forget_on_switch(&before, &mut self.settings);
         if let Some(code) = &self.settings.language {
             self.catalog = Catalog::new(Language::from_code(code));
         }

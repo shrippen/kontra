@@ -1795,6 +1795,7 @@ impl qobject::Controller {
     }
 
     fn refresh_devices(mut self: Pin<&mut Self>) {
+        self.as_mut().refresh_latency_note();
         let midi = self.as_ref().rust().core.midi_port_name();
         self.as_mut().set_midi_port_name(q(&midi));
         let ports = self.as_ref().rust().core.midi_ports_json();
@@ -1810,6 +1811,7 @@ impl qobject::Controller {
         let value = (!id.is_empty()).then(|| id.clone());
         self.as_mut().core().reconfigure(|s| s.input_device = value);
         self.as_mut().set_input_device(q(&id));
+        self.as_mut().refresh_latency_note();
     }
 
     fn choose_midi(mut self: Pin<&mut Self>, name: &QString) {
@@ -1824,6 +1826,13 @@ impl qobject::Controller {
             .core()
             .reconfigure(|s| s.output_device = value);
         self.as_mut().set_output_device(q(&id));
+        self.as_mut().refresh_latency_note();
+    }
+
+    /// Another device forgets the measurements (review #202): the note follows.
+    fn refresh_latency_note(mut self: Pin<&mut Self>) {
+        let note = self.as_ref().rust().core.latency_note();
+        self.as_mut().set_latency_note(q(&note));
     }
 
     fn change_instrument(mut self: Pin<&mut Self>, strings: i32, fretless: bool) {
