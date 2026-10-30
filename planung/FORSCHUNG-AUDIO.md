@@ -19,7 +19,7 @@ Nur als Torwächter der ersten Meldung, nie als Entscheider. Aufwand M–L (Tab-
 Toleranzen auf denselben Daten gewählt; echte Spielfehler unbewiesen.
 
 ## timing (Punkte 3, 4), 29.10.2026 — Zusammenfassung
-Prototyp: Branch exp-timing (nur lokal) (1042985, lokal). Simulation sim3.py/sim3.out, Lean-Versuch exp_lean.rs, lean.out.
+Prototyp: Branch exp-timing (1042985, nur lokal). Simulation sim3.py/sim3.out, Lean-Versuch exp_lean.rs, lean.out.
 
 Punkt 3 Gerätestempel + DLL: bringt etwas. Heute exakt bei festem Quantum mit Echtzeit (p95 0,08 ms);
 ohne Echtzeit unter Last nur 70 % ≤5 ms; Quantum 128→1024 zwischen Kalibrierung und Lauf 37 ms Fehler
@@ -47,7 +47,7 @@ Nebenbefund für 1/2: adaptiv früh melden bei klarer Mulde, sonst warten; erwar
 idle-room: 26 tonlose Falschnoten sind ein Onset-Problem (vor #193 gemessen).
 
 ## techstring (Punkte 6, 7), 29.10.2026 — Zusammenfassung
-Prototyp: Branch exp-techstring (nur lokal) (8763ca4, lokal): Konverter idmt-sb, KONTRA_STRIKE_LOG.
+Prototyp: Branch exp-techstring (8763ca4, nur lokal): Konverter idmt-sb, KONTRA_STRIKE_LOG.
 Daten: IDMT-SMT-Bass 1,58 GB in testdata/korpus/local/dl/idmt-sb (gitignored). Achtung: conv/idmt-st ist
 veraltet (ohne Technik-Feld), `korpus techniques` darauf zählt alles als plain.
 
@@ -63,7 +63,7 @@ Palm-Mute ≈ Zufall. Urteil ~280 ms nach Anschlag. Risiko: andere Mensur/Saiten
 a_Saite. Aufwand M, Kandidaten aus der erwarteten Note.
 
 ## dyadstretch (Punkte 8, 9), 29.10.2026 — Zusammenfassung
-Prototyp: Branch exp-dyadstretch (nur lokal) (1fdf151, lokal), Code in crates/exp.
+Prototyp: Branch exp-dyadstretch (1fdf151, nur lokal), Code in crates/exp.
 
 Punkt 8 Doppelgriffe: heute bei Doppelgriff 21–54 % falscher Ton, nie „zwei Töne“. Klapuri 2006
 informiert (Tab gibt beide Töne vor), ohne Oktaven: IDMT-Mischungen 95 % erkannt, Fehlalarm 2,1 %;
