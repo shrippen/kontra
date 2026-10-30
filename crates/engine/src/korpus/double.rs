@@ -70,18 +70,18 @@ pub struct DoubleStopSet {
 /// How the verdicts matched what was played. Octaves are counted apart: they get no statement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct DoubleStopTally {
-    /// Both tones played (not octaves), and told as both.
+    /// Both tones played (not octaves, told or not), and told as both.
     pub dyads: usize,
     pub dyads_both: usize,
-    /// One tone played where two were announced (not octaves): told as both (a false alarm),
-    /// told as the other tone.
+    /// One tone played where two were announced (not octaves, told or not): told as both (a
+    /// false alarm), told as the other tone.
     pub singles: usize,
     pub singles_both: usize,
     pub singles_other: usize,
     /// Octaves announced, and told anything but "no statement".
     pub octaves: usize,
     pub octaves_told: usize,
-    /// Announced (not octaves) without a verdict: no attack found there.
+    /// Of `dyads` and `singles`, those without a verdict: no attack found there.
     pub untold: usize,
 }
 
@@ -115,13 +115,17 @@ impl DoubleStopTally {
             }
             return;
         }
+        // Untold ones count in the shares too: a double stop not judged is not detected.
+        match strike.played {
+            DoubleStopPlayed::Both => self.dyads += 1,
+            DoubleStopPlayed::Lower | DoubleStopPlayed::Upper => self.singles += 1,
+        }
         let Some(heard) = heard else {
             self.untold += 1;
             return;
         };
         let other = match strike.played {
             DoubleStopPlayed::Both => {
-                self.dyads += 1;
                 if heard == DoubleStopHeard::Both {
                     self.dyads_both += 1;
                 }
@@ -130,7 +134,6 @@ impl DoubleStopTally {
             DoubleStopPlayed::Lower => DoubleStopHeard::Upper,
             DoubleStopPlayed::Upper => DoubleStopHeard::Lower,
         };
-        self.singles += 1;
         if heard == DoubleStopHeard::Both {
             self.singles_both += 1;
         }
@@ -419,5 +422,27 @@ mod tests {
             assert_eq!(tally.singles_other, 0, "{semitones}: {tally:?}");
             assert_eq!(tally.octaves_told, 0, "{semitones}: {tally:?}");
         }
+    }
+
+    /// Review #205: a double stop without a verdict counts against detection; one told as
+    /// both out of two announced is half, not all.
+    #[test]
+    fn untold_counts_in_the_shares() {
+        let strike = |played| DoubleStopStrike {
+            onset_s: 0.0,
+            lower: 33,
+            upper: 40,
+            played,
+        };
+        let mut tally = DoubleStopTally::default();
+        tally.count(&strike(DoubleStopPlayed::Both), Some(DoubleStopHeard::Both));
+        tally.count(&strike(DoubleStopPlayed::Both), None);
+        tally.count(
+            &strike(DoubleStopPlayed::Lower),
+            Some(DoubleStopHeard::Both),
+        );
+        tally.count(&strike(DoubleStopPlayed::Lower), None);
+        let shares = (tally.detected(), tally.false_alarms());
+        assert_eq!(shares, (0.5, 0.5), "{tally:?}");
     }
 }

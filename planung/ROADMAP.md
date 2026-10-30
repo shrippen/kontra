@@ -235,9 +235,10 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   Oktaven nicht. Teil von M1 (LH-BEW-11). Umgesetzt: `DyadCheck` im Tracker, Urteil `DoubleStopVerdict` je Anschlag,
   Session wertet beide Töne (beide → zwei Treffer, einer → der andere ausgelassen). `korpus check`: synthetisch
   168/168 beide, Oktaven 0 Aussagen, Einzelnoten 0 % (4 Sätze + room-double); `korpus double-stops` IDMT:
-  Mischungen 95,8 % (263), Einzelnoten im ganzen Stück 1,8 % als beide, 9 von 3416 als der andere Ton. FiloBass
-  (Kontrabass, Demucs-Stems): 77,8 % / 12,2 % Fehlalarm, offen. Unbewiesen: echte Doppelgriffe (Aufnahme mit dem
-  Eigentümer, ~15 min).
+  Mischungen 82,1 % (307, davon 44 ohne Urteil), Einzelnoten im ganzen Stück 1,7 % als beide, 9 von 3680 als der
+  andere Ton. FiloBass (Kontrabass, Demucs-Stems): 77,8 % / 7,4 % Fehlalarm, offen. Anschläge ohne Urteil zählen seit
+  der Nacharbeit zu #205 im Nenner mit (vorher IDMT 95,8 % von 263, 1,8 %; FiloBass 12,3 % Fehlalarm). Unbewiesen:
+  echte Doppelgriffe (Aufnahme mit dem Eigentümer, ~15 min).
 - [ ] R9 Time-Stretch: kürzerer Steuer-Vorlauf (win/16) spart 37 ms (Standard) bzw. 75 ms (Fine), Messwerte gleich;
   Doku: Fine kostet 133 ms mehr, nicht 85. Zwei Auflösungen: abgelehnt. Hörtest B0 Standard gegen Fine offen.
 
