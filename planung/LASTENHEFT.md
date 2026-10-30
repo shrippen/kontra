@@ -222,7 +222,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-WIE-01 | Backing Track mit Tempoänderung ohne Tonhöhenänderung (25 bis 150 %) in guter Qualität. | Muss | 1 | P2 | Hörtest bei 50 %: keine metallischen Artefakte (Blindvergleich mit Referenz). |
 | LH-WIE-02 | Transponieren des Backing Tracks in Halbtönen (±6) mit passender Anpassung der Noten. | Kann | 3 | P2 | +2 Halbtöne: Audio und Tab passen zusammen. |
 | LH-WIE-03 | Mixer: Instrument, Backing Track, Metronom, Referenz-Bass (synthetisch aus dem Arrangement) getrennt. Instrument heißt Mithören über Kontra: abschaltbar, Standard aus, mit Hinweis, dass Direct Monitoring des Interfaces schneller ist (Runde 6). | Muss | 1 | P2, P1 | Referenz-Bass zum Vorhören einer Stelle abspielbar. |
-| LH-WIE-04 | Metronom mit Shuffle-Gefühl (Triolen-Achtel) für Shuffle-Grooves (Harmonicon-Analyse, 29.10.). | Kann | 2 | P2, P3 | Shuffle-Übung: Klick auf 1. und 3. Triole. |
+| LH-WIE-04 | Metronom mit Shuffle-Gefühl (Triolen-Achtel) für Shuffle-Grooves (Harmonicon-Analyse, 29.10.): Das Stück trägt sein Gefühl (`Feel`, in mitgelieferten Übungen ein MIDI-Text `kontra:shuffle`); im Shuffle klickt das Metronom, auch im Einzähler, auf Schlag und dritter Triole, die dritte leiser. Kein eigener Schalter. | Kann | 2 | P2, P3 | Shuffle-Übung: Klick auf 1. und 3. Triole. |
 | LH-WIE-05 | **Reagierende Band** beim freien Spiel mit erzeugter Begleitung: lässt der Bass am Phrasenende 2 Schläge frei, spielt das Schlagzeug ein Fill (höchstens alle 8 Takte); nach einer dichten Phrase wird die Begleitung dünner. Abschaltbar, ohne Bewertung (Harmonicon-Analyse, 29.10.). | Kann | 3 | P3, P5, P2 | Test mit Aufnahme: Fill nur nach Pause, Abstand ≥ 8 Takte. |
 
 ### 4.9 Fortschritt (FOR)

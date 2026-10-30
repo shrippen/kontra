@@ -28,6 +28,9 @@ const CLICK_S: f32 = 0.02;
 const KICK_S: f32 = 0.35;
 const SNARE_S: f32 = 0.2;
 const HIHAT_S: f32 = 0.08;
+/// Click amplitude on the beat; the off-beat of a shuffle (LH-WIE-04) is half as loud.
+const CLICK_LEVEL: f32 = 0.5;
+const OFFBEAT_LEVEL: f32 = 0.25;
 /// Monitor ring: half a second at the highest supported rate.
 const MONITOR_RING: usize = 96_000;
 /// What played, for a microphone input to subtract (LH-EIN-11): two seconds at 48 kHz.
@@ -42,6 +45,8 @@ pub enum Accent {
     /// First beat of a bar.
     Downbeat,
     Beat,
+    /// Between the beats, e.g. the third triplet of a shuffle (LH-WIE-04): softer.
+    Offbeat,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -571,13 +576,14 @@ fn render(voices: &mut [Voice; VOICES], now: f64, sr: f32, gains: Gains, noise: 
                     v.active = false;
                     continue;
                 }
-                let hz = if accent == Accent::Downbeat {
-                    2000.0
-                } else {
-                    1400.0
+                // The downbeat is higher; the off-beat between beats is softer.
+                let (hz, level) = match accent {
+                    Accent::Downbeat => (2000.0, CLICK_LEVEL),
+                    Accent::Beat => (1400.0, CLICK_LEVEL),
+                    Accent::Offbeat => (1400.0, OFFBEAT_LEVEL),
                 };
                 v.phase = (v.phase + hz / sr).fract();
-                mix += gains.click * 0.5 * (TAU * v.phase).sin() * (-t / 0.004).exp();
+                mix += gains.click * level * (TAU * v.phase).sin() * (-t / 0.004).exp();
             }
             Sound::Tone {
                 hz,
@@ -687,6 +693,25 @@ mod tests {
         assert!(during > 1.0);
         m.render(1.0, sr);
         assert!(m.voices.iter().all(|v| !v.active));
+    }
+
+    // LH-WIE-04: the shuffle's off-beat click is softer than the beat, so the pulse stays clear.
+    #[test]
+    fn offbeat_click_is_softer() {
+        let sr = 48_000.0;
+        let energy = |accent| {
+            let mut m = mixer();
+            m.apply(Command::Schedule {
+                at_s: 0.0,
+                sound: Sound::Click(accent),
+            });
+            (0..960)
+                .map(|i| m.render(i as f64 / sr, sr).0.abs())
+                .sum::<f32>()
+        };
+        let (beat, offbeat) = (energy(Accent::Beat), energy(Accent::Offbeat));
+        assert!(offbeat > 0.1 * beat, "audible: {offbeat} vs {beat}");
+        assert!(offbeat < 0.75 * beat, "softer: {offbeat} vs {beat}");
     }
 
     #[test]

@@ -17,7 +17,7 @@ mod song;
 pub use plan::{bundled, bundled_specs, plan_place};
 pub use song::{Level, Style};
 
-use kontra_model::{Judging, Technique};
+use kontra_model::{Feel, Judging, Technique};
 use midly::num::{u15, u24, u28, u4, u7};
 use midly::{Format, Header, MetaMessage, MidiMessage, Smf, Timing, TrackEvent, TrackEventKind};
 
@@ -289,6 +289,8 @@ pub(crate) const CHORD_TEXT: &str = "chord ";
 
 /// Text event at the start: the file is judged by time only (`Judging::TimeOnly`, DIDAKTIK I4).
 pub(crate) const TIMING_TEXT: &str = "kontra:timing";
+/// Text event at the start: the file is played in shuffle feel (`Feel::Shuffle`, LH-WIE-04).
+pub(crate) const SHUFFLE_TEXT: &str = "kontra:shuffle";
 /// Suffix of a file title judged by time only; the UI's twin is `exercise.title.timing`.
 const TIMING_TITLE: &str = ", nur Timing";
 
@@ -935,6 +937,7 @@ pub fn generate(spec: &ExerciseSpec) -> Exercise {
         tempos: &tempos,
         meter,
         judging: spec.judging,
+        feel: feel(spec.kind),
     };
     let midi = write(&title, fifths, pass.minor, &line);
     Exercise { title, midi }
@@ -1117,6 +1120,7 @@ struct Line<'a> {
     tempos: &'a [(u32, f64)],
     meter: Meter,
     judging: Judging,
+    feel: Feel,
 }
 
 /// One bar of drums under a groove: kick on one and three, snare on two and four, hi-hat in
@@ -1251,6 +1255,16 @@ pub fn describe(spec: &ExerciseSpec) -> Description {
         fret,
         goal: goal(spec),
         judging: spec.judging,
+    }
+}
+
+/// The shuffle groove and the shuffle piece swing their eighths; the metronome follows.
+fn feel(kind: ExerciseKind) -> Feel {
+    match kind {
+        ExerciseKind::Groove(_, Rhythm::Shuffle) | ExerciseKind::Song(Style::Shuffle, _) => {
+            Feel::Shuffle
+        }
+        _ => Feel::Straight,
     }
 }
 
@@ -1617,6 +1631,12 @@ fn write(title: &str, fifths: i8, minor: bool, line: &Line) -> Vec<u8> {
         conductor.push((
             0,
             TrackEventKind::Meta(MetaMessage::Text(TIMING_TEXT.as_bytes())),
+        ));
+    }
+    if line.feel == Feel::Shuffle {
+        conductor.push((
+            0,
+            TrackEventKind::Meta(MetaMessage::Text(SHUFFLE_TEXT.as_bytes())),
         ));
     }
     let chords: Vec<(u32, String)> = markers
@@ -2330,6 +2350,26 @@ mod tests {
         let a = imported.arrangement(imported.suggested().unwrap()).unwrap();
         // 960 ticks per quarter in the model: the off-beat lands on the triplet (640).
         assert_eq!(a.notes[1].start_ticks, 640);
+    }
+
+    // LH-WIE-04: the shuffle groove and the shuffle piece carry their feel, so the metronome
+    // clicks on the first and third triplet; straight grooves stay straight.
+    #[test]
+    fn shuffle_carries_its_feel() {
+        use kontra_model::Feel;
+        let feel = |kind| arrangement(&generate(&spec(kind, 4))).feel;
+        let groove = |rhythm| ExerciseKind::Groove(Progression::Blues, rhythm);
+        assert_eq!(feel(groove(Rhythm::Shuffle)), Feel::Shuffle);
+        assert_eq!(
+            feel(ExerciseKind::Song(Style::Shuffle, Level::Easy)),
+            Feel::Shuffle
+        );
+        assert_eq!(feel(groove(Rhythm::Eighths)), Feel::Straight);
+        assert_eq!(feel(groove(Rhythm::Triplets)), Feel::Straight);
+        assert_eq!(
+            feel(ExerciseKind::Song(Style::Funk, Level::Easy)),
+            Feel::Straight
+        );
     }
 
     #[test]

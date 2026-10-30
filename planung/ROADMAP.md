@@ -301,7 +301,9 @@ Rückmeldung und Lernen:
 - [ ] L8 Ruf und Antwort (LH-LRN-19).
 - [ ] L9 Reagierende Band (LH-WIE-05).
 - [ ] L10 Ziel je Lektion (LH-LRN-20).
-- [ ] L11 Shuffle-Klick (LH-WIE-04).
+- [x] L11 Shuffle-Klick (LH-WIE-04): Shuffle-Grooves und „Stück Shuffle“ klicken auf 1. und 3. Triole (3. leiser),
+  auch im Einzähler. Offen: Shuffle-Angaben importierter Dateien (Guitar Pro „Triplet Feel“, MusicXML `<swing>`)
+  werden nicht gelesen; dort stehen die Noten gerade, die Bewertung erwartete sie dann ebenfalls gerade.
 
 Erkennung und Messung:
 - [x] A5 `korpus confusion`: Verwechslung nach Intervall und Register. IDMT (29.10., ±80 ms): C1–B1 90,8 % richtig
@@ -357,7 +359,9 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
 - [x] W7 `cargo deny` mit `[advisories]`, eigener Job und wöchentlich (`advisories.yml`); rustls auf 0.23.46, RUSTSEC-2025-0044 (minimp3) mit Begründung ignoriert.
 - [ ] W8 JSON-Schemas für Pakete und Kurse aus den serde-Strukturen.
 - [ ] W9 Kurs aus Ordner live (LH-LRN-21); QML von der Platte in Entwicklung.
-- [ ] W11 Glyphen-Test für Sonderzeichen.
+- [x] W11 Glyphen-Test für Sonderzeichen (`tests/glyphs.rs`): jedes Zeichen über ASCII aus i18n (de, en), Lektionen
+  und eigenem QML muss in einer mitgelieferten Schrift stehen (Kante: Rajdhani, JetBrains Mono, Bravura; Private-Use
+  nur Bravura). Eigener `cmap`-Leser (Formate 4 und 12), keine neue Abhängigkeit. ♯ ♭ ♮ deckt nur Bravura.
 
 ## Entscheidungen Runde 17 (30.10.2026)
 

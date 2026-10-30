@@ -9,7 +9,7 @@
 //! .mscx/z ─┘
 //! ```
 
-use kontra_model::{Judging, Pitch, Technique, TimeSignature};
+use kontra_model::{Feel, Judging, Pitch, Technique, TimeSignature};
 
 /// How a note connects to its neighbour on the same string without a new attack.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -210,6 +210,8 @@ pub(crate) struct Score {
     pub(crate) parts: Vec<Part>,
     /// Kontra's own exercises may be judged by time only (`TIMING_TEXT`).
     pub(crate) judging: Judging,
+    /// Kontra's own exercises may swing (`SHUFFLE_TEXT`).
+    pub(crate) feel: Feel,
 }
 
 impl Score {
@@ -221,6 +223,7 @@ impl Score {
             bars: Vec::new(),
             parts: Vec::new(),
             judging: Judging::PitchAndTime,
+            feel: Feel::Straight,
         }
     }
 }
