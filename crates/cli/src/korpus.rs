@@ -67,7 +67,13 @@ pub fn run(a: &KorpusArgs) -> CliResult {
             dirs,
             window_ms,
             held_out,
-        } => crate::strings::run(dirs, window_ms / 1000.0, *held_out),
+        } => {
+            let values = match held_out {
+                true => crate::strings::Values::HeldOut,
+                false => crate::strings::Values::Profile,
+            };
+            crate::strings::run(dirs, window_ms / 1000.0, values)
+        }
         KorpusCommand::DoubleStops {
             dirs,
             window_ms,

@@ -67,7 +67,16 @@ impl Count {
     }
 }
 
-pub fn run(dirs: &[PathBuf], window_s: f64, held_out: bool) -> CliResult {
+/// Which a_string values judge a directory's recordings.
+#[derive(Clone, Copy)]
+pub enum Values {
+    /// Fitted on the other directories only (no bass judges itself).
+    HeldOut,
+    /// The instrument profile's values.
+    Profile,
+}
+
+pub fn run(dirs: &[PathBuf], window_s: f64, values: Values) -> CliResult {
     let (rows, base) = collect(dirs, window_s)?;
     let Some(base) = base else {
         return Err("no recordings".into());
@@ -79,18 +88,17 @@ pub fn run(dirs: &[PathBuf], window_s: f64, held_out: bool) -> CliResult {
     }
     println!();
     for (g, dir) in dirs.iter().enumerate() {
-        let model = match held_out {
-            true => fit(&rows, &base, Some(g)).0,
-            false => base,
+        let model = match values {
+            Values::HeldOut => fit(&rows, &base, Some(g)).0,
+            Values::Profile => base,
         };
         let mine: Vec<&Row> = rows.iter().filter(|r| r.group == g).collect();
         println!(
             "{} ({})",
             dir.display(),
-            if held_out {
-                "held out"
-            } else {
-                "profile values"
+            match values {
+                Values::HeldOut => "held out",
+                Values::Profile => "profile values",
             }
         );
         report(&mine, &model);

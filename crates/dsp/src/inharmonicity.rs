@@ -19,8 +19,8 @@
 //! Measured on 250 ms of the tone from 30 ms after its peak (the attack is gone, the high
 //! partials still ring): one long FFT, up to 25 partials below 4 kHz, each looked for where
 //! the B found so far puts it. On IDMT-SMT-Bass, a_string from two basses picked the string of
-//! the third in 98.1 % of the plucked, slapped and popped notes more than one string can play
-//! (chance 32.7 %; `kontra-cli korpus strings --held-out`, 29.10.2026). Palm-muted notes die
+//! the third in 97.8 % of the plucked, slapped and popped notes more than one string can play
+//! (chance 32.8 %; `kontra-cli korpus strings --held-out`, 30.10.2026). Palm-muted notes die
 //! too fast to tell.
 
 use kontra_model::{Instrument, InstrumentKind};
