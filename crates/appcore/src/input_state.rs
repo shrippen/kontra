@@ -163,6 +163,29 @@ impl Core {
         Vec::new()
     }
 
+    /// A device failed while running: everything stops. A lost input shows as the input's
+    /// state; a lost output, or an input without a state (ear training), as a message.
+    pub(crate) fn device_lost(&mut self, side: Direction, reason: String) -> Vec<UiEvent> {
+        let input = self.input.clone();
+        self.stop_live();
+        self.tuner = None;
+        self.live_ear = None;
+        if side == Direction::Input {
+            self.input = input.lost(&reason);
+        }
+        let mut events = Vec::new();
+        if self.input.state() == InputState::Off {
+            events.push(UiEvent::Error(
+                self.tr("error.device.lost", &[("reason", reason)]),
+            ));
+        }
+        // Another input stands in only for a lost input (LH-ALL-04).
+        if side == Direction::Input {
+            events.extend(self.input_lost());
+        }
+        events
+    }
+
     /// The input of `using` opened.
     pub(crate) fn input_opened(&mut self, using: InputUse) {
         let name = self.input_label();
@@ -230,6 +253,23 @@ mod tests {
         assert_eq!(status.state, InputState::Failed);
         status.opened(InputUse::Practice, "Scarlett Solo".into());
         assert_eq!(status.state, InputState::Connected);
+    }
+
+    // Review #213: headphones (the output) dropping out are no input fault; the message says
+    // the device is gone.
+    #[test]
+    fn a_lost_output_is_no_input_fault() {
+        let dir = std::env::temp_dir().join(format!("kontra-output-lost-{}", std::process::id()));
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.input
+            .opened(InputUse::Practice, "Scarlett Solo".into());
+        let events = core.device_lost(Direction::Output, "headphones gone".into());
+        assert_ne!(core.input_state(), InputState::Failed);
+        assert!(
+            matches!(events.as_slice(), [UiEvent::Error(text)] if text.contains("headphones gone")),
+            "{events:?}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     // Unplugged while open: failed; a device error with nothing open changes nothing.

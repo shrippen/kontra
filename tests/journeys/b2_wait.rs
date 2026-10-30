@@ -80,5 +80,5 @@ fn waits_names_wrong_notes_and_survives_a_pause() {
     assert!(events.iter().any(|e| matches!(e, UiEvent::Finished { .. })));
     assert!(!events
         .iter()
-        .any(|e| matches!(e, UiEvent::Error(_) | UiEvent::DeviceLost(_))));
+        .any(|e| matches!(e, UiEvent::Error(_) | UiEvent::DeviceLost(..))));
 }

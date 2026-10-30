@@ -68,7 +68,8 @@ pub enum PracticeEvent {
         note: String,
         cents: f64,
     },
-    Error(String),
+    /// A device failed: which side, the system's message.
+    Error(kontra_engine::Direction, String),
     /// The device stopped delivering (LH-EIN-15); judging pauses.
     InputStalled,
     /// The device delivers again.
@@ -309,7 +310,7 @@ impl<O: Output> Practice<O> {
                 note: r.pitch.to_string(),
                 cents: r.cents,
             }),
-            Event::Error(message) => Some(PracticeEvent::Error(message)),
+            Event::Error(side, message) => Some(PracticeEvent::Error(side, message)),
             Event::Heard { at_s } => {
                 self.session.on_heard(at_s);
                 None

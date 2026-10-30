@@ -72,8 +72,9 @@ pub enum Event {
         clipped: bool,
     },
     Tuner(TunerReading),
-    /// Device problem, e.g. the interface was unplugged.
-    Error(String),
+    /// Device problem, e.g. the interface was unplugged: which side (input or output) and the
+    /// system's message.
+    Error(Direction, String),
     /// The analysis has heard the input up to `at_s`; under load it runs behind the clock,
     /// and a note may still come for any time after it.
     Heard {

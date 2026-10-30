@@ -121,6 +121,8 @@ pub struct Live {
     /// For a reopened input and output: same clock, same channel.
     clock: Clock,
     sender: Sender<Event>,
+    /// Dropouts of input and output replaced by `reopen` (LH-NF-04 counts since the start).
+    xruns_before: u64,
     pub output_is_silent: bool,
     /// The bass input reaches the output (same rate on both devices); the gain decides if heard.
     can_monitor: bool,
@@ -179,6 +181,7 @@ impl Live {
             events: rx,
             clock,
             sender: tx,
+            xruns_before: 0,
             output_is_silent,
             can_monitor,
         })
@@ -191,8 +194,10 @@ impl Live {
     /// old input ✕ ─► new output (monitor ring, echo reference) ─► new input ─► Resumed{now}
     /// ```
     pub fn reopen(&mut self, setup: &LiveSetup) -> Result<(), EngineError> {
-        // The old input closes first: an exclusive device (ALSA hw) would be busy.
-        self.input = None;
+        // The old input closes first: an exclusive device (ALSA hw) would be busy. Its dropouts
+        // and the old output's stay counted.
+        self.xruns_before += self.input.take().map_or(0, |i| i.xruns());
+        let output_xruns = self.practice.output().xruns();
         let mut output = open_output(
             setup.output_device.as_deref(),
             &self.clock,
@@ -214,6 +219,7 @@ impl Live {
         self.output_is_silent = matches!(output, LiveOutput::Silent(_));
         self.can_monitor = !self.output_is_silent && input.sample_rate == output.sample_rate();
         self.input = Some(input);
+        self.xruns_before += output_xruns;
         self.practice.replace_output(output);
         self.practice.handle(Event::Resumed {
             at_s: self.clock.now_s(),
@@ -229,7 +235,9 @@ impl Live {
 
     /// Input and output dropouts since the start (LH-NF-04).
     pub fn xruns(&self) -> u64 {
-        self.input.as_ref().map_or(0, Input::xruns) + self.practice.output().xruns()
+        self.xruns_before
+            + self.input.as_ref().map_or(0, Input::xruns)
+            + self.practice.output().xruns()
     }
 
     /// False when monitoring cannot work: no output, or input and output run at different rates.
@@ -327,7 +335,7 @@ impl LiveTuner {
                     rms_db,
                     clipped,
                 }),
-                Event::Error(m) => out.push(PracticeEvent::Error(m)),
+                Event::Error(side, m) => out.push(PracticeEvent::Error(side, m)),
                 Event::Ended => out.push(PracticeEvent::InputEnded),
                 Event::Stalled { .. } => out.push(PracticeEvent::InputStalled),
                 Event::Resumed { .. } => out.push(PracticeEvent::InputResumed),
@@ -450,7 +458,7 @@ impl LiveEar {
                     rms_db,
                     clipped,
                 }),
-                Event::Error(m) => out.push(PracticeEvent::Error(m)),
+                Event::Error(side, m) => out.push(PracticeEvent::Error(side, m)),
                 Event::Ended => out.push(PracticeEvent::InputEnded),
                 Event::Stalled { .. } => out.push(PracticeEvent::InputStalled),
                 Event::Resumed { .. } => out.push(PracticeEvent::InputResumed),

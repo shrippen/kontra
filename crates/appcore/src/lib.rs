@@ -133,8 +133,8 @@ pub enum UiEvent {
         state: &'static str,
         suggest_laptop: bool,
     },
-    /// The audio device failed (unplugged), with the system's reason; the run was stopped.
-    DeviceLost(String),
+    /// An audio device failed (unplugged): which side, the system's reason; the run was stopped.
+    DeviceLost(Direction, String),
     /// Between runs: offer another note density (LH-MOD-06), 1..=3, with the question.
     DensitySuggestion {
         level: u8,
@@ -2323,23 +2323,12 @@ impl Core {
                 *peak_db = held;
             }
         }
-        if events.iter().any(|e| matches!(e, UiEvent::DeviceLost(_))) {
-            let input = self.input.clone();
-            self.stop_live();
-            self.tuner = None;
-            self.live_ear = None;
-            let reason = events.iter().find_map(|e| match e {
-                UiEvent::DeviceLost(m) => Some(m.clone()),
-                _ => None,
-            });
-            let reason = reason.unwrap_or_default();
-            self.input = input.lost(&reason);
-            // Ear training shows no input state: there the message says it.
-            if self.input.state() == InputState::Off {
-                let text = self.tr("error.device.lost", &[("reason", reason)]);
-                events.push(UiEvent::Error(text));
-            }
-            events.extend(self.input_lost());
+        let lost = events.iter().find_map(|e| match e {
+            UiEvent::DeviceLost(side, m) => Some((*side, m.clone())),
+            _ => None,
+        });
+        if let Some((side, reason)) = lost {
+            events.extend(self.device_lost(side, reason));
         }
         events.extend(self.watch_lost());
         // A probe's pass is no workshop pass: no pass count, no building-block step (QA
@@ -2843,7 +2832,7 @@ impl Core {
             }),
             // A device error usually means the interface was unplugged (LH-ALL-04): the run ends
             // and the next play opens the device again.
-            PracticeEvent::Error(m) => Some(UiEvent::DeviceLost(m)),
+            PracticeEvent::Error(side, m) => Some(UiEvent::DeviceLost(side, m)),
             // The device stopped delivering (LH-EIN-15): judging pauses, the player hears why.
             // Practice and tuner show it as the input's state; ear training only here.
             PracticeEvent::InputStalled | PracticeEvent::InputResumed

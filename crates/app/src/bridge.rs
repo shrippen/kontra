@@ -1752,7 +1752,7 @@ impl qobject::Controller {
                     self.as_mut().set_message(q(&text));
                 }
                 // The input's state shows it (LH-EIN-15).
-                UiEvent::DeviceLost(_) => {
+                UiEvent::DeviceLost(..) => {
                     self.as_mut().set_playing(false);
                     self.as_mut().set_tuner_active(false);
                 }
