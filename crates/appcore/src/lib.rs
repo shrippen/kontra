@@ -6783,7 +6783,7 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&core.summary_json(&s, &[], &[])).unwrap();
         assert_eq!(
             v["untoldText"],
-            "Nur als Hinweis gezeigt, nicht gewertet: Slap, Pop. Ihre Erkennung ist noch nicht bei \
+            "Nur als Hinweis gezeigt, nicht gewertet: Slap, Pop. Die Erkennung ist noch nicht bei \
              jedem Bass sicher."
         );
         let _ = std::fs::remove_dir_all(dir);

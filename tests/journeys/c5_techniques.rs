@@ -174,6 +174,7 @@ fn slap_over_the_cable_is_a_hint() {
             _ => None,
         })
         .collect();
+    assert!(!marks.is_empty(), "the slap keeps its sign");
     assert!(
         marks.iter().all(|r| r.is_empty()),
         "a plucked slap is no technique error: {marks:?}"
@@ -195,7 +196,7 @@ fn slap_over_the_cable_is_a_hint() {
     assert_eq!(summary["hitRate"], 1.0, "the note counts");
     assert_eq!(
         summary["untoldText"],
-        "Nur als Hinweis gezeigt, nicht gewertet: Slap. Ihre Erkennung ist noch nicht bei jedem \
+        "Nur als Hinweis gezeigt, nicht gewertet: Slap. Die Erkennung ist noch nicht bei jedem \
          Bass sicher."
     );
 }

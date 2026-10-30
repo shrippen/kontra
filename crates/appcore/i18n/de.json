@@ -797,7 +797,7 @@
   "summary.strings.other": "{other} von {told} Noten auf einer anderen Saite als in der Tab",
   "summary.strings.unsupported": "Saiten erkennt Kontra mit diesem Instrument noch nicht (nur bundierte Bässe in E-A-D-G)",
   "summary.techniques.untold": "Mit diesem Eingang nicht bewertet: {techniques}",
-  "summary.techniques.hint": "Nur als Hinweis gezeigt, nicht gewertet: {techniques}. Ihre Erkennung ist noch nicht bei jedem Bass sicher.",
+  "summary.techniques.hint": "Nur als Hinweis gezeigt, nicht gewertet: {techniques}. Die Erkennung ist noch nicht bei jedem Bass sicher.",
   "summary.doublestops.untold": "Doppelgriffe über Mikrofon bewertet Kontra noch nicht nach beiden Tönen: Ein Ton zählt für beide.",
   "summary.techniques.note": "Zählt nicht zur Trefferquote.",
   "summary.note.technique": "{technique}: {result}",
