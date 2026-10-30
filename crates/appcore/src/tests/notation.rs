@@ -1,6 +1,7 @@
 //! Notation: bars, staff, rests, hand positions, note names.
 
 use super::*;
+use crate::notation::{hand_positions, is_chord_name, staff, written_beats};
 use crate::summary::hardest_notes;
 
 #[test]
