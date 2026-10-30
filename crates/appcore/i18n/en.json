@@ -835,6 +835,7 @@
   "library.unplayed": "not played yet",
   "view.title": "View",
   "summary.note.played": "played {played}",
+  "summary.note.one.tone": "only one tone of the chord heard",
   "progress.week.oneday": "This week: {time} on one day. Keep going!",
   "progress.runs.one": "1 run",
   "home.week.under": "< 1 min",

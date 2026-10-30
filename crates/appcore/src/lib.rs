@@ -2875,6 +2875,12 @@ impl Core {
         for t in techniques {
             technique_of.insert((t.pass, t.sign), *t);
         }
+        // Chord tones sounded per pass and start: a missed tone beside one is "nur ein Ton" (R8).
+        let sounded: Vec<(u32, u64)> = last
+            .iter()
+            .filter(|(_, r)| r.outcome != Outcome::Missed)
+            .filter_map(|((pass, index), _)| Some((*pass, a.notes.get(*index)?.start_ticks)))
+            .collect();
         last.into_iter()
             .filter_map(|((pass, index), r)| {
                 let note = a.notes.get(index)?;
@@ -2901,6 +2907,9 @@ impl Core {
                     }
                     Some(_) => parts.push(self.tr("summary.note.ontime", &[])),
                     None => {}
+                }
+                if r.outcome == Outcome::Missed && sounded.contains(&(pass, note.start_ticks)) {
+                    parts.push(self.tr("summary.note.one.tone", &[]));
                 }
                 // A missed note played beside the window: where it fell (M6).
                 let beside = outside
@@ -5748,6 +5757,44 @@ mod tests {
         assert!(text.contains("0 ms"), "{text}");
         let text = notes[1]["text"].as_str().unwrap();
         assert!(text.contains("40 ms early"), "{text}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// R8 (review #205): a double stop with one tone heard says so at the missed tone ("nur
+    /// ein Ton"), a missed single note does not.
+    #[test]
+    fn one_tone_of_a_double_stop_says_so() {
+        let a = arrangement(&[(0, Q, 33), (0, Q, 40), (Q, Q, 45)]);
+        let dir = temp_dir("one-tone");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.loaded = Some(Loaded {
+            path: dir.join("x.mid"),
+            full: a.clone(),
+            arrangement: a,
+            tracks: Vec::new(),
+            track: 0,
+        });
+        let result = |note: usize, outcome: Outcome| NoteResult {
+            pass: 0,
+            note: Some(note),
+            bar: Some(0),
+            outcome,
+            offset_ms: None,
+            cents: None,
+            position_s: 0.0,
+        };
+        let results = [
+            result(0, Outcome::Hit),
+            result(1, Outcome::Missed),
+            result(2, Outcome::Missed),
+        ];
+        let notes = core.note_details(&results, &[], &[]);
+        let hint = core.tr("summary.note.one.tone", &[]);
+        let text = |i: usize| notes[i]["text"].as_str().unwrap_or_default().to_string();
+        assert!(text(1).contains(&hint), "{} / {hint}", text(1));
+        assert!(!text(0).contains(&hint), "{}", text(0));
+        assert!(!text(2).contains(&hint), "{}", text(2));
         let _ = std::fs::remove_dir_all(dir);
     }
 

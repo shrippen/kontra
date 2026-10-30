@@ -128,7 +128,8 @@ Erwartet: eine Anfrage je Enter, „Suchen“ ist gesperrt, solange sie läuft; 
 2. Jens: dieselbe Übung über das Laptop-Kabel bzw. die Aufnahme dazu (`--input-file`).
 3. Aylin: dieselbe Übung am MIDI-Keyboard.
 Erwartet: beide Töne gespielt → beide getroffen, auch wenn die Tonhöhe des Gemischs ein anderer Ton war; nur der
-untere → unterer getroffen, oberer ausgelassen, etwa 160 ms nach dem Anschlag; Oktave → wie bisher (ein Ton zählt);
+untere → unterer getroffen, oberer ausgelassen, etwa 160 ms nach dem Anschlag, in der Auswertung unter „Alle Noten“ mit
+„nur ein Ton des Griffs gehört“; Oktave → wie bisher (ein Ton zählt);
 kein Doppelgriff wird als falscher Ton gewertet, nur weil zwei Töne klangen. MIDI hört jeden Ton selbst (als ganze
 Menge erst mit M2).
 
