@@ -16,10 +16,6 @@ const CENTS_PER_SEMITONE: f64 = 100.0;
 const IDLE_TARGET_PER_MINUTE: f64 = 1.0;
 const S_PER_MINUTE: f64 = 60.0;
 
-/// LH-NF-15, line sets: p95 from attack to report. A guard 10 ms over the first measurement
-/// (29.10.: 81 and 100 ms) until the owner confirms the target (70 ms).
-const REPORT_GUARD_MS: f64 = 110.0;
-
 pub fn run(a: &KorpusArgs) -> CliResult {
     match &a.command {
         KorpusCommand::Write { dir } => write(dir),
@@ -409,7 +405,7 @@ fn write(dir: &Path) -> CliResult {
 
 fn check(dir: Option<&Path>) -> CliResult {
     println!(
-        "{:<14} {:>6} {:>8} {:>9} {:>7} {:>7} {:>9} {:>8} {:>8} {:>8} {:>8}",
+        "{:<14} {:>6} {:>8} {:>9} {:>7} {:>7} {:>9} {:>8} {:>8} {:>8} {:>8} {:>8}",
         "set",
         "notes",
         "recall",
@@ -420,7 +416,8 @@ fn check(dir: Option<&Path>) -> CliResult {
         "cents",
         "p95 ct",
         "max ct",
-        "p95 rep"
+        "rep E1+",
+        "rep <E1"
     );
     let mut failed = false;
     for set in KorpusSet::ALL {
@@ -468,8 +465,8 @@ fn check(dir: Option<&Path>) -> CliResult {
         } else {
             0.95
         };
-        let report_ok = !matches!(set, KorpusSet::Line4 | KorpusSet::Line5)
-            || e.p95_report_ms <= REPORT_GUARD_MS;
+        // LH-NF-15: p95 from attack to report per note, on the line sets.
+        let report_ok = set.report_limits().is_none_or(|l| l.met(&e));
         let ok = e.recall() >= found
             && e.precision() >= found
             && e.pitch_accuracy() >= needed
@@ -479,7 +476,7 @@ fn check(dir: Option<&Path>) -> CliResult {
             && report_ok;
         failed |= !ok;
         println!(
-            "{:<14} {:>6} {:>7.1}% {:>8.1}% {:>6.1}% {:>6.1}% {:>9.2} {:>8.2} {:>8.2} {:>8.2} {:>8.1} {}",
+            "{:<14} {:>6} {:>7.1}% {:>8.1}% {:>6.1}% {:>6.1}% {:>9.2} {:>8.2} {:>8.2} {:>8.2} {:>8.1} {:>8.1} {}",
             set.name(),
             e.annotated,
             e.recall() * 100.0,
@@ -490,7 +487,8 @@ fn check(dir: Option<&Path>) -> CliResult {
             e.mean_abs_cents,
             e.p95_abs_cents,
             e.max_abs_cents,
-            e.p95_report_ms,
+            e.p95_report_from_e1_ms,
+            e.p95_report_below_e1_ms,
             if ok { "ok" } else { "FAILED" }
         );
     }

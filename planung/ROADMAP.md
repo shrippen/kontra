@@ -252,6 +252,13 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   nach der alten Zählung). Anschläge ohne Urteil zählen seit der Nacharbeit zu #205 im Nenner mit (vorher IDMT
   95,8 % von 263, 1,8 %; FiloBass 12,3 % Fehlalarm). Unbewiesen: echte Doppelgriffe (Aufnahme mit dem Eigentümer,
   ~15 min).
+  Nacharbeit (30.10., Branch `cleanup`): Die 44 Mischungen ohne Urteil waren ein Messfehler. Die Ausschnitte wurden an
+  den Annotationen hart geschnitten (Taktraster, meist 20–50 ms vor dem Anschlag, mitten in der Welle); der Knack am
+  Schnitt füllt das 40-ms-Gedächtnis des Onset-Detektors, der Anschlag danach hebt sich nicht ab (41 der 44: auch ein
+  Ton allein so geschnitten ohne Onset). Ausschnitte blenden jetzt 2 ms ein und aus: IDMT 82,1 → 91,5 % (307, ohne
+  Urteil 44 → 13), Einzelnoten unverändert 1,7 %, 9 als der andere Ton; FiloBass unverändert 77,8 % / 7,4 % (dort
+  keine Mischung ohne Urteil). Die übrigen 13: Annotation weiter als 80 ms vom Anschlag oder Anschlag vor dem Schnitt
+  (Diagnose mit Schnitt am erkannten Anschlag: 0 ohne Urteil, 95,4 %); eine Grenze der Annotation, nicht der Erkennung.
 - [x] R9 Time-Stretch: kürzerer Steuer-Vorlauf (win/16) spart 37 ms (Standard) bzw. 75 ms (Fine), Messwerte gleich;
   Doku: Fine kostet 133 ms mehr, nicht 85. Zwei Auflösungen: abgelehnt. Umgesetzt in #200: Standard 133 → 96 ms,
   Fine 267 → 192 ms. Hörtest B0 Standard gegen Fine offen.
@@ -353,6 +360,9 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
 - [x] LH-NF-15 Meldezeit: Ziel 70 ms je Note für alle Instrumente, außer Tönen unter E1 (etwa die tiefe H-Saite eines
       Fünfsaiters); die brauchen allein etwa 65 ms Signal, ihr Ziel gilt gemessen. Das Ziel gilt je Note, nicht je
       Instrument. Stand R1 (#206): `line-4` p95 69 ms, `line-5` p95 80 ms.
+      `korpus check` prüft das seit 30.10. (Branch `cleanup`) je Note, ab E1 und unter E1 getrennt: `line-4` 69,3 ms
+      erfüllt; verfehlt und als Ausnahme mit gemessenem Wert geprüft: `line-5` ab E1 74,7 ms, `hum-line` 72,0 ms;
+      unter E1 94,7 ms. Offen: Entscheidung, ob das Ziel dort nachgearbeitet oder die Ausnahme bestätigt wird.
 - [x] R8 Doppelgriffe über Mikrofon aus, bis Aufnahmen da sind (FiloBass 12,2 % Fehlalarm): `ChordHearing::OneTone`,
       ein Doppelgriff zählt dort wie ein Ton; Einstellung „Mikrofon“ und Auswertung sagen, dass Doppelgriffe über
       Mikrofon noch nicht nach beiden Tönen bewertet werden (LH-BEW-11, J-B7).

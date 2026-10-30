@@ -384,8 +384,8 @@ fn echo_stage_removes_what_played() {
     assert!(drop < -30.0, "{drop} dB");
 }
 
-#[test]
-fn midi_file_plays_its_notes_in_real_time() {
+/// Writes E2 at 0 s and a softer G2 at 0.25 s as a MIDI file named `name`.
+fn two_note_midi(name: &str) -> std::path::PathBuf {
     // 480 ticks per quarter at 120 BPM: E2 at 0 s, G2 at 0.25 s (240 ticks = varlen 0x81 0x70).
     let track: Vec<u8> = vec![
         0x00, 0x90, 40, 100, 0x81, 0x70, 0x80, 40, 0, 0x00, 0x90, 43, 64, 0x81, 0x70, 0x80, 43, 0,
@@ -397,8 +397,14 @@ fn midi_file_plays_its_notes_in_real_time() {
     file.extend(b"MTrk");
     file.extend((track.len() as u32).to_be_bytes());
     file.extend(track);
-    let path = std::env::temp_dir().join(format!("kontra-midi-in-{}.mid", std::process::id()));
+    let path = std::env::temp_dir().join(format!("kontra-{name}-{}.mid", std::process::id()));
     std::fs::write(&path, file).unwrap();
+    path
+}
+
+#[test]
+fn midi_file_plays_its_notes_in_real_time() {
+    let path = two_note_midi("midi-in");
 
     let clock = Clock::new();
     let (tx, rx) = std::sync::mpsc::channel();
@@ -428,6 +434,50 @@ fn midi_file_plays_its_notes_in_real_time() {
     assert!((notes[1].onset_s - started - 0.25).abs() < 1e-9);
     assert!(notes[1].level_db < notes[0].level_db, "softer velocity");
     assert!(notes.iter().all(|n| n.source == InputSource::Midi));
+}
+
+/// A MIDI file says how far it has played, after the notes up to there: the session judges
+/// no further. Without it a loaded machine that sent a note late got it "missed" (J-E1 flaky:
+/// note 2 "missed" in 2 of 8 runs on a starved core).
+#[test]
+fn midi_file_tells_how_far_it_played() {
+    let path = two_note_midi("midi-heard");
+
+    let clock = Clock::new();
+    let (tx, rx) = std::sync::mpsc::channel();
+    let kind = InputKind::MidiFile { path: path.clone() };
+    let input = Input::start(
+        &kind,
+        &Instrument::default_bass(),
+        InputSource::Midi,
+        &clock,
+        tx,
+        None,
+    )
+    .unwrap();
+    let mut notes: Vec<f64> = Vec::new();
+    let mut heard: Vec<f64> = Vec::new();
+    for event in rx.iter() {
+        match event {
+            Event::Note(n) => notes.push(n.onset_s),
+            Event::Heard { at_s } => {
+                // Every note up to `at_s` came before it: G2 (0.25 s) too, once it is past.
+                let second_s = input.started_s().unwrap() + 0.25;
+                assert!(notes.len() == 2 || at_s < second_s, "{at_s} before G2");
+                heard.push(at_s);
+            }
+            Event::Ended => break,
+            _ => {}
+        }
+    }
+    let _ = std::fs::remove_file(&path);
+    let started = input.started_s().unwrap();
+    let between = heard
+        .iter()
+        .filter(|h| **h > started && **h < started + 0.25)
+        .count();
+    assert!(between >= 1, "heard {heard:?}");
+    assert!(heard.windows(2).all(|w| w[0] <= w[1]), "{heard:?}");
 }
 
 /// Feeds a 0.1 s real-time file at `file_rate` into a tap at `tap_rate`; returns what

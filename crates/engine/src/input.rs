@@ -899,10 +899,21 @@ fn start_midi_file(
         .spawn(move || {
             let started = clock.now_s();
             started_worker.store(started.to_bits(), Ordering::Relaxed);
+            let mut told_s = started;
             for (at_s, note) in notes {
-                while clock.now_s() < started + at_s {
+                loop {
+                    let now = clock.now_s();
+                    if now >= started + at_s {
+                        break;
+                    }
                     if stop_worker.load(Ordering::Relaxed) {
                         return;
+                    }
+                    // Played up to `now`, every note before it sent: the session judges up to
+                    // here, not by its clock alone (a late thread turned notes "missed", J-E1).
+                    if now - told_s >= LEVEL_S {
+                        told_s = now;
+                        let _ = events.send(Event::Heard { at_s: now });
                     }
                     std::thread::sleep(IDLE);
                 }
