@@ -275,6 +275,10 @@ impl<O: Output> Practice<O> {
                 self.session.on_string(&verdict);
                 None
             }
+            Event::DoubleStop(verdict) => {
+                self.session.on_double_stop(&verdict);
+                None
+            }
             Event::Level {
                 peak_db,
                 rms_db,

@@ -138,21 +138,42 @@ Kirigami.ScrollablePage {
                     valueFromText: function(t) { return parseInt(t) }
                     onValueModified: ctl.changeLatency(value)
                 }
+                // No cable fits the laptop's combo jack (P1); MIDI sends no sound (review #202).
+                KanteButton {
+                    visible: !ctl.laptopJack && ctl.connection !== "midi"
+                    text: texts.t("calibration.loopback.start")
+                    busy: ctl.calibrating && ctl.cableMeasuring
+                    enabled: !ctl.calibrating
+                    onClicked: ctl.startLoopback()
+                }
                 KanteButton {
                     text: texts.t("calibration.start")
-                    busy: ctl.calibrating
+                    busy: ctl.calibrating && !ctl.cableMeasuring
                     enabled: !ctl.calibrating
                     onClicked: ctl.startCalibration()
                 }
                 KanteInfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency"); accessibleName: texts.t("help.about", { term: texts.t("settings.latency") }) }
             }
         }
+        // Where the value comes from and the player's lean, in words (R4, LH-EIN-05).
+        QQC2.Label {
+            Layout.fillWidth: true
+            visible: ctl.latencyNote !== ""
+            wrapMode: Text.WordWrap
+            color: KanteStyle.textColor
+            text: ctl.latencyNote
+            Accessible.role: Accessible.StaticText
+            Accessible.name: texts.t("settings.latency") + ": " + Math.round(ctl.latencyMs) + " ms, " + text
+        }
         CalibrationBeat { Layout.fillWidth: true }
         QQC2.Label {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             color: KanteStyle.mutedTextColor
-            text: ctl.calibrationText !== "" ? ctl.calibrationText : texts.t("calibration.hint")
+            text: ctl.calibrationText !== "" ? ctl.calibrationText
+                : ctl.laptopJack ? texts.t("calibration.loopback.jack") + " " + texts.t("calibration.hint")
+                : ctl.connection === "midi" ? texts.t("calibration.loopback.midi") + " " + texts.t("calibration.hint")
+                : texts.t("calibration.loopback.hint") + " " + texts.t("calibration.hint")
         }
         InstrumentChoice {
             Layout.fillWidth: true

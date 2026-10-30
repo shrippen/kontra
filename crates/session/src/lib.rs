@@ -21,6 +21,7 @@ mod density;
 mod expected;
 mod learning;
 mod live;
+mod loopback;
 mod matcher;
 mod pocket;
 mod practice;
@@ -58,6 +59,7 @@ pub use live::{
     is_midi_file, soak, InputChoice, Live, LiveCalibration, LiveEar, LiveOutput, LiveSetup,
     LiveTuner, PromptTone, SoakReport,
 };
+pub use loopback::{LiveLoopback, LoopbackResult};
 pub use matcher::{NoteResult, Outcome};
 pub use pocket::{Pocket, PocketVerdict};
 pub use practice::{Practice, PracticeEvent, PracticeOptions};

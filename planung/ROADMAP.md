@@ -207,8 +207,21 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   (15 ms früh gilt als „Auf den Punkt“). Klick zeigt danach nur „deine Neigung“; LH-EIN-14 und LH-BEW-09 passen sich an.
 - [x] R5 pYIN statt fester Schwelle: abgelehnt, bei gleicher Meldezeit schlechter (IDMT 91,6 → 90 %, Leerlauf
   41 → 48/min); der Vorteil kam nur vom Warten.
-- [ ] R6 Techniken ehrlich messen: IDMT-SMT-Bass (Einzelnoten, drei Bässe) als zweiter Satz; Slap 80 → 42 %,
+- [x] R6 Techniken ehrlich messen: IDMT-SMT-Bass (Einzelnoten, drei Bässe) als zweiter Satz; Slap 80 → 42 %,
   Pop 66 → 15 % auf fremden Bässen. Schwellen auf beiden Sätzen wählen; Merkmale nach Abeßer erst mit mehr Bässen.
+  Umgesetzt 29.10. (Branch `tech-sb`): Konverter `idmt-sb`, `korpus techniques` je Bass mit Zeilen für Palm Mute,
+  Vibrato und Bending (müssen normal bleiben), `make korpus-real`. Richtig je Bass (Fame = Bass der Linien / Warwick /
+  Yamaha): Slap 67 / 19 / 44 %, Pop 30 / 1 / 14 %, Dead Note 99 / 97 / 95 %, normal 98 / 100 / 90 %.
+  Nebenbefund „Vibrato 15,6 % als Muted, Bending 8 %“ kam vom Konverter des Prototyps: Er setzte den Einsatz auf ein
+  leises Antippen der Saite 100–400 ms vor dem Anschlag, Kontra hörte dort richtig eine tonlose Note. Mit dem Einsatz
+  am Anschlag: Vibrato 99,8 %, Bending 100 %, Palm Mute 100 %; normale Noten als Technik 9,7 → 1,8 %.
+  Schwellen bleiben: Neu gewählt auf Linien + Einzelnoten (Raster über alle fünf Schwellen, je ohne einen Bass gewählt
+  und an ihm geprüft) gewinnt Slap nur auf Kosten von Pop oder normalen Noten. Bestes Maß (Mittel der F1): Einzelnoten
+  Slap 43 → 59 %, Pop 15 → 17 %, aber normale Noten als Technik 1,8 → 9,2 %, Linien 1,4 → 6,1 %. Mit der Bedingung
+  „nicht mehr Fehlalarme als heute“: Slap 43 → 53 %, Pop 15 → 8 %, Linien-Pop 66 → 20 %. Die zwei Merkmale
+  (Höhenanteil, Abklingen) tragen nicht über Bässe: am Warwick wird ein Pop zu 79 % als normal gehört.
+  Offen: Merkmale nach Abeßer mit Klassifikator, erst mit Aufnahmen weiterer Bässe und Spieler (`AUFNAHME.md`), sonst
+  lernt er einen Bass.
 - [x] R7 Saite erkennen über Inharmonizität: 93,8 % auf fremden Bässen (Zufall 41,5 %), echte Linien 76 %, Palm-Mute
   nicht; Urteil etwa 280 ms nach dem Anschlag. Kandidaten aus R2. Umgesetzt (LH-BEW-15): `InharmonicityMeter` und
   `StringModel` (dsp), Prüfung im `NoteTracker` nach jeder Note mit Saite aus der Tab, `StringVerdict` bis zur Session,
@@ -221,8 +234,13 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   unverändert (`korpus check`, `measure` IDMT-ST/FiloBass, `techniques` gleich wie vorher). Offen: Messung am Bass
   des Eigentümers (andere Mensur und Saiten verschieben a_Saite; Kalibrierung aus gespielten Noten), Anzeige je Note
   in der Lane, tiefe H-Saite und andere Stimmungen.
-- [ ] R8 Doppelgriffe erkennen, wenn die Tab beide Töne vorgibt (Klapuri 2006): 95 % erkannt, 2,1 % Fehlalarm;
-  Oktaven nicht. Teil von M1 (LH-BEW-11).
+- [x] R8 Doppelgriffe erkennen, wenn die Tab beide Töne vorgibt (Klapuri 2006): 95 % erkannt, 2,1 % Fehlalarm;
+  Oktaven nicht. Teil von M1 (LH-BEW-11). Umgesetzt: `DyadCheck` im Tracker, Urteil `DoubleStopVerdict` je Anschlag,
+  Session wertet beide Töne (beide → zwei Treffer, einer → der andere ausgelassen). `korpus check`: synthetisch
+  168/168 beide, Oktaven 0 Aussagen, Einzelnoten 0 % (4 Sätze + room-double); `korpus double-stops` IDMT:
+  Mischungen 95,8 % (263), Einzelnoten im ganzen Stück 1,8 % als beide, 9 von 3416 als der andere Ton. FiloBass
+  (Kontrabass, Demucs-Stems): 77,8 % / 12,2 % Fehlalarm, offen. Unbewiesen: echte Doppelgriffe (Aufnahme mit dem
+  Eigentümer, ~15 min).
 - [ ] R9 Time-Stretch: kürzerer Steuer-Vorlauf (win/16) spart 37 ms (Standard) bzw. 75 ms (Fine), Messwerte gleich;
   Doku: Fine kostet 133 ms mehr, nicht 85. Zwei Auflösungen: abgelehnt. Hörtest B0 Standard gegen Fine offen.
 
@@ -282,7 +300,9 @@ Erkennung und Messung:
   die Hintergrund-Regel von F3 nicht mehr. Messen an IDMT und Sätzen mit Brummen.
 
 Mehrere Töne (offen für Gitarre und Tasten):
-- [ ] M1 Doppelgriffe: Korpus-Satz, Merker „zwei Töne“, Fähigkeit je Eingang (LH-BEW-11).
+- [x] M1 Doppelgriffe: Korpus-Satz, Merker „zwei Töne“, Fähigkeit je Eingang (LH-BEW-11). Mit R8: synthetischer
+  Satz in `korpus check`, IDMT-Mischungen in `korpus double-stops`, `ChordHearing` je Eingang. MIDI-Akkorde als
+  ganze Menge bleiben M2.
 - [ ] M2 Akkorde im Korpus als ganze Menge werten, zuerst MIDI.
 - [ ] M3 Saiten-Plausibilität für Akkordkandidaten im Instrumentprofil.
 - [ ] M4 Machbarkeitsstudie NNLS mit Vorlagen je Saite, Log-Frequenz (nach 1.0).

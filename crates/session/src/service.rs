@@ -17,6 +17,10 @@ pub use kontra_content::{
     PACKAGE_AUDIO_MAX_BYTES, PACKAGE_FORMAT, PACKAGE_VERSION, TRANSPOSE_MAX,
 };
 pub use kontra_engine::{
+    announce_second_tone, double_stop_mixtures, evaluate_double_stops, generate_double_stops,
+    DoubleStopSet, DoubleStopStrike, DoubleStopTally, DOUBLE_STOP_INTERVALS,
+};
+pub use kontra_engine::{
     audio_priority, evaluate as evaluate_korpus, evaluate_expecting as evaluate_korpus_expecting,
     evaluate_laptop_jack as evaluate_korpus_laptop_jack, evaluate_with as evaluate_korpus_with,
     generate as generate_korpus, list_devices, list_midi_inputs, render_performance, same_pitch,

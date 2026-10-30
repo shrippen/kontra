@@ -17,7 +17,9 @@ const MAX_SPREAD_MS: f64 = 30.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum CalibrationResult {
-    /// Median latency in ms and the spread (median absolute deviation) of the offsets.
+    /// Median offset of the plucks after the clicks in ms (latency plus the player's lean, below
+    /// zero when the lean is ahead by more than the latency) and the spread (median absolute
+    /// deviation) of the offsets.
     Measured { latency_ms: f64, spread_ms: f64 },
     /// Too few plucks heard (`matched` of `CLICKS`).
     TooFew { matched: usize },
@@ -102,7 +104,7 @@ impl Calibration {
             return CalibrationResult::Unsteady { spread_ms: spread };
         }
         CalibrationResult::Measured {
-            latency_ms: latency.max(0.0),
+            latency_ms: latency,
             spread_ms: spread,
         }
     }
@@ -161,6 +163,20 @@ mod tests {
         assert_eq!(c.beat_at(2.99), Some(-1));
         assert_eq!(c.beat_at(3.0), Some(0));
         assert_eq!(c.beat_at(9.0), Some(7));
+    }
+
+    // Timing report 29.10. (R4): a player 30 ms ahead at 20 ms latency is heard 10 ms before the
+    // click; the lean (click − loopback) needs that −10, not 0.
+    #[test]
+    fn keeps_a_median_before_the_click() {
+        let mut c = Calibration::new(1.0);
+        for click in c.clicks().to_vec() {
+            c.on_onset(click - 0.010);
+        }
+        let CalibrationResult::Measured { latency_ms, .. } = c.result() else {
+            panic!("{:?}", c.result());
+        };
+        assert!((latency_ms + 10.0).abs() < 1e-6, "{latency_ms}");
     }
 
     #[test]

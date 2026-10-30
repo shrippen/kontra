@@ -271,6 +271,7 @@ impl LiveTuner {
                 | Event::Technique(_)
                 | Event::Pitch(_)
                 | Event::String(_)
+                | Event::DoubleStop(_)
                 | Event::Heard { .. } => {}
             }
         }
@@ -391,6 +392,7 @@ impl LiveEar {
                 | Event::Technique(_)
                 | Event::Pitch(_)
                 | Event::String(_)
+                | Event::DoubleStop(_)
                 | Event::Heard { .. } => {}
             }
         }

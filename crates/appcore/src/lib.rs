@@ -6,6 +6,7 @@
 //! ```
 
 mod caches;
+mod calibrate;
 mod course;
 mod data;
 pub mod ear;
@@ -27,17 +28,17 @@ pub use i18n::{Catalog, Language};
 pub use kontra_session::{exercise, Blocks, ChainOrder, Density};
 pub use package::PackageAudio;
 pub use store::{
-    data_dir, Bass, InputKind, Library, PracticeLoop, RecentEntry, SectionBars, SectionDensity,
-    Setlist, Settings,
+    data_dir, AudioPath, Bass, InputKind, LatencyFrom, Library, PracticeLoop, RecentEntry,
+    SectionBars, SectionDensity, Setlist, Settings,
 };
 
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Judging, Technique, Tuning};
 use kontra_session::{
-    import_file, list_devices, run_from, technique_signs, CalibrationResult, Chain, Connection,
-    DeviceInfo, Direction, Gains, ImportResult, InputChoice, Intonation, Leaning, Live,
-    LiveCalibration, LiveEar, LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Observation,
-    Outcome, OutsideNote, Pocket, PocketVerdict, PracticeEvent, PracticeOptions, ProgressStore,
-    Run, ScoreSettings, SessionEvent, Shaping, Side, Summary, TechniqueOutcome, TechniqueResult,
+    import_file, list_devices, run_from, technique_signs, Chain, Connection, DeviceInfo, Direction,
+    Gains, ImportResult, InputChoice, Intonation, Leaning, Live, LiveCalibration, LiveEar,
+    LiveLoopback, LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Observation, Outcome,
+    OutsideNote, Pocket, PocketVerdict, PracticeEvent, PracticeOptions, ProgressStore, Run,
+    ScoreSettings, SessionEvent, Shaping, Side, Summary, TechniqueOutcome, TechniqueResult,
     Workshop,
 };
 use serde_json::json;
@@ -203,6 +204,7 @@ pub struct Core {
     live: Option<Live>,
     tuner: Option<LiveTuner>,
     calibration: Option<LiveCalibration>,
+    loopback: Option<LiveLoopback>,
     /// Engine-independent start of the current run, for practice time.
     run_started: Option<std::time::Instant>,
     /// The audio server's block size was checked for this run (LH-EIN-07).
@@ -283,7 +285,7 @@ impl Core {
             .language
             .as_deref()
             .map_or_else(Language::from_environment, Language::from_code);
-        Core {
+        let mut core = Core {
             courses: kontra_session::CourseStore::new(data_dir).load(),
             fetcher: course::Fetcher::default(),
             quiz: None,
@@ -314,13 +316,17 @@ impl Core {
             live: None,
             tuner: None,
             calibration: None,
+            loopback: None,
             run_started: None,
             quantum_checked: false,
             direct_checked: false,
             input_since: None,
             speed: 1.0,
             looping: None,
-        }
+        };
+        // Measured latencies hold only for the devices they were measured on (LH-EIN-05).
+        core.check_audio_path();
+        core
     }
 
     pub fn tr(&self, key: &str, args: &[(&str, String)]) -> String {
@@ -858,7 +864,9 @@ impl Core {
 
     /// Changes settings that do not affect a running practice (view, style, language) and saves.
     pub fn update_settings(&mut self, change: impl FnOnce(&mut Settings)) {
+        let before = self.settings.clone();
         change(&mut self.settings);
+        calibrate::forget_on_switch(&before, &mut self.settings);
         if let Some(code) = &self.settings.language {
             self.catalog = Catalog::new(Language::from_code(code));
         }
@@ -2200,6 +2208,7 @@ impl Core {
 
     /// Starts audio for the loaded arrangement; true if there is no sound output.
     fn start_live(&mut self) -> Result<bool, String> {
+        self.check_audio_path();
         let Some(loaded) = self.loaded.as_ref() else {
             return Err(self.tr("library.empty.hint", &[]));
         };
@@ -2316,10 +2325,7 @@ impl Core {
         if let Some(hint) = self.direct_check() {
             events.push(UiEvent::Message(hint));
         }
-        if let Some(result) = self.calibration.as_mut().and_then(LiveCalibration::poll) {
-            self.calibration = None;
-            events.push(self.calibrated(result));
-        }
+        events.extend(self.poll_calibration());
         events.extend(self.poll_stems());
         events
     }
@@ -2362,66 +2368,6 @@ impl Core {
         let devices = list_devices(Direction::Input);
         let device = devices.iter().find(|d| d.id == id && d.past_pipewire)?;
         Some(self.tr("hint.direct", &[("name", device.name.clone())]))
-    }
-
-    /// Starts "play on the click" (LH-EIN-05): 8 clicks from one second after the input starts.
-    pub fn start_calibration(&mut self) -> Result<(), String> {
-        self.stop_live();
-        self.tuner = None;
-        self.live_ear = None;
-        self.level.reset();
-        let instrument = self.instrument();
-        let setup = LiveSetup {
-            input: self.input_choice(),
-            output_device: self.output_device(),
-            source: self.source(),
-            backing: None,
-            original: None,
-            backing_cache: None,
-        };
-        let calibration = LiveCalibration::start(&setup, &instrument, CALIBRATION_LEAD_S)
-            .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
-        self.calibration = Some(calibration);
-        Ok(())
-    }
-
-    pub fn is_calibrating(&self) -> bool {
-        self.calibration.is_some()
-    }
-
-    /// The calibration's click last passed: −4..−1 count-in, 0..7 measured.
-    pub fn calibration_beat(&self) -> Option<i32> {
-        self.calibration.as_ref()?.beat()
-    }
-
-    fn calibrated(&mut self, result: CalibrationResult) -> UiEvent {
-        match result {
-            CalibrationResult::Measured {
-                latency_ms,
-                spread_ms,
-            } => {
-                self.reconfigure(|s| s.latency_ms = latency_ms.round());
-                let text = self.tr(
-                    "calibration.done",
-                    &[
-                        ("ms", format!("{latency_ms:.0}")),
-                        ("spread", format!("{spread_ms:.0}")),
-                    ],
-                );
-                UiEvent::Calibrated {
-                    latency_ms: Some(latency_ms.round()),
-                    text,
-                }
-            }
-            CalibrationResult::TooFew { matched } => UiEvent::Calibrated {
-                latency_ms: None,
-                text: self.tr("calibration.few", &[("matched", matched.to_string())]),
-            },
-            CalibrationResult::Unsteady { .. } => UiEvent::Calibrated {
-                latency_ms: None,
-                text: self.tr("calibration.unsteady", &[]),
-            },
-        }
     }
 
     fn progress_store(&self) -> ProgressStore {
@@ -3150,7 +3096,7 @@ impl Core {
             return serde_json::Value::Null;
         };
         // "Solid" would contradict the latency hint next to it (review #195): that hint alone.
-        if observation == Observation::Solid && s.recalibrate(pocket).is_some() {
+        if observation == Observation::Solid && self.latency_hint(s, pocket).is_some() {
             return serde_json::Value::Null;
         }
         let percent = |share: f64| format!("{:.0}", share * 100.0);
@@ -3211,7 +3157,7 @@ impl Core {
     /// otherwise it stands alone ("Die Treffer liegen beständig hinter dem Schlag …").
     fn recalibrate_text(&self, s: &Summary) -> String {
         let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
-        let Some(side) = s.recalibrate(pocket) else {
+        let Some(side) = self.latency_hint(s, pocket) else {
             return String::new();
         };
         let follows = matches!(
