@@ -2,12 +2,14 @@
 //!
 //! ```text
 //! { "format": "kontra-data", "version": 1, "exported_unix": …,
-//!   "settings": {…settings.json}, "library": {…library.json}, "progress": [{…song}, …] }
+//!   "settings": {…settings.json}, "library": {…library.json}, "progress": [{…song}, …],
+//!   "quiz": {…quiz.json} }
 //! ```
 //!
 //! Import either merges (keeps the own settings, adds unknown pieces and setlists, joins runs)
 //! or replaces everything.
 
+use crate::quiz_stats::QuizStats;
 use crate::store::{Library, Settings};
 use kontra_session::SongProgress;
 use serde::{Deserialize, Serialize};
@@ -34,6 +36,9 @@ pub struct Bundle {
     pub library: Library,
     #[serde(default)]
     pub progress: Vec<SongProgress>,
+    /// Fretboard quiz: range and answers per place (LH-LRN-18).
+    #[serde(default)]
+    pub quiz: QuizStats,
 }
 
 /// Why a file cannot be imported.
@@ -163,6 +168,7 @@ mod tests {
             settings: Settings::default(),
             library: Library::default(),
             progress: Vec::new(),
+            quiz: QuizStats::default(),
         };
         let text = |b: &Bundle| serde_json::to_string(b).unwrap();
         assert!(Bundle::parse(&text(&bundle)).is_ok());

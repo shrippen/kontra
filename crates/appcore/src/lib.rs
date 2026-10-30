@@ -17,6 +17,7 @@ pub mod level;
 mod package;
 mod prepare;
 pub mod quiz;
+pub mod quiz_stats;
 mod report;
 mod songsterr;
 mod sources;
@@ -726,6 +727,7 @@ impl Core {
             settings: self.settings.clone(),
             library: self.library.clone(),
             progress: self.progress_store().all(),
+            quiz: store::load(&self.data_dir.join(quiz_stats::FILE)),
         };
         store::save(path, &bundle)
             .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
@@ -786,6 +788,16 @@ impl Core {
                 .save(&song)
                 .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
         }
+        let quiz_file = self.data_dir.join(quiz_stats::FILE);
+        let quiz = match how {
+            DataImport::Replace => bundle.quiz,
+            DataImport::Merge => {
+                store::load::<quiz_stats::QuizStats>(&quiz_file).merged(bundle.quiz)
+            }
+        };
+        store::save(&quiz_file, &quiz)
+            .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
+        self.quiz = None;
         self.save_library();
         let key = match how {
             DataImport::Merge => "data.merged",
@@ -3718,20 +3730,19 @@ impl Core {
         self.tr(key, &[("aim", aim), ("ms", format!("{ms:.0}"))])
     }
 
-    /// Starts the fretboard quiz ("notes" or "intervals") and returns `quiz_json`.
-    pub fn quiz_start(&mut self, kind: &str) -> String {
+    /// Starts the fretboard quiz ("notes" or "intervals") on frets `low`–`high` (kept for the
+    /// next start, LH-LRN-18) and returns `quiz_json`.
+    pub fn quiz_start(&mut self, kind: &str, low: i32, high: i32) -> String {
         let kind = match kind {
             "intervals" => quiz::QuizKind::Intervals,
             _ => quiz::QuizKind::Notes,
         };
-        let seed = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(1, |d| d.as_nanos() as u64);
-        self.quiz = Some(quiz::Quiz::new(
-            kind,
-            &instrument_from(&self.settings),
-            seed,
-        ));
+        let mut stats: quiz_stats::QuizStats = store::load(&self.data_dir.join(quiz_stats::FILE));
+        stats.range = quiz_stats::FretRange::new(low, high);
+        let instrument = instrument_from(&self.settings);
+        let quiz = quiz::Quiz::new(kind, &instrument, stats, time_seed(), unix_now());
+        let _ = store::save(&self.data_dir.join(quiz_stats::FILE), quiz.stats());
+        self.quiz = Some(quiz);
         self.quiz_json()
     }
 
@@ -3739,25 +3750,30 @@ impl Core {
     pub fn quiz_next(&mut self) -> String {
         let instrument = instrument_from(&self.settings);
         if let Some(q) = &mut self.quiz {
-            q.next(&instrument);
+            q.next(&instrument, unix_now());
         }
         self.quiz_json()
     }
 
-    /// Answers with a played pitch; true when it was the first right answer.
+    /// Answers with a played pitch; true when it was the first right answer. Found and missed
+    /// places are stored at once.
     pub fn quiz_answer(&mut self, midi: f64) -> bool {
         let instrument = instrument_from(&self.settings);
-        self.quiz
-            .as_mut()
-            .is_some_and(|q| q.answer(midi, &instrument))
+        let Some(q) = self.quiz.as_mut() else {
+            return false;
+        };
+        let right = q.answer(midi, &instrument, unix_now());
+        let _ = store::save(&self.data_dir.join(quiz_stats::FILE), q.stats());
+        right
     }
 
     /// "3 of 4 found" over finished questions only: the open one is not lost yet (QA 13.10.: it
     /// read "0 of 1 found" before the first answer). Nothing before the first one is finished.
     /// "3 of 4 found" (quiz: solved at all) or "3 of 4 without a mistake" (ear training: clean
     /// answers only; QA 14.10.: "0 of 1 found" right after a correct answer on the fifth try).
-    fn quiz_score(&self, right: u32, asked: u32, solved: bool) -> String {
-        self.score_text("quiz.score", right, asked, solved)
+    /// Quiz: found of found and lost; skipped questions are no miss (LH-LRN-18).
+    fn quiz_score(&self, right: u32, lost: u32) -> String {
+        self.score_text("quiz.score", right, right + lost, true)
     }
 
     fn score_text(&self, key: &str, right: u32, asked: u32, solved: bool) -> String {
@@ -3771,11 +3787,13 @@ impl Core {
         )
     }
 
-    /// The question in words, the score, and once solved where the answer lies:
-    /// `{"prompt", "right", "asked", "solved", "positions": [{string, fret, role}]}`.
+    /// The question in words, the score, the range, and once solved where the answer lies:
+    /// `{"prompt", "right", "asked", "solved", "range": {low, high}, "positions": [{string,
+    /// fret, role}]}`. Before a start only the stored range.
     pub fn quiz_json(&self) -> String {
         let Some(q) = &self.quiz else {
-            return String::new();
+            let stats: quiz_stats::QuizStats = store::load(&self.data_dir.join(quiz_stats::FILE));
+            return json!({ "range": stats.range }).to_string();
         };
         let instrument = instrument_from(&self.settings);
         let string_name = |s: usize| {
@@ -3830,7 +3848,8 @@ impl Core {
             "right": q.right,
             "asked": q.asked,
             "solved": q.solved,
-            "score": self.quiz_score(q.right, q.asked, q.solved),
+            "score": self.quiz_score(q.right, q.lost),
+            "range": q.stats().range,
             "positions": positions,
         })
         .to_string()
@@ -5786,7 +5805,7 @@ mod tests {
     fn quiz_asks_and_shows_the_answer() {
         let dir = temp_dir("quiz");
         let mut core = Core::new(&dir, QaOptions::default());
-        let q: serde_json::Value = serde_json::from_str(&core.quiz_start("notes")).unwrap();
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_start("notes", 0, 4)).unwrap();
         assert!(
             q["prompt"].as_str().unwrap().contains("-Saite")
                 || q["prompt"].as_str().unwrap().contains("string")
@@ -5807,18 +5826,23 @@ mod tests {
     }
 
     /// QA 13.10.: the open question is not counted. Before any answer there is no score (it read
-    /// "0 of 1 found"); a solved question counts, a skipped one counts once the next is asked.
+    /// "0 of 1 found"); a solved question counts, a skipped one never, one left after a wrong
+    /// note once the next is asked.
     #[test]
     fn quiz_score_counts_finished_questions() {
         let dir = temp_dir("quiz-score");
         let mut core = Core::new(&dir, QaOptions::default());
         core.update_settings(|s| s.language = Some("en".into()));
-        let q: serde_json::Value = serde_json::from_str(&core.quiz_start("notes")).unwrap();
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_start("notes", 0, 4)).unwrap();
         assert_eq!(q["score"], "");
         assert!((28..=55).any(|m| core.quiz_answer(f64::from(m))));
         let q: serde_json::Value = serde_json::from_str(&core.quiz_json()).unwrap();
         assert_eq!(q["score"], "1 of 1 found");
+        // Skipped is no miss (LH-LRN-18); left after a wrong note is one.
         core.quiz_next();
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_next()).unwrap();
+        assert_eq!(q["score"], "1 of 1 found", "one skipped");
+        assert!(!core.quiz_answer(0.0));
         let q: serde_json::Value = serde_json::from_str(&core.quiz_next()).unwrap();
         assert_eq!(q["score"], "1 of 2 found");
         let _ = std::fs::remove_dir_all(dir);

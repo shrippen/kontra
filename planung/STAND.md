@@ -3,6 +3,12 @@
 Übergabe zwischen Sitzungen. Stand: 2026-10-30. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
 
+## Übergabe (30.10.2026, Branch `fret-quiz`, L4 Teil 1)
+
+Griffbrett-Quiz gewichtet (LH-LRN-18), Teil 1: gewichtete Wahl, Statistik in `quiz.json`, Bünde, Überspringen kein
+Fehler. Offen: Heatmap (braucht Kante: Zahl je Zelle, Achsenbeschriftung Saite/Bund, Legende, Tooltip, Namen für den
+Screenreader), Intervalle im Gehörtraining.
+
 ## Übergabe (30.10.2026, Branch `device-clock`, PR #209, ersetzt #186)
 
 R3 erster Teil: Gerätestempel über eine DLL (`engine/src/device_clock.rs`), Verluste unter 4 ms zählen nicht, Sperre
@@ -211,6 +217,12 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   (Re-Export); `pub(crate)`: `InputStatus`, `InputUse`, `Unstarted`, `Core::{input_opened, device_lost}`, `lost_side`, `InputUse::Ear`, `InputStatus::{remember, opened_input}`, `Core::input_lost_in` (ersetzt `input_lost`), `unplug::Lost::id` (`Core::live_setup` privat); Brücke:
   Properties `inputState`, `inputDetail`, Invokable `retryInput`. `Event::Error`, `PracticeEvent::Error` und `UiEvent::DeviceLost` tragen jetzt die Seite (`Direction`) und den rohen Grund.
 
+- `fret-quiz` (L4, LH-LRN-18): Modul `quiz_stats` (`FILE`, `FretRange` mit `low`, `high`, `new`, `QuizStats` mit
+  `range`, `new`), `Question::fret`, `Quiz::stats`; geändert: `Quiz::new(kind, instrument, stats, seed, now_s)`,
+  `Quiz::next(instrument, now_s)`, `Quiz::answer(midi, instrument, now_s)`, `Core::quiz_start(kind, low, high)`;
+  `Quiz::lost`, `data::Bundle::quiz`; `pub(crate)`: `Outcome`, `QuizStats::{record, weight, merged}`,
+  `FretRange::frets`; Brücke: `quizStart(kind, low, high)`,
+  `quizJson` mit `range` (auch vor dem Start).
 - `noise-floor` (E6, LH-EIN-16): `gate_over_floor`, `OnsetDetector::{measure_floor, noise_floor_db, set_gate}`,
   `NoteTracker::{measure_floor, noise_floor_db, set_onset_gate}` (kontra-dsp); `Event::NoiseFloor`,
   `Input::{measure_floor, set_onset_gate}` (kontra-engine); `LiveSetup::onset_gate_db`, `LiveCalibration::onset_gate_db`;
