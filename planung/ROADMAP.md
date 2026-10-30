@@ -301,7 +301,9 @@ Rückmeldung und Lernen:
 - [ ] L8 Ruf und Antwort (LH-LRN-19).
 - [ ] L9 Reagierende Band (LH-WIE-05).
 - [ ] L10 Ziel je Lektion (LH-LRN-20).
-- [ ] L11 Shuffle-Klick (LH-WIE-04).
+- [x] L11 Shuffle-Klick (LH-WIE-04): Shuffle-Grooves und „Stück Shuffle“ klicken auf 1. und 3. Triole (3. leiser),
+  auch im Einzähler. Offen: Shuffle-Angaben importierter Dateien (Guitar Pro „Triplet Feel“, MusicXML `<swing>`)
+  werden nicht gelesen; dort stehen die Noten gerade, die Bewertung erwartete sie dann ebenfalls gerade.
 
 Erkennung und Messung:
 - [x] A5 `korpus confusion`: Verwechslung nach Intervall und Register. IDMT (29.10., ±80 ms): C1–B1 90,8 % richtig

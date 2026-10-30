@@ -12,7 +12,7 @@ In notation a shuffle is often written as straight eighths with a note at the st
 :::
 
 ## Practise
-Shuffle over a blues in E.
+Shuffle over a blues in E. The metronome clicks on the first and third triplet of each beat: long, short.
 ::: practice bundled=18 speeds="60 80 100"
 
 ## Check

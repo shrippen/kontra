@@ -12,7 +12,7 @@ In Noten steht ein Shuffle oft als gerade Achtel mit einem Hinweis am Anfang. Ge
 :::
 
 ## Üben
-Shuffle über einen Blues in E.
+Shuffle über einen Blues in E. Das Metronom klickt auf der ersten und dritten Triole jedes Schlags: lang, kurz.
 ::: practice bundled=18 speeds="60 80 100"
 
 ## Prüfen

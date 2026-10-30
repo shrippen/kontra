@@ -156,6 +156,15 @@ pub enum Judging {
     TimeOnly,
 }
 
+/// How the eighths are played (LH-WIE-04): straight, or swung onto the third triplet of the
+/// beat. The metronome follows it: a shuffle clicks on the first and third triplet.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Feel {
+    #[default]
+    Straight,
+    Shuffle,
+}
+
 /// A bass part ready to be played and scored.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Arrangement {
@@ -172,6 +181,8 @@ pub struct Arrangement {
     pub drums: Vec<DrumHit>,
     #[serde(default)]
     pub judging: Judging,
+    #[serde(default)]
+    pub feel: Feel,
 }
 
 impl Arrangement {
@@ -186,6 +197,7 @@ impl Arrangement {
             notes: Vec::new(),
             drums: Vec::new(),
             judging: Judging::default(),
+            feel: Feel::default(),
         }
     }
 

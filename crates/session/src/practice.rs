@@ -14,7 +14,7 @@ use crate::transport::LoopRange;
 use kontra_engine::{
     Accent, BackingAudio, BackingTrack, Clock, Event, Gains, Output, Resolution, Sound,
 };
-use kontra_model::{Arrangement, ExpectedStrike, ExpectedTone, TICKS_PER_QUARTER};
+use kontra_model::{Arrangement, ExpectedStrike, ExpectedTone, Feel, TICKS_PER_QUARTER};
 use std::collections::{HashMap, HashSet};
 
 /// How far ahead sounds are scheduled.
@@ -22,6 +22,8 @@ const LOOKAHEAD_S: f64 = 0.25;
 /// Delay between a user action and the first sound, so scheduling is never late.
 const START_LEAD_S: f64 = 0.08;
 const MS_PER_S: f64 = 1000.0;
+/// A shuffle's off-beat: the third triplet, two thirds into the beat.
+const SHUFFLE_OFFBEAT: f64 = 2.0 / 3.0;
 
 /// What the practice tells the input about the strikes the tab expects (R2).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -216,8 +218,12 @@ impl<O: Output> Practice<O> {
             } else {
                 Accent::Beat
             };
-            self.output
-                .schedule(now + i as f64 * beat_s, Sound::Click(accent));
+            let at = now + i as f64 * beat_s;
+            self.output.schedule(at, Sound::Click(accent));
+            if self.session.arrangement().feel == Feel::Shuffle {
+                self.output
+                    .schedule(at + beat_s * SHUFFLE_OFFBEAT, Sound::Click(Accent::Offbeat));
+            }
         }
         self.count_in_end_s = start;
         self.session.play(start);
@@ -599,8 +605,10 @@ impl<O: Output> Practice<O> {
     }
 }
 
-/// Metronome beats from the bars: one click per numerator unit, accent on the downbeat.
+/// Metronome beats from the bars: one click per numerator unit, accent on the downbeat; a
+/// shuffle adds a soft click on the third triplet of each beat (LH-WIE-04).
 fn beats_of(arrangement: &Arrangement) -> Vec<Beat> {
+    let shuffle = arrangement.feel == Feel::Shuffle;
     let mut beats = Vec::new();
     for bar in &arrangement.bars {
         let count = u64::from(bar.signature.numerator.max(1));
@@ -615,6 +623,15 @@ fn beats_of(arrangement: &Arrangement) -> Vec<Beat> {
             beats.push(Beat {
                 position_s: arrangement.tempo.seconds_at(tick),
                 accent,
+            });
+            if !shuffle {
+                continue;
+            }
+
+            let offbeat = tick + (step as f64 * SHUFFLE_OFFBEAT).round() as u64;
+            beats.push(Beat {
+                position_s: arrangement.tempo.seconds_at(offbeat),
+                accent: Accent::Offbeat,
             });
         }
     }
@@ -700,6 +717,61 @@ mod tests {
         for pair in times.windows(2) {
             assert!(((pair[1] - pair[0]) - 0.5).abs() < 1e-6, "{times:?}");
         }
+    }
+
+    // LH-WIE-04: a shuffle clicks on the first and third triplet of each beat, the count-in
+    // too; the beat keeps its accent, the third triplet is the soft off-beat.
+    #[test]
+    fn shuffle_clicks_on_the_third_triplet() {
+        let clock = Clock::new();
+        let mut a = arrangement();
+        a.feel = kontra_model::Feel::Shuffle;
+        let mut p = Practice::new(
+            a,
+            Mode::Play,
+            ScoreSettings::default(),
+            PracticeOptions::default(),
+            Recorder::default(),
+            clock.clone(),
+        );
+        p.play();
+        run(&mut p, &clock, 2.6);
+        let sounds = &p.output().sounds;
+        let first = sounds.first().map_or(0.0, |s| s.0);
+        // 120 BPM: beats 0.5 s apart, the third triplet 1/3 s after each beat.
+        let at = |t: f64, accent| {
+            sounds
+                .iter()
+                .any(|(s, k)| (s - first - t).abs() < 1e-6 && *k == Sound::Click(accent))
+        };
+        assert!(at(0.0, Accent::Downbeat), "{sounds:?}");
+        assert!(at(1.0 / 3.0, Accent::Offbeat), "count-in: {sounds:?}");
+        assert!(at(0.5, Accent::Beat), "{sounds:?}");
+        assert!(at(2.0, Accent::Downbeat), "song: {sounds:?}");
+        assert!(at(2.0 + 1.0 / 3.0, Accent::Offbeat), "song: {sounds:?}");
+        assert!(!at(0.25, Accent::Offbeat), "not straight: {sounds:?}");
+    }
+
+    #[test]
+    fn straight_clicks_only_the_beats() {
+        let clock = Clock::new();
+        let mut p = Practice::new(
+            arrangement(),
+            Mode::Play,
+            ScoreSettings::default(),
+            PracticeOptions::default(),
+            Recorder::default(),
+            clock.clone(),
+        );
+        p.play();
+        run(&mut p, &clock, 2.6);
+        let offbeats = p
+            .output()
+            .sounds
+            .iter()
+            .filter(|(_, k)| *k == Sound::Click(Accent::Offbeat))
+            .count();
+        assert_eq!(offbeats, 0);
     }
 
     /// The app sets the speed before it starts (owner 24.10.: only the first count-in click

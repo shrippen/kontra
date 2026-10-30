@@ -25,6 +25,7 @@ pub(crate) fn arrangement(score: &Score, index: usize) -> Result<Arrangement, Im
     let mut arrangement = Arrangement::new(&score.title, instrument);
     arrangement.artist = score.artist.clone();
     arrangement.judging = score.judging;
+    arrangement.feel = score.feel;
 
     // Lay out bars, markers, tempo changes and notes on the linear timeline.
     let mut tempos = Vec::new();

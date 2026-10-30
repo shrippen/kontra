@@ -203,6 +203,8 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 
 - `tech-hint` (Runde 17, Slap/Pop als Hinweis): `TechniqueGrade` (`Judged`, `Hint`), `TechniqueResult::{grade, mark}`,
   `Summary::hint_techniques`; `pub(crate) TechniqueJudge::hints`.
+- `shuffle-glyphs` (L11, W11): `kontra_model::Feel` (`Straight`, `Shuffle`), `Arrangement::feel`,
+  `Accent::Offbeat` (kontra-engine); `pub(crate) SHUFFLE_TEXT`, `Score::feel` (kontra-content).
 
 ## pub-Schnittstellen, in Runde 17 freigegeben
 

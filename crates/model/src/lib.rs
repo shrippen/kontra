@@ -16,7 +16,7 @@ mod tempo;
 mod tuning;
 
 pub use arrangement::{
-    Arrangement, Bar, DrumHit, DrumKind, Judging, Marker, MarkerKind, Note, Technique,
+    Arrangement, Bar, DrumHit, DrumKind, Feel, Judging, Marker, MarkerKind, Note, Technique,
     TimeSignature, TICKS_PER_QUARTER,
 };
 pub use event::{
