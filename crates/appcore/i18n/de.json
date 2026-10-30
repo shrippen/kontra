@@ -229,6 +229,8 @@
   "settings.playmarks.off": "Aus",
   "settings.playmarks.full": "Voll",
   "error.device.lost": "Das Audiogerät ist weg ({reason}). Wieder anstecken und auf Abspielen drücken.",
+  "input.stalled": "Kein Signal vom Gerät: Die Bewertung pausiert, bis wieder Ton kommt.",
+  "input.resumed": "Das Gerät liefert wieder; die Lücke zählt nicht als Fehler.",
   "workshop.bars": "Takte",
   "workshop.from": "Von Takt",
   "workshop.to": "bis",

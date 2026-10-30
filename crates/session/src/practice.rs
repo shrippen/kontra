@@ -69,6 +69,10 @@ pub enum PracticeEvent {
         cents: f64,
     },
     Error(String),
+    /// The device stopped delivering (LH-EIN-15); judging pauses.
+    InputStalled,
+    /// The device delivers again.
+    InputResumed,
     InputEnded,
     /// Ear training: a note played as an answer, fractional MIDI.
     Heard {
@@ -300,6 +304,14 @@ impl<O: Output> Practice<O> {
             Event::Heard { at_s } => {
                 self.session.on_heard(at_s);
                 None
+            }
+            Event::Stalled { at_s } => {
+                self.session.on_stalled(at_s);
+                Some(PracticeEvent::InputStalled)
+            }
+            Event::Resumed { at_s } => {
+                self.session.on_resumed(at_s);
+                Some(PracticeEvent::InputResumed)
             }
             Event::Ended => {
                 self.session.on_input_ended();

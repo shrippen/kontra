@@ -4,7 +4,9 @@ use kontra_model::{
     Arrangement, DetectedNote, InputSource, Instrument, Judging, Note, Pitch, TempoMap,
     TICKS_PER_QUARTER,
 };
-use kontra_session::{LoopRange, Mode, Outcome, ScoreSettings, Session, SessionEvent, Workshop};
+use kontra_session::{
+    LoopRange, Mode, NoteResult, Outcome, ScoreSettings, Session, SessionEvent, Workshop,
+};
 
 /// Eight quarter notes at 120 BPM: E1 A1 D2 G2 E1 A1 D2 G2 (0.5 s apart, 2 bars).
 fn riff() -> Arrangement {
@@ -544,6 +546,62 @@ fn a_late_analysis_misses_nothing() {
     assert_eq!(summary.missed, 0, "the first note was still being analysed");
     assert_eq!(summary.extra, 0);
     assert_eq!(summary.hits, 1);
+}
+
+/// LH-EIN-15: the device stops delivering from 0.4 to 1.9 s. While it stalls nothing is
+/// missed, however long; the notes at 0.5, 1.0 and 1.5 s are not judged at all; after it the
+/// run is judged as before.
+#[test]
+fn a_stalled_device_judges_no_gap() {
+    let mut s = Session::new(riff(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    s.on_note(&played(0.0, 28.0));
+    s.on_heard(0.4);
+    s.on_stalled(0.4);
+    s.update(10.0);
+    assert_eq!(
+        s.summary().judged,
+        1,
+        "held while stalled: {:?}",
+        s.results()
+    );
+
+    s.on_resumed(1.9);
+    s.on_heard(3.0);
+    s.update(3.0);
+    let summary = s.summary();
+    assert_eq!(summary.hits, 1);
+    assert_eq!(summary.missed, 2, "2.0 and 2.5 s: {:?}", s.results());
+    let gap = |r: &&NoteResult| (0.4..1.9).contains(&r.position_s);
+    assert_eq!(
+        s.results().iter().filter(gap).count(),
+        0,
+        "{:?}",
+        s.results()
+    );
+}
+
+/// PR-Agent #186: after a stall the engine tells the resume, then feeds silence and reports it
+/// heard. Heard inside the stall must not judge the notes there.
+#[test]
+fn heard_inside_a_stall_judges_nothing() {
+    let mut s = Session::new(riff(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    s.on_note(&played(0.0, 28.0));
+    s.on_heard(0.4);
+    s.on_stalled(0.4);
+    s.on_heard(0.9);
+    s.update(2.0);
+    s.on_resumed(1.9);
+    s.on_heard(3.0);
+    s.update(3.0);
+    let gap = |r: &&NoteResult| (0.4..1.9).contains(&r.position_s);
+    assert_eq!(
+        s.results().iter().filter(gap).count(),
+        0,
+        "{:?}",
+        s.results()
+    );
 }
 
 /// A stalled input (heard stands still) holds notes 2 s at most; after a file's end only the

@@ -297,7 +297,9 @@ Erkennung und Messung:
   ohne Anschlag). Ziel 70 ms damit verfehlt; bis zur Entscheidung des Eigentümers eine Grenze bei 110 ms gegen
   Verschlechterung. Runde 17: 70 ms je Note, Töne unter E1 gemessen (LH-NF-15).
 - [x] E2 Sätze ohne Noten, Falschnoten je Minute (LH-NF-16): `idle-line`, `idle-room` (60 s, Brummen, Rauschen, Knackser, Kratzen, Dämpfen); Ziel seit F3 erreicht.
-- [ ] E3 Wächter und dauerhafter Eingangszustand (LH-EIN-15).
+- [ ] E3 Wächter und dauerhafter Eingangszustand (LH-EIN-15); Wächter und Pause der Bewertung umgesetzt, offen: dauerhafte Anzeige mit „Erneut versuchen“.
+  Verlust aus Gerätestempeln über eine DLL (R3, erster Teil, #209); offen aus R3: Wiedergabe- und
+  Eingangszeitachse an der DLL verankern (Ausgangsstempel), Loopback-Prüfung am Solo.
 - [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).
 - [ ] E5 Notenende (LH-BEW-10).
 - [ ] E6 Rauschboden bei der Kalibrierung (LH-EIN-16).
@@ -331,7 +333,7 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
 - #198 Brummen: die Drift-Regel (`Dehum::stale`) entfällt, der Phantom-Fix bleibt (Branch `hum`). Schnelle Drift
   der Netzfrequenz bleibt eine Kleinigkeit (E8).
 - #186 Eingangswächter: Gerätezeitstempel mit DLL glätten (R3), die Bewertung pausiert erst nach echtem Datenverlust
-  (LH-EIN-15). Ein neuer PR aus Branch `device-clock` ersetzt #186.
+  (LH-EIN-15). #209 aus Branch `device-clock` ersetzt #186.
 - [x] LH-NF-15 Meldezeit: Ziel 70 ms je Note für alle Instrumente, außer Tönen unter E1 (etwa die tiefe H-Saite eines
       Fünfsaiters); die brauchen allein etwa 65 ms Signal, ihr Ziel gilt gemessen. Das Ziel gilt je Note, nicht je
       Instrument. Stand R1 (#206): `line-4` p95 69 ms, `line-5` p95 80 ms.
