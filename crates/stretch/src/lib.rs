@@ -18,8 +18,9 @@
 //! Output sample `o` lines up with input sample `o * speed`; the
 //! stretcher only buffers (see [`Stretcher::latency_samples`]).
 //!
-//! Limits: an onset within about 0.1 s after `reset` comes out up to
-//! ~20 ms early (no time to steer); when transients follow closer than
+//! Limits: an onset within about 0.1 s after `reset` comes out early (no
+//! time to steer): measured up to 67 ms (Standard, 25 % speed) and 240 ms
+//! (Fine); when transients follow closer than
 //! about one window at low speed, runs may be skipped (phases still reset).
 
 mod offline;

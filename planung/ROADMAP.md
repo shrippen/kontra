@@ -192,7 +192,7 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
 - [x] R1 Meldezeit (LH-NF-15): YIN ab dem Anschlag mit wachsendem Fenster (1 Periode, Bestätigung), das volle Fenster
   revidiert in beide Richtungen, auch nur die Cent. Prototyp: IDMT Median 79 → 61 ms, `line-4`/`line-5` p95 81 → 69,
   100 → 80 ms, Endgenauigkeit gleich; erste Meldung 1–2,5 Punkte öfter falsch, Fingertipp vor dem Anschlag wird Note.
-  Nur zusammen mit „Note zurückgenommen“ und vorläufigem Urteil in der Session. Umgesetzt (LH-BEW-15):
+  Nur zusammen mit „Note zurückgenommen“ und vorläufigem Urteil in der Session. Umgesetzt in #206 (LH-BEW-15):
   freie Schätzung ab dem Anschlag mit Lags bis 1,06 Perioden, zweimal gleich; `NoteRetraction` für einen früh gemeldeten Vorläufer, die Session
   nimmt das Urteil zurück. `korpus check` p95 `line-4` 81 → 69, `line-5` 100 → 80 ms (LH-NF-15: 4 Saiten erfüllt).
   IDMT p50/p90 90,5/124,8 → 75,5/111,0 ms, FiloBass p50 88,5 → 86,5 ms; Endgenauigkeit IDMT 95,3 → 95,3 %, FiloBass
@@ -201,7 +201,8 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   gaben den Gewinn fast ganz zurück (`line-5` 97 ms). R2-Nachtrag: Flageoletts im Korpus nicht mehr erwartet, Zahlen
   unverändert.
 - [x] R2 Erwartete Note an die Erkennung, nur als Torwächter der ersten Meldung, nie als Entscheider: locker gewertet
-  machte sie aus falsch gespielten Noten dreimal so viele Treffer. Grundlage für R7 und R8. Umgesetzt (LH-BEW-14):
+  machte sie aus falsch gespielten Noten zwei- bis dreimal so viele Treffer (IDMT +1: 16 → 47, FiloBass −1: 53 → 97).
+  Grundlage für R7 und R8. Umgesetzt in #203 (LH-BEW-14):
   Session → Eingang (rtrb) → `NoteTracker::expect`; `korpus measure --expect [--expect-shift N]`. Ohne wachsendes
   Fenster (R1) ist der Gewinn klein: erste Meldung IDMT 94,7 → 95,1 %, FiloBass 64,4 → 65,2 %, IDMT Median
   90,5 → 85,2 ms; Endgenauigkeit 95,3 → 95,5 % bzw. 74,5 → 74,4 %. Falsche Erwartung (±1, ±12, +5): Endurteil nie
@@ -210,13 +211,14 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
 - [ ] R3 Gerätezeitstempel (cpal `capture`/`playback`) mit DLL statt Anker am ersten Callback. Simulation: heute
   37 ms Fehler bei anderem Quantum als beim Kalibrieren, zwei Geräte nach 5 min p95 24 ms; mit Stempeln < 0,2 ms.
   Offen: Semantik der Stempel am Scarlett Solo (Loopback, etwa 15 min mit dem Eigentümer).
-- [ ] R4 Latenz per Loopback oder Gerät, nicht per Klick: die Klick-Kalibrierung zieht die Neigung des Spielers ab
+- [x] R4 Latenz per Loopback oder Gerät, nicht per Klick: die Klick-Kalibrierung zieht die Neigung des Spielers ab
   (15 ms früh gilt als „Auf den Punkt“). Klick zeigt danach nur „deine Neigung“; LH-EIN-14 und LH-BEW-09 passen sich an.
+  Umgesetzt in #202 (LH-EIN-05): „Mit Kabel messen“, die Klicks zeigen danach die Neigung.
 - [x] R5 pYIN statt fester Schwelle: abgelehnt, bei gleicher Meldezeit schlechter (IDMT 91,6 → 90 %, Leerlauf
   41 → 48/min); der Vorteil kam nur vom Warten.
 - [x] R6 Techniken ehrlich messen: IDMT-SMT-Bass (Einzelnoten, drei Bässe) als zweiter Satz; Slap 80 → 42 %,
   Pop 66 → 15 % auf fremden Bässen. Schwellen auf beiden Sätzen wählen; Merkmale nach Abeßer erst mit mehr Bässen.
-  Umgesetzt 29.10. (Branch `tech-sb`): Konverter `idmt-sb`, `korpus techniques` je Bass mit Zeilen für Palm Mute,
+  Umgesetzt 29.10. in #204 (`tech-sb`): Konverter `idmt-sb`, `korpus techniques` je Bass mit Zeilen für Palm Mute,
   Vibrato und Bending (müssen normal bleiben), `make korpus-real`. Richtig je Bass (Fame = Bass der Linien / Warwick /
   Yamaha): Slap 67 / 19 / 44 %, Pop 30 / 1 / 14 %, Dead Note 99 / 97 / 95 %, normal 98 / 100 / 90 %.
   Nebenbefund „Vibrato 15,6 % als Muted, Bending 8 %“ kam vom Konverter des Prototyps: Er setzte den Einsatz auf ein
@@ -232,15 +234,16 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
 - [ ] R7 Saite erkennen über Inharmonizität: 93,8 % auf fremden Bässen (Zufall 41,5 %), echte Linien 76 %, Palm-Mute
   nicht; Urteil etwa 280 ms nach dem Anschlag. Kandidaten aus R2.
 - [x] R8 Doppelgriffe erkennen, wenn die Tab beide Töne vorgibt (Klapuri 2006): 95 % erkannt, 2,1 % Fehlalarm;
-  Oktaven nicht. Teil von M1 (LH-BEW-11). Umgesetzt: `DyadCheck` im Tracker, Urteil `DoubleStopVerdict` je Anschlag,
+  Oktaven nicht. Teil von M1 (LH-BEW-11). Umgesetzt in #205: `DyadCheck` im Tracker, Urteil `DoubleStopVerdict` je Anschlag,
   Session wertet beide Töne (beide → zwei Treffer, einer → der andere ausgelassen). `korpus check`: synthetisch
   168/168 beide, Oktaven 0 Aussagen, Einzelnoten 0 % (4 Sätze + room-double); `korpus double-stops` IDMT:
   Mischungen 82,1 % (307, davon 44 ohne Urteil), Einzelnoten im ganzen Stück 1,7 % als beide, 9 von 3680 als der
   andere Ton. FiloBass (Kontrabass, Demucs-Stems): 77,8 % / 7,4 % Fehlalarm, offen. Anschläge ohne Urteil zählen seit
   der Nacharbeit zu #205 im Nenner mit (vorher IDMT 95,8 % von 263, 1,8 %; FiloBass 12,3 % Fehlalarm). Unbewiesen:
   echte Doppelgriffe (Aufnahme mit dem Eigentümer, ~15 min).
-- [ ] R9 Time-Stretch: kürzerer Steuer-Vorlauf (win/16) spart 37 ms (Standard) bzw. 75 ms (Fine), Messwerte gleich;
-  Doku: Fine kostet 133 ms mehr, nicht 85. Zwei Auflösungen: abgelehnt. Hörtest B0 Standard gegen Fine offen.
+- [x] R9 Time-Stretch: kürzerer Steuer-Vorlauf (win/16) spart 37 ms (Standard) bzw. 75 ms (Fine), Messwerte gleich;
+  Doku: Fine kostet 133 ms mehr, nicht 85. Zwei Auflösungen: abgelehnt. Umgesetzt in #200: Standard 133 → 96 ms,
+  Fine 267 → 192 ms. Hörtest B0 Standard gegen Fine offen.
 
 ## Entscheidungen Harmonicon-Analyse (29.10.2026)
 
