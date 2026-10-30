@@ -198,6 +198,8 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 - Runde 17 (`runde-17`): `ChordHearing::OneTone`, `Summary::untold_double_stops`.
 - Kleinigkeiten nach R1/R8: `SessionEvent::Reopened` (Note nach einer Rücknahme wieder offen).
+- `cleanup` (LH-NF-15): `ReportLimits` (`met`), `KorpusSet::report_limits`,
+  `Evaluation::{p95_report_from_e1_ms, p95_report_below_e1_ms}`.
 
 - `tech-hint` (Runde 17, Slap/Pop als Hinweis): `TechniqueGrade` (`Judged`, `Hint`), `TechniqueResult::{grade, mark}`,
   `Summary::hint_techniques`; `pub(crate) TechniqueJudge::hints`.
@@ -240,6 +242,8 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 ## Für den Eigentümer
 
 - LH-NF-15 (Meldezeit): in Runde 17 entschieden, 70 ms je Note außer Tönen unter E1 (gemessen; heute 69 und 80 ms).
+  Seit `cleanup` je Note geprüft: verfehlt `line-5` ab E1 74,7 ms und `hum-line` 72,0 ms (Ausnahme mit gemessenem
+  Wert, zu entscheiden: nacharbeiten oder bestätigen); unter E1 94,7 ms.
   Am echten Bass offen (Hardware-Prüfung): Fingertipp vor dem Anschlag wird zurückgenommen (etwa 5 min).
 
 - #131 (Kurspakete): drei Review-Runden mit offenem Wichtig (pub-Liste, Zip-Bombe über Deflate, dann über STORED).

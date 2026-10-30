@@ -4,7 +4,7 @@
 //! The keyboard view (Klaviatur) shows every note of the riff on its keys.
 
 use crate::common::{run_until, write_midi, Profile, BPM, COUNT_IN_S};
-use kontra_appcore::{Core, InputKind, QaOptions, UiEvent};
+use kontra_appcore::{InputKind, UiEvent};
 use std::path::Path;
 use std::time::Duration;
 
@@ -62,12 +62,7 @@ fn midi_keyboard_is_judged_like_a_bass() {
     keyboard_take(&take);
 
     // Step 1: MIDI as the connection (the take stands in for the keyboard).
-    let qa = QaOptions {
-        input_file: Some(take),
-        laptop_jack: false,
-    };
-    let mut core = Core::new(&profile.dir, qa);
-    core.update_settings(|s| s.language = Some("de".into()));
+    let mut core = profile.core(Some(&take));
     core.reconfigure(|s| s.input_kind = InputKind::Midi);
 
     // Step 2: the groove in song mode, keyboard view: every note lies on a shown key.
