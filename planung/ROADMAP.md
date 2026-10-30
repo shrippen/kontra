@@ -314,7 +314,7 @@ Erkennung und Messung:
   für jeden Eingang vor Anschlag und Tonhöhe). Gelernt wird nur in ruhigen, stetigen 100-ms-Blöcken, abgezogen erst nach
   2 s stetigem Brummen; ein gehaltener G1 (5 s) wird nicht gelernt. Knackser auf Brummen sind jetzt tonlos statt
   `over_background` mit 31,35. Neuer Satz `hum-line` (E1 bis A2 auf Brummen −40 dBFS): Cent-Mittel 3,68 → 1,76, p95
-  12,35 → 6,57, max 17,8 → 9,1. IDMT, IDMT am Laptop-Eingang, Techniken und FiloBass unverändert (IDMT neu umgewandelt: 91,6 % / 81,9 %),
+  12,35 → 6,57, max 17,8 → 9,1 (vor R1; mit der frühen Meldung aus R1 2,05 / 7,58 / 10,76). IDMT, IDMT am Laptop-Eingang, Techniken und FiloBass unverändert (IDMT neu umgewandelt: 91,6 % / 81,9 %),
   übrige Sätze gleich, 0 Falschnoten je Minute. Rechenzeit etwa 2 ms je Sekunde Audio. Hört das Brummen auf oder wird leiser, endet der Abzug nach zwei ruhigen
   Perioden (40 ms), nicht erst nach 1 s (sonst Phantom-Brummen, Review #198). Den Sprung bis dahin fängt die
   F3-Regel ab: Sie prüft das Signal vor dem Abzug. Schnelle Drift (49,8→50,2 Hz in 7 s) kann nach einer Note als
