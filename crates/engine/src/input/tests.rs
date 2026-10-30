@@ -681,10 +681,13 @@ fn expected_strike_reaches_the_tracker() {
     assert_eq!(told_after(Some(off), START_S), Some(free));
 }
 
-/// White noise at −50 dBFS RMS (uniform: 4.77 dB above in amplitude), `len_s` long.
+/// `add_noise` is uniform: its RMS lies this far below its amplitude.
+const UNIFORM_RMS_DB: f32 = 4.77;
+
+/// White noise at −50 dBFS RMS, `len_s` long.
 fn noise_50(sr: f64, len_s: f64) -> Vec<f32> {
     let mut signal = vec![0.0f32; (len_s * sr) as usize];
-    kontra_dsp::synth::add_noise(&mut signal, -50.0 + 4.77, 3);
+    kontra_dsp::synth::add_noise(&mut signal, -50.0 + UNIFORM_RMS_DB, 3);
     signal
 }
 
