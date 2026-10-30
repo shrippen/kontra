@@ -22,6 +22,7 @@ use kontra_model::{ChordHearing, DoubleStopHeard, DoubleStopVerdict};
 /// Nearer than this (semitones), the tracker heard that tone.
 const HALF_SEMITONE: f64 = 0.5;
 const CENTS_PER_SEMITONE: f64 = 100.0;
+const SEMITONES_PER_OCTAVE: u8 = 12;
 
 /// The tones of a double stop, lower first: (note index, MIDI).
 type Tones = [(usize, u8); 2];
@@ -90,6 +91,28 @@ impl Session {
 
         // Final: a pitch told later does not judge the tones again; a retraction still finds it.
         self.scored[entry].4 = Judgement::BothTones;
+    }
+
+    /// Two-tone double stops in the score this input does not judge by both tones: all but
+    /// octaves (no input tells them) at a microphone (Runde 17), none elsewhere.
+    pub(super) fn untold_double_stops(&self) -> u32 {
+        if self.settings.source.chord_hearing() != ChordHearing::OneTone {
+            return 0;
+        }
+        let count = self
+            .matcher
+            .expected()
+            .iter()
+            .filter(|e| !(e.ghost || e.harmonic || e.any_pitch))
+            .filter(|e| {
+                let mut others = e.chord.iter();
+                match (others.next(), others.next()) {
+                    (Some((_, upper)), None) => upper.abs_diff(e.midi) % SEMITONES_PER_OCTAVE != 0,
+                    _ => false,
+                }
+            })
+            .count();
+        u32::try_from(count).unwrap_or(u32::MAX)
     }
 
     /// Outcome and cents of each tone for `heard`, with `midi` what the tracker heard; `None`:

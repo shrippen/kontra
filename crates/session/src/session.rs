@@ -758,6 +758,7 @@ impl Session {
         let mut summary = Summary::from_results(&self.results, &self.arrangement);
         summary.techniques = self.techniques.tally();
         summary.untold_techniques = self.techniques.untold().to_vec();
+        summary.untold_double_stops = self.untold_double_stops();
         summary.outside_offset_ms =
             crate::summary::outside_offset_ms(&self.results, self.transport.speed());
         summary.outside_notes =

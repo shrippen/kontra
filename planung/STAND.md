@@ -1,7 +1,14 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-10-29. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+Übergabe zwischen Sitzungen. Stand: 2026-10-30. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
+
+## Übergabe (30.10.2026, Runde 17)
+
+Runde 17 beantwortet (ROADMAP, „Entscheidungen Runde 17“): Doppelgriffe über Mikrofon aus (Branch `runde-17`),
+Meldezeit 70 ms je Note außer Tönen unter E1, Einmessung der Techniken je Bass (LH-BEW-17) geplant. #198 (Brummen,
+ohne Drift-Regel) und `device-clock` (ersetzt #186) laufen in eigenen Branches. Nächste Sitzung: Hardware-Prüfung
+mit dem Eigentümer, geführt. Nächster Schwerpunkt offen; der Eigentümer wird zu R5 (pYIN) erneut gefragt.
 
 ## Übergabe (29.10.2026, Harmonicon-Analyse)
 
@@ -21,10 +28,7 @@ Offen:
 - Danach Hell/Dunkel (M20) als Kante-PR mit Einstellung in Kontra; B8 (niedrig).
 - Extreme Vergrößerung und kleine Auflösungen getrennt anschauen: Screenshots je Seite, Ideen, Entscheidung mit dem
   Eigentümer (ROADMAP, QA-Runde 28.10.; enthält B6 vor dem Abspielen).
-- Zur Freigabe in der nächsten Runde: pub aus #172 (`CacheEntry`, `BackingCache::{entries, forget, clear}`,
-  `BassRemoval::{entries, forget, clear}`, `Core::{caches_json, forget_cached, clear_cache}`), #174 (`song::parts`,
-  `CHORD_TEXT`, `BarHead.markers`), Kante 1.50 (`KanteRehearsalMark`, `KanteStyle.partText`, `rehearsalText`), #176
-  (QML: `SummarySheet.returnTo`, `.behind`, `GlossaryReturn`).
+- pub aus #172, #174, #176 und Kante 1.50 in Runde 17 freigegeben (Liste unten).
 - Kleinigkeiten: `pressByKey` ohne `toggle` (Qt < 6.8); Hinweis „Paket geöffnet“ (#164); Paketgröße ohne Test;
   MusicXML `<degree>`/`<offset>`; `staffSpace` ohne Untergrenze (#171); Werkstatt- und Warten-Zeilen in niedrigen
   Fenstern (#175).
@@ -177,6 +181,11 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - #111: `exercise::Level` (`ALL`, `key`, `from_key`, `Default`); `ExerciseKind::Song(Style, Level)`.
 - #100: `exercise::Style` (`ALL`, `key`, `from_key`, `minor`), `ExerciseKind::Song`.
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
+- Runde 17 (`runde-17`): `ChordHearing::OneTone`, `Summary::untold_double_stops`.
+- Kleinigkeiten nach R1/R8: `SessionEvent::Reopened` (Note nach einer Rücknahme wieder offen).
+
+## pub-Schnittstellen, in Runde 17 freigegeben
+
 - F3: `DetectedNote::{is_pitchless, stands_out, over_background}`, `Evaluation::pitched`; `pub(crate) yin::power_at`.
 - A2: `Summary::recalibrate`, `Summary::{before_beat_hits, after_beat_hits}`.
 - R4 (loopback-cal): `LiveLoopback` (`start`, `poll`), `LoopbackResult` (`from_trip`), `LatencyFrom`,
@@ -196,14 +205,15 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   `announce_second_tone`, `double_stop_mixtures`, `evaluate_double_stops`, `DoubleStopSet`, `DoubleStopStrike`,
   `DoubleStopPlayed`, `DoubleStopTally` (`add`, `detected`, `false_alarms`), `DOUBLE_STOP_INTERVALS` (Session
   reicht sie durch, ohne `DoubleStopPlayed`); `pub(crate)`: `dyad::{DyadCheck, Heard, FRAME_S, SKIP_S}`.
-- Kleinigkeiten nach R1/R8: `SessionEvent::Reopened` (Note nach einer Rücknahme wieder offen).
+- #172: `CacheEntry`, `BackingCache::{entries, forget, clear}`, `BassRemoval::{entries, forget, clear}`,
+  `Core::{caches_json, forget_cached, clear_cache}`. #174: `song::parts`, `CHORD_TEXT`, `BarHead.markers`.
+  #176 (QML): `SummarySheet.returnTo`, `.behind`, `GlossaryReturn`. Kante 1.50: `KanteRehearsalMark`,
+  `KanteStyle.partText`, `rehearsalText`.
 
 ## Für den Eigentümer
 
-- LH-NF-15 (Meldezeit): erste Messung 81 ms (4 Saiten) und 100 ms (5 Saiten, tiefe H-Saite) statt 70 ms; mit R1
-  (frühe Meldung) 69 und 80 ms. Die 5 Saiten verfehlen das Ziel physikalisch (H0: zwei Perioden 65 ms). Frage für die
-  nächste Runde: Ziel für 5 Saiten auf 80 ms setzen. Am echten Bass offen: Fingertipp vor dem Anschlag wird
-  zurückgenommen (etwa 5 min).
+- LH-NF-15 (Meldezeit): in Runde 17 entschieden, 70 ms je Note außer Tönen unter E1 (gemessen; heute 69 und 80 ms).
+  Am echten Bass offen (Hardware-Prüfung): Fingertipp vor dem Anschlag wird zurückgenommen (etwa 5 min).
 
 - #131 (Kurspakete): drei Review-Runden mit offenem Wichtig (pub-Liste, Zip-Bombe über Deflate, dann über STORED).
   Nach der Review-Regel angehalten; Vorschlag im PR (eigene Zip-Lesung behalten, Größen zentral erzwungen). Merge
