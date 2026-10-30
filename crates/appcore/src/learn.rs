@@ -8,7 +8,8 @@
 //!     ──lesson_exercise(…)──▶ bundled file or generated one ──▶ openFile, changeSpeed
 //! ```
 
-use crate::{ear, exercise, plan_number, unix_now, Core, Language};
+use crate::bundled::plan_number;
+use crate::{ear, exercise, unix_now, Core, Language};
 use kontra_model::Pitch;
 use kontra_session::lesson::{Block, Doc, ExerciseRef, Lang, Practice, Span, Tones};
 use kontra_session::{
