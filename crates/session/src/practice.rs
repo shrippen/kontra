@@ -275,6 +275,10 @@ impl<O: Output> Practice<O> {
                 self.session.on_pitch_revision(&revision);
                 None
             }
+            Event::String(verdict) => {
+                self.session.on_string(&verdict);
+                None
+            }
             Event::Retracted(retraction) => {
                 self.session.on_retraction(&retraction);
                 None

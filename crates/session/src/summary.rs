@@ -130,6 +130,48 @@ pub struct Summary {
     /// Hits after the beat, however close.
     #[serde(default)]
     pub after_beat_hits: u32,
+    /// Which strings the notes were played on, where the tab names one (R7, LH-BEW-16).
+    #[serde(default)]
+    pub strings: StringTally,
+}
+
+/// Notes whose string was told (R7): on the tab's string or another. Feedback beside the
+/// score, not part of it: "3 notes on another string".
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct StringTally {
+    /// Notes whose string was told.
+    pub told: u32,
+    /// … of them on another string than the tab's.
+    pub other: u32,
+    /// Notes the profile cannot tell the string of (fretless, a low B): said, not hidden.
+    #[serde(default)]
+    pub unsupported: u32,
+}
+
+impl StringTally {
+    /// Counts each note once, by its last verdict.
+    pub fn of(heard: &[(u32, usize, kontra_model::StringHeard)]) -> StringTally {
+        use kontra_model::{StringHeard, Unclear};
+        let mut tally = StringTally::default();
+        for (i, (pass, note, h)) in heard.iter().enumerate() {
+            let later = heard[i + 1..]
+                .iter()
+                .any(|(p, n, _)| p == pass && n == note);
+            if later {
+                continue;
+            }
+            match h {
+                StringHeard::Expected => tally.told += 1,
+                StringHeard::Other(_) => {
+                    tally.told += 1;
+                    tally.other += 1;
+                }
+                StringHeard::Unclear(Unclear::NotSupported) => tally.unsupported += 1,
+                StringHeard::Unclear(_) => {}
+            }
+        }
+        tally
+    }
 }
 
 /// The one thing a run most wants the player to hear (LH-BEW-09, after Harmonicon's coaching).
@@ -304,6 +346,7 @@ impl Summary {
             late_hits: offsets.iter().filter(|o| **o > ON_TIME_MS).count() as u32,
             before_beat_hits: offsets.iter().filter(|o| **o < 0.0).count() as u32,
             after_beat_hits: offsets.iter().filter(|o| **o > 0.0).count() as u32,
+            strings: StringTally::default(),
         }
     }
 

@@ -509,7 +509,7 @@ impl Analysis {
         self.send_revisions(events);
     }
 
-    /// Techniques, pitches and double stops told late, on the same clock as the notes.
+    /// Techniques, pitches, strings and double stops told late, on the same clock as the notes.
     fn send_revisions(&self, events: &Sender<Event>) {
         for revision in self.tracker.revised() {
             let mut revision = *revision;
@@ -520,6 +520,11 @@ impl Analysis {
             let mut revision = *revision;
             revision.onset_s += self.start_s;
             let _ = events.send(Event::Pitch(revision));
+        }
+        for verdict in self.tracker.string_verdicts() {
+            let mut verdict = *verdict;
+            verdict.onset_s += self.start_s;
+            let _ = events.send(Event::String(verdict));
         }
         for verdict in self.tracker.double_stops() {
             let mut verdict = *verdict;

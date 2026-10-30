@@ -50,7 +50,7 @@ use crate::strike::{verdict_after_s, Strike};
 use crate::yin::{PitchEstimate, Yin};
 use kontra_model::{
     cents_between, hz_to_midi, DetectedNote, DoubleStopVerdict, ExpectedStrike, InputSource,
-    Instrument, NoteRetraction, PitchRevision, Technique, TechniqueRevision,
+    Instrument, NoteRetraction, PitchRevision, StringVerdict, Technique, TechniqueRevision,
 };
 use std::ops::Range;
 
@@ -59,6 +59,7 @@ mod double;
 mod early;
 mod expect;
 mod settle;
+mod strings;
 
 use settle::{Settle, Steps, SETTLE_FROM_S, SETTLE_TO_S};
 
@@ -137,6 +138,8 @@ pub struct TrackerConfig {
     pub min_confidence: f32,
     pub source: InputSource,
     pub onset: OnsetConfig,
+    /// The strings for telling which one a note was played on (R7); `None`: not told.
+    pub strings: Option<crate::StringModel>,
 }
 
 impl TrackerConfig {
@@ -165,6 +168,7 @@ impl TrackerConfig {
             min_confidence: 0.6,
             source,
             onset,
+            strings: crate::StringModel::for_instrument(instrument),
         }
     }
 }
@@ -325,6 +329,8 @@ pub struct NoteTracker {
     expected: expect::Expectations,
     /// A note told early, checked once its full window is there.
     confirm: Option<expect::Confirm>,
+    /// Notes waiting for the string they were played on (R7).
+    strings: strings::Strings,
     /// Expected double stops waiting for their verdict (R8).
     double_stops: double::DoubleStops,
 }
@@ -362,6 +368,7 @@ impl NoteTracker {
             retracted: Vec::with_capacity(STRIKES_WAITING),
             expected: expect::Expectations::default(),
             confirm: None,
+            strings: strings::Strings::new(config.strings, sample_rate),
             double_stops: double::DoubleStops::new(sample_rate),
         }
     }
@@ -399,6 +406,12 @@ impl NoteTracker {
         &self.pitch_revised
     }
 
+    /// Strings told in the last `push` or `flush` for notes emitted earlier (R7); valid until
+    /// the next call.
+    pub fn string_verdicts(&self) -> &[StringVerdict] {
+        self.strings.told()
+    }
+
     /// Takes no onset at `samples` (counted from the first sample pushed): see
     /// `OnsetDetector::mute`.
     pub fn mute_onsets(&mut self, samples: Range<u64>) {
@@ -428,6 +441,7 @@ impl NoteTracker {
         self.out.clear();
         self.revised.clear();
         self.pitch_revised.clear();
+        self.strings.clear_told();
         self.retracted.clear();
         self.double_stops.clear_told();
         let block = (RETRY_S * self.sample_rate) as usize;
@@ -458,6 +472,7 @@ impl NoteTracker {
             self.follow();
             self.release_legato();
             self.judge_strikes(Waiting::ForAudio);
+            self.judge_strings(Waiting::ForAudio);
             self.judge_doubles(Waiting::ForAudio);
         }
         self.filtered = filtered;
@@ -469,6 +484,7 @@ impl NoteTracker {
         self.out.clear();
         self.revised.clear();
         self.pitch_revised.clear();
+        self.strings.clear_told();
         self.retracted.clear();
         self.double_stops.clear_told();
         if let Some(mut s) = self.sounding {
@@ -486,6 +502,7 @@ impl NoteTracker {
         }
         self.finish_confirm();
         self.judge_strikes(Waiting::No);
+        self.judge_strings(Waiting::No);
         self.judge_doubles(Waiting::No);
         &self.out
     }
@@ -580,6 +597,7 @@ impl NoteTracker {
         }
         self.retracts_early(onset);
         self.finish_confirm();
+        self.cut_strings(onset);
         self.cut_doubles(onset);
         // A new attack ends the ringing note (told with what was heard before it); a legato note
         // just before it was this attack.
@@ -762,6 +780,9 @@ impl NoteTracker {
                 )),
             });
         }
+        if p.best.is_some() && technique != Some(Technique::Muted) {
+            self.plan_string(p.report, midi);
+        }
         self.out.push(DetectedNote {
             onset_s: p.report as f64 / self.sample_rate,
             midi,
@@ -920,6 +941,7 @@ impl NoteTracker {
 
     /// A dead note told late: its settling pitch does not count.
     fn mark_muted(&mut self, onset: u64) {
+        self.mute_string(onset);
         let settle = self
             .sounding
             .as_mut()

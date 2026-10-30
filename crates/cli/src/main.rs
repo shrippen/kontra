@@ -7,6 +7,7 @@ mod course;
 mod double_stops;
 mod korpus;
 mod live;
+mod strings;
 mod tab;
 
 use args::{Cli, Command};
