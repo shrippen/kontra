@@ -1,4 +1,5 @@
-//! `korpus write` / `korpus check` / `measure` / `techniques` / `confusion`.
+//! `korpus write` / `korpus check` / `measure` / `techniques` / `confusion` (`double-stops` in
+//! `double_stops.rs`).
 
 use crate::args::{KorpusArgs, KorpusCommand};
 use crate::CliResult;
@@ -62,6 +63,11 @@ pub fn run(a: &KorpusArgs) -> CliResult {
         }
         KorpusCommand::Techniques { dirs, window_ms } => techniques(dirs, window_ms / 1000.0),
         KorpusCommand::Confusion { dirs, window_ms } => confusion(dirs, window_ms / 1000.0),
+        KorpusCommand::DoubleStops {
+            dirs,
+            window_ms,
+            per_interval,
+        } => crate::double_stops::measure(dirs, *window_ms, *per_interval),
     }
 }
 
@@ -79,18 +85,62 @@ const TOLD: [Option<kontra_model::Technique>; 7] = {
     ]
 };
 
+/// Annotated techniques Kontra does not tell but must leave plain: extra rows, right in the
+/// `plain` column (IDMT-SMT-Bass single notes).
+const LEFT_PLAIN: [kontra_model::Technique; 3] = {
+    use kontra_model::Technique as T;
+    [T::PalmMute, T::Vibrato, T::Bend]
+};
+
+/// Rows of the technique table: `TOLD`, then `LEFT_PLAIN`.
+const ROWS: usize = TOLD.len() + LEFT_PLAIN.len();
+
+/// The row of an annotated technique, `None` for one the table leaves out (harmonics).
+fn technique_row(t: Option<kontra_model::Technique>) -> Option<usize> {
+    if let Some(row) = TOLD.iter().position(|told| *told == t) {
+        return Some(row);
+    }
+    let extra = LEFT_PLAIN.iter().position(|p| Some(*p) == t)?;
+    Some(TOLD.len() + extra)
+}
+
+/// The annotated technique of `row`.
+fn row_technique(row: usize) -> Option<kontra_model::Technique> {
+    TOLD.get(row)
+        .copied()
+        .unwrap_or_else(|| LEFT_PLAIN.get(row - TOLD.len()).copied())
+}
+
 fn technique_name(t: Option<kontra_model::Technique>) -> String {
     t.map_or_else(|| "plain".to_string(), |t| format!("{t:?}"))
 }
 
 /// Per annotated technique (rows) how the nearest detection within `window_s` was told
 /// (columns), or missed. The diagonal is right; the rest is what the technique evaluation would
-/// count as "another technique".
+/// count as "another technique". One table per directory (IDMT-SMT-Bass: one per bass, so
+/// thresholds fitted to one bass show), then all together.
 fn techniques(dirs: &[std::path::PathBuf], window_s: f64) -> CliResult {
-    let mut table: Table = vec![[0; TOLD.len() + 1]; TOLD.len()];
-    each_recording(dirs, window_s, |notes, found| {
-        tally(notes, found, window_s, &mut table)
-    })?;
+    let mut all: Table = vec![[0; TOLD.len() + 1]; ROWS];
+    for dir in dirs {
+        let mut table: Table = vec![[0; TOLD.len() + 1]; ROWS];
+        each_recording(std::slice::from_ref(dir), window_s, |notes, found| {
+            tally(notes, found, window_s, &mut table)
+        })?;
+        print_table(&dir.display().to_string(), &table);
+        for (sum, row) in all.iter_mut().zip(&table) {
+            for (s, count) in sum.iter_mut().zip(row) {
+                *s += count;
+            }
+        }
+    }
+    if dirs.len() > 1 {
+        print_table("all", &all);
+    }
+    Ok(())
+}
+
+fn print_table(title: &str, table: &Table) {
+    println!("{title}");
     print!("{:<10} {:>6}", "annotated", "notes");
     for t in TOLD {
         print!(" {:>8}", technique_name(t));
@@ -101,14 +151,17 @@ fn techniques(dirs: &[std::path::PathBuf], window_s: f64) -> CliResult {
         if total == 0 {
             continue;
         }
-        print!("{:<10} {:>6}", technique_name(TOLD[row]), total);
+        let technique = row_technique(row);
+        print!("{:<10} {:>6}", technique_name(technique), total);
         for count in counts {
             print!(" {count:>8}");
         }
-        let right = counts[row] as f64 / total as f64 * 100.0;
+        // A technique Kontra does not tell is right as a plain pluck.
+        let right_column = TOLD.iter().position(|t| *t == technique).unwrap_or(0);
+        let right = counts[right_column] as f64 / total as f64 * 100.0;
         println!(" {right:>6.1}%");
     }
-    Ok(())
+    println!();
 }
 
 /// Runs `f` with the annotation and the detections of every WAV+JSON pair in `dirs`.
@@ -293,8 +346,8 @@ fn tally(
     let slide = Some(kontra_model::Technique::Slide);
     let slide_row = TOLD.iter().position(|t| *t == slide).unwrap_or(0);
     for (i, note) in notes.iter().enumerate() {
-        // Harmonics and others Kontra does not tell are left out.
-        let Some(row) = TOLD.iter().position(|t| *t == note.technique) else {
+        // Annotations without a row (harmonics) are left out.
+        let Some(row) = technique_row(note.technique) else {
             continue;
         };
         let best = nearest(found, &used, note.onset_s, window_s);
@@ -430,8 +483,12 @@ fn check(dir: Option<&Path>) -> CliResult {
             if ok { "ok" } else { "FAILED" }
         );
     }
+    // Generated only: real recordings go through `korpus double-stops`.
+    if dir.is_none() {
+        failed |= !crate::double_stops::check();
+    }
     if failed {
-        return Err("corpus below LH-NF-02/03/15/16 or LH-BEW-05 targets".into());
+        return Err("corpus below LH-NF-02/03/15/16, LH-BEW-05 or LH-BEW-11 targets".into());
     }
     Ok(())
 }
@@ -656,7 +713,7 @@ mod tests {
             heard(0.25, 46.0, Some(Technique::Slide)),
             heard(0.6, 40.0, None),
         ];
-        let mut table: Table = vec![[0; TOLD.len() + 1]; TOLD.len()];
+        let mut table: Table = vec![[0; TOLD.len() + 1]; ROWS];
         tally(&notes, &found, 0.08, &mut table);
         let plain = 0;
         let slide = TOLD
@@ -665,6 +722,33 @@ mod tests {
             .unwrap();
         assert_eq!(table[plain][plain], 2);
         assert_eq!(table[slide][slide], 1);
+    }
+
+    /// IDMT-SMT-Bass: a vibrato heard plain is right, one heard as a dead note is not.
+    #[test]
+    fn left_plain_rows_count_plain() {
+        let note = |onset_s| session::Annotation {
+            onset_s,
+            midi: 40.0,
+            technique: Some(Technique::Vibrato),
+            slide_cents: None,
+        };
+        let notes = [note(0.0), note(1.0)];
+        let found = [
+            heard(0.01, 40.0, None),
+            heard(1.01, 40.0, Some(Technique::Muted)),
+        ];
+        let mut table: Table = vec![[0; TOLD.len() + 1]; ROWS];
+        tally(&notes, &found, 0.08, &mut table);
+        let row = technique_row(Some(Technique::Vibrato)).unwrap();
+        let muted = TOLD
+            .iter()
+            .position(|t| *t == Some(Technique::Muted))
+            .unwrap();
+        assert_eq!(row_technique(row), Some(Technique::Vibrato));
+        assert_eq!(table[row][0], 1, "{table:?}");
+        assert_eq!(table[row][muted], 1, "{table:?}");
+        assert_eq!(technique_row(Some(Technique::Harmonic)), None);
     }
 
     /// Harmonicon A5: E1 heard right, A1 an octave up, D2 a twelfth up, G2 missed; per

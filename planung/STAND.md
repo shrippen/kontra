@@ -179,6 +179,11 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 - F3: `DetectedNote::{is_pitchless, stands_out, over_background}`, `Evaluation::pitched`; `pub(crate) yin::power_at`.
 - A2: `Summary::recalibrate`, `Summary::{before_beat_hits, after_beat_hits}`.
+- R4 (loopback-cal): `LiveLoopback` (`start`, `poll`), `LoopbackResult` (`from_trip`), `LatencyFrom`,
+  `Settings::{latency_from, loopback_ms, click_ms}`, `Core::{start_loopback, lean_ms, latency_note}`,
+  `pub(crate) Core::{poll_calibration, latency_hint, check_audio_path, audio_path}`, `pub(crate) forget_on_switch`,
+  `AudioPath`, `Settings::measured_on`; Brücke: Invokable `startLoopback`, Properties
+  `cableMeasuring`, `latencyNote`. `CalibrationResult::Measured::latency_ms` kann jetzt negativ sein.
 - R2: `ExpectedStrike` (`new`, `with`, `tones`, `MAX_TONES`), `ExpectedTone`, `NoteTracker::{expect, forget_expected}`,
   `Input::{expect, forget_expected}`, `Expecting`, `evaluate_expecting` (Session: `evaluate_korpus_expecting`),
   `Evaluation::{first_pitch_correct, turned_wrong, shifted_first, shifted_final, report_ms}`;
@@ -186,6 +191,11 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - R1: `NoteRetraction`, `NoteTracker::{retracted, told}`, `Event::Retracted`, `kontra_engine::retract`,
   `Session::on_retraction`, `Evaluation::retracted`; `pub(crate)`: `Yin::estimate_short`, `ShortEstimate`,
   `Matcher::release`.
+- R8: `DoubleStopVerdict`, `DoubleStopHeard`, `ChordHearing`, `InputSource::chord_hearing`,
+  `NoteTracker::double_stops`, `Event::DoubleStop`, `Session::on_double_stop`; Korpus: `generate_double_stops`,
+  `announce_second_tone`, `double_stop_mixtures`, `evaluate_double_stops`, `DoubleStopSet`, `DoubleStopStrike`,
+  `DoubleStopPlayed`, `DoubleStopTally` (`add`, `detected`, `false_alarms`), `DOUBLE_STOP_INTERVALS` (Session
+  reicht sie durch, ohne `DoubleStopPlayed`); `pub(crate)`: `dyad::{DyadCheck, Heard, FRAME_S, SKIP_S}`.
 
 ## Für den Eigentümer
 

@@ -29,15 +29,19 @@ pub use kontra_drivers::{
 };
 pub use kontra_dsp::{track_beats, BeatGrid, Shaping, SHAPING_RANGE_DB};
 pub use korpus::{
-    band, evaluate, evaluate_expecting, evaluate_laptop_jack, evaluate_with, generate,
-    render_performance, same_pitch, Annotation, Evaluation, Expecting, KorpusItem, KorpusSet,
-    Matching, Mistakes, Playing,
+    announce_second_tone, band, double_stop_mixtures, evaluate, evaluate_double_stops,
+    evaluate_expecting, evaluate_laptop_jack, evaluate_with, generate, generate_double_stops,
+    render_performance, same_pitch, Annotation, DoubleStopPlayed, DoubleStopSet, DoubleStopStrike,
+    DoubleStopTally, Evaluation, Expecting, KorpusItem, KorpusSet, Matching, Mistakes, Playing,
+    DOUBLE_STOP_INTERVALS,
 };
 pub use offline::{analyze, analyze_without, retract, revise, revise_pitch};
 pub use player::{Accent, BackingAudio, Gains, NullOutput, Output, Player, Sound};
 
 use kontra_dsp::TunerReading;
-use kontra_model::{DetectedNote, NoteRetraction, PitchRevision, TechniqueRevision};
+use kontra_model::{
+    DetectedNote, DoubleStopVerdict, NoteRetraction, PitchRevision, TechniqueRevision,
+};
 
 /// What the engine reports to the layer above.
 #[derive(Debug, Clone, PartialEq)]
@@ -49,6 +53,9 @@ pub enum Event {
     Pitch(PitchRevision),
     /// A note taken back: told early, it proved to be no note of its own (R1).
     Retracted(NoteRetraction),
+    /// Which tones of a double stop the tab announced sounded, about 160 ms after its note
+    /// (R8).
+    DoubleStop(DoubleStopVerdict),
     /// Input level over the last 50 ms.
     Level {
         peak_db: f32,

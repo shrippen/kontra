@@ -12,7 +12,7 @@ bei CC BY: Weitergabe wäre zwar erlaubt, aber das Repo soll keine großen Binä
 | Quelle | Lizenz | Größe | Inhalt / Kette | Annotation | Nutzbar für |
 |---|---|---|---|---|---|
 | [IDMT-SMT-Bass-Single-Track](https://zenodo.org/records/7544099) | CC BY-NC-ND 4.0 laut Zenodo; die PDF im Archiv nennt CC BY-SA 4.0. Vom Eigentümer am 9.10.2026 für Kontras Tests und CI freigegeben; Audio wird weiter nicht committet, die CI lädt es von Zenodo | 20 MB | 17 Basslinien, 4-Saiter (Fame Baphomet 4), sauberes Line-Signal, 44,1 kHz/16 Bit, 5 Anschlags- und 6 Ausdrucksarten | XML/CSV: Onset, Offset, MIDI, Saite, Bund, Technik. **Onsets sind Partitur-Raster (Guitar Pro), nicht von Hand gesetzt**, teils auf 0,1 s gerundet | Line4 (Tonhöhe, Fehlalarme, Recall ±50 ms), Laptop-Simulation, Techniken (Phase 4). **Nicht** für Onset-Genauigkeit. Regressionsprüfung in der CI (`korpus measure --pitch --window-ms 80`, Untergrenzen 81 % / 77 %); Techniken (ST → Slap, SP → Pop, DN → Ghost; SL → `slide_cents`, der Slide zählt an seiner Ankunft) mit `korpus techniques` |
-| [IDMT-SMT-Bass](https://zenodo.org/records/7188892) | CC BY-NC-ND 4.0 | 1,6 GB | ca. 4300 Einzelnoten, gleicher Bass, 10 Techniken | Tonhöhe/Saite/Bund/Technik je Datei | Tonhöhe je Saite/Bund/Technik. Nicht geladen (Größe), Konverter fehlt noch. Nur lokal |
+| [IDMT-SMT-Bass](https://zenodo.org/records/7188892) | CC BY-NC-ND 4.0 laut Zenodo (die PDF im Archiv nennt CC BY-SA 4.0) | 1,6 GB | ca. 4300 Einzelnoten (44,1 kHz, 24 Bit) von drei 4-Saitern: 1 Fame Baphomet NTB (der Bass der Single-Track-Linien), 2 Warwick, 3 Yamaha BB604; je Saite Bund 0–12, drei Tonabnehmer-Stellungen, 10 Techniken | Bass, Tonabnehmer, Technik, Saite, Bund im Dateinamen | Techniken je Bass (`korpus techniques`, ein Satz je Bass): zeigt, ob Schwellen nur zu einem Bass passen. Nur lokal, nicht in der CI |
 | [NSynth](https://magenta.tensorflow.org/datasets/nsynth) (Test-Split, `bass_electronic_*`) | CC BY 4.0 | 350 MB Archiv, davon 160 E-Bass-Noten | Einzelnoten aus Sample-Bibliotheken, 16 kHz, 4 s, Onset exakt bei 0 | JSON: MIDI, Velocity | Onset-Genauigkeit und Tonhöhe über den ganzen Bereich (B0–G4), Laptop-Simulation. Weitergabe mit Namensnennung erlaubt |
 | [FiloBass](https://zenodo.org/records/10069709) | Annotationen CC BY 4.0; Audio sind Demucs-Stems aus kommerziellen Aebersold-Play-Alongs (Rechte ungeklärt) | 434 MB | 48 Jazz-Walking-Lines, Kontrabass, Studio, als MP3-Stem aus dem Mix getrennt | MIDI (Melodyne-Transkription, je Note zweimal von Hand geprüft), MusicXML, Beats | Kontrabass grob (Onsets ±20 ms), Tonhöhe nur mit Stimmton-Ausgleich. Nur lokal |
 | [JazzSAMBA](https://zenodo.org/records/22943963) | MIT-artig (frei, Hinweis beibehalten) | 22 GB | Jazz-Band, Bass als Nahmikrofon-Stem | Bass-MIDI nur automatisch (AMT), keine Ground Truth | Nicht als Referenz; später evtl. für Fehlalarme mit Übersprechen |
@@ -33,6 +33,8 @@ Für bundlosen Bass gibt es keine annotierten freien Aufnahmen: der Satz `fretle
 - `dl/idmt-st/`, `conv/idmt-st/` (17 Linien, 948 Noten), `conv/idmt-st-norm/` (dieselben auf −6 dBFS Spitze)
 - `dl/nsynth/nsynth-test/` (nur `bass_electronic_*` und `examples.json`), `conv/nsynth/` (3 Instrumente, 157 Noten)
 - `dl/filobass/`, `conv/filobass/` (6 Stücke, je die ersten 60 s, 842 Noten)
+- `dl/idmt-sb/` (1,6 GB), `conv/idmt-sb/bass-1` … `bass-3` (je 7 Ordner, 156 Noten je Ordner und Bass; Bending nur Bass 1:
+  3432 Noten, 430 MB)
 
 Laden:
 
@@ -42,6 +44,8 @@ curl -L -o dl/idmt-st/st.zip https://zenodo.org/api/records/7544099/files/IDMT-S
 (cd dl/idmt-st && unzip -q st.zip)
 curl -L -o dl/filobass/fb.zip https://zenodo.org/api/records/10069709/files/FiloBass_v1.0.0.zip/content
 (cd dl/filobass && unzip -q fb.zip -x '__MACOSX/*')
+mkdir -p dl/idmt-sb && curl -L -o dl/idmt-sb/sb.zip https://zenodo.org/api/records/7188892/files/IDMT-SMT-BASS.zip/content
+(cd dl/idmt-sb && unzip -q sb.zip && rm sb.zip)   # PS/, ES/ (mit den Unterarten), Beschreibung als PDF
 curl -L http://download.magenta.tensorflow.org/datasets/nsynth/nsynth-test.jsonwav.tar.gz \
   | tar -xz -C dl/nsynth --wildcards '*examples.json' '*bass_electronic*'
 ```
@@ -57,9 +61,21 @@ darin (Quelle, Lizenz, Kette, je Note Saite/Bund/Technik); serde ignoriert das F
 S=scripts/korpus-import.py; L=testdata/korpus/local
 python3 $S idmt-st  $L/dl/idmt-st $L/conv/idmt-st [--normalize -6] [--exclude-expr HA,DN]
 python3 $S nsynth   $L/dl/nsynth/nsynth-test $L/conv/nsynth
+python3 $S idmt-sb  $L/dl/idmt-sb $L/conv/idmt-sb           # ca. 4 min, schreibt bass-1 … bass-3
 python3 $S filobass "$L/dl/filobass/FiloBass ISMIR Publication" $L/conv/filobass --max-seconds 60 --limit 6
 python3 $S csv aufnahme.wav onsets.csv $L/conv/eigen --name riff-1 --set Line5   # CSV: onset_s,midi
 ```
+
+IDMT-SMT-Bass: je Bass und Ordner eine Datei. Je Note 0,5 s Stille, dann 1,5 s ab dem Anschlag, 30 ms ausgeblendet.
+Der Anschlag ist der Beginn des Anstiegs zur Spitze der Datei (über 5 % der Spitze). Viele Dateien haben 100–400 ms
+vorher ein leises Antippen der Saite (5–10 % der Spitze); der erste Wert über 5 % läge dort, und Kontra hörte das
+Antippen als Dead Note (Vibrato 15,6 %, Bending 8 %, normale Noten 3 % als Muted). Ordner und Technik: `PS/FS`, `PS/PK` normal,
+`PS/ST` Slap, `PS/SP` Pop, `ES/DN` Muted (Dead Note), dazu `PS/MU` PalmMute, `ES/VI` Vibrato, `ES/BE` Bend: die drei
+erkennt Kontra nicht und muss sie als normale Noten werten (eigene Zeilen in `korpus techniques`). Ausgelassen: `ES/HA`
+(Flageolett), `ES/NO` (wie `PS/FS`) und die Unterarten `ES/BEQ`, `BES`, `SLD`, `SLU`, `VIF`, `VIS`.
+
+`kontra-cli korpus techniques DIR…` druckt je Verzeichnis eine Tabelle und bei mehreren eine Summe, also
+`korpus techniques $L/conv/idmt-st $L/conv/idmt-sb/bass-*` je Bass.
 
 `kontra-cli korpus measure DIR… [--window-ms 50] [--laptop-jack] [--verbose]` wertet jedes `*.json` mit seiner
 `set` aus (Instrument und Eingang), mit wählbarem Fenster (Raster-Annotationen wie IDMT brauchen ±50 ms) und der

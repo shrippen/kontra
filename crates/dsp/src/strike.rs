@@ -13,6 +13,8 @@
 //! slap thumb 83 %, slap pop 70 %, dead notes 93 %, plain plucks 98 % (2 % told as a technique).
 //! The first measure (brightness of the first 8 ms from the reported onset) told 0 % of real slaps:
 //! synthetic slaps are much brighter than real ones, and a reported onset is not the attack's peak.
+//! On the single notes of three basses (IDMT-SMT-Bass, planung/ROADMAP.md R6) slaps are told
+//! 19–67 %, pops 1–30 %; thresholds chosen there without one bass lost pops or plain notes on it.
 
 use crate::biquad::{Biquad, FilterKind};
 use kontra_model::{InputSource, Technique};

@@ -132,3 +132,41 @@ impl ExpectedStrike {
         &self.tones[..usize::from(self.len)]
     }
 }
+
+/// Which tones of a double stop the input heard (R8, LH-BEW-11).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DoubleStopHeard {
+    Both,
+    /// Only the lower tone; the upper was not played or did not sound.
+    Lower,
+    Upper,
+    /// No statement: an octave (its partials lie on the lower tone's), or neither tone clear.
+    Unknown,
+}
+
+/// What a double stop the tab expects sounded like, told about 160 ms after its attack (R8).
+/// Matches the note by its `onset_s`, as `TechniqueRevision`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct DoubleStopVerdict {
+    pub onset_s: f64,
+    pub heard: DoubleStopHeard,
+}
+
+/// Which simultaneous tones an input can tell apart (LH-BEW-11).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChordHearing {
+    /// Every tone is its own event (MIDI).
+    Every,
+    /// Two-tone double stops the tab announces, not octaves (audio, R8). Three tones or more,
+    /// and anything not announced, are heard as one note.
+    AnnouncedDoubleStops,
+}
+
+impl InputSource {
+    pub fn chord_hearing(self) -> ChordHearing {
+        match self {
+            InputSource::Midi => ChordHearing::Every,
+            _ => ChordHearing::AnnouncedDoubleStops,
+        }
+    }
+}

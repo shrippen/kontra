@@ -97,7 +97,7 @@ impl Expectations {
     }
 
     /// The strike nearest to an attack reported at `report`, if within its window.
-    fn near(&self, report: u64) -> Option<ExpectedStrike> {
+    pub(super) fn near(&self, report: u64) -> Option<ExpectedStrike> {
         self.slots
             .iter()
             .flatten()
