@@ -6,7 +6,7 @@ nur, was offen ist und wo es liegt.
 ## Übergabe (30.10.2026, Runde 17)
 
 Runde 17 beantwortet (ROADMAP, „Entscheidungen Runde 17“): Doppelgriffe über Mikrofon aus (Branch `runde-17`),
-Meldezeit 70 ms je Note außer Tönen unter E1, Einmessung der Techniken je Bass (LH-BEW-16) geplant. #198 (Brummen,
+Meldezeit 70 ms je Note außer Tönen unter E1, Einmessung der Techniken je Bass (LH-BEW-17) geplant. #198 (Brummen,
 ohne Drift-Regel) und `device-clock` (ersetzt #186) laufen in eigenen Branches. Nächste Sitzung: Hardware-Prüfung
 mit dem Eigentümer, geführt. Nächster Schwerpunkt offen; der Eigentümer wird zu R5 (pYIN) erneut gefragt.
 
