@@ -1,6 +1,7 @@
 //! Notation: bars, staff, rests, hand positions, note names.
 
 use super::*;
+use crate::summary::hardest_notes;
 
 #[test]
 fn written_beats_round_to_sixteenths() {

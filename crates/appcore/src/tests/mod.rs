@@ -1,6 +1,7 @@
 //! Tests of `Core`, one file per area.
 
 use super::*;
+use kontra_session::{NoteResult, OutsideNote};
 
 mod coaching;
 mod exercises;
