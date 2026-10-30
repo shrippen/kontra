@@ -21,7 +21,8 @@ pub use arrangement::{
 };
 pub use event::{
     ChordHearing, DetectedNote, DoubleStopHeard, DoubleStopVerdict, ExpectedStrike, ExpectedTone,
-    InputSource, PitchRevision, StringHeard, StringVerdict, TechniqueRevision, Unclear,
+    InputSource, NoteRetraction, PitchRevision, StringHeard, StringVerdict, TechniqueRevision,
+    Unclear,
 };
 pub use instrument::{Instrument, InstrumentError, InstrumentKind, KeyRange, ToneBands};
 pub use pitch::{cents_between, hz_to_midi, midi_to_hz, NoteName, Pitch, A4_HZ};

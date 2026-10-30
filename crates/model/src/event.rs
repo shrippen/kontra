@@ -72,6 +72,14 @@ pub struct PitchRevision {
     pub midi: f64,
 }
 
+/// A note taken back after it was emitted (R1): it went out early on a short window, and what
+/// came after shows it was no note of its own, e.g. the fretting finger tapping the string just
+/// before a much louder pluck. Matches the note by its `onset_s`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct NoteRetraction {
+    pub onset_s: f64,
+}
+
 /// A tone of an `ExpectedStrike`: the pitch, and the string the tab puts it on, where known.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ExpectedTone {
@@ -126,7 +134,7 @@ impl ExpectedStrike {
 }
 
 /// Which string a struck note was heard on, told about 280 ms after its attack (R7,
-/// LH-BEW-15): the string's stiffness bends the partials sharp, more on a thick string and
+/// LH-BEW-16): the string's stiffness bends the partials sharp, more on a thick string and
 /// on a short one (high fret). Only for a strike the tab puts on a string, and only feedback:
 /// a note on another string still counts as played. Matches the note by its `onset_s`.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

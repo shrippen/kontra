@@ -127,7 +127,7 @@ pub struct Summary {
     /// Hits after the beat, however close.
     #[serde(default)]
     pub after_beat_hits: u32,
-    /// Which strings the notes were played on, where the tab names one (R7, LH-BEW-15).
+    /// Which strings the notes were played on, where the tab names one (R7, LH-BEW-16).
     #[serde(default)]
     pub strings: StringTally,
 }

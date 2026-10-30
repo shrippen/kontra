@@ -1,4 +1,4 @@
-//! Which string a note was played on, from the stiffness of the string (R7, LH-BEW-15).
+//! Which string a note was played on, from the stiffness of the string (R7, LH-BEW-16).
 //!
 //! A stiff string bends its partials sharp: partial k sits at `k·f0·√(1 + B·k²)`. B grows
 //! with the string's thickness and falls with the square of its sounding length, so it halves

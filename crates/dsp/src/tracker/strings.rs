@@ -144,6 +144,15 @@ impl NoteTracker {
         }
     }
 
+    /// The note at `report` was taken back (R1): no string is told for it.
+    pub(super) fn forget_string(&mut self, report: u64) {
+        for check in &mut self.strings.checks {
+            if check.is_some_and(|c| c.report == report) {
+                *check = None;
+            }
+        }
+    }
+
     /// The note at `onset` was a dead note: its string is not told.
     pub(super) fn mute_string(&mut self, onset: u64) {
         for check in self.strings.checks.iter_mut().flatten() {

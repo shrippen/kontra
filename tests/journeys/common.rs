@@ -162,12 +162,25 @@ pub fn run_until(
     events
 }
 
-/// States of all judged notes, in event order.
+/// States of all judged notes as the screen ends up with them, by note: an early verdict may
+/// be revised (LH-BEW-15), the last one stands.
 pub fn judged(events: &[UiEvent]) -> Vec<&'static str> {
+    last_judged(events).into_values().map(|j| j.0).collect()
+}
+
+/// The last judgement of each note: state, offset and cents.
+pub fn last_judged(
+    events: &[UiEvent],
+) -> std::collections::BTreeMap<usize, (&'static str, f64, f64)> {
     events
         .iter()
         .filter_map(|e| match e {
-            UiEvent::Judged { state, .. } => Some(*state),
+            UiEvent::Judged {
+                index,
+                state,
+                offset_ms,
+                cents,
+            } => Some((*index, (*state, *offset_ms, *cents))),
             _ => None,
         })
         .collect()

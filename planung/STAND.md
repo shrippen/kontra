@@ -192,7 +192,11 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   `measure`), `Stiffness`, `StringModel` (`for_instrument`, `with_log_b`, `fret`, `pick`), `Pick`, `FROM_PEAK_S`,
   `WINDOW_S`, `LOG_B_PER_FRET`, `TrackerConfig::strings`, `NoteTracker::string_verdicts`, `Event::String`,
   `tell_strings`/`StringTold` (Session: `tell_korpus_strings`, `read_korpus_strings`), `Session::{on_string,
-  strings_heard}`, `Summary::strings`, `StringTally` (`of`); `pub(super)` `Expectations::near`.
+  strings_heard}` (Einsatz, Durchgang, Note, Urteil), `Summary::strings`, `StringTally` (`of`); `pub(super)`
+  `Expectations::near`, `forget_string`. Zurückgenommene Noten bekommen kein Urteil; Urteile überleben das Neuwerten.
+- R1: `NoteRetraction`, `NoteTracker::{retracted, told}`, `Event::Retracted`, `kontra_engine::retract`,
+  `Session::on_retraction`, `Evaluation::retracted`; `pub(crate)`: `Yin::estimate_short`, `ShortEstimate`,
+  `Matcher::release`.
 - R8: `DoubleStopVerdict`, `DoubleStopHeard`, `ChordHearing`, `InputSource::chord_hearing`,
   `NoteTracker::double_stops`, `Event::DoubleStop`, `Session::on_double_stop`; Korpus: `generate_double_stops`,
   `announce_second_tone`, `double_stop_mixtures`, `evaluate_double_stops`, `DoubleStopSet`, `DoubleStopStrike`,
@@ -201,9 +205,10 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 
 ## Für den Eigentümer
 
-- LH-NF-15 (Meldezeit): erste Messung 81 ms (4 Saiten) und 100 ms (5 Saiten, tiefe H-Saite) statt 70 ms. Frage für
-  die nächste Runde: Ziel anheben (etwa 90/110 ms) oder die Erkennung schneller machen (früher melden, Tonhöhe
-  nachreichen wie bei `PitchRevision`).
+- LH-NF-15 (Meldezeit): erste Messung 81 ms (4 Saiten) und 100 ms (5 Saiten, tiefe H-Saite) statt 70 ms; mit R1
+  (frühe Meldung) 69 und 80 ms. Die 5 Saiten verfehlen das Ziel physikalisch (H0: zwei Perioden 65 ms). Frage für die
+  nächste Runde: Ziel für 5 Saiten auf 80 ms setzen. Am echten Bass offen: Fingertipp vor dem Anschlag wird
+  zurückgenommen (etwa 5 min).
 
 - #131 (Kurspakete): drei Review-Runden mit offenem Wichtig (pub-Liste, Zip-Bombe über Deflate, dann über STORED).
   Nach der Review-Regel angehalten; Vorschlag im PR (eigene Zip-Lesung behalten, Größen zentral erzwungen). Merge

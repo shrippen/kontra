@@ -98,6 +98,18 @@ impl NoteTracker {
         }
     }
 
+    /// Forgets the double stop of the note told at `report`: it was taken back (R1).
+    pub(super) fn forget_double(&mut self, report: u64) {
+        let doubles = &mut self.double_stops;
+        for slot in &mut doubles.waiting {
+            if slot.is_some_and(|d| d.report == report) {
+                *slot = None;
+            }
+        }
+        let onset_s = report as f64 / self.sample_rate;
+        doubles.told.retain(|v| v.onset_s != onset_s);
+    }
+
     /// Judges the double stops whose audio is there (`ForAudio`), or all on what exists.
     pub(super) fn judge_doubles(&mut self, waiting: Waiting) {
         for i in 0..WAITING {

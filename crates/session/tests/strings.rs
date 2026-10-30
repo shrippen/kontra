@@ -106,3 +106,27 @@ fn each_note_counts_once_by_its_last_verdict() {
         }
     );
 }
+
+#[test]
+fn a_string_survives_the_rescoring_after_a_retraction() {
+    // A tap 40 ms before the pluck of A2 is told first and takes the note; the pluck's string
+    // comes, then the tap is taken back (R1) and the pluck scored again: its string stays.
+    use kontra_model::NoteRetraction;
+    let mut s = Session::new(piece(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    let mut t = 0.0;
+    while t <= 0.45 {
+        s.update(t);
+        t += 0.01;
+    }
+    s.on_note(&played(0.0, 43.0));
+    s.on_note(&played(0.46, 45.0));
+    s.on_note(&played(0.5, 45.0));
+    s.on_string(&verdict(0.5, StringHeard::Other(0)));
+    s.on_retraction(&NoteRetraction { onset_s: 0.46 });
+    while t <= 2.0 {
+        s.update(t);
+        t += 0.01;
+    }
+    assert_eq!(s.summary().strings.other, 1, "{:?}", s.strings_heard());
+}

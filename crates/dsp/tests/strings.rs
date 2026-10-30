@@ -152,3 +152,29 @@ fn fretless_says_it_is_not_supported() {
     );
     assert_eq!(verdicts[0].log_b, None);
 }
+
+#[test]
+fn a_retracted_note_gets_no_string() {
+    // The fretting finger taps the string 60 ms before the pluck, 30 dB below it: told early,
+    // then taken back (R1). Only the pluck may get a string.
+    let tap = stiff_note(G2, on_string(A_STRING, G2), RING, Some(ONSET_S + 0.06));
+    let pluck = stiff_note(G2, on_string(A_STRING, G2), RING, None);
+    let shift = (0.06 * SR) as usize;
+    let mut signal: Vec<f32> = tap.iter().map(|x| x * 0.03).collect();
+    for (i, x) in pluck.iter().enumerate() {
+        if let Some(slot) = signal.get_mut(i + shift) {
+            *slot += 0.9 * x;
+        }
+    }
+    let tone = ExpectedTone {
+        midi: G2,
+        string: Some(A_STRING),
+    };
+    let verdicts = told(&signal, &Instrument::default_bass(), tone);
+    let tapped = verdicts
+        .iter()
+        .filter(|v| (v.onset_s - ONSET_S).abs() < 0.005)
+        .count();
+    assert_eq!(tapped, 0, "{verdicts:?}");
+    assert_eq!(verdicts.len(), 1, "{verdicts:?}");
+}

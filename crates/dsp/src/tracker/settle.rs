@@ -1,5 +1,5 @@
-//! A struck note's settled pitch (decision round 11): estimates 90–160 ms after the onset,
-//! one a semitone or an octave above the emitted pitch becomes a `PitchRevision`.
+//! A struck note's settled pitch (decision round 11): follow estimates 90–160 ms after the
+//! onset that correct a flat start or a sub-octave attack, told as a `PitchRevision`.
 
 use kontra_model::InputSource;
 

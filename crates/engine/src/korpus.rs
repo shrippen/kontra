@@ -501,6 +501,9 @@ pub struct Evaluation {
     pub shifted_first: usize,
     #[serde(default)]
     pub shifted_final: usize,
+    /// Notes told early and taken back (R1), e.g. a finger tapping the string.
+    #[serde(default)]
+    pub retracted: usize,
     /// From the annotated onset to the first report with a pitch, sorted (ms).
     #[serde(skip)]
     pub report_ms: Vec<f64>,
@@ -641,7 +644,8 @@ struct Told {
     shift_semitones: i8,
 }
 
-/// The strikes `expecting` tells for `notes`; muted notes have no pitch to expect.
+/// The strikes `expecting` tells for `notes`; as the session, none for muted notes and
+/// harmonics (no pitch to expect, or one the tracker hears in another octave).
 fn expected_strikes(notes: &[Annotation], expecting: Expecting) -> Vec<ExpectedStrike> {
     if expecting == Expecting::Nothing {
         return Vec::new();
@@ -649,7 +653,7 @@ fn expected_strikes(notes: &[Annotation], expecting: Expecting) -> Vec<ExpectedS
     let shift = f64::from(expecting.shift());
     let mut strikes: Vec<ExpectedStrike> = notes
         .iter()
-        .filter(|n| n.technique != Some(Technique::Muted))
+        .filter(|n| !matches!(n.technique, Some(Technique::Muted | Technique::Harmonic)))
         .filter_map(|n| {
             let midi = u8::try_from((n.midi.round() + shift) as i64).ok()?;
             let tone = ExpectedTone { midi, string: None };
@@ -824,6 +828,7 @@ fn compare(
         turned_wrong: first.turned_wrong,
         shifted_first: first.shifted_first,
         shifted_final: first.shifted_final,
+        retracted: told.retracted,
         report_ms: report_delays,
     }
 }
@@ -888,6 +893,25 @@ mod tests {
                 set.name()
             );
         }
+    }
+
+    #[test]
+    fn harmonics_and_ghosts_are_not_expected() {
+        // As the session (`Practice::strike`): no expectation for a pitch the tracker hears in
+        // another octave (a harmonic) or not at all (a ghost note).
+        let note = |technique| Annotation {
+            onset_s: 1.0,
+            midi: 40.0,
+            technique,
+            slide_cents: None,
+        };
+        let notes = [
+            note(None),
+            note(Some(Technique::Harmonic)),
+            note(Some(Technique::Muted)),
+        ];
+        let told = Expecting::Annotated { shift_semitones: 0 };
+        assert_eq!(expected_strikes(&notes, told).len(), 1);
     }
 
     /// LH-NF-16: at most one false note in a minute without notes (the idle sets' length).

@@ -261,7 +261,7 @@ pub enum KorpusCommand {
         #[arg(long, default_value_t = 6)]
         per_interval: usize,
     },
-    /// Which string notes were heard on (R7, LH-BEW-15): every annotated note expected on its
+    /// Which string notes were heard on (R7, LH-BEW-16): every annotated note expected on its
     /// string (converted IDMT JSON), the verdict against it, per pitch region, note length and
     /// technique. Each directory is one bass.
     Strings {
