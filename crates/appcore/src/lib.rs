@@ -65,6 +65,8 @@ const CUSTOM_NOTES: std::ops::RangeInclusive<u8> = 19..=55;
 const DEFAULT_KEYS: (u8, u8) = (28, 67);
 /// Middle C (MIDI 60): any octave names the twelve keys of the keyboard view.
 const MIDDLE_C: u8 = 60;
+/// Tones of a double stop (R8): only its missed tone says "nur ein Ton des Griffs gehört".
+const DOUBLE_STOP_TONES: usize = 2;
 /// Tunings the settings offer (LH-TUN-02); "drop" lowers the lowest string a whole step.
 const TUNINGS: [&str; 5] = ["standard", "drop", "half-down", "whole-down", "custom"];
 
@@ -2878,11 +2880,16 @@ impl Core {
         for t in techniques {
             technique_of.insert((t.pass, t.sign), *t);
         }
-        // Chord tones sounded per pass and start: a missed tone beside one is "nur ein Ton" (R8).
+        // Double stop tones sounded per pass and start: a missed tone beside one is "nur ein Ton"
+        // (R8). Not for larger chords: MIDI judges each tone alone, two of three are not "one".
+        let double_stop = |start: u64| {
+            a.notes.iter().filter(|n| n.start_ticks == start).count() == DOUBLE_STOP_TONES
+        };
         let sounded: Vec<(u32, u64)> = last
             .iter()
             .filter(|(_, r)| r.outcome != Outcome::Missed)
             .filter_map(|((pass, index), _)| Some((*pass, a.notes.get(*index)?.start_ticks)))
+            .filter(|(_, start)| double_stop(*start))
             .collect();
         last.into_iter()
             .filter_map(|((pass, index), r)| {

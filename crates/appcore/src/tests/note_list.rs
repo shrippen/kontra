@@ -152,3 +152,40 @@ fn note_list_spells_in_the_key() {
     );
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Review #210: a three-tone chord (MIDI judges each tone alone) with two tones played does not
+/// say "nur ein Ton" at the missed one; the hint is for double stops only.
+#[test]
+fn chord_of_three_says_no_one_tone() {
+    let a = arrangement(&[(0, Q, 33), (0, Q, 40), (0, Q, 45)]);
+    let dir = temp_dir("three-tones");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.update_settings(|s| s.language = Some("de".into()));
+    core.loaded = Some(Loaded {
+        path: dir.join("x.mid"),
+        full: a.clone(),
+        arrangement: a,
+        tracks: Vec::new(),
+        track: 0,
+    });
+    let result = |note: usize, outcome: Outcome| NoteResult {
+        pass: 0,
+        note: Some(note),
+        bar: Some(0),
+        outcome,
+        offset_ms: None,
+        cents: None,
+        position_s: 0.0,
+    };
+    let wrong = Outcome::WrongPitch { played_midi: 41.0 };
+    let results = [
+        result(0, wrong),
+        result(1, wrong),
+        result(2, Outcome::Missed),
+    ];
+    let notes = core.note_details(&results, &[], &[]);
+    let hint = core.tr("summary.note.one.tone", &[]);
+    let text = notes[2]["text"].as_str().unwrap_or_default();
+    assert!(!text.contains(&hint), "{text}");
+    let _ = std::fs::remove_dir_all(dir);
+}
