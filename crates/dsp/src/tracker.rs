@@ -36,10 +36,11 @@
 //!                                               octave above, half the estimates near it? ─► revise
 //! ```
 //!
-//! Strikes the tab expects (`expect`, R2) let an attack near one report the expected pitch
-//! before the full window is there, when the tracker's own estimate agrees; the full window
-//! still has the last word (`tracker/expect.rs`). An expected double stop gets a verdict on
-//! which of its tones sound (`tracker/double.rs`, R8).
+//! A note goes out before the full window when a short one shows its period unambiguously
+//! (R1, `tracker/early.rs`) or holds a pitch the tab expects (R2, `tracker/expect.rs`); the
+//! full window still has the last word, and a note that proves a precursor is taken back.
+//! An expected double stop gets a verdict on which of its tones sound (`tracker/double.rs`,
+//! R8).
 
 use crate::hum::HumFilter;
 use crate::intonation::refine_hz;
@@ -49,12 +50,16 @@ use crate::strike::{verdict_after_s, Strike};
 use crate::yin::{PitchEstimate, Yin};
 use kontra_model::{
     cents_between, hz_to_midi, DetectedNote, DoubleStopVerdict, ExpectedStrike, InputSource,
-    Instrument, PitchRevision, Technique, TechniqueRevision,
+    Instrument, NoteRetraction, PitchRevision, Technique, TechniqueRevision,
 };
 
 mod background;
 mod double;
+mod early;
 mod expect;
+mod settle;
+
+use settle::{Settle, Steps, SETTLE_FROM_S, SETTLE_TO_S};
 
 const RETRY_S: f64 = 0.005;
 const LEVEL_SPAN_S: f64 = 0.02;
@@ -168,48 +173,6 @@ fn hum_filter(source: InputSource, sample_rate: f64) -> Option<HumFilter> {
     (source == InputSource::LaptopJack).then(|| HumFilter::new(sample_rate, HUM_WIDTH_HZ))
 }
 
-/// Follow estimates after the onset that tell a note's settled pitch. FiloBass and IDMT
-/// (testdata/korpus/QUELLEN.md): 90–160 ms rounds most flat starts right; later windows reach
-/// the next note.
-const SETTLE_FROM_S: f64 = 0.09;
-const SETTLE_TO_S: f64 = 0.16;
-/// Estimates the window holds at most (one every `FOLLOW_STEP_S`).
-const SETTLE_SLOTS: usize = 8;
-/// Fewer estimates tell nothing (a short or fading note).
-const SETTLE_MIN: usize = 3;
-/// The latest estimates that give the settled pitch (odd: their median is one of them).
-const SETTLE_TAIL: usize = 3;
-/// The settled pitch must lie this far above the emitted one …
-const SETTLE_MIN_CENTS: f64 = 50.0;
-/// … and at least half the estimates this close to their median.
-const SETTLE_SPREAD_CENTS: f64 = 50.0;
-/// Corrected steps: a flat start a semitone up, a sub-octave attack an octave up. Downward
-/// steps fixed 20 notes but broke 4 right ones (a pull-off, a pop; QUELLEN.md).
-const SEMITONE: f64 = 1.0;
-const OCTAVE: f64 = 12.0;
-
-/// Which steps up a settled pitch may correct.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Steps {
-    SemitoneOrOctave,
-    /// At a microphone the low cut weakens the fundamental, and YIN on the ringing note jumps an
-    /// octave up (synthetic `room-double`: 6 of 156 C2 told as C3).
-    Semitone,
-}
-
-impl Steps {
-    fn for_source(source: InputSource) -> Steps {
-        match source {
-            InputSource::Microphone => Steps::Semitone,
-            _ => Steps::SemitoneOrOctave,
-        }
-    }
-
-    fn allow(self, step: f64) -> bool {
-        step == SEMITONE || (step == OCTAVE && self == Steps::SemitoneOrOctave)
-    }
-}
-
 /// Notes emitted before their attack could be judged (`Strike`), waiting for the audio; more at
 /// once would mean notes closer than 15 ms.
 const STRIKES_WAITING: usize = 8;
@@ -239,7 +202,7 @@ struct Pending {
     next_try: u64,
     /// Whether the onset was checked for a precursor (`attack_start`).
     checked: bool,
-    /// The last early estimate on the expected pitch (`try_expected`).
+    /// The last early estimate (`try_early`).
     early: Option<PitchEstimate>,
 }
 
@@ -252,94 +215,6 @@ struct Sounding {
     change: Option<Change>,
     /// The struck note's settled pitch being heard, until it is told.
     settle: Option<Settle>,
-}
-
-/// Follow estimates of a struck note in its settle window.
-#[derive(Debug, Clone, Copy)]
-struct Settle {
-    /// The note's reported onset (sample) and emitted pitch.
-    onset: u64,
-    midi: f64,
-    /// A dead note: its pitch wanders and does not count.
-    muted: bool,
-    steps: Steps,
-    /// (end of window, MIDI) of each estimate.
-    heard: [(u64, f64); SETTLE_SLOTS],
-    count: usize,
-}
-
-impl Settle {
-    fn new(onset: u64, midi: f64, muted: bool, steps: Steps) -> Settle {
-        Settle {
-            onset,
-            midi,
-            muted,
-            steps,
-            heard: [(0, 0.0); SETTLE_SLOTS],
-            count: 0,
-        }
-    }
-
-    fn hear(&mut self, until: u64, midi: f64) {
-        if self.count < SETTLE_SLOTS {
-            self.heard[self.count] = (until, midi);
-            self.count += 1;
-        }
-    }
-
-    /// The settled pitch, from estimates ending before `before` (a new attack), if it corrects
-    /// the emitted one: a semitone or an octave higher, by at least `SETTLE_MIN_CENTS`.
-    fn settled(&self, before: u64) -> Option<f64> {
-        if self.muted {
-            return None;
-        }
-        let mut sorted = [0.0f64; SETTLE_SLOTS];
-        let mut count = 0;
-        for &(until, midi) in &self.heard[..self.count] {
-            if until <= before {
-                sorted[count] = midi;
-                count += 1;
-            }
-        }
-        if count < SETTLE_MIN {
-            return None;
-        }
-        // The pitch it settled on: the latest estimates, whose windows lie after the rise. All
-        // of them read a tone rising for 120 ms 39 cents flat, a miss on fretless (QA 27.10.).
-        let mut latest = [0.0f64; SETTLE_TAIL];
-        latest.copy_from_slice(&sorted[count - SETTLE_TAIL..count]);
-        latest.sort_by(f64::total_cmp);
-        let settled = latest[SETTLE_TAIL / 2];
-        let sorted = &mut sorted[..count];
-        sorted.sort_by(f64::total_cmp);
-        let median = match count % 2 {
-            0 => (sorted[count / 2 - 1] + sorted[count / 2]) / 2.0,
-            _ => sorted[count / 2],
-        };
-
-        // Stable: at least half the estimates near the median.
-        let near = sorted
-            .iter()
-            .filter(|m| (*m - median).abs() * 100.0 < SETTLE_SPREAD_CENTS)
-            .count();
-        if near * 2 < count {
-            return None;
-        }
-
-        // Higher, on the next semitone or octave: e.g. 37.3 emitted, 38.0 settled.
-        let step = median.round() - self.midi.round();
-        if !self.steps.allow(step) {
-            return None;
-        }
-        // The semitone from all estimates (FiloBass: the latest alone reach the next note more
-        // often), the cents from the latest when they agree on it.
-        let pitch = if settled.round() == median.round() {
-            settled
-        } else {
-            median
-        };
-        ((median - self.midi) * 100.0 >= SETTLE_MIN_CENTS).then_some(pitch)
-    }
 }
 
 /// A pitch on the way away from the ringing one.
@@ -444,6 +319,7 @@ pub struct NoteTracker {
     strikes: [Option<u64>; STRIKES_WAITING],
     revised: Vec<TechniqueRevision>,
     pitch_revised: Vec<PitchRevision>,
+    retracted: Vec<NoteRetraction>,
     /// Strikes the tab expects, in samples (R2).
     expected: expect::Expectations,
     /// A note told early, checked once its full window is there.
@@ -482,6 +358,7 @@ impl NoteTracker {
             strikes: [None; STRIKES_WAITING],
             revised: Vec::with_capacity(STRIKES_WAITING),
             pitch_revised: Vec::with_capacity(STRIKES_WAITING),
+            retracted: Vec::with_capacity(STRIKES_WAITING),
             expected: expect::Expectations::default(),
             confirm: None,
             double_stops: double::DoubleStops::new(sample_rate),
@@ -521,6 +398,18 @@ impl NoteTracker {
         &self.pitch_revised
     }
 
+    /// Notes completed in the last `push` or `flush` (what they returned); valid until the next
+    /// call.
+    pub fn told(&self) -> &[DetectedNote] {
+        &self.out
+    }
+
+    /// Notes taken back in the last `push` or `flush`: told early, then shown to be no note of
+    /// their own (R1); valid until the next call.
+    pub fn retracted(&self) -> &[NoteRetraction] {
+        &self.retracted
+    }
+
     /// Which tones of expected double stops sounded, told in the last `push` or `flush` for
     /// notes emitted earlier (R8); valid until the next call.
     pub fn double_stops(&self) -> &[DoubleStopVerdict] {
@@ -532,6 +421,7 @@ impl NoteTracker {
         self.out.clear();
         self.revised.clear();
         self.pitch_revised.clear();
+        self.retracted.clear();
         self.double_stops.clear_told();
         let block = (RETRY_S * self.sample_rate) as usize;
         let mut filtered = std::mem::take(&mut self.filtered);
@@ -572,6 +462,7 @@ impl NoteTracker {
         self.out.clear();
         self.revised.clear();
         self.pitch_revised.clear();
+        self.retracted.clear();
         self.double_stops.clear_told();
         if let Some(mut s) = self.sounding {
             self.settle(&mut s, u64::MAX);
@@ -680,6 +571,7 @@ impl NoteTracker {
         if self.joins_early(onset) {
             return;
         }
+        self.retracts_early(onset);
         self.finish_confirm();
         self.cut_doubles(onset);
         // A new attack ends the ringing note (told with what was heard before it); a legato note
@@ -698,7 +590,7 @@ impl NoteTracker {
             report,
             last: None,
             best: None,
-            next_try: self.first_try(report, onset),
+            next_try: self.first_try(onset),
             checked: false,
             early: None,
         });
@@ -734,7 +626,7 @@ impl NoteTracker {
         let Some(mut p) = self.pending else {
             return;
         };
-        if self.try_expected(&mut p) {
+        if self.try_early(&mut p) {
             self.pending = None;
             self.emit_early(p);
             return;
@@ -925,7 +817,7 @@ impl NoteTracker {
 
     /// Follows the ringing note's pitch; emits a legato note when it moves to a new one.
     fn follow(&mut self) {
-        if self.pending.is_some() {
+        if self.pending.is_some() || self.confirm.is_some() {
             return;
         }
         let Some(mut s) = self.sounding else {
@@ -1095,9 +987,20 @@ mod tests {
         let mut out = Vec::new();
         for block in signal.chunks(480) {
             out.extend_from_slice(t.push(block));
+            apply(&t, &mut out);
         }
         out.extend_from_slice(t.flush());
+        apply(&t, &mut out);
         out
+    }
+
+    /// The last call's revisions and retractions applied, as the session does (R1).
+    fn apply(t: &NoteTracker, notes: &mut Vec<DetectedNote>) {
+        for r in t.pitch_revised() {
+            let of = notes.iter_mut().filter(|n| n.onset_s == r.onset_s);
+            of.for_each(|n| n.midi = r.midi);
+        }
+        notes.retain(|n| t.retracted().iter().all(|r| r.onset_s != n.onset_s));
     }
 
     fn assert_matches(found: &[DetectedNote], notes: &[SynthNote], max_ms: f64, max_cents: f64) {
@@ -1365,9 +1268,9 @@ mod tests {
             37.0,
             "emitted during the rise: {notes:?}"
         );
-        assert_eq!(revisions.len(), 1, "{revisions:?}");
-        assert_eq!(revisions[0].onset_s, notes[0].onset_s);
-        assert_eq!(revisions[0].midi.round(), 38.0, "{revisions:?}");
+        let last = revisions.last().map(|r| r.midi.round());
+        assert_eq!(last, Some(38.0), "{revisions:?}");
+        assert!(revisions.iter().all(|r| r.onset_s == notes[0].onset_s));
     }
 
     #[test]
@@ -1380,9 +1283,11 @@ mod tests {
     #[test]
     fn falling_tone_is_not_revised() {
         // Only a rise is settling (a flat start, an octave below at the attack); a fall after
-        // the note is a pull-off or a decay.
+        // the note is a pull-off or a decay. Only the full window may correct an early report,
+        // and it still hears the fall's start (above D2), not the tone it falls to.
         let (_, revisions) = track_revised(&rising_tone(140.0, 0.12));
-        assert!(revisions.is_empty(), "{revisions:?}");
+        assert!(revisions.len() <= 1, "{revisions:?}");
+        assert!(revisions.iter().all(|r| r.midi > 38.5), "{revisions:?}");
     }
 
     /// A settle window holding `estimates`, after a note emitted as `emitted`.

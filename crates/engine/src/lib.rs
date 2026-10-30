@@ -35,11 +35,13 @@ pub use korpus::{
     DoubleStopTally, Evaluation, Expecting, KorpusItem, KorpusSet, Matching, Mistakes, Playing,
     DOUBLE_STOP_INTERVALS,
 };
-pub use offline::{analyze, analyze_without, revise, revise_pitch};
+pub use offline::{analyze, analyze_without, retract, revise, revise_pitch};
 pub use player::{Accent, BackingAudio, Gains, NullOutput, Output, Player, Sound};
 
 use kontra_dsp::TunerReading;
-use kontra_model::{DetectedNote, DoubleStopVerdict, PitchRevision, TechniqueRevision};
+use kontra_model::{
+    DetectedNote, DoubleStopVerdict, NoteRetraction, PitchRevision, TechniqueRevision,
+};
 
 /// What the engine reports to the layer above.
 #[derive(Debug, Clone, PartialEq)]
@@ -49,6 +51,8 @@ pub enum Event {
     Technique(TechniqueRevision),
     /// A pitch told after its note, once the tone has settled (decision round 11).
     Pitch(PitchRevision),
+    /// A note taken back: told early, it proved to be no note of its own (R1).
+    Retracted(NoteRetraction),
     /// Which tones of a double stop the tab announced sounded, about 160 ms after its note
     /// (R8).
     DoubleStop(DoubleStopVerdict),

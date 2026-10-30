@@ -17,7 +17,9 @@
 //! deciding and the full window confirming, the final pitch stays as without expectation
 //! (experiment pitch-fast, 29.10.2026).
 
-use super::{NoteTracker, Pending, MERGE_S, PRECURSOR_FACTOR, RETRY_S, RISE_AFTER_S};
+use super::{
+    NoteTracker, Pending, FOLLOW_STEP_S, MERGE_S, PRECURSOR_FACTOR, RETRY_S, RISE_AFTER_S,
+};
 use crate::intonation::refine_hz;
 use crate::yin::PitchEstimate;
 use kontra_model::{cents_between, hz_to_midi, midi_to_hz, ExpectedStrike, PitchRevision};
@@ -109,30 +111,29 @@ impl Expectations {
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Confirm {
     /// The emitted note's onset (sample) and pitch.
-    report: u64,
+    pub(super) report: u64,
     midi: f64,
-    search: Pending,
+    pub(super) search: Pending,
 }
 
 impl NoteTracker {
-    /// When an attack at `onset` (reported at `report`) is first tried: early near an expected
-    /// strike, else once the full window is there.
-    pub(super) fn first_try(&self, report: u64, onset: u64) -> u64 {
-        if self.expected.near(report).is_none() {
-            return self.full_try(onset);
-        }
+    /// When an attack at `onset` is first tried: early, on a short window (R1, R2).
+    pub(super) fn first_try(&self, onset: u64) -> u64 {
         let skip = (self.config.attack_skip_s * self.sample_rate) as u64;
         let early = onset + skip + (EARLY_FROM_S * self.sample_rate) as u64;
         early.min(self.full_try(onset))
     }
 
-    /// Early tries due for `p`, until the full window is there; true when the expected pitch
-    /// held twice in a row (`p.best` is it then).
-    pub(super) fn try_expected(&mut self, p: &mut Pending) -> bool {
+    /// Early tries due for `p`, until the full window is there; true when an expected pitch or
+    /// an unambiguous one (`hear_free`, R1) held twice in a row (`p.best` is it then).
+    pub(super) fn try_early(&mut self, p: &mut Pending) -> bool {
         let full = self.full_try(p.onset);
         let step = (RETRY_S * self.sample_rate) as u64;
         while p.next_try < full && p.next_try <= self.pushed {
-            let heard = self.hear_expected(p);
+            let heard = match self.hear_expected(p) {
+                Some(heard) => Some(heard),
+                None => self.hear_free(p),
+            };
             let twice = heard.zip(p.early).is_some_and(|(now, last)| {
                 cents_between(last.hz, now.hz).abs() < self.config.agree_cents
             });
@@ -214,9 +215,22 @@ impl NoteTracker {
         let Some(mut c) = self.confirm.take() else {
             return;
         };
+        // An attack waiting for its rise check may still show the note was a precursor
+        // (`retracts_early`); the search catches up after it.
+        if self.candidate.is_some_and(|onset| onset > c.report) {
+            self.confirm = Some(c);
+            return;
+        }
         if !self.search(&mut c.search) {
             self.confirm = Some(c);
             return;
+        }
+
+        // The ringing note is followed from here on, as when told at this point.
+        let step = (FOLLOW_STEP_S * self.sample_rate) as u64;
+        let next_try = self.pushed.max(c.search.next_try) + step;
+        if let Some(s) = self.sounding.as_mut() {
+            s.next_try = next_try;
         }
         self.confirmed(&c);
     }
@@ -278,5 +292,50 @@ impl NoteTracker {
         };
         t.midi = midi;
         s.midi = midi;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tracker::TrackerConfig;
+    use kontra_model::{InputSource, Instrument};
+
+    const SR: f64 = 48_000.0;
+
+    /// The revisions when the full window hears `heard` for a note told early at `told`.
+    fn revised(told: f64, heard: f64) -> Vec<PitchRevision> {
+        let config = TrackerConfig::for_instrument(&Instrument::default_bass(), InputSource::Line);
+        let mut t = NoteTracker::new(SR, config);
+        let search = Pending {
+            onset: 0,
+            report: 0,
+            last: None,
+            best: Some(PitchEstimate {
+                hz: midi_to_hz(heard, config.a4_hz),
+                confidence: 0.9,
+            }),
+            next_try: 0,
+            checked: true,
+            early: None,
+        };
+        let c = Confirm {
+            report: 0,
+            midi: told,
+            search,
+        };
+        t.confirmed(&c);
+        t.pitch_revised().to_vec()
+    }
+
+    #[test]
+    fn full_window_revises_both_ways_and_cents() {
+        // Up and down a semitone or an octave, and the same semitone a few cents off (R1).
+        for (told, heard) in [(37.0, 38.0), (38.9, 38.0), (50.0, 38.0), (38.0, 38.05)] {
+            let r = revised(told, heard);
+            assert_eq!(r.len(), 1, "{told} → {heard}: {r:?}");
+            assert!((r[0].midi - heard).abs() < 1e-6, "{r:?}");
+        }
+        assert!(revised(38.0, 38.01).is_empty(), "within 2 ct it stands");
     }
 }

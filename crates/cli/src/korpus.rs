@@ -596,6 +596,7 @@ struct FirstTotal {
     turned_wrong: usize,
     shifted_first: usize,
     shifted_final: usize,
+    retracted: usize,
     report_ms: Vec<f64>,
 }
 
@@ -605,6 +606,7 @@ impl FirstTotal {
         self.turned_wrong += e.turned_wrong;
         self.shifted_first += e.shifted_first;
         self.shifted_final += e.shifted_final;
+        self.retracted += e.retracted;
         self.report_ms.extend_from_slice(&e.report_ms);
     }
 
@@ -620,11 +622,14 @@ impl FirstTotal {
             m => a as f64 / m as f64 * 100.0,
         };
         println!(
-            "first report: pitch {:.1}% (final {:.1}%), turned wrong {}, ms p50 {} p95 {}",
+            "first report: pitch {:.1}% (final {:.1}%), turned wrong {}, taken back {}, \
+             ms p50 {} p90 {} p95 {}",
             pct(self.right),
             pct(final_right),
             self.turned_wrong,
+            self.retracted,
             ms(at(0.5)),
+            ms(at(0.9)),
             ms(at(0.95))
         );
         if shift != 0 {

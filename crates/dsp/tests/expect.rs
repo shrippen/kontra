@@ -1,7 +1,7 @@
-//! Strikes the tab expects (R2): the right expectation lets a note out sooner, a wrong one
+//! Strikes the tab expects (R2): the right expectation never tells a note later, a wrong one
 //! changes nothing the player sees, neither the first report nor the final pitch.
 
-use kontra_dsp::synth::{render, SynthNote, ToneShape};
+use kontra_dsp::synth::{bass_tone, render, SynthNote, ToneShape};
 use kontra_dsp::{NoteTracker, TrackerConfig};
 use kontra_model::{
     DetectedNote, ExpectedStrike, ExpectedTone, InputSource, Instrument, Pitch, A4_HZ,
@@ -102,8 +102,10 @@ fn semitones(told: &[Told], pick: fn(&Told) -> f64) -> Vec<(i64, i64)> {
         .collect()
 }
 
+/// Since R1 a clear tone goes out as early without expectation (the rise check after the onset,
+/// 40 ms, bounds both); the expectation must not make it later or change its pitch.
 #[test]
-fn right_expectation_tells_sooner() {
+fn right_expectation_never_later() {
     let notes = line();
     let signal = render(&notes, SR, 2.8, ToneShape::Rich, 11);
     let free = track(&signal, &[]);
@@ -118,16 +120,6 @@ fn right_expectation_tells_sooner() {
         semitones(&expecting, |t| t.first_midi),
         semitones(&expecting, |t| t.final_midi),
         "the early pitch stands"
-    );
-    let sooner = expecting
-        .iter()
-        .zip(&free)
-        .filter(|(e, f)| e.told_at < f.told_at)
-        .count();
-    assert!(
-        sooner * 2 >= notes.len(),
-        "{sooner} of {} sooner",
-        notes.len()
     );
     assert!(expecting
         .iter()
@@ -171,7 +163,7 @@ fn either_tone_of_a_double_stop() {
     assert!(fifth_above
         .iter()
         .zip(&free)
-        .any(|(e, f)| e.told_at < f.told_at));
+        .all(|(e, f)| e.told_at <= f.told_at));
 }
 
 /// After `forget_expected` the tracker reports as without expectation.
@@ -193,4 +185,29 @@ fn forgotten_strikes_do_not_count() {
     let free = track(&signal, &[]);
     let free_at: Vec<usize> = free.iter().map(|t| t.told_at).collect();
     assert_eq!(told_at, free_at);
+}
+
+/// Where the period is too unclear to tell early on its own (R1), the expected pitch goes out
+/// sooner, and right: A2 with an inharmonic tone (2.71×, −8 dB) over it.
+#[test]
+fn expectation_helps_an_unclear_period() {
+    let a2 = Pitch(45).hz(A4_HZ);
+    let mut signal = vec![0.0f32; (0.3 * SR) as usize];
+    let tone = bass_tone(a2, SR, 0.5, ToneShape::Rich, 3);
+    let other = bass_tone(a2 * 2.71, SR, 0.5, ToneShape::Rich, 4);
+    signal.extend(tone.iter().zip(&other).map(|(a, b)| a + 0.4 * b));
+    let note = SynthNote {
+        onset_s: 0.3,
+        hz: a2,
+        duration_s: 0.5,
+        velocity: 0.7,
+    };
+    let free = track(&signal, &[]);
+    let expecting = track(&signal, &strikes(&[note], 0, &[]));
+    assert_eq!(expecting.len(), 1, "{expecting:?}");
+    assert!(
+        expecting[0].told_at < free[0].told_at,
+        "{expecting:?} {free:?}"
+    );
+    assert_eq!(expecting[0].first_midi.round(), 45.0, "{expecting:?}");
 }

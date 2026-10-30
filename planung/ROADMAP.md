@@ -189,10 +189,17 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, gleiche Daten; Berichte in
 [FORSCHUNG-AUDIO.md](FORSCHUNG-AUDIO.md)). Eigentümer 29.10.: umsetzen, soweit es trägt.
 
-- [ ] R1 Meldezeit (LH-NF-15): YIN ab dem Anschlag mit wachsendem Fenster (1 Periode, Bestätigung), das volle Fenster
+- [x] R1 Meldezeit (LH-NF-15): YIN ab dem Anschlag mit wachsendem Fenster (1 Periode, Bestätigung), das volle Fenster
   revidiert in beide Richtungen, auch nur die Cent. Prototyp: IDMT Median 79 → 61 ms, `line-4`/`line-5` p95 81 → 69,
   100 → 80 ms, Endgenauigkeit gleich; erste Meldung 1–2,5 Punkte öfter falsch, Fingertipp vor dem Anschlag wird Note.
-  Nur zusammen mit „Note zurückgenommen“ und vorläufigem Urteil in der Session.
+  Nur zusammen mit „Note zurückgenommen“ und vorläufigem Urteil in der Session. Umgesetzt (LH-BEW-15):
+  freie Schätzung ab dem Anschlag mit Lags bis 1,06 Perioden, zweimal gleich; `NoteRetraction` für einen früh gemeldeten Vorläufer, die Session
+  nimmt das Urteil zurück. `korpus check` p95 `line-4` 81 → 69, `line-5` 100 → 80 ms (LH-NF-15: 4 Saiten erfüllt).
+  IDMT p50/p90 90,5/124,8 → 75,5/111,0 ms, FiloBass p50 88,5 → 86,5 ms; Endgenauigkeit IDMT 95,3 → 95,3 %, FiloBass
+  74,5 → 74,5 %, mit `--expect` IDMT 95,5 → 95,3 %; erste Meldung IDMT 94,7 → 93,6 %, FiloBass 64,4 → 61,2 %. Falsche
+  Noten weniger (IDMT 1060 → 1052 Meldungen), 5 zurückgenommen. Lags über zwei Perioden (Oktave darunter sichtbar)
+  gaben den Gewinn fast ganz zurück (`line-5` 97 ms). R2-Nachtrag: Flageoletts im Korpus nicht mehr erwartet, Zahlen
+  unverändert.
 - [x] R2 Erwartete Note an die Erkennung, nur als Torwächter der ersten Meldung, nie als Entscheider: locker gewertet
   machte sie aus falsch gespielten Noten dreimal so viele Treffer. Grundlage für R7 und R8. Umgesetzt (LH-BEW-14):
   Session → Eingang (rtrb) → `NoteTracker::expect`; `korpus measure --expect [--expect-shift N]`. Ohne wachsendes

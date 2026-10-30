@@ -1,9 +1,10 @@
 //! J-E3 Ton schwingt ein (P6 Karl, P3 Mira): a walking line whose notes start up to a semitone
 //! flat and rise to pitch within about 120 ms, as on the FiloBass double bass. The marks come as
 //! fast as for any note; a note judged wrong at its flat start becomes a hit once the tone has
-//! settled (decision round 11).
+//! settled (decision round 11). Step 2 (R1, LH-BEW-15): a finger tapping the string before the
+//! pluck is told early and taken back; the mark ends on the pluck's verdict.
 
-use crate::common::{run_until, write_midi, Profile, COUNT_IN_S, RATE};
+use crate::common::{last_judged, run_until, write_midi, Profile, COUNT_IN_S, RATE};
 use kontra_appcore::UiEvent;
 use kontra_model::{Pitch, A4_HZ};
 use std::time::Duration;
@@ -96,5 +97,77 @@ fn settles_into_hits(name: &str, choose: impl FnOnce(&mut kontra_appcore::Settin
     assert!(
         !events.iter().any(|e| matches!(e, UiEvent::Extra)),
         "{marks:?}"
+    );
+}
+
+/// The tap before each pluck: this long before it, this much quieter (−30 dB, hardware check
+/// 13.10.).
+const TAP_S: f64 = 0.06;
+const TAP_LEVEL: f64 = 0.03;
+
+/// Each plucked note sounds this long: the tap before the next falls into silence and is told
+/// (from F#2 up in the same block as the pluck after it).
+const PLUCK_S: f64 = 0.3;
+
+/// The line in tune, each note after a faint tap on its own pitch.
+fn tapped_line() -> Vec<f32> {
+    let rate = f64::from(RATE);
+    let total = COUNT_IN_S + QUARTER_S * (LINE.len() as f64 + 1.0);
+    let mut out = vec![0.0f32; (total * rate) as usize];
+    for (i, midi) in LINE.iter().enumerate() {
+        let hz = Pitch(*midi).hz(A4_HZ);
+        let pluck_s = COUNT_IN_S + i as f64 * QUARTER_S;
+        for (start_s, length_s, level) in
+            [(pluck_s - TAP_S, TAP_S, TAP_LEVEL), (pluck_s, PLUCK_S, 1.0)]
+        {
+            let from = (start_s * rate) as usize;
+            let len = (length_s * rate) as usize;
+            for (k, slot) in out[from..from + len].iter_mut().enumerate() {
+                let t = k as f64 / rate;
+                let phase = std::f64::consts::TAU * hz * t;
+                let tone: f64 = (1..=6).map(|h| (phase * h as f64).sin() / h as f64).sum();
+                let fade = ((length_s - t) / 0.005).min(1.0);
+                let envelope = (t / 0.002).min(1.0) * (-t / 0.8).exp() * fade;
+                *slot = (0.4 * level * envelope * tone) as f32;
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn tap_before_the_pluck_is_taken_back() {
+    taps_taken_back("e3-tap", "song");
+}
+
+#[test]
+fn tap_before_the_pluck_is_taken_back_waiting() {
+    taps_taken_back("e3-tap-wait", "wait");
+}
+
+fn taps_taken_back(name: &str, mode: &str) {
+    let profile = Profile::new(name);
+    let score = profile.dir.join("Walking.mid");
+    write_midi(&score, "Walking", &LINE);
+    let take = profile.dir.join("tippen.wav");
+    kontra_session::write_mono_wav(&take, &tapped_line(), RATE).unwrap();
+    let mut core = profile.core(Some(&take));
+    core.open(&score).unwrap();
+    core.set_mode(mode);
+    core.play();
+    let events = run_until(&mut core, Duration::from_secs(8), |e| {
+        matches!(e, UiEvent::Finished { .. })
+    });
+
+    // Every note ends a hit on the pluck's time, no tap left as an extra note.
+    let last = last_judged(&events);
+    assert_eq!(last.len(), LINE.len(), "{last:?}");
+    for (index, (state, offset_ms, _)) in &last {
+        assert_eq!(*state, "hit", "note {index}: {last:?}");
+        assert!(offset_ms.abs() < 15.0, "note {index}: {last:?}");
+    }
+    assert!(
+        !events.iter().any(|e| matches!(e, UiEvent::Extra)),
+        "{last:?}"
     );
 }
