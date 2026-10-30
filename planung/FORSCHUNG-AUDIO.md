@@ -3,7 +3,7 @@
 Je Punkt ein Prototyp, gemessen vorher/nachher auf denselben Daten. Zusammenfassungen der Berichte; die Prototyp-Branches `exp-*` blieben lokal. Plan und Stand: [ROADMAP.md](ROADMAP.md), Abschnitt „Forschung zur Audio-Engine“.
 
 ## pitch-fast (Punkte 1, 2), 29.10.2026 — Zusammenfassung
-Prototyp: Branch exp-pitch-fast (nur lokal) (lokal), Env-Schalter KX_*, Rohdaten out/, outw/.
+Prototyp: Branch exp-pitch-fast (nur lokal), Env-Schalter KX_*, Rohdaten out/, outw/.
 
 Punkt 1 wachsendes YIN-Fenster (L=1,06 + Bestätigung, volle Schätzung revidiert beide Richtungen):
 IDMT p50 78,9 → 61,0 ms (E2–D#3 79 → 52), korpus check p95 line-4 81 → 69, line-5 100 → 80 ms.
@@ -131,7 +131,7 @@ Nine points, ranked by benefit for the player. Lines refer to `main` as of 29.10
 - Licence: Essentia `MultiPitchKlapuri` is AGPL → paper only.
 
 ### 9. Time-stretch with one resolution (L, least benefit)
-- Already Laroche-Dolson phase locking and phase reset only in transient bins (`stretch/src/lib.rs`, `vocoder.rs`, `onset.rs`). Single window size; `Resolution::Fine` 8192 samples costs ~85 ms more latency and softer attacks (`lib.rs:41-48`).
+- Already Laroche-Dolson phase locking and phase reset only in transient bins (`stretch/src/lib.rs`, `vocoder.rs`, `onset.rs`). Single window size; `Resolution::Fine` 8192 samples costs 133 ms more latency (Standard 133, Fine 267 ms; since R9, #200: 96 and 192 ms) and softer attacks (`lib.rs:41-48`).
 - Research/practice: Průša & Holighaus "Phase Vocoder Done Right" (RTPGHI, 2022); Signalsmith Stretch (MIT, C++) as reading model (Rubber Band is GPL); multi-resolution (long window low bins, short high bins).
 - Gain: B0 clean at 50 % without 8192 latency, hard attacks (LH-WIE-01).
 

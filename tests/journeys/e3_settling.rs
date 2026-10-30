@@ -109,17 +109,30 @@ const TAP_LEVEL: f64 = 0.03;
 /// (from F#2 up in the same block as the pluck after it).
 const PLUCK_S: f64 = 0.3;
 
-/// The line in tune, each note after a faint tap on its own pitch.
-fn tapped_line() -> Vec<f32> {
+/// How the pluck after each tap is played.
+#[derive(Clone, Copy)]
+enum Pluck {
+    InTune,
+    /// A semitone sharp: the tap was on the right pitch, the pluck is not.
+    Sharp,
+}
+
+/// The line, each note after a faint tap on its own pitch.
+fn tapped_line(pluck: Pluck) -> Vec<f32> {
     let rate = f64::from(RATE);
     let total = COUNT_IN_S + QUARTER_S * (LINE.len() as f64 + 1.0);
     let mut out = vec![0.0f32; (total * rate) as usize];
     for (i, midi) in LINE.iter().enumerate() {
         let hz = Pitch(*midi).hz(A4_HZ);
+        let sharp = match pluck {
+            Pluck::InTune => 1.0,
+            Pluck::Sharp => 2f64.powf(1.0 / 12.0),
+        };
         let pluck_s = COUNT_IN_S + i as f64 * QUARTER_S;
-        for (start_s, length_s, level) in
-            [(pluck_s - TAP_S, TAP_S, TAP_LEVEL), (pluck_s, PLUCK_S, 1.0)]
-        {
+        for (start_s, length_s, level, hz) in [
+            (pluck_s - TAP_S, TAP_S, TAP_LEVEL, hz),
+            (pluck_s, PLUCK_S, 1.0, hz * sharp),
+        ] {
             let from = (start_s * rate) as usize;
             let len = (length_s * rate) as usize;
             for (k, slot) in out[from..from + len].iter_mut().enumerate() {
@@ -150,7 +163,7 @@ fn taps_taken_back(name: &str, mode: &str) {
     let score = profile.dir.join("Walking.mid");
     write_midi(&score, "Walking", &LINE);
     let take = profile.dir.join("tippen.wav");
-    kontra_session::write_mono_wav(&take, &tapped_line(), RATE).unwrap();
+    kontra_session::write_mono_wav(&take, &tapped_line(Pluck::InTune), RATE).unwrap();
     let mut core = profile.core(Some(&take));
     core.open(&score).unwrap();
     core.set_mode(mode);
@@ -170,4 +183,28 @@ fn taps_taken_back(name: &str, mode: &str) {
         !events.iter().any(|e| matches!(e, UiEvent::Extra)),
         "{last:?}"
     );
+}
+
+/// Wait mode, the tap on D2 ends the wait, the pluck after it is sharp: the tap is taken back
+/// and Kontra waits for D2 again. Its mark goes with the tap's verdict (LH-BEW-15), no "hit"
+/// stays on the note waited for.
+#[test]
+fn tap_taken_back_clears_its_mark_waiting() {
+    let profile = Profile::new("e3-tap-sharp");
+    let score = profile.dir.join("Walking.mid");
+    write_midi(&score, "Walking", &LINE);
+    let take = profile.dir.join("tippen.wav");
+    kontra_session::write_mono_wav(&take, &tapped_line(Pluck::Sharp), RATE).unwrap();
+    let mut core = profile.core(Some(&take));
+    core.open(&score).unwrap();
+    core.set_mode("wait");
+    core.play();
+    let events = run_until(&mut core, Duration::from_secs(4), |_| false);
+
+    let tapped = events
+        .iter()
+        .any(|e| matches!(e, UiEvent::Judged { index: 0, .. }));
+    assert!(tapped, "the tap was judged first: {events:?}");
+    let last = last_judged(&events);
+    assert_eq!(last.get(&0).map(|j| j.0), Some("pending"), "{last:?}");
 }

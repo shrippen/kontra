@@ -494,14 +494,24 @@ impl Analysis {
     }
 
     /// What the last `push` or `flush` told. Notes taken back go first: a pluck told in the same
-    /// block as its tap's retraction (from about F#2 up) then finds its note free.
+    /// block as its tap's retraction (from about F#2 up) then finds its note free. A note told
+    /// and taken back in the same block is not sent at all.
     fn send_told(&self, events: &Sender<Event>) {
-        for retraction in self.tracker.retracted() {
+        let retracted = self.tracker.retracted();
+        let told = self.tracker.told();
+        let in_block = |onset_s: f64| told.iter().any(|n| n.onset_s == onset_s);
+        for retraction in retracted {
+            if in_block(retraction.onset_s) {
+                continue;
+            }
             let mut retraction = *retraction;
             retraction.onset_s += self.start_s;
             let _ = events.send(Event::Retracted(retraction));
         }
-        for note in self.tracker.told() {
+        for note in told {
+            if retracted.iter().any(|r| r.onset_s == note.onset_s) {
+                continue;
+            }
             let mut note = *note;
             note.onset_s += self.start_s;
             let _ = events.send(Event::Note(note));

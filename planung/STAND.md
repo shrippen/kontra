@@ -196,6 +196,7 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - #100: `exercise::Style` (`ALL`, `key`, `from_key`, `minor`), `ExerciseKind::Song`.
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 - Runde 17 (`runde-17`): `ChordHearing::OneTone`, `Summary::untold_double_stops`.
+- Kleinigkeiten nach R1/R8: `SessionEvent::Reopened` (Note nach einer Rücknahme wieder offen).
 
 ## pub-Schnittstellen, in Runde 17 freigegeben
 

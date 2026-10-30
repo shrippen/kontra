@@ -58,6 +58,15 @@ Item {
         name: "SummarySheet"
         when: windowShown
 
+        // The summary as the sheet starts; each test that changes it gets it back, also when it
+        // fails (review #197).
+        property string initialSummary
+        function initTestCase() { initialSummary = root.ctl.summaryJson }
+        function cleanup() {
+            sheet.close()
+            root.ctl.summaryJson = initialSummary
+        }
+
         function focused() { return root.Window.activeFocusItem }
         function inSheet(item) {
             for (var p = item; p; p = p.parent) {
@@ -114,16 +123,13 @@ Item {
         // The latency hint stands alone where "solid" would contradict it, with its button
         // (LH-EIN-14, review #195).
         function test_recalibrate_alone() {
-            var before = root.ctl.summaryJson
-            var summary = JSON.parse(before)
+            var summary = JSON.parse(root.ctl.summaryJson)
             summary.observation = null
             summary.recalibrateText = "recal.text"
             root.ctl.summaryJson = JSON.stringify(summary)
             sheet.open()
             verify(showing(sheet, "recal.text") !== null)
             verify(showing(sheet, "summary.recalibrate.button") !== null)
-            sheet.close()
-            root.ctl.summaryJson = before
         }
 
         function test_trap_and_return() {

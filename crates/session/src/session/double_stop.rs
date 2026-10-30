@@ -15,7 +15,7 @@
 //! A tone the tracker heard keeps its cents (in tune or off pitch); the other is a hit without
 //! cents. A verdict naming one tone while the tracker heard the other changes nothing.
 
-use super::{Session, SessionEvent, REVISION_MATCH_S};
+use super::{Judgement, Session, SessionEvent, REVISION_MATCH_S};
 use crate::matcher::{pitch_outcome, NoteResult, Outcome};
 use kontra_model::{ChordHearing, DoubleStopHeard, DoubleStopVerdict};
 
@@ -40,7 +40,10 @@ impl Session {
         else {
             return;
         };
-        let (_, at, _, midi) = self.scored[entry];
+        let (_, at, _, midi, judgement) = self.scored[entry];
+        if judgement == Judgement::BothTones {
+            return;
+        }
         let first = self.results[at];
         let Some(slot) = first.note.and_then(|n| self.slot_of(n, first.position_s)) else {
             return;
@@ -86,8 +89,8 @@ impl Session {
             .unwrap_or(Outcome::Missed);
         self.matcher.rejudge(first.pass, slot, best);
 
-        // Final: a pitch told later does not judge the tones again.
-        self.scored.remove(entry);
+        // Final: a pitch told later does not judge the tones again; a retraction still finds it.
+        self.scored[entry].4 = Judgement::BothTones;
     }
 
     /// Two-tone double stops in the score this input does not judge by both tones: all but
