@@ -4,7 +4,7 @@ use kontra_model::{
     Arrangement, DetectedNote, InputSource, Instrument, Note, Pitch, StringHeard, StringVerdict,
     Technique, TempoMap, Unclear, TICKS_PER_QUARTER,
 };
-use kontra_session::{Mode, ScoreSettings, Session, StringTally};
+use kontra_session::{Mode, ScoreSettings, Session, SessionEvent, StringTally};
 
 /// At 120 BPM, one quarter apart: G2, A2, B2 on the A string; the last palm-muted.
 fn piece() -> Arrangement {
@@ -129,4 +129,38 @@ fn a_string_survives_the_rescoring_after_a_retraction() {
         t += 0.01;
     }
     assert_eq!(s.summary().strings.other, 1, "{:?}", s.strings_heard());
+}
+
+#[test]
+fn the_run_waits_for_the_last_string() {
+    // The analysis runs 0.8 s behind (a loaded machine): the last note is heard at 1.88 s, its
+    // string told at 1.0 + 0.33 + 0.8 s (peak up to 30 ms late, 30 + 250 ms window, a block),
+    // after the note's grace has run out. The run ends with it.
+    const LAG_S: f64 = 0.8;
+    const TOLD_AFTER_S: f64 = 0.33;
+    let mut a = piece();
+    a.notes[2].techniques.clear();
+    let mut s = Session::new(a, Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    let take = [played(0.0, 43.0), played(0.5, 45.0), played(1.0, 47.0)];
+    let mut next = 0;
+    let mut told = false;
+    let mut t = 0.0;
+    while t <= 3.0 {
+        s.on_heard(t - LAG_S);
+        if let Some(n) = take.get(next).filter(|n| n.onset_s + 0.08 + LAG_S <= t) {
+            s.on_note(n);
+            next += 1;
+        }
+        if !told && 1.0 + TOLD_AFTER_S + LAG_S <= t {
+            s.on_string(&verdict(1.0, StringHeard::Other(0)));
+            told = true;
+        }
+        if s.update(t).contains(&SessionEvent::Finished) {
+            break;
+        }
+        t += 0.01;
+    }
+    assert!(s.is_finished(), "finished by {t:.2} s");
+    assert_eq!(s.summary().strings.other, 1, "finished at {t:.2} s");
 }

@@ -119,9 +119,6 @@ fn hardest_bar_loops_and_tempo_climbs_to_target() {
 
 /// Riff notes (index) played one string lower than the tab puts them (E A D G: 0 = E).
 const MOVED: [usize; 2] = [2, 3];
-/// The riff and an open E (one string: no verdict). The summary is built when the run ends;
-/// the E gives the riff's last verdict time to arrive under load (`make check`: 2 von 6).
-const RIFF_AND_E: [u8; 9] = [28, 33, 38, 43, 40, 38, 36, 33, 28];
 /// Partials of a synthetic stiff string and its amplitude decay per second (≈ 9 dB/s, not muted).
 const PARTIALS: u32 = 30;
 const RING: f64 = 1.0;
@@ -182,7 +179,7 @@ fn run_names_notes_on_another_string() {
     // Step 1: the run, two notes one string lower than the tab (same pitch, higher fret).
     let profile = Profile::new("b3-strings");
     let score = profile.dir.join("refrain.mid");
-    write_midi(&score, "Refrain", &RIFF_AND_E);
+    write_midi(&score, "Refrain", &RIFF);
     let mut core = profile.core(None);
     core.open(&score).unwrap();
     let a = core.arrangement().unwrap().clone();

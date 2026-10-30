@@ -28,6 +28,9 @@ const MS_PER_S: f64 = 1000.0;
 /// Notes this soon after one taken back are scored again with it gone: the tracker takes a note
 /// back before the full window would have told it (about 90 ms), at the pluck's rise check.
 const RESCORE_S: f64 = 0.3;
+/// A note's string is told this long after its onset at most (R7: the peak up to 30 ms late,
+/// the window from 30 ms after it for 250 ms, a block), plus margin. The run ends after it.
+const STRING_TOLD_S: f64 = 0.4;
 
 /// Riff-Werkstatt (LH-MOD-04): keeps the hit rate in a target band (decision round 5, after
 /// planung/DIDAKTIK.md idea I7). Above the band for `passes_needed` passes in a row → one step faster
@@ -469,16 +472,36 @@ impl Session {
         else {
             return;
         };
-        let palm_muted = self
-            .arrangement
-            .notes
-            .get(note)
-            .is_some_and(|n| n.techniques.contains(&Technique::PalmMute));
-        if palm_muted {
+        if !self.tells_string(note) {
             return;
         }
         self.strings
             .push((verdict.onset_s, pass, note, verdict.heard));
+    }
+
+    /// Whether the tab puts `note` on a string that is told (palm-muted notes die too fast).
+    fn tells_string(&self, note: usize) -> bool {
+        self.arrangement
+            .notes
+            .get(note)
+            .is_some_and(|n| n.string.is_some() && !n.techniques.contains(&Technique::PalmMute))
+    }
+
+    /// Whether the last struck note's string may still be told: the analysis has not heard
+    /// `STRING_TOLD_S` past it yet. Without word from the analysis (a file ended) nothing comes.
+    fn string_pending(&self) -> bool {
+        let (Some(heard), Some(&(onset, pass, note))) = (self.heard_s, self.struck.last()) else {
+            return false;
+        };
+        let told = self
+            .strings
+            .iter()
+            .any(|(o, p, n, _)| *p == pass && *n == note && same_onset(*o, onset));
+        if told || !self.tells_string(note) {
+            return false;
+        }
+        let due_s = self.real_s(onset) + STRING_TOLD_S;
+        heard < due_s && self.now_s < due_s + MAX_ANALYSIS_LAG_S
     }
 
     /// The strings struck notes were heard on (detected onset, pass, note, heard), in the order
@@ -1066,7 +1089,8 @@ impl Session {
         }
         let done =
             self.cursor_slot >= self.matcher.expected().len() || matches!(self.mode, Mode::Wait);
-        if done {
+        // The summary is built now: a string told late would miss it.
+        if done && !self.string_pending() {
             self.finished = true;
             self.events.push(SessionEvent::Finished);
         }
