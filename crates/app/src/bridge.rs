@@ -2343,6 +2343,8 @@ impl qobject::Controller {
             }
             Err(e) => self.as_mut().show_error(&e),
         }
+        // A start on other devices forgets the measurements (review #202), also when it fails.
+        self.as_mut().refresh_latency_note();
     }
 
     fn start_loopback(mut self: Pin<&mut Self>) {
@@ -2361,6 +2363,8 @@ impl qobject::Controller {
             }
             Err(e) => self.as_mut().show_error(&e),
         }
+        // A start on other devices forgets the measurements (review #202), also when it fails.
+        self.as_mut().refresh_latency_note();
     }
 
     fn change_transpose(mut self: Pin<&mut Self>, semitones: i32) {
