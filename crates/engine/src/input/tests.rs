@@ -335,6 +335,11 @@ fn note_after_a_resume_is_kept() {
             onsets.iter().any(|o| (o - 1.89).abs() < 0.02),
             "{ringing:?}: the note at 1.89 s: {onsets:?}"
         );
+        // The jump back to the ringing string at 1.86 s stays no note (round 4).
+        assert!(
+            !onsets.iter().any(|o| (1.1..1.875).contains(o)),
+            "{ringing:?}: nothing inside the stall or at the resume: {onsets:?}"
+        );
     }
 }
 

@@ -152,3 +152,30 @@ fn counts_a_skip() {
     let settled = &errors[errors.len() / 2..];
     assert!(largest(settled) < LOCKED_S, "{} s", largest(settled));
 }
+
+/// Stamps need not start at 0 (a device clock since boot): the loop locks with `LOCK_HZ` for
+/// `LOCK_S` from its first stamp, not from 0 s.
+#[test]
+fn locks_from_its_first_stamp() {
+    let mut late = DeviceClock::new(RATE);
+    let mut device = Device::new(50.0, 0.0);
+    device.offset_s = 1000.0 + 0.000_4;
+    device.run(&mut late, 2048, 0.05);
+    device.offset_s = 1000.0;
+    let late_errors = device.run(&mut late, 2048, 1.5);
+
+    let mut early = DeviceClock::new(RATE);
+    let mut device = Device::new(50.0, 0.0);
+    device.offset_s = 0.000_4;
+    device.run(&mut early, 2048, 0.05);
+    device.offset_s = 0.0;
+    let early_errors = device.run(&mut early, 2048, 1.5);
+
+    let tail = |e: &[f64]| largest(&e[e.len() - 5..]);
+    assert!(
+        (tail(&late_errors) - tail(&early_errors)).abs() < 1e-6,
+        "from 1000 s: {} s, from 0 s: {} s",
+        tail(&late_errors),
+        tail(&early_errors)
+    );
+}

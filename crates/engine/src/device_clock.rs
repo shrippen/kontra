@@ -62,6 +62,7 @@ impl DeviceClock {
     /// Takes a stamp: the device time of `sample`. Stamps come in sample order.
     pub(crate) fn stamp(&mut self, sample: u64, stamp_s: f64) {
         let Some(lock) = self.lock else {
+            self.first_s = stamp_s;
             self.lock = Some(Lock {
                 sample,
                 time_s: stamp_s,
