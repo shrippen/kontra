@@ -177,6 +177,8 @@ Erwartet: Töne während der Vorgabe zählen nicht; jeder gespielte Ton hat Hake
 2. Mit den Techniken spielen, eine Dead Note aber normal anschlagen.
 3. Auswertung lesen; Thomas zeigt sie am Beamer, Tab-Lane und Tabulatur.
 Erwartet: jede Technik-Note hat ein Zeichen (h, p, sl, x, Klammer) und danach ein Ergebnis in Form, nicht nur Farbe; das Slide-Zeichen und sein Ergebnis stehen an der Ausgangsnote wie in gedruckter Tabulatur; die Ghost Note ( ) hat nur ihr Zeichen, kein Technik-Ergebnis; die Auswertung zählt je Technik („Dead Note: 1 von 2“), die Trefferquote bleibt davon unberührt (die normal angeschlagene Dead Note trifft, eine gedämpft gespielte auch, ohne Tonhöhe; Palm Mute hat eine Tonhöhe und wird an ihr gemessen); Hammer-on- und Pull-off-Töne sind keine zusätzlichen Noten; am Mikrofon sagt die Auswertung, dass Slap und Pop nicht bewertet werden.
+4. Thomas (Runde 17): Slap-Groove über Kabel, den Slap normal angeschlagen.
+Erwartet: ein erkannter Slap/Pop steht an der Note, ein normal angeschlagener ist kein Technik-Fehler (nur das Zeichen); die Auswertung zählt Slap und Pop nicht und sagt, dass sie nur als Hinweis gezeigt werden; der Ton zählt.
 
 **J-C6 Sitzt es ohne Noten?** ⚙ · Personas: P2 Jens, P1 Lea · Phase 2 · LH-LRN-05, LH-MOD-04
 1. Jens: Takt 1 in der Werkstatt üben, bis er im Zielband liegt; „Ohne Hilfe prüfen“.
