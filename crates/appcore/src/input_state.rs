@@ -42,12 +42,17 @@ impl InputState {
 
 /// Which side really failed (owner, review #213: "Eingang nachprüfen"). An interface that is
 /// input and output may report its output first; if the input device is no longer listed,
-/// the input is lost too. Recordings and MIDI cannot vanish this way.
-pub(crate) fn lost_side(side: Direction, input: &InputChoice, inputs: &[DeviceInfo]) -> Direction {
-    let InputChoice::Device { id, .. } = input else {
+/// the input is lost too. Recordings and MIDI cannot vanish this way: only for a device are
+/// the `inputs` listed.
+pub(crate) fn lost_side(
+    side: Direction,
+    input: Option<&InputChoice>,
+    inputs: impl FnOnce() -> Vec<DeviceInfo>,
+) -> Direction {
+    let Some(InputChoice::Device { id, .. }) = input else {
         return side;
     };
-    if side == Direction::Output && !crate::unplug::is_back(inputs, id.as_deref()) {
+    if side == Direction::Output && !crate::unplug::is_back(&inputs(), id.as_deref()) {
         return Direction::Input;
     }
     side
@@ -74,6 +79,8 @@ pub(crate) struct InputStatus {
     state: InputState,
     using: InputUse,
     detail: String,
+    /// The input as it was opened (the device resolved then, not the choice now).
+    opened: Option<InputChoice>,
 }
 
 impl InputStatus {
@@ -82,13 +89,15 @@ impl InputStatus {
             state: InputState::Off,
             using: InputUse::Practice,
             detail: String::new(),
+            opened: None,
         }
     }
 
-    pub(crate) fn opened(&mut self, using: InputUse, name: String) {
+    pub(crate) fn opened(&mut self, using: InputUse, name: String, choice: InputChoice) {
         self.state = InputState::Connected;
         self.using = using;
         self.detail = name;
+        self.opened = Some(choice);
     }
 
     /// The input of `using` did not open: refused by the system, or any other fault.
@@ -181,12 +190,18 @@ impl Core {
     /// A device failed while running: everything stops. A lost input shows as the input's
     /// state; a lost output, or an input without a state (ear training), as a message.
     pub(crate) fn device_lost(&mut self, side: Direction, reason: String) -> Vec<UiEvent> {
-        let side = match side {
-            Direction::Output => {
-                lost_side(side, &self.input_choice(), &list_devices(Direction::Input))
-            }
-            Direction::Input => side,
-        };
+        self.device_lost_in(side, reason, || list_devices(Direction::Input))
+    }
+
+    /// `device_lost` with the input devices listed by `inputs` (tests list their own).
+    fn device_lost_in(
+        &mut self,
+        side: Direction,
+        reason: String,
+        inputs: impl FnOnce() -> Vec<DeviceInfo>,
+    ) -> Vec<UiEvent> {
+        // The input as opened: the choice resolved now would pick another device (review #213).
+        let side = lost_side(side, self.input.opened.as_ref(), inputs);
         let input = self.input.clone();
         self.stop_live();
         self.tuner = None;
@@ -209,14 +224,15 @@ impl Core {
 
     /// The input of `using` opened.
     pub(crate) fn input_opened(&mut self, using: InputUse) {
-        let name = self.input_label();
-        self.input.opened(using, name);
+        let choice = self.input_choice();
+        let name = self.input_label(&choice);
+        self.input.opened(using, name, choice);
     }
 
     /// What the player calls the input: the device's name, the recording's file name, the
     /// MIDI keyboard.
-    fn input_label(&self) -> String {
-        match self.input_choice() {
+    fn input_label(&self, choice: &InputChoice) -> String {
+        match choice.clone() {
             InputChoice::File { path, .. } => path
                 .file_name()
                 .map_or_else(String::new, |n| n.to_string_lossy().into()),
@@ -241,7 +257,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("kontra-input-state-{}", std::process::id()));
         let mut core = Core::new(&dir, QaOptions::default());
         core.input
-            .opened(InputUse::Practice, "Scarlett Solo".into());
+            .opened(InputUse::Practice, "Scarlett Solo".into(), scarlett());
         core.input.observe(&[PracticeEvent::InputStalled]);
         assert_eq!(core.input_state(), InputState::NoSignal);
         assert_eq!(core.translate(PracticeEvent::InputStalled), None);
@@ -251,7 +267,7 @@ mod tests {
 
     fn connected() -> InputStatus {
         let mut status = InputStatus::new();
-        status.opened(InputUse::Practice, "Scarlett Solo".into());
+        status.opened(InputUse::Practice, "Scarlett Solo".into(), scarlett());
         status
     }
 
@@ -272,7 +288,7 @@ mod tests {
         status = status.lost("unplugged");
         status.observe(&[PracticeEvent::InputResumed]);
         assert_eq!(status.state, InputState::Failed);
-        status.opened(InputUse::Practice, "Scarlett Solo".into());
+        status.opened(InputUse::Practice, "Scarlett Solo".into(), scarlett());
         assert_eq!(status.state, InputState::Connected);
     }
 
@@ -281,17 +297,9 @@ mod tests {
     #[test]
     fn a_lost_output_is_no_input_fault() {
         let dir = std::env::temp_dir().join(format!("kontra-output-lost-{}", std::process::id()));
-        let mut core = Core::new(
-            &dir,
-            // A recording: the device list of the machine running the test plays no part.
-            QaOptions {
-                input_file: Some(dir.join("take.wav")),
-                laptop_jack: false,
-            },
-        );
-        core.input
-            .opened(InputUse::Practice, "Scarlett Solo".into());
-        let events = core.device_lost(Direction::Output, "headphones gone".into());
+        let mut core = core_on_scarlett(&dir);
+        let both = || vec![device("laptop", true), device("scarlett", false)];
+        let events = core.device_lost_in(Direction::Output, "headphones gone".into(), both);
         assert_ne!(core.input_state(), InputState::Failed);
         assert!(
             matches!(events.as_slice(), [UiEvent::Error(text)] if text.contains("headphones gone")),
@@ -313,44 +321,74 @@ mod tests {
         }
     }
 
-    // Scarlett as input and output, unplugged: its output reports first, the input is gone
-    // from the list too.
-    #[test]
-    fn an_output_loss_checks_the_input() {
-        let scarlett = InputChoice::Device {
+    fn scarlett() -> InputChoice {
+        InputChoice::Device {
             id: Some("scarlett".into()),
             channel: None,
+        }
+    }
+
+    /// A core fed by a recording (no real device anywhere) that opened the Scarlett.
+    fn core_on_scarlett(dir: &std::path::Path) -> Core {
+        let qa = QaOptions {
+            input_file: Some(dir.join("take.wav")),
+            laptop_jack: false,
         };
-        let laptop = [device("laptop", true)];
-        let both = [device("laptop", true), device("scarlett", false)];
-        assert_eq!(
-            lost_side(Direction::Output, &scarlett, &laptop),
-            Direction::Input
-        );
-        assert_eq!(
-            lost_side(Direction::Output, &scarlett, &both),
-            Direction::Output
-        );
-        // The default input: lost only when no default input is listed.
+        let mut core = Core::new(dir, qa);
+        core.input
+            .opened(InputUse::Practice, "Scarlett Solo".into(), scarlett());
+        core
+    }
+
+    // Scarlett as input and output, unplugged: its output reports first; the Scarlett that was
+    // opened is gone from the list (the laptop's microphone, the default, is still there).
+    // Review #213 round 4: the choice resolved anew fell back to the laptop.
+    #[test]
+    fn an_output_loss_checks_the_opened_input() {
+        let dir = std::env::temp_dir().join(format!("kontra-output-check-{}", std::process::id()));
+        let mut core = core_on_scarlett(&dir);
+        core.device_lost_in(Direction::Output, "gone".into(), || {
+            vec![device("laptop", true)]
+        });
+        assert_eq!(core.input_state(), InputState::Failed);
+
+        let mut core = core_on_scarlett(&dir);
+        let both = || vec![device("laptop", true), device("scarlett", false)];
+        core.device_lost_in(Direction::Output, "headphones gone".into(), both);
+        assert_ne!(core.input_state(), InputState::Failed);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // The default input: lost only when no default input is listed. A recording cannot
+    // vanish with the output, and nothing is listed for it.
+    #[test]
+    fn an_output_loss_lists_only_for_a_device() {
         let default = InputChoice::Device {
             id: None,
             channel: None,
         };
+        let laptop = || vec![device("laptop", true)];
         assert_eq!(
-            lost_side(Direction::Output, &default, &laptop),
+            lost_side(Direction::Output, Some(&default), laptop),
             Direction::Output
         );
         assert_eq!(
-            lost_side(Direction::Output, &default, &[]),
+            lost_side(Direction::Output, Some(&default), Vec::new),
             Direction::Input
         );
-        // A recording cannot vanish with the output.
         let file = InputChoice::File {
             path: "take.wav".into(),
             laptop_jack: false,
         };
-        assert_eq!(lost_side(Direction::Output, &file, &[]), Direction::Output);
-        assert_eq!(lost_side(Direction::Input, &file, &both), Direction::Input);
+        let unlisted = || -> Vec<DeviceInfo> { panic!("listed devices for a recording") };
+        assert_eq!(
+            lost_side(Direction::Output, Some(&file), unlisted),
+            Direction::Output
+        );
+        assert_eq!(
+            lost_side(Direction::Output, None, unlisted),
+            Direction::Output
+        );
     }
 
     // Unplugged while open: failed; a device error with nothing open changes nothing.
@@ -368,7 +406,7 @@ mod tests {
     #[test]
     fn only_its_own_use_stops_it() {
         let mut status = InputStatus::new();
-        status.opened(InputUse::Tuner, "Scarlett Solo".into());
+        status.opened(InputUse::Tuner, "Scarlett Solo".into(), scarlett());
         status.stopped(InputUse::Practice);
         assert_eq!(status.state, InputState::Connected);
         status.stopped(InputUse::Tuner);
