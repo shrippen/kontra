@@ -75,7 +75,7 @@ pub use summary::{
     TimingHistogram,
 };
 pub use technique::{
-    technique_signs, technique_targets, told_techniques, TechniqueOutcome, TechniqueResult,
-    TechniqueTally, TechniqueTarget,
+    technique_signs, technique_targets, told_techniques, TechniqueGrade, TechniqueOutcome,
+    TechniqueResult, TechniqueTally, TechniqueTarget,
 };
 pub use transport::{LoopRange, Transport};

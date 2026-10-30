@@ -13,6 +13,8 @@
 //! sign:     E1 sl ✓                               (round 10: shown where it starts, as printed)
 //! ```
 //!
+//! Slap and pop are hints (Runde 17): shown when heard, never counted or marked wrong.
+//!
 //! Dead notes (x, `Muted`) are judged as muted; ghost notes in parentheses are soft notes with
 //! a pitch and only get their sign (round 10).
 //!
@@ -37,6 +39,10 @@ const SCORED: [Technique; 6] = [
 /// Techniques that are shown but not judged: a ghost note ( ) is soft, not muted (round 10).
 const SHOWN: [Technique; 1] = [Technique::Ghost];
 
+/// Techniques told only as hints (Runde 17): on foreign basses the tracker tells 18–44 % of
+/// slaps and 1–14 % of pops, so a mismatch is no error until it is calibrated (LH-BEW-17).
+const HINTS: [Technique; 2] = [Technique::Slap, Technique::Pop];
+
 /// A slide out of a note arrives at the next note on its string if that starts at most this
 /// late after the slide's note ends; else it slides into nothing (a "shift slide out").
 const SLIDE_GAP_TICKS: u64 = TICKS_PER_QUARTER;
@@ -55,6 +61,15 @@ pub enum TechniqueOutcome {
     NotHeard,
 }
 
+/// How a technique result counts (Runde 17).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TechniqueGrade {
+    /// Counted and marked as played or not.
+    Judged,
+    /// Shown when heard, never counted or marked wrong.
+    Hint,
+}
+
 /// The technique result of one note in one pass.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct TechniqueResult {
@@ -65,12 +80,21 @@ pub struct TechniqueResult {
     pub sign: usize,
     pub expected: Technique,
     pub outcome: TechniqueOutcome,
+    pub grade: TechniqueGrade,
     pub position_s: f64,
 }
 
 impl TechniqueResult {
     pub fn is_played(&self) -> bool {
         self.outcome == TechniqueOutcome::Played
+    }
+
+    /// The result to show at the note: `None` for a hint not played as scored.
+    pub fn mark(&self) -> Option<TechniqueOutcome> {
+        if self.grade == TechniqueGrade::Hint && !self.is_played() {
+            return None;
+        }
+        Some(self.outcome)
     }
 }
 
@@ -141,6 +165,8 @@ pub(crate) struct TechniqueJudge {
     legato: Vec<Target>,
     /// Techniques in the score this input cannot tell (shown as "not judged").
     untold: Vec<Technique>,
+    /// Techniques in the score told only as hints.
+    hints: Vec<Technique>,
     resolved: HashSet<(u32, usize)>,
     results: Vec<TechniqueResult>,
     /// Next legato target to expire: (pass, index into `legato`).
@@ -153,6 +179,7 @@ impl TechniqueJudge {
         let mut struck = BTreeMap::new();
         let mut legato = Vec::new();
         let mut untold = Vec::new();
+        let mut hints = Vec::new();
         for TechniqueTarget {
             note,
             sign,
@@ -164,6 +191,9 @@ impl TechniqueJudge {
                     untold.push(technique);
                 }
                 continue;
+            }
+            if grade(technique) == TechniqueGrade::Hint && !hints.contains(&technique) {
+                hints.push(technique);
             }
             let n = &arrangement.notes[note];
             let from = if sign != note {
@@ -190,10 +220,12 @@ impl TechniqueJudge {
         }
         legato.sort_by(|a, b| a.position_s.total_cmp(&b.position_s));
         untold.sort_by_key(|t| SCORED.iter().position(|s| s == t));
+        hints.sort_by_key(|t| SCORED.iter().position(|s| s == t));
         TechniqueJudge {
             struck,
             legato,
             untold,
+            hints,
             resolved: HashSet::new(),
             results: Vec::new(),
             cursor: (0, 0),
@@ -226,6 +258,11 @@ impl TechniqueJudge {
 
     pub(crate) fn untold(&self) -> &[Technique] {
         &self.untold
+    }
+
+    /// Techniques in the score shown as hints only (slap and pop over a cable, Runde 17).
+    pub(crate) fn hints(&self) -> &[Technique] {
+        &self.hints
     }
 
     /// Judges a struck note the matcher decided on; `played` is `None` when it was missed.
@@ -312,7 +349,7 @@ impl TechniqueJudge {
         }
     }
 
-    /// Per technique, the last result per pass and note.
+    /// Per judged technique, the last result per pass and note; hints are not counted.
     pub(crate) fn tally(&self) -> Vec<TechniqueTally> {
         let mut last: BTreeMap<(u32, usize), TechniqueResult> = BTreeMap::new();
         for r in &self.results {
@@ -320,6 +357,7 @@ impl TechniqueJudge {
         }
         SCORED
             .iter()
+            .filter(|&&technique| grade(technique) == TechniqueGrade::Judged)
             .filter_map(|&technique| {
                 let of: Vec<_> = last.values().filter(|r| r.expected == technique).collect();
                 if of.is_empty() {
@@ -345,11 +383,20 @@ impl TechniqueJudge {
             sign: target.sign,
             expected: target.technique,
             outcome,
+            grade: grade(target.technique),
             position_s: target.position_s,
         };
         self.results.push(result);
         result
     }
+}
+
+/// Whether a technique is judged or only a hint.
+fn grade(technique: Technique) -> TechniqueGrade {
+    if HINTS.contains(&technique) {
+        return TechniqueGrade::Hint;
+    }
+    TechniqueGrade::Judged
 }
 
 /// A note judged for a technique and the note that shows its sign.
@@ -502,7 +549,34 @@ mod tests {
             }
         );
         assert_eq!(tally[1].played, 0);
-        assert_eq!(tally.len(), 3, "the dead note was not judged yet");
+        assert_eq!(
+            tally.len(),
+            2,
+            "the slap is a hint, the dead note not judged yet"
+        );
+    }
+
+    /// Runde 17: over a cable slap and pop are hints. A heard slap shows at the note; a plucked
+    /// or unheard one is no technique error and neither is counted.
+    #[test]
+    fn slap_and_pop_are_hints() {
+        let mut a = piece();
+        a.notes[4].techniques = vec![Technique::Pop];
+        let mut j = TechniqueJudge::new(&a, InputSource::Line);
+        assert_eq!(j.hints(), &[Technique::Slap, Technique::Pop]);
+
+        let plucked = j.judge_struck(0, 3, Some(None)).unwrap();
+        assert_eq!(plucked.grade, TechniqueGrade::Hint);
+        assert_eq!(plucked.mark(), None, "no error mark");
+        let unheard = j.judge_struck(0, 4, None).unwrap();
+        assert_eq!(unheard.mark(), None);
+        let slapped = j.judge_struck(1, 3, Some(Some(Technique::Slap))).unwrap();
+        assert_eq!(slapped.mark(), Some(TechniqueOutcome::Played));
+        assert!(j.tally().is_empty(), "hints are not counted");
+
+        let slide = j.judge_struck(0, 1, Some(None)).unwrap();
+        assert_eq!(slide.grade, TechniqueGrade::Judged);
+        assert_eq!(slide.mark(), Some(TechniqueOutcome::Other(None)));
     }
 
     /// Round 11: a slide over one fret sounds like a hammer-on (0–22 ms to the next note); each
@@ -560,6 +634,7 @@ mod tests {
         let mic = TechniqueJudge::new(&piece(), InputSource::Microphone);
         assert!(!mic.struck.contains_key(&3));
         assert_eq!(mic.untold(), &[Technique::Slap]);
+        assert!(mic.hints().is_empty(), "untold, not a hint");
         let midi = TechniqueJudge::new(&piece(), InputSource::Midi);
         assert!(midi.struck.is_empty() && midi.legato.is_empty());
         assert_eq!(midi.untold().len(), 4);

@@ -2,9 +2,10 @@
 //! slide, dead notes (x) and a ghost note ( ), played with those techniques; every fourth technique note is plucked
 //! instead. The techniques are told apart from the hit rate: each note gets a technique result,
 //! the evaluation counts them per technique ("Hammer-on: 1 von 1"), and a plucked technique note
-//! still counts as a hit.
+//! still counts as a hit. Over the cable a slap is a hint (Runde 17): a plucked slap is no
+//! technique error.
 
-use crate::common::{run_until, Profile, COUNT_IN_S, RATE};
+use crate::common::{render, run_until, write_marked, Profile, COUNT_IN_S, RATE};
 use kontra_appcore::UiEvent;
 use std::time::Duration;
 
@@ -138,4 +139,64 @@ fn techniques_are_judged_apart_from_the_hit_rate() {
         "a plucked dead note hits, and a dead note is not judged by its pitch"
     );
     assert_eq!(summary["untoldText"], "");
+}
+
+/// Step 4 (Runde 17): a slap groove over the cable with the slap plucked. Slap and pop are hints:
+/// no technique error, nothing counted, and the evaluation says why.
+#[test]
+fn slap_over_the_cable_is_a_hint() {
+    let profile = Profile::new("c5-slap");
+    let song = profile.dir.join("Slap.mid");
+    write_marked(&song, "Slap", &[28, 31, 33, 28], &["slap"]);
+    let take = profile.dir.join("slap.wav");
+
+    let mut core = profile.core(None);
+    core.open(&song).unwrap();
+    let notes: serde_json::Value = serde_json::from_str(&core.notes_json()).unwrap();
+    assert_eq!(notes[0]["technique"], "slap");
+    let mistakes = kontra_session::Mistakes {
+        playing: kontra_session::Playing::Articulated { plain_every: 1 },
+        ..Default::default()
+    };
+    render(&take, core.arrangement().unwrap(), mistakes);
+
+    let mut core = profile.core(Some(&take));
+    core.open(&song).unwrap();
+    core.set_mode("song");
+    core.play();
+    let events = run_until(&mut core, Duration::from_secs(10), |e| {
+        matches!(e, UiEvent::Finished { .. })
+    });
+    let marks: Vec<&str> = events
+        .iter()
+        .filter_map(|e| match e {
+            UiEvent::Technique { result, .. } => Some(*result),
+            _ => None,
+        })
+        .collect();
+    assert!(!marks.is_empty(), "the slap keeps its sign");
+    assert!(
+        marks.iter().all(|r| r.is_empty()),
+        "a plucked slap is no technique error: {marks:?}"
+    );
+
+    let summary = events
+        .iter()
+        .find_map(|e| match e {
+            UiEvent::Finished { summary_json } => Some(summary_json.clone()),
+            _ => None,
+        })
+        .unwrap();
+    let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
+    assert_eq!(
+        summary["techniques"],
+        serde_json::json!([]),
+        "nothing counted"
+    );
+    assert_eq!(summary["hitRate"], 1.0, "the note counts");
+    assert_eq!(
+        summary["untoldText"],
+        "Nur als Hinweis gezeigt, nicht gewertet: Slap. Die Erkennung ist noch nicht bei jedem \
+         Bass sicher."
+    );
 }

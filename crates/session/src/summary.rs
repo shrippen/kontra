@@ -108,6 +108,9 @@ pub struct Summary {
     /// Techniques in the score this input cannot tell (slap and pop at a microphone).
     #[serde(default)]
     pub untold_techniques: Vec<Technique>,
+    /// Techniques in the score shown as hints only, not judged (slap and pop, Runde 17).
+    #[serde(default)]
+    pub hint_techniques: Vec<Technique>,
     /// Double stops in the score this input does not judge by both tones (microphone, R8).
     #[serde(default)]
     pub untold_double_stops: u32,
@@ -339,6 +342,7 @@ impl Summary {
             hesitant_bars: hesitant_bars(&final_results, mean_offset.unwrap_or(0.0)),
             techniques: Vec::new(),
             untold_techniques: Vec::new(),
+            hint_techniques: Vec::new(),
             untold_double_stops: 0,
             outside_offset_ms: None,
             outside_notes: Vec::new(),

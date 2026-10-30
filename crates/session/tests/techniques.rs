@@ -76,21 +76,34 @@ fn hammer_on_counts_apart_and_is_no_extra() {
     assert_eq!(summary.hit_rate, 1.0, "a plucked slap still hits");
     assert_eq!(
         summary.techniques,
-        vec![
-            TechniqueTally {
-                technique: Technique::HammerOn,
-                played: 1,
-                judged: 1
-            },
-            TechniqueTally {
-                technique: Technique::Slap,
-                played: 0,
-                judged: 1
-            },
-        ]
+        vec![TechniqueTally {
+            technique: Technique::HammerOn,
+            played: 1,
+            judged: 1
+        },],
+        "a slap is a hint, not counted (Runde 17)"
     );
     let slap = s.technique_results().iter().find(|r| r.note == 2).unwrap();
     assert_eq!(slap.outcome, TechniqueOutcome::Other(None));
+    assert_eq!(slap.mark(), None, "a plucked slap is no technique error");
+}
+
+/// Runde 17: over a cable a slap is a hint: shown when heard, the summary says so.
+#[test]
+fn cable_shows_slap_as_hint() {
+    let mut s = Session::new(piece(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    let take = [
+        played(0.0, 28.0, None),
+        played(0.5, 33.0, Some(Technique::HammerOn)),
+        played(1.0, 31.0, Some(Technique::Slap)),
+    ];
+    run(&mut s, &take, 2.0);
+    let slap = s.technique_results().iter().find(|r| r.note == 2).unwrap();
+    assert_eq!(slap.mark(), Some(TechniqueOutcome::Played));
+    let summary = s.summary();
+    assert_eq!(summary.hint_techniques, vec![Technique::Slap]);
+    assert!(summary.untold_techniques.is_empty());
 }
 
 #[test]
@@ -123,6 +136,7 @@ fn microphone_leaves_slap_unjudged() {
     run(&mut s, &[played(0.0, 28.0, None)], 2.0);
     let summary = s.summary();
     assert_eq!(summary.untold_techniques, vec![Technique::Slap]);
+    assert!(summary.hint_techniques.is_empty(), "untold, not a hint");
     assert!(summary
         .techniques
         .iter()
@@ -159,7 +173,7 @@ fn wait_mode_takes_a_hammer_on_as_such() {
 }
 
 /// A technique told after its note (the attack needed more audio): the note is judged again,
-/// and the evaluation counts the later verdict.
+/// and the later verdict stands (a slap, a hint since Runde 17: now shown at the note).
 #[test]
 fn technique_told_later_judges_again() {
     let mut s = Session::new(piece(), Mode::Song, ScoreSettings::default());
@@ -175,12 +189,8 @@ fn technique_told_later_judges_again() {
         technique: Technique::Slap,
     });
     run(&mut s, &[], 2.0);
-    let slap = s
-        .summary()
-        .techniques
-        .into_iter()
-        .find(|t| t.technique == Technique::Slap);
-    assert_eq!(slap.map(|t| (t.played, t.judged)), Some((1, 1)));
+    let slap = s.technique_results().iter().rev().find(|r| r.note == 2);
+    assert_eq!(slap.and_then(|r| r.mark()), Some(TechniqueOutcome::Played));
 }
 
 /// A harmonic sounds high and the tracker often hears it an octave or two lower (IDMT): its

@@ -2827,7 +2827,7 @@ impl Core {
             SessionEvent::Technique(t) => Some(UiEvent::Technique {
                 index: t.sign,
                 technique: technique_key(t.expected),
-                result: technique_result_key(t.outcome),
+                result: technique_result_key(t.mark()),
             }),
             SessionEvent::Holding { note } => {
                 let text = self.wait_text(note, None)?;
@@ -2949,7 +2949,8 @@ impl Core {
                     _ => {}
                 }
                 let technique = technique_of.get(&(pass, index));
-                if let Some(t) = technique {
+                let mark = technique.and_then(|t| t.mark());
+                if let (Some(t), Some(_)) = (technique, mark) {
                     parts.push(self.tr(
                         "summary.note.technique",
                         &[
@@ -2957,10 +2958,7 @@ impl Core {
                             (
                                 "result",
                                 self.tr(
-                                    &format!(
-                                        "technique.result.{}",
-                                        technique_result_key(t.outcome)
-                                    ),
+                                    &format!("technique.result.{}", technique_result_key(mark)),
                                     &[],
                                 ),
                             ),
@@ -2976,7 +2974,7 @@ impl Core {
                     "cents": r.cents,
                     "severity": severity(state),
                     "technique": technique.map_or("", |t| technique_key(t.expected)),
-                    "techniqueResult": technique.map_or("", |t| technique_result_key(t.outcome)),
+                    "techniqueResult": technique_result_key(mark),
                     "text": parts.join(" · "),
                 }))
             })
@@ -3000,14 +2998,20 @@ impl Core {
         String::new()
     }
 
-    /// What this input did not judge: techniques, and double stops at a microphone (Runde 17);
-    /// one line each.
-    fn untold_text(&self, techniques: &[String], double_stops: u32) -> String {
+    /// What this input did not judge: techniques, hints (slap and pop over a cable) and double
+    /// stops at a microphone (Runde 17); one line each.
+    fn untold_text(&self, techniques: &[String], hints: &[String], double_stops: u32) -> String {
         let mut parts = Vec::new();
         if !techniques.is_empty() {
             parts.push(self.tr(
                 "summary.techniques.untold",
                 &[("techniques", techniques.join(", "))],
+            ));
+        }
+        if !hints.is_empty() {
+            parts.push(self.tr(
+                "summary.techniques.hint",
+                &[("techniques", hints.join(", "))],
             ));
         }
         if double_stops > 0 {
@@ -3041,11 +3045,11 @@ impl Core {
                 })
             })
             .collect();
-        let untold: Vec<String> = s
-            .untold_techniques
-            .iter()
-            .map(|t| self.technique_name(*t))
-            .collect();
+        let names = |list: &[Technique]| -> Vec<String> {
+            list.iter().map(|t| self.technique_name(*t)).collect()
+        };
+        let untold = names(&s.untold_techniques);
+        let hints = names(&s.hint_techniques);
         let hardest_notes = hardest_notes(&notes);
         let arrangement = self.arrangement();
         let judging = arrangement.map_or(Judging::PitchAndTime, |a| a.judging);
@@ -3119,7 +3123,7 @@ impl Core {
             "notes": notes,
             "hardestNotes": hardest_notes,
             "techniques": technique_list,
-            "untoldText": self.untold_text(&untold, s.untold_double_stops),
+            "untoldText": self.untold_text(&untold, &hints, s.untold_double_stops),
         })
         .to_string()
     }
@@ -4202,12 +4206,13 @@ fn technique_key(technique: Technique) -> &'static str {
     }
 }
 
-/// Kante's key for a technique result.
-fn technique_result_key(outcome: TechniqueOutcome) -> &'static str {
-    match outcome {
-        TechniqueOutcome::Played => "played",
-        TechniqueOutcome::Other(_) => "other",
-        TechniqueOutcome::NotHeard => "unheard",
+/// Kante's key for a technique result; "" (the plain sign) for none, e.g. a hint not played.
+fn technique_result_key(mark: Option<TechniqueOutcome>) -> &'static str {
+    match mark {
+        None => "",
+        Some(TechniqueOutcome::Played) => "played",
+        Some(TechniqueOutcome::Other(_)) => "other",
+        Some(TechniqueOutcome::NotHeard) => "unheard",
     }
 }
 
@@ -6762,6 +6767,25 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&core.summary_json(&s, &[], &[])).unwrap();
         let text = v["untoldText"].as_str().unwrap();
         assert!(text.contains("Slap\nDoppelgriffe"), "{text}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Runde 17: slap and pop over a cable are hints; the summary says so.
+    #[test]
+    fn summary_tells_hint_techniques() {
+        let dir = temp_dir("hint-techniques");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        s.hint_techniques = vec![Technique::Slap, Technique::Pop];
+        let v: serde_json::Value = serde_json::from_str(&core.summary_json(&s, &[], &[])).unwrap();
+        assert_eq!(
+            v["untoldText"],
+            "Nur als Hinweis gezeigt, nicht gewertet: Slap, Pop. Die Erkennung ist noch nicht bei \
+             jedem Bass sicher."
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 

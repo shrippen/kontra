@@ -14,7 +14,8 @@ InputResumed}`. Offen: Prüfung am Solo (Aussetzer erzwingen, Latenz und Xruns).
 ## Übergabe (30.10.2026, Runde 17)
 
 Runde 17 beantwortet (ROADMAP, „Entscheidungen Runde 17“): Doppelgriffe über Mikrofon aus (Branch `runde-17`),
-Meldezeit 70 ms je Note außer Tönen unter E1, Einmessung der Techniken je Bass (LH-BEW-17) geplant. #198 (Brummen,
+Meldezeit 70 ms je Note außer Tönen unter E1. Einmessung der Techniken je Bass (LH-BEW-17) zurückgestellt, Slap
+und Pop über Kabel bis dahin nur Hinweis (Branch `tech-hint`). #198 (Brummen,
 ohne Drift-Regel) und `device-clock` (PR #209, ersetzt #186) laufen in eigenen Branches. Nächste Sitzung:
 Hardware-Prüfung mit dem Eigentümer, geführt. Nächster Schwerpunkt offen; der Eigentümer wird zu R5 (pYIN) erneut gefragt.
 
@@ -199,6 +200,9 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - Kleinigkeiten nach R1/R8: `SessionEvent::Reopened` (Note nach einer Rücknahme wieder offen).
 - `cleanup` (LH-NF-15): `ReportLimits` (`met`), `KorpusSet::report_limits`,
   `Evaluation::{p95_report_from_e1_ms, p95_report_below_e1_ms}`.
+
+- `tech-hint` (Runde 17, Slap/Pop als Hinweis): `TechniqueGrade` (`Judged`, `Hint`), `TechniqueResult::{grade, mark}`,
+  `Summary::hint_techniques`; `pub(crate) TechniqueJudge::hints`.
 
 ## pub-Schnittstellen, in Runde 17 freigegeben
 
