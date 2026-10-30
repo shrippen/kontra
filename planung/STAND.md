@@ -209,6 +209,11 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   (Re-Export); `pub(crate)`: `InputStatus`, `InputUse`, `Unstarted`, `Core::{input_opened, device_lost}`, `lost_side`, `InputUse::Ear`, `InputStatus::{remember, opened_input}`, `Core::input_lost_in` (ersetzt `input_lost`), `unplug::Lost::id` (`Core::live_setup` privat); Brücke:
   Properties `inputState`, `inputDetail`, Invokable `retryInput`. `Event::Error`, `PracticeEvent::Error` und `UiEvent::DeviceLost` tragen jetzt die Seite (`Direction`) und den rohen Grund.
 
+- `noise-floor` (E6, LH-EIN-16): `gate_over_floor`, `OnsetDetector::{measure_floor, noise_floor_db, set_gate}`,
+  `NoteTracker::{measure_floor, noise_floor_db, set_onset_gate}` (kontra-dsp); `Event::NoiseFloor`,
+  `Input::{measure_floor, set_onset_gate}` (kontra-engine); `LiveSetup::onset_gate_db`, `LiveCalibration::onset_gate_db`;
+  `Settings::onset_gate_db`.
+
 ## pub-Schnittstellen, in Runde 17 freigegeben
 
 - F3: `DetectedNote::{is_pitchless, stands_out, over_background}`, `Evaluation::pitched`; `pub(crate) yin::power_at`.

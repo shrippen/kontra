@@ -322,7 +322,14 @@ Erkennung und Messung:
   Eingangszeitachse an der DLL verankern (Ausgangsstempel), Loopback-Prüfung am Solo.
 - [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).
 - [ ] E5 Notenende (LH-BEW-10).
-- [ ] E6 Rauschboden bei der Kalibrierung (LH-EIN-16).
+- [x] E6 Rauschboden bei der Kalibrierung (LH-EIN-16, `noise-floor`): Beim Einzählen misst der Onset-Detektor den
+  Pegel im Anschlagband (10. Perzentil), die Schwelle liegt 6 dB darüber (−62 bis −40 dB) und gilt je Eingang.
+  Messung (synthetisch, weißes Rauschen): Am Kabel gab es schon vorher 0 Falschnoten je Minute bei −70 bis −35 dBFS
+  (die Spitzenwahl vergleicht mit dem eigenen Mittel); die Schwelle steigt bei −50 dBFS auf −53, bei −40 auf −43 dB,
+  gefunden wie vorher (leise Anschläge verliert das Rauschen selbst, nicht die Schwelle). Gewinn am Mikrofon (P6) im
+  leisen Raum: die feste Schwelle −48 dB verlor leise Anschläge, jetzt −62. `room-double` auf −30 dBFS Spitze bei
+  Rauschen −80 dBFS: Recall 14,7 % → 100 %, auf −40 dBFS 0 → 57,7 %; `idle-room` weiter 0 Falschnoten. Korpus
+  (`korpus check`, IDMT, Techniken, FiloBass) unverändert: er läuft ohne Kalibrierung.
 - [ ] E7 Erste echte Aufnahmen als eingefrorene Basis, neue als eigene Gruppen.
 - [x] E8 Brummen vor der Erkennung entfernen (Eigentümer, 29.10.): Netzfrequenz verfolgen (49,8–50,2 Hz, 60 Hz),
   Grundton und Obertöne abziehen statt sperren; Noten auf derselben Frequenz (G1, G2) bleiben (`crates/dsp/src/dehum.rs`,

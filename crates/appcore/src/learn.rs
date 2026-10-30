@@ -634,6 +634,7 @@ impl Core {
                 backing: None,
                 original: None,
                 backing_cache: None,
+                onset_gate_db: self.settings.onset_gate_db,
             };
             let mut live_ear = LiveEar::start(&setup, &self.instrument())
                 .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;

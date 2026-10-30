@@ -135,6 +135,7 @@ fn setup(a: &CheckArgs) -> session::LiveSetup {
         backing: None,
         original: None,
         backing_cache: None,
+        onset_gate_db: None,
     }
 }
 

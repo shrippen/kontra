@@ -2271,6 +2271,7 @@ impl Core {
             backing: self.backing().map(|(path, _)| path).filter(|p| p.exists()),
             original: self.backing_original(),
             backing_cache: Some(self.backing_cache_dir()),
+            onset_gate_db: self.settings.onset_gate_db,
         }
     }
 
@@ -3855,6 +3856,7 @@ impl Core {
             backing: None,
             original: None,
             backing_cache: None,
+            onset_gate_db: self.settings.onset_gate_db,
         };
         let mut live_ear = LiveEar::start(&setup, &instrument)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
@@ -8040,6 +8042,8 @@ mod tests {
         let latency = result.flatten().expect("measured");
         assert!((latency - 45.0).abs() <= 3.0, "{latency}");
         assert_eq!(core.settings().latency_ms, latency);
+        // LH-EIN-16: a silent count-in gives the lowest gate.
+        assert_eq!(core.settings().onset_gate_db, Some(-62.0));
         std::fs::remove_dir_all(dir).unwrap();
     }
 

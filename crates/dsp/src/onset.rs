@@ -13,6 +13,7 @@
 //!    fraction of the attack peak gives millisecond precision.
 
 use crate::biquad::{Biquad, FilterKind};
+use crate::noise_floor::FloorMeter;
 use rustfft::num_complex::Complex32;
 use rustfft::{Fft, FftPlanner};
 use std::f32::consts::PI;
@@ -95,6 +96,8 @@ pub struct OnsetDetector {
     last_onset: Option<u64>,
     /// Samples where no onset is taken (`mute`).
     muted: Range<u64>,
+    /// Band levels at the calibration's count-in (LH-EIN-16).
+    floor: FloorMeter,
     found: Vec<Onset>,
 }
 
@@ -141,6 +144,7 @@ impl OnsetDetector {
             pushed: 0,
             last_onset: None,
             muted: 0..0,
+            floor: FloorMeter::default(),
             found: Vec::with_capacity(64),
         }
     }
@@ -179,6 +183,21 @@ impl OnsetDetector {
     /// E.g. the jump back from inserted silence to a ringing string.
     pub fn mute(&mut self, samples: Range<u64>) {
         self.muted = samples;
+    }
+
+    /// Measures the band's noise floor over `samples` (counted like `Onset::sample`).
+    pub fn measure_floor(&mut self, samples: Range<u64>) {
+        self.floor.start(samples);
+    }
+
+    /// The noise floor measured (dB, like `OnsetConfig::gate_db`), once its span has passed.
+    pub fn noise_floor_db(&self) -> Option<f32> {
+        self.floor.floor_db()
+    }
+
+    /// Attacks below `gate_db` in the band are ignored from now on.
+    pub fn set_gate(&mut self, gate_db: f32) {
+        self.config.gate_db = gate_db;
     }
 
     pub fn reset(&mut self) {
@@ -230,10 +249,12 @@ impl OnsetDetector {
                 flux += (self.spectra[slot][k] - reference).max(0.0);
             }
         }
-        let gate = band_db(band_energy) > self.config.gate_db;
+        let level_db = band_db(band_energy);
+        let gate = level_db > self.config.gate_db;
+        let first = self.pushed.saturating_sub(WINDOW as u64);
+        self.floor.add(first..self.pushed, level_db);
         // A frame that sees muted samples adds nothing: neither an onset nor to the mean a
         // later attack must stand out of.
-        let first = self.pushed.saturating_sub(WINDOW as u64);
         let muted = first < self.muted.end && self.pushed > self.muted.start;
         self.flux.rotate_left(1);
         let last = self.flux.len() - 1;

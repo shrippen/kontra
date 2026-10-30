@@ -327,6 +327,8 @@ impl<O: Output> Practice<O> {
                 self.session.on_input_ended();
                 Some(PracticeEvent::InputEnded)
             }
+            // Asked for by the calibration only.
+            Event::NoiseFloor { .. } => None,
         }
     }
 
