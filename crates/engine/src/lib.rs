@@ -103,3 +103,10 @@ pub enum EngineError {
     #[error("cannot start the analysis thread: {0}")]
     Thread(std::io::Error),
 }
+
+impl EngineError {
+    /// True if the system refused the audio device (LH-EIN-15).
+    pub fn is_denied(&self) -> bool {
+        matches!(self, EngineError::Audio(e) if e.is_denied())
+    }
+}
