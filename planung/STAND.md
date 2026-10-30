@@ -3,11 +3,13 @@
 Übergabe zwischen Sitzungen. Stand: 2026-10-29. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
 
-## Übergabe (29.10.2026, Branch `device-clock`, auf #186)
+## Übergabe (30.10.2026, Branch `device-clock`, ersetzt #186)
 
 R3 erster Teil: Gerätestempel über eine DLL (`engine/src/device_clock.rs`), Verluste unter 4 ms zählen nicht, Sperre
-am Wiedereinsatz nur nach echtem Verlust mit klingender Saite, 10 ms, im Onset-Detektor. Kein PR; der Eigentümer
-entscheidet, ob der Branch in #186 geht. Neue `pub`: `OnsetDetector::mute`, `NoteTracker::mute_onsets` (kontra-dsp).
+am Wiedereinsatz nur nach echtem Verlust mit klingender Saite, 10 ms, im Onset-Detektor (Eigentümer, Runde 17,
+Option 1). Neuer PR statt #186. Neue `pub`: `OnsetDetector::mute`, `NoteTracker::mute_onsets` (kontra-dsp); aus #186
+`Event::{Stalled, Resumed}`, `Session::on_stalled`, `Session::on_resumed`, `PracticeEvent::{InputStalled,
+InputResumed}`. Offen: Prüfung am Solo (Aussetzer erzwingen, Latenz und Xruns).
 
 ## Übergabe (29.10.2026, Harmonicon-Analyse)
 
