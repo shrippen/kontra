@@ -2323,10 +2323,14 @@ impl Core {
                 *peak_db = held;
             }
         }
-        let lost = events.iter().find_map(|e| match e {
-            UiEvent::DeviceLost(side, m) => Some((*side, m.clone())),
-            _ => None,
-        });
+        // Input before output when both failed in this tick.
+        let lost = events
+            .iter()
+            .filter_map(|e| match e {
+                UiEvent::DeviceLost(side, m) => Some((*side, m.clone())),
+                _ => None,
+            })
+            .min_by_key(|(side, _)| *side != Direction::Input);
         if let Some((side, reason)) = lost {
             events.extend(self.device_lost(side, reason));
         }

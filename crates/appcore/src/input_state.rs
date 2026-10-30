@@ -9,7 +9,9 @@
 //! ```
 
 use crate::{Core, UiEvent};
-use kontra_session::{list_devices, Direction, EngineError, InputChoice, PracticeEvent};
+use kontra_session::{
+    list_devices, DeviceInfo, Direction, EngineError, InputChoice, PracticeEvent,
+};
 
 /// The input's state for the player.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,6 +38,19 @@ impl InputState {
             InputState::Denied => "denied",
         }
     }
+}
+
+/// Which side really failed (owner, review #213: "Eingang nachprüfen"). An interface that is
+/// input and output may report its output first; if the input device is no longer listed,
+/// the input is lost too. Recordings and MIDI cannot vanish this way.
+pub(crate) fn lost_side(side: Direction, input: &InputChoice, inputs: &[DeviceInfo]) -> Direction {
+    let InputChoice::Device { id, .. } = input else {
+        return side;
+    };
+    if side == Direction::Output && !crate::unplug::is_back(inputs, id.as_deref()) {
+        return Direction::Input;
+    }
+    side
 }
 
 /// What the input feeds; a retry opens it for the same.
@@ -166,6 +181,12 @@ impl Core {
     /// A device failed while running: everything stops. A lost input shows as the input's
     /// state; a lost output, or an input without a state (ear training), as a message.
     pub(crate) fn device_lost(&mut self, side: Direction, reason: String) -> Vec<UiEvent> {
+        let side = match side {
+            Direction::Output => {
+                lost_side(side, &self.input_choice(), &list_devices(Direction::Input))
+            }
+            Direction::Input => side,
+        };
         let input = self.input.clone();
         self.stop_live();
         self.tuner = None;
@@ -260,7 +281,14 @@ mod tests {
     #[test]
     fn a_lost_output_is_no_input_fault() {
         let dir = std::env::temp_dir().join(format!("kontra-output-lost-{}", std::process::id()));
-        let mut core = Core::new(&dir, QaOptions::default());
+        let mut core = Core::new(
+            &dir,
+            // A recording: the device list of the machine running the test plays no part.
+            QaOptions {
+                input_file: Some(dir.join("take.wav")),
+                laptop_jack: false,
+            },
+        );
         core.input
             .opened(InputUse::Practice, "Scarlett Solo".into());
         let events = core.device_lost(Direction::Output, "headphones gone".into());
@@ -270,6 +298,59 @@ mod tests {
             "{events:?}"
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn device(id: &str, is_default: bool) -> DeviceInfo {
+        DeviceInfo {
+            id: id.into(),
+            name: id.into(),
+            direction: Direction::Input,
+            is_default,
+            connection: kontra_session::Connection::Usb,
+            sample_rate: 48_000,
+            channels: 2,
+            past_pipewire: false,
+        }
+    }
+
+    // Scarlett as input and output, unplugged: its output reports first, the input is gone
+    // from the list too.
+    #[test]
+    fn an_output_loss_checks_the_input() {
+        let scarlett = InputChoice::Device {
+            id: Some("scarlett".into()),
+            channel: None,
+        };
+        let laptop = [device("laptop", true)];
+        let both = [device("laptop", true), device("scarlett", false)];
+        assert_eq!(
+            lost_side(Direction::Output, &scarlett, &laptop),
+            Direction::Input
+        );
+        assert_eq!(
+            lost_side(Direction::Output, &scarlett, &both),
+            Direction::Output
+        );
+        // The default input: lost only when no default input is listed.
+        let default = InputChoice::Device {
+            id: None,
+            channel: None,
+        };
+        assert_eq!(
+            lost_side(Direction::Output, &default, &laptop),
+            Direction::Output
+        );
+        assert_eq!(
+            lost_side(Direction::Output, &default, &[]),
+            Direction::Input
+        );
+        // A recording cannot vanish with the output.
+        let file = InputChoice::File {
+            path: "take.wav".into(),
+            laptop_jack: false,
+        };
+        assert_eq!(lost_side(Direction::Output, &file, &[]), Direction::Output);
+        assert_eq!(lost_side(Direction::Input, &file, &both), Direction::Input);
     }
 
     // Unplugged while open: failed; a device error with nothing open changes nothing.
