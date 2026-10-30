@@ -8,7 +8,7 @@
 //! ```
 
 use crate::{Core, UiEvent};
-use kontra_session::{list_devices, DeviceInfo, Direction};
+use kontra_session::{list_devices, DeviceInfo, Direction, InputChoice};
 use std::time::{Duration, Instant};
 
 const POLL: Duration = Duration::from_secs(2);
@@ -16,7 +16,7 @@ const POLL: Duration = Duration::from_secs(2);
 /// The input that went away; `id: None` was the system default.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Lost {
-    id: Option<String>,
+    pub(crate) id: Option<String>,
     polled: Instant,
 }
 
@@ -43,14 +43,23 @@ pub(crate) fn is_back(devices: &[DeviceInfo], lost: Option<&str>) -> bool {
 }
 
 impl Core {
-    /// Called when a device failed: remembers the input and offers another one.
-    pub(crate) fn input_lost(&mut self) -> Option<UiEvent> {
+    /// Called when a device failed: remembers the input and offers another of `devices`.
+    pub(crate) fn input_lost_in(
+        &mut self,
+        opened: Option<&InputChoice>,
+        devices: Vec<DeviceInfo>,
+    ) -> Option<UiEvent> {
         if self.qa.input_file.is_some() {
             return None;
         }
-        let id = self
-            .fallback_input
-            .clone()
+        // The device as opened: with none saved, the one picked then (an interface), not "the
+        // default input" the laptop's microphone would answer for (review #213).
+        let opened = match opened {
+            Some(InputChoice::Device { id: Some(id), .. }) => Some(id.clone()),
+            _ => None,
+        };
+        let id = opened
+            .or_else(|| self.fallback_input.clone())
             .or_else(|| self.settings.input_device.clone());
         let original = self
             .lost
@@ -60,7 +69,6 @@ impl Core {
             id: original.clone(),
             polled: Instant::now(),
         });
-        let devices = list_devices(Direction::Input);
         let offer = next_input(&devices, id.as_deref().or(original.as_deref()))?;
         Some(UiEvent::InputOffer {
             id: offer.id.clone(),

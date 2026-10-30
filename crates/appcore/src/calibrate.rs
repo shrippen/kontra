@@ -27,6 +27,7 @@ impl Core {
         self.stop_live();
         self.tuner = None;
         self.live_ear = None;
+        self.input.stopped(crate::input_state::InputUse::Ear);
         self.calibration = None;
         self.loopback = None;
         self.level.reset();

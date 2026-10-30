@@ -196,6 +196,19 @@ pub enum AudioError {
     Device { name: String, message: String },
 }
 
+/// What the system says when it refuses a device (ALSA's EACCES or EPERM, the OS text).
+const REFUSALS: [&str; 3] = ["EACCES", "EPERM", "Permission denied"];
+
+impl AudioError {
+    /// True if the system refused the device (LH-EIN-15: "permission missing").
+    pub fn is_denied(&self) -> bool {
+        let AudioError::Device { message, .. } = self else {
+            return false;
+        };
+        REFUSALS.iter().any(|r| message.contains(r))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
     Input,
@@ -881,6 +894,21 @@ impl OutputStream {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // LH-EIN-15: the system refused the device (ALSA EACCES, PipeWire "Permission denied");
+    // a busy or missing device is another fault.
+    #[test]
+    fn tells_a_refused_device() {
+        let refused = |message: &str| AudioError::Device {
+            name: "Scarlett Solo".into(),
+            message: message.into(),
+        };
+        let alsa = "ALSA function 'snd_pcm_open' failed with error 'EACCES: Permission denied'";
+        assert!(refused(alsa).is_denied());
+        assert!(refused("Permission denied (os error 13)").is_denied());
+        assert!(!refused("ALSA function 'snd_pcm_open' failed with error 'EBUSY'").is_denied());
+        assert!(!AudioError::NoDevice(Direction::Input).is_denied());
+    }
 
     // Hardware check 13.10.: Scarlett Solo, bass in input 2, input 1 empty. The average halved
     // the bass, so clipping (full scale) never reached the clip mark.

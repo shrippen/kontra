@@ -11,6 +11,7 @@ mod course;
 mod data;
 pub mod ear;
 mod i18n;
+mod input_state;
 mod learn;
 pub mod level;
 mod package;
@@ -25,6 +26,7 @@ mod unplug;
 
 pub use data::DataImport;
 pub use i18n::{Catalog, Language};
+pub use input_state::InputState;
 pub use kontra_session::{exercise, Blocks, ChainOrder, Density};
 pub use package::PackageAudio;
 pub use store::{
@@ -32,13 +34,14 @@ pub use store::{
     SectionBars, SectionDensity, Setlist, Settings,
 };
 
+use input_state::{InputUse, Unstarted};
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Judging, Technique, Tuning};
 use kontra_session::{
     import_file, list_devices, run_from, technique_signs, Chain, Connection, DeviceInfo, Direction,
     Gains, ImportResult, InputChoice, Intonation, Leaning, Live, LiveCalibration, LiveEar,
-    LiveLoopback, LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Observation, Outcome,
-    OutsideNote, Pocket, PocketVerdict, PracticeEvent, PracticeOptions, ProgressStore, Run,
-    ScoreSettings, SessionEvent, Shaping, Side, Summary, TechniqueOutcome, TechniqueResult,
+    LiveError, LiveLoopback, LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Observation,
+    Outcome, OutsideNote, Pocket, PocketVerdict, PracticeEvent, PracticeOptions, ProgressStore,
+    Run, ScoreSettings, SessionEvent, Shaping, Side, Summary, TechniqueOutcome, TechniqueResult,
     Workshop,
 };
 use serde_json::json;
@@ -130,8 +133,8 @@ pub enum UiEvent {
         state: &'static str,
         suggest_laptop: bool,
     },
-    /// The audio device failed (unplugged); the run was stopped.
-    DeviceLost(String),
+    /// An audio device failed (unplugged): which side, the system's reason; the run was stopped.
+    DeviceLost(Direction, String),
     /// Between runs: offer another note density (LH-MOD-06), 1..=3, with the question.
     DensitySuggestion {
         level: u8,
@@ -223,6 +226,8 @@ pub struct Core {
     active_setlist: Option<(String, usize)>,
     /// The input that went away, watched until it is back (LH-ALL-04).
     lost: Option<unplug::Lost>,
+    /// What the input does, for the player (LH-EIN-15).
+    input: input_state::InputStatus,
     /// Input used instead of the lost one; never saved.
     fallback_input: Option<String>,
     /// Dropouts of finished runs since the start (LH-NF-04).
@@ -306,6 +311,7 @@ impl Core {
             notice: None,
             active_setlist: None,
             lost: None,
+            input: input_state::InputStatus::new(),
             fallback_input: None,
             xruns_done: 0,
             catalog: Catalog::new(language),
@@ -1588,9 +1594,11 @@ impl Core {
         }
         if self.live.is_none() {
             match self.start_live() {
+                // The input's state shows it (LH-EIN-15), not a second bar.
+                Err(Unstarted::Input) => return events,
                 Ok(silent) if silent => events.push(UiEvent::Message(self.tr("hint.silent", &[]))),
                 Ok(_) => {}
-                Err(e) => return vec![UiEvent::Error(e)],
+                Err(Unstarted::Other(e)) => return vec![UiEvent::Error(e)],
             }
         }
         if self.output_is_bluetooth() {
@@ -1673,6 +1681,7 @@ impl Core {
         if let Some(live) = self.live.take() {
             self.xruns_done += live.xruns();
         }
+        self.input.stopped(InputUse::Practice);
         self.probe = None;
     }
 
@@ -2215,10 +2224,10 @@ impl Core {
     }
 
     /// Starts audio for the loaded arrangement; true if there is no sound output.
-    fn start_live(&mut self) -> Result<bool, String> {
+    fn start_live(&mut self) -> Result<bool, Unstarted> {
         self.check_audio_path();
         let Some(loaded) = self.loaded.as_ref() else {
-            return Err(self.tr("library.empty.hint", &[]));
+            return Err(Unstarted::Other(self.tr("library.empty.hint", &[])));
         };
         self.tuner = None;
         self.live_ear = None;
@@ -2226,7 +2235,35 @@ impl Core {
         let arrangement = loaded.arrangement.clone();
         let settings = self.score_settings(arrangement.instrument.kind);
         let options = self.practice_options();
-        let setup = LiveSetup {
+        let setup = self.live_setup();
+        let mut live = match Live::start(arrangement, self.mode(), settings, options, &setup) {
+            Ok(live) => live,
+            Err(LiveError::Input(e)) => {
+                self.input.failed(InputUse::Practice, &e);
+                return Err(Unstarted::Input);
+            }
+            Err(e @ LiveError::Setup(_)) => {
+                let reason = e.to_string();
+                return Err(Unstarted::Other(
+                    self.tr("error.audio", &[("reason", reason)]),
+                ));
+            }
+        };
+        live.practice_mut()
+            .set_speed(self.probe.map_or(self.speed, |p| p.speed));
+        live.practice_mut().set_loop(self.loop_range());
+        live.practice_mut().set_gains(gains(&self.settings));
+        let silent = live.output_is_silent;
+        self.live = Some(live);
+        self.input_opened(InputUse::Practice);
+        self.run_started = Some(std::time::Instant::now());
+        self.input_since = self.run_started;
+        Ok(silent)
+    }
+
+    /// Devices and backing track for a run.
+    fn live_setup(&self) -> LiveSetup {
+        LiveSetup {
             input: self.input_choice(),
             output_device: self.output_device(),
             source: self.source(),
@@ -2234,34 +2271,37 @@ impl Core {
             backing: self.backing().map(|(path, _)| path).filter(|p| p.exists()),
             original: self.backing_original(),
             backing_cache: Some(self.backing_cache_dir()),
-        };
-        let mut live = Live::start(arrangement, self.mode(), settings, options, &setup)
-            .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
-        live.practice_mut()
-            .set_speed(self.probe.map_or(self.speed, |p| p.speed));
-        live.practice_mut().set_loop(self.loop_range());
-        live.practice_mut().set_gains(gains(&self.settings));
-        let silent = live.output_is_silent;
-        self.live = Some(live);
-        self.run_started = Some(std::time::Instant::now());
-        self.input_since = self.run_started;
-        Ok(silent)
+        }
     }
 
+    /// Starts the tuner; a failed input shows as the input's state (the text is for callers
+    /// without one).
     pub fn start_tuner(&mut self) -> Result<(), String> {
         self.stop_live();
         self.live_ear = None;
         self.level.reset();
         let instrument = self.instrument();
-        let tuner = LiveTuner::start(&self.input_choice(), &instrument, self.source())
-            .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
+        let tuner = match LiveTuner::start(&self.input_choice(), &instrument, self.source()) {
+            Ok(tuner) => tuner,
+            Err(e) => {
+                self.input.failed(InputUse::Tuner, &e);
+                return Err(self.tr("error.audio", &[("reason", e.to_string())]));
+            }
+        };
         self.tuner = Some(tuner);
+        self.input_opened(InputUse::Tuner);
         self.input_since = Some(std::time::Instant::now());
         Ok(())
     }
 
+    /// True while the tuner listens.
+    pub fn is_tuning(&self) -> bool {
+        self.tuner.is_some()
+    }
+
     pub fn stop_tuner(&mut self) {
         self.tuner = None;
+        self.input.stopped(InputUse::Tuner);
     }
 
     /// Polls audio and session; call every ~16 ms.
@@ -2276,6 +2316,7 @@ impl Core {
         if let Some(live_ear) = self.live_ear.as_mut() {
             raw.extend(live_ear.poll());
         }
+        self.input.observe(&raw);
         let ear_event = self.ear_heard(&mut raw);
         let mut events: Vec<UiEvent> = raw.into_iter().filter_map(|e| self.translate(e)).collect();
         events.extend(ear_event);
@@ -2288,11 +2329,16 @@ impl Core {
                 *peak_db = held;
             }
         }
-        if events.iter().any(|e| matches!(e, UiEvent::DeviceLost(_))) {
-            self.stop_live();
-            self.tuner = None;
-            self.live_ear = None;
-            events.extend(self.input_lost());
+        // Input before output when both failed in this tick.
+        let lost = events
+            .iter()
+            .filter_map(|e| match e {
+                UiEvent::DeviceLost(side, m) => Some((*side, m.clone())),
+                _ => None,
+            })
+            .min_by_key(|(side, _)| *side != Direction::Input);
+        if let Some((side, reason)) = lost {
+            events.extend(self.device_lost(side, reason));
         }
         events.extend(self.watch_lost());
         // A probe's pass is no workshop pass: no pass count, no building-block step (QA
@@ -2796,10 +2842,14 @@ impl Core {
             }),
             // A device error usually means the interface was unplugged (LH-ALL-04): the run ends
             // and the next play opens the device again.
-            PracticeEvent::Error(m) => Some(UiEvent::DeviceLost(
-                self.tr("error.device.lost", &[("reason", m)]),
-            )),
+            PracticeEvent::Error(side, m) => Some(UiEvent::DeviceLost(side, m)),
             // The device stopped delivering (LH-EIN-15): judging pauses, the player hears why.
+            // Practice and tuner show it as the input's state; ear training only here.
+            PracticeEvent::InputStalled | PracticeEvent::InputResumed
+                if self.live_ear.is_none() =>
+            {
+                None
+            }
             PracticeEvent::InputStalled => Some(UiEvent::Message(self.tr("input.stalled", &[]))),
             PracticeEvent::InputResumed => Some(UiEvent::Message(self.tr("input.resumed", &[]))),
             PracticeEvent::InputEnded | PracticeEvent::Heard { .. } => None,
@@ -3810,6 +3860,7 @@ impl Core {
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
         live_ear.set_gains(ear_gains(&self.settings));
         self.live_ear = Some(live_ear);
+        self.input.remember(InputUse::Ear, setup.input);
         self.ear = Some(ear::EarQuiz::new(kind, &instrument, time_seed()));
         self.ear_play();
         Ok(self.ear_json())
@@ -3817,6 +3868,7 @@ impl Core {
 
     pub fn ear_stop(&mut self) {
         self.live_ear = None;
+        self.input.stopped(InputUse::Ear);
         self.ear = None;
         self.ear_prompting = false;
     }
@@ -6954,11 +7006,9 @@ mod tests {
         );
         core.open(&Core::demo_path()).unwrap();
         core.set_loop(1, 2);
-        let events = core.start_probe();
-        assert!(
-            events.iter().any(|e| matches!(e, UiEvent::Error(_))),
-            "{events:?}"
-        );
+        // The failed input shows as its state, not as a message (LH-EIN-15).
+        core.start_probe();
+        assert_eq!(core.input_state(), InputState::Failed);
         assert!(!core.is_probing());
         let _ = std::fs::remove_dir_all(dir);
     }

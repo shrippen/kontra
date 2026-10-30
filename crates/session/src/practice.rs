@@ -70,7 +70,8 @@ pub enum PracticeEvent {
         note: String,
         cents: f64,
     },
-    Error(String),
+    /// A device failed: which side, the system's message.
+    Error(kontra_engine::Direction, String),
     /// The device stopped delivering (LH-EIN-15); judging pauses.
     InputStalled,
     /// The device delivers again.
@@ -160,6 +161,15 @@ impl<O: Output> Practice<O> {
 
     pub fn output(&self) -> &O {
         &self.output
+    }
+
+    /// Plays on `output` from now (a reopened device): its sounds and backing planned anew,
+    /// pitch shift as before; volumes are the caller's.
+    pub fn replace_output(&mut self, output: O) {
+        self.output = output;
+        self.output
+            .set_transpose(self.options.transpose_semitones as f32);
+        self.reschedule();
     }
 
     /// Sets the backing track (Wait mode never plays it: the clock stops at every note),
@@ -306,7 +316,7 @@ impl<O: Output> Practice<O> {
                 note: r.pitch.to_string(),
                 cents: r.cents,
             }),
-            Event::Error(message) => Some(PracticeEvent::Error(message)),
+            Event::Error(side, message) => Some(PracticeEvent::Error(side, message)),
             Event::Heard { at_s } => {
                 self.session.on_heard(at_s);
                 None

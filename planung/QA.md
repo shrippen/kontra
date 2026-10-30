@@ -327,3 +327,15 @@ Erwartet: keine rohen Schlüssel, kein Sprachmix, Fachbegriffe in beiden Sprache
 1. Während des Spielens das Interface abziehen, wieder anstecken (10-mal).
 2. 60 Minuten Modus „Frei spielen“ mit Time-Stretch auf Mindest-Hardware.
 Erwartet: kein Absturz, klare Meldung, Interface wird wieder genutzt; Xrun-Zähler 0.
+
+**J-F4 Eingang gestört** ⚙ 🔍 · Personas: P2 Jens, P1 Lea, P7 Sam, P6 Karl · Phase 1 · LH-EIN-15
+1. Interface abgezogen, ein Stück öffnen, Abspielen.
+2. Interface anstecken, „Erneut versuchen“, Abspielen.
+3. Mitten im Lauf liefert das Gerät nichts mehr (am Solo: USB kurz trennen); „Erneut versuchen“.
+4. Lauf beenden; Stimmgerät mit abgezogenem Interface öffnen und wieder verlassen.
+Erwartet: „Eingang gestört“ mit Zeichen, Text, Meldung des Systems und „Erneut versuchen“ (keine zweite Fehlerleiste) bleibt in der Leiste unter der Seite, bis der
+Eingang geht, auch nach anderen Meldungen; danach „Eingang verbunden: <Name>“ unter dem Pegel. Im Lauf „Kein
+Signal vom Gerät“, keine Note als verpasst; „Erneut versuchen“ lässt den Lauf an seiner Stelle weiterlaufen, er wird einmal gespeichert.
+Verweigert das System das Gerät: „Kein Zugriff auf den Eingang“ mit dem Weg zur Freigabe. Orca sagt jeden Wechsel.
+Nach dem Stimmgerät keine Anzeige mehr. Schritte 1, 2 und 4 mit einer Aufnahme statt Interface automatisiert;
+Schritt 3 am Solo (Aussetzer lassen sich mit einer Datei nicht erzeugen).

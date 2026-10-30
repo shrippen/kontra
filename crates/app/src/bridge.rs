@@ -157,6 +157,8 @@ pub mod qobject {
         #[qproperty(QString, message)]
         #[qproperty(i32, xruns)]
         #[qproperty(QString, offer_input, cxx_name = "offerInput")]
+        #[qproperty(QString, input_state, cxx_name = "inputState")]
+        #[qproperty(QString, input_detail, cxx_name = "inputDetail")]
         #[qproperty(QString, offer_text, cxx_name = "offerText")]
         #[qproperty(QString, error_text, cxx_name = "errorText")]
         #[qproperty(QString, start_page, cxx_name = "startPage")]
@@ -806,6 +808,11 @@ pub mod qobject {
         #[cxx_name = "useOfferedInput"]
         fn use_offered_input(self: Pin<&mut Self>);
 
+        /// Opens the failed or silent input again (LH-EIN-15).
+        #[qinvokable]
+        #[cxx_name = "retryInput"]
+        fn retry_input(self: Pin<&mut Self>);
+
         #[qsignal]
         #[cxx_name = "noteJudged"]
         fn note_judged(
@@ -965,6 +972,8 @@ pub struct ControllerRust {
     message: QString,
     xruns: i32,
     offer_input: QString,
+    input_state: QString,
+    input_detail: QString,
     offer_text: QString,
     error_text: QString,
     start_page: QString,
@@ -1127,6 +1136,8 @@ impl Default for ControllerRust {
             message: QString::default(),
             xruns: 0,
             offer_input: QString::default(),
+            input_state: QString::default(),
+            input_detail: QString::default(),
             offer_text: QString::default(),
             error_text: QString::default(),
             start_page: q(args.page.as_deref().unwrap_or("")),
@@ -1643,6 +1654,12 @@ impl qobject::Controller {
         if beat != *self.as_ref().calibration_beat() {
             self.as_mut().set_calibration_beat(beat);
         }
+        let input = q(self.as_ref().rust().core.input_state().key());
+        if input != *self.as_ref().input_state() {
+            let detail = self.as_ref().rust().core.input_detail();
+            self.as_mut().set_input_detail(q(&detail));
+            self.as_mut().set_input_state(input);
+        }
         let xruns = i32::try_from(self.as_ref().rust().core.xruns()).unwrap_or(i32::MAX);
         if xruns != *self.as_ref().xruns() {
             self.as_mut().set_xruns(xruns);
@@ -1734,10 +1751,10 @@ impl qobject::Controller {
                     self.as_mut().set_playing(false);
                     self.as_mut().set_message(q(&text));
                 }
-                UiEvent::DeviceLost(text) => {
+                // The input's state shows it (LH-EIN-15).
+                UiEvent::DeviceLost(..) => {
                     self.as_mut().set_playing(false);
                     self.as_mut().set_tuner_active(false);
-                    self.as_mut().show_error(&text);
                 }
                 UiEvent::DensitySuggestion { level, text } => {
                     self.as_mut().set_density_suggestion(i32::from(level));
@@ -1771,10 +1788,9 @@ impl qobject::Controller {
         self.as_mut().set_playing(false);
         let tuning = self.as_ref().rust().core.tuning_json();
         self.as_mut().set_tuning_json(q(&tuning));
-        match self.as_mut().core().start_tuner() {
-            Ok(()) => self.as_mut().set_tuner_active(true),
-            Err(e) => self.as_mut().show_error(&e),
-        }
+        // A failed input shows as the input's state (LH-EIN-15), not as a second bar.
+        let started = self.as_mut().core().start_tuner().is_ok();
+        self.as_mut().set_tuner_active(started);
     }
 
     fn stop_tuner(mut self: Pin<&mut Self>) {
@@ -2842,6 +2858,16 @@ impl qobject::Controller {
         self.as_mut().set_offer_input(QString::default());
         self.as_mut().set_offer_text(QString::default());
         self.as_mut().set_error_text(QString::default());
+    }
+
+    fn retry_input(mut self: Pin<&mut Self>) {
+        let events = self.as_mut().core().retry_input();
+        if events.is_empty() {
+            self.as_mut().set_error_text(QString::default());
+        }
+        let tuning = self.as_ref().rust().core.is_tuning();
+        self.as_mut().set_tuner_active(tuning);
+        self.as_mut().apply(events);
     }
 
     fn dismiss_message(mut self: Pin<&mut Self>) {

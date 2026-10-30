@@ -21,6 +21,14 @@ ColumnLayout {
 
     spacing: KanteStyle.unit(6)
 
+    // Which input listens, next to its level (LH-EIN-15); faults show in the note bar.
+    InputStatus {
+        Layout.fillWidth: true
+        part: InputStatus.Part.Line
+        ctl: advice.ctl
+        texts: advice.texts
+    }
+
     QQC2.Label {
         Layout.fillWidth: true
         wrapMode: Text.WordWrap

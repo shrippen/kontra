@@ -315,7 +315,11 @@ Erkennung und Messung:
   ohne Anschlag). Ziel 70 ms damit verfehlt; bis zur Entscheidung des Eigentümers eine Grenze bei 110 ms gegen
   Verschlechterung. Runde 17: 70 ms je Note, Töne unter E1 gemessen (LH-NF-15).
 - [x] E2 Sätze ohne Noten, Falschnoten je Minute (LH-NF-16): `idle-line`, `idle-room` (60 s, Brummen, Rauschen, Knackser, Kratzen, Dämpfen); Ziel seit F3 erreicht.
-- [ ] E3 Wächter und dauerhafter Eingangszustand (LH-EIN-15); Wächter und Pause der Bewertung umgesetzt, offen: dauerhafte Anzeige mit „Erneut versuchen“.
+- [x] E3 Wächter und dauerhafter Eingangszustand (LH-EIN-15): Wächter und Pause der Bewertung (#209); Anzeige
+  (`input-state`): verbunden mit Namen unter dem Pegel, „kein Signal“, „gestört“ und „kein Zugriff“ bleiben mit
+  „Erneut versuchen“ in der Leiste unter jeder Seite (J-F4 ⚙). „Kein Zugriff“ erkennt Kontra an der Meldung des
+  Systems (EACCES, EPERM, „Permission denied“); am Solo mit entzogenem Recht noch nicht gesehen. Hinweise zu
+  Aussetzer und Wiedereinsatz kommen jetzt nur noch im Gehörtraining als Meldung.
   Verlust aus Gerätestempeln über eine DLL (R3, erster Teil, #209); offen aus R3: Wiedergabe- und
   Eingangszeitachse an der DLL verankern (Ausgangsstempel), Loopback-Prüfung am Solo.
 - [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).
