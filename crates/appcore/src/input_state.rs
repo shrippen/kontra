@@ -82,7 +82,8 @@ pub(crate) struct InputStatus {
     using: InputUse,
     detail: String,
     /// The input as it was opened (the device resolved then, not the choice now) and by whom;
-    /// gone when that use stops, so a later loss cannot blame an old device.
+    /// gone when that use stops, so a later loss cannot blame an old device. A loss in the
+    /// tuner or ear training leaves it until the next start sets it anew.
     opened: Option<(InputUse, InputChoice)>,
 }
 
