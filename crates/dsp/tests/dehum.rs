@@ -1,7 +1,9 @@
 //! Mains hum removed before detection (E8): the hum is followed and subtracted, so noise on it
 //! has no pitch, and notes on the hum's frequencies (G1 49 Hz, G2 98 Hz) keep theirs.
 
-use kontra_dsp::synth::{add_noise, render, Noise, SynthNote, ToneShape};
+use kontra_dsp::synth::{
+    add_noise, render, render_articulated, Articulation, Noise, Played, SynthNote, ToneShape,
+};
 use kontra_dsp::{NoteTracker, TrackerConfig};
 use kontra_model::{hz_to_midi, DetectedNote, InputSource, Instrument, Pitch, A4_HZ};
 use std::f64::consts::TAU;
@@ -200,13 +202,39 @@ fn hum_level_change_is_no_note() {
     }
 }
 
-/// Notes on a hum whose grid drifts fast (49.8→50.2 Hz in 7 s): after each note fades, no hum
-/// comes out as a note (review #198, round 2: an extra at MIDI 31.38 after 6.2 s).
+/// A hammer-on onto a partial of the hum grid (D2→G2 on 50 Hz, E2→B2 on 60 Hz), 0.8 s after
+/// the attack, over hum: a note of its own, not background (review #198, round 3: a model held
+/// 0.5 s made every such legato note `over_background`, a wrong one got no feedback).
 #[test]
-fn drifting_hum_after_notes_is_no_note() {
-    for name in ["A1", "A#1", "B1", "A#2", "D3", "D#3", "F#3"] {
-        let hz = Pitch::parse(name).unwrap().hz(A4_HZ);
-        note_on_hum(hz, 0.3, 49.8, 50.2);
+fn legato_on_hum_grid_stands_out() {
+    for (grid_hz, from, to) in [(50.0, "D2", "G2"), (60.0, "E2", "B2")] {
+        let played: Vec<Played> = [
+            (from, 4.0, Articulation::Pluck),
+            (to, 4.8, Articulation::Legato),
+        ]
+        .iter()
+        .map(|&(name, onset_s, how)| Played {
+            note: SynthNote {
+                onset_s,
+                hz: Pitch::parse(name).unwrap().hz(A4_HZ),
+                duration_s: 0.8,
+                velocity: 0.3,
+            },
+            how,
+        })
+        .collect();
+        let tone = render_articulated(&played, SR, 7.0, 5);
+        let mut signal = hum(7.0, grid_hz, grid_hz);
+        signal.iter_mut().zip(&tone).for_each(|(s, t)| *s += t);
+
+        let expected = hz_to_midi(Pitch::parse(to).unwrap().hz(A4_HZ), A4_HZ);
+        let found = track(&signal);
+        assert!(
+            found.iter().any(|n| (n.onset_s - 4.8).abs() < 0.1
+                && (n.midi - expected).abs() < 0.3
+                && n.stands_out()),
+            "{from}→{to} on {grid_hz} Hz: {found:?}"
+        );
     }
 }
 

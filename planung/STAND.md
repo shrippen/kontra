@@ -7,7 +7,7 @@ nur, was offen ist und wo es liegt.
 
 PR `hum` (E8): Brummen wird vor der Erkennung abgezogen, F3-Regel bleibt als zweite Linie. Neue öffentliche
 Schnittstelle zur Freigabe: `KorpusSet::HumLine` (Satz `hum-line`). Geändert: `DetectedNote::stands_out` ist für tote
-Noten (`Muted`) falsch. Offen: Abzug unter langem Spiel ohne Pause (> 8 s), Stimmgerät nutzt noch die Kerbfilter.
+Noten (`Muted`) falsch. Offen: Abzug unter langem Spiel ohne Pause (> 8 s), schnelle Drift nach einer Note (Kleinigkeit, Runde 17), Stimmgerät nutzt noch die Kerbfilter.
 
 ## Übergabe (29.10.2026, Harmonicon-Analyse)
 

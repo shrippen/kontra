@@ -949,7 +949,7 @@ impl NoteTracker {
                     level_db,
                     source: self.config.source,
                     technique: Some(technique),
-                    over_background: self.dehum.stale(onset, midi, self.config.a4_hz),
+                    over_background: false,
                 },
                 until + (LEGATO_HOLD_S * self.sample_rate) as u64,
             ));
