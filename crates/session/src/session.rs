@@ -882,6 +882,7 @@ impl Session {
         let mut summary = Summary::from_results(&self.results, &self.arrangement);
         summary.techniques = self.techniques.tally();
         summary.untold_techniques = self.techniques.untold().to_vec();
+        summary.hint_techniques = self.techniques.hints().to_vec();
         let strings: Vec<_> = self
             .strings
             .iter()

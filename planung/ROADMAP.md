@@ -356,8 +356,11 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
 - [x] R8 Doppelgriffe über Mikrofon aus, bis Aufnahmen da sind (FiloBass 12,2 % Fehlalarm): `ChordHearing::OneTone`,
       ein Doppelgriff zählt dort wie ein Ton; Einstellung „Mikrofon“ und Auswertung sagen, dass Doppelgriffe über
       Mikrofon noch nicht nach beiden Tönen bewertet werden (LH-BEW-11, J-B7).
-- [ ] Techniken auf anderen Bässen (R6: Slap 18–44 %, Pop 1–14 % auf zwei fremden IDMT-Bässen): kurze Einmessung je
-      Bass geplant, der Spieler spielt etwa fünf Slaps und Pops, die Schwellen passen sich an (LH-BEW-17).
+- [x] Techniken auf anderen Bässen (R6: Slap 18–44 %, Pop 1–14 % auf zwei fremden IDMT-Bässen): Einmessung je Bass
+      (LH-BEW-17) zurückgestellt, die Machbarkeit scheiterte an den Merkmalen (Warwick Slap 26 %, Pop 9 %; Linien
+      11,6 % Fehlalarm). Bis dahin sind Slap und Pop über Kabel nur Hinweise: gezeigt, nicht gewertet (LH-BEW-06, J-C5,
+      Branch `tech-hint`). Einmessung erst mit Aufnahmen mehrerer Bässe (`AUFNAHME.md`); Slaps und Pops des Eigentümers
+      kommen in der Hardware-Sitzung dazu.
 - [ ] Hardware-Prüfung mit dem Eigentümer in der nächsten Sitzung, geführt (R3-Stempel, R1-Fingertipp, R8 am echten
       Bass, Latenz und Pegel am Scarlett Solo).
 - Neue pub-Schnittstellen aus F3, A2, R4, R2, R1, R8, #172, #174, #176 und Kante 1.50 freigegeben.
