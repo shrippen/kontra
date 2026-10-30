@@ -17,6 +17,7 @@ pub mod level;
 mod package;
 mod prepare;
 pub mod quiz;
+pub mod quiz_stats;
 mod report;
 mod songsterr;
 mod sources;
@@ -3717,20 +3718,19 @@ impl Core {
         self.tr(key, &[("aim", aim), ("ms", format!("{ms:.0}"))])
     }
 
-    /// Starts the fretboard quiz ("notes" or "intervals") and returns `quiz_json`.
-    pub fn quiz_start(&mut self, kind: &str) -> String {
+    /// Starts the fretboard quiz ("notes" or "intervals") on frets `low`–`high` (kept for the
+    /// next start, LH-LRN-18) and returns `quiz_json`.
+    pub fn quiz_start(&mut self, kind: &str, low: i32, high: i32) -> String {
         let kind = match kind {
             "intervals" => quiz::QuizKind::Intervals,
             _ => quiz::QuizKind::Notes,
         };
-        let seed = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(1, |d| d.as_nanos() as u64);
-        self.quiz = Some(quiz::Quiz::new(
-            kind,
-            &instrument_from(&self.settings),
-            seed,
-        ));
+        let mut stats: quiz_stats::QuizStats = store::load(&self.data_dir.join(quiz_stats::FILE));
+        stats.range = quiz_stats::FretRange::new(low, high);
+        let instrument = instrument_from(&self.settings);
+        let quiz = quiz::Quiz::new(kind, &instrument, stats, time_seed(), unix_now());
+        let _ = store::save(&self.data_dir.join(quiz_stats::FILE), quiz.stats());
+        self.quiz = Some(quiz);
         self.quiz_json()
     }
 
@@ -3738,17 +3738,21 @@ impl Core {
     pub fn quiz_next(&mut self) -> String {
         let instrument = instrument_from(&self.settings);
         if let Some(q) = &mut self.quiz {
-            q.next(&instrument);
+            q.next(&instrument, unix_now());
         }
         self.quiz_json()
     }
 
-    /// Answers with a played pitch; true when it was the first right answer.
+    /// Answers with a played pitch; true when it was the first right answer. Found and missed
+    /// places are stored at once.
     pub fn quiz_answer(&mut self, midi: f64) -> bool {
         let instrument = instrument_from(&self.settings);
-        self.quiz
-            .as_mut()
-            .is_some_and(|q| q.answer(midi, &instrument))
+        let Some(q) = self.quiz.as_mut() else {
+            return false;
+        };
+        let right = q.answer(midi, &instrument, unix_now());
+        let _ = store::save(&self.data_dir.join(quiz_stats::FILE), q.stats());
+        right
     }
 
     /// "3 of 4 found" over finished questions only: the open one is not lost yet (QA 13.10.: it
@@ -3770,11 +3774,13 @@ impl Core {
         )
     }
 
-    /// The question in words, the score, and once solved where the answer lies:
-    /// `{"prompt", "right", "asked", "solved", "positions": [{string, fret, role}]}`.
+    /// The question in words, the score, the range, and once solved where the answer lies:
+    /// `{"prompt", "right", "asked", "solved", "range": {low, high}, "positions": [{string,
+    /// fret, role}]}`. Before a start only the stored range.
     pub fn quiz_json(&self) -> String {
         let Some(q) = &self.quiz else {
-            return String::new();
+            let stats: quiz_stats::QuizStats = store::load(&self.data_dir.join(quiz_stats::FILE));
+            return json!({ "range": stats.range }).to_string();
         };
         let instrument = instrument_from(&self.settings);
         let string_name = |s: usize| {
@@ -3830,6 +3836,7 @@ impl Core {
             "asked": q.asked,
             "solved": q.solved,
             "score": self.quiz_score(q.right, q.asked, q.solved),
+            "range": q.stats().range,
             "positions": positions,
         })
         .to_string()
@@ -5784,7 +5791,7 @@ mod tests {
     fn quiz_asks_and_shows_the_answer() {
         let dir = temp_dir("quiz");
         let mut core = Core::new(&dir, QaOptions::default());
-        let q: serde_json::Value = serde_json::from_str(&core.quiz_start("notes")).unwrap();
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_start("notes", 0, 4)).unwrap();
         assert!(
             q["prompt"].as_str().unwrap().contains("-Saite")
                 || q["prompt"].as_str().unwrap().contains("string")
@@ -5811,7 +5818,7 @@ mod tests {
         let dir = temp_dir("quiz-score");
         let mut core = Core::new(&dir, QaOptions::default());
         core.update_settings(|s| s.language = Some("en".into()));
-        let q: serde_json::Value = serde_json::from_str(&core.quiz_start("notes")).unwrap();
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_start("notes", 0, 4)).unwrap();
         assert_eq!(q["score"], "");
         assert!((28..=55).any(|m| core.quiz_answer(f64::from(m))));
         let q: serde_json::Value = serde_json::from_str(&core.quiz_json()).unwrap();

@@ -683,10 +683,10 @@ pub mod qobject {
         #[cxx_name = "termJson"]
         fn term_json(self: &Self, topic: &QString) -> QString;
 
-        /// Fretboard quiz (LH-LRN-02): "notes" or "intervals"; returns the question JSON.
+        /// Fretboard quiz (LH-LRN-02, -18): "notes" or "intervals" on frets `low`–`high`.
         #[qinvokable]
         #[cxx_name = "quizStart"]
-        fn quiz_start(self: Pin<&mut Self>, kind: &QString) -> QString;
+        fn quiz_start(self: Pin<&mut Self>, kind: &QString, low: i32, high: i32) -> QString;
 
         #[qinvokable]
         #[cxx_name = "quizNext"]
@@ -2615,8 +2615,11 @@ impl qobject::Controller {
         q(&self.rust().core.term_json(&topic.to_string()))
     }
 
-    fn quiz_start(mut self: Pin<&mut Self>, kind: &QString) -> QString {
-        q(&self.as_mut().core().quiz_start(&kind.to_string()))
+    fn quiz_start(mut self: Pin<&mut Self>, kind: &QString, low: i32, high: i32) -> QString {
+        q(&self
+            .as_mut()
+            .core()
+            .quiz_start(&kind.to_string(), low, high))
     }
 
     fn quiz_next(mut self: Pin<&mut Self>) -> QString {

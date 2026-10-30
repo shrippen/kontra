@@ -13,6 +13,14 @@ Kirigami.Page {
     readonly property var texts: applicationWindow().texts
     readonly property var kinds: ["notes", "intervals"]
     property int kind: 0
+    // Frets asked for notes (LH-LRN-18): presets 0–4, 0–7, 0–12, or an own range.
+    readonly property var presets: [[0, 4], [0, 7], [0, 12]]
+    readonly property int topFret: 12
+    property int low: 0
+    property int high: 4
+    property bool custom: false
+    readonly property int preset: custom ? presets.length : presets.findIndex(function(r) {
+        return r[0] === low && r[1] === high })
     property var question: null
     property string heard: ""
     // A note counts once it was heard the same for a few tuner updates (no passing noise).
@@ -21,8 +29,18 @@ Kirigami.Page {
     readonly property var stringNames: JSON.parse(ctl.tuningJson).map(function(s) { return s.name })
 
     function start() {
-        question = JSON.parse(ctl.quizStart(kinds[kind]))
+        question = JSON.parse(ctl.quizStart(kinds[kind], low, high))
+        low = question.range.low
+        high = question.range.high
         heard = ""
+    }
+    function chooseRange(index) {
+        custom = index === presets.length
+        if (!custom) {
+            low = presets[index][0]
+            high = presets[index][1]
+        }
+        start()
     }
     function next() {
         question = JSON.parse(ctl.quizNext())
@@ -34,7 +52,14 @@ Kirigami.Page {
     title: texts.t("quiz.title")
     padding: KanteStyle.unit(16)
 
-    Component.onCompleted: { ctl.startTuner(); start() }
+    Component.onCompleted: {
+        var stored = JSON.parse(ctl.quizJson()).range
+        low = stored.low
+        high = stored.high
+        custom = preset < 0
+        ctl.startTuner()
+        start()
+    }
     Component.onDestruction: ctl.stopTuner()
 
     Connections {
@@ -75,6 +100,43 @@ Kirigami.Page {
             model: page.kinds.map(function(k) { return texts.t("quiz.kind." + k) })
             currentIndex: page.kind
             onActivated: function(index) { page.kind = index; page.start() }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            visible: page.kinds[page.kind] === "notes"
+            title: texts.t("quiz.range")
+            hint: texts.t("quiz.range.hint")
+            KanteSegmented {
+                Accessible.name: texts.t("quiz.range")
+                model: page.presets.map(function(r) { return texts.t("quiz.range.frets", { low: r[0], high: r[1] }) })
+                    .concat([texts.t("quiz.range.custom")])
+                currentIndex: page.preset
+                onActivated: function(index) { page.chooseRange(index) }
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            visible: page.kinds[page.kind] === "notes" && page.custom
+            title: texts.t("quiz.range.own")
+            RowLayout {
+                spacing: KanteStyle.unit(8)
+                QQC2.Label { color: KanteStyle.textColor; text: texts.t("quiz.range.from") }
+                KanteSpinBox {
+                    Accessible.name: texts.t("quiz.range.from")
+                    from: 0
+                    to: page.topFret
+                    value: page.low
+                    onValueModified: { page.low = value; page.high = Math.max(page.high, value); page.start() }
+                }
+                QQC2.Label { color: KanteStyle.textColor; text: texts.t("quiz.range.to") }
+                KanteSpinBox {
+                    Accessible.name: texts.t("quiz.range.to")
+                    from: 0
+                    to: page.topFret
+                    value: page.high
+                    onValueModified: { page.high = value; page.low = Math.min(page.low, value); page.start() }
+                }
+            }
         }
 
         KanteCallout {
