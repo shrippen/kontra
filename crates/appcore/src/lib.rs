@@ -65,6 +65,8 @@ const CUSTOM_NOTES: std::ops::RangeInclusive<u8> = 19..=55;
 const DEFAULT_KEYS: (u8, u8) = (28, 67);
 /// Middle C (MIDI 60): any octave names the twelve keys of the keyboard view.
 const MIDDLE_C: u8 = 60;
+/// Tones of a double stop (R8): only its missed tone says "nur ein Ton des Griffs gehört".
+const DOUBLE_STOP_TONES: usize = 2;
 /// Tunings the settings offer (LH-TUN-02); "drop" lowers the lowest string a whole step.
 const TUNINGS: [&str; 5] = ["standard", "drop", "half-down", "whole-down", "custom"];
 
@@ -2832,6 +2834,12 @@ impl Core {
                 Some(UiEvent::Holding { index: note, text })
             }
             SessionEvent::Released => Some(UiEvent::Released),
+            SessionEvent::Reopened { note } => Some(UiEvent::Judged {
+                index: note,
+                state: "pending",
+                offset_ms: 0.0,
+                cents: 0.0,
+            }),
             SessionEvent::PassComplete {
                 clean, hit_rate, ..
             } => Some(UiEvent::PassComplete { clean, hit_rate }),
@@ -2872,6 +2880,17 @@ impl Core {
         for t in techniques {
             technique_of.insert((t.pass, t.sign), *t);
         }
+        // Double stop tones sounded per pass and start: a missed tone beside one is "nur ein Ton"
+        // (R8). Not for larger chords: MIDI judges each tone alone, two of three are not "one".
+        let double_stop = |start: u64| {
+            a.notes.iter().filter(|n| n.start_ticks == start).count() == DOUBLE_STOP_TONES
+        };
+        let sounded: Vec<(u32, u64)> = last
+            .iter()
+            .filter(|(_, r)| r.outcome != Outcome::Missed)
+            .filter_map(|((pass, index), _)| Some((*pass, a.notes.get(*index)?.start_ticks)))
+            .filter(|(_, start)| double_stop(*start))
+            .collect();
         last.into_iter()
             .filter_map(|((pass, index), r)| {
                 let note = a.notes.get(index)?;
@@ -2898,6 +2917,9 @@ impl Core {
                     }
                     Some(_) => parts.push(self.tr("summary.note.ontime", &[])),
                     None => {}
+                }
+                if r.outcome == Outcome::Missed && sounded.contains(&(pass, note.start_ticks)) {
+                    parts.push(self.tr("summary.note.one.tone", &[]));
                 }
                 // A missed note played beside the window: where it fell (M6).
                 let beside = outside
@@ -4656,6 +4678,8 @@ fn piece_name(title: &str, path: &Path) -> String {
 mod tests {
     use super::*;
 
+    mod note_list;
+
     #[test]
     fn midi_choice_by_name_falls_back_to_the_first() {
         let port = |id: &str, name: &str| kontra_session::MidiPort {
@@ -5705,119 +5729,6 @@ mod tests {
         assert_eq!(
             (q["asked"].as_u64(), q["solved"].as_bool()),
             (Some(2), Some(false))
-        );
-        let _ = std::fs::remove_dir_all(dir);
-    }
-
-    /// QA 13.10.: a wrong note says which note was played ("C2 gespielt"), not "+100 Cent":
-    /// the semitone distance read like an intonation error.
-    #[test]
-    fn wrong_note_names_the_played_note() {
-        let dir = temp_dir("wrong-note");
-        let mut core = Core::new(&dir, QaOptions::default());
-        core.update_settings(|s| s.language = Some("de".into()));
-        core.open(&demo()).unwrap();
-        let expected = core.arrangement().unwrap().notes[0].pitch;
-        let played = kontra_model::Pitch(expected.0 + 1);
-        let result = NoteResult {
-            pass: 0,
-            note: Some(0),
-            bar: Some(0),
-            outcome: Outcome::WrongPitch {
-                played_midi: f64::from(played.0) + 0.1,
-            },
-            offset_ms: Some(0.0),
-            cents: Some(110.0),
-            position_s: 0.0,
-        };
-        let notes = core.note_details(&[result], &[], &[]);
-        let text = notes[0]["text"].as_str().unwrap();
-        let name = core.note_label(&played.to_string());
-        assert!(
-            text.contains(&core.tr("summary.note.played", &[("played", name)])),
-            "{text}"
-        );
-        assert!(!text.contains("Cent"), "{text}");
-        let _ = std::fs::remove_dir_all(dir);
-    }
-
-    /// QA 27.10. (P3 Mira, M6): "Alle Noten" gave no timing for a note within a millisecond
-    /// (a played take is that exact); LH-BEW-01 wants every note's timing in ms.
-    #[test]
-    fn every_note_tells_its_timing() {
-        let dir = temp_dir("note-timing");
-        let mut core = Core::new(&dir, QaOptions::default());
-        core.update_settings(|s| s.language = Some("en".into()));
-        core.open(&demo()).unwrap();
-        let result = NoteResult {
-            pass: 0,
-            note: Some(0),
-            bar: Some(0),
-            outcome: Outcome::Hit,
-            offset_ms: Some(0.4),
-            cents: Some(3.0),
-            position_s: 0.0,
-        };
-        // A missed note played 40 ms early, beside a strict window (M2): its own timing too.
-        let missed = NoteResult {
-            note: Some(1),
-            outcome: Outcome::Missed,
-            offset_ms: None,
-            cents: None,
-            ..result
-        };
-        let outside = OutsideNote {
-            pass: 0,
-            note: 1,
-            offset_ms: -40.0,
-        };
-        let notes = core.note_details(&[result, missed], &[], &[outside]);
-        let text = notes[0]["text"].as_str().unwrap();
-        assert!(text.contains("0 ms"), "{text}");
-        let text = notes[1]["text"].as_str().unwrap();
-        assert!(text.contains("40 ms early"), "{text}");
-        let _ = std::fs::remove_dir_all(dir);
-    }
-
-    /// QA 27.10. (M4): in B♭ the note list said A♯1 where the notation writes B♭; names follow
-    /// the key of the note's bar, as in the notation.
-    #[test]
-    fn note_list_spells_in_the_key() {
-        let mut a = arrangement(&[(0, 4 * Q, 34), (4 * Q, 4 * Q, 37)]);
-        a.bars[0].key_fifths = -2;
-        a.bars[1].key_fifths = 2;
-        let dir = temp_dir("spelling");
-        let mut core = Core::new(&dir, QaOptions::default());
-        core.update_settings(|s| s.language = Some("en".into()));
-        core.loaded = Some(Loaded {
-            path: dir.join("x.mid"),
-            full: a.clone(),
-            arrangement: a,
-            tracks: Vec::new(),
-            track: 0,
-        });
-        let result = |note: usize, played: u8| NoteResult {
-            pass: 0,
-            note: Some(note),
-            bar: Some(note),
-            outcome: Outcome::WrongPitch {
-                played_midi: f64::from(played),
-            },
-            offset_ms: Some(0.0),
-            cents: None,
-            position_s: 0.0,
-        };
-        let notes = core.note_details(&[result(0, 39), result(1, 39)], &[], &[]);
-        let flat = notes[0]["text"].as_str().unwrap();
-        assert!(flat.contains("B♭1") && flat.contains("E♭2"), "{flat}");
-        let sharp = notes[1]["text"].as_str().unwrap();
-        assert!(sharp.contains("C♯2") && sharp.contains("D♯2"), "{sharp}");
-        assert!(core.wait_text(0, None).unwrap().contains("B♭1"));
-        // The keyboard names the keys in the piece's key too.
-        let keys: serde_json::Value = serde_json::from_str(&core.key_range_json()).unwrap();
-        assert_eq!(
-            (keys["names"][10].as_str(), keys["names"][1].as_str()),
-            (Some("B♭"), Some("D♭"))
         );
         let _ = std::fs::remove_dir_all(dir);
     }

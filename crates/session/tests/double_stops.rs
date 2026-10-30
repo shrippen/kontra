@@ -208,6 +208,31 @@ fn verdict_after_a_tap_taken_back() {
     }
 }
 
+/// The tap's verdict comes before its retraction (rare: the tap then lies 120–140 ms before
+/// the pluck): the retraction still takes the tap's results off, the pluck judges both tones.
+#[test]
+fn retraction_after_the_tap_verdict() {
+    let mut s = Session::new(piece(), Mode::Song, ScoreSettings::default());
+    s.play(0.0);
+    s.update(0.08);
+    s.on_note(&played(-0.06, 33.0, InputSource::Line));
+    s.on_double_stop(&DoubleStopVerdict {
+        onset_s: -0.06,
+        heard: DoubleStopHeard::Lower,
+    });
+    s.on_retraction(&NoteRetraction { onset_s: -0.06 });
+    s.on_note(&played(0.0, 39.0, InputSource::Line));
+    s.update(0.16);
+    s.on_double_stop(&DoubleStopVerdict {
+        onset_s: 0.0,
+        heard: DoubleStopHeard::Both,
+    });
+    let [lower, upper] = fifth(&s);
+    assert_eq!(outcome(lower), Some(Outcome::Hit), "{:?}", s.results());
+    assert_eq!(outcome(upper), Some(Outcome::Hit), "{:?}", s.results());
+    assert_eq!(s.results().len(), 2, "{:?}", s.results());
+}
+
 /// A microphone gives no verdict on double stops until recordings exist (Runde 17, FiloBass
 /// 12.2 % false alarms): a verdict that only the lower tone sounded misses nothing, the double
 /// stop stays judged like a chord, and the summary says it was not judged by both tones.

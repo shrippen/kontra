@@ -265,7 +265,8 @@ impl Core {
 pub(crate) fn forget_on_switch(before: &Settings, after: &mut Settings) {
     let same = before.input_device == after.input_device
         && before.output_device == after.output_device
-        && before.input_kind == after.input_kind;
+        && before.input_kind == after.input_kind
+        && before.midi_port == after.midi_port;
     if same {
         return;
     }
@@ -427,6 +428,21 @@ mod tests {
         assert_eq!((s.loopback_ms, s.click_ms), (None, None));
         assert_eq!(s.latency_from, LatencyFrom::Manual);
         assert_eq!(s.latency_ms, 20.0, "the value stays as a starting point");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    // Review #202: another MIDI keyboard has another latency too.
+    #[test]
+    fn midi_port_change_forgets_measurements() {
+        let (mut core, dir) = core("midi");
+        core.update_settings(|s| s.input_kind = crate::InputKind::Midi);
+        core.calibrated(clicks(5.0));
+        assert_eq!(core.settings.latency_from, LatencyFrom::Click);
+
+        core.choose_midi("Other Keys");
+        let s = &core.settings;
+        assert_eq!(s.click_ms, None, "{:?}", s.latency_from);
+        assert_eq!(s.latency_from, LatencyFrom::Manual);
         let _ = std::fs::remove_dir_all(dir);
     }
 
