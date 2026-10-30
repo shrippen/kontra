@@ -309,9 +309,20 @@ Erkennung und Messung:
 - [ ] E5 Notenende (LH-BEW-10).
 - [ ] E6 Rauschboden bei der Kalibrierung (LH-EIN-16).
 - [ ] E7 Erste echte Aufnahmen als eingefrorene Basis, neue als eigene Gruppen.
-- [ ] E8 Brummen vor der Erkennung entfernen (Eigentümer, 29.10.): Netzfrequenz verfolgen (49,8–50,2 Hz, 60 Hz),
-  Grundton und Obertöne abziehen statt sperren; Noten auf derselben Frequenz (G1, G2) bleiben. Dann braucht der Tracker
-  die Hintergrund-Regel von F3 nicht mehr. Messen an IDMT und Sätzen mit Brummen.
+- [x] E8 Brummen vor der Erkennung entfernen (Eigentümer, 29.10.): Netzfrequenz verfolgen (49,8–50,2 Hz, 60 Hz),
+  Grundton und Obertöne abziehen statt sperren; Noten auf derselben Frequenz (G1, G2) bleiben (`crates/dsp/src/dehum.rs`,
+  für jeden Eingang vor Anschlag und Tonhöhe). Gelernt wird nur in ruhigen, stetigen 100-ms-Blöcken, abgezogen erst nach
+  2 s stetigem Brummen; ein gehaltener G1 (5 s) wird nicht gelernt. Knackser auf Brummen sind jetzt tonlos statt
+  `over_background` mit 31,35. Neuer Satz `hum-line` (E1 bis A2 auf Brummen −40 dBFS): Cent-Mittel 3,68 → 1,76, p95
+  12,35 → 6,57, max 17,8 → 9,1 (vor R1; mit der frühen Meldung aus R1 2,05 / 7,58 / 10,76). IDMT, IDMT am Laptop-Eingang, Techniken und FiloBass unverändert (IDMT neu umgewandelt: 91,6 % / 81,9 %),
+  übrige Sätze gleich, 0 Falschnoten je Minute. Rechenzeit etwa 2 ms je Sekunde Audio. Hört das Brummen auf oder wird leiser, endet der Abzug nach zwei ruhigen
+  Perioden (40 ms), nicht erst nach 1 s (sonst Phantom-Brummen, Review #198). Den Sprung bis dahin fängt die
+  F3-Regel ab: Sie prüft das Signal vor dem Abzug. Schnelle Drift (49,8→50,2 Hz in 7 s) kann nach einer Note als
+  Legato-Ton auf dem Raster auftauchen; bleibt offen als Kleinigkeit (Eigentümer, Runde 17), Legato wie vorher. Ohne Brummen tauchten im
+  Leerlauf Tonhöhen aus Abdämpf-Geräusch auf (idle-room 2 je Minute); tote Noten (`Muted`) gelten deshalb abseits der
+  Noten nicht mehr als eigene Note. Die Hintergrund-Regel von F3 bleibt als zweite Linie: für die ersten Sekunden, bevor
+  das Brummen gefunden ist, und für die noch klingende Note (ohne sie scheitern zwei F3-Tests). Offen: Bei Spiel ohne
+  Pause länger als 8 s wird nicht mehr abgezogen (das Netz driftet vom Modell); weiterlernen unter Noten.
 
 Mehrere Töne (offen für Gitarre und Tasten):
 - [x] M1 Doppelgriffe: Korpus-Satz, Merker „zwei Töne“, Fähigkeit je Eingang (LH-BEW-11). Mit R8: synthetischer

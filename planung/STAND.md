@@ -18,6 +18,12 @@ Meldezeit 70 ms je Note außer Tönen unter E1, Einmessung der Techniken je Bass
 ohne Drift-Regel) und `device-clock` (PR #209, ersetzt #186) laufen in eigenen Branches. Nächste Sitzung:
 Hardware-Prüfung mit dem Eigentümer, geführt. Nächster Schwerpunkt offen; der Eigentümer wird zu R5 (pYIN) erneut gefragt.
 
+## Übergabe (29.10.2026, E8 Brummen)
+
+PR `hum` (E8): Brummen wird vor der Erkennung abgezogen, F3-Regel bleibt als zweite Linie. Neue öffentliche
+Schnittstelle zur Freigabe: `KorpusSet::HumLine` (Satz `hum-line`). Geändert: `DetectedNote::stands_out` ist für tote
+Noten (`Muted`) falsch. Offen: Abzug unter langem Spiel ohne Pause (> 8 s), schnelle Drift nach einer Note (Kleinigkeit, Runde 17), Stimmgerät nutzt noch die Kerbfilter.
+
 ## Übergabe (29.10.2026, Harmonicon-Analyse)
 
 Harmonicon untersucht, 39 Vorschläge gewählt (ROADMAP, „Entscheidungen Harmonicon-Analyse“; Lastenheft ergänzt).

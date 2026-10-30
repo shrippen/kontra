@@ -2,16 +2,17 @@
 //! so it runs the same in the audio engine, the CLI and the tests.
 //!
 //! ```text
-//! samples ─┬─► OnsetDetector ──onset──┐
-//!          │                          ▼
-//!          └─────────────────────► NoteTracker ──► DetectedNote
-//!                                     │ (waits until Yin agrees twice)
-//!                                     ▼
-//!                                    Yin
+//! samples ─► Dehum ─┬─► OnsetDetector ──onset──┐   (mains hum subtracted first, E8)
+//!                   │                          ▼
+//!                   └─────────────────────► NoteTracker ──► DetectedNote
+//!                                              │ (waits until Yin agrees twice)
+//!                                              ▼
+//!                                             Yin
 //! ```
 
 mod beats;
 mod biquad;
+mod dehum;
 mod dyad;
 mod echo;
 mod hum;

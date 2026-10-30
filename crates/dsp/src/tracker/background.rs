@@ -1,7 +1,11 @@
 //! A steady tone under the input (mains hum) apart from played notes (LH-NF-16, F3): an attack
 //! that only leaves the background's pitch behind it is told `over_background`; the session
 //! judges such a note only where one is due (a click on hum is no extra note, the same note
-//! struck again on a ringing one still counts).
+//! struck again on a ringing one still counts). Since E8 the hum itself is subtracted first
+//! (`dehum`); this rule stays for the seconds before it is found, for a ringing note and for
+//! a change of the hum's level. It judges the input as heard before the subtraction: a hum
+//! that stops or steps leaves a jump after it (the model is subtracted until the change shows,
+//! 40–200 ms), which came out as G1 or A#1 (review #198, round 2).
 
 use super::{NoteTracker, Pending, RISE_GAP_S};
 use crate::yin::power_at;
@@ -22,8 +26,8 @@ const BACKGROUND_CONFIDENCE: f32 = 0.9;
 
 impl NoteTracker {
     /// Whether the pitch found after the attack is new, not that of a steady tone before it.
-    /// A click or scrape on mains hum leaves the hum's pitch after it: no note, the attack stays
-    /// pitchless (LH-NF-16, idle-line: 31 false notes a minute at 50 Hz). Steady means heard
+    /// A click or scrape on mains hum leaves the hum's pitch after it: no note of its own, the
+    /// attack is told `over_background` (LH-NF-16, idle-line: 31 false notes a minute at 50 Hz). Steady means heard
     /// just before the attack and `BACKGROUND_EARLIER_S` before that: a played pitch often
     /// sounds a little before its attack is found (legato, the fretting finger), rarely that
     /// long. The note before still ringing is a background too: struck again, it is told
@@ -61,23 +65,31 @@ impl NoteTracker {
         after >= before * BACKGROUND_RISE
     }
 
-    /// Power at `hz` over `count` samples of the ring from `from`.
+    /// Power at `hz` over `count` samples heard (before `dehum`) from `from`.
     fn power(&mut self, from: u64, count: u64, hz: f64) -> f64 {
         let count = count as usize;
-        self.copy_out(from, count);
+        self.copy_heard(from, count);
         power_at(&self.scratch[..count], hz, self.sample_rate)
     }
 
-    /// Pitch (MIDI) of a clear tone in the `needed()` samples before `end`, if the ring holds
-    /// them.
+    /// Pitch (MIDI) of a clear tone heard (before `dehum`) in the `needed()` samples before
+    /// `end`, if the ring holds them.
     fn background(&mut self, end: u64) -> Option<f64> {
         let needed = self.yin.needed();
         let from = end.checked_sub(needed as u64)?;
         if from < self.pushed.saturating_sub(self.ring.len() as u64) {
             return None;
         }
-        self.copy_out(from, needed);
+        self.copy_heard(from, needed);
         let tone = self.yin.estimate_attack(&self.scratch[..needed])?;
         (tone.confidence >= BACKGROUND_CONFIDENCE).then(|| hz_to_midi(tone.hz, self.config.a4_hz))
+    }
+
+    /// Copies `count` samples heard before `dehum`, from `from`, into the scratch.
+    fn copy_heard(&mut self, from: u64, count: usize) {
+        let len = self.heard.len() as u64;
+        for (i, slot) in self.scratch.iter_mut().take(count).enumerate() {
+            *slot = self.heard[((from + i as u64) % len) as usize];
+        }
     }
 }

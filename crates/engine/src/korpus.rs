@@ -64,10 +64,13 @@ pub enum KorpusSet {
     IdleLine,
     /// The same through a microphone in a room (P6).
     IdleRoom,
+    /// The low notes of `Line4` (E and A string) on loud mains hum, after 3 s of hum alone (E8):
+    /// G1 and G2 lie on the hum's partials.
+    HumLine,
 }
 
 impl KorpusSet {
-    pub const ALL: [KorpusSet; 10] = [
+    pub const ALL: [KorpusSet; 11] = [
         KorpusSet::Line4,
         KorpusSet::Line5,
         KorpusSet::LaptopJack4,
@@ -78,6 +81,7 @@ impl KorpusSet {
         KorpusSet::Techniques,
         KorpusSet::IdleLine,
         KorpusSet::IdleRoom,
+        KorpusSet::HumLine,
     ];
 
     pub fn name(self) -> &'static str {
@@ -92,6 +96,7 @@ impl KorpusSet {
             KorpusSet::Techniques => "techniques",
             KorpusSet::IdleLine => "idle-line",
             KorpusSet::IdleRoom => "idle-room",
+            KorpusSet::HumLine => "hum-line",
         }
     }
 
@@ -106,7 +111,8 @@ impl KorpusSet {
             | KorpusSet::LaptopJack4
             | KorpusSet::Sixteenths
             | KorpusSet::Techniques
-            | KorpusSet::IdleLine => (InstrumentKind::Fretted, Tuning::bass4_standard()),
+            | KorpusSet::IdleLine
+            | KorpusSet::HumLine => (InstrumentKind::Fretted, Tuning::bass4_standard()),
             KorpusSet::Line5 => (InstrumentKind::Fretted, Tuning::bass5_standard()),
             KorpusSet::Fretless5 => (InstrumentKind::Fretless, Tuning::bass5_standard()),
             KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking | KorpusSet::IdleRoom => {
@@ -204,6 +210,10 @@ const IDLE_S: f64 = 60.0;
 const HUM_HZ: f64 = 50.0;
 /// Hum partials as (multiple of `HUM_HZ`, level in dBFS).
 const HUM: [(f64, f32); 3] = [(1.0, -50.0), (3.0, -58.0), (5.0, -64.0)];
+/// A loud ground loop under `HumLine`, 10 dB above `HUM`.
+const HUM_LOUD: [(f64, f32); 3] = [(1.0, -40.0), (3.0, -48.0), (5.0, -54.0)];
+/// Hum alone before the first note of `HumLine`: Kontra listens before one plays.
+const HUM_LEAD_S: f64 = 3.0;
 const NOISE_FLOOR_DB: f32 = -66.0;
 /// Mean gap between two noises; each gap varies by ±0.5 s.
 const IDLE_EVERY_S: f64 = 1.5;
@@ -219,15 +229,8 @@ const IDLE_EVERY_S: f64 = 1.5;
 fn idle(set: KorpusSet) -> KorpusItem {
     let sr = f64::from(SAMPLE_RATE);
     let len = (IDLE_S * sr) as usize;
-    let amp = |db: f32| 10f32.powf(db / 20.0);
-    let mut samples: Vec<f32> = (0..len)
-        .map(|i| {
-            let t = i as f64 / sr;
-            HUM.iter()
-                .map(|(k, db)| amp(*db) * (std::f64::consts::TAU * HUM_HZ * k * t).sin() as f32)
-                .sum()
-        })
-        .collect();
+    let mut samples = vec![0.0; len];
+    add_hum(&mut samples, sr, &HUM);
     add_noise(&mut samples, NOISE_FLOOR_DB, set as u64 + 13);
 
     let mut noise = Noise::new(set as u64 + 11);
@@ -252,6 +255,18 @@ fn idle(set: KorpusSet) -> KorpusItem {
         sample_rate: SAMPLE_RATE,
         notes: Vec::new(),
         samples,
+    }
+}
+
+/// Adds mains hum with `partials` (multiple of `HUM_HZ`, level in dBFS).
+fn add_hum(samples: &mut [f32], sr: f64, partials: &[(f64, f32)]) {
+    let amp = |db: f32| 10f32.powf(db / 20.0);
+    for (i, s) in samples.iter_mut().enumerate() {
+        let t = i as f64 / sr;
+        *s += partials
+            .iter()
+            .map(|(k, db)| amp(*db) * (std::f64::consts::TAU * HUM_HZ * k * t).sin() as f32)
+            .sum::<f32>();
     }
 }
 
@@ -384,9 +399,13 @@ pub fn generate(set: KorpusSet) -> KorpusItem {
     } else {
         &[0.3, 0.6, 0.9]
     };
-    let mut t = 0.3;
+    // `HumLine`: the two low strings, after the hum alone.
+    let (mut t, strings) = match set {
+        KorpusSet::HumLine => (HUM_LEAD_S, 2),
+        _ => (0.3, instrument.tuning.strings.len()),
+    };
     for velocity in velocities {
-        for open in &instrument.tuning.strings {
+        for open in instrument.tuning.strings.iter().take(strings) {
             for fret in 0..=frets {
                 let midi = f64::from(open.0) + f64::from(fret);
                 let detune = if set == KorpusSet::Fretless5 {
@@ -429,6 +448,10 @@ pub fn generate(set: KorpusSet) -> KorpusItem {
     match set {
         KorpusSet::LaptopJack4 => samples = laptop_jack(&samples, sr, 3),
         KorpusSet::RoomDouble => samples = room(&samples, sr, 5),
+        KorpusSet::HumLine => {
+            add_hum(&mut samples, sr, &HUM_LOUD);
+            add_noise(&mut samples, NOISE_FLOOR_DB, set as u64 + 13);
+        }
         KorpusSet::RoomDoubleBacking => {
             let band = band(samples.len(), sr);
             let mixed: Vec<f32> = samples
@@ -463,8 +486,8 @@ pub struct Evaluation {
     pub set: KorpusSet,
     pub annotated: usize,
     pub detected: usize,
-    /// Detections with a pitch. Where nothing is played these are the false notes a session
-    /// shows: a pitchless attack there judges nothing (LH-NF-16).
+    /// Detections that stand out (`stands_out`: a pitch, not the background's, no dead note).
+    /// Where nothing is played these are the false notes a session shows (LH-NF-16).
     #[serde(default)]
     pub pitched: usize,
     /// Annotated notes with a detection within ±30 ms.

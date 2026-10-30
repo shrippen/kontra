@@ -34,9 +34,9 @@ pub struct DetectedNote {
     /// pluck or not known.
     #[serde(default)]
     pub technique: Option<crate::Technique>,
-    /// The pitch is that of a steady tone heard before the attack (mains hum, the note before
-    /// still ringing): a click on hum, or the same note struck again. Judged only where a note
-    /// is due (LH-NF-16).
+    /// The pitch is that of a steady tone heard before the attack (mains hum not yet removed,
+    /// the note before still ringing): a click on hum, or the same note struck again. Judged
+    /// only where a note is due (LH-NF-16).
     #[serde(default)]
     pub over_background: bool,
 }
@@ -47,9 +47,12 @@ impl DetectedNote {
         self.midi <= 0.0
     }
 
-    /// Whether it is a note of its own off the notes: a pitch, and not just the background's.
+    /// Whether it is a note of its own off the notes: a pitch, not just the background's, and
+    /// not a dead note (a muted attack's pitch is noise: a hand on the strings, E8).
     pub fn stands_out(&self) -> bool {
-        !self.is_pitchless() && !self.over_background
+        !self.is_pitchless()
+            && !self.over_background
+            && self.technique != Some(crate::Technique::Muted)
     }
 }
 
