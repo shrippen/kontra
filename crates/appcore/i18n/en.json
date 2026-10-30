@@ -239,6 +239,7 @@
   "input.state.failed.text": "Kontra gets no sound: the input did not open or stopped working. Plug the cable or interface back in and try again.",
   "input.state.denied": "No access to the input",
   "input.state.denied.text": "The system does not let Kontra open the input. Allow Kontra to use audio devices (for a Flatpak in the app's permissions) and try again.",
+  "input.reason": "System message: {reason}",
   "input.retry": "Try again",
   "workshop.bars": "Bars",
   "workshop.from": "From bar",

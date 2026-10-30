@@ -9,7 +9,7 @@
 //! ```
 
 use crate::{Core, UiEvent};
-use kontra_session::{list_devices, Direction, InputChoice, PracticeEvent};
+use kontra_session::{list_devices, Direction, EngineError, InputChoice, PracticeEvent};
 
 /// The input's state for the player.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -45,12 +45,20 @@ pub(crate) enum InputUse {
     Tuner,
 }
 
-/// The state, what it belongs to and the input's name.
+/// Why a run did not start: its input (the state shows it) or anything else (a message).
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Unstarted {
+    Input,
+    Other(String),
+}
+
+/// The state, what it belongs to and its detail: the input's name while connected, the
+/// system's reason after a fault.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct InputStatus {
     state: InputState,
     using: InputUse,
-    name: String,
+    detail: String,
 }
 
 impl InputStatus {
@@ -58,20 +66,29 @@ impl InputStatus {
         InputStatus {
             state: InputState::Off,
             using: InputUse::Practice,
-            name: String::new(),
+            detail: String::new(),
         }
     }
 
     pub(crate) fn opened(&mut self, using: InputUse, name: String) {
         self.state = InputState::Connected;
         self.using = using;
-        self.name = name;
+        self.detail = name;
     }
 
-    /// `state`: `Failed` or `Denied`.
-    pub(crate) fn failed(&mut self, using: InputUse, state: InputState) {
-        self.state = state;
+    /// The input of `using` did not open: refused by the system, or any other fault.
+    pub(crate) fn failed(&mut self, using: InputUse, error: &EngineError) {
+        self.state = if error.is_denied() {
+            InputState::Denied
+        } else {
+            InputState::Failed
+        };
         self.using = using;
+        self.detail = error.to_string();
+    }
+
+    pub(crate) fn state(&self) -> InputState {
+        self.state
     }
 
     /// The input of `using` was closed; another use's state stays.
@@ -82,9 +99,10 @@ impl InputStatus {
     }
 
     /// The device failed while open (unplugged); nothing was open: stays as it was.
-    pub(crate) fn lost(mut self) -> InputStatus {
+    pub(crate) fn lost(mut self, reason: &str) -> InputStatus {
         if self.state != InputState::Off {
             self.state = InputState::Failed;
+            self.detail = reason.to_string();
         }
         self
     }
@@ -106,29 +124,41 @@ impl Core {
         self.input.state
     }
 
-    /// Name of the open input ("Scarlett Solo USB", a recording's file name).
-    pub fn input_name(&self) -> String {
-        self.input.name.clone()
+    /// While connected the input's name ("Scarlett Solo USB", a recording's file name); after
+    /// a fault the system's reason.
+    pub fn input_detail(&self) -> String {
+        self.input.detail.clone()
     }
 
-    /// Opens the input again for what it fed: the tuner, or the run at the place it stood
-    /// (paused; play goes on from there).
+    /// Opens the input again for what it fed: the tuner, or the run, which goes on where it
+    /// stands (one run, a probe stays a probe). A fault shows as the state, not as a message.
     pub fn retry_input(&mut self) -> Vec<UiEvent> {
         if self.input.using == InputUse::Tuner {
-            return self
-                .start_tuner()
-                .err()
-                .map(UiEvent::Error)
-                .into_iter()
-                .collect();
+            // Only the input can fail here; the state says so.
+            let _ = self.start_tuner();
+            return Vec::new();
         }
-        let at_s = self.live.as_ref().map(|_| self.position_s());
-        self.stop_live();
-        if let Err(e) = self.start_live() {
-            return vec![UiEvent::Error(e)];
+        if self.live.is_none() {
+            return match self.start_live() {
+                Err(Unstarted::Other(text)) => vec![UiEvent::Error(text)],
+                Ok(_) | Err(Unstarted::Input) => Vec::new(),
+            };
         }
-        if let Some(at_s) = at_s {
-            self.seek(at_s);
+        let setup = self.live_setup();
+        let gains = crate::gains(&self.settings);
+        let Some(live) = self.live.as_mut() else {
+            return Vec::new();
+        };
+        match live.reopen(&setup) {
+            Ok(()) => {
+                live.practice_mut().set_gains(gains);
+                self.input_opened(InputUse::Practice);
+            }
+            Err(e) => {
+                // Without an input the run waits instead of counting the notes as missed.
+                live.practice_mut().pause();
+                self.input.failed(InputUse::Practice, &e);
+            }
         }
         Vec::new()
     }
@@ -188,14 +218,14 @@ mod tests {
         assert_eq!(status.state, InputState::NoSignal);
         status.observe(&[PracticeEvent::InputResumed]);
         assert_eq!(status.state, InputState::Connected);
-        assert_eq!(status.name, "Scarlett Solo");
+        assert_eq!(status.detail, "Scarlett Solo");
     }
 
     // A late resume does not hide a failure.
     #[test]
     fn a_fault_stays_until_the_input_opens() {
         let mut status = connected();
-        status.failed(InputUse::Practice, InputState::Failed);
+        status = status.lost("unplugged");
         status.observe(&[PracticeEvent::InputResumed]);
         assert_eq!(status.state, InputState::Failed);
         status.opened(InputUse::Practice, "Scarlett Solo".into());
@@ -205,17 +235,21 @@ mod tests {
     // Unplugged while open: failed; a device error with nothing open changes nothing.
     #[test]
     fn a_lost_device_fails_only_an_open_input() {
-        assert_eq!(connected().lost().state, InputState::Failed);
-        assert_eq!(InputStatus::new().lost().state, InputState::Off);
+        let lost = connected().lost("unplugged");
+        assert_eq!(
+            (lost.state, lost.detail.as_str()),
+            (InputState::Failed, "unplugged")
+        );
+        assert_eq!(InputStatus::new().lost("unplugged").state, InputState::Off);
     }
 
     // Closing the tuner ends its state, not the run's (and the other way round).
     #[test]
     fn only_its_own_use_stops_it() {
         let mut status = InputStatus::new();
-        status.failed(InputUse::Tuner, InputState::Denied);
+        status.opened(InputUse::Tuner, "Scarlett Solo".into());
         status.stopped(InputUse::Practice);
-        assert_eq!(status.state, InputState::Denied);
+        assert_eq!(status.state, InputState::Connected);
         status.stopped(InputUse::Tuner);
         assert_eq!(status.state, InputState::Off);
     }

@@ -333,9 +333,9 @@ Erwartet: kein Absturz, klare Meldung, Interface wird wieder genutzt; Xrun-Zähl
 2. Interface anstecken, „Erneut versuchen“, Abspielen.
 3. Mitten im Lauf liefert das Gerät nichts mehr (am Solo: USB kurz trennen); „Erneut versuchen“.
 4. Lauf beenden; Stimmgerät mit abgezogenem Interface öffnen und wieder verlassen.
-Erwartet: „Eingang gestört“ mit Zeichen, Text und „Erneut versuchen“ bleibt in der Leiste unter der Seite, bis der
+Erwartet: „Eingang gestört“ mit Zeichen, Text, Meldung des Systems und „Erneut versuchen“ (keine zweite Fehlerleiste) bleibt in der Leiste unter der Seite, bis der
 Eingang geht, auch nach anderen Meldungen; danach „Eingang verbunden: <Name>“ unter dem Pegel. Im Lauf „Kein
-Signal vom Gerät“, keine Note als verpasst; „Erneut versuchen“ lässt den Lauf an seiner Stelle stehen (pausiert).
+Signal vom Gerät“, keine Note als verpasst; „Erneut versuchen“ lässt den Lauf an seiner Stelle weiterlaufen, er wird einmal gespeichert.
 Verweigert das System das Gerät: „Kein Zugriff auf den Eingang“ mit dem Weg zur Freigabe. Orca sagt jeden Wechsel.
 Nach dem Stimmgerät keine Anzeige mehr. Schritte 1, 2 und 4 mit einer Aufnahme statt Interface automatisiert;
 Schritt 3 am Solo (Aussetzer lassen sich mit einer Datei nicht erzeugen).

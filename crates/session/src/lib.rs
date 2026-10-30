@@ -50,14 +50,14 @@ pub use courses::{CourseError, CourseFetch, CourseStore};
 pub use density::Density;
 pub use expected::{expected_notes, ExpectedNote};
 pub use kontra_engine::Separator;
-pub use kontra_engine::{FileHttp, Http, HttpError, Web};
+pub use kontra_engine::{EngineError, FileHttp, Http, HttpError, Web};
 pub use kontra_engine::{Gains, SeparatorError, Shaping, SHAPING_RANGE_DB};
 pub use learning::{
     lesson, place, positions, Answer, LearnState, LearnStore, Learning, QuestionRef, UnitState,
 };
 pub use live::{
-    is_midi_file, soak, InputChoice, Live, LiveCalibration, LiveEar, LiveOutput, LiveSetup,
-    LiveTuner, PromptTone, SoakReport,
+    is_midi_file, soak, InputChoice, Live, LiveCalibration, LiveEar, LiveError, LiveOutput,
+    LiveSetup, LiveTuner, PromptTone, SoakReport,
 };
 pub use loopback::{LiveLoopback, LoopbackResult};
 pub use matcher::{NoteResult, Outcome};

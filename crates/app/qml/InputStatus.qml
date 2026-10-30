@@ -22,8 +22,10 @@ ColumnLayout {
     readonly property string state: ctl.inputState
     readonly property bool fault: state === "nosignal" || state === "failed" || state === "denied"
     readonly property bool shown: part === InputStatus.Part.Faults ? fault : state === "connected"
-    readonly property string line: ctl.inputName !== ""
-        ? texts.t("input.state.connected", { name: ctl.inputName })
+    // While connected the input's name, after a fault the system's reason.
+    readonly property string detail: ctl.inputDetail
+    readonly property string line: detail !== ""
+        ? texts.t("input.state.connected", { name: detail })
         : texts.t("input.state.connected.plain")
 
     visible: shown
@@ -61,7 +63,9 @@ ColumnLayout {
         Layout.fillWidth: true
         kind: status.state === "nosignal" ? KanteCallout.Kind.Warn : KanteCallout.Kind.Danger
         title: status.fault ? status.texts.t("input.state." + status.state) : ""
-        text: status.fault ? status.texts.t("input.state." + status.state + ".text") : ""
+        text: !status.fault ? ""
+            : status.texts.t("input.state." + status.state + ".text")
+              + (status.detail !== "" ? "\n" + status.texts.t("input.reason", { reason: status.detail }) : "")
         autoHide: false
         Accessible.role: Accessible.AlertMessage
         Accessible.name: title

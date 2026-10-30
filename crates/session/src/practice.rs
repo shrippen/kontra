@@ -160,6 +160,15 @@ impl<O: Output> Practice<O> {
         &self.output
     }
 
+    /// Plays on `output` from now (a reopened device): its sounds and backing planned anew,
+    /// pitch shift as before; volumes are the caller's.
+    pub fn replace_output(&mut self, output: O) {
+        self.output = output;
+        self.output
+            .set_transpose(self.options.transpose_semitones as f32);
+        self.reschedule();
+    }
+
     /// Sets the backing track (Wait mode never plays it: the clock stops at every note),
     /// sounding transposed as the options say.
     pub fn set_backing(&mut self, track: Option<BackingTrack>) {

@@ -34,14 +34,14 @@ pub use store::{
     SectionBars, SectionDensity, Setlist, Settings,
 };
 
-use input_state::InputUse;
+use input_state::{InputUse, Unstarted};
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Judging, Technique, Tuning};
 use kontra_session::{
     import_file, list_devices, run_from, technique_signs, Chain, Connection, DeviceInfo, Direction,
     Gains, ImportResult, InputChoice, Intonation, Leaning, Live, LiveCalibration, LiveEar,
-    LiveLoopback, LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Observation, Outcome,
-    OutsideNote, Pocket, PocketVerdict, PracticeEvent, PracticeOptions, ProgressStore, Run,
-    ScoreSettings, SessionEvent, Shaping, Side, Summary, TechniqueOutcome, TechniqueResult,
+    LiveError, LiveLoopback, LiveSetup, LiveTuner, LoopRange, Mode, NoteResult, Observation,
+    Outcome, OutsideNote, Pocket, PocketVerdict, PracticeEvent, PracticeOptions, ProgressStore,
+    Run, ScoreSettings, SessionEvent, Shaping, Side, Summary, TechniqueOutcome, TechniqueResult,
     Workshop,
 };
 use serde_json::json;
@@ -133,7 +133,7 @@ pub enum UiEvent {
         state: &'static str,
         suggest_laptop: bool,
     },
-    /// The audio device failed (unplugged); the run was stopped.
+    /// The audio device failed (unplugged), with the system's reason; the run was stopped.
     DeviceLost(String),
     /// Between runs: offer another note density (LH-MOD-06), 1..=3, with the question.
     DensitySuggestion {
@@ -1588,9 +1588,11 @@ impl Core {
         }
         if self.live.is_none() {
             match self.start_live() {
+                // The input's state shows it (LH-EIN-15), not a second bar.
+                Err(Unstarted::Input) => return events,
                 Ok(silent) if silent => events.push(UiEvent::Message(self.tr("hint.silent", &[]))),
                 Ok(_) => {}
-                Err(e) => return vec![UiEvent::Error(e)],
+                Err(Unstarted::Other(e)) => return vec![UiEvent::Error(e)],
             }
         }
         if self.output_is_bluetooth() {
@@ -2216,10 +2218,10 @@ impl Core {
     }
 
     /// Starts audio for the loaded arrangement; true if there is no sound output.
-    fn start_live(&mut self) -> Result<bool, String> {
+    fn start_live(&mut self) -> Result<bool, Unstarted> {
         self.check_audio_path();
         let Some(loaded) = self.loaded.as_ref() else {
-            return Err(self.tr("library.empty.hint", &[]));
+            return Err(Unstarted::Other(self.tr("library.empty.hint", &[])));
         };
         self.tuner = None;
         self.live_ear = None;
@@ -2227,24 +2229,18 @@ impl Core {
         let arrangement = loaded.arrangement.clone();
         let settings = self.score_settings(arrangement.instrument.kind);
         let options = self.practice_options();
-        let setup = LiveSetup {
-            input: self.input_choice(),
-            output_device: self.output_device(),
-            source: self.source(),
-            // A backing file that is gone is skipped (play() says so), not an error.
-            backing: self.backing().map(|(path, _)| path).filter(|p| p.exists()),
-            original: self.backing_original(),
-            backing_cache: Some(self.backing_cache_dir()),
-        };
+        let setup = self.live_setup();
         let mut live = match Live::start(arrangement, self.mode(), settings, options, &setup) {
             Ok(live) => live,
-            Err(e) => {
-                let fault = match e.is_denied() {
-                    true => InputState::Denied,
-                    false => InputState::Failed,
-                };
-                self.input.failed(InputUse::Practice, fault);
-                return Err(self.tr("error.audio", &[("reason", e.to_string())]));
+            Err(LiveError::Input(e)) => {
+                self.input.failed(InputUse::Practice, &e);
+                return Err(Unstarted::Input);
+            }
+            Err(e @ LiveError::Setup(_)) => {
+                let reason = e.to_string();
+                return Err(Unstarted::Other(
+                    self.tr("error.audio", &[("reason", reason)]),
+                ));
             }
         };
         live.practice_mut()
@@ -2259,6 +2255,21 @@ impl Core {
         Ok(silent)
     }
 
+    /// Devices and backing track for a run.
+    fn live_setup(&self) -> LiveSetup {
+        LiveSetup {
+            input: self.input_choice(),
+            output_device: self.output_device(),
+            source: self.source(),
+            // A backing file that is gone is skipped (play() says so), not an error.
+            backing: self.backing().map(|(path, _)| path).filter(|p| p.exists()),
+            original: self.backing_original(),
+            backing_cache: Some(self.backing_cache_dir()),
+        }
+    }
+
+    /// Starts the tuner; a failed input shows as the input's state (the text is for callers
+    /// without one).
     pub fn start_tuner(&mut self) -> Result<(), String> {
         self.stop_live();
         self.live_ear = None;
@@ -2267,11 +2278,7 @@ impl Core {
         let tuner = match LiveTuner::start(&self.input_choice(), &instrument, self.source()) {
             Ok(tuner) => tuner,
             Err(e) => {
-                let fault = match e.is_denied() {
-                    true => InputState::Denied,
-                    false => InputState::Failed,
-                };
-                self.input.failed(InputUse::Tuner, fault);
+                self.input.failed(InputUse::Tuner, &e);
                 return Err(self.tr("error.audio", &[("reason", e.to_string())]));
             }
         };
@@ -2321,7 +2328,17 @@ impl Core {
             self.stop_live();
             self.tuner = None;
             self.live_ear = None;
-            self.input = input.lost();
+            let reason = events.iter().find_map(|e| match e {
+                UiEvent::DeviceLost(m) => Some(m.clone()),
+                _ => None,
+            });
+            let reason = reason.unwrap_or_default();
+            self.input = input.lost(&reason);
+            // Ear training shows no input state: there the message says it.
+            if self.input.state() == InputState::Off {
+                let text = self.tr("error.device.lost", &[("reason", reason)]);
+                events.push(UiEvent::Error(text));
+            }
             events.extend(self.input_lost());
         }
         events.extend(self.watch_lost());
@@ -2826,9 +2843,7 @@ impl Core {
             }),
             // A device error usually means the interface was unplugged (LH-ALL-04): the run ends
             // and the next play opens the device again.
-            PracticeEvent::Error(m) => Some(UiEvent::DeviceLost(
-                self.tr("error.device.lost", &[("reason", m)]),
-            )),
+            PracticeEvent::Error(m) => Some(UiEvent::DeviceLost(m)),
             // The device stopped delivering (LH-EIN-15): judging pauses, the player hears why.
             // Practice and tuner show it as the input's state; ear training only here.
             PracticeEvent::InputStalled | PracticeEvent::InputResumed
@@ -6970,11 +6985,9 @@ mod tests {
         );
         core.open(&Core::demo_path()).unwrap();
         core.set_loop(1, 2);
-        let events = core.start_probe();
-        assert!(
-            events.iter().any(|e| matches!(e, UiEvent::Error(_))),
-            "{events:?}"
-        );
+        // The failed input shows as its state, not as a message (LH-EIN-15).
+        core.start_probe();
+        assert_eq!(core.input_state(), InputState::Failed);
         assert!(!core.is_probing());
         let _ = std::fs::remove_dir_all(dir);
     }

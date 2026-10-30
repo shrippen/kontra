@@ -203,9 +203,11 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 
 - `tech-hint` (Runde 17, Slap/Pop als Hinweis): `TechniqueGrade` (`Judged`, `Hint`), `TechniqueResult::{grade, mark}`,
   `Summary::hint_techniques`; `pub(crate) TechniqueJudge::hints`.
-- `input-state` (E3, LH-EIN-15): `InputState` (`key`), `Core::{input_state, input_name, retry_input, is_tuning}`,
-  `AudioError::is_denied`, `EngineError::is_denied`; `pub(crate)`: `InputStatus`, `InputUse`,
-  `Core::input_opened`; Brücke: Properties `inputState`, `inputName`, Invokable `retryInput`.
+- `input-state` (E3, LH-EIN-15, #213): `InputState` (`key`), `Core::{input_state, input_detail, retry_input,
+  is_tuning}`, `AudioError::is_denied`, `EngineError::is_denied`, `LiveError` (`Input`, `Setup`; `Live::start`
+  gibt ihn statt `EngineError`), `Live::reopen`, `Practice::replace_output`, `kontra_session::EngineError`
+  (Re-Export); `pub(crate)`: `InputStatus`, `InputUse`, `Unstarted`, `Core::{input_opened, live_setup}`; Brücke:
+  Properties `inputState`, `inputDetail`, Invokable `retryInput`. `UiEvent::DeviceLost` trägt jetzt den rohen Grund.
 
 ## pub-Schnittstellen, in Runde 17 freigegeben
 

@@ -16,7 +16,7 @@ Item {
         property string offerInput: ""
         property string offerText: ""
         property string inputState: "off"
-        property string inputName: ""
+        property string inputDetail: ""
         property int retries: 0
         function dismissMessage() {
             message = ""

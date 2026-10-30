@@ -239,6 +239,7 @@
   "input.state.failed.text": "Kontra bekommt keinen Ton: Der Eingang ließ sich nicht öffnen oder ist ausgefallen. Steck Kabel oder Interface wieder ein und versuch es erneut.",
   "input.state.denied": "Kein Zugriff auf den Eingang",
   "input.state.denied.text": "Das System lässt Kontra den Eingang nicht öffnen. Erlaube Kontra den Zugriff auf Audiogeräte (bei Flatpak in den Rechten der App) und versuch es erneut.",
+  "input.reason": "Meldung des Systems: {reason}",
   "input.retry": "Erneut versuchen",
   "workshop.bars": "Takte",
   "workshop.from": "Von Takt",

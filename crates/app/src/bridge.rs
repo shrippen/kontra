@@ -158,7 +158,7 @@ pub mod qobject {
         #[qproperty(i32, xruns)]
         #[qproperty(QString, offer_input, cxx_name = "offerInput")]
         #[qproperty(QString, input_state, cxx_name = "inputState")]
-        #[qproperty(QString, input_name, cxx_name = "inputName")]
+        #[qproperty(QString, input_detail, cxx_name = "inputDetail")]
         #[qproperty(QString, offer_text, cxx_name = "offerText")]
         #[qproperty(QString, error_text, cxx_name = "errorText")]
         #[qproperty(QString, start_page, cxx_name = "startPage")]
@@ -973,7 +973,7 @@ pub struct ControllerRust {
     xruns: i32,
     offer_input: QString,
     input_state: QString,
-    input_name: QString,
+    input_detail: QString,
     offer_text: QString,
     error_text: QString,
     start_page: QString,
@@ -1137,7 +1137,7 @@ impl Default for ControllerRust {
             xruns: 0,
             offer_input: QString::default(),
             input_state: QString::default(),
-            input_name: QString::default(),
+            input_detail: QString::default(),
             offer_text: QString::default(),
             error_text: QString::default(),
             start_page: q(args.page.as_deref().unwrap_or("")),
@@ -1656,8 +1656,8 @@ impl qobject::Controller {
         }
         let input = q(self.as_ref().rust().core.input_state().key());
         if input != *self.as_ref().input_state() {
-            let name = self.as_ref().rust().core.input_name();
-            self.as_mut().set_input_name(q(&name));
+            let detail = self.as_ref().rust().core.input_detail();
+            self.as_mut().set_input_detail(q(&detail));
             self.as_mut().set_input_state(input);
         }
         let xruns = i32::try_from(self.as_ref().rust().core.xruns()).unwrap_or(i32::MAX);
@@ -1751,10 +1751,10 @@ impl qobject::Controller {
                     self.as_mut().set_playing(false);
                     self.as_mut().set_message(q(&text));
                 }
-                UiEvent::DeviceLost(text) => {
+                // The input's state shows it (LH-EIN-15).
+                UiEvent::DeviceLost(_) => {
                     self.as_mut().set_playing(false);
                     self.as_mut().set_tuner_active(false);
-                    self.as_mut().show_error(&text);
                 }
                 UiEvent::DensitySuggestion { level, text } => {
                     self.as_mut().set_density_suggestion(i32::from(level));
@@ -1788,10 +1788,9 @@ impl qobject::Controller {
         self.as_mut().set_playing(false);
         let tuning = self.as_ref().rust().core.tuning_json();
         self.as_mut().set_tuning_json(q(&tuning));
-        match self.as_mut().core().start_tuner() {
-            Ok(()) => self.as_mut().set_tuner_active(true),
-            Err(e) => self.as_mut().show_error(&e),
-        }
+        // A failed input shows as the input's state (LH-EIN-15), not as a second bar.
+        let started = self.as_mut().core().start_tuner().is_ok();
+        self.as_mut().set_tuner_active(started);
     }
 
     fn stop_tuner(mut self: Pin<&mut Self>) {
