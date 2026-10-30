@@ -954,6 +954,7 @@ impl NoteTracker {
             onset_s: settle.onset as f64 / self.sample_rate,
             midi,
         });
+        self.replan_string(settle.onset, s.midi, midi);
         s.midi = midi;
         s.change = None;
         true

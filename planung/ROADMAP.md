@@ -243,6 +243,10 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   unverändert (`korpus check`, `measure` IDMT-ST/FiloBass, `techniques` gleich wie vorher). Offen: Messung am Bass
   des Eigentümers (andere Mensur und Saiten verschieben a_Saite; Kalibrierung aus gespielten Noten), Anzeige je Note
   in der Lane, tiefe H-Saite und andere Stimmungen.
+  Nacharbeit (30.10., Branch `followups`): Eine Note, deren erste Meldung einen Halbton daneben lag (flacher
+  Anfang), bekam keine Saitenprüfung; seit der Tonhöhen-Korrektur wird sie neu geplant. IDMT-ST geprüft 648 → 654
+  Noten, 93,2 % richtig bei 58,6 % unverändert; IDMT-SMT-Bass je Bass gleich (Bass 2 466 → 470 Noten, 95,2 %);
+  `korpus check` gleich. Die Auswertung nennt Noten ohne Saitenwerte auch neben erkannten (Fünfsaiter).
 - [x] R8 Doppelgriffe erkennen, wenn die Tab beide Töne vorgibt (Klapuri 2006): 95 % erkannt, 2,1 % Fehlalarm;
   Oktaven nicht. Teil von M1 (LH-BEW-11). Umgesetzt in #205: `DyadCheck` im Tracker, Urteil `DoubleStopVerdict` je Anschlag,
   Session wertet beide Töne (beide → zwei Treffer, einer → der andere ausgelassen). `korpus check`: synthetisch

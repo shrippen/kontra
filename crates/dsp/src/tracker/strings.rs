@@ -144,6 +144,23 @@ impl NoteTracker {
         }
     }
 
+    /// The pitch of the note at `report` was revised from `was` to `midi`: its string check
+    /// rests on the pitch, so it is planned again (review #207). A check already told stays
+    /// told: only one still waiting, or one not planned for the other semitone, is planned.
+    pub(super) fn replan_string(&mut self, report: u64, was: f64, midi: f64) {
+        let waiting = self
+            .strings
+            .checks
+            .iter()
+            .flatten()
+            .any(|c| c.report == report);
+        if !waiting && was.round() == midi.round() {
+            return;
+        }
+        self.forget_string(report);
+        self.plan_string(report, midi);
+    }
+
     /// The note at `report` was taken back (R1): no string is told for it.
     pub(super) fn forget_string(&mut self, report: u64) {
         for check in &mut self.strings.checks {

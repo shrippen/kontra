@@ -2981,21 +2981,29 @@ impl Core {
             .collect()
     }
 
-    /// Notes on another string than the tab's (R7); a profile that cannot tell says so.
+    /// Notes on another string than the tab's (R7); a profile that cannot tell says so, also
+    /// for some notes only (a five-string's low B, review #207). One line each.
     fn strings_text(&self, strings: kontra_session::StringTally) -> String {
+        let mut parts = Vec::new();
         if strings.other > 0 {
-            return self.tr(
+            parts.push(self.tr(
                 "summary.strings.other",
                 &[
                     ("other", strings.other.to_string()),
                     ("told", strings.told.to_string()),
                 ],
-            );
+            ));
         }
         if strings.unsupported > 0 && strings.told == 0 {
-            return self.tr("summary.strings.unsupported", &[]);
+            parts.push(self.tr("summary.strings.unsupported", &[]));
         }
-        String::new()
+        if strings.unsupported > 0 && strings.told > 0 {
+            parts.push(self.tr(
+                "summary.strings.unsupported.some",
+                &[("count", strings.unsupported.to_string())],
+            ));
+        }
+        parts.join("\n")
     }
 
     /// What this input did not judge: techniques, hints (slap and pop over a cable) and double
@@ -6730,6 +6738,18 @@ mod tests {
         assert_eq!(
             text(&s),
             "Saiten erkennt Kontra mit diesem Instrument noch nicht (nur bundierte Bässe in E-A-D-G)"
+        );
+
+        // Review #207: some notes told, others not (a five-string's low B): both said.
+        s.strings = kontra_session::StringTally {
+            told: 12,
+            other: 3,
+            unsupported: 5,
+        };
+        assert_eq!(
+            text(&s),
+            "3 von 12 Noten auf einer anderen Saite als in der Tab\n\
+             Bei 5 Noten erkennt Kontra die Saite mit diesem Instrument noch nicht (nur bundierte Bässe in E-A-D-G)"
         );
         let _ = std::fs::remove_dir_all(dir);
     }
