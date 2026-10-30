@@ -818,6 +818,7 @@ impl Session {
             .map(|(_, p, n, h)| (*p, *n, *h))
             .collect();
         summary.strings = crate::summary::StringTally::of(&strings);
+        summary.untold_double_stops = self.untold_double_stops();
         summary.outside_offset_ms =
             crate::summary::outside_offset_ms(&self.results, self.transport.speed());
         summary.outside_notes =

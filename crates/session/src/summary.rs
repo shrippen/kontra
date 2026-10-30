@@ -108,6 +108,9 @@ pub struct Summary {
     /// Techniques in the score this input cannot tell (slap and pop at a microphone).
     #[serde(default)]
     pub untold_techniques: Vec<Technique>,
+    /// Double stops in the score this input does not judge by both tones (microphone, R8).
+    #[serde(default)]
+    pub untold_double_stops: u32,
     /// Median offset in real ms of the notes played next to missed ones, when most missed notes
     /// have one: the timing outside the window (`outside_offset_ms`).
     #[serde(default)]
@@ -336,6 +339,7 @@ impl Summary {
             hesitant_bars: hesitant_bars(&final_results, mean_offset.unwrap_or(0.0)),
             techniques: Vec::new(),
             untold_techniques: Vec::new(),
+            untold_double_stops: 0,
             outside_offset_ms: None,
             outside_notes: Vec::new(),
             early_hits: offsets.iter().filter(|o| **o < -ON_TIME_MS).count() as u32,

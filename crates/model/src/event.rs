@@ -199,12 +199,16 @@ pub enum ChordHearing {
     /// Two-tone double stops the tab announces, not octaves (audio, R8). Three tones or more,
     /// and anything not announced, are heard as one note.
     AnnouncedDoubleStops,
+    /// One tone per attack: a double stop is judged like a chord. A microphone until recordings
+    /// exist (Runde 17: 12.2 % false alarms on FiloBass).
+    OneTone,
 }
 
 impl InputSource {
     pub fn chord_hearing(self) -> ChordHearing {
         match self {
             InputSource::Midi => ChordHearing::Every,
+            InputSource::Microphone => ChordHearing::OneTone,
             _ => ChordHearing::AnnouncedDoubleStops,
         }
     }

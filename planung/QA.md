@@ -122,15 +122,17 @@ Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreich
 6. Sam (P7): alles nur mit Tastatur und Screenreader, 200 %.
 Erwartet: eine Anfrage je Enter, „Suchen“ ist gesperrt, solange sie läuft; Treffer mit Titel, Interpret und „Bass: E A D G“ bzw. „ohne Bassspur“ als Text; ein Klick öffnet die Songsterr-Seite auf der Bassspur im Browser, Kontra lädt keine Tabs; die Datei erscheint beim Zurückkehren ins Fenster (sonst binnen 15 s) mit Art („Guitar Pro“, „MuseScore“) und Alter, ein Klick öffnet sie mit der Bassspur und nimmt sie aus „Neu“; `.mscz` mit gleichen Saiten und Bünden wie in MuseScore; mehrere abgelegte Dateien landen in der Bibliothek, die defekte mit Grund; ohne Netz nennt Kontra den Grund und verweist auf die Browser-Suche, die Bibliothek bleibt bedienbar; ohne Browser eine Warnung mit der Adresse zum Kopieren; Feld, Knöpfe und Treffer per Tab erreichbar, Enter öffnet einen Treffer, der Screenreader liest Titel, Interpret und Bassspur.
 
-**J-B7 Doppelgriffe** · Personas: P3 Mira, P2 Jens, P5 Aylin · Phase 4 · LH-BEW-11
+**J-B7 Doppelgriffe** · Personas: P3 Mira, P2 Jens, P5 Aylin, P6 Karl · Phase 4 · LH-BEW-11
 1. Mira: Übung mit Quinten und Dezimen als Doppelgriff (Tab mit zwei Tönen je Anschlag), Modus „Durchlauf“; erst
    beide Töne sauber, dann bei jedem zweiten nur den unteren Ton, dann eine Oktave.
 2. Jens: dieselbe Übung über das Laptop-Kabel bzw. die Aufnahme dazu (`--input-file`).
 3. Aylin: dieselbe Übung am MIDI-Keyboard.
+4. Karl: dieselbe Übung am Kontrabass über Mikrofon (Aufnahme `room-double`, `--input-file`).
 Erwartet: beide Töne gespielt → beide getroffen, auch wenn die Tonhöhe des Gemischs ein anderer Ton war; nur der
 untere → unterer getroffen, oberer ausgelassen, etwa 160 ms nach dem Anschlag; Oktave → wie bisher (ein Ton zählt);
 kein Doppelgriff wird als falscher Ton gewertet, nur weil zwei Töne klangen. MIDI hört jeden Ton selbst (als ganze
-Menge erst mit M2).
+Menge erst mit M2). Mikrofon: kein Urteil über beide Töne, ein Ton zählt für beide; Einstellung „Mikrofon“ und
+Auswertung sagen, dass Doppelgriffe über Mikrofon noch nicht so bewertet werden (Runde 17).
 
 ## C. Lernen und Fortschritt
 
