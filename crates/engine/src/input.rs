@@ -432,14 +432,24 @@ impl Analysis {
     }
 
     /// What the last `push` or `flush` told. Notes taken back go first: a pluck told in the same
-    /// block as its tap's retraction (from about F#2 up) then finds its note free.
+    /// block as its tap's retraction (from about F#2 up) then finds its note free. A note told
+    /// and taken back in the same block is not sent at all.
     fn send_told(&self, events: &Sender<Event>) {
-        for retraction in self.tracker.retracted() {
+        let retracted = self.tracker.retracted();
+        let told = self.tracker.told();
+        let in_block = |onset_s: f64| told.iter().any(|n| n.onset_s == onset_s);
+        for retraction in retracted {
+            if in_block(retraction.onset_s) {
+                continue;
+            }
             let mut retraction = *retraction;
             retraction.onset_s += self.start_s;
             let _ = events.send(Event::Retracted(retraction));
         }
-        for note in self.tracker.told() {
+        for note in told {
+            if retracted.iter().any(|r| r.onset_s == note.onset_s) {
+                continue;
+            }
             let mut note = *note;
             note.onset_s += self.start_s;
             let _ = events.send(Event::Note(note));
@@ -1105,19 +1115,25 @@ mod tests {
         None
     }
 
+    /// A G2 at 0.26 s after a tap on it at 0.2 s, 30 dB quieter (R1).
+    fn tapped_g2(sr: f64) -> Vec<f32> {
+        use kontra_dsp::synth::{bass_tone, ToneShape};
+        let g2 = kontra_model::midi_to_hz(43.0, kontra_model::A4_HZ);
+        let mut signal = vec![0.0f32; (0.2 * sr) as usize];
+        let tap = bass_tone(g2, sr, 0.06, ToneShape::Rich, 10);
+        let pluck = bass_tone(g2, sr, 0.5, ToneShape::Rich, 11);
+        signal.extend(tap.iter().map(|x| x * 0.03));
+        signal.extend(pluck.iter().map(|x| x * 0.9));
+        signal
+    }
+
     /// R1: a tap 60 ms before a G2, 30 dB quieter, is told early and taken back in the same
     /// block as the pluck is told (from about F#2 up). The retraction goes first, so the
     /// session frees the note before the pluck claims it.
     #[test]
     fn retraction_goes_before_the_pluck() {
-        use kontra_dsp::synth::{bass_tone, ToneShape};
         const SR: f64 = 48_000.0;
-        let g2 = kontra_model::midi_to_hz(43.0, kontra_model::A4_HZ);
-        let mut signal = vec![0.0f32; (0.2 * SR) as usize];
-        let tap = bass_tone(g2, SR, 0.06, ToneShape::Rich, 10);
-        let pluck = bass_tone(g2, SR, 0.5, ToneShape::Rich, 11);
-        signal.extend(tap.iter().map(|x| x * 0.03));
-        signal.extend(pluck.iter().map(|x| x * 0.9));
+        let signal = tapped_g2(SR);
         let (mut analysis, _tx) = Analysis::new(SR, &Instrument::default_bass(), InputSource::Line);
         let (events, rx) = std::sync::mpsc::channel();
         let mut both = None;
@@ -1140,6 +1156,26 @@ mod tests {
             Some(vec!["retracted", "pluck"]),
             "in one block, retraction first"
         );
+    }
+
+    /// R1: a note told and taken back in one push (a large block) is not sent at all.
+    #[test]
+    fn note_taken_back_in_its_push_stays_out() {
+        const SR: f64 = 48_000.0;
+        let signal = tapped_g2(SR);
+        let (mut analysis, _tx) = Analysis::new(SR, &Instrument::default_bass(), InputSource::Line);
+        let (events, rx) = std::sync::mpsc::channel();
+        analysis.process(&signal, false, &events);
+        let (mut notes, mut retracted) = (Vec::new(), Vec::new());
+        for event in rx.try_iter() {
+            match event {
+                Event::Note(n) => notes.push(n.onset_s),
+                Event::Retracted(r) => retracted.push(r.onset_s),
+                _ => {}
+            }
+        }
+        let alone = notes.len() == 1 && retracted.is_empty();
+        assert!(alone, "notes {notes:?}, taken back {retracted:?}");
     }
 
     /// R2: a strike told on the engine clock reaches the tracker on its own clock (from the
