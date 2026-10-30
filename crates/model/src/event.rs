@@ -74,3 +74,102 @@ pub struct PitchRevision {
     /// Fractional MIDI note number of the settled tone.
     pub midi: f64,
 }
+
+/// A note taken back after it was emitted (R1): it went out early on a short window, and what
+/// came after shows it was no note of its own, e.g. the fretting finger tapping the string just
+/// before a much louder pluck. Matches the note by its `onset_s`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct NoteRetraction {
+    pub onset_s: f64,
+}
+
+/// A tone of an `ExpectedStrike`: the pitch, and the string the tab puts it on, where known.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ExpectedTone {
+    pub midi: u8,
+    /// String index, 0 = lowest (as `Note::string`).
+    pub string: Option<u8>,
+}
+
+/// A strike the tab expects, told to the pitch detection ahead of time (R2). The detector may
+/// report an expected pitch sooner when its own estimate agrees; it never decides the pitch.
+/// A double stop has two tones. `onset_s` is on the receiver's clock: engine time for the
+/// engine, seconds from the first sample for the tracker (as `DetectedNote::onset_s`).
+///
+/// ```text
+///            onset_s
+///   ├─ window_s ─┼─ window_s ─┤   an attack in here may be this strike
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ExpectedStrike {
+    pub onset_s: f64,
+    /// Half width of the time window around `onset_s`.
+    pub window_s: f64,
+    tones: [ExpectedTone; ExpectedStrike::MAX_TONES],
+    len: u8,
+}
+
+impl ExpectedStrike {
+    /// One bass strikes at most six strings at once.
+    pub const MAX_TONES: usize = 6;
+
+    pub fn new(onset_s: f64, window_s: f64) -> ExpectedStrike {
+        ExpectedStrike {
+            onset_s,
+            window_s,
+            tones: [ExpectedTone::default(); ExpectedStrike::MAX_TONES],
+            len: 0,
+        }
+    }
+
+    /// Adds a tone; beyond `MAX_TONES` it is left out.
+    pub fn with(mut self, tone: ExpectedTone) -> ExpectedStrike {
+        if let Some(slot) = self.tones.get_mut(usize::from(self.len)) {
+            *slot = tone;
+            self.len += 1;
+        }
+        self
+    }
+
+    pub fn tones(&self) -> &[ExpectedTone] {
+        &self.tones[..usize::from(self.len)]
+    }
+}
+
+/// Which tones of a double stop the input heard (R8, LH-BEW-11).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DoubleStopHeard {
+    Both,
+    /// Only the lower tone; the upper was not played or did not sound.
+    Lower,
+    Upper,
+    /// No statement: an octave (its partials lie on the lower tone's), or neither tone clear.
+    Unknown,
+}
+
+/// What a double stop the tab expects sounded like, told about 160 ms after its attack (R8).
+/// Matches the note by its `onset_s`, as `TechniqueRevision`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct DoubleStopVerdict {
+    pub onset_s: f64,
+    pub heard: DoubleStopHeard,
+}
+
+/// Which simultaneous tones an input can tell apart (LH-BEW-11).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChordHearing {
+    /// Every tone is its own event (MIDI).
+    Every,
+    /// Two-tone double stops the tab announces, not octaves (audio, R8). Three tones or more,
+    /// and anything not announced, are heard as one note.
+    AnnouncedDoubleStops,
+}
+
+impl InputSource {
+    pub fn chord_hearing(self) -> ChordHearing {
+        match self {
+            InputSource::Midi => ChordHearing::Every,
+            _ => ChordHearing::AnnouncedDoubleStops,
+        }
+    }
+}

@@ -234,6 +234,13 @@ pub enum KorpusCommand {
         /// List misses and extra detections per file.
         #[arg(long)]
         verbose: bool,
+        /// Tell the tracker the annotated notes ahead, as the session tells the tab (R2).
+        #[arg(long)]
+        expect: bool,
+        /// Move the expected notes by this many semitones (a wrong expectation) and count the
+        /// notes told at that pitch; without `--expect` only counts (the baseline).
+        #[arg(long, default_value_t = 0, allow_hyphen_values = true)]
+        expect_shift: i8,
     },
     /// How the techniques of real recordings are told apart (LH-BEW-06): per annotated
     /// technique, what the tracker said. Needs annotations with techniques (IDMT import).
@@ -242,6 +249,17 @@ pub enum KorpusCommand {
         /// Matching window in ms (score-grid annotations need 50–80).
         #[arg(long, default_value_t = 80.0)]
         window_ms: f64,
+    },
+    /// Double stops (R8): per recording, its notes mixed in pairs at the double-stop intervals
+    /// (told as both?) and every note announced with a second tone (false alarms).
+    DoubleStops {
+        dirs: Vec<PathBuf>,
+        /// Matching window in ms (score-grid annotations need 50–80).
+        #[arg(long, default_value_t = 80.0)]
+        window_ms: f64,
+        /// Mixed pairs per interval and recording at most.
+        #[arg(long, default_value_t = 6)]
+        per_interval: usize,
     },
     /// Which pitches the tracker takes for which (Harmonicon A5): per register, how often it
     /// heard the annotated note, a semitone, an octave, a fifth or twelfth off, or missed it.

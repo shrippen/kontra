@@ -185,12 +185,30 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - #52: `Yin::estimate_attack`. #54: `evaluate_laptop_jack` (ersetzt `simulate_laptop_jack`). #56: `Rhythm::Ghost`.
 - F3: `DetectedNote::{is_pitchless, stands_out, over_background}`, `Evaluation::pitched`; `pub(crate) yin::power_at`.
 - A2: `Summary::recalibrate`, `Summary::{before_beat_hits, after_beat_hits}`.
+- R4 (loopback-cal): `LiveLoopback` (`start`, `poll`), `LoopbackResult` (`from_trip`), `LatencyFrom`,
+  `Settings::{latency_from, loopback_ms, click_ms}`, `Core::{start_loopback, lean_ms, latency_note}`,
+  `pub(crate) Core::{poll_calibration, latency_hint, check_audio_path, audio_path}`, `pub(crate) forget_on_switch`,
+  `AudioPath`, `Settings::measured_on`; Brücke: Invokable `startLoopback`, Properties
+  `cableMeasuring`, `latencyNote`. `CalibrationResult::Measured::latency_ms` kann jetzt negativ sein.
+- R2: `ExpectedStrike` (`new`, `with`, `tones`, `MAX_TONES`), `ExpectedTone`, `NoteTracker::{expect, forget_expected}`,
+  `Input::{expect, forget_expected}`, `Expecting`, `evaluate_expecting` (Session: `evaluate_korpus_expecting`),
+  `Evaluation::{first_pitch_correct, turned_wrong, shifted_first, shifted_final, report_ms}`;
+  `pub(crate)`: `Yin::estimate_expected`, `Session::{input_s, expected}`, `Practice::take_told`, `Told`.
+- R1: `NoteRetraction`, `NoteTracker::{retracted, told}`, `Event::Retracted`, `kontra_engine::retract`,
+  `Session::on_retraction`, `Evaluation::retracted`; `pub(crate)`: `Yin::estimate_short`, `ShortEstimate`,
+  `Matcher::release`.
+- R8: `DoubleStopVerdict`, `DoubleStopHeard`, `ChordHearing`, `InputSource::chord_hearing`,
+  `NoteTracker::double_stops`, `Event::DoubleStop`, `Session::on_double_stop`; Korpus: `generate_double_stops`,
+  `announce_second_tone`, `double_stop_mixtures`, `evaluate_double_stops`, `DoubleStopSet`, `DoubleStopStrike`,
+  `DoubleStopPlayed`, `DoubleStopTally` (`add`, `detected`, `false_alarms`), `DOUBLE_STOP_INTERVALS` (Session
+  reicht sie durch, ohne `DoubleStopPlayed`); `pub(crate)`: `dyad::{DyadCheck, Heard, FRAME_S, SKIP_S}`.
 
 ## Für den Eigentümer
 
-- LH-NF-15 (Meldezeit): erste Messung 81 ms (4 Saiten) und 100 ms (5 Saiten, tiefe H-Saite) statt 70 ms. Frage für
-  die nächste Runde: Ziel anheben (etwa 90/110 ms) oder die Erkennung schneller machen (früher melden, Tonhöhe
-  nachreichen wie bei `PitchRevision`).
+- LH-NF-15 (Meldezeit): erste Messung 81 ms (4 Saiten) und 100 ms (5 Saiten, tiefe H-Saite) statt 70 ms; mit R1
+  (frühe Meldung) 69 und 80 ms. Die 5 Saiten verfehlen das Ziel physikalisch (H0: zwei Perioden 65 ms). Frage für die
+  nächste Runde: Ziel für 5 Saiten auf 80 ms setzen. Am echten Bass offen: Fingertipp vor dem Anschlag wird
+  zurückgenommen (etwa 5 min).
 
 - #131 (Kurspakete): drei Review-Runden mit offenem Wichtig (pub-Liste, Zip-Bombe über Deflate, dann über STORED).
   Nach der Review-Regel angehalten; Vorschlag im PR (eigene Zip-Lesung behalten, Größen zentral erzwungen). Merge

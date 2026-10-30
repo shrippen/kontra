@@ -40,10 +40,10 @@ pub use offline::{stretch_buffer, stretch_buffer_with};
 /// Frequency resolution of the analysis window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Resolution {
-    /// 4096 samples at 48 kHz: clean down to E1 (41 Hz partial spacing), 133 ms latency.
+    /// 4096 samples at 48 kHz: clean down to E1 (41 Hz partial spacing), 96 ms latency.
     #[default]
     Standard,
-    /// 8192 samples at 48 kHz: clean down to B0 (31 Hz), about 85 ms more latency and
+    /// 8192 samples at 48 kHz: clean down to B0 (31 Hz), 96 ms more latency (192 ms) and
     /// slightly softer non-percussive attacks. For five- and six-string basses.
     Fine,
 }

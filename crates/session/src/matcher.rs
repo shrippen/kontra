@@ -109,6 +109,11 @@ impl Matcher {
         self.resolved.insert((pass, slot), FINAL_RANK);
     }
 
+    /// The note's detection was taken back (R1): it is open again.
+    pub(crate) fn release(&mut self, pass: u32, slot: usize) {
+        self.resolved.remove(&(pass, slot));
+    }
+
     /// A resolved note judged again (a pitch told later): a later detection takes it over only
     /// with a better pitch than this.
     pub(crate) fn rejudge(&mut self, pass: u32, slot: usize, outcome: Outcome) {

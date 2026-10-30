@@ -1,4 +1,4 @@
-.PHONY: check fmt lint test deny advisories design video licences licences-check korpus run cli qt-env
+.PHONY: check fmt lint test deny advisories design video licences licences-check korpus korpus-real run cli qt-env
 
 # Everything CI runs; run before every commit (agent.md).
 check: fmt lint test deny design video licences-check
@@ -38,6 +38,14 @@ licences-check:
 # Detection quality on the synthetic corpus (LH-NF-02/03).
 korpus:
 	cargo run -q -p kontra-cli --release -- korpus check
+
+# Real recordings where converted (testdata/korpus/QUELLEN.md): the IDMT lines as in the CI, then
+# techniques on the lines and per bass on the IDMT single notes.
+KORPUS_REAL := testdata/korpus/local/conv
+korpus-real:
+	cargo run -q -p kontra-cli --release -- korpus measure $(KORPUS_REAL)/idmt-st --window-ms 80 --pitch
+	cargo run -q -p kontra-cli --release -- korpus techniques $(KORPUS_REAL)/idmt-st \
+		$(wildcard $(KORPUS_REAL)/idmt-sb/bass-*)
 
 cli:
 	cargo build -p kontra-cli --release

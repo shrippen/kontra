@@ -9,7 +9,7 @@ use kontra_drivers::{
 };
 use kontra_dsp::synth::laptop_jack;
 use kontra_dsp::{peak_db, rms_db, EchoCanceller, NoteTracker, TrackerConfig, Tuner, ECHO_BLOCK};
-use kontra_model::{DetectedNote, InputSource, Instrument};
+use kontra_model::{DetectedNote, ExpectedStrike, InputSource, Instrument};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
@@ -25,6 +25,16 @@ const CLIP_DB: f32 = -0.5;
 /// MIDI velocity of a full-scale note.
 const VELOCITY_MAX: f32 = 127.0;
 const US_PER_S: f64 = 1e6;
+/// Expected strikes waiting for the analysis: the session tells them about 0.25 s ahead.
+const EXPECT_QUEUE: usize = 64;
+
+/// What the session tells the analysis about the strikes the tab expects (R2).
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Expect {
+    Strike(ExpectedStrike),
+    /// The plan changed (seek, speed, loop): the strikes told so far no longer hold.
+    Forget,
+}
 
 /// How fast a file is fed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -219,6 +229,8 @@ pub struct Input {
     _stream: Option<InputStream>,
     _midi: Option<MidiConnection>,
     recorder: Arc<Recorder>,
+    /// To the analysis thread (audio input only).
+    expected: Option<rtrb::Producer<Expect>>,
     pub sample_rate: u32,
 }
 
@@ -287,6 +299,21 @@ impl Input {
         Some(self.block.load(Ordering::Relaxed)).filter(|b| *b > 0)
     }
 
+    /// Tells the analysis a strike the tab expects, `onset_s` on the engine clock (R2). A full
+    /// queue drops it; MIDI input has nothing to detect and ignores it.
+    pub fn expect(&mut self, strike: &ExpectedStrike) {
+        if let Some(tx) = self.expected.as_mut() {
+            let _ = tx.push(Expect::Strike(*strike));
+        }
+    }
+
+    /// Drops the strikes told so far (the transport jumped or changed speed).
+    pub fn forget_expected(&mut self) {
+        if let Some(tx) = self.expected.as_mut() {
+            let _ = tx.push(Expect::Forget);
+        }
+    }
+
     /// Switches tuner readings on or off.
     pub fn set_tuner(&self, on: bool) {
         self.tuner_on.store(on, Ordering::Relaxed);
@@ -326,15 +353,22 @@ struct Analysis {
     sample_rate: f64,
     /// Samples analysed since the input started.
     analysed: u64,
+    expected: rtrb::Consumer<Expect>,
 }
 
 impl Analysis {
-    fn new(sample_rate: f64, instrument: &Instrument, source: InputSource) -> Analysis {
+    /// The analysis and the queue the session tells it expected strikes through.
+    fn new(
+        sample_rate: f64,
+        instrument: &Instrument,
+        source: InputSource,
+    ) -> (Analysis, rtrb::Producer<Expect>) {
         let config = TrackerConfig::for_instrument(instrument, source);
         let mut tuner = Tuner::new(sample_rate, config.min_hz, config.max_hz);
         tuner.set_reference(instrument.a4_hz);
         let level_len = (LEVEL_S * sample_rate) as usize;
-        Analysis {
+        let (tx, expected) = rtrb::RingBuffer::new(EXPECT_QUEUE);
+        let analysis = Analysis {
             tracker: NoteTracker::new(sample_rate, config),
             tuner,
             level: Vec::with_capacity(level_len),
@@ -342,16 +376,28 @@ impl Analysis {
             start_s: 0.0,
             sample_rate,
             analysed: 0,
+            expected,
+        };
+        (analysis, tx)
+    }
+
+    /// Hands the strikes told since the last block to the tracker, on its clock.
+    fn take_expected(&mut self) {
+        while let Ok(told) = self.expected.pop() {
+            match told {
+                Expect::Strike(mut strike) => {
+                    strike.onset_s -= self.start_s;
+                    self.tracker.expect(&strike);
+                }
+                Expect::Forget => self.tracker.forget_expected(),
+            }
         }
     }
 
     fn process(&mut self, block: &[f32], tuner_on: bool, events: &Sender<Event>) {
-        for note in self.tracker.push(block) {
-            let mut note = *note;
-            note.onset_s += self.start_s;
-            let _ = events.send(Event::Note(note));
-        }
-        self.send_revisions(events);
+        self.take_expected();
+        self.tracker.push(block);
+        self.send_told(events);
         if tuner_on {
             if let Some(reading) = self.tuner.push(block) {
                 let _ = events.send(Event::Tuner(reading));
@@ -381,7 +427,19 @@ impl Analysis {
     }
 
     fn finish(&mut self, events: &Sender<Event>) {
-        for note in self.tracker.flush() {
+        self.tracker.flush();
+        self.send_told(events);
+    }
+
+    /// What the last `push` or `flush` told. Notes taken back go first: a pluck told in the same
+    /// block as its tap's retraction (from about F#2 up) then finds its note free.
+    fn send_told(&self, events: &Sender<Event>) {
+        for retraction in self.tracker.retracted() {
+            let mut retraction = *retraction;
+            retraction.onset_s += self.start_s;
+            let _ = events.send(Event::Retracted(retraction));
+        }
+        for note in self.tracker.told() {
             let mut note = *note;
             note.onset_s += self.start_s;
             let _ = events.send(Event::Note(note));
@@ -389,7 +447,7 @@ impl Analysis {
         self.send_revisions(events);
     }
 
-    /// Techniques and pitches told late, on the same clock as the notes.
+    /// Techniques, pitches and double stops told late, on the same clock as the notes.
     fn send_revisions(&self, events: &Sender<Event>) {
         for revision in self.tracker.revised() {
             let mut revision = *revision;
@@ -400,6 +458,11 @@ impl Analysis {
             let mut revision = *revision;
             revision.onset_s += self.start_s;
             let _ = events.send(Event::Pitch(revision));
+        }
+        for verdict in self.tracker.double_stops() {
+            let mut verdict = *verdict;
+            verdict.onset_s += self.start_s;
+            let _ = events.send(Event::DoubleStop(verdict));
         }
     }
 }
@@ -453,7 +516,7 @@ fn start_device(
     )?;
     let sample_rate = stream.sample_rate;
     monitor_on.store(tap_rate == sample_rate, Ordering::Relaxed);
-    let mut analysis = Analysis::new(f64::from(sample_rate), instrument, source);
+    let (mut analysis, expected) = Analysis::new(f64::from(sample_rate), instrument, source);
     // Echo removal only when input and output run at the same rate (as monitoring).
     let mut echo = reference
         .filter(|(_, rate)| *rate == sample_rate)
@@ -496,6 +559,7 @@ fn start_device(
         _stream: Some(stream),
         _midi: None,
         recorder,
+        expected: Some(expected),
         sample_rate,
     })
 }
@@ -520,7 +584,7 @@ fn start_file(
     if simulate_laptop {
         samples = laptop_jack(&samples, sr, 1);
     }
-    let mut analysis = Analysis::new(sr, instrument, source);
+    let (mut analysis, expected) = Analysis::new(sr, instrument, source);
     let mut tap = tap.filter(|t| t.rate == sample_rate);
     let clock = clock.clone();
     let started_flag = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
@@ -566,6 +630,7 @@ fn start_file(
         _stream: None,
         _midi: None,
         recorder,
+        expected: Some(expected),
         sample_rate,
     })
 }
@@ -716,6 +781,7 @@ fn start_midi(
         _stream: None,
         _midi: Some(connection),
         recorder: Arc::default(),
+        expected: None,
         sample_rate: 0,
     })
 }
@@ -761,6 +827,7 @@ fn start_midi_file(
         _stream: None,
         _midi: None,
         recorder: Arc::default(),
+        expected: None,
         sample_rate: 0,
     })
 }
@@ -1001,5 +1068,96 @@ mod tests {
         assert!(first < 4 * BLOCK, "began at once: {first}");
         assert_eq!(take.samples, samples[first..]);
         assert_eq!(input.stop_recording(), None, "handed over once");
+    }
+
+    const BLUR_RATIO: f64 = 2.71;
+    const BLUR: f32 = 0.4;
+
+    /// Blocks until the analysis tells the note (none: past the end).
+    fn told_after(expect: Option<ExpectedStrike>, start_s: f64) -> Option<usize> {
+        use kontra_dsp::synth::{bass_tone, ToneShape};
+        const SR: f64 = 48_000.0;
+        let a2 = kontra_model::midi_to_hz(45.0, kontra_model::A4_HZ);
+        // A2 with an inharmonic tone (2.71×, −8 dB) that blurs its period: too unclear to tell
+        // early on its own (R1), clear enough to confirm the expected A2 (R2).
+        let mut signal = vec![0.0f32; (0.2 * SR) as usize];
+        let tone = bass_tone(a2, SR, 0.5, ToneShape::Rich, 3);
+        let other = bass_tone(a2 * BLUR_RATIO, SR, 0.5, ToneShape::Rich, 4);
+        signal.extend(tone.iter().zip(&other).map(|(a, b)| a + BLUR * b));
+        let (mut analysis, mut tx) =
+            Analysis::new(SR, &Instrument::default_bass(), InputSource::Line);
+        analysis.start_s = start_s;
+        if let Some(strike) = expect {
+            tx.push(Expect::Strike(strike)).expect("room");
+        }
+        let (events, rx) = std::sync::mpsc::channel();
+        for (i, block) in signal.chunks(BLOCK).enumerate() {
+            analysis.process(block, false, &events);
+            let note = rx.try_iter().find_map(|e| match e {
+                Event::Note(n) => Some(n),
+                _ => None,
+            });
+            if let Some(n) = note {
+                assert!((n.onset_s - start_s - 0.2).abs() < 0.02, "{n:?}");
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    /// R1: a tap 60 ms before a G2, 30 dB quieter, is told early and taken back in the same
+    /// block as the pluck is told (from about F#2 up). The retraction goes first, so the
+    /// session frees the note before the pluck claims it.
+    #[test]
+    fn retraction_goes_before_the_pluck() {
+        use kontra_dsp::synth::{bass_tone, ToneShape};
+        const SR: f64 = 48_000.0;
+        let g2 = kontra_model::midi_to_hz(43.0, kontra_model::A4_HZ);
+        let mut signal = vec![0.0f32; (0.2 * SR) as usize];
+        let tap = bass_tone(g2, SR, 0.06, ToneShape::Rich, 10);
+        let pluck = bass_tone(g2, SR, 0.5, ToneShape::Rich, 11);
+        signal.extend(tap.iter().map(|x| x * 0.03));
+        signal.extend(pluck.iter().map(|x| x * 0.9));
+        let (mut analysis, _tx) = Analysis::new(SR, &Instrument::default_bass(), InputSource::Line);
+        let (events, rx) = std::sync::mpsc::channel();
+        let mut both = None;
+        for block in signal.chunks(BLOCK) {
+            analysis.process(block, false, &events);
+            let told: Vec<&str> = rx
+                .try_iter()
+                .filter_map(|e| match e {
+                    Event::Note(n) if (n.onset_s - 0.26).abs() < 0.005 => Some("pluck"),
+                    Event::Retracted(_) => Some("retracted"),
+                    _ => None,
+                })
+                .collect();
+            if told.len() == 2 {
+                both = Some(told);
+            }
+        }
+        assert_eq!(
+            both,
+            Some(vec!["retracted", "pluck"]),
+            "in one block, retraction first"
+        );
+    }
+
+    /// R2: a strike told on the engine clock reaches the tracker on its own clock (from the
+    /// input's first sample): the expected note goes out sooner.
+    #[test]
+    fn expected_strike_reaches_the_tracker() {
+        const START_S: f64 = 100.0;
+        let tone = kontra_model::ExpectedTone {
+            midi: 45,
+            string: None,
+        };
+        let strike = ExpectedStrike::new(START_S + 0.2, 0.06).with(tone);
+        let free = told_after(None, START_S).expect("told");
+        let expected = told_after(Some(strike), START_S).expect("told");
+        assert!(expected < free, "block {expected}, without {free}");
+
+        // Told on the input's clock instead of the engine's, it misses the note.
+        let off = ExpectedStrike::new(0.2, 0.06).with(tone);
+        assert_eq!(told_after(Some(off), START_S), Some(free));
     }
 }

@@ -4,6 +4,7 @@
 mod args;
 mod check;
 mod course;
+mod double_stops;
 mod korpus;
 mod live;
 mod tab;

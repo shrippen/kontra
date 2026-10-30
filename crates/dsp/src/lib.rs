@@ -13,6 +13,7 @@
 mod beats;
 mod biquad;
 mod dehum;
+mod dyad;
 mod echo;
 mod hum;
 mod intonation;
