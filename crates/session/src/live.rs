@@ -1,7 +1,7 @@
 //! Live practice and tuner with real devices or a recording as input.
 
 use crate::calibration::{Calibration, CalibrationResult};
-use crate::practice::{Practice, PracticeEvent, PracticeOptions};
+use crate::practice::{Practice, PracticeEvent, PracticeOptions, Told};
 use crate::session::Mode;
 use crate::settings::ScoreSettings;
 use kontra_engine::{
@@ -210,6 +210,12 @@ impl Live {
             }
         }
         out.extend(self.practice.tick());
+        for told in self.practice.take_told() {
+            match told {
+                Told::Strike(strike) => self.input.expect(&strike),
+                Told::Forget => self.input.forget_expected(),
+            }
+        }
         out
     }
 }
@@ -263,7 +269,12 @@ impl LiveTuner {
                 Event::Ended => out.push(PracticeEvent::InputEnded),
                 Event::Stalled { .. } => out.push(PracticeEvent::InputStalled),
                 Event::Resumed { .. } => out.push(PracticeEvent::InputResumed),
-                Event::Note(_) | Event::Technique(_) | Event::Pitch(_) | Event::Heard { .. } => {}
+                Event::Note(_)
+                | Event::Technique(_)
+                | Event::Pitch(_)
+                | Event::Retracted(_)
+                | Event::DoubleStop(_)
+                | Event::Heard { .. } => {}
             }
         }
         out
@@ -384,6 +395,8 @@ impl LiveEar {
                 | Event::Tuner(_)
                 | Event::Technique(_)
                 | Event::Pitch(_)
+                | Event::Retracted(_)
+                | Event::DoubleStop(_)
                 | Event::Heard { .. } => {}
             }
         }

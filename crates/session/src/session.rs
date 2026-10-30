@@ -6,7 +6,11 @@ use crate::settings::ScoreSettings;
 use crate::summary::Summary;
 use crate::technique::{TechniqueJudge, TechniqueResult};
 use crate::transport::{LoopRange, Transport};
-use kontra_model::{Arrangement, DetectedNote, PitchRevision, Technique, TechniqueRevision};
+use kontra_model::{
+    Arrangement, DetectedNote, NoteRetraction, PitchRevision, Technique, TechniqueRevision,
+};
+
+mod double_stop;
 
 /// Real seconds to wait before declaring a note missed: detected notes arrive up to ~150 ms
 /// after their onset (concept 6.3), plus margin.
@@ -19,6 +23,10 @@ const MAX_ANALYSIS_LAG_S: f64 = 2.0;
 const STRUCK_KEPT: usize = 16;
 /// A revision belongs to the note detected at the same onset (the engine's clock, exact).
 const REVISION_MATCH_S: f64 = 1e-6;
+const MS_PER_S: f64 = 1000.0;
+/// Notes this soon after one taken back are scored again with it gone: the tracker takes a note
+/// back before the full window would have told it (about 90 ms), at the pluck's rise check.
+const RESCORE_S: f64 = 0.3;
 
 /// Riff-Werkstatt (LH-MOD-04): keeps the hit rate in a target band (decision round 5, after
 /// planung/DIDAKTIK.md idea I7). Above the band for `passes_needed` passes in a row → one step faster
@@ -92,9 +100,13 @@ pub struct Session {
     /// Struck notes judged lately: (detected onset, pass, note), so a technique told later can
     /// be judged again (`on_revision`).
     struck: Vec<(f64, u32, usize)>,
-    /// Notes scored lately: (detected onset, index into `results`, technique), so a pitch told
-    /// later can judge them again (`on_pitch_revision`).
-    scored: Vec<(f64, usize, Option<Technique>)>,
+    /// Notes scored lately: (detected onset, index into `results`, technique, detected pitch),
+    /// so a pitch or double stop told later can judge them again (`on_pitch_revision`,
+    /// `on_double_stop`).
+    scored: Vec<(f64, usize, Option<Technique>, f64)>,
+    /// Notes heard lately, so those scored after a note taken back are scored again
+    /// (`on_retraction`).
+    heard: Vec<DetectedNote>,
     results: Vec<NoteResult>,
     events: Vec<SessionEvent>,
     cursor_pass: u32,
@@ -130,6 +142,7 @@ impl Session {
             techniques,
             struck: Vec::new(),
             scored: Vec::new(),
+            heard: Vec::new(),
             results: Vec::new(),
             events: Vec::new(),
             cursor_pass: 0,
@@ -243,7 +256,11 @@ impl Session {
         if self.finished && matches!(self.mode, Mode::Probe) {
             return;
         }
-        let real_s = note.onset_s - self.settings.latency_ms / 1000.0;
+        if self.heard.len() >= STRUCK_KEPT {
+            self.heard.remove(0);
+        }
+        self.heard.push(*note);
+        let real_s = self.real_s(note.onset_s);
         if matches!(self.mode, Mode::Wait) {
             self.wait_note(real_s, note);
             return;
@@ -364,7 +381,7 @@ impl Session {
             position_s: played_at(&earlier, self.transport.speed()),
             ..earlier
         };
-        for entry in self.scored.iter_mut().filter(|(_, i, _)| *i == at) {
+        for entry in self.scored.iter_mut().filter(|(_, i, _, _)| *i == at) {
             entry.1 = self.results.len();
         }
         self.results.push(extra);
@@ -372,7 +389,8 @@ impl Session {
         if self.scored.len() >= STRUCK_KEPT {
             self.scored.remove(0);
         }
-        self.scored.push((note.onset_s, at, note.technique));
+        self.scored
+            .push((note.onset_s, at, note.technique, note.midi));
 
         // The technique is judged on the attack, not the artifact.
         self.struck
@@ -403,14 +421,14 @@ impl Session {
         if self.stalled_s.is_some() {
             return;
         }
-        let real_s = at_s - self.settings.latency_ms / 1000.0;
+        let real_s = self.real_s(at_s);
         self.heard_s = Some(self.heard_s.map_or(real_s, |h| h.max(real_s)));
     }
 
     /// The input stopped delivering at `at_s` (engine clock, LH-EIN-15): nothing after it is
     /// judged until it resumes, however long that takes.
     pub fn on_stalled(&mut self, at_s: f64) {
-        self.stalled_s = Some(at_s - self.settings.latency_ms / 1000.0);
+        self.stalled_s = Some(self.real_s(at_s));
     }
 
     /// The input delivers again from `at_s`: the notes since the stall are not judged.
@@ -418,7 +436,7 @@ impl Session {
         let Some(from_s) = self.stalled_s.take() else {
             return;
         };
-        let to_s = at_s - self.settings.latency_ms / 1000.0;
+        let to_s = self.real_s(at_s);
         let at = |real_s| {
             let (position, pass) = self.transport.position_at(real_s);
             (pass, position)
@@ -497,14 +515,16 @@ impl Session {
     /// A pitch told after its note, once the tone settled (decision round 11): the note is
     /// judged again with it, e.g. a flat start judged a wrong note becomes a hit.
     pub fn on_pitch_revision(&mut self, revision: &PitchRevision) {
-        let Some(&(_, at, technique)) = self
+        let Some(entry) = self
             .scored
-            .iter()
+            .iter_mut()
             .rev()
-            .find(|(onset, _, _)| (onset - revision.onset_s).abs() < REVISION_MATCH_S)
+            .find(|(onset, ..)| (onset - revision.onset_s).abs() < REVISION_MATCH_S)
         else {
             return;
         };
+        entry.3 = revision.midi;
+        let (_, at, technique, _) = *entry;
         let last = self.results[at];
 
         // Only a note judged by its pitch (a dead note played as one has none).
@@ -545,6 +565,118 @@ impl Session {
         self.end_wait(last.pass, slot);
     }
 
+    /// A note taken back (R1): told early, it proved to be no note of its own, e.g. the finger
+    /// tapping the string before the pluck. Its result goes (with its chord tones), and the
+    /// note it took is open again: for the pluck that follows, or missed. A pluck already
+    /// scored behind it is scored again.
+    ///
+    /// ```text
+    /// tap told early ─► hit (60 ms early) ─► taken back: no result, D2 open
+    /// pluck          ─────────────────────────────────► hit (on time)
+    /// ```
+    pub fn on_retraction(&mut self, retraction: &NoteRetraction) {
+        let onset_s = retraction.onset_s;
+
+        // Notes scored after it may have been judged behind it (the engine can tell the pluck
+        // before the tap's retraction): taken off too, and scored again once it is gone.
+        let later: Vec<DetectedNote> = self
+            .heard
+            .iter()
+            .filter(|n| n.onset_s > onset_s && n.onset_s - onset_s <= RESCORE_S)
+            .filter(|n| self.scored_at(n.onset_s).is_some())
+            .copied()
+            .collect();
+        if !self.unscore(onset_s) {
+            return;
+        }
+        self.heard.retain(|n| !same_onset(n.onset_s, onset_s));
+        for note in &later {
+            self.unscore(note.onset_s);
+        }
+        self.heard
+            .retain(|n| !later.iter().any(|l| same_onset(l.onset_s, n.onset_s)));
+        for note in &later {
+            self.on_note(note);
+        }
+    }
+
+    /// Where the note detected at `onset_s` is in `scored`.
+    fn scored_at(&self, onset_s: f64) -> Option<usize> {
+        self.scored
+            .iter()
+            .rposition(|(onset, ..)| same_onset(*onset, onset_s))
+    }
+
+    /// Takes the result of the note detected at `onset_s` off (with its chord tones); the notes
+    /// it took are open again. Returns whether it had one.
+    fn unscore(&mut self, onset_s: f64) -> bool {
+        let Some(entry) = self.scored_at(onset_s) else {
+            return false;
+        };
+        let (_, at, ..) = self.scored.remove(entry);
+        let taken = self.results[at];
+
+        // The result and the chord tones recorded with it.
+        let tone = |r: &NoteResult| {
+            r.pass == taken.pass
+                && r.position_s == taken.position_s
+                && r.outcome == taken.outcome
+                && r.note.is_some()
+                && taken.note.is_some()
+        };
+        let end = (at + 1..self.results.len())
+            .find(|&i| !tone(&self.results[i]))
+            .unwrap_or(self.results.len());
+        let removed: Vec<NoteResult> = self.results.drain(at..end).collect();
+        for entry in self.scored.iter_mut().filter(|(_, i, ..)| *i >= end) {
+            entry.1 -= end - at;
+        }
+        self.struck
+            .retain(|(onset, _, _)| !same_onset(*onset, onset_s));
+
+        // Each note it took is open again; Wait mode waits for the first of them in this pass.
+        let mut first: Option<usize> = None;
+        for r in removed {
+            let Some(slot) = r.note.and_then(|note| self.slot_of(note, r.position_s)) else {
+                continue;
+            };
+            self.reopen(r.pass, slot);
+            if r.pass == self.transport.pass() {
+                first = Some(first.map_or(slot, |f| f.min(slot)));
+            }
+        }
+        if let Some(slot) = first.filter(|_| matches!(self.mode, Mode::Wait)) {
+            self.cursor_slot = self.cursor_slot.min(slot);
+        }
+        true
+    }
+
+    /// The note at `slot` of `pass` lost its detection: open for the next one, or missed when
+    /// the clock already passed it (not in Wait mode, which waits for it again).
+    fn reopen(&mut self, pass: u32, slot: usize) {
+        self.matcher.release(pass, slot);
+        if matches!(self.mode, Mode::Wait) {
+            return;
+        }
+        let passed = (self.cursor_pass, self.cursor_slot) > (pass, slot);
+        if !passed {
+            return;
+        }
+        let e = self.matcher.expected()[slot];
+        self.matcher.resolve(pass, slot);
+        let missed = NoteResult {
+            pass,
+            note: Some(e.index),
+            bar: e.bar,
+            outcome: Outcome::Missed,
+            offset_ms: None,
+            cents: None,
+            position_s: e.position_s,
+        };
+        self.record(missed);
+        self.judge_struck(&missed, None);
+    }
+
     /// Wait mode: the note at `slot` was played after all; the wait is over.
     fn end_wait(&mut self, pass: u32, slot: usize) {
         if !matches!(self.mode, Mode::Wait) || self.cursor_slot != slot {
@@ -565,7 +697,7 @@ impl Session {
             self.scored.remove(0);
         }
         self.scored
-            .push((note.onset_s, self.results.len(), note.technique));
+            .push((note.onset_s, self.results.len(), note.technique, note.midi));
     }
 
     /// The slot in the matcher's expected notes of `note` at `position_s`.
@@ -611,6 +743,22 @@ impl Session {
         }
         self.check_finished();
         std::mem::take(&mut self.events)
+    }
+
+    /// Real (transport) time of a time on the input's clock: the measured latency taken off
+    /// (LH-EIN-05). `input_s` is the way back.
+    fn real_s(&self, input_s: f64) -> f64 {
+        input_s - self.settings.latency_ms / MS_PER_S
+    }
+
+    /// When a strike due at real time `real_s` reaches the input (R2): plus the latency.
+    pub(crate) fn input_s(&self, real_s: f64) -> f64 {
+        real_s + self.settings.latency_ms / MS_PER_S
+    }
+
+    /// The notes the player is to strike, one entry per attack.
+    pub(crate) fn expected(&self) -> &[crate::expected::ExpectedNote] {
+        self.matcher.expected()
     }
 
     /// The next note the player has to strike in the current pass.
@@ -763,6 +911,10 @@ impl Session {
         self.remember_struck(note.onset_s, pass, target.index);
         self.matcher.resolve(pass, self.cursor_slot);
         self.cursor_slot += 1;
+        // Notes already played after a note taken back and played again (`on_retraction`).
+        while self.matcher.is_resolved(pass, self.cursor_slot) {
+            self.cursor_slot += 1;
+        }
         if self.holding {
             self.holding = false;
             self.transport.release(real_s);
@@ -899,6 +1051,11 @@ impl Session {
             self.events.push(SessionEvent::Finished);
         }
     }
+}
+
+/// Whether two detections are the same (the engine's clock, exact).
+fn same_onset(a: f64, b: f64) -> bool {
+    (a - b).abs() < REVISION_MATCH_S
 }
 
 /// Arrangement position a judged detection was played at.

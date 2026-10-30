@@ -12,6 +12,7 @@
 
 mod beats;
 mod biquad;
+mod dyad;
 mod echo;
 mod hum;
 mod intonation;

@@ -11,7 +11,7 @@ use kontra_drivers::{
 };
 use kontra_dsp::synth::laptop_jack;
 use kontra_dsp::{peak_db, rms_db, EchoCanceller, NoteTracker, TrackerConfig, Tuner, ECHO_BLOCK};
-use kontra_model::{DetectedNote, InputSource, Instrument};
+use kontra_model::{DetectedNote, ExpectedStrike, InputSource, Instrument};
 use ring::input_ring;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
@@ -37,6 +37,16 @@ const RESUME_GUARD_S: f64 = 0.01;
 /// MIDI velocity of a full-scale note.
 const VELOCITY_MAX: f32 = 127.0;
 const US_PER_S: f64 = 1e6;
+/// Expected strikes waiting for the analysis: the session tells them about 0.25 s ahead.
+const EXPECT_QUEUE: usize = 64;
+
+/// What the session tells the analysis about the strikes the tab expects (R2).
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Expect {
+    Strike(ExpectedStrike),
+    /// The plan changed (seek, speed, loop): the strikes told so far no longer hold.
+    Forget,
+}
 
 /// How fast a file is fed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -259,6 +269,8 @@ pub struct Input {
     _stream: Option<InputStream>,
     _midi: Option<MidiConnection>,
     recorder: Arc<Recorder>,
+    /// To the analysis thread (audio input only).
+    expected: Option<rtrb::Producer<Expect>>,
     pub sample_rate: u32,
 }
 
@@ -327,6 +339,21 @@ impl Input {
         Some(self.block.load(Ordering::Relaxed)).filter(|b| *b > 0)
     }
 
+    /// Tells the analysis a strike the tab expects, `onset_s` on the engine clock (R2). A full
+    /// queue drops it; MIDI input has nothing to detect and ignores it.
+    pub fn expect(&mut self, strike: &ExpectedStrike) {
+        if let Some(tx) = self.expected.as_mut() {
+            let _ = tx.push(Expect::Strike(*strike));
+        }
+    }
+
+    /// Drops the strikes told so far (the transport jumped or changed speed).
+    pub fn forget_expected(&mut self) {
+        if let Some(tx) = self.expected.as_mut() {
+            let _ = tx.push(Expect::Forget);
+        }
+    }
+
     /// Switches tuner readings on or off.
     pub fn set_tuner(&self, on: bool) {
         self.tuner_on.store(on, Ordering::Relaxed);
@@ -368,15 +395,22 @@ struct Analysis {
     analysed: u64,
     /// Whether the last block peaked above the tracker's onset gate: a note was sounding.
     sounding: bool,
+    expected: rtrb::Consumer<Expect>,
 }
 
 impl Analysis {
-    fn new(sample_rate: f64, instrument: &Instrument, source: InputSource) -> Analysis {
+    /// The analysis and the queue the session tells it expected strikes through.
+    fn new(
+        sample_rate: f64,
+        instrument: &Instrument,
+        source: InputSource,
+    ) -> (Analysis, rtrb::Producer<Expect>) {
         let config = TrackerConfig::for_instrument(instrument, source);
         let mut tuner = Tuner::new(sample_rate, config.min_hz, config.max_hz);
         tuner.set_reference(instrument.a4_hz);
         let level_len = (LEVEL_S * sample_rate) as usize;
-        Analysis {
+        let (tx, expected) = rtrb::RingBuffer::new(EXPECT_QUEUE);
+        let analysis = Analysis {
             tracker: NoteTracker::new(sample_rate, config),
             tuner,
             level: Vec::with_capacity(level_len),
@@ -385,6 +419,21 @@ impl Analysis {
             sample_rate,
             analysed: 0,
             sounding: false,
+            expected,
+        };
+        (analysis, tx)
+    }
+
+    /// Hands the strikes told since the last block to the tracker, on its clock.
+    fn take_expected(&mut self) {
+        while let Ok(told) = self.expected.pop() {
+            match told {
+                Expect::Strike(mut strike) => {
+                    strike.onset_s -= self.start_s;
+                    self.tracker.expect(&strike);
+                }
+                Expect::Forget => self.tracker.forget_expected(),
+            }
         }
     }
 
@@ -408,12 +457,9 @@ impl Analysis {
 
     fn process(&mut self, block: &[f32], tuner_on: bool, events: &Sender<Event>) {
         self.sounding = peak_db(block) > self.tracker.config().onset.gate_db;
-        for note in self.tracker.push(block) {
-            let mut note = *note;
-            note.onset_s += self.start_s;
-            let _ = events.send(Event::Note(note));
-        }
-        self.send_revisions(events);
+        self.take_expected();
+        self.tracker.push(block);
+        self.send_told(events);
         if tuner_on {
             if let Some(reading) = self.tuner.push(block) {
                 let _ = events.send(Event::Tuner(reading));
@@ -443,7 +489,19 @@ impl Analysis {
     }
 
     fn finish(&mut self, events: &Sender<Event>) {
-        for note in self.tracker.flush() {
+        self.tracker.flush();
+        self.send_told(events);
+    }
+
+    /// What the last `push` or `flush` told. Notes taken back go first: a pluck told in the same
+    /// block as its tap's retraction (from about F#2 up) then finds its note free.
+    fn send_told(&self, events: &Sender<Event>) {
+        for retraction in self.tracker.retracted() {
+            let mut retraction = *retraction;
+            retraction.onset_s += self.start_s;
+            let _ = events.send(Event::Retracted(retraction));
+        }
+        for note in self.tracker.told() {
             let mut note = *note;
             note.onset_s += self.start_s;
             let _ = events.send(Event::Note(note));
@@ -451,7 +509,7 @@ impl Analysis {
         self.send_revisions(events);
     }
 
-    /// Techniques and pitches told late, on the same clock as the notes.
+    /// Techniques, pitches and double stops told late, on the same clock as the notes.
     fn send_revisions(&self, events: &Sender<Event>) {
         for revision in self.tracker.revised() {
             let mut revision = *revision;
@@ -462,6 +520,11 @@ impl Analysis {
             let mut revision = *revision;
             revision.onset_s += self.start_s;
             let _ = events.send(Event::Pitch(revision));
+        }
+        for verdict in self.tracker.double_stops() {
+            let mut verdict = *verdict;
+            verdict.onset_s += self.start_s;
+            let _ = events.send(Event::DoubleStop(verdict));
         }
     }
 }
@@ -515,7 +578,7 @@ fn start_device(
     )?;
     let sample_rate = stream.sample_rate;
     monitor_on.store(tap_rate == sample_rate, Ordering::Relaxed);
-    let mut analysis = Analysis::new(f64::from(sample_rate), instrument, source);
+    let (mut analysis, expected) = Analysis::new(f64::from(sample_rate), instrument, source);
     // Echo removal only when input and output run at the same rate (as monitoring).
     let mut echo = reference
         .filter(|(_, rate)| *rate == sample_rate)
@@ -576,6 +639,7 @@ fn start_device(
         _stream: Some(stream),
         _midi: None,
         recorder,
+        expected: Some(expected),
         sample_rate,
     })
 }
@@ -600,7 +664,7 @@ fn start_file(
     if simulate_laptop {
         samples = laptop_jack(&samples, sr, 1);
     }
-    let mut analysis = Analysis::new(sr, instrument, source);
+    let (mut analysis, expected) = Analysis::new(sr, instrument, source);
     let mut tap = tap.filter(|t| t.rate == sample_rate);
     let clock = clock.clone();
     let started_flag = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
@@ -646,6 +710,7 @@ fn start_file(
         _stream: None,
         _midi: None,
         recorder,
+        expected: Some(expected),
         sample_rate,
     })
 }
@@ -796,6 +861,7 @@ fn start_midi(
         _stream: None,
         _midi: Some(connection),
         recorder: Arc::default(),
+        expected: None,
         sample_rate: 0,
     })
 }
@@ -841,6 +907,7 @@ fn start_midi_file(
         _stream: None,
         _midi: None,
         recorder: Arc::default(),
+        expected: None,
         sample_rate: 0,
     })
 }

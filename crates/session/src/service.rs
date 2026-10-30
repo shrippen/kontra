@@ -17,12 +17,16 @@ pub use kontra_content::{
     PACKAGE_AUDIO_MAX_BYTES, PACKAGE_FORMAT, PACKAGE_VERSION, TRANSPOSE_MAX,
 };
 pub use kontra_engine::{
-    audio_priority, evaluate as evaluate_korpus,
+    announce_second_tone, double_stop_mixtures, evaluate_double_stops, generate_double_stops,
+    DoubleStopSet, DoubleStopStrike, DoubleStopTally, DOUBLE_STOP_INTERVALS,
+};
+pub use kontra_engine::{
+    audio_priority, evaluate as evaluate_korpus, evaluate_expecting as evaluate_korpus_expecting,
     evaluate_laptop_jack as evaluate_korpus_laptop_jack, evaluate_with as evaluate_korpus_with,
     generate as generate_korpus, list_devices, list_midi_inputs, render_performance, same_pitch,
     track_beats, Annotation, BackingTrack, BeatGrid, Connection, DeviceInfo, Direction, Evaluation,
-    KorpusItem, KorpusSet, Matching, MidiPort, Mistakes, Playing, Priority, StreamConfig,
-    NULL_DEVICE,
+    Expecting, KorpusItem, KorpusSet, Matching, MidiPort, Mistakes, Playing, Priority,
+    StreamConfig, NULL_DEVICE,
 };
 
 /// Writes mono audio as WAV (corpus export).
@@ -84,6 +88,7 @@ pub fn analyze_file(
             Event::Note(n) => notes.push(n),
             Event::Technique(r) => kontra_engine::revise(&mut notes, &[r]),
             Event::Pitch(r) => kontra_engine::revise_pitch(&mut notes, &[r]),
+            Event::Retracted(r) => kontra_engine::retract(&mut notes, &[r]),
             Event::Ended => break,
             _ => {}
         }

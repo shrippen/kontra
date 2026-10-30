@@ -3,7 +3,7 @@
 //! within 3 ct; beyond the fretless limit (30 ct) a note is "offpitch", not wrong. Reading the
 //! notation in the bass clef is checked by eye (screenshot).
 
-use crate::common::{run_until, write_midi, Profile, COUNT_IN_S, RATE};
+use crate::common::{last_judged, run_until, write_midi, Profile, COUNT_IN_S, RATE};
 use kontra_appcore::UiEvent;
 use std::time::Duration;
 
@@ -52,19 +52,10 @@ fn low_fretless_line_reads_its_cents() {
     let events = run_until(&mut core, Duration::from_secs(9), |e| {
         matches!(e, UiEvent::Finished { .. })
     });
-    let mut judged: Vec<(usize, &str, f64)> = events
-        .iter()
-        .filter_map(|e| match e {
-            UiEvent::Judged {
-                index,
-                state,
-                cents,
-                ..
-            } => Some((*index, *state, *cents)),
-            _ => None,
-        })
+    let judged: Vec<(usize, &str, f64)> = last_judged(&events)
+        .into_iter()
+        .map(|(index, (state, _, cents))| (index, state, cents))
         .collect();
-    judged.sort_by_key(|(index, _, _)| *index);
     assert_eq!(
         judged.len(),
         LINE.len(),

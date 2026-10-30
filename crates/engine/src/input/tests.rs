@@ -67,7 +67,8 @@ fn note_before_a_stall_keeps_its_time() {
     use kontra_dsp::synth::{bass_tone, ToneShape};
 
     let rate = 48_000.0;
-    let mut analysis = Analysis::new(rate, &Instrument::default_bass(), InputSource::Line);
+    let (mut analysis, _expected) =
+        Analysis::new(rate, &Instrument::default_bass(), InputSource::Line);
     let mut watch = Watch::new(0.0);
     let (tx, rx) = std::sync::mpsc::channel();
     let tone = bass_tone(55.0, rate, 2.0, ToneShape::Rich, 1);
@@ -140,7 +141,8 @@ fn note_at_a_lossless_stall_is_kept() {
     use kontra_dsp::synth::{bass_tone, ToneShape};
 
     let rate = 48_000.0;
-    let mut analysis = Analysis::new(rate, &Instrument::default_bass(), InputSource::Line);
+    let (mut analysis, _expected) =
+        Analysis::new(rate, &Instrument::default_bass(), InputSource::Line);
     let mut watch = Watch::new(0.0);
     let (tx, rx) = std::sync::mpsc::channel();
     let take = |analysis: &mut Analysis, watch: &mut Watch, now_s: f64, block| {
@@ -198,7 +200,8 @@ fn jittered_stall_onsets(jitter_s: f64) -> Vec<f64> {
     use kontra_dsp::synth::{bass_tone, ToneShape};
 
     let rate = 48_000.0;
-    let mut analysis = Analysis::new(rate, &Instrument::default_bass(), InputSource::Line);
+    let (mut analysis, _expected) =
+        Analysis::new(rate, &Instrument::default_bass(), InputSource::Line);
     let mut watch = Watch::new(0.0);
     let (mut capture, mut drain) = input_ring(rate as usize * 2);
     let mut out = [0.0f32; BLOCK];
@@ -271,7 +274,8 @@ fn resume_onsets(ringing: Ringing, lead_s: f64) -> Vec<f64> {
     use kontra_dsp::synth::{bass_tone, ToneShape};
 
     let rate = 48_000.0;
-    let mut analysis = Analysis::new(rate, &Instrument::default_bass(), InputSource::Line);
+    let (mut analysis, _expected) =
+        Analysis::new(rate, &Instrument::default_bass(), InputSource::Line);
     let mut watch = Watch::new(0.0);
     let (tx, rx) = std::sync::mpsc::channel();
     let tone = bass_tone(55.0, rate, 2.0, ToneShape::Rich, 1);
@@ -509,4 +513,94 @@ fn recording_keeps_the_raw_input() {
     assert!(first < 4 * BLOCK, "began at once: {first}");
     assert_eq!(take.samples, samples[first..]);
     assert_eq!(input.stop_recording(), None, "handed over once");
+}
+
+const BLUR_RATIO: f64 = 2.71;
+const BLUR: f32 = 0.4;
+
+/// Blocks until the analysis tells the note (none: past the end).
+fn told_after(expect: Option<ExpectedStrike>, start_s: f64) -> Option<usize> {
+    use kontra_dsp::synth::{bass_tone, ToneShape};
+    const SR: f64 = 48_000.0;
+    let a2 = kontra_model::midi_to_hz(45.0, kontra_model::A4_HZ);
+    // A2 with an inharmonic tone (2.71×, −8 dB) that blurs its period: too unclear to tell
+    // early on its own (R1), clear enough to confirm the expected A2 (R2).
+    let mut signal = vec![0.0f32; (0.2 * SR) as usize];
+    let tone = bass_tone(a2, SR, 0.5, ToneShape::Rich, 3);
+    let other = bass_tone(a2 * BLUR_RATIO, SR, 0.5, ToneShape::Rich, 4);
+    signal.extend(tone.iter().zip(&other).map(|(a, b)| a + BLUR * b));
+    let (mut analysis, mut tx) = Analysis::new(SR, &Instrument::default_bass(), InputSource::Line);
+    analysis.start_s = start_s;
+    if let Some(strike) = expect {
+        tx.push(Expect::Strike(strike)).expect("room");
+    }
+    let (events, rx) = std::sync::mpsc::channel();
+    for (i, block) in signal.chunks(BLOCK).enumerate() {
+        analysis.process(block, false, &events);
+        let note = rx.try_iter().find_map(|e| match e {
+            Event::Note(n) => Some(n),
+            _ => None,
+        });
+        if let Some(n) = note {
+            assert!((n.onset_s - start_s - 0.2).abs() < 0.02, "{n:?}");
+            return Some(i);
+        }
+    }
+    None
+}
+
+/// R1: a tap 60 ms before a G2, 30 dB quieter, is told early and taken back in the same
+/// block as the pluck is told (from about F#2 up). The retraction goes first, so the
+/// session frees the note before the pluck claims it.
+#[test]
+fn retraction_goes_before_the_pluck() {
+    use kontra_dsp::synth::{bass_tone, ToneShape};
+    const SR: f64 = 48_000.0;
+    let g2 = kontra_model::midi_to_hz(43.0, kontra_model::A4_HZ);
+    let mut signal = vec![0.0f32; (0.2 * SR) as usize];
+    let tap = bass_tone(g2, SR, 0.06, ToneShape::Rich, 10);
+    let pluck = bass_tone(g2, SR, 0.5, ToneShape::Rich, 11);
+    signal.extend(tap.iter().map(|x| x * 0.03));
+    signal.extend(pluck.iter().map(|x| x * 0.9));
+    let (mut analysis, _tx) = Analysis::new(SR, &Instrument::default_bass(), InputSource::Line);
+    let (events, rx) = std::sync::mpsc::channel();
+    let mut both = None;
+    for block in signal.chunks(BLOCK) {
+        analysis.process(block, false, &events);
+        let told: Vec<&str> = rx
+            .try_iter()
+            .filter_map(|e| match e {
+                Event::Note(n) if (n.onset_s - 0.26).abs() < 0.005 => Some("pluck"),
+                Event::Retracted(_) => Some("retracted"),
+                _ => None,
+            })
+            .collect();
+        if told.len() == 2 {
+            both = Some(told);
+        }
+    }
+    assert_eq!(
+        both,
+        Some(vec!["retracted", "pluck"]),
+        "in one block, retraction first"
+    );
+}
+
+/// R2: a strike told on the engine clock reaches the tracker on its own clock (from the
+/// input's first sample): the expected note goes out sooner.
+#[test]
+fn expected_strike_reaches_the_tracker() {
+    const START_S: f64 = 100.0;
+    let tone = kontra_model::ExpectedTone {
+        midi: 45,
+        string: None,
+    };
+    let strike = ExpectedStrike::new(START_S + 0.2, 0.06).with(tone);
+    let free = told_after(None, START_S).expect("told");
+    let expected = told_after(Some(strike), START_S).expect("told");
+    assert!(expected < free, "block {expected}, without {free}");
+
+    // Told on the input's clock instead of the engine's, it misses the note.
+    let off = ExpectedStrike::new(0.2, 0.06).with(tone);
+    assert_eq!(told_after(Some(off), START_S), Some(free));
 }
