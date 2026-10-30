@@ -38,6 +38,7 @@ impl Core {
             backing: None,
             original: None,
             backing_cache: None,
+            onset_gate_db: self.settings.onset_gate_db,
         }
     }
 
@@ -73,12 +74,29 @@ impl Core {
     /// The finished measurement, if one ended since the last tick.
     pub(crate) fn poll_calibration(&mut self) -> Option<UiEvent> {
         if let Some(result) = self.calibration.as_mut().and_then(LiveCalibration::poll) {
+            let gate_db = self
+                .calibration
+                .as_ref()
+                .and_then(LiveCalibration::onset_gate_db);
             self.calibration = None;
+            if let Some(gate_db) = gate_db {
+                self.floor_measured(gate_db);
+            }
             return Some(self.calibrated(result));
         }
         let result = self.loopback.as_mut().and_then(LiveLoopback::poll)?;
         self.loopback = None;
         Some(self.looped(result))
+    }
+
+    /// Keeps the onset gate from the count-in for this input (LH-EIN-16), also when too few
+    /// plucks came for a latency.
+    fn floor_measured(&mut self, gate_db: f32) {
+        let on = self.audio_path();
+        self.update_settings(|s| {
+            s.onset_gate_db = Some(gate_db);
+            s.measured_on = Some(on);
+        });
     }
 
     fn calibrated(&mut self, result: CalibrationResult) -> UiEvent {
@@ -220,7 +238,7 @@ impl Core {
     /// measured (an automatic choice picked another interface, a chosen one is gone).
     pub(crate) fn check_audio_path(&mut self) {
         let s = &self.settings;
-        if s.loopback_ms.is_none() && s.click_ms.is_none() {
+        if s.loopback_ms.is_none() && s.click_ms.is_none() && s.onset_gate_db.is_none() {
             return;
         }
 
@@ -298,6 +316,7 @@ fn system_default(direction: Direction) -> Option<String> {
 fn forget(s: &mut Settings) {
     s.loopback_ms = None;
     s.click_ms = None;
+    s.onset_gate_db = None;
     s.measured_on = None;
     s.latency_from = LatencyFrom::Manual;
 }
@@ -456,6 +475,22 @@ mod tests {
         let s = &core.settings;
         assert_eq!(s.click_ms, None, "{:?}", s.latency_from);
         assert_eq!(s.latency_from, LatencyFrom::Manual);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    // LH-EIN-16: the gate from the count-in goes into every start on this input; another
+    // input forgets it.
+    #[test]
+    fn floor_gate_holds_per_device() {
+        let (mut core, dir) = core("gate");
+        core.floor_measured(-55.0);
+        assert_eq!(core.settings.onset_gate_db, Some(-55.0));
+        assert_eq!(core.live_setup().onset_gate_db, Some(-55.0));
+        core.check_audio_path();
+        assert_eq!(core.settings.onset_gate_db, Some(-55.0), "same input: kept");
+
+        core.reconfigure(|s| s.input_device = Some("other".into()));
+        assert_eq!(core.settings.onset_gate_db, None);
         let _ = std::fs::remove_dir_all(dir);
     }
 

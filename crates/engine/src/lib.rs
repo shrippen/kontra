@@ -89,6 +89,12 @@ pub enum Event {
     Resumed {
         at_s: f64,
     },
+    /// The noise floor of the onset band over the span `Input::measure_floor` asked for, and
+    /// the onset gate it gives (dB in the band, LH-EIN-16).
+    NoiseFloor {
+        floor_db: f32,
+        gate_db: f32,
+    },
     /// File input reached its end.
     Ended,
 }

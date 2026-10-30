@@ -10,7 +10,9 @@ use kontra_drivers::{
     open_midi, read_audio, read_midi_notes, InputStream, MidiConnection, MidiNote, StreamConfig,
 };
 use kontra_dsp::synth::laptop_jack;
-use kontra_dsp::{peak_db, rms_db, EchoCanceller, NoteTracker, TrackerConfig, Tuner, ECHO_BLOCK};
+use kontra_dsp::{
+    gate_over_floor, peak_db, rms_db, EchoCanceller, NoteTracker, TrackerConfig, Tuner, ECHO_BLOCK,
+};
 use kontra_model::{DetectedNote, ExpectedStrike, InputSource, Instrument};
 use ring::input_ring;
 use std::path::PathBuf;
@@ -46,6 +48,13 @@ enum Expect {
     Strike(ExpectedStrike),
     /// The plan changed (seek, speed, loop): the strikes told so far no longer hold.
     Forget,
+    /// Measure the noise floor between these times on the engine clock (LH-EIN-16).
+    Floor {
+        from_s: f64,
+        to_s: f64,
+    },
+    /// The onset gate measured at a calibration (dB in the onset band).
+    Gate(f32),
 }
 
 /// How fast a file is fed.
@@ -354,6 +363,21 @@ impl Input {
         }
     }
 
+    /// Measures the noise floor from `from_s` to `to_s` (engine clock), e.g. a count-in; told
+    /// as `Event::NoiseFloor` once the analysis is past `to_s` (LH-EIN-16).
+    pub fn measure_floor(&mut self, from_s: f64, to_s: f64) {
+        if let Some(tx) = self.expected.as_mut() {
+            let _ = tx.push(Expect::Floor { from_s, to_s });
+        }
+    }
+
+    /// Ignores attacks below `gate_db` in the onset band (a gate from `Event::NoiseFloor`).
+    pub fn set_onset_gate(&mut self, gate_db: f32) {
+        if let Some(tx) = self.expected.as_mut() {
+            let _ = tx.push(Expect::Gate(gate_db));
+        }
+    }
+
     /// Switches tuner readings on or off.
     pub fn set_tuner(&self, on: bool) {
         self.tuner_on.store(on, Ordering::Relaxed);
@@ -396,6 +420,8 @@ struct Analysis {
     /// Whether the last block peaked above the tracker's onset gate: a note was sounding.
     sounding: bool,
     expected: rtrb::Consumer<Expect>,
+    /// A noise floor is being measured and not yet told.
+    floor_asked: bool,
 }
 
 impl Analysis {
@@ -420,6 +446,7 @@ impl Analysis {
             analysed: 0,
             sounding: false,
             expected,
+            floor_asked: false,
         };
         (analysis, tx)
     }
@@ -433,8 +460,32 @@ impl Analysis {
                     self.tracker.expect(&strike);
                 }
                 Expect::Forget => self.tracker.forget_expected(),
+                Expect::Floor { from_s, to_s } => {
+                    let from = self.sample_at(from_s);
+                    self.tracker.measure_floor(from..self.sample_at(to_s));
+                    self.floor_asked = true;
+                }
+                Expect::Gate(gate_db) => self.tracker.set_onset_gate(gate_db),
             }
         }
+    }
+
+    /// The sample (counted from the input's first) at `at_s` on the engine clock.
+    fn sample_at(&self, at_s: f64) -> u64 {
+        ((at_s - self.start_s) * self.sample_rate).round().max(0.0) as u64
+    }
+
+    /// Tells the noise floor asked for once its span is analysed.
+    fn send_floor(&mut self, events: &Sender<Event>) {
+        if !self.floor_asked {
+            return;
+        }
+        let Some(floor_db) = self.tracker.noise_floor_db() else {
+            return;
+        };
+        self.floor_asked = false;
+        let gate_db = gate_over_floor(floor_db);
+        let _ = events.send(Event::NoiseFloor { floor_db, gate_db });
     }
 
     /// Heard up to here; `None` before the first sample.
@@ -460,6 +511,7 @@ impl Analysis {
         self.take_expected();
         self.tracker.push(block);
         self.send_told(events);
+        self.send_floor(events);
         if tuner_on {
             if let Some(reading) = self.tuner.push(block) {
                 let _ = events.send(Event::Tuner(reading));

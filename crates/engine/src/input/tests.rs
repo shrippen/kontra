@@ -680,3 +680,53 @@ fn expected_strike_reaches_the_tracker() {
     let off = ExpectedStrike::new(0.2, 0.06).with(tone);
     assert_eq!(told_after(Some(off), START_S), Some(free));
 }
+
+/// White noise at −50 dBFS RMS (uniform: 4.77 dB above in amplitude), `len_s` long.
+fn noise_50(sr: f64, len_s: f64) -> Vec<f32> {
+    let mut signal = vec![0.0f32; (len_s * sr) as usize];
+    kontra_dsp::synth::add_noise(&mut signal, -50.0 + 4.77, 3);
+    signal
+}
+
+/// LH-EIN-16: a floor asked for on the engine clock is told once, after its span, with a gate
+/// above the noise (white noise at −50 dBFS reads about −58 dB in the onset band).
+#[test]
+fn floor_is_told_after_its_span() {
+    const SR: f64 = 48_000.0;
+    const START_S: f64 = 100.0;
+    let (mut analysis, mut tx) = Analysis::new(SR, &Instrument::default_bass(), InputSource::Line);
+    analysis.start_s = START_S;
+    let floor = Expect::Floor {
+        from_s: START_S + 0.5,
+        to_s: START_S + 3.0,
+    };
+    tx.push(floor).expect("room");
+    let (events, rx) = std::sync::mpsc::channel();
+    let mut told = Vec::new();
+    for block in noise_50(SR, 3.5).chunks(BLOCK) {
+        analysis.process(block, false, &events);
+        for event in rx.try_iter() {
+            if let Event::NoiseFloor { floor_db, gate_db } = event {
+                told.push((analysis.analysed as f64 / SR, floor_db, gate_db));
+            }
+        }
+    }
+    let [(at_s, floor_db, gate_db)] = told[..] else {
+        panic!("told {told:?}");
+    };
+    assert!((3.0..3.1).contains(&at_s), "told at {at_s}");
+    assert!((-60.0..=-57.0).contains(&floor_db), "floor {floor_db}");
+    assert!(gate_db > -56.0, "gate {gate_db}");
+}
+
+/// A gate told to the input reaches the tracker before the next block.
+#[test]
+fn gate_reaches_the_tracker() {
+    const SR: f64 = 48_000.0;
+    let (mut analysis, mut tx) =
+        Analysis::new(SR, &Instrument::default_bass(), InputSource::Microphone);
+    tx.push(Expect::Gate(-62.0)).expect("room");
+    let (events, _rx) = std::sync::mpsc::channel();
+    analysis.process(&[0.0; BLOCK], false, &events);
+    assert_eq!(analysis.tracker.config().onset.gate_db, -62.0);
+}

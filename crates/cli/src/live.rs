@@ -54,6 +54,7 @@ pub fn practice(a: &PracticeArgs) -> CliResult {
         backing: a.backing.clone(),
         original: None,
         backing_cache: None,
+        onset_gate_db: None,
     };
     let loop_range = a
         .r#loop

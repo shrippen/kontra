@@ -44,6 +44,7 @@ fn loopback_take_measures_the_round_trip() {
         backing: None,
         original: None,
         backing_cache: None,
+        onset_gate_db: None,
     };
     let plan = loopback_plan();
     let mut live = LiveTake::start(
@@ -103,6 +104,7 @@ fn take_annotation_lands_on_the_notes() {
         backing: None,
         original: None,
         backing_cache: None,
+        onset_gate_db: None,
     };
     let mut live = LiveTake::start(
         &setup,

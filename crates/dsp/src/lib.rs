@@ -19,6 +19,7 @@ mod hum;
 mod inharmonicity;
 mod intonation;
 mod level;
+mod noise_floor;
 mod onset;
 mod pitch;
 mod resample;
@@ -38,6 +39,7 @@ pub use inharmonicity::{
 };
 pub use intonation::refine_hz;
 pub use level::{amplitude_to_db, peak_db, rms_db, SILENCE_DB};
+pub use noise_floor::gate_over_floor;
 pub use onset::{Onset, OnsetConfig, OnsetDetector};
 pub use pitch::{PitchShifter, LATENCY as PITCH_LATENCY, PITCH_RANGE_SEMITONES};
 pub use resample::resample;

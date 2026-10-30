@@ -153,7 +153,10 @@ pub struct Settings {
     /// the player's lean); both kept, so the lean is `click_ms - loopback_ms`.
     pub loopback_ms: Option<f64>,
     pub click_ms: Option<f64>,
-    /// Where `loopback_ms` and `click_ms` were measured.
+    /// Onset gate from the noise floor at the last calibration's count-in (LH-EIN-16); `None`:
+    /// the input's default.
+    pub onset_gate_db: Option<f32>,
+    /// Where `loopback_ms`, `click_ms` and `onset_gate_db` were measured.
     pub measured_on: Option<AudioPath>,
     pub metronome: bool,
     pub reference_tones: bool,
@@ -232,6 +235,7 @@ impl Default for Settings {
             latency_from: LatencyFrom::Manual,
             loopback_ms: None,
             click_ms: None,
+            onset_gate_db: None,
             measured_on: None,
             metronome: true,
             reference_tones: false,
