@@ -3846,6 +3846,7 @@ impl Core {
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
         live_ear.set_gains(ear_gains(&self.settings));
         self.live_ear = Some(live_ear);
+        self.input.remember(InputUse::Ear, setup.input);
         self.ear = Some(ear::EarQuiz::new(kind, &instrument, time_seed()));
         self.ear_play();
         Ok(self.ear_json())
@@ -3853,6 +3854,7 @@ impl Core {
 
     pub fn ear_stop(&mut self) {
         self.live_ear = None;
+        self.input.stopped(InputUse::Ear);
         self.ear = None;
         self.ear_prompting = false;
     }

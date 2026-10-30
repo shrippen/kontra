@@ -639,6 +639,8 @@ impl Core {
                 .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
             live_ear.set_gains(crate::ear_gains(&self.settings));
             self.live_ear = Some(live_ear);
+            self.input
+                .remember(crate::input_state::InputUse::Ear, setup.input);
         }
         Ok(())
     }

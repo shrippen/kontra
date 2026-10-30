@@ -63,6 +63,8 @@ pub(crate) fn lost_side(
 pub(crate) enum InputUse {
     Practice,
     Tuner,
+    /// Ear training: its input is remembered for a loss, but it shows no state.
+    Ear,
 }
 
 /// Why a run did not start: its input (the state shows it) or anything else (a message).
@@ -79,8 +81,9 @@ pub(crate) struct InputStatus {
     state: InputState,
     using: InputUse,
     detail: String,
-    /// The input as it was opened (the device resolved then, not the choice now).
-    opened: Option<InputChoice>,
+    /// The input as it was opened (the device resolved then, not the choice now) and by whom;
+    /// gone when that use stops, so a later loss cannot blame an old device.
+    opened: Option<(InputUse, InputChoice)>,
 }
 
 impl InputStatus {
@@ -97,7 +100,17 @@ impl InputStatus {
         self.state = InputState::Connected;
         self.using = using;
         self.detail = name;
-        self.opened = Some(choice);
+        self.opened = Some((using, choice));
+    }
+
+    /// Ear training opened `choice`: kept for a loss; no state to show.
+    pub(crate) fn remember(&mut self, using: InputUse, choice: InputChoice) {
+        self.opened = Some((using, choice));
+    }
+
+    /// The input as opened, if one is.
+    pub(crate) fn opened_input(&self) -> Option<&InputChoice> {
+        self.opened.as_ref().map(|(_, choice)| choice)
     }
 
     /// The input of `using` did not open: refused by the system, or any other fault.
@@ -119,6 +132,9 @@ impl InputStatus {
     pub(crate) fn stopped(&mut self, using: InputUse) {
         if self.using == using {
             self.state = InputState::Off;
+        }
+        if self.opened.as_ref().is_some_and(|(by, _)| *by == using) {
+            self.opened = None;
         }
     }
 
@@ -198,11 +214,12 @@ impl Core {
         &mut self,
         side: Direction,
         reason: String,
-        inputs: impl FnOnce() -> Vec<DeviceInfo>,
+        inputs: impl Fn() -> Vec<DeviceInfo>,
     ) -> Vec<UiEvent> {
         // The input as opened: the choice resolved now would pick another device (review #213).
-        let side = lost_side(side, self.input.opened.as_ref(), inputs);
+        let side = lost_side(side, self.input.opened_input(), &inputs);
         let input = self.input.clone();
+        let opened = input.opened_input().cloned();
         self.stop_live();
         self.tuner = None;
         self.live_ear = None;
@@ -217,7 +234,7 @@ impl Core {
         }
         // Another input stands in only for a lost input (LH-ALL-04).
         if side == Direction::Input {
-            events.extend(self.input_lost());
+            events.extend(self.input_lost_in(opened.as_ref(), inputs()));
         }
         events
     }
@@ -356,6 +373,55 @@ mod tests {
         let both = || vec![device("laptop", true), device("scarlett", false)];
         core.device_lost_in(Direction::Output, "headphones gone".into(), both);
         assert_ne!(core.input_state(), InputState::Failed);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// No recording: the lost input is watched (LH-ALL-04). Devices come from `inputs` only.
+    fn core_on(dir: &std::path::Path, using: InputUse) -> Core {
+        let mut core = Core::new(dir, QaOptions::default());
+        core.input.remember(using, scarlett());
+        core
+    }
+
+    // Review #213 round 5: ear training opens the input too. Its output reporting first must
+    // still find the Scarlett gone.
+    #[test]
+    fn ear_training_remembers_its_input() {
+        let dir = std::env::temp_dir().join(format!("kontra-ear-input-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let silent = serde_json::json!({ "output_device": "kontra:null" });
+        std::fs::write(dir.join("settings.json"), silent.to_string()).unwrap();
+        let take = dir.join("take.wav");
+        kontra_session::write_mono_wav(&take, &[0.0; 4800], 48_000).unwrap();
+        let qa = QaOptions {
+            input_file: Some(take.clone()),
+            laptop_jack: false,
+        };
+        let mut core = Core::new(&dir, qa);
+        core.ear_start("echo").unwrap();
+        assert!(
+            matches!(core.input.opened_input(), Some(InputChoice::File { path, .. }) if *path == take),
+            "{:?}",
+            core.input.opened_input()
+        );
+        core.ear_stop();
+        assert_eq!(core.input.opened_input(), None);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // Review #213 round 5 (Bestand): an auto-picked Scarlett (none saved) was watched as "the
+    // default input", so the laptop's microphone counted as "back" after 2 s.
+    #[test]
+    fn a_lost_input_watches_the_opened_device() {
+        let dir = std::env::temp_dir().join(format!("kontra-lost-watch-{}", std::process::id()));
+        for using in [InputUse::Practice, InputUse::Ear] {
+            let mut core = core_on(&dir, using);
+            core.device_lost_in(Direction::Output, "gone".into(), || {
+                vec![device("laptop", true)]
+            });
+            let lost = core.lost.as_ref().map(|l| l.id.clone());
+            assert_eq!(lost, Some(Some("scarlett".into())), "{using:?}");
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 

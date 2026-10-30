@@ -206,7 +206,7 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - `input-state` (E3, LH-EIN-15, #213): `InputState` (`key`), `Core::{input_state, input_detail, retry_input,
   is_tuning}`, `AudioError::is_denied`, `EngineError::is_denied`, `LiveError` (`Input`, `Setup`; `Live::start`
   gibt ihn statt `EngineError`), `Live::reopen`, `Practice::replace_output`, `kontra_session::EngineError`
-  (Re-Export); `pub(crate)`: `InputStatus`, `InputUse`, `Unstarted`, `Core::{input_opened, device_lost}`, `lost_side` (`Core::live_setup` privat); Brücke:
+  (Re-Export); `pub(crate)`: `InputStatus`, `InputUse`, `Unstarted`, `Core::{input_opened, device_lost}`, `lost_side`, `InputUse::Ear`, `InputStatus::{remember, opened_input}`, `Core::input_lost_in` (ersetzt `input_lost`), `unplug::Lost::id` (`Core::live_setup` privat); Brücke:
   Properties `inputState`, `inputDetail`, Invokable `retryInput`. `Event::Error`, `PracticeEvent::Error` und `UiEvent::DeviceLost` tragen jetzt die Seite (`Direction`) und den rohen Grund.
 
 ## pub-Schnittstellen, in Runde 17 freigegeben
