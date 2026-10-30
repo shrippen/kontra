@@ -2958,8 +2958,8 @@ impl Core {
             .collect()
     }
 
-    /// Summary with ready-made texts for the evaluation sheet, and every note's result.
-    /// What this input did not judge: techniques, and double stops at a microphone (Runde 17).
+    /// What this input did not judge: techniques, and double stops at a microphone (Runde 17);
+    /// one line each.
     fn untold_text(&self, techniques: &[String], double_stops: u32) -> String {
         let mut parts = Vec::new();
         if !techniques.is_empty() {
@@ -2971,9 +2971,10 @@ impl Core {
         if double_stops > 0 {
             parts.push(self.tr("summary.doublestops.untold", &[]));
         }
-        parts.join(" ")
+        parts.join("\n")
     }
 
+    /// Summary with ready-made texts for the evaluation sheet, and every note's result.
     pub fn summary_json(
         &self,
         s: &Summary,
@@ -6775,6 +6776,23 @@ mod tests {
             "Doppelgriffe über Mikrofon bewertet Kontra noch nicht nach beiden Tönen: Ein Ton zählt \
              für beide."
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Untold techniques and double stops together: two sentences, not one run-on line.
+    #[test]
+    fn untold_techniques_and_double_stops() {
+        let dir = temp_dir("untold-both");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        s.untold_techniques = vec![kontra_model::Technique::Slap];
+        s.untold_double_stops = 1;
+        let v: serde_json::Value = serde_json::from_str(&core.summary_json(&s, &[], &[])).unwrap();
+        let text = v["untoldText"].as_str().unwrap();
+        assert!(text.contains("Slap\nDoppelgriffe"), "{text}");
         let _ = std::fs::remove_dir_all(dir);
     }
 
