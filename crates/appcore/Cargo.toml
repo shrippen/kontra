@@ -24,3 +24,8 @@ path = "../../tests/journeys/main.rs"
 [[test]]
 name = "physical_design"
 path = "../../tests/physical_design.rs"
+
+# Special characters of the texts against the shipped fonts (Harmonicon W11).
+[[test]]
+name = "glyphs"
+path = "../../tests/glyphs.rs"
