@@ -267,9 +267,12 @@ impl LiveTuner {
                 }),
                 Event::Error(m) => out.push(PracticeEvent::Error(m)),
                 Event::Ended => out.push(PracticeEvent::InputEnded),
+                Event::Stalled { .. } => out.push(PracticeEvent::InputStalled),
+                Event::Resumed { .. } => out.push(PracticeEvent::InputResumed),
                 Event::Note(_)
                 | Event::Technique(_)
                 | Event::Pitch(_)
+                | Event::String(_)
                 | Event::Retracted(_)
                 | Event::DoubleStop(_)
                 | Event::Heard { .. } => {}
@@ -387,10 +390,13 @@ impl LiveEar {
                 }),
                 Event::Error(m) => out.push(PracticeEvent::Error(m)),
                 Event::Ended => out.push(PracticeEvent::InputEnded),
+                Event::Stalled { .. } => out.push(PracticeEvent::InputStalled),
+                Event::Resumed { .. } => out.push(PracticeEvent::InputResumed),
                 Event::Note(_)
                 | Event::Tuner(_)
                 | Event::Technique(_)
                 | Event::Pitch(_)
+                | Event::String(_)
                 | Event::Retracted(_)
                 | Event::DoubleStop(_)
                 | Event::Heard { .. } => {}

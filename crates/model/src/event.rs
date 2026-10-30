@@ -136,6 +136,45 @@ impl ExpectedStrike {
     }
 }
 
+/// Which string a struck note was heard on, told about 280 ms after its attack (R7,
+/// LH-BEW-16): the string's stiffness bends the partials sharp, more on a thick string and
+/// on a short one (high fret). Only for a strike the tab puts on a string, and only feedback:
+/// a note on another string still counts as played. Matches the note by its `onset_s`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct StringVerdict {
+    pub onset_s: f64,
+    pub heard: StringHeard,
+    /// The measured inharmonicity, log10 B (e.g. −3.6 on an open E string); `None` when
+    /// nothing was measured.
+    pub log_b: Option<f64>,
+    /// Partials found for it: the more, the surer.
+    pub partials: u8,
+}
+
+/// The string a note was heard on, against the one the tab expects.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum StringHeard {
+    Expected,
+    /// Another string (index, 0 = lowest, as `Note::string`).
+    Other(u8),
+    /// No statement, and why.
+    Unclear(Unclear),
+}
+
+/// Why a string could not be told.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Unclear {
+    /// The next attack came too soon: too little of the tone to measure.
+    ShortNote,
+    /// Muted (dead note, palm mute): the partials die before they can be measured.
+    Muted,
+    /// Too few partials stood out of the noise.
+    FewPartials,
+    /// The profile has no string values for this (fretless, a string not measured yet such as
+    /// a low B, another tuning).
+    NotSupported,
+}
+
 /// Which tones of a double stop the input heard (R8, LH-BEW-11).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DoubleStopHeard {
@@ -163,12 +202,16 @@ pub enum ChordHearing {
     /// Two-tone double stops the tab announces, not octaves (audio, R8). Three tones or more,
     /// and anything not announced, are heard as one note.
     AnnouncedDoubleStops,
+    /// One tone per attack: a double stop is judged like a chord. A microphone until recordings
+    /// exist (Runde 17: 12.2 % false alarms on FiloBass).
+    OneTone,
 }
 
 impl InputSource {
     pub fn chord_hearing(self) -> ChordHearing {
         match self {
             InputSource::Midi => ChordHearing::Every,
+            InputSource::Microphone => ChordHearing::OneTone,
             _ => ChordHearing::AnnouncedDoubleStops,
         }
     }

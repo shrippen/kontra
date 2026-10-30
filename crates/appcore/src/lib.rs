@@ -2791,6 +2791,9 @@ impl Core {
             PracticeEvent::Error(m) => Some(UiEvent::DeviceLost(
                 self.tr("error.device.lost", &[("reason", m)]),
             )),
+            // The device stopped delivering (LH-EIN-15): judging pauses, the player hears why.
+            PracticeEvent::InputStalled => Some(UiEvent::Message(self.tr("input.stalled", &[]))),
+            PracticeEvent::InputResumed => Some(UiEvent::Message(self.tr("input.resumed", &[]))),
             PracticeEvent::InputEnded | PracticeEvent::Heard { .. } => None,
             PracticeEvent::Session(e) => self.session_event(e),
         }
@@ -2958,6 +2961,39 @@ impl Core {
             .collect()
     }
 
+    /// Notes on another string than the tab's (R7); a profile that cannot tell says so.
+    fn strings_text(&self, strings: kontra_session::StringTally) -> String {
+        if strings.other > 0 {
+            return self.tr(
+                "summary.strings.other",
+                &[
+                    ("other", strings.other.to_string()),
+                    ("told", strings.told.to_string()),
+                ],
+            );
+        }
+        if strings.unsupported > 0 && strings.told == 0 {
+            return self.tr("summary.strings.unsupported", &[]);
+        }
+        String::new()
+    }
+
+    /// What this input did not judge: techniques, and double stops at a microphone (Runde 17);
+    /// one line each.
+    fn untold_text(&self, techniques: &[String], double_stops: u32) -> String {
+        let mut parts = Vec::new();
+        if !techniques.is_empty() {
+            parts.push(self.tr(
+                "summary.techniques.untold",
+                &[("techniques", techniques.join(", "))],
+            ));
+        }
+        if double_stops > 0 {
+            parts.push(self.tr("summary.doublestops.untold", &[]));
+        }
+        parts.join("\n")
+    }
+
     /// Summary with ready-made texts for the evaluation sheet, and every note's result.
     pub fn summary_json(
         &self,
@@ -3051,6 +3087,8 @@ impl Core {
                 ("text", self.intonation_text(i)),
             ])),
             "intonationParts": intonation.map_or(Vec::new(), |_| self.intonation_parts(s)),
+            // Feedback beside the score (R7): notes on another string than the tab's.
+            "stringsText": self.strings_text(s.strings),
             "meanOffsetMs": s.mean_offset_ms.unwrap_or(0.0),
             "counts": s.histogram.counts,
             "firstBinMs": s.histogram.first_bin_ms,
@@ -3059,11 +3097,7 @@ impl Core {
             "notes": notes,
             "hardestNotes": hardest_notes,
             "techniques": technique_list,
-            "untoldText": if untold.is_empty() {
-                String::new()
-            } else {
-                self.tr("summary.techniques.untold", &[("techniques", untold.join(", "))])
-            },
+            "untoldText": self.untold_text(&untold, s.untold_double_stops),
         })
         .to_string()
     }
@@ -6745,6 +6779,78 @@ mod tests {
             "Die Treffer liegen beständig hinter dem Schlag (im Mittel 7 ms). Spielst du nicht \
              absichtlich so, stimmt vielleicht die gemessene Latenz nicht mehr."
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// R7: notes on another string than the tab's get a line beside the score; none without.
+    #[test]
+    fn summary_tells_other_strings() {
+        let dir = temp_dir("strings");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        let text = |s: &kontra_session::Summary| {
+            let v: serde_json::Value =
+                serde_json::from_str(&core.summary_json(s, &[], &[])).unwrap();
+            v["stringsText"].as_str().unwrap_or_default().to_string()
+        };
+        assert_eq!(text(&s), "");
+        s.strings = kontra_session::StringTally {
+            told: 12,
+            other: 3,
+            unsupported: 0,
+        };
+        assert_eq!(
+            text(&s),
+            "3 von 12 Noten auf einer anderen Saite als in der Tab"
+        );
+        s.strings = kontra_session::StringTally {
+            told: 0,
+            other: 0,
+            unsupported: 5,
+        };
+        assert_eq!(
+            text(&s),
+            "Saiten erkennt Kontra mit diesem Instrument noch nicht (nur bundierte Bässe in E-A-D-G)"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Runde 17: a microphone does not judge double stops by both tones yet; the summary says so.
+    #[test]
+    fn summary_tells_untold_double_stops() {
+        let dir = temp_dir("untold-double-stops");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        s.untold_double_stops = 2;
+        let v: serde_json::Value = serde_json::from_str(&core.summary_json(&s, &[], &[])).unwrap();
+        assert_eq!(
+            v["untoldText"],
+            "Doppelgriffe über Mikrofon bewertet Kontra noch nicht nach beiden Tönen: Ein Ton zählt \
+             für beide."
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Untold techniques and double stops together: two sentences, not one run-on line.
+    #[test]
+    fn untold_techniques_and_double_stops() {
+        let dir = temp_dir("untold-both");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        s.untold_techniques = vec![kontra_model::Technique::Slap];
+        s.untold_double_stops = 1;
+        let v: serde_json::Value = serde_json::from_str(&core.summary_json(&s, &[], &[])).unwrap();
+        let text = v["untoldText"].as_str().unwrap();
+        assert!(text.contains("Slap\nDoppelgriffe"), "{text}");
         let _ = std::fs::remove_dir_all(dir);
     }
 

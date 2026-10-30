@@ -1,5 +1,5 @@
-//! `korpus write` / `korpus check` / `measure` / `techniques` / `confusion` (`double-stops` in
-//! `double_stops.rs`).
+//! `korpus write` / `korpus check` / `measure` / `techniques` / `confusion` / `strings`
+//! (`double-stops` in `double_stops.rs`).
 
 use crate::args::{KorpusArgs, KorpusCommand};
 use crate::CliResult;
@@ -63,6 +63,17 @@ pub fn run(a: &KorpusArgs) -> CliResult {
         }
         KorpusCommand::Techniques { dirs, window_ms } => techniques(dirs, window_ms / 1000.0),
         KorpusCommand::Confusion { dirs, window_ms } => confusion(dirs, window_ms / 1000.0),
+        KorpusCommand::Strings {
+            dirs,
+            window_ms,
+            held_out,
+        } => {
+            let values = match held_out {
+                true => crate::strings::Values::HeldOut,
+                false => crate::strings::Values::Profile,
+            };
+            crate::strings::run(dirs, window_ms / 1000.0, values)
+        }
         KorpusCommand::DoubleStops {
             dirs,
             window_ms,

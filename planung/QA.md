@@ -91,14 +91,14 @@ Erwartet: eine verständliche Meldung zur defekten Datei, drei Lieder importiert
 3. Lange Pause (30 s), dann weiter.
 Erwartet: Lied wartet ohne Zeitdruck; falscher Ton wird freundlich angezeigt (welcher Ton gespielt, welcher erwartet, in Worten und Symbol); nach der Pause kein Abbruch.
 
-**J-B3 Refrain sitzt bis Freitag** ⚙ · Persona: P2 Jens · Phase 1 · LH-MOD-04, -05, -06, -07, LH-WIE-01, LH-BEW-03
-1. Modus „Durchlauf“, Lied 3 durchspielen; Auswertung zeigt schwierigste Takte.
+**J-B3 Refrain sitzt bis Freitag** ⚙ · Persona: P2 Jens · Phase 1 · LH-MOD-04, -05, -06, -07, LH-WIE-01, LH-BEW-03, LH-BEW-16
+1. Modus „Durchlauf“, Lied 3 durchspielen, einige Noten auf einer anderen Saite als in der Tab; Auswertung zeigt schwierigste Takte.
 2. Auf den schwierigsten Takt klicken → Riff-Werkstatt mit diesem Bereich.
 3. Tempo 60 %, automatische Anpassung an das Zielband 80–90 % Treffer, Vorzähler an.
 4. Fehlerfreie Durchläufe einspeisen bis 100 %.
 5. Notendichte „Auf den Schlägen“ wählen; nach einem Durchlauf über 90 % den Vorschlag „mehr Noten“ annehmen.
 6. Alles nur mit Tastatur wiederholen (Loop mit `[` und `]` setzen, Pos1 springt an den Loop-Anfang), dann mit einem Fußschalter (Bild ab/auf).
-Erwartet: Bereich und Tempo stimmen; Backing Track bei 60 % ohne metallischen Klang; Steigerung sichtbar; jede Funktion per Tastenkürzel; jeder Durchgang beginnt mit neutralen Noten (keine Marken des vorigen vor der Spiellinie).
+Erwartet: Die Auswertung nennt, wie viele Noten auf einer anderen Saite als in der Tab lagen (bei bundlosem oder 5-saitigem Profil „nicht unterstützt“), die Noten bleiben Treffer; Bereich und Tempo stimmen; Backing Track bei 60 % ohne metallischen Klang; Steigerung sichtbar; jede Funktion per Tastenkürzel; jeder Durchgang beginnt mit neutralen Noten (keine Marken des vorigen vor der Spiellinie).
 
 **J-B4 Bundlos und tief** ⚙ · Persona: P3 Mira · Phase 1 · LH-TUN-01, LH-BEW-01, -02, -05, -12, LH-NF-03, LH-ANZ-03
 1. Instrument „5 Saiten, bundlos“ anlegen.
@@ -122,15 +122,17 @@ Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreich
 6. Sam (P7): alles nur mit Tastatur und Screenreader, 200 %.
 Erwartet: eine Anfrage je Enter, „Suchen“ ist gesperrt, solange sie läuft; Treffer mit Titel, Interpret und „Bass: E A D G“ bzw. „ohne Bassspur“ als Text; ein Klick öffnet die Songsterr-Seite auf der Bassspur im Browser, Kontra lädt keine Tabs; die Datei erscheint beim Zurückkehren ins Fenster (sonst binnen 15 s) mit Art („Guitar Pro“, „MuseScore“) und Alter, ein Klick öffnet sie mit der Bassspur und nimmt sie aus „Neu“; `.mscz` mit gleichen Saiten und Bünden wie in MuseScore; mehrere abgelegte Dateien landen in der Bibliothek, die defekte mit Grund; ohne Netz nennt Kontra den Grund und verweist auf die Browser-Suche, die Bibliothek bleibt bedienbar; ohne Browser eine Warnung mit der Adresse zum Kopieren; Feld, Knöpfe und Treffer per Tab erreichbar, Enter öffnet einen Treffer, der Screenreader liest Titel, Interpret und Bassspur.
 
-**J-B7 Doppelgriffe** · Personas: P3 Mira, P2 Jens, P5 Aylin · Phase 4 · LH-BEW-11
+**J-B7 Doppelgriffe** · Personas: P3 Mira, P2 Jens, P5 Aylin, P6 Karl · Phase 4 · LH-BEW-11
 1. Mira: Übung mit Quinten und Dezimen als Doppelgriff (Tab mit zwei Tönen je Anschlag), Modus „Durchlauf“; erst
    beide Töne sauber, dann bei jedem zweiten nur den unteren Ton, dann eine Oktave.
 2. Jens: dieselbe Übung über das Laptop-Kabel bzw. die Aufnahme dazu (`--input-file`).
 3. Aylin: dieselbe Übung am MIDI-Keyboard.
+4. Karl: dieselbe Übung am Kontrabass über Mikrofon (Aufnahme `room-double`, `--input-file`).
 Erwartet: beide Töne gespielt → beide getroffen, auch wenn die Tonhöhe des Gemischs ein anderer Ton war; nur der
 untere → unterer getroffen, oberer ausgelassen, etwa 160 ms nach dem Anschlag; Oktave → wie bisher (ein Ton zählt);
 kein Doppelgriff wird als falscher Ton gewertet, nur weil zwei Töne klangen. MIDI hört jeden Ton selbst (als ganze
-Menge erst mit M2).
+Menge erst mit M2). Mikrofon: kein Urteil über beide Töne, ein Ton zählt für beide; Einstellung „Mikrofon“ und
+Auswertung sagen, dass Doppelgriffe über Mikrofon noch nicht so bewertet werden (Runde 17).
 
 ## C. Lernen und Fortschritt
 

@@ -207,3 +207,18 @@ fn verdict_after_a_tap_taken_back() {
         assert_eq!(s.results().len(), 2, "{at}");
     }
 }
+
+/// A microphone gives no verdict on double stops until recordings exist (Runde 17, FiloBass
+/// 12.2 % false alarms): a verdict that only the lower tone sounded misses nothing, the double
+/// stop stays judged like a chord, and the summary says it was not judged by both tones.
+#[test]
+fn microphone_gives_no_verdict() {
+    let s = judged(33.0, DoubleStopHeard::Lower, InputSource::Microphone);
+    let [lower, upper] = fifth(&s);
+    assert_eq!(outcome(lower), Some(Outcome::Hit));
+    assert_eq!(outcome(upper), Some(Outcome::Hit));
+    assert_eq!(s.summary().untold_double_stops, 1);
+
+    let line = judged(33.0, DoubleStopHeard::Lower, InputSource::Line);
+    assert_eq!(line.summary().untold_double_stops, 0);
+}
