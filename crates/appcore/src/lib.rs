@@ -2959,6 +2959,21 @@ impl Core {
     }
 
     /// Summary with ready-made texts for the evaluation sheet, and every note's result.
+    /// What this input did not judge: techniques, and double stops at a microphone (Runde 17).
+    fn untold_text(&self, techniques: &[String], double_stops: u32) -> String {
+        let mut parts = Vec::new();
+        if !techniques.is_empty() {
+            parts.push(self.tr(
+                "summary.techniques.untold",
+                &[("techniques", techniques.join(", "))],
+            ));
+        }
+        if double_stops > 0 {
+            parts.push(self.tr("summary.doublestops.untold", &[]));
+        }
+        parts.join(" ")
+    }
+
     pub fn summary_json(
         &self,
         s: &Summary,
@@ -3059,11 +3074,7 @@ impl Core {
             "notes": notes,
             "hardestNotes": hardest_notes,
             "techniques": technique_list,
-            "untoldText": if untold.is_empty() {
-                String::new()
-            } else {
-                self.tr("summary.techniques.untold", &[("techniques", untold.join(", "))])
-            },
+            "untoldText": self.untold_text(&untold, s.untold_double_stops),
         })
         .to_string()
     }
@@ -6744,6 +6755,25 @@ mod tests {
             v["recalibrateText"],
             "Die Treffer liegen beständig hinter dem Schlag (im Mittel 7 ms). Spielst du nicht \
              absichtlich so, stimmt vielleicht die gemessene Latenz nicht mehr."
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Runde 17: a microphone does not judge double stops by both tones yet; the summary says so.
+    #[test]
+    fn summary_tells_untold_double_stops() {
+        let dir = temp_dir("untold-double-stops");
+        let mut core = Core::new(&dir, QaOptions::default());
+        core.update_settings(|s| s.language = Some("de".into()));
+        core.open(&Core::demo_path()).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        s.untold_double_stops = 2;
+        let v: serde_json::Value = serde_json::from_str(&core.summary_json(&s, &[], &[])).unwrap();
+        assert_eq!(
+            v["untoldText"],
+            "Doppelgriffe über Mikrofon bewertet Kontra noch nicht nach beiden Tönen: Ein Ton zählt \
+             für beide."
         );
         let _ = std::fs::remove_dir_all(dir);
     }
