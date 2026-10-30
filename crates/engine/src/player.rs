@@ -285,7 +285,7 @@ impl Player {
                 }
             },
             move |message| {
-                let _ = events.send(Event::Error(message));
+                let _ = events.send(Event::Error(kontra_drivers::Direction::Output, message));
             },
         )?;
         rate.store(u64::from(stream.sample_rate), Ordering::Relaxed);

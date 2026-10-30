@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Kante
 
-// Notes for the user (errors, hints, a stand-in input) in a bar under the page; Main.qml places it.
+// Notes for the user (errors, hints, the input's fault, a stand-in input) in a bar under the page; Main.qml places it.
 Rectangle {
     id: noteBar
 
@@ -12,13 +12,21 @@ Rectangle {
     color: KanteStyle.backgroundColor
     // From the texts, not from the children: a child is only visible while the bar is, so the
     // bar stayed hidden after the first close (QA 27.10., J-B1: no import or error message).
-    visible: ctl.offerInput !== "" || notice.text !== ""
+    visible: ctl.offerInput !== "" || notice.text !== "" || inputStatus.fault
     height: notes.implicitHeight + KanteStyle.unit(24)
 
     ColumnLayout {
         id: notes
         anchors { left: parent.left; right: parent.right; top: parent.top; margins: KanteStyle.unit(12) }
         spacing: KanteStyle.unit(8)
+
+        // LH-EIN-15: no signal, a failed or refused input, until it works again.
+        InputStatus {
+            id: inputStatus
+            Layout.fillWidth: true
+            ctl: noteBar.ctl
+            texts: noteBar.texts
+        }
 
         // LH-ALL-04: the interface was unplugged; another input can stand in until it is back.
         RowLayout {

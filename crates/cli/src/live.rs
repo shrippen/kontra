@@ -157,7 +157,7 @@ fn show(event: &PracticeEvent, arrangement: &kontra_model::Arrangement) -> bool 
             println!("speed {:.0} %", speed * 100.0)
         }
         PracticeEvent::Session(SessionEvent::Finished) => return true,
-        PracticeEvent::Error(message) => println!("audio problem: {message}"),
+        PracticeEvent::Error(_, message) => println!("audio problem: {message}"),
         _ => {}
     }
     false
@@ -226,7 +226,7 @@ pub fn tune(a: &TuneArgs) -> CliResult {
                     println!("{note:<4} {cents:+6.1} ct  {hint}");
                 }
                 PracticeEvent::InputEnded => return Ok(()),
-                PracticeEvent::Error(m) => println!("audio problem: {m}"),
+                PracticeEvent::Error(_, m) => println!("audio problem: {m}"),
                 _ => {}
             }
         }

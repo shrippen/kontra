@@ -10,7 +10,7 @@ use kontra_engine::{
 };
 use kontra_model::{Arrangement, InputSource, Instrument, Pitch};
 use std::path::PathBuf;
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{channel, Receiver, Sender};
 
 /// Where the player's sound comes from.
 #[derive(Debug, Clone, PartialEq)]
@@ -101,12 +101,28 @@ impl LiveOutput {
     }
 }
 
+/// Why a live practice did not start: its input (device, recording, MIDI) or the rest
+/// (backing track, threads). Only the first is the input's fault (LH-EIN-15).
+#[derive(Debug, thiserror::Error)]
+pub enum LiveError {
+    #[error(transparent)]
+    Input(EngineError),
+    #[error(transparent)]
+    Setup(EngineError),
+}
+
 /// A running live practice.
 #[derive(Debug)]
 pub struct Live {
     practice: Practice<LiveOutput>,
-    input: Input,
+    /// `None` after a reopen that failed: the run waits for the next one.
+    input: Option<Input>,
     events: Receiver<Event>,
+    /// For a reopened input and output: same clock, same channel.
+    clock: Clock,
+    sender: Sender<Event>,
+    /// Dropouts of input and output replaced by `reopen` (LH-NF-04 counts since the start).
+    xruns_before: u64,
     pub output_is_silent: bool,
     /// The bass input reaches the output (same rate on both devices); the gain decides if heard.
     can_monitor: bool,
@@ -119,7 +135,7 @@ impl Live {
         settings: ScoreSettings,
         options: PracticeOptions,
         setup: &LiveSetup,
-    ) -> Result<Live, EngineError> {
+    ) -> Result<Live, LiveError> {
         let clock = Clock::new();
         let (tx, rx) = channel();
         let mut output = open_output(setup.output_device.as_deref(), &clock, tx.clone());
@@ -129,7 +145,12 @@ impl Live {
             Some(dir) => crate::BackingCache::new(dir).load(path, sample_rate),
             None => BackingTrack::load(path, sample_rate),
         };
-        let backing = setup.backing.as_deref().map(load).transpose()?;
+        let backing = setup
+            .backing
+            .as_deref()
+            .map(load)
+            .transpose()
+            .map_err(LiveError::Setup)?;
         // An original that does not load leaves the song without its bass, nothing more.
         let original = setup.original.as_deref().and_then(|p| load(p).ok());
         let backing = match (backing, original) {
@@ -146,32 +167,77 @@ impl Live {
             &arrangement.instrument,
             setup.source,
             &clock,
-            tx,
+            tx.clone(),
             player,
-        )?;
+        )
+        .map_err(LiveError::Input)?;
         let can_monitor = !output_is_silent && input.sample_rate == sample_rate;
         let mut practice =
             Practice::new(arrangement, mode, settings, options, output, clock.clone());
         practice.set_backing(backing);
         Ok(Live {
             practice,
-            input,
+            input: Some(input),
             events: rx,
+            clock,
+            sender: tx,
+            xruns_before: 0,
             output_is_silent,
             can_monitor,
         })
     }
 
+    /// Opens input and output again (LH-EIN-15, "Erneut versuchen"); the run goes on where it
+    /// stands. The time since the device fell silent counts as lost, not as missed notes.
+    ///
+    /// ```text
+    /// old input ✕ ─► new output (monitor ring, echo reference) ─► new input ─► Resumed{now}
+    /// ```
+    pub fn reopen(&mut self, setup: &LiveSetup) -> Result<(), EngineError> {
+        // The old input closes first: an exclusive device (ALSA hw) would be busy. Its dropouts
+        // and the old output's stay counted.
+        self.xruns_before += self.input.take().map_or(0, |i| i.xruns());
+        let output_xruns = self.practice.output().xruns();
+        let mut output = open_output(
+            setup.output_device.as_deref(),
+            &self.clock,
+            self.sender.clone(),
+        );
+        let player = match &mut output {
+            LiveOutput::Device(p) => Some(p),
+            LiveOutput::Silent(_) => None,
+        };
+        let instrument = self.practice.session().arrangement().instrument.clone();
+        let input = Input::start(
+            &input_kind(&setup.input),
+            &instrument,
+            setup.source,
+            &self.clock,
+            self.sender.clone(),
+            player,
+        )?;
+        self.output_is_silent = matches!(output, LiveOutput::Silent(_));
+        self.can_monitor = !self.output_is_silent && input.sample_rate == output.sample_rate();
+        self.input = Some(input);
+        self.xruns_before += output_xruns;
+        self.practice.replace_output(output);
+        self.practice.handle(Event::Resumed {
+            at_s: self.clock.now_s(),
+        });
+        Ok(())
+    }
+
     /// The input's block size in frames and its sample rate, once the device delivered audio.
     pub fn input_block(&self) -> Option<(u32, u32)> {
-        self.input
-            .block_frames()
-            .map(|b| (b, self.input.sample_rate))
+        let input = self.input.as_ref()?;
+        input.block_frames().map(|b| (b, input.sample_rate))
     }
 
     /// Input and output dropouts since the start (LH-NF-04).
     pub fn xruns(&self) -> u64 {
-        self.input.xruns() + self.practice.output().xruns()
+        self.xruns_before
+            + self.input.as_ref().map_or(0, Input::xruns)
+            + self.practice.output().xruns()
     }
 
     /// False when monitoring cannot work: no output, or input and output run at different rates.
@@ -192,7 +258,7 @@ impl Live {
     pub fn play_aligned(&mut self) -> bool {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
         while std::time::Instant::now() < deadline {
-            if let Some(start) = self.input.started_s() {
+            if let Some(start) = self.input.as_ref().and_then(Input::started_s) {
                 self.practice.play_from(start);
                 return true;
             }
@@ -210,10 +276,14 @@ impl Live {
             }
         }
         out.extend(self.practice.tick());
-        for told in self.practice.take_told() {
+        let told = self.practice.take_told();
+        let Some(input) = self.input.as_mut() else {
+            return out;
+        };
+        for told in told {
             match told {
-                Told::Strike(strike) => self.input.expect(&strike),
-                Told::Forget => self.input.forget_expected(),
+                Told::Strike(strike) => input.expect(&strike),
+                Told::Forget => input.forget_expected(),
             }
         }
         out
@@ -265,7 +335,7 @@ impl LiveTuner {
                     rms_db,
                     clipped,
                 }),
-                Event::Error(m) => out.push(PracticeEvent::Error(m)),
+                Event::Error(side, m) => out.push(PracticeEvent::Error(side, m)),
                 Event::Ended => out.push(PracticeEvent::InputEnded),
                 Event::Stalled { .. } => out.push(PracticeEvent::InputStalled),
                 Event::Resumed { .. } => out.push(PracticeEvent::InputResumed),
@@ -388,7 +458,7 @@ impl LiveEar {
                     rms_db,
                     clipped,
                 }),
-                Event::Error(m) => out.push(PracticeEvent::Error(m)),
+                Event::Error(side, m) => out.push(PracticeEvent::Error(side, m)),
                 Event::Ended => out.push(PracticeEvent::InputEnded),
                 Event::Stalled { .. } => out.push(PracticeEvent::InputStalled),
                 Event::Resumed { .. } => out.push(PracticeEvent::InputResumed),

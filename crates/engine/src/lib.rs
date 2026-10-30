@@ -72,8 +72,9 @@ pub enum Event {
         clipped: bool,
     },
     Tuner(TunerReading),
-    /// Device problem, e.g. the interface was unplugged.
-    Error(String),
+    /// Device problem, e.g. the interface was unplugged: which side (input or output) and the
+    /// system's message.
+    Error(Direction, String),
     /// The analysis has heard the input up to `at_s`; under load it runs behind the clock,
     /// and a note may still come for any time after it.
     Heard {
@@ -102,4 +103,11 @@ pub enum EngineError {
     Midi(#[from] kontra_drivers::MidiError),
     #[error("cannot start the analysis thread: {0}")]
     Thread(std::io::Error),
+}
+
+impl EngineError {
+    /// True if the system refused the audio device (LH-EIN-15).
+    pub fn is_denied(&self) -> bool {
+        matches!(self, EngineError::Audio(e) if e.is_denied())
+    }
 }
