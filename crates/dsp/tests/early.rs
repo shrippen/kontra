@@ -4,7 +4,9 @@
 
 use kontra_dsp::synth::{bass_tone, render, SynthNote, ToneShape};
 use kontra_dsp::{NoteTracker, TrackerConfig};
-use kontra_model::{hz_to_midi, InputSource, Instrument, Pitch, A4_HZ};
+use kontra_model::{
+    hz_to_midi, ExpectedStrike, ExpectedTone, InputSource, Instrument, Pitch, A4_HZ,
+};
 
 const SR: f64 = 48_000.0;
 const BLOCK: usize = 480;
@@ -131,4 +133,49 @@ fn soft_note_stays_before_a_later_accent() {
             assert!((told[0].onset_s - LEAD_S).abs() < 0.005, "{at}: {told:?}");
         }
     }
+}
+
+#[test]
+fn tap_before_a_double_stop_gets_no_verdict() {
+    // The tab expects G2 and D3 together (R8); a finger taps G2 60 ms before the pluck. The tap
+    // is taken back, so only the pluck gets a verdict on its tones.
+    let tones = [midi("G2"), midi("D3")];
+    let pluck_s = LEAD_S + 0.06;
+    let tap = bass_tone(Pitch(43).hz(A4_HZ), SR, 0.06, ToneShape::Rich, 10);
+    let mut signal = vec![0.0; (LEAD_S * SR) as usize];
+    signal.extend(tap.iter().map(|x| x * 0.03));
+    let start = signal.len();
+    signal.resize(start + (1.1 * SR) as usize, 0.0);
+    for (i, m) in tones.iter().enumerate() {
+        let hz = Pitch(*m as u8).hz(A4_HZ);
+        let pluck = bass_tone(hz, SR, 0.8, ToneShape::Rich, 11 + i as u64);
+        for (out, x) in signal[start..].iter_mut().zip(pluck) {
+            *out += x * 0.45;
+        }
+    }
+
+    let config = TrackerConfig::for_instrument(&Instrument::default_bass(), InputSource::Line);
+    let mut tracker = NoteTracker::new(SR, config);
+    let tone = |m: f64| ExpectedTone {
+        midi: m as u8,
+        string: None,
+    };
+    tracker.expect(
+        &ExpectedStrike::new(pluck_s, 0.09)
+            .with(tone(tones[0]))
+            .with(tone(tones[1])),
+    );
+    let (mut retracted, mut verdicts) = (Vec::new(), Vec::new());
+    for block in signal.chunks(BLOCK) {
+        tracker.push(block);
+        retracted.extend(tracker.retracted().iter().map(|r| r.onset_s));
+        verdicts.extend(tracker.double_stops().iter().map(|v| v.onset_s));
+    }
+    tracker.flush();
+    verdicts.extend(tracker.double_stops().iter().map(|v| v.onset_s));
+
+    assert_eq!(retracted.len(), 1, "the tap was told early: {retracted:?}");
+    assert!(!verdicts.contains(&retracted[0]), "{verdicts:?}");
+    assert_eq!(verdicts.len(), 1, "{verdicts:?}");
+    assert!((verdicts[0] - pluck_s).abs() < 0.005, "{verdicts:?}");
 }

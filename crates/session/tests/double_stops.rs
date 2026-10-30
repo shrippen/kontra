@@ -3,7 +3,7 @@
 
 use kontra_model::{
     Arrangement, DetectedNote, DoubleStopHeard, DoubleStopVerdict, InputSource, Instrument, Note,
-    Pitch, TempoMap, TICKS_PER_QUARTER,
+    NoteRetraction, Pitch, TempoMap, TICKS_PER_QUARTER,
 };
 use kontra_session::{Mode, NoteResult, Outcome, ScoreSettings, Session};
 
@@ -176,4 +176,34 @@ fn summary_counts_both_tones() {
         .collect::<Vec<_>>();
     assert_eq!(judged_fifth.len(), 2, "{judged_fifth:?}");
     assert_eq!(summary.hits, 2);
+}
+
+/// A tap on the lower string before the double stop is taken back (R1), told before or after
+/// the pluck: the verdict on the pluck judges both tones, nothing counts twice.
+#[test]
+fn verdict_after_a_tap_taken_back() {
+    for pluck_first in [false, true] {
+        let mut s = Session::new(piece(), Mode::Song, ScoreSettings::default());
+        s.play(0.0);
+        s.update(0.08);
+        let tap = NoteRetraction { onset_s: -0.06 };
+        s.on_note(&played(-0.06, 33.0, InputSource::Line));
+        if pluck_first {
+            s.on_note(&played(0.0, 39.0, InputSource::Line));
+            s.on_retraction(&tap);
+        } else {
+            s.on_retraction(&tap);
+            s.on_note(&played(0.0, 39.0, InputSource::Line));
+        }
+        s.update(0.16);
+        s.on_double_stop(&DoubleStopVerdict {
+            onset_s: 0.0,
+            heard: DoubleStopHeard::Both,
+        });
+        let [lower, upper] = fifth(&s);
+        let at = format!("pluck first: {pluck_first}, {:?}", s.results());
+        assert_eq!(outcome(lower), Some(Outcome::Hit), "{at}");
+        assert_eq!(outcome(upper), Some(Outcome::Hit), "{at}");
+        assert_eq!(s.results().len(), 2, "{at}");
+    }
 }

@@ -91,5 +91,6 @@ impl NoteTracker {
                 *slot = None;
             }
         }
+        self.forget_double(c.report);
     }
 }
