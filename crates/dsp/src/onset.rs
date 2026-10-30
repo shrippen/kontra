@@ -17,6 +17,7 @@ use rustfft::num_complex::Complex32;
 use rustfft::{Fft, FftPlanner};
 use std::f32::consts::PI;
 use std::fmt;
+use std::ops::Range;
 use std::sync::Arc;
 
 const WINDOW: usize = 512;
@@ -92,6 +93,8 @@ pub struct OnsetDetector {
     frames: u64,
     pushed: u64,
     last_onset: Option<u64>,
+    /// Samples where no onset is taken (`mute`).
+    muted: Range<u64>,
     found: Vec<Onset>,
 }
 
@@ -137,6 +140,7 @@ impl OnsetDetector {
             frames: 0,
             pushed: 0,
             last_onset: None,
+            muted: 0..0,
             found: Vec::with_capacity(64),
         }
     }
@@ -168,6 +172,13 @@ impl OnsetDetector {
     /// Onsets returned by the last `push`.
     pub fn last_found(&self) -> &[Onset] {
         &self.found
+    }
+
+    /// Takes no onset from frames that see `samples` (counted like `Onset::sample`), and lets
+    /// them raise neither the minimum interval nor the mean: an attack 30 ms later is found.
+    /// E.g. the jump back from inserted silence to a ringing string.
+    pub fn mute(&mut self, samples: Range<u64>) {
+        self.muted = samples;
     }
 
     pub fn reset(&mut self) {
@@ -220,9 +231,13 @@ impl OnsetDetector {
             }
         }
         let gate = band_db(band_energy) > self.config.gate_db;
+        // A frame that sees muted samples adds nothing: neither an onset nor to the mean a
+        // later attack must stand out of.
+        let first = self.pushed.saturating_sub(WINDOW as u64);
+        let muted = first < self.muted.end && self.pushed > self.muted.start;
         self.flux.rotate_left(1);
         let last = self.flux.len() - 1;
-        self.flux[last] = if gate { flux } else { 0.0 };
+        self.flux[last] = if gate && !muted { flux } else { 0.0 };
         self.frames += 1;
         self.pick_peak();
     }
@@ -268,9 +283,24 @@ impl OnsetDetector {
         let block = ((BLOCK_S * self.sample_rate) as u64).max(1);
         let len = self.history.len() as u64;
         let oldest = self.pushed.saturating_sub(len);
+        let period = (PERIOD_S * self.sample_rate) as u64;
+        // An attack after muted samples starts after them, however steep the rise in them; and
+        // a block is compared with the period before it only once a whole one came after them
+        // (the signal jumped there, its peaks of one period are not all in yet).
+        let after_mute = !self.muted.is_empty() && estimate >= self.muted.end;
+        let earliest = if after_mute {
+            oldest.max(self.muted.end)
+        } else {
+            oldest
+        };
+        let compared = if after_mute {
+            earliest.max(self.muted.start + period)
+        } else {
+            earliest
+        };
         let from = estimate
             .saturating_sub((0.025 * self.sample_rate) as u64)
-            .max(oldest);
+            .max(compared);
         let to = (estimate + (0.025 * self.sample_rate) as u64).min(self.pushed);
         if to < from + block * 4 {
             return estimate;
@@ -284,7 +314,6 @@ impl OnsetDetector {
             }
         };
         let peak = |start: u64, end: u64| (start..end).map(|s| at(s).abs()).fold(0.0f32, f32::max);
-        let period = (PERIOD_S * self.sample_rate) as u64;
 
         let mut chosen = None;
         let mut start = from;
@@ -299,7 +328,7 @@ impl OnsetDetector {
         }
         let (block_start, floor) = match chosen {
             Some(found) => found,
-            None => self.steepest_rise(estimate, block, &at),
+            None => self.steepest_rise(estimate, block, earliest, &at),
         };
         let level = peak(block_start, block_start + block);
         let threshold = floor + (level - floor) * REFINE_FRACTION;
@@ -308,8 +337,15 @@ impl OnsetDetector {
             .unwrap_or(block_start)
     }
 
-    /// Fallback: block with the steepest rise over `RISE_BLOCKS` blocks within ±8 ms of `estimate`.
-    fn steepest_rise(&self, estimate: u64, block: u64, at: &dyn Fn(u64) -> f32) -> (u64, f32) {
+    /// Fallback: block with the steepest rise over `RISE_BLOCKS` blocks within ±8 ms of `estimate`,
+    /// from `earliest` on.
+    fn steepest_rise(
+        &self,
+        estimate: u64,
+        block: u64,
+        earliest: u64,
+        at: &dyn Fn(u64) -> f32,
+    ) -> (u64, f32) {
         let span = (0.008 * self.sample_rate) as u64;
         let peak = |start: u64| {
             (start..start + block)
@@ -317,7 +353,7 @@ impl OnsetDetector {
                 .fold(0.0f32, f32::max)
         };
         let mut best = (estimate, 0.0f32, 0.0f32);
-        let mut start = estimate.saturating_sub(span);
+        let mut start = estimate.saturating_sub(span).max(earliest);
         while start <= estimate + span {
             let floor = (1..=RISE_BLOCKS as u64)
                 .map(|k| peak(start.saturating_sub(k * block)))

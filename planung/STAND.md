@@ -3,12 +3,20 @@
 Übergabe zwischen Sitzungen. Stand: 2026-10-30. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
 
+## Übergabe (30.10.2026, Branch `device-clock`, PR #209, ersetzt #186)
+
+R3 erster Teil: Gerätestempel über eine DLL (`engine/src/device_clock.rs`), Verluste unter 4 ms zählen nicht, Sperre
+am Wiedereinsatz nur nach echtem Verlust mit klingender Saite, 10 ms, im Onset-Detektor (Eigentümer, Runde 17,
+Option 1). Neuer PR statt #186. Neue `pub`: `OnsetDetector::mute`, `NoteTracker::mute_onsets` (kontra-dsp); aus #186
+`Event::{Stalled, Resumed}`, `Session::on_stalled`, `Session::on_resumed`, `PracticeEvent::{InputStalled,
+InputResumed}`. Offen: Prüfung am Solo (Aussetzer erzwingen, Latenz und Xruns).
+
 ## Übergabe (30.10.2026, Runde 17)
 
 Runde 17 beantwortet (ROADMAP, „Entscheidungen Runde 17“): Doppelgriffe über Mikrofon aus (Branch `runde-17`),
 Meldezeit 70 ms je Note außer Tönen unter E1, Einmessung der Techniken je Bass (LH-BEW-17) geplant. #198 (Brummen,
-ohne Drift-Regel) und `device-clock` (ersetzt #186) laufen in eigenen Branches. Nächste Sitzung: Hardware-Prüfung
-mit dem Eigentümer, geführt. Nächster Schwerpunkt offen; der Eigentümer wird zu R5 (pYIN) erneut gefragt.
+ohne Drift-Regel) und `device-clock` (PR #209, ersetzt #186) laufen in eigenen Branches. Nächste Sitzung:
+Hardware-Prüfung mit dem Eigentümer, geführt. Nächster Schwerpunkt offen; der Eigentümer wird zu R5 (pYIN) erneut gefragt.
 
 ## Übergabe (29.10.2026, Harmonicon-Analyse)
 

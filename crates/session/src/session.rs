@@ -133,6 +133,11 @@ pub struct Session {
     now_s: f64,
     /// Real time up to which the analysis has heard; `None`: as far as the clock (MIDI, ended).
     heard_s: Option<f64>,
+    /// Real time the input stalled at, until it resumes (LH-EIN-15).
+    stalled_s: Option<f64>,
+    /// Stretches the input did not deliver, as (pass, position) from and to: their notes are
+    /// not judged, missing data is no mistake.
+    unheard: Vec<((u32, f64), (u32, f64))>,
 }
 
 impl Session {
@@ -160,6 +165,8 @@ impl Session {
             played_speed: None,
             now_s: 0.0,
             heard_s: None,
+            stalled_s: None,
+            unheard: Vec::new(),
         }
     }
 
@@ -427,8 +434,39 @@ impl Session {
     /// The analysis has heard the input up to `at_s` (engine clock); nothing after it is
     /// missed yet.
     pub fn on_heard(&mut self, at_s: f64) {
+        // A stalled input holds judging where it stopped until it resumes (LH-EIN-15).
+        if self.stalled_s.is_some() {
+            return;
+        }
         let real_s = self.real_s(at_s);
         self.heard_s = Some(self.heard_s.map_or(real_s, |h| h.max(real_s)));
+    }
+
+    /// The input stopped delivering at `at_s` (engine clock, LH-EIN-15): nothing after it is
+    /// judged until it resumes, however long that takes.
+    pub fn on_stalled(&mut self, at_s: f64) {
+        self.stalled_s = Some(self.real_s(at_s));
+    }
+
+    /// The input delivers again from `at_s`: the notes since the stall are not judged.
+    pub fn on_resumed(&mut self, at_s: f64) {
+        let Some(from_s) = self.stalled_s.take() else {
+            return;
+        };
+        let to_s = self.real_s(at_s);
+        let at = |real_s| {
+            let (position, pass) = self.transport.position_at(real_s);
+            (pass, position)
+        };
+        self.unheard.push((at(from_s), at(to_s)));
+    }
+
+    /// True if the note at `position_s` in `pass` lay in a stretch the input did not deliver.
+    fn unheard(&self, pass: u32, position_s: f64) -> bool {
+        let at = (pass, position_s);
+        self.unheard
+            .iter()
+            .any(|(from, to)| *from <= at && at < *to)
     }
 
     /// The input ended (a file): from now on only the clock counts.
@@ -723,10 +761,13 @@ impl Session {
         }
         // A finished probe judges nothing more: its clock stopped inside the next pass.
         if !matches!(self.mode, Mode::Wait) && !self.finished {
-            // Up to where the analysis has heard, if it runs behind (a loaded machine).
-            let heard = self
-                .heard_s
-                .map_or(real_s, |h| h.max(real_s - MAX_ANALYSIS_LAG_S));
+            // Up to where the analysis has heard, if it runs behind (a loaded machine); a
+            // stalled input holds it there.
+            let heard = match (self.heard_s, self.stalled_s) {
+                (Some(h), Some(_)) => h,
+                (Some(h), None) => h.max(real_s - MAX_ANALYSIS_LAG_S),
+                (None, _) => real_s,
+            };
             self.expire(real_s.min(heard) - DETECTION_GRACE_S);
         }
         self.check_finished();
@@ -939,6 +980,11 @@ impl Session {
             };
             if self.cursor_pass == pass && e.position_s + window >= position {
                 return;
+            }
+            // Not delivered by the input: resolved without a result, it is no mistake.
+            let unheard = self.unheard(self.cursor_pass, e.position_s);
+            if !self.matcher.is_resolved(self.cursor_pass, self.cursor_slot) && unheard {
+                self.matcher.resolve(self.cursor_pass, self.cursor_slot);
             }
             if !self.matcher.is_resolved(self.cursor_pass, self.cursor_slot) {
                 self.matcher.resolve(self.cursor_pass, self.cursor_slot);

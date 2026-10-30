@@ -635,15 +635,17 @@ impl fmt::Debug for InputStream {
 }
 
 impl InputStream {
-    /// Opens capture; `on_samples` gets mono blocks on the audio thread, `on_error` reports
-    /// device errors (e.g. unplugged interface).
+    /// Opens capture; `on_samples` gets mono blocks on the audio thread with the device time
+    /// their first frame was captured, in seconds since the stream's first block (a jump ahead
+    /// of the samples: the device skipped some); `on_error` reports device errors (e.g.
+    /// unplugged interface).
     pub fn open<F, E>(
         config: &StreamConfig,
         mut on_samples: F,
         on_error: E,
     ) -> Result<InputStream, AudioError>
     where
-        F: FnMut(&[f32]) + Send + 'static,
+        F: FnMut(&[f32], f64) + Send + 'static,
         E: FnMut(String) + Send + 'static,
     {
         let device = find_device(Direction::Input, config.device_id.as_deref())?;
@@ -659,13 +661,18 @@ impl InputStream {
         let mut late = LateCheck::new(&xruns);
         let rate = stream_config.sample_rate;
         let mut realtime = Realtime::default();
-        let callback = move |data: &[f32], _: &cpal::InputCallbackInfo| {
+        let mut origin: Option<cpal::StreamInstant> = None;
+        let callback = move |data: &[f32], info: &cpal::InputCallbackInfo| {
             realtime.once();
             late.block(data.len() / channels, rate);
+            let captured = info.timestamp().capture;
+            let first = *origin.get_or_insert(captured);
+            let mut captured_s = captured.duration_since(first).as_secs_f64();
             for chunk in data.chunks(MAX_BLOCK * channels) {
                 let frames = chunk.len() / channels;
                 downmix.mono(chunk, &mut mono[..frames]);
-                on_samples(&mono[..frames]);
+                on_samples(&mono[..frames], captured_s);
+                captured_s += frames as f64 / f64::from(rate);
             }
         };
         let stream = device
