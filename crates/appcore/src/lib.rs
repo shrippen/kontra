@@ -727,6 +727,7 @@ impl Core {
             settings: self.settings.clone(),
             library: self.library.clone(),
             progress: self.progress_store().all(),
+            quiz: store::load(&self.data_dir.join(quiz_stats::FILE)),
         };
         store::save(path, &bundle)
             .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
@@ -787,6 +788,16 @@ impl Core {
                 .save(&song)
                 .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
         }
+        let quiz_file = self.data_dir.join(quiz_stats::FILE);
+        let quiz = match how {
+            DataImport::Replace => bundle.quiz,
+            DataImport::Merge => {
+                store::load::<quiz_stats::QuizStats>(&quiz_file).merged(bundle.quiz)
+            }
+        };
+        store::save(&quiz_file, &quiz)
+            .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
+        self.quiz = None;
         self.save_library();
         let key = match how {
             DataImport::Merge => "data.merged",
@@ -3759,8 +3770,9 @@ impl Core {
     /// read "0 of 1 found" before the first answer). Nothing before the first one is finished.
     /// "3 of 4 found" (quiz: solved at all) or "3 of 4 without a mistake" (ear training: clean
     /// answers only; QA 14.10.: "0 of 1 found" right after a correct answer on the fifth try).
-    fn quiz_score(&self, right: u32, asked: u32, solved: bool) -> String {
-        self.score_text("quiz.score", right, asked, solved)
+    /// Quiz: found of found and lost; skipped questions are no miss (LH-LRN-18).
+    fn quiz_score(&self, right: u32, lost: u32) -> String {
+        self.score_text("quiz.score", right, right + lost, true)
     }
 
     fn score_text(&self, key: &str, right: u32, asked: u32, solved: bool) -> String {
@@ -3835,7 +3847,7 @@ impl Core {
             "right": q.right,
             "asked": q.asked,
             "solved": q.solved,
-            "score": self.quiz_score(q.right, q.asked, q.solved),
+            "score": self.quiz_score(q.right, q.lost),
             "range": q.stats().range,
             "positions": positions,
         })
@@ -5812,7 +5824,8 @@ mod tests {
     }
 
     /// QA 13.10.: the open question is not counted. Before any answer there is no score (it read
-    /// "0 of 1 found"); a solved question counts, a skipped one counts once the next is asked.
+    /// "0 of 1 found"); a solved question counts, a skipped one never, one left after a wrong
+    /// note once the next is asked.
     #[test]
     fn quiz_score_counts_finished_questions() {
         let dir = temp_dir("quiz-score");
@@ -5823,7 +5836,11 @@ mod tests {
         assert!((28..=55).any(|m| core.quiz_answer(f64::from(m))));
         let q: serde_json::Value = serde_json::from_str(&core.quiz_json()).unwrap();
         assert_eq!(q["score"], "1 of 1 found");
+        // Skipped is no miss (LH-LRN-18); left after a wrong note is one.
         core.quiz_next();
+        let q: serde_json::Value = serde_json::from_str(&core.quiz_next()).unwrap();
+        assert_eq!(q["score"], "1 of 1 found", "one skipped");
+        assert!(!core.quiz_answer(0.0));
         let q: serde_json::Value = serde_json::from_str(&core.quiz_next()).unwrap();
         assert_eq!(q["score"], "1 of 2 found");
         let _ = std::fs::remove_dir_all(dir);

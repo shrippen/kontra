@@ -122,6 +122,19 @@ impl QuizStats {
             .map_or((0, 0), |i| (self.places[i].right, self.places[i].wrong))
     }
 
+    /// Joins the answers of another machine: per place the newer record counts, so importing
+    /// the same file twice changes nothing; the own range stays.
+    pub(crate) fn merged(mut self, from: QuizStats) -> QuizStats {
+        for place in from.places {
+            match self.find(place.open, place.fret) {
+                Some(i) if self.places[i].last_s >= place.last_s => {}
+                Some(i) => self.places[i] = place,
+                None => self.places.push(place),
+            }
+        }
+        self
+    }
+
     /// How likely the place is asked next, relative to the others (see the module comment).
     pub(crate) fn weight(&self, open: u8, fret: u8, now_s: u64) -> f64 {
         let Some(place) = self.find(open, fret).map(|i| &self.places[i]) else {

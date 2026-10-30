@@ -4,6 +4,7 @@
 
 use crate::common::Profile;
 use kontra_appcore::quiz_stats::FILE;
+use kontra_appcore::DataImport;
 use serde_json::{json, Value};
 
 /// Open strings of the standard bass (E1, A1, D2, G2).
@@ -89,4 +90,29 @@ fn missed_note_comes_more_often() {
     assert!(!core.quiz_answer(WRONG_MIDI));
     assert!(!core.quiz_answer(WRONG_MIDI));
     assert_eq!(misses(&profile), before + 1, "a wrong note, once");
+}
+
+/// LH-FOR-03 (review #216): range and answers move to a second machine with the data export.
+#[test]
+fn quiz_moves_with_the_data_export() {
+    let first = Profile::new("c10-export");
+    let file = first.dir.join("kontra-daten.json");
+    {
+        let mut core = first.core(None);
+        core.quiz_start("notes", 5, 9);
+        assert!(!core.quiz_answer(WRONG_MIDI));
+        core.export_data(&file).unwrap();
+    }
+    let second = Profile::new("c10-import");
+    let mut core = second.core(None);
+    core.import_data(&file, DataImport::Replace).unwrap();
+    assert_eq!(
+        json_of(&core.quiz_json())["range"],
+        json!({"low": 5, "high": 9})
+    );
+    assert_eq!(misses(&second), 1);
+
+    // Merging the same file again does not count the miss twice.
+    core.import_data(&file, DataImport::Merge).unwrap();
+    assert_eq!(misses(&second), 1);
 }

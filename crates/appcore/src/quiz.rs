@@ -50,6 +50,8 @@ pub struct Quiz {
     /// Questions shown so far, the current one included.
     pub asked: u32,
     pub right: u32,
+    /// Questions left unsolved after a wrong note; skipped ones are no miss (LH-LRN-18).
+    pub lost: u32,
     /// The current question was already answered right (further notes are ignored).
     pub solved: bool,
     /// A wrong note was played for the current question (counted once).
@@ -78,6 +80,7 @@ impl Quiz {
             },
             asked: 0,
             right: 0,
+            lost: 0,
             solved: false,
             missed: false,
             stats,
@@ -116,6 +119,8 @@ impl Quiz {
             .iter()
             .enumerate()
             .flat_map(|(s, open)| range.frets().map(move |f| (s, open.0, f)))
+            // An octave above a fret in the range asks the same note: one place.
+            .filter(|(_, _, f)| *f < range.low + 12)
             .filter(|(s, open, f)| *s != previous.string || (open + f) % 12 != previous.target)
             .map(|(s, open, f)| (s, f, self.stats.weight(open, f, now_s)))
             .collect();
@@ -177,6 +182,7 @@ impl Quiz {
                 break;
             }
         }
+        self.lost += u32::from(self.missed && !self.solved);
         self.solved = false;
         self.missed = false;
         self.asked += 1;
@@ -197,7 +203,7 @@ impl Quiz {
             }
             QuizKind::Intervals => played == self.question.target,
         };
-        if self.kind == QuizKind::Notes && !self.missed {
+        if !self.missed && self.kind == QuizKind::Notes {
             let outcome = if right {
                 Outcome::Right
             } else {
@@ -205,8 +211,8 @@ impl Quiz {
             };
             let open = open_pitch(instrument, self.question.string);
             self.stats.record(open, self.question.fret, outcome, now_s);
-            self.missed = !right;
         }
+        self.missed |= !right;
         if right {
             self.solved = true;
             self.right += 1;
@@ -314,6 +320,20 @@ mod tests {
             quiz.next(&bass, NOW);
             assert!((5..=7).contains(&quiz.question.fret), "{:?}", quiz.question);
         }
+    }
+
+    /// Review #216: with 0–12, fret 12 asks the same as the open string ("E on the E string");
+    /// one place per note, else the open strings came twice as often.
+    #[test]
+    fn octave_is_one_place() {
+        let bass = bass();
+        let mut quiz = quiz(QuizKind::Notes, QuizStats::new(FretRange::new(0, 12)), 21);
+        let mut twelfth = 0;
+        for _ in 0..500 {
+            quiz.next(&bass, NOW);
+            twelfth += usize::from(quiz.question.fret == 12);
+        }
+        assert_eq!(twelfth, 0, "fret 12 asked as a place of its own");
     }
 
     /// Time up or skipped is no mistake; a wrong note is one, counted once per question.

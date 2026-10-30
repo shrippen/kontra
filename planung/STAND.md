@@ -7,7 +7,7 @@ nur, was offen ist und wo es liegt.
 
 Griffbrett-Quiz gewichtet (LH-LRN-18), Teil 1: gewichtete Wahl, Statistik in `quiz.json`, Bünde, Überspringen kein
 Fehler. Offen: Heatmap (braucht Kante: Zahl je Zelle, Achsenbeschriftung Saite/Bund, Legende, Tooltip, Namen für den
-Screenreader), Intervalle im Gehörtraining, `quiz.json` im Datenexport.
+Screenreader), Intervalle im Gehörtraining.
 
 ## Übergabe (30.10.2026, Branch `device-clock`, PR #209, ersetzt #186)
 
@@ -220,7 +220,8 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - `fret-quiz` (L4, LH-LRN-18): Modul `quiz_stats` (`FILE`, `FretRange` mit `low`, `high`, `new`, `QuizStats` mit
   `range`, `new`), `Question::fret`, `Quiz::stats`; geändert: `Quiz::new(kind, instrument, stats, seed, now_s)`,
   `Quiz::next(instrument, now_s)`, `Quiz::answer(midi, instrument, now_s)`, `Core::quiz_start(kind, low, high)`;
-  `pub(crate)`: `Outcome`, `QuizStats::{record, weight}`, `FretRange::frets`; Brücke: `quizStart(kind, low, high)`,
+  `Quiz::lost`, `data::Bundle::quiz`; `pub(crate)`: `Outcome`, `QuizStats::{record, weight, merged}`,
+  `FretRange::frets`; Brücke: `quizStart(kind, low, high)`,
   `quizJson` mit `range` (auch vor dem Start).
 
 ## pub-Schnittstellen, in Runde 17 freigegeben
