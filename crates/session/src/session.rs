@@ -79,6 +79,10 @@ pub enum SessionEvent {
         note: usize,
     },
     Released,
+    /// A note taken back (R1) is open again: its verdict goes until the next one.
+    Reopened {
+        note: usize,
+    },
     PassComplete {
         pass: u32,
         clean: bool,
@@ -599,6 +603,10 @@ impl Session {
         // Each note it took is open again; Wait mode waits for the first of them in this pass.
         let mut first: Option<usize> = None;
         for r in removed {
+            let current = r.pass == self.transport.pass();
+            if let Some(note) = r.note.filter(|_| current) {
+                self.events.push(SessionEvent::Reopened { note });
+            }
             let Some(slot) = r.note.and_then(|note| self.slot_of(note, r.position_s)) else {
                 continue;
             };

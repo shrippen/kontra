@@ -2829,6 +2829,12 @@ impl Core {
                 Some(UiEvent::Holding { index: note, text })
             }
             SessionEvent::Released => Some(UiEvent::Released),
+            SessionEvent::Reopened { note } => Some(UiEvent::Judged {
+                index: note,
+                state: "pending",
+                offset_ms: 0.0,
+                cents: 0.0,
+            }),
             SessionEvent::PassComplete {
                 clean, hit_rate, ..
             } => Some(UiEvent::PassComplete { clean, hit_rate }),

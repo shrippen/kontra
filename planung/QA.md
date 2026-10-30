@@ -254,6 +254,8 @@ Erwartet: Hinweis, dass die Toleranzen weiter sind; Trefferquote ≥ 90 % auf de
 Erwartet: Jede Note wird so schnell markiert wie sonst; eine Note, die beim Anschlag als falscher Ton gilt, wird binnen etwa 0,2 s zum Treffer. Keine zusätzlichen Noten (Hammer-on) für das Einschwingen. Der automatische Test spielt eine synthetische Linie (D2 E2 F2 G2, 140 Cent zu tief, 120 ms Anstieg).
 2. Seit R1 (LH-BEW-15): vor einzelnen Anschlägen die Saite mit dem greifenden Finger leise antippen.
 Erwartet: Der Fingertipp erscheint nicht als eigene Note; eine kurz markierte Note wechselt binnen etwa 0,1 s auf das Urteil des Anschlags. Automatisch geprüft in `early_tap_before_the_pluck_is_taken_back` (Erkennung) und `crates/session/tests/retraction.rs` (Urteil).
+3. Im Warte-Modus die Saite auf dem richtigen Ton antippen, dann einen falschen Ton anschlagen.
+Erwartet: Die Markierung des Tipps verschwindet, Kontra wartet ohne Markierung wieder auf die Note und nennt den falschen Ton. Automatisch geprüft in `tap_taken_back_clears_its_mark_waiting`.
 
 ## G. Lernen
 

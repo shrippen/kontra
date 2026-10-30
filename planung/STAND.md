@@ -196,6 +196,7 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   `announce_second_tone`, `double_stop_mixtures`, `evaluate_double_stops`, `DoubleStopSet`, `DoubleStopStrike`,
   `DoubleStopPlayed`, `DoubleStopTally` (`add`, `detected`, `false_alarms`), `DOUBLE_STOP_INTERVALS` (Session
   reicht sie durch, ohne `DoubleStopPlayed`); `pub(crate)`: `dyad::{DyadCheck, Heard, FRAME_S, SKIP_S}`.
+- Kleinigkeiten nach R1/R8: `SessionEvent::Reopened` (Note nach einer Rücknahme wieder offen).
 
 ## Für den Eigentümer
 
