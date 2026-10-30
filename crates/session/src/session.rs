@@ -28,6 +28,14 @@ const MS_PER_S: f64 = 1000.0;
 /// back before the full window would have told it (about 90 ms), at the pluck's rise check.
 const RESCORE_S: f64 = 0.3;
 
+/// How a scored note stands: open to a pitch or double stop told later, or judged by both
+/// tones of a double stop (R8), final and possibly different per tone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Judgement {
+    Provisional,
+    BothTones,
+}
+
 /// Riff-Werkstatt (LH-MOD-04): keeps the hit rate in a target band (decision round 5, after
 /// planung/DIDAKTIK.md idea I7). Above the band for `passes_needed` passes in a row → one step faster
 /// (up to `target_speed`); below it as often → one step slower (down to `min_speed`); inside it
@@ -104,10 +112,10 @@ pub struct Session {
     /// Struck notes judged lately: (detected onset, pass, note), so a technique told later can
     /// be judged again (`on_revision`).
     struck: Vec<(f64, u32, usize)>,
-    /// Notes scored lately: (detected onset, index into `results`, technique, detected pitch),
-    /// so a pitch or double stop told later can judge them again (`on_pitch_revision`,
-    /// `on_double_stop`).
-    scored: Vec<(f64, usize, Option<Technique>, f64)>,
+    /// Notes scored lately: (detected onset, index into `results`, technique, detected pitch,
+    /// judgement), so a pitch or double stop told later can judge them again
+    /// (`on_pitch_revision`, `on_double_stop`) and a retraction take them off.
+    scored: Vec<(f64, usize, Option<Technique>, f64, Judgement)>,
     /// Notes heard lately, so those scored after a note taken back are scored again
     /// (`on_retraction`).
     heard: Vec<DetectedNote>,
@@ -378,7 +386,7 @@ impl Session {
             position_s: played_at(&earlier, self.transport.speed()),
             ..earlier
         };
-        for entry in self.scored.iter_mut().filter(|(_, i, _, _)| *i == at) {
+        for entry in self.scored.iter_mut().filter(|(_, i, ..)| *i == at) {
             entry.1 = self.results.len();
         }
         self.results.push(extra);
@@ -386,8 +394,13 @@ impl Session {
         if self.scored.len() >= STRUCK_KEPT {
             self.scored.remove(0);
         }
-        self.scored
-            .push((note.onset_s, at, note.technique, note.midi));
+        self.scored.push((
+            note.onset_s,
+            at,
+            note.technique,
+            note.midi,
+            Judgement::Provisional,
+        ));
 
         // The technique is judged on the attack, not the artifact.
         self.struck
@@ -489,8 +502,11 @@ impl Session {
         else {
             return;
         };
+        if entry.4 == Judgement::BothTones {
+            return;
+        }
         entry.3 = revision.midi;
-        let (_, at, technique, _) = *entry;
+        let (_, at, technique, ..) = *entry;
         let last = self.results[at];
 
         // Only a note judged by its pitch (a dead note played as one has none).
@@ -579,14 +595,14 @@ impl Session {
         let Some(entry) = self.scored_at(onset_s) else {
             return false;
         };
-        let (_, at, ..) = self.scored.remove(entry);
+        let (_, at, .., judgement) = self.scored.remove(entry);
         let taken = self.results[at];
 
-        // The result and the chord tones recorded with it.
+        // The result and the chord tones recorded with it (a double stop's tones may differ).
         let tone = |r: &NoteResult| {
             r.pass == taken.pass
                 && r.position_s == taken.position_s
-                && r.outcome == taken.outcome
+                && (r.outcome == taken.outcome || judgement == Judgement::BothTones)
                 && r.note.is_some()
                 && taken.note.is_some()
         };
@@ -666,8 +682,13 @@ impl Session {
         if self.scored.len() >= STRUCK_KEPT {
             self.scored.remove(0);
         }
-        self.scored
-            .push((note.onset_s, self.results.len(), note.technique, note.midi));
+        self.scored.push((
+            note.onset_s,
+            self.results.len(),
+            note.technique,
+            note.midi,
+            Judgement::Provisional,
+        ));
     }
 
     /// The slot in the matcher's expected notes of `note` at `position_s`.
