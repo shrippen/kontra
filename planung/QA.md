@@ -221,8 +221,8 @@ der Baustein davor mindestens zwei Takte behält.
 3. Jens: Bünde „Eigene“, ab Bund 5 bis Bund 9; Mira: „0–12“ am Fünfsaiter. Sam: alles mit Tastatur, 200 %, Deuteranopie.
 Erwartet: Fragen nur aus den gewählten Bünden; die Wahl bleibt nach dem Neustart; der verfehlte Ton kommt deutlich öfter
 als andere (bei 20 Plätzen mehr als jede zehnte Frage); Überspringen zählt nicht als Fehler, ein falscher Ton einmal je
-Frage, auch in „x von y gefunden“; bei 0–12 ist Bund 12 kein eigener Platz; nach Export und Import auf einem zweiten
-Rechner gleicher Bereich und gleiche Statistik; Bereich und Bünde haben Namen für den Screenreader.
+Frage, auch in „x von y gefunden“; bei 0–12 ist Bund 12 kein eigener Platz; nach Export und Import (Ersetzen) auf einem
+zweiten Rechner gleicher Bereich und gleiche Statistik, beim Ergänzen gleiche Statistik und der eigene Bereich; Bereich und Bünde haben Namen für den Screenreader.
 
 **J-C7 Ein ganzes Stück** · Personas: P1 Lea, P2 Jens, P4 Thomas · Phase 3 · LH-BIB-12, LH-BIB-13, LH-BIB-08, LH-MOD-02, -04
 1. Lea: Übungen, Stufe „9 Stücke“, die Ballade im Durchlauf von vorn bis hinten; danach „Übung erzeugen“, Stück Pop, Schwierigkeit „Leicht“.

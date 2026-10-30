@@ -38,6 +38,18 @@ pub struct LiveSetup {
     pub original: Option<PathBuf>,
     /// Folder of prepared backing tracks (`BackingCache`); `None` decodes every time.
     pub backing_cache: Option<PathBuf>,
+    /// The onset gate measured at the calibration's count-in (LH-EIN-16); `None`: the input's
+    /// default.
+    pub onset_gate_db: Option<f32>,
+}
+
+impl LiveSetup {
+    /// Sets the measured onset gate on `input`, if there is one.
+    fn gate(&self, input: &mut Input) {
+        if let Some(gate_db) = self.onset_gate_db {
+            input.set_onset_gate(gate_db);
+        }
+    }
 }
 
 /// Either a real player or silence; lets `Practice` run without a sound card.
@@ -162,7 +174,7 @@ impl Live {
             LiveOutput::Device(p) => Some(p),
             LiveOutput::Silent(_) => None,
         };
-        let input = Input::start(
+        let mut input = Input::start(
             &input_kind(&setup.input),
             &arrangement.instrument,
             setup.source,
@@ -171,6 +183,7 @@ impl Live {
             player,
         )
         .map_err(LiveError::Input)?;
+        setup.gate(&mut input);
         let can_monitor = !output_is_silent && input.sample_rate == sample_rate;
         let mut practice =
             Practice::new(arrangement, mode, settings, options, output, clock.clone());
@@ -208,7 +221,7 @@ impl Live {
             LiveOutput::Silent(_) => None,
         };
         let instrument = self.practice.session().arrangement().instrument.clone();
-        let input = Input::start(
+        let mut input = Input::start(
             &input_kind(&setup.input),
             &instrument,
             setup.source,
@@ -216,6 +229,7 @@ impl Live {
             self.sender.clone(),
             player,
         )?;
+        setup.gate(&mut input);
         self.output_is_silent = matches!(output, LiveOutput::Silent(_));
         self.can_monitor = !self.output_is_silent && input.sample_rate == output.sample_rate();
         self.input = Some(input);
@@ -345,7 +359,8 @@ impl LiveTuner {
                 | Event::String(_)
                 | Event::Retracted(_)
                 | Event::DoubleStop(_)
-                | Event::Heard { .. } => {}
+                | Event::Heard { .. }
+                | Event::NoiseFloor { .. } => {}
             }
         }
         out
@@ -388,7 +403,7 @@ impl LiveEar {
         let clock = Clock::new();
         let (tx, rx) = channel();
         let output = open_output(setup.output_device.as_deref(), &clock, tx.clone());
-        let input = Input::start(
+        let mut input = Input::start(
             &input_kind(&setup.input),
             instrument,
             setup.source,
@@ -396,6 +411,7 @@ impl LiveEar {
             tx,
             None,
         )?;
+        setup.gate(&mut input);
         Ok(LiveEar {
             clock,
             output,
@@ -469,7 +485,8 @@ impl LiveEar {
                 | Event::String(_)
                 | Event::Retracted(_)
                 | Event::DoubleStop(_)
-                | Event::Heard { .. } => {}
+                | Event::Heard { .. }
+                | Event::NoiseFloor { .. } => {}
             }
         }
         out
@@ -540,6 +557,8 @@ pub struct LiveCalibration {
     calibration: Option<Calibration>,
     /// Engine time of the first click after the input has started.
     lead_s: f64,
+    /// The onset gate from the count-in's noise floor, once measured (LH-EIN-16).
+    onset_gate_db: Option<f32>,
 }
 
 impl LiveCalibration {
@@ -553,7 +572,7 @@ impl LiveCalibration {
         let clock = Clock::new();
         let (tx, rx) = channel();
         let output = open_output(setup.output_device.as_deref(), &clock, tx.clone());
-        let input = Input::start(
+        let mut input = Input::start(
             &input_kind(&setup.input),
             instrument,
             setup.source,
@@ -561,6 +580,7 @@ impl LiveCalibration {
             tx,
             None,
         )?;
+        setup.gate(&mut input);
         Ok(LiveCalibration {
             clock,
             output,
@@ -568,7 +588,13 @@ impl LiveCalibration {
             events: rx,
             calibration: None,
             lead_s,
+            onset_gate_db: None,
         })
+    }
+
+    /// The onset gate from the count-in's noise floor, once its last click passed.
+    pub fn onset_gate_db(&self) -> Option<f32> {
+        self.onset_gate_db
     }
 
     /// The click last passed (see `Calibration::beat_at`).
@@ -583,6 +609,10 @@ impl LiveCalibration {
             let calibration = Calibration::new(start + self.lead_s);
             // The count-in and the measured clicks each start on an accent.
             let count_in = calibration.count_in();
+            // The count-in is the noise floor (LH-EIN-16): the player waits for the clicks.
+            if let Some(first) = count_in.first() {
+                self.input.measure_floor(*first, start + self.lead_s);
+            }
             for clicks in [count_in.as_slice(), calibration.clicks()] {
                 for (i, click) in clicks.iter().enumerate() {
                     let accent = if i == 0 {
@@ -597,8 +627,14 @@ impl LiveCalibration {
         }
         let calibration = self.calibration.as_mut()?;
         while let Ok(event) = self.events.try_recv() {
-            if let Event::Note(note) = event {
-                calibration.on_onset(note.onset_s);
+            match event {
+                Event::Note(note) => calibration.on_onset(note.onset_s),
+                // The plucks after the count-in already meet the new gate.
+                Event::NoiseFloor { gate_db, .. } => {
+                    self.onset_gate_db = Some(gate_db);
+                    self.input.set_onset_gate(gate_db);
+                }
+                _ => {}
             }
         }
         (self.clock.now_s() > calibration.ends_at()).then(|| calibration.result())

@@ -426,6 +426,23 @@ impl NoteTracker {
         self.onsets.mute(samples);
     }
 
+    /// Measures the noise floor of the onset band over `samples` (counted from the first sample
+    /// pushed), e.g. the calibration's count-in (LH-EIN-16).
+    pub fn measure_floor(&mut self, samples: Range<u64>) {
+        self.onsets.measure_floor(samples);
+    }
+
+    /// The floor measured, once its span has been pushed (see `gate_over_floor`).
+    pub fn noise_floor_db(&self) -> Option<f32> {
+        self.onsets.noise_floor_db()
+    }
+
+    /// Sets the onset gate (dB in the onset band, as `OnsetConfig::gate_db`).
+    pub fn set_onset_gate(&mut self, gate_db: f32) {
+        self.config.onset.gate_db = gate_db;
+        self.onsets.set_gate(gate_db);
+    }
+
     /// Notes completed in the last `push` or `flush` (what they returned); valid until the next
     /// call.
     pub fn told(&self) -> &[DetectedNote] {

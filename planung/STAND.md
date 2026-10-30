@@ -223,6 +223,10 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   `Quiz::lost`, `data::Bundle::quiz`; `pub(crate)`: `Outcome`, `QuizStats::{record, weight, merged}`,
   `FretRange::frets`; Brücke: `quizStart(kind, low, high)`,
   `quizJson` mit `range` (auch vor dem Start).
+- `noise-floor` (E6, LH-EIN-16): `gate_over_floor`, `OnsetDetector::{measure_floor, noise_floor_db, set_gate}`,
+  `NoteTracker::{measure_floor, noise_floor_db, set_onset_gate}` (kontra-dsp); `Event::NoiseFloor`,
+  `Input::{measure_floor, set_onset_gate}` (kontra-engine); `LiveSetup::onset_gate_db`, `LiveCalibration::onset_gate_db`;
+  `Settings::onset_gate_db`.
 
 ## pub-Schnittstellen, in Runde 17 freigegeben
 
