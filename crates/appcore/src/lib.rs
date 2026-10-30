@@ -868,7 +868,13 @@ impl Core {
     pub fn update_settings(&mut self, change: impl FnOnce(&mut Settings)) {
         let before = self.settings.clone();
         change(&mut self.settings);
-        calibrate::forget_on_switch(&before, &mut self.settings);
+        // The MIDI inputs only when the choice changed: listing them asks the system.
+        let ports = if before.midi_port == self.settings.midi_port {
+            Vec::new()
+        } else {
+            kontra_session::list_midi_inputs()
+        };
+        calibrate::forget_on_switch(&before, &mut self.settings, &ports);
         if let Some(code) = &self.settings.language {
             self.catalog = Catalog::new(Language::from_code(code));
         }

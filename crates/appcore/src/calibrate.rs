@@ -11,7 +11,7 @@ use crate::store::{AudioPath, LatencyFrom, Settings};
 use crate::{Core, UiEvent, CALIBRATION_LEAD_S};
 use kontra_session::{
     list_devices, CalibrationResult, Direction, InputChoice, LiveCalibration, LiveLoopback,
-    LiveSetup, LoopbackResult, Pocket, Side, Summary,
+    LiveSetup, LoopbackResult, MidiPort, Pocket, Side, Summary,
 };
 
 /// Input of a recording fed in for QA: one device, whichever file.
@@ -262,15 +262,27 @@ impl Core {
 
 /// Another input or output (device or connection) has another latency: its measurements no
 /// longer hold. The value stays as a starting point, typed in from now on (review #202).
-pub(crate) fn forget_on_switch(before: &Settings, after: &mut Settings) {
+/// `ports`: the MIDI inputs listed; a choice naming the keyboard already used is no switch
+/// (review #210).
+pub(crate) fn forget_on_switch(before: &Settings, after: &mut Settings, ports: &[MidiPort]) {
     let same = before.input_device == after.input_device
         && before.output_device == after.output_device
         && before.input_kind == after.input_kind
-        && before.midi_port == after.midi_port;
+        && midi_key(ports, before) == midi_key(ports, after);
     if same {
         return;
     }
     forget(after);
+}
+
+/// The MIDI device a choice stands for: the port it resolves to, else the name chosen (a
+/// missing device is another wish).
+fn midi_key(ports: &[MidiPort], s: &Settings) -> Option<String> {
+    let chosen = s.midi_port.as_deref();
+    match crate::pick_midi(ports, chosen) {
+        (Some(i), crate::MidiChoice::Found) => ports.get(i).map(|p| p.id.clone()),
+        _ => chosen.map(str::to_string),
+    }
 }
 
 /// The id of the system's default device, if one is listed.
@@ -444,6 +456,26 @@ mod tests {
         assert_eq!(s.click_ms, None, "{:?}", s.latency_from);
         assert_eq!(s.latency_from, LatencyFrom::Manual);
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    // Review #210: choosing the keyboard Kontra already used (the first) is no switch.
+    #[test]
+    fn same_keyboard_by_name_keeps() {
+        let before = Settings {
+            click_ms: Some(5.0),
+            latency_from: LatencyFrom::Click,
+            ..Settings::default()
+        };
+        let mut after = before.clone();
+        after.midi_port = Some("Keys".into());
+
+        let ports = [MidiPort {
+            id: "128:0".into(),
+            name: "Keys".into(),
+        }];
+        forget_on_switch(&before, &mut after, &ports);
+        assert_eq!(after.click_ms, Some(5.0));
+        assert_eq!(after.latency_from, LatencyFrom::Click);
     }
 
     #[test]
