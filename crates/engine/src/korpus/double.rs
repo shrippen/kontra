@@ -35,6 +35,8 @@ const ANNOUNCE_WINDOW_S: f64 = 0.1;
 const SEGMENT_MAX_S: f64 = 1.0;
 const SEGMENT_MIN_S: f64 = 0.3;
 const SEMITONES_PER_OCTAVE: u8 = 12;
+/// A segment cut from a recording fades in and out this long: a cut mid-wave is a click.
+const CUT_FADE_S: f64 = 0.002;
 
 /// What was played where the tab announced a double stop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -256,8 +258,9 @@ pub fn double_stop_mixtures(item: &KorpusItem, per_interval: usize, seed: u64) -
                 let late = (unit(&mut noise) * UPPER_LATE_S * sr) as usize;
                 let len = a.len().max(b.len() + late);
                 samples.resize(at + len + (LEAD_S * sr) as usize, 0.0);
-                mix_in(&mut samples, a, at, MIX_GAIN);
-                mix_in(&mut samples, b, at + late, MIX_GAIN);
+                let fade = (CUT_FADE_S * sr) as usize;
+                mix_cut(&mut samples, a, at, fade);
+                mix_cut(&mut samples, b, at + late, fade);
                 strikes.push(DoubleStopStrike {
                     onset_s: at as f64 / sr,
                     lower: *lower,
@@ -272,6 +275,21 @@ pub fn double_stop_mixtures(item: &KorpusItem, per_interval: usize, seed: u64) -
         sample_rate: item.sample_rate,
         samples,
         strikes,
+    }
+}
+
+/// Mixes a segment cut from a recording at `MIX_GAIN`, its first and last `fade` samples on a
+/// raised cosine (no click at the cuts).
+fn mix_cut(out: &mut [f32], segment: &[f32], at: usize, fade: usize) {
+    let len = segment.len();
+    for (i, (o, x)) in out.iter_mut().skip(at).zip(segment).enumerate() {
+        let edge = i.min(len - 1 - i);
+        let gain = if edge < fade {
+            0.5 - 0.5 * (std::f32::consts::PI * edge as f32 / fade as f32).cos()
+        } else {
+            1.0
+        };
+        *o += x * MIX_GAIN * gain;
     }
 }
 
@@ -422,6 +440,39 @@ mod tests {
             assert_eq!(tally.singles_other, 0, "{semitones}: {tally:?}");
             assert_eq!(tally.octaves_told, 0, "{semitones}: {tally:?}");
         }
+    }
+
+    /// A recording cut at its annotations starts and ends mid-wave: mixed as it is, each cut
+    /// is a click whose broadband flux hides the pluck 20–50 ms later from the onset detector
+    /// (IDMT: 44 of 307 mixtures without a verdict). The cuts are faded.
+    #[test]
+    fn mixtures_have_no_clicks_at_cuts() {
+        let sr = f64::from(SAMPLE_RATE);
+        let hz = kontra_model::midi_to_hz(33.0, kontra_model::A4_HZ);
+        let samples: Vec<f32> = (0..(2.0 * sr) as usize)
+            .map(|i| 0.5 * (std::f64::consts::TAU * hz * i as f64 / sr).cos() as f32)
+            .collect();
+        let note = |onset_s, midi| Annotation {
+            onset_s,
+            midi,
+            technique: None,
+            slide_cents: None,
+        };
+        let item = KorpusItem {
+            set: KorpusSet::Line4,
+            sample_rate: SAMPLE_RATE,
+            notes: vec![note(0.1, 33.0), note(0.6, 40.0)],
+            samples,
+        };
+        let mixed = double_stop_mixtures(&item, 1, 1);
+        assert_eq!(mixed.strikes.len(), 1);
+        // A 55 Hz wave at 0.5 moves at most 0.004 per sample; a cut jumps up to 0.25.
+        let jump = mixed
+            .samples
+            .windows(2)
+            .map(|w| (w[1] - w[0]).abs())
+            .fold(0.0f32, f32::max);
+        assert!(jump < 0.02, "jump {jump}");
     }
 
     /// Review #205: a double stop without a verdict counts against detection; one told as

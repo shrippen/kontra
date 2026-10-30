@@ -252,6 +252,13 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   nach der alten Zählung). Anschläge ohne Urteil zählen seit der Nacharbeit zu #205 im Nenner mit (vorher IDMT
   95,8 % von 263, 1,8 %; FiloBass 12,3 % Fehlalarm). Unbewiesen: echte Doppelgriffe (Aufnahme mit dem Eigentümer,
   ~15 min).
+  Nacharbeit (30.10., Branch `cleanup`): Die 44 Mischungen ohne Urteil waren ein Messfehler. Die Ausschnitte wurden an
+  den Annotationen hart geschnitten (Taktraster, meist 20–50 ms vor dem Anschlag, mitten in der Welle); der Knack am
+  Schnitt füllt das 40-ms-Gedächtnis des Onset-Detektors, der Anschlag danach hebt sich nicht ab (41 der 44: auch ein
+  Ton allein so geschnitten ohne Onset). Ausschnitte blenden jetzt 2 ms ein und aus: IDMT 82,1 → 91,5 % (307, ohne
+  Urteil 44 → 13), Einzelnoten unverändert 1,7 %, 9 als der andere Ton; FiloBass unverändert 77,8 % / 7,4 % (dort
+  keine Mischung ohne Urteil). Die übrigen 13: Annotation weiter als 80 ms vom Anschlag oder Anschlag vor dem Schnitt
+  (Diagnose mit Schnitt am erkannten Anschlag: 0 ohne Urteil, 95,4 %); eine Grenze der Annotation, nicht der Erkennung.
 - [x] R9 Time-Stretch: kürzerer Steuer-Vorlauf (win/16) spart 37 ms (Standard) bzw. 75 ms (Fine), Messwerte gleich;
   Doku: Fine kostet 133 ms mehr, nicht 85. Zwei Auflösungen: abgelehnt. Umgesetzt in #200: Standard 133 → 96 ms,
   Fine 267 → 192 ms. Hörtest B0 Standard gegen Fine offen.
