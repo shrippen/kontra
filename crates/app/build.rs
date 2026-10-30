@@ -33,6 +33,7 @@ const PAGES: &[&str] = &[
     "qml/TermTip.qml",
     "qml/GlossaryReturn.qml",
     "qml/NoteBar.qml",
+    "qml/InputStatus.qml",
     "qml/NavSeparator.qml",
     "qml/DrawerFocus.qml",
     "qml/NotationStaff.qml",

@@ -201,6 +201,9 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 
 - `tech-hint` (Runde 17, Slap/Pop als Hinweis): `TechniqueGrade` (`Judged`, `Hint`), `TechniqueResult::{grade, mark}`,
   `Summary::hint_techniques`; `pub(crate) TechniqueJudge::hints`.
+- `input-state` (E3, LH-EIN-15): `InputState` (`key`), `Core::{input_state, input_name, retry_input, is_tuning}`,
+  `AudioError::is_denied`, `EngineError::is_denied`; `pub(crate)`: `InputStatus`, `InputUse`,
+  `Core::input_opened`; Brücke: Properties `inputState`, `inputName`, Invokable `retryInput`.
 
 ## pub-Schnittstellen, in Runde 17 freigegeben
 
