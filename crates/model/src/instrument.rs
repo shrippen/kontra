@@ -64,6 +64,9 @@ pub struct KeyRange {
     pub high: Pitch,
 }
 
+/// log10 B of open bass strings by their MIDI pitch (`Instrument::string_log_b`).
+const OPEN_LOG_B: [(u8, f64); 4] = [(28, -3.93), (33, -4.102), (38, -4.371), (43, -4.53)];
+
 /// Fewest and most strings of a string profile (ukulele to twelve-string).
 const STRINGS: std::ops::RangeInclusive<usize> = 1..=12;
 
@@ -172,6 +175,22 @@ impl Instrument {
             found.push((string as u8, fret as u8));
         }
         found
+    }
+
+    /// log10 of the inharmonicity B of an open string (R7, string detection), where known:
+    /// fretted basses with the usual open pitches E1, A1, D2, G2 (so also the four upper
+    /// strings of a five-string). Measured on three basses of IDMT-SMT-Bass (median of
+    /// `kontra-cli korpus strings`); other strings (a low B, a drop tuning) and fretless have
+    /// none yet. Example: −3.93 on the open E puts partial 10 about 0.6 % sharp.
+    pub fn string_log_b(&self, string: u8) -> Option<f64> {
+        if self.kind != InstrumentKind::Fretted {
+            return None;
+        }
+        let open = self.tuning.strings.get(usize::from(string))?;
+        OPEN_LOG_B
+            .iter()
+            .find(|(pitch, _)| *pitch == open.0)
+            .map(|(_, log_b)| *log_b)
     }
 
     /// Pitch at a position, `None` if string or fret are out of range.

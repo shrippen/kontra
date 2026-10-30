@@ -3,7 +3,7 @@
 use kontra_dsp::{EchoCanceller, NoteTracker, TrackerConfig, ECHO_BLOCK};
 use kontra_model::{
     DetectedNote, DoubleStopVerdict, ExpectedStrike, InputSource, Instrument, NoteRetraction,
-    PitchRevision, TechniqueRevision,
+    PitchRevision, StringVerdict, TechniqueRevision,
 };
 
 /// Samples per analysis block, as the engine feeds them (480 at 48 kHz, close to it).
@@ -29,6 +29,8 @@ pub(crate) struct Reported {
     pub at_s: Vec<f64>,
     /// The pitch each note was first reported with, before revisions.
     pub first_midi: Vec<f64>,
+    /// The strings told for notes the tab put on one (R7).
+    pub strings: Vec<StringVerdict>,
     /// Notes told and then taken back (R1), e.g. a finger tapping the string before the pluck.
     pub retracted: usize,
     /// Verdicts on the double stops `expected` announced (R8).
@@ -52,6 +54,7 @@ pub(crate) fn analyze_reported(
         notes: Vec::new(),
         at_s: Vec::new(),
         first_midi: Vec::new(),
+        strings: Vec::new(),
         retracted: 0,
         double_stops: Vec::new(),
     };
@@ -67,12 +70,14 @@ pub(crate) fn analyze_reported(
         let found = tracker.push(block);
         told.add(found, end_s);
         told.revise(tracker.revised(), tracker.pitch_revised());
+        told.strings.extend_from_slice(tracker.string_verdicts());
         told.retract(tracker.retracted());
         told.double_stops.extend_from_slice(tracker.double_stops());
     }
     let found = tracker.flush();
     told.add(found, samples.len() as f64 / sample_rate);
     told.revise(tracker.revised(), tracker.pitch_revised());
+    told.strings.extend_from_slice(tracker.string_verdicts());
     told.retract(tracker.retracted());
     told.double_stops.extend_from_slice(tracker.double_stops());
     told

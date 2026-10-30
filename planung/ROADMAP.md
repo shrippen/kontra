@@ -231,8 +231,18 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   (Höhenanteil, Abklingen) tragen nicht über Bässe: am Warwick wird ein Pop zu 79 % als normal gehört.
   Offen: Merkmale nach Abeßer mit Klassifikator, erst mit Aufnahmen weiterer Bässe und Spieler (`AUFNAHME.md`), sonst
   lernt er einen Bass.
-- [ ] R7 Saite erkennen über Inharmonizität: 93,8 % auf fremden Bässen (Zufall 41,5 %), echte Linien 76 %, Palm-Mute
-  nicht; Urteil etwa 280 ms nach dem Anschlag. Kandidaten aus R2.
+- [x] R7 Saite erkennen über Inharmonizität (Prototyp 29.10.: 93,8 % auf fremden Bässen bei Zufall 41,5 %, echte
+  Linien 76 %, Palm-Mute nicht); Urteil etwa 280 ms nach dem Anschlag. Kandidaten aus R2. Umgesetzt (LH-BEW-16): `InharmonicityMeter` und
+  `StringModel` (dsp), Prüfung im `NoteTracker` nach jeder Note mit Saite aus der Tab, `StringVerdict` bis zur Session,
+  Zeile in der Auswertung; a_Saite im Profil (`Instrument::string_log_b`, nur E1/A1/D2/G2 bundiert).
+  `kontra-cli korpus strings [--held-out]`, Kandidaten bundiert 0–20 (Zufall 32,8 %): IDMT-SMT-Bass je Bass mit Werten
+  der anderen beiden 97,8 % richtig bei 93,0 % mit Aussage (Bass 1/2/3: 100/95,2/97,8 %), tiefster Bund 48,5 %;
+  IDMT-ST-Linien 93,2 % bei 58,6 % nach R1 (< 0,2 s 90 % bei 39 %, 0,2–0,5 s 93 % bei 60 %, > 0,5 s 96 % bei 67 %).
+  Palm-Mute: Abklingen über 30 dB/s in den ersten 100 ms und in der Tab markiert ohne Aussage, die übrigen weiter
+  beim Zufall. Die Schwelle 14 Teiltöne ist auf IDMT-ST gewählt (mit 6: 84 % bei allen Noten). Notenerkennung
+  unverändert (`korpus check`, `measure` IDMT-ST/FiloBass, `techniques` gleich wie vorher). Offen: Messung am Bass
+  des Eigentümers (andere Mensur und Saiten verschieben a_Saite; Kalibrierung aus gespielten Noten), Anzeige je Note
+  in der Lane, tiefe H-Saite und andere Stimmungen.
 - [x] R8 Doppelgriffe erkennen, wenn die Tab beide Töne vorgibt (Klapuri 2006): 95 % erkannt, 2,1 % Fehlalarm;
   Oktaven nicht. Teil von M1 (LH-BEW-11). Umgesetzt in #205: `DyadCheck` im Tracker, Urteil `DoubleStopVerdict` je Anschlag,
   Session wertet beide Töne (beide → zwei Treffer, einer → der andere ausgelassen). `korpus check`: synthetisch
