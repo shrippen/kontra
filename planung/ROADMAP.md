@@ -360,6 +360,9 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
 - [x] LH-NF-15 Meldezeit: Ziel 70 ms je Note für alle Instrumente, außer Tönen unter E1 (etwa die tiefe H-Saite eines
       Fünfsaiters); die brauchen allein etwa 65 ms Signal, ihr Ziel gilt gemessen. Das Ziel gilt je Note, nicht je
       Instrument. Stand R1 (#206): `line-4` p95 69 ms, `line-5` p95 80 ms.
+      `korpus check` prüft das seit 30.10. (Branch `cleanup`) je Note, ab E1 und unter E1 getrennt: `line-4` 69,3 ms
+      erfüllt; verfehlt und als Ausnahme mit gemessenem Wert geprüft: `line-5` ab E1 74,7 ms, `hum-line` 72,0 ms;
+      unter E1 94,7 ms. Offen: Entscheidung, ob das Ziel dort nachgearbeitet oder die Ausnahme bestätigt wird.
 - [x] R8 Doppelgriffe über Mikrofon aus, bis Aufnahmen da sind (FiloBass 12,2 % Fehlalarm): `ChordHearing::OneTone`,
       ein Doppelgriff zählt dort wie ein Ton; Einstellung „Mikrofon“ und Auswertung sagen, dass Doppelgriffe über
       Mikrofon noch nicht nach beiden Tönen bewertet werden (LH-BEW-11, J-B7).

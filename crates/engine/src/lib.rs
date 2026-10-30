@@ -38,7 +38,7 @@ pub use korpus::{
     evaluate_expecting, evaluate_laptop_jack, evaluate_with, generate, generate_double_stops,
     render_performance, same_pitch, Annotation, DoubleStopPlayed, DoubleStopSet, DoubleStopStrike,
     DoubleStopTally, Evaluation, Expecting, KorpusItem, KorpusSet, Matching, Mistakes, Playing,
-    DOUBLE_STOP_INTERVALS,
+    ReportLimits, DOUBLE_STOP_INTERVALS,
 };
 pub use offline::{analyze, analyze_without, retract, revise, revise_pitch};
 pub use player::{Accent, BackingAudio, Gains, NullOutput, Output, Player, Sound};

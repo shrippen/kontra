@@ -12,9 +12,12 @@ use kontra_model::{
     hz_to_midi, DetectedNote, ExpectedStrike, ExpectedTone, InputSource, Instrument,
     InstrumentKind, Technique, Tuning, A4_HZ,
 };
+pub use report::ReportLimits;
+use report::E1_MIDI;
 use serde::{Deserialize, Serialize};
 
 mod double;
+mod report;
 
 pub use double::{
     announce_second_tone, double_stop_mixtures, evaluate_double_stops, generate_double_stops,
@@ -511,6 +514,12 @@ pub struct Evaluation {
     pub p95_report_ms: f64,
     #[serde(default)]
     pub max_report_ms: f64,
+    /// The same p95 for notes from E1 up, and for notes below E1 (the low B needs about 65 ms
+    /// of signal alone): LH-NF-15 holds them to different targets. 0 without such notes.
+    #[serde(default)]
+    pub p95_report_from_e1_ms: f64,
+    #[serde(default)]
+    pub p95_report_below_e1_ms: f64,
     /// Matched notes whose first report already had the right rounded pitch (R2).
     #[serde(default)]
     pub first_pitch_correct: usize,
@@ -772,6 +781,9 @@ fn compare(
     let mut used = vec![false; detected.len()];
     let mut onset_errors = Vec::new();
     let mut report_delays = Vec::new();
+    // LH-NF-15 holds notes below E1 to another target: kept apart too.
+    let mut report_from_e1 = Vec::new();
+    let mut report_below_e1 = Vec::new();
     let mut cents_errors = Vec::new();
     let mut pitch_correct = 0;
     let mut technique_correct = 0;
@@ -808,7 +820,13 @@ fn compare(
         first.count(note, first_midi, d.midi, shift_semitones);
         cents_errors.push(cents_off(note, d.midi).abs());
         if let Some(at_s) = reported.get(index) {
-            report_delays.push((at_s - note.onset_s) * 1000.0);
+            let delay_ms = (at_s - note.onset_s) * 1000.0;
+            report_delays.push(delay_ms);
+            if note.midi.round() < E1_MIDI {
+                report_below_e1.push(delay_ms);
+            } else {
+                report_from_e1.push(delay_ms);
+            }
         }
         if same_pitch(note, d.midi) {
             pitch_correct += 1;
@@ -817,6 +835,8 @@ fn compare(
     onset_errors.sort_by(f64::total_cmp);
     cents_errors.sort_by(f64::total_cmp);
     report_delays.sort_by(f64::total_cmp);
+    report_from_e1.sort_by(f64::total_cmp);
+    report_below_e1.sort_by(f64::total_cmp);
     let mean = |v: &[f64]| {
         if v.is_empty() {
             0.0
@@ -847,6 +867,8 @@ fn compare(
         max_abs_cents: cents_errors.last().copied().unwrap_or(0.0),
         p95_report_ms: p95(&report_delays),
         max_report_ms: report_delays.last().copied().unwrap_or(0.0),
+        p95_report_from_e1_ms: p95(&report_from_e1),
+        p95_report_below_e1_ms: p95(&report_below_e1),
         first_pitch_correct: first.right,
         turned_wrong: first.turned_wrong,
         shifted_first: first.shifted_first,
@@ -890,9 +912,6 @@ impl FirstReports {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// Guard for LH-NF-15 until its target is confirmed: 10 ms over the first measurement.
-    const REPORT_GUARD_MS: f64 = 110.0;
 
     /// Sets already heard through another input keep it: `korpus measure --laptop-jack` over a
     /// `korpus write` folder simulated laptop-jack-4 twice (second reader, 13.10.).
@@ -1008,15 +1027,14 @@ mod tests {
                 set.name(),
                 e.technique_accuracy()
             );
-            // LH-NF-15: told with a pitch soon after the attack. The target (70 ms, p95, line
-            // sets) waits for the owner's word on the first measurement (29.10.: line-4 81 ms,
-            // line-5 100 ms); until then a guard against getting slower.
-            if matches!(set, KorpusSet::Line4 | KorpusSet::Line5) {
+            // LH-NF-15: told with a pitch soon after the attack, per note (`report.rs`).
+            if let Some(limits) = set.report_limits() {
                 assert!(
-                    e.p95_report_ms > 0.0 && e.p95_report_ms <= REPORT_GUARD_MS,
-                    "{}: p95 report {:.1} ms",
+                    e.p95_report_ms > 0.0 && limits.met(&e),
+                    "{}: p95 report {:.1} ms from E1, {:.1} ms below",
                     set.name(),
-                    e.p95_report_ms
+                    e.p95_report_from_e1_ms,
+                    e.p95_report_below_e1_ms
                 );
             }
             if set == KorpusSet::Fretless5 {
