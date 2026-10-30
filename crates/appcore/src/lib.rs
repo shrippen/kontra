@@ -868,7 +868,13 @@ impl Core {
     pub fn update_settings(&mut self, change: impl FnOnce(&mut Settings)) {
         let before = self.settings.clone();
         change(&mut self.settings);
-        calibrate::forget_on_switch(&before, &mut self.settings);
+        // The MIDI inputs only when the choice changed: listing them asks the system.
+        let ports = if before.midi_port == self.settings.midi_port {
+            Vec::new()
+        } else {
+            kontra_session::list_midi_inputs()
+        };
+        calibrate::forget_on_switch(&before, &mut self.settings, &ports);
         if let Some(code) = &self.settings.language {
             self.catalog = Catalog::new(Language::from_code(code));
         }
@@ -2981,21 +2987,29 @@ impl Core {
             .collect()
     }
 
-    /// Notes on another string than the tab's (R7); a profile that cannot tell says so.
+    /// Notes on another string than the tab's (R7); a profile that cannot tell says so, also
+    /// for some notes only (a five-string's low B, review #207). One line each.
     fn strings_text(&self, strings: kontra_session::StringTally) -> String {
+        let mut parts = Vec::new();
         if strings.other > 0 {
-            return self.tr(
+            parts.push(self.tr(
                 "summary.strings.other",
                 &[
                     ("other", strings.other.to_string()),
                     ("told", strings.told.to_string()),
                 ],
-            );
+            ));
         }
         if strings.unsupported > 0 && strings.told == 0 {
-            return self.tr("summary.strings.unsupported", &[]);
+            parts.push(self.tr("summary.strings.unsupported", &[]));
         }
-        String::new()
+        if strings.unsupported > 0 && strings.told > 0 {
+            parts.push(self.tr(
+                "summary.strings.unsupported.some",
+                &[("count", strings.unsupported.to_string())],
+            ));
+        }
+        parts.join("\n")
     }
 
     /// What this input did not judge: techniques, hints (slap and pop over a cable) and double
@@ -6730,6 +6744,18 @@ mod tests {
         assert_eq!(
             text(&s),
             "Saiten erkennt Kontra mit diesem Instrument noch nicht (nur bundierte Bässe in E-A-D-G)"
+        );
+
+        // Review #207: some notes told, others not (a five-string's low B): both said.
+        s.strings = kontra_session::StringTally {
+            told: 12,
+            other: 3,
+            unsupported: 5,
+        };
+        assert_eq!(
+            text(&s),
+            "3 von 12 Noten auf einer anderen Saite als in der Tab\n\
+             Bei 5 Noten erkennt Kontra die Saite mit diesem Instrument noch nicht (nur bundierte Bässe in E-A-D-G)"
         );
         let _ = std::fs::remove_dir_all(dir);
     }

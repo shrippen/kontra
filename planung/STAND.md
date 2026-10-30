@@ -199,7 +199,7 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 - Runde 17 (`runde-17`): `ChordHearing::OneTone`, `Summary::untold_double_stops`.
 - Kleinigkeiten nach R1/R8: `SessionEvent::Reopened` (Note nach einer Rücknahme wieder offen).
 - `cleanup` (LH-NF-15): `ReportLimits` (`met`), `KorpusSet::report_limits`,
-  `Evaluation::{p95_report_from_e1_ms, p95_report_below_e1_ms}`.
+  `Evaluation::{p95_report_from_e1_ms, p95_report_below_e1_ms}`, `korpus::report::E1_MIDI` (`pub(super)`).
 
 - `tech-hint` (Runde 17, Slap/Pop als Hinweis): `TechniqueGrade` (`Judged`, `Hint`), `TechniqueResult::{grade, mark}`,
   `Summary::hint_techniques`; `pub(crate) TechniqueJudge::hints`.

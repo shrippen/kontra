@@ -141,7 +141,7 @@ pub struct Session {
     played_speed: Option<f64>,
     /// Real time of the last `update`.
     now_s: f64,
-    /// Real time up to which the analysis has heard; `None`: as far as the clock (MIDI, ended).
+    /// Real time up to which the analysis has heard; `None`: up to the clock (live MIDI, ended).
     heard_s: Option<f64>,
     /// Real time the input stalled at, until it resumes (LH-EIN-15).
     stalled_s: Option<f64>,

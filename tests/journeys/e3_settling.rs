@@ -207,4 +207,22 @@ fn tap_taken_back_clears_its_mark_waiting() {
     assert!(tapped, "the tap was judged first: {events:?}");
     let last = last_judged(&events);
     assert_eq!(last.get(&0).map(|j| j.0), Some("pending"), "{last:?}");
+
+    // Waiting again after the tap, Kontra names the sharp pluck (J-E3 step 3, review #210).
+    let reopened = events
+        .iter()
+        .position(|e| {
+            matches!(
+                e,
+                UiEvent::Judged {
+                    index: 0,
+                    state: "pending",
+                    ..
+                }
+            )
+        })
+        .unwrap_or(events.len());
+    let named = core.wait_text(0, Some(f64::from(LINE[0] + 1))).unwrap();
+    let names = |e: &UiEvent| matches!(e, UiEvent::Holding { index: 0, text } if *text == named);
+    assert!(events[reopened..].iter().any(names), "{named}: {events:?}");
 }
