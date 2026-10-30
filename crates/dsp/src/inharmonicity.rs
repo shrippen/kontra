@@ -1,7 +1,7 @@
 //! Which string a note was played on, from the stiffness of the string (R7, LH-BEW-16).
 //!
 //! A stiff string bends its partials sharp: partial k sits at `k·f0·√(1 + B·k²)`. B grows
-//! with the string's thickness and falls with the square of its sounding length, so it halves
+//! with the string's thickness and falls with the square of its sounding length, so it doubles
 //! about every six frets. The same pitch on a thicker string higher up the neck has a clearly
 //! larger B:
 //!
@@ -46,7 +46,7 @@ const ABOVE_NOISE: f64 = 10.0;
 const FIT_FROM: usize = 4;
 /// What B is told as when none was found (no stiffness heard).
 const NO_B_LOG: f64 = -6.0;
-/// B halves every six frets: log10(2)/6 per fret.
+/// B doubles every six frets: log10(2)/6 per fret.
 pub const LOG_B_PER_FRET: f64 = std::f64::consts::LOG10_2 / 6.0;
 
 /// Strings a profile can have (as `Instrument`).

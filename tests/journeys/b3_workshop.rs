@@ -1,10 +1,12 @@
 //! J-B3 Refrain sitzt bis Freitag (P2 Jens): the hardest bar becomes the workshop loop; at 60 %
-//! with clean passes the tempo climbs through the band up to 100 %.
+//! with clean passes the tempo climbs through the band up to 100 %. In the run before, notes
+//! played on another string than the tab's are named in the summary and stay hits (R7).
 
-use crate::common::{piece, write_midi, Profile};
-use kontra_appcore::Core;
-use kontra_model::{DetectedNote, InputSource};
-use kontra_session::{LoopRange, Mode, ScoreSettings, Session, SessionEvent};
+use crate::common::{piece, render, run_until, write_midi, Profile, BPM, COUNT_IN_S, RATE};
+use kontra_appcore::{Core, UiEvent};
+use kontra_model::{midi_to_hz, DetectedNote, InputSource, A4_HZ};
+use kontra_session::{LoopRange, Mode, ScoreSettings, Session, SessionEvent, LOG_B_PER_FRET};
+use std::time::Duration;
 
 const RIFF: [u8; 8] = [28, 33, 38, 43, 40, 38, 36, 33];
 /// Time from playing a note to its detection (onset analysis needs a few blocks).
@@ -113,4 +115,116 @@ fn hardest_bar_loops_and_tempo_climbs_to_target() {
         "{speeds:?}"
     );
     assert!((session.transport().speed() - 1.0).abs() < 1e-9);
+}
+
+/// Riff notes (index) played one string lower than the tab puts them (E A D G: 0 = E).
+const MOVED: [usize; 2] = [2, 3];
+/// The riff and an open E (one string: no verdict). The summary is built when the run ends;
+/// the E gives the riff's last verdict time to arrive under load (`make check`: 2 von 6).
+const RIFF_AND_E: [u8; 9] = [28, 33, 38, 43, 40, 38, 36, 33, 28];
+/// Partials of a synthetic stiff string and its amplitude decay per second (≈ 9 dB/s, not muted).
+const PARTIALS: u32 = 30;
+const RING: f64 = 1.0;
+
+/// The riff as a stiff string plays it (partial k at `k·f0·√(1 + B·k²)`, falling 1/k), each
+/// note with the B of `strings[i]` at its fret, cut at the next note.
+fn stiff_take(a: &kontra_model::Arrangement, strings: &[u8]) -> Vec<f32> {
+    let quarter_s = 60.0 / BPM;
+    let rate = f64::from(RATE);
+    let mut out =
+        vec![0.0f32; ((COUNT_IN_S + (a.notes.len() as f64 + 1.0) * quarter_s) * rate) as usize];
+    for (i, (note, string)) in a.notes.iter().zip(strings).enumerate() {
+        let open = a.instrument.tuning.strings[usize::from(*string)].0;
+        let fret = note.pitch.0 - open;
+        let log_b = a.instrument.string_log_b(*string).unwrap() + f64::from(fret) * LOG_B_PER_FRET;
+        let b = 10f64.powf(log_b);
+        let hz = midi_to_hz(f64::from(note.pitch.0), A4_HZ);
+        let start = ((COUNT_IN_S + i as f64 * quarter_s) * rate) as usize;
+        let len = (quarter_s * rate) as usize - 240;
+        for (j, sample) in out[start..start + len].iter_mut().enumerate() {
+            let t = j as f64 / rate;
+            let tone: f64 = (1..=PARTIALS)
+                .map(|k| {
+                    let k = f64::from(k);
+                    let f = k * hz * (1.0 + b * k * k).sqrt();
+                    if f > rate / 2.0 {
+                        return 0.0;
+                    }
+                    (std::f64::consts::TAU * f * t).sin() / k
+                })
+                .sum();
+            *sample = (0.3 * tone * (-t * RING).exp()) as f32;
+        }
+    }
+    out
+}
+
+/// A song run of the riff from `take`; the summary JSON.
+fn song_summary(core: &mut Core, score: &std::path::Path) -> serde_json::Value {
+    core.open(score).unwrap();
+    core.set_mode("song");
+    core.play();
+    let events = run_until(core, Duration::from_secs(12), |e| {
+        matches!(e, UiEvent::Finished { .. })
+    });
+    let summary = events
+        .iter()
+        .find_map(|e| match e {
+            UiEvent::Finished { summary_json } => Some(summary_json.clone()),
+            _ => None,
+        })
+        .expect("finished");
+    serde_json::from_str(&summary).unwrap()
+}
+
+#[test]
+fn run_names_notes_on_another_string() {
+    // Step 1: the run, two notes one string lower than the tab (same pitch, higher fret).
+    let profile = Profile::new("b3-strings");
+    let score = profile.dir.join("refrain.mid");
+    write_midi(&score, "Refrain", &RIFF_AND_E);
+    let mut core = profile.core(None);
+    core.open(&score).unwrap();
+    let a = core.arrangement().unwrap().clone();
+    let mut strings: Vec<u8> = a.notes.iter().map(|n| n.string.unwrap()).collect();
+    for i in MOVED {
+        strings[i] -= 1;
+    }
+    let take = profile.dir.join("saiten.wav");
+    kontra_session::write_mono_wav(&take, &stiff_take(&a, &strings), RATE).unwrap();
+
+    let mut core = profile.core(Some(&take));
+    let s = song_summary(&mut core, &score);
+    assert_eq!(s["hitRate"], 1.0, "the notes stay hits: {s}");
+    assert_eq!(
+        s["stringsText"], "2 von 7 Noten auf einer anderen Saite als in der Tab",
+        "the low E has only one string: {s}"
+    );
+}
+
+#[test]
+fn fretless_and_five_string_tell_no_string() {
+    // A fretless and a five-string profile (its low B has no value yet): the summary says so.
+    for (strings, bass) in [
+        (4, kontra_appcore::Bass::Fretless),
+        (5, kontra_appcore::Bass::Fretted),
+    ] {
+        let profile = Profile::new(&format!("b3-unsupported-{strings}"));
+        let score = profile.dir.join("refrain.mid");
+        write_midi(&score, "Refrain", &RIFF);
+        let take = profile.dir.join("take.wav");
+        render(&take, &piece("Refrain", &RIFF), Default::default());
+        let mut core = profile.core(Some(&take));
+        core.reconfigure(|s| {
+            s.strings = strings;
+            s.instrument = bass;
+        });
+        let s = song_summary(&mut core, &score);
+        assert_eq!(s["hitRate"], 1.0, "{strings} strings: {s}");
+        assert_eq!(
+            s["stringsText"],
+            "Saiten erkennt Kontra mit diesem Instrument noch nicht (nur bundierte Bässe in E-A-D-G)",
+            "{strings} strings, {bass:?}: {s}"
+        );
+    }
 }
