@@ -222,3 +222,35 @@ fn a_settled_pitch_gets_its_string() {
     assert_eq!(verdicts.len(), 1, "{verdicts:?}");
     assert_eq!(verdicts[0].heard, StringHeard::Expected, "{verdicts:?}");
 }
+
+#[test]
+fn a_pitch_settled_at_the_next_attack_is_cut() {
+    // Review #214: G2 settling into its pitch, a C2 on the E string 120 ms later. The pitch is
+    // revised at that attack; the string check planned then must end there, not hear the C2.
+    let mut signal = settling_note(G2, on_string(A_STRING, G2), -140.0, 0.08);
+    let shift = (0.12 * SR) as usize;
+    let at = (ONSET_S * SR) as usize + shift;
+    signal[at..].iter_mut().for_each(|x| *x = 0.0);
+    const C2: u8 = 36;
+    let next = stiff_note(C2, on_string(0, C2), RING, None);
+    for (i, x) in next.iter().enumerate() {
+        if let Some(slot) = signal.get_mut(i + shift) {
+            *slot += 2.0 * x;
+        }
+    }
+    let tone = ExpectedTone {
+        midi: G2,
+        string: Some(A_STRING),
+    };
+    let verdicts = told(&signal, &Instrument::default_bass(), tone);
+    let first: Vec<_> = verdicts
+        .iter()
+        .filter(|v| (v.onset_s - ONSET_S).abs() < 0.02)
+        .collect();
+    assert_eq!(first.len(), 1, "{verdicts:?}");
+    assert_eq!(
+        first[0].heard,
+        StringHeard::Unclear(Unclear::ShortNote),
+        "{verdicts:?}"
+    );
+}

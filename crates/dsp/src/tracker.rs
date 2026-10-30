@@ -617,13 +617,14 @@ impl NoteTracker {
         }
         self.retracts_early(onset);
         self.finish_confirm();
-        self.cut_strings(onset);
-        self.cut_doubles(onset);
         // A new attack ends the ringing note (told with what was heard before it); a legato note
         // just before it was this attack.
         if let Some(mut s) = self.sounding {
             self.settle(&mut s, onset);
         }
+        // After settling: a string check it planned again ends here too (review #214).
+        self.cut_strings(onset);
+        self.cut_doubles(onset);
         self.sounding = None;
         self.legato = None;
         let report = match self.pending.take() {
