@@ -236,7 +236,7 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   Session wertet beide Töne (beide → zwei Treffer, einer → der andere ausgelassen). `korpus check`: synthetisch
   168/168 beide, Oktaven 0 Aussagen, Einzelnoten 0 % (4 Sätze + room-double); `korpus double-stops` IDMT:
   Mischungen 95,8 % (263), Einzelnoten im ganzen Stück 1,8 % als beide, 9 von 3416 als der andere Ton. FiloBass
-  (Kontrabass, Demucs-Stems): 77,8 % / 12,2 % Fehlalarm, offen. Unbewiesen: echte Doppelgriffe (Aufnahme mit dem
+  (Kontrabass, Demucs-Stems): 77,8 % / 12,2 % Fehlalarm; über Mikrofon deshalb aus (Runde 17). Unbewiesen: echte Doppelgriffe (Aufnahme mit dem
   Eigentümer, ~15 min).
 - [ ] R9 Time-Stretch: kürzerer Steuer-Vorlauf (win/16) spart 37 ms (Standard) bzw. 75 ms (Fine), Messwerte gleich;
   Doku: Fine kostet 133 ms mehr, nicht 85. Zwei Auflösungen: abgelehnt. Hörtest B0 Standard gegen Fine offen.
@@ -285,10 +285,10 @@ Erkennung und Messung:
 - [x] E1 Meldezeit je Note im Korpus (LH-NF-15): `korpus check` zeigt „p95 rep“. Erste Messung (29.10.): line-4 und
   laptop-jack-4 81 ms, line-5 und fretless-5 100 ms (tiefe H-Saite), sixteenths 82 ms, techniques 271 ms (Legato
   ohne Anschlag). Ziel 70 ms damit verfehlt; bis zur Entscheidung des Eigentümers eine Grenze bei 110 ms gegen
-  Verschlechterung.
+  Verschlechterung. Runde 17: 70 ms je Note, Töne unter E1 gemessen (LH-NF-15).
 - [x] E2 Sätze ohne Noten, Falschnoten je Minute (LH-NF-16): `idle-line`, `idle-room` (60 s, Brummen, Rauschen, Knackser, Kratzen, Dämpfen); Ziel seit F3 erreicht.
 - [ ] E3 Wächter und dauerhafter Eingangszustand (LH-EIN-15); Wächter und Pause der Bewertung umgesetzt, offen: dauerhafte Anzeige mit „Erneut versuchen“.
-  Verlust aus Gerätestempeln über eine DLL (R3, erster Teil, Branch `device-clock`); offen aus R3: Wiedergabe- und
+  Verlust aus Gerätestempeln über eine DLL (R3, erster Teil, #209); offen aus R3: Wiedergabe- und
   Eingangszeitachse an der DLL verankern (Ausgangsstempel), Loopback-Prüfung am Solo.
 - [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).
 - [ ] E5 Notenende (LH-BEW-10).
@@ -317,6 +317,26 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
 - [ ] W8 JSON-Schemas für Pakete und Kurse aus den serde-Strukturen.
 - [ ] W9 Kurs aus Ordner live (LH-LRN-21); QML von der Platte in Entwicklung.
 - [ ] W11 Glyphen-Test für Sonderzeichen.
+
+## Entscheidungen Runde 17 (30.10.2026)
+
+- #198 Brummen: die Drift-Regel (`Dehum::stale`) entfällt, der Phantom-Fix bleibt (Branch `hum`). Schnelle Drift
+  der Netzfrequenz bleibt eine Kleinigkeit (E8).
+- #186 Eingangswächter: Gerätezeitstempel mit DLL glätten (R3), die Bewertung pausiert erst nach echtem Datenverlust
+  (LH-EIN-15). #209 aus Branch `device-clock` ersetzt #186.
+- [x] LH-NF-15 Meldezeit: Ziel 70 ms je Note für alle Instrumente, außer Tönen unter E1 (etwa die tiefe H-Saite eines
+      Fünfsaiters); die brauchen allein etwa 65 ms Signal, ihr Ziel gilt gemessen. Das Ziel gilt je Note, nicht je
+      Instrument. Stand R1 (#206): `line-4` p95 69 ms, `line-5` p95 80 ms.
+- [x] R8 Doppelgriffe über Mikrofon aus, bis Aufnahmen da sind (FiloBass 12,2 % Fehlalarm): `ChordHearing::OneTone`,
+      ein Doppelgriff zählt dort wie ein Ton; Einstellung „Mikrofon“ und Auswertung sagen, dass Doppelgriffe über
+      Mikrofon noch nicht nach beiden Tönen bewertet werden (LH-BEW-11, J-B7).
+- [ ] Techniken auf anderen Bässen (R6: Slap 18–44 %, Pop 1–14 % auf zwei fremden IDMT-Bässen): kurze Einmessung je
+      Bass geplant, der Spieler spielt etwa fünf Slaps und Pops, die Schwellen passen sich an (LH-BEW-17).
+- [ ] Hardware-Prüfung mit dem Eigentümer in der nächsten Sitzung, geführt (R3-Stempel, R1-Fingertipp, R8 am echten
+      Bass, Latenz und Pegel am Scarlett Solo).
+- Neue pub-Schnittstellen aus F3, A2, R4, R2, R1, R8, #172, #174, #176 und Kante 1.50 freigegeben.
+- Nächster Schwerpunkt offen: Der Eigentümer wird zu R5 (pYIN) erneut gefragt; der Prototyp vom 29.10. brachte
+  keinen Gewinn (`FORSCHUNG-AUDIO.md`, „pyin (Punkt 5)“).
 
 ## Entscheidungen Runde 16 (28.10.2026)
 
