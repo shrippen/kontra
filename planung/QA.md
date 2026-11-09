@@ -239,7 +239,7 @@ mittel; „Schwierigkeit“ steht nur bei der Art „Stück“. Band reagiert: n
 Snare-Fill im zweiten, höchstens alle 8 Takte, nie mitten in einer Phrase; nach dem Achteltakt ein Takt ohne Hi-Hat;
 keine Auswertung ändert sich; aus: das Schlagzeug spielt wie geschrieben.
 
-**J-C11 Eigene Linie** · Personas: P1 Lea, P3 Mira, P4 Thomas · Phase 3 · LH-BEW-13
+**J-C11 Eigene Linie** ⚙ · Personas: P1 Lea, P3 Mira, P4 Thomas · Phase 3 · LH-BEW-13
 1. Lea: Lektion „Eine eigene Linie“, „Ausprobieren“: die offene Übung (Groove I–IV–V mit Pausen, frei) im Durchlauf;
    eine Linie nur aus Grundton und Quinte, die Pausen des Beispiels frei lassen.
 2. Mira: dieselbe Übung mit Durchgangstönen und zwei Tönen außerhalb der Tonart, einmal durch die Pausen spielen.
