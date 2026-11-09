@@ -126,3 +126,30 @@ fn written_runs_have_no_improvisation() {
     a.judging = Judging::PitchAndTime;
     assert!(run(a, &[Some(33)]).improvisation.is_none());
 }
+
+/// Review #226: a silent pass of an open run is no clean pass at 100 %; it would offer more
+/// notes, move building blocks on and feed the band. Nothing played is 0 %, not clean.
+#[test]
+fn silent_open_pass_is_not_clean() {
+    use kontra_session::{LoopRange, SessionEvent};
+    let mut session = Session::new(open_changes(false), Mode::Song, ScoreSettings::default());
+    session.set_loop(
+        0.0,
+        Some(LoopRange {
+            start_s: 0.0,
+            end_s: 4.0 * QUARTER_S,
+        }),
+    );
+    session.play(0.0);
+    let mut events = Vec::new();
+    for step in 0..30 {
+        events.extend(session.update(f64::from(step) * 0.1));
+    }
+    let pass = events.iter().find_map(|e| match e {
+        SessionEvent::PassComplete {
+            clean, hit_rate, ..
+        } => Some((*clean, *hit_rate)),
+        _ => None,
+    });
+    assert_eq!(pass, Some((false, 0.0)), "{events:?}");
+}

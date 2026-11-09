@@ -1118,14 +1118,16 @@ impl Session {
             .collect();
         let judged = crate::summary::final_per_note(&of_pass);
         let in_pass = || judged.iter();
-        let clean = in_pass().all(NoteResult::is_hit);
         let count = in_pass().count();
-        let hit_rate = if count == 0 {
-            1.0
-        } else {
-            in_pass().filter(|r| r.is_hit()).count() as f64 / count as f64
+        let (clean, hit_rate) = match (self.open.is_some(), self.open_pass_rate(pass)) {
+            // An open pass has no notes to hit: its fit counts, nothing played is 0 %.
+            (true, rate) => (rate.is_some(), rate.unwrap_or(0.0)),
+            (false, _) if count == 0 => (true, 1.0),
+            (false, _) => (
+                in_pass().all(NoteResult::is_hit),
+                in_pass().filter(|r| r.is_hit()).count() as f64 / count as f64,
+            ),
         };
-        let hit_rate = self.open_pass_rate(pass).unwrap_or(hit_rate);
         self.events.push(SessionEvent::PassComplete {
             pass,
             clean,
