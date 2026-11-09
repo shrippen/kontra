@@ -58,7 +58,7 @@ pub use expected::{expected_notes, ExpectedNote};
 pub use improv::{fit, Fit, Improvisation};
 pub use kontra_engine::Separator;
 pub use kontra_engine::{EngineError, FileHttp, Http, HttpError, Web};
-pub use kontra_engine::{Gains, SeparatorError, Shaping, SHAPING_RANGE_DB};
+pub use kontra_engine::{Gains, Limit, SeparatorError, Shaping, SHAPING_RANGE_DB};
 pub use learning::{
     lesson, place, positions, Answer, LearnState, LearnStore, Learning, QuestionRef, UnitState,
 };

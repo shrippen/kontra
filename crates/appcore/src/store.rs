@@ -201,6 +201,11 @@ pub struct Settings {
     pub monitor_high_db: f64,
     pub monitor_compress: f64,
     pub monitor_warmth: f64,
+    /// Overdrive and stereo width of the monitored bass 0..=1, and its limiter (LH-EIN-17; on
+    /// by default: a hard slap does not crackle).
+    pub monitor_drive: f64,
+    pub monitor_width: f64,
+    pub monitor_limit: bool,
     /// Suggest more or fewer notes between runs (LH-MOD-06).
     pub adaptive: bool,
     /// Generated drums answer the bass in free play (LH-WIE-05).
@@ -269,6 +274,9 @@ impl Default for Settings {
             monitor_high_db: 0.0,
             monitor_compress: 0.0,
             monitor_warmth: 0.0,
+            monitor_drive: 0.0,
+            monitor_width: 0.0,
+            monitor_limit: true,
             adaptive: true,
             reacting_band: false,
             simple_view: false,
@@ -607,6 +615,7 @@ mod tests {
         let settings: Settings = load(&path);
         assert_eq!(settings.strings, 5);
         assert!(!settings.monitor);
+        assert!(settings.monitor_limit, "the limiter starts on");
         assert_eq!(settings.backing_volume, f64::from(Gains::default().backing));
         assert_eq!(settings.metronome_volume, f64::from(Gains::default().click));
         assert_eq!(settings.tone_volume, f64::from(Gains::default().tone));

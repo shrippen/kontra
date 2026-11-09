@@ -44,6 +44,9 @@ fn play_through_a_setlist() {
         s.monitor_low_db = 4.0;
         s.monitor_compress = 0.5;
         s.monitor_warmth = 0.5;
+        s.monitor_drive = 0.5;
+        s.monitor_width = 0.5;
+        s.monitor_limit = false;
     });
     assert!(hint.is_none(), "{hint:?}");
     core.set_view("tab");

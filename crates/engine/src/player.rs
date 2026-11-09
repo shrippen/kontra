@@ -550,9 +550,9 @@ impl Mixer {
         // Monitoring: one input sample per frame; an empty ring (underrun) stays silent.
         if let Some(ring) = self.monitor.as_mut() {
             let dry = ring.pop().unwrap_or(0.0);
-            let sample = self.shaper.process(dry, sr) * self.gains.monitor;
-            left += sample;
-            right += sample;
+            let (l, r) = self.shaper.process(dry, sr);
+            left += l * self.gains.monitor;
+            right += r * self.gains.monitor;
         }
         (left.clamp(-1.0, 1.0), right.clamp(-1.0, 1.0))
     }
@@ -820,6 +820,38 @@ mod tests {
             m.render(f64::from(i) / sr, sr);
         }
         assert_eq!(m.render(1.0, sr), (0.0, 0.0));
+    }
+
+    /// LH-EIN-17: with the limiter on, a monitored slap over full scale stays under the
+    /// ceiling instead of being cut off at full scale (which crackles).
+    #[test]
+    fn monitor_limits_peaks() {
+        let (mut m, mut tx) = monitored(1.0);
+        m.apply(Command::Gains(Gains {
+            monitor: 1.0,
+            shaping: Shaping {
+                limit: kontra_dsp::Limit::On,
+                ..Shaping::FLAT
+            },
+            ..m.gains
+        }));
+        let sr = 48_000.0;
+        let slap = |i: usize| 1.6 * (std::f64::consts::TAU * 55.0 * i as f64 / sr).sin() as f32;
+        let mut peak = 0.0f32;
+        for block in 0..20 {
+            for i in 0..480 {
+                tx.push(slap(block * 480 + i)).unwrap();
+            }
+            m.trim_monitor(sr);
+            for i in 0..480 {
+                let (l, r) = m.render((block * 480 + i) as f64 / sr, sr);
+                // The limiter fades in over its first steps (no click when switched on).
+                if block >= 10 {
+                    peak = peak.max(l.abs()).max(r.abs());
+                }
+            }
+        }
+        assert!(peak <= kontra_dsp::LIMIT_CEILING + 1e-6, "peak {peak}");
     }
 
     /// LH-WIE-02 (round 8): the mixer transposes the backing while it plays; a note in the
