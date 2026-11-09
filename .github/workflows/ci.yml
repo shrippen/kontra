@@ -48,6 +48,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The commit message check needs the pushed range and main.
+          fetch-depth: 0
+      - name: Commit messages of the push (agent.md rules 1-6, W4)
+        run: |
+          python3 scripts/commit-msg.py --self-test
+          git fetch -q origin main || true
+          base="${{ github.event.before }}"
+          # A new branch, a force push or a manual run: what is not on main yet.
+          if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            base=$(git merge-base origin/main HEAD)
+          fi
+          python3 scripts/commit-msg.py --range "$base..HEAD"
       - name: System libraries
         run: |
           SUDO=$(command -v sudo || true)

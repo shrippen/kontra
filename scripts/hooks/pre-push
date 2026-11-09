@@ -1,0 +1,28 @@
+#!/bin/sh
+# Quick checks before a push (W4): the commit messages of what is pushed, then `make check-lite`
+# (format, design tokens, licence list). Tests and clippy stay in `make check` and the CI.
+# Skip once with `git push --no-verify`.
+set -e
+root=$(git rev-parse --show-toplevel)
+zero=0000000000000000000000000000000000000000
+
+# stdin: <local ref> <local sha> <remote ref> <remote sha>, one line per ref.
+while read -r _ local_sha _ remote_sha; do
+    if [ "$local_sha" = "$zero" ]; then
+        continue
+    fi
+    if [ "$remote_sha" = "$zero" ]; then
+        # A new branch: what is not on main yet.
+        base=$(git merge-base origin/main "$local_sha" 2>/dev/null || echo "")
+        if [ -z "$base" ]; then
+            echo "pre-push: no origin/main, commit messages not checked" >&2
+            continue
+        fi
+        span=$base..$local_sha
+    else
+        span=$remote_sha..$local_sha
+    fi
+    python3 "$root/scripts/commit-msg.py" --range "$span"
+done
+
+make -C "$root" check-lite
