@@ -982,6 +982,7 @@ dependencies = [
  "kontra-model",
  "kontra-stretch",
  "rtrb",
+ "rustfft",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
