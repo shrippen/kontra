@@ -1,7 +1,7 @@
 //! What the fretboard quiz remembers (LH-LRN-18): the frets it asks and, per place on the neck,
 //! how often the note was found or missed and when last; the same per interval of the ear
-//! training. Weak and long unpractised places get a
-//! higher weight, so they come more often.
+//! training. Weak and long unpractised places and intervals get a higher weight, so they come
+//! more often.
 //!
 //! ```text
 //! weight = floor + weak × (wrong + 1) / (right + wrong + 2) + stale × min(age / week, 1)
@@ -261,6 +261,45 @@ mod tests {
         );
         assert!(stats.weight(E1, 4, NOW) > found, "never asked");
         assert_eq!(stats.counts(E1, 1), (0, 5));
+    }
+
+    /// Import (LH-FOR-03): per interval the newer record wins; the same file twice changes
+    /// nothing.
+    #[test]
+    fn merging_keeps_the_newer_interval() {
+        let mut own = QuizStats::default();
+        own.record_interval("m3", Outcome::Wrong, NOW);
+        own.record_interval("p5", Outcome::Right, NOW);
+        let mut other = QuizStats::default();
+        other.record_interval("m3", Outcome::Right, NOW + 1);
+        other.record_interval("p5", Outcome::Wrong, NOW - 1);
+
+        let merged = own.merged(other.clone());
+        assert_eq!(merged.interval_counts("m3"), (1, 0), "newer from the other");
+        assert_eq!(merged.interval_counts("p5"), (1, 0), "own is newer");
+        assert_eq!(merged.clone().merged(other), merged);
+    }
+
+    /// Quiz and ear training share the file: each writes only its own part.
+    #[test]
+    fn each_side_keeps_the_others_answers() {
+        let mut stored = QuizStats::new(FretRange::new(5, 9));
+        stored.record(E1, 5, Outcome::Wrong, NOW);
+        stored.record_interval("m3", Outcome::Wrong, NOW);
+
+        let mut quiz = QuizStats::new(FretRange::new(0, 4));
+        quiz.record(E1, 1, Outcome::Right, NOW);
+        let after_quiz = stored.clone().with_places_of(&quiz);
+        assert_eq!(after_quiz.range, FretRange::new(0, 4));
+        assert_eq!(after_quiz.counts(E1, 1), (1, 0));
+        assert_eq!(after_quiz.interval_counts("m3"), (0, 1), "intervals stay");
+
+        let mut ear = QuizStats::default();
+        ear.record_interval("p5", Outcome::Right, NOW);
+        let after_ear = stored.with_intervals_of(&ear);
+        assert_eq!(after_ear.range, FretRange::new(5, 9));
+        assert_eq!(after_ear.counts(E1, 5), (0, 1), "places stay");
+        assert_eq!(after_ear.interval_counts("p5"), (1, 0));
     }
 
     #[test]
