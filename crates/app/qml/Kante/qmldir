@@ -89,6 +89,7 @@ KanteSettle 1.0 KanteSettle.qml
 KanteSheetSkin 1.0 KanteSheetSkin.qml
 KanteSkeleton 1.0 KanteSkeleton.qml
 KanteSliderSkin 1.0 KanteSliderSkin.qml
+KanteSongMap 1.0 KanteSongMap.qml
 KanteSparkline 1.0 KanteSparkline.qml
 KanteSpinBox 1.0 KanteSpinBox.qml
 KanteSplitHandle 1.0 KanteSplitHandle.qml
