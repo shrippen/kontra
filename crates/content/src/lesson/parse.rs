@@ -15,8 +15,8 @@
 //! ```
 
 use super::{
-    Block, Chapter, Course, Doc, ExerciseRef, Lang, LessonError, Page, Practice, Question, Span,
-    Task, Tones,
+    Block, Chapter, Course, Doc, ExerciseRef, Goal, Lang, LessonError, Page, Practice, Question,
+    Span, Task, Tones,
 };
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -32,12 +32,16 @@ const CONTINUED: &str = "  ";
 const ANY: &str = "any";
 const SEMITONES: i32 = 12;
 
+/// Targets of a practice goal when the block names none (LH-LRN-20; I4: ±25 ms).
+const HITS_PERCENT: u8 = 80;
+const TIMING_MS: u16 = 25;
+
 /// Attributes each block takes; anything else is a typo (`step=` for `steps=`).
 const FIGURE_KEYS: &[&str] = &["root", "steps", "labels", "string"];
 const LISTEN_KEYS: &[&str] = &["root", "steps", "labels"];
 const TRY_KEYS: &[&str] = &["root", "steps", "labels", "string", "octave"];
 const PRACTICE_KEYS: &[&str] = &[
-    "bundled", "speeds", "kind", "variant", "rhythm", "key", "bpm", "judging",
+    "bundled", "speeds", "kind", "variant", "rhythm", "key", "bpm", "judging", "goal", "target",
 ];
 const VIDEO_KEYS: &[&str] = &["src", "subtitles"];
 const VARIANT_KEYS: &[&str] = &["for"];
@@ -740,7 +744,45 @@ fn practice(attrs: &BTreeMap<String, String>) -> Result<Practice, String> {
             .collect::<Result<Vec<_>, _>>()?,
         None => Vec::new(),
     };
-    Ok(Practice { exercise, speeds })
+    let goal = goal(attrs)?;
+    Ok(Practice {
+        exercise,
+        speeds,
+        goal,
+    })
+}
+
+/// `goal=hits|technique|timing|none` with an optional `target=` (percent, or ms for timing);
+/// no goal: hits at 80 %.
+fn goal(attrs: &BTreeMap<String, String>) -> Result<Goal, String> {
+    let target = attrs.get("target");
+    let number = |default: u16, max: u16| -> Result<u16, String> {
+        let Some(t) = target else {
+            return Ok(default);
+        };
+        t.parse::<u16>()
+            .ok()
+            .filter(|v| (1..=max).contains(v))
+            .ok_or(format!("target={t}"))
+    };
+    let percent = || -> Result<u8, String> {
+        let value = number(u16::from(HITS_PERCENT), 100)?;
+        u8::try_from(value).map_err(|_| format!("target={value}"))
+    };
+    match attrs.get("goal").map(String::as_str) {
+        None | Some("hits") => Ok(Goal::Hits {
+            percent: percent()?,
+        }),
+        Some("technique") => Ok(Goal::Technique {
+            percent: percent()?,
+        }),
+        Some("timing") => Ok(Goal::Timing {
+            ms: number(TIMING_MS, 1000)?,
+        }),
+        Some("none") if target.is_none() => Ok(Goal::None),
+        Some("none") => Err("goal=none takes no target=".into()),
+        Some(other) => Err(format!("goal={other}: hits, technique, timing or none")),
+    }
 }
 
 #[cfg(test)]
@@ -908,6 +950,28 @@ Wie viele Halbtöne hat die kleine Septime?
     }
 
     /// Review #119: `step=` instead of `steps=` was ignored and asked for the root alone.
+    #[test]
+    fn a_practice_names_its_goal() {
+        let goal = |attrs: &str| {
+            let text = format!("# T\nid: t\nfor: any\n\n## P\n::: practice bundled=1 {attrs}\n");
+            unit("t/de.md", &text).map(|(_, doc)| match &doc.pages[0].blocks[0] {
+                Block::Practice(p) => p.goal,
+                _ => Goal::None,
+            })
+        };
+        assert_eq!(goal(""), Ok(Goal::Hits { percent: 80 }));
+        assert_eq!(goal("goal=timing target=30"), Ok(Goal::Timing { ms: 30 }));
+        assert_eq!(goal("goal=technique"), Ok(Goal::Technique { percent: 80 }));
+        assert_eq!(goal("goal=none"), Ok(Goal::None));
+
+        // Unknown values name file and line (LH-LRN-20).
+        let err = goal("goal=speed").unwrap_err();
+        assert_eq!((err.file.as_str(), err.line), ("t/de.md", 6));
+        assert!(err.reason.contains("goal=speed"), "{err}");
+        assert_eq!(goal("target=120").unwrap_err().line, 6);
+        assert!(goal("goal=none target=5").is_err());
+    }
+
     #[test]
     fn an_unknown_attribute_is_an_error() {
         let typo = "# T\nid: t\n\n## P\n::: try root=A step=\"0 7\"\n";

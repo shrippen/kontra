@@ -15,7 +15,7 @@ Kirigami.ScrollablePage {
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
-    property var summary: ({ last: null, next: null, lesson: null, review: 0, spots: null, probe: null, week: { minutes: 0, runs: 0 } })
+    property var summary: ({ last: null, next: null, lesson: null, review: 0, spots: null, probe: null, repeat: [], streak: 0, week: { minutes: 0, runs: 0 } })
     readonly property bool sameAsLast: summary.next !== null && summary.last !== null
         && summary.next.path === summary.last.path
 
@@ -53,6 +53,20 @@ Kirigami.ScrollablePage {
         if (!ctl.loopAt(offer.startS, offer.endS)) {
             ctl.clearLoop()
         }
+        applicationWindow().show("practice")
+        ctl.startProbe()
+    }
+    // A passage due again (LH-LRN-16): that bar once without notes; the probe decides when it
+    // comes back.
+    function repeat(item) {
+        if (!ctl.openFile(item.path)) {
+            if (JSON.parse(ctl.trackChoicesJson).length > 0) {
+                applicationWindow().show("library")
+            }
+            return
+        }
+        ctl.changeMode("workshop")
+        ctl.loopBars(item.bar - 1, item.bar - 1)
         applicationWindow().show("practice")
         ctl.startProbe()
     }
@@ -206,6 +220,27 @@ Kirigami.ScrollablePage {
             }
         }
 
+        // LH-LRN-16: passages hard more than once, back after their pause; no card when none is
+        // due, and no count of what waits (never a debt).
+        KanteHintCard {
+            Layout.fillWidth: true
+            visible: (page.summary.repeat || []).length > 0
+            tier: KanteHintCard.Tier.Blue
+            tierText: texts.t("home.repeat.tier")
+            titleText: texts.t("home.repeat.title")
+            text: texts.t("home.repeat.text")
+            Repeater {
+                model: page.summary.repeat || []
+                delegate: KanteButton {
+                    required property var modelData
+                    required property int index
+                    text: texts.t("home.repeat.bar", { title: modelData.title, bar: modelData.bar })
+                    emphasis: index === 0 ? KanteButton.Emphasis.Normal : KanteButton.Emphasis.Quiet
+                    onClicked: page.repeat(modelData)
+                }
+            }
+        }
+
         // DIDAKTIK I1: what was practised with notes, checked once without them after a night.
         KanteHintCard {
             Layout.fillWidth: true
@@ -222,6 +257,15 @@ Kirigami.ScrollablePage {
 
         // The week in two figures; the details are on the progress page.
         KanteSectionLabel { text: texts.t("home.week"); rule: true; Layout.fillWidth: true }
+        // LH-FOR-05: one quiet line from two days on, only when switched on; a streak that ended
+        // says nothing.
+        QQC2.Label {
+            Layout.fillWidth: true
+            visible: (page.summary.streak || 0) >= 2
+            wrapMode: Text.WordWrap
+            color: KanteStyle.mutedTextColor
+            text: texts.t("home.streak", { days: page.summary.streak || 0 })
+        }
         RowLayout {
             Layout.fillWidth: true
             spacing: KanteStyle.unit(32)

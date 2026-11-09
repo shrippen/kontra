@@ -54,7 +54,7 @@ fn questions_come_back_the_wrong_one_first() {
         assert!(core.lesson_answer(id, *page, *block, *answer));
     }
     assert_eq!(
-        json(&core.home_json())["review"],
+        json(&core.home_json(0))["review"],
         0,
         "nothing due the same day"
     );
@@ -65,7 +65,7 @@ fn questions_come_back_the_wrong_one_first() {
     assert_eq!(review["questions"][0]["lesson"]["id"], wrong.0.as_str());
 
     days_pass(&profile, 1);
-    assert_eq!(json(&core.home_json())["review"], questions.len());
+    assert_eq!(json(&core.home_json(0))["review"], questions.len());
 }
 
 #[test]

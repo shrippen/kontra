@@ -205,6 +205,8 @@ pub struct Settings {
     pub adaptive: bool,
     /// The practice page leaves its rare controls out (LH-ANZ-11, round 15).
     pub simple_view: bool,
+    /// The start page names the practice streak in days (LH-FOR-05); off by default.
+    pub streak: bool,
     /// Tuning (LH-TUN-02): "standard", "drop" (lowest string a whole step down),
     /// "half-down", "whole-down" or "custom".
     pub tuning: String,
@@ -267,6 +269,7 @@ impl Default for Settings {
             monitor_warmth: 0.0,
             adaptive: true,
             simple_view: false,
+            streak: false,
             tuning: "standard".into(),
             custom_tuning: Vec::new(),
             a4_hz: A4_HZ,

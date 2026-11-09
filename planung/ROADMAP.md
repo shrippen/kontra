@@ -291,9 +291,19 @@ Rückmeldung und Lernen:
   nicht, wenn das gewählte Timing-Ziel die Neigung deckt (laid-back).
 - [ ] A3 Improvisation bewerten (LH-BEW-13).
 - [ ] A4 Adaptive Dichte über Abschnitts-Anteile (LH-MOD-06).
-- [ ] L1 Stellen wiederholen (LH-LRN-16).
-- [ ] L2 Übungsserie, standardmäßig aus (LH-FOR-05).
-- [ ] L3 Übungsleiter je Lektion (LH-LRN-17).
+- [x] L1 Stellen wiederholen (LH-LRN-16): Takte zweimal unter den schwierigsten kommen nach 1, 2, 4 … 64 Tagen
+  (`kontra_session::spacing`, ein „Tag“ endet nach einer Nacht, 8 h); bestanden heißt Probe ohne Hilfe über die Takte
+  mit ≥ 80 % im Zieltempo. Karte „Stellen wiederholen“ (höchstens 3) startet die Probe; „Wiederholen“ (Runde 11) lässt
+  diese Takte weg (J-C6 ⚙).
+- [x] L2 Übungsserie, standardmäßig aus (LH-FOR-05): Einstellung „Übungsserie zeigen“; zählt Tage mit gewertetem
+  Lauf in Ortszeit, jede Lücke von einem Tag wird verziehen; ab 2 Tagen eine leise Zeile unter „Diese Woche“.
+- [x] L3 Übungsleiter je Lektion (LH-LRN-17): jeder Übungsblock (mitgeliefert über den Plan, oder aus dem Generator)
+  bietet fünf Stufen (`exercise::stage_spec`): Einzeln (1 Durchgang, Tempo × 0,64), Festigen (doppelt, × 0,8),
+  Abwandeln (Quarte auf oder ab, notiertes Tempo), Im Zusammenhang (ein Akkord wird I-IV-V, × 1,25), Gemischt
+  (Tonart aus dem Startwert, × 1,5625). Nur das Tempo hebt die Notenrate, die Unterteilung bleibt; Schwellen 60, 65,
+  70, 75, 80 %; Startwert aus der Lektions-Id. Knöpfe zeigen „bisher 72 %“, die erste nicht erreichte Stufe ist
+  hervorgehoben, nichts gesperrt. Offen: Takte gemischt aus mehreren Stufen in einer Datei („Gemischt“ wechselt nur
+  die Tonart).
 - [x] L4 Griffbrett-Quiz gewichtet (LH-LRN-18). Teil 1 (`fret-quiz`): „Töne finden“ zieht Plätze nach Gewicht
   (verfehlt und lange nicht geübt öfter), Statistik je Saite und Bund in `quiz.json`, Bünde 0–4, 0–7, 0–12 oder eigene,
   Überspringen kein Fehler, auch nicht in „x von y gefunden“; Bund 12 bei 0–12 kein eigener Platz (gleicher Ton wie
@@ -306,7 +316,10 @@ Rückmeldung und Lernen:
 - [ ] L7 Liedkarte, Kante-Baustein (LH-FOR-06).
 - [ ] L8 Ruf und Antwort (LH-LRN-19).
 - [ ] L9 Reagierende Band (LH-WIE-05).
-- [ ] L10 Ziel je Lektion (LH-LRN-20).
+- [x] L10 Ziel je Lektion (LH-LRN-20): `::: practice … goal=hits|technique|timing|none target=…` (ohne Angabe
+  Treffer 80 %); unbekannte Werte sind Formatfehler mit Datei und Zeile (`course check`); die Auswertung nennt Ziel
+  und Erreichtes, `none` zeigt „Ausprobiert“ statt einer Prozentzahl. Die Lektionen mit Grooves „nur Timing“ haben
+  `goal=timing` (±25 ms wie I4).
 - [x] L11 Shuffle-Klick (LH-WIE-04): Shuffle-Grooves und „Stück Shuffle“ klicken auf 1. und 3. Triole (3. leiser),
   auch im Einzähler. Offen: Shuffle-Angaben importierter Dateien (Guitar Pro „Triplet Feel“, MusicXML `<swing>`)
   werden nicht gelesen; dort stehen die Noten gerade, die Bewertung erwartete sie dann ebenfalls gerade.
@@ -433,7 +446,13 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
   dem Feature `schema`, das nur die CLI einschaltet); die CI vergleicht wie bei den Übungen. Vorlage, mitgelieferter
   Kurs und das Beispiel aus `FORMAT.md` bestehen die Schemas (geprüft mit Python `jsonschema`). `alignment.json`
   hat kein Schema: Kontra liest sie dort nicht (Beat-Map der Bibliothek).
-- [ ] W9 Kurs aus Ordner live (LH-LRN-21); QML von der Platte in Entwicklung.
+- [x] W9 Kurs aus Ordner live (LH-LRN-21): Lernen → „Kursordner live öffnen …“; Kontra sieht alle 0,5 s nach
+  (`lesson::folder_stamp`: Name, Größe, Änderungszeit), liest bei Änderung neu, zeigt Befunde über Lernseite und
+  Lektion und die offene Lektion neu; ein Lesefehler lässt die letzte lesbare Fassung stehen. Der Kurs lebt nur im
+  Speicher; gesehene Seiten, Antworten und Kapitelprüfungen werden solange nicht gespeichert (Läufe der Übungen
+  schon). QML von der Platte: `KONTRA_LIVE_QML=1` lädt in Debug-Builds die Seiten aus `crates/app/qml` (wirkt beim
+  nächsten Start ohne Bauen; Release ignoriert es). Offen: QML-Neuladen ohne Neustart (Komponenten-Cache leeren),
+  J-G6 Schritt 4 von Hand gespielt steht aus.
 - [x] W11 Glyphen-Test für Sonderzeichen (`tests/glyphs.rs`): jedes Zeichen über ASCII aus i18n (de, en), Lektionen
   und eigenem QML muss in einer mitgelieferten Schrift stehen (Kante: Rajdhani, JetBrains Mono, Bravura; Private-Use
   nur Bravura). Eigener `cmap`-Leser (Formate 4 und 12), keine neue Abhängigkeit. ♯ ♭ ♮ deckt nur Bravura.

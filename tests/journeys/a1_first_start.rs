@@ -80,7 +80,7 @@ fn laptop_jack_to_first_note() {
     core.update_settings(|s| s.setup_done = true);
 
     // Step 5: the start page's next exercise, first note judged.
-    let home: serde_json::Value = serde_json::from_str(&core.home_json()).unwrap();
+    let home: serde_json::Value = serde_json::from_str(&core.home_json(0)).unwrap();
     let next = home["next"]["path"].as_str().expect("a next exercise");
     core.open(Path::new(next)).unwrap();
     core.set_mode("play");

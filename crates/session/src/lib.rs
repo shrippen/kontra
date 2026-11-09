@@ -31,6 +31,7 @@ mod session;
 mod settings;
 mod songsterr;
 mod sources;
+mod spacing;
 mod stems;
 mod summary;
 mod technique;
@@ -69,6 +70,7 @@ pub use session::{Mode, Session, SessionEvent, Workshop};
 pub use settings::{ScoreSettings, Strictness};
 pub use songsterr::{BassTrack, SearchError, SearchStart, SongHit, SongSearch};
 pub use sources::{download_dir, recent_scores, search_url, SongSite};
+pub use spacing::{spacing, streak_days, PassageEvent, Spacing};
 pub use stems::{BassRemoval, StemJob};
 pub use summary::{
     DetunedString, Intonation, IntonationPart, Leaning, Observation, OutsideNote, Side,

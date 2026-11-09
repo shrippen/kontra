@@ -17,8 +17,8 @@ mod parse;
 mod vtt;
 
 pub use pack::{
-    new_course, pack, read_media, Author, CourseManifest, CoursePack, PackError, COURSE_EXT,
-    COURSE_FORMAT, COURSE_VERSION, MAX_COURSE_BYTES,
+    folder_stamp, new_course, pack, read_media, Author, CourseManifest, CoursePack, PackError,
+    COURSE_EXT, COURSE_FORMAT, COURSE_VERSION, MAX_COURSE_BYTES,
 };
 #[cfg(feature = "schema")]
 pub(crate) use parse::course_schema;
@@ -145,11 +145,26 @@ pub enum ExerciseRef {
     },
 }
 
-/// A practice step: the exercise and the speeds in percent to play it at (slow, medium, full).
+/// What a practice step is checked by (LH-LRN-20): `goal=hits target=80` in the block.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Goal {
+    /// Share of notes hit, in percent (the default: 80).
+    Hits { percent: u8 },
+    /// Share of techniques played as written, in percent.
+    Technique { percent: u8 },
+    /// Timing spread at most ± this many ms.
+    Timing { ms: u16 },
+    /// Pure instruction: nothing is checked, nothing shown as reached or not.
+    None,
+}
+
+/// A practice step: the exercise, the speeds in percent to play it at (slow, medium, full) and
+/// what it is checked by.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Practice {
     pub exercise: ExerciseRef,
     pub speeds: Vec<u8>,
+    pub goal: Goal,
 }
 
 /// A multiple-choice question; `answer` is the index of the right option.

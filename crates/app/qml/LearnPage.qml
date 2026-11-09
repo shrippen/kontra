@@ -72,6 +72,11 @@ Kirigami.ScrollablePage {
     function reload() {
         page.course = JSON.parse(ctl.learnJson())
     }
+    // A live course folder was read again or closed: its chapters anew.
+    Connections {
+        target: page.ctl
+        function onCourseFolderJsonChanged() { page.reload() }
+    }
     function removeCourse() {
         page.removeError = ctl.courseRemove(page.chosen.id)
         if (page.removeError !== "") {
@@ -129,6 +134,12 @@ Kirigami.ScrollablePage {
                 emphasis: KanteButton.Emphasis.Quiet
                 onClicked: courseDialog.open()
             }
+            // An author's unpacked course, read again on every save (LH-LRN-21).
+            KanteButton {
+                text: texts.t("courses.folder")
+                emphasis: KanteButton.Emphasis.Quiet
+                onClicked: courseFolderDialog.open()
+            }
             KanteButton {
                 text: texts.t("courses.address")
                 emphasis: KanteButton.Emphasis.Quiet
@@ -137,6 +148,11 @@ Kirigami.ScrollablePage {
                     addressField.forceActiveFocus()
                 }
             }
+        }
+
+        CourseFolderStatus {
+            Layout.fillWidth: true
+            Layout.maximumWidth: KanteStyle.unit(640)
         }
 
         // An address from a provider: Kontra loads only what is typed here (privacy).
@@ -336,6 +352,14 @@ Kirigami.ScrollablePage {
                 }
             }
         }
+    }
+
+    FolderDialog {
+        // QA: Qt's dialog in the window, never the desktop portal.
+        options: ctl.qaRun ? FolderDialog.DontUseNativeDialog : 0
+        id: courseFolderDialog
+        title: texts.t("courses.folder")
+        onAccepted: ctl.openCourseFolder(selectedFolder.toString())
     }
 
     FileDialog {

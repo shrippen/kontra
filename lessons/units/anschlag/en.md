@@ -20,7 +20,7 @@ Even is more important than fast.
 
 ## Practise
 Quarter notes on the open A string with drums. Only the timing of your attack counts here.
-::: practice bundled=2 speeds="70 85 100"
+::: practice bundled=2 speeds="70 85 100" goal=timing
 
 ## Check
 ::: question

@@ -20,7 +20,7 @@ Gleich laut ist wichtiger als schnell.
 
 ## Üben
 Viertel auf der leeren A-Saite zum Schlagzeug. Hier zählt nur, wann du anschlägst.
-::: practice bundled=2 speeds="70 85 100"
+::: practice bundled=2 speeds="70 85 100" goal=timing
 
 ## Prüfen
 ::: question

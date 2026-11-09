@@ -11,9 +11,11 @@
 //!                                                          └──▶ drums (grooves) ──write──▶ MIDI
 //! ```
 
+mod ladder;
 mod plan;
 mod song;
 
+pub use ladder::{lesson_seed, stage_spec, Stage};
 pub use plan::{bundled, bundled_specs, plan_place};
 pub use song::{Level, Style};
 

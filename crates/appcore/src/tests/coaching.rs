@@ -146,7 +146,7 @@ fn the_pulse_sits_on_a_small_spread() {
     // All hits, but ±31 ms: not yet.
     core.progress_store().record(&a, run(31.0)).unwrap();
     assert!(!sits(&core));
-    let next: serde_json::Value = serde_json::from_str(&core.home_json()).unwrap();
+    let next: serde_json::Value = serde_json::from_str(&core.home_json(0)).unwrap();
     assert_eq!(
         next["next"]["path"],
         first.as_str(),
@@ -847,11 +847,8 @@ fn home_offers_yesterdays_spots() {
     store.record(&a, run(now - 3600, &[9, 9])).unwrap();
     let found = spots(&core);
     assert_eq!(found["path"], path.as_str());
-    assert_eq!(
-        found["bars"],
-        serde_json::json!([5, 2]),
-        "most often, then latest"
-    );
+    // Bar 5, hard twice, is on the "repeat" card (LH-LRN-16); the rest by latest.
+    assert_eq!(found["bars"], serde_json::json!([2, 3]));
     assert!(!found["title"].as_str().unwrap().is_empty());
     let _ = std::fs::remove_dir_all(dir);
 }
@@ -885,5 +882,106 @@ fn summary_offers_the_next_exercise() {
     core.open(&Core::demo_path()).unwrap();
     s.hit_rate = 0.95;
     assert!(next(&core, &s).is_null());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// LH-FOR-05: the streak is off by default; on, a day missed in between keeps it, days in
+/// local time.
+#[test]
+fn home_names_the_streak_when_switched_on() {
+    let dir = temp_dir("streak");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let day = SECONDS_PER_DAY;
+    let now = 100 * day + 12 * 3600;
+    core.open(&Core::demo_path()).unwrap();
+    let a = core.arrangement().unwrap().clone();
+    let run = |unix| Run {
+        finished_unix: unix,
+        practice_s: 60.0,
+        speed: 1.0,
+        hit_rate: 0.7,
+        mode: "song".into(),
+        section: None,
+        hardest_bars: Vec::new(),
+        hesitant_bars: Vec::new(),
+        spread_ms: None,
+    };
+    let store = core.progress_store();
+    for back in [0, 2, 3] {
+        store.record(&a, run(now - back * day)).unwrap();
+    }
+    let streak = |core: &Core, offset_s| {
+        let home: serde_json::Value = serde_json::from_str(&core.home_in(now, offset_s)).unwrap();
+        home["streak"].clone()
+    };
+    assert_eq!(streak(&core, 0), 0, "off by default");
+
+    core.update_settings(|s| s.streak = true);
+    assert_eq!(streak(&core, 0), 3, "yesterday missed");
+    // Thirteen hours east it is the next day already: still one day missed.
+    assert_eq!(streak(&core, 13 * 3600), 3);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// LH-LRN-16: a bar twice among the hardest comes back after a day; a pass without help at the
+/// target tempo sends it away for two days, one below the target speed does not.
+#[test]
+fn home_brings_hard_passages_back() {
+    let dir = temp_dir("repeat");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let day = SECONDS_PER_DAY;
+    let start = 100 * day;
+    core.open(&Core::demo_path()).unwrap();
+    core.set_loop(2, 2);
+    let (start_s, end_s) = core.loop_seconds();
+    core.remember_section(start_s, end_s, 2, 2);
+    let a = core.arrangement().unwrap().clone();
+    let run = |unix, mode: &str, rate, speed, bars: &[u32]| Run {
+        finished_unix: unix,
+        practice_s: 60.0,
+        speed,
+        hit_rate: rate,
+        mode: mode.into(),
+        section: (mode == PROBE_MODE).then_some((start_s, end_s)),
+        hardest_bars: bars.to_vec(),
+        hesitant_bars: Vec::new(),
+        spread_ms: None,
+    };
+    let repeat = |core: &Core, now| {
+        let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
+        home["repeat"].clone()
+    };
+    let store = core.progress_store();
+    store
+        .record(&a, run(start, "song", 0.6, 1.0, &[3, 5]))
+        .unwrap();
+    assert_eq!(
+        repeat(&core, start + 2 * day),
+        serde_json::json!([]),
+        "once"
+    );
+    store
+        .record(&a, run(start + 60, "song", 0.6, 1.0, &[3]))
+        .unwrap();
+    assert_eq!(repeat(&core, start + 3600), serde_json::json!([]), "rests");
+    let due = repeat(&core, start + day);
+    assert_eq!(due.as_array().map(Vec::len), Some(1), "{due}");
+    assert_eq!(due[0]["bar"], 3);
+    // The spots card leaves it to this one.
+    let home: serde_json::Value = serde_json::from_str(&core.home_json_at(start + day)).unwrap();
+    assert_eq!(home["spots"]["bars"], serde_json::json!([5]), "{home}");
+
+    // Without help, but slower than the target: not a pass, back after a day.
+    core.set_target_speed(1.0);
+    store
+        .record(&a, run(start + day, PROBE_MODE, 0.9, 0.8, &[]))
+        .unwrap();
+    assert_eq!(repeat(&core, start + 2 * day)[0]["bar"], 3);
+    // At the target tempo: two days.
+    store
+        .record(&a, run(start + 2 * day, PROBE_MODE, 0.9, 1.0, &[]))
+        .unwrap();
+    assert_eq!(repeat(&core, start + 3 * day), serde_json::json!([]));
+    assert_eq!(repeat(&core, start + 4 * day)[0]["bar"], 3);
     let _ = std::fs::remove_dir_all(dir);
 }

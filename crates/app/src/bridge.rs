@@ -132,6 +132,7 @@ pub mod qobject {
         #[qproperty(bool, adaptive)]
         /// The practice page without its rare controls (LH-ANZ-11).
         #[qproperty(bool, simple_view, cxx_name = "simpleView")]
+        #[qproperty(bool, streak)]
         #[qproperty(bool, calibrating)]
         /// The calibration's click: −4..−1 count-in, 0..7 measured, −99 none.
         #[qproperty(i32, calibration_beat, cxx_name = "calibrationBeat")]
@@ -148,6 +149,8 @@ pub mod qobject {
         #[qproperty(QString, song_search_json, cxx_name = "songSearchJson")]
         /// A course package fetched from an address, see `Core::course_fetch_poll`.
         #[qproperty(QString, course_fetch_json, cxx_name = "courseFetchJson")]
+        /// A course folder open live, see `Core::course_folder_json` (LH-LRN-21).
+        #[qproperty(QString, course_folder_json, cxx_name = "courseFolderJson")]
         /// While the arrangement is laid out again: the run goes on (a change of key), so the
         /// page keeps the marks.
         #[qproperty(bool, run_kept, cxx_name = "runKept")]
@@ -285,6 +288,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "changeSimpleView"]
         fn change_simple_view(self: Pin<&mut Self>, on: bool);
+
+        #[qinvokable]
+        #[cxx_name = "changeStreak"]
+        fn change_streak(self: Pin<&mut Self>, on: bool);
 
         /// What the loaded bundled exercise trains ("" for other pieces).
         #[qinvokable]
@@ -643,6 +650,11 @@ pub mod qobject {
         #[cxx_name = "courseFetch"]
         fn course_fetch(self: Pin<&mut Self>, url: &QString);
 
+        /// Opens a course folder live; "" closes it.
+        #[qinvokable]
+        #[cxx_name = "openCourseFolder"]
+        fn open_course_folder(self: Pin<&mut Self>, url: &QString);
+
         /// What to play for a lesson's video block, see `Core::lesson_video`.
         #[qinvokable]
         #[cxx_name = "lessonVideo"]
@@ -662,6 +674,17 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "lessonExercise"]
         fn lesson_exercise(self: Pin<&mut Self>, id: &QString, page: i32, block: i32) -> bool;
+
+        /// Opens stage 0–4 of a practice block's ladder (LH-LRN-17).
+        #[qinvokable]
+        #[cxx_name = "lessonStage"]
+        fn lesson_stage(
+            self: Pin<&mut Self>,
+            id: &QString,
+            page: i32,
+            block: i32,
+            stage: i32,
+        ) -> bool;
 
         /// Opens the exercise that rounds off chapter `chapter`.
         #[qinvokable]
@@ -961,6 +984,7 @@ pub struct ControllerRust {
     density_text: QString,
     adaptive: bool,
     simple_view: bool,
+    streak: bool,
     calibrating: bool,
     calibration_beat: i32,
     calibration_text: QString,
@@ -971,6 +995,7 @@ pub struct ControllerRust {
     backing_loading: bool,
     song_search_json: QString,
     course_fetch_json: QString,
+    course_folder_json: QString,
     run_kept: bool,
     transpose: i32,
     transpose_max: i32,
@@ -1125,6 +1150,7 @@ impl Default for ControllerRust {
             density_text: QString::default(),
             adaptive: s.adaptive,
             simple_view: s.simple_view,
+            streak: s.streak,
             calibrating: false,
             calibration_beat: NO_BEAT,
             calibration_text: QString::default(),
@@ -1135,6 +1161,7 @@ impl Default for ControllerRust {
             backing_loading: false,
             song_search_json: QString::default(),
             course_fetch_json: QString::default(),
+            course_folder_json: QString::default(),
             run_kept: false,
             transpose: 0,
             transpose_max: kontra_appcore::Core::transpose_max(),
@@ -1635,6 +1662,9 @@ impl qobject::Controller {
         if let Some(json) = self.as_mut().core().course_fetch_poll() {
             self.as_mut().set_course_fetch_json(q(&json));
         }
+        if let Some(json) = self.as_mut().core().course_folder_poll() {
+            self.as_mut().set_course_folder_json(q(&json));
+        }
         let (position, playing) = {
             let this = self.as_ref();
             let core = &this.rust().core;
@@ -1896,6 +1926,7 @@ impl qobject::Controller {
         self.as_mut().set_prompt_volume(s.prompt_volume);
         self.as_mut().set_adaptive(s.adaptive);
         self.as_mut().set_simple_view(s.simple_view);
+        self.as_mut().set_streak(s.streak);
         self.as_mut().set_tuning(q(&s.tuning));
         self.as_mut().set_a4_hz(s.a4_hz);
         self.as_mut().set_window_ms(s.window_ms);

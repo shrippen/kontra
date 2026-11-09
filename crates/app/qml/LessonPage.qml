@@ -17,6 +17,8 @@ Kirigami.ScrollablePage {
     readonly property var texts: applicationWindow().texts
     readonly property string lessonId: applicationWindow().lessonId
     readonly property var lesson: {
+        // Read again when a live course folder changes (LH-LRN-21).
+        const folder = ctl.courseFolderJson
         const text = ctl.lessonJson(lessonId)
         return text !== "" ? JSON.parse(text) : null
     }
@@ -68,6 +70,7 @@ Kirigami.ScrollablePage {
             onClicked: applicationWindow().show("learn")
         }
         KanteHeading { text: page.title; pageTitle: true }
+        CourseFolderStatus { Layout.fillWidth: true }
 
         KanteCallout {
             Layout.fillWidth: true

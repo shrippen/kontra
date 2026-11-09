@@ -150,6 +150,23 @@ Item {
             tryVerify(function() { return !sheet.opened })
         }
 
+        // A lesson's goal in words (LH-LRN-20); pure instruction shows no percent.
+        function test_lesson_goal() {
+            var summary = JSON.parse(root.ctl.summaryJson)
+            summary.goal = { text: "goal.text", met: false }
+            root.ctl.summaryJson = JSON.stringify(summary)
+            sheet.open()
+            verify(showing(sheet, "goal.text") !== null)
+            verify(showing(sheet, "80 %") !== null)
+            sheet.close()
+
+            summary.goal = { none: true }
+            root.ctl.summaryJson = JSON.stringify(summary)
+            sheet.open()
+            verify(showing(sheet, "summary.goal.none") !== null)
+            verify(showing(sheet, "80 %") === null)
+        }
+
         function test_trap_and_return() {
             outside.touched = 0
             sheet.open()

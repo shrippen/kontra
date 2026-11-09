@@ -188,9 +188,14 @@ Erwartet: ein erkannter Slap/Pop steht an der Note, ein normal angeschlagener is
 2. Nach dem Abschnitt einfach weiterspielen.
 3. Am nächsten Tag: die Startseite zeigt „Ohne Hilfe“ mit den Takten; ein Klick startet die Probe.
 4. Lea: dasselbe mit einer Übung aus Stufe 1, bei 200 % Schrift.
+5. Jens: einen Takt zweimal mit Fehlern üben (LH-LRN-16); am nächsten Tag „Stellen wiederholen“, ohne Noten sauber im
+   Zieltempo; zwei Tage später wieder auf die Startseite.
 Erwartet: Während der Probe keine Noten, nur Takte und Cursor, ein Hinweis sagt warum; nach einem Durchgang Schluss,
 Weiterspielen zählt nicht; die Auswertung zeigt „Werkstatt, mit Noten“ und „Ohne Hilfe“ nebeneinander (Zahl und Satz,
 nicht nur Farbe); danach ist die Werkstatt wieder normal, die Startseite bietet dieselben Takte nicht noch einmal an.
+Der zweimal schwere Takt kommt nach einer Nacht als „Stellen wiederholen“ (höchstens 3, keine leere Karte, keine Zahl
+offener Stellen); bestanden bleibt er zwei Tage weg (Abstand verdoppelt), auf „Wiederholen“ steht er
+nicht zugleich.
 
 **J-C8 Erst der Puls** ⚙ · Personas: P1 Lea, P5 Sam · Phase 2 · LH-LRN-06, LH-LRN-01
 1. Lea: Übungen, Stufe 1, „Groove Viertel auf einem Akkord in E (70 BPM), nur Timing“; das Ziel lesen.
@@ -282,7 +287,10 @@ Erwartet: Die Markierung des Tipps verschwindet, Kontra wartet ohne Markierung w
 2. Kontra schließen und öffnen.
 3. Dasselbe bei 200 % Schrift, ohne Eingang.
 Erwartet: Jeder Schritt passt auf einen Bildschirm; beim Ausprobieren sagt ein falscher Ton, was er war; die Startseite
-zeigt „Weiter: <nächste Lektion>“; ohne Eingang antwortet ein Klick auf die Klaviatur statt des Basses.
+zeigt „Weiter: <nächste Lektion>“; ohne Eingang antwortet ein Klick auf die Klaviatur statt des Basses. Die Auswertung
+einer Lektionsübung nennt ihr Ziel („Ziel 80 %, erreicht 72 %“, LH-LRN-20); eine Übung ohne Ziel zeigt keine Prozentzahl.
+Unter jeder Übung die Übungsleiter (LH-LRN-17): fünf offene Stufen mit „neu“ oder „bisher x %“ und ihrer Schwelle, die
+erste nicht erreichte hervorgehoben; nach einem Lauf über der Schwelle rückt die Hervorhebung eine Stufe weiter.
 
 **J-G2 Was ist eine Septime?** ⚙ · Personas: P2 Jens, P1 Lea · Phase 2 · LH-LRN-09
 1. Jens: Übung erzeugen, Akkordfolge II-V-I; „?“ daneben zeigt beim Zeigen den ersten Satz, ein Klick den Eintrag;
@@ -320,7 +328,12 @@ Das Update kommt als Vorschau und nennt die Fassung („Neuere Fassung 2 (vorhan
 1. In der Kurswerkstatt einen Kurs anlegen, zwei Lektionen schreiben (eine mit Fehler im Format), Vorschau ansehen.
 2. Prüfen, Fehler beheben, als `.kontrakurs` packen; dasselbe mit `kontra-cli course new|check|pack`.
 3. Das Paket in Kontra hinzufügen und eine Lektion spielen.
-Erwartet: Fehler mit Datei und Zeile; die Vorschau sieht aus wie in Kontra; das Paket lädt ohne Befund.
+4. Lernen → „Kursordner live öffnen …“ mit dem ungepackten Ordner, eine Lektion öffnen; im Editor ihren Text ändern und
+   speichern, dann einen Fehler hineinschreiben und speichern; „Ordner schließen“ (LH-LRN-21).
+Erwartet: Fehler mit Datei und Zeile; die Vorschau sieht aus wie in Kontra; das Paket lädt ohne Befund. Die geänderte
+Lektion erscheint nach dem Speichern ohne Packen (binnen einer Sekunde); der Fehler steht mit Datei und Zeile über der
+Lektion, die letzte lesbare Fassung bleibt sichtbar; gesehene Seiten und Antworten werden im Live-Ordner nicht
+gespeichert; nach dem Schließen gilt wieder der hinzugefügte Kurs.
 
 ## F. Querschnitt
 
