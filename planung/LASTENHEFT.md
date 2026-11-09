@@ -118,7 +118,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-TUN-02 | Stimmungen: Standard (4/5/6 Saiten), Drop D, Halbton und Ganzton tiefer, frei definierbar. | Muss | 1 | P2, P3 | Eigene Stimmung anlegen, wird im Stimmgerät und in Tabs verwendet. |
 | LH-TUN-03 | Geführtes Stimmen für Anfänger: Saite für Saite, „höher/tiefer drehen“ in Worten und Symbol. | Muss | 1 | P1 | J-A2 ohne Vorwissen schaffbar. |
 | LH-TUN-04 | Referenzton A ist einstellbar (Standard 440 Hz). | Kann | 2 | P3 | 442 Hz wirkt auf Stimmgerät und Bewertung. |
-| LH-TUN-05 | Liegt eine Saite im Spiel gleichmäßig daneben (≥ 8 Treffer auf ≥ 3 Bünden, im Schnitt ≥ 12 Cent, die anderen Saiten nicht), fragt die Auswertung „Die A-Saite klingt etwa 15 Cent zu hoch – nachstimmen?“ mit Sprung ins Stimmgerät. Nie bei bundlosen Instrumenten (Harmonicon-Analyse, 29.10.). | Soll | 2 | P1, P2 | Test: A-Saite +15 Cent → Hinweis; bundlos → keiner (`a_detuned_string_stands_out`, `summary_names_a_detuned_string`, J-B3 ⚙ `a_sharp_string_is_named`). |
+| LH-TUN-05 | Liegt eine Saite im Spiel gleichmäßig daneben (≥ 8 Treffer, unsaubere eingeschlossen, auf ≥ 3 Bünden, im Schnitt ≥ 12 Cent bei höchstens ±10 Cent Streuung, die anderen Saiten nicht), fragt die Auswertung „Die A-Saite klingt etwa 15 Cent zu hoch – nachstimmen?“ mit Sprung ins Stimmgerät. Nie bei bundlosen Instrumenten (Harmonicon-Analyse, 29.10.). | Soll | 2 | P1, P2 | Test: A-Saite +15 Cent → Hinweis; bundlos → keiner (`a_detuned_string_stands_out`, `summary_names_a_detuned_string`, J-B3 ⚙ `a_sharp_string_is_named`). |
 
 ### 4.3 Bibliothek und Import (BIB)
 

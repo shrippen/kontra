@@ -29,6 +29,9 @@ const POSITION_FRETS: u8 = 5;
 const DETUNED_MIN_NOTES: usize = 8;
 const DETUNED_MIN_FRETS: usize = 3;
 const DETUNED_CENT: f64 = 12.0;
+/// "Evenly" off: notes this close around their mean. A wider spread is the fingers, and
+/// retuning by the mean would worsen half the notes (+40 and −10 average +15).
+const DETUNED_SPREAD_CENT: f64 = 10.0;
 
 /// Judged notes a run needs before anything about it is told (LH-BEW-09).
 const OBSERVE_MIN_NOTES: u32 = 8;
@@ -302,8 +305,8 @@ pub struct DetunedString {
     pub mean_cent: f64,
 }
 
-/// The one string whose notes are off by at least `DETUNED_CENT` on average, over at least
-/// `DETUNED_MIN_FRETS` frets, while another string with enough notes is in tune. Example: A
+/// The one string whose notes are off by at least `DETUNED_CENT` on average, within
+/// `DETUNED_SPREAD_CENT`, over at least `DETUNED_MIN_FRETS` frets, while another string with enough notes is in tune. Example: A
 /// string +15 on frets 0, 2, 3 and E string ±3 → A string. All strings off is the reference
 /// pitch or the player, not one string.
 fn detuned_string(results: &[NoteResult], arrangement: &Arrangement) -> Option<DetunedString> {
@@ -323,24 +326,25 @@ fn detuned_string(results: &[NoteResult], arrangement: &Arrangement) -> Option<D
         entry.1.insert(fret);
     }
 
-    // (string, mean, frets) of the strings with enough notes.
-    let evidenced: Vec<(u8, f64, usize)> = strings
+    // (string, mean, spread, frets) of the strings with enough notes.
+    let evidenced: Vec<(u8, f64, f64, usize)> = strings
         .into_iter()
         .filter(|(_, (cents, _))| cents.len() >= DETUNED_MIN_NOTES)
-        .map(|(string, (cents, frets))| {
-            let mean = cents.iter().sum::<f64>() / cents.len() as f64;
-            (string, mean, frets.len())
+        .filter_map(|(string, (cents, frets))| {
+            let i = Intonation::from_cents(&cents)?;
+            Some((string, i.mean_cent, i.spread_cent, frets.len()))
         })
         .collect();
-    let off: Vec<&(u8, f64, usize)> = evidenced
+    let off: Vec<&(u8, f64, f64, usize)> = evidenced
         .iter()
-        .filter(|(_, mean, _)| mean.abs() >= DETUNED_CENT)
+        .filter(|(_, mean, _, _)| mean.abs() >= DETUNED_CENT)
         .collect();
-    let [&(string, mean_cent, frets)] = off[..] else {
+    let [&(string, mean_cent, spread, frets)] = off[..] else {
         return None;
     };
     let compared = evidenced.len() > off.len();
-    (frets >= DETUNED_MIN_FRETS && compared).then_some(DetunedString { string, mean_cent })
+    let even = spread <= DETUNED_SPREAD_CENT;
+    (frets >= DETUNED_MIN_FRETS && compared && even).then_some(DetunedString { string, mean_cent })
 }
 
 /// A missed note played beside the timing window.
@@ -994,6 +998,9 @@ mod tests {
         );
         assert_eq!(run(&[a_sharp, e_flat].concat()), None, "two strings off");
         assert_eq!(run(&a_sharp), None, "nothing to compare with");
+        // Mean +15 from +40 and −10: unevenly fingered, retuning would worsen half (review #224).
+        let a_uneven = [(1, 0, 40.0), (1, 2, -10.0), (1, 3, 15.0)];
+        assert_eq!(run(&[a_uneven, e_in_tune].concat()), None, "uneven");
     }
 
     /// Harmonicon analysis (29.10.): the hardest bar is the one that costs the most notes. A bar
