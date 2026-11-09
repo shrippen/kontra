@@ -2,8 +2,8 @@
 
 use kontra_dsp::{EchoCanceller, NoteTracker, TrackerConfig, ECHO_BLOCK};
 use kontra_model::{
-    DetectedNote, DoubleStopVerdict, ExpectedStrike, InputSource, Instrument, NoteRetraction,
-    PitchRevision, StringVerdict, TechniqueRevision,
+    DetectedNote, DoubleStopVerdict, ExpectedStrike, InputSource, Instrument, NoteEnd,
+    NoteRetraction, PitchRevision, StringVerdict, TechniqueRevision,
 };
 
 /// Samples per analysis block, as the engine feeds them (480 at 48 kHz, close to it).
@@ -35,6 +35,8 @@ pub(crate) struct Reported {
     pub retracted: usize,
     /// Verdicts on the double stops `expected` announced (R8).
     pub double_stops: Vec<DoubleStopVerdict>,
+    /// Where notes ended (E5).
+    pub ends: Vec<NoteEnd>,
 }
 
 /// Like `analyze`, with the strikes the tab expects (`expected`, seconds from the buffer
@@ -57,6 +59,7 @@ pub(crate) fn analyze_reported(
         strings: Vec::new(),
         retracted: 0,
         double_stops: Vec::new(),
+        ends: Vec::new(),
     };
     let mut next = 0;
     for (i, block) in samples.chunks(BLOCK).enumerate() {
@@ -73,6 +76,7 @@ pub(crate) fn analyze_reported(
         told.strings.extend_from_slice(tracker.string_verdicts());
         told.retract(tracker.retracted());
         told.double_stops.extend_from_slice(tracker.double_stops());
+        told.ends.extend_from_slice(tracker.ends());
     }
     let found = tracker.flush();
     told.add(found, samples.len() as f64 / sample_rate);
@@ -80,6 +84,7 @@ pub(crate) fn analyze_reported(
     told.strings.extend_from_slice(tracker.string_verdicts());
     told.retract(tracker.retracted());
     told.double_stops.extend_from_slice(tracker.double_stops());
+    told.ends.extend_from_slice(tracker.ends());
     told
 }
 

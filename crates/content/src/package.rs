@@ -28,6 +28,7 @@ const MAX_PACKAGE_BYTES: u64 = 1024 * 1024 * 1024;
 
 /// The backing track: inside the package or a path on the author's computer.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum PackageBacking {
     /// `audio/<file>` in the package.
@@ -38,12 +39,15 @@ pub enum PackageBacking {
 
 /// A practice loop: bars `from..=to`, indices from 0 into the bars with repeats unrolled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct PackageLoop {
     pub from: usize,
     pub to: usize,
 }
 
+/// `manifest.json` of a `.kontra` package (`FORMAT.md`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct Manifest {
     pub format: String,
     pub version: u32,

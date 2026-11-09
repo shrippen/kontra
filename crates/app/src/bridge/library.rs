@@ -8,6 +8,10 @@ use kontra_appcore::{Core, DataImport, PackageAudio};
 use std::path::PathBuf;
 
 impl qobject::Controller {
+    pub(super) fn song_map(&self) -> QString {
+        q(&self.rust().core.song_map_json())
+    }
+
     pub(super) fn import_folder(mut self: Pin<&mut Self>, url: &QString, as_setlist: bool) {
         let dir = local_path(&url.to_string());
         let (added, failed) = self.as_mut().core().import_folder(&dir, as_setlist);
@@ -165,8 +169,10 @@ impl qobject::Controller {
         q(&self.rust().core.progress_json())
     }
 
+    /// Start page; the streak counts days in local time (LH-FOR-05).
     pub(super) fn home_json(&self) -> QString {
-        q(&self.rust().core.home_json())
+        let offset_s = cxx_qt_lib::QDateTime::current_date_time().offset_from_utc();
+        q(&self.rust().core.home_json(offset_s))
     }
 
     pub(super) fn exercises_json(&self) -> QString {

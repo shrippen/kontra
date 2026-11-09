@@ -348,12 +348,32 @@ Kirigami.ScrollablePage {
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            title: texts.t("settings.band")
+            hint: texts.t("settings.band.hint")
+            KanteSwitch {
+                Accessible.name: texts.t("settings.band")
+                checked: ctl.reactingBand
+                onToggled: ctl.changeReactingBand(checked)
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
             title: texts.t("settings.simple")
             hint: texts.t("settings.simple.hint")
             KanteSwitch {
                 Accessible.name: texts.t("settings.simple")
                 checked: ctl.simpleView
                 onToggled: ctl.changeSimpleView(checked)
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            title: texts.t("settings.streak")
+            hint: texts.t("settings.streak.hint")
+            KanteSwitch {
+                Accessible.name: texts.t("settings.streak")
+                checked: ctl.streak
+                onToggled: ctl.changeStreak(checked)
             }
         }
         KanteSectionLabel { id: mixerLabel; text: texts.t("mixer.title"); Layout.topMargin: KanteStyle.unit(12) }

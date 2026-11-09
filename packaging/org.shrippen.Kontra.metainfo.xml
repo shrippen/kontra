@@ -22,6 +22,37 @@
   <url type="homepage">https://git.arianw.de/shrippen/Kontra</url>
   <url type="bugtracker">https://git.arianw.de/shrippen/Kontra/issues</url>
   <launchable type="desktop-id">org.shrippen.Kontra.desktop</launchable>
+  <!-- From the demo world (docs/shots, scripts/screenshots.sh), served by the landing page. -->
+  <screenshots>
+    <screenshot type="default">
+      <caption>Tab lane while playing</caption>
+      <caption xml:lang="de">Tab-Lane beim Spielen</caption>
+      <image>https://shrippen.github.io/Kontra/shots/practice-lane-en.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Notation and tablature</caption>
+      <caption xml:lang="de">Noten und Tabulatur</caption>
+      <image>https://shrippen.github.io/Kontra/shots/practice-combined-en.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Evaluation with timing histogram</caption>
+      <caption xml:lang="de">Auswertung mit Timing-Histogramm</caption>
+      <image>https://shrippen.github.io/Kontra/shots/summary-en.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Library</caption>
+      <caption xml:lang="de">Bibliothek</caption>
+      <image>https://shrippen.github.io/Kontra/shots/library-en.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Tuner</caption>
+      <caption xml:lang="de">Stimmgerät</caption>
+      <image>https://shrippen.github.io/Kontra/shots/tuner-en.png</image>
+    </screenshot>
+  </screenshots>
+  <!-- Newest first; scripts/release.sh wants an entry for the version it tags. -->
+  <releases>
+  </releases>
   <content_rating type="oars-1.1"/>
   <requires>
     <display_length compare="ge">768</display_length>

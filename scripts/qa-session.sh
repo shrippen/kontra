@@ -9,7 +9,8 @@
 #                         [--run "xdotool key space"] [-- <kontra arguments>]
 #
 #   --input-file  required; Kontra would open the owner's interface without it (13.10.)
-#   --a11y        own D-Bus session bus for AT-SPI and Orca, started inside the clean environment
+#   --a11y        own D-Bus session bus for AT-SPI and Orca, started inside the clean environment;
+#                 Kontra and the --run command share it (scripts/qactl.py), accessibility always on
 #   --size        screen of the X server (default 1920x1080)
 #   --keep        keep the work folder (data, log) and print it
 #   --run CMD     run CMD (with DISPLAY set) once the window is there, then stop Kontra;
@@ -70,10 +71,14 @@ while [ -e "/tmp/.X11-unix/X$display" ] || [ -e "/tmp/.X$display-lock" ]; do
     display=$((display + 1))
 done
 
-xvfb_pid="" app_pid=""
+xvfb_pid="" app_pid="" bus_pids=()
 cleanup() {
-    # Kontra runs in its own process group (with its bus, if any): stop all of it.
+    # Kontra, each bus and the registry run in process groups of their own (with what they
+    # started): stop all of it.
     [ -n "$app_pid" ] && kill -- "-$app_pid" 2>/dev/null || true
+    for pid in "${bus_pids[@]}"; do
+        kill -- "-$pid" 2>/dev/null || true
+    done
     [ -n "$xvfb_pid" ] && kill "$xvfb_pid" 2>/dev/null || true
     wait 2>/dev/null || true
     if [ "$keep" = 1 ]; then
@@ -101,11 +106,36 @@ fi
 clean=(env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE -u DBUS_SESSION_BUS_ADDRESS
     QT_QPA_PLATFORM=xcb DISPLAY=":$display" XDG_RUNTIME_DIR="$work/runtime"
     KONTRA_DATA_DIR="$work/data")
-bus=()
+# Private buses for Kontra and the --run command (qactl talks to Kontra over AT-SPI): a session
+# bus, the accessibility bus beside it and the AT-SPI registry on it, all started here. Not by
+# activation: at-spi-bus-launcher starts the registry through systemd where dbus-broker is used,
+# which the clean environment does not reach (and must not: it is the desktop's), and an
+# activated registry would not know the bus. Qt and qactl find it by AT_SPI_BUS_ADDRESS.
+A11Y_CONF=/usr/share/defaults/at-spi2/accessibility.conf
+REGISTRY=/usr/lib/at-spi2-registryd
+bus() {
+    local name="$1"
+    shift
+    setsid "${clean[@]}" dbus-daemon "$@" --nofork --print-address=3 3> "$work/$name" \
+        > "$work/$name.log" 2>&1 &
+    bus_pids+=("$!")
+    for _ in $(seq 50); do
+        [ -s "$work/$name" ] && return
+        sleep 0.1
+    done
+    echo "qa-session: bus $name did not start (see $work/$name.log)" >&2
+    keep=1
+    exit 1
+}
 if [ "$a11y" = 1 ]; then
-    bus=(dbus-run-session --)
+    bus session --session
+    bus a11y --config-file="$A11Y_CONF" --address="unix:dir=$work/runtime"
+    clean+=(DBUS_SESSION_BUS_ADDRESS="$(head -1 "$work/session")"
+        AT_SPI_BUS_ADDRESS="$(head -1 "$work/a11y")" QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1)
+    setsid "${clean[@]}" "$REGISTRY" > "$work/registry.log" 2>&1 &
+    bus_pids+=("$!")
 fi
-setsid "${clean[@]}" "${bus[@]}" "$app" --input-file "$input" "$@" > "$work/kontra.log" 2>&1 &
+setsid "${clean[@]}" "$app" --input-file "$input" "$@" > "$work/kontra.log" 2>&1 &
 app_pid=$!
 
 # Wait for the window (xdotool), at most 30 s.
@@ -129,7 +159,7 @@ fi
 echo "qa-session: DISPLAY=:$display window $window data $work/data"
 
 if [ -n "$run" ]; then
-    (cd "$caller" && DISPLAY=":$display" KONTRA_QA_WINDOW="$window" bash -c "$run")
+    (cd "$caller" && "${clean[@]}" KONTRA_QA_WINDOW="$window" bash -c "$run")
     exit $?
 fi
 wait "$app_pid"

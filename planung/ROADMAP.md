@@ -289,11 +289,26 @@ Rückmeldung und Lernen:
 - [x] A1 Eine Beobachtung je Durchlauf (LH-BEW-09, #184).
 - [x] A2 Hinweis „Neu kalibrieren?“ (LH-EIN-14): in der Auswertung mit Knopf zur Kalibrierung in den Einstellungen;
   nicht, wenn das gewählte Timing-Ziel die Neigung deckt (laid-back).
-- [ ] A3 Improvisation bewerten (LH-BEW-13).
-- [ ] A4 Adaptive Dichte über Abschnitts-Anteile (LH-MOD-06).
-- [ ] L1 Stellen wiederholen (LH-LRN-16).
-- [ ] L2 Übungsserie, standardmäßig aus (LH-FOR-05).
-- [ ] L3 Übungsleiter je Lektion (LH-LRN-17).
+- [x] A3 Improvisation bewerten (LH-BEW-13): Übungen mit `judging=open` (Titel „, frei“) zählen jeden Anschlag als
+  Akkordton (Akkordsymbol des Takts), Ton der Tonart (Vorzeichen) oder fremd; Trefferquote ist der Anteil passender Töne.
+  Pausenfenster: wo das Beispiel mindestens einen Schlag pausiert. Lektion „Eine eigene Linie“ übt es (J-C11).
+  Einen Jam-Modus gibt es noch nicht; der Durchlauf ohne Auswertung („Spielen“) bleibt ohne Punkte.
+- [x] A4 Adaptive Dichte über Abschnitts-Anteile (LH-MOD-06): Notendichte als Anteil 25, 50, 75 oder 100 % je
+  Abschnitt; jeder Takt behält seine stärksten Anschläge (erster, Taktmitte, Schläge, Achtel); ein sauberer Durchlauf
+  (ab 90 %) schlägt einen Schritt mehr vor. Gespeicherte Dichten (Stufen 1–3) gelten wieder als alle Noten.
+- [x] L1 Stellen wiederholen (LH-LRN-16): Takte zweimal unter den schwierigsten kommen nach 1, 2, 4 … 64 Tagen
+  (`kontra_session::spacing`, ein „Tag“ endet nach einer Nacht, 8 h); bestanden heißt Probe ohne Hilfe über die Takte
+  mit ≥ 80 % im Zieltempo. Karte „Stellen wiederholen“ (höchstens 3) startet die Probe; „Wiederholen“ (Runde 11) lässt
+  diese Takte weg (J-C6 ⚙).
+- [x] L2 Übungsserie, standardmäßig aus (LH-FOR-05): Einstellung „Übungsserie zeigen“; zählt Tage mit gewertetem
+  Lauf in Ortszeit, jede Lücke von einem Tag wird verziehen; ab 2 Tagen eine leise Zeile unter „Diese Woche“.
+- [x] L3 Übungsleiter je Lektion (LH-LRN-17): jeder Übungsblock (mitgeliefert über den Plan, oder aus dem Generator)
+  bietet fünf Stufen (`exercise::stage_spec`): Einzeln (1 Durchgang, Tempo × 0,64), Festigen (doppelt, × 0,8),
+  Abwandeln (Quarte auf oder ab, notiertes Tempo), Im Zusammenhang (ein Akkord wird I-IV-V, × 1,25), Gemischt
+  (Tonart aus dem Startwert, × 1,5625). Nur das Tempo hebt die Notenrate, die Unterteilung bleibt; Schwellen 60, 65,
+  70, 75, 80 %; Startwert aus der Lektions-Id. Knöpfe zeigen „bisher 72 %“, die erste nicht erreichte Stufe ist
+  hervorgehoben, nichts gesperrt. Offen: Takte gemischt aus mehreren Stufen in einer Datei („Gemischt“ wechselt nur
+  die Tonart).
 - [x] L4 Griffbrett-Quiz gewichtet (LH-LRN-18). Teil 1 (`fret-quiz`): „Töne finden“ zieht Plätze nach Gewicht
   (verfehlt und lange nicht geübt öfter), Statistik je Saite und Bund in `quiz.json`, Bünde 0–4, 0–7, 0–12 oder eigene,
   Überspringen kein Fehler, auch nicht in „x von y gefunden“; Bund 12 bei 0–12 kein eigener Platz (gleicher Ton wie
@@ -303,10 +318,26 @@ Rückmeldung und Lernen:
 - [x] L5 Intonation als Richtung und Streuung (LH-BEW-12).
 - [x] L6 Verstimmte Saite erkennen (LH-TUN-05): die Auswertung fragt nach dem Nachstimmen, mit Sprung ins Stimmgerät
   (`detuned-string`, J-B3 ⚙).
-- [ ] L7 Liedkarte, Kante-Baustein (LH-FOR-06).
-- [ ] L8 Ruf und Antwort (LH-LRN-19).
-- [ ] L9 Reagierende Band (LH-WIE-05).
-- [ ] L10 Ziel je Lektion (LH-LRN-20).
+- [x] L7 Liedkarte, Kante-Baustein (LH-FOR-06): `KanteSongMap` (Kante-Branch `song-map`, 1.76, noch nicht
+  veröffentlicht; Kontra nimmt die Kopie „Take Kante song-map (unreleased)“). Jeder Durchlauf speichert Treffer je
+  Takt (`Run::bars`); die Karte zeigt je Takt die letzten 5 Durchläufe, die ihn spielten. Angehalten über der
+  Werkstatt und in der Auswertung; Ziehen oder Umschalt+Pfeile und Eingabe setzen die Schleife (J-B3 ⚙).
+- [x] L8 Ruf und Antwort (LH-LRN-19): Schalter auf der Übungsseite für Stücke mit Akkordsymbolen (ab vier Takten).
+  Je vier Takte: Kontra spielt zwei (Motiv aus den Akkordtönen in einer Quinte über dem Grundton, im Rhythmus der
+  eigenen Linie; Schlagzeug mit halber Stärke), der Spieler antwortet mit demselben Motiv. Rufe werden nie erwartet,
+  Anschläge darin nie gewertet (Mikrofon). Mit Bewertung in Durchlauf und Werkstatt, ohne im Modus „Spielen“. Die Tab
+  bleibt leer bis zwei Durchgänge (Schleife) oder Durchläufe unter 80 % lagen; gezählt wird je Stück, nicht je Ruf.
+  Offen: echte Begleitspuren werden während des Rufs nicht leiser (nur das erzeugte Schlagzeug); kein ⚙-Test der Journey
+  J-C12 über die App (Session-Tests `call_response.rs`, Kern-Test der Tab-Regel).
+- [x] L9 Reagierende Band (LH-WIE-05): Einstellung „Band reagiert“ (aus). Im Modus „Spielen“ oder einer offenen
+  Übung über erzeugtes Schlagzeug: Kontra plant den letzten Schlag eines Takts erst 100 ms vorher; war der Schlag davor
+  frei und davor gespielt, wird er ein Snare-Fill (höchstens alle 8 Takte). Nach einem Takt mit mindestens zwei
+  Anschlägen je Schlag spielt der nächste ohne Hi-Hat. Test mit synthetischer Aufnahme durch die Erkennung
+  (`band.rs`); eine echte Aufnahme fehlt (keine im Repo), am Solo noch nicht gehört.
+- [x] L10 Ziel je Lektion (LH-LRN-20): `::: practice … goal=hits|technique|timing|none target=…` (ohne Angabe
+  Treffer 80 %); unbekannte Werte sind Formatfehler mit Datei und Zeile (`course check`); die Auswertung nennt Ziel
+  und Erreichtes, `none` zeigt „Ausprobiert“ statt einer Prozentzahl. Die Lektionen mit Grooves „nur Timing“ haben
+  `goal=timing` (±25 ms wie I4).
 - [x] L11 Shuffle-Klick (LH-WIE-04): Shuffle-Grooves und „Stück Shuffle“ klicken auf 1. und 3. Triole (3. leiser),
   auch im Einzähler. Offen: Shuffle-Angaben importierter Dateien (Guitar Pro „Triplet Feel“, MusicXML `<swing>`)
   werden nicht gelesen; dort stehen die Noten gerade, die Bewertung erwartete sie dann ebenfalls gerade.
@@ -328,8 +359,20 @@ Erkennung und Messung:
   Aussetzer und Wiedereinsatz kommen jetzt nur noch im Gehörtraining als Meldung.
   Verlust aus Gerätestempeln über eine DLL (R3, erster Teil, #209); offen aus R3: Wiedergabe- und
   Eingangszeitachse an der DLL verankern (Ausgangsstempel), Loopback-Prüfung am Solo.
-- [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).
-- [ ] E5 Notenende (LH-BEW-10).
+- [x] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur): `cargo bench -p kontra-dsp`
+  (`crates/dsp/benches/realtime.rs`) misst, was der Analyse-Thread je Block von 480 Samples bei 48 kHz (10 ms) tut,
+  und gibt vorab je Stufe Mittel, p99 und schlechtesten Block als Anteil am Budget aus (schnellster von 5 Durchläufen
+  je Block). Erste Messung (09.11., Ryzen mit 24 Threads, Last 30–40 durch parallele Builds): Tracker auf einer
+  Linie E1–A2 Mittel 1,8 %, p99 5,1 %, schlechtester Block 6,0 %; mit Brummen und Abzug (E8) 1,5 / 5,0 / 5,9 %;
+  Anschlag allein 0,9 / 4,7 / 5,0 %; Stimmgerät 0,6 / 1,8 / 1,9 %; Echo-Unterdrückung (512 Samples) 0,9 / 1,0 /
+  1,2 %. Ein Block bleibt damit unter einem Zehntel des Budgets. Die CI baut die Benches nur (`--no-run`).
+- [x] E5 Notenende (LH-BEW-10, `h-detect`): Der Tracker folgt jeder Note bis zu ihrem Ende und meldet `NoteEnd`
+  (Engine `Event::End`): `Muted` (Pegel ≥ 10 dB binnen 60 ms), `Decayed` (30 dB unter dem Start), `Replaced`
+  (nächster Anschlag oder Legato-Ton). Noch nicht bewertet, Treffer unverändert. `korpus ends` (09.11.): synthetisch
+  `staccato` 33 von 33 als abgedämpft, p95 9,6 ms (in `korpus check`); IDMT-ST 267 von 319 gestoppten Noten als
+  abgedämpft, 47,6 % ≤ 30 ms, p50 26,5 ms, p95 93,3 ms, 16,5 % ≥ 50 ms vor dem Offset. Ziel ≤ 30 ms auf IDMT nur im
+  Median erreicht; die Offsets sind Partitur-Raster (`FORSCHUNG-AUDIO.md`, „Notenende“). Offen: von Hand annotierte
+  Enden (Hardware-Sitzung), Übungen zu Abdämpfen und Notenlänge.
 - [x] E6 Rauschboden bei der Kalibrierung (LH-EIN-16, `noise-floor`): Beim Einzählen misst der Onset-Detektor den
   Pegel im Anschlagband (10. Perzentil), die Schwelle liegt 6 dB darüber (−62 bis −40 dB) und gilt je Eingang.
   Messung (synthetisch, weißes Rauschen): Am Kabel gab es schon vorher 0 Falschnoten je Minute bei −70 bis −35 dBFS
@@ -338,7 +381,13 @@ Erkennung und Messung:
   leisen Raum: die feste Schwelle −48 dB verlor leise Anschläge, jetzt −62. `room-double` auf −30 dBFS Spitze bei
   Rauschen −80 dBFS: Recall 14,7 % → 100 %, auf −40 dBFS 0 → 57,7 %; `idle-room` weiter 0 Falschnoten. Korpus
   (`korpus check`, IDMT, Techniken, FiloBass) unverändert: er läuft ohne Kalibrierung.
-- [ ] E7 Erste echte Aufnahmen als eingefrorene Basis, neue als eigene Gruppen.
+- [x] E7 Erste echte Aufnahmen als eingefrorene Basis, neue als eigene Gruppen (`h-detect`): `korpus freeze --real
+  <Wurzel> <Gruppe>…` schreibt Recall und Präzision (Tonhöhe, ±80 ms) je Gruppe nach `testdata/korpus/baseline.json`,
+  `korpus check --real <Wurzel>` misst jede eingefrorene Gruppe und scheitert 0,5 Punkte darunter oder bei
+  geänderten Daten; Gruppen ohne Eintrag stehen als „neu“ daneben. Eingefroren (09.11.): `conv/idmt-st` 91,56 / 82,51 %,
+  `conv/idmt-sb/bass-1..3`, `conv/filobass` 59,86 / 62,69 %, `conv/nsynth`. Offen: Aufnahmen des Eigentümers gibt es
+  noch nicht (`AUFNAHME.md`); sie kommen in der Hardware-Sitzung als eigene Gruppe `own/…` und werden dann
+  eingefroren. Die CI ruft `--real` noch nicht auf (Änderung an `.github/`, braucht die Bestätigung des Eigentümers).
 - [x] E8 Brummen vor der Erkennung entfernen (Eigentümer, 29.10.): Netzfrequenz verfolgen (49,8–50,2 Hz, 60 Hz),
   Grundton und Obertöne abziehen statt sperren; Noten auf derselben Frequenz (G1, G2) bleiben (`crates/dsp/src/dehum.rs`,
   für jeden Eingang vor Anschlag und Tonhöhe). Gelernt wird nur in ruhigen, stetigen 100-ms-Blöcken, abgezogen erst nach
@@ -358,20 +407,70 @@ Mehrere Töne (offen für Gitarre und Tasten):
 - [x] M1 Doppelgriffe: Korpus-Satz, Merker „zwei Töne“, Fähigkeit je Eingang (LH-BEW-11). Mit R8: synthetischer
   Satz in `korpus check`, IDMT-Mischungen in `korpus double-stops`, `ChordHearing` je Eingang. MIDI-Akkorde als
   ganze Menge bleiben M2.
-- [ ] M2 Akkorde im Korpus als ganze Menge werten, zuerst MIDI.
-- [ ] M3 Saiten-Plausibilität für Akkordkandidaten im Instrumentprofil.
-- [ ] M4 Machbarkeitsstudie NNLS mit Vorlagen je Saite, Log-Frequenz (nach 1.0).
+- [x] M2 Akkorde im Korpus als ganze Menge werten, zuerst MIDI (`h-detect`): `score_chords` zählt je Akkord alle
+  Töne, fehlende und fremde; `korpus chords` für `.json`+`.mid`-Paare, ohne Ordner der erzeugte MIDI-Satz (120
+  Akkorde, gerollt 0–25 ms, Tasten überlappend), in `korpus check` 100 % vollständig. Offen: echte MIDI-Aufnahmen,
+  Audio-Akkorde (Audio hört höchstens zwei Töne, `ChordHearing`).
+- [x] M3 Saiten-Plausibilität für Akkordkandidaten im Instrumentprofil (`h-detect`): `Instrument::grip` (je Ton eine
+  eigene Saite, gegriffene Bünde höchstens `hand_span_frets` auseinander, 4; Kontrabass 3; Leersaiten frei) und
+  `can_sound_together` (Tasten: jeder Ton im Umfang, keiner doppelt); Test mit Gitarren-C-Dur. Genutzt von den
+  IDMT-Mischungen in `korpus double-stops`: E1 + G1 (beide nur auf der E-Saite) fallen weg, 307 → 301 Doppelgriffe,
+  91,5 → 91,7 % als beide. Offen: Filter für blinde Akkordkandidaten, sobald es sie gibt (M4).
+- [x] M4 Machbarkeitsstudie NNLS mit Vorlagen je Saite, Log-Frequenz (nach 1.0; `h-detect`, nur Test
+  `crates/engine/tests/nnls.rs`): IDMT-Mischungen, θ auf der Hälfte gewählt: informiert 96,6 % beide bei 0,7 %
+  Fehlalarm (`DyadCheck` 91,7 / 1,7 %), blind 68,9 % genau richtig (Klapuri 45 %). Vorlagen je Saite gegen je
+  Tonhöhe: +4,7 Punkte blind; die Saite selbst sagen sie nicht (45 %). Kein Produktwechsel; Bericht in
+  `FORSCHUNG-AUDIO.md`. Offen nach 1.0: Vorlagen je Bass lernen, echte Doppelgriffe, Oktaven.
 
 Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in Worten je PR):
-- [ ] W1 `scripts/qactl.py` über AT-SPI; Socket nur im Cargo-Feature `qa`.
+- [x] W1 `scripts/qactl.py` über AT-SPI; Socket nur im Cargo-Feature `qa`: reines AT-SPI, kein Socket, kein
+  Feature. `tree`, `find`, `press`, `text`, `wait`, `layout` nach Rolle und Name. `scripts/qa-session.sh --a11y`
+  startet dafür Session-Bus, Accessibility-Bus und AT-SPI-Registry selbst (nicht über at-spi-bus-launcher: der
+  startet die Registry bei dbus-broker über systemd, das die saubere Umgebung nicht erreicht) und gibt sie Kontra
+  und dem `--run`-Befehl; `--run` läuft jetzt in derselben sauberen Umgebung. Probe (09.11.): Bibliothek →
+  `press --role 'list item' Einstellungen` → `wait --role heading Einstellungen` → `find --contains Ausgang`
+  fand `combo box 'Ausgang'`.
 - [x] W2 `scripts/qa-session.sh` für jeden isolierten Testlauf.
-- [ ] W3 Layout-Prüfung je Seite bei P4- und P7-Auflösung (LH-ANZ-09).
-- [ ] W4 Tabelle Regel → Prüfung, Git-Hooks, CI-Prüfung der Commit-Nachrichten.
+- [x] W3 Layout-Prüfung je Seite bei P4- und P7-Auflösung (LH-ANZ-09): `scripts/check-layout.sh` startet 15
+  Seiten und Ansichten je Persona (P4 1280×720 bei 150 %, P7 1920×1080 bei 200 %), Fenster so groß wie der
+  Bildschirm, und meldet über `qactl.py layout` benannte Elemente, die das Fenster abschneidet (in Bildlaufbereichen
+  nur seitlich), überlappende Bedienelemente und Bedienelemente ohne Namen. Lokal, die CI hat keinen AT-SPI-Stapel.
+  Erster Lauf (09.11.): 29 von 30 ohne Befund. **P4 Lernen:** Die Knopfreihe (Weiter, Glossar, Kurs hinzufügen,
+  Kurs von Adresse) bricht nicht um und macht die Seite breiter als das Fenster (853 logische Pixel); „Kurs von
+  Adresse …“ und der Einleitungstext sind rechts abgeschnitten (Screenshot geprüft). Nicht behoben: ein `Flow`
+  statt `RowLayout` in `LearnPage.qml` reicht vermutlich, braucht aber zuerst einen roten QML-Test. Grenzen: Was
+  Kontra selbst malt (Lane, Noten, Griffbrett), sieht AT-SPI nicht; abgeschnittener Text innerhalb eines Labels
+  (Elision) ebenso wenig. Ohne Fenstermanager öffnet Kontra mit 72×44 Rastereinheiten auch auf kleineren
+  Bildschirmen größer als der Bildschirm; das Skript setzt die Fenstergröße deshalb selbst.
+- [x] W4 Tabelle Regel → Prüfung, Git-Hooks, CI-Prüfung der Commit-Nachrichten: `planung/REGELN.md` (maschinell
+  geprüft oder nur Review); `scripts/commit-msg.py` prüft die Regeln 1–6 (Betreff ab 51 Zeichen Warnung, ab 73
+  Fehler; Imperativ nur als Vermutung über häufige Verben), Hooks in `scripts/hooks/` (`make hooks`): commit-msg,
+  pre-push mit den Nachrichten des Pushs und `make check-lite` (fmt, Design, Lizenzliste). Die CI prüft die
+  Nachrichten jedes Pushs (ohne Merges). Stichprobe 09.11.: 6 von 399 Commits verletzen Regel 3 oder 6
+  (Body-Zeilen bis 298 Zeichen, Betreff „agent.md: …“ klein).
 - [x] W5 Test für Crate-Kanten und Dateigröße mit Abbauliste (`tests/physical_design.rs`, 1200 Zeilen je Datei; Abbauliste: appcore/lib.rs, bridge.rs, exercise.rs, PracticePage.qml, tracker.rs). 30.10.: appcore/lib.rs 8191 → 2885 Zeilen (Tests nach `src/tests/`, Bibliothek, Auswertung, Übungen, Fortschritt, Notation als Module), bridge.rs 2898 → 1955 (Invokables in `bridge/`).
-- [ ] W6 `scripts/release.sh`, metainfo `<releases>`/`<screenshots>`, AppStream- und Flatpak-Lint.
+- [x] W6 `scripts/release.sh`, metainfo `<releases>`/`<screenshots>`, AppStream- und Flatpak-Lint:
+  `scripts/release.sh X.Y.Z [--dry-run]` prüft main, sauberen Baum, freien Tag, Version in `Cargo.toml` und
+  `Cargo.lock`, Abschnitt in `CHANGELOG.md` (Englisch und Deutsch, `scripts/release-notes.sh` aus Kante), neuesten
+  `<release>` der Metainfo mit gleichem Datum und Eintrag in `#changes` und Fußzeile der Landing Page; dann setzt
+  es den Tag mit den Notes und gibt die Befehle zum Veröffentlichen nur aus. Test `scripts/release.test.sh`
+  (CI). Metainfo mit fünf Screenshots (Adressen der Landing Page, noch nicht live; deshalb `--no-net`) und leerem
+  `<releases>`. `scripts/lint-packaging.sh`: `appstreamcli`, `desktop-file-validate` (CI), `flatpak-builder-lint`
+  im Flatpak-Job (meldet, blockiert nicht). Offen: Ergebnis des ersten flatpak-builder-lint-Laufs (lokal ist
+  `org.flatpak.Builder` defekt installiert).
 - [x] W7 `cargo deny` mit `[advisories]`, eigener Job und wöchentlich (`advisories.yml`); rustls auf 0.23.46, RUSTSEC-2025-0044 (minimp3) mit Begründung ignoriert.
-- [ ] W8 JSON-Schemas für Pakete und Kurse aus den serde-Strukturen.
-- [ ] W9 Kurs aus Ordner live (LH-LRN-21); QML von der Platte in Entwicklung.
+- [x] W8 JSON-Schemas für Pakete und Kurse aus den serde-Strukturen: `kontra-cli schemas <dir>` schreibt
+  `schema/package-manifest.schema.json`, `course-manifest.schema.json` und `course.schema.json` (schemars, nur mit
+  dem Feature `schema`, das nur die CLI einschaltet); die CI vergleicht wie bei den Übungen. Vorlage, mitgelieferter
+  Kurs und das Beispiel aus `FORMAT.md` bestehen die Schemas (geprüft mit Python `jsonschema`). `alignment.json`
+  hat kein Schema: Kontra liest sie dort nicht (Beat-Map der Bibliothek).
+- [x] W9 Kurs aus Ordner live (LH-LRN-21): Lernen → „Kursordner live öffnen …“; Kontra sieht alle 0,5 s nach
+  (`lesson::folder_stamp`: Name, Größe, Änderungszeit), liest bei Änderung neu, zeigt Befunde über Lernseite und
+  Lektion und die offene Lektion neu; ein Lesefehler lässt die letzte lesbare Fassung stehen. Der Kurs lebt nur im
+  Speicher; gesehene Seiten, Antworten und Kapitelprüfungen werden solange nicht gespeichert (Läufe der Übungen
+  schon). QML von der Platte: `KONTRA_LIVE_QML=1` lädt in Debug-Builds die Seiten aus `crates/app/qml` (wirkt beim
+  nächsten Start ohne Bauen; Release ignoriert es). Offen: QML-Neuladen ohne Neustart (Komponenten-Cache leeren),
+  J-G6 Schritt 4 von Hand gespielt steht aus.
 - [x] W11 Glyphen-Test für Sonderzeichen (`tests/glyphs.rs`): jedes Zeichen über ASCII aus i18n (de, en), Lektionen
   und eigenem QML muss in einer mitgelieferten Schrift stehen (Kante: Rajdhani, JetBrains Mono, Bravura; Private-Use
   nur Bravura). Eigener `cmap`-Leser (Formate 4 und 12), keine neue Abhängigkeit. ♯ ♭ ♮ deckt nur Bravura.

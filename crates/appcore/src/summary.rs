@@ -147,6 +147,53 @@ impl Core {
 
     /// Notes on another string than the tab's (R7); a profile that cannot tell says so, also
     /// for some notes only (a five-string's low B, review #207). One line each.
+    /// "85 % getroffen"; an open run (LH-BEW-13): "92 % passend".
+    fn hit_rate_text(&self, s: &Summary) -> String {
+        let key = if s.improvisation.is_some() {
+            "summary.open.fitting"
+        } else {
+            "summary.hitrate"
+        };
+        self.tr(key, &[("percent", percent(s.hit_rate))])
+    }
+
+    /// "12 von 16 · 2 falsch · 2 ausgelassen"; an open run: attacks by fit, the share of chord
+    /// tones and the rest windows kept free, e.g. "10 Akkordtöne · 3 in der Tonart · 1 fremd ·
+    /// Akkordtöne 71 % · Pausen: 3 von 4 frei gelassen".
+    fn counts_text(&self, s: &Summary) -> String {
+        let Some(open) = s.improvisation else {
+            return self.tr(
+                "summary.counts",
+                &[
+                    ("hits", s.hits.to_string()),
+                    ("judged", s.judged.to_string()),
+                    ("wrong", s.wrong.to_string()),
+                    ("missed", s.missed.to_string()),
+                ],
+            );
+        };
+        let counts = self.tr(
+            "summary.open.counts",
+            &[
+                ("chord", open.chord_tones.to_string()),
+                ("scale", open.scale_tones.to_string()),
+                ("foreign", open.foreign.to_string()),
+                ("percent", percent(open.chord_share().unwrap_or(0.0))),
+            ],
+        );
+        if open.rests == 0 {
+            return counts;
+        }
+        let rests = self.tr(
+            "summary.open.rests",
+            &[
+                ("kept", open.rests_kept.to_string()),
+                ("rests", open.rests.to_string()),
+            ],
+        );
+        format!("{counts} · {rests}")
+    }
+
     fn strings_text(&self, strings: kontra_session::StringTally) -> String {
         let mut parts = Vec::new();
         if strings.other > 0 {
@@ -263,14 +310,10 @@ impl Core {
         json!({
             "next": next,
             "probe": self.probe_json(s),
+            "goal": self.goal_json(s),
             "hitRate": s.hit_rate,
-            "hitRateText": self.tr("summary.hitrate", &[("percent", format!("{:.0}", s.hit_rate * 100.0))]),
-            "countsText": self.tr("summary.counts", &[
-                ("hits", s.hits.to_string()),
-                ("judged", s.judged.to_string()),
-                ("wrong", s.wrong.to_string()),
-                ("missed", s.missed.to_string()),
-            ]),
+            "hitRateText": self.hit_rate_text(s),
+            "countsText": self.counts_text(s),
             "observation": self.observation_json(s),
             "recalibrateText": self.recalibrate_text(s),
             "tendencyText": tendency,
@@ -532,7 +575,7 @@ impl Core {
                 "summary.spread.pulse",
                 &[("spread", spread), ("ms", format!("{PULSE_SPREAD_MS:.0}"))],
             ),
-            Judging::PitchAndTime => spread,
+            Judging::PitchAndTime | Judging::Open => spread,
         }
     }
 
@@ -586,4 +629,9 @@ pub(crate) fn hardest_notes(notes: &[serde_json::Value]) -> Vec<serde_json::Valu
         b.0.cmp(&a.0).then(b.1.total_cmp(&a.1))
     });
     hard.into_iter().take(HARDEST_NOTES).cloned().collect()
+}
+
+/// A share 0..=1 as whole percent, "85".
+fn percent(share: f64) -> String {
+    format!("{:.0}", share * 100.0)
 }

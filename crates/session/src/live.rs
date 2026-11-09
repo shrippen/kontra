@@ -359,6 +359,7 @@ impl LiveTuner {
                 | Event::String(_)
                 | Event::Retracted(_)
                 | Event::DoubleStop(_)
+                | Event::End(_)
                 | Event::Heard { .. }
                 | Event::NoiseFloor { .. } => {}
             }
@@ -485,6 +486,7 @@ impl LiveEar {
                 | Event::String(_)
                 | Event::Retracted(_)
                 | Event::DoubleStop(_)
+                | Event::End(_)
                 | Event::Heard { .. }
                 | Event::NoiseFloor { .. } => {}
             }

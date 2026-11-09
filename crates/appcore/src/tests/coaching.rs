@@ -15,12 +15,12 @@ fn density_thins_notes_per_section_and_is_suggested() {
     assert_eq!(count(&core), 64);
 
     // Eighth notes: on the beats half of them stay, for the whole piece.
-    core.set_density(Density::Beats, DensityLock::Free);
+    core.set_density(Density::from_percent(50), DensityLock::Free);
     assert_eq!(count(&core), 32);
 
     // A section starts with the piece's density and can have its own.
     assert!(!core.set_loop(0, 1));
-    core.set_density(Density::Sparse, DensityLock::Free);
+    core.set_density(Density::FEWEST, DensityLock::Free);
     assert_eq!(count(&core), 16);
     assert!(core.clear_loop());
     assert_eq!(count(&core), 32);
@@ -29,12 +29,12 @@ fn density_thins_notes_per_section_and_is_suggested() {
     core.update_settings(|s| s.mode = "song".into());
     assert!(matches!(
         core.density_hint(0.95),
-        Some(UiEvent::DensitySuggestion { level: 3, .. })
+        Some(UiEvent::DensitySuggestion { percent: 75, .. })
     ));
     assert!(core.density_hint(0.75).is_none());
-    core.set_density(Density::Beats, DensityLock::Fixed);
+    core.set_density(Density::from_percent(50), DensityLock::Fixed);
     assert!(core.density_hint(0.95).is_none());
-    core.set_density(Density::Beats, DensityLock::Free);
+    core.set_density(Density::from_percent(50), DensityLock::Free);
     core.update_settings(|s| s.adaptive = false);
     assert!(core.density_hint(0.95).is_none());
     // Not after a probe without help: it judges, it adapts nothing (QA 27.10., J8).
@@ -76,6 +76,7 @@ fn home_summary() {
         section: None,
         hardest_bars: Vec::new(),
         hesitant_bars: Vec::new(),
+        bars: Vec::new(),
     };
     // The first exercise is judged by time only: it sits with a small spread, too (I4).
     core.progress_store()
@@ -137,6 +138,7 @@ fn the_pulse_sits_on_a_small_spread() {
         section: None,
         hardest_bars: Vec::new(),
         hesitant_bars: Vec::new(),
+        bars: Vec::new(),
     };
     let sits = |core: &Core| {
         let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
@@ -146,7 +148,7 @@ fn the_pulse_sits_on_a_small_spread() {
     // All hits, but ±31 ms: not yet.
     core.progress_store().record(&a, run(31.0)).unwrap();
     assert!(!sits(&core));
-    let next: serde_json::Value = serde_json::from_str(&core.home_json()).unwrap();
+    let next: serde_json::Value = serde_json::from_str(&core.home_json(0)).unwrap();
     assert_eq!(
         next["next"]["path"],
         first.as_str(),
@@ -215,6 +217,7 @@ fn chain_cuts_phrases_where_the_player_hesitates() {
         hardest_bars: Vec::new(),
         hesitant_bars: hesitant,
         spread_ms: None,
+        bars: Vec::new(),
     };
 
     // Printed bar 3 is index 2.
@@ -653,6 +656,7 @@ fn summary_compares_probe_with_workshop() {
         hardest_bars: Vec::new(),
         hesitant_bars: Vec::new(),
         spread_ms: Some(11.0),
+        bars: Vec::new(),
     };
     core.progress_store().record(&a, run).unwrap();
     let found = probe(&core, &s);
@@ -738,6 +742,7 @@ fn home_offers_a_probe() {
         hardest_bars: Vec::new(),
         hesitant_bars: Vec::new(),
         spread_ms: None,
+        bars: Vec::new(),
     };
     let offer = |core: &Core| {
         let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
@@ -783,6 +788,7 @@ fn probe_offer_skips_what_it_cannot_open() {
         hardest_bars: Vec::new(),
         hesitant_bars: Vec::new(),
         spread_ms: None,
+        bars: Vec::new(),
     };
     let store = core.progress_store();
     store
@@ -833,6 +839,7 @@ fn home_offers_yesterdays_spots() {
         section: None,
         hardest_bars: bars.to_vec(),
         hesitant_bars: Vec::new(),
+        bars: Vec::new(),
     };
     let spots = |core: &Core| {
         let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
@@ -847,11 +854,8 @@ fn home_offers_yesterdays_spots() {
     store.record(&a, run(now - 3600, &[9, 9])).unwrap();
     let found = spots(&core);
     assert_eq!(found["path"], path.as_str());
-    assert_eq!(
-        found["bars"],
-        serde_json::json!([5, 2]),
-        "most often, then latest"
-    );
+    // Bar 5, hard twice, is on the "repeat" card (LH-LRN-16); the rest by latest.
+    assert_eq!(found["bars"], serde_json::json!([2, 3]));
     assert!(!found["title"].as_str().unwrap().is_empty());
     let _ = std::fs::remove_dir_all(dir);
 }
@@ -885,5 +889,189 @@ fn summary_offers_the_next_exercise() {
     core.open(&Core::demo_path()).unwrap();
     s.hit_rate = 0.95;
     assert!(next(&core, &s).is_null());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// LH-FOR-05: the streak is off by default; on, a day missed in between keeps it, days in
+/// local time.
+#[test]
+fn home_names_the_streak_when_switched_on() {
+    let dir = temp_dir("streak");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let day = SECONDS_PER_DAY;
+    let now = 100 * day + 12 * 3600;
+    core.open(&Core::demo_path()).unwrap();
+    let a = core.arrangement().unwrap().clone();
+    let run = |unix| Run {
+        finished_unix: unix,
+        practice_s: 60.0,
+        speed: 1.0,
+        hit_rate: 0.7,
+        mode: "song".into(),
+        section: None,
+        hardest_bars: Vec::new(),
+        hesitant_bars: Vec::new(),
+        spread_ms: None,
+        bars: Vec::new(),
+    };
+    let store = core.progress_store();
+    for back in [0, 2, 3] {
+        store.record(&a, run(now - back * day)).unwrap();
+    }
+    let streak = |core: &Core, offset_s| {
+        let home: serde_json::Value = serde_json::from_str(&core.home_in(now, offset_s)).unwrap();
+        home["streak"].clone()
+    };
+    assert_eq!(streak(&core, 0), 0, "off by default");
+
+    core.update_settings(|s| s.streak = true);
+    assert_eq!(streak(&core, 0), 3, "yesterday missed");
+    // Thirteen hours east it is the next day already: still one day missed.
+    assert_eq!(streak(&core, 13 * 3600), 3);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// LH-LRN-16: a bar twice among the hardest comes back after a day; a pass without help at the
+/// target tempo sends it away for two days, one below the target speed does not.
+#[test]
+fn home_brings_hard_passages_back() {
+    let dir = temp_dir("repeat");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let day = SECONDS_PER_DAY;
+    let start = 100 * day;
+    core.open(&Core::demo_path()).unwrap();
+    core.set_loop(2, 2);
+    let (start_s, end_s) = core.loop_seconds();
+    core.remember_section(start_s, end_s, 2, 2);
+    let a = core.arrangement().unwrap().clone();
+    let run = |unix, mode: &str, rate, speed, bars: &[u32]| Run {
+        finished_unix: unix,
+        practice_s: 60.0,
+        speed,
+        hit_rate: rate,
+        mode: mode.into(),
+        section: (mode == PROBE_MODE).then_some((start_s, end_s)),
+        hardest_bars: bars.to_vec(),
+        hesitant_bars: Vec::new(),
+        spread_ms: None,
+        bars: Vec::new(),
+    };
+    let repeat = |core: &Core, now| {
+        let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
+        home["repeat"].clone()
+    };
+    let store = core.progress_store();
+    store
+        .record(&a, run(start, "song", 0.6, 1.0, &[3, 5]))
+        .unwrap();
+    assert_eq!(
+        repeat(&core, start + 2 * day),
+        serde_json::json!([]),
+        "once"
+    );
+    store
+        .record(&a, run(start + 60, "song", 0.6, 1.0, &[3]))
+        .unwrap();
+    assert_eq!(repeat(&core, start + 3600), serde_json::json!([]), "rests");
+    let due = repeat(&core, start + day);
+    assert_eq!(due.as_array().map(Vec::len), Some(1), "{due}");
+    assert_eq!(due[0]["bar"], 3);
+    // The spots card leaves it to this one.
+    let home: serde_json::Value = serde_json::from_str(&core.home_json_at(start + day)).unwrap();
+    assert_eq!(home["spots"]["bars"], serde_json::json!([5]), "{home}");
+
+    // Without help, but slower than the target: not a pass, back after a day.
+    core.set_target_speed(1.0);
+    store
+        .record(&a, run(start + day, PROBE_MODE, 0.9, 0.8, &[]))
+        .unwrap();
+    assert_eq!(repeat(&core, start + 2 * day)[0]["bar"], 3);
+    // At the target tempo: two days.
+    store
+        .record(&a, run(start + 2 * day, PROBE_MODE, 0.9, 1.0, &[]))
+        .unwrap();
+    assert_eq!(repeat(&core, start + 3 * day), serde_json::json!([]));
+    assert_eq!(repeat(&core, start + 4 * day)[0]["bar"], 3);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Review #226: in a piece with repeats the passage card plays the bar it names. Bar 1 repeats,
+/// so the unrolled bars are 1 1 2 3. Runs store printed numbers (`record_run`): hard bar 2 is
+/// the third unrolled bar. The card loops printed bar 2 (`loopScoreBar`), and a passed
+/// probe over it sends it away. Before, the start page looped the second unrolled bar (the
+/// repeat of bar 1), so the probe counted for bar 1 and the card stayed due.
+#[test]
+fn probe_counts_in_a_piece_with_repeats() {
+    let dir = temp_dir("repeat-repeats");
+    let file = dir.join("Repeats.musicxml");
+    let note =
+        r#"<note><pitch><step>E</step><octave>2</octave></pitch><duration>4</duration></note>"#;
+    let xml = format!(
+        r#"<?xml version="1.0"?>
+<score-partwise version="3.1">
+  <part-list><score-part id="P1"><part-name>Bass</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>F</sign><line>4</line></clef></attributes>
+      <barline location="left"><repeat direction="forward"/></barline>
+      {note}
+      <barline location="right"><repeat direction="backward"/></barline>
+    </measure>
+    <measure number="2">{note}</measure>
+    <measure number="3">{note}</measure>
+  </part>
+</score-partwise>"#
+    );
+    std::fs::write(&file, xml).unwrap();
+    let mut core = Core::new(&dir, QaOptions::default());
+    let day = SECONDS_PER_DAY;
+    let start = 100 * day;
+    core.open(&file).unwrap();
+    let a = core.arrangement().unwrap().clone();
+    let printed: Vec<u32> = a.bars.iter().map(|b| b.source_index).collect();
+    assert_eq!(printed, [0, 0, 1, 2]);
+
+    let run = |unix, mode: &str, section| Run {
+        finished_unix: unix,
+        practice_s: 60.0,
+        speed: 1.0,
+        hit_rate: if mode == PROBE_MODE { 0.9 } else { 0.6 },
+        mode: mode.into(),
+        section,
+        hardest_bars: if mode == PROBE_MODE {
+            Vec::new()
+        } else {
+            vec![2]
+        },
+        hesitant_bars: Vec::new(),
+        spread_ms: None,
+        bars: Vec::new(),
+    };
+    let repeat = |core: &Core, now| {
+        let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
+        home["repeat"].clone()
+    };
+    let store = core.progress_store();
+    store.record(&a, run(start, "song", None)).unwrap();
+    store.record(&a, run(start + 60, "song", None)).unwrap();
+    let card = repeat(&core, start + day);
+    assert_eq!(card[0]["bar"], 2, "{card}");
+
+    // The card's probe: the bar it names, as the start page loops it.
+    let bar = card[0]["bar"].as_u64().unwrap() as u32;
+    let index = core.score_bar_index(bar).unwrap();
+    core.set_loop(index, index);
+    let (start_s, end_s) = core.loop_seconds();
+    assert_eq!(
+        start_s,
+        a.tempo.seconds_at(a.bars[2].start_ticks),
+        "loops printed bar 2"
+    );
+    core.remember_section(start_s, end_s, index, index);
+    store
+        .record(&a, run(start + day, PROBE_MODE, Some((start_s, end_s))))
+        .unwrap();
+    assert_eq!(repeat(&core, start + 2 * day), serde_json::json!([]));
     let _ = std::fs::remove_dir_all(dir);
 }

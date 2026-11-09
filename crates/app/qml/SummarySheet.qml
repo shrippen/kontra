@@ -14,11 +14,13 @@ KanteCard {
     readonly property var summary: ctl.summaryJson !== "" ? JSON.parse(ctl.summaryJson) : null
 
     signal practiceBar(int bar)
+    signal practiceBars(int from, int to)
 
     function open() { visible = true }
     // The keyboard starts in the sheet, on "close" (QA 27.10., P7).
     onVisibleChanged: {
         if (visible) {
+            sheetMap.refresh()
             closeButton.forceActiveFocus(Qt.TabFocusReason)
         }
     }
@@ -67,10 +69,19 @@ KanteCard {
             KanteButton { id: closeButton; text: texts.t("summary.close"); emphasis: KanteButton.Emphasis.Quiet; onClicked: sheet.close() }
         }
 
+        // A lesson's goal (LH-LRN-20): pure instruction shows no figure, never "0 %".
+        readonly property var goal: sheet.summary && sheet.summary.goal ? sheet.summary.goal : null
         KanteKpi {
             Layout.fillWidth: true
-            value: sheet.summary ? sheet.summary.hitRateText : ""
-            label: sheet.summary ? sheet.summary.countsText : ""
+            value: !sheet.summary ? "" : content.goal && content.goal.none ? texts.t("summary.goal.none") : sheet.summary.hitRateText
+            label: !sheet.summary ? "" : content.goal && content.goal.none ? texts.t("summary.goal.none.text") : sheet.summary.countsText
+        }
+        QQC2.Label {
+            Layout.fillWidth: true
+            visible: content.goal !== null && !content.goal.none
+            wrapMode: Text.WordWrap
+            color: KanteStyle.strongTextColor
+            text: content.goal && content.goal.text ? content.goal.text : ""
         }
 
         // The one thing to hear from this run (LH-BEW-09); none for a short run. A lean that may
@@ -246,6 +257,13 @@ KanteCard {
             wrapMode: Text.WordWrap
             text: [content.techniques.length > 0 ? texts.t("summary.techniques.note") : "", content.untold].filter(function(t) { return t !== "" }).join(" ")
             color: KanteStyle.mutedTextColor
+        }
+
+        // Where the piece stands after this run (LH-FOR-06); dragging practises those bars.
+        SongMap {
+            id: sheetMap
+            Layout.fillWidth: true
+            onChosen: (from, to) => sheet.practiceBars(from, to)
         }
 
         KanteSectionLabel {

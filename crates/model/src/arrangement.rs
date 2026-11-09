@@ -154,6 +154,9 @@ pub enum Judging {
     #[default]
     PitchAndTime,
     TimeOnly,
+    /// An open exercise (LH-BEW-13): the player makes up the line over the chords; each attack
+    /// counts by how it fits the bar's chord and key, the written line is an example.
+    Open,
 }
 
 /// How the eighths are played (LH-WIE-04): straight, or swung onto the third triplet of the
@@ -183,6 +186,10 @@ pub struct Arrangement {
     pub judging: Judging,
     #[serde(default)]
     pub feel: Feel,
+    /// Tick spans (from, to) where Kontra plays the bass and the player listens (call and
+    /// response, LH-LRN-19): their notes are played, not expected.
+    #[serde(default)]
+    pub calls: Vec<(u64, u64)>,
 }
 
 impl Arrangement {
@@ -198,7 +205,15 @@ impl Arrangement {
             drums: Vec::new(),
             judging: Judging::default(),
             feel: Feel::default(),
+            calls: Vec::new(),
         }
+    }
+
+    /// True if `tick` lies in a call (LH-LRN-19): Kontra plays, nothing is judged.
+    pub fn in_call(&self, tick: u64) -> bool {
+        self.calls
+            .iter()
+            .any(|(from, to)| tick >= *from && tick < *to)
     }
 
     /// Sorts notes and fills missing bars in 4/4 up to the last note.

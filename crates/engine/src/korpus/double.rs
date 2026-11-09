@@ -10,7 +10,9 @@
 use super::{band, Annotation, KorpusItem, KorpusSet, SAMPLE_RATE};
 use crate::offline::{analyze_reported, cancel_echo};
 use kontra_dsp::synth::{bass_tone, Noise, ToneShape};
-use kontra_model::{DoubleStopHeard, DoubleStopVerdict, ExpectedStrike, ExpectedTone, Technique};
+use kontra_model::{
+    DoubleStopHeard, DoubleStopVerdict, ExpectedStrike, ExpectedTone, Pitch, Technique,
+};
 
 /// Intervals (semitones) a bassist plays as double stops: thirds, fourth, fifth, sixth,
 /// octave, tenths.
@@ -241,9 +243,13 @@ pub fn announce_second_tone(notes: &[Annotation], semitones: i8) -> Vec<DoubleSt
 
 /// Semi-real double stops from a recording of single notes: pairs of its notes at each interval
 /// of `DOUBLE_STOP_INTERVALS` (at most `per_interval` each), mixed, the upper 0–8 ms later.
+/// Only pairs the set's instrument can sound together (M3: E1 + G1 share the E string).
 pub fn double_stop_mixtures(item: &KorpusItem, per_interval: usize, seed: u64) -> DoubleStopSet {
     let sr = f64::from(item.sample_rate);
     let segments = segments(item);
+    let instrument = item.set.instrument();
+    let playable =
+        |lower: u8, upper: u8| instrument.can_sound_together(&[Pitch(lower), Pitch(upper)]);
     let mut noise = Noise::new(seed);
     let mut samples = vec![0.0f32; (LEAD_S * sr) as usize];
     let mut strikes = Vec::new();
@@ -252,6 +258,9 @@ pub fn double_stop_mixtures(item: &KorpusItem, per_interval: usize, seed: u64) -
         for (lower, a) in &segments {
             for (upper, b) in &segments {
                 if made >= per_interval || upper.checked_sub(*lower) != Some(interval) {
+                    continue;
+                }
+                if !playable(*lower, *upper) {
                     continue;
                 }
                 let at = samples.len();

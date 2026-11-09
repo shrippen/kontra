@@ -11,9 +11,11 @@
 //!                                                          └──▶ drums (grooves) ──write──▶ MIDI
 //! ```
 
+mod ladder;
 mod plan;
 mod song;
 
+pub use ladder::{lesson_seed, stage_spec, Stage};
 pub use plan::{bundled, bundled_specs, plan_place};
 pub use song::{Level, Style};
 
@@ -289,10 +291,14 @@ pub(crate) const CHORD_TEXT: &str = "chord ";
 
 /// Text event at the start: the file is judged by time only (`Judging::TimeOnly`, DIDAKTIK I4).
 pub(crate) const TIMING_TEXT: &str = "kontra:timing";
+/// Text event at the start: an open exercise, the line is made up (`Judging::Open`, LH-BEW-13).
+pub(crate) const OPEN_TEXT: &str = "kontra:open";
 /// Text event at the start: the file is played in shuffle feel (`Feel::Shuffle`, LH-WIE-04).
 pub(crate) const SHUFFLE_TEXT: &str = "kontra:shuffle";
 /// Suffix of a file title judged by time only; the UI's twin is `exercise.title.timing`.
 const TIMING_TITLE: &str = ", nur Timing";
+/// Suffix of an open exercise's title; the UI's twin is `exercise.title.open`.
+const OPEN_TITLE: &str = ", frei";
 
 /// Text events the importer turns into a technique of the notes starting at their tick.
 pub(crate) const TECHNIQUE_TEXTS: [(&str, Technique); 4] = [
@@ -994,6 +1000,7 @@ fn title(spec: &ExerciseSpec, pass: &Pass, fifths: i8) -> String {
     // Judged by time only, the file is another exercise: its own name and progress.
     let timing = match spec.judging {
         Judging::TimeOnly => TIMING_TITLE,
+        Judging::Open => OPEN_TITLE,
         Judging::PitchAndTime => "",
     };
     if let ExerciseKind::Chromatic(_) = spec.kind {
@@ -1273,8 +1280,10 @@ fn goal(spec: &ExerciseSpec) -> &'static str {
     if spec.end_bpm().is_some() {
         return "ramp";
     }
-    if spec.judging == Judging::TimeOnly {
-        return "timing";
+    match spec.judging {
+        Judging::TimeOnly => return "timing",
+        Judging::Open => return "improv",
+        Judging::PitchAndTime => {}
     }
     match spec.kind {
         ExerciseKind::Scale(s) if s.mode() => "modes",
@@ -1627,11 +1636,13 @@ fn write(title: &str, fifths: i8, minor: bool, line: &Line) -> Vec<u8> {
             TrackEventKind::Meta(MetaMessage::KeySignature(fifths, minor)),
         ),
     ]);
-    if line.judging == Judging::TimeOnly {
-        conductor.push((
-            0,
-            TrackEventKind::Meta(MetaMessage::Text(TIMING_TEXT.as_bytes())),
-        ));
+    let judging = match line.judging {
+        Judging::TimeOnly => Some(TIMING_TEXT),
+        Judging::Open => Some(OPEN_TEXT),
+        Judging::PitchAndTime => None,
+    };
+    if let Some(text) = judging {
+        conductor.push((0, TrackEventKind::Meta(MetaMessage::Text(text.as_bytes()))));
     }
     if line.feel == Feel::Shuffle {
         conductor.push((

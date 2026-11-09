@@ -16,5 +16,9 @@ thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
+[dev-dependencies]
+# The NNLS feasibility study (tests/nnls.rs, M4); already used by kontra-dsp.
+rustfft.workspace = true
+
 [lints]
 workspace = true

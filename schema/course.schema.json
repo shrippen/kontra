@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CourseFile",
+  "description": "A course, `courses/<course>.json` in a course package: its chapters in order.",
+  "type": "object",
+  "properties": {
+    "chapters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ChapterFile"
+      }
+    },
+    "for": {
+      "description": "Instrument the course is for (`bass`).",
+      "type": "string"
+    },
+    "id": {
+      "description": "Course id, starting with the package's prefix (`bassbuzz.kurs`).",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "for",
+    "chapters"
+  ],
+  "$defs": {
+    "ChapterFile": {
+      "type": "object",
+      "properties": {
+        "de": {
+          "description": "Title in German.",
+          "type": "string"
+        },
+        "en": {
+          "description": "Title in English.",
+          "type": "string"
+        },
+        "finale": {
+          "description": "A practice block's attributes, e.g. `bundled=5 speeds=\"70 85 100\"`.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "id": {
+          "type": "string"
+        },
+        "units": {
+          "description": "Ids of the chapter's units (lessons), in order.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "de",
+        "en",
+        "units"
+      ]
+    }
+  }
+}

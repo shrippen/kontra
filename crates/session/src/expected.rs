@@ -87,11 +87,17 @@ impl ChordTones {
 /// skipped), with notes that start together merged into a chord. The pitch detector hears one
 /// note, so any tone of a chord counts for the whole chord.
 pub fn expected_notes(arrangement: &Arrangement) -> Vec<ExpectedNote> {
+    // Open: the written line is an example, the player's own is counted by fit (LH-BEW-13).
+    if arrangement.judging == Judging::Open {
+        return Vec::new();
+    }
     let mut attacks: Vec<(usize, &kontra_model::Note)> = arrangement
         .notes
         .iter()
         .enumerate()
         .filter(|(_, n)| n.needs_attack())
+        // Kontra plays the calls (LH-LRN-19).
+        .filter(|(_, n)| !arrangement.in_call(n.start_ticks))
         .collect();
     attacks.sort_by_key(|(index, n)| (n.start_ticks, n.pitch.0, *index));
     let mut out: Vec<ExpectedNote> = Vec::with_capacity(attacks.len());

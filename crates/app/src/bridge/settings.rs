@@ -7,6 +7,20 @@ use cxx_qt_lib::QString;
 use kontra_appcore::{Bass, InstrumentChoice};
 
 impl qobject::Controller {
+    /// The practice streak on the start page on or off (LH-FOR-05).
+    pub(super) fn change_streak(mut self: Pin<&mut Self>, on: bool) {
+        self.as_mut().core().update_settings(|s| s.streak = on);
+        self.as_mut().set_streak(on);
+    }
+
+    /// The drums answer the bass in free play (LH-WIE-05), from the next run.
+    pub(super) fn change_reacting_band(mut self: Pin<&mut Self>, on: bool) {
+        self.as_mut()
+            .core()
+            .update_settings(|s| s.reacting_band = on);
+        self.as_mut().set_reacting_band(on);
+    }
+
     pub(super) fn change_connection(mut self: Pin<&mut Self>, key: &QString) {
         let kind = match key.to_string().as_str() {
             "laptop" => kontra_appcore::InputKind::LaptopJack,

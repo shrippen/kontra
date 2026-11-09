@@ -76,6 +76,56 @@ Punkt 9 Stretch: Bandteilung bringt nichts (Fine-Latenz oder verwaschene Anschl�
 Tests grün; Aufwand S. Doku-Fehler: Fine kostet 133 ms mehr, nicht 85. B0 bei 50 %: Standard 6,8 dB
 Wackeln, Fine 0,5 dB. Hörtest: wav/ (b0-synth, b0-nsynth, e1-idmt, plucks-synth, kicks, line-idmt), ~10 min.
 
+## Notenende (E5, LH-BEW-10), 09.11.2026
+
+`crates/dsp/src/tracker/ends.rs`: Der Tracker folgt jeder Note ab 60 ms nach dem Anschlag. Pegel = Spitze über eine
+Periode des tiefsten Tons (27 ms am Viersaiter, sonst Welligkeit). Fällt er binnen 60 ms um 10 dB: `Muted`, Ende dort,
+wo er 10 dB unter dem Wert vor dem Fall liegt (minus eine Spanne); 30 dB unter dem Start: `Decayed`; nächster Anschlag
+oder Legato-Ton: `Replaced`. Gemeldet als `NoteEnd` (Engine `Event::End`), noch nicht bewertet.
+
+Messung `kontra-cli korpus ends` (Ende ±30 ms gegen Annotation; „gestoppt“ = Pause ≥ 50 ms bis zur nächsten Note):
+
+| Satz | gestoppt | als Muted | ≤ 30 ms | p50 | p95 | Median (Vorzeichen) | Muted ≥ 50 ms zu früh |
+|---|---|---|---|---|---|---|---|
+| synthetisch `staccato` (exakt) | 33 | 33 | 100 % | 7,9 ms | 9,6 ms | +7,9 ms | 0 % |
+| IDMT-ST, 17 Linien | 326 (319 gefunden) | 267 | 47,6 % | 26,5 ms | 93,3 ms | −7,3 ms | 16,5 % |
+
+Ziel „Ende abgedämpfter Noten ≤ 30 ms“: synthetisch erreicht, auf IDMT nur im Median (p50 26,5 ms), p95 verfehlt.
+Die IDMT-Offsets sind Partitur-Raster wie die Onsets: Stichproben zeigen echte Fälle, die vor dem Raster enden
+(idmt-st-015 Note 20: −17 dB bei +190 ms, annotiert +223 ms) und Pegelschwebungen, die als Abdämpfen gelten
+(015 Note 7). Wahl des Endpunkts: 3-dB-Punkt Median −28 ms, 6 dB −18 ms, 10 dB −7 ms gegen IDMT. 36 gestoppte
+Noten als `Replaced` (der nächste Anschlag kam vor dem Fall), 16 ohne Ende. Rechenzeit: Blockspitzen (2 ms) werden
+einmal gelesen; `korpus measure` auf IDMT 5,4–5,5 s mit, 5,6–6,3 s ohne Notenende (im Rauschen). Echte Grenze erst
+mit von Hand annotierten Aufnahmen (Hardware-Sitzung).
+
+## NNLS mit Saitenvorlagen (M4, nach 1.0), 09.11.2026
+
+Machbarkeit, kein Produktcode: `crates/engine/tests/nnls.rs` (ignoriert; `KONTRA_IDMT=… cargo test --release -p
+kontra-engine --test nnls -- --ignored --nocapture`). Rahmen wie `DyadCheck` (Anschlag + 20 ms, 140 ms, Hann),
+Log-Frequenz 35 Hz–1,8 kHz mit 36 Bändern je Oktave, √-Betrag. Vorlagen: je Saite und Bund 0–20 ein steifer
+Ton (B aus dem Profil, `LOG_B_PER_FRET`), Partialtöne 1/k, durch dieselbe Transformation; NNLS mit
+multiplikativen Updates (300 Schritte). IDMT-Mischungen wie `korpus double-stops` (301 Doppelgriffe ohne Oktaven),
+367 Einzelnoten ≥ 0,3 s mit je fünf angekündigten zweiten Tönen.
+
+Schwelle θ auf den ungeraden Dateien gewählt, auf den geraden gemessen:
+
+| | Doppelgriff | Einzelnote |
+|---|---|---|
+| informiert (Tab nennt beide Töne), θ 0,4 | 96,6 % beide | 0,7 % Fehlalarm |
+| blind (Menge der Töne über θ·Max), θ 0,5 | 68,9 % genau richtig | 94,7 % genau ein richtiger Ton |
+| zum Vergleich `DyadCheck` (heute, alle Dateien) | 91,7 % beide | 1,7 % Fehlalarm |
+| zum Vergleich blind Klapuri (29.10.) | 45 % | 5,7 % Fehlalarm |
+
+Alle Dateien: Vorlagen je Saite gegen eine Vorlage je Tonhöhe (B = 0) blind 69,8 / 65,1 %, informiert (θ 0,5)
+88,0 / 83,4 %: die Saitensteifheit hilft wenig, aber messbar. Die Saite selbst sagt die stärkste Vorlage nicht
+(45,5 % richtig, Hälften 64,8 % und 23,4 %); dafür bleibt R7. Rechenzeit grob: 84 Vorlagen, Gram-Matrix einmal,
+300 Schritte ≈ 2 M Multiplikationen je Rahmen.
+
+Urteil: informiert etwas besser als `DyadCheck` bei weniger Fehlalarmen, blind deutlich besser als Klapuri, aber
+mit 69 % weit von brauchbar. Risiken: Vorlagen ohne Anschlag und Abklingen, nur ein Bass (IDMT), Mischungen statt
+echter Doppelgriffe, Oktaven nicht geprüft. Nächster Schritt nach 1.0: Vorlagen aus Einzelnoten lernen (je Bass),
+echte Doppelgriffe des Eigentümers, Akkorde (Gitarre) mit M3 als Kandidatenfilter.
+
 ## Recherche (Quellen und Ausgangslage)
 
 Nine points, ranked by benefit for the player. Lines refer to `main` as of 29.10. (may have shifted slightly).

@@ -36,9 +36,10 @@ Kirigami.Page {
     // The notation view: the same notes as written for bass, rests, key signature.
     property var staff: JSON.parse(ctl.staffJson)
     property var states: ({})
-    // A blind probe (DIDAKTIK I1) shows bars and cursor only; the marks come back after it.
-    readonly property var shown: ctl.probing ? [] : notes
-    readonly property var shownStaff: ctl.probing ? [] : staff.notes
+    // A blind probe (DIDAKTIK I1) shows bars and cursor only; the marks come back after it. So
+    // does a call and response until two failed tries (LH-LRN-19).
+    readonly property var shown: ctl.probing || ctl.callHidden ? [] : notes
+    readonly property var shownStaff: ctl.probing || ctl.callHidden ? [] : staff.notes
     // Technique results by note (LH-BEW-06), kept like `states` for views that load later.
     property var techniques: ({})
     // Play mode marks quietly or not at all (setting); the other modes mark fully.
@@ -706,6 +707,13 @@ Kirigami.Page {
             }
         }
 
+        // Between runs: where the piece stands, bar by bar; dragging sets the loop (LH-FOR-06).
+        SongMap {
+            Layout.fillWidth: true
+            shown: !page.presenting && !page.lean
+            onChosen: (from, to) => ctl.loopBars(from, to)
+        }
+
         // Kept loops and target tempo of the piece (LH-BIB-07, Runde 15): a teacher sets them, a
         // Kontra package hands them on. A chip loops its bars; the cross drops it.
         Flow {
@@ -841,7 +849,8 @@ Kirigami.Page {
         Flow {
             id: densityRow
             Layout.fillWidth: true
-            visible: (ctl.mode === "song" || ctl.mode === "workshop") && !page.presenting && !page.simple && !page.lean
+            // Calls and answers have their own notes: no share of them (LH-LRN-19).
+            visible: (ctl.mode === "song" || ctl.mode === "workshop") && !page.presenting && !page.simple && !page.lean && !ctl.call
             spacing: KanteStyle.unit(8)
             // In a run-through the part is the whole piece (QA 14.10.: "this section" without one).
             readonly property string fixedText: ctl.mode === "workshop" ? texts.t("density.fixed") : texts.t("density.fixed.piece")
@@ -850,10 +859,11 @@ Kirigami.Page {
                 KanteHud { anchors.verticalCenter: parent.verticalCenter; fullText: texts.t("density.title"); color: KanteStyle.mutedTextColor }
                 KanteSegmented {
                     Accessible.name: texts.t("density.title")
-                    model: [texts.t("density.sparse"), texts.t("density.beats"), texts.t("density.full")]
-                    tooltips: [texts.t("density.hint"), texts.t("density.hint"), texts.t("density.hint")]
-                    currentIndex: ctl.density - 1
-                    onActivated: function(index) { ctl.changeDensity(index + 1, ctl.densityFixed ? "fixed" : "free") }
+                    // Shares of 25 % each; the index is the share's step.
+                    model: [25, 50, 75].map(p => texts.t("density.share", {percent: p})).concat([texts.t("density.full")])
+                    tooltips: model.map(() => texts.t("density.hint"))
+                    currentIndex: ctl.density / 25 - 1
+                    onActivated: function(index) { ctl.changeDensity((index + 1) * 25, ctl.densityFixed ? "fixed" : "free") }
                 }
             }
             Row {
@@ -891,6 +901,13 @@ Kirigami.Page {
                     onClicked: ctl.declineDensity()
                 }
             }
+        }
+
+        // Call and response (LH-LRN-19): needs chords and four bars.
+        CallResponse {
+            Layout.fillWidth: true
+            possible: page.bars.length >= 4 && page.bars.some(function(b) { return b.chord })
+            visible: !page.presenting && !page.lean && !ctl.probing
         }
 
         // Blind probe running: why the notes are gone (P1 would think they broke).
@@ -1359,9 +1376,10 @@ Kirigami.Page {
         // Closed, the keyboard goes on at play; it stayed on the hidden "close" (QA 28.10., P7).
         returnTo: transport
         behind: [pageContent]
-        onPracticeBar: function(bar) {
+        onPracticeBar: function(bar) { summary.practiceBars(bar, bar) }
+        onPracticeBars: function(from, to) {
             ctl.changeMode("workshop")
-            ctl.loopBars(bar, bar)
+            ctl.loopBars(from, to)
             summary.close()
         }
     }

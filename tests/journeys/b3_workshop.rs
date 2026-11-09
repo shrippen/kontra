@@ -161,7 +161,7 @@ fn song_summary(core: &mut Core, score: &std::path::Path) -> serde_json::Value {
     core.open(score).unwrap();
     core.set_mode("song");
     core.play();
-    let events = run_until(core, Duration::from_secs(12), |e| {
+    let events = run_until(core, Duration::from_secs(30), |e| {
         matches!(e, UiEvent::Finished { .. })
     });
     let summary = events
@@ -284,4 +284,45 @@ fn a_sharp_string_is_named() {
         s["detunedText"],
         "Die A-Saite klingt etwa 15 Cent zu hoch – nachstimmen?"
     );
+}
+
+/// Step 7 (LH-FOR-06): after a run the song map shows every bar's hits; dragging over bars 5–8
+/// (the QML test `test_song_map_sets_the_loop` drags) sets them as the loop.
+#[test]
+fn song_map_shows_the_run_and_sets_the_loop() {
+    let profile = Profile::new("b3-songmap");
+    let score = profile.dir.join("strophe.mid");
+    let riff: Vec<u8> = RIFF.iter().copied().cycle().take(32).collect();
+    write_midi(&score, "Strophe", &riff);
+    let take = profile.dir.join("strophe.wav");
+    let mistakes = kontra_session::Mistakes {
+        miss_every: 4,
+        ..kontra_session::Mistakes::default()
+    };
+    render(&take, &piece("Strophe", &riff), mistakes);
+    let mut core = profile.core(Some(&take));
+
+    // Before the first run there is nothing to show.
+    core.open(&score).unwrap();
+    let map: serde_json::Value = serde_json::from_str(&core.song_map_json()).unwrap();
+    assert_eq!(map["played"], false);
+    assert_eq!(map["values"].as_array().unwrap().len(), 8);
+
+    let s = song_summary(&mut core, &score);
+    assert!(s["hitRate"].as_f64().unwrap() < 1.0, "{s}");
+    let map: serde_json::Value = serde_json::from_str(&core.song_map_json()).unwrap();
+    assert_eq!(map["played"], true);
+    // One of four notes left out: 75 % in every bar, the tip says it in numbers.
+    for value in map["values"].as_array().unwrap() {
+        assert_eq!(value.as_f64(), Some(0.75), "{map}");
+    }
+    assert_eq!(
+        map["tips"][4],
+        "Takt 5: 75 % im letzten Durchlauf (3 von 4 Noten)"
+    );
+
+    core.set_loop(4, 7);
+    let map: serde_json::Value = serde_json::from_str(&core.song_map_json()).unwrap();
+    assert_eq!(map["loop"], serde_json::json!([4, 7]));
+    assert_eq!(core.loop_seconds(), (8.0, 16.0));
 }

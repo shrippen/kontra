@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 /// Generator choices of `Core::exercise_spec`: judged by pitch and time, or by time only.
 const JUDGING_PITCH: &str = "pitch";
 const JUDGING_TIME: &str = "time";
+const JUDGING_OPEN: &str = "open";
 
 impl Core {
     /// Folder of the bundled exercises (LH-BIB-08): installed share dir, else the repo's.
@@ -141,7 +142,7 @@ impl Core {
     pub(crate) fn run_sits(judging: Judging, hit_rate: f64, spread_ms: Option<f64>) -> bool {
         let pulse = match judging {
             Judging::TimeOnly => spread_ms.is_some_and(|s| s.round() <= PULSE_SPREAD_MS),
-            Judging::PitchAndTime => true,
+            Judging::PitchAndTime | Judging::Open => true,
         };
         hit_rate >= MASTERED_RATE && pulse
     }
@@ -231,6 +232,7 @@ impl Core {
         // Judged by time only: another exercise with its own file and progress (DIDAKTIK I4).
         match d.judging {
             Judging::TimeOnly => self.tr("exercise.title.timing", &[("title", title)]),
+            Judging::Open => self.tr("exercise.title.open", &[("title", title)]),
             Judging::PitchAndTime => title,
         }
     }
@@ -261,6 +263,7 @@ impl Core {
         let judging = match judging {
             "" | JUDGING_PITCH => Judging::PitchAndTime,
             JUDGING_TIME => Judging::TimeOnly,
+            JUDGING_OPEN => Judging::Open,
             _ => return None,
         };
         use exercise::{ExerciseKind, Fingers, Progression, Rhythm, ScaleKind, Sequence};
@@ -302,8 +305,17 @@ impl Core {
     /// Writes a generated exercise (LH-LRN-04) into the data folder and returns its path.
     pub fn generate_exercise(&mut self, spec: &exercise::ExerciseSpec) -> Result<PathBuf, String> {
         let generated = exercise::generate(spec);
+        let path = self.generated_path(spec);
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        }
+        std::fs::write(&path, &generated.midi).map_err(|e| e.to_string())?;
+        Ok(path)
+    }
+
+    /// Where `generate_exercise` writes `spec`.
+    pub(crate) fn generated_path(&self, spec: &exercise::ExerciseSpec) -> PathBuf {
         let dir = self.data_dir.join("exercises");
-        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
         // The file is named in the UI's language; the title inside stays German (progress key).
         let name: String = self
             .exercise_title(&exercise::describe(spec))
@@ -315,9 +327,7 @@ impl Core {
                 _ => c,
             })
             .collect();
-        let path = dir.join(format!("{name}.mid"));
-        std::fs::write(&path, &generated.midi).map_err(|e| e.to_string())?;
-        Ok(path)
+        dir.join(format!("{name}.mid"))
     }
 
     /// Path of the bundled first exercise: next to the binary when installed, else in the repo.

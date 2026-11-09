@@ -26,7 +26,7 @@ Lass dazu die Taste los.
 
 ## Üben
 Ein Groove mit Pausen auf dem tiefen E. Hier zählt nur, wann du anschlägst, nicht welcher Ton.
-::: practice bundled=46 speeds="70 85 100"
+::: practice bundled=46 speeds="70 85 100" goal=timing
 
 ## Prüfen
 ::: question

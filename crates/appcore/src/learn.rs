@@ -96,7 +96,8 @@ impl Core {
     /// The bundled lessons and added courses seen through the current instrument profile;
     /// `None` only if the embedded files are broken (a test guards that).
     fn learning(&self) -> Option<Learning> {
-        let chosen = self.settings.course.as_deref().unwrap_or_default();
+        let chosen = self.live_course_id().or(self.settings.course.as_deref());
+        let chosen = chosen.unwrap_or_default();
         Learning::with_courses(&self.instrument(), &self.courses, chosen)
     }
 
@@ -200,7 +201,7 @@ impl Core {
             "fits": learning.fits(&unit.scope),
             "seen": seen,
             "done": state.done(&key),
-            "pages": self.with_cues(id, self.pages_json(&doc)),
+            "pages": self.with_ladders(id, self.with_cues(id, self.pages_json(&doc))),
         })
         .to_string()
     }
@@ -323,7 +324,11 @@ impl Core {
     }
 
     /// Page `page` of lesson `id` was shown; the last page finishes the lesson.
+    /// Nothing is stored while a course folder is open (LH-LRN-21).
     pub fn lesson_seen(&mut self, id: &str, page: usize) {
+        if self.previewing_course() {
+            return;
+        }
         let Some(learning) = self.learning() else {
             return;
         };
@@ -355,6 +360,9 @@ impl Core {
             return false;
         };
         let right = question.answer == option;
+        if self.previewing_course() {
+            return right;
+        }
         let Some(learning) = self.learning() else {
             return right;
         };
@@ -469,6 +477,9 @@ impl Core {
         else {
             return false;
         };
+        if self.previewing_course() {
+            return true;
+        }
         let now = unix_now();
         for unit in units.iter().filter_map(|id| learning.unit(id)) {
             if learning.fits(&unit.scope) {
@@ -647,7 +658,14 @@ impl Core {
         Ok(())
     }
 
+    /// The file of a practice step; its goal holds for runs of that file (LH-LRN-20).
     fn practice_path(&mut self, practice: &Practice) -> Result<PathBuf, String> {
+        let path = self.exercise_path(practice)?;
+        self.set_lesson_goal(&path, practice.goal);
+        Ok(path)
+    }
+
+    fn exercise_path(&mut self, practice: &Practice) -> Result<PathBuf, String> {
         match &practice.exercise {
             ExerciseRef::Bundled(n) => self
                 .bundled_file(*n)
@@ -671,7 +689,7 @@ impl Core {
             .find(|f| plan_number(f).0 == usize::from(n))
     }
 
-    fn generated_spec(&self, exercise: &ExerciseRef) -> Option<exercise::ExerciseSpec> {
+    pub(crate) fn generated_spec(&self, exercise: &ExerciseRef) -> Option<exercise::ExerciseSpec> {
         let ExerciseRef::Generated {
             kind,
             variant,
@@ -846,7 +864,7 @@ mod tests {
         let course = parse(&core.learn_json());
         assert_eq!(course["chapters"][0]["done"], 1);
         assert_ne!(course["next"]["id"], first.as_str());
-        assert_eq!(parse(&core.home_json())["lesson"], course["next"]);
+        assert_eq!(parse(&core.home_json(0))["lesson"], course["next"]);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -904,6 +922,18 @@ mod tests {
             .unwrap()
             .to_string_lossy()
             .starts_with("01 "));
+
+        // Its goal in the summary of a run of that file (LH-LRN-20); not for another piece.
+        core.open(&path).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        // The first groove counts only the time (`goal=timing`, I4).
+        s.spread_ms = Some(31.0);
+        let goal = |core: &Core, s| parse(&core.summary_json(s, &[], &[]))["goal"].clone();
+        assert_eq!(goal(&core, &s)["text"], "Ziel ±25 ms, erreicht ±31 ms");
+        assert_eq!(goal(&core, &s)["met"], false);
+        core.open(&Core::demo_path()).unwrap();
+        assert!(goal(&core, &s).is_null());
         let _ = std::fs::remove_dir_all(dir);
     }
 

@@ -6,6 +6,23 @@ use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
 
 impl qobject::Controller {
+    /// Call and response on or off (LH-LRN-19): the notes change, a run stops.
+    pub(super) fn change_call(mut self: Pin<&mut Self>, on: bool) {
+        if self.as_mut().core().set_call(on) {
+            self.as_mut().set_playing(false);
+            self.as_mut().refresh_arrangement();
+        }
+        self.as_mut().refresh_call();
+    }
+
+    /// Whether calls play and the tab is hidden (until two failed tries).
+    pub(super) fn refresh_call(mut self: Pin<&mut Self>) {
+        let on = self.as_ref().rust().core.call_on();
+        let hidden = self.as_ref().rust().core.call_hidden();
+        self.as_mut().set_call(on);
+        self.as_mut().set_call_hidden(hidden);
+    }
+
     pub(super) fn learn_json(&self) -> QString {
         q(&self.rust().core.learn_json())
     }
@@ -112,6 +129,17 @@ impl qobject::Controller {
         self.as_mut().set_course_fetch_json(q(&json));
     }
 
+    pub(super) fn open_course_folder(mut self: Pin<&mut Self>, url: &QString) {
+        let url = url.to_string();
+        let dir = if url.is_empty() {
+            std::path::PathBuf::new()
+        } else {
+            local_path(&url)
+        };
+        let json = self.as_mut().core().open_course_folder(&dir);
+        self.as_mut().set_course_folder_json(q(&json));
+    }
+
     pub(super) fn lesson_video(&self, id: &QString, page: i32, block: i32) -> QString {
         let (Ok(page), Ok(block)) = (usize::try_from(page), usize::try_from(block)) else {
             return QString::default();
@@ -141,6 +169,28 @@ impl qobject::Controller {
             .as_mut()
             .core()
             .lesson_exercise(&id.to_string(), page, block);
+        self.as_mut().open_exercise(path)
+    }
+
+    pub(super) fn lesson_stage(
+        mut self: Pin<&mut Self>,
+        id: &QString,
+        page: i32,
+        block: i32,
+        stage: i32,
+    ) -> bool {
+        let at = (
+            usize::try_from(page),
+            usize::try_from(block),
+            usize::try_from(stage),
+        );
+        let (Ok(page), Ok(block), Ok(stage)) = at else {
+            return false;
+        };
+        let path = self
+            .as_mut()
+            .core()
+            .lesson_stage(&id.to_string(), page, block, stage);
         self.as_mut().open_exercise(path)
     }
 

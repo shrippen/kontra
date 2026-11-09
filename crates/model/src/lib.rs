@@ -9,6 +9,7 @@
 //! Units are part of the names: `_hz`, `_cent`, `_s`, `_ms`, `_ticks`.
 
 mod arrangement;
+mod chord;
 mod event;
 mod instrument;
 mod pitch;
@@ -19,10 +20,11 @@ pub use arrangement::{
     Arrangement, Bar, DrumHit, DrumKind, Feel, Judging, Marker, MarkerKind, Note, Technique,
     TimeSignature, TICKS_PER_QUARTER,
 };
+pub use chord::{in_key, Chord};
 pub use event::{
-    ChordHearing, DetectedNote, DoubleStopHeard, DoubleStopVerdict, ExpectedStrike, ExpectedTone,
-    InputSource, NoteRetraction, PitchRevision, StringHeard, StringVerdict, TechniqueRevision,
-    Unclear,
+    ChordHearing, DetectedNote, DoubleStopHeard, DoubleStopVerdict, Ending, ExpectedStrike,
+    ExpectedTone, InputSource, NoteEnd, NoteRetraction, PitchRevision, StringHeard, StringVerdict,
+    TechniqueRevision, Unclear,
 };
 pub use instrument::{Instrument, InstrumentError, InstrumentKind, KeyRange, ToneBands};
 pub use pitch::{cents_between, hz_to_midi, midi_to_hz, NoteName, Pitch, A4_HZ};

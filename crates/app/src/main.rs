@@ -24,6 +24,11 @@ const APP_ID: &str = "org.shrippen.Kontra";
 
 const MAIN_QML: &str = "qrc:/qt/qml/org/shrippen/kontra/qml/Main.qml";
 
+/// Development only (LH-LRN-21): set, a debug build loads its pages from `crates/app/qml` on
+/// disk instead of the compiled ones, so an edited page shows on the next start without a
+/// build. Release builds ignore it.
+const LIVE_QML_VAR: &str = "KONTRA_LIVE_QML";
+
 /// Qt's platform theme, read before the app starts.
 const THEME_VAR: &str = "QT_QPA_PLATFORMTHEME";
 
@@ -81,11 +86,21 @@ fn main() {
                 std::process::exit(1);
             })
             .release();
-        engine.load(&QUrl::from(MAIN_QML));
+        engine.load(&main_qml());
     }
     if let Some(app) = app.as_mut() {
         app.exec();
     }
+}
+
+/// The main page: compiled in, or in a debug build with `LIVE_QML_VAR` set, from disk.
+fn main_qml() -> QUrl {
+    if !cfg!(debug_assertions) || std::env::var_os(LIVE_QML_VAR).is_none() {
+        return QUrl::from(MAIN_QML);
+    }
+    let file = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("qml/Main.qml");
+    eprintln!("kontra: pages from {}", file.display());
+    QUrl::from(format!("file://{}", file.display()).as_str())
 }
 
 /// True if `<APP_ID>.desktop` is in an XDG applications folder (installed, or a Flatpak).

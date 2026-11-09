@@ -776,6 +776,46 @@ fn pickup(signature: TimeSignature, length: u64) -> Option<TimeSignature> {
 mod tests {
     use super::*;
 
+    /// Review #226: every suffix the import writes reads back as its chord ("Cmaj13" is no
+    /// C minor, "C13" no unknown name). Thirds and sevenths above C as MIDI pitch classes.
+    #[test]
+    fn imported_chord_suffixes_parse() {
+        const MINOR_THIRD: u8 = 3;
+        const MAJOR_THIRD: u8 = 4;
+        const MINOR_SEVENTH: u8 = 10;
+        const MAJOR_SEVENTH: u8 = 11;
+        let kinds = [
+            ("major-seventh", MAJOR_THIRD, Some(MAJOR_SEVENTH)),
+            ("minor-seventh", MINOR_THIRD, Some(MINOR_SEVENTH)),
+            ("augmented-seventh", MAJOR_THIRD, Some(MINOR_SEVENTH)),
+            ("major-minor", MINOR_THIRD, Some(MAJOR_SEVENTH)),
+            ("dominant-11th", MAJOR_THIRD, Some(MINOR_SEVENTH)),
+            ("major-11th", MAJOR_THIRD, Some(MAJOR_SEVENTH)),
+            ("minor-11th", MINOR_THIRD, Some(MINOR_SEVENTH)),
+            ("dominant-13th", MAJOR_THIRD, Some(MINOR_SEVENTH)),
+            ("major-13th", MAJOR_THIRD, Some(MAJOR_SEVENTH)),
+            ("minor-13th", MINOR_THIRD, Some(MINOR_SEVENTH)),
+            ("major-ninth", MAJOR_THIRD, Some(MAJOR_SEVENTH)),
+            ("minor-ninth", MINOR_THIRD, Some(MINOR_SEVENTH)),
+        ];
+        for (kind, third, seventh) in kinds {
+            let symbol = format!("C{}", chord_suffix(kind));
+            let chord = kontra_model::Chord::parse(&symbol);
+            let Some(chord) = chord else {
+                panic!("{symbol} did not parse");
+            };
+            let other_third = MINOR_THIRD + MAJOR_THIRD - third;
+            assert!(
+                chord.has(third) && !chord.has(other_third),
+                "{symbol}: third"
+            );
+            if let Some(seventh) = seventh {
+                let other = MINOR_SEVENTH + MAJOR_SEVENTH - seventh;
+                assert!(chord.has(seventh) && !chord.has(other), "{symbol}: seventh");
+            }
+        }
+    }
+
     #[test]
     fn ending_numbers() {
         assert_eq!(ending_mask("1"), 0b1);

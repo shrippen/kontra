@@ -19,7 +19,29 @@ const S_PER_MINUTE: f64 = 60.0;
 pub fn run(a: &KorpusArgs) -> CliResult {
     match &a.command {
         KorpusCommand::Write { dir } => write(dir),
-        KorpusCommand::Check { dir } => check(dir.as_deref()),
+        KorpusCommand::Check {
+            dir,
+            real,
+            baseline,
+        } => {
+            check(dir.as_deref())?;
+            match real.is_empty() {
+                true => Ok(()),
+                false => crate::baseline::check(real, baseline),
+            }
+        }
+        KorpusCommand::Freeze {
+            groups,
+            real,
+            baseline,
+            replace,
+        } => {
+            let replace = match replace {
+                true => crate::baseline::Replace::Allowed,
+                false => crate::baseline::Replace::No,
+            };
+            crate::baseline::freeze(groups, real, baseline, replace)
+        }
         KorpusCommand::Measure {
             dirs,
             window_ms,
@@ -75,6 +97,10 @@ pub fn run(a: &KorpusArgs) -> CliResult {
             window_ms,
             per_interval,
         } => crate::double_stops::measure(dirs, *window_ms, *per_interval),
+        KorpusCommand::Chords { dirs, window_ms } => {
+            crate::chords::measure(dirs, window_ms / 1000.0)
+        }
+        KorpusCommand::Ends { dirs, window_ms } => crate::ends::measure(dirs, window_ms / 1000.0),
     }
 }
 
@@ -492,12 +518,14 @@ fn check(dir: Option<&Path>) -> CliResult {
             if ok { "ok" } else { "FAILED" }
         );
     }
-    // Generated only: real recordings go through `korpus double-stops`.
+    // Generated only: real recordings go through `korpus double-stops`, `chords` and `ends`.
     if dir.is_none() {
         failed |= !crate::double_stops::check();
+        failed |= !crate::chords::check();
+        failed |= !crate::ends::check();
     }
     if failed {
-        return Err("corpus below LH-NF-02/03/15/16, LH-BEW-05 or LH-BEW-11 targets".into());
+        return Err("corpus below LH-NF-02/03/15/16, LH-BEW-05/10/11 or M2 targets".into());
     }
     Ok(())
 }
