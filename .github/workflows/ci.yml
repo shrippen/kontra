@@ -70,6 +70,9 @@ jobs:
       # Includes the journey tests (tests/journeys, planung/QA.md ⚙): recordings rendered on the fly,
       # played in real time through the app core without a sound card.
       - run: cargo test --workspace --exclude kontra-app
+      # Built, not run: timings on shared runners are noise (E4, run locally with `cargo bench`).
+      - name: Benches build
+        run: cargo bench -p kontra-dsp --no-run
       - run: command -v cargo-deny || cargo install --locked cargo-deny
       - run: cargo deny check licenses bans sources
       - name: Licence list in the program is current (LH-NF-11)

@@ -328,7 +328,13 @@ Erkennung und Messung:
   Aussetzer und Wiedereinsatz kommen jetzt nur noch im Gehörtraining als Meldung.
   Verlust aus Gerätestempeln über eine DLL (R3, erster Teil, #209); offen aus R3: Wiedergabe- und
   Eingangszeitachse an der DLL verankern (Ausgangsstempel), Loopback-Prüfung am Solo.
-- [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).
+- [x] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur): `cargo bench -p kontra-dsp`
+  (`crates/dsp/benches/realtime.rs`) misst, was der Analyse-Thread je Block von 480 Samples bei 48 kHz (10 ms) tut,
+  und gibt vorab je Stufe Mittel, p99 und schlechtesten Block als Anteil am Budget aus (schnellster von 5 Durchläufen
+  je Block). Erste Messung (09.11., Ryzen mit 24 Threads, Last 30–40 durch parallele Builds): Tracker auf einer
+  Linie E1–A2 Mittel 1,8 %, p99 5,1 %, schlechtester Block 6,0 %; mit Brummen und Abzug (E8) 1,5 / 5,0 / 5,9 %;
+  Anschlag allein 0,9 / 4,7 / 5,0 %; Stimmgerät 0,6 / 1,8 / 1,9 %; Echo-Unterdrückung (512 Samples) 0,9 / 1,0 /
+  1,2 %. Ein Block bleibt damit unter einem Zehntel des Budgets. Die CI baut die Benches nur (`--no-run`).
 - [ ] E5 Notenende (LH-BEW-10).
 - [x] E6 Rauschboden bei der Kalibrierung (LH-EIN-16, `noise-floor`): Beim Einzählen misst der Onset-Detektor den
   Pegel im Anschlagband (10. Perzentil), die Schwelle liegt 6 dB darüber (−62 bis −40 dB) und gilt je Eingang.

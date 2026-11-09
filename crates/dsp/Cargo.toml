@@ -12,3 +12,11 @@ rustfft.workspace = true
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+# Benches of the real-time path (E4; MIT/Apache-2.0): statistics without plots or rayon.
+criterion = { version = "0.7", default-features = false, features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "realtime"
+harness = false
