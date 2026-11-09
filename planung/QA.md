@@ -79,10 +79,10 @@ nennt Kontra die Abhilfe (ab- und anstecken oder `systemctl --user restart wirep
 
 ## B. Spielen und Üben
 
-**J-B1 Lied durchspielen** ⚙ 📽 · Persona: P2 Jens · Phase 1 · LH-BIB-01, -04, LH-MOD-01, LH-WIE-03, LH-EIN-08, LH-ANZ-01, -02
+**J-B1 Lied durchspielen** ⚙ 📽 · Persona: P2 Jens · Phase 1 · LH-BIB-01, -04, LH-MOD-01, LH-WIE-03, LH-EIN-08, -17, LH-ANZ-01, -02
 1. Ordner mit vier Guitar-Pro-Dateien der Setlist importieren (eine davon defekt).
 2. Setlist „Freitag“ anlegen, Lieder über „Stück hinzufügen …“ aufnehmen (ohne sie zu öffnen), erstes Lied, Bassspur wählen.
-3. Modus „Frei spielen“, Backing Track (synthetisch bzw. ab Phase 3 eigene MP3), durchspielen; im Mixer (X) Backing leiser, Metronom lauter, Mithören an, Tiefen +4 dB, Kompressor und Wärme halb, „Neutral“, Mithören aus.
+3. Modus „Frei spielen“, Backing Track (synthetisch bzw. ab Phase 3 eigene MP3), durchspielen; im Mixer (X) Backing leiser, Metronom lauter, Mithören an, Tiefen +4 dB, Kompressor und Wärme halb, Overdrive und Stereobreite halb, Begrenzer aus und wieder an, „Neutral“, Mithören aus.
 4. Mitten im Lied von Tab-Lane auf Tabulatur umschalten.
 5. Nächstes Lied der Setlist.
 Erwartet: eine verständliche Meldung zur defekten Datei, drei Lieder importiert; kein Anhalten, keine Punkte; Mixer wirkt sofort ohne Neustart, Mithören nennt die Latenz; Klangregler knacken nicht und ändern die Bewertung nicht; Umschalten ohne Aussetzer; Liedwechsel in ≤ 2 Klicks.

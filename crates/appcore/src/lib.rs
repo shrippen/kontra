@@ -20,6 +20,7 @@ mod learn;
 pub mod level;
 mod library;
 mod live_course;
+mod mixer;
 mod notation;
 mod package;
 mod prepare;
@@ -48,11 +49,12 @@ pub use store::{
 use input_state::{InputUse, Unstarted};
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Technique, Tuning};
 use kontra_session::{
-    import_file, list_devices, Chain, Connection, DeviceInfo, Direction, Gains, ImportResult,
-    InputChoice, Live, LiveCalibration, LiveEar, LiveError, LiveLoopback, LiveSetup, LiveTuner,
-    LoopRange, Mode, Outcome, PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings,
-    SessionEvent, Shaping, TechniqueOutcome, Workshop,
+    import_file, list_devices, Chain, Connection, DeviceInfo, Direction, ImportResult, InputChoice,
+    Live, LiveCalibration, LiveEar, LiveError, LiveLoopback, LiveSetup, LiveTuner, LoopRange, Mode,
+    Outcome, PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings, SessionEvent,
+    TechniqueOutcome, Workshop,
 };
+use mixer::{ear_gains, gains};
 use notation::key_at;
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -2873,42 +2875,6 @@ fn preferred_input(devices: &[DeviceInfo]) -> Option<&DeviceInfo> {
         .filter(usb)
         .find(|d| d.is_default)
         .or_else(|| devices.iter().find(usb))
-}
-
-/// Block length in ms if it is longer than 512 frames at 48 kHz (10.7 ms): beyond that the
-/// latency target (LH-NF-01) cannot be met.
-/// The mixer's volumes for the player; monitoring off mutes the input.
-fn gains(settings: &Settings) -> Gains {
-    let volume = |v: f64| v.clamp(0.0, 1.0) as f32;
-    Gains {
-        click: volume(settings.metronome_volume),
-        tone: volume(settings.tone_volume),
-        backing: volume(settings.backing_volume),
-        drums: volume(settings.drums_volume),
-        bass: volume(settings.bass_volume),
-        monitor: if settings.monitor {
-            volume(settings.monitor_volume)
-        } else {
-            0.0
-        },
-        // The shaper clamps the ranges itself.
-        shaping: Shaping {
-            low_db: settings.monitor_low_db as f32,
-            mid_db: settings.monitor_mid_db as f32,
-            high_db: settings.monitor_high_db as f32,
-            compress: settings.monitor_compress as f32,
-            warmth: settings.monitor_warmth as f32,
-            bands: instrument_from(settings).tone_bands(),
-        },
-    }
-}
-
-/// Ear training plays its prompts as tones at the "Vorspielen" volume (round 8).
-fn ear_gains(settings: &Settings) -> Gains {
-    Gains {
-        tone: settings.prompt_volume.clamp(0.0, 1.0) as f32,
-        ..gains(settings)
-    }
 }
 
 /// A seed that differs between rounds (quiz and ear training questions).

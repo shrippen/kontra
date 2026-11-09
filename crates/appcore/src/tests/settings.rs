@@ -1,6 +1,7 @@
 //! Settings: instrument, tuning, mixer, scoring, devices.
 
 use super::*;
+use kontra_session::{Limit, Shaping};
 
 #[test]
 fn midi_choice_by_name_falls_back_to_the_first() {
@@ -77,14 +78,28 @@ fn gains_follow_the_mixer() {
     settings.monitor = true;
     assert_eq!(gains(&settings).monitor, 0.5);
 
-    assert_eq!(off.shaping, Shaping::FLAT);
+    // Unshaped, but the limiter on by default (LH-EIN-17).
+    assert_eq!(
+        off.shaping,
+        Shaping {
+            limit: Limit::On,
+            ..Shaping::FLAT
+        }
+    );
     settings.monitor_low_db = 3.0;
     settings.monitor_compress = 0.5;
     settings.monitor_warmth = 0.25;
+    settings.monitor_drive = 0.75;
+    settings.monitor_width = 1.0;
+    settings.monitor_limit = false;
     let shaped = gains(&settings).shaping;
     assert_eq!(
         (shaped.low_db, shaped.compress, shaped.warmth),
         (3.0, 0.5, 0.25)
+    );
+    assert_eq!(
+        (shaped.drive, shaped.width, shaped.limit),
+        (0.75, 1.0, Limit::Off)
     );
 }
 

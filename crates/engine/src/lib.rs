@@ -31,7 +31,7 @@ pub use kontra_drivers::{
     StreamConfig, Web, NULL_DEVICE,
 };
 pub use kontra_dsp::{
-    track_beats, BeatGrid, Pick, Shaping, StringModel, LOG_B_PER_FRET, SHAPING_RANGE_DB,
+    track_beats, BeatGrid, Limit, Pick, Shaping, StringModel, LOG_B_PER_FRET, SHAPING_RANGE_DB,
 };
 pub use korpus::chords::{analyze_midi_file, generate_midi_chords, score_chords, ChordTally};
 pub use korpus::ends::{evaluate_ends, generate_staccato, EndTally};

@@ -5,8 +5,9 @@ import Kante
 
 // Mixer (LH-WIE-03, LH-MOD-05): volumes of backing track (and its removed bass, LH-BIB-09),
 // metronome, reference tone and drums (LH-LRN-01), and the bass played through Kontra (off by default: the interface's direct
-// monitoring has no delay). While it plays, three tone bands and a compressor shape it
-// and warmth (LH-EIN-08); "Neutral" resets them.
+// monitoring has no delay). While it plays, three tone bands, a compressor, warmth (LH-EIN-08),
+// overdrive and stereo width shape it, a limiter (on by default) catches peaks (LH-EIN-17);
+// "Neutral" resets them.
 // Changes apply at once, also while playing. On the practice page and in the settings.
 ColumnLayout {
     id: mixer
@@ -73,12 +74,12 @@ ColumnLayout {
         bus: "tone"
         value: mixer.ctl.toneVolume
     }
-    // One tone band of the monitored bass in whole dB, or compressor and warmth in percent.
+    // One tone band of the monitored bass in whole dB, or an effect's amount in percent.
     component Shaping: KanteSettingRow {
         id: shapingRow
         property string band
         property real value
-        readonly property bool isAmount: band === "compress" || band === "warmth"
+        readonly property bool isAmount: band !== "low" && band !== "mid" && band !== "high"
         readonly property real range: mixer.ctl.shapingRangeDb
         Layout.fillWidth: true
         visible: mixer.ctl.monitor
@@ -167,6 +168,31 @@ ColumnLayout {
         band: "warmth"
         value: mixer.ctl.monitorWarmth
     }
+    Shaping {
+        title: mixer.texts.t("mixer.shaping.drive")
+        hint: mixer.texts.t("mixer.shaping.drive.hint")
+        band: "drive"
+        value: mixer.ctl.monitorDrive
+    }
+    Shaping {
+        title: mixer.texts.t("mixer.shaping.width")
+        hint: mixer.texts.t("mixer.shaping.width.hint")
+        band: "width"
+        value: mixer.ctl.monitorWidth
+    }
+    KanteSettingRow {
+        Layout.fillWidth: true
+        visible: mixer.ctl.monitor
+        title: mixer.texts.t("mixer.shaping.limit")
+        hint: mixer.texts.t("mixer.shaping.limit.hint")
+        KanteSwitch {
+            Accessible.name: mixer.texts.t("mixer.shaping.limit")
+            Accessible.description: mixer.texts.t("mixer.shaping.limit.hint")
+            focusPolicy: Qt.StrongFocus
+            checked: mixer.ctl.monitorLimit
+            onToggled: mixer.ctl.changeLimit(checked)
+        }
+    }
     KanteSettingRow {
         Layout.fillWidth: true
         visible: mixer.ctl.monitor
@@ -176,7 +202,8 @@ ColumnLayout {
             Accessible.name: mixer.texts.t("mixer.shaping.neutral.title")
             enabled: mixer.ctl.monitorLowDb !== 0 || mixer.ctl.monitorMidDb !== 0
                 || mixer.ctl.monitorHighDb !== 0 || mixer.ctl.monitorCompress !== 0
-                || mixer.ctl.monitorWarmth !== 0
+                || mixer.ctl.monitorWarmth !== 0 || mixer.ctl.monitorDrive !== 0
+                || mixer.ctl.monitorWidth !== 0 || !mixer.ctl.monitorLimit
             onClicked: mixer.ctl.resetShaping()
         }
     }

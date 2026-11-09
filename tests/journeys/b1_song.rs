@@ -44,8 +44,23 @@ fn play_through_a_setlist() {
         s.monitor_low_db = 4.0;
         s.monitor_compress = 0.5;
         s.monitor_warmth = 0.5;
+        s.monitor_drive = 0.5;
+        s.monitor_width = 0.5;
+        s.monitor_limit = false;
     });
     assert!(hint.is_none(), "{hint:?}");
+    // Limiter back on, then "Neutral": effects off, the limiter on (LH-EIN-17, review #230).
+    core.remix(|s| s.monitor_limit = true);
+    assert!(core.settings().monitor_limit);
+    core.remix(|s| s.monitor_limit = false);
+    assert!(core.neutral_shaping().is_none());
+    let s = core.settings();
+    assert!(s.monitor_limit);
+    assert_eq!(
+        (s.monitor_low_db, s.monitor_compress, s.monitor_warmth),
+        (0.0, 0.0, 0.0)
+    );
+    assert_eq!((s.monitor_drive, s.monitor_width), (0.0, 0.0));
     core.set_view("tab");
     assert!(core.is_playing());
     events.extend(run_until(&mut core, Duration::from_secs(8), |e| {

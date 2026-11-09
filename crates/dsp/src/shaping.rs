@@ -1,10 +1,12 @@
-//! Tone shaping for input monitoring (LH-EIN-08): three equaliser bands, a compressor and
-//! warmth (light saturation, like an amp driven a little harder).
+//! Tone shaping for input monitoring (LH-EIN-08): three equaliser bands, a compressor,
+//! warmth (light saturation, like an amp driven a little harder), overdrive, a mono-to-stereo
+//! widener and a limiter (LH-EIN-17).
 //!
 //! ```text
-//! input ─► low shelf ─► mid bell ─► high shelf ─► compressor ─► warmth ─► monitor
-//!                                                                  │
-//!                         2× rate: up ─► tanh ─► anti-alias ─► down
+//! input ─► low shelf ─► mid bell ─► high shelf ─► compressor ─► warmth ─► overdrive
+//!                                                                  │          │
+//!                         2× rate: up ─► tanh ─► anti-alias ─► down          ▼
+//!                                                       (L, R) ◄─ limiter ◄─ widener
 //!
 //! The band frequencies come from the instrument profile (`ToneBands`; bass: 100 Hz,
 //! 800 Hz, 4 kHz), so another instrument needs no change here.
@@ -14,6 +16,7 @@
 //! towards their target in small steps every 32 samples, so moving a slider does not click.
 
 use crate::biquad::{Biquad, EqKind, FilterKind};
+use crate::effects::{Limiter, Overdrive, Widener};
 use kontra_model::ToneBands;
 
 /// Largest boost or cut of a band, in dB.
@@ -43,6 +46,22 @@ const THRESHOLD_RANGE_DB: f32 = 24.0;
 /// Ratio rises from 1:1 to 6:1.
 const RATIO_RANGE: f32 = 5.0;
 
+/// Whether the limiter catches peaks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Limit {
+    On,
+    Off,
+}
+
+impl Limit {
+    fn amount(self) -> f32 {
+        match self {
+            Limit::On => 1.0,
+            Limit::Off => 0.0,
+        }
+    }
+}
+
 /// Settings of the tone shaper; `FLAT` changes nothing.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Shaping {
@@ -54,6 +73,11 @@ pub struct Shaping {
     pub compress: f32,
     /// Saturation, 0 (off) to 1 (warm).
     pub warmth: f32,
+    /// Overdrive, 0 (off) to 1 (strong).
+    pub drive: f32,
+    /// Stereo width, 0 (mono, in the middle) to 1 (wide).
+    pub width: f32,
+    pub limit: Limit,
     /// Where the bands sit, from the instrument profile; changes at once, not gliding.
     pub bands: ToneBands,
 }
@@ -65,6 +89,9 @@ impl Shaping {
         high_db: 0.0,
         compress: 0.0,
         warmth: 0.0,
+        drive: 0.0,
+        width: 0.0,
+        limit: Limit::Off,
         bands: ToneBands::BASS,
     };
 
@@ -76,6 +103,9 @@ impl Shaping {
             high_db: band(self.high_db),
             compress: self.compress.clamp(0.0, 1.0),
             warmth: self.warmth.clamp(0.0, 1.0),
+            drive: self.drive.clamp(0.0, 1.0),
+            width: self.width.clamp(0.0, 1.0),
+            limit: self.limit,
             bands: self.bands,
         }
     }
@@ -87,7 +117,7 @@ impl Default for Shaping {
     }
 }
 
-/// Applies a `Shaping` to a mono signal.
+/// Applies a `Shaping` to a mono signal; stereo out.
 #[derive(Debug, Clone)]
 pub struct Shaper {
     low: Biquad,
@@ -102,6 +132,13 @@ pub struct Shaper {
     attack: f32,
     release: f32,
     warmth: Saturator,
+    overdrive: Overdrive,
+    widener: Widener,
+    limiter: Limiter,
+    /// The limiter faded in (0..=1), gliding towards `target.limit`.
+    limit: f32,
+    /// No settings yet: the first ones apply at once (a slap at the start is limited).
+    fresh: bool,
 }
 
 impl Shaper {
@@ -119,6 +156,11 @@ impl Shaper {
             attack: 0.0,
             release: 0.0,
             warmth: Saturator::new(sample_rate),
+            overdrive: Overdrive::new(sample_rate),
+            widener: Widener::new(sample_rate),
+            limiter: Limiter::new(sample_rate),
+            limit: 0.0,
+            fresh: true,
         };
         shaper.retime(sample_rate);
         shaper
@@ -127,14 +169,22 @@ impl Shaper {
     /// New target; the shaper glides there.
     pub fn set(&mut self, shaping: Shaping) {
         self.target = shaping.clamped();
+        if self.fresh {
+            self.fresh = false;
+            self.limit = self.target.limit.amount();
+        }
     }
 
-    /// One sample at `sample_rate` (the output device's rate may change between streams).
-    pub fn process(&mut self, x: f32, sample_rate: f64) -> f32 {
+    /// One sample at `sample_rate` as (left, right); the output device's rate may change
+    /// between streams.
+    pub fn process(&mut self, x: f32, sample_rate: f64) -> (f32, f32) {
         if sample_rate != self.sample_rate {
             self.retime(sample_rate);
             self.retune();
             self.warmth = Saturator::new(sample_rate);
+            self.overdrive = Overdrive::new(sample_rate);
+            self.widener.retime(sample_rate);
+            self.limiter.retime(sample_rate);
         }
         if self.countdown == 0 {
             self.countdown = RAMP_FRAMES;
@@ -149,15 +199,19 @@ impl Shaper {
         let flat = c.low_db == 0.0 && c.mid_db == 0.0 && c.high_db == 0.0;
         let y = if flat { x } else { shaped };
         let y = self.compress(y);
-        self.warmth.process(y, self.current.warmth)
+        let y = self.warmth.process(y, c.warmth);
+        let y = self.overdrive.process(y, c.drive);
+        let wide = self.widener.process(y, c.width);
+        self.limiter.process(wide, self.limit)
     }
 
     /// Moves `current` one step towards `target` and recomputes the filters if it moved.
     fn step(&mut self) {
+        let toward = |from: f32, to: f32, max: f32| from + (to - from).clamp(-max, max);
+        self.limit = toward(self.limit, self.target.limit.amount(), RAMP_COMPRESS);
         if self.current == self.target {
             return;
         }
-        let toward = |from: f32, to: f32, max: f32| from + (to - from).clamp(-max, max);
         let (c, t) = (self.current, self.target);
         self.current = Shaping {
             low_db: toward(c.low_db, t.low_db, RAMP_DB),
@@ -165,6 +219,9 @@ impl Shaper {
             high_db: toward(c.high_db, t.high_db, RAMP_DB),
             compress: toward(c.compress, t.compress, RAMP_COMPRESS),
             warmth: toward(c.warmth, t.warmth, RAMP_COMPRESS),
+            drive: toward(c.drive, t.drive, RAMP_COMPRESS),
+            width: toward(c.width, t.width, RAMP_COMPRESS),
+            limit: t.limit,
             bands: t.bands,
         };
         self.retune();
@@ -270,7 +327,7 @@ mod tests {
     }
 
     fn run(shaper: &mut Shaper, input: &[f32]) -> Vec<f32> {
-        input.iter().map(|&x| shaper.process(x, SR)).collect()
+        input.iter().map(|&x| shaper.process(x, SR).0).collect()
     }
 
     #[test]
@@ -374,6 +431,48 @@ mod tests {
         assert_eq!(shaper.target.mid_db, -SHAPING_RANGE_DB);
         assert_eq!(shaper.target.compress, 1.0);
         assert_eq!(shaper.target.warmth, 0.0);
+    }
+
+    #[test]
+    fn limiter_catches_a_slap() {
+        // A peak near full scale, lifted 12 dB by the mid band: the limiter keeps it under
+        // the ceiling (LH-EIN-17).
+        let mut shaper = Shaper::new(SR);
+        shaper.set(Shaping {
+            mid_db: SHAPING_RANGE_DB,
+            limit: Limit::On,
+            ..Shaping::FLAT
+        });
+        let out = run(&mut shaper, &sine(800.0, 0.95, 48_000));
+        let peak = out[24_000..].iter().fold(0.0f32, |m, v| m.max(v.abs()));
+        assert!(peak <= crate::effects::LIMIT_CEILING + 1e-6, "peak {peak}");
+    }
+
+    #[test]
+    fn limiter_is_on_from_the_first_sample() {
+        // Review #230: a new shaper set to limit faded the limiter in over ~33 ms; a slap at
+        // the start of a run passed unlimited.
+        let mut shaper = Shaper::new(SR);
+        shaper.set(Shaping {
+            limit: Limit::On,
+            ..Shaping::FLAT
+        });
+        let out = run(&mut shaper, &sine(55.0, 1.6, 4800));
+        let peak = out.iter().fold(0.0f32, |m, v| m.max(v.abs()));
+        assert!(peak <= crate::effects::LIMIT_CEILING + 1e-6, "peak {peak}");
+    }
+
+    #[test]
+    fn width_spreads_the_sides() {
+        let mut shaper = Shaper::new(SR);
+        shaper.set(Shaping {
+            width: 1.0,
+            ..Shaping::FLAT
+        });
+        let input = sine(1000.0, 0.3, 48_000);
+        let out: Vec<(f32, f32)> = input.iter().map(|&x| shaper.process(x, SR)).collect();
+        let side: Vec<f32> = out[24_000..].iter().map(|(l, r)| l - r).collect();
+        assert!(rms_db(&side) - rms_db(&input[24_000..]) > -12.0);
     }
 
     /// Level of `hz` in `signal`, in dB relative to a full-scale sine (Goertzel).

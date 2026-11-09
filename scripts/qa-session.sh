@@ -15,6 +15,7 @@
 #   --keep        keep the work folder (data, log) and print it
 #   --run CMD     run CMD (with DISPLAY set) once the window is there, then stop Kontra;
 #                 without it Kontra runs until it quits or Ctrl-C
+#   --settings J  more settings as a JSON object, e.g. '{"monitor": true}'; the null output stays
 #
 # Kontra binary: $KONTRA_BIN, else $CARGO_TARGET_DIR/debug/kontra, else target/debug/kontra.
 set -euo pipefail
@@ -23,7 +24,7 @@ set -euo pipefail
 caller="$PWD"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 
-input="" a11y=0 size="1920x1080" keep=0 run=""
+input="" a11y=0 size="1920x1080" keep=0 run="" extra="{}"
 while [ $# -gt 0 ]; do
     case "$1" in
         --input-file) input="$2"; shift 2 ;;
@@ -31,6 +32,7 @@ while [ $# -gt 0 ]; do
         --size) size="$2"; shift 2 ;;
         --keep) keep=1; shift ;;
         --run) run="$2"; shift 2 ;;
+        --settings) extra="$2"; shift 2 ;;
         --) shift; break ;;
         *) echo "qa-session: unknown option $1 (see the head of this script)" >&2; exit 2 ;;
     esac
@@ -63,7 +65,8 @@ mkdir -p "$base"
 work="$(mktemp -d -p "$base" session.XXXXXX)"
 mkdir -p "$work/data" "$work/runtime"
 chmod 700 "$work/runtime"
-echo '{"output_device":"kontra:null"}' > "$work/data/settings.json"
+python3 -c 'import json, sys; print(json.dumps({**json.loads(sys.argv[1]), "output_device": "kontra:null"}))' \
+    "$extra" > "$work/data/settings.json"
 
 # A free display from :99 up.
 display=99

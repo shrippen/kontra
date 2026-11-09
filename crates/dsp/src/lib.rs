@@ -15,6 +15,7 @@ mod biquad;
 mod dehum;
 mod dyad;
 mod echo;
+mod effects;
 mod hum;
 mod inharmonicity;
 mod intonation;
@@ -34,6 +35,7 @@ pub mod synth;
 pub use beats::{track_beats, BeatGrid};
 pub use biquad::{Biquad, EqKind, FilterKind};
 pub use echo::{EchoCanceller, ECHO_BLOCK};
+pub use effects::LIMIT_CEILING;
 pub use inharmonicity::{
     InharmonicityMeter, Pick, Stiffness, StringModel, FROM_PEAK_S, LOG_B_PER_FRET, WINDOW_S,
 };
@@ -43,7 +45,7 @@ pub use noise_floor::gate_over_floor;
 pub use onset::{Onset, OnsetConfig, OnsetDetector};
 pub use pitch::{PitchShifter, LATENCY as PITCH_LATENCY, PITCH_RANGE_SEMITONES};
 pub use resample::resample;
-pub use shaping::{Shaper, Shaping, SHAPING_RANGE_DB};
+pub use shaping::{Limit, Shaper, Shaping, SHAPING_RANGE_DB};
 pub use tracker::{NoteTracker, TrackerConfig};
 pub use tuner::{Tuner, TunerReading};
 pub use yin::{PitchEstimate, Yin};

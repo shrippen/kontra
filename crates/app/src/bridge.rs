@@ -122,6 +122,10 @@ pub mod qobject {
         #[qproperty(f64, monitor_high_db, cxx_name = "monitorHighDb")]
         #[qproperty(f64, monitor_compress, cxx_name = "monitorCompress")]
         #[qproperty(f64, monitor_warmth, cxx_name = "monitorWarmth")]
+        /// Overdrive and stereo width 0..1, limiter on (LH-EIN-17).
+        #[qproperty(f64, monitor_drive, cxx_name = "monitorDrive")]
+        #[qproperty(f64, monitor_width, cxx_name = "monitorWidth")]
+        #[qproperty(bool, monitor_limit, cxx_name = "monitorLimit")]
         #[qproperty(f64, shaping_range_db, cxx_name = "shapingRangeDb")]
         /// Share of the notes in the current section, 25..=100 % (LH-MOD-06), and whether it is fixed.
         #[qproperty(i32, density)]
@@ -533,10 +537,16 @@ pub mod qobject {
         fn change_monitor(self: Pin<&mut Self>, on: bool);
 
         /// Sets a tone band of the monitored bass in dB (`band` "low", "mid", "high") or the
-        /// compressor or warmth 0..1 (`band` "compress", "warmth").
+        /// compressor, warmth, overdrive or width 0..1 (`band` "compress", "warmth", "drive",
+        /// "width").
         #[qinvokable]
         #[cxx_name = "changeShaping"]
         fn change_shaping(self: Pin<&mut Self>, band: &QString, value: f64);
+
+        /// Turns the limiter of the monitored bass on or off.
+        #[qinvokable]
+        #[cxx_name = "changeLimit"]
+        fn change_limit(self: Pin<&mut Self>, on: bool);
 
         /// Back to the unshaped bass.
         #[qinvokable]
@@ -1000,6 +1010,9 @@ pub struct ControllerRust {
     monitor_high_db: f64,
     monitor_compress: f64,
     monitor_warmth: f64,
+    monitor_drive: f64,
+    monitor_width: f64,
+    monitor_limit: bool,
     shaping_range_db: f64,
     density: i32,
     density_fixed: bool,
@@ -1169,6 +1182,9 @@ impl Default for ControllerRust {
             monitor_high_db: s.monitor_high_db,
             monitor_compress: s.monitor_compress,
             monitor_warmth: s.monitor_warmth,
+            monitor_drive: s.monitor_drive,
+            monitor_width: s.monitor_width,
+            monitor_limit: s.monitor_limit,
             shaping_range_db: kontra_appcore::Core::shaping_range_db(),
             density: 100,
             density_fixed: false,
@@ -1902,6 +1918,9 @@ impl qobject::Controller {
         self.as_mut().set_monitor_high_db(s.monitor_high_db);
         self.as_mut().set_monitor_compress(s.monitor_compress);
         self.as_mut().set_monitor_warmth(s.monitor_warmth);
+        self.as_mut().set_monitor_drive(s.monitor_drive);
+        self.as_mut().set_monitor_width(s.monitor_width);
+        self.as_mut().set_monitor_limit(s.monitor_limit);
         self.as_mut().set_setup_done(s.setup_done);
         self.as_mut().set_playing(false);
     }
