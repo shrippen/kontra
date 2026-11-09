@@ -326,10 +326,15 @@ pub(crate) fn detuned(
         let (Some(tab_string), Some(tab_fret)) = (note.string, note.fret) else {
             continue;
         };
-        let other = heard.iter().find_map(|&(pass, index, h)| match h {
-            StringHeard::Other(s) if pass == r.pass && Some(index) == r.note => Some(s),
+        // The last verdict on the note counts, as in `StringTally`.
+        let last = heard
+            .iter()
+            .rev()
+            .find(|&&(pass, index, _)| pass == r.pass && Some(index) == r.note);
+        let other = match last {
+            Some(&(_, _, StringHeard::Other(s))) => Some(s),
             _ => None,
-        });
+        };
         let open = |s: u8| arrangement.instrument.tuning.strings.get(usize::from(s));
         let (string, fret) = match other {
             None => (tab_string, tab_fret),
@@ -1057,6 +1062,15 @@ mod tests {
         assert_eq!(by_tab.string, 1);
         let found = detuned(&results, &arrangement, &heard).unwrap();
         assert_eq!(found.string, 0, "the E string, not the tab's A string");
+
+        // A note told twice (Wait mode: struck again) counts for its last string, as in
+        // `StringTally` (review #224): the D-string notes first heard elsewhere, then on D.
+        for i in 9..18 {
+            heard.push((0, i, StringHeard::Other(3)));
+            heard.push((0, i, StringHeard::Expected));
+        }
+        let found = detuned(&results, &arrangement, &heard).expect("D string compares");
+        assert_eq!(found.string, 0);
     }
 
     /// Harmonicon analysis (29.10.): the hardest bar is the one that costs the most notes. A bar

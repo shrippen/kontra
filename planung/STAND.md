@@ -1,13 +1,22 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-10-30. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+Übergabe zwischen Sitzungen. Stand: 2026-11-09. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
 
-## Übergabe (30.10.2026, Branch `fret-quiz`, L4 Teil 1)
+## Übergabe (09.11.2026)
 
-Griffbrett-Quiz gewichtet (LH-LRN-18), Teil 1: gewichtete Wahl, Statistik in `quiz.json`, Bünde, Überspringen kein
-Fehler. Offen: Heatmap (braucht Kante: Zahl je Zelle, Achsenbeschriftung Saite/Bund, Legende, Tooltip, Namen für den
-Screenreader), Intervalle im Gehörtraining.
+`main` mit #219 (Review-Reste), #221 (Kante 1.75.1), #222 (Quiz-Übersicht je Saite und Bund, L4 Teil 2), #223
+(Intervalle im Gehörtraining gewichtet, L4 fertig), #224 (verstimmte Saite, L6). Gitea-CLI heißt jetzt `gt`.
+
+Offen:
+- #220 (`tea` → `gt` in `scripts/gitea/`, `cloud-setup.sh`, `agent.md`): Review ohne Wichtig; braucht die Bestätigung
+  des Eigentümers (ändert `agent.md`). Bis dahin liegen die Skripte in `~/.cache/claude/kontra-wt/gt-cli`.
+- Erlaubnis-Regel für Merges in den Claude-Code-Einstellungen nennt noch `tea pr merge`; Eigentümer stellt auf `gt` um.
+- Zur Freigabe in der nächsten Runde: `quiz::Heat`, `Quiz::heat`, `FretRange::places`, `QuizStats::counts` (#222);
+  `EarQuiz::stats`, `EarQuiz::new`/`next`/`answer` mit `now_s`, `QuizStats::{record_interval, interval_weight,
+  with_places_of, with_intervals_of}` (#223); `kontra_session::DetunedString`, `Summary::detuned`, `summary::detuned`
+  (#224).
+- `intonation_parts` nennt gleichnamige Saiten (Drop D) ohne Oktave (Bestand aus #224).
 
 ## Übergabe (30.10.2026, Branch `device-clock`, PR #209, ersetzt #186)
 
