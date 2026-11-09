@@ -256,6 +256,9 @@ pub fn bundled_specs() -> Vec<(&'static str, ExerciseSpec)> {
         (LEVEL_9, piece(St::Shuffle, E, 90.0)),
         (LEVEL_9, piece(St::Pop, D, 100.0)),
         (LEVEL_9, piece(St::Funk, A, 95.0)),
+        // ── 8 Technik, appended: muting (LH-BEW-10) ─────────────────────────
+        (LEVEL_8, groove(P::Tonic, Staccato, E, 75.0)),
+        (LEVEL_8, groove(P::Minor, Staccato, A, 85.0)),
     ]
 }
 

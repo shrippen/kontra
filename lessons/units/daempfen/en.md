@@ -14,12 +14,16 @@ Both hands help:
 ## Make rests heard
 A rest only sounds if the note before it really stops. Listen closely: if something hums on, mute earlier.
 ::: hint
-Kontra only hears when a note starts. Whether it ends cleanly you hear best yourself, with a recording.
+Over a cable Kontra hears whether a note stops before the rest: the summary counts how many notes were muted in time
+and which rang into the rest. Not over a microphone yet; there a recording helps.
 :::
 
 ## Practise
 A groove with rests over a minor cadence in Em: every rest should be silent.
 ::: practice bundled=12 speeds="60 80 100"
+
+Then staccato: every note is an eighth, followed by an eighth rest. Relax the fretting hand after each note.
+::: practice bundled=151 speeds="60 75 90"
 
 ## Check
 ::: question

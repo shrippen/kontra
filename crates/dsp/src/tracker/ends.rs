@@ -2,8 +2,10 @@
 //! mutes it, it rings out or the next note replaces it.
 //!
 //! ```text
-//! emit ─ 60 ms ─┬─ every 2 ms: level now (peak over one period of the lowest note)
-//!               │    ≥ 10 dB under the level 60 ms before? ─► Muted, ends where it is 10 dB down
+//! emit ─ 60 ms ─┬─ every 2 ms, 80 ms behind the audio: level now (peak over one period of
+//!               │  the lowest note)
+//!               │    ≥ 10 dB under the level 60 ms before, and stays ≥ 5 dB under that for
+//!               │    100 ms or until the next attack?        ─► Muted, ends where it is 10 dB down
 //!               │    30 dB under the note's start?          ─► Decayed
 //!               └─ next attack or legato note first          ─► Replaced at its onset
 //! ```
@@ -24,6 +26,15 @@ const FALL_S: f64 = 0.06;
 /// fall, back by the level's span. IDMT offsets lie closest to it (median −8 ms; the fall's
 /// 3 dB point −28 ms, 6 dB −18 ms).
 const END_DB: f32 = 10.0;
+/// A fall is a mute only when the level stays down: it must not come back within this much of
+/// the level before the fall during `HOLD_S` (beating and decay wobble dip and recover). The
+/// next attack ends the wait (a short rest).
+const RECOVER_DB: f32 = 5.0;
+const HOLD_S: f64 = 0.1;
+/// The level is checked this far behind the audio: an attack is known `RISE_AFTER_S` and the
+/// onset band's delay after its onset, so the wait for a mute never takes the next attack for
+/// a recovery.
+const LAG_S: f64 = 0.08;
 /// Rung out: this far under the level at the note's start.
 const DECAY_DB: f32 = 30.0;
 /// Ends told in one `push` before it allocates (one per note: a block of 16 notes).
@@ -39,6 +50,19 @@ struct Follow {
     /// The level at its start (peak magnitude).
     start: f32,
     next_check: u64,
+    /// A fall seen, waiting to hold (`HOLD_S`).
+    fall: Option<Fall>,
+}
+
+/// A fall that may be a mute.
+#[derive(Debug, Clone, Copy)]
+struct Fall {
+    /// Where the note ended if it holds (block).
+    end: u64,
+    /// The level before the fall.
+    before: f32,
+    /// The block where it counts as held.
+    held: u64,
 }
 
 /// The end follower of a tracker; allocation-free after `new`.
@@ -51,6 +75,8 @@ pub(super) struct Ends {
     span: u64,
     /// The fall in blocks.
     fall: u64,
+    hold: u64,
+    lag: u64,
     /// Peak of each block, by block number + 1 (0: empty); each block is read once.
     peaks: [(u64, f32); BLOCKS],
     told: Vec<NoteEnd>,
@@ -59,13 +85,16 @@ pub(super) struct Ends {
 impl Ends {
     pub(super) fn new(sample_rate: f64, min_hz: f64) -> Ends {
         let step = ((STEP_S * sample_rate) as u64).max(1);
-        let fall = (FALL_S / STEP_S).round() as u64;
+        let blocks = |s: f64| (s * sample_rate / step as f64).round() as u64;
+        let fall = blocks(FALL_S);
         let span = ((sample_rate / min_hz) / step as f64).ceil() as u64;
         Ends {
             follow: None,
             step,
             span: span.clamp(1, BLOCKS as u64 - fall - 1),
             fall,
+            hold: blocks(HOLD_S),
+            lag: blocks(LAG_S),
             peaks: [(0, 0.0); BLOCKS],
             told: Vec::with_capacity(TOLD),
         }
@@ -98,19 +127,28 @@ impl NoteTracker {
             report,
             start,
             next_check: first,
+            fall: None,
         });
     }
 
-    /// A new attack or legato note at `onset` replaces the followed note.
+    /// A new attack or legato note at `onset` ends the followed note: muted if its level fell
+    /// and stayed down before the onset, else replaced.
     pub(super) fn end_at(&mut self, onset: u64) {
-        let Some(f) = self.ends.follow.take() else {
+        let Some(f) = self.ends.follow else {
             return;
         };
         if onset <= f.report {
-            self.ends.follow = Some(f);
             return;
         }
-        self.tell_end(f.report, onset, Ending::Replaced);
+        let step = self.ends.step;
+        self.watch_until(onset / step);
+        let Some(f) = self.ends.follow.take() else {
+            return;
+        };
+        match f.fall {
+            Some(fall) => self.tell_end(f.report, fall.end * step, Ending::Muted),
+            None => self.tell_end(f.report, onset, Ending::Replaced),
+        }
     }
 
     /// Drops the followed note at `report` (taken back, a dead note): it has no length.
@@ -120,27 +158,69 @@ impl NoteTracker {
         }
     }
 
-    /// Checks the followed note's level up to the audio there (`next_check` counts blocks).
+    /// Checks the followed note's level up to `LAG_S` behind the audio.
     pub(super) fn watch_end(&mut self) {
+        let behind = self.ends.lag * self.ends.step;
+        let until = self.pushed.saturating_sub(behind) / self.ends.step;
+        self.watch_until(until);
+    }
+
+    /// At the end of the input: a fall waiting to hold is a mute.
+    pub(super) fn finish_end(&mut self) {
+        self.watch_until(self.pushed / self.ends.step);
+        let Some(Follow {
+            report,
+            fall: Some(fall),
+            ..
+        }) = self.ends.follow
+        else {
+            return;
+        };
+        self.ends.follow = None;
+        self.tell_end(report, fall.end * self.ends.step, Ending::Muted);
+    }
+
+    /// Checks the followed note's level on blocks before `until`.
+    ///
+    /// ```text
+    /// level now ≥ 10 dB under 60 ms before ─► a fall; 100 ms later still ≥ 5 dB under ─► Muted
+    ///                                                  back up before that            ─► a dip
+    /// ```
+    fn watch_until(&mut self, until: u64) {
         let Some(mut f) = self.ends.follow else {
             return;
         };
-        let (step, fall) = (self.ends.step, self.ends.fall);
-        while f.next_check * step <= self.pushed {
+        let fall_len = self.ends.fall;
+        while f.next_check < until {
             let t = f.next_check;
             f.next_check += 1;
-            let before = self.level_at(t - fall);
             let now = self.level_at(t);
+            if let Some(fall) = f.fall {
+                if now > fall.before * factor(RECOVER_DB) {
+                    f.fall = None;
+                    continue;
+                }
+                if t >= fall.held {
+                    self.ends.follow = None;
+                    self.tell_end(f.report, fall.end * self.ends.step, Ending::Muted);
+                    return;
+                }
+                continue;
+            }
+            let before = self.level_at(t - fall_len);
             if now < before * factor(FALL_DB) {
-                let end = self.fall_start(t - fall, t, before * factor(END_DB));
-                self.ends.follow = None;
-                self.tell_end(f.report, end * step, Ending::Muted);
-                return;
+                let end = self.fall_start(t - fall_len, t, before * factor(END_DB));
+                f.fall = Some(Fall {
+                    end,
+                    before,
+                    held: t + self.ends.hold,
+                });
+                continue;
             }
             if now < f.start * factor(DECAY_DB) {
                 self.ends.follow = None;
                 let end = t.saturating_sub(self.ends.span);
-                self.tell_end(f.report, end * step, Ending::Decayed);
+                self.tell_end(f.report, end * self.ends.step, Ending::Decayed);
                 return;
             }
         }

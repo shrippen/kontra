@@ -141,6 +141,19 @@ kein Doppelgriff wird als falscher Ton gewertet, nur weil zwei Töne klangen. MI
 Menge erst mit M2). Mikrofon: kein Urteil über beide Töne, ein Ton zählt für beide; Einstellung „Mikrofon“ und
 Auswertung sagen, dass Doppelgriffe über Mikrofon noch nicht so bewertet werden (Runde 17).
 
+**J-B8 Abdämpfen** · Personas: P1 Lea, P3 Mira, P6 Karl · Phase 4 · LH-BEW-10
+1. Lea (Laptop-Buchse): Lektion „Saiten dämpfen“, Übung „Groove Staccato auf einem Akkord in E“ (151), Modus
+   „Durchlauf“; erst jede Note nach einer Achtel abdämpfen, dann im zweiten Durchgang die Töne durchklingen lassen
+   (Aufnahme per `--input-file`, gerendert wie in `crates/session/tests/ends.rs`).
+2. Mira: ein eigenes Stück mit Staccato-Punkten (MusicXML) über Kabel.
+3. Karl: dieselbe Übung über Mikrofon.
+Erwartet: Die Auswertung nennt „Abdämpfen: N von N Noten rechtzeitig gestoppt“ (alle außer der letzten) bzw. im
+zweiten Durchgang „in die Pause geklungen: …“; unter
+„Alle Noten“ steht je Note „rechtzeitig abgedämpft“, „… ms zu spät abgedämpft“ oder „klang in die Pause“; die
+Trefferquote bleibt gleich (Abdämpfen ist Rückmeldung, kein Treffer); Noten ohne Pause danach, Akkorde, Dead Notes,
+Palm-Mute und die letzte Note (ohne Staccato) werden nicht bewertet. Mikrofon: kein Urteil, die Auswertung sagt
+„Abdämpfen bewertet Kontra über diesen Eingang noch nicht (nur über Kabel)“.
+
 ## C. Lernen und Fortschritt
 
 **J-C1 Erste Woche** · Persona: P1 Lea · Phase 1 (adaptive Schwierigkeit Phase 2) · LH-FOR-01, LH-MOD-06, LH-BEW-04
@@ -356,12 +369,13 @@ Das Update kommt als Vorschau und nennt die Fassung („Neuere Fassung 2 (vorhan
 1. In der Kurswerkstatt einen Kurs anlegen, zwei Lektionen schreiben (eine mit Fehler im Format), Vorschau ansehen.
 2. Prüfen, Fehler beheben, als `.kontrakurs` packen; dasselbe mit `kontra-cli course new|check|pack`.
 3. Das Paket in Kontra hinzufügen und eine Lektion spielen.
-4. Lernen → „Kursordner live öffnen …“ mit dem ungepackten Ordner, eine Lektion öffnen; im Editor ihren Text ändern und
-   speichern, dann einen Fehler hineinschreiben und speichern; „Ordner schließen“ (LH-LRN-21).
+4. Lernen → „Kursordner live öffnen …“ mit dem ungepackten Ordner, eine Lektion öffnen und ihre Übung kurz spielen; im
+   Editor ihren Text ändern und speichern, dann einen Fehler hineinschreiben und speichern; „Ordner schließen“
+   (LH-LRN-21).
 Erwartet: Fehler mit Datei und Zeile; die Vorschau sieht aus wie in Kontra; das Paket lädt ohne Befund. Die geänderte
 Lektion erscheint nach dem Speichern ohne Packen (binnen einer Sekunde); der Fehler steht mit Datei und Zeile über der
-Lektion, die letzte lesbare Fassung bleibt sichtbar; gesehene Seiten und Antworten werden im Live-Ordner nicht
-gespeichert; nach dem Schließen gilt wieder der hinzugefügte Kurs.
+Lektion, die letzte lesbare Fassung bleibt sichtbar; gesehene Seiten, Antworten und Läufe der Übung werden im Live-Ordner
+nicht gespeichert (Fortschritt bleibt leer); nach dem Schließen gilt wieder der hinzugefügte Kurs.
 
 ## F. Querschnitt
 

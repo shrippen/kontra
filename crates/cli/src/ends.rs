@@ -78,7 +78,7 @@ pub(crate) fn measure(dirs: &[PathBuf], window_s: f64) -> CliResult {
 
 fn print_header() {
     println!(
-        "{:<22} {:>7} {:>6} {:>6} {:>6} {:>6} {:>6} {:>8} {:>7} {:>7} {:>7} {:>9}",
+        "{:<22} {:>7} {:>6} {:>6} {:>6} {:>6} {:>6} {:>8} {:>7} {:>7} {:>7} {:>9} {:>9}",
         "file",
         "stopped",
         "found",
@@ -90,14 +90,15 @@ fn print_header() {
         "p50 ms",
         "p95 ms",
         "bias",
-        "early"
+        "early",
+        "sounding"
     );
 }
 
 fn print_line(name: &str, t: &EndTally, verdict: &str) {
     let ms = |v: Option<f64>| v.map_or_else(|| "-".into(), |v| format!("{v:.1}"));
     println!(
-        "{name:<22} {:>7} {:>6} {:>6} {:>6} {:>6} {:>6} {:>7.1}% {:>7} {:>7} {:>7} {:>8.1}% {verdict}",
+        "{name:<22} {:>7} {:>6} {:>6} {:>6} {:>6} {:>6} {:>7.1}% {:>7} {:>7} {:>7} {:>8.1}% {:>8.1}% {verdict}",
         t.stopped,
         t.stopped_found,
         t.muted,
@@ -108,6 +109,7 @@ fn print_line(name: &str, t: &EndTally, verdict: &str) {
         ms(t.abs_quantile(0.5)),
         ms(t.abs_quantile(0.95)),
         ms(t.median_ms()),
-        t.early_mutes() * 100.0
+        t.early_mutes() * 100.0,
+        t.false_mutes() * 100.0
     );
 }

@@ -20,4 +20,5 @@ if [ -z "$runner" ]; then
     exit 1
 fi
 
-QT_QPA_PLATFORM=offscreen "$runner" -import crates/app/qml -input crates/app/qml/tests
+# QML_XHR_ALLOW_FILE_READ: tst_learnwidth reads the German catalog.
+QML_XHR_ALLOW_FILE_READ=1 QT_QPA_PLATFORM=offscreen "$runner" -import crates/app/qml -input crates/app/qml/tests

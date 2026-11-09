@@ -204,6 +204,14 @@ KanteCard {
             text: sheet.summary && sheet.summary.stringsText ? sheet.summary.stringsText : ""
             color: KanteStyle.mutedTextColor
         }
+        // Notes the tab wants stopped (LH-BEW-10): how many were muted in time.
+        QQC2.Label {
+            Layout.fillWidth: true
+            visible: text !== ""
+            wrapMode: Text.WordWrap
+            text: sheet.summary && sheet.summary.mutingText ? sheet.summary.mutingText : ""
+            color: KanteStyle.mutedTextColor
+        }
         KanteTimingHistogram {
             Layout.fillWidth: true
             // Lower on low screens, so the hardest bars stay in view.

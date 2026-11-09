@@ -305,10 +305,11 @@ Rückmeldung und Lernen:
 - [x] L3 Übungsleiter je Lektion (LH-LRN-17): jeder Übungsblock (mitgeliefert über den Plan, oder aus dem Generator)
   bietet fünf Stufen (`exercise::stage_spec`): Einzeln (1 Durchgang, Tempo × 0,64), Festigen (doppelt, × 0,8),
   Abwandeln (Quarte auf oder ab, notiertes Tempo), Im Zusammenhang (ein Akkord wird I-IV-V, × 1,25), Gemischt
-  (Tonart aus dem Startwert, × 1,5625). Nur das Tempo hebt die Notenrate, die Unterteilung bleibt; Schwellen 60, 65,
+  (× 1,5625, `exercise::stage_exercise`: je ein Durchgang Figur, Figur eine Quarte daneben und Figur im
+  Zusammenhang in einer Datei, Tonart und Reihenfolge aus dem Startwert, Vorzeichen wechseln mit; eigene Datei
+  „Gemischt – …“, Titel „Gemischt: …“). Nur das Tempo hebt die Notenrate, die Unterteilung bleibt; Schwellen 60, 65,
   70, 75, 80 %; Startwert aus der Lektions-Id. Knöpfe zeigen „bisher 72 %“, die erste nicht erreichte Stufe ist
-  hervorgehoben, nichts gesperrt. Offen: Takte gemischt aus mehreren Stufen in einer Datei („Gemischt“ wechselt nur
-  die Tonart).
+  hervorgehoben, nichts gesperrt.
 - [x] L4 Griffbrett-Quiz gewichtet (LH-LRN-18). Teil 1 (`fret-quiz`): „Töne finden“ zieht Plätze nach Gewicht
   (verfehlt und lange nicht geübt öfter), Statistik je Saite und Bund in `quiz.json`, Bünde 0–4, 0–7, 0–12 oder eigene,
   Überspringen kein Fehler, auch nicht in „x von y gefunden“; Bund 12 bei 0–12 kein eigener Platz (gleicher Ton wie
@@ -318,8 +319,7 @@ Rückmeldung und Lernen:
 - [x] L5 Intonation als Richtung und Streuung (LH-BEW-12).
 - [x] L6 Verstimmte Saite erkennen (LH-TUN-05): die Auswertung fragt nach dem Nachstimmen, mit Sprung ins Stimmgerät
   (`detuned-string`, J-B3 ⚙).
-- [x] L7 Liedkarte, Kante-Baustein (LH-FOR-06): `KanteSongMap` (Kante-Branch `song-map`, 1.76, noch nicht
-  veröffentlicht; Kontra nimmt die Kopie „Take Kante song-map (unreleased)“). Jeder Durchlauf speichert Treffer je
+- [x] L7 Liedkarte, Kante-Baustein (LH-FOR-06): `KanteSongMap` (Kante 1.76, #129, in #226 übernommen). Jeder Durchlauf speichert Treffer je
   Takt (`Run::bars`); die Karte zeigt je Takt die letzten 5 Durchläufe, die ihn spielten. Angehalten über der
   Werkstatt und in der Auswertung; Ziehen oder Umschalt+Pfeile und Eingabe setzen die Schleife (J-B3 ⚙).
 - [x] L8 Ruf und Antwort (LH-LRN-19): Schalter auf der Übungsseite für Stücke mit Akkordsymbolen (ab vier Takten).
@@ -367,12 +367,18 @@ Erkennung und Messung:
   Anschlag allein 0,9 / 4,7 / 5,0 %; Stimmgerät 0,6 / 1,8 / 1,9 %; Echo-Unterdrückung (512 Samples) 0,9 / 1,0 /
   1,2 %. Ein Block bleibt damit unter einem Zehntel des Budgets. Die CI baut die Benches nur (`--no-run`).
 - [x] E5 Notenende (LH-BEW-10, `h-detect`): Der Tracker folgt jeder Note bis zu ihrem Ende und meldet `NoteEnd`
-  (Engine `Event::End`): `Muted` (Pegel ≥ 10 dB binnen 60 ms), `Decayed` (30 dB unter dem Start), `Replaced`
-  (nächster Anschlag oder Legato-Ton). Noch nicht bewertet, Treffer unverändert. `korpus ends` (09.11.): synthetisch
-  `staccato` 33 von 33 als abgedämpft, p95 9,6 ms (in `korpus check`); IDMT-ST 267 von 319 gestoppten Noten als
-  abgedämpft, 47,6 % ≤ 30 ms, p50 26,5 ms, p95 93,3 ms, 16,5 % ≥ 50 ms vor dem Offset. Ziel ≤ 30 ms auf IDMT nur im
-  Median erreicht; die Offsets sind Partitur-Raster (`FORSCHUNG-AUDIO.md`, „Notenende“). Offen: von Hand annotierte
-  Enden (Hardware-Sitzung), Übungen zu Abdämpfen und Notenlänge.
+  (Engine `Event::End`): `Muted` (Pegel ≥ 10 dB binnen 60 ms und 100 ms lang unten, oder bis zum nächsten Anschlag),
+  `Decayed` (30 dB unter dem Start), `Replaced` (nächster Anschlag oder Legato-Ton). `korpus ends` (09.11.):
+  synthetisch `staccato` 33 von 33 als abgedämpft, p95 9,6 ms (in `korpus check`); IDMT-ST vorher 267 / 47,6 % ≤ 30 ms
+  / p50 26,5 / p95 93,3 ms / 16,5 % ≥ 50 ms zu früh, nachher (Halten gegen Pegeleinbrüche) 262 / 47,0 % / 26,3 / 83,7 ms
+  / 15,8 %; davon klingt die Aufnahme danach weiter: 0,2 % vorher wie nachher. Die zu frühen Mutes sind echte Enden vor
+  dem Raster (Hüllkurven geprüft), die IDMT-Offsets sind Partitur-Raster; ≤ 30 ms auf IDMT nur im Median
+  (`FORSCHUNG-AUDIO.md`, „Notenende“). Bewertet: Noten mit Staccato oder einer Pause ab einer Achtel danach, nur über
+  Kabel (Mikrofon, MIDI: „noch nicht“): rechtzeitig / zu spät / in die Pause geklungen, in der Auswertung und unter
+  „Alle Noten“; Trefferquote unverändert. Übungen 151, 152 „Groove Staccato“, Lektion „Saiten dämpfen“, J-B8. Offen:
+  von Hand annotierte Enden (Hardware-Sitzung), Notenlänge bei Legato (der Anschlagsfinger dämpft vor der nächsten
+  Note), Marke in der Tab-Lane. Rechenzeit (`cargo bench -p kontra-dsp`, 09.11., Last 4–7): Tracker Mittel 1,5 %, p99
+  4,8 %, schlechtester Block 4,9 % des 10-ms-Budgets (E4 vorher 1,8 / 5,1 / 6,0 % bei Last 30–40); Analyse-Thread.
 - [x] E6 Rauschboden bei der Kalibrierung (LH-EIN-16, `noise-floor`): Beim Einzählen misst der Onset-Detektor den
   Pegel im Anschlagband (10. Perzentil), die Schwelle liegt 6 dB darüber (−62 bis −40 dB) und gilt je Eingang.
   Messung (synthetisch, weißes Rauschen): Am Kabel gab es schon vorher 0 Falschnoten je Minute bei −70 bis −35 dBFS
@@ -437,8 +443,10 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
   nur seitlich), überlappende Bedienelemente und Bedienelemente ohne Namen. Lokal, die CI hat keinen AT-SPI-Stapel.
   Erster Lauf (09.11.): 29 von 30 ohne Befund. **P4 Lernen:** Die Knopfreihe (Weiter, Glossar, Kurs hinzufügen,
   Kurs von Adresse) bricht nicht um und macht die Seite breiter als das Fenster (853 logische Pixel); „Kurs von
-  Adresse …“ und der Einleitungstext sind rechts abgeschnitten (Screenshot geprüft). Nicht behoben: ein `Flow`
-  statt `RowLayout` in `LearnPage.qml` reicht vermutlich, braucht aber zuerst einen roten QML-Test. Grenzen: Was
+  Adresse …“ und der Einleitungstext sind rechts abgeschnitten (Screenshot geprüft). Behoben: Die Reihe ist ein
+  `Flow` und bricht um; `tst_learnwidth.qml` (`scripts/check-video.sh`) lädt die Seite mit deutschen Texten bei
+  26 Rastereinheiten (P4s Seite ohne Seitenleiste) und war vorher rot. Zweiter Lauf (09.11.): 30 von 30 ohne
+  Befund. Grenzen: Was
   Kontra selbst malt (Lane, Noten, Griffbrett), sieht AT-SPI nicht; abgeschnittener Text innerhalb eines Labels
   (Elision) ebenso wenig. Ohne Fenstermanager öffnet Kontra mit 72×44 Rastereinheiten auch auf kleineren
   Bildschirmen größer als der Bildschirm; das Skript setzt die Fenstergröße deshalb selbst.
@@ -467,13 +475,37 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
 - [x] W9 Kurs aus Ordner live (LH-LRN-21): Lernen → „Kursordner live öffnen …“; Kontra sieht alle 0,5 s nach
   (`lesson::folder_stamp`: Name, Größe, Änderungszeit), liest bei Änderung neu, zeigt Befunde über Lernseite und
   Lektion und die offene Lektion neu; ein Lesefehler lässt die letzte lesbare Fassung stehen. Der Kurs lebt nur im
-  Speicher; gesehene Seiten, Antworten und Kapitelprüfungen werden solange nicht gespeichert (Läufe der Übungen
-  schon). QML von der Platte: `KONTRA_LIVE_QML=1` lädt in Debug-Builds die Seiten aus `crates/app/qml` (wirkt beim
-  nächsten Start ohne Bauen; Release ignoriert es). Offen: QML-Neuladen ohne Neustart (Komponenten-Cache leeren),
-  J-G6 Schritt 4 von Hand gespielt steht aus.
+  Speicher; gesehene Seiten, Antworten, Kapitelprüfungen und Läufe der Übungen aus seinen Lektionen werden solange
+  nicht gespeichert (Läufe behoben 09.11., Test `runs_from_a_live_course_are_not_stored`). QML von der Platte:
+  `KONTRA_LIVE_QML=1` lädt in Debug-Builds die Seiten aus `crates/app/qml` und baut die offene Seite nach jeder
+  gespeicherten Änderung neu (`live_qml.cpp`: Dateiwächter, Seite weg, Komponenten-Cache leeren, Seite neu; nur
+  Debug-Builds, Main.qml selbst braucht einen Neustart). J-G6 Schritt 4 gespielt (09.11., qa-session): bestanden;
+  Befund (Kleinigkeit): die Fehlermeldung des Lektionslesers steht englisch in deutscher Oberfläche („key= missing
+  or unknown“).
 - [x] W11 Glyphen-Test für Sonderzeichen (`tests/glyphs.rs`): jedes Zeichen über ASCII aus i18n (de, en), Lektionen
   und eigenem QML muss in einer mitgelieferten Schrift stehen (Kante: Rajdhani, JetBrains Mono, Bravura; Private-Use
   nur Bravura). Eigener `cmap`-Leser (Formate 4 und 12), keine neue Abhängigkeit. ♯ ♭ ♮ deckt nur Bravura.
+
+Nach #226 (Eigentümer, 09.11.2026): neue `pub`-Schnittstellen aus #226 freigegeben (Liste in der PR-Beschreibung).
+Kleinigkeiten aus den Reviews, W9, L3, W3 und E5 jetzt; der Rest steht hier:
+- [ ] E7 Aufnahmen des Eigentümers als eigene Gruppe `own/…` einfrieren (Hardware-Sitzung, `AUFNAHME.md`);
+      `korpus check --real` in die CI (braucht die IDMT-Daten auf dem Runner oder einen Cache).
+- [ ] L8 Fehlversuche je Ruf statt je Stück; echte Begleitspuren während des Rufs leiser; ⚙-Test der Journey J-C12
+      über die App; am echten Bass spielen.
+- [ ] L9 Fill schon auf dem ersten freien Schlag (heute der zweite, Entscheidung 100 ms vorher); Latenz und Xruns
+      der Schlagzeug-Lautstärke messen; mit echten Aufnahmen und am echten Bass prüfen.
+- [ ] A3 Pausenfenster auch ohne Pausen im Beispiel (eigene Angabe in der Lektion).
+- [ ] L1 Ein Lauf, der eine geplante Stelle wieder unter die schwersten bringt, zählt nicht als nicht bestanden
+      (nur Proben zählen); entscheiden, ob er sollte.
+- [ ] L11 Shuffle-Angaben importierter Dateien lesen (Guitar Pro „Triplet Feel“, MusicXML `<swing>`).
+- [ ] M2 echte MIDI-Aufnahmen von Akkorden; Audio hört höchstens zwei Töne.
+- [ ] M3 Filter für blinde Akkordkandidaten, sobald es sie gibt.
+- [ ] M4 nach 1.0: Vorlagen je Bass lernen, echte Doppelgriffe, Oktaven.
+- [ ] E8 Brummen-Abzug bei Spiel ohne Pause über 8 s (Weiterlernen unter Noten).
+- [ ] W3 Prüfung sieht nicht in selbst gezeichnete Flächen (Lane, Noten, Griffbrett) und keinen abgeschnittenen Text
+      in Labels; läuft nur lokal (kein AT-SPI in der CI).
+- [ ] W6 Ergebnis des ersten flatpak-builder-lint-Laufs ansehen; Screenshot-Adressen der metainfo gehen erst mit der
+      Landing Page.
 
 ## Entscheidungen Runde 17 (30.10.2026)
 

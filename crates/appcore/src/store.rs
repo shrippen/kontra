@@ -353,6 +353,11 @@ pub struct SectionBars {
     pub end_s: f64,
     pub from_bar: u32,
     pub to_bar: u32,
+    /// Printed bars the section plays, sorted. With a jump back over a repeat `from_bar` can
+    /// exceed `to_bar` (2–1), and 4–1 plays bars 4 and 1, not 2 and 3. Empty in a library
+    /// from before; practising the section again fills it.
+    #[serde(default)]
+    pub bars: Vec<u32>,
 }
 
 /// Where the bars of a piece fall in its backing track (LH-BIB-06): the detected beats, which

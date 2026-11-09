@@ -544,6 +544,7 @@ impl NoteTracker {
         if let Some(p) = self.pending.take() {
             self.emit(p);
         }
+        self.finish_end();
         self.finish_confirm();
         self.judge_strikes(Waiting::No);
         self.judge_strings(Waiting::No);

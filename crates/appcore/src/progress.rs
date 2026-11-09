@@ -198,7 +198,7 @@ impl Core {
                     continue;
                 };
                 let passed = run.hit_rate >= PASS_HIT_RATE && run.speed >= target - SPEED_EPS;
-                for bar in bars.from_bar..=bars.to_bar {
+                for &bar in &bars.bars {
                     if let Some(list) = events.get_mut(&bar) {
                         list.push(PassageEvent::Probe { unix, passed });
                     }
@@ -372,6 +372,12 @@ impl Core {
         let Some(live) = self.live.as_ref() else {
             return;
         };
+        // An exercise of a lesson while a course folder is open live: nothing of the folder
+        // is stored, its runs neither (LH-LRN-21).
+        if self.previewing_course() && self.loaded_goal_of_lesson().is_some() {
+            self.run_started = None;
+            return;
+        }
         let session = live.practice().session();
         let summary = session.summary();
         // An open run judges no written notes, it counts its attacks (LH-BEW-13).
@@ -436,11 +442,17 @@ impl Core {
             return;
         };
         let number = |i: usize| a.bars.get(i).map_or(0, |b| b.source_index + 1);
+
+        // Printed bars played, e.g. unrolled 1 2 1 2 3, indices 1–2 → bars 1 and 2.
+        let mut bars: Vec<u32> = (from..=to).map(number).filter(|&n| n > 0).collect();
+        bars.sort_unstable();
+        bars.dedup();
         let section = SectionBars {
             start_s,
             end_s,
             from_bar: number(from),
             to_bar: number(to),
+            bars,
         };
         let Some(path) = self.loaded_path().map(Path::to_path_buf) else {
             return;
@@ -448,14 +460,17 @@ impl Core {
         let Some(entry) = self.library.entry_mut(&path) else {
             return;
         };
-        if entry
+
+        // Same time range: keep it, but refresh bars a library from before `bars` lacks.
+        match entry
             .sections
-            .iter()
-            .any(|s| same_section(s, start_s, end_s))
+            .iter_mut()
+            .find(|s| same_section(s, start_s, end_s))
         {
-            return;
+            Some(known) if *known == section => return,
+            Some(known) => *known = section,
+            None => entry.sections.push(section),
         }
-        entry.sections.push(section);
         self.save_library();
     }
 

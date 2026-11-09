@@ -28,7 +28,7 @@ Kirigami.ScrollablePage {
     readonly property var progressions: ["tonic", "251", "blues", "minor", "145", "pop", "1625", "minor251"]
     readonly property var rhythms: ["quarters", "eighths", "sixteenths", "rests", "shuffle", "octaves", "ghost",
         "rootfifth", "rootfifthoctave", "dead", "offbeat", "tresillo", "triplets", "funk", "slap",
-        "34", "68", "54", "78"]
+        "34", "68", "54", "78", "staccato"]
     // Scale patterns ("" = up and down) and finger orders of the finger exercise.
     readonly property var patterns: ["", "thirds", "fours"]
     readonly property var fingerOrders: ["1234", "1324", "1243", "1423", "1342", "4321"]

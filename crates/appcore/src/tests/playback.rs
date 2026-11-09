@@ -417,3 +417,72 @@ fn plays_a_recording_and_judges_notes() {
     assert!(notes[0]["text"].as_str().unwrap().starts_with(&bar));
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+/// LH-LRN-21 (W9): while a course folder is open live, nothing of it is stored, also not the
+/// runs of its exercises; closed, the same run counts again.
+#[test]
+fn runs_from_a_live_course_are_not_stored() {
+    let dir = temp_dir("live-run");
+    let course = dir.join("kurs");
+    let author = kontra_session::lesson::Author {
+        provider: "Studio Weber".into(),
+        license: "CC-BY-4.0".into(),
+    };
+    kontra_session::lesson::new_course(&course, "studio-weber", &author).unwrap();
+    for lang in ["de", "en"] {
+        let lesson = course.join(format!("units/studio-weber.start/{lang}.md"));
+        let text = std::fs::read_to_string(&lesson).unwrap() + "\n::: practice bundled=1\n";
+        std::fs::write(&lesson, text).unwrap();
+    }
+    let take = dir.join("take.wav");
+    let mut core = Core::new(
+        &dir,
+        QaOptions {
+            input_file: Some(take.clone()),
+            laptop_jack: false,
+        },
+    );
+    core.update_settings(|s| s.language = Some("en".into()));
+    let opened: serde_json::Value = core.open_course_folder(&course).parse().unwrap();
+    assert_eq!(opened["ok"], true, "{opened}");
+    let id = "studio-weber.start";
+    let lesson: serde_json::Value = core.lesson_json(id).parse().unwrap();
+    let block = lesson["pages"][0]["blocks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .position(|b| b["kind"] == "practice")
+        .unwrap();
+
+    // A few seconds played along: a run with judged notes, ended by stopping.
+    let play = |core: &mut Core, path: &std::path::Path| {
+        core.open(path).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let lead_s = 4.0 * 60.0 / a.tempo.bpm_at(0);
+        let mistakes = kontra_session::Mistakes::default();
+        let samples = kontra_session::render_performance(&a, 1.0, lead_s, mistakes, 48_000);
+        let end = samples.len().min((48_000.0 * (lead_s + 2.0)) as usize);
+        kontra_session::write_mono_wav(&take, &samples[..end], 48_000).unwrap();
+        let _ = core.play();
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let mut judged = 0;
+        while judged < 2 && std::time::Instant::now() < until {
+            judged += core
+                .tick()
+                .iter()
+                .filter(|e| matches!(e, UiEvent::Judged { .. }))
+                .count();
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert!(judged >= 2, "judged {judged}");
+        core.stop_live();
+        core.progress_store().load(&a).unwrap().runs.len()
+    };
+    let path = core.lesson_exercise(id, 0, block).unwrap();
+    assert_eq!(play(&mut core, &path), 0, "stored while the folder is open");
+
+    // Closed: the same exercise's run is stored.
+    core.open_course_folder(std::path::Path::new(""));
+    assert_eq!(play(&mut core, &path), 1);
+    let _ = std::fs::remove_dir_all(dir);
+}

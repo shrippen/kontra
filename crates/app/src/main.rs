@@ -13,6 +13,8 @@
 
 mod args;
 mod bridge;
+#[cfg(debug_assertions)]
+mod live_qml;
 mod sync_check;
 mod translator;
 
@@ -25,8 +27,8 @@ const APP_ID: &str = "org.shrippen.Kontra";
 const MAIN_QML: &str = "qrc:/qt/qml/org/shrippen/kontra/qml/Main.qml";
 
 /// Development only (LH-LRN-21): set, a debug build loads its pages from `crates/app/qml` on
-/// disk instead of the compiled ones, so an edited page shows on the next start without a
-/// build. Release builds ignore it.
+/// disk instead of the compiled ones and builds the current page again when a file there
+/// changes (live_qml.rs). Release builds have neither.
 const LIVE_QML_VAR: &str = "KONTRA_LIVE_QML";
 
 /// Qt's platform theme, read before the app starts.
@@ -86,7 +88,11 @@ fn main() {
                 std::process::exit(1);
             })
             .release();
-        engine.load(&main_qml());
+        engine.as_mut().load(&main_qml());
+        #[cfg(debug_assertions)]
+        if let Some(dir) = live_qml_dir() {
+            live_qml::ffi::watch_live_qml(engine.as_mut(), &dir.to_string_lossy());
+        }
     }
     if let Some(app) = app.as_mut() {
         app.exec();
@@ -95,12 +101,20 @@ fn main() {
 
 /// The main page: compiled in, or in a debug build with `LIVE_QML_VAR` set, from disk.
 fn main_qml() -> QUrl {
-    if !cfg!(debug_assertions) || std::env::var_os(LIVE_QML_VAR).is_none() {
+    let Some(dir) = live_qml_dir() else {
         return QUrl::from(MAIN_QML);
-    }
-    let file = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("qml/Main.qml");
-    eprintln!("kontra: pages from {}", file.display());
+    };
+    let file = dir.join("Main.qml");
+    eprintln!("kontra: pages from {}, reloaded on change", file.display());
     QUrl::from(format!("file://{}", file.display()).as_str())
+}
+
+/// The QML folder on disk when pages load from there (debug build, `LIVE_QML_VAR` set).
+fn live_qml_dir() -> Option<PathBuf> {
+    if !cfg!(debug_assertions) || std::env::var_os(LIVE_QML_VAR).is_none() {
+        return None;
+    }
+    Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("qml"))
 }
 
 /// True if `<APP_ID>.desktop` is in an XDG applications folder (installed, or a Flatpak).

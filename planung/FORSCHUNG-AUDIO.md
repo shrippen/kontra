@@ -98,6 +98,33 @@ Noten als `Replaced` (der nächste Anschlag kam vor dem Fall), 16 ohne Ende. Rec
 einmal gelesen; `korpus measure` auf IDMT 5,4–5,5 s mit, 5,6–6,3 s ohne Notenende (im Rauschen). Echte Grenze erst
 mit von Hand annotierten Aufnahmen (Hardware-Sitzung).
 
+Nacharbeit (09.11., Fehlalarme durch Pegeleinbrüche): Ein Fall gilt erst als Abdämpfen, wenn der Pegel danach 100 ms
+lang (oder bis zum nächsten Anschlag) mindestens 5 dB unter dem Wert vor dem Fall bleibt; geprüft wird 80 ms hinter dem
+Audio, damit der nächste Anschlag nicht als Erholung gilt (Test `a_dip_in_level_is_not_a_mute`: 15 dB Einbruch über
+40–80 ms, vorher als `Muted` gemeldet). Neue Spalte in `korpus ends`: „sounding“ = zu früh gemeldete Mutes, nach denen
+die Aufnahme vor der nächsten Note wieder bis auf 10 dB an den Anfang der Note heranreicht (ein echter Fehlalarm).
+
+| Satz | als Muted | ≤ 30 ms | p50 | p95 | zu früh (≥ 50 ms) | davon klingend |
+|---|---|---|---|---|---|---|
+| synthetisch `staccato`, vorher und nachher | 33 von 33 | 100 % | 7,9 ms | 9,6 ms | 0 % | 0 % |
+| IDMT-ST vorher | 267 von 319 | 47,6 % | 26,5 ms | 93,3 ms | 16,5 % | 0,2 % |
+| IDMT-ST nachher | 262 von 319 | 47,0 % | 26,3 ms | 83,7 ms | 15,8 % | 0,2 % |
+
+Befund: Die „zu frühen“ Mutes auf IDMT (145) sind fast nie Pegelschwebungen. Drei Viertel liegen vor Noten, auf die
+laut Raster keine Pause folgt, 50–370 ms vor der nächsten Note. Bei 117 bleibt bis zur nächsten Note Zeit zum Prüfen:
+Nach 112 davon liegt die Aufnahme ≥ 10 dB unter dem Anfang der Note (105: ≥ 15 dB), Hüllkurven geprüft (etwa
+idmt-st-017 Note 4: Fall bei 2,58 s auf −55 dB, Raster-Offset 2,90 s; 015 Note 7: der Anschlagsfinger dämpft 30 ms
+vor dem nächsten Anschlag). Die übrigen 5 sind der nächste Anschlag, der bis zu 40 ms vor seinem Raster-Onset kommt. Die Spieler setzen also kürzer als notiert ab; die
+16 % messen das Raster, nicht die Erkennung. Pegelschwebungen gab es auf IDMT kaum (5 Mutes weniger durch das Halten).
+Ein Ziel „p95 ≤ 30 ms“ lässt sich mit Raster-Offsets nicht nachweisen; dafür braucht es von Hand annotierte Enden.
+`korpus check` und `korpus measure` (IDMT, ±80 ms, Tonhöhe) unverändert.
+
+Bewertung (LH-BEW-10): Die Session bewertet Noten, die die Tab gestoppt haben will (Staccato oder danach eine Pause ab
+einer Achtel; ohne Akkorde, Dead/Ghost Notes, Palm-Mute, Flageoletts), nur über Kabel: `Muted` oder `Decayed` bis zum
+notierten Ende plus Zeitfenster → rechtzeitig, `Muted` später → zu spät, sonst → klang in die Pause. Ein
+Anschlagsfinger, der 30–60 ms vor der nächsten Note dämpft, stört dort nicht: Noten ohne Pause danach werden nicht nach
+ihrem Ende bewertet.
+
 ## NNLS mit Saitenvorlagen (M4, nach 1.0), 09.11.2026
 
 Machbarkeit, kein Produktcode: `crates/engine/tests/nnls.rs` (ignoriert; `KONTRA_IDMT=… cargo test --release -p

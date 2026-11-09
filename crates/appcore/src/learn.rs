@@ -63,6 +63,7 @@ const TOPIC_TERMS: &[(&str, &str)] = &[
     ("rhythm.68", "taktart"),
     ("rhythm.54", "taktart"),
     ("rhythm.78", "taktart"),
+    ("rhythm.staccato", "daempfen"),
     ("style.shuffle", "shuffle"),
     ("goal.pulse", "zaehlzeit"),
     ("goal.rests", "pause"),
