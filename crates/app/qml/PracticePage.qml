@@ -849,7 +849,8 @@ Kirigami.Page {
         Flow {
             id: densityRow
             Layout.fillWidth: true
-            visible: (ctl.mode === "song" || ctl.mode === "workshop") && !page.presenting && !page.simple && !page.lean
+            // Calls and answers have their own notes: no share of them (LH-LRN-19).
+            visible: (ctl.mode === "song" || ctl.mode === "workshop") && !page.presenting && !page.simple && !page.lean && !ctl.call
             spacing: KanteStyle.unit(8)
             // In a run-through the part is the whole piece (QA 14.10.: "this section" without one).
             readonly property string fixedText: ctl.mode === "workshop" ? texts.t("density.fixed") : texts.t("density.fixed.piece")
