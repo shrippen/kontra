@@ -4,9 +4,11 @@
 //! ```text
 //! stage     single   consolidate   vary         context        mixed
 //! tempo     × 0.64   × 0.8         × 1          × 1.25         × 1.5625    (written tempo: stage 3)
-//! content   1 pass   2× passes     key ± 4th    I-IV-V chords  key from the seed
+//! content   1 pass   2× passes     key ± 4th    I-IV-V chords  figure, 4th, context
 //! ```
 //!
+//! The mixed stage plays one pass of the figure, of the figure a fourth away and of the context,
+//! in keys from the seed, none of them the written one.
 //! Only the tempo raises the note rate; the subdivision never changes with it. The seed (one
 //! per lesson) picks the keys, so the same lesson always builds the same ladder.
 
@@ -80,8 +82,12 @@ pub fn stage_spec(spec: &ExerciseSpec, stage: Stage, seed: u64) -> ExerciseSpec 
         Stage::Context => out.kind = in_context(spec.kind),
         Stage::Mixed => {
             out.kind = in_context(spec.kind);
-            // Any key but the written one.
-            let shift = 1 + seed.wrapping_mul(SPREAD) % (SEMITONES - 1);
+            // Any key but the written one, also for the pass a fourth away: e.g. seed 8
+            // gave +7, and +7 +5 is the written key again; that shift moves one on.
+            let mut shift = 1 + seed.wrapping_mul(SPREAD) % (SEMITONES - 1);
+            if moved(0, shift as i32 + fourth(seed)) == 0 {
+                shift = shift % (SEMITONES - 1) + 1;
+            }
             out.key = moved(spec.key, shift as i32);
         }
     }
@@ -203,9 +209,12 @@ mod tests {
             let b = stage_exercise(&spec, stage, seed);
             assert_eq!(a, b);
         }
-        // Mixed never plays the written key.
+        // Mixed never plays the written key, in none of its passes (review #227: the pass a
+        // fourth away came back to it for seeds 5, 8 and 19).
         for seed in 0..40 {
-            assert_ne!(stage_spec(&spec, Stage::Mixed, seed).key, spec.key);
+            let mixed = stage_spec(&spec, Stage::Mixed, seed).key;
+            assert_ne!(mixed, spec.key, "seed {seed}");
+            assert_ne!(moved(mixed, fourth(seed)), spec.key, "seed {seed}: fourth");
         }
     }
 
