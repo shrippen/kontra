@@ -11,6 +11,8 @@ const BLOCK: usize = 480;
 const FADE_S: f64 = 0.015;
 /// LH-BEW-10: a muted note's end within this.
 const WITHIN_S: f64 = 0.03;
+/// A level dip falls (and comes back) over this.
+const DIP_FALL_S: f64 = 0.03;
 
 fn note(onset_s: f64, midi: u8, duration_s: f64) -> SynthNote {
     SynthNote {
@@ -23,7 +25,11 @@ fn note(onset_s: f64, midi: u8, duration_s: f64) -> SynthNote {
 
 /// The ends told for `notes`, rendered over `total_s`.
 fn ends(notes: &[SynthNote], total_s: f64) -> Vec<NoteEnd> {
-    let samples = render(notes, SR, total_s, ToneShape::Rich, 3);
+    ends_of(&render(notes, SR, total_s, ToneShape::Rich, 3))
+}
+
+/// The ends the tracker tells for `samples`.
+fn ends_of(samples: &[f32]) -> Vec<NoteEnd> {
     let config = TrackerConfig::for_instrument(&Instrument::default_bass(), InputSource::Line);
     let mut tracker = NoteTracker::new(SR, config);
     let mut told = Vec::new();
@@ -70,4 +76,44 @@ fn a_held_note_is_not_muted() {
         .iter()
         .find(|e| e.ending == Ending::Muted && e.end_s < 3.3 - 0.1);
     assert!(muted.is_none(), "{told:?}");
+}
+
+/// A held note whose level dips 15 dB within 40 ms and comes back as fast, as two strings
+/// beating or a wobbling decay do: a dip is no mute.
+#[test]
+fn a_dip_in_level_is_not_a_mute() {
+    for dip_s in [0.04, 0.08] {
+        let mut samples = render(&[note(0.3, 33, 2.0)], SR, 2.6, ToneShape::Rich, 3);
+        let (from_s, depth) = (1.0, 10f32.powf(-15.0 / 20.0));
+        for (i, x) in samples.iter_mut().enumerate() {
+            let t = i as f64 / SR - from_s;
+            // Down over `DIP_FALL_S`, held for `dip_s`, back up as fast.
+            let into = (t / DIP_FALL_S)
+                .min(1.0)
+                .min((dip_s + 2.0 * DIP_FALL_S - t) / DIP_FALL_S);
+            if into > 0.0 {
+                *x *= 1.0 - (1.0 - depth) * into as f32;
+            }
+        }
+        let told = ends_of(&samples);
+        let muted = told
+            .iter()
+            .find(|e| e.ending == Ending::Muted && e.end_s < 2.3 - 0.1);
+        assert!(muted.is_none(), "dip {dip_s} s: {told:?}");
+    }
+}
+
+/// A short rest: the next attack comes before the fall has held (`HOLD_S`), the note was muted.
+#[test]
+fn a_short_rest_still_tells_the_mute() {
+    let told = ends(&[note(0.3, 33, 0.4), note(0.76, 38, 0.4)], 1.6);
+    let first = told.iter().find(|e| e.onset_s < 0.5);
+    let Some(first) = first else {
+        panic!("{told:?}");
+    };
+    assert_eq!(first.ending, Ending::Muted, "{told:?}");
+    assert!(
+        (first.end_s - (0.7 - FADE_S)).abs() <= WITHIN_S,
+        "{first:?}"
+    );
 }
