@@ -255,6 +255,11 @@ pub mod qobject {
         #[cxx_name = "loopBars"]
         fn loop_bars(self: Pin<&mut Self>, from: i32, to: i32);
 
+        /// Loops printed bar `bar` (from 1), as the start page's cards name it.
+        #[qinvokable]
+        #[cxx_name = "loopScoreBar"]
+        fn loop_score_bar(self: Pin<&mut Self>, bar: i32);
+
         #[qinvokable]
         #[cxx_name = "clearLoop"]
         fn clear_loop(self: Pin<&mut Self>);
@@ -1561,6 +1566,15 @@ impl qobject::Controller {
         let (start, end) = self.as_ref().rust().core.loop_seconds();
         self.as_mut().set_loop_start(start);
         self.as_mut().set_loop_end(end);
+    }
+
+    fn loop_score_bar(mut self: Pin<&mut Self>, bar: i32) {
+        let printed = u32::try_from(bar).unwrap_or(0);
+        let Some(index) = self.as_ref().rust().core.score_bar_index(printed) else {
+            return;
+        };
+        let index = i32::try_from(index).unwrap_or(0);
+        self.as_mut().loop_bars(index, index);
     }
 
     fn loop_edge(mut self: Pin<&mut Self>, edge: &QString) {

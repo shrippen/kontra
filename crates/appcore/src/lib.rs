@@ -1194,6 +1194,16 @@ impl Core {
         f64::from(kontra_session::SHAPING_RANGE_DB)
     }
 
+    /// The first unrolled bar of printed bar `printed` (from 1), as stored in runs and named on
+    /// the start page's cards: bar 1 repeated gives bars 1 1 2, printed 2 is index 2.
+    pub fn score_bar_index(&self, printed: u32) -> Option<usize> {
+        let source = printed.checked_sub(1)?;
+        self.arrangement()?
+            .bars
+            .iter()
+            .position(|b| b.source_index == source)
+    }
+
     /// Returns true if the notes changed: the section has another note density (LH-MOD-06).
     pub fn set_loop(&mut self, from: usize, to: usize) -> bool {
         // Bars chosen by hand end the building blocks.

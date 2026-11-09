@@ -36,7 +36,7 @@ Kirigami.ScrollablePage {
             return
         }
         ctl.changeMode("workshop")
-        ctl.loopBars(bar - 1, bar - 1)
+        ctl.loopScoreBar(bar)
         applicationWindow().show("practice")
     }
     // A section practised before, once without notes (DIDAKTIK I1); the count-in gives a bar to
@@ -66,7 +66,7 @@ Kirigami.ScrollablePage {
             return
         }
         ctl.changeMode("workshop")
-        ctl.loopBars(item.bar - 1, item.bar - 1)
+        ctl.loopScoreBar(item.bar)
         applicationWindow().show("practice")
         ctl.startProbe()
     }
