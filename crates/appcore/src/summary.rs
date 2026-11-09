@@ -1,5 +1,6 @@
 //! Run summary (LH-BEW-01): note list, observations, pocket, intonation and probe texts.
 
+use crate::store::Bass;
 use crate::{
     instrument_from, key_at, same_range, state_of, technique_key, technique_result_key, Core,
     PULSE_SPREAD_MS, WORKSHOP_MODE,
@@ -284,6 +285,7 @@ impl Core {
                 ("text", self.intonation_text(i)),
             ])),
             "intonationParts": intonation.map_or(Vec::new(), |_| self.intonation_parts(s)),
+            "detunedText": self.detuned_text(s),
             // Feedback beside the score (R7): notes on another string than the tab's.
             "stringsText": self.strings_text(s.strings),
             "meanOffsetMs": s.mean_offset_ms.unwrap_or(0.0),
@@ -454,6 +456,41 @@ impl Core {
                 ("spread", format!("{:.0}", i.spread_cent)),
             ],
         )
+    }
+
+    /// A string evenly out of tune (LH-TUN-05): "Die A-Saite klingt etwa 15 Cent zu hoch –
+    /// nachstimmen?", in steps of 5 cents. None without frets: there the finger sets the pitch.
+    fn detuned_text(&self, s: &Summary) -> String {
+        const STEP_CENT: f64 = 5.0;
+        let Some(d) = s
+            .detuned
+            .filter(|_| self.settings.instrument == Bass::Fretted)
+        else {
+            return String::new();
+        };
+        // The name ("A"), with the octave where two strings share it (Drop D: D1, D2).
+        let strings = self
+            .arrangement()
+            .map(|a| a.instrument.tuning.strings.clone())
+            .unwrap_or_default();
+        let string = strings.get(usize::from(d.string)).map_or_else(
+            || (d.string + 1).to_string(),
+            |p| {
+                let shared = strings.iter().filter(|o| o.name() == p.name()).count() > 1;
+                if shared {
+                    p.to_string()
+                } else {
+                    p.name().to_string()
+                }
+            },
+        );
+        let cents = (d.mean_cent.abs() / STEP_CENT).round() * STEP_CENT;
+        let key = if d.mean_cent > 0.0 {
+            "summary.detuned.sharp"
+        } else {
+            "summary.detuned.flat"
+        };
+        self.tr(key, &[("string", string), ("cents", format!("{cents:.0}"))])
     }
 
     /// Per string and position, e.g. "E-Saite, Bund 5 bis 9: …" (LH-BEW-12); none for a single

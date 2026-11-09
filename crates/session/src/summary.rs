@@ -1,13 +1,13 @@
 //! Evaluation after a run (LH-BEW-03): hit rate, timing histogram and tendency, hardest bars,
 //! bars the player hesitated at (DIDAKTIK I6), the one observation worth telling (LH-BEW-09),
-//! intonation as direction and spread (LH-BEW-12).
+//! intonation as direction and spread (LH-BEW-12), a string evenly out of tune (LH-TUN-05).
 
 use crate::matcher::{NoteResult, Outcome};
 use crate::pocket::{Pocket, PocketVerdict};
 use crate::technique::TechniqueTally;
-use kontra_model::{Arrangement, Technique};
+use kontra_model::{Arrangement, StringHeard, Technique};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 const BIN_MS: f64 = 10.0;
 const HISTOGRAM_LIMIT_MS: f64 = 100.0;
@@ -24,6 +24,14 @@ const CENT_DIRECTION: f64 = 5.0;
 const INTONATION_MIN_NOTES: usize = 8;
 /// Frets per position: 0–4, 5–9, 10–14, …
 const POSITION_FRETS: u8 = 5;
+/// A string out of tune (LH-TUN-05): this many notes on this many frets, off by this much on
+/// average; less could be the player's fingers, not the string.
+const DETUNED_MIN_NOTES: usize = 8;
+const DETUNED_MIN_FRETS: usize = 3;
+const DETUNED_CENT: f64 = 12.0;
+/// "Evenly" off: notes this close around their mean. A wider spread is the fingers, and
+/// retuning by the mean would worsen half the notes (+40 and −10 average +15).
+const DETUNED_SPREAD_CENT: f64 = 10.0;
 
 /// Judged notes a run needs before anything about it is told (LH-BEW-09).
 const OBSERVE_MIN_NOTES: u32 = 8;
@@ -94,6 +102,9 @@ pub struct Summary {
     /// The same per string and position, for those with enough notes, lowest string first.
     #[serde(default)]
     pub intonation_parts: Vec<IntonationPart>,
+    /// A string evenly out of tune while the others are not (LH-TUN-05).
+    #[serde(default)]
+    pub detuned: Option<DetunedString>,
     pub histogram: TimingHistogram,
     /// Bars with the most missed notes, worst first; the hit rate breaks ties (index into
     /// `Arrangement::bars`).
@@ -285,6 +296,74 @@ fn intonation_parts(results: &[NoteResult], arrangement: &Arrangement) -> Vec<In
         .collect()
 }
 
+/// A string that sounds off as a whole: "the A string sounds about 15 cents sharp".
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct DetunedString {
+    /// 0 = lowest string.
+    pub string: u8,
+    /// Negative = flat.
+    pub mean_cent: f64,
+}
+
+/// The one string whose notes are off by at least `DETUNED_CENT` on average, within
+/// `DETUNED_SPREAD_CENT`, over at least `DETUNED_MIN_FRETS` frets, while another string with
+/// enough notes is in tune. Example: A string +15 on frets 0, 2, 3 and E string ±3 → A string.
+/// All strings off is the reference pitch or the player, not one string. A note counts for the
+/// string it was heard on (`heard`: pass, note, string; R7), else the tab's.
+pub(crate) fn detuned(
+    results: &[NoteResult],
+    arrangement: &Arrangement,
+    heard: &[(u32, usize, StringHeard)],
+) -> Option<DetunedString> {
+    let mut strings: BTreeMap<u8, (Vec<f64>, BTreeSet<u8>)> = BTreeMap::new();
+    for r in final_per_note(results) {
+        if !matches!(r.outcome, Outcome::Hit | Outcome::OffPitch) {
+            continue;
+        }
+        let (Some(c), Some(note)) = (r.cents, r.note.and_then(|i| arrangement.notes.get(i))) else {
+            continue;
+        };
+        let (Some(tab_string), Some(tab_fret)) = (note.string, note.fret) else {
+            continue;
+        };
+        let other = heard.iter().find_map(|&(pass, index, h)| match h {
+            StringHeard::Other(s) if pass == r.pass && Some(index) == r.note => Some(s),
+            _ => None,
+        });
+        let open = |s: u8| arrangement.instrument.tuning.strings.get(usize::from(s));
+        let (string, fret) = match other {
+            None => (tab_string, tab_fret),
+            Some(s) => match open(s).and_then(|o| note.pitch.0.checked_sub(o.0)) {
+                Some(fret) => (s, fret),
+                None => continue,
+            },
+        };
+        let entry = strings.entry(string).or_default();
+        entry.0.push(c);
+        entry.1.insert(fret);
+    }
+
+    // (string, mean, spread, frets) of the strings with enough notes.
+    let evidenced: Vec<(u8, f64, f64, usize)> = strings
+        .into_iter()
+        .filter(|(_, (cents, _))| cents.len() >= DETUNED_MIN_NOTES)
+        .filter_map(|(string, (cents, frets))| {
+            let i = Intonation::from_cents(&cents)?;
+            Some((string, i.mean_cent, i.spread_cent, frets.len()))
+        })
+        .collect();
+    let off: Vec<&(u8, f64, f64, usize)> = evidenced
+        .iter()
+        .filter(|(_, mean, _, _)| mean.abs() >= DETUNED_CENT)
+        .collect();
+    let [&(string, mean_cent, spread, frets)] = off[..] else {
+        return None;
+    };
+    let compared = evidenced.len() > off.len();
+    let even = spread <= DETUNED_SPREAD_CENT;
+    (frets >= DETUNED_MIN_FRETS && compared && even).then_some(DetunedString { string, mean_cent })
+}
+
 /// A missed note played beside the timing window.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct OutsideNote {
@@ -337,6 +416,7 @@ impl Summary {
             spread_ms: spread,
             intonation: Intonation::from_cents(&cents),
             intonation_parts: intonation_parts(&final_results, arrangement),
+            detuned: detuned(results, arrangement, &[]),
             histogram: TimingHistogram::from_offsets(&offsets),
             hardest_bars: hardest_bars(&final_results, arrangement),
             hesitant_bars: hesitant_bars(&final_results, mean_offset.unwrap_or(0.0)),
@@ -895,6 +975,88 @@ mod tests {
         assert_eq!(parts.len(), 1, "{parts:?}");
         assert_eq!((parts[0].string, parts[0].first_fret), (0, 5));
         assert_eq!(parts[0].intonation.leaning(), Some(Leaning::Sharp));
+    }
+
+    /// LH-TUN-05: one string evenly off over three frets while another is in tune is that
+    /// string; two frets, two strings off or no string to compare with tell nothing.
+    #[test]
+    fn a_detuned_string_stands_out() {
+        use kontra_model::{Instrument, Note, Pitch};
+
+        // (string, fret, cents) nine times each; string 0 = E, 1 = A.
+        let run = |notes: &[(u8, u8, f64)]| {
+            let mut arrangement = Arrangement::new("Tune", Instrument::default_bass());
+            let mut cents = Vec::new();
+            for &(string, fret, cent) in notes.iter().flat_map(|n| std::iter::repeat_n(n, 3)) {
+                arrangement.notes.push(Note {
+                    string: Some(string),
+                    fret: Some(fret),
+                    ..Note::new(0, 1, Pitch(28 + 5 * string + fret))
+                });
+                cents.push(cent);
+            }
+            let mut results = played(&vec![(Outcome::Hit, Some(0.0)); cents.len()]);
+            for (r, c) in results.iter_mut().zip(cents) {
+                r.cents = Some(c);
+            }
+            detuned(&results, &arrangement, &[])
+        };
+        let a_sharp = [(1, 0, 14.0), (1, 2, 16.0), (1, 3, 15.0)];
+        let e_in_tune = [(0, 0, 2.0), (0, 3, -3.0), (0, 5, 1.0)];
+        let e_flat = [(0, 0, -14.0), (0, 3, -13.0), (0, 5, -15.0)];
+
+        let found = run(&[a_sharp, e_in_tune].concat()).unwrap();
+        assert_eq!(found.string, 1);
+        assert!((found.mean_cent - 15.0).abs() < 1e-9, "{found:?}");
+        assert_eq!(
+            run(&[&a_sharp[..2], &e_in_tune].concat()),
+            None,
+            "two frets"
+        );
+        assert_eq!(run(&[a_sharp, e_flat].concat()), None, "two strings off");
+        assert_eq!(run(&a_sharp), None, "nothing to compare with");
+        // Mean +15 from +40 and −10: unevenly fingered, retuning would worsen half (review #224).
+        let a_uneven = [(1, 0, 40.0), (1, 2, -10.0), (1, 3, 15.0)];
+        assert_eq!(run(&[a_uneven, e_in_tune].concat()), None, "uneven");
+    }
+
+    /// Review #224: a note counts for the string it was heard on, not the tab's. The E string
+    /// is +15; the tab puts nine notes on the A string, the player takes them on the E string.
+    #[test]
+    fn a_detuned_string_follows_the_heard_string() {
+        use kontra_model::{Instrument, Note, Pitch, StringHeard};
+
+        let mut arrangement = Arrangement::new("Heard", Instrument::default_bass());
+        // A string frets 0, 2, 3 (heard on E at 5, 7, 8) and D string frets 0, 2, 3, three each.
+        let places = [(1, 0), (1, 2), (1, 3), (2, 0), (2, 2), (2, 3)];
+        let mut heard = Vec::new();
+        let mut cents = Vec::new();
+        for (i, &(string, fret)) in places
+            .iter()
+            .flat_map(|p| std::iter::repeat_n(p, 3))
+            .enumerate()
+        {
+            arrangement.notes.push(Note {
+                string: Some(string),
+                fret: Some(fret),
+                ..Note::new(0, 1, Pitch(28 + 5 * string + fret))
+            });
+            let on_e = string == 1;
+            cents.push(if on_e { 15.0 } else { 0.0 });
+            if on_e {
+                heard.push((0, i, StringHeard::Other(0)));
+            }
+        }
+        let mut results = played(&vec![(Outcome::Hit, Some(0.0)); cents.len()]);
+        for (r, c) in results.iter_mut().zip(cents) {
+            r.cents = Some(c);
+        }
+
+        // By the tab alone (before the review) the A string is blamed.
+        let by_tab = detuned(&results, &arrangement, &[]).unwrap();
+        assert_eq!(by_tab.string, 1);
+        let found = detuned(&results, &arrangement, &heard).unwrap();
+        assert_eq!(found.string, 0, "the E string, not the tab's A string");
     }
 
     /// Harmonicon analysis (29.10.): the hardest bar is the one that costs the most notes. A bar

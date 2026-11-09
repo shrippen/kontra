@@ -89,4 +89,6 @@ fn low_fretless_line_reads_its_cents() {
         intonation.starts_with("2 unsauber · im Schnitt richtig, Streuung ±2"),
         "{intonation}"
     );
+    // Without frets the finger sets the pitch: never a string to retune (LH-TUN-05).
+    assert_eq!(s["detunedText"], "");
 }

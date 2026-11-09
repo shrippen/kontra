@@ -29,6 +29,9 @@ Item {
         function termJson(topic) { return "" }
     }
     function applicationWindow() { return root }
+    // The page a button asked for.
+    property string shownPage: ""
+    function show(name) { shownPage = name }
 
     Column {
         id: behindItem
@@ -130,6 +133,21 @@ Item {
             sheet.open()
             verify(showing(sheet, "recal.text") !== null)
             verify(showing(sheet, "summary.recalibrate.button") !== null)
+        }
+
+        // A string out of tune is named with the way to the tuner (LH-TUN-05).
+        function test_detuned_string() {
+            var summary = JSON.parse(root.ctl.summaryJson)
+            summary.detunedText = "detuned.text"
+            root.ctl.summaryJson = JSON.stringify(summary)
+            sheet.open()
+            verify(showing(sheet, "detuned.text") !== null)
+            var button = showing(sheet, "summary.detuned.button")
+            verify(button !== null)
+            root.shownPage = ""
+            mouseClick(button)
+            compare(root.shownPage, "tuner")
+            tryVerify(function() { return !sheet.opened })
         }
 
         function test_trap_and_return() {

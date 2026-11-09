@@ -95,6 +95,23 @@ KanteCard {
             }
         }
 
+        // A string evenly out of tune (LH-TUN-05), with the way to the tuner.
+        readonly property string detuned: sheet.summary && sheet.summary.detunedText ? sheet.summary.detunedText : ""
+        KanteCallout {
+            Layout.fillWidth: true
+            visible: content.detuned !== ""
+            kind: KanteCallout.Kind.Info
+            autoHide: false
+            text: content.detuned
+            KanteButton {
+                text: texts.t("summary.detuned.button")
+                onClicked: {
+                    sheet.close()
+                    applicationWindow().show("tuner")
+                }
+            }
+        }
+
         // Blind probe (DIDAKTIK I1): without help next to the workshop with notes, in figures and
         // a sentence (not colour alone).
         readonly property var probe: sheet.summary ? sheet.summary.probe : null
