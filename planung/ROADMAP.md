@@ -297,7 +297,13 @@ Rückmeldung und Lernen:
   diese Takte weg (J-C6 ⚙).
 - [x] L2 Übungsserie, standardmäßig aus (LH-FOR-05): Einstellung „Übungsserie zeigen“; zählt Tage mit gewertetem
   Lauf in Ortszeit, jede Lücke von einem Tag wird verziehen; ab 2 Tagen eine leise Zeile unter „Diese Woche“.
-- [ ] L3 Übungsleiter je Lektion (LH-LRN-17).
+- [x] L3 Übungsleiter je Lektion (LH-LRN-17): jeder Übungsblock (mitgeliefert über den Plan, oder aus dem Generator)
+  bietet fünf Stufen (`exercise::stage_spec`): Einzeln (1 Durchgang, Tempo × 0,64), Festigen (doppelt, × 0,8),
+  Abwandeln (Quarte auf oder ab, notiertes Tempo), Im Zusammenhang (ein Akkord wird I-IV-V, × 1,25), Gemischt
+  (Tonart aus dem Startwert, × 1,5625). Nur das Tempo hebt die Notenrate, die Unterteilung bleibt; Schwellen 60, 65,
+  70, 75, 80 %; Startwert aus der Lektions-Id. Knöpfe zeigen „bisher 72 %“, die erste nicht erreichte Stufe ist
+  hervorgehoben, nichts gesperrt. Offen: Takte gemischt aus mehreren Stufen in einer Datei („Gemischt“ wechselt nur
+  die Tonart).
 - [x] L4 Griffbrett-Quiz gewichtet (LH-LRN-18). Teil 1 (`fret-quiz`): „Töne finden“ zieht Plätze nach Gewicht
   (verfehlt und lange nicht geübt öfter), Statistik je Saite und Bund in `quiz.json`, Bünde 0–4, 0–7, 0–12 oder eigene,
   Überspringen kein Fehler, auch nicht in „x von y gefunden“; Bund 12 bei 0–12 kein eigener Platz (gleicher Ton wie

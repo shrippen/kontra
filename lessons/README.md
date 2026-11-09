@@ -68,6 +68,9 @@ Tonhöhen stehen relativ: `root` ist ein Notenname (C, F#, Bb), `steps` sind Hal
 das Profil: der Grundton liegt so tief wie möglich im Umfang des Instruments. `string=A` legt die Töne auf
 Saiteninstrumenten auf die leere A-Saite (nur in `figure` und `try`, wo es darauf ankommt).
 
+Jeder Übungsblock bietet in Kontra außerdem die Übungsleiter (LH-LRN-17): fünf Stufen aus derselben Übung, je etwa
+ein Viertel mehr Noten je Sekunde; der Autor schreibt dafür nichts.
+
 ## Kurs
 
 ```json

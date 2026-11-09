@@ -200,7 +200,7 @@ impl Core {
             "fits": learning.fits(&unit.scope),
             "seen": seen,
             "done": state.done(&key),
-            "pages": self.with_cues(id, self.pages_json(&doc)),
+            "pages": self.with_ladders(id, self.with_cues(id, self.pages_json(&doc))),
         })
         .to_string()
     }
@@ -678,7 +678,7 @@ impl Core {
             .find(|f| plan_number(f).0 == usize::from(n))
     }
 
-    fn generated_spec(&self, exercise: &ExerciseRef) -> Option<exercise::ExerciseSpec> {
+    pub(crate) fn generated_spec(&self, exercise: &ExerciseRef) -> Option<exercise::ExerciseSpec> {
         let ExerciseRef::Generated {
             kind,
             variant,

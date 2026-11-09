@@ -189,6 +189,41 @@ ColumnLayout {
         }
     }
 
+    // LH-LRN-17: the ladder, five stages with a quarter more notes per second each; the best
+    // hit rate is a measurement, every stage is open, the first not reached yet is suggested.
+    QQC2.Label {
+        Layout.fillWidth: true
+        visible: block.kindName === "practice" && !!block.modelData.ladder
+        wrapMode: Text.WordWrap
+        color: KanteStyle.mutedTextColor
+        text: block.texts.t("learn.ladder")
+    }
+    Flow {
+        Layout.fillWidth: true
+        spacing: KanteStyle.unit(8)
+        visible: block.kindName === "practice" && !!block.modelData.ladder
+        Repeater {
+            model: block.kindName === "practice" && block.modelData.ladder ? block.modelData.ladder : []
+            delegate: KanteButton {
+                required property var modelData
+                required property int index
+                text: block.texts.t("learn.stage", {
+                    n: index + 1,
+                    name: block.texts.t("learn.stage." + modelData.stage),
+                    best: modelData.best === null ? block.texts.t("learn.stage.new")
+                        : block.texts.t("learn.stage.best", { percent: Math.round(modelData.best * 100) }),
+                    threshold: Math.round(modelData.threshold * 100)
+                })
+                emphasis: modelData.suggested ? KanteButton.Emphasis.Normal : KanteButton.Emphasis.Quiet
+                onClicked: {
+                    if (block.ctl.lessonStage(block.lessonId, block.pageIndex, block.index, index)) {
+                        applicationWindow().show("practice")
+                    }
+                }
+            }
+        }
+    }
+
     // Question: pick an answer; the pick gets a check or a cross and a word, not only colour.
     QQC2.Label {
         Layout.fillWidth: true

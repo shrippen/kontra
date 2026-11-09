@@ -14,6 +14,7 @@ pub mod ear;
 mod goal;
 mod i18n;
 mod input_state;
+mod ladder;
 mod learn;
 pub mod level;
 mod library;

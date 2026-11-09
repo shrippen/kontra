@@ -668,6 +668,17 @@ pub mod qobject {
         #[cxx_name = "lessonExercise"]
         fn lesson_exercise(self: Pin<&mut Self>, id: &QString, page: i32, block: i32) -> bool;
 
+        /// Opens stage 0–4 of a practice block's ladder (LH-LRN-17).
+        #[qinvokable]
+        #[cxx_name = "lessonStage"]
+        fn lesson_stage(
+            self: Pin<&mut Self>,
+            id: &QString,
+            page: i32,
+            block: i32,
+            stage: i32,
+        ) -> bool;
+
         /// Opens the exercise that rounds off chapter `chapter`.
         #[qinvokable]
         #[cxx_name = "finaleExercise"]

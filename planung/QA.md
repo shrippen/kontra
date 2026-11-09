@@ -287,6 +287,8 @@ Erwartet: Die Markierung des Tipps verschwindet, Kontra wartet ohne Markierung w
 Erwartet: Jeder Schritt passt auf einen Bildschirm; beim Ausprobieren sagt ein falscher Ton, was er war; die Startseite
 zeigt „Weiter: <nächste Lektion>“; ohne Eingang antwortet ein Klick auf die Klaviatur statt des Basses. Die Auswertung
 einer Lektionsübung nennt ihr Ziel („Ziel 80 %, erreicht 72 %“, LH-LRN-20); eine Übung ohne Ziel zeigt keine Prozentzahl.
+Unter jeder Übung die Übungsleiter (LH-LRN-17): fünf offene Stufen mit „neu“ oder „bisher x %“ und ihrer Schwelle, die
+erste nicht erreichte hervorgehoben; nach einem Lauf über der Schwelle rückt die Hervorhebung eine Stufe weiter.
 
 **J-G2 Was ist eine Septime?** ⚙ · Personas: P2 Jens, P1 Lea · Phase 2 · LH-LRN-09
 1. Jens: Übung erzeugen, Akkordfolge II-V-I; „?“ daneben zeigt beim Zeigen den ersten Satz, ein Klick den Eintrag;

@@ -144,6 +144,28 @@ impl qobject::Controller {
         self.as_mut().open_exercise(path)
     }
 
+    pub(super) fn lesson_stage(
+        mut self: Pin<&mut Self>,
+        id: &QString,
+        page: i32,
+        block: i32,
+        stage: i32,
+    ) -> bool {
+        let at = (
+            usize::try_from(page),
+            usize::try_from(block),
+            usize::try_from(stage),
+        );
+        let (Ok(page), Ok(block), Ok(stage)) = at else {
+            return false;
+        };
+        let path = self
+            .as_mut()
+            .core()
+            .lesson_stage(&id.to_string(), page, block, stage);
+        self.as_mut().open_exercise(path)
+    }
+
     pub(super) fn finale_exercise(mut self: Pin<&mut Self>, chapter: &QString) -> bool {
         let path = self.as_mut().core().finale_exercise(&chapter.to_string());
         self.as_mut().open_exercise(path)
