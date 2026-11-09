@@ -11,10 +11,12 @@
 //!                                                          └──▶ drums (grooves) ──write──▶ MIDI
 //! ```
 
+mod labels;
 mod ladder;
 mod plan;
 mod song;
 
+use labels::{progression_label, rhythm_label, scale_label, sequence_label};
 pub use ladder::{lesson_seed, stage_exercise, stage_spec, Stage};
 pub use plan::{bundled, bundled_specs, plan_place};
 pub use song::{Level, Style};
@@ -1203,67 +1205,6 @@ fn drum_bar(start: u32, rhythm: Rhythm) -> Vec<(u32, u8)> {
 
 fn bars_len(progression: Progression, meter: Meter) -> u32 {
     progression.bars().len() as u32 * meter.bar()
-}
-
-fn scale_label(scale: ScaleKind) -> &'static str {
-    match scale {
-        ScaleKind::Major => "Dur-Tonleiter",
-        ScaleKind::Minor => "Moll-Tonleiter",
-        ScaleKind::MajorPentatonic => "Dur-Pentatonik",
-        ScaleKind::MinorPentatonic => "Moll-Pentatonik",
-        ScaleKind::Blues => "Blues-Tonleiter",
-        ScaleKind::Dorian => "Dorisch",
-        ScaleKind::Phrygian => "Phrygisch",
-        ScaleKind::Lydian => "Lydisch",
-        ScaleKind::Mixolydian => "Mixolydisch",
-        ScaleKind::Locrian => "Lokrisch",
-        ScaleKind::HarmonicMinor => "Harmonisch Moll",
-    }
-}
-
-fn sequence_label(sequence: Sequence) -> &'static str {
-    match sequence {
-        Sequence::Thirds => "in Terzen",
-        Sequence::Fours => "in Vierergruppen",
-    }
-}
-
-fn progression_label(progression: Progression) -> &'static str {
-    match progression {
-        Progression::Tonic => "auf einem Akkord",
-        Progression::TwoFiveOne => "II-V-I",
-        Progression::Blues => "12-Takt-Blues",
-        Progression::Minor => "Moll-Kadenz",
-        Progression::OneFourFive => "I-IV-V",
-        Progression::Pop => "I-V-VI-IV",
-        Progression::Turnaround => "I-VI-II-V",
-        Progression::MinorTwoFiveOne => "Moll-II-V-I",
-    }
-}
-
-fn rhythm_label(rhythm: Rhythm) -> &'static str {
-    match rhythm {
-        Rhythm::Quarters => "Viertel",
-        Rhythm::Eighths => "Achtel",
-        Rhythm::Sixteenths => "Sechzehntel",
-        Rhythm::WithRests => "mit Pausen",
-        Rhythm::Shuffle => "Shuffle",
-        Rhythm::Octaves => "Oktaven",
-        Rhythm::Ghost => "Ghost Notes",
-        Rhythm::RootFifth => "Grundton-Quinte",
-        Rhythm::RootFifthOctave => "Grundton-Quinte-Oktave",
-        Rhythm::DeadNotes => "Dead Notes",
-        Rhythm::Offbeat => "Offbeat",
-        Rhythm::Tresillo => "Tresillo",
-        Rhythm::Triplets => "Triolen",
-        Rhythm::Funk => "Funk",
-        Rhythm::Slap => "Slap",
-        Rhythm::Waltz => "3/4",
-        Rhythm::SixEight => "6/8",
-        Rhythm::FiveFour => "5/4",
-        Rhythm::SevenEight => "7/8",
-        Rhythm::Staccato => "Staccato",
-    }
 }
 
 /// Text keys for `spec` (see `Description`).

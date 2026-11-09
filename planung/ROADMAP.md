@@ -377,7 +377,8 @@ Erkennung und Messung:
   Kabel (Mikrofon, MIDI: „noch nicht“): rechtzeitig / zu spät / in die Pause geklungen, in der Auswertung und unter
   „Alle Noten“; Trefferquote unverändert. Übungen 151, 152 „Groove Staccato“, Lektion „Saiten dämpfen“, J-B8. Offen:
   von Hand annotierte Enden (Hardware-Sitzung), Notenlänge bei Legato (der Anschlagsfinger dämpft vor der nächsten
-  Note), Marke in der Tab-Lane.
+  Note), Marke in der Tab-Lane. Rechenzeit (`cargo bench -p kontra-dsp`, 09.11., Last 4–7): Tracker Mittel 1,5 %, p99
+  4,8 %, schlechtester Block 4,9 % des 10-ms-Budgets (E4 vorher 1,8 / 5,1 / 6,0 % bei Last 30–40); Analyse-Thread.
 - [x] E6 Rauschboden bei der Kalibrierung (LH-EIN-16, `noise-floor`): Beim Einzählen misst der Onset-Detektor den
   Pegel im Anschlagband (10. Perzentil), die Schwelle liegt 6 dB darüber (−62 bis −40 dB) und gilt je Eingang.
   Messung (synthetisch, weißes Rauschen): Am Kabel gab es schon vorher 0 Falschnoten je Minute bei −70 bis −35 dBFS
