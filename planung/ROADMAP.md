@@ -329,7 +329,13 @@ Erkennung und Messung:
   Verlust aus Gerätestempeln über eine DLL (R3, erster Teil, #209); offen aus R3: Wiedergabe- und
   Eingangszeitachse an der DLL verankern (Ausgangsstempel), Loopback-Prüfung am Solo.
 - [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).
-- [ ] E5 Notenende (LH-BEW-10).
+- [x] E5 Notenende (LH-BEW-10, `h-detect`): Der Tracker folgt jeder Note bis zu ihrem Ende und meldet `NoteEnd`
+  (Engine `Event::End`): `Muted` (Pegel ≥ 10 dB binnen 60 ms), `Decayed` (30 dB unter dem Start), `Replaced`
+  (nächster Anschlag oder Legato-Ton). Noch nicht bewertet, Treffer unverändert. `korpus ends` (09.11.): synthetisch
+  `staccato` 33 von 33 als abgedämpft, p95 9,6 ms (in `korpus check`); IDMT-ST 267 von 319 gestoppten Noten als
+  abgedämpft, 47,6 % ≤ 30 ms, p50 26,5 ms, p95 93,3 ms, 16,5 % ≥ 50 ms vor dem Offset. Ziel ≤ 30 ms auf IDMT nur im
+  Median erreicht; die Offsets sind Partitur-Raster (`FORSCHUNG-AUDIO.md`, „Notenende“). Offen: von Hand annotierte
+  Enden (Hardware-Sitzung), Übungen zu Abdämpfen und Notenlänge.
 - [x] E6 Rauschboden bei der Kalibrierung (LH-EIN-16, `noise-floor`): Beim Einzählen misst der Onset-Detektor den
   Pegel im Anschlagband (10. Perzentil), die Schwelle liegt 6 dB darüber (−62 bis −40 dB) und gilt je Eingang.
   Messung (synthetisch, weißes Rauschen): Am Kabel gab es schon vorher 0 Falschnoten je Minute bei −70 bis −35 dBFS
@@ -338,7 +344,13 @@ Erkennung und Messung:
   leisen Raum: die feste Schwelle −48 dB verlor leise Anschläge, jetzt −62. `room-double` auf −30 dBFS Spitze bei
   Rauschen −80 dBFS: Recall 14,7 % → 100 %, auf −40 dBFS 0 → 57,7 %; `idle-room` weiter 0 Falschnoten. Korpus
   (`korpus check`, IDMT, Techniken, FiloBass) unverändert: er läuft ohne Kalibrierung.
-- [ ] E7 Erste echte Aufnahmen als eingefrorene Basis, neue als eigene Gruppen.
+- [x] E7 Erste echte Aufnahmen als eingefrorene Basis, neue als eigene Gruppen (`h-detect`): `korpus freeze --real
+  <Wurzel> <Gruppe>…` schreibt Recall und Präzision (Tonhöhe, ±80 ms) je Gruppe nach `testdata/korpus/baseline.json`,
+  `korpus check --real <Wurzel>` misst jede eingefrorene Gruppe und scheitert 0,5 Punkte darunter oder bei
+  geänderten Daten; Gruppen ohne Eintrag stehen als „neu“ daneben. Eingefroren (09.11.): `conv/idmt-st` 91,56 / 82,51 %,
+  `conv/idmt-sb/bass-1..3`, `conv/filobass` 59,86 / 62,69 %, `conv/nsynth`. Offen: Aufnahmen des Eigentümers gibt es
+  noch nicht (`AUFNAHME.md`); sie kommen in der Hardware-Sitzung als eigene Gruppe `own/…` und werden dann
+  eingefroren. Die CI ruft `--real` noch nicht auf (Änderung an `.github/`, braucht die Bestätigung des Eigentümers).
 - [x] E8 Brummen vor der Erkennung entfernen (Eigentümer, 29.10.): Netzfrequenz verfolgen (49,8–50,2 Hz, 60 Hz),
   Grundton und Obertöne abziehen statt sperren; Noten auf derselben Frequenz (G1, G2) bleiben (`crates/dsp/src/dehum.rs`,
   für jeden Eingang vor Anschlag und Tonhöhe). Gelernt wird nur in ruhigen, stetigen 100-ms-Blöcken, abgezogen erst nach
@@ -358,9 +370,20 @@ Mehrere Töne (offen für Gitarre und Tasten):
 - [x] M1 Doppelgriffe: Korpus-Satz, Merker „zwei Töne“, Fähigkeit je Eingang (LH-BEW-11). Mit R8: synthetischer
   Satz in `korpus check`, IDMT-Mischungen in `korpus double-stops`, `ChordHearing` je Eingang. MIDI-Akkorde als
   ganze Menge bleiben M2.
-- [ ] M2 Akkorde im Korpus als ganze Menge werten, zuerst MIDI.
-- [ ] M3 Saiten-Plausibilität für Akkordkandidaten im Instrumentprofil.
-- [ ] M4 Machbarkeitsstudie NNLS mit Vorlagen je Saite, Log-Frequenz (nach 1.0).
+- [x] M2 Akkorde im Korpus als ganze Menge werten, zuerst MIDI (`h-detect`): `score_chords` zählt je Akkord alle
+  Töne, fehlende und fremde; `korpus chords` für `.json`+`.mid`-Paare, ohne Ordner der erzeugte MIDI-Satz (120
+  Akkorde, gerollt 0–25 ms, Tasten überlappend), in `korpus check` 100 % vollständig. Offen: echte MIDI-Aufnahmen,
+  Audio-Akkorde (Audio hört höchstens zwei Töne, `ChordHearing`).
+- [x] M3 Saiten-Plausibilität für Akkordkandidaten im Instrumentprofil (`h-detect`): `Instrument::grip` (je Ton eine
+  eigene Saite, gegriffene Bünde höchstens `hand_span_frets` auseinander, 4; Kontrabass 3; Leersaiten frei) und
+  `can_sound_together` (Tasten: jeder Ton im Umfang, keiner doppelt); Test mit Gitarren-C-Dur. Genutzt von den
+  IDMT-Mischungen in `korpus double-stops`: E1 + G1 (beide nur auf der E-Saite) fallen weg, 307 → 301 Doppelgriffe,
+  91,5 → 91,7 % als beide. Offen: Filter für blinde Akkordkandidaten, sobald es sie gibt (M4).
+- [x] M4 Machbarkeitsstudie NNLS mit Vorlagen je Saite, Log-Frequenz (nach 1.0; `h-detect`, nur Test
+  `crates/engine/tests/nnls.rs`): IDMT-Mischungen, θ auf der Hälfte gewählt: informiert 96,6 % beide bei 0,7 %
+  Fehlalarm (`DyadCheck` 91,7 / 1,7 %), blind 68,9 % genau richtig (Klapuri 45 %). Vorlagen je Saite gegen je
+  Tonhöhe: +4,7 Punkte blind; die Saite selbst sagen sie nicht (45 %). Kein Produktwechsel; Bericht in
+  `FORSCHUNG-AUDIO.md`. Offen nach 1.0: Vorlagen je Bass lernen, echte Doppelgriffe, Oktaven.
 
 Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in Worten je PR):
 - [ ] W1 `scripts/qactl.py` über AT-SPI; Socket nur im Cargo-Feature `qa`.
