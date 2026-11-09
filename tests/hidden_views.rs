@@ -16,14 +16,15 @@
 use std::path::PathBuf;
 
 const PAGE: &str = "crates/app/qml/PracticePage.qml";
-/// The views of the practice page, by QML id.
-const VIEWS: [&str; 6] = [
-    "lane",
-    "tabStaff",
-    "bassStaff",
-    "combinedBass",
-    "combinedTab",
-    "keyLane",
+/// The views of the practice page, by QML id, with the item whose visibility they follow
+/// (empty: their own).
+const VIEWS: [(&str, &str); 6] = [
+    ("lane", ""),
+    ("tabStaff", ""),
+    ("bassStaff", ""),
+    ("combinedBass", "combined."),
+    ("combinedTab", "combined."),
+    ("keyLane", "keysView."),
 ];
 
 fn page() -> String {
@@ -48,9 +49,12 @@ fn hidden_views_skip_position() {
     let text = page();
     let moving: Vec<String> = VIEWS
         .iter()
-        .map(|id| (id, position_of(&text, id)))
-        .filter(|(_, binding)| !binding.contains("visible ?"))
-        .map(|(id, binding)| format!("{id}: {binding}"))
+        .map(|(id, owner)| (id, owner, position_of(&text, id)))
+        // Exactly this: a reversed condition would stop the shown view (review #228).
+        .filter(|(_, owner, binding)| {
+            *binding != format!("position: {owner}visible ? ctl.position : 0")
+        })
+        .map(|(id, _, binding)| format!("{id}: {binding}"))
         .collect();
     assert!(
         moving.is_empty(),

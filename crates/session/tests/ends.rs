@@ -95,6 +95,16 @@ fn judge_score(
     name: &str,
 ) -> Session {
     let (notes, ends) = heard(played, name);
+    feed(score, &notes, &ends, source)
+}
+
+/// Runs `score` over `notes` and `ends`, each told `TOLD_AFTER_S` after it happened.
+fn feed(
+    score: Arrangement,
+    notes: &[DetectedNote],
+    ends: &[NoteEnd],
+    source: InputSource,
+) -> Session {
     let settings = ScoreSettings {
         source,
         ..ScoreSettings::default()
@@ -210,4 +220,21 @@ fn notes_without_ends_judge_no_ends() {
     let scored = kontra_session::score_notes(&score, &detected, Mode::Song, settings, 1.0, 0.0);
     assert_eq!(scored.summary.hits as usize, LINE.len());
     assert_eq!(scored.summary.muting, MutingTally::default());
+}
+
+/// Review #227: a cable run with one note, written staccato and stopped while it still rings,
+/// counts it as rang on. The input told no end, so the run counted as one without ends.
+#[test]
+fn a_lone_ringing_note_counts() {
+    let mut score = staccato();
+    score.notes.truncate(1);
+    score.notes[0].techniques.push(Technique::Staccato);
+    let mut played = score.clone();
+    played.notes[0].duration_ticks = 8 * TICKS_PER_QUARTER;
+    // Stopped while it rings: the end the recording's close tells never comes.
+    let (notes, _) = heard(&played, "lone");
+    let session = feed(score, &notes, &[], InputSource::Line);
+    let summary = session.summary();
+    assert_eq!(summary.muting.judged, 1, "{:?}", session.ends_heard());
+    assert_eq!(summary.muting.rang_on, 1, "{:?}", session.ends_heard());
 }
