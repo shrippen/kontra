@@ -147,6 +147,9 @@ pub struct Summary {
     /// Which strings the notes were played on, where the tab names one (R7, LH-BEW-16).
     #[serde(default)]
     pub strings: StringTally,
+    /// An open run's attacks by fit (LH-BEW-13); `hit_rate` is then their fitting share.
+    #[serde(default)]
+    pub improvisation: Option<crate::Improvisation>,
 }
 
 /// Notes whose string was told (R7): on the tab's string or another. Feedback beside the
@@ -436,6 +439,7 @@ impl Summary {
             before_beat_hits: offsets.iter().filter(|o| **o < 0.0).count() as u32,
             after_beat_hits: offsets.iter().filter(|o| **o > 0.0).count() as u32,
             strings: StringTally::default(),
+            improvisation: None,
         }
     }
 

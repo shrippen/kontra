@@ -289,7 +289,10 @@ Rückmeldung und Lernen:
 - [x] A1 Eine Beobachtung je Durchlauf (LH-BEW-09, #184).
 - [x] A2 Hinweis „Neu kalibrieren?“ (LH-EIN-14): in der Auswertung mit Knopf zur Kalibrierung in den Einstellungen;
   nicht, wenn das gewählte Timing-Ziel die Neigung deckt (laid-back).
-- [ ] A3 Improvisation bewerten (LH-BEW-13).
+- [x] A3 Improvisation bewerten (LH-BEW-13): Übungen mit `judging=open` (Titel „, frei“) zählen jeden Anschlag als
+  Akkordton (Akkordsymbol des Takts), Ton der Tonart (Vorzeichen) oder fremd; Trefferquote ist der Anteil passender Töne.
+  Pausenfenster: wo das Beispiel mindestens einen Schlag pausiert. Lektion „Eine eigene Linie“ übt es (J-C11).
+  Einen Jam-Modus gibt es noch nicht; der Durchlauf ohne Auswertung („Spielen“) bleibt ohne Punkte.
 - [x] A4 Adaptive Dichte über Abschnitts-Anteile (LH-MOD-06): Notendichte als Anteil 25, 50, 75 oder 100 % je
   Abschnitt; jeder Takt behält seine stärksten Anschläge (erster, Taktmitte, Schläge, Achtel); ein sauberer Durchlauf
   (ab 90 %) schlägt einen Schritt mehr vor. Gespeicherte Dichten (Stufen 1–3) gelten wieder als alle Noten.

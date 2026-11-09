@@ -1050,5 +1050,10 @@
   "setup.state.done": "done",
   "setup.state.current": "current",
   "setup.state.upcoming": "open",
-  "setup.state.skipped": "skipped"
+  "setup.state.skipped": "skipped",
+  "summary.open.fitting": "{percent} % fitting",
+  "summary.open.counts": "{chord} chord tones · {scale} in the key · {foreign} outside · chord tones {percent} %",
+  "summary.open.rests": "Rests: {kept} of {rests} left free",
+  "exercise.title.open": "{title}, free",
+  "exercise.goal.improv": "Goal: a line of your own over the chords. Kontra counts chord tones, tones of the key and tones outside; where the example rests, leave room."
 }

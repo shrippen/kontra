@@ -19,6 +19,7 @@ mod check;
 mod courses;
 mod density;
 mod expected;
+mod improv;
 mod learning;
 mod live;
 mod loopback;
@@ -49,6 +50,7 @@ pub use check::{
 pub use courses::{CourseError, CourseFetch, CourseStore};
 pub use density::Density;
 pub use expected::{expected_notes, ExpectedNote};
+pub use improv::{fit, Fit, Improvisation};
 pub use kontra_engine::Separator;
 pub use kontra_engine::{EngineError, FileHttp, Http, HttpError, Web};
 pub use kontra_engine::{Gains, SeparatorError, Shaping, SHAPING_RANGE_DB};

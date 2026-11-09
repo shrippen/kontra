@@ -1050,5 +1050,10 @@
   "setup.state.done": "erledigt",
   "setup.state.current": "aktuell",
   "setup.state.upcoming": "offen",
-  "setup.state.skipped": "übersprungen"
+  "setup.state.skipped": "übersprungen",
+  "summary.open.fitting": "{percent} % passend",
+  "summary.open.counts": "{chord} Akkordtöne · {scale} in der Tonart · {foreign} fremd · Akkordtöne {percent} %",
+  "summary.open.rests": "Pausen: {kept} von {rests} frei gelassen",
+  "exercise.title.open": "{title}, frei",
+  "exercise.goal.improv": "Ziel: eine eigene Linie über die Akkorde. Kontra zählt Akkordtöne, Töne der Tonart und fremde Töne; wo das Beispiel pausiert, lass Luft."
 }

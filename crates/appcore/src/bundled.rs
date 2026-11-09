@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 /// Generator choices of `Core::exercise_spec`: judged by pitch and time, or by time only.
 const JUDGING_PITCH: &str = "pitch";
 const JUDGING_TIME: &str = "time";
+const JUDGING_OPEN: &str = "open";
 
 impl Core {
     /// Folder of the bundled exercises (LH-BIB-08): installed share dir, else the repo's.
@@ -141,7 +142,7 @@ impl Core {
     pub(crate) fn run_sits(judging: Judging, hit_rate: f64, spread_ms: Option<f64>) -> bool {
         let pulse = match judging {
             Judging::TimeOnly => spread_ms.is_some_and(|s| s.round() <= PULSE_SPREAD_MS),
-            Judging::PitchAndTime => true,
+            Judging::PitchAndTime | Judging::Open => true,
         };
         hit_rate >= MASTERED_RATE && pulse
     }
@@ -231,6 +232,7 @@ impl Core {
         // Judged by time only: another exercise with its own file and progress (DIDAKTIK I4).
         match d.judging {
             Judging::TimeOnly => self.tr("exercise.title.timing", &[("title", title)]),
+            Judging::Open => self.tr("exercise.title.open", &[("title", title)]),
             Judging::PitchAndTime => title,
         }
     }
@@ -261,6 +263,7 @@ impl Core {
         let judging = match judging {
             "" | JUDGING_PITCH => Judging::PitchAndTime,
             JUDGING_TIME => Judging::TimeOnly,
+            JUDGING_OPEN => Judging::Open,
             _ => return None,
         };
         use exercise::{ExerciseKind, Fingers, Progression, Rhythm, ScaleKind, Sequence};

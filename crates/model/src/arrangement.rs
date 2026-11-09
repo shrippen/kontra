@@ -154,6 +154,9 @@ pub enum Judging {
     #[default]
     PitchAndTime,
     TimeOnly,
+    /// An open exercise (LH-BEW-13): the player makes up the line over the chords; each attack
+    /// counts by how it fits the bar's chord and key, the written line is an example.
+    Open,
 }
 
 /// How the eighths are played (LH-WIE-04): straight, or swung onto the third triplet of the

@@ -235,6 +235,16 @@ letzter Takt auf der Tonika; Titel in der Oberflächensprache („Stück Rock“
 schmales Fenster. Leicht: Pop mit Intro und Outro in Halben, Strophe und Bridge in Vierteln, Refrain in Achteln, ohne Synkopen; Titel „Stück Pop (leicht)“, Form und Schlagzeug wie
 mittel; „Schwierigkeit“ steht nur bei der Art „Stück“.
 
+**J-C11 Eigene Linie** · Personas: P1 Lea, P3 Mira, P4 Thomas · Phase 3 · LH-BEW-13
+1. Lea: Lektion „Eine eigene Linie“, „Ausprobieren“: die offene Übung (Groove I–IV–V mit Pausen, frei) im Durchlauf;
+   eine Linie nur aus Grundton und Quinte, die Pausen des Beispiels frei lassen.
+2. Mira: dieselbe Übung mit Durchgangstönen und zwei Tönen außerhalb der Tonart, einmal durch die Pausen spielen.
+3. Thomas: am Beamer erklären, was „passend“ und „Akkordtöne“ heißen.
+Erwartet: Titel endet auf „, frei“; die Tab zeigt das Beispiel, kein Ton daraus gilt als ausgelassen; die Auswertung
+sagt „x % passend“ und zählt Akkordtöne, Töne der Tonart und fremde Töne, dazu den Anteil Akkordtöne und „Pausen: x
+von y frei gelassen“; Lea: 100 % passend, 100 % Akkordtöne, alle Pausen frei; Mira: zwei fremde Töne, nicht alle
+Pausen frei.
+
 ## D. Inhalte teilen (ab Phase 3)
 
 **J-D1 Original-Song als Backing Track** ⚙ · Persona: P2 Jens, P3, P4 (Schritt 6) · Phase 3 · LH-BIB-06, LH-WIE-01, LH-WIE-02

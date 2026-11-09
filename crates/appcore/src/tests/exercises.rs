@@ -363,6 +363,44 @@ fn generator_offers_patterns_fingers_and_meters() {
         "no overwrite"
     );
     assert!(Core::exercise_spec("groove", "tonic", "eighths", 4, 80.0, "loud").is_none());
+
+    // Open (LH-BEW-13): the line is made up, the file says so.
+    let open = Core::exercise_spec("groove", "145", "rests", 9, 80.0, "open").unwrap();
+    assert_eq!(open.judging, Judging::Open);
+    assert!(
+        title(&core, &open).ends_with(", frei"),
+        "{}",
+        title(&core, &open)
+    );
+    let path = core.generate_exercise(&open).unwrap();
+    assert!(matches!(core.open(&path), Ok(Opened::Ready)));
+    assert_eq!(core.arrangement().unwrap().judging, Judging::Open);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// LH-BEW-13: an open run's summary names the fit, not hits of the example line.
+#[test]
+fn open_summary_counts_by_fit() {
+    let dir = temp_dir("open-summary");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.update_settings(|s| s.language = Some("de".into()));
+    core.open(&Core::demo_path()).unwrap();
+    let a = core.arrangement().unwrap().clone();
+    let mut s = kontra_session::Summary::from_results(&[], &a);
+    s.hit_rate = 0.9;
+    s.improvisation = Some(kontra_session::Improvisation {
+        chord_tones: 6,
+        scale_tones: 3,
+        foreign: 1,
+        rests: 4,
+        rests_kept: 3,
+    });
+    let v: serde_json::Value = serde_json::from_str(&core.summary_json(&s, &[], &[])).unwrap();
+    assert_eq!(v["hitRateText"], "90 % passend");
+    assert_eq!(
+        v["countsText"],
+        "6 Akkordtöne · 3 in der Tonart · 1 fremd · Akkordtöne 60 % · Pausen: 3 von 4 frei gelassen"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
