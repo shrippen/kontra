@@ -377,7 +377,17 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
   `press --role 'list item' Einstellungen` → `wait --role heading Einstellungen` → `find --contains Ausgang`
   fand `combo box 'Ausgang'`.
 - [x] W2 `scripts/qa-session.sh` für jeden isolierten Testlauf.
-- [ ] W3 Layout-Prüfung je Seite bei P4- und P7-Auflösung (LH-ANZ-09).
+- [x] W3 Layout-Prüfung je Seite bei P4- und P7-Auflösung (LH-ANZ-09): `scripts/check-layout.sh` startet 15
+  Seiten und Ansichten je Persona (P4 1280×720 bei 150 %, P7 1920×1080 bei 200 %), Fenster so groß wie der
+  Bildschirm, und meldet über `qactl.py layout` benannte Elemente, die das Fenster abschneidet (in Bildlaufbereichen
+  nur seitlich), überlappende Bedienelemente und Bedienelemente ohne Namen. Lokal, die CI hat keinen AT-SPI-Stapel.
+  Erster Lauf (09.11.): 29 von 30 ohne Befund. **P4 Lernen:** Die Knopfreihe (Weiter, Glossar, Kurs hinzufügen,
+  Kurs von Adresse) bricht nicht um und macht die Seite breiter als das Fenster (853 logische Pixel); „Kurs von
+  Adresse …“ und der Einleitungstext sind rechts abgeschnitten (Screenshot geprüft). Nicht behoben: ein `Flow`
+  statt `RowLayout` in `LearnPage.qml` reicht vermutlich, braucht aber zuerst einen roten QML-Test. Grenzen: Was
+  Kontra selbst malt (Lane, Noten, Griffbrett), sieht AT-SPI nicht; abgeschnittener Text innerhalb eines Labels
+  (Elision) ebenso wenig. Ohne Fenstermanager öffnet Kontra mit 72×44 Rastereinheiten auch auf kleineren
+  Bildschirmen größer als der Bildschirm; das Skript setzt die Fenstergröße deshalb selbst.
 - [x] W4 Tabelle Regel → Prüfung, Git-Hooks, CI-Prüfung der Commit-Nachrichten: `planung/REGELN.md` (maschinell
   geprüft oder nur Review); `scripts/commit-msg.py` prüft die Regeln 1–6 (Betreff ab 51 Zeichen Warnung, ab 73
   Fehler; Imperativ nur als Vermutung über häufige Verben), Hooks in `scripts/hooks/` (`make hooks`): commit-msg,

@@ -18,6 +18,8 @@ und nennt die Anforderungen aus dem [Lastenheft](LASTENHEFT.md), die sie prüft.
    `QT_SCALE_FACTOR=2`, Sprache `--language de|en`, Stil `--theme kante|kante-light|system` (nicht `--style`, das nimmt Qt), Eingang).
    Entscheidungen so treffen, wie sie es täte, nicht wie ein Entwickler.
 4. **Belege:** `--screenshot out.png --screenshot-after <ms>` speichert die aktuelle Seite; `scripts/screenshots.sh` macht alle Seiten auf Deutsch und Englisch.
+   Bedienen ohne Koordinaten: `scripts/qa-session.sh --a11y … --run "scripts/qactl.py press --role 'list item' Einstellungen"`
+   (`tree`, `find`, `press`, `text`, `wait`, `layout`); `scripts/check-layout.sh` prüft jede Seite bei P4 und P7.
    Nebenher beobachten: Konsole (QML-Warnungen, `audio problem`), rohe Übersetzungsschlüssel (`level.quiet`), Sprachmix, abgeschnittene Texte,
    Farbe als einziges Signal, Fokus nicht sichtbar.
 5. **Fund notieren** mit: Stufe (Fehler, Reibung, unlogisch, kosmetisch), Persona, Journey und Schritt, was passierte gegen was erwartet war,

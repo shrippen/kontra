@@ -32,6 +32,7 @@ commit ─► commit-msg (Regeln 1–6) ─► push ─► pre-push (Nachrichten
 | JSON-Schemas aktuell (W8) | `kontra-cli schemas` gegen `schema/` | CI |
 | Erkennungsqualität, Meldezeit, Leerlauf | `kontra-cli korpus check`, IDMT `korpus measure` mit Untergrenze | CI |
 | Journeys ⚙ | `tests/journeys/`, App-Tests | CI |
+| Keine abgeschnittenen Elemente bei P4 und P7 (LH-ANZ-09), Barrierefreiheitsnamen | `scripts/check-layout.sh` (über `scripts/qactl.py layout`) | lokal (W3) |
 | Metainfo, Desktop-Datei, Flatpak-Manifest gültig (W6) | `scripts/lint-packaging.sh` (`appstreamcli`, `desktop-file-validate`, `flatpak-builder-lint`) | CI, Flatpak-Job (meldet nur) |
 | Release vollständig: Version, Changelog de/en, Metainfo, Landing Page (W6) | `scripts/release.sh X.Y.Z`, Test `scripts/release.test.sh`; Überschriften `scripts/release-notes.sh --check` | Release, CI |
 
