@@ -184,3 +184,30 @@ fn a_ringing_last_note_counts() {
     assert_eq!(summary.muting.judged, 6, "{:?}", session.ends_heard());
     assert_eq!(summary.muting.rang_on, 6, "{:?}", session.ends_heard());
 }
+
+/// Review #227: a run scored from notes alone (`score_notes`, no ends given) judges no ends; it
+/// counted every note to stop as rang on.
+#[test]
+fn notes_without_ends_judge_no_ends() {
+    let score = staccato();
+    let detected: Vec<DetectedNote> = score
+        .notes
+        .iter()
+        .map(|n| DetectedNote {
+            onset_s: score.tempo.seconds_at(n.start_ticks),
+            midi: f64::from(n.pitch.0),
+            confidence: 0.9,
+            level_db: -12.0,
+            source: InputSource::Line,
+            technique: None,
+            over_background: false,
+        })
+        .collect();
+    let settings = ScoreSettings {
+        source: InputSource::Line,
+        ..ScoreSettings::default()
+    };
+    let scored = kontra_session::score_notes(&score, &detected, Mode::Song, settings, 1.0, 0.0);
+    assert_eq!(scored.summary.hits as usize, LINE.len());
+    assert_eq!(scored.summary.muting, MutingTally::default());
+}

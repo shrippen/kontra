@@ -128,7 +128,7 @@ pub struct Session {
     /// after a retraction keeps its string (`on_retraction`).
     told_strings: Vec<StringVerdict>,
     /// Ends of struck notes the tab wants stopped (detected onset, pass, note, heard; LH-BEW-10).
-    ends: Vec<(f64, u32, usize, crate::summary::EndHeard)>,
+    ends: ends::Ends,
     /// Notes heard lately, so those scored after a note taken back are scored again
     /// (`on_retraction`).
     heard: Vec<DetectedNote>,
@@ -172,7 +172,7 @@ impl Session {
             scored: Vec::new(),
             strings: Vec::new(),
             told_strings: Vec::new(),
-            ends: Vec::new(),
+            ends: ends::Ends::default(),
             heard: Vec::new(),
             results: Vec::new(),
             events: Vec::new(),

@@ -21,12 +21,34 @@ const REST_TICKS: u64 = TICKS_PER_QUARTER / 2;
 /// behind the audio (80 ms), the hold (100 ms), plus margin. The run ends after it.
 const END_TOLD_S: f64 = 0.4;
 
+/// The ends judged (detected onset, pass, note, heard), and whether the input tells ends at
+/// all: a run scored from notes alone gets none and judges none (review #227).
+#[derive(Debug, Clone, Default)]
+pub(super) struct Ends {
+    heard: Vec<(f64, u32, usize, EndHeard)>,
+    fed: bool,
+}
+
+impl std::ops::Deref for Ends {
+    type Target = Vec<(f64, u32, usize, EndHeard)>;
+    fn deref(&self) -> &Self::Target {
+        &self.heard
+    }
+}
+
+impl std::ops::DerefMut for Ends {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.heard
+    }
+}
+
 impl Session {
     /// Where a note ended (E5): judged if the tab wants that note stopped.
     pub fn on_end(&mut self, end: &NoteEnd) {
         if !tells_ends(self.settings.source) || self.arrangement.judging == Judging::Open {
             return;
         }
+        self.ends.fed = true;
         let Some(&(onset_s, pass, note)) = self
             .struck
             .iter()
@@ -73,8 +95,7 @@ impl Session {
             .collect();
         // A finished run: a note to stop that told no end rang on (the last one has no next
         // note to end it, its decay takes seconds).
-        let judged = self.arrangement.judging != Judging::Open;
-        if self.finished && judged && tells_ends(self.settings.source) {
+        if self.finished && self.ends.fed {
             let untold = self.struck.iter().filter(|&&(onset, pass, note)| {
                 self.written_end_s(note).is_some()
                     && !self
