@@ -598,6 +598,25 @@ fn summary_names_a_detuned_string() {
         "Die E-Saite klingt etwa 20 Cent zu tief – nachstimmen?"
     );
 
+    // Drop D has two D strings (D1, D2): the octave tells which one (review #224).
+    core.set_tuning("drop").unwrap();
+    s.detuned = Some(DetunedString {
+        string: 2,
+        mean_cent: 15.0,
+    });
+    assert_eq!(
+        text(&core, &s),
+        "Die D2-Saite klingt etwa 15 Cent zu hoch – nachstimmen?"
+    );
+    s.detuned = Some(DetunedString {
+        string: 1,
+        mean_cent: 15.0,
+    });
+    assert_eq!(
+        text(&core, &s),
+        "Die A-Saite klingt etwa 15 Cent zu hoch – nachstimmen?"
+    );
+
     core.update_settings(|s| s.instrument = Bass::Fretless);
     assert_eq!(text(&core, &s), "", "fretless");
     let _ = std::fs::remove_dir_all(dir);

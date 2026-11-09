@@ -468,16 +468,22 @@ impl Core {
         else {
             return String::new();
         };
-        let string = self
+        // The name ("A"), with the octave where two strings share it (Drop D: D1, D2).
+        let strings = self
             .arrangement()
-            .and_then(|a| {
-                a.instrument
-                    .tuning
-                    .strings
-                    .get(usize::from(d.string))
-                    .copied()
-            })
-            .map_or_else(|| (d.string + 1).to_string(), |p| p.name().to_string());
+            .map(|a| a.instrument.tuning.strings.clone())
+            .unwrap_or_default();
+        let string = strings.get(usize::from(d.string)).map_or_else(
+            || (d.string + 1).to_string(),
+            |p| {
+                let shared = strings.iter().filter(|o| o.name() == p.name()).count() > 1;
+                if shared {
+                    p.to_string()
+                } else {
+                    p.name().to_string()
+                }
+            },
+        );
         let cents = (d.mean_cent.abs() / STEP_CENT).round() * STEP_CENT;
         let key = if d.mean_cent > 0.0 {
             "summary.detuned.sharp"

@@ -29,6 +29,9 @@ Item {
         function termJson(topic) { return "" }
     }
     function applicationWindow() { return root }
+    // The page a button asked for.
+    property string shownPage: ""
+    function show(name) { shownPage = name }
 
     Column {
         id: behindItem
@@ -139,8 +142,12 @@ Item {
             root.ctl.summaryJson = JSON.stringify(summary)
             sheet.open()
             verify(showing(sheet, "detuned.text") !== null)
-            verify(showing(sheet, "summary.detuned.button") !== null)
-            sheet.close()
+            var button = showing(sheet, "summary.detuned.button")
+            verify(button !== null)
+            root.shownPage = ""
+            mouseClick(button)
+            compare(root.shownPage, "tuner")
+            tryVerify(function() { return !sheet.opened })
         }
 
         function test_trap_and_return() {
