@@ -10,7 +10,7 @@
 //! Only the tempo raises the note rate; the subdivision never changes with it. The seed (one
 //! per lesson) picks the keys, so the same lesson always builds the same ladder.
 
-use super::{ExerciseKind, ExerciseSpec, Progression};
+use super::{build, generate, Exercise, ExerciseKind, ExerciseSpec, Progression};
 
 /// The stages in order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,14 +76,7 @@ pub fn stage_spec(spec: &ExerciseSpec, stage: Stage, seed: u64) -> ExerciseSpec 
     match stage {
         Stage::Single => out.repeats = 1,
         Stage::Consolidate => out.repeats = repeats.saturating_mul(2),
-        Stage::Vary => {
-            let shift = if seed.is_multiple_of(2) {
-                FOURTH
-            } else {
-                -FOURTH
-            };
-            out.key = moved(spec.key, shift);
-        }
+        Stage::Vary => out.key = moved(spec.key, fourth(seed)),
         Stage::Context => out.kind = in_context(spec.kind),
         Stage::Mixed => {
             out.kind = in_context(spec.kind);
@@ -93,6 +86,43 @@ pub fn stage_spec(spec: &ExerciseSpec, stage: Stage, seed: u64) -> ExerciseSpec 
         }
     }
     out
+}
+
+/// The file of `stage`: `stage_spec` generated; the mixed stage plays one pass each of the
+/// figure, the figure a fourth away and the figure in context, in an order from the seed.
+pub fn stage_exercise(spec: &ExerciseSpec, stage: Stage, seed: u64) -> Exercise {
+    let mixed = stage_spec(spec, stage, seed);
+    if stage != Stage::Mixed || matches!(spec.kind, ExerciseKind::Song(..)) {
+        return generate(&mixed);
+    }
+
+    let figure = ExerciseSpec {
+        kind: spec.kind,
+        ..mixed
+    };
+    let varied = ExerciseSpec {
+        key: moved(mixed.key, fourth(seed)),
+        ..figure
+    };
+    let mut passes = [figure, varied, mixed];
+    // Seed → one of the six orders: rotate, then maybe swap the last two.
+    passes.rotate_left((seed % 3) as usize);
+    if (seed / 3).is_multiple_of(2) {
+        passes.swap(1, 2);
+    }
+    build(&mixed, &passes, MIXED_TITLE)
+}
+
+/// Before the title of the mixed file: its own name and progress, not the context stage's.
+const MIXED_TITLE: &str = "Gemischt: ";
+
+/// A fourth up for an even seed, down for an odd one.
+fn fourth(seed: u64) -> i32 {
+    if seed.is_multiple_of(2) {
+        FOURTH
+    } else {
+        -FOURTH
+    }
 }
 
 /// Spreads neighbouring seeds over the keys.
@@ -128,13 +158,17 @@ fn in_context(kind: ExerciseKind) -> ExerciseKind {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::exercise::{bundled_specs, generate};
+    use crate::exercise::bundled_specs;
     use crate::{import_bytes, FileKind};
 
+    fn arrangement(exercise: &Exercise) -> kontra_model::Arrangement {
+        let imported = import_bytes(&exercise.midi, FileKind::Midi).unwrap();
+        imported.arrangement(imported.suggested().unwrap()).unwrap()
+    }
+
     /// Notes per second of a generated exercise.
-    fn note_rate(spec: &ExerciseSpec) -> f64 {
-        let imported = import_bytes(&generate(spec).midi, FileKind::Midi).unwrap();
-        let a = imported.arrangement(imported.suggested().unwrap()).unwrap();
+    fn note_rate(exercise: &Exercise) -> f64 {
+        let a = arrangement(exercise);
         let last = a.notes.iter().map(|n| n.start_ticks).max().unwrap();
         let first = a.notes.iter().map(|n| n.start_ticks).min().unwrap();
         let span_s = a.tempo.seconds_at(last) - a.tempo.seconds_at(first);
@@ -149,7 +183,7 @@ mod tests {
             let spec = specs[number - 1].1;
             let rates: Vec<f64> = Stage::ALL
                 .iter()
-                .map(|s| note_rate(&stage_spec(&spec, *s, 7)))
+                .map(|s| note_rate(&stage_exercise(&spec, *s, 7)))
                 .collect();
             for pair in rates.windows(2) {
                 let step = pair[1] / pair[0];
@@ -165,13 +199,44 @@ mod tests {
         let seed = lesson_seed("viertel");
         assert_eq!(seed, lesson_seed("viertel"));
         for stage in Stage::ALL {
-            let a = generate(&stage_spec(&spec, stage, seed));
-            let b = generate(&stage_spec(&spec, stage, seed));
+            let a = stage_exercise(&spec, stage, seed);
+            let b = stage_exercise(&spec, stage, seed);
             assert_eq!(a, b);
         }
         // Mixed never plays the written key.
         for seed in 0..40 {
             assert_ne!(stage_spec(&spec, Stage::Mixed, seed).key, spec.key);
+        }
+    }
+
+    /// The mixed stage holds the figure (one chord), a second key and the I-IV-V of the context
+    /// stage in one file, each key signed where it starts.
+    #[test]
+    fn the_mixed_stage_mixes_the_earlier_stages() {
+        let spec = bundled_specs()[0].1;
+        assert!(matches!(
+            spec.kind,
+            ExerciseKind::Groove(Progression::Tonic, _)
+        ));
+        for seed in [lesson_seed("viertel"), 1, 2, 3] {
+            let mixed = stage_exercise(&spec, Stage::Mixed, seed);
+            let context = stage_spec(&spec, Stage::Mixed, seed);
+            assert!(mixed.title.starts_with(MIXED_TITLE), "{}", mixed.title);
+            let a = arrangement(&mixed);
+            // Chords per bar: the one-chord figure repeats its chord, the context changes it.
+            let chords: Vec<&str> = a
+                .markers
+                .iter()
+                .filter(|m| m.kind == kontra_model::MarkerKind::Chord)
+                .map(|m| m.name.as_str())
+                .collect();
+            let still = chords.windows(2).filter(|w| w[0] == w[1]).count();
+            let moving = chords.windows(2).filter(|w| w[0] != w[1]).count();
+            assert!(still >= 3 && moving >= 3, "{seed}: {chords:?}");
+            let mut fifths: Vec<i8> = a.bars.iter().map(|b| b.key_fifths).collect();
+            fifths.dedup();
+            assert!(fifths.len() >= 2, "{seed}: {fifths:?}");
+            assert!((a.tempo.bpm_at(0) - context.bpm).abs() < 0.01, "{seed}");
         }
     }
 

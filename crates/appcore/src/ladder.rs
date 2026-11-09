@@ -4,11 +4,11 @@
 //!
 //! ```text
 //! lesson_json ──with_ladders──▶ practice block + "ladder": [{stage, best, threshold, suggested}]
-//! lesson_stage(id, page, block, stage) ──▶ stage_spec ──▶ generated file (goal of the block)
+//! lesson_stage(id, page, block, stage) ──▶ stage_exercise ──▶ generated file (goal of the block)
 //! ```
 
 use crate::{exercise, Core};
-use exercise::{lesson_seed, stage_spec, ExerciseSpec, Stage};
+use exercise::{lesson_seed, stage_exercise, stage_spec, ExerciseSpec, Stage};
 use kontra_session::lesson::{Block, ExerciseRef, Practice};
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -43,7 +43,7 @@ impl Core {
         let stages: Vec<Value> = Stage::ALL
             .iter()
             .map(|stage| {
-                let path = self.generated_path(&stage_spec(spec, *stage, seed));
+                let path = self.stage_path(spec, *stage, seed);
                 let best = self
                     .library
                     .entry(&path)
@@ -79,9 +79,23 @@ impl Core {
         let (Some(spec), Some(stage)) = (self.block_spec(&practice), Stage::ALL.get(stage)) else {
             return Err(self.tr("learn.missing", &[]));
         };
-        let path = self.generate_exercise(&stage_spec(&spec, *stage, lesson_seed(id)))?;
+        let seed = lesson_seed(id);
+        let path = self.stage_path(&spec, *stage, seed);
+        let path = Self::write_exercise(&stage_exercise(&spec, *stage, seed), path)?;
         self.set_lesson_goal(&path, practice.goal);
         Ok(path)
+    }
+
+    /// Where stage `stage` of `spec` is written: the generator's name, the mixed stage's behind
+    /// its stage name ("Gemischt – Groove … .mid"), so it never shares the plain file's.
+    fn stage_path(&self, spec: &ExerciseSpec, stage: Stage, seed: u64) -> PathBuf {
+        let path = self.generated_path(&stage_spec(spec, stage, seed));
+        if stage != Stage::Mixed {
+            return path;
+        }
+        let name = path.file_name().unwrap_or_default().to_string_lossy();
+        let mixed = self.tr("learn.stage.mixed", &[]);
+        path.with_file_name(format!("{mixed} – {name}"))
     }
 
     /// What the generator makes for a block: the plan's entry of a bundled exercise, or the
@@ -153,6 +167,11 @@ mod tests {
         assert_eq!(ladder[0]["best"], 0.7);
         assert_eq!(ladder[1]["suggested"], true);
         assert!(core.lesson_stage("viertel", page, block, 5).is_err());
+        // The mixed stage has its own file next to the context stage's.
+        let context = core.lesson_stage("viertel", page, block, 3).unwrap();
+        let mixed = core.lesson_stage("viertel", page, block, 4).unwrap();
+        assert_eq!(context.parent(), mixed.parent());
+        assert_ne!(context, mixed);
         let _ = std::fs::remove_dir_all(dir);
     }
 }

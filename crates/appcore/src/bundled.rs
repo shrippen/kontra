@@ -304,8 +304,15 @@ impl Core {
 
     /// Writes a generated exercise (LH-LRN-04) into the data folder and returns its path.
     pub fn generate_exercise(&mut self, spec: &exercise::ExerciseSpec) -> Result<PathBuf, String> {
-        let generated = exercise::generate(spec);
         let path = self.generated_path(spec);
+        Self::write_exercise(&exercise::generate(spec), path)
+    }
+
+    /// Writes `generated` to `path`.
+    pub(crate) fn write_exercise(
+        generated: &exercise::Exercise,
+        path: PathBuf,
+    ) -> Result<PathBuf, String> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
         }
