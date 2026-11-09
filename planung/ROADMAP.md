@@ -305,10 +305,11 @@ Rückmeldung und Lernen:
 - [x] L3 Übungsleiter je Lektion (LH-LRN-17): jeder Übungsblock (mitgeliefert über den Plan, oder aus dem Generator)
   bietet fünf Stufen (`exercise::stage_spec`): Einzeln (1 Durchgang, Tempo × 0,64), Festigen (doppelt, × 0,8),
   Abwandeln (Quarte auf oder ab, notiertes Tempo), Im Zusammenhang (ein Akkord wird I-IV-V, × 1,25), Gemischt
-  (Tonart aus dem Startwert, × 1,5625). Nur das Tempo hebt die Notenrate, die Unterteilung bleibt; Schwellen 60, 65,
+  (× 1,5625, `exercise::stage_exercise`: je ein Durchgang Figur, Figur eine Quarte daneben und Figur im
+  Zusammenhang in einer Datei, Tonart und Reihenfolge aus dem Startwert, Vorzeichen wechseln mit; eigene Datei
+  „Gemischt – …“, Titel „Gemischt: …“). Nur das Tempo hebt die Notenrate, die Unterteilung bleibt; Schwellen 60, 65,
   70, 75, 80 %; Startwert aus der Lektions-Id. Knöpfe zeigen „bisher 72 %“, die erste nicht erreichte Stufe ist
-  hervorgehoben, nichts gesperrt. Offen: Takte gemischt aus mehreren Stufen in einer Datei („Gemischt“ wechselt nur
-  die Tonart).
+  hervorgehoben, nichts gesperrt.
 - [x] L4 Griffbrett-Quiz gewichtet (LH-LRN-18). Teil 1 (`fret-quiz`): „Töne finden“ zieht Plätze nach Gewicht
   (verfehlt und lange nicht geübt öfter), Statistik je Saite und Bund in `quiz.json`, Bünde 0–4, 0–7, 0–12 oder eigene,
   Überspringen kein Fehler, auch nicht in „x von y gefunden“; Bund 12 bei 0–12 kein eigener Platz (gleicher Ton wie
@@ -468,10 +469,13 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
 - [x] W9 Kurs aus Ordner live (LH-LRN-21): Lernen → „Kursordner live öffnen …“; Kontra sieht alle 0,5 s nach
   (`lesson::folder_stamp`: Name, Größe, Änderungszeit), liest bei Änderung neu, zeigt Befunde über Lernseite und
   Lektion und die offene Lektion neu; ein Lesefehler lässt die letzte lesbare Fassung stehen. Der Kurs lebt nur im
-  Speicher; gesehene Seiten, Antworten und Kapitelprüfungen werden solange nicht gespeichert (Läufe der Übungen
-  schon). QML von der Platte: `KONTRA_LIVE_QML=1` lädt in Debug-Builds die Seiten aus `crates/app/qml` (wirkt beim
-  nächsten Start ohne Bauen; Release ignoriert es). Offen: QML-Neuladen ohne Neustart (Komponenten-Cache leeren),
-  J-G6 Schritt 4 von Hand gespielt steht aus.
+  Speicher; gesehene Seiten, Antworten, Kapitelprüfungen und Läufe der Übungen aus seinen Lektionen werden solange
+  nicht gespeichert (Läufe behoben 09.11., Test `runs_from_a_live_course_are_not_stored`). QML von der Platte:
+  `KONTRA_LIVE_QML=1` lädt in Debug-Builds die Seiten aus `crates/app/qml` und baut die offene Seite nach jeder
+  gespeicherten Änderung neu (`live_qml.cpp`: Dateiwächter, Seite weg, Komponenten-Cache leeren, Seite neu; nur
+  Debug-Builds, Main.qml selbst braucht einen Neustart). J-G6 Schritt 4 gespielt (09.11., qa-session): bestanden;
+  Befund (Kleinigkeit): die Fehlermeldung des Lektionslesers steht englisch in deutscher Oberfläche („key= missing
+  or unknown“).
 - [x] W11 Glyphen-Test für Sonderzeichen (`tests/glyphs.rs`): jedes Zeichen über ASCII aus i18n (de, en), Lektionen
   und eigenem QML muss in einer mitgelieferten Schrift stehen (Kante: Rajdhani, JetBrains Mono, Bravura; Private-Use
   nur Bravura). Eigener `cmap`-Leser (Formate 4 und 12), keine neue Abhängigkeit. ♯ ♭ ♮ deckt nur Bravura.

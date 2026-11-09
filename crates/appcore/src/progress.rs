@@ -372,6 +372,12 @@ impl Core {
         let Some(live) = self.live.as_ref() else {
             return;
         };
+        // An exercise of a lesson while a course folder is open live: nothing of the folder
+        // is stored, its runs neither (LH-LRN-21).
+        if self.previewing_course() && self.loaded_goal_of_lesson().is_some() {
+            self.run_started = None;
+            return;
+        }
         let session = live.practice().session();
         let summary = session.summary();
         // An open run judges no written notes, it counts its attacks (LH-BEW-13).

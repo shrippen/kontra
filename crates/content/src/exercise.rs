@@ -15,7 +15,7 @@ mod ladder;
 mod plan;
 mod song;
 
-pub use ladder::{lesson_seed, stage_spec, Stage};
+pub use ladder::{lesson_seed, stage_exercise, stage_spec, Stage};
 pub use plan::{bundled, bundled_specs, plan_place};
 pub use song::{Level, Style};
 
@@ -885,20 +885,51 @@ pub fn generate(spec: &ExerciseSpec) -> Exercise {
     // A piece has its own form and drums for one pass: never repeated.
     let repeats = match spec.kind {
         ExerciseKind::Song(..) => 1,
-        _ => u32::from(spec.repeats.max(1)),
+        _ => spec.repeats.max(1),
     };
-    let pass = one_pass(spec);
-    let (mut tones, mut markers) = repeat(&pass.tones, &pass.markers, pass.length, repeats);
-    let end = pass.length * repeats;
+    // A tempo ramp raises the tempo at each pass.
+    let passes: Vec<ExerciseSpec> = (0..repeats)
+        .map(|p| ExerciseSpec {
+            bpm: spec.bpm + f64::from(p) * spec.ramp_bpm,
+            ..*spec
+        })
+        .collect();
+    build(spec, &passes, "")
+}
+
+/// One pass of each of `passes` in a row, titled after `spec` behind `prefix`; tempo and key
+/// signature change where a pass changes them (ramp, mixed stage of the ladder).
+fn build(spec: &ExerciseSpec, passes: &[ExerciseSpec], prefix: &str) -> Exercise {
     let meter = spec.meter();
+    let head = one_pass(spec);
+    let (mut tones, mut markers) = (Vec::new(), Vec::new());
+    let (mut tempos, mut keys) = (Vec::<(u32, f64)>::new(), Vec::<(u32, i8, bool)>::new());
+    let mut end = 0;
+    for p in passes {
+        let pass = one_pass(p);
+        tones.extend(pass.tones.iter().map(|t| Tone {
+            start: t.start + end,
+            ..*t
+        }));
+        markers.extend(pass.markers.into_iter().map(|(at, text)| (at + end, text)));
+        if tempos.last().is_none_or(|(_, bpm)| *bpm != p.bpm) {
+            tempos.push((end, p.bpm));
+        }
+        let key = (signature(p.key, pass.to_major), pass.minor);
+        if keys.last().is_none_or(|(_, f, m)| (*f, *m) != key) {
+            keys.push((end, key.0, key.1));
+        }
+        end += pass.length;
+    }
+    let last = passes.last().unwrap_or(spec);
 
     // A blues or minor cadence ends on the dominant: one more bar on the tonic resolves it.
-    let closing = spec.progression().filter(|p| p.open_end());
+    let closing = last.progression().filter(|p| p.open_end());
     if let Some(progression) = closing {
         let (offset, quality) = progression.bars()[0];
-        let root = nearest(i32::from(spec.key) + offset, low_root(spec.key));
-        let fifths = key_fifths(spec.key, progression.minor());
-        let suffix = quality.suffix_for(spec.voicing());
+        let root = nearest(i32::from(last.key) + offset, low_root(last.key));
+        let fifths = key_fifths(last.key, progression.minor());
+        let suffix = quality.suffix_for(last.voicing());
         markers.push((end, format!("{}{}", name(root, fifths), suffix)));
         tones.push(Tone {
             start: end,
@@ -909,8 +940,8 @@ pub fn generate(spec: &ExerciseSpec) -> Exercise {
         });
     }
 
-    let fifths = signature(spec.key, pass.to_major);
-    let title = title(spec, &pass, fifths);
+    let fifths = signature(spec.key, head.to_major);
+    let title = format!("{prefix}{}", title(spec, &head, fifths));
     let drums = match spec.kind {
         ExerciseKind::Song(style, level) => song::song(style, level, spec.key).1,
         ExerciseKind::Groove(_, rhythm) => {
@@ -925,11 +956,6 @@ pub fn generate(spec: &ExerciseSpec) -> Exercise {
         }
         _ => Vec::new(),
     };
-    // A tempo ramp changes the tempo at each pass; else one tempo for all.
-    let changes = if spec.end_bpm().is_some() { repeats } else { 1 };
-    let tempos: Vec<(u32, f64)> = (0..changes)
-        .map(|p| (p * pass.length, spec.bpm + f64::from(p) * spec.ramp_bpm))
-        .collect();
     // A piece names its parts over their first bar (rehearsal marks, J10).
     let parts = match spec.kind {
         ExerciseKind::Song(style, _) => song::parts(style),
@@ -941,11 +967,12 @@ pub fn generate(spec: &ExerciseSpec) -> Exercise {
         parts: &parts,
         drums: &drums,
         tempos: &tempos,
+        keys: &keys,
         meter,
         judging: spec.judging,
         feel: feel(spec.kind),
     };
-    let midi = write(&title, fifths, pass.minor, &line);
+    let midi = write(&title, &line);
     Exercise { title, midi }
 }
 
@@ -1125,6 +1152,8 @@ struct Line<'a> {
     drums: &'a [(u32, u8)],
     /// (tick, BPM): the first at 0, more for a tempo ramp.
     tempos: &'a [(u32, f64)],
+    /// (tick, fifths, minor): the first at 0, more where the key changes.
+    keys: &'a [(u32, i8, bool)],
     meter: Meter,
     judging: Judging,
     feel: Feel,
@@ -1295,26 +1324,6 @@ fn goal(spec: &ExerciseSpec) -> &'static str {
         ExerciseKind::Chromatic(_) => "fingers",
         ExerciseKind::Song(..) => "form",
     }
-}
-
-/// Repeats a line of `length` ticks `times`, shifting notes and markers.
-fn repeat(
-    tones: &[Tone],
-    markers: &[(u32, String)],
-    length: u32,
-    times: u32,
-) -> (Vec<Tone>, Vec<(u32, String)>) {
-    let mut all = Vec::new();
-    let mut all_markers = Vec::new();
-    for pass in 0..times {
-        let shift = pass * length;
-        all.extend(tones.iter().map(|t| Tone {
-            start: t.start + shift,
-            ..*t
-        }));
-        all_markers.extend(markers.iter().map(|(at, text)| (at + shift, text.clone())));
-    }
-    (all, all_markers)
 }
 
 /// Up and down the scale (one octave, two from a low root when it fits), padded to whole bars.
@@ -1612,7 +1621,7 @@ fn walking_line(progression: Progression, key: u8) -> (Vec<Tone>, Vec<(u32, Stri
 
 /// A type 1 file: a conductor track (title, tempo, metre, key, chord markers), a bass track and,
 /// for grooves, a drum track on channel 10.
-fn write(title: &str, fifths: i8, minor: bool, line: &Line) -> Vec<u8> {
+fn write(title: &str, line: &Line) -> Vec<u8> {
     let (tones, markers) = (line.tones, line.markers);
     let (numerator, pow, clocks) = line.meter.signature();
     let mut conductor: Vec<(u32, TrackEventKind)> = vec![(
@@ -1626,16 +1635,14 @@ fn write(title: &str, fifths: i8, minor: bool, line: &Line) -> Vec<u8> {
             TrackEventKind::Meta(MetaMessage::Tempo(u24::new(micros))),
         )
     }));
-    conductor.extend([
-        (
-            0,
-            TrackEventKind::Meta(MetaMessage::TimeSignature(numerator, pow, clocks, 8)),
-        ),
-        (
-            0,
-            TrackEventKind::Meta(MetaMessage::KeySignature(fifths, minor)),
-        ),
-    ]);
+    conductor.push((
+        0,
+        TrackEventKind::Meta(MetaMessage::TimeSignature(numerator, pow, clocks, 8)),
+    ));
+    conductor.extend(line.keys.iter().map(|(at, fifths, minor)| {
+        let key = MetaMessage::KeySignature(*fifths, *minor);
+        (*at, TrackEventKind::Meta(key))
+    }));
     let judging = match line.judging {
         Judging::TimeOnly => Some(TIMING_TEXT),
         Judging::Open => Some(OPEN_TEXT),
