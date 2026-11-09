@@ -123,10 +123,10 @@ pub mod qobject {
         #[qproperty(f64, monitor_compress, cxx_name = "monitorCompress")]
         #[qproperty(f64, monitor_warmth, cxx_name = "monitorWarmth")]
         #[qproperty(f64, shaping_range_db, cxx_name = "shapingRangeDb")]
-        /// Note density of the current section, 1..=3 (LH-MOD-06), and whether it is fixed.
+        /// Share of the notes in the current section, 25..=100 % (LH-MOD-06), and whether it is fixed.
         #[qproperty(i32, density)]
         #[qproperty(bool, density_fixed, cxx_name = "densityFixed")]
-        /// Suggested density after a run (0: none) and the question to show.
+        /// Suggested share after a run (0: none) and the question to show.
         #[qproperty(i32, density_suggestion, cxx_name = "densitySuggestion")]
         #[qproperty(QString, density_text, cxx_name = "densityText")]
         #[qproperty(bool, adaptive)]
@@ -266,10 +266,10 @@ pub mod qobject {
         #[cxx_name = "changeTargetSpeed"]
         fn change_target_speed(self: Pin<&mut Self>, speed: f64);
 
-        /// Note density 1..=3 for the current section; `lock` "fixed" stops suggestions.
+        /// Share of the notes in percent for the current section; `lock` "fixed" stops suggestions.
         #[qinvokable]
         #[cxx_name = "changeDensity"]
-        fn change_density(self: Pin<&mut Self>, level: i32, lock: &QString);
+        fn change_density(self: Pin<&mut Self>, percent: i32, lock: &QString);
 
         /// Dismisses the density suggestion.
         #[qinvokable]
@@ -1119,7 +1119,7 @@ impl Default for ControllerRust {
             monitor_compress: s.monitor_compress,
             monitor_warmth: s.monitor_warmth,
             shaping_range_db: kontra_appcore::Core::shaping_range_db(),
-            density: 3,
+            density: 100,
             density_fixed: false,
             density_suggestion: 0,
             density_text: QString::default(),
@@ -1224,7 +1224,7 @@ impl ControllerRust {
                 self.view = q(&self.core.view());
                 self.tracks_json = q(&self.core.tracks_json());
                 let (density, lock) = self.core.density();
-                self.density = i32::from(density.level());
+                self.density = i32::from(density.percent());
                 self.density_fixed = lock == DensityLock::Fixed;
                 if let Some(notice) = self.core.take_notice() {
                     self.message = q(&notice);
@@ -1366,7 +1366,7 @@ impl qobject::Controller {
     /// Density of the current section; a pending suggestion goes (it was for another one).
     fn refresh_density(mut self: Pin<&mut Self>) {
         let (density, lock) = self.as_ref().rust().core.density();
-        self.as_mut().set_density(i32::from(density.level()));
+        self.as_mut().set_density(i32::from(density.percent()));
         self.as_mut().set_density_fixed(lock == DensityLock::Fixed);
         self.as_mut().set_density_suggestion(0);
     }
@@ -1407,8 +1407,8 @@ impl qobject::Controller {
         self.as_mut().set_loop_end(end);
     }
 
-    fn change_density(mut self: Pin<&mut Self>, level: i32, lock: &QString) {
-        let density = Density::from_level(u8::try_from(level.clamp(1, 3)).unwrap_or(3));
+    fn change_density(mut self: Pin<&mut Self>, percent: i32, lock: &QString) {
+        let density = Density::from_percent(u8::try_from(percent.clamp(0, 100)).unwrap_or(100));
         let lock = if lock.to_string() == "fixed" {
             DensityLock::Fixed
         } else {
@@ -1761,8 +1761,8 @@ impl qobject::Controller {
                     self.as_mut().set_playing(false);
                     self.as_mut().set_tuner_active(false);
                 }
-                UiEvent::DensitySuggestion { level, text } => {
-                    self.as_mut().set_density_suggestion(i32::from(level));
+                UiEvent::DensitySuggestion { percent, text } => {
+                    self.as_mut().set_density_suggestion(i32::from(percent));
                     self.as_mut().set_density_text(q(&text));
                 }
                 UiEvent::Stems(state) => self.as_mut().set_stems_json(q(&state)),

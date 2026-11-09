@@ -15,12 +15,12 @@ fn density_thins_notes_per_section_and_is_suggested() {
     assert_eq!(count(&core), 64);
 
     // Eighth notes: on the beats half of them stay, for the whole piece.
-    core.set_density(Density::Beats, DensityLock::Free);
+    core.set_density(Density::from_percent(50), DensityLock::Free);
     assert_eq!(count(&core), 32);
 
     // A section starts with the piece's density and can have its own.
     assert!(!core.set_loop(0, 1));
-    core.set_density(Density::Sparse, DensityLock::Free);
+    core.set_density(Density::FEWEST, DensityLock::Free);
     assert_eq!(count(&core), 16);
     assert!(core.clear_loop());
     assert_eq!(count(&core), 32);
@@ -29,12 +29,12 @@ fn density_thins_notes_per_section_and_is_suggested() {
     core.update_settings(|s| s.mode = "song".into());
     assert!(matches!(
         core.density_hint(0.95),
-        Some(UiEvent::DensitySuggestion { level: 3, .. })
+        Some(UiEvent::DensitySuggestion { percent: 75, .. })
     ));
     assert!(core.density_hint(0.75).is_none());
-    core.set_density(Density::Beats, DensityLock::Fixed);
+    core.set_density(Density::from_percent(50), DensityLock::Fixed);
     assert!(core.density_hint(0.95).is_none());
-    core.set_density(Density::Beats, DensityLock::Free);
+    core.set_density(Density::from_percent(50), DensityLock::Free);
     core.update_settings(|s| s.adaptive = false);
     assert!(core.density_hint(0.95).is_none());
     // Not after a probe without help: it judges, it adapts nothing (QA 27.10., J8).

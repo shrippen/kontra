@@ -850,10 +850,11 @@ Kirigami.Page {
                 KanteHud { anchors.verticalCenter: parent.verticalCenter; fullText: texts.t("density.title"); color: KanteStyle.mutedTextColor }
                 KanteSegmented {
                     Accessible.name: texts.t("density.title")
-                    model: [texts.t("density.sparse"), texts.t("density.beats"), texts.t("density.full")]
-                    tooltips: [texts.t("density.hint"), texts.t("density.hint"), texts.t("density.hint")]
-                    currentIndex: ctl.density - 1
-                    onActivated: function(index) { ctl.changeDensity(index + 1, ctl.densityFixed ? "fixed" : "free") }
+                    // Shares of 25 % each; the index is the share's step.
+                    model: [25, 50, 75].map(p => texts.t("density.share", {percent: p})).concat([texts.t("density.full")])
+                    tooltips: model.map(() => texts.t("density.hint"))
+                    currentIndex: ctl.density / 25 - 1
+                    onActivated: function(index) { ctl.changeDensity((index + 1) * 25, ctl.densityFixed ? "fixed" : "free") }
                 }
             }
             Row {

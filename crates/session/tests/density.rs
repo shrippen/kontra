@@ -1,4 +1,5 @@
-//! Adaptive difficulty (LH-MOD-06): thinning by density and suggestions between runs.
+//! Adaptive difficulty (LH-MOD-06): thinning to a share of the notes and suggestions between
+//! runs.
 
 use kontra_model::{
     Arrangement, DetectedNote, InputSource, Instrument, Note, Pitch, TempoMap, TICKS_PER_QUARTER,
@@ -26,12 +27,16 @@ fn starts(a: &Arrangement) -> Vec<u64> {
 #[test]
 fn thinning_keeps_beats_or_strong_beats() {
     let a = eighths();
-    assert_eq!(Density::Full.thin(&a).notes.len(), 16);
+    assert_eq!(Density::FULL.thin(&a).notes.len(), 16);
     assert_eq!(
-        starts(&Density::Beats.thin(&a)),
+        starts(&Density::from_percent(75).thin(&a)),
+        [0, 1, 2, 3, 4, 6, 8, 9, 10, 11, 12, 14]
+    );
+    assert_eq!(
+        starts(&Density::from_percent(50).thin(&a)),
         [0, 2, 4, 6, 8, 10, 12, 14]
     );
-    assert_eq!(starts(&Density::Sparse.thin(&a)), [0, 4, 8, 12]);
+    assert_eq!(starts(&Density::FEWEST.thin(&a)), [0, 4, 8, 12]);
 }
 
 #[test]
@@ -50,18 +55,20 @@ fn every_bar_keeps_its_first_attack_and_ties_follow() {
     ));
     a.normalize();
     // The offbeat note opens bar 1 and keeps its tie; the other offbeat goes.
-    assert_eq!(starts(&Density::Sparse.thin(&a)), [1, 2, 10]);
+    assert_eq!(starts(&Density::FEWEST.thin(&a)), [1, 2, 10]);
 }
 
 #[test]
 fn suggestions_step_once_and_stop_at_the_ends() {
-    assert_eq!(Density::Sparse.suggest(0.95), Some(Density::Beats));
-    assert_eq!(Density::Full.suggest(0.95), None);
-    assert_eq!(Density::Full.suggest(0.4), Some(Density::Beats));
-    assert_eq!(Density::Sparse.suggest(0.4), None);
-    assert_eq!(Density::Beats.suggest(0.75), None);
-    assert_eq!(Density::from_level(2), Density::Beats);
-    assert_eq!(Density::Beats.level(), 2);
+    let half = Density::from_percent(50);
+    assert_eq!(Density::FEWEST.suggest(0.95), Some(half));
+    assert_eq!(Density::FULL.suggest(0.95), None);
+    assert_eq!(Density::FULL.suggest(0.4), Some(Density::from_percent(75)));
+    assert_eq!(Density::FEWEST.suggest(0.4), None);
+    assert_eq!(half.suggest(0.75), None);
+    assert_eq!(Density::from_percent(60), half);
+    assert_eq!(Density::from_percent(0), Density::FEWEST);
+    assert_eq!(half.percent(), 50);
 }
 
 fn played(onset_s: f64, midi: f64) -> DetectedNote {
@@ -106,14 +113,14 @@ fn player_at_95_percent_reaches_full_density_within_five_runs() {
     }
     song.normalize();
 
-    let mut density = Density::Sparse;
+    let mut density = Density::FEWEST;
     let mut runs = 0;
-    while density != Density::Full && runs < 5 {
+    while density != Density::FULL && runs < 5 {
         let rate = run_at_95(density.thin(&song));
         runs += 1;
         if let Some(next) = density.suggest(rate) {
             density = next;
         }
     }
-    assert_eq!(density, Density::Full, "after {runs} runs");
+    assert_eq!(density, Density::FULL, "after {runs} runs");
 }

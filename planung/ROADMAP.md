@@ -290,7 +290,9 @@ Rückmeldung und Lernen:
 - [x] A2 Hinweis „Neu kalibrieren?“ (LH-EIN-14): in der Auswertung mit Knopf zur Kalibrierung in den Einstellungen;
   nicht, wenn das gewählte Timing-Ziel die Neigung deckt (laid-back).
 - [ ] A3 Improvisation bewerten (LH-BEW-13).
-- [ ] A4 Adaptive Dichte über Abschnitts-Anteile (LH-MOD-06).
+- [x] A4 Adaptive Dichte über Abschnitts-Anteile (LH-MOD-06): Notendichte als Anteil 25, 50, 75 oder 100 % je
+  Abschnitt; jeder Takt behält seine stärksten Anschläge (erster, Taktmitte, Schläge, Achtel); ein sauberer Durchlauf
+  (ab 90 %) schlägt einen Schritt mehr vor. Gespeicherte Dichten (Stufen 1–3) gelten wieder als alle Noten.
 - [ ] L1 Stellen wiederholen (LH-LRN-16).
 - [ ] L2 Übungsserie, standardmäßig aus (LH-FOR-05).
 - [ ] L3 Übungsleiter je Lektion (LH-LRN-17).

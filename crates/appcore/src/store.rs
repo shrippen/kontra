@@ -325,13 +325,19 @@ pub struct PracticeLoop {
     pub to: usize,
 }
 
-/// Note density chosen for a section (`None`: the whole piece), 1 (few notes) to 3 (all).
+/// Share of the notes chosen for a section (`None`: the whole piece), 25 to 100 percent.
 /// A fixed one gets no suggestions.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SectionDensity {
     pub section: Option<(f64, f64)>,
-    pub level: u8,
+    #[serde(default = "all_notes")]
+    pub percent: u8,
     pub fixed: bool,
+}
+
+/// Entries stored before shares (levels 1 to 3) had no percent: they play all notes again.
+fn all_notes() -> u8 {
+    kontra_session::Density::FULL.percent()
 }
 
 /// A practised section: its time range (as a progress run stores it) and its bars as written.

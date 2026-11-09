@@ -138,9 +138,9 @@ pub enum UiEvent {
     },
     /// An audio device failed (unplugged): which side, the system's reason; the run was stopped.
     DeviceLost(Direction, String),
-    /// Between runs: offer another note density (LH-MOD-06), 1..=3, with the question.
+    /// Between runs: offer another share of the notes (LH-MOD-06), in percent, with the question.
     DensitySuggestion {
-        level: u8,
+        percent: u8,
         text: String,
     },
     /// Another input could be used meanwhile (LH-ALL-04): its id and a question for the user.
@@ -1315,13 +1315,13 @@ impl Core {
     /// Note density of the current section (the loop, else the whole piece) and its lock.
     pub fn density(&self) -> (Density, DensityLock) {
         self.stored_density()
-            .map_or((Density::Full, DensityLock::Free), |d| {
+            .map_or((Density::FULL, DensityLock::Free), |d| {
                 let lock = if d.fixed {
                     DensityLock::Fixed
                 } else {
                     DensityLock::Free
                 };
-                (Density::from_level(d.level), lock)
+                (Density::from_percent(d.percent), lock)
             })
     }
 
@@ -1337,7 +1337,7 @@ impl Core {
         entry.densities.retain(|d| d.section != section);
         entry.densities.push(SectionDensity {
             section,
-            level: density.level(),
+            percent: density.percent(),
             fixed: lock == DensityLock::Fixed,
         });
         self.save_library();
@@ -1396,7 +1396,7 @@ impl Core {
             "density.fewer"
         };
         Some(UiEvent::DensitySuggestion {
-            level: next.level(),
+            percent: next.percent(),
             text: self.tr(key, &[("percent", format!("{:.0}", hit_rate * 100.0))]),
         })
     }

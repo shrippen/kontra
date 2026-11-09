@@ -96,7 +96,7 @@ Erwartet: Lied wartet ohne Zeitdruck; falscher Ton wird freundlich angezeigt (we
 2. Auf den schwierigsten Takt klicken → Riff-Werkstatt mit diesem Bereich.
 3. Tempo 60 %, automatische Anpassung an das Zielband 80–90 % Treffer, Vorzähler an.
 4. Fehlerfreie Durchläufe einspeisen bis 100 %.
-5. Notendichte „Auf den Schlägen“ wählen; nach einem Durchlauf über 90 % den Vorschlag „mehr Noten“ annehmen.
+5. Notendichte „50 %“ wählen (jeder Takt behält seine Schläge); nach einem sauberen Durchlauf (über 90 %) den Vorschlag „mehr Noten“ annehmen: 75 %.
 6. Alles nur mit Tastatur wiederholen (Loop mit `[` und `]` setzen, Pos1 springt an den Loop-Anfang), dann mit einem Fußschalter (Bild ab/auf).
 Erwartet: Die Auswertung nennt, wie viele Noten auf einer anderen Saite als in der Tab lagen (bei bundlosem oder 5-saitigem Profil „nicht unterstützt“), die Noten bleiben Treffer; sie fragt „Die A-Saite klingt etwa 15 Cent zu hoch – nachstimmen?“, „Zum Stimmgerät“ öffnet das Stimmgerät; Bereich und Tempo stimmen; Backing Track bei 60 % ohne metallischen Klang; Steigerung sichtbar; jede Funktion per Tastenkürzel; jeder Durchgang beginnt mit neutralen Noten (keine Marken des vorigen vor der Spiellinie).
 
