@@ -12,8 +12,9 @@ Eine eigene Basslinie entsteht aus dem, was du kennst:
 Fang einfach an und füg erst etwas hinzu, wenn das Einfache groovt.
 
 ## Ausprobieren
-Lass ein Stück aus „Übungen“ unter „Stück“ laufen und spiel deine eigene Linie dazu. Kontra bewertet dabei die
-geschriebene Linie, nicht deine; hör stattdessen, ob es mit dem Schlagzeug groovt.
+Spiel deine eigene Linie über die Akkorde. Die Tab zeigt ein Beispiel; Kontra bewertet nicht, ob du es triffst,
+sondern wie deine Töne passen: Akkordtöne, Töne der Tonart, fremde Töne. Wo das Beispiel pausiert, lass Luft.
+::: practice kind=groove variant=145 rhythm=rests key=A bpm=80 judging=open
 
 ## Prüfen
 ::: question

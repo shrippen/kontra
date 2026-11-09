@@ -1097,6 +1097,7 @@ name = "kontra-session"
 version = "0.0.1"
 dependencies = [
  "kontra-content",
+ "kontra-dsp",
  "kontra-engine",
  "kontra-model",
  "serde",

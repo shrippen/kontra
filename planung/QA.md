@@ -93,14 +93,18 @@ Erwartet: eine verständliche Meldung zur defekten Datei, drei Lieder importiert
 3. Lange Pause (30 s), dann weiter.
 Erwartet: Lied wartet ohne Zeitdruck; falscher Ton wird freundlich angezeigt (welcher Ton gespielt, welcher erwartet, in Worten und Symbol); nach der Pause kein Abbruch.
 
-**J-B3 Refrain sitzt bis Freitag** ⚙ · Persona: P2 Jens · Phase 1 · LH-MOD-04, -05, -06, -07, LH-WIE-01, LH-BEW-03, LH-BEW-16, LH-TUN-05
+**J-B3 Refrain sitzt bis Freitag** ⚙ · Persona: P2 Jens · Phase 1 · LH-MOD-04, -05, -06, -07, LH-WIE-01, LH-BEW-03, LH-BEW-16, LH-TUN-05, LH-FOR-06
 1. Modus „Durchlauf“, Lied 3 durchspielen, einige Noten auf einer anderen Saite als in der Tab, die A-Saite etwa 15 Cent zu hoch gestimmt; Auswertung zeigt schwierigste Takte.
 2. Auf den schwierigsten Takt klicken → Riff-Werkstatt mit diesem Bereich.
 3. Tempo 60 %, automatische Anpassung an das Zielband 80–90 % Treffer, Vorzähler an.
 4. Fehlerfreie Durchläufe einspeisen bis 100 %.
-5. Notendichte „Auf den Schlägen“ wählen; nach einem Durchlauf über 90 % den Vorschlag „mehr Noten“ annehmen.
+5. Notendichte „50 %“ wählen (jeder Takt behält seine Schläge); nach einem sauberen Durchlauf (über 90 %) den Vorschlag „mehr Noten“ annehmen: 75 %.
 6. Alles nur mit Tastatur wiederholen (Loop mit `[` und `]` setzen, Pos1 springt an den Loop-Anfang), dann mit einem Fußschalter (Bild ab/auf).
-Erwartet: Die Auswertung nennt, wie viele Noten auf einer anderen Saite als in der Tab lagen (bei bundlosem oder 5-saitigem Profil „nicht unterstützt“), die Noten bleiben Treffer; sie fragt „Die A-Saite klingt etwa 15 Cent zu hoch – nachstimmen?“, „Zum Stimmgerät“ öffnet das Stimmgerät; Bereich und Tempo stimmen; Backing Track bei 60 % ohne metallischen Klang; Steigerung sichtbar; jede Funktion per Tastenkürzel; jeder Durchgang beginnt mit neutralen Noten (keine Marken des vorigen vor der Spiellinie).
+7. Liedkarte (in der Auswertung und angehalten über der Werkstatt): über Takt 5–8 ziehen; dann per Tastatur (Tab auf die
+   Karte, Pfeile, Umschalt+Pfeile, Eingabe).
+Erwartet: Die Liedkarte zeigt je Takt die Treffer der letzten Durchläufe als Höhe, der Tooltip und der Screenreader die
+Zahl („Takt 5: 75 % im letzten Durchlauf (3 von 4 Noten)“), nie gespielte Takte gestrichelt statt null; beim Spielen
+ist sie weg; Ziehen über Takt 5–8 setzt die Schleife 5–8 (aus der Auswertung in der Werkstatt). Die Auswertung nennt, wie viele Noten auf einer anderen Saite als in der Tab lagen (bei bundlosem oder 5-saitigem Profil „nicht unterstützt“), die Noten bleiben Treffer; sie fragt „Die A-Saite klingt etwa 15 Cent zu hoch – nachstimmen?“, „Zum Stimmgerät“ öffnet das Stimmgerät; Bereich und Tempo stimmen; Backing Track bei 60 % ohne metallischen Klang; Steigerung sichtbar; jede Funktion per Tastenkürzel; jeder Durchgang beginnt mit neutralen Noten (keine Marken des vorigen vor der Spiellinie).
 
 **J-B4 Bundlos und tief** ⚙ · Persona: P3 Mira · Phase 1 · LH-TUN-01, LH-BEW-01, -02, -05, -12, LH-NF-03, LH-ANZ-03
 1. Instrument „5 Saiten, bundlos“ anlegen.
@@ -232,15 +236,39 @@ als andere (bei 20 Plätzen mehr als jede zehnte Frage); Überspringen zählt ni
 Frage, auch in „x von y gefunden“; bei 0–12 ist Bund 12 kein eigener Platz; nach Export und Import (Ersetzen) auf einem
 zweiten Rechner gleicher Bereich und gleiche Statistik, beim Ergänzen gleiche Statistik und der eigene Bereich; Bereich und Bünde haben Namen für den Screenreader. Die Übersicht zeigt je Saite (Reihenfolge wie das Griffbrett) und Bund den Anteil richtig als Zahl, Zählungen im Tooltip und für den Screenreader, nie gefragte Plätze leer; bei 1024×640 ist sie per Scrollen erreichbar.
 
-**J-C7 Ein ganzes Stück** · Personas: P1 Lea, P2 Jens, P4 Thomas · Phase 3 · LH-BIB-12, LH-BIB-13, LH-BIB-08, LH-MOD-02, -04
+**J-C7 Ein ganzes Stück** · Personas: P1 Lea, P2 Jens, P4 Thomas, P3 Mira, P5 Aylin · Phase 3 · LH-BIB-12, LH-BIB-13, LH-BIB-08, LH-MOD-02, -04, LH-WIE-05
 1. Lea: Übungen, Stufe „9 Stücke“, die Ballade im Durchlauf von vorn bis hinten; danach „Übung erzeugen“, Stück Pop, Schwierigkeit „Leicht“.
 2. Jens: „Übung erzeugen“, Art „Stück“, Stil Rock in E, 100 BPM; den ersten Refrain in der Werkstatt üben.
 3. Thomas: dasselbe Stück am Beamer in Noten + Tab für die Klasse, Stil Funk in Am.
+4. Mira (Aylin über MIDI): Einstellungen „Band reagiert“ an; das Funk-Stück im Modus „Spielen“ mit eigenen Phrasen,
+   am Phrasenende zwei Schläge frei, einmal einen Takt durchgehend in Achteln; dann wieder aus.
 Erwartet: Stück läuft zwei bis drei Minuten (Rock bei 100 BPM gut zwei); Akkordname über jedem Takt; Probenzeichen
 (Intro, Strophe, Refrain …) über dem ersten Takt jedes Teils, in Lane, Tab und Noten, der Screenreader nennt den Teil; Schlagzeug, vor jedem neuen Teil ein Fill;
 letzter Takt auf der Tonika; Titel in der Oberflächensprache („Stück Rock“ / „Rock piece“); der Generator passt in ein
 schmales Fenster. Leicht: Pop mit Intro und Outro in Halben, Strophe und Bridge in Vierteln, Refrain in Achteln, ohne Synkopen; Titel „Stück Pop (leicht)“, Form und Schlagzeug wie
-mittel; „Schwierigkeit“ steht nur bei der Art „Stück“.
+mittel; „Schwierigkeit“ steht nur bei der Art „Stück“. Band reagiert: nach zwei freien Schlägen am Phrasenende ein
+Snare-Fill im zweiten, höchstens alle 8 Takte, nie mitten in einer Phrase; nach dem Achteltakt ein Takt ohne Hi-Hat;
+keine Auswertung ändert sich; aus: das Schlagzeug spielt wie geschrieben.
+
+**J-C11 Eigene Linie** ⚙ · Personas: P1 Lea, P3 Mira, P4 Thomas · Phase 3 · LH-BEW-13
+1. Lea: Lektion „Eine eigene Linie“, „Ausprobieren“: die offene Übung (Groove I–IV–V mit Pausen, frei) im Durchlauf;
+   eine Linie nur aus Grundton und Quinte, die Pausen des Beispiels frei lassen.
+2. Mira: dieselbe Übung mit Durchgangstönen und zwei Tönen außerhalb der Tonart, einmal durch die Pausen spielen.
+3. Thomas: am Beamer erklären, was „passend“ und „Akkordtöne“ heißen.
+Erwartet: Titel endet auf „, frei“; die Tab zeigt das Beispiel, kein Ton daraus gilt als ausgelassen; die Auswertung
+sagt „x % passend“ und zählt Akkordtöne, Töne der Tonart und fremde Töne, dazu den Anteil Akkordtöne und „Pausen: x
+von y frei gelassen“; Lea: 100 % passend, 100 % Akkordtöne, alle Pausen frei; Mira: zwei fremde Töne, nicht alle
+Pausen frei.
+
+**J-C12 Ruf und Antwort** · Personas: P1 Lea, P3 Mira, P5 Aylin · Phase 3 · LH-LRN-19
+1. Lea (Mikrofon): Übungen, ein Groove mit Akkorden (I–IV–V, Viertel); „Ruf und Antwort“ an, Modus „Durchlauf“.
+   Kontra spielt zwei Takte, Lea antwortet; die ersten beiden Antworten absichtlich daneben.
+2. Mira (Kabel): dasselbe im Modus „Spielen“ (ohne Bewertung) und in der Werkstatt mit einer Schleife über vier Takte.
+3. Aylin (MIDI): ein importiertes Stück ohne Akkordsymbole öffnen.
+Erwartet: Der Schalter steht nur bei Stücken mit Akkorden und mindestens vier Takten; an: je vier Takte ein Ruf (zwei
+Takte, Kontra spielt, das Schlagzeug leiser) und die Antwort (zwei Takte, gleiches Motiv aus Akkordtönen, höchstens eine
+Quinte); die Tab ist leer, der Hinweis „Hör zu und antworte …“ sagt warum; nach zwei Fehlversuchen (unter 80 %) erscheint
+die Tab; über Mikrofon zählt der Ruf weder als Treffer noch als zusätzliche Note; Aylin sieht keinen Schalter.
 
 ## D. Inhalte teilen (ab Phase 3)
 

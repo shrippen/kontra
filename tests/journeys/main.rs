@@ -16,6 +16,7 @@ mod b3_workshop;
 mod b4_fretless;
 mod b6_downloads;
 mod c10_fret_quiz;
+mod c11_open;
 mod c2_tendency;
 mod c4_ear;
 mod c5_techniques;

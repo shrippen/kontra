@@ -36,6 +36,7 @@ pub fn practice(a: &PracticeArgs) -> CliResult {
         reference_tones: a.reference,
         backing_offset_s: a.backing_offset,
         transpose_semitones: 0,
+        band: kontra_session::Band::AsWritten,
     };
     let input = match &a.input_file {
         Some(path) => InputChoice::File {

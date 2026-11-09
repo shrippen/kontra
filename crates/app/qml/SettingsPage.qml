@@ -348,6 +348,16 @@ Kirigami.ScrollablePage {
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            title: texts.t("settings.band")
+            hint: texts.t("settings.band.hint")
+            KanteSwitch {
+                Accessible.name: texts.t("settings.band")
+                checked: ctl.reactingBand
+                onToggled: ctl.changeReactingBand(checked)
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
             title: texts.t("settings.simple")
             hint: texts.t("settings.simple.hint")
             KanteSwitch {

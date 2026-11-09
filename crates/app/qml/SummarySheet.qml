@@ -14,11 +14,13 @@ KanteCard {
     readonly property var summary: ctl.summaryJson !== "" ? JSON.parse(ctl.summaryJson) : null
 
     signal practiceBar(int bar)
+    signal practiceBars(int from, int to)
 
     function open() { visible = true }
     // The keyboard starts in the sheet, on "close" (QA 27.10., P7).
     onVisibleChanged: {
         if (visible) {
+            sheetMap.refresh()
             closeButton.forceActiveFocus(Qt.TabFocusReason)
         }
     }
@@ -255,6 +257,13 @@ KanteCard {
             wrapMode: Text.WordWrap
             text: [content.techniques.length > 0 ? texts.t("summary.techniques.note") : "", content.untold].filter(function(t) { return t !== "" }).join(" ")
             color: KanteStyle.mutedTextColor
+        }
+
+        // Where the piece stands after this run (LH-FOR-06); dragging practises those bars.
+        SongMap {
+            id: sheetMap
+            Layout.fillWidth: true
+            onChosen: (from, to) => sheet.practiceBars(from, to)
         }
 
         KanteSectionLabel {

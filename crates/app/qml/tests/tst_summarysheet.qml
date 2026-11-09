@@ -27,6 +27,12 @@ Item {
             observation: { solid: false, text: "observe.text" }, recalibrateText: ""
         })
         function termJson(topic) { return "" }
+        property bool playing: false
+        // Bars 5–8 weak (LH-FOR-06).
+        function songMap() {
+            return JSON.stringify({ values: [1, 1, 0.9, 1, 0.4, 0.3, 0.5, 0.2], labels: ["1", "2", "3", "4", "5", "6", "7", "8"],
+                                    tips: [], loop: null, played: true })
+        }
     }
     function applicationWindow() { return root }
     // The page a button asked for.
@@ -165,6 +171,24 @@ Item {
             sheet.open()
             verify(showing(sheet, "summary.goal.none") !== null)
             verify(showing(sheet, "80 %") === null)
+            sheet.close()
+        }
+
+        // J-B3: dragging over bars 5–8 of the song map practises them (LH-FOR-06).
+        function test_song_map_sets_the_loop() {
+            sheet.open()
+            var strip = having(sheet, "indexAt")
+            verify(strip !== null)
+            tryVerify(function() { return strip.visible && strip.width > 0 })
+            var practised = []
+            var take = function(from, to) { practised = [from, to] }
+            sheet.practiceBars.connect(take)
+            var step = strip.barWidth + strip.spacing
+            mousePress(strip, step * 4 + 1, 10)
+            mouseMove(strip, step * 7 + 1, 10)
+            mouseRelease(strip, step * 7 + 1, 10)
+            sheet.practiceBars.disconnect(take)
+            compare(practised, [4, 7])
         }
 
         function test_trap_and_return() {

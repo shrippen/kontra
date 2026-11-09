@@ -1,17 +1,19 @@
 //! A practice session: one arrangement, one mode, scored live.
 
 use crate::expected::expected_notes;
+use crate::improv::OpenRun;
 use crate::matcher::{Claim, Matcher, NoteResult, Outcome};
 use crate::settings::ScoreSettings;
 use crate::summary::Summary;
 use crate::technique::{TechniqueJudge, TechniqueResult};
 use crate::transport::{LoopRange, Transport};
 use kontra_model::{
-    Arrangement, DetectedNote, NoteRetraction, PitchRevision, StringHeard, StringVerdict,
+    Arrangement, DetectedNote, Judging, NoteRetraction, PitchRevision, StringHeard, StringVerdict,
     Technique, TechniqueRevision,
 };
 
 mod double_stop;
+mod open;
 
 /// Real seconds to wait before declaring a note missed: detected notes arrive up to ~150 ms
 /// after their onset (concept 6.3), plus margin.
@@ -148,6 +150,8 @@ pub struct Session {
     /// Stretches the input did not deliver, as (pass, position) from and to: their notes are
     /// not judged, missing data is no mistake.
     unheard: Vec<((u32, f64), (u32, f64))>,
+    /// An open run's attacks by fit (`Judging::Open`, LH-BEW-13); none otherwise.
+    open: Option<OpenRun>,
 }
 
 impl Session {
@@ -155,6 +159,7 @@ impl Session {
         let matcher = Matcher::new(expected_notes(&arrangement));
         let techniques = TechniqueJudge::new(&arrangement, settings.source);
         let transport = Transport::new(arrangement.duration_s());
+        let open = (arrangement.judging == Judging::Open).then(|| OpenRun::new(&arrangement));
         Session {
             arrangement,
             mode,
@@ -179,6 +184,7 @@ impl Session {
             heard_s: None,
             stalled_s: None,
             unheard: Vec::new(),
+            open,
         }
     }
 
@@ -285,6 +291,9 @@ impl Session {
         }
         self.heard.push(*note);
         let real_s = self.real_s(note.onset_s);
+        if self.count_open(note, real_s) {
+            return;
+        }
         if matches!(self.mode, Mode::Wait) {
             self.wait_note(real_s, note);
             return;
@@ -895,6 +904,7 @@ impl Session {
             crate::summary::outside_offset_ms(&self.results, self.transport.speed());
         summary.outside_notes =
             crate::summary::outside_notes(&self.results, self.transport.speed());
+        self.open_summary(&mut summary);
         summary
     }
 
@@ -1115,6 +1125,7 @@ impl Session {
         } else {
             in_pass().filter(|r| r.is_hit()).count() as f64 / count as f64
         };
+        let hit_rate = self.open_pass_rate(pass).unwrap_or(hit_rate);
         self.events.push(SessionEvent::PassComplete {
             pass,
             clean,

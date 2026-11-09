@@ -374,7 +374,9 @@ impl Core {
         };
         let session = live.practice().session();
         let summary = session.summary();
-        if summary.judged == 0 {
+        // An open run judges no written notes, it counts its attacks (LH-BEW-13).
+        let counted = summary.improvisation.map_or(0, |i| i.played());
+        if summary.judged == 0 && counted == 0 {
             self.run_started = None;
             return;
         }

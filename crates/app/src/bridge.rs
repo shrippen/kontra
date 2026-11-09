@@ -123,13 +123,18 @@ pub mod qobject {
         #[qproperty(f64, monitor_compress, cxx_name = "monitorCompress")]
         #[qproperty(f64, monitor_warmth, cxx_name = "monitorWarmth")]
         #[qproperty(f64, shaping_range_db, cxx_name = "shapingRangeDb")]
-        /// Note density of the current section, 1..=3 (LH-MOD-06), and whether it is fixed.
+        /// Share of the notes in the current section, 25..=100 % (LH-MOD-06), and whether it is fixed.
         #[qproperty(i32, density)]
         #[qproperty(bool, density_fixed, cxx_name = "densityFixed")]
-        /// Suggested density after a run (0: none) and the question to show.
+        /// Suggested share after a run (0: none) and the question to show.
         #[qproperty(i32, density_suggestion, cxx_name = "densitySuggestion")]
         #[qproperty(QString, density_text, cxx_name = "densityText")]
         #[qproperty(bool, adaptive)]
+        /// Generated drums answer the bass in free play (LH-WIE-05).
+        #[qproperty(bool, reacting_band, cxx_name = "reactingBand")]
+        /// Call and response on (LH-LRN-19), and the tab hidden until two failed tries.
+        #[qproperty(bool, call)]
+        #[qproperty(bool, call_hidden, cxx_name = "callHidden")]
         /// The practice page without its rare controls (LH-ANZ-11).
         #[qproperty(bool, simple_view, cxx_name = "simpleView")]
         #[qproperty(bool, streak)]
@@ -269,10 +274,10 @@ pub mod qobject {
         #[cxx_name = "changeTargetSpeed"]
         fn change_target_speed(self: Pin<&mut Self>, speed: f64);
 
-        /// Note density 1..=3 for the current section; `lock` "fixed" stops suggestions.
+        /// Share of the notes in percent for the current section; `lock` "fixed" stops suggestions.
         #[qinvokable]
         #[cxx_name = "changeDensity"]
-        fn change_density(self: Pin<&mut Self>, level: i32, lock: &QString);
+        fn change_density(self: Pin<&mut Self>, percent: i32, lock: &QString);
 
         /// Dismisses the density suggestion.
         #[qinvokable]
@@ -283,6 +288,19 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "changeAdaptive"]
         fn change_adaptive(self: Pin<&mut Self>, on: bool);
+
+        #[qinvokable]
+        #[cxx_name = "changeReactingBand"]
+        fn change_reacting_band(self: Pin<&mut Self>, on: bool);
+
+        #[qinvokable]
+        #[cxx_name = "changeCall"]
+        fn change_call(self: Pin<&mut Self>, on: bool);
+
+        /// Hits per bar over the last runs (LH-FOR-06), as JSON.
+        #[qinvokable]
+        #[cxx_name = "songMap"]
+        fn song_map(self: &Self) -> QString;
 
         /// The simple practice page on or off (LH-ANZ-11).
         #[qinvokable]
@@ -983,6 +1001,9 @@ pub struct ControllerRust {
     density_suggestion: i32,
     density_text: QString,
     adaptive: bool,
+    reacting_band: bool,
+    call: bool,
+    call_hidden: bool,
     simple_view: bool,
     streak: bool,
     calibrating: bool,
@@ -1144,11 +1165,14 @@ impl Default for ControllerRust {
             monitor_compress: s.monitor_compress,
             monitor_warmth: s.monitor_warmth,
             shaping_range_db: kontra_appcore::Core::shaping_range_db(),
-            density: 3,
+            density: 100,
             density_fixed: false,
             density_suggestion: 0,
             density_text: QString::default(),
             adaptive: s.adaptive,
+            reacting_band: s.reacting_band,
+            call: false,
+            call_hidden: false,
             simple_view: s.simple_view,
             streak: s.streak,
             calibrating: false,
@@ -1251,7 +1275,7 @@ impl ControllerRust {
                 self.view = q(&self.core.view());
                 self.tracks_json = q(&self.core.tracks_json());
                 let (density, lock) = self.core.density();
-                self.density = i32::from(density.level());
+                self.density = i32::from(density.percent());
                 self.density_fixed = lock == DensityLock::Fixed;
                 if let Some(notice) = self.core.take_notice() {
                     self.message = q(&notice);
@@ -1357,6 +1381,7 @@ impl qobject::Controller {
         self.as_mut().refresh_density();
         self.as_mut().refresh_chain();
         self.as_mut().refresh_practice();
+        self.as_mut().refresh_call();
         self.as_mut().arrangement_loaded();
     }
 
@@ -1393,7 +1418,7 @@ impl qobject::Controller {
     /// Density of the current section; a pending suggestion goes (it was for another one).
     fn refresh_density(mut self: Pin<&mut Self>) {
         let (density, lock) = self.as_ref().rust().core.density();
-        self.as_mut().set_density(i32::from(density.level()));
+        self.as_mut().set_density(i32::from(density.percent()));
         self.as_mut().set_density_fixed(lock == DensityLock::Fixed);
         self.as_mut().set_density_suggestion(0);
     }
@@ -1434,8 +1459,8 @@ impl qobject::Controller {
         self.as_mut().set_loop_end(end);
     }
 
-    fn change_density(mut self: Pin<&mut Self>, level: i32, lock: &QString) {
-        let density = Density::from_level(u8::try_from(level.clamp(1, 3)).unwrap_or(3));
+    fn change_density(mut self: Pin<&mut Self>, percent: i32, lock: &QString) {
+        let density = Density::from_percent(u8::try_from(percent.clamp(0, 100)).unwrap_or(100));
         let lock = if lock.to_string() == "fixed" {
             DensityLock::Fixed
         } else {
@@ -1739,6 +1764,7 @@ impl qobject::Controller {
                     let passes = *self.as_ref().passes() + 1;
                     self.as_mut().set_passes(passes);
                     self.as_mut().set_pass_rate(hit_rate);
+                    self.as_mut().refresh_call();
                     self.as_mut().pass_complete(clean, hit_rate);
                 }
                 UiEvent::SpeedChanged(speed) => self.as_mut().set_speed(speed),
@@ -1749,6 +1775,7 @@ impl qobject::Controller {
                     self.as_mut().set_recent_json(q(&recent));
                     self.as_mut().set_summary_json(q(&summary_json));
                     self.as_mut().set_playing(false);
+                    self.as_mut().refresh_call();
                     self.as_mut().finished();
                 }
                 UiEvent::Level {
@@ -1791,8 +1818,8 @@ impl qobject::Controller {
                     self.as_mut().set_playing(false);
                     self.as_mut().set_tuner_active(false);
                 }
-                UiEvent::DensitySuggestion { level, text } => {
-                    self.as_mut().set_density_suggestion(i32::from(level));
+                UiEvent::DensitySuggestion { percent, text } => {
+                    self.as_mut().set_density_suggestion(i32::from(percent));
                     self.as_mut().set_density_text(q(&text));
                 }
                 UiEvent::Stems(state) => self.as_mut().set_stems_json(q(&state)),
@@ -1925,6 +1952,7 @@ impl qobject::Controller {
         self.as_mut().set_bass_volume(s.bass_volume);
         self.as_mut().set_prompt_volume(s.prompt_volume);
         self.as_mut().set_adaptive(s.adaptive);
+        self.as_mut().set_reacting_band(s.reacting_band);
         self.as_mut().set_simple_view(s.simple_view);
         self.as_mut().set_streak(s.streak);
         self.as_mut().set_tuning(q(&s.tuning));

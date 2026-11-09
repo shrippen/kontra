@@ -15,12 +15,12 @@ fn density_thins_notes_per_section_and_is_suggested() {
     assert_eq!(count(&core), 64);
 
     // Eighth notes: on the beats half of them stay, for the whole piece.
-    core.set_density(Density::Beats, DensityLock::Free);
+    core.set_density(Density::from_percent(50), DensityLock::Free);
     assert_eq!(count(&core), 32);
 
     // A section starts with the piece's density and can have its own.
     assert!(!core.set_loop(0, 1));
-    core.set_density(Density::Sparse, DensityLock::Free);
+    core.set_density(Density::FEWEST, DensityLock::Free);
     assert_eq!(count(&core), 16);
     assert!(core.clear_loop());
     assert_eq!(count(&core), 32);
@@ -29,12 +29,12 @@ fn density_thins_notes_per_section_and_is_suggested() {
     core.update_settings(|s| s.mode = "song".into());
     assert!(matches!(
         core.density_hint(0.95),
-        Some(UiEvent::DensitySuggestion { level: 3, .. })
+        Some(UiEvent::DensitySuggestion { percent: 75, .. })
     ));
     assert!(core.density_hint(0.75).is_none());
-    core.set_density(Density::Beats, DensityLock::Fixed);
+    core.set_density(Density::from_percent(50), DensityLock::Fixed);
     assert!(core.density_hint(0.95).is_none());
-    core.set_density(Density::Beats, DensityLock::Free);
+    core.set_density(Density::from_percent(50), DensityLock::Free);
     core.update_settings(|s| s.adaptive = false);
     assert!(core.density_hint(0.95).is_none());
     // Not after a probe without help: it judges, it adapts nothing (QA 27.10., J8).
@@ -76,6 +76,7 @@ fn home_summary() {
         section: None,
         hardest_bars: Vec::new(),
         hesitant_bars: Vec::new(),
+        bars: Vec::new(),
     };
     // The first exercise is judged by time only: it sits with a small spread, too (I4).
     core.progress_store()
@@ -137,6 +138,7 @@ fn the_pulse_sits_on_a_small_spread() {
         section: None,
         hardest_bars: Vec::new(),
         hesitant_bars: Vec::new(),
+        bars: Vec::new(),
     };
     let sits = |core: &Core| {
         let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
@@ -215,6 +217,7 @@ fn chain_cuts_phrases_where_the_player_hesitates() {
         hardest_bars: Vec::new(),
         hesitant_bars: hesitant,
         spread_ms: None,
+        bars: Vec::new(),
     };
 
     // Printed bar 3 is index 2.
@@ -653,6 +656,7 @@ fn summary_compares_probe_with_workshop() {
         hardest_bars: Vec::new(),
         hesitant_bars: Vec::new(),
         spread_ms: Some(11.0),
+        bars: Vec::new(),
     };
     core.progress_store().record(&a, run).unwrap();
     let found = probe(&core, &s);
@@ -738,6 +742,7 @@ fn home_offers_a_probe() {
         hardest_bars: Vec::new(),
         hesitant_bars: Vec::new(),
         spread_ms: None,
+        bars: Vec::new(),
     };
     let offer = |core: &Core| {
         let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
@@ -783,6 +788,7 @@ fn probe_offer_skips_what_it_cannot_open() {
         hardest_bars: Vec::new(),
         hesitant_bars: Vec::new(),
         spread_ms: None,
+        bars: Vec::new(),
     };
     let store = core.progress_store();
     store
@@ -833,6 +839,7 @@ fn home_offers_yesterdays_spots() {
         section: None,
         hardest_bars: bars.to_vec(),
         hesitant_bars: Vec::new(),
+        bars: Vec::new(),
     };
     let spots = |core: &Core| {
         let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();

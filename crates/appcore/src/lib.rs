@@ -8,6 +8,7 @@
 mod bundled;
 mod caches;
 mod calibrate;
+mod call;
 mod course;
 mod data;
 pub mod ear;
@@ -26,6 +27,7 @@ mod progress;
 pub mod quiz;
 pub mod quiz_stats;
 mod report;
+mod song_map;
 mod songsterr;
 mod sources;
 mod stems;
@@ -141,9 +143,9 @@ pub enum UiEvent {
     },
     /// An audio device failed (unplugged): which side, the system's reason; the run was stopped.
     DeviceLost(Direction, String),
-    /// Between runs: offer another note density (LH-MOD-06), 1..=3, with the question.
+    /// Between runs: offer another share of the notes (LH-MOD-06), in percent, with the question.
     DensitySuggestion {
-        level: u8,
+        percent: u8,
         text: String,
     },
     /// Another input could be used meanwhile (LH-ALL-04): its id and a question for the user.
@@ -226,6 +228,8 @@ pub struct Core {
     input_since: Option<std::time::Instant>,
     speed: f64,
     looping: Option<(usize, usize)>,
+    /// Call and response (LH-LRN-19).
+    call: call::CallState,
     /// A note for the user from the last `open` (e.g. a five-string bass was chosen).
     notice: Option<String>,
     /// The setlist being played and the position in it (LH-BIB-04).
@@ -343,6 +347,7 @@ impl Core {
             input_since: None,
             speed: 1.0,
             looping: None,
+            call: call::CallState::default(),
         };
         // Measured latencies hold only for the devices they were measured on (LH-EIN-05).
         core.check_audio_path();
@@ -1324,13 +1329,13 @@ impl Core {
     /// Note density of the current section (the loop, else the whole piece) and its lock.
     pub fn density(&self) -> (Density, DensityLock) {
         self.stored_density()
-            .map_or((Density::Full, DensityLock::Free), |d| {
+            .map_or((Density::FULL, DensityLock::Free), |d| {
                 let lock = if d.fixed {
                     DensityLock::Fixed
                 } else {
                     DensityLock::Free
                 };
-                (Density::from_level(d.level), lock)
+                (Density::from_percent(d.percent), lock)
             })
     }
 
@@ -1346,7 +1351,7 @@ impl Core {
         entry.densities.retain(|d| d.section != section);
         entry.densities.push(SectionDensity {
             section,
-            level: density.level(),
+            percent: density.percent(),
             fixed: lock == DensityLock::Fixed,
         });
         self.save_library();
@@ -1373,10 +1378,11 @@ impl Core {
     /// running practice (densities change only between runs).
     fn rethin(&mut self) -> bool {
         let (density, _) = self.density();
+        let call = self.call_wanted();
         let Some(loaded) = self.loaded.as_mut() else {
             return false;
         };
-        let thinned = density.thin(&loaded.full);
+        let thinned = call::shape(&loaded.full, density, call);
         if thinned.notes == loaded.arrangement.notes {
             return false;
         }
@@ -1391,7 +1397,7 @@ impl Core {
         if !self.settings.adaptive || !matches!(self.settings.mode.as_str(), "song" | "workshop") {
             return None;
         }
-        if self.probe.is_some() {
+        if self.probe.is_some() || self.call_on() {
             return None;
         }
         let (density, lock) = self.density();
@@ -1405,7 +1411,7 @@ impl Core {
             "density.fewer"
         };
         Some(UiEvent::DensitySuggestion {
-            level: next.level(),
+            percent: next.percent(),
             text: self.tr(key, &[("percent", format!("{:.0}", hit_rate * 100.0))]),
         })
     }
@@ -1604,6 +1610,11 @@ impl Core {
             reference_tones: self.settings.reference_tones && self.probe.is_none(),
             backing_offset_s: self.backing().map_or(0.0, |(_, offset)| offset),
             transpose_semitones: self.transpose(),
+            band: if self.settings.reacting_band {
+                kontra_session::Band::Reacting
+            } else {
+                kontra_session::Band::AsWritten
+            },
         }
     }
 
@@ -1826,6 +1837,10 @@ impl Core {
             UiEvent::PassComplete { hit_rate, .. } => Some(*hit_rate),
             _ => None,
         });
+        // Each pass or run of calls and answers is a try (LH-LRN-19).
+        if let Some(rate) = rate {
+            self.call_try(rate);
+        }
         if let Some(rate) = passed {
             let steps = self.chain_pass(rate);
             events.extend(steps);

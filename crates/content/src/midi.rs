@@ -2,7 +2,9 @@
 //! ticks are rescaled to 960 per quarter, bars come from the time signature events.
 
 use crate::error::ImportError;
-use crate::exercise::{CHORD_TEXT, POSITION_TEXT, SHUFFLE_TEXT, TECHNIQUE_TEXTS, TIMING_TEXT};
+use crate::exercise::{
+    CHORD_TEXT, OPEN_TEXT, POSITION_TEXT, SHUFFLE_TEXT, TECHNIQUE_TEXTS, TIMING_TEXT,
+};
 use crate::score::{self, BarHead, Part, RawNote, Score, DEFAULT_BPM};
 use crate::unroll::MAX_BARS;
 use kontra_model::{Feel, Judging, Pitch, Technique, TimeSignature, Tuning, TICKS_PER_QUARTER};
@@ -94,6 +96,9 @@ pub(crate) fn parse(data: &[u8]) -> Result<Score, ImportError> {
                         }
                         if text == TIMING_TEXT.as_bytes() {
                             judging = Judging::TimeOnly;
+                        }
+                        if text == OPEN_TEXT.as_bytes() {
+                            judging = Judging::Open;
                         }
                         if text == SHUFFLE_TEXT.as_bytes() {
                             feel = Feel::Shuffle;

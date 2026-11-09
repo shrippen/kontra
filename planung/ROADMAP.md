@@ -289,8 +289,13 @@ Rückmeldung und Lernen:
 - [x] A1 Eine Beobachtung je Durchlauf (LH-BEW-09, #184).
 - [x] A2 Hinweis „Neu kalibrieren?“ (LH-EIN-14): in der Auswertung mit Knopf zur Kalibrierung in den Einstellungen;
   nicht, wenn das gewählte Timing-Ziel die Neigung deckt (laid-back).
-- [ ] A3 Improvisation bewerten (LH-BEW-13).
-- [ ] A4 Adaptive Dichte über Abschnitts-Anteile (LH-MOD-06).
+- [x] A3 Improvisation bewerten (LH-BEW-13): Übungen mit `judging=open` (Titel „, frei“) zählen jeden Anschlag als
+  Akkordton (Akkordsymbol des Takts), Ton der Tonart (Vorzeichen) oder fremd; Trefferquote ist der Anteil passender Töne.
+  Pausenfenster: wo das Beispiel mindestens einen Schlag pausiert. Lektion „Eine eigene Linie“ übt es (J-C11).
+  Einen Jam-Modus gibt es noch nicht; der Durchlauf ohne Auswertung („Spielen“) bleibt ohne Punkte.
+- [x] A4 Adaptive Dichte über Abschnitts-Anteile (LH-MOD-06): Notendichte als Anteil 25, 50, 75 oder 100 % je
+  Abschnitt; jeder Takt behält seine stärksten Anschläge (erster, Taktmitte, Schläge, Achtel); ein sauberer Durchlauf
+  (ab 90 %) schlägt einen Schritt mehr vor. Gespeicherte Dichten (Stufen 1–3) gelten wieder als alle Noten.
 - [x] L1 Stellen wiederholen (LH-LRN-16): Takte zweimal unter den schwierigsten kommen nach 1, 2, 4 … 64 Tagen
   (`kontra_session::spacing`, ein „Tag“ endet nach einer Nacht, 8 h); bestanden heißt Probe ohne Hilfe über die Takte
   mit ≥ 80 % im Zieltempo. Karte „Stellen wiederholen“ (höchstens 3) startet die Probe; „Wiederholen“ (Runde 11) lässt
@@ -313,9 +318,22 @@ Rückmeldung und Lernen:
 - [x] L5 Intonation als Richtung und Streuung (LH-BEW-12).
 - [x] L6 Verstimmte Saite erkennen (LH-TUN-05): die Auswertung fragt nach dem Nachstimmen, mit Sprung ins Stimmgerät
   (`detuned-string`, J-B3 ⚙).
-- [ ] L7 Liedkarte, Kante-Baustein (LH-FOR-06).
-- [ ] L8 Ruf und Antwort (LH-LRN-19).
-- [ ] L9 Reagierende Band (LH-WIE-05).
+- [x] L7 Liedkarte, Kante-Baustein (LH-FOR-06): `KanteSongMap` (Kante-Branch `song-map`, 1.76, noch nicht
+  veröffentlicht; Kontra nimmt die Kopie „Take Kante song-map (unreleased)“). Jeder Durchlauf speichert Treffer je
+  Takt (`Run::bars`); die Karte zeigt je Takt die letzten 5 Durchläufe, die ihn spielten. Angehalten über der
+  Werkstatt und in der Auswertung; Ziehen oder Umschalt+Pfeile und Eingabe setzen die Schleife (J-B3 ⚙).
+- [x] L8 Ruf und Antwort (LH-LRN-19): Schalter auf der Übungsseite für Stücke mit Akkordsymbolen (ab vier Takten).
+  Je vier Takte: Kontra spielt zwei (Motiv aus den Akkordtönen in einer Quinte über dem Grundton, im Rhythmus der
+  eigenen Linie; Schlagzeug mit halber Stärke), der Spieler antwortet mit demselben Motiv. Rufe werden nie erwartet,
+  Anschläge darin nie gewertet (Mikrofon). Mit Bewertung in Durchlauf und Werkstatt, ohne im Modus „Spielen“. Die Tab
+  bleibt leer bis zwei Durchgänge (Schleife) oder Durchläufe unter 80 % lagen; gezählt wird je Stück, nicht je Ruf.
+  Offen: echte Begleitspuren werden während des Rufs nicht leiser (nur das erzeugte Schlagzeug); kein ⚙-Test der Journey
+  J-C12 über die App (Session-Tests `call_response.rs`, Kern-Test der Tab-Regel).
+- [x] L9 Reagierende Band (LH-WIE-05): Einstellung „Band reagiert“ (aus). Im Modus „Spielen“ oder einer offenen
+  Übung über erzeugtes Schlagzeug: Kontra plant den letzten Schlag eines Takts erst 100 ms vorher; war der Schlag davor
+  frei und davor gespielt, wird er ein Snare-Fill (höchstens alle 8 Takte). Nach einem Takt mit mindestens zwei
+  Anschlägen je Schlag spielt der nächste ohne Hi-Hat. Test mit synthetischer Aufnahme durch die Erkennung
+  (`band.rs`); eine echte Aufnahme fehlt (keine im Repo), am Solo noch nicht gehört.
 - [x] L10 Ziel je Lektion (LH-LRN-20): `::: practice … goal=hits|technique|timing|none target=…` (ohne Angabe
   Treffer 80 %); unbekannte Werte sind Formatfehler mit Datei und Zeile (`course check`); die Auswertung nennt Ziel
   und Erreichtes, `none` zeigt „Ausprobiert“ statt einer Prozentzahl. Die Lektionen mit Grooves „nur Timing“ haben

@@ -12,13 +12,16 @@
 //! arrangement at original tempo). At speed 0.5 the position advances half as fast.
 
 mod backing_cache;
+mod band;
 mod cache_files;
 mod calibration;
+mod call;
 mod chain;
 mod check;
 mod courses;
 mod density;
 mod expected;
+mod improv;
 mod learning;
 mod live;
 mod loopback;
@@ -38,10 +41,12 @@ mod technique;
 mod transport;
 
 pub use backing_cache::{BackingCache, Preparing};
+pub use band::Band;
 pub use cache_files::CacheEntry;
 pub use calibration::{
     CalibrationResult, CLICKS as CALIBRATION_CLICKS, INTERVAL_S as CALIBRATION_INTERVAL_S,
 };
+pub use call::call_and_response;
 pub use chain::{Blocks, Chain, ChainOrder};
 pub use check::{
     check_takes, loopback_length_s, loopback_plan, round_trip, CheckNote, CheckTake, LiveTake,
@@ -50,6 +55,7 @@ pub use check::{
 pub use courses::{CourseError, CourseFetch, CourseStore};
 pub use density::Density;
 pub use expected::{expected_notes, ExpectedNote};
+pub use improv::{fit, Fit, Improvisation};
 pub use kontra_engine::Separator;
 pub use kontra_engine::{EngineError, FileHttp, Http, HttpError, Web};
 pub use kontra_engine::{Gains, SeparatorError, Shaping, SHAPING_RANGE_DB};
@@ -73,7 +79,7 @@ pub use sources::{download_dir, recent_scores, search_url, SongSite};
 pub use spacing::{spacing, streak_days, PassageEvent, Spacing};
 pub use stems::{BassRemoval, StemJob};
 pub use summary::{
-    DetunedString, Intonation, IntonationPart, Leaning, Observation, OutsideNote, Side,
+    BarTally, DetunedString, Intonation, IntonationPart, Leaning, Observation, OutsideNote, Side,
     StringTally, Summary, TimingHistogram,
 };
 pub use technique::{

@@ -18,5 +18,9 @@ thiserror.workspace = true
 # JSON Schemas of the package and course files (W8), for `kontra-cli schemas`.
 schema = ["kontra-content/schema"]
 
+[dev-dependencies]
+# Renders bass lines for tests that listen like the app (the reacting band, LH-WIE-05).
+kontra-dsp.workspace = true
+
 [lints]
 workspace = true

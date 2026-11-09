@@ -203,6 +203,8 @@ pub struct Settings {
     pub monitor_warmth: f64,
     /// Suggest more or fewer notes between runs (LH-MOD-06).
     pub adaptive: bool,
+    /// Generated drums answer the bass in free play (LH-WIE-05).
+    pub reacting_band: bool,
     /// The practice page leaves its rare controls out (LH-ANZ-11, round 15).
     pub simple_view: bool,
     /// The start page names the practice streak in days (LH-FOR-05); off by default.
@@ -268,6 +270,7 @@ impl Default for Settings {
             monitor_compress: 0.0,
             monitor_warmth: 0.0,
             adaptive: true,
+            reacting_band: false,
             simple_view: false,
             streak: false,
             tuning: "standard".into(),
@@ -328,13 +331,19 @@ pub struct PracticeLoop {
     pub to: usize,
 }
 
-/// Note density chosen for a section (`None`: the whole piece), 1 (few notes) to 3 (all).
+/// Share of the notes chosen for a section (`None`: the whole piece), 25 to 100 percent.
 /// A fixed one gets no suggestions.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SectionDensity {
     pub section: Option<(f64, f64)>,
-    pub level: u8,
+    #[serde(default = "all_notes")]
+    pub percent: u8,
     pub fixed: bool,
+}
+
+/// Entries stored before shares (levels 1 to 3) had no percent: they play all notes again.
+fn all_notes() -> u8 {
+    kontra_session::Density::FULL.percent()
 }
 
 /// A practised section: its time range (as a progress run stores it) and its bars as written.

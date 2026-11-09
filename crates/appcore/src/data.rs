@@ -155,6 +155,7 @@ mod tests {
             section: None,
             hardest_bars: Vec::new(),
             hesitant_bars: Vec::new(),
+            bars: Vec::new(),
         }
     }
 
