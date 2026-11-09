@@ -16,7 +16,8 @@ use std::f64::consts::{PI, SQRT_2};
 /// Loop bandwidth while locking: follows the start quickly.
 const LOCK_HZ: f64 = 5.0;
 /// Loop bandwidth once locked: stamp jitter (about ±0.5 ms) drops to a few µs, drift of
-/// ±50 ppm stays followed (simulation 29.10.2026, `sim3.py`: ≤ 0.12 ms over 5 minutes).
+/// ±50 ppm stays followed (simulation 29.10.2026: two devices at ±50 ppm, stamps ±0.5 ms,
+/// error p95 0.08 ms, max 0.12 ms over 5 minutes).
 const TRACK_HZ: f64 = 0.5;
 /// How long the loop locks with `LOCK_HZ`, in device time.
 const LOCK_S: f64 = 2.0;

@@ -1,7 +1,7 @@
 use super::*;
 
 const RATE: f64 = 48_000.0;
-/// Stamp jitter as modelled in `sim3.py`: ALSA/USB pointer granularity, ±0.5 ms.
+/// Stamp jitter as simulated (29.10.2026): ALSA/USB pointer granularity, ±0.5 ms.
 const JITTER_S: f64 = 0.000_5;
 /// What the loop may be off once locked (simulation: p95 0.08 ms, max 0.12 ms).
 const LOCKED_S: f64 = 0.000_15;
