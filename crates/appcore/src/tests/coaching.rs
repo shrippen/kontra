@@ -912,6 +912,7 @@ fn home_names_the_streak_when_switched_on() {
         hardest_bars: Vec::new(),
         hesitant_bars: Vec::new(),
         spread_ms: None,
+        bars: Vec::new(),
     };
     let store = core.progress_store();
     for back in [0, 2, 3] {
@@ -953,6 +954,7 @@ fn home_brings_hard_passages_back() {
         hardest_bars: bars.to_vec(),
         hesitant_bars: Vec::new(),
         spread_ms: None,
+        bars: Vec::new(),
     };
     let repeat = |core: &Core, now| {
         let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
