@@ -74,3 +74,31 @@ fn interval_shows_its_first_note() {
     assert!(positions.iter().all(|p| p["role"] == "root"), "{first}");
     core.ear_stop();
 }
+
+/// LH-LRN-18: interval answers are kept with the fretboard quiz's (`quiz.json`, in the data
+/// export); a wrong note counts once, and the quiz's own range stays.
+#[test]
+fn interval_misses_are_kept() {
+    let profile = Profile::new("c4-interval-stats");
+    let take = profile.dir.join("still.wav");
+    kontra_session::write_mono_wav(&take, &vec![0.0; RATE as usize], RATE).unwrap();
+    let file = profile.dir.join(kontra_appcore::quiz_stats::FILE);
+    std::fs::write(&file, r#"{"range": {"low": 5, "high": 9}}"#).unwrap();
+
+    let mut core = profile.core(Some(&take));
+    core.ear_start("interval").unwrap();
+    core.ear_answer(0.0);
+    core.ear_answer(0.0);
+    core.ear_stop();
+
+    let stats: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+    assert_eq!(stats["range"], serde_json::json!({"low": 5, "high": 9}));
+    let wrong: u64 = stats["intervals"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["wrong"].as_u64().unwrap())
+        .sum();
+    assert_eq!(wrong, 1, "{stats}");
+}

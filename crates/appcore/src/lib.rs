@@ -2222,7 +2222,9 @@ impl Core {
             return false;
         };
         let right = q.answer(midi, &instrument, unix_now());
-        let _ = store::save(&self.data_dir.join(quiz_stats::FILE), q.stats());
+        let file = self.data_dir.join(quiz_stats::FILE);
+        let stats = store::load::<quiz_stats::QuizStats>(&file).with_places_of(q.stats());
+        let _ = store::save(&file, &stats);
         right
     }
 
@@ -2341,7 +2343,14 @@ impl Core {
         live_ear.set_gains(ear_gains(&self.settings));
         self.live_ear = Some(live_ear);
         self.input.remember(InputUse::Ear, setup.input);
-        self.ear = Some(ear::EarQuiz::new(kind, &instrument, time_seed()));
+        let stats = store::load(&self.data_dir.join(quiz_stats::FILE));
+        self.ear = Some(ear::EarQuiz::new(
+            kind,
+            &instrument,
+            stats,
+            time_seed(),
+            unix_now(),
+        ));
         self.ear_play();
         Ok(self.ear_json())
     }
@@ -2351,6 +2360,20 @@ impl Core {
         self.input.stopped(InputUse::Ear);
         self.ear = None;
         self.ear_prompting = false;
+    }
+
+    /// Keeps the interval answers (LH-LRN-18) beside the fretboard quiz's in its file.
+    fn save_ear_stats(&self) {
+        let Some(quiz) = self
+            .ear
+            .as_ref()
+            .filter(|q| q.kind == ear::EarKind::Interval)
+        else {
+            return;
+        };
+        let file = self.data_dir.join(quiz_stats::FILE);
+        let stats = store::load::<quiz_stats::QuizStats>(&file).with_intervals_of(quiz.stats());
+        let _ = store::save(&file, &stats);
     }
 
     /// Plays the current prompt (again).
@@ -2367,7 +2390,7 @@ impl Core {
     pub fn ear_next(&mut self) -> String {
         let instrument = self.instrument();
         if let Some(quiz) = self.ear.as_mut() {
-            quiz.next(&instrument);
+            quiz.next(&instrument, unix_now());
         }
         self.ear_play()
     }
@@ -2375,8 +2398,9 @@ impl Core {
     /// Judges a played note (fractional MIDI); the UI gets the new state.
     pub fn ear_answer(&mut self, midi: f64) -> String {
         if let Some(quiz) = self.ear.as_mut() {
-            quiz.answer(midi);
+            quiz.answer(midi, unix_now());
         }
+        self.save_ear_stats();
         self.ear_json()
     }
 
@@ -2407,15 +2431,19 @@ impl Core {
     /// (a note was judged or the prompt has ended).
     fn ear_heard(&mut self, raw: &mut Vec<PracticeEvent>) -> Option<UiEvent> {
         let mut changed = false;
+        let now_s = unix_now();
         raw.retain(|event| {
             let PracticeEvent::Heard { midi } = event else {
                 return true;
             };
             if let Some(quiz) = self.ear.as_mut() {
-                changed |= quiz.answer(*midi) != ear::Verdict::Ignored;
+                changed |= quiz.answer(*midi, now_s) != ear::Verdict::Ignored;
             }
             false
         });
+        if changed {
+            self.save_ear_stats();
+        }
         let prompting = self.live_ear.as_ref().is_some_and(LiveEar::is_prompting);
         changed |= prompting != self.ear_prompting;
         self.ear_prompting = prompting;
