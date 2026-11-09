@@ -100,6 +100,15 @@
   --h-l:      48px;
   --h-xs:     24px;      /* dense parts below the control heights: chips, pills, stickers, inline buttons (touch: --h-s) */
   --h-mark:   20px;      /* counters and markers: .count, hint counts, the help "?" */
+  --line-border: 1px;    /* borders and grid lines */
+  --line-mark:   2px;    /* lines that mark: today, the picked day, the now line, underlines */
+  --line-edge:   3px;    /* the colour edge of an entry (a calendar's or project's colour) */
+  --level-wash:   6%;    /* tint levels of a data colour, for color-mix(): a tray */
+  --level-fill:   12%;   /* free time, a draft */
+  --level-strong: 22%;   /* a planned block */
+  --level-edge:   40%;   /* the border of such an area */
+  --level-done:   .6;    /* opacity of something done */
+  --level-dim:    .5;    /* opacity of something out of range or minor */
   --title-s:  1.1rem;    /* titles of cards, rows, tiles and bars (Rajdhani, uppercase) */
   --title-m:  1.4rem;    /* titles of blocks, sheets, dialogs and the login card */
   --title-l:  clamp(1.8rem, 4.2vw, 2.5rem); /* the title of an app page */
@@ -785,6 +794,14 @@ textarea.input{min-height:5.5rem;line-height:1.5;resize:vertical}
 .input[aria-invalid="true"]{border-bottom-color:var(--danger)}
 .input:disabled,.select:disabled{opacity:.55;cursor:not-allowed}
 .field-hint.is-error{color:var(--danger)}
+/* Suggestion under a field (1.72): an app's guess, never filled in; a click on a value puts it into the field (shrippen.js).
+   <p class="field-suggest" data-suggest-for="cat-1"><span>Vorschlag:</span> <button type="button" class="field-suggest-pick" data-value="c2">Hosting</button>, <button …>…</button></p> */
+.field-suggest{margin:0;font-size:.78rem;color:var(--fg3);overflow-wrap:anywhere}
+.field-suggest-pick{background:none;border:0;padding:0;font:inherit;text-align:left;color:var(--link);cursor:pointer;text-decoration:underline dotted;text-underline-offset:.2em}
+.field-suggest-pick:hover{color:var(--fg0);text-decoration-style:solid}
+.field-suggest-pick:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+/* The pick equal to the field's value (shrippen.js updates it on every input and change): plain text, it is taken */
+.field-suggest-pick[aria-pressed="true"]{color:var(--fg1);text-decoration:none}
 .affix{display:flex}.affix .input{flex:1;min-width:0}
 .affix>span{display:flex;align-items:center;padding-inline:.7rem;background:var(--bg1);border-bottom:2px solid var(--bg2);font-family:var(--font-mono);font-size:.74rem;color:var(--fg2)}
 .input::placeholder{color:var(--fg3)}
@@ -1474,6 +1491,7 @@ button.list-row{width:100%;border:0;border-bottom:1px solid var(--bg1);backgroun
 /* Workbench (1.48): a list to scan beside a desk for one entry (Andon: open bank lines, the
    expense made from one). The entry being worked on is aria-current: cyan, as a selected row.
    Below 60rem the desk goes under the list; a narrow desk stacks its columns, a narrow column its pairs.
+   Beside a long list the desk stays in view while the list scrolls (1.52); taller than the window, it scrolls itself.
    <div class="bench"><nav class="bench-list"><div class="h-label">Open</div>
      <a class="bench-entry" aria-current="true"><b>Name</b><span>−899,00</span><small>19.10. · New</small><small>8 / 10</small><span class="progress-segs">…</span></a>…</nav>
    <section class="bench-desk"><header class="bench-top"><div><h3>Name</h3><p>Line</p></div><b>−899,00 €</b></header>
@@ -1493,7 +1511,7 @@ button.list-row{width:100%;border:0;border-bottom:1px solid var(--bg1);backgroun
 .bench-entry>:nth-child(2){color:var(--fg0)}
 .bench-entry>.progress-segs{grid-column:1/-1;margin-top:.3rem}
 .bench-entry>.progress-segs>i{height:6px}
-.bench-desk{container-type:inline-size;display:flex;flex-direction:column;gap:1rem;min-width:0;padding:1rem 1.1rem 1.1rem;background:var(--bg1)}
+.bench-desk{container-type:inline-size;display:flex;flex-direction:column;gap:1rem;min-width:0;padding:1rem 1.1rem 1.1rem;background:var(--bg1);position:sticky;top:1rem;max-height:calc(100dvh - 2rem);overflow-y:auto}
 .bench-top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:.6rem 1rem}
 .bench-top h3{margin:0;font-family:var(--font-heading);font-weight:700;font-size:var(--title-s);letter-spacing:var(--title-track);text-transform:uppercase;color:var(--fg0);overflow-wrap:anywhere}
 .bench-top p{margin:.2rem 0 0;font-size:.82rem;color:var(--fg3);overflow-wrap:anywhere}
@@ -1504,7 +1522,37 @@ button.list-row{width:100%;border:0;border-bottom:1px solid var(--bg1);backgroun
 .bench-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}
 @container (max-width:38rem){.bench-cols{grid-template-columns:minmax(0,1fr)}}
 @container (max-width:20rem){.bench-pair{grid-template-columns:minmax(0,1fr)}}
-@media(max-width:60rem){.bench{grid-template-columns:minmax(0,1fr)}}
+/* Workbench with a document (1.74): the desk's fields beside the receipt, which stays in view while the fields scroll. .bench.is-wide narrows the list for it. A .compare table sets each field's sources against the value it will hold; a value in a source cell is a .field-suggest-pick, so a click takes it.
+   <div class="bench is-wide">…<section class="bench-desk"><div class="bench-doc"><div class="bench-main">…</div><aside class="bench-side"><iframe class="doc-view" src="…"></iframe></aside></div></section></div> */
+.bench.is-wide{grid-template-columns:minmax(13rem,16rem) minmax(0,1fr)}
+.bench-doc{display:grid;grid-template-columns:minmax(0,1fr) minmax(20rem,36%);gap:1.1rem;align-items:start}
+.bench-main{display:flex;flex-direction:column;gap:1rem;min-width:0;overflow-x:auto}
+.bench-side{position:sticky;top:0;display:flex;flex-direction:column;gap:.6rem;min-width:0}
+.doc-view{display:block;width:100%;height:calc(100dvh - 12rem);min-height:24rem;border:1px solid var(--bg2);background:var(--bg-hard);object-fit:contain}
+/* A document read in its own page, in a .doc-view frame: pages to scroll, marks on what the fields hold.
+   <body class="doc-reader"><div class="doc-reader-bar">…</div><div class="doc-pages"><div class="doc-page"><canvas></canvas><i class="doc-mark"></i></div></div></body>
+   A page's width and a mark's box are set by script: left, top, width, height in percent of the page. */
+.doc-reader{display:flex;flex-direction:column;height:100dvh;margin:0;background:var(--bg-hard)}
+.doc-reader-bar{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;padding:.3rem .5rem;border-bottom:1px solid var(--bg2)}
+.doc-reader-bar>:last-child{margin-left:auto}
+.doc-pages{flex:1;min-height:0;overflow:auto;padding:.5rem}
+.doc-page{position:relative;margin:0 auto .5rem;max-width:none}
+.doc-page>canvas,.doc-page>img{display:block;width:100%;height:auto}
+.doc-mark{position:absolute;background:var(--primary);opacity:.45;mix-blend-mode:multiply;pointer-events:none}
+.compare{width:100%;border-collapse:collapse;font-size:.84rem}
+.compare th{padding:.35rem .5rem;border-bottom:1px solid var(--bg2);font-family:var(--font-mono);font-size:.66rem;font-weight:400;letter-spacing:.12em;text-transform:uppercase;text-align:left;color:var(--fg3)}
+.compare td{padding:.4rem .5rem;border-bottom:1px solid var(--bg2);vertical-align:top;color:var(--fg2);overflow-wrap:break-word}
+.compare td:first-child{color:var(--fg3);overflow-wrap:normal}
+.compare td.compare-to{min-width:10rem;color:var(--fg0)}
+.compare td.compare-to .input,.compare td.compare-to .select{width:100%;min-height:var(--h-s);padding-block:0;font-size:.8rem}
+.compare .field-suggest{overflow-wrap:break-word}
+.compare td[data-differs] .field-suggest-pick:not([aria-pressed="true"],:hover){color:var(--warn)}
+.compare-state{margin-left:.35rem;font-family:var(--font-mono);font-size:.62rem;letter-spacing:.06em;white-space:nowrap}
+.compare-state[data-state="ok"]{color:var(--aqua)}
+.compare-state[data-state="missing"]{color:var(--warn)}
+.compare-state[data-state="auto"]{color:var(--fg3)}
+@container (max-width:44rem){.bench-doc{grid-template-columns:minmax(0,1fr)}.bench-side{position:static}}
+@media(max-width:60rem){.bench,.bench.is-wide{grid-template-columns:minmax(0,1fr)}.bench-desk{position:static;max-height:none;overflow-y:visible}}
 /* Where a field's value came from, after its label: <span class="field-label">Category<span class="field-origin">last expense</span></span> */
 .field-origin{margin-left:.45rem;font-size:.62rem;letter-spacing:.04em;text-transform:none;color:var(--fg2)}
 .field-origin::before{content:"· "}
