@@ -8,6 +8,10 @@ use kontra_appcore::{Core, DataImport, PackageAudio};
 use std::path::PathBuf;
 
 impl qobject::Controller {
+    pub(super) fn song_map(&self) -> QString {
+        q(&self.rust().core.song_map_json())
+    }
+
     pub(super) fn import_folder(mut self: Pin<&mut Self>, url: &QString, as_setlist: bool) {
         let dir = local_path(&url.to_string());
         let (added, failed) = self.as_mut().core().import_folder(&dir, as_setlist);

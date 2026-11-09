@@ -75,7 +75,7 @@ pub use songsterr::{BassTrack, SearchError, SearchStart, SongHit, SongSearch};
 pub use sources::{download_dir, recent_scores, search_url, SongSite};
 pub use stems::{BassRemoval, StemJob};
 pub use summary::{
-    DetunedString, Intonation, IntonationPart, Leaning, Observation, OutsideNote, Side,
+    BarTally, DetunedString, Intonation, IntonationPart, Leaning, Observation, OutsideNote, Side,
     StringTally, Summary, TimingHistogram,
 };
 pub use technique::{

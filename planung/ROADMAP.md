@@ -308,7 +308,10 @@ Rückmeldung und Lernen:
 - [x] L5 Intonation als Richtung und Streuung (LH-BEW-12).
 - [x] L6 Verstimmte Saite erkennen (LH-TUN-05): die Auswertung fragt nach dem Nachstimmen, mit Sprung ins Stimmgerät
   (`detuned-string`, J-B3 ⚙).
-- [ ] L7 Liedkarte, Kante-Baustein (LH-FOR-06).
+- [x] L7 Liedkarte, Kante-Baustein (LH-FOR-06): `KanteSongMap` (Kante-Branch `song-map`, 1.76, noch nicht
+  veröffentlicht; Kontra nimmt die Kopie „Take Kante song-map (unreleased)“). Jeder Durchlauf speichert Treffer je
+  Takt (`Run::bars`); die Karte zeigt je Takt die letzten 5 Durchläufe, die ihn spielten. Angehalten über der
+  Werkstatt und in der Auswertung; Ziehen oder Umschalt+Pfeile und Eingabe setzen die Schleife (J-B3 ⚙).
 - [ ] L8 Ruf und Antwort (LH-LRN-19).
 - [x] L9 Reagierende Band (LH-WIE-05): Einstellung „Band reagiert“ (aus). Im Modus „Spielen“ oder einer offenen
   Übung über erzeugtes Schlagzeug: Kontra plant den letzten Schlag eines Takts erst 100 ms vorher; war der Schlag davor

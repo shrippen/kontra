@@ -150,6 +150,17 @@ pub struct Summary {
     /// An open run's attacks by fit (LH-BEW-13); `hit_rate` is then their fitting share.
     #[serde(default)]
     pub improvisation: Option<crate::Improvisation>,
+    /// Hits and judged notes per bar, for the song map (LH-FOR-06).
+    #[serde(default)]
+    pub bars: Vec<BarTally>,
+}
+
+/// Hits among the judged notes of one bar (index into `Arrangement::bars`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BarTally {
+    pub bar: u32,
+    pub hits: u32,
+    pub judged: u32,
 }
 
 /// Notes whose string was told (R7): on the tab's string or another. Feedback beside the
@@ -440,6 +451,7 @@ impl Summary {
             after_beat_hits: offsets.iter().filter(|o| **o > 0.0).count() as u32,
             strings: StringTally::default(),
             improvisation: None,
+            bars: bar_tallies(&final_results),
         }
     }
 
@@ -660,6 +672,29 @@ fn mean(values: &[f64]) -> Option<f64> {
 /// Standard deviation around `mean`.
 fn spread(values: &[f64], mean: f64) -> f64 {
     (values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64).sqrt()
+}
+
+/// Hits and judged notes per bar, in bar order.
+fn bar_tallies(results: &[NoteResult]) -> Vec<BarTally> {
+    let mut per_bar: BTreeMap<usize, (u32, u32)> = BTreeMap::new();
+    for r in results {
+        let Some(bar) = r.bar else {
+            continue;
+        };
+        let entry = per_bar.entry(bar).or_default();
+        entry.1 += 1;
+        if r.is_hit() {
+            entry.0 += 1;
+        }
+    }
+    per_bar
+        .into_iter()
+        .map(|(bar, (hits, judged))| BarTally {
+            bar: u32::try_from(bar).unwrap_or(u32::MAX),
+            hits,
+            judged,
+        })
+        .collect()
 }
 
 fn hardest_bars(results: &[NoteResult], arrangement: &Arrangement) -> Vec<usize> {

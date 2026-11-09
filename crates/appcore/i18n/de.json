@@ -1057,5 +1057,11 @@
   "exercise.title.open": "{title}, frei",
   "exercise.goal.improv": "Ziel: eine eigene Linie über die Akkorde. Kontra zählt Akkordtöne, Töne der Tonart und fremde Töne; wo das Beispiel pausiert, lass Luft.",
   "settings.band": "Band reagiert",
-  "settings.band.hint": "Beim Spielen ohne Auswertung über erzeugtes Schlagzeug: Lässt du am Ende einer Phrase zwei Schläge frei, spielt das Schlagzeug ein Fill (höchstens alle 8 Takte); nach einem dichten Takt spielt es ohne Hi-Hat. Bewertet wird dabei nichts."
+  "settings.band.hint": "Beim Spielen ohne Auswertung über erzeugtes Schlagzeug: Lässt du am Ende einer Phrase zwei Schläge frei, spielt das Schlagzeug ein Fill (höchstens alle 8 Takte); nach einem dichten Takt spielt es ohne Hi-Hat. Bewertet wird dabei nichts.",
+  "songmap.title": "Liedkarte",
+  "songmap.name": "Liedkarte: Treffer je Takt in den letzten Durchläufen. Ziehen oder Umschalt und Pfeile wählen Takte, Eingabe übt sie.",
+  "songmap.bar": "Takt {bar}: {percent} % in den letzten {runs} Durchläufen ({hits} von {judged} Noten)",
+  "songmap.bar.one": "Takt {bar}: {percent} % im letzten Durchlauf ({hits} von {judged} Noten)",
+  "songmap.none": "Takt {bar}: noch nicht gespielt",
+  "songmap.hint": "Höhe = Treffer je Takt in den letzten Durchläufen. Über Takte ziehen setzt die Schleife."
 }

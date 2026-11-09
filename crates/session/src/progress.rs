@@ -1,6 +1,6 @@
 //! Practice progress per song, stored as one JSON file per song (LH-FOR-01, LH-FOR-03).
 
-use crate::summary::Summary;
+use crate::summary::{BarTally, Summary};
 use kontra_model::Arrangement;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -42,6 +42,9 @@ pub struct Run {
     /// Timing spread of the run (ms), to compare a blind probe with the practice before it.
     #[serde(default)]
     pub spread_ms: Option<f64>,
+    /// Hits per bar (index into the unrolled bars), for the song map (LH-FOR-06).
+    #[serde(default)]
+    pub bars: Vec<BarTally>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -227,6 +230,7 @@ pub fn run_from(
             .map(|b| u32::try_from(*b + 1).unwrap_or(u32::MAX))
             .collect(),
         spread_ms: summary.spread_ms,
+        bars: summary.bars.clone(),
     }
 }
 
@@ -251,6 +255,7 @@ mod tests {
             section: None,
             hardest_bars: Vec::new(),
             hesitant_bars: Vec::new(),
+            bars: Vec::new(),
         };
         store.record(&a, run(1)).unwrap();
         let old = ProgressStore::song_id(&a);
@@ -284,6 +289,7 @@ mod tests {
             section: None,
             hardest_bars: Vec::new(),
             hesitant_bars: Vec::new(),
+            bars: Vec::new(),
         };
         store.record(&a, run.clone()).unwrap();
         let p = store

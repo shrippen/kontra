@@ -287,6 +287,11 @@ pub mod qobject {
         #[cxx_name = "changeReactingBand"]
         fn change_reacting_band(self: Pin<&mut Self>, on: bool);
 
+        /// Hits per bar over the last runs (LH-FOR-06), as JSON.
+        #[qinvokable]
+        #[cxx_name = "songMap"]
+        fn song_map(self: &Self) -> QString;
+
         /// The simple practice page on or off (LH-ANZ-11).
         #[qinvokable]
         #[cxx_name = "changeSimpleView"]

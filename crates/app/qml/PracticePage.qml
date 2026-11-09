@@ -706,6 +706,13 @@ Kirigami.Page {
             }
         }
 
+        // Between runs: where the piece stands, bar by bar; dragging sets the loop (LH-FOR-06).
+        SongMap {
+            Layout.fillWidth: true
+            shown: !page.presenting && !page.lean
+            onChosen: (from, to) => ctl.loopBars(from, to)
+        }
+
         // Kept loops and target tempo of the piece (LH-BIB-07, Runde 15): a teacher sets them, a
         // Kontra package hands them on. A chip loops its bars; the cross drops it.
         Flow {
@@ -1360,9 +1367,10 @@ Kirigami.Page {
         // Closed, the keyboard goes on at play; it stayed on the hidden "close" (QA 28.10., P7).
         returnTo: transport
         behind: [pageContent]
-        onPracticeBar: function(bar) {
+        onPracticeBar: function(bar) { summary.practiceBars(bar, bar) }
+        onPracticeBars: function(from, to) {
             ctl.changeMode("workshop")
-            ctl.loopBars(bar, bar)
+            ctl.loopBars(from, to)
             summary.close()
         }
     }

@@ -37,6 +37,7 @@ const PAGES: &[&str] = &[
     "qml/NavSeparator.qml",
     "qml/DrawerFocus.qml",
     "qml/NotationStaff.qml",
+    "qml/SongMap.qml",
 ];
 
 fn main() {

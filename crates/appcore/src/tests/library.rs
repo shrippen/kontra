@@ -94,6 +94,7 @@ fn progress_lists_pieces_and_runs() {
     for (unix, rate) in [(1_000, 0.7), (90_000, 0.92)] {
         let run = kontra_session::Run {
             spread_ms: None,
+            bars: Vec::new(),
             finished_unix: unix,
             practice_s: 600.0,
             speed: 0.8,
@@ -211,6 +212,7 @@ fn progress_titles_follow_the_language() {
     let a = core.arrangement().unwrap().clone();
     let run = Run {
         spread_ms: None,
+        bars: Vec::new(),
         finished_unix: 1,
         practice_s: 60.0,
         speed: 1.0,
@@ -242,6 +244,7 @@ fn regenerated_exercise_keeps_its_progress() {
     let old_id = ProgressStore::song_id(&before);
     let run = Run {
         spread_ms: Some(15.0),
+        bars: Vec::new(),
         finished_unix: 1,
         practice_s: 60.0,
         speed: 1.0,
@@ -291,6 +294,7 @@ fn swapped_levels_keep_progress_and_setlists() {
         let a = core.arrangement().unwrap().clone();
         let run = Run {
             spread_ms: None,
+            bars: Vec::new(),
             finished_unix: 1,
             practice_s: 60.0,
             speed: 1.0,
@@ -486,6 +490,7 @@ fn exercise_progress_by_plain_path() {
     let a = core.arrangement().unwrap().clone();
     let run = Run {
         spread_ms: None,
+        bars: Vec::new(),
         finished_unix: 1,
         practice_s: 60.0,
         speed: 1.0,
@@ -523,6 +528,7 @@ fn progress_per_section_with_history() {
     for (unix, rate, speed, section) in runs {
         let run = Run {
             spread_ms: None,
+            bars: Vec::new(),
             finished_unix: unix,
             practice_s: 60.0,
             speed,
@@ -619,6 +625,7 @@ fn data_export_and_import() {
     let a = first.arrangement().unwrap().clone();
     let run = kontra_session::Run {
         spread_ms: None,
+        bars: Vec::new(),
         finished_unix: 7,
         practice_s: 300.0,
         speed: 0.8,
@@ -672,6 +679,7 @@ fn progress_report_is_self_contained() {
     for (unix, rate) in [(1_791_504_000, 0.7), (1_791_590_400, 0.95)] {
         let run = kontra_session::Run {
             spread_ms: None,
+            bars: Vec::new(),
             finished_unix: unix,
             practice_s: 600.0,
             speed: 0.8,
@@ -735,6 +743,7 @@ fn package_moves_a_piece_to_another_profile() {
     let a = teacher.arrangement().unwrap().clone();
     let run = kontra_session::Run {
         spread_ms: None,
+        bars: Vec::new(),
         finished_unix: 9,
         practice_s: 120.0,
         speed: 0.7,

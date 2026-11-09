@@ -1057,5 +1057,11 @@
   "exercise.title.open": "{title}, free",
   "exercise.goal.improv": "Goal: a line of your own over the chords. Kontra counts chord tones, tones of the key and tones outside; where the example rests, leave room.",
   "settings.band": "Band reacts",
-  "settings.band.hint": "When playing without scoring over generated drums: leave two beats free at the end of a phrase and the drums play a fill (at most every 8 bars); after a dense bar they play without hi-hat. Nothing of this is scored."
+  "settings.band.hint": "When playing without scoring over generated drums: leave two beats free at the end of a phrase and the drums play a fill (at most every 8 bars); after a dense bar they play without hi-hat. Nothing of this is scored.",
+  "songmap.title": "Song map",
+  "songmap.name": "Song map: hits per bar over the last runs. Drag, or Shift and the arrows, to choose bars; Enter practises them.",
+  "songmap.bar": "Bar {bar}: {percent} % over the last {runs} runs ({hits} of {judged} notes)",
+  "songmap.bar.one": "Bar {bar}: {percent} % in the last run ({hits} of {judged} notes)",
+  "songmap.none": "Bar {bar}: not played yet",
+  "songmap.hint": "Height = hits per bar over the last runs. Drag over bars to set the loop."
 }

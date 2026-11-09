@@ -23,6 +23,7 @@ mod progress;
 pub mod quiz;
 pub mod quiz_stats;
 mod report;
+mod song_map;
 mod songsterr;
 mod sources;
 mod stems;

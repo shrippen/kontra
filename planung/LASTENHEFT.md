@@ -234,7 +234,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-FOR-03 | Daten lokal als offene Dateien (JSON oder SQLite), Export und Import. | Muss | 1 | P4 | Export auf zweitem Rechner importiert: gleicher Stand; Import bietet Ergänzen (vorgewählt) und Ersetzen. |
 | LH-FOR-04 | Fortschritt einer Übung als Bericht exportieren (für Unterricht). | Kann | 3 | P4 | PDF oder HTML mit Datum, Tempo, Trefferquote. |
 | LH-FOR-05 | Übungsserie in Tagen, standardmäßig aus; ein verpasster Tag wird verziehen; gezählt werden nur Tage mit gewertetem Spiel; eine leise Zeile ab 2 Tagen, nie als Verlust formuliert (Harmonicon-Analyse, 29.10.). | Kann | 2 | P1, P2 | Test: Lücke von einem Tag hält die Serie. |
-| LH-FOR-06 | **Liedkarte:** Streifen über das ganze Lied, Höhe je Takt = Trefferquote über die letzten Durchläufe, mit Zahl im Tooltip und per Tastatur erreichbar; nur angehalten und in der Auswertung, nie beim Spielen; Ziehen setzt die Schleife. Kante-Baustein (Harmonicon-Analyse, 29.10.). | Soll | 2 | P2, P3, P4, P7 | J-B3 erweitert: Ziehen über Takt 5–8 setzt die Schleife. |
+| LH-FOR-06 | **Liedkarte:** Streifen über das ganze Lied, Höhe je Takt = Trefferquote über die letzten Durchläufe, mit Zahl im Tooltip und per Tastatur erreichbar; nur angehalten und in der Auswertung, nie beim Spielen; Ziehen setzt die Schleife. Kante-Baustein (Harmonicon-Analyse, 29.10.). | Soll | 2 | P2, P3, P4, P7 | J-B3 erweitert: Ziehen über Takt 5–8 setzt die Schleife (`song_map_shows_the_run_and_sets_the_loop`, QML `test_song_map_sets_the_loop`); „die letzten Durchläufe“: höchstens 5 je Takt. |
 
 ### 4.10 Allgemein (ALL)
 

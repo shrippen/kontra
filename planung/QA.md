@@ -91,14 +91,18 @@ Erwartet: eine verständliche Meldung zur defekten Datei, drei Lieder importiert
 3. Lange Pause (30 s), dann weiter.
 Erwartet: Lied wartet ohne Zeitdruck; falscher Ton wird freundlich angezeigt (welcher Ton gespielt, welcher erwartet, in Worten und Symbol); nach der Pause kein Abbruch.
 
-**J-B3 Refrain sitzt bis Freitag** ⚙ · Persona: P2 Jens · Phase 1 · LH-MOD-04, -05, -06, -07, LH-WIE-01, LH-BEW-03, LH-BEW-16, LH-TUN-05
+**J-B3 Refrain sitzt bis Freitag** ⚙ · Persona: P2 Jens · Phase 1 · LH-MOD-04, -05, -06, -07, LH-WIE-01, LH-BEW-03, LH-BEW-16, LH-TUN-05, LH-FOR-06
 1. Modus „Durchlauf“, Lied 3 durchspielen, einige Noten auf einer anderen Saite als in der Tab, die A-Saite etwa 15 Cent zu hoch gestimmt; Auswertung zeigt schwierigste Takte.
 2. Auf den schwierigsten Takt klicken → Riff-Werkstatt mit diesem Bereich.
 3. Tempo 60 %, automatische Anpassung an das Zielband 80–90 % Treffer, Vorzähler an.
 4. Fehlerfreie Durchläufe einspeisen bis 100 %.
 5. Notendichte „50 %“ wählen (jeder Takt behält seine Schläge); nach einem sauberen Durchlauf (über 90 %) den Vorschlag „mehr Noten“ annehmen: 75 %.
 6. Alles nur mit Tastatur wiederholen (Loop mit `[` und `]` setzen, Pos1 springt an den Loop-Anfang), dann mit einem Fußschalter (Bild ab/auf).
-Erwartet: Die Auswertung nennt, wie viele Noten auf einer anderen Saite als in der Tab lagen (bei bundlosem oder 5-saitigem Profil „nicht unterstützt“), die Noten bleiben Treffer; sie fragt „Die A-Saite klingt etwa 15 Cent zu hoch – nachstimmen?“, „Zum Stimmgerät“ öffnet das Stimmgerät; Bereich und Tempo stimmen; Backing Track bei 60 % ohne metallischen Klang; Steigerung sichtbar; jede Funktion per Tastenkürzel; jeder Durchgang beginnt mit neutralen Noten (keine Marken des vorigen vor der Spiellinie).
+7. Liedkarte (in der Auswertung und angehalten über der Werkstatt): über Takt 5–8 ziehen; dann per Tastatur (Tab auf die
+   Karte, Pfeile, Umschalt+Pfeile, Eingabe).
+Erwartet: Die Liedkarte zeigt je Takt die Treffer der letzten Durchläufe als Höhe, der Tooltip und der Screenreader die
+Zahl („Takt 5: 75 % im letzten Durchlauf (3 von 4 Noten)“), nie gespielte Takte gestrichelt statt null; beim Spielen
+ist sie weg; Ziehen über Takt 5–8 setzt die Schleife 5–8 (aus der Auswertung in der Werkstatt). Die Auswertung nennt, wie viele Noten auf einer anderen Saite als in der Tab lagen (bei bundlosem oder 5-saitigem Profil „nicht unterstützt“), die Noten bleiben Treffer; sie fragt „Die A-Saite klingt etwa 15 Cent zu hoch – nachstimmen?“, „Zum Stimmgerät“ öffnet das Stimmgerät; Bereich und Tempo stimmen; Backing Track bei 60 % ohne metallischen Klang; Steigerung sichtbar; jede Funktion per Tastenkürzel; jeder Durchgang beginnt mit neutralen Noten (keine Marken des vorigen vor der Spiellinie).
 
 **J-B4 Bundlos und tief** ⚙ · Persona: P3 Mira · Phase 1 · LH-TUN-01, LH-BEW-01, -02, -05, -12, LH-NF-03, LH-ANZ-03
 1. Instrument „5 Saiten, bundlos“ anlegen.
