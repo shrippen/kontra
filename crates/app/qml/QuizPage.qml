@@ -6,8 +6,12 @@ import Kante
 
 // Fretboard quiz with the real instrument (LH-LRN-02): Kontra asks in words, the tuner hears the
 // answer. A right note shows every place it lies; then the next question follows by itself.
-Kirigami.Page {
+Kirigami.ScrollablePage {
     id: page
+
+    // Scrolls on short windows so the overview stays reachable; Tab never leaves the focus below
+    // the edge.
+    readonly property KanteFocusFollow focusFollow: KanteFocusFollow { flickable: page.flickable }
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
@@ -85,7 +89,6 @@ Kirigami.Page {
     Timer { id: advance; interval: 2500; onTriggered: page.next() }
 
     ColumnLayout {
-        anchors.fill: parent
         spacing: KanteStyle.unit(16)
 
         KanteHeading { text: texts.t("quiz.title"); pageTitle: true }
@@ -156,12 +159,9 @@ Kirigami.Page {
         }
 
         // The fretboard is the answer here: it grows with the width (a fifth of it, at most
-        // 240), so the half page below it is not empty and the marks read from further away;
-        // on a short screen (beamer) it shrinks, so the score below stays visible.
+        // 240), so the marks read from further away.
         KanteFretboard {
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.minimumHeight: KanteStyle.unit(96)
             Layout.preferredHeight: Layout.maximumHeight
             Layout.maximumHeight: Math.max(KanteStyle.unit(160), Math.min(KanteStyle.unit(240), width / 5))
             strings: page.stringNames.length
@@ -180,6 +180,60 @@ Kirigami.Page {
             Accessible.name: text
         }
 
-        Item { Layout.fillHeight: true }
+        // Overview of the answers (LH-LRN-18): share found right per place, the counts in the
+        // tooltip; rows in the fretboard's order, places never asked stay empty.
+        KanteHeading {
+            visible: heat.visible
+            text: texts.t("quiz.heat.title")
+        }
+        KanteHeatGrid {
+            id: heat
+
+            readonly property var summary: page.question && page.question.heat
+                ? page.question.heat : { frets: [], rows: [] }
+            readonly property var order: {
+                var all = summary.rows.map(function(_, s) { return s })
+                return ctl.lowStringOnTop ? all : all.reverse()
+            }
+
+            function cell(answers, s, fret) {
+                if (!answers)
+                    return null
+                var value = 100 * answers.right / (answers.right + answers.wrong)
+                var percent = texts.t("quiz.heat.percent", { value: Math.round(value) })
+                var counts = { right: answers.right, wrong: answers.wrong }
+                return {
+                    value: value,
+                    label: percent,
+                    tip: texts.t("quiz.heat.tip", counts),
+                    accessibleName: texts.t("quiz.heat.cell", Object.assign({
+                        string: texts.t("quiz.heat.stringName", { name: page.stringNames[s] || "" }),
+                        fret: texts.t("quiz.heat.fretName", { fret: fret }),
+                        percent: percent
+                    }, counts))
+                }
+            }
+
+            Layout.fillWidth: true
+            visible: page.kinds[page.kind] === "notes" && summary.frets.length > 0
+            accessibleName: texts.t("quiz.heat.title")
+            rowTitle: texts.t("quiz.heat.string")
+            columnTitle: texts.t("quiz.heat.fret")
+            rowLabels: order.map(function(s) { return page.stringNames[s] || "" })
+            rowNames: order.map(function(s) {
+                return texts.t("quiz.heat.stringName", { name: page.stringNames[s] || "" })
+            })
+            columnLabels: summary.frets.map(function(f) { return String(f) })
+            columnNames: summary.frets.map(function(f) { return texts.t("quiz.heat.fretName", { fret: f }) })
+            cells: order.map(function(s) {
+                return summary.rows[s].map(function(answers, i) { return heat.cell(answers, s, summary.frets[i]) })
+            })
+            minValue: 0
+            maxValue: 100
+            legendTitle: texts.t("quiz.heat.legend")
+            legendLabels: [0, 25, 50, 75, 100].map(function(v) { return texts.t("quiz.heat.percent", { value: v }) })
+            noDataText: texts.t("quiz.heat.none")
+        }
+
     }
 }

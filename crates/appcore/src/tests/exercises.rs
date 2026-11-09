@@ -414,6 +414,30 @@ fn quiz_score_counts_finished_questions() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// LH-LRN-18: the overview has a row per string and a column per fret asked; a place shows its
+/// answers once it was asked, the others stay empty. 0–12 leaves out fret 12 (the open note).
+#[test]
+fn quiz_heat_counts_per_place() {
+    let dir = temp_dir("quiz-heat");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.quiz_start("notes", 0, 4);
+    assert!(!core.quiz_answer(0.0));
+    let q: serde_json::Value = serde_json::from_str(&core.quiz_json()).unwrap();
+    assert_eq!(q["heat"]["frets"], serde_json::json!([0, 1, 2, 3, 4]));
+    let rows = q["heat"]["rows"].as_array().unwrap();
+    assert_eq!(rows.len(), 4);
+    let asked: Vec<&serde_json::Value> = rows
+        .iter()
+        .flat_map(|r| r.as_array().unwrap())
+        .filter(|c| !c.is_null())
+        .collect();
+    assert_eq!(asked, [&serde_json::json!({ "right": 0, "wrong": 1 })]);
+
+    let q: serde_json::Value = serde_json::from_str(&core.quiz_start("notes", 0, 12)).unwrap();
+    assert_eq!(q["heat"]["frets"].as_array().unwrap().len(), 12);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// LH-BIB-08: the bundled set lists eight levels with at least 30 exercises.
 #[test]
 fn bundled_exercises_by_level() {
