@@ -12,8 +12,18 @@ const MAJOR_SCALE: [u8; 7] = [0, 2, 4, 5, 7, 9, 11];
 /// Semitones one fifth up the circle.
 const FIFTH: i32 = 7;
 
-/// Chord suffixes and their intervals above the root, longest first so "maj7" wins over "m".
-const QUALITIES: [(&str, &[u8]); 24] = [
+/// Chord suffixes and their intervals above the root; the longest match wins ("maj7" over "m").
+/// Covers every suffix the MusicXML import writes (`chord_suffix` in kontra-content).
+const QUALITIES: [(&str, &[u8]); 33] = [
+    ("m(maj7)", &[0, 3, 7, 11]),
+    ("maj11", &[0, 4, 7, 11, 2, 5]),
+    ("maj13", &[0, 4, 7, 11, 2, 9]),
+    ("aug7", &[0, 4, 8, 10]),
+    ("min7", &[0, 3, 7, 10]),
+    ("m11", &[0, 3, 7, 10, 2, 5]),
+    ("m13", &[0, 3, 7, 10, 2, 9]),
+    ("11", &[0, 4, 7, 10, 2, 5]),
+    ("13", &[0, 4, 7, 10, 2, 9]),
     ("m7b5", &[0, 3, 6, 10]),
     ("maj7", &[0, 4, 7, 11]),
     ("maj9", &[0, 4, 7, 11, 2]),
@@ -60,7 +70,8 @@ impl Chord {
         let (root, rest) = root_of(body)?;
         let intervals = QUALITIES
             .iter()
-            .find(|(suffix, _)| rest.starts_with(suffix))
+            .filter(|(suffix, _)| rest.starts_with(suffix))
+            .max_by_key(|(suffix, _)| suffix.len())
             .map_or(MAJOR, |(_, intervals)| intervals);
         // Anything else after the root is not a chord name ("Chorus", "Bridge").
         if intervals == MAJOR && !rest.is_empty() && !rest.starts_with(['(', '#', 'b']) {
