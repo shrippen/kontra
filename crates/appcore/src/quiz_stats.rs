@@ -1,6 +1,7 @@
 //! What the fretboard quiz remembers (LH-LRN-18): the frets it asks and, per place on the neck,
-//! how often the note was found or missed and when last. Weak and long unpractised places get a
-//! higher weight, so they come more often.
+//! how often the note was found or missed and when last; the same per interval of the ear
+//! training. Weak and long unpractised places and intervals get a higher weight, so they come
+//! more often.
 //!
 //! ```text
 //! weight = floor + weak × (wrong + 1) / (right + wrong + 2) + stale × min(age / week, 1)
@@ -24,6 +25,17 @@ const STALE_S: f64 = 7.0 * 24.0 * 3600.0;
 const WEIGHT_FLOOR: f64 = 0.2;
 const WEAK_FACTOR: f64 = 3.0;
 const STALE_FACTOR: f64 = 1.0;
+/// Never asked: weak 1/2 and fully stale (2.7, see the module comment).
+const UNASKED_WEIGHT: f64 = WEIGHT_FLOOR + WEAK_FACTOR * 0.5 + STALE_FACTOR;
+
+/// The weight formula of the module comment.
+fn weigh(right: u32, wrong: u32, last_s: u64, now_s: u64) -> f64 {
+    let (right, wrong) = (f64::from(right), f64::from(wrong));
+    let weak = (wrong + 1.0) / (right + wrong + 2.0);
+    let age_s = now_s.saturating_sub(last_s) as f64;
+    let stale = (age_s / STALE_S).min(1.0);
+    WEIGHT_FLOOR + WEAK_FACTOR * weak + STALE_FACTOR * stale
+}
 
 /// Frets the quiz asks, both included.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -83,19 +95,29 @@ struct Place {
     last_s: u64,
 }
 
+/// One interval of the ear training, by its text key ("p5").
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct Mark {
+    key: String,
+    right: u32,
+    wrong: u32,
+    last_s: u64,
+}
+
 /// Stored in `FILE`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct QuizStats {
     pub range: FretRange,
     places: Vec<Place>,
+    intervals: Vec<Mark>,
 }
 
 impl QuizStats {
     pub fn new(range: FretRange) -> QuizStats {
         QuizStats {
             range,
-            places: Vec::new(),
+            ..QuizStats::default()
         }
     }
 
@@ -127,8 +149,8 @@ impl QuizStats {
             .map_or((0, 0), |i| (self.places[i].right, self.places[i].wrong))
     }
 
-    /// Joins the answers of another machine: per place the newer record counts, so importing
-    /// the same file twice changes nothing; the own range stays.
+    /// Joins the answers of another machine: per place and interval the newer record counts,
+    /// so importing the same file twice changes nothing; the own range stays.
     pub(crate) fn merged(mut self, from: QuizStats) -> QuizStats {
         for place in from.places {
             match self.find(place.open, place.fret) {
@@ -137,19 +159,73 @@ impl QuizStats {
                 None => self.places.push(place),
             }
         }
+        for mark in from.intervals {
+            match self.intervals.iter().position(|m| m.key == mark.key) {
+                Some(i) if self.intervals[i].last_s >= mark.last_s => {}
+                Some(i) => self.intervals[i] = mark,
+                None => self.intervals.push(mark),
+            }
+        }
         self
+    }
+
+    /// The fretboard quiz's part (range and places) from `from`, the intervals kept: the quiz
+    /// and the ear training share `FILE`, and neither overwrites the other's answers.
+    pub(crate) fn with_places_of(mut self, from: &QuizStats) -> QuizStats {
+        self.range = from.range;
+        self.places = from.places.clone();
+        self
+    }
+
+    /// The ear training's part (intervals) from `from`, range and places kept.
+    pub(crate) fn with_intervals_of(mut self, from: &QuizStats) -> QuizStats {
+        self.intervals = from.intervals.clone();
+        self
+    }
+
+    pub(crate) fn record_interval(&mut self, key: &str, outcome: Outcome, now_s: u64) {
+        let index = match self.intervals.iter().position(|m| m.key == key) {
+            Some(i) => i,
+            None => {
+                self.intervals.push(Mark {
+                    key: key.to_string(),
+                    right: 0,
+                    wrong: 0,
+                    last_s: now_s,
+                });
+                self.intervals.len() - 1
+            }
+        };
+        let mark = &mut self.intervals[index];
+        match outcome {
+            Outcome::Right => mark.right += 1,
+            Outcome::Wrong => mark.wrong += 1,
+        }
+        mark.last_s = now_s;
+    }
+
+    /// (right, wrong) of an interval; (0, 0) when never asked.
+    #[cfg(test)]
+    pub(crate) fn interval_counts(&self, key: &str) -> (u32, u32) {
+        self.intervals
+            .iter()
+            .find(|m| m.key == key)
+            .map_or((0, 0), |m| (m.right, m.wrong))
+    }
+
+    /// How likely the interval is asked next, as `weight` for a place.
+    pub(crate) fn interval_weight(&self, key: &str, now_s: u64) -> f64 {
+        self.intervals
+            .iter()
+            .find(|m| m.key == key)
+            .map_or(UNASKED_WEIGHT, |m| weigh(m.right, m.wrong, m.last_s, now_s))
     }
 
     /// How likely the place is asked next, relative to the others (see the module comment).
     pub(crate) fn weight(&self, open: u8, fret: u8, now_s: u64) -> f64 {
-        let Some(place) = self.find(open, fret).map(|i| &self.places[i]) else {
-            return WEIGHT_FLOOR + WEAK_FACTOR * 0.5 + STALE_FACTOR;
-        };
-        let (right, wrong) = (f64::from(place.right), f64::from(place.wrong));
-        let weak = (wrong + 1.0) / (right + wrong + 2.0);
-        let age_s = now_s.saturating_sub(place.last_s) as f64;
-        let stale = (age_s / STALE_S).min(1.0);
-        WEIGHT_FLOOR + WEAK_FACTOR * weak + STALE_FACTOR * stale
+        self.find(open, fret)
+            .map(|i| &self.places[i])
+            .map_or(UNASKED_WEIGHT, |p| weigh(p.right, p.wrong, p.last_s, now_s))
     }
 
     fn find(&self, open: u8, fret: u8) -> Option<usize> {
@@ -190,6 +266,45 @@ mod tests {
         );
         assert!(stats.weight(E1, 4, NOW) > found, "never asked");
         assert_eq!(stats.counts(E1, 1), (0, 5));
+    }
+
+    /// Import (LH-FOR-03): per interval the newer record wins; the same file twice changes
+    /// nothing.
+    #[test]
+    fn merging_keeps_the_newer_interval() {
+        let mut own = QuizStats::default();
+        own.record_interval("m3", Outcome::Wrong, NOW);
+        own.record_interval("p5", Outcome::Right, NOW);
+        let mut other = QuizStats::default();
+        other.record_interval("m3", Outcome::Right, NOW + 1);
+        other.record_interval("p5", Outcome::Wrong, NOW - 1);
+
+        let merged = own.merged(other.clone());
+        assert_eq!(merged.interval_counts("m3"), (1, 0), "newer from the other");
+        assert_eq!(merged.interval_counts("p5"), (1, 0), "own is newer");
+        assert_eq!(merged.clone().merged(other), merged);
+    }
+
+    /// Quiz and ear training share the file: each writes only its own part.
+    #[test]
+    fn each_side_keeps_the_others_answers() {
+        let mut stored = QuizStats::new(FretRange::new(5, 9));
+        stored.record(E1, 5, Outcome::Wrong, NOW);
+        stored.record_interval("m3", Outcome::Wrong, NOW);
+
+        let mut quiz = QuizStats::new(FretRange::new(0, 4));
+        quiz.record(E1, 1, Outcome::Right, NOW);
+        let after_quiz = stored.clone().with_places_of(&quiz);
+        assert_eq!(after_quiz.range, FretRange::new(0, 4));
+        assert_eq!(after_quiz.counts(E1, 1), (1, 0));
+        assert_eq!(after_quiz.interval_counts("m3"), (0, 1), "intervals stay");
+
+        let mut ear = QuizStats::default();
+        ear.record_interval("p5", Outcome::Right, NOW);
+        let after_ear = stored.with_intervals_of(&ear);
+        assert_eq!(after_ear.range, FretRange::new(5, 9));
+        assert_eq!(after_ear.counts(E1, 5), (0, 1), "places stay");
+        assert_eq!(after_ear.interval_counts("p5"), (1, 0));
     }
 
     #[test]

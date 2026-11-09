@@ -166,11 +166,12 @@ Zusatz (LH-EIN-14), ebenso nie bei einer mit Kabel gemessenen Latenz (J-A3).
 3. Walking-Bass-Muster über ii-V-I in B♭ generieren lassen; dann Dorisch in Terzen in D und einen Groove in 7/8.
 Erwartet: Notensatz wie in MuseScore; Streuung in ms; generierte Übung speicherbar; Taktart und Vorzeichen stimmen.
 
-**J-C4 Hören und nachspielen** ⚙ · Personas: P1 Lea, P3 Mira · Phase 3 · LH-LRN-03, LH-BEW-01
+**J-C4 Hören und nachspielen** ⚙ · Personas: P1 Lea, P3 Mira · Phase 3 · LH-LRN-03, LH-LRN-18, LH-BEW-01
 1. Lea: Seite „Gehör“ (Strg+7), „Nachspielen“; den Ton noch während der Vorgabe mitspielen, dann einen falschen, dann den richtigen.
 2. Drei Fragen in Folge ohne Fehler; die nächste Linie hat zwei Töne. Ein Fehler, die Linie wird wieder kürzer.
-3. Mira: „Intervalle“ und „Grundton“ je fünf Fragen, einmal „Nochmal hören“, „Vorspielen“ leiser stellen.
-Erwartet: Töne während der Vorgabe zählen nicht; jeder gespielte Ton hat Haken oder Kreuz, ein falscher sagt „zu hoch“ oder „zu tief“; gelöst nennt Kontra, was es war (Töne, Intervall, Akkord) und zeigt, wo es am Griffbrett liegt; beim Grundton zählt jede Oktave; bei Intervallen zeigt das Griffbrett den ersten Ton schon vor der Antwort (Raute); ohne Ausgang ein Hinweis statt Stille.
+3. Mira: „Intervalle“ und „Grundton“ je fünf Fragen, einmal „Nochmal hören“, „Vorspielen“ leiser stellen; bei Intervallen
+   die kleine Terz mehrmals verfehlen, Kontra neu starten, weitere zwanzig Intervalle.
+Erwartet: Töne während der Vorgabe zählen nicht; jeder gespielte Ton hat Haken oder Kreuz, ein falscher sagt „zu hoch“ oder „zu tief“; gelöst nennt Kontra, was es war (Töne, Intervall, Akkord) und zeigt, wo es am Griffbrett liegt; beim Grundton zählt jede Oktave; bei Intervallen zeigt das Griffbrett den ersten Ton schon vor der Antwort (Raute); ohne Ausgang ein Hinweis statt Stille. Ein oft verfehltes Intervall kommt danach deutlich öfter, auch nach dem Neustart; ein falscher Ton zählt einmal je Frage, Weiterklicken nicht.
 
 **J-C5 Techniken üben** ⚙ · Personas: P3 Mira, P4 Thomas · Phase 4 · LH-BEW-06
 1. Mira: Groove aus MuseScore (MusicXML) mit Hammer-on, Pull-off, Slide, Dead Notes (x) und einer Ghost Note ( ), Modus „Durchlauf“.
