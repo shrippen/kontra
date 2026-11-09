@@ -79,8 +79,13 @@ Kirigami.ScrollablePage {
                 page.steadyMidi = midi
                 page.steadyCount = 1
             }
-            if (page.steadyCount === 3 && ctl.quizAnswer(ctl.tunerMidi)) {
-                page.question = JSON.parse(ctl.quizJson())
+            if (page.steadyCount !== 3) {
+                return
+            }
+            // A wrong note counts at once, so the overview shows it before the next question.
+            var right = ctl.quizAnswer(ctl.tunerMidi)
+            page.question = JSON.parse(ctl.quizJson())
+            if (right) {
                 prompt.Accessible.announce(texts.t("quiz.right"))
                 advance.restart()
             }
@@ -197,8 +202,9 @@ Kirigami.ScrollablePage {
             }
 
             function cell(answers, s, fret) {
-                if (!answers)
+                if (!answers) {
                     return null
+                }
                 var value = 100 * answers.right / (answers.right + answers.wrong)
                 var percent = texts.t("quiz.heat.percent", { value: Math.round(value) })
                 var counts = { right: answers.right, wrong: answers.wrong }
