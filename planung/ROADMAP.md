@@ -381,7 +381,11 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
 - [x] W5 Test für Crate-Kanten und Dateigröße mit Abbauliste (`tests/physical_design.rs`, 1200 Zeilen je Datei; Abbauliste: appcore/lib.rs, bridge.rs, exercise.rs, PracticePage.qml, tracker.rs). 30.10.: appcore/lib.rs 8191 → 2885 Zeilen (Tests nach `src/tests/`, Bibliothek, Auswertung, Übungen, Fortschritt, Notation als Module), bridge.rs 2898 → 1955 (Invokables in `bridge/`).
 - [ ] W6 `scripts/release.sh`, metainfo `<releases>`/`<screenshots>`, AppStream- und Flatpak-Lint.
 - [x] W7 `cargo deny` mit `[advisories]`, eigener Job und wöchentlich (`advisories.yml`); rustls auf 0.23.46, RUSTSEC-2025-0044 (minimp3) mit Begründung ignoriert.
-- [ ] W8 JSON-Schemas für Pakete und Kurse aus den serde-Strukturen.
+- [x] W8 JSON-Schemas für Pakete und Kurse aus den serde-Strukturen: `kontra-cli schemas <dir>` schreibt
+  `schema/package-manifest.schema.json`, `course-manifest.schema.json` und `course.schema.json` (schemars, nur mit
+  dem Feature `schema`, das nur die CLI einschaltet); die CI vergleicht wie bei den Übungen. Vorlage, mitgelieferter
+  Kurs und das Beispiel aus `FORMAT.md` bestehen die Schemas (geprüft mit Python `jsonschema`). `alignment.json`
+  hat kein Schema: Kontra liest sie dort nicht (Beat-Map der Bibliothek).
 - [ ] W9 Kurs aus Ordner live (LH-LRN-21); QML von der Platte in Entwicklung.
 - [x] W11 Glyphen-Test für Sonderzeichen (`tests/glyphs.rs`): jedes Zeichen über ASCII aus i18n (de, en), Lektionen
   und eigenem QML muss in einer mitgelieferten Schrift stehen (Kante: Rajdhani, JetBrains Mono, Bravura; Private-Use

@@ -31,6 +31,7 @@ fn main() -> ExitCode {
         Command::Exercises(a) => exercises(&a),
         Command::Check(a) => check::run(&a),
         Command::Course(a) => course::run(&a),
+        Command::Schemas(a) => schemas(&a),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -149,6 +150,17 @@ fn exercises(a: &args::ExercisesArgs) -> CliResult {
         std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         let path = dir.join(file);
         std::fs::write(&path, &exercise.midi).map_err(|e| format!("{}: {e}", path.display()))?;
+        println!("{}", path.display());
+    }
+    Ok(())
+}
+
+/// Writes the JSON Schemas of package and course files (W8); `schema/` is the checked-in output.
+fn schemas(a: &args::SchemasArgs) -> CliResult {
+    std::fs::create_dir_all(&a.dir).map_err(|e| format!("{}: {e}", a.dir.display()))?;
+    for (name, text) in session::json_schemas().map_err(|e| e.to_string())? {
+        let path = a.dir.join(name);
+        std::fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))?;
         println!("{}", path.display());
     }
     Ok(())

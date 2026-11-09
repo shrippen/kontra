@@ -11,6 +11,8 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
 
 pub use kontra_content::exercise;
+#[cfg(feature = "schema")]
+pub use kontra_content::json_schemas;
 pub use kontra_content::{
     assign_tab, import_file, read_package, transpose, write_package, FileKind, ImportError,
     ImportResult, Manifest, Package, PackageBacking, PackageLoop, TrackInfo,

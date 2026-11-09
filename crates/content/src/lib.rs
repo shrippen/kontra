@@ -18,6 +18,8 @@ mod midi;
 mod mscx;
 mod musicxml;
 mod package;
+#[cfg(feature = "schema")]
+mod schema;
 mod score;
 mod tab;
 mod transpose;
@@ -30,6 +32,8 @@ pub use package::{
     read_package, write_package, Manifest, Package, PackageBacking, PackageLoop,
     PACKAGE_AUDIO_MAX_BYTES, PACKAGE_FORMAT, PACKAGE_VERSION,
 };
+#[cfg(feature = "schema")]
+pub use schema::json_schemas;
 pub use tab::assign_tab;
 pub use transpose::{transpose, TRANSPOSE_MAX};
 

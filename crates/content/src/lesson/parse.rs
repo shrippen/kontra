@@ -147,24 +147,38 @@ pub(super) fn glossary(file: &str, text: &str) -> Result<Vec<(TermMeta, Doc)>, L
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
+/// A course, `courses/<course>.json` in a course package: its chapters in order.
 struct CourseFile {
+    /// Course id, starting with the package's prefix (`bassbuzz.kurs`).
     id: String,
+    /// Instrument the course is for (`bass`).
     #[serde(rename = "for")]
     scope: String,
     chapters: Vec<ChapterFile>,
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 struct ChapterFile {
     id: String,
+    /// Title in German.
     de: String,
+    /// Title in English.
     en: String,
+    /// Ids of the chapter's units (lessons), in order.
     units: Vec<String>,
     /// A practice block's attributes, e.g. `bundled=5 speeds="70 85 100"`.
     #[serde(default)]
     finale: Option<String>,
+}
+
+/// JSON Schema of a course file (W8).
+#[cfg(feature = "schema")]
+pub(crate) fn course_schema() -> schemars::Schema {
+    schemars::schema_for!(CourseFile)
 }
 
 /// A course file (JSON): chapters with titles per language, unit ids and a finale.

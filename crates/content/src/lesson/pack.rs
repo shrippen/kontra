@@ -67,6 +67,7 @@ const ID: &str = "{id}";
 
 /// `manifest.json` of a course package.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CourseManifest {
     pub format: String,

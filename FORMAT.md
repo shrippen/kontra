@@ -43,6 +43,8 @@ deshalb sieht das Stück auf dem zweiten Rechner gleich aus.
 | `target_speed` | nein (1.0) | Zieltempo der Werkstatt, 1.0 = wie notiert, 0.25 bis 1.5 in 5-%-Schritten |
 | `backing` | nein | Begleitspur, siehe unten |
 
+JSON Schema: `schema/package-manifest.schema.json` (aus Kontras Strukturen erzeugt, `kontra-cli schemas schema`).
+
 `backing` ist eines von:
 
 - `{ "kind": "embedded", "file": "<name>", "offset_s": <s> }`: Datei liegt unter `audio/<name>` (WAV, FLAC, Ogg Vorbis, MP3).
@@ -130,6 +132,8 @@ kurs.kontrakurs
 Anlegen, prüfen und packen: `kontra-cli course new <ordner> --id <präfix> --provider … --license …`,
 `kontra-cli course check <ordner|datei>` (jeder Befund mit Datei, Fehler im Format mit Zeile),
 `kontra-cli course pack <ordner> <datei>.kontrakurs` (prüft vorher).
+JSON Schemas für Editoren: `schema/course-manifest.schema.json` (`manifest.json`) und `schema/course.schema.json`
+(`courses/<kurs>.json`).
 
 Hinzufügen: Lernen → „Kurs hinzufügen …“, `kontra kurs.kontrakurs` oder „Kurs von Adresse …“ (nur `https://`;
 Kontra lädt nur die eingegebene Adresse). Kontra zeigt Titel, Anbieter, Lizenz und

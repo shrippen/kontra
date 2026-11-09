@@ -41,6 +41,14 @@ pub enum Command {
     Check(CheckArgs),
     /// Course packages (LH-LRN-15): lay out, check and pack a `.kontrakurs`.
     Course(CourseArgs),
+    /// Write the JSON Schemas of package and course files (W8); `schema/` is the output.
+    Schemas(SchemasArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct SchemasArgs {
+    /// Folder to write the schemas into.
+    pub dir: PathBuf,
 }
 
 #[derive(Debug, Args)]

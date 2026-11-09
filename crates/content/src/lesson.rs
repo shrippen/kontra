@@ -20,6 +20,8 @@ pub use pack::{
     new_course, pack, read_media, Author, CourseManifest, CoursePack, PackError, COURSE_EXT,
     COURSE_FORMAT, COURSE_VERSION, MAX_COURSE_BYTES,
 };
+#[cfg(feature = "schema")]
+pub(crate) use parse::course_schema;
 pub use parse::note_class;
 pub use vtt::{cues, Cue};
 
