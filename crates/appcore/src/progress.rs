@@ -189,16 +189,10 @@ impl Core {
                 if run.mode != PROBE_MODE {
                     continue;
                 }
-                let Some(bars) = run.section.and_then(|(start_s, end_s)| {
-                    entry
-                        .sections
-                        .iter()
-                        .find(|b| same_section(b, start_s, end_s))
-                }) else {
-                    continue;
-                };
                 let passed = run.hit_rate >= PASS_HIT_RATE && run.speed >= target - SPEED_EPS;
-                for bar in bars.from_bar..=bars.to_bar {
+                // The bars the probe played, unrolled and counted from 1 like `hardest_bars`;
+                // a section's own numbers are the printed ones and differ after a repeat.
+                for bar in run.bars.iter().map(|t| t.bar.saturating_add(1)) {
                     if let Some(list) = events.get_mut(&bar) {
                         list.push(PassageEvent::Probe { unix, passed });
                     }

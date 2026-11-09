@@ -805,7 +805,10 @@ mod tests {
                 panic!("{symbol} did not parse");
             };
             let other_third = MINOR_THIRD + MAJOR_THIRD - third;
-            assert!(chord.has(third) && !chord.has(other_third), "{symbol}: third");
+            assert!(
+                chord.has(third) && !chord.has(other_third),
+                "{symbol}: third"
+            );
             if let Some(seventh) = seventh {
                 let other = MINOR_SEVENTH + MAJOR_SEVENTH - seventh;
                 assert!(chord.has(seventh) && !chord.has(other), "{symbol}: seventh");

@@ -954,7 +954,16 @@ fn home_brings_hard_passages_back() {
         hardest_bars: bars.to_vec(),
         hesitant_bars: Vec::new(),
         spread_ms: None,
-        bars: Vec::new(),
+        // A probe plays the section's bar (index 2).
+        bars: if mode == PROBE_MODE {
+            vec![BarTally {
+                bar: 2,
+                hits: 9,
+                judged: 10,
+            }]
+        } else {
+            Vec::new()
+        },
     };
     let repeat = |core: &Core, now| {
         let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
@@ -992,5 +1001,84 @@ fn home_brings_hard_passages_back() {
         .unwrap();
     assert_eq!(repeat(&core, start + 3 * day), serde_json::json!([]));
     assert_eq!(repeat(&core, start + 4 * day)[0]["bar"], 3);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Review #226: in a piece with repeats a probe counts for the bar it played. Bar 1 repeats, so
+/// the unrolled bars are 1 1 2 3: the hardest third bar is printed bar 2, and a passed probe over
+/// it sends it away (before, the probe counted for printed bar 2 and the card stayed due).
+#[test]
+fn probe_counts_in_a_piece_with_repeats() {
+    let dir = temp_dir("repeat-repeats");
+    let file = dir.join("Repeats.musicxml");
+    let note =
+        r#"<note><pitch><step>E</step><octave>2</octave></pitch><duration>4</duration></note>"#;
+    let xml = format!(
+        r#"<?xml version="1.0"?>
+<score-partwise version="3.1">
+  <part-list><score-part id="P1"><part-name>Bass</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>F</sign><line>4</line></clef></attributes>
+      <barline location="left"><repeat direction="forward"/></barline>
+      {note}
+      <barline location="right"><repeat direction="backward"/></barline>
+    </measure>
+    <measure number="2">{note}</measure>
+    <measure number="3">{note}</measure>
+  </part>
+</score-partwise>"#
+    );
+    std::fs::write(&file, xml).unwrap();
+    let mut core = Core::new(&dir, QaOptions::default());
+    let day = SECONDS_PER_DAY;
+    let start = 100 * day;
+    core.open(&file).unwrap();
+    let a = core.arrangement().unwrap().clone();
+    let printed: Vec<u32> = a.bars.iter().map(|b| b.source_index).collect();
+    assert_eq!(printed, [0, 0, 1, 2]);
+
+    // The third unrolled bar (index 2) as a section, as the card's probe sets it.
+    core.set_loop(2, 2);
+    let (start_s, end_s) = core.loop_seconds();
+    core.remember_section(start_s, end_s, 2, 2);
+    let run = |unix, mode: &str, hardest: &[u32], played: &[u32]| Run {
+        finished_unix: unix,
+        practice_s: 60.0,
+        speed: 1.0,
+        hit_rate: if mode == PROBE_MODE { 0.9 } else { 0.6 },
+        mode: mode.into(),
+        section: (mode == PROBE_MODE).then_some((start_s, end_s)),
+        hardest_bars: hardest.to_vec(),
+        hesitant_bars: Vec::new(),
+        spread_ms: None,
+        bars: played
+            .iter()
+            .map(|bar| BarTally {
+                bar: *bar,
+                hits: 1,
+                judged: 1,
+            })
+            .collect(),
+    };
+    let repeat = |core: &Core, now| {
+        let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
+        home["repeat"].clone()
+    };
+    let store = core.progress_store();
+    store
+        .record(&a, run(start, "song", &[3], &[0, 1, 2, 3]))
+        .unwrap();
+    store
+        .record(&a, run(start + 60, "song", &[3], &[0, 1, 2, 3]))
+        .unwrap();
+    assert_eq!(repeat(&core, start + day)[0]["bar"], 3);
+
+    // A passed probe over the third unrolled bar: two days, not due after one.
+    store
+        .record(&a, run(start + day, PROBE_MODE, &[], &[2]))
+        .unwrap();
+    assert_eq!(repeat(&core, start + 2 * day), serde_json::json!([]));
     let _ = std::fs::remove_dir_all(dir);
 }

@@ -2,7 +2,7 @@
 
 use super::*;
 use kontra_model::Judging;
-use kontra_session::{NoteResult, OutsideNote};
+use kontra_session::{BarTally, NoteResult, OutsideNote};
 
 mod coaching;
 mod exercises;
