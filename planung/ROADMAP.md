@@ -367,12 +367,17 @@ Erkennung und Messung:
   Anschlag allein 0,9 / 4,7 / 5,0 %; Stimmgerät 0,6 / 1,8 / 1,9 %; Echo-Unterdrückung (512 Samples) 0,9 / 1,0 /
   1,2 %. Ein Block bleibt damit unter einem Zehntel des Budgets. Die CI baut die Benches nur (`--no-run`).
 - [x] E5 Notenende (LH-BEW-10, `h-detect`): Der Tracker folgt jeder Note bis zu ihrem Ende und meldet `NoteEnd`
-  (Engine `Event::End`): `Muted` (Pegel ≥ 10 dB binnen 60 ms), `Decayed` (30 dB unter dem Start), `Replaced`
-  (nächster Anschlag oder Legato-Ton). Noch nicht bewertet, Treffer unverändert. `korpus ends` (09.11.): synthetisch
-  `staccato` 33 von 33 als abgedämpft, p95 9,6 ms (in `korpus check`); IDMT-ST 267 von 319 gestoppten Noten als
-  abgedämpft, 47,6 % ≤ 30 ms, p50 26,5 ms, p95 93,3 ms, 16,5 % ≥ 50 ms vor dem Offset. Ziel ≤ 30 ms auf IDMT nur im
-  Median erreicht; die Offsets sind Partitur-Raster (`FORSCHUNG-AUDIO.md`, „Notenende“). Offen: von Hand annotierte
-  Enden (Hardware-Sitzung), Übungen zu Abdämpfen und Notenlänge.
+  (Engine `Event::End`): `Muted` (Pegel ≥ 10 dB binnen 60 ms und 100 ms lang unten, oder bis zum nächsten Anschlag),
+  `Decayed` (30 dB unter dem Start), `Replaced` (nächster Anschlag oder Legato-Ton). `korpus ends` (09.11.):
+  synthetisch `staccato` 33 von 33 als abgedämpft, p95 9,6 ms (in `korpus check`); IDMT-ST vorher 267 / 47,6 % ≤ 30 ms
+  / p50 26,5 / p95 93,3 ms / 16,5 % ≥ 50 ms zu früh, nachher (Halten gegen Pegeleinbrüche) 262 / 47,0 % / 26,3 / 83,7 ms
+  / 15,8 %; davon klingt die Aufnahme danach weiter: 0,2 % vorher wie nachher. Die zu frühen Mutes sind echte Enden vor
+  dem Raster (Hüllkurven geprüft), die IDMT-Offsets sind Partitur-Raster; ≤ 30 ms auf IDMT nur im Median
+  (`FORSCHUNG-AUDIO.md`, „Notenende“). Bewertet: Noten mit Staccato oder einer Pause ab einer Achtel danach, nur über
+  Kabel (Mikrofon, MIDI: „noch nicht“): rechtzeitig / zu spät / in die Pause geklungen, in der Auswertung und unter
+  „Alle Noten“; Trefferquote unverändert. Übungen 151, 152 „Groove Staccato“, Lektion „Saiten dämpfen“, J-B8. Offen:
+  von Hand annotierte Enden (Hardware-Sitzung), Notenlänge bei Legato (der Anschlagsfinger dämpft vor der nächsten
+  Note), Marke in der Tab-Lane.
 - [x] E6 Rauschboden bei der Kalibrierung (LH-EIN-16, `noise-floor`): Beim Einzählen misst der Onset-Detektor den
   Pegel im Anschlagband (10. Perzentil), die Schwelle liegt 6 dB darüber (−62 bis −40 dB) und gilt je Eingang.
   Messung (synthetisch, weißes Rauschen): Am Kabel gab es schon vorher 0 Falschnoten je Minute bei −70 bis −35 dBFS
