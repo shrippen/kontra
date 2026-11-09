@@ -9,6 +9,10 @@ use kontra_model::{Arrangement, StringHeard, Technique};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+mod muting;
+
+pub use muting::{EndHeard, MutingTally, NoteEndMark};
+
 const BIN_MS: f64 = 10.0;
 const HISTOGRAM_LIMIT_MS: f64 = 100.0;
 const HARDEST_BARS: usize = 3;
@@ -153,6 +157,12 @@ pub struct Summary {
     /// Hits and judged notes per bar, for the song map (LH-FOR-06).
     #[serde(default)]
     pub bars: Vec<BarTally>,
+    /// Notes the tab wants stopped (staccato, a rest after): how they ended (LH-BEW-10).
+    #[serde(default)]
+    pub muting: MutingTally,
+    /// … each judged note, by its last verdict, for the note list.
+    #[serde(default)]
+    pub ends: Vec<NoteEndMark>,
 }
 
 /// Hits among the judged notes of one bar (index into `Arrangement::bars`).
@@ -452,6 +462,8 @@ impl Summary {
             strings: StringTally::default(),
             improvisation: None,
             bars: bar_tallies(&final_results),
+            muting: MutingTally::default(),
+            ends: Vec::new(),
         }
     }
 

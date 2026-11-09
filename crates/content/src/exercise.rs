@@ -148,6 +148,8 @@ pub enum Rhythm {
     FiveFour,
     /// 7/8 as 2 + 2 + 3 eighths.
     SevenEight,
+    /// Root, fifth, octave, fifth: eighths with eighth rests, muted in time (LH-BEW-10).
+    Staccato,
 }
 
 /// Patterns through a scale.
@@ -582,7 +584,7 @@ enum Degree {
 type Hit = (u32, u32, Degree, Stroke);
 
 impl Rhythm {
-    pub const ALL: [Rhythm; 19] = [
+    pub const ALL: [Rhythm; 20] = [
         Rhythm::Quarters,
         Rhythm::Eighths,
         Rhythm::Sixteenths,
@@ -602,6 +604,7 @@ impl Rhythm {
         Rhythm::SixEight,
         Rhythm::FiveFour,
         Rhythm::SevenEight,
+        Rhythm::Staccato,
     ];
 
     fn meter(self) -> Meter {
@@ -635,6 +638,7 @@ impl Rhythm {
             Rhythm::SixEight => "68",
             Rhythm::FiveFour => "54",
             Rhythm::SevenEight => "78",
+            Rhythm::Staccato => "staccato",
         }
     }
 
@@ -648,15 +652,16 @@ impl Rhythm {
         use Stroke::*;
         let e = EIGHTH;
         let s = SIXTEENTH;
+        let beat = if self == Rhythm::Staccato { e } else { QUARTER };
         match self {
             Rhythm::RootFifth => vec![
                 (0, 2 * QUARTER, Root, Plain),
                 (2 * QUARTER, 2 * QUARTER, Fifth, Plain),
             ],
-            Rhythm::RootFifthOctave => [Root, Fifth, Octave, Fifth]
+            Rhythm::RootFifthOctave | Rhythm::Staccato => [Root, Fifth, Octave, Fifth]
                 .iter()
                 .enumerate()
-                .map(|(i, d)| (i as u32 * QUARTER, QUARTER, *d, Plain))
+                .map(|(i, d)| (i as u32 * QUARTER, beat, *d, Plain))
                 .collect(),
             Rhythm::DeadNotes => (0..8)
                 .map(|i| (i * e, e, Root, if i % 2 == 0 { Plain } else { Dead }))
@@ -732,7 +737,7 @@ impl Rhythm {
     fn goal(self) -> &'static str {
         match self {
             Rhythm::Quarters | Rhythm::Eighths => "pulse",
-            Rhythm::WithRests => "rests",
+            Rhythm::WithRests | Rhythm::Staccato => "rests",
             Rhythm::Offbeat | Rhythm::Tresillo => "syncopation",
             Rhythm::Octaves | Rhythm::RootFifth | Rhythm::RootFifthOctave => "chordtones",
             Rhythm::Sixteenths | Rhythm::Ghost | Rhythm::DeadNotes | Rhythm::Funk => "sixteenths",
@@ -1228,6 +1233,7 @@ fn rhythm_label(rhythm: Rhythm) -> &'static str {
         Rhythm::SixEight => "6/8",
         Rhythm::FiveFour => "5/4",
         Rhythm::SevenEight => "7/8",
+        Rhythm::Staccato => "Staccato",
     }
 }
 

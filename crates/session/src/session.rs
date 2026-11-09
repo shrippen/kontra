@@ -13,7 +13,9 @@ use kontra_model::{
 };
 
 mod double_stop;
+mod ends;
 mod open;
+mod strings;
 
 /// Real seconds to wait before declaring a note missed: detected notes arrive up to ~150 ms
 /// after their onset (concept 6.3), plus margin.
@@ -30,9 +32,6 @@ const MS_PER_S: f64 = 1000.0;
 /// Notes this soon after one taken back are scored again with it gone: the tracker takes a note
 /// back before the full window would have told it (about 90 ms), at the pluck's rise check.
 const RESCORE_S: f64 = 0.3;
-/// A note's string is told this long after its onset at most (R7: the peak up to 30 ms late,
-/// the window from 30 ms after it for 250 ms, a block), plus margin. The run ends after it.
-const STRING_TOLD_S: f64 = 0.4;
 
 /// How a scored note stands: open to a pitch or double stop told later, or judged by both
 /// tones of a double stop (R8), final and possibly different per tone.
@@ -128,6 +127,8 @@ pub struct Session {
     /// Strings told lately with the detected onset they belong to, so a note scored again
     /// after a retraction keeps its string (`on_retraction`).
     told_strings: Vec<StringVerdict>,
+    /// Ends of struck notes the tab wants stopped (detected onset, pass, note, heard; LH-BEW-10).
+    ends: Vec<(f64, u32, usize, crate::summary::EndHeard)>,
     /// Notes heard lately, so those scored after a note taken back are scored again
     /// (`on_retraction`).
     heard: Vec<DetectedNote>,
@@ -171,6 +172,7 @@ impl Session {
             scored: Vec::new(),
             strings: Vec::new(),
             told_strings: Vec::new(),
+            ends: Vec::new(),
             heard: Vec::new(),
             results: Vec::new(),
             events: Vec::new(),
@@ -516,64 +518,6 @@ impl Session {
         }
     }
 
-    /// The string a struck note was heard on (R7): feedback, the note's result stays. A note
-    /// the tab mutes with the palm is not told: its partials die before they tell the string.
-    pub fn on_string(&mut self, verdict: &StringVerdict) {
-        if self.told_strings.len() >= STRUCK_KEPT {
-            self.told_strings.remove(0);
-        }
-        self.told_strings.push(*verdict);
-        self.attach_string(verdict);
-    }
-
-    /// Records `verdict` for the struck note detected at its onset, if any.
-    fn attach_string(&mut self, verdict: &StringVerdict) {
-        let Some(&(_, pass, note)) = self
-            .struck
-            .iter()
-            .rev()
-            .find(|(onset, _, _)| (onset - verdict.onset_s).abs() < REVISION_MATCH_S)
-        else {
-            return;
-        };
-        if !self.tells_string(note) {
-            return;
-        }
-        self.strings
-            .push((verdict.onset_s, pass, note, verdict.heard));
-    }
-
-    /// Whether the tab puts `note` on a string that is told (palm-muted notes die too fast).
-    fn tells_string(&self, note: usize) -> bool {
-        self.arrangement
-            .notes
-            .get(note)
-            .is_some_and(|n| n.string.is_some() && !n.techniques.contains(&Technique::PalmMute))
-    }
-
-    /// Whether the last struck note's string may still be told: the analysis has not heard
-    /// `STRING_TOLD_S` past it yet. Without word from the analysis (a file ended) nothing comes.
-    fn string_pending(&self) -> bool {
-        let (Some(heard), Some(&(onset, pass, note))) = (self.heard_s, self.struck.last()) else {
-            return false;
-        };
-        let told = self
-            .strings
-            .iter()
-            .any(|(o, p, n, _)| *p == pass && *n == note && same_onset(*o, onset));
-        if told || !self.tells_string(note) {
-            return false;
-        }
-        let due_s = self.real_s(onset) + STRING_TOLD_S;
-        heard < due_s && self.now_s < due_s + MAX_ANALYSIS_LAG_S
-    }
-
-    /// The strings struck notes were heard on (detected onset, pass, note, heard), in the order
-    /// told.
-    pub fn strings_heard(&self) -> &[(f64, u32, usize, StringHeard)] {
-        &self.strings
-    }
-
     /// A ghost or dead note judged by a pitch it does not have (its muted verdict came later):
     /// it hits after all, and in Wait mode the wait is over.
     fn unmute(&mut self, pass: u32, note: usize) {
@@ -745,6 +689,7 @@ impl Session {
             .retain(|(onset, _, _)| !same_onset(*onset, onset_s));
         self.strings
             .retain(|(onset, ..)| !same_onset(*onset, onset_s));
+        self.ends.retain(|(onset, ..)| !same_onset(*onset, onset_s));
 
         // Each note it took is open again; Wait mode waits for the first of them in this pass.
         let mut first: Option<usize> = None;
@@ -900,6 +845,7 @@ impl Session {
         summary.strings = crate::summary::StringTally::of(&strings);
         summary.detuned = crate::summary::detuned(&self.results, &self.arrangement, &strings);
         summary.untold_double_stops = self.untold_double_stops();
+        self.end_summary(&mut summary);
         summary.outside_offset_ms =
             crate::summary::outside_offset_ms(&self.results, self.transport.speed());
         summary.outside_notes =
@@ -1180,8 +1126,8 @@ impl Session {
         }
         let done =
             self.cursor_slot >= self.matcher.expected().len() || matches!(self.mode, Mode::Wait);
-        // The summary is built now: a string told late would miss it.
-        if done && !self.string_pending() {
+        // The summary is built now: a string or an end told late would miss it.
+        if done && !self.string_pending() && !self.end_pending() {
             self.finished = true;
             self.events.push(SessionEvent::Finished);
         }

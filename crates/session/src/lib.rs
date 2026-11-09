@@ -79,8 +79,8 @@ pub use sources::{download_dir, recent_scores, search_url, SongSite};
 pub use spacing::{spacing, streak_days, PassageEvent, Spacing};
 pub use stems::{BassRemoval, StemJob};
 pub use summary::{
-    BarTally, DetunedString, Intonation, IntonationPart, Leaning, Observation, OutsideNote, Side,
-    StringTally, Summary, TimingHistogram,
+    BarTally, DetunedString, EndHeard, Intonation, IntonationPart, Leaning, MutingTally,
+    NoteEndMark, Observation, OutsideNote, Side, StringTally, Summary, TimingHistogram,
 };
 pub use technique::{
     technique_signs, technique_targets, told_techniques, TechniqueGrade, TechniqueOutcome,
