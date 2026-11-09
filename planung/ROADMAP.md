@@ -300,7 +300,8 @@ Rückmeldung und Lernen:
   die Leersaite); `quiz.json` im Datenexport (J-C10 ⚙). Offen: Heatmap mit Zahl (Kante-`KanteHeatmap` hat keine
   Zahlen, Achsen, Tooltips; erst in Kante), Gewichtung der Intervalle im Gehörtraining.
 - [x] L5 Intonation als Richtung und Streuung (LH-BEW-12).
-- [ ] L6 Verstimmte Saite erkennen (LH-TUN-05).
+- [x] L6 Verstimmte Saite erkennen (LH-TUN-05): die Auswertung fragt nach dem Nachstimmen, mit Sprung ins Stimmgerät
+  (`detuned-string`, J-B3 ⚙).
 - [ ] L7 Liedkarte, Kante-Baustein (LH-FOR-06).
 - [ ] L8 Ruf und Antwort (LH-LRN-19).
 - [ ] L9 Reagierende Band (LH-WIE-05).

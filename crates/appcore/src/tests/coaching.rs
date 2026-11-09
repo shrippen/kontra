@@ -562,6 +562,47 @@ fn summary_tells_intonation() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// LH-TUN-05: a string evenly out of tune is named with the way to the tuner, rounded to 5
+/// cents; never on a fretless bass, where the player's finger sets the pitch.
+#[test]
+fn summary_names_a_detuned_string() {
+    use crate::store::Bass;
+    use kontra_session::DetunedString;
+
+    let dir = temp_dir("detuned");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.update_settings(|s| s.language = Some("de".into()));
+    core.open(&Core::demo_path()).unwrap();
+    let a = core.arrangement().unwrap().clone();
+    let mut s = kontra_session::Summary::from_results(&[], &a);
+    let text = |core: &Core, s: &kontra_session::Summary| -> serde_json::Value {
+        let v: serde_json::Value = serde_json::from_str(&core.summary_json(s, &[], &[])).unwrap();
+        v["detunedText"].clone()
+    };
+    assert_eq!(text(&core, &s), "");
+
+    s.detuned = Some(DetunedString {
+        string: 1,
+        mean_cent: 13.2,
+    });
+    assert_eq!(
+        text(&core, &s),
+        "Die A-Saite klingt etwa 15 Cent zu hoch – nachstimmen?"
+    );
+    s.detuned = Some(DetunedString {
+        string: 0,
+        mean_cent: -17.9,
+    });
+    assert_eq!(
+        text(&core, &s),
+        "Die E-Saite klingt etwa 20 Cent zu tief – nachstimmen?"
+    );
+
+    core.update_settings(|s| s.instrument = Bass::Fretless);
+    assert_eq!(text(&core, &s), "", "fretless");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// I1: the summary of a blind probe sets it next to the last workshop run of the same bars.
 #[test]
 fn summary_compares_probe_with_workshop() {

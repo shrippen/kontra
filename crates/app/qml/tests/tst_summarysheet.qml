@@ -132,6 +132,17 @@ Item {
             verify(showing(sheet, "summary.recalibrate.button") !== null)
         }
 
+        // A string out of tune is named with the way to the tuner (LH-TUN-05).
+        function test_detuned_string() {
+            var summary = JSON.parse(root.ctl.summaryJson)
+            summary.detunedText = "detuned.text"
+            root.ctl.summaryJson = JSON.stringify(summary)
+            sheet.open()
+            verify(showing(sheet, "detuned.text") !== null)
+            verify(showing(sheet, "summary.detuned.button") !== null)
+            sheet.close()
+        }
+
         function test_trap_and_return() {
             outside.touched = 0
             sheet.open()

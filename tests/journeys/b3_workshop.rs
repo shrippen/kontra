@@ -225,3 +225,63 @@ fn fretless_and_five_string_tell_no_string() {
         );
     }
 }
+
+/// LH-TUN-05: Jens's A string is about 15 cents sharp, the E string in tune. The summary asks to
+/// retune the A string.
+#[test]
+fn a_sharp_string_is_named() {
+    // E string frets 0, 1, 3 and A string frets 0, 2, 3, three times.
+    const LINE: [u8; 18] = [
+        28, 33, 29, 35, 31, 36, 28, 33, 29, 35, 31, 36, 28, 33, 29, 35, 31, 36,
+    ];
+    const A_STRING: u8 = 1;
+    const SHARP_CENT: f64 = 15.0;
+
+    let profile = Profile::new("b3-detuned");
+    let score = profile.dir.join("Stimmung.mid");
+    write_midi(&score, "Stimmung", &LINE);
+    let take = profile.dir.join("verstimmt.wav");
+
+    let mut core = profile.core(None);
+    core.open(&score).unwrap();
+    let a = core.arrangement().unwrap().clone();
+    let cents: Vec<f64> = a
+        .notes
+        .iter()
+        .map(|n| match n.string {
+            Some(A_STRING) => SHARP_CENT,
+            _ => 0.0,
+        })
+        .collect();
+    assert_eq!(
+        cents.iter().filter(|c| **c > 0.0).count(),
+        LINE.len() / 2,
+        "half the notes on the A string"
+    );
+    let mistakes = kontra_session::Mistakes {
+        detune_cycle_cents: Box::leak(cents.into_boxed_slice()),
+        ..Default::default()
+    };
+    let samples = kontra_session::render_performance(&a, 1.0, COUNT_IN_S, mistakes, RATE);
+    kontra_session::write_mono_wav(&take, &samples, RATE).unwrap();
+
+    let mut core = profile.core(Some(&take));
+    core.open(&score).unwrap();
+    core.set_mode("song");
+    core.play();
+    let events = run_until(&mut core, Duration::from_secs(20), |e| {
+        matches!(e, UiEvent::Finished { .. })
+    });
+    let summary = events
+        .iter()
+        .find_map(|e| match e {
+            UiEvent::Finished { summary_json } => Some(summary_json.clone()),
+            _ => None,
+        })
+        .expect("finished");
+    let s: serde_json::Value = serde_json::from_str(&summary).unwrap();
+    assert_eq!(
+        s["detunedText"],
+        "Die A-Saite klingt etwa 15 Cent zu hoch – nachstimmen?"
+    );
+}
