@@ -137,6 +137,8 @@ pub struct Shaper {
     limiter: Limiter,
     /// The limiter faded in (0..=1), gliding towards `target.limit`.
     limit: f32,
+    /// No settings yet: the first ones apply at once (a slap at the start is limited).
+    fresh: bool,
 }
 
 impl Shaper {
@@ -158,6 +160,7 @@ impl Shaper {
             widener: Widener::new(sample_rate),
             limiter: Limiter::new(sample_rate),
             limit: 0.0,
+            fresh: true,
         };
         shaper.retime(sample_rate);
         shaper
@@ -166,6 +169,10 @@ impl Shaper {
     /// New target; the shaper glides there.
     pub fn set(&mut self, shaping: Shaping) {
         self.target = shaping.clamped();
+        if self.fresh {
+            self.fresh = false;
+            self.limit = self.target.limit.amount();
+        }
     }
 
     /// One sample at `sample_rate` as (left, right); the output device's rate may change
@@ -438,6 +445,20 @@ mod tests {
         });
         let out = run(&mut shaper, &sine(800.0, 0.95, 48_000));
         let peak = out[24_000..].iter().fold(0.0f32, |m, v| m.max(v.abs()));
+        assert!(peak <= crate::effects::LIMIT_CEILING + 1e-6, "peak {peak}");
+    }
+
+    #[test]
+    fn limiter_is_on_from_the_first_sample() {
+        // Review #230: a new shaper set to limit faded the limiter in over ~33 ms; a slap at
+        // the start of a run passed unlimited.
+        let mut shaper = Shaper::new(SR);
+        shaper.set(Shaping {
+            limit: Limit::On,
+            ..Shaping::FLAT
+        });
+        let out = run(&mut shaper, &sine(55.0, 1.6, 4800));
+        let peak = out.iter().fold(0.0f32, |m, v| m.max(v.abs()));
         assert!(peak <= crate::effects::LIMIT_CEILING + 1e-6, "peak {peak}");
     }
 

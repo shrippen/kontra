@@ -380,26 +380,17 @@ impl qobject::Controller {
         }
     }
 
-    /// Neutral: no shaping, the limiter on (it protects, it does not colour).
     pub(super) fn reset_shaping(mut self: Pin<&mut Self>) {
-        self.as_mut().set_monitor_low_db(0.0);
-        self.as_mut().set_monitor_mid_db(0.0);
-        self.as_mut().set_monitor_high_db(0.0);
-        self.as_mut().set_monitor_compress(0.0);
-        self.as_mut().set_monitor_warmth(0.0);
-        self.as_mut().set_monitor_drive(0.0);
-        self.as_mut().set_monitor_width(0.0);
-        self.as_mut().set_monitor_limit(true);
-        let hint = self.as_mut().core().remix(|s| {
-            s.monitor_low_db = 0.0;
-            s.monitor_mid_db = 0.0;
-            s.monitor_high_db = 0.0;
-            s.monitor_compress = 0.0;
-            s.monitor_warmth = 0.0;
-            s.monitor_drive = 0.0;
-            s.monitor_width = 0.0;
-            s.monitor_limit = true;
-        });
+        let hint = self.as_mut().core().neutral_shaping();
+        let s = self.as_ref().rust().core.settings().clone();
+        self.as_mut().set_monitor_low_db(s.monitor_low_db);
+        self.as_mut().set_monitor_mid_db(s.monitor_mid_db);
+        self.as_mut().set_monitor_high_db(s.monitor_high_db);
+        self.as_mut().set_monitor_compress(s.monitor_compress);
+        self.as_mut().set_monitor_warmth(s.monitor_warmth);
+        self.as_mut().set_monitor_drive(s.monitor_drive);
+        self.as_mut().set_monitor_width(s.monitor_width);
+        self.as_mut().set_monitor_limit(s.monitor_limit);
         if let Some(hint) = hint {
             self.as_mut().set_message(q(&hint));
         }

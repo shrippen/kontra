@@ -43,3 +43,20 @@ pub(crate) fn ear_gains(settings: &Settings) -> Gains {
         ..gains(settings)
     }
 }
+
+impl crate::Core {
+    /// "Neutral": no shaping and no effects, the limiter on (it protects, it does not colour).
+    /// Returns a hint as `remix` does.
+    pub fn neutral_shaping(&mut self) -> Option<String> {
+        self.remix(|s| {
+            s.monitor_low_db = 0.0;
+            s.monitor_mid_db = 0.0;
+            s.monitor_high_db = 0.0;
+            s.monitor_compress = 0.0;
+            s.monitor_warmth = 0.0;
+            s.monitor_drive = 0.0;
+            s.monitor_width = 0.0;
+            s.monitor_limit = true;
+        })
+    }
+}
