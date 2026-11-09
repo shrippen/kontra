@@ -435,8 +435,8 @@ mod tests {
 
     #[test]
     fn limiter_catches_a_slap() {
-        // The ADC delivers a peak near full scale and the compressor's make-up lifts it: the
-        // limiter keeps it under the ceiling (LH-EIN-17).
+        // A peak near full scale, lifted 12 dB by the mid band: the limiter keeps it under
+        // the ceiling (LH-EIN-17).
         let mut shaper = Shaper::new(SR);
         shaper.set(Shaping {
             mid_db: SHAPING_RANGE_DB,

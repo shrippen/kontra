@@ -845,10 +845,7 @@ mod tests {
             m.trim_monitor(sr);
             for i in 0..480 {
                 let (l, r) = m.render((block * 480 + i) as f64 / sr, sr);
-                // The limiter fades in over its first steps (no click when switched on).
-                if block >= 10 {
-                    peak = peak.max(l.abs()).max(r.abs());
-                }
+                peak = peak.max(l.abs()).max(r.abs());
             }
         }
         assert!(peak <= kontra_dsp::LIMIT_CEILING + 1e-6, "peak {peak}");

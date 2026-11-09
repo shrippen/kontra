@@ -6,6 +6,7 @@
 //! input ring ─► block (480) ─► NoteTracker::push ─► notes      (Dehum, onset, Yin inside)
 //!                          └─► Tuner::push       ─► reading   (tuner page only)
 //! microphone ─► EchoCanceller::process (512)      ─► cleaned   (backing on speakers)
+//! monitor ─► Shaper::process, per sample           ─► (L, R)    (output callback, LH-EIN-08/-17)
 //! ```
 //!
 //! Run with `cargo bench -p kontra-dsp`. Before Criterion's means it prints the share of the
@@ -15,7 +16,8 @@
 use criterion::{criterion_group, Criterion, Throughput};
 use kontra_dsp::synth::{add_noise, render, SynthNote, ToneShape};
 use kontra_dsp::{
-    EchoCanceller, NoteTracker, OnsetConfig, OnsetDetector, TrackerConfig, Tuner, Yin, ECHO_BLOCK,
+    EchoCanceller, Limit, NoteTracker, OnsetConfig, OnsetDetector, Shaper, Shaping, TrackerConfig,
+    Tuner, Yin, ECHO_BLOCK,
 };
 use kontra_model::{InputSource, Instrument, Pitch, A4_HZ};
 use std::f64::consts::TAU;
@@ -173,6 +175,32 @@ fn report() {
             echo.process(&mut mic, played.next(ECHO_BLOCK));
         }
     });
+    budget("monitor/line", &line, BLOCK, || {
+        let mut shape = shaper();
+        move |b: &[f32]| {
+            for &x in b {
+                black_box(shape.process(x, SR));
+            }
+        }
+    });
+}
+
+/// Monitor shaping with every stage working: bands, compressor, warmth, overdrive, width and
+/// limiter (the output callback runs it per sample).
+fn shaper() -> Shaper {
+    let mut shaper = Shaper::new(SR);
+    shaper.set(Shaping {
+        low_db: 4.0,
+        mid_db: -3.0,
+        high_db: 2.0,
+        compress: 0.5,
+        warmth: 0.5,
+        drive: 0.5,
+        width: 0.5,
+        limit: Limit::On,
+        ..Shaping::FLAT
+    });
+    shaper
 }
 
 fn stages(c: &mut Criterion) {
