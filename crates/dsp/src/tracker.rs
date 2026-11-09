@@ -40,7 +40,8 @@
 //! (R1, `tracker/early.rs`) or holds a pitch the tab expects (R2, `tracker/expect.rs`); the
 //! full window still has the last word, and a note that proves a precursor is taken back.
 //! An expected double stop gets a verdict on which of its tones sound (`tracker/double.rs`,
-//! R8).
+//! R8). Each note is followed until it ends: muted, rung out or replaced (`tracker/ends.rs`,
+//! E5).
 
 use crate::dehum::Dehum;
 use crate::hum::HumFilter;
@@ -51,13 +52,15 @@ use crate::strike::{verdict_after_s, Strike};
 use crate::yin::{PitchEstimate, Yin};
 use kontra_model::{
     cents_between, hz_to_midi, DetectedNote, DoubleStopVerdict, ExpectedStrike, InputSource,
-    Instrument, NoteRetraction, PitchRevision, StringVerdict, Technique, TechniqueRevision,
+    Instrument, NoteEnd, NoteRetraction, PitchRevision, StringVerdict, Technique,
+    TechniqueRevision,
 };
 use std::ops::Range;
 
 mod background;
 mod double;
 mod early;
+mod ends;
 mod expect;
 mod settle;
 mod strings;
@@ -339,6 +342,8 @@ pub struct NoteTracker {
     strings: strings::Strings,
     /// Expected double stops waiting for their verdict (R8).
     double_stops: double::DoubleStops,
+    /// The last note, followed until it ends (E5).
+    ends: ends::Ends,
 }
 
 impl NoteTracker {
@@ -378,6 +383,7 @@ impl NoteTracker {
             confirm: None,
             strings: strings::Strings::new(config.strings, sample_rate),
             double_stops: double::DoubleStops::new(sample_rate),
+            ends: ends::Ends::new(sample_rate, config.min_hz),
         }
     }
 
@@ -461,6 +467,12 @@ impl NoteTracker {
         self.double_stops.told()
     }
 
+    /// Where notes ended, told in the last `push` or `flush` for notes emitted earlier (E5);
+    /// valid until the next call.
+    pub fn ends(&self) -> &[NoteEnd] {
+        self.ends.told()
+    }
+
     /// Feeds samples; returns notes completed in this call (valid until the next call).
     pub fn push(&mut self, samples: &[f32]) -> &[DetectedNote] {
         self.out.clear();
@@ -469,6 +481,7 @@ impl NoteTracker {
         self.strings.clear_told();
         self.retracted.clear();
         self.double_stops.clear_told();
+        self.ends.clear_told();
         let block = (RETRY_S * self.sample_rate) as usize;
         let mut filtered = std::mem::take(&mut self.filtered);
         for raw in samples.chunks(block.max(1)) {
@@ -500,6 +513,7 @@ impl NoteTracker {
             self.check_confirm();
             self.follow();
             self.release_legato();
+            self.watch_end();
             self.judge_strikes(Waiting::ForAudio);
             self.judge_strings(Waiting::ForAudio);
             self.judge_doubles(Waiting::ForAudio);
@@ -516,6 +530,7 @@ impl NoteTracker {
         self.strings.clear_told();
         self.retracted.clear();
         self.double_stops.clear_told();
+        self.ends.clear_told();
         if let Some(mut s) = self.sounding {
             self.settle(&mut s, u64::MAX);
             self.sounding = Some(s);
@@ -633,6 +648,7 @@ impl NoteTracker {
             return;
         }
         self.retracts_early(onset);
+        self.end_at(onset);
         self.finish_confirm();
         // A new attack ends the ringing note (told with what was heard before it); a legato note
         // just before it was this attack.
@@ -820,6 +836,7 @@ impl NoteTracker {
         }
         if p.best.is_some() && technique != Some(Technique::Muted) {
             self.plan_string(p.report, midi);
+            self.follow_end(p.report);
         }
         self.out.push(DetectedNote {
             onset_s: p.report as f64 / self.sample_rate,
@@ -981,6 +998,7 @@ impl NoteTracker {
     /// A dead note told late: its settling pitch does not count.
     fn mark_muted(&mut self, onset: u64) {
         self.mute_string(onset);
+        self.forget_end(onset);
         let settle = self
             .sounding
             .as_mut()
@@ -996,6 +1014,7 @@ impl NoteTracker {
         if let Some((note, due)) = self.legato {
             if self.pushed >= due {
                 self.legato = None;
+                self.follow_end((note.onset_s * self.sample_rate).round() as u64);
                 self.out.push(note);
             }
         }

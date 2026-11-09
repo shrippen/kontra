@@ -70,6 +70,12 @@ const OPEN_LOG_B: [(u8, f64); 4] = [(28, -3.93), (33, -4.102), (38, -4.371), (43
 /// Fewest and most strings of a string profile (ukulele to twelve-string).
 const STRINGS: std::ops::RangeInclusive<usize> = 1..=12;
 
+/// Frets the fretting hand covers at once on a bass guitar (one finger per fret plus a
+/// stretch): the fretted tones of a grip lie at most this far apart (M3).
+const HAND_SPAN_FRETS: u8 = 4;
+/// On a double bass the hand covers a whole tone plus a semitone in low positions.
+const DOUBLE_SPAN_FRETS: u8 = 3;
+
 /// An instrument profile: kind, strings (tuning and frets) or keys, and reference pitch.
 /// A keyboard has an empty tuning and `keys`; a string instrument has no `keys`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -193,6 +199,52 @@ impl Instrument {
             .map(|(_, log_b)| *log_b)
     }
 
+    /// How many frets apart the fretted tones of one grip may lie (M3); a guitar profile
+    /// brings its own.
+    pub fn hand_span_frets(&self) -> u8 {
+        match self.kind {
+            InstrumentKind::Double => DOUBLE_SPAN_FRETS,
+            _ => HAND_SPAN_FRETS,
+        }
+    }
+
+    /// One way to sound `tones` at once (M3): a (string, fret) per tone, in their order, each
+    /// tone on a string of its own and the fretted ones within `hand_span_frets`; open strings
+    /// need no finger. Of all grips the one lowest on the neck. `None` when the strings cannot
+    /// sound them together, or for a keyboard (no strings).
+    ///
+    /// ```text
+    /// E1 + F1 on E A D G:   E1 only open E, F1 only E fret 1 ─► one string ─► None
+    /// A1 + E2 (a fifth):    A open + D fret 2 ─► Some([(1, 0), (2, 2)])
+    /// ```
+    pub fn grip(&self, tones: &[Pitch]) -> Option<Vec<(u8, u8)>> {
+        if !self.has_strings() || tones.len() > self.tuning.string_count() {
+            return None;
+        }
+        let options: Vec<Vec<(u8, u8)>> = tones.iter().map(|t| self.positions(*t)).collect();
+        let mut search = GripSearch {
+            options: &options,
+            span: self.hand_span_frets(),
+            chosen: Vec::with_capacity(tones.len()),
+            best: None,
+        };
+        search.run();
+        search.best
+    }
+
+    /// Whether the profile can sound `tones` together (M3): a grip on a string instrument, on
+    /// a keyboard every key in range and none twice.
+    pub fn can_sound_together(&self, tones: &[Pitch]) -> bool {
+        let Some(keys) = self.keys else {
+            return self.grip(tones).is_some();
+        };
+        let distinct = tones
+            .iter()
+            .enumerate()
+            .all(|(i, t)| !tones[..i].contains(t));
+        distinct && tones.iter().all(|t| (keys.low..=keys.high).contains(t))
+    }
+
     /// Pitch at a position, `None` if string or fret are out of range.
     pub fn pitch_at(&self, string: u8, fret: u8) -> Option<Pitch> {
         if fret > self.frets {
@@ -205,9 +257,105 @@ impl Instrument {
     }
 }
 
+/// Depth-first search for `Instrument::grip`: each tone in turn on a free string, pruned once
+/// the fretted frets spread past the span.
+struct GripSearch<'a> {
+    options: &'a [Vec<(u8, u8)>],
+    span: u8,
+    chosen: Vec<(u8, u8)>,
+    /// The grip found with the lowest highest fret.
+    best: Option<Vec<(u8, u8)>>,
+}
+
+impl GripSearch<'_> {
+    fn run(&mut self) {
+        let Some(positions) = self.options.get(self.chosen.len()) else {
+            self.keep();
+            return;
+        };
+        for &(string, fret) in positions {
+            if self.chosen.iter().any(|(s, _)| *s == string) {
+                continue;
+            }
+            self.chosen.push((string, fret));
+            if self.within_span() {
+                self.run();
+            }
+            self.chosen.pop();
+        }
+    }
+
+    /// Fretted frets (open strings left out) at most `span` apart.
+    fn within_span(&self) -> bool {
+        let fretted = self.chosen.iter().map(|(_, f)| *f).filter(|f| *f > 0);
+        let (low, high) = fretted.fold((u8::MAX, 0), |(lo, hi), f| (lo.min(f), hi.max(f)));
+        high <= low || high - low <= self.span
+    }
+
+    fn keep(&mut self) {
+        let highest = |g: &[(u8, u8)]| g.iter().map(|(_, f)| *f).max().unwrap_or(0);
+        if self
+            .best
+            .as_deref()
+            .is_some_and(|b| highest(b) <= highest(&self.chosen))
+        {
+            return;
+        }
+        self.best = Some(self.chosen.clone());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn pitches(names: &[&str]) -> Vec<Pitch> {
+        names.iter().filter_map(|n| Pitch::parse(n)).collect()
+    }
+
+    #[test]
+    fn grips_need_a_string_each_within_the_hand() {
+        let bass = Instrument::default_bass();
+        // E1 and F1 lie on the E string only.
+        assert_eq!(bass.grip(&pitches(&["E1", "F1"])), None);
+        assert_eq!(
+            bass.grip(&pitches(&["A1", "E2"])),
+            Some(vec![(1, 0), (2, 2)])
+        );
+        // A tenth: G1 (E fret 3) under B2 (G fret 4).
+        assert_eq!(
+            bass.grip(&pitches(&["G1", "B2"])),
+            Some(vec![(0, 3), (3, 4)])
+        );
+        // E fret 1 and G fret 12: too far for one hand.
+        assert!(!bass.can_sound_together(&pitches(&["F1", "G3"])));
+        // Open strings need no finger: open E under G fret 12.
+        assert!(bass.can_sound_together(&pitches(&["E1", "G3"])));
+        // Five tones on four strings.
+        assert!(!bass.can_sound_together(&pitches(&["E1", "A1", "D2", "G2", "C3"])));
+    }
+
+    #[test]
+    fn a_keyboard_sounds_any_keys_in_range() {
+        let keys = Instrument::keyboard(InstrumentKind::Keys, Pitch(28), Pitch(67)).unwrap();
+        assert!(keys.can_sound_together(&pitches(&["E1", "F1", "F#1"])));
+        assert!(!keys.can_sound_together(&pitches(&["E1", "E1"])));
+        assert!(!keys.can_sound_together(&pitches(&["E1", "C6"])));
+        assert_eq!(keys.grip(&pitches(&["E1"])), None);
+    }
+
+    #[test]
+    fn a_guitar_profile_grips_a_chord() {
+        let names = ["E2", "A2", "D3", "G3", "B3", "E4"];
+        let guitar = Tuning::from_names("guitar", &names).unwrap();
+        let guitar = Instrument::new(InstrumentKind::Fretted, guitar, 22).unwrap();
+        // Open C major, x32010: C3 E3 G3 C4 E4.
+        let c = pitches(&["C3", "E3", "G3", "C4", "E4"]);
+        assert_eq!(
+            guitar.grip(&c),
+            Some(vec![(1, 3), (2, 2), (3, 0), (4, 1), (5, 0)])
+        );
+    }
 
     #[test]
     fn a_keyboard_has_a_range_but_no_strings() {

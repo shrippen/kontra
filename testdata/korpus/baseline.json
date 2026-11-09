@@ -1,0 +1,47 @@
+{
+  "about": "Frozen results of real recordings (E7, kontra-cli korpus freeze); pitch-aware, ±80 ms. korpus check --real fails below them.",
+  "groups": [
+    {
+      "files": 6,
+      "group": "conv/filobass",
+      "notes": 842,
+      "precision": 62.69,
+      "recall": 59.86
+    },
+    {
+      "files": 8,
+      "group": "conv/idmt-sb/bass-1",
+      "notes": 1248,
+      "precision": 69.09,
+      "recall": 87.58
+    },
+    {
+      "files": 7,
+      "group": "conv/idmt-sb/bass-2",
+      "notes": 1092,
+      "precision": 70.34,
+      "recall": 82.33
+    },
+    {
+      "files": 7,
+      "group": "conv/idmt-sb/bass-3",
+      "notes": 1092,
+      "precision": 68.27,
+      "recall": 78.21
+    },
+    {
+      "files": 17,
+      "group": "conv/idmt-st",
+      "notes": 948,
+      "precision": 82.51,
+      "recall": 91.56
+    },
+    {
+      "files": 3,
+      "group": "conv/nsynth",
+      "notes": 157,
+      "precision": 98.73,
+      "recall": 99.36
+    }
+  ]
+}

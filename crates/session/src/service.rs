@@ -30,6 +30,9 @@ pub use kontra_engine::{
     Expecting, KorpusItem, KorpusSet, Matching, MidiPort, Mistakes, Pick, Playing, Priority,
     StreamConfig, StringModel, StringTold, LOG_B_PER_FRET, NULL_DEVICE,
 };
+pub use kontra_engine::{
+    evaluate_ends, generate_midi_chords, generate_staccato, score_chords, ChordTally, EndTally,
+};
 
 /// Writes mono audio as WAV (corpus export).
 pub fn write_mono_wav(path: &Path, samples: &[f32], sample_rate: u32) -> Result<(), EngineError> {
@@ -98,6 +101,55 @@ pub fn read_korpus_strings(json: &Path) -> Result<Vec<Option<u8>>, String> {
         .collect();
     strings.resize(file.notes.len(), None);
     Ok(strings)
+}
+
+/// A MIDI take for the corpus (M2): the annotated notes in `json` and the notes the MIDI input
+/// tells for the `.mid` file of the same name next to it.
+pub fn read_midi_korpus(json: &Path) -> Result<(Vec<Annotation>, Vec<DetectedNote>), String> {
+    #[derive(serde::Deserialize)]
+    struct File {
+        notes: Vec<Annotation>,
+    }
+    let text = std::fs::read_to_string(json).map_err(|e| format!("{}: {e}", json.display()))?;
+    let file: File = serde_json::from_str(&text).map_err(|e| format!("{}: {e}", json.display()))?;
+    let detected =
+        kontra_engine::analyze_midi_file(&json.with_extension("mid")).map_err(|e| e.to_string())?;
+    Ok((file.notes, detected))
+}
+
+/// The offset of each annotated note in `json` (seconds, on the clock of its onsets), where a
+/// converted recording names it (`meta.note_meta[i].offset_s` plus `meta.pad_s`, IDMT); one per
+/// note (E5).
+pub fn read_korpus_offsets(json: &Path) -> Result<Vec<Option<f64>>, String> {
+    #[derive(serde::Deserialize, Default)]
+    struct Meta {
+        #[serde(default)]
+        pad_s: f64,
+        #[serde(default)]
+        note_meta: Vec<NoteMeta>,
+    }
+    #[derive(serde::Deserialize)]
+    struct NoteMeta {
+        #[serde(default)]
+        offset_s: Option<f64>,
+    }
+    #[derive(serde::Deserialize)]
+    struct File {
+        notes: Vec<serde_json::Value>,
+        #[serde(default)]
+        meta: Meta,
+    }
+    let text = std::fs::read_to_string(json).map_err(|e| format!("{}: {e}", json.display()))?;
+    let file: File = serde_json::from_str(&text).map_err(|e| format!("{}: {e}", json.display()))?;
+    let pad_s = file.meta.pad_s;
+    let mut offsets: Vec<Option<f64>> = file
+        .meta
+        .note_meta
+        .iter()
+        .map(|m| m.offset_s.map(|o| o + pad_s))
+        .collect();
+    offsets.resize(file.notes.len(), None);
+    Ok(offsets)
 }
 
 /// Each annotated note expected on its string, and the verdicts told (R7).

@@ -2,9 +2,12 @@
 //! Talks only to `kontra-session` (the layer below the UI).
 
 mod args;
+mod baseline;
 mod check;
+mod chords;
 mod course;
 mod double_stops;
+mod ends;
 mod korpus;
 mod live;
 mod strings;

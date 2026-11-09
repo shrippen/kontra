@@ -83,6 +83,34 @@ pub struct NoteRetraction {
     pub onset_s: f64,
 }
 
+/// Where a note stopped sounding (LH-BEW-10, E5), told once its end is heard. Matches the note
+/// by its `onset_s`. Only `Ending::Muted` is sure enough to score (muting, staccato); a decay
+/// depends on the bass and its strings.
+///
+/// ```text
+/// level ▇▇▇▆▆▆▆▅▅▅▅▅▅▂▁     muted: ≥ 10 dB down within 60 ms, `end_s` where it is 10 dB down
+/// level ▇▇▇▆▆▅▅▄▄▃▃▂▂▂▁▁▁   decayed: 30 dB under its start, slowly
+/// level ▇▇▇▆▆▆▆▅▅▅│▇▇▇     replaced: the next note's attack (or legato change) ends it
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct NoteEnd {
+    pub onset_s: f64,
+    /// On the same clock as `onset_s`.
+    pub end_s: f64,
+    pub ending: Ending,
+}
+
+/// How a note ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Ending {
+    /// Stopped by the hand: the level falls fast.
+    Muted,
+    /// Rang out: the level fell slowly to far under its start.
+    Decayed,
+    /// The next note began while it still sounded.
+    Replaced,
+}
+
 /// A tone of an `ExpectedStrike`: the pitch, and the string the tab puts it on, where known.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ExpectedTone {

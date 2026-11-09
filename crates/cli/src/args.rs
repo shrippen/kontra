@@ -214,12 +214,38 @@ pub struct ScoreArgs {
     pub laptop_jack: bool,
 }
 
+/// The frozen results of real recordings (E7).
+const BASELINE: &str = "testdata/korpus/baseline.json";
+
 #[derive(Debug, Subcommand)]
 pub enum KorpusCommand {
     /// Write every set as WAV and JSON annotation into a directory.
     Write { dir: PathBuf },
-    /// Check detection quality on the generated sets (or WAV+JSON pairs in a directory).
-    Check { dir: Option<PathBuf> },
+    /// Check detection quality on the generated sets (or WAV+JSON pairs in a directory); with
+    /// `--real`, real recordings against their frozen baseline (E7).
+    Check {
+        dir: Option<PathBuf>,
+        /// Roots of converted real recordings (e.g. testdata/korpus/local/conv): each group
+        /// in the baseline is measured and must not fall below it; groups not in it are new
+        /// and only reported.
+        #[arg(long)]
+        real: Vec<PathBuf>,
+        #[arg(long, default_value = BASELINE)]
+        baseline: PathBuf,
+    },
+    /// Freeze the current results of real recording groups into the baseline (E7). A group is
+    /// its directory under a `--real` root, named with the root's last part, e.g.
+    /// `conv/idmt-st` or `own/check-2026-11-20/takes`.
+    Freeze {
+        groups: Vec<String>,
+        #[arg(long, required = true)]
+        real: Vec<PathBuf>,
+        #[arg(long, default_value = BASELINE)]
+        baseline: PathBuf,
+        /// Freeze a group again that the baseline already holds (after a deliberate change).
+        #[arg(long)]
+        replace: bool,
+    },
     /// Measure detection on every WAV+JSON pair in the given directories (real recordings);
     /// reports, does not fail.
     Measure {
@@ -284,6 +310,23 @@ pub enum KorpusCommand {
     /// Which pitches the tracker takes for which (Harmonicon A5): per register, how often it
     /// heard the annotated note, a semitone, an octave, a fifth or twelfth off, or missed it.
     Confusion {
+        dirs: Vec<PathBuf>,
+        /// Matching window in ms (score-grid annotations need 50–80).
+        #[arg(long, default_value_t = 80.0)]
+        window_ms: f64,
+    },
+    /// Chords as whole sets (M2): every tone, missing, extra. Each `.json` annotation with a
+    /// `.mid` take of the same name; without directories the generated MIDI chord set.
+    Chords {
+        dirs: Vec<PathBuf>,
+        /// Window around a chord's onset in ms (a rolled chord spreads 20–50 ms).
+        #[arg(long, default_value_t = 60.0)]
+        window_ms: f64,
+    },
+    /// Where notes end (E5, LH-BEW-10): notes the player stopped (a rest follows) told as
+    /// muted, and how close to the annotated offset; without directories the synthetic
+    /// staccato set. Needs offsets (IDMT import).
+    Ends {
         dirs: Vec<PathBuf>,
         /// Matching window in ms (score-grid annotations need 50–80).
         #[arg(long, default_value_t = 80.0)]

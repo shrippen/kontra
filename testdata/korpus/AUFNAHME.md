@@ -58,5 +58,15 @@ nachtragen (`midi` mit Nachkommastellen), sonst misst die Prüfung die Verstimmu
 kontra-cli korpus check testdata/korpus/local
 ```
 
+Eingefrorene Basis (E7): Die ersten eigenen Aufnahmen einer Sitzung werden eine Gruppe und einmal eingefroren,
+spätere Sitzungen kommen als eigene Gruppen dazu und mischen sich nicht in die alten:
+
+```sh
+kontra-cli korpus freeze --real testdata/korpus/local/own own/check-<datum>/takes
+kontra-cli korpus check --real testdata/korpus/local/conv --real testdata/korpus/local/own
+```
+
+Stand 09.11.2026: noch keine eigenen Aufnahmen; eingefroren sind die öffentlichen Sätze unter `conv/`.
+
 Ergebnis und Abweichungen gehören in `planung/ROADMAP.md` (QA-Runde). Unterschreitet ein Satz die Ziele, zuerst einen Test
 mit der Aufnahme anlegen (nur lokal), dann die Erkennung verbessern.

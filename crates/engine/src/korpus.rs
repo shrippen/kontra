@@ -16,7 +16,9 @@ pub use report::ReportLimits;
 use report::E1_MIDI;
 use serde::{Deserialize, Serialize};
 
+pub(crate) mod chords;
 mod double;
+pub(crate) mod ends;
 mod report;
 
 pub use double::{
