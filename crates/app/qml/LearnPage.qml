@@ -116,7 +116,9 @@ Kirigami.ScrollablePage {
             color: KanteStyle.textColor
             text: texts.t(page.course.fits ? "learn.intro" : "learn.nocourse")
         }
-        RowLayout {
+        // Wraps on a narrow page (P4 at 150 %, W3): a row made the page wider than the window.
+        Flow {
+            Layout.fillWidth: true
             spacing: KanteStyle.unit(8)
             KanteButton {
                 visible: page.nextId !== ""

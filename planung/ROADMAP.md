@@ -437,8 +437,10 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
   nur seitlich), überlappende Bedienelemente und Bedienelemente ohne Namen. Lokal, die CI hat keinen AT-SPI-Stapel.
   Erster Lauf (09.11.): 29 von 30 ohne Befund. **P4 Lernen:** Die Knopfreihe (Weiter, Glossar, Kurs hinzufügen,
   Kurs von Adresse) bricht nicht um und macht die Seite breiter als das Fenster (853 logische Pixel); „Kurs von
-  Adresse …“ und der Einleitungstext sind rechts abgeschnitten (Screenshot geprüft). Nicht behoben: ein `Flow`
-  statt `RowLayout` in `LearnPage.qml` reicht vermutlich, braucht aber zuerst einen roten QML-Test. Grenzen: Was
+  Adresse …“ und der Einleitungstext sind rechts abgeschnitten (Screenshot geprüft). Behoben: Die Reihe ist ein
+  `Flow` und bricht um; `tst_learnwidth.qml` (`scripts/check-video.sh`) lädt die Seite mit deutschen Texten bei
+  26 Rastereinheiten (P4s Seite ohne Seitenleiste) und war vorher rot. Zweiter Lauf (09.11.): 30 von 30 ohne
+  Befund. Grenzen: Was
   Kontra selbst malt (Lane, Noten, Griffbrett), sieht AT-SPI nicht; abgeschnittener Text innerhalb eines Labels
   (Elision) ebenso wenig. Ohne Fenstermanager öffnet Kontra mit 72×44 Rastereinheiten auch auf kleineren
   Bildschirmen größer als der Bildschirm; das Skript setzt die Fenstergröße deshalb selbst.
