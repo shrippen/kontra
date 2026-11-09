@@ -253,6 +253,16 @@ sagt „x % passend“ und zählt Akkordtöne, Töne der Tonart und fremde Töne
 von y frei gelassen“; Lea: 100 % passend, 100 % Akkordtöne, alle Pausen frei; Mira: zwei fremde Töne, nicht alle
 Pausen frei.
 
+**J-C12 Ruf und Antwort** · Personas: P1 Lea, P3 Mira, P5 Aylin · Phase 3 · LH-LRN-19
+1. Lea (Mikrofon): Übungen, ein Groove mit Akkorden (I–IV–V, Viertel); „Ruf und Antwort“ an, Modus „Durchlauf“.
+   Kontra spielt zwei Takte, Lea antwortet; die ersten beiden Antworten absichtlich daneben.
+2. Mira (Kabel): dasselbe im Modus „Spielen“ (ohne Bewertung) und in der Werkstatt mit einer Schleife über vier Takte.
+3. Aylin (MIDI): ein importiertes Stück ohne Akkordsymbole öffnen.
+Erwartet: Der Schalter steht nur bei Stücken mit Akkorden und mindestens vier Takten; an: je vier Takte ein Ruf (zwei
+Takte, Kontra spielt, das Schlagzeug leiser) und die Antwort (zwei Takte, gleiches Motiv aus Akkordtönen, höchstens eine
+Quinte); die Tab ist leer, der Hinweis „Hör zu und antworte …“ sagt warum; nach zwei Fehlversuchen (unter 80 %) erscheint
+die Tab; über Mikrofon zählt der Ruf weder als Treffer noch als zusätzliche Note; Aylin sieht keinen Schalter.
+
 ## D. Inhalte teilen (ab Phase 3)
 
 **J-D1 Original-Song als Backing Track** ⚙ · Persona: P2 Jens, P3, P4 (Schritt 6) · Phase 3 · LH-BIB-06, LH-WIE-01, LH-WIE-02

@@ -1063,5 +1063,8 @@
   "songmap.bar": "Bar {bar}: {percent} % over the last {runs} runs ({hits} of {judged} notes)",
   "songmap.bar.one": "Bar {bar}: {percent} % in the last run ({hits} of {judged} notes)",
   "songmap.none": "Bar {bar}: not played yet",
-  "songmap.hint": "Height = hits per bar over the last runs. Drag over bars to set the loop."
+  "songmap.hint": "Height = hits per bar over the last runs. Drag over bars to set the loop.",
+  "call.title": "Call and response",
+  "call.hint": "Kontra plays two bars of bass over softer backing; you answer in the next two with the same motif of chord tones. The tab appears after two failed tries. In “Play” mode without scoring.",
+  "call.listen": "Listen and answer: Kontra plays two bars, you play them back. The tab comes after two failed tries."
 }

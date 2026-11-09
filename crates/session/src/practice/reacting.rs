@@ -87,7 +87,7 @@ impl<O: Output> Practice<O> {
             let at = last + time.beat_s * f64::from(stroke) / f64::from(FILL_STROKES);
             // Never in the past: the decision comes `DECIDE_LEAD_S` before the beat.
             let at = at.max(self.clock.now_s() + DECIDE_LEAD_S / 2.0);
-            self.output.schedule(at, Sound::Drum(DrumKind::Snare));
+            self.output.schedule(at, Sound::drum(DrumKind::Snare));
         }
     }
 

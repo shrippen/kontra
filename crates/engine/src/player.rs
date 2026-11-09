@@ -58,8 +58,22 @@ pub enum Sound {
         duration_s: f32,
         velocity: f32,
     },
-    /// Accompaniment drum stroke (LH-LRN-01).
-    Drum(DrumKind),
+    /// Accompaniment drum stroke (LH-LRN-01); `velocity` 0..=1, softer while Kontra plays a
+    /// call (LH-LRN-19).
+    Drum {
+        kind: DrumKind,
+        velocity: f32,
+    },
+}
+
+impl Sound {
+    /// A drum stroke at full velocity.
+    pub fn drum(kind: DrumKind) -> Sound {
+        Sound::Drum {
+            kind,
+            velocity: 1.0,
+        }
+    }
 }
 
 /// Interleaved backing audio at the output's sample rate: stereo, or after bass removal stereo
@@ -603,12 +617,12 @@ fn render(voices: &mut [Voice; VOICES], now: f64, sr: f32, gains: Gains, noise: 
                 let release = ((duration_s - t) / 0.01).min(1.0);
                 mix += gains.tone * velocity * 0.25 * wave * (-t / 1.2).exp() * release;
             }
-            Sound::Drum(kind) => {
+            Sound::Drum { kind, velocity } => {
                 if t > drum_length_s(kind) {
                     v.active = false;
                     continue;
                 }
-                mix += gains.drums * drum(v, kind, t, sr, noise.sample());
+                mix += gains.drums * velocity * drum(v, kind, t, sr, noise.sample());
             }
         }
     }
@@ -721,7 +735,7 @@ mod tests {
             let mut m = mixer();
             m.apply(Command::Schedule {
                 at_s: 0.0,
-                sound: Sound::Drum(kind),
+                sound: Sound::drum(kind),
             });
             let energy: f32 = (0..2400).map(|i| m.render(i as f64 / sr, sr).0.abs()).sum();
             assert!(energy > 1.0, "{kind:?}: {energy}");
@@ -733,7 +747,7 @@ mod tests {
         m.gains.drums = 0.0;
         m.apply(Command::Schedule {
             at_s: 0.0,
-            sound: Sound::Drum(DrumKind::Kick),
+            sound: Sound::drum(DrumKind::Kick),
         });
         assert_eq!(m.render(0.001, sr), (0.0, 0.0));
     }

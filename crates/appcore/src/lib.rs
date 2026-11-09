@@ -8,6 +8,7 @@
 mod bundled;
 mod caches;
 mod calibrate;
+mod call;
 mod course;
 mod data;
 pub mod ear;
@@ -224,6 +225,8 @@ pub struct Core {
     input_since: Option<std::time::Instant>,
     speed: f64,
     looping: Option<(usize, usize)>,
+    /// Call and response (LH-LRN-19).
+    call: call::CallState,
     /// A note for the user from the last `open` (e.g. a five-string bass was chosen).
     notice: Option<String>,
     /// The setlist being played and the position in it (LH-BIB-04).
@@ -335,6 +338,7 @@ impl Core {
             input_since: None,
             speed: 1.0,
             looping: None,
+            call: call::CallState::default(),
         };
         // Measured latencies hold only for the devices they were measured on (LH-EIN-05).
         core.check_audio_path();
@@ -1365,10 +1369,11 @@ impl Core {
     /// running practice (densities change only between runs).
     fn rethin(&mut self) -> bool {
         let (density, _) = self.density();
+        let call = self.call_wanted();
         let Some(loaded) = self.loaded.as_mut() else {
             return false;
         };
-        let thinned = density.thin(&loaded.full);
+        let thinned = call::shape(&loaded.full, density, call);
         if thinned.notes == loaded.arrangement.notes {
             return false;
         }
@@ -1383,7 +1388,7 @@ impl Core {
         if !self.settings.adaptive || !matches!(self.settings.mode.as_str(), "song" | "workshop") {
             return None;
         }
-        if self.probe.is_some() {
+        if self.probe.is_some() || self.call_on() {
             return None;
         }
         let (density, lock) = self.density();
@@ -1823,6 +1828,10 @@ impl Core {
             UiEvent::PassComplete { hit_rate, .. } => Some(*hit_rate),
             _ => None,
         });
+        // Each pass or run of calls and answers is a try (LH-LRN-19).
+        if let Some(rate) = rate {
+            self.call_try(rate);
+        }
         if let Some(rate) = passed {
             let steps = self.chain_pass(rate);
             events.extend(steps);

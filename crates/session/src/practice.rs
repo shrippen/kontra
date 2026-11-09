@@ -462,15 +462,18 @@ impl<O: Output> Practice<O> {
         }
         self.schedule_drums(pass, from, to, origin, speed);
         self.expect_window(pass, from, to, origin, speed);
-        if !self.options.reference_tones {
+        // Kontra plays the calls (LH-LRN-19) with or without reference tones.
+        let reference = self.options.reference_tones;
+        let arrangement = self.session.arrangement();
+        if !reference && arrangement.calls.is_empty() {
             return;
         }
-        let arrangement = self.session.arrangement();
         let tones: Vec<(u64, f64, Sound)> = arrangement
             .notes
             .iter()
             .enumerate()
             .filter(|(_, n)| n.needs_attack())
+            .filter(|(_, n)| reference || arrangement.in_call(n.start_ticks))
             .filter_map(|(i, n)| {
                 let at = arrangement.tempo.seconds_at(n.start_ticks);
                 if at < from || at >= to {
@@ -566,8 +569,12 @@ impl<O: Output> Practice<O> {
                 Reaction::Wait => continue,
                 Reaction::Drop => {}
                 Reaction::Play => {
-                    self.output
-                        .schedule(origin + at / speed, Sound::Drum(hit.kind));
+                    let velocity = crate::call::drum_velocity(self.session.arrangement(), hit.tick);
+                    let sound = Sound::Drum {
+                        kind: hit.kind,
+                        velocity,
+                    };
+                    self.output.schedule(origin + at / speed, sound);
                 }
             }
             self.scheduled.insert((pass, key));
@@ -937,7 +944,7 @@ mod tests {
             .output()
             .sounds
             .iter()
-            .filter(|(_, s)| matches!(s, Sound::Drum(DrumKind::HiHat)))
+            .filter(|(_, s)| *s == Sound::drum(DrumKind::HiHat))
             .map(|(t, _)| *t)
             .collect();
         // Eighths at 120 BPM: 0.25 s apart, none twice.
@@ -991,12 +998,49 @@ mod tests {
             p.output()
                 .sounds
                 .iter()
-                .filter(|(t, s)| *s == Sound::Drum(kind) && *t >= start + 1.5 - 0.06)
+                .filter(|(t, s)| *s == Sound::drum(kind) && *t >= start + 1.5 - 0.06)
                 .filter(|(t, _)| *t < start + 2.0)
                 .count()
         };
         assert_eq!(in_last_beat(DrumKind::Snare), 4, "{:?}", p.output().sounds);
         assert_eq!(in_last_beat(DrumKind::HiHat), 0);
+    }
+
+    /// LH-LRN-19: Kontra plays the call itself, without reference tones, over softer drums.
+    #[test]
+    fn a_call_is_played_over_softer_drums() {
+        use kontra_model::{DrumHit, DrumKind};
+        let clock = Clock::new();
+        let mut a = arrangement();
+        a.calls = vec![(0, 8 * TICKS_PER_QUARTER)];
+        a.drums = vec![DrumHit {
+            tick: 0,
+            kind: DrumKind::Kick,
+        }];
+        let options = PracticeOptions {
+            metronome: false,
+            count_in_bars: 0,
+            ..PracticeOptions::default()
+        };
+        let mut p = Practice::new(
+            a,
+            Mode::Song,
+            ScoreSettings::default(),
+            options,
+            Recorder::default(),
+            clock.clone(),
+        );
+        p.play();
+        run(&mut p, &clock, 0.4);
+        let sounds = &p.output().sounds;
+        assert!(
+            sounds.iter().any(|(_, s)| matches!(s, Sound::Tone { .. })),
+            "{sounds:?}"
+        );
+        assert!(sounds.iter().any(|(_, s)| matches!(
+            s,
+            Sound::Drum { velocity, .. } if *velocity < 1.0
+        )));
     }
 
     #[test]

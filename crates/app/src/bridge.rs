@@ -132,6 +132,9 @@ pub mod qobject {
         #[qproperty(bool, adaptive)]
         /// Generated drums answer the bass in free play (LH-WIE-05).
         #[qproperty(bool, reacting_band, cxx_name = "reactingBand")]
+        /// Call and response on (LH-LRN-19), and the tab hidden until two failed tries.
+        #[qproperty(bool, call)]
+        #[qproperty(bool, call_hidden, cxx_name = "callHidden")]
         /// The practice page without its rare controls (LH-ANZ-11).
         #[qproperty(bool, simple_view, cxx_name = "simpleView")]
         #[qproperty(bool, calibrating)]
@@ -286,6 +289,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "changeReactingBand"]
         fn change_reacting_band(self: Pin<&mut Self>, on: bool);
+
+        #[qinvokable]
+        #[cxx_name = "changeCall"]
+        fn change_call(self: Pin<&mut Self>, on: bool);
 
         /// Hits per bar over the last runs (LH-FOR-06), as JSON.
         #[qinvokable]
@@ -972,6 +979,8 @@ pub struct ControllerRust {
     density_text: QString,
     adaptive: bool,
     reacting_band: bool,
+    call: bool,
+    call_hidden: bool,
     simple_view: bool,
     calibrating: bool,
     calibration_beat: i32,
@@ -1137,6 +1146,8 @@ impl Default for ControllerRust {
             density_text: QString::default(),
             adaptive: s.adaptive,
             reacting_band: s.reacting_band,
+            call: false,
+            call_hidden: false,
             simple_view: s.simple_view,
             calibrating: false,
             calibration_beat: NO_BEAT,
@@ -1343,6 +1354,7 @@ impl qobject::Controller {
         self.as_mut().refresh_density();
         self.as_mut().refresh_chain();
         self.as_mut().refresh_practice();
+        self.as_mut().refresh_call();
         self.as_mut().arrangement_loaded();
     }
 
@@ -1722,6 +1734,7 @@ impl qobject::Controller {
                     let passes = *self.as_ref().passes() + 1;
                     self.as_mut().set_passes(passes);
                     self.as_mut().set_pass_rate(hit_rate);
+                    self.as_mut().refresh_call();
                     self.as_mut().pass_complete(clean, hit_rate);
                 }
                 UiEvent::SpeedChanged(speed) => self.as_mut().set_speed(speed),
@@ -1732,6 +1745,7 @@ impl qobject::Controller {
                     self.as_mut().set_recent_json(q(&recent));
                     self.as_mut().set_summary_json(q(&summary_json));
                     self.as_mut().set_playing(false);
+                    self.as_mut().refresh_call();
                     self.as_mut().finished();
                 }
                 UiEvent::Level {

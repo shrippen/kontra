@@ -1063,5 +1063,8 @@
   "songmap.bar": "Takt {bar}: {percent} % in den letzten {runs} Durchläufen ({hits} von {judged} Noten)",
   "songmap.bar.one": "Takt {bar}: {percent} % im letzten Durchlauf ({hits} von {judged} Noten)",
   "songmap.none": "Takt {bar}: noch nicht gespielt",
-  "songmap.hint": "Höhe = Treffer je Takt in den letzten Durchläufen. Über Takte ziehen setzt die Schleife."
+  "songmap.hint": "Höhe = Treffer je Takt in den letzten Durchläufen. Über Takte ziehen setzt die Schleife.",
+  "call.title": "Ruf und Antwort",
+  "call.hint": "Kontra spielt zwei Takte Bass, leiser begleitet; du antwortest in den nächsten zwei mit demselben Motiv aus Akkordtönen. Die Tab erscheint nach zwei Fehlversuchen. Im Modus „Spielen“ ohne Bewertung.",
+  "call.listen": "Hör zu und antworte: Kontra spielt zwei Takte vor, du spielst sie nach. Die Tab kommt nach zwei Fehlversuchen."
 }

@@ -312,7 +312,13 @@ Rückmeldung und Lernen:
   veröffentlicht; Kontra nimmt die Kopie „Take Kante song-map (unreleased)“). Jeder Durchlauf speichert Treffer je
   Takt (`Run::bars`); die Karte zeigt je Takt die letzten 5 Durchläufe, die ihn spielten. Angehalten über der
   Werkstatt und in der Auswertung; Ziehen oder Umschalt+Pfeile und Eingabe setzen die Schleife (J-B3 ⚙).
-- [ ] L8 Ruf und Antwort (LH-LRN-19).
+- [x] L8 Ruf und Antwort (LH-LRN-19): Schalter auf der Übungsseite für Stücke mit Akkordsymbolen (ab vier Takten).
+  Je vier Takte: Kontra spielt zwei (Motiv aus den Akkordtönen in einer Quinte über dem Grundton, im Rhythmus der
+  eigenen Linie; Schlagzeug mit halber Stärke), der Spieler antwortet mit demselben Motiv. Rufe werden nie erwartet,
+  Anschläge darin nie gewertet (Mikrofon). Mit Bewertung in Durchlauf und Werkstatt, ohne im Modus „Spielen“. Die Tab
+  bleibt leer bis zwei Durchgänge (Schleife) oder Durchläufe unter 80 % lagen; gezählt wird je Stück, nicht je Ruf.
+  Offen: echte Begleitspuren werden während des Rufs nicht leiser (nur das erzeugte Schlagzeug); kein ⚙-Test der Journey
+  J-C12 über die App (Session-Tests `call_response.rs`, Kern-Test der Tab-Regel).
 - [x] L9 Reagierende Band (LH-WIE-05): Einstellung „Band reagiert“ (aus). Im Modus „Spielen“ oder einer offenen
   Übung über erzeugtes Schlagzeug: Kontra plant den letzten Schlag eines Takts erst 100 ms vorher; war der Schlag davor
   frei und davor gespielt, wird er ein Snare-Fill (höchstens alle 8 Takte). Nach einem Takt mit mindestens zwei

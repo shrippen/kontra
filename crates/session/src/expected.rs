@@ -96,6 +96,8 @@ pub fn expected_notes(arrangement: &Arrangement) -> Vec<ExpectedNote> {
         .iter()
         .enumerate()
         .filter(|(_, n)| n.needs_attack())
+        // Kontra plays the calls (LH-LRN-19).
+        .filter(|(_, n)| !arrangement.in_call(n.start_ticks))
         .collect();
     attacks.sort_by_key(|(index, n)| (n.start_ticks, n.pitch.0, *index));
     let mut out: Vec<ExpectedNote> = Vec::with_capacity(attacks.len());

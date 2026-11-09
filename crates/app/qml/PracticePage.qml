@@ -36,9 +36,10 @@ Kirigami.Page {
     // The notation view: the same notes as written for bass, rests, key signature.
     property var staff: JSON.parse(ctl.staffJson)
     property var states: ({})
-    // A blind probe (DIDAKTIK I1) shows bars and cursor only; the marks come back after it.
-    readonly property var shown: ctl.probing ? [] : notes
-    readonly property var shownStaff: ctl.probing ? [] : staff.notes
+    // A blind probe (DIDAKTIK I1) shows bars and cursor only; the marks come back after it. So
+    // does a call and response until two failed tries (LH-LRN-19).
+    readonly property var shown: ctl.probing || ctl.callHidden ? [] : notes
+    readonly property var shownStaff: ctl.probing || ctl.callHidden ? [] : staff.notes
     // Technique results by note (LH-BEW-06), kept like `states` for views that load later.
     property var techniques: ({})
     // Play mode marks quietly or not at all (setting); the other modes mark fully.
@@ -899,6 +900,13 @@ Kirigami.Page {
                     onClicked: ctl.declineDensity()
                 }
             }
+        }
+
+        // Call and response (LH-LRN-19): needs chords and four bars.
+        CallResponse {
+            Layout.fillWidth: true
+            possible: page.bars.length >= 4 && page.bars.some(function(b) { return b.chord })
+            visible: !page.presenting && !page.lean && !ctl.probing
         }
 
         // Blind probe running: why the notes are gone (P1 would think they broke).

@@ -562,3 +562,31 @@ fn exercise_titles_follow_the_language() {
     }
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// LH-LRN-19: call and response on a groove with chords; the tab shows after two failed
+/// tries, not after one or a good one.
+#[test]
+fn call_and_response_shows_the_tab_after_two_failed_tries() {
+    let dir = temp_dir("call");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let spec = Core::exercise_spec("groove", "145", "quarters", 9, 80.0, "").unwrap();
+    let path = core.generate_exercise(&spec).unwrap();
+    core.open(&path).unwrap();
+    assert!(!core.call_hidden());
+    assert!(core.set_call(true));
+    assert!(core.call_on());
+    assert!(!core.arrangement().unwrap().calls.is_empty());
+    assert!(core.call_hidden());
+
+    core.call_try(0.9);
+    core.call_try(0.5);
+    assert!(core.call_hidden(), "one failed try");
+    core.call_try(0.6);
+    assert!(!core.call_hidden(), "two failed tries");
+
+    // Off: the piece as written again.
+    assert!(core.set_call(false));
+    assert!(!core.call_on());
+    assert!(core.arrangement().unwrap().calls.is_empty());
+    let _ = std::fs::remove_dir_all(dir);
+}

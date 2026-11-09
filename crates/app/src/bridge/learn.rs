@@ -6,6 +6,23 @@ use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
 
 impl qobject::Controller {
+    /// Call and response on or off (LH-LRN-19): the notes change, a run stops.
+    pub(super) fn change_call(mut self: Pin<&mut Self>, on: bool) {
+        if self.as_mut().core().set_call(on) {
+            self.as_mut().set_playing(false);
+            self.as_mut().refresh_arrangement();
+        }
+        self.as_mut().refresh_call();
+    }
+
+    /// Whether calls play and the tab is hidden (until two failed tries).
+    pub(super) fn refresh_call(mut self: Pin<&mut Self>) {
+        let on = self.as_ref().rust().core.call_on();
+        let hidden = self.as_ref().rust().core.call_hidden();
+        self.as_mut().set_call(on);
+        self.as_mut().set_call_hidden(hidden);
+    }
+
     pub(super) fn learn_json(&self) -> QString {
         q(&self.rust().core.learn_json())
     }
