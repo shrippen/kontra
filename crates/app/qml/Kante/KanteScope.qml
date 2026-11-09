@@ -209,7 +209,11 @@ Item {
         if (!applied) {
             return
         }
-        pending.push(item)
+        // Once per item: a staff of hundreds of notes queued itself once per note, and the sweep
+        // looked at its children that often (Kontra's notation view stood still for 2.7 s).
+        if (pending.indexOf(item) < 0) {
+            pending.push(item)
+        }
         sweepLater.start()
     }
     // Deferred by a timer of the scope's own, not Qt.callLater: a delegate torn down right

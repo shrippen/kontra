@@ -219,7 +219,8 @@ Kirigami.Page {
     readonly property var keys: JSON.parse(ctl.keyRangeJson)
     // Backing track without bass (LH-BIB-09): {available, state, progress, text, installText}.
     readonly property var stems: ctl.stemsJson !== "" ? JSON.parse(ctl.stemsJson) : ({ state: "none" })
-    readonly property int nextIndex: ctl.holdingIndex >= 0 ? ctl.holdingIndex : lane.nextIndex
+    // From the lane's notes, not its position: a hidden lane stands still.
+    readonly property int nextIndex: ctl.holdingIndex >= 0 ? ctl.holdingIndex : lane.firstAtOrAfter(ctl.position)
     readonly property var nextNote: nextIndex >= 0 && nextIndex < shown.length ? shown[nextIndex] : null
     // Hand position (LH-ANZ-05) and the next change of it, shown at least one bar ahead.
     readonly property int handPosition: nextNote ? nextNote.position : 0
@@ -971,7 +972,8 @@ Kirigami.Page {
                 marks: page.marks
                 onNotesChanged: Qt.callLater(function() { page.catchUp(lane) })
                 bars: page.times
-                position: ctl.position
+                // Hidden views stand still (each moving view redraws every tick).
+                position: visible ? ctl.position : 0
                 // Wide enough that eighths at 160 BPM do not overlap: about two note heads per beat.
                 pixelsPerSecond: Math.max(KanteStyle.unit(320), height * 1.6) * Math.max(0.5, ctl.speed)
                 accessibleName: texts.t("lane.name")
@@ -1001,7 +1003,7 @@ Kirigami.Page {
                 marks: page.marks
                 onNotesChanged: Qt.callLater(function() { page.catchUp(tabStaff) })
                 bars: page.bars
-                position: ctl.position
+                position: visible ? ctl.position : 0
                 loopStart: ctl.loopStart
                 loopEnd: ctl.loopEnd
             }
@@ -1018,7 +1020,7 @@ Kirigami.Page {
                 marks: page.marks
                 onNotesChanged: Qt.callLater(function() { page.catchUp(bassStaff) })
                 bars: page.bars
-                position: ctl.position
+                position: visible ? ctl.position : 0
                 loopStart: ctl.loopStart
                 loopEnd: ctl.loopEnd
             }
@@ -1048,7 +1050,7 @@ Kirigami.Page {
                     marks: page.marks
                     onNotesChanged: Qt.callLater(function() { page.catchUp(combinedBass) })
                     bars: page.bars
-                    position: ctl.position
+                    position: combined.visible ? ctl.position : 0
                     loopStart: ctl.loopStart
                     loopEnd: ctl.loopEnd
                 }
@@ -1068,7 +1070,7 @@ Kirigami.Page {
                     marks: page.marks
                     onNotesChanged: Qt.callLater(function() { page.catchUp(combinedTab) })
                     bars: page.bars
-                    position: ctl.position
+                    position: combined.visible ? ctl.position : 0
                     loopStart: ctl.loopStart
                     loopEnd: ctl.loopEnd
                 }
@@ -1090,7 +1092,7 @@ Kirigami.Page {
                     marks: page.marks
                     onNotesChanged: Qt.callLater(function() { page.catchUp(keyLane) })
                     bars: page.bars
-                    position: ctl.position
+                    position: keysView.visible ? ctl.position : 0
                     pixelsPerSecond: Math.max(KanteStyle.unit(240), height * 1.2) * Math.max(0.5, ctl.speed)
                     accessibleName: texts.t("keyboard.lane")
                     loopStart: ctl.loopStart

@@ -29,3 +29,7 @@ path = "../../tests/physical_design.rs"
 [[test]]
 name = "glyphs"
 path = "../../tests/glyphs.rs"
+
+[[test]]
+name = "hidden_views"
+path = "../../tests/hidden_views.rs"
