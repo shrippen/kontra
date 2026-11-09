@@ -68,6 +68,13 @@ FocusScope {
     readonly property real stripWidth: count > 0 ? count * barWidth + (count - 1) * spacing : 0
     readonly property int lowIndex: Math.min(selectionFrom, selectionTo)
     readonly property int highIndex: Math.max(selectionFrom, selectionTo)
+    readonly property bool mirrored: LayoutMirroring.enabled
+
+    // A shorter piece: focus and anchor stay on bars that exist.
+    onCountChanged: {
+        currentIndex = Math.max(0, Math.min(currentIndex, count - 1))
+        anchorIndex = -1
+    }
 
     implicitWidth: stripWidth
     implicitHeight: barHeight + labelHeight + (flick.contentWidth > flick.width ? KanteStyle.unit(8) : 0)
@@ -106,8 +113,14 @@ FocusScope {
     function selected(i) {
         return selectionFrom >= 0 && selectionTo >= 0 && i >= lowIndex && i <= highIndex
     }
+    /** Left edge of bar i; mirrored, the first bar stands on the right. */
+    function barX(i) {
+        const left = i * (barWidth + spacing)
+        return mirrored ? stripWidth - barWidth - left : left
+    }
     function indexAt(x) {
-        const i = Math.floor((x + spacing / 2) / (barWidth + spacing))
+        const along = mirrored ? stripWidth - x : x
+        const i = Math.floor((along + spacing / 2) / (barWidth + spacing))
         return Math.max(0, Math.min(count - 1, i))
     }
     function choose(from, to) {
@@ -130,7 +143,7 @@ FocusScope {
         keepInView()
     }
     function keepInView() {
-        const left = currentIndex * (barWidth + spacing)
+        const left = barX(currentIndex)
         if (left < flick.contentX) {
             flick.contentX = left
         } else if (left + barWidth > flick.contentX + flick.width) {
@@ -144,7 +157,7 @@ FocusScope {
         }
         const extend = (event.modifiers & Qt.ShiftModifier) !== 0
         if (event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
-            const step = (event.key === Qt.Key_Right) !== (strip.LayoutMirroring.enabled) ? 1 : -1
+            const step = (event.key === Qt.Key_Right) !== strip.mirrored ? 1 : -1
             moveTo(currentIndex + step, extend)
         } else if (event.key === Qt.Key_Home) {
             moveTo(0, extend)
@@ -197,7 +210,7 @@ FocusScope {
                 readonly property bool empty: isNaN(value)
                 readonly property bool current: strip.currentIndex === index
                 objectName: "kanteSongMapBar"
-                x: index * (strip.barWidth + strip.spacing)
+                x: strip.barX(index)
                 width: strip.barWidth
                 height: strip.barHeight + strip.labelHeight
 
@@ -307,6 +320,8 @@ FocusScope {
                 if (strip.pressIndex < 0) {
                     return
                 }
+                // Enter afterwards confirms the dragged range, not just the last bar.
+                strip.anchorIndex = strip.pressIndex
                 strip.pressIndex = -1
                 strip.choose(strip.selectionFrom, strip.selectionTo)
             }
