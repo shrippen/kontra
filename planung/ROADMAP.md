@@ -369,7 +369,13 @@ Mehrere Töne (offen für Gitarre und Tasten):
 - [ ] M4 Machbarkeitsstudie NNLS mit Vorlagen je Saite, Log-Frequenz (nach 1.0).
 
 Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in Worten je PR):
-- [ ] W1 `scripts/qactl.py` über AT-SPI; Socket nur im Cargo-Feature `qa`.
+- [x] W1 `scripts/qactl.py` über AT-SPI; Socket nur im Cargo-Feature `qa`: reines AT-SPI, kein Socket, kein
+  Feature. `tree`, `find`, `press`, `text`, `wait`, `layout` nach Rolle und Name. `scripts/qa-session.sh --a11y`
+  startet dafür Session-Bus, Accessibility-Bus und AT-SPI-Registry selbst (nicht über at-spi-bus-launcher: der
+  startet die Registry bei dbus-broker über systemd, das die saubere Umgebung nicht erreicht) und gibt sie Kontra
+  und dem `--run`-Befehl; `--run` läuft jetzt in derselben sauberen Umgebung. Probe (09.11.): Bibliothek →
+  `press --role 'list item' Einstellungen` → `wait --role heading Einstellungen` → `find --contains Ausgang`
+  fand `combo box 'Ausgang'`.
 - [x] W2 `scripts/qa-session.sh` für jeden isolierten Testlauf.
 - [ ] W3 Layout-Prüfung je Seite bei P4- und P7-Auflösung (LH-ANZ-09).
 - [x] W4 Tabelle Regel → Prüfung, Git-Hooks, CI-Prüfung der Commit-Nachrichten: `planung/REGELN.md` (maschinell
