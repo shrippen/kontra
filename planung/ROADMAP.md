@@ -379,7 +379,15 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
   Nachrichten jedes Pushs (ohne Merges). Stichprobe 09.11.: 6 von 399 Commits verletzen Regel 3 oder 6
   (Body-Zeilen bis 298 Zeichen, Betreff „agent.md: …“ klein).
 - [x] W5 Test für Crate-Kanten und Dateigröße mit Abbauliste (`tests/physical_design.rs`, 1200 Zeilen je Datei; Abbauliste: appcore/lib.rs, bridge.rs, exercise.rs, PracticePage.qml, tracker.rs). 30.10.: appcore/lib.rs 8191 → 2885 Zeilen (Tests nach `src/tests/`, Bibliothek, Auswertung, Übungen, Fortschritt, Notation als Module), bridge.rs 2898 → 1955 (Invokables in `bridge/`).
-- [ ] W6 `scripts/release.sh`, metainfo `<releases>`/`<screenshots>`, AppStream- und Flatpak-Lint.
+- [x] W6 `scripts/release.sh`, metainfo `<releases>`/`<screenshots>`, AppStream- und Flatpak-Lint:
+  `scripts/release.sh X.Y.Z [--dry-run]` prüft main, sauberen Baum, freien Tag, Version in `Cargo.toml` und
+  `Cargo.lock`, Abschnitt in `CHANGELOG.md` (Englisch und Deutsch, `scripts/release-notes.sh` aus Kante), neuesten
+  `<release>` der Metainfo mit gleichem Datum und Eintrag in `#changes` und Fußzeile der Landing Page; dann setzt
+  es den Tag mit den Notes und gibt die Befehle zum Veröffentlichen nur aus. Test `scripts/release.test.sh`
+  (CI). Metainfo mit fünf Screenshots (Adressen der Landing Page, noch nicht live; deshalb `--no-net`) und leerem
+  `<releases>`. `scripts/lint-packaging.sh`: `appstreamcli`, `desktop-file-validate` (CI), `flatpak-builder-lint`
+  im Flatpak-Job (meldet, blockiert nicht). Offen: Ergebnis des ersten flatpak-builder-lint-Laufs (lokal ist
+  `org.flatpak.Builder` defekt installiert).
 - [x] W7 `cargo deny` mit `[advisories]`, eigener Job und wöchentlich (`advisories.yml`); rustls auf 0.23.46, RUSTSEC-2025-0044 (minimp3) mit Begründung ignoriert.
 - [x] W8 JSON-Schemas für Pakete und Kurse aus den serde-Strukturen: `kontra-cli schemas <dir>` schreibt
   `schema/package-manifest.schema.json`, `course-manifest.schema.json` und `course.schema.json` (schemars, nur mit

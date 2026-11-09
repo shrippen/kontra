@@ -64,7 +64,7 @@ jobs:
       - name: System libraries
         run: |
           SUDO=$(command -v sudo || true)
-          $SUDO apt-get update -qq && $SUDO apt-get install -y -qq libasound2-dev libpipewire-0.3-dev libclang-dev pkg-config curl build-essential
+          $SUDO apt-get update -qq && $SUDO apt-get install -y -qq libasound2-dev libpipewire-0.3-dev libclang-dev pkg-config curl build-essential appstream desktop-file-utils
       - name: Rust
         run: rustup toolchain install stable --profile minimal -c rustfmt,clippy && rustup default stable
       - uses: actions/cache@v4
@@ -100,6 +100,13 @@ jobs:
           rm -rf /tmp/schema
           cargo run -q -p kontra-cli --release -- schemas /tmp/schema > /dev/null
           diff -r /tmp/schema schema
+      - name: Release tooling and packaging lint (W6)
+        run: |
+          scripts/release-notes.sh --check
+          scripts/release.test.sh
+          scripts/lint-packaging.sh
+        env:
+          TMPDIR: ${{ runner.temp }}
       - name: Corpus quality (LH-NF-02/03)
         run: cargo run -q -p kontra-cli --release -- korpus check
       # Real recordings as a regression guard (testdata/korpus/QUELLEN.md): IDMT-SMT-Bass-Single-Track,
