@@ -165,8 +165,10 @@ impl qobject::Controller {
         q(&self.rust().core.progress_json())
     }
 
+    /// Start page; the streak counts days in local time (LH-FOR-05).
     pub(super) fn home_json(&self) -> QString {
-        q(&self.rust().core.home_json())
+        let offset_s = cxx_qt_lib::QDateTime::current_date_time().offset_from_utc();
+        q(&self.rust().core.home_json(offset_s))
     }
 
     pub(super) fn exercises_json(&self) -> QString {

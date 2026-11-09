@@ -262,7 +262,7 @@ fn regenerated_exercise_keeps_its_progress() {
     // Opening the new file must not lose it.
     core.open(&path).unwrap();
     assert!(mastered(&core), "progress lost after regeneration");
-    let home: serde_json::Value = serde_json::from_str(&core.home_json()).unwrap();
+    let home: serde_json::Value = serde_json::from_str(&core.home_json(0)).unwrap();
     assert_ne!(home["next"]["path"], path.to_string_lossy().as_ref());
     assert!(
         core.progress_store().load_id(&old_id).is_none(),
@@ -322,7 +322,7 @@ fn swapped_levels_keep_progress_and_setlists() {
         [groove.clone(), walking.clone()]
     );
     assert!(core.library.entry(&groove).is_some());
-    let home: serde_json::Value = serde_json::from_str(&core.home_json()).unwrap();
+    let home: serde_json::Value = serde_json::from_str(&core.home_json(0)).unwrap();
     assert_ne!(home["next"]["path"], groove.to_string_lossy().as_ref());
     let _ = std::fs::remove_dir_all(dir);
 }

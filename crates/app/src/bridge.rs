@@ -132,6 +132,7 @@ pub mod qobject {
         #[qproperty(bool, adaptive)]
         /// The practice page without its rare controls (LH-ANZ-11).
         #[qproperty(bool, simple_view, cxx_name = "simpleView")]
+        #[qproperty(bool, streak)]
         #[qproperty(bool, calibrating)]
         /// The calibration's click: −4..−1 count-in, 0..7 measured, −99 none.
         #[qproperty(i32, calibration_beat, cxx_name = "calibrationBeat")]
@@ -285,6 +286,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "changeSimpleView"]
         fn change_simple_view(self: Pin<&mut Self>, on: bool);
+
+        #[qinvokable]
+        #[cxx_name = "changeStreak"]
+        fn change_streak(self: Pin<&mut Self>, on: bool);
 
         /// What the loaded bundled exercise trains ("" for other pieces).
         #[qinvokable]
@@ -961,6 +966,7 @@ pub struct ControllerRust {
     density_text: QString,
     adaptive: bool,
     simple_view: bool,
+    streak: bool,
     calibrating: bool,
     calibration_beat: i32,
     calibration_text: QString,
@@ -1125,6 +1131,7 @@ impl Default for ControllerRust {
             density_text: QString::default(),
             adaptive: s.adaptive,
             simple_view: s.simple_view,
+            streak: s.streak,
             calibrating: false,
             calibration_beat: NO_BEAT,
             calibration_text: QString::default(),
@@ -1896,6 +1903,7 @@ impl qobject::Controller {
         self.as_mut().set_prompt_volume(s.prompt_volume);
         self.as_mut().set_adaptive(s.adaptive);
         self.as_mut().set_simple_view(s.simple_view);
+        self.as_mut().set_streak(s.streak);
         self.as_mut().set_tuning(q(&s.tuning));
         self.as_mut().set_a4_hz(s.a4_hz);
         self.as_mut().set_window_ms(s.window_ms);

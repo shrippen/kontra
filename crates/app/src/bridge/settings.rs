@@ -7,6 +7,12 @@ use cxx_qt_lib::QString;
 use kontra_appcore::{Bass, InstrumentChoice};
 
 impl qobject::Controller {
+    /// The practice streak on the start page on or off (LH-FOR-05).
+    pub(super) fn change_streak(mut self: Pin<&mut Self>, on: bool) {
+        self.as_mut().core().update_settings(|s| s.streak = on);
+        self.as_mut().set_streak(on);
+    }
+
     pub(super) fn change_connection(mut self: Pin<&mut Self>, key: &QString) {
         let kind = match key.to_string().as_str() {
             "laptop" => kontra_appcore::InputKind::LaptopJack,

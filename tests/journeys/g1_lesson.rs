@@ -89,7 +89,7 @@ fn first_lesson_tries_reads_and_moves_on() {
     let core = profile.core(None);
     let course = json(&core.learn_json());
     assert_eq!(course["chapters"][0]["units"][0]["done"], true);
-    let home = json(&core.home_json());
+    let home = json(&core.home_json(0));
     assert_eq!(home["lesson"], course["next"]);
     assert_ne!(home["lesson"]["id"], FIRST);
 }

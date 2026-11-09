@@ -186,9 +186,14 @@ Erwartet: ein erkannter Slap/Pop steht an der Note, ein normal angeschlagener is
 2. Nach dem Abschnitt einfach weiterspielen.
 3. Am nächsten Tag: die Startseite zeigt „Ohne Hilfe“ mit den Takten; ein Klick startet die Probe.
 4. Lea: dasselbe mit einer Übung aus Stufe 1, bei 200 % Schrift.
+5. Jens: einen Takt zweimal mit Fehlern üben (LH-LRN-16); am nächsten Tag „Stellen wiederholen“, ohne Noten sauber im
+   Zieltempo; zwei Tage später wieder auf die Startseite.
 Erwartet: Während der Probe keine Noten, nur Takte und Cursor, ein Hinweis sagt warum; nach einem Durchgang Schluss,
 Weiterspielen zählt nicht; die Auswertung zeigt „Werkstatt, mit Noten“ und „Ohne Hilfe“ nebeneinander (Zahl und Satz,
 nicht nur Farbe); danach ist die Werkstatt wieder normal, die Startseite bietet dieselben Takte nicht noch einmal an.
+Der zweimal schwere Takt kommt nach einer Nacht als „Stellen wiederholen“ (höchstens 3, keine leere Karte, keine Zahl
+offener Stellen); bestanden bleibt er zwei Tage weg (Abstand verdoppelt), auf „Wiederholen“ steht er
+nicht zugleich.
 
 **J-C8 Erst der Puls** ⚙ · Personas: P1 Lea, P5 Sam · Phase 2 · LH-LRN-06, LH-LRN-01
 1. Lea: Übungen, Stufe 1, „Groove Viertel auf einem Akkord in E (70 BPM), nur Timing“; das Ziel lesen.

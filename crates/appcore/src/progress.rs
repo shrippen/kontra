@@ -4,7 +4,7 @@ use crate::{
     same_range, same_section, unix_now, Core, RecentEntry, SectionBars, PROBE_MODE,
     SECONDS_PER_DAY, WORKSHOP_MODE,
 };
-use kontra_session::{run_from, LoopRange, ProgressStore, Run};
+use kontra_session::{run_from, spacing, streak_days, LoopRange, PassageEvent, ProgressStore, Run};
 use serde_json::json;
 use std::path::Path;
 
@@ -34,12 +34,18 @@ impl Core {
     /// the next lesson (LH-LRN-07) and the practice of the last seven days.
     /// `{"last": {path, title, artist, best, practiceMin} | null,
     ///   "next": {title, path, best, level} | null, "lesson": {id, title} | null, "review": due,
-    ///   "week": {minutes, runs}}`
-    pub fn home_json(&self) -> String {
-        self.home_json_at(unix_now())
+    ///   "repeat": [{path, title, bar}], "streak": days, "week": {minutes, runs}}`.
+    /// `utc_offset_s`: the local time zone, for the days of the streak.
+    pub fn home_json(&self, utc_offset_s: i32) -> String {
+        self.home_in(unix_now(), utc_offset_s)
     }
 
+    #[cfg(test)]
     pub(crate) fn home_json_at(&self, now: u64) -> String {
+        self.home_in(now, 0)
+    }
+
+    pub(crate) fn home_in(&self, now: u64, utc_offset_s: i32) -> String {
         let store = self.progress_store();
         let last = self
             .library
@@ -67,10 +73,13 @@ impl Core {
             .filter(|r| r.finished_unix > since)
             .collect();
         let minutes = week.iter().map(|r| r.practice_s).sum::<f64>() / 60.0;
+        let repeat = self.due_passages(&store, now);
         json!({
             "last": last,
             "next": next,
-            "spots": self.hard_spots(&store, now),
+            "spots": self.hard_spots(&store, now, &repeat),
+            "repeat": repeat,
+            "streak": self.streak(&store, now, utc_offset_s),
             "probe": self.probe_offer(&store, now),
             "lesson": self.next_lesson(),
             "review": self.review_count(now),
@@ -86,7 +95,13 @@ impl Core {
     /// ```text
     /// now − 3 days ─────────── runs that count ─────────── now − 8 h ── today's runs ── now
     /// ```
-    fn hard_spots(&self, store: &ProgressStore, now: u64) -> Option<serde_json::Value> {
+    /// Bars already on the "repeat" card (`due_passages`) stay off this one.
+    fn hard_spots(
+        &self,
+        store: &ProgressStore,
+        now: u64,
+        repeat: &[serde_json::Value],
+    ) -> Option<serde_json::Value> {
         let from = now.saturating_sub(SPOT_DAYS * SECONDS_PER_DAY);
         let until = now.saturating_sub(SPOT_REST_S);
         let counts = |r: &Run| r.finished_unix > from && r.finished_unix <= until;
@@ -123,12 +138,103 @@ impl Core {
             }
         }
         bars.sort_by_key(|(_, n, last)| std::cmp::Reverse((*n, *last)));
-        let picked: Vec<u32> = bars.iter().take(SPOTS).map(|(b, _, _)| *b).collect();
+        let repeated = |bar: u32| {
+            repeat
+                .iter()
+                .any(|r| r["path"] == json!(entry.path) && r["bar"] == bar)
+        };
+        let picked: Vec<u32> = bars
+            .iter()
+            .map(|(b, _, _)| *b)
+            .filter(|b| !repeated(*b))
+            .take(SPOTS)
+            .collect();
+        if picked.is_empty() {
+            return None;
+        }
         Some(json!({
             "path": entry.path,
             "title": self.library_title(entry),
             "bars": picked,
         }))
+    }
+
+    /// "Repeat" (LH-LRN-16): bars twice among the hardest come back when their interval is
+    /// over (`kontra_session::spacing`), the longest waiting first, at most `REPEAT_MAX`.
+    /// A pass is a run without help over a section with the bar, at the target tempo.
+    fn due_passages(&self, store: &ProgressStore, now: u64) -> Vec<serde_json::Value> {
+        let mut due: Vec<(u64, serde_json::Value)> = Vec::new();
+        for progress in store.all() {
+            let Some(entry) = self
+                .library
+                .recent
+                .iter()
+                .find(|e| e.song_id == progress.song_id && e.path.exists())
+            else {
+                continue;
+            };
+            let target = entry.target_speed.unwrap_or(1.0);
+
+            // Per bar its history: among the hardest, or played in a probe.
+            let mut events: std::collections::BTreeMap<u32, Vec<PassageEvent>> =
+                std::collections::BTreeMap::new();
+            for run in &progress.runs {
+                let unix = run.finished_unix;
+                for bar in &run.hardest_bars {
+                    events
+                        .entry(*bar)
+                        .or_default()
+                        .push(PassageEvent::Hardest { unix });
+                }
+                if run.mode != PROBE_MODE {
+                    continue;
+                }
+                let Some(bars) = run.section.and_then(|(start_s, end_s)| {
+                    entry
+                        .sections
+                        .iter()
+                        .find(|b| same_section(b, start_s, end_s))
+                }) else {
+                    continue;
+                };
+                let passed = run.hit_rate >= PASS_HIT_RATE && run.speed >= target - SPEED_EPS;
+                for bar in bars.from_bar..=bars.to_bar {
+                    if let Some(list) = events.get_mut(&bar) {
+                        list.push(PassageEvent::Probe { unix, passed });
+                    }
+                }
+            }
+
+            for (bar, list) in events {
+                let Some(s) = spacing(&list).filter(|s| s.due_unix <= now) else {
+                    continue;
+                };
+                let card =
+                    json!({ "path": entry.path, "title": self.library_title(entry), "bar": bar });
+                due.push((s.due_unix, card));
+            }
+        }
+        due.sort_by_key(|(unix, _)| *unix);
+        due.into_iter().take(REPEAT_MAX).map(|(_, c)| c).collect()
+    }
+
+    /// Practice days in a row (LH-FOR-05), 0 when switched off; days in local time.
+    fn streak(&self, store: &ProgressStore, now: u64, utc_offset_s: i32) -> u32 {
+        if !self.settings.streak {
+            return 0;
+        }
+        let day = |unix: u64| {
+            i64::try_from(unix)
+                .unwrap_or(i64::MAX)
+                .saturating_add(i64::from(utc_offset_s))
+                .div_euclid(SECONDS_PER_DAY as i64)
+        };
+        let days: Vec<i64> = store
+            .all()
+            .iter()
+            .flat_map(|p| p.runs.iter().map(|r| day(r.finished_unix)))
+            .collect();
+        streak_days(&days, day(now))
     }
 
     /// "Check without help" (DIDAKTIK I1): the section practised last in the workshop in the
@@ -439,3 +545,12 @@ const SPOT_REST_S: u64 = 8 * 60 * 60;
 
 /// Bars on the card.
 const SPOTS: usize = 2;
+
+/// Passages on the "repeat" card (LH-LRN-16).
+const REPEAT_MAX: usize = 3;
+
+/// A probe passes a passage from this hit rate on (LH-LRN-16).
+const PASS_HIT_RATE: f64 = 0.8;
+
+/// Speeds are stored in 5 % steps; float noise must not fail a pass at the target tempo.
+const SPEED_EPS: f64 = 1e-6;

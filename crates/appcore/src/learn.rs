@@ -846,7 +846,7 @@ mod tests {
         let course = parse(&core.learn_json());
         assert_eq!(course["chapters"][0]["done"], 1);
         assert_ne!(course["next"]["id"], first.as_str());
-        assert_eq!(parse(&core.home_json())["lesson"], course["next"]);
+        assert_eq!(parse(&core.home_json(0))["lesson"], course["next"]);
         let _ = std::fs::remove_dir_all(dir);
     }
 

@@ -291,8 +291,12 @@ Rückmeldung und Lernen:
   nicht, wenn das gewählte Timing-Ziel die Neigung deckt (laid-back).
 - [ ] A3 Improvisation bewerten (LH-BEW-13).
 - [ ] A4 Adaptive Dichte über Abschnitts-Anteile (LH-MOD-06).
-- [ ] L1 Stellen wiederholen (LH-LRN-16).
-- [ ] L2 Übungsserie, standardmäßig aus (LH-FOR-05).
+- [x] L1 Stellen wiederholen (LH-LRN-16): Takte zweimal unter den schwierigsten kommen nach 1, 2, 4 … 64 Tagen
+  (`kontra_session::spacing`, ein „Tag“ endet nach einer Nacht, 8 h); bestanden heißt Probe ohne Hilfe über die Takte
+  mit ≥ 80 % im Zieltempo. Karte „Stellen wiederholen“ (höchstens 3) startet die Probe; „Wiederholen“ (Runde 11) lässt
+  diese Takte weg (J-C6 ⚙).
+- [x] L2 Übungsserie, standardmäßig aus (LH-FOR-05): Einstellung „Übungsserie zeigen“; zählt Tage mit gewertetem
+  Lauf in Ortszeit, jede Lücke von einem Tag wird verziehen; ab 2 Tagen eine leise Zeile unter „Diese Woche“.
 - [ ] L3 Übungsleiter je Lektion (LH-LRN-17).
 - [x] L4 Griffbrett-Quiz gewichtet (LH-LRN-18). Teil 1 (`fret-quiz`): „Töne finden“ zieht Plätze nach Gewicht
   (verfehlt und lange nicht geübt öfter), Statistik je Saite und Bund in `quiz.json`, Bünde 0–4, 0–7, 0–12 oder eigene,
