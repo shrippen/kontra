@@ -1075,6 +1075,10 @@ impl Default for ControllerRust {
             laptop_jack: args.laptop_jack,
         };
         let mut core = Core::new(&data_dir(), qa);
+        // Devices stay open while Kontra is open (LH-EIN-18); a screenshot run holds none.
+        if args.screenshot.is_none() {
+            core.keep_devices_open();
+        }
         if let Some(answer) = &args.songsterr_answer {
             core.fake_song_search(answer);
         }

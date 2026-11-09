@@ -26,6 +26,7 @@ mod learning;
 mod live;
 mod loopback;
 mod matcher;
+mod monitor;
 mod pocket;
 mod practice;
 mod progress;
@@ -68,6 +69,7 @@ pub use live::{
 };
 pub use loopback::{LiveLoopback, LoopbackResult};
 pub use matcher::{NoteResult, Outcome};
+pub use monitor::LiveMonitor;
 pub use pocket::{Pocket, PocketVerdict};
 pub use practice::{Practice, PracticeEvent, PracticeOptions};
 pub use progress::{run_from, ProgressError, ProgressStore, Run, SongProgress};

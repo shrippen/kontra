@@ -854,6 +854,8 @@
   "summary.note.technique": "{technique}: {result}",
   "stems.error.start": "Demucs ließ sich nicht starten.",
   "nav.home": "Start",
+  "nav.monitor": "Bass hören",
+  "nav.monitor.hint": "Spielt den Bass über Kontra auf beiden Seiten, mit Begrenzer und den Effekten aus dem Mixer. Den Direktmonitor am Interface dann ausschalten, sonst klingt er doppelt.",
   "home.title": "Start",
   "home.setup.tier": "Einrichtung",
   "home.setup.title": "Kontra kennt deinen Bass noch nicht",

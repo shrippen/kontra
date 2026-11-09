@@ -66,16 +66,17 @@ Erwartet: nach 5 „20 ms“ und „mit Kabel gemessen“; nach 6 bleibt die Lat
 1. MIDI-Keyboard anstecken, Kontra starten, Einrichtung bzw. Einstellungen → Instrument „Bass über MIDI“ (P5). Danach Instrument „Kontrabass“ mit USB-Mikrofon (P6).
 Erwartet: Das Instrument ist eine eigene Wahl (E-Bass, Kontrabass, Bass über MIDI), unabhängig vom Anschluss gespeichert. „Bass über MIDI“ setzt den Anschluss „MIDI-Instrument“, der das erkannte Keyboard nennt (ohne Keyboard: „gerade ist keins angeschlossen“); Saiten, Stimmung, Bundlos und Kammerton sind ausgeblendet. „Kontrabass“ schlägt das Mikrofon vor (Tonabnehmer über das Interface bleibt wählbar), bietet 4 oder 5 Saiten, kein „Bundlos“. Kein Absturz, keine leere Liste, kein „Gerät defekt“.
 
-**J-A5 Interface neben anderem Standard** · Personas: P2 Jens, P3 Mira · Phase 1 · LH-EIN-02, LH-NF-01
+**J-A5 Interface neben anderem Standard** · Personas: P2 Jens, P3 Mira · Phase 1 · LH-EIN-02, -18, LH-NF-01
 1. Systemstandard für Ein- und Ausgabe ist die interne Karte (Studiomonitore), das Interface hängt am USB.
 2. Einstellungen → Eingang: Liste ansehen, Interface wählen; Kontra neu starten.
 3. `kontra-cli devices`; ohne PipeWire (`KONTRA_AUDIO_HOST=alsa`) dasselbe.
 4. Interface ohne PipeWire-Eingang (Zustand nach „device busy“: Karte in `/proc/asound/cards`, kein Quellknoten).
+5. Direktmonitor am Interface aus, in der Seitenleiste „Bass hören“ an, fünf Minuten nichts tun, dann spielen; Stimmgerät öffnen und schließen, wieder spielen.
 Erwartet: Das Interface steht oben mit seinem Namen („Scarlett Solo USB Analoges Stereo“), ist bei „Automatisch“
 vorgewählt und bleibt nach dem Neustart gewählt; keine Monitore („Monitor of …“), keine Streams anderer Programme in der
 Eingangsliste; Block 128 Frames (`kontra-cli check --steps loopback`). Mit ALSA gilt die alte Liste weiter. In
 Schritt 4 bleibt das Interface wählbar und vorgewählt (über ALSA, in `devices` markiert); beim Start des Eingangs
-nennt Kontra die Abhilfe (ab- und anstecken oder `systemctl --user restart wireplumber`).
+nennt Kontra die Abhilfe (ab- und anstecken oder `systemctl --user restart wireplumber`). In Schritt 5 ist der Bass auf beiden Seiten zu hören, auch nach dem Leerlauf (das Interface bleibt wach), und nach dem Stimmgerät wieder.
 
 ## B. Spielen und Üben
 

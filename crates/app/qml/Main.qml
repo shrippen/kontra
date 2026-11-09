@@ -220,6 +220,21 @@ Kirigami.ApplicationWindow {
             Kirigami.Action { text: texts.t("nav.tuner"); icon.name: "audio-input-line"; checked: root.current === "tuner"; shortcut: "Ctrl+9"; onTriggered: root.show("tuner") },
             Kirigami.Action { text: texts.t("nav.settings"); icon.name: "settings-configure"; checked: root.current === "settings" || root.current === "setup"; shortcut: "Ctrl+0"; onTriggered: root.show("settings") }
         ]
+        // Hear the bass through Kontra, from every page (LH-EIN-18): the same switch as in the
+        // mixer. Collapsed, the switch alone; its name stays for screen readers and the tooltip.
+        footer: KanteSwitch {
+            id: hearBass
+            leftPadding: KanteStyle.unit(12)
+            bottomPadding: KanteStyle.unit(12)
+            text: root.globalDrawer.collapsed ? "" : texts.t("nav.monitor")
+            checked: ctl.monitor
+            focusPolicy: Qt.StrongFocus
+            Accessible.name: texts.t("nav.monitor")
+            Accessible.description: texts.t("nav.monitor.hint")
+            QQC2.ToolTip.visible: hovered
+            QQC2.ToolTip.text: texts.t("nav.monitor.hint")
+            onToggled: ctl.changeMonitor(checked)
+        }
     }
 
     DrawerFocus { drawer: root.globalDrawer }

@@ -854,6 +854,8 @@
   "summary.note.technique": "{technique}: {result}",
   "stems.error.start": "Demucs could not be started.",
   "nav.home": "Home",
+  "nav.monitor": "Hear the bass",
+  "nav.monitor.hint": "Plays the bass through Kontra on both sides, with the limiter and the mixer's effects. Then turn the interface's direct monitor off, or you hear it twice.",
   "home.title": "Home",
   "home.setup.tier": "Setup",
   "home.setup.title": "Kontra does not know your bass yet",

@@ -31,6 +31,7 @@ mod report;
 mod song_map;
 mod songsterr;
 mod sources;
+mod standby;
 mod stems;
 mod store;
 mod summary;
@@ -220,6 +221,8 @@ pub struct Core {
     tuner: Option<LiveTuner>,
     calibration: Option<LiveCalibration>,
     loopback: Option<LiveLoopback>,
+    /// Input and output held open while idle (LH-EIN-18).
+    standby: standby::Standby,
     /// Engine-independent start of the current run, for practice time.
     run_started: Option<std::time::Instant>,
     /// The audio server's block size was checked for this run (LH-EIN-07).
@@ -343,6 +346,7 @@ impl Core {
             tuner: None,
             calibration: None,
             loopback: None,
+            standby: standby::Standby::default(),
             run_started: None,
             quantum_checked: false,
             direct_checked: false,
@@ -807,7 +811,8 @@ impl Core {
         if let Some(live_ear) = self.live_ear.as_mut() {
             live_ear.set_gains(ear_gains(&self.settings));
         }
-        self.monitor_hint()
+        self.remix_standby();
+        self.monitor_hint().or_else(|| self.standby_hint())
     }
 
     /// Monitoring is on, but the running practice has no output or devices at different rates.
@@ -1722,6 +1727,7 @@ impl Core {
         let settings = self.score_settings(arrangement.instrument.kind);
         let options = self.practice_options();
         let setup = self.live_setup();
+        self.release_standby();
         let mut live = match Live::start(arrangement, self.mode(), settings, options, &setup) {
             Ok(live) => live,
             Err(LiveError::Input(e)) => {
@@ -1768,6 +1774,7 @@ impl Core {
         self.live_ear = None;
         self.level.reset();
         let instrument = self.instrument();
+        self.release_standby();
         let tuner = match LiveTuner::start(&self.input_choice(), &instrument, self.source()) {
             Ok(tuner) => tuner,
             Err(e) => {
@@ -1793,6 +1800,7 @@ impl Core {
 
     /// Polls audio and session; call every ~16 ms.
     pub fn tick(&mut self) -> Vec<UiEvent> {
+        self.tick_standby();
         let mut raw = Vec::new();
         if let Some(live) = self.live.as_mut() {
             raw.extend(live.poll());
@@ -2375,6 +2383,7 @@ impl Core {
             backing_cache: None,
             onset_gate_db: self.settings.onset_gate_db,
         };
+        self.release_standby();
         let mut live_ear = LiveEar::start(&setup, &instrument)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
         live_ear.set_gains(ear_gains(&self.settings));

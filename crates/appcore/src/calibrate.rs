@@ -46,6 +46,7 @@ impl Core {
     pub fn start_calibration(&mut self) -> Result<(), String> {
         let setup = self.calibration_setup();
         let instrument = self.instrument();
+        self.release_standby();
         let calibration = LiveCalibration::start(&setup, &instrument, CALIBRATION_LEAD_S)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
         self.calibration = Some(calibration);
@@ -56,6 +57,7 @@ impl Core {
     pub fn start_loopback(&mut self) -> Result<(), String> {
         let setup = self.calibration_setup();
         let instrument = self.instrument();
+        self.release_standby();
         let loopback = LiveLoopback::start(&setup, &instrument)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
         self.loopback = Some(loopback);
