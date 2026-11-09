@@ -33,6 +33,8 @@ pub use kontra_drivers::{
 pub use kontra_dsp::{
     track_beats, BeatGrid, Pick, Shaping, StringModel, LOG_B_PER_FRET, SHAPING_RANGE_DB,
 };
+pub use korpus::chords::{analyze_midi_file, generate_midi_chords, score_chords, ChordTally};
+pub use korpus::ends::{evaluate_ends, generate_staccato, EndTally};
 pub use korpus::{
     announce_second_tone, band, double_stop_mixtures, evaluate, evaluate_double_stops,
     evaluate_expecting, evaluate_laptop_jack, evaluate_with, generate, generate_double_stops,
@@ -46,7 +48,7 @@ pub use strings_korpus::{tell_strings, StringTold};
 
 use kontra_dsp::TunerReading;
 use kontra_model::{
-    DetectedNote, DoubleStopVerdict, NoteRetraction, PitchRevision, StringVerdict,
+    DetectedNote, DoubleStopVerdict, NoteEnd, NoteRetraction, PitchRevision, StringVerdict,
     TechniqueRevision,
 };
 
@@ -65,6 +67,8 @@ pub enum Event {
     /// Which tones of a double stop the tab announced sounded, about 160 ms after its note
     /// (R8).
     DoubleStop(DoubleStopVerdict),
+    /// Where a note ended: muted, rung out or replaced (E5, LH-BEW-10). Not scored yet.
+    End(NoteEnd),
     /// Input level over the last 50 ms.
     Level {
         peak_db: f32,

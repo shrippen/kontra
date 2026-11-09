@@ -20,9 +20,9 @@ pub use arrangement::{
     TimeSignature, TICKS_PER_QUARTER,
 };
 pub use event::{
-    ChordHearing, DetectedNote, DoubleStopHeard, DoubleStopVerdict, ExpectedStrike, ExpectedTone,
-    InputSource, NoteRetraction, PitchRevision, StringHeard, StringVerdict, TechniqueRevision,
-    Unclear,
+    ChordHearing, DetectedNote, DoubleStopHeard, DoubleStopVerdict, Ending, ExpectedStrike,
+    ExpectedTone, InputSource, NoteEnd, NoteRetraction, PitchRevision, StringHeard, StringVerdict,
+    TechniqueRevision, Unclear,
 };
 pub use instrument::{Instrument, InstrumentError, InstrumentKind, KeyRange, ToneBands};
 pub use pitch::{cents_between, hz_to_midi, midi_to_hz, NoteName, Pitch, A4_HZ};

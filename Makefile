@@ -40,12 +40,15 @@ korpus:
 	cargo run -q -p kontra-cli --release -- korpus check
 
 # Real recordings where converted (testdata/korpus/QUELLEN.md): the IDMT lines as in the CI, then
-# techniques on the lines and per bass on the IDMT single notes.
+# techniques on the lines and per bass on the IDMT single notes, note ends, and every converted group
+# against the frozen baseline (E7).
 KORPUS_REAL := testdata/korpus/local/conv
 korpus-real:
 	cargo run -q -p kontra-cli --release -- korpus measure $(KORPUS_REAL)/idmt-st --window-ms 80 --pitch
 	cargo run -q -p kontra-cli --release -- korpus techniques $(KORPUS_REAL)/idmt-st \
 		$(wildcard $(KORPUS_REAL)/idmt-sb/bass-*)
+	cargo run -q -p kontra-cli --release -- korpus ends $(KORPUS_REAL)/idmt-st
+	cargo run -q -p kontra-cli --release -- korpus check --real $(KORPUS_REAL)
 
 cli:
 	cargo build -p kontra-cli --release

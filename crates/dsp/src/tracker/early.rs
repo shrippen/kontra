@@ -93,5 +93,6 @@ impl NoteTracker {
         }
         self.forget_double(c.report);
         self.forget_string(c.report);
+        self.forget_end(c.report);
     }
 }

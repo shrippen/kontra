@@ -571,7 +571,8 @@ impl Analysis {
         self.send_revisions(events);
     }
 
-    /// Techniques, pitches, strings and double stops told late, on the same clock as the notes.
+    /// Techniques, pitches, strings, double stops and note ends told late, on the same clock as
+    /// the notes.
     fn send_revisions(&self, events: &Sender<Event>) {
         for revision in self.tracker.revised() {
             let mut revision = *revision;
@@ -592,6 +593,12 @@ impl Analysis {
             let mut verdict = *verdict;
             verdict.onset_s += self.start_s;
             let _ = events.send(Event::DoubleStop(verdict));
+        }
+        for end in self.tracker.ends() {
+            let mut end = *end;
+            end.onset_s += self.start_s;
+            end.end_s += self.start_s;
+            let _ = events.send(Event::End(end));
         }
     }
 }
@@ -888,7 +895,7 @@ fn align_frames(mic_minus_ref_s: f64, sample_rate: f64) -> i64 {
 }
 
 /// A key going down as a detected note: exact pitch, sure, level from the velocity.
-fn midi_note(onset_s: f64, note: MidiNote) -> Option<DetectedNote> {
+pub(crate) fn midi_note(onset_s: f64, note: MidiNote) -> Option<DetectedNote> {
     (note.velocity > 0).then(|| DetectedNote {
         onset_s,
         midi: f64::from(note.key),
