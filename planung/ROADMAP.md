@@ -318,8 +318,7 @@ Rückmeldung und Lernen:
 - [x] L5 Intonation als Richtung und Streuung (LH-BEW-12).
 - [x] L6 Verstimmte Saite erkennen (LH-TUN-05): die Auswertung fragt nach dem Nachstimmen, mit Sprung ins Stimmgerät
   (`detuned-string`, J-B3 ⚙).
-- [x] L7 Liedkarte, Kante-Baustein (LH-FOR-06): `KanteSongMap` (Kante-Branch `song-map`, 1.76, noch nicht
-  veröffentlicht; Kontra nimmt die Kopie „Take Kante song-map (unreleased)“). Jeder Durchlauf speichert Treffer je
+- [x] L7 Liedkarte, Kante-Baustein (LH-FOR-06): `KanteSongMap` (Kante 1.76, #129, in #226 übernommen). Jeder Durchlauf speichert Treffer je
   Takt (`Run::bars`); die Karte zeigt je Takt die letzten 5 Durchläufe, die ihn spielten. Angehalten über der
   Werkstatt und in der Auswertung; Ziehen oder Umschalt+Pfeile und Eingabe setzen die Schleife (J-B3 ⚙).
 - [x] L8 Ruf und Antwort (LH-LRN-19): Schalter auf der Übungsseite für Stücke mit Akkordsymbolen (ab vier Takten).
@@ -474,6 +473,27 @@ Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in W
 - [x] W11 Glyphen-Test für Sonderzeichen (`tests/glyphs.rs`): jedes Zeichen über ASCII aus i18n (de, en), Lektionen
   und eigenem QML muss in einer mitgelieferten Schrift stehen (Kante: Rajdhani, JetBrains Mono, Bravura; Private-Use
   nur Bravura). Eigener `cmap`-Leser (Formate 4 und 12), keine neue Abhängigkeit. ♯ ♭ ♮ deckt nur Bravura.
+
+Nach #226 (Eigentümer, 09.11.2026): neue `pub`-Schnittstellen aus #226 freigegeben (Liste in der PR-Beschreibung).
+Kleinigkeiten aus den Reviews, W9, L3, W3 und E5 jetzt; der Rest steht hier:
+- [ ] E7 Aufnahmen des Eigentümers als eigene Gruppe `own/…` einfrieren (Hardware-Sitzung, `AUFNAHME.md`);
+      `korpus check --real` in die CI (braucht die IDMT-Daten auf dem Runner oder einen Cache).
+- [ ] L8 Fehlversuche je Ruf statt je Stück; echte Begleitspuren während des Rufs leiser; ⚙-Test der Journey J-C12
+      über die App; am echten Bass spielen.
+- [ ] L9 Fill schon auf dem ersten freien Schlag (heute der zweite, Entscheidung 100 ms vorher); Latenz und Xruns
+      der Schlagzeug-Lautstärke messen; mit echten Aufnahmen und am echten Bass prüfen.
+- [ ] A3 Pausenfenster auch ohne Pausen im Beispiel (eigene Angabe in der Lektion).
+- [ ] L1 Ein Lauf, der eine geplante Stelle wieder unter die schwersten bringt, zählt nicht als nicht bestanden
+      (nur Proben zählen); entscheiden, ob er sollte.
+- [ ] L11 Shuffle-Angaben importierter Dateien lesen (Guitar Pro „Triplet Feel“, MusicXML `<swing>`).
+- [ ] M2 echte MIDI-Aufnahmen von Akkorden; Audio hört höchstens zwei Töne.
+- [ ] M3 Filter für blinde Akkordkandidaten, sobald es sie gibt.
+- [ ] M4 nach 1.0: Vorlagen je Bass lernen, echte Doppelgriffe, Oktaven.
+- [ ] E8 Brummen-Abzug bei Spiel ohne Pause über 8 s (Weiterlernen unter Noten).
+- [ ] W3 Prüfung sieht nicht in selbst gezeichnete Flächen (Lane, Noten, Griffbrett) und keinen abgeschnittenen Text
+      in Labels; läuft nur lokal (kein AT-SPI in der CI).
+- [ ] W6 Ergebnis des ersten flatpak-builder-lint-Laufs ansehen; Screenshot-Adressen der metainfo gehen erst mit der
+      Landing Page.
 
 ## Entscheidungen Runde 17 (30.10.2026)
 

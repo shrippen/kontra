@@ -3,15 +3,11 @@
 Übergabe zwischen Sitzungen. Stand: 2026-11-09. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
 
-## Übergabe (09.11.2026, Harmonicon, PR #226)
+## Übergabe (09.11.2026, Harmonicon)
 
-Alle offenen Harmonicon-Punkte in PR #226 (Branch `harmonicon`, aus `h-tools`, `h-learn`, `h-play`, `h-detect`);
-Einzelheiten und Offenes je Punkt in der ROADMAP. Vor dem Merge:
-- Kante #129 (1.76, `KanteSongMap`) mergen; der Eigentümer bestätigt die Version in Worten. Danach Kante in Kontra neu
-  übernehmen (`scripts/sync-kante.sh`), ersetzt den Commit „Take Kante song-map (unreleased)“.
-- Bestätigung des Eigentümers für die CI-Änderungen (Commit-Prüfung, Schemas, Benches, Packaging-Lint).
-- Zur Freigabe in der nächsten Runde: die neuen `pub` aus der PR-Beschreibung.
-- Offen: Lernseite bei P4 zu breit (W3); `korpus check --real` noch nicht in der CI; L8/L9 am echten Bass.
+#226 (alle offenen Harmonicon-Punkte) und Kante 1.76 (#129) in `main`; `pub` aus #226 freigegeben. Branch
+`harmonicon-reste`: Kleinigkeiten aus den Reviews, W9, L3, W3, E5, dazu Kante 1.76.1 (`KanteSongMap`). Was danach
+offen bleibt, steht in der ROADMAP unter „Nach #226“.
 
 ## Übergabe (09.11.2026)
 
