@@ -11,6 +11,7 @@ mod calibrate;
 mod course;
 mod data;
 pub mod ear;
+mod goal;
 mod i18n;
 mod input_state;
 mod learn;
@@ -262,6 +263,8 @@ pub struct Core {
     probe: Option<Probe>,
     /// Building blocks in the workshop (DIDAKTIK I6), if chosen, and the loop chosen before them.
     chain: Option<(Chain, Option<(usize, usize)>)>,
+    /// The goal of the lesson block whose exercise is at this path (LH-LRN-20).
+    lesson_goal: Option<(PathBuf, kontra_session::lesson::Goal)>,
 }
 
 /// One pass of the loop without notes on screen (DIDAKTIK I1), at the speed it was practised.
@@ -311,6 +314,7 @@ impl Core {
             finder: songsterr::Finder::default(),
             probe: None,
             chain: None,
+            lesson_goal: None,
             notice: None,
             active_setlist: None,
             lost: None,

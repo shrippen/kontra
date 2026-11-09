@@ -737,6 +737,27 @@ mod tests {
         assert_eq!((e.file.as_str(), e.line), ("manifest.json", 2));
     }
 
+    /// LH-LRN-20: a goal the format does not know is a finding of `course check`, with its
+    /// place.
+    #[test]
+    fn an_unknown_goal_names_file_and_line() {
+        let practice = "::: practice bundled=1 goal=tempo\n";
+        let de = format!("{}{practice}", unit("Sehen", "src=media/a.webm"));
+        let data = zip::write(&[
+            ("manifest.json", MANIFEST_OK.as_bytes()),
+            ("courses/test.kurs.json", COURSE.as_bytes()),
+            ("units/test.video/de.md", de.as_bytes()),
+        ])
+        .unwrap();
+        let Err(e) = CoursePack::read(&data) else {
+            panic!("expected a lesson error");
+        };
+        assert_eq!(
+            e.to_string(),
+            "units/test.video/de.md:8: goal=tempo: hits, technique, timing or none"
+        );
+    }
+
     /// A course zipped by hand (macOS Finder) holds hidden files the folder check skips
     /// (review #131, round 6).
     #[test]

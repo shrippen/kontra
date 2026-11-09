@@ -263,6 +263,7 @@ impl Core {
         json!({
             "next": next,
             "probe": self.probe_json(s),
+            "goal": self.goal_json(s),
             "hitRate": s.hit_rate,
             "hitRateText": self.tr("summary.hitrate", &[("percent", format!("{:.0}", s.hit_rate * 100.0))]),
             "countsText": self.tr("summary.counts", &[

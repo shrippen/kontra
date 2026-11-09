@@ -57,6 +57,7 @@ Die **Septime** liegt einen *Ganzton* unter der [[oktave|Oktave]].
 | `::: try root=A steps="0 7"` | nachspielen, Kontra hört zu; `octave=any`: jede Oktave zählt |
 | `::: practice bundled=1 speeds="60 80 100"` | mitgelieferte Übung Nr. 1 (Nummer im Dateinamen von `testdata/exercises`) in drei Tempi (%) |
 | `::: practice kind=groove variant=145 rhythm=quarters key=A bpm=70 judging=time` | eine Übung aus dem Generator |
+| `goal=hits target=80` (in `practice`) | Prüfkriterium der Übung: `hits` (Trefferquote, %), `technique` (Techniken wie notiert, %), `timing` (Streuung höchstens ± ms) oder `none` (reine Anleitung, keine Zahl); ohne Angabe `hits` 80 %, `timing` ohne `target` ±25 ms. Die Auswertung sagt „Ziel 80 %, erreicht 72 %“ |
 | `::: tuner` | das Stimmgerät |
 | `::: hint` … `:::` | Hinweis-Kasten (nur Klartext: keine Begriffe, kein Fett oder Kursiv) |
 | `::: variant for=e-bass` … `:::` | Blöcke nur für diese Stufe |

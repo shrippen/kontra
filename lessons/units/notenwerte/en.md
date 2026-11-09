@@ -26,7 +26,7 @@ To stop it, let go of the key.
 
 ## Practise
 A groove with rests on the low E. Only when you pluck counts here, not which note.
-::: practice bundled=46 speeds="70 85 100"
+::: practice bundled=46 speeds="70 85 100" goal=timing
 
 ## Check
 ::: question

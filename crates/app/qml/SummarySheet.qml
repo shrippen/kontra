@@ -67,10 +67,19 @@ KanteCard {
             KanteButton { id: closeButton; text: texts.t("summary.close"); emphasis: KanteButton.Emphasis.Quiet; onClicked: sheet.close() }
         }
 
+        // A lesson's goal (LH-LRN-20): pure instruction shows no figure, never "0 %".
+        readonly property var goal: sheet.summary && sheet.summary.goal ? sheet.summary.goal : null
         KanteKpi {
             Layout.fillWidth: true
-            value: sheet.summary ? sheet.summary.hitRateText : ""
-            label: sheet.summary ? sheet.summary.countsText : ""
+            value: !sheet.summary ? "" : content.goal && content.goal.none ? texts.t("summary.goal.none") : sheet.summary.hitRateText
+            label: !sheet.summary ? "" : content.goal && content.goal.none ? texts.t("summary.goal.none.text") : sheet.summary.countsText
+        }
+        QQC2.Label {
+            Layout.fillWidth: true
+            visible: content.goal !== null && !content.goal.none
+            wrapMode: Text.WordWrap
+            color: KanteStyle.strongTextColor
+            text: content.goal && content.goal.text ? content.goal.text : ""
         }
 
         // The one thing to hear from this run (LH-BEW-09); none for a short run. A lean that may

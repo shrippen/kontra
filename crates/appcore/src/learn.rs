@@ -647,7 +647,14 @@ impl Core {
         Ok(())
     }
 
+    /// The file of a practice step; its goal holds for runs of that file (LH-LRN-20).
     fn practice_path(&mut self, practice: &Practice) -> Result<PathBuf, String> {
+        let path = self.exercise_path(practice)?;
+        self.set_lesson_goal(&path, practice.goal);
+        Ok(path)
+    }
+
+    fn exercise_path(&mut self, practice: &Practice) -> Result<PathBuf, String> {
         match &practice.exercise {
             ExerciseRef::Bundled(n) => self
                 .bundled_file(*n)
@@ -904,6 +911,18 @@ mod tests {
             .unwrap()
             .to_string_lossy()
             .starts_with("01 "));
+
+        // Its goal in the summary of a run of that file (LH-LRN-20); not for another piece.
+        core.open(&path).unwrap();
+        let a = core.arrangement().unwrap().clone();
+        let mut s = kontra_session::Summary::from_results(&[], &a);
+        // The first groove counts only the time (`goal=timing`, I4).
+        s.spread_ms = Some(31.0);
+        let goal = |core: &Core, s| parse(&core.summary_json(s, &[], &[]))["goal"].clone();
+        assert_eq!(goal(&core, &s)["text"], "Ziel ±25 ms, erreicht ±31 ms");
+        assert_eq!(goal(&core, &s)["met"], false);
+        core.open(&Core::demo_path()).unwrap();
+        assert!(goal(&core, &s).is_null());
         let _ = std::fs::remove_dir_all(dir);
     }
 

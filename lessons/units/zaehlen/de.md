@@ -18,7 +18,7 @@ Fehler sind normal. Wichtig ist, dass du nicht anhältst, sondern beim nächsten
 
 ## Üben
 Achtel auf dem tiefen A: auf jede Zahl und auf jedes „und“ ein Ton. Hier zählt nur, wann du spielst.
-::: practice bundled=52 speeds="70 85 100"
+::: practice bundled=52 speeds="70 85 100" goal=timing
 
 ## Prüfen
 ::: question

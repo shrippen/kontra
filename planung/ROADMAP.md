@@ -310,7 +310,10 @@ Rückmeldung und Lernen:
 - [ ] L7 Liedkarte, Kante-Baustein (LH-FOR-06).
 - [ ] L8 Ruf und Antwort (LH-LRN-19).
 - [ ] L9 Reagierende Band (LH-WIE-05).
-- [ ] L10 Ziel je Lektion (LH-LRN-20).
+- [x] L10 Ziel je Lektion (LH-LRN-20): `::: practice … goal=hits|technique|timing|none target=…` (ohne Angabe
+  Treffer 80 %); unbekannte Werte sind Formatfehler mit Datei und Zeile (`course check`); die Auswertung nennt Ziel
+  und Erreichtes, `none` zeigt „Ausprobiert“ statt einer Prozentzahl. Die Lektionen mit Grooves „nur Timing“ haben
+  `goal=timing` (±25 ms wie I4).
 - [x] L11 Shuffle-Klick (LH-WIE-04): Shuffle-Grooves und „Stück Shuffle“ klicken auf 1. und 3. Triole (3. leiser),
   auch im Einzähler. Offen: Shuffle-Angaben importierter Dateien (Guitar Pro „Triplet Feel“, MusicXML `<swing>`)
   werden nicht gelesen; dort stehen die Noten gerade, die Bewertung erwartete sie dann ebenfalls gerade.
