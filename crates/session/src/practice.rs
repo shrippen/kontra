@@ -316,8 +316,10 @@ impl<O: Output> Practice<O> {
                 self.session.on_double_stop(&verdict);
                 None
             }
-            // Not scored yet (LH-BEW-10): exercises on muting and note length come later.
-            Event::End(_) => None,
+            Event::End(end) => {
+                self.session.on_end(&end);
+                None
+            }
             Event::Level {
                 peak_db,
                 rms_db,

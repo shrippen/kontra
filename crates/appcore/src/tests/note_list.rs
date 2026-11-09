@@ -23,7 +23,7 @@ fn wrong_note_names_the_played_note() {
         cents: Some(110.0),
         position_s: 0.0,
     };
-    let notes = core.note_details(&[result], &[], &[]);
+    let notes = core.note_details(&[result], &[], &[], &[]);
     let text = notes[0]["text"].as_str().unwrap();
     let name = core.note_label(&played.to_string());
     assert!(
@@ -64,7 +64,7 @@ fn every_note_tells_its_timing() {
         note: 1,
         offset_ms: -40.0,
     };
-    let notes = core.note_details(&[result, missed], &[], &[outside]);
+    let notes = core.note_details(&[result, missed], &[], &[outside], &[]);
     let text = notes[0]["text"].as_str().unwrap();
     assert!(text.contains("0 ms"), "{text}");
     let text = notes[1]["text"].as_str().unwrap();
@@ -101,7 +101,7 @@ fn one_tone_of_a_double_stop_says_so() {
         result(1, Outcome::Missed),
         result(2, Outcome::Missed),
     ];
-    let notes = core.note_details(&results, &[], &[]);
+    let notes = core.note_details(&results, &[], &[], &[]);
     let hint = core.tr("summary.note.one.tone", &[]);
     let text = |i: usize| notes[i]["text"].as_str().unwrap_or_default().to_string();
     assert!(text(1).contains(&hint), "{} / {hint}", text(1));
@@ -138,7 +138,7 @@ fn note_list_spells_in_the_key() {
         cents: None,
         position_s: 0.0,
     };
-    let notes = core.note_details(&[result(0, 39), result(1, 39)], &[], &[]);
+    let notes = core.note_details(&[result(0, 39), result(1, 39)], &[], &[], &[]);
     let flat = notes[0]["text"].as_str().unwrap();
     assert!(flat.contains("B♭1") && flat.contains("E♭2"), "{flat}");
     let sharp = notes[1]["text"].as_str().unwrap();
@@ -183,7 +183,7 @@ fn chord_of_three_says_no_one_tone() {
         result(1, wrong),
         result(2, Outcome::Missed),
     ];
-    let notes = core.note_details(&results, &[], &[]);
+    let notes = core.note_details(&results, &[], &[], &[]);
     let hint = core.tr("summary.note.one.tone", &[]);
     let text = notes[2]["text"].as_str().unwrap_or_default();
     assert!(!text.contains(&hint), "{text}");

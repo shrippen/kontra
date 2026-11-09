@@ -30,6 +30,39 @@ const EARLY_S: f64 = 0.05;
 /// Two times on one clock name the same note within this.
 const SAME_S: f64 = 1e-6;
 const MS_PER_S: f64 = 1000.0;
+/// Where an early mute is checked for sound: from this long after its end (the fall's tail) to
+/// this long before the next note (IDMT onsets lie up to 40 ms off the audio).
+const AFTER_END_S: f64 = 0.04;
+const BEFORE_NEXT_S: f64 = 0.05;
+/// A note's start level: peak over this long from its onset.
+const START_S: f64 = 0.15;
+/// Sounding again: within 10 dB of the start (−10 dB as a factor on magnitudes).
+const SOUNDING: f32 = 0.316;
+
+/// A stretch of a recording (seconds).
+#[derive(Debug, Clone, Copy)]
+struct Span {
+    from_s: f64,
+    to_s: f64,
+}
+
+impl Span {
+    fn start(onset_s: f64) -> Span {
+        Span {
+            from_s: onset_s,
+            to_s: onset_s + START_S,
+        }
+    }
+}
+
+/// Peak magnitude of `samples` over `span` (0 when empty).
+fn peak(samples: &[f32], sample_rate: f64, span: Span) -> f32 {
+    let at = |s: f64| ((s.max(0.0) * sample_rate) as usize).min(samples.len());
+    let (from, to) = (at(span.from_s), at(span.to_s));
+    samples
+        .get(from..to.max(from))
+        .map_or(0.0, |s| s.iter().fold(0.0, |m, x| x.abs().max(m)))
+}
 
 /// Ends of one or more recordings.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -48,6 +81,10 @@ pub struct EndTally {
     /// it.
     pub found: usize,
     pub early: usize,
+    /// … of the early ones, those after which the recording sounds again within 10 dB of the
+    /// note's start before the next note: a false mute. The rest end in silence, so the grid
+    /// offset lies late, not the mute (IDMT offsets are score-grid times).
+    pub early_sounding: usize,
 }
 
 impl EndTally {
@@ -61,6 +98,7 @@ impl EndTally {
         self.errors_ms.extend_from_slice(&other.errors_ms);
         self.found += other.found;
         self.early += other.early;
+        self.early_sounding += other.early_sounding;
     }
 
     /// Share of the stopped notes found whose end was told `Muted` within `ms`.
@@ -80,9 +118,14 @@ impl EndTally {
         quantile(&mut self.errors_ms.clone(), 0.5)
     }
 
-    /// Share of the notes found told `Muted` while they still sounded.
+    /// Share of the notes found told `Muted` `EARLY_S` before their annotated offset.
     pub fn early_mutes(&self) -> f64 {
         share(self.early, self.found)
+    }
+
+    /// Share of the notes found told `Muted` while they still sounded (`early_sounding`).
+    pub fn false_mutes(&self) -> f64 {
+        share(self.early_sounding, self.found)
     }
 }
 
@@ -130,6 +173,14 @@ pub fn evaluate_ends(
         tally.found += 1;
         let early = |e: &NoteEnd| e.ending == Ending::Muted && e.end_s <= offset_s - EARLY_S;
         tally.early += usize::from(end.is_some_and(early));
+        let sounding = |e: &NoteEnd| {
+            let back = Span {
+                from_s: e.end_s + AFTER_END_S,
+                to_s: next_s.min(offset_s) - BEFORE_NEXT_S,
+            };
+            peak(samples, sr, back) > peak(samples, sr, Span::start(note.onset_s)) * SOUNDING
+        };
+        tally.early_sounding += usize::from(end.is_some_and(|e| early(e) && sounding(e)));
         if !stopped {
             continue;
         }

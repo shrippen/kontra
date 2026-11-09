@@ -14,12 +14,16 @@ drücken. Beide Hände helfen:
 ## Pausen hörbar machen
 Eine Pause klingt nur, wenn der Ton davor wirklich aufhört. Hör genau hin: Brummt es nach, dämpfe früher.
 ::: hint
-Kontra hört nur, wann ein Ton beginnt. Ob er sauber endet, hörst du selbst am besten mit einer Aufnahme.
+Über Kabel hört Kontra, ob ein Ton vor der Pause aufhört: Die Auswertung zählt, wie viele Töne rechtzeitig abgedämpft
+waren und welche in die Pause klangen. Über Mikrofon noch nicht; dann hilft eine Aufnahme.
 :::
 
 ## Üben
 Ein Groove mit Pausen über eine Moll-Kadenz in Em: Jede Pause soll still sein.
 ::: practice bundled=12 speeds="60 80 100"
+
+Dann Staccato: Jeder Ton ist eine Achtel, danach eine Achtel Pause. Lass die Greifhand nach jedem Ton locker.
+::: practice bundled=151 speeds="60 75 90"
 
 ## Prüfen
 ::: question

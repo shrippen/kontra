@@ -7,8 +7,8 @@ use crate::{
 };
 use kontra_model::{Judging, Technique};
 use kontra_session::{
-    Intonation, Leaning, NoteResult, Observation, Outcome, OutsideNote, Pocket, PocketVerdict,
-    Side, Summary, TechniqueResult,
+    EndHeard, Intonation, Leaning, MutingTally, NoteEndMark, NoteResult, Observation, Outcome,
+    OutsideNote, Pocket, PocketVerdict, Side, Summary, TechniqueResult,
 };
 use serde_json::json;
 use std::path::Path;
@@ -24,12 +24,14 @@ impl Core {
     /// Every judged note of the run (LH-BEW-01), the last attempt per pass and note, in order:
     /// `{index, pass, bar, state, offsetMs, cents, severity, technique, techniqueResult, text}`;
     /// `text` reads like "Takt 3 · G1 · 42 ms zu spät · +12 Cent · Slap: andere Technik"; a
-    /// missed note in `outside` tells where it fell beside the window.
+    /// missed note in `outside` tells where it fell beside the window, a note in `ends` how it
+    /// was stopped ("rechtzeitig abgedämpft", LH-BEW-10).
     pub(crate) fn note_details(
         &self,
         results: &[NoteResult],
         techniques: &[TechniqueResult],
         outside: &[OutsideNote],
+        ends: &[NoteEndMark],
     ) -> Vec<serde_json::Value> {
         let Some(a) = self.arrangement() else {
             return Vec::new();
@@ -98,6 +100,14 @@ impl Core {
                     Some(ms) => parts
                         .push(self.tr("summary.note.outside.late", &[("ms", format!("{ms:.0}"))])),
                     None => {}
+                }
+                // How a note the tab wants stopped ended, by its last verdict.
+                let end = ends
+                    .iter()
+                    .rev()
+                    .find(|e| e.pass == pass && e.note == index);
+                if let Some(e) = end {
+                    parts.push(self.end_text(e.heard));
                 }
                 // A wrong note names what was played; cents only for the right note's intonation.
                 match (r.outcome, r.cents) {
@@ -219,7 +229,13 @@ impl Core {
 
     /// What this input did not judge: techniques, hints (slap and pop over a cable) and double
     /// stops at a microphone (Runde 17); one line each.
-    fn untold_text(&self, techniques: &[String], hints: &[String], double_stops: u32) -> String {
+    fn untold_text(
+        &self,
+        techniques: &[String],
+        hints: &[String],
+        double_stops: u32,
+        ends: u32,
+    ) -> String {
         let mut parts = Vec::new();
         if !techniques.is_empty() {
             parts.push(self.tr(
@@ -236,7 +252,43 @@ impl Core {
         if double_stops > 0 {
             parts.push(self.tr("summary.doublestops.untold", &[]));
         }
+        if ends > 0 {
+            parts.push(self.tr("summary.muting.untold", &[]));
+        }
         parts.join("\n")
+    }
+
+    /// "Abdämpfen: 6 von 8 Noten rechtzeitig gestoppt · zu spät: 1 · in die Pause geklungen: 1";
+    /// "" when nothing was judged.
+    fn muting_text(&self, m: MutingTally) -> String {
+        if m.judged == 0 {
+            return String::new();
+        }
+        let mut parts = vec![self.tr(
+            "summary.muting",
+            &[
+                ("intime", m.in_time.to_string()),
+                ("judged", m.judged.to_string()),
+            ],
+        )];
+        if m.late > 0 {
+            parts.push(self.tr("summary.muting.late", &[("count", m.late.to_string())]));
+        }
+        if m.rang_on > 0 {
+            parts.push(self.tr("summary.muting.rang", &[("count", m.rang_on.to_string())]));
+        }
+        parts.join(" · ")
+    }
+
+    /// One note's end for the note list.
+    fn end_text(&self, heard: EndHeard) -> String {
+        match heard {
+            EndHeard::InTime => self.tr("summary.note.end.intime", &[]),
+            EndHeard::Late { late_ms } => {
+                self.tr("summary.note.end.late", &[("ms", format!("{late_ms:.0}"))])
+            }
+            EndHeard::RangOn => self.tr("summary.note.end.rang", &[]),
+        }
     }
 
     /// Summary with ready-made texts for the evaluation sheet, and every note's result.
@@ -246,7 +298,7 @@ impl Core {
         results: &[NoteResult],
         techniques: &[TechniqueResult],
     ) -> String {
-        let notes = self.note_details(results, techniques, &s.outside_notes);
+        let notes = self.note_details(results, techniques, &s.outside_notes, &s.ends);
         // Techniques apart from the hit rate (round 9): "Slide: 8 von 10".
         let technique_list: Vec<_> = s
             .techniques
@@ -339,7 +391,9 @@ impl Core {
             "notes": notes,
             "hardestNotes": hardest_notes,
             "techniques": technique_list,
-            "untoldText": self.untold_text(&untold, &hints, s.untold_double_stops),
+            "untoldText": self.untold_text(&untold, &hints, s.untold_double_stops, s.muting.untold),
+            // Notes the tab wants stopped (LH-BEW-10): "Abdämpfen: 6 von 8 rechtzeitig".
+            "mutingText": self.muting_text(s.muting),
         })
         .to_string()
     }
