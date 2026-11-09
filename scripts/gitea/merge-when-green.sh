@@ -12,10 +12,10 @@ done
 echo "$out"
 case "$out" in success*) ;; *) echo "NOT GREEN"; exit 1;; esac
 
-head=$(tea api /repos/shrippen/Kontra/pulls/$1 | python3 -c "import json,sys;print(json.load(sys.stdin)['head']['sha'])")
+head=$(gt api /repos/shrippen/Kontra/pulls/$1 --jq .head.sha)
 case "$head" in $2*) ;; *) echo "head moved: $head"; exit 1;; esac
 
 # head_commit_id: Gitea refuses the merge if a push moved the head since the checks above.
-tea api -X POST /repos/shrippen/Kontra/pulls/$1/merge -d "{\"Do\":\"merge\",\"head_commit_id\":\"$head\"}"
-merged=$(tea api /repos/shrippen/Kontra/pulls/$1 | python3 -c "import json,sys;print(json.load(sys.stdin).get('merged'))")
-if [ "$merged" = "True" ]; then echo "MERGED $1"; else echo "MERGE FAILED $1"; exit 1; fi
+gt api -X POST /repos/shrippen/Kontra/pulls/$1/merge -f Do=merge -f head_commit_id="$head"
+merged=$(gt api /repos/shrippen/Kontra/pulls/$1 --jq .merged)
+if [ "$merged" = "true" ]; then echo "MERGED $1"; else echo "MERGE FAILED $1"; exit 1; fi

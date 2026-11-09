@@ -7,7 +7,7 @@ import json, subprocess, sys
 
 CONTEXT = "github / test"
 sha = sys.argv[1]
-out = subprocess.run(["tea", "api", f"/repos/shrippen/Kontra/commits/{sha}/statuses"],
+out = subprocess.run(["gt", "api", f"/repos/shrippen/Kontra/commits/{sha}/statuses"],
                      capture_output=True, text=True).stdout
 statuses = [s for s in json.loads(out or "[]") if s.get("context") == CONTEXT]
 if not statuses:

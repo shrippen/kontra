@@ -102,7 +102,7 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
   die Seite hängt ohne Fehlermeldung. Namen wie `summary` verwenden.
 - Die Engine stempelt Noten aus Dateien mit `Pace::Fast` dateirelativ, mit `Pace::RealTime` auf die Engine-Uhr. Eine
   Aufnahme wird über `Input::started_s()` ausgerichtet, nicht über den Zeitpunkt des Aufrufs (Dekodieren dauert).
-- Gitea-Merge per API: `tea api -X POST /repos/shrippen/Kontra/pulls/N/merge -d '{"Do":"merge"}'`.
+- Gitea-Merge per API: `gt api -X POST /repos/shrippen/Kontra/pulls/N/merge -f Do=merge`.
   „manually-merged“ ist hier nicht erlaubt; „Please try again later“ heißt meist: nichts mehr zu mergen (Inhalt schon in
   `main`). `scripts/gitea/merge-when-green.sh PR SHA` wartet auf den neuesten Status `github / test` des Commits und
   merged nur, wenn er grün ist und der Kopf unverändert ist.
