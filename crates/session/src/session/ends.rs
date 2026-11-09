@@ -71,6 +71,25 @@ impl Session {
             .iter()
             .map(|&(_, pass, note, heard)| NoteEndMark { pass, note, heard })
             .collect();
+        // A finished run: a note to stop that told no end rang on (the last one has no next
+        // note to end it, its decay takes seconds).
+        let judged = self.arrangement.judging != Judging::Open;
+        if self.finished && judged && tells_ends(self.settings.source) {
+            let untold = self.struck.iter().filter(|&&(onset, pass, note)| {
+                self.written_end_s(note).is_some()
+                    && !self
+                        .ends
+                        .iter()
+                        .any(|(o, p, n, _)| *p == pass && *n == note && same_onset(*o, onset))
+            });
+            summary
+                .ends
+                .extend(untold.map(|&(_, pass, note)| NoteEndMark {
+                    pass,
+                    note,
+                    heard: EndHeard::RangOn,
+                }));
+        }
         summary.muting = MutingTally::of(&summary.ends, self.untold_ends());
     }
 

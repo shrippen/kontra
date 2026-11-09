@@ -6,7 +6,7 @@
 
 use kontra_engine::{Clock, Event, Input, InputKind, Pace};
 use kontra_model::{
-    Arrangement, DetectedNote, InputSource, Instrument, Note, NoteEnd, Pitch, TempoMap,
+    Arrangement, DetectedNote, InputSource, Instrument, Note, NoteEnd, Pitch, Technique, TempoMap,
     TICKS_PER_QUARTER,
 };
 use kontra_session::{
@@ -82,14 +82,24 @@ fn heard(played: &Arrangement, name: &str) -> (Vec<DetectedNote>, Vec<NoteEnd>) 
     (notes, ends)
 }
 
-/// Runs `score` over what the input heard of `played` at `source`.
+/// Runs `staccato()` over what the input heard of `played` at `source`.
 fn judge(played: &Arrangement, source: InputSource, name: &str) -> Session {
+    judge_score(staccato(), played, source, name)
+}
+
+/// Runs `score` over what the input heard of `played` at `source`.
+fn judge_score(
+    score: Arrangement,
+    played: &Arrangement,
+    source: InputSource,
+    name: &str,
+) -> Session {
     let (notes, ends) = heard(played, name);
     let settings = ScoreSettings {
         source,
         ..ScoreSettings::default()
     };
-    let mut session = Session::new(staccato(), Mode::Song, settings);
+    let mut session = Session::new(score, Mode::Song, settings);
     session.play(LEAD_IN_S);
     let (mut next_note, mut next_end) = (0, 0);
     for step in 0..=800 {
@@ -154,4 +164,23 @@ fn a_microphone_says_it_cannot_tell() {
             ..MutingTally::default()
         }
     );
+}
+
+/// Review #227: the last note, written staccato and left ringing, counts as rang on. No next
+/// note ends it and its decay takes seconds, so before it was missing from the tally.
+#[test]
+fn a_ringing_last_note_counts() {
+    let mut score = staccato();
+    if let Some(last) = score.notes.last_mut() {
+        last.techniques.push(Technique::Staccato);
+    }
+    // Played: every note held, the last one for two bars (the recording does not stop it).
+    let mut played = ringing();
+    if let Some(last) = played.notes.last_mut() {
+        last.duration_ticks = 8 * TICKS_PER_QUARTER;
+    }
+    let session = judge_score(score, &played, InputSource::Line, "last");
+    let summary = session.summary();
+    assert_eq!(summary.muting.judged, 6, "{:?}", session.ends_heard());
+    assert_eq!(summary.muting.rang_on, 6, "{:?}", session.ends_heard());
 }
