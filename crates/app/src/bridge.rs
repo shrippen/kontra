@@ -149,6 +149,8 @@ pub mod qobject {
         #[qproperty(QString, song_search_json, cxx_name = "songSearchJson")]
         /// A course package fetched from an address, see `Core::course_fetch_poll`.
         #[qproperty(QString, course_fetch_json, cxx_name = "courseFetchJson")]
+        /// A course folder open live, see `Core::course_folder_json` (LH-LRN-21).
+        #[qproperty(QString, course_folder_json, cxx_name = "courseFolderJson")]
         /// While the arrangement is laid out again: the run goes on (a change of key), so the
         /// page keeps the marks.
         #[qproperty(bool, run_kept, cxx_name = "runKept")]
@@ -648,6 +650,11 @@ pub mod qobject {
         #[cxx_name = "courseFetch"]
         fn course_fetch(self: Pin<&mut Self>, url: &QString);
 
+        /// Opens a course folder live; "" closes it.
+        #[qinvokable]
+        #[cxx_name = "openCourseFolder"]
+        fn open_course_folder(self: Pin<&mut Self>, url: &QString);
+
         /// What to play for a lesson's video block, see `Core::lesson_video`.
         #[qinvokable]
         #[cxx_name = "lessonVideo"]
@@ -988,6 +995,7 @@ pub struct ControllerRust {
     backing_loading: bool,
     song_search_json: QString,
     course_fetch_json: QString,
+    course_folder_json: QString,
     run_kept: bool,
     transpose: i32,
     transpose_max: i32,
@@ -1153,6 +1161,7 @@ impl Default for ControllerRust {
             backing_loading: false,
             song_search_json: QString::default(),
             course_fetch_json: QString::default(),
+            course_folder_json: QString::default(),
             run_kept: false,
             transpose: 0,
             transpose_max: kontra_appcore::Core::transpose_max(),
@@ -1652,6 +1661,9 @@ impl qobject::Controller {
         }
         if let Some(json) = self.as_mut().core().course_fetch_poll() {
             self.as_mut().set_course_fetch_json(q(&json));
+        }
+        if let Some(json) = self.as_mut().core().course_folder_poll() {
+            self.as_mut().set_course_folder_json(q(&json));
         }
         let (position, playing) = {
             let this = self.as_ref();

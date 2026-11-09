@@ -17,8 +17,8 @@ mod parse;
 mod vtt;
 
 pub use pack::{
-    new_course, pack, read_media, Author, CourseManifest, CoursePack, PackError, COURSE_EXT,
-    COURSE_FORMAT, COURSE_VERSION, MAX_COURSE_BYTES,
+    folder_stamp, new_course, pack, read_media, Author, CourseManifest, CoursePack, PackError,
+    COURSE_EXT, COURSE_FORMAT, COURSE_VERSION, MAX_COURSE_BYTES,
 };
 pub use parse::note_class;
 pub use vtt::{cues, Cue};

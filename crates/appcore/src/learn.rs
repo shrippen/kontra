@@ -96,7 +96,8 @@ impl Core {
     /// The bundled lessons and added courses seen through the current instrument profile;
     /// `None` only if the embedded files are broken (a test guards that).
     fn learning(&self) -> Option<Learning> {
-        let chosen = self.settings.course.as_deref().unwrap_or_default();
+        let chosen = self.live_course_id().or(self.settings.course.as_deref());
+        let chosen = chosen.unwrap_or_default();
         Learning::with_courses(&self.instrument(), &self.courses, chosen)
     }
 
@@ -323,7 +324,11 @@ impl Core {
     }
 
     /// Page `page` of lesson `id` was shown; the last page finishes the lesson.
+    /// Nothing is stored while a course folder is open (LH-LRN-21).
     pub fn lesson_seen(&mut self, id: &str, page: usize) {
+        if self.previewing_course() {
+            return;
+        }
         let Some(learning) = self.learning() else {
             return;
         };
@@ -355,6 +360,9 @@ impl Core {
             return false;
         };
         let right = question.answer == option;
+        if self.previewing_course() {
+            return right;
+        }
         let Some(learning) = self.learning() else {
             return right;
         };
@@ -469,6 +477,9 @@ impl Core {
         else {
             return false;
         };
+        if self.previewing_course() {
+            return true;
+        }
         let now = unix_now();
         for unit in units.iter().filter_map(|id| learning.unit(id)) {
             if learning.fits(&unit.scope) {

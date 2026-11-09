@@ -485,6 +485,30 @@ fn files(dir: &Path) -> Result<Vec<String>, PackError> {
     Ok(out)
 }
 
+/// A fingerprint of a course folder (LH-LRN-21): it changes when a file the package would hold
+/// is added, removed, resized or written. FNV-1a over name, size and modification time.
+pub fn folder_stamp(dir: &Path) -> Result<u64, PackError> {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut feed = |bytes: &[u8]| {
+        for b in bytes {
+            hash = (hash ^ u64::from(*b)).wrapping_mul(0x0100_0000_01b3);
+        }
+    };
+    for name in files(dir)? {
+        let meta = std::fs::metadata(dir.join(&name))
+            .map_err(|e| PackError::archive(format!("{name}: {e}")))?;
+        let written = meta
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map_or(0, |d| d.as_nanos());
+        feed(name.as_bytes());
+        feed(&meta.len().to_le_bytes());
+        feed(&written.to_le_bytes());
+    }
+    Ok(hash)
+}
+
 /// A course from a later Kontra: said before the strict parse, which would only name the field
 /// this Kontra does not know.
 fn newer(manifest: &str) -> Result<(), PackError> {
@@ -756,6 +780,26 @@ mod tests {
             e.to_string(),
             "units/test.video/de.md:8: goal=tempo: hits, technique, timing or none"
         );
+    }
+
+    /// LH-LRN-21: the stamp follows what the package would hold, not hidden files.
+    #[test]
+    fn a_folder_stamp_follows_its_files() {
+        let dir = std::env::temp_dir().join(format!("kontra-stamp-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("units/a")).unwrap();
+        std::fs::write(dir.join("manifest.json"), "{}").unwrap();
+        let first = folder_stamp(&dir).unwrap();
+        assert_eq!(folder_stamp(&dir).unwrap(), first);
+
+        std::fs::write(dir.join(".swap"), "x").unwrap();
+        assert_eq!(folder_stamp(&dir).unwrap(), first, "hidden");
+        std::fs::write(dir.join("units/a/de.md"), "# A").unwrap();
+        let second = folder_stamp(&dir).unwrap();
+        assert_ne!(second, first);
+        std::fs::write(dir.join("units/a/de.md"), "# AB").unwrap();
+        assert_ne!(folder_stamp(&dir).unwrap(), second, "longer");
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     /// A course zipped by hand (macOS Finder) holds hidden files the folder check skips

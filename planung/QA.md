@@ -326,7 +326,12 @@ Das Update kommt als Vorschau und nennt die Fassung („Neuere Fassung 2 (vorhan
 1. In der Kurswerkstatt einen Kurs anlegen, zwei Lektionen schreiben (eine mit Fehler im Format), Vorschau ansehen.
 2. Prüfen, Fehler beheben, als `.kontrakurs` packen; dasselbe mit `kontra-cli course new|check|pack`.
 3. Das Paket in Kontra hinzufügen und eine Lektion spielen.
-Erwartet: Fehler mit Datei und Zeile; die Vorschau sieht aus wie in Kontra; das Paket lädt ohne Befund.
+4. Lernen → „Kursordner live öffnen …“ mit dem ungepackten Ordner, eine Lektion öffnen; im Editor ihren Text ändern und
+   speichern, dann einen Fehler hineinschreiben und speichern; „Ordner schließen“ (LH-LRN-21).
+Erwartet: Fehler mit Datei und Zeile; die Vorschau sieht aus wie in Kontra; das Paket lädt ohne Befund. Die geänderte
+Lektion erscheint nach dem Speichern ohne Packen (binnen einer Sekunde); der Fehler steht mit Datei und Zeile über der
+Lektion, die letzte lesbare Fassung bleibt sichtbar; gesehene Seiten und Antworten werden im Live-Ordner nicht
+gespeichert; nach dem Schließen gilt wieder der hinzugefügte Kurs.
 
 ## F. Querschnitt
 
