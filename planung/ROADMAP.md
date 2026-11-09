@@ -297,8 +297,9 @@ Rückmeldung und Lernen:
 - [ ] L4 Griffbrett-Quiz gewichtet (LH-LRN-18). Teil 1 (`fret-quiz`): „Töne finden“ zieht Plätze nach Gewicht
   (verfehlt und lange nicht geübt öfter), Statistik je Saite und Bund in `quiz.json`, Bünde 0–4, 0–7, 0–12 oder eigene,
   Überspringen kein Fehler, auch nicht in „x von y gefunden“; Bund 12 bei 0–12 kein eigener Platz (gleicher Ton wie
-  die Leersaite); `quiz.json` im Datenexport (J-C10 ⚙). Offen: Heatmap mit Zahl (Kante-`KanteHeatmap` hat keine
-  Zahlen, Achsen, Tooltips; erst in Kante), Gewichtung der Intervalle im Gehörtraining.
+  die Leersaite); `quiz.json` im Datenexport (J-C10 ⚙). Teil 2 (`fret-heat`, Kante 1.75.1): Übersicht „Treffer je
+  Saite und Bund“ (`KanteHeatGrid`, Anteil richtig als Zahl, Zählungen im Tooltip), Quiz-Seite scrollt. Offen:
+  Gewichtung der Intervalle im Gehörtraining.
 - [x] L5 Intonation als Richtung und Streuung (LH-BEW-12).
 - [ ] L6 Verstimmte Saite erkennen (LH-TUN-05).
 - [ ] L7 Liedkarte, Kante-Baustein (LH-FOR-06).

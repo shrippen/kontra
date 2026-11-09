@@ -83,6 +83,14 @@ fn missed_note_comes_more_often() {
         "B on the A string asked {weak} of {DRAWS}"
     );
 
+    // The overview shows the weak place: string A (row 1, 0 = lowest), fret 2, five misses.
+    let heat = &json_of(&core.quiz_json())["heat"];
+    assert_eq!(heat["frets"], json!([0, 1, 2, 3, 4]));
+    assert_eq!(
+        heat["rows"][1][usize::from(WEAK_FRET)],
+        json!({"right": 0, "wrong": 5})
+    );
+
     // 3. Skipping records nothing; a wrong note counts once.
     let before = misses(&profile);
     core.quiz_next();

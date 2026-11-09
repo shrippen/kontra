@@ -2312,6 +2312,7 @@ impl Core {
             "score": self.quiz_score(q.right, q.lost),
             "range": q.stats().range,
             "positions": positions,
+            "heat": q.heat(&instrument),
         })
         .to_string()
     }

@@ -4,6 +4,7 @@
 
 use crate::quiz_stats::{Outcome, QuizStats};
 use kontra_model::{Instrument, Pitch};
+use serde::Serialize;
 
 /// What the quiz asks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -118,9 +119,7 @@ impl Quiz {
             .strings
             .iter()
             .enumerate()
-            .flat_map(|(s, open)| range.frets().map(move |f| (s, open.0, f)))
-            // An octave above a fret in the range asks the same note: one place.
-            .filter(|(_, _, f)| *f < range.low + 12)
+            .flat_map(|(s, open)| range.places().map(move |f| (s, open.0, f)))
             .filter(|(s, open, f)| *s != previous.string || (open + f) % 12 != previous.target)
             .map(|(s, open, f)| (s, f, self.stats.weight(open, f, now_s)))
             .collect();
@@ -242,12 +241,46 @@ impl Quiz {
             .collect()
     }
 
+    /// Answers per place for the overview (LH-LRN-18): a row per string (0 = lowest), an
+    /// entry per fret asked, `None` where it was never asked.
+    pub fn heat(&self, instrument: &Instrument) -> Heat {
+        let frets: Vec<u8> = self.stats.range.places().collect();
+        let rows = instrument
+            .tuning
+            .strings
+            .iter()
+            .map(|open| {
+                frets
+                    .iter()
+                    .map(|&fret| match self.stats.counts(open.0, fret) {
+                        (0, 0) => None,
+                        (right, wrong) => Some(Answers { right, wrong }),
+                    })
+                    .collect()
+            })
+            .collect();
+        Heat { frets, rows }
+    }
+
     /// The root's place for interval questions (string, fret).
     pub fn root_position(&self, instrument: &Instrument) -> Option<(usize, u8)> {
         let root = self.question.root?;
         let open = instrument.tuning.strings.get(self.question.string)?.0;
         root.checked_sub(open).map(|f| (self.question.string, f))
     }
+}
+
+/// The quiz's overview: the frets asked and the answers per string and fret.
+#[derive(Debug, Serialize)]
+pub struct Heat {
+    frets: Vec<u8>,
+    rows: Vec<Vec<Option<Answers>>>,
+}
+
+#[derive(Debug, Serialize)]
+struct Answers {
+    right: u32,
+    wrong: u32,
 }
 
 /// Open pitch (MIDI) of a string, E1 when the tuning lacks it.

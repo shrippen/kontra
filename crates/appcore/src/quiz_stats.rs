@@ -58,6 +58,12 @@ impl FretRange {
     pub(crate) fn frets(self) -> RangeInclusive<u8> {
         self.low..=self.high.max(self.low)
     }
+
+    /// The frets that are places of their own: an octave above a fret in the range asks the
+    /// same note (0–12 leaves out 12).
+    pub(crate) fn places(self) -> impl Iterator<Item = u8> {
+        self.frets().filter(move |f| *f < self.low + 12)
+    }
 }
 
 impl Default for FretRange {
@@ -137,8 +143,7 @@ impl QuizStats {
         place.last_s = now_s;
     }
 
-    /// (right, wrong) of a place.
-    #[cfg(test)]
+    /// (right, wrong) of a place; (0, 0) when never asked.
     pub(crate) fn counts(&self, open: u8, fret: u8) -> (u32, u32) {
         self.find(open, fret)
             .map_or((0, 0), |i| (self.places[i].right, self.places[i].wrong))
