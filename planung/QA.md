@@ -225,15 +225,19 @@ als andere (bei 20 Plätzen mehr als jede zehnte Frage); Überspringen zählt ni
 Frage, auch in „x von y gefunden“; bei 0–12 ist Bund 12 kein eigener Platz; nach Export und Import (Ersetzen) auf einem
 zweiten Rechner gleicher Bereich und gleiche Statistik, beim Ergänzen gleiche Statistik und der eigene Bereich; Bereich und Bünde haben Namen für den Screenreader. Die Übersicht zeigt je Saite (Reihenfolge wie das Griffbrett) und Bund den Anteil richtig als Zahl, Zählungen im Tooltip und für den Screenreader, nie gefragte Plätze leer; bei 1024×640 ist sie per Scrollen erreichbar.
 
-**J-C7 Ein ganzes Stück** · Personas: P1 Lea, P2 Jens, P4 Thomas · Phase 3 · LH-BIB-12, LH-BIB-13, LH-BIB-08, LH-MOD-02, -04
+**J-C7 Ein ganzes Stück** · Personas: P1 Lea, P2 Jens, P4 Thomas, P3 Mira, P5 Aylin · Phase 3 · LH-BIB-12, LH-BIB-13, LH-BIB-08, LH-MOD-02, -04, LH-WIE-05
 1. Lea: Übungen, Stufe „9 Stücke“, die Ballade im Durchlauf von vorn bis hinten; danach „Übung erzeugen“, Stück Pop, Schwierigkeit „Leicht“.
 2. Jens: „Übung erzeugen“, Art „Stück“, Stil Rock in E, 100 BPM; den ersten Refrain in der Werkstatt üben.
 3. Thomas: dasselbe Stück am Beamer in Noten + Tab für die Klasse, Stil Funk in Am.
+4. Mira (Aylin über MIDI): Einstellungen „Band reagiert“ an; das Funk-Stück im Modus „Spielen“ mit eigenen Phrasen,
+   am Phrasenende zwei Schläge frei, einmal einen Takt durchgehend in Achteln; dann wieder aus.
 Erwartet: Stück läuft zwei bis drei Minuten (Rock bei 100 BPM gut zwei); Akkordname über jedem Takt; Probenzeichen
 (Intro, Strophe, Refrain …) über dem ersten Takt jedes Teils, in Lane, Tab und Noten, der Screenreader nennt den Teil; Schlagzeug, vor jedem neuen Teil ein Fill;
 letzter Takt auf der Tonika; Titel in der Oberflächensprache („Stück Rock“ / „Rock piece“); der Generator passt in ein
 schmales Fenster. Leicht: Pop mit Intro und Outro in Halben, Strophe und Bridge in Vierteln, Refrain in Achteln, ohne Synkopen; Titel „Stück Pop (leicht)“, Form und Schlagzeug wie
-mittel; „Schwierigkeit“ steht nur bei der Art „Stück“.
+mittel; „Schwierigkeit“ steht nur bei der Art „Stück“. Band reagiert: nach zwei freien Schlägen am Phrasenende ein
+Snare-Fill im zweiten, höchstens alle 8 Takte, nie mitten in einer Phrase; nach dem Achteltakt ein Takt ohne Hi-Hat;
+keine Auswertung ändert sich; aus: das Schlagzeug spielt wie geschrieben.
 
 **J-C11 Eigene Linie** · Personas: P1 Lea, P3 Mira, P4 Thomas · Phase 3 · LH-BEW-13
 1. Lea: Lektion „Eine eigene Linie“, „Ausprobieren“: die offene Übung (Groove I–IV–V mit Pausen, frei) im Durchlauf;

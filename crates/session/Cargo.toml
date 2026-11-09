@@ -14,5 +14,9 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 
+[dev-dependencies]
+# Renders bass lines for tests that listen like the app (the reacting band, LH-WIE-05).
+kontra-dsp.workspace = true
+
 [lints]
 workspace = true

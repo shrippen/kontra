@@ -7,6 +7,7 @@
 //!                                                   └─► restart backing on play/seek/speed/loop
 //! ```
 
+use crate::band::{Band, ReactingBand};
 use crate::expected::ExpectedNote;
 use crate::session::{Mode, Session, SessionEvent};
 use crate::settings::ScoreSettings;
@@ -15,7 +16,10 @@ use kontra_engine::{
     Accent, BackingAudio, BackingTrack, Clock, Event, Gains, Output, Resolution, Sound,
 };
 use kontra_model::{Arrangement, ExpectedStrike, ExpectedTone, Feel, TICKS_PER_QUARTER};
+use reacting::Reaction;
 use std::collections::{HashMap, HashSet};
+
+mod reacting;
 
 /// How far ahead sounds are scheduled.
 const LOOKAHEAD_S: f64 = 0.25;
@@ -43,6 +47,8 @@ pub struct PracticeOptions {
     pub backing_offset_s: f64,
     /// Backing track pitch in semitones (LH-WIE-02); the notes are transposed by `content`.
     pub transpose_semitones: i32,
+    /// Generated drums answer the bass in free play (LH-WIE-05).
+    pub band: Band,
 }
 
 impl Default for PracticeOptions {
@@ -53,6 +59,7 @@ impl Default for PracticeOptions {
             reference_tones: false,
             backing_offset_s: 0.0,
             transpose_semitones: 0,
+            band: Band::AsWritten,
         }
     }
 }
@@ -105,6 +112,8 @@ pub struct Practice<O: Output> {
     count_in_end_s: f64,
     /// For the input, until `Live` takes it (`take_told`).
     told: Vec<Told>,
+    /// Hears the bass for the drums (LH-WIE-05).
+    band: ReactingBand,
 }
 
 impl<O: Output> std::fmt::Debug for Practice<O> {
@@ -139,6 +148,7 @@ impl<O: Output> Practice<O> {
             was_held: false,
             count_in_end_s: 0.0,
             told: Vec::new(),
+            band: ReactingBand::default(),
         }
     }
 
@@ -150,6 +160,7 @@ impl<O: Output> Practice<O> {
 
     /// Forgets everything planned: sounds and expected strikes are scheduled anew.
     fn unplan(&mut self) {
+        self.band.replan();
         self.scheduled.clear();
         self.told.clear();
         self.told.push(Told::Forget);
@@ -281,6 +292,8 @@ impl<O: Output> Practice<O> {
         match event {
             Event::Note(note) => {
                 self.session.on_note(&note);
+                let latency_s = self.session.settings().latency_ms / MS_PER_S;
+                self.band.heard(note.onset_s - latency_s);
                 None
             }
             Event::Technique(revision) => {
@@ -536,17 +549,28 @@ impl<O: Output> Practice<O> {
         let first = arrangement
             .drums
             .partition_point(|d| arrangement.tempo.seconds_at(d.tick) < from);
-        let due: Vec<(u64, f64, Sound)> = arrangement.drums[first..]
+        let due: Vec<(usize, f64)> = arrangement.drums[first..]
             .iter()
             .enumerate()
-            .map(|(i, d)| (first + i, arrangement.tempo.seconds_at(d.tick), d.kind))
-            .take_while(|(_, at, _)| *at < to)
-            .map(|(i, at, kind)| (DRUM_KEYS | i as u64, at, Sound::Drum(kind)))
+            .map(|(i, d)| (first + i, arrangement.tempo.seconds_at(d.tick)))
+            .take_while(|(_, at)| *at < to)
             .collect();
-        for (key, at, sound) in due {
-            if self.scheduled.insert((pass, key)) {
-                self.output.schedule(origin + at / speed, sound);
+        let now = self.clock.now_s();
+        for (i, at) in due {
+            let key = DRUM_KEYS | i as u64;
+            if self.scheduled.contains(&(pass, key)) {
+                continue;
             }
+            let hit = self.session.arrangement().drums[i];
+            match self.react(pass, hit, origin, speed, now) {
+                Reaction::Wait => continue,
+                Reaction::Drop => {}
+                Reaction::Play => {
+                    self.output
+                        .schedule(origin + at / speed, Sound::Drum(hit.kind));
+                }
+            }
+            self.scheduled.insert((pass, key));
         }
     }
 
@@ -921,6 +945,58 @@ mod tests {
         for pair in times.windows(2) {
             assert!(((pair[1] - pair[0]) - 0.25).abs() < 1e-6, "{times:?}");
         }
+    }
+
+    /// LH-WIE-05: two beats played, then free: the last beat's drums become a snare fill.
+    #[test]
+    fn a_reacting_band_fills_the_free_beat() {
+        use kontra_model::{DetectedNote, DrumHit, DrumKind, InputSource};
+        let clock = Clock::new();
+        let mut a = arrangement();
+        a.drums = (0..8)
+            .map(|i| DrumHit {
+                tick: i * TICKS_PER_QUARTER / 2,
+                kind: DrumKind::HiHat,
+            })
+            .collect();
+        let options = PracticeOptions {
+            metronome: false,
+            count_in_bars: 0,
+            band: Band::Reacting,
+            ..PracticeOptions::default()
+        };
+        let mut p = Practice::new(
+            a,
+            Mode::Play,
+            ScoreSettings::default(),
+            options,
+            Recorder::default(),
+            clock.clone(),
+        );
+        p.play();
+        let start = clock.now_s() + START_LEAD_S;
+        for beat in [0.0, 0.5] {
+            p.handle(Event::Note(DetectedNote {
+                onset_s: start + beat,
+                midi: 28.0,
+                confidence: 0.9,
+                level_db: -12.0,
+                source: InputSource::Line,
+                technique: None,
+                over_background: false,
+            }));
+        }
+        run(&mut p, &clock, 2.1);
+        let in_last_beat = |kind| {
+            p.output()
+                .sounds
+                .iter()
+                .filter(|(t, s)| *s == Sound::Drum(kind) && *t >= start + 1.5 - 0.06)
+                .filter(|(t, _)| *t < start + 2.0)
+                .count()
+        };
+        assert_eq!(in_last_beat(DrumKind::Snare), 4, "{:?}", p.output().sounds);
+        assert_eq!(in_last_beat(DrumKind::HiHat), 0);
     }
 
     #[test]

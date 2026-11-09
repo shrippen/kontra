@@ -310,7 +310,11 @@ Rückmeldung und Lernen:
   (`detuned-string`, J-B3 ⚙).
 - [ ] L7 Liedkarte, Kante-Baustein (LH-FOR-06).
 - [ ] L8 Ruf und Antwort (LH-LRN-19).
-- [ ] L9 Reagierende Band (LH-WIE-05).
+- [x] L9 Reagierende Band (LH-WIE-05): Einstellung „Band reagiert“ (aus). Im Modus „Spielen“ oder einer offenen
+  Übung über erzeugtes Schlagzeug: Kontra plant den letzten Schlag eines Takts erst 100 ms vorher; war der Schlag davor
+  frei und davor gespielt, wird er ein Snare-Fill (höchstens alle 8 Takte). Nach einem Takt mit mindestens zwei
+  Anschlägen je Schlag spielt der nächste ohne Hi-Hat. Test mit synthetischer Aufnahme durch die Erkennung
+  (`band.rs`); eine echte Aufnahme fehlt (keine im Repo), am Solo noch nicht gehört.
 - [ ] L10 Ziel je Lektion (LH-LRN-20).
 - [x] L11 Shuffle-Klick (LH-WIE-04): Shuffle-Grooves und „Stück Shuffle“ klicken auf 1. und 3. Triole (3. leiser),
   auch im Einzähler. Offen: Shuffle-Angaben importierter Dateien (Guitar Pro „Triplet Feel“, MusicXML `<swing>`)

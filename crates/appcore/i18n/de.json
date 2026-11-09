@@ -1055,5 +1055,7 @@
   "summary.open.counts": "{chord} Akkordtöne · {scale} in der Tonart · {foreign} fremd · Akkordtöne {percent} %",
   "summary.open.rests": "Pausen: {kept} von {rests} frei gelassen",
   "exercise.title.open": "{title}, frei",
-  "exercise.goal.improv": "Ziel: eine eigene Linie über die Akkorde. Kontra zählt Akkordtöne, Töne der Tonart und fremde Töne; wo das Beispiel pausiert, lass Luft."
+  "exercise.goal.improv": "Ziel: eine eigene Linie über die Akkorde. Kontra zählt Akkordtöne, Töne der Tonart und fremde Töne; wo das Beispiel pausiert, lass Luft.",
+  "settings.band": "Band reagiert",
+  "settings.band.hint": "Beim Spielen ohne Auswertung über erzeugtes Schlagzeug: Lässt du am Ende einer Phrase zwei Schläge frei, spielt das Schlagzeug ein Fill (höchstens alle 8 Takte); nach einem dichten Takt spielt es ohne Hi-Hat. Bewertet wird dabei nichts."
 }

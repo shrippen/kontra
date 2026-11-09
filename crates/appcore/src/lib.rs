@@ -1595,6 +1595,11 @@ impl Core {
             reference_tones: self.settings.reference_tones && self.probe.is_none(),
             backing_offset_s: self.backing().map_or(0.0, |(_, offset)| offset),
             transpose_semitones: self.transpose(),
+            band: if self.settings.reacting_band {
+                kontra_session::Band::Reacting
+            } else {
+                kontra_session::Band::AsWritten
+            },
         }
     }
 

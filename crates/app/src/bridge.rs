@@ -130,6 +130,8 @@ pub mod qobject {
         #[qproperty(i32, density_suggestion, cxx_name = "densitySuggestion")]
         #[qproperty(QString, density_text, cxx_name = "densityText")]
         #[qproperty(bool, adaptive)]
+        /// Generated drums answer the bass in free play (LH-WIE-05).
+        #[qproperty(bool, reacting_band, cxx_name = "reactingBand")]
         /// The practice page without its rare controls (LH-ANZ-11).
         #[qproperty(bool, simple_view, cxx_name = "simpleView")]
         #[qproperty(bool, calibrating)]
@@ -280,6 +282,10 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "changeAdaptive"]
         fn change_adaptive(self: Pin<&mut Self>, on: bool);
+
+        #[qinvokable]
+        #[cxx_name = "changeReactingBand"]
+        fn change_reacting_band(self: Pin<&mut Self>, on: bool);
 
         /// The simple practice page on or off (LH-ANZ-11).
         #[qinvokable]
@@ -960,6 +966,7 @@ pub struct ControllerRust {
     density_suggestion: i32,
     density_text: QString,
     adaptive: bool,
+    reacting_band: bool,
     simple_view: bool,
     calibrating: bool,
     calibration_beat: i32,
@@ -1124,6 +1131,7 @@ impl Default for ControllerRust {
             density_suggestion: 0,
             density_text: QString::default(),
             adaptive: s.adaptive,
+            reacting_band: s.reacting_band,
             simple_view: s.simple_view,
             calibrating: false,
             calibration_beat: NO_BEAT,
@@ -1895,6 +1903,7 @@ impl qobject::Controller {
         self.as_mut().set_bass_volume(s.bass_volume);
         self.as_mut().set_prompt_volume(s.prompt_volume);
         self.as_mut().set_adaptive(s.adaptive);
+        self.as_mut().set_reacting_band(s.reacting_band);
         self.as_mut().set_simple_view(s.simple_view);
         self.as_mut().set_tuning(q(&s.tuning));
         self.as_mut().set_a4_hz(s.a4_hz);
