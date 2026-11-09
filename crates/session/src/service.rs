@@ -217,6 +217,7 @@ pub fn score_notes(
     offset_s: f64,
 ) -> Scored {
     let mut session = Session::new(arrangement.clone(), mode, settings);
+    session.tell_no_ends();
     session.set_speed(0.0, speed);
     session.play(offset_s);
     let end = offset_s + arrangement.duration_s() / speed + 1.0;

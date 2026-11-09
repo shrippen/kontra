@@ -22,11 +22,22 @@ const REST_TICKS: u64 = TICKS_PER_QUARTER / 2;
 const END_TOLD_S: f64 = 0.4;
 
 /// The ends judged (detected onset, pass, note, heard), and whether the input tells ends at
-/// all: a run scored from notes alone gets none and judges none (review #227).
+/// all: a cable does from the start, a run scored from notes alone gets none and judges none
+/// (review #227).
 #[derive(Debug, Clone, Default)]
 pub(super) struct Ends {
     heard: Vec<(f64, u32, usize, EndHeard)>,
     fed: bool,
+}
+
+impl Ends {
+    /// The ends a run on `source` will be told: none yet.
+    pub(super) fn of(source: InputSource) -> Ends {
+        Ends {
+            heard: Vec::new(),
+            fed: tells_ends(source),
+        }
+    }
 }
 
 impl std::ops::Deref for Ends {
@@ -48,7 +59,6 @@ impl Session {
         if !tells_ends(self.settings.source) || self.arrangement.judging == Judging::Open {
             return;
         }
-        self.ends.fed = true;
         let Some(&(onset_s, pass, note)) = self
             .struck
             .iter()
@@ -79,6 +89,11 @@ impl Session {
         };
         self.ends.retain(|(_, p, n, _)| !(*p == pass && *n == note));
         self.ends.push((onset_s, pass, note, heard));
+    }
+
+    /// Scored from notes alone: no ends come, none are judged (`score_notes`).
+    pub(crate) fn tell_no_ends(&mut self) {
+        self.ends.fed = false;
     }
 
     /// How the notes the tab wants stopped ended (detected onset, pass, note, heard).

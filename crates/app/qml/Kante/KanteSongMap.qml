@@ -81,7 +81,7 @@ FocusScope {
         currentIndex = Math.max(0, Math.min(currentIndex, count - 1))
         anchorIndex = -1
         fitRange()
-        // Another piece starts at bar 1.
+        // Another number of bars starts at bar 1.
         viewFromStart = 0
     }
 
@@ -89,7 +89,7 @@ FocusScope {
     property real viewFromStart: 0
 
     // A new size, length or direction: the focused bar stays in view, else the view keeps its
-    // distance from bar 1 (bar 1 shows on a new piece).
+    // distance from bar 1 (bar 1 shows on another number of bars).
     onStripWidthChanged: placeView()
     onWidthChanged: placeView()
     onMirroredChanged: placeView()

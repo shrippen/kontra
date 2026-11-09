@@ -172,7 +172,7 @@ impl Session {
             scored: Vec::new(),
             strings: Vec::new(),
             told_strings: Vec::new(),
-            ends: ends::Ends::default(),
+            ends: ends::Ends::of(settings.source),
             heard: Vec::new(),
             results: Vec::new(),
             events: Vec::new(),
