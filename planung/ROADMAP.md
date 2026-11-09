@@ -366,6 +366,12 @@ Erkennung und Messung:
   Linie E1–A2 Mittel 1,8 %, p99 5,1 %, schlechtester Block 6,0 %; mit Brummen und Abzug (E8) 1,5 / 5,0 / 5,9 %;
   Anschlag allein 0,9 / 4,7 / 5,0 %; Stimmgerät 0,6 / 1,8 / 1,9 %; Echo-Unterdrückung (512 Samples) 0,9 / 1,0 /
   1,2 %. Ein Block bleibt damit unter einem Zehntel des Budgets. Die CI baut die Benches nur (`--no-run`).
+- [x] Benchmark der Oberfläche (09.11., Release-Build, offscreen, `etude-1.mid` mit Aufnahme, `qmlprofiler`): Die
+  Notenansicht stand beim Öffnen 2,7 s und beim Spielen in der nächsten Zeile 0,8 s still (`KanteScope` reihte ein
+  Element je neuem Kind ein; Kante 1.76.2, #131): jetzt 17 und 10 ms, längste Lücke zwischen zwei Ticks 970 → 22 ms.
+  Versteckte Ansichten folgen der Position nicht mehr (`tests/hidden_views.rs`): QML-Zeit beim Spielen 2–4 % eines
+  Kerns in jeder Ansicht (Notenansicht vorher 22 %). Gemessen, nicht geändert: `play` mit Aufnahme dekodiert sie im
+  GUI-Thread (60–90 ms, nur QA); Öffnen der Ausgabe < 5 ms; ein echtes Interface ließ sich isoliert nicht messen.
 - [x] E5 Notenende (LH-BEW-10, `h-detect`): Der Tracker folgt jeder Note bis zu ihrem Ende und meldet `NoteEnd`
   (Engine `Event::End`): `Muted` (Pegel ≥ 10 dB binnen 60 ms und 100 ms lang unten, oder bis zum nächsten Anschlag),
   `Decayed` (30 dB unter dem Start), `Replaced` (nächster Anschlag oder Legato-Ton). `korpus ends` (09.11.):
