@@ -43,6 +43,12 @@ jobs:
           fi
       - name: Build, bundle, smoke test
         run: scripts/flatpak.sh flatpak-out
+      # Flathub's linter (W6): reported, not blocking until its findings are sorted.
+      - name: flatpak-builder-lint
+        continue-on-error: true
+        run: |
+          flatpak install --user -y --noninteractive flathub org.flatpak.Builder
+          scripts/lint-packaging.sh
       - uses: actions/upload-artifact@v4
         with:
           name: kontra-flatpak

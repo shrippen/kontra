@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CourseManifest",
+  "description": "`manifest.json` of a course package.",
+  "type": "object",
+  "properties": {
+    "course": {
+      "description": "The course: `courses/<course>.json`.",
+      "type": "string"
+    },
+    "format": {
+      "type": "string"
+    },
+    "hosts": {
+      "description": "Hosts videos stream from; any other address is an error.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "id": {
+      "description": "Prefix of the course and lesson ids (`bassbuzz` → `bassbuzz.anschlag`).",
+      "type": "string"
+    },
+    "license": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "revision": {
+      "description": "The course's own edition, raised by its author with each release (1, 2, …); an update\nsays by it whether it is newer.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "title": {
+      "description": "Title per language code (\"de\", \"en\").",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "version": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "revision",
+    "id",
+    "title",
+    "provider",
+    "license",
+    "course"
+  ]
+}

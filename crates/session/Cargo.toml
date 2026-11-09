@@ -14,5 +14,9 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 
+[features]
+# JSON Schemas of the package and course files (W8), for `kontra-cli schemas`.
+schema = ["kontra-content/schema"]
+
 [lints]
 workspace = true

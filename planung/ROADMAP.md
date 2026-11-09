@@ -328,7 +328,13 @@ Erkennung und Messung:
   Aussetzer und Wiedereinsatz kommen jetzt nur noch im Gehörtraining als Meldung.
   Verlust aus Gerätestempeln über eine DLL (R3, erster Teil, #209); offen aus R3: Wiedergabe- und
   Eingangszeitachse an der DLL verankern (Ausgangsstempel), Loopback-Prüfung am Solo.
-- [ ] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur).
+- [x] E4 Criterion-Benches für den Echtzeitpfad (Anteil am Blockbudget; CI baut nur): `cargo bench -p kontra-dsp`
+  (`crates/dsp/benches/realtime.rs`) misst, was der Analyse-Thread je Block von 480 Samples bei 48 kHz (10 ms) tut,
+  und gibt vorab je Stufe Mittel, p99 und schlechtesten Block als Anteil am Budget aus (schnellster von 5 Durchläufen
+  je Block). Erste Messung (09.11., Ryzen mit 24 Threads, Last 30–40 durch parallele Builds): Tracker auf einer
+  Linie E1–A2 Mittel 1,8 %, p99 5,1 %, schlechtester Block 6,0 %; mit Brummen und Abzug (E8) 1,5 / 5,0 / 5,9 %;
+  Anschlag allein 0,9 / 4,7 / 5,0 %; Stimmgerät 0,6 / 1,8 / 1,9 %; Echo-Unterdrückung (512 Samples) 0,9 / 1,0 /
+  1,2 %. Ein Block bleibt damit unter einem Zehntel des Budgets. Die CI baut die Benches nur (`--no-run`).
 - [ ] E5 Notenende (LH-BEW-10).
 - [x] E6 Rauschboden bei der Kalibrierung (LH-EIN-16, `noise-floor`): Beim Einzählen misst der Onset-Detektor den
   Pegel im Anschlagband (10. Perzentil), die Schwelle liegt 6 dB darüber (−62 bis −40 dB) und gilt je Eingang.
@@ -363,14 +369,47 @@ Mehrere Töne (offen für Gitarre und Tasten):
 - [ ] M4 Machbarkeitsstudie NNLS mit Vorlagen je Saite, Log-Frequenz (nach 1.0).
 
 Werkzeuge (W2, W4, W6, W7 ändern `agent.md`, CI oder Release: Bestätigung in Worten je PR):
-- [ ] W1 `scripts/qactl.py` über AT-SPI; Socket nur im Cargo-Feature `qa`.
+- [x] W1 `scripts/qactl.py` über AT-SPI; Socket nur im Cargo-Feature `qa`: reines AT-SPI, kein Socket, kein
+  Feature. `tree`, `find`, `press`, `text`, `wait`, `layout` nach Rolle und Name. `scripts/qa-session.sh --a11y`
+  startet dafür Session-Bus, Accessibility-Bus und AT-SPI-Registry selbst (nicht über at-spi-bus-launcher: der
+  startet die Registry bei dbus-broker über systemd, das die saubere Umgebung nicht erreicht) und gibt sie Kontra
+  und dem `--run`-Befehl; `--run` läuft jetzt in derselben sauberen Umgebung. Probe (09.11.): Bibliothek →
+  `press --role 'list item' Einstellungen` → `wait --role heading Einstellungen` → `find --contains Ausgang`
+  fand `combo box 'Ausgang'`.
 - [x] W2 `scripts/qa-session.sh` für jeden isolierten Testlauf.
-- [ ] W3 Layout-Prüfung je Seite bei P4- und P7-Auflösung (LH-ANZ-09).
-- [ ] W4 Tabelle Regel → Prüfung, Git-Hooks, CI-Prüfung der Commit-Nachrichten.
+- [x] W3 Layout-Prüfung je Seite bei P4- und P7-Auflösung (LH-ANZ-09): `scripts/check-layout.sh` startet 15
+  Seiten und Ansichten je Persona (P4 1280×720 bei 150 %, P7 1920×1080 bei 200 %), Fenster so groß wie der
+  Bildschirm, und meldet über `qactl.py layout` benannte Elemente, die das Fenster abschneidet (in Bildlaufbereichen
+  nur seitlich), überlappende Bedienelemente und Bedienelemente ohne Namen. Lokal, die CI hat keinen AT-SPI-Stapel.
+  Erster Lauf (09.11.): 29 von 30 ohne Befund. **P4 Lernen:** Die Knopfreihe (Weiter, Glossar, Kurs hinzufügen,
+  Kurs von Adresse) bricht nicht um und macht die Seite breiter als das Fenster (853 logische Pixel); „Kurs von
+  Adresse …“ und der Einleitungstext sind rechts abgeschnitten (Screenshot geprüft). Nicht behoben: ein `Flow`
+  statt `RowLayout` in `LearnPage.qml` reicht vermutlich, braucht aber zuerst einen roten QML-Test. Grenzen: Was
+  Kontra selbst malt (Lane, Noten, Griffbrett), sieht AT-SPI nicht; abgeschnittener Text innerhalb eines Labels
+  (Elision) ebenso wenig. Ohne Fenstermanager öffnet Kontra mit 72×44 Rastereinheiten auch auf kleineren
+  Bildschirmen größer als der Bildschirm; das Skript setzt die Fenstergröße deshalb selbst.
+- [x] W4 Tabelle Regel → Prüfung, Git-Hooks, CI-Prüfung der Commit-Nachrichten: `planung/REGELN.md` (maschinell
+  geprüft oder nur Review); `scripts/commit-msg.py` prüft die Regeln 1–6 (Betreff ab 51 Zeichen Warnung, ab 73
+  Fehler; Imperativ nur als Vermutung über häufige Verben), Hooks in `scripts/hooks/` (`make hooks`): commit-msg,
+  pre-push mit den Nachrichten des Pushs und `make check-lite` (fmt, Design, Lizenzliste). Die CI prüft die
+  Nachrichten jedes Pushs (ohne Merges). Stichprobe 09.11.: 6 von 399 Commits verletzen Regel 3 oder 6
+  (Body-Zeilen bis 298 Zeichen, Betreff „agent.md: …“ klein).
 - [x] W5 Test für Crate-Kanten und Dateigröße mit Abbauliste (`tests/physical_design.rs`, 1200 Zeilen je Datei; Abbauliste: appcore/lib.rs, bridge.rs, exercise.rs, PracticePage.qml, tracker.rs). 30.10.: appcore/lib.rs 8191 → 2885 Zeilen (Tests nach `src/tests/`, Bibliothek, Auswertung, Übungen, Fortschritt, Notation als Module), bridge.rs 2898 → 1955 (Invokables in `bridge/`).
-- [ ] W6 `scripts/release.sh`, metainfo `<releases>`/`<screenshots>`, AppStream- und Flatpak-Lint.
+- [x] W6 `scripts/release.sh`, metainfo `<releases>`/`<screenshots>`, AppStream- und Flatpak-Lint:
+  `scripts/release.sh X.Y.Z [--dry-run]` prüft main, sauberen Baum, freien Tag, Version in `Cargo.toml` und
+  `Cargo.lock`, Abschnitt in `CHANGELOG.md` (Englisch und Deutsch, `scripts/release-notes.sh` aus Kante), neuesten
+  `<release>` der Metainfo mit gleichem Datum und Eintrag in `#changes` und Fußzeile der Landing Page; dann setzt
+  es den Tag mit den Notes und gibt die Befehle zum Veröffentlichen nur aus. Test `scripts/release.test.sh`
+  (CI). Metainfo mit fünf Screenshots (Adressen der Landing Page, noch nicht live; deshalb `--no-net`) und leerem
+  `<releases>`. `scripts/lint-packaging.sh`: `appstreamcli`, `desktop-file-validate` (CI), `flatpak-builder-lint`
+  im Flatpak-Job (meldet, blockiert nicht). Offen: Ergebnis des ersten flatpak-builder-lint-Laufs (lokal ist
+  `org.flatpak.Builder` defekt installiert).
 - [x] W7 `cargo deny` mit `[advisories]`, eigener Job und wöchentlich (`advisories.yml`); rustls auf 0.23.46, RUSTSEC-2025-0044 (minimp3) mit Begründung ignoriert.
-- [ ] W8 JSON-Schemas für Pakete und Kurse aus den serde-Strukturen.
+- [x] W8 JSON-Schemas für Pakete und Kurse aus den serde-Strukturen: `kontra-cli schemas <dir>` schreibt
+  `schema/package-manifest.schema.json`, `course-manifest.schema.json` und `course.schema.json` (schemars, nur mit
+  dem Feature `schema`, das nur die CLI einschaltet); die CI vergleicht wie bei den Übungen. Vorlage, mitgelieferter
+  Kurs und das Beispiel aus `FORMAT.md` bestehen die Schemas (geprüft mit Python `jsonschema`). `alignment.json`
+  hat kein Schema: Kontra liest sie dort nicht (Beat-Map der Bibliothek).
 - [ ] W9 Kurs aus Ordner live (LH-LRN-21); QML von der Platte in Entwicklung.
 - [x] W11 Glyphen-Test für Sonderzeichen (`tests/glyphs.rs`): jedes Zeichen über ASCII aus i18n (de, en), Lektionen
   und eigenem QML muss in einer mitgelieferten Schrift stehen (Kante: Rajdhani, JetBrains Mono, Bravura; Private-Use
