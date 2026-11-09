@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls as QQC2
 import QtQuick.Shapes
 import "."
 
@@ -57,15 +58,56 @@ Item {
     readonly property bool comboBox: control !== null && control.displayText !== undefined && control.popup !== undefined
 
     Text {
+        id: comboValue
+        objectName: "kanteComboValue"
         visible: KanteStyle.themed && skin.comboBox && skin.control.contentItem !== null
         // At least 8 px in from the frame (some styles put the text flush to it), clear of the arrow.
         x: Math.max(KanteStyle.unit(8), skin.control && skin.control.contentItem ? skin.control.contentItem.x + (skin.control.contentItem.leftPadding || 0) : 0)
-        width: Math.max(0, skin.width - x - KanteStyle.unit(30))
+        width: Math.max(0, skin.width - x - skin.arrowRoom)
         anchors.verticalCenter: parent.verticalCenter
         text: skin.comboBox ? skin.control.displayText : ""
         font: skin.control ? skin.control.font : KanteStyle.defaultFont
         color: KanteStyle.textColor
         elide: Text.ElideRight
+    }
+
+    // Room left of the value as drawn, from the padding (not the content item's x, which
+    // follows the width the binding below sets).
+    readonly property real valueInset: Math.max(KanteStyle.unit(8), control && control.contentItem
+        ? control.leftPadding + (control.contentItem.leftPadding || 0) : 0)
+    // Room right of the value: the arrow and its margins.
+    readonly property int arrowRoom: KanteStyle.unit(30)
+    // The widest entry, so the box neither cuts the value short nor jumps when it changes.
+    FontMetrics {
+        id: comboMetrics
+        font: skin.control ? skin.control.font : KanteStyle.defaultFont
+    }
+    readonly property real comboTextWidth: {
+        if (!comboBox) {
+            return 0
+        }
+        void control.model
+        void comboMetrics.font
+        let widest = comboMetrics.advanceWidth(control.displayText)
+        for (let i = 0; i < control.count; ++i) {
+            widest = Math.max(widest, comboMetrics.advanceWidth(control.textAt(i)))
+        }
+        return Math.ceil(widest)
+    }
+    // A style that sizes the box from its own background (org.kde.desktop) leaves less room
+    // than the value drawn here takes; it read "Erledigu…" in Kurrent's heatmap (1.56).
+    Binding {
+        target: skin.comboBox ? skin.control : null
+        property: "implicitWidth"
+        // Not the style's background width: it is hidden here, and org.kde.desktop measures it
+        // again from the width this sets (a binding loop).
+        // At least comboMinimumWidth, so short entries keep a box that is easy to hit. To fix a
+        // width, set width or Layout.preferredWidth; implicitWidth is the skin's in Kante.
+        value: Math.max(KanteStyle.comboMinimumWidth,
+                        skin.control ? skin.control.implicitContentWidth + skin.control.leftPadding + skin.control.rightPadding : 0,
+                        skin.comboTextWidth + skin.valueInset + skin.arrowRoom)
+        when: KanteStyle.themed && skin.comboBox && !skin.control.editable
+        restoreMode: Binding.RestoreBindingOrValue
     }
 
     // The style's arrow lives in the indicator or, with desktop styles, in the
@@ -100,13 +142,27 @@ Item {
         restoreMode: Binding.RestoreBindingOrValue
     }
 
-    // Text areas: Material floats the placeholder above filled text, over the frame.
+    // Text areas: the placeholder stays inside the box (1.73, see KanteTextField).
     readonly property bool textArea: control !== null && control.placeholderText !== undefined && control.text !== undefined
+    QQC2.Label {
+        objectName: "kantePlaceholder"
+        visible: KanteStyle.themed && skin.textArea && skin.control.placeholderText !== ""
+                 && skin.control.text === "" && skin.control.preeditText === ""
+        x: skin.control ? skin.control.leftPadding : 0
+        // A text area starts at the top, a one-line field in its middle.
+        y: !skin.control ? 0 : skin.control.textDocument !== undefined ? skin.control.topPadding : (skin.control.height - height) / 2
+        width: skin.control ? skin.control.width - skin.control.leftPadding - skin.control.rightPadding : 0
+        text: skin.textArea ? skin.control.placeholderText : ""
+        horizontalAlignment: skin.control ? skin.control.horizontalAlignment : Text.AlignLeft
+        elide: Text.ElideRight
+        font: skin.control ? skin.control.font : Qt.application.font
+        color: KanteStyle.disabledTextColor
+    }
     Binding {
         target: skin.textArea ? skin.control : null
-        property: "placeholderText"
-        value: ""
-        when: KanteStyle.themed && skin.textArea && skin.control.text.length > 0
+        property: "placeholderTextColor"
+        value: "transparent"
+        when: KanteStyle.themed && skin.textArea
         restoreMode: Binding.RestoreBindingOrValue
     }
 

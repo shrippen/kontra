@@ -14,12 +14,64 @@ import "."
  * the button's own `enabled` stays as the app bound it). Both hold
  * for the footer of every style, also after a switch at run time (Kante has its own footer;
  * a text or lock set on the button itself was lost there).
+ * Size (Kante 1.55, from lmix): `size` Small, Medium or Large is 24, 36 or 48 grid units
+ * wide and at most 90 % of the window, also in height (taller content scrolls in the app's
+ * own ScrollView; the dialog does not clip it); Fit (default) sizes to the content as
+ * before.
+ * Destructive (Kante 1.55, from lmix): a question whose yes removes or resets something:
+ * the bar on top and the accept button in the negative colour, Cancel before it; the
+ * button says what goes (`acceptText: "Remove bus"`). In the Kante style only: System and
+ * Kante Light keep the platform's dialog and button order.
+ * Footer start (Kante 1.58, from lmix): `footerStart` takes the app's own buttons
+ * (KanteButton) and puts them at the start of the footer, before the standard buttons and
+ * apart from them, such as "Shortcuts…" beside Close in lmix's keys overview. Every style
+ * does it, also after a switch at run time; the footer makes room for them, in width and
+ * height, also without a standard button. They are no standard buttons: their own
+ * `onClicked`, no accept or reject, no role; one taken out of the list leaves the footer.
+ * Right to left (LayoutMirroring, as Kirigami's window sets it for an RTL language) the
+ * start is on the right: the own buttons stand there, the standard buttons on the left.
+ * Since 1.55 `acceptText` also holds when the button box sets its standard texts again
+ * (a language change, also the one at start with the app's translations): it read "OK"
+ * in German before.
  */
 QQC2.Dialog {
     id: control
 
+    enum Size { Fit, Small, Medium, Large }
+    /** Width by step (see above); Fit: the content's. */
+    property int size: KanteDialog.Size.Fit
+    /** The yes removes or resets something (see above). */
+    property bool destructive: false
     /** Color of the bar on top in Kante (accent; negative for destructive questions). */
-    property color kanteBarColor: KanteStyle.accentColor
+    property color kanteBarColor: destructive ? KanteStyle.negativeTextColor : KanteStyle.accentColor
+
+    /** Width of `size` in pixels, 0 for Fit. */
+    readonly property real sizeWidth: size === KanteDialog.Size.Small ? Kirigami.Units.gridUnit * 24
+        : size === KanteDialog.Size.Medium ? Kirigami.Units.gridUnit * 36
+        : size === KanteDialog.Size.Large ? Kirigami.Units.gridUnit * 48 : 0
+    // The window, not the parent item (a dialog may hang on a small one); no limit
+    // before it has one.
+    readonly property real kanteRoomWidth: control.parent && control.parent.Window.width > 0 ? control.parent.Window.width : Infinity
+    readonly property real kanteRoomHeight: control.parent && control.parent.Window.height > 0 ? control.parent.Window.height : Infinity
+    // Only for a size step: a width or height set here counts as the app's, and Qt no longer
+    // fits a Fit dialog taller than the window into it. Back to Fit they are reset, not
+    // restored: a restored value would count as the app's too.
+    Binding on width {
+        when: control.sizeWidth > 0
+        value: Math.min(control.sizeWidth, control.kanteRoomWidth * 0.9)
+        restoreMode: Binding.RestoreNone
+    }
+    Binding on height {
+        when: control.sizeWidth > 0
+        value: Math.min(control.implicitHeight, control.kanteRoomHeight * 0.9)
+        restoreMode: Binding.RestoreNone
+    }
+    onSizeWidthChanged: {
+        if (sizeWidth === 0) {
+            width = undefined
+            height = undefined
+        }
+    }
     /** Text of the accept button (Ok, Save, Apply, Yes); "": the standard one. */
     property string acceptText: ""
     /** The accept button can be pressed; undefined (default): Kante leaves `enabled` alone,
@@ -30,6 +82,77 @@ QQC2.Dialog {
     // The buttons acceptEnabled has set (each footer has its own), to free them all when
     // acceptEnabled is unset again.
     property var lockedButtons: []
+
+    /** The app's buttons at the start of the footer (see above). */
+    property list<Item> footerStart
+    // Not a child: it goes into the footer shown now, whichever style made it. Right to
+    // left (LayoutMirroring, inherited from the window) its anchors and order mirror, so
+    // it stands at the right, the first button outermost.
+    readonly property Item kanteFooterStart: Row {
+        objectName: "kanteFooterStart"
+        anchors.left: parent ? parent.left : undefined
+        anchors.leftMargin: parent ? parent.padding : 0
+        anchors.verticalCenter: parent ? parent.verticalCenter : undefined
+        spacing: Kirigami.Units.smallSpacing
+    }
+    // The buttons placed so far: one no longer in footerStart leaves the footer again.
+    property var kanteFooterPlaced: []
+    function placeFooterStart() {
+        const now = []
+        for (let i = 0; i < footerStart.length; ++i) {
+            now.push(footerStart[i])
+            footerStart[i].parent = kanteFooterStart
+        }
+        for (const item of kanteFooterPlaced) {
+            if (now.indexOf(item) < 0 && item.parent === kanteFooterStart) {
+                item.parent = null
+            }
+        }
+        kanteFooterPlaced = now
+    }
+    onFooterStartChanged: placeFooterStart()
+    Binding {
+        target: control.kanteFooterStart
+        property: "parent"
+        value: control.footer
+        when: control.footer !== null && control.footerStart.length > 0
+        restoreMode: Binding.RestoreNone
+    }
+    // The standard buttons move over for them: from the left, or right to left from the
+    // right, where the footer start mirrors to.
+    readonly property bool kanteFooterMirrored: kanteFooterStart.LayoutMirroring.enabled
+    Binding {
+        target: control.footer
+        property: "leftPadding"
+        value: control.footer ? control.footer.padding + control.kanteFooterStart.implicitWidth + Kirigami.Units.largeSpacing : 0
+        when: control.footer !== null && control.footerStart.length > 0 && !control.kanteFooterMirrored
+        restoreMode: control.kanteRestore
+    }
+    Binding {
+        target: control.footer
+        property: "rightPadding"
+        value: control.footer ? control.footer.padding + control.kanteFooterStart.implicitWidth + Kirigami.Units.largeSpacing : 0
+        when: control.footer !== null && control.footerStart.length > 0 && control.kanteFooterMirrored
+        restoreMode: control.kanteRestore
+    }
+    // The platform's footer hides without standard buttons: shown for them too.
+    Binding {
+        target: control.footer
+        property: "visible"
+        value: true
+        when: control.footer !== null && control.footerStart.length > 0
+        restoreMode: control.kanteRestore
+    }
+    // And the footer is as high as they are, also without a standard button.
+    Binding {
+        target: control.footer
+        property: "implicitHeight"
+        value: control.footer ? Math.max(control.footer.implicitBackgroundHeight + control.footer.topInset + control.footer.bottomInset,
+                                         Math.max(control.footer.implicitContentHeight, control.kanteFooterStart.implicitHeight)
+                                         + control.footer.topPadding + control.footer.bottomPadding) : 0
+        when: control.footer !== null && control.footerStart.length > 0
+        restoreMode: control.kanteRestore
+    }
 
     /** The accept button of the footer shown now, or null. */
     function acceptButton() {
@@ -49,8 +172,24 @@ QQC2.Dialog {
         let kept = standardTexts.find(pair => pair[0] === button)
         if (acceptText.length > 0) {
             if (!kept) {
-                standardTexts.push([button, button.text])
+                // The button, its standard text, the name set last.
+                kept = [button, button.text, ""]
+                standardTexts.push(kept)
+                // The button box sets the standard texts again when the language changes
+                // (at start, once the app's translations are in): the name comes back on
+                // top, and the new standard text is the one to give back.
+                button.textChanged.connect(() => {
+                    if (control.acceptText.length > 0 && button.text !== control.acceptText) {
+                        kept[1] = button.text
+                        button.text = control.acceptText
+                    }
+                })
+            } else if (button.text !== acceptText && button.text !== kept[2]) {
+                // Its standard text may have changed while unset (a language change); the
+                // name set last is no standard text.
+                kept[1] = button.text
             }
+            kept[2] = acceptText
             button.text = acceptText
         } else if (kept) {
             button.text = kept[1]
@@ -71,10 +210,59 @@ QQC2.Dialog {
     }
     onAcceptTextChanged: applyAccept()
     onAcceptEnabledChanged: applyAccept()
-    onStandardButtonsChanged: Qt.callLater(applyAccept)
-    Component.onCompleted: applyAccept()
+    onStandardButtonsChanged: applyAcceptLater.start()
+    // After the event (the button box makes its buttons first). When the garbage collector
+    // takes the window, the dialog's functions are gone before the dialog itself and its
+    // Timer (Component.onDestruction comes later): a pending call found no applyAccept
+    // ("… is not a function").
+    Timer {
+        id: applyAcceptLater
+        interval: 0
+        onTriggered: {
+            if (typeof control.applyAccept === "function") {
+                control.applyAccept()
+            }
+        }
+    }
+    Component.onCompleted: {
+        applyAccept()
+        placeFooterStart()
+        Qt.callLater(() => { control.kanteBuilt = true })
+    }
 
-    KanteScope { target: control.contentItem }
+    KanteScope { id: kanteScope; target: control.contentItem }
+
+    // Fit (1.70): the content's size from the app's item. Qt takes a popup's implicit content
+    // size only from a single child, and the scope above is a second one (it must stay in the
+    // content: it finds the popup's window through itself, for disabled items, 1.51).
+    readonly property Item kanteContent: {
+        const kids = control.contentChildren
+        for (let i = 0; i < kids.length; i++) {
+            if (kids[i] !== kanteScope) {
+                return kids[i]
+            }
+        }
+        return null
+    }
+    // As Qt: the content item's own size first (an app's layout), else its single item's.
+    contentWidth: contentItem && contentItem.implicitWidth > 0 ? contentItem.implicitWidth
+                                                                : (kanteContent ? kanteContent.implicitWidth : 0)
+    // The height once the dialog is built (1.71): while Qt builds it, Kante's header and colours
+    // arrive and a text changes its height inside the dialog's own implicitHeight (a binding loop
+    // in Mitori).
+    property bool kanteBuilt: false
+    contentHeight: !kanteBuilt ? 0
+                   : contentItem && contentItem.implicitHeight > 0 ? contentItem.implicitHeight
+                   : (kanteContent ? kanteContent.implicitHeight : 0)
+
+    // Torn down, the Bindings here give nothing back: the dialog goes anyway. They are
+    // children of its content item, which Qt deletes inside the popup's destructor; a
+    // background or header given back there went into the half-deleted popup (SIGSEGV
+    // in QQmlBind::~QQmlBind, a window with a dialog collected by the garbage collector,
+    // lmix). Component.onDestruction comes before that.
+    property bool kanteGoing: false
+    readonly property int kanteRestore: kanteGoing ? Binding.RestoreNone : Binding.RestoreBindingOrValue
+    Component.onDestruction: kanteGoing = true
 
     // Not children: only handed to background/header/footer while Kante is on.
     readonly property Item kanteBackground: KanteCard {
@@ -95,15 +283,27 @@ QQC2.Dialog {
     }
 
     readonly property Item kanteFooter: QQC2.DialogButtonBox {
-        visible: count > 0
+        visible: count > 0 || control.footerStart.length > 0
         standardButtons: control.standardButtons
         alignment: Qt.AlignRight
         spacing: Kirigami.Units.smallSpacing
         padding: control.padding
         background: null
+        // Cancel before the red button (lmix rule 1): whoever reads from the left meets
+        // the way out first.
+        Binding on buttonLayout {
+            when: control.destructive
+            value: QQC2.DialogButtonBox.GnomeLayout
+            restoreMode: control.kanteRestore
+        }
+        // Yes accepts a yes/no question: red there too, as Ok.
         delegate: KanteButton {
-            emphasis: QQC2.DialogButtonBox.buttonRole === QQC2.DialogButtonBox.AcceptRole
-                      ? KanteButton.Emphasis.Primary : KanteButton.Emphasis.Normal
+            readonly property int role: QQC2.DialogButtonBox.buttonRole
+            emphasis: role === QQC2.DialogButtonBox.AcceptRole
+                      ? (control.destructive ? KanteButton.Emphasis.Destructive : KanteButton.Emphasis.Primary)
+                      : role === QQC2.DialogButtonBox.YesRole && control.destructive
+                      ? KanteButton.Emphasis.Destructive
+                      : KanteButton.Emphasis.Normal
         }
     }
 
@@ -128,7 +328,7 @@ QQC2.Dialog {
     onFooterChanged: {
         kanteRestored(footer, kanteFooter)
         // The other footer has its own buttons: name and lock them too.
-        Qt.callLater(applyAccept)
+        applyAcceptLater.start()
     }
 
     // The dim behind the dialog is Kante's scrim role (best effort: only when the style
@@ -138,7 +338,7 @@ QQC2.Dialog {
         property: "modal"
         value: control.kanteScrim
         when: KanteStyle.themed && control.QQC2.Overlay !== null
-        restoreMode: Binding.RestoreBindingOrValue
+        restoreMode: control.kanteRestore
     }
     readonly property Component kanteScrim: Component { Rectangle { color: KanteStyle.scrimColor } }
     Binding {
@@ -146,20 +346,20 @@ QQC2.Dialog {
         property: "background"
         value: control.kanteBackground
         when: KanteStyle.themed
-        restoreMode: Binding.RestoreBindingOrValue
+        restoreMode: control.kanteRestore
     }
     Binding {
         target: control
         property: "header"
         value: control.kanteHeader
         when: KanteStyle.themed
-        restoreMode: Binding.RestoreBindingOrValue
+        restoreMode: control.kanteRestore
     }
     Binding {
         target: control
         property: "footer"
         value: control.kanteFooter
         when: KanteStyle.themed
-        restoreMode: Binding.RestoreBindingOrValue
+        restoreMode: control.kanteRestore
     }
 }
