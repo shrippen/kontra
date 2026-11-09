@@ -4,7 +4,7 @@
 #
 #   - system libraries (ALSA headers for cpal), Rust stable with clippy/rustfmt,
 #     cargo-deny
-#   - tea (Gitea CLI) logged in to git.arianw.de, git credentials for it
+#   - gt (Gitea CLI) for git.arianw.de via GITEA_TOKEN, git credentials for it
 #   - /home/user/Kante and /home/user/kontra cloned (Kontra needs ../Kante for
 #     scripts/sync-kante.sh, shrippen.github.io needs ../Kante for build.sh)
 #   - Qt 6.10 and Kirigami 6.30 under /opt via Kontra's scripts/setup-qt-env.sh
@@ -16,7 +16,7 @@ set -uo pipefail
 
 HOME_DIR=/home/user
 GITEA=git.arianw.de
-TEA_VERSION=0.16.0
+GT_VERSION=1.0.0
 log() { printf '\n== %s\n' "$*"; }
 
 log "system packages"
@@ -33,11 +33,11 @@ rustup update stable -q >/dev/null 2>&1 || true
 rustup component add rustfmt clippy >/dev/null 2>&1 || true
 command -v cargo-deny >/dev/null 2>&1 || cargo install -q --locked cargo-deny
 
-log "tea ${TEA_VERSION}"
-if ! command -v tea >/dev/null 2>&1; then
-    curl -sSfL -o /usr/local/bin/tea \
-        "https://dl.gitea.com/tea/${TEA_VERSION}/tea-${TEA_VERSION}-linux-amd64" \
-        && chmod +x /usr/local/bin/tea
+log "gt ${GT_VERSION}"
+if ! command -v gt >/dev/null 2>&1; then
+    curl -sSfL -o /usr/local/bin/gt \
+        "https://gitea.com/gitea/cli/releases/download/v${GT_VERSION}/gitea-cli-${GT_VERSION}-linux-amd64" \
+        && chmod +x /usr/local/bin/gt
 fi
 
 if [ -z "${GITEA_TOKEN:-}" ]; then
@@ -46,8 +46,7 @@ if [ -z "${GITEA_TOKEN:-}" ]; then
 fi
 
 log "gitea login"
-tea login list 2>/dev/null | grep -q "$GITEA" \
-    || tea login add --name arianw --url "https://$GITEA" --token "$GITEA_TOKEN" >/dev/null
+# gt needs no login: it reads GITEA_TOKEN at use time and takes the instance from the clone's remote.
 # git reads the token from the environment at use time; nothing is written to disk.
 git config --global "credential.https://$GITEA.helper" \
     '!f() { echo username=shrippen; echo "password=$GITEA_TOKEN"; }; f'
