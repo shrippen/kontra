@@ -43,9 +43,16 @@ const PAGES: &[&str] = &[
 ];
 
 fn main() {
-    CxxQtBuilder::new_qml_module(QmlModule::new("org.shrippen.kontra").qml_files(PAGES))
-        .files(["src/bridge.rs", "src/translator.rs"])
-        .crate_include_root(Some("cpp".into()))
-        .cpp_file("cpp/translator.cpp")
-        .build();
+    let mut builder =
+        CxxQtBuilder::new_qml_module(QmlModule::new("org.shrippen.kontra").qml_files(PAGES))
+            .files(["src/bridge.rs", "src/translator.rs"])
+            .crate_include_root(Some("cpp".into()))
+            .cpp_file("cpp/translator.cpp");
+    // QML reload without restart (KONTRA_LIVE_QML) is a development tool: debug builds only.
+    if std::env::var_os("CARGO_CFG_DEBUG_ASSERTIONS").is_some() {
+        builder = builder
+            .files(["src/live_qml.rs"])
+            .cpp_file("cpp/live_qml.cpp");
+    }
+    builder.build();
 }

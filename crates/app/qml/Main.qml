@@ -175,6 +175,20 @@ Kirigami.ApplicationWindow {
         }
     }
 
+    // Development (KONTRA_LIVE_QML, live_qml.cpp): an edited file shows without a restart. The
+    // page goes first, so its components leave the engine's cache; then it is built from disk.
+    // Main.qml itself and what it holds directly need a restart.
+    function unloadPage() {
+        var old = pageStack.currentItem
+        pageStack.clear()
+        if (old) {
+            old.destroy()
+        }
+    }
+    function reloadPage() {
+        show(current)
+    }
+
     globalDrawer: Kirigami.GlobalDrawer {
         // In the presentation the sidebar leaves: "visible: false" alone kept its room and
         // showed it (QA 14.10., P4 at the beamer). Modal and closed, it takes none.
