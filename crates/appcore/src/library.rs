@@ -8,10 +8,12 @@ use std::path::{Path, PathBuf};
 /// What choosing a backing track did to the loaded piece.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackingChange {
-    /// The piece stands as it was: loop, building blocks and the last summary stay.
+    /// Nothing the page shows of the piece changed: loop, building blocks and the summary of
+    /// a finished run stay. Also when nothing was set (no piece, a name that cannot be kept).
     Kept,
-    /// A beat map went and the piece was loaded again at its own tempo.
-    Reloaded,
+    /// The page starts over: a run under way was ended, or a beat map went and the piece
+    /// was loaded again at its own tempo.
+    StartOver,
 }
 
 impl Core {
@@ -59,13 +61,21 @@ impl Core {
                 entry.backing_offset_s = offset_s;
             }
         }
+        // A finished run leaves its summary on the page; one under way ends here.
+        let under_way = self
+            .live
+            .as_ref()
+            .is_some_and(|l| !l.practice().session().is_finished());
         self.stop_live();
         if map_goes {
             // Saves, and loads the piece again at its own tempo. Loading drops the loop, so
             // only then (review #240).
-            return self.apply_beat_map().map(|()| BackingChange::Reloaded);
+            return self.apply_beat_map().map(|()| BackingChange::StartOver);
         }
         let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+        if under_way {
+            return Ok(BackingChange::StartOver);
+        }
         Ok(BackingChange::Kept)
     }
 

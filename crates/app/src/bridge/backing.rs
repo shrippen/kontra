@@ -45,11 +45,17 @@ impl qobject::Controller {
         let name = self.as_ref().rust().core.backing_name();
         self.as_mut().set_backing_name(q(&name));
         self.as_mut().show_stems();
-        // Another recording drops the beat map: the bars show the piece's own tempo again.
-        // Otherwise the page stays as it is, the last summary included (review #240).
         match result {
-            Ok(BackingChange::Kept) => self.as_mut().set_playing(false),
-            Ok(BackingChange::Reloaded) => self.as_mut().after_retune(Ok(())),
+            // The page stays as it is, the summary of a finished run included (review #240);
+            // the library learns whether the piece has a recording ("Audio mitgeben").
+            Ok(BackingChange::Kept) => {
+                let recent = self.as_ref().rust().core.recent_json();
+                self.as_mut().set_recent_json(q(&recent));
+                self.as_mut().set_playing(false);
+            }
+            // A run ended or the bars are back at the piece's own tempo: marks, the note
+            // waited at and the position start over.
+            Ok(BackingChange::StartOver) => self.as_mut().after_retune(Ok(())),
             Err(reason) => self.as_mut().after_retune(Err(reason)),
         }
     }
