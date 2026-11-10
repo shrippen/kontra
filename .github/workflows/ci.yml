@@ -138,7 +138,7 @@ jobs:
 
   windows:
     # Win1 (LH-NF-17): everything below the GUI builds and passes its tests on Windows (MSVC).
-    # Not part of "github / test" yet: Windows is being prepared, Linux decides a merge.
+    # Counts for "github / test" (owner, round 18, 10.11.2026): a red Windows run blocks a merge.
     timeout-minutes: 45
     runs-on: windows-latest
     steps:
@@ -158,8 +158,8 @@ jobs:
 
   windows-app:
     # Win3 (LH-NF-17): the Qt app builds and starts on Windows: Qt and Kirigami from
-    # scripts/setup-qt-windows.sh (cached), one headless screenshot as proof. Not part of
-    # "github / test" yet.
+    # scripts/setup-qt-windows.sh (cached), one headless screenshot as proof. Counts for
+    # "github / test" like `windows`.
     timeout-minutes: 90
     runs-on: windows-latest
     defaults:
@@ -292,22 +292,22 @@ jobs:
 
   # Also runs when a check failed or was cancelled, so Gitea never keeps a stale "pending".
   report:
-    needs: [pending, core, app]
+    needs: [pending, core, app, windows, windows-app]
     if: always()
     timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - name: Report result to Gitea
         run: |
-          all="$CORE $APP"
-          if [ "$all" = "success success" ]; then
+          all="$CORE $APP $WINDOWS $WINDOWS_APP"
+          if [ "$all" = "success success success success" ]; then
             state=success
           elif echo "$all" | grep -qw failure; then
             state=failure
           else
             state=error
           fi
-          desc="core $CORE, app $APP"
+          desc="core $CORE, app $APP, windows $WINDOWS, windows-app $WINDOWS_APP"
           if [ -n "$STARTED" ]; then desc="$desc in $(( ($(date +%s) - STARTED) / 60 )) min"; fi
           # Retried: a lost result would leave "pending" and the merge waiting.
           curl -fsS --retry 10 --retry-delay 15 --retry-all-errors -X POST "$GITEA_STATUS" \
@@ -316,5 +316,7 @@ jobs:
         env:
           CORE: ${{ needs.core.result }}
           APP: ${{ needs.app.result }}
+          WINDOWS: ${{ needs.windows.result }}
+          WINDOWS_APP: ${{ needs.windows-app.result }}
           STARTED: ${{ needs.pending.outputs.started }}
           GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
