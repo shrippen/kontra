@@ -186,12 +186,19 @@ fn load_module(path: &Path) -> Result<Arc<Module>, PluginError> {
 
     // SAFETY: as above; the returned pointer is owned by us (one reference).
     let factory = unsafe {
-        let get = library
+        library
             .get::<FactoryFn>(b"GetPluginFactory\0")
-            .map_err(|e| load_error(path, e))?;
-        ComPtr::from_raw(get())
+            .ok()
+            .and_then(|get| ComPtr::from_raw(get()))
     };
-    let factory = factory.ok_or_else(|| load_error(path, "no plugin factory"))?;
+    let Some(factory) = factory else {
+        // The entry call succeeded, so the module is ended before the library is unloaded.
+        if let Some(exit) = exit {
+            // SAFETY: the library is still loaded; no object of it exists.
+            unsafe { exit() };
+        }
+        return Err(load_error(path, "no plugin factory"));
+    };
     Ok(Arc::new(Module {
         factory: Some(factory),
         exit,
@@ -328,6 +335,8 @@ struct Parts {
     separate: bool,
     /// The processor of an activation still exists.
     in_use: Arc<AtomicBool>,
+    /// The component is active (set by the plugin, ended in `drop` if still on).
+    active: AtomicBool,
     _host: ComWrapper<HostApp>,
     _handler: ComWrapper<Handler>,
     module: Arc<Module>,
@@ -362,6 +371,7 @@ impl Parts {
             controller: None,
             separate: false,
             in_use: Arc::new(AtomicBool::new(false)),
+            active: AtomicBool::new(false),
             _host: host,
             _handler: handler,
             module: Arc::clone(module),
@@ -438,12 +448,13 @@ impl Parts {
 
 impl Drop for Parts {
     fn drop(&mut self) {
-        if self.in_use.load(Ordering::Acquire) {
-            // The audio side still runs; leaking the plugin is safer than ending it under it.
-            return;
-        }
-        // SAFETY: plain COM calls in the order of the spec: connection, controller, component.
+        // The last owner ends the plugin: the plugin or its processor, whichever goes last.
+        // SAFETY: plain COM calls in the order of the spec: deactivate, connection, controller,
+        // component.
         unsafe {
+            if self.active.load(Ordering::Acquire) {
+                self.component.setActive(0);
+            }
             if self.separate {
                 if let Some(controller) = &self.controller {
                     let (a, b) = (
@@ -497,7 +508,7 @@ pub(super) fn probe(path: &Path) -> Result<Vec<PluginInfo>, PluginError> {
 
 pub(super) struct Vst3Plugin {
     info: PluginInfo,
-    parts: Parts,
+    parts: Arc<Parts>,
     /// Parameters as they were at load: ids, names and ranges in plain units.
     params: Vec<ParamInfo>,
     /// Changes made while inactive, handed to the audio thread with the first block.
@@ -534,7 +545,7 @@ impl Vst3Plugin {
                 })
             }
         };
-        let parts = Parts::new(&module, &cid, path)?;
+        let parts = Arc::new(Parts::new(&module, &cid, path)?);
 
         let ports = PortLayout {
             inputs: bus_channels(&parts.component, INPUT).unwrap_or_default(),
@@ -603,20 +614,22 @@ impl Vst3Plugin {
         let plain = value.clamp(info.min, info.max);
         // SAFETY: plain calls on the live controller.
         let normalized = unsafe { controller.plainParamToNormalized(id, plain) }.clamp(0.0, 1.0);
-        // SAFETY: as above.
-        unsafe { controller.setParamNormalized(id, normalized) };
-
         let change = ParamChange {
             id,
             value: normalized,
         };
         match self.ring.as_mut() {
-            Some(ring) => ring.push(change).map_err(|_| PluginError::QueueFull),
-            None => {
-                self.pending.push(change);
-                Ok(())
-            }
+            // Only a value the processor got is shown by `params`.
+            Some(ring) => ring.push(change).map_err(|_| PluginError::QueueFull)?,
+            // One entry per parameter, the last value wins: the list stays as short as the plugin.
+            None => match self.pending.iter_mut().find(|c| c.id == id) {
+                Some(known) => known.value = normalized,
+                None => self.pending.push(change),
+            },
         }
+        // SAFETY: as above.
+        unsafe { controller.setParamNormalized(id, normalized) };
+        Ok(())
     }
 
     pub(super) fn latency_samples(&mut self) -> u32 {
@@ -701,8 +714,9 @@ impl Vst3Plugin {
             }
         }
         self.active = true;
+        self.parts.active.store(true, Ordering::Release);
 
-        let (mut tx, rx) = RingBuffer::new(PARAM_RING_SLOTS);
+        let (mut tx, rx) = RingBuffer::new(PARAM_RING_SLOTS.max(self.pending.len()));
         for change in self.pending.drain(..) {
             let _ = tx.push(change);
         }
@@ -728,6 +742,7 @@ impl Vst3Plugin {
         }
         // SAFETY: plain call on the live component, the audio side is gone.
         unsafe { self.parts.component.setActive(0) };
+        self.parts.active.store(false, Ordering::Release);
         self.active = false;
         self.ring = None;
         Ok(())
@@ -771,8 +786,6 @@ fn list_params(parts: &Parts) -> Vec<ParamInfo> {
 }
 
 pub(super) struct Vst3Processor {
-    processor: ComPtr<IAudioProcessor>,
-    in_use: Arc<AtomicBool>,
     changes: Consumer<ParamChange>,
     input_changes: ComWrapper<Changes>,
     output_changes: ComWrapper<Changes>,
@@ -789,9 +802,9 @@ pub(super) struct Vst3Processor {
     out_channels: usize,
     max_block: usize,
     processing: bool,
-    /// Keeps the module (and with it the library) loaded as long as the processor lives.
-    _module: Arc<Module>,
-    _component: ComPtr<IComponent>,
+    /// Keeps the plugin (and with it the library) alive as long as the processor lives. Last
+    /// field: it drops after everything else of the processor.
+    parts: Arc<Parts>,
 }
 
 // SAFETY: a VST3 processor may be called from any one thread at a time, here the audio thread
@@ -802,7 +815,7 @@ unsafe impl Send for Vst3Processor {}
 
 impl Vst3Processor {
     fn new(
-        parts: &Parts,
+        parts: &Arc<Parts>,
         changes: Consumer<ParamChange>,
         sample_rate: f64,
         max_block: usize,
@@ -841,8 +854,6 @@ impl Vst3Processor {
         context.sampleRate = sample_rate;
 
         Vst3Processor {
-            processor: parts.processor.clone(),
-            in_use: Arc::clone(&parts.in_use),
             changes,
             input_changes: Changes::new(MAX_QUEUES),
             output_changes: Changes::new(0),
@@ -857,8 +868,7 @@ impl Vst3Processor {
             out_channels,
             max_block,
             processing: false,
-            _module: Arc::clone(&parts.module),
-            _component: parts.component.clone(),
+            parts: Arc::clone(parts),
         }
     }
 
@@ -929,7 +939,7 @@ impl Vst3Processor {
         if !self.processing {
             // SAFETY: plain call on the live processor, on the audio thread as the spec wants.
             // A plugin without the call answers not implemented, which is fine.
-            unsafe { self.processor.setProcessing(1) };
+            unsafe { self.parts.processor.setProcessing(1) };
             self.processing = true;
         }
 
@@ -959,7 +969,7 @@ impl Vst3Processor {
         // SAFETY: `data` points at buffers and COM objects owned by `self` that stay put (boxes
         // and vectors that are not resized) and live past the call; the scratch pointers were set
         // up for `max_block` frames and `n <= max_block`.
-        let result = unsafe { self.processor.process(&mut data) };
+        let result = unsafe { self.parts.processor.process(&mut data) };
         self.context.projectTimeSamples += n as i64;
         if !ok(result) {
             return Err(ProcessError::Process);
@@ -978,9 +988,9 @@ impl Drop for Vst3Processor {
     fn drop(&mut self) {
         if self.processing {
             // SAFETY: plain call on the live processor; processing ends on the thread that owns it.
-            unsafe { self.processor.setProcessing(0) };
+            unsafe { self.parts.processor.setProcessing(0) };
         }
         let _ = (&self.in_ptrs, &self.out_ptrs);
-        self.in_use.store(false, Ordering::Release);
+        self.parts.in_use.store(false, Ordering::Release);
     }
 }

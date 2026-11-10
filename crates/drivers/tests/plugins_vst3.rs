@@ -363,3 +363,37 @@ fn renders_a_file() {
     assert_scaled(&out.channels[0], &samples, 0.5);
     assert_scaled(&out.channels[1], &samples, 0.5);
 }
+
+/// The plugin may end before its processor (the audio thread lets go later): no crash.
+#[test]
+fn plugin_dropped_before_processor() {
+    let mut plugin = gain_plugin();
+    let mut processor = plugin.activate(RATE, BLOCK as u32).expect("activate");
+    let input = ramp();
+    run(&mut processor, &input).expect("process");
+
+    drop(plugin);
+    let [l, _] = run(&mut processor, &input).expect("process after the plugin is gone");
+    assert_scaled(&l, &input, 1.0);
+    drop(processor);
+}
+
+/// Changes made while inactive are many; the last value of a parameter wins.
+#[test]
+fn many_changes_while_inactive_keep_the_last() {
+    const CHANGES: usize = 299;
+    let mut plugin = gain_plugin();
+    for _ in 0..CHANGES {
+        plugin.set_param(GAIN_PARAM, 1.0).expect("set");
+    }
+    plugin.set_param(GAIN_PARAM, 2.0).expect("set");
+
+    let mut processor = plugin.activate(RATE, BLOCK as u32).expect("activate");
+    let input = ramp();
+    let [l, _] = run(&mut processor, &input).expect("process");
+    assert_scaled(&l, &input, 2.0);
+    drop(processor);
+
+    let state = plugin.save_state().expect("save");
+    assert_eq!(state, (2.0_f64 / 4.0).to_le_bytes());
+}
