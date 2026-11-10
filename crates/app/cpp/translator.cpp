@@ -21,7 +21,8 @@ public:
 
     QString translate(const char *, const char *sourceText, const char *, int n) const override
     {
-        // A text with a count ("%n day(s)") is left to the English plural catalogs.
+        // A text with a count ("%n day(s)") needs a catalog for its plural forms: left to the
+        // next translator (on a German system the library's German one). Kirigami has none.
         if (n >= 0) {
             return QString();
         }
@@ -70,9 +71,7 @@ private:
 KeepInFront *watcher = nullptr;
 // The app's engine: a removed translator alone leaves Kirigami's texts as they were (10.11.).
 QPointer<QQmlApplicationEngine> engine;
-}
 
-namespace {
 QTranslator *source_texts()
 {
     return new SourceTexts(QCoreApplication::instance());
@@ -140,4 +139,3 @@ bool load_kirigami()
     QLibrary library(QStringLiteral("Kirigami"), 6);
     return library.load();
 }
-

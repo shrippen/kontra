@@ -18,4 +18,3 @@ rust::String translated(rust::Str context, rust::Str source);
 // Loads the Kirigami library as the first page does; it then installs its own translation for
 // the system's language. False if it is not there.
 bool load_kirigami();
-

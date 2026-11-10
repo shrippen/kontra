@@ -600,8 +600,11 @@ Kleinigkeiten aus den Reviews, W9, L3, W3 und E5 jetzt; der Rest steht hier:
 - [ ] E8 Brummen-Abzug bei Spiel ohne Pause über 8 s (Weiterlernen unter Noten).
 - [ ] W3 Prüfung sieht nicht in selbst gezeichnete Flächen (Lane, Noten, Griffbrett) und keinen abgeschnittenen Text
       in Labels; läuft nur lokal (kein AT-SPI in der CI).
-- [ ] W6 Ergebnis des ersten flatpak-builder-lint-Laufs ansehen; Screenshot-Adressen der metainfo gehen erst mit der
-      Landing Page.
+- [ ] W6 flatpak-builder-lint (Lauf 42750329419, 10.11.): ein Fehler, eine Warnung. Fehler
+      `appid-url-not-reachable`: die App-ID `org.shrippen.Kontra` verweist auf `shrippen.org`, die Domain gibt es
+      nicht; Flathub verlangt eine erreichbare (Entscheidung Runde 18: `io.github.shrippen.Kontra`, eine eigene
+      Domain oder `shrippen.org` anlegen). Warnung: Laufzeit `org.kde.Platform` 6.11 ist da (Manifest: 6.10).
+      Screenshot-Adressen der metainfo gehen erst mit der Landing Page.
 
 ## Entscheidungen Runde 17 (30.10.2026)
 
