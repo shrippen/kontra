@@ -445,8 +445,11 @@ Erkennung und Messung:
   Sprache wechselt auch Kirigamis Texte und alle in Rust gebauten Texte (Teilnamen, Notennamen, Latenz-Hinweis,
   Geräte); eine geladene Sicherung erreicht den Mixer. Messung, Bewertung, Einzähler und Modus gelten wie bisher ab
   dem nächsten Start (der Lauf endet beim Ändern).
-- [ ] Kirigamis Texte auf einem deutschen System bleiben deutsch, wenn Kontra Englisch spricht (auch beim Start):
-  Kirigami lädt seine Übersetzung selbst nach der Systemsprache.
+- [x] Kirigamis Texte auf einem deutschen System blieben deutsch, wenn Kontra auf Englisch wechselte: Kirigami
+  lädt seine Übersetzung selbst nach der Systemsprache und gibt sie nie wieder her. Für Englisch legt Kontra die
+  Quelltexte davor (`cpp/translator.cpp`, `SourceTexts`) und hält den eigenen Übersetzer vorn (`KeepInFront`),
+  weil Kirigami seine Übersetzung erst mit den Seiten und später noch einmal davorsetzt. Test `english_goes_in_front_of_kirigamis_own_german`; im
+  isolierten Lauf auf deutschem System: de → en → de, Start auf Englisch, Seitenleiste ein- und ausklappen.
 - [ ] Ein USB-Mikrofon (Webcam, Headset) gilt bei „Automatisch“ als Interface (`preferred_input`, LH-EIN-02) und
   würde im Leerlauf offen gehalten (Review #231): Geräte mit nur einem Mikrofon erkennen oder nachfragen.
 - [ ] Verlorener Eingang, der wegbleibt (Review #231, #232): Steckt der Spieler ein anderes Interface an, nutzen

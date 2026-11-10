@@ -402,7 +402,8 @@ Erwartet: Fokus immer sichtbar; die Auswertung hält den Tab-Fokus wie ein Dialo
 **J-F2 Sprache** · alle · Phase 1 · LH-ALL-01
 1. System auf Englisch, J-A1 und J-B1.
 2. In den Einstellungen auf Deutsch wechseln, Auswertung und Hilfe öffnen.
-Erwartet: keine rohen Schlüssel, kein Sprachmix, Fachbegriffe in beiden Sprachen erklärt.
+3. System auf Deutsch, Kontra auf Englisch starten; Seitenleiste ein- und ausklappen; auf Deutsch wechseln und zurück.
+Erwartet: keine rohen Schlüssel, kein Sprachmix, Fachbegriffe in beiden Sprachen erklärt. In Schritt 3 spricht auch die Seitenleiste („Close Sidebar“) Kontras Sprache, nach dem Start, nach dem Einklappen und nach jedem Wechsel.
 
 **J-F3 Störungen** · Persona: P2 Jens · Phase 1 · LH-ALL-04, LH-NF-04
 1. Während des Spielens das Interface abziehen, wieder anstecken (10-mal).
