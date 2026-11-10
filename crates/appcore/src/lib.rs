@@ -1697,6 +1697,7 @@ impl Core {
         chosen_input(
             self.settings.input_device.as_deref(),
             &list_devices(Direction::Input),
+            self.settings.input_kind,
         )
     }
 
@@ -2619,7 +2620,7 @@ impl Core {
         };
         let devices = list_devices(direction);
         // Input: the one Kontra takes when none is chosen (LH-EIN-02).
-        let preferred = preferred_input(&devices)
+        let preferred = preferred_input(&devices, self.settings.input_kind)
             .filter(|_| input)
             .map(|d| d.id.clone());
         let list: Vec<_> = devices
@@ -2856,15 +2857,13 @@ fn names_of(tuning: &Tuning) -> Vec<String> {
     tuning.strings.iter().map(ToString::to_string).collect()
 }
 
-/// LH-EIN-02: with no input chosen, an interface (USB) before the built-in card, the system's
-/// default first if it is one. `None`: no interface, the system decides.
 /// The saved input if it is listed, else an interface (LH-EIN-02): an unplugged device or an
 /// ALSA id saved before PipeWire means "Automatic", not the system default (review #73).
-fn chosen_input(saved: Option<&str>, devices: &[DeviceInfo]) -> Option<String> {
+fn chosen_input(saved: Option<&str>, devices: &[DeviceInfo], kind: InputKind) -> Option<String> {
     if let Some(id) = saved.filter(|id| devices.iter().any(|d| d.id == *id)) {
         return Some(id.to_string());
     }
-    preferred_input(devices).map(|d| d.id.clone())
+    preferred_input(devices, kind).map(|d| d.id.clone())
 }
 
 /// The saved output if it is listed (or the engine's timer), else the system default.
@@ -2876,13 +2875,21 @@ fn chosen_output(saved: Option<&str>, devices: &[DeviceInfo]) -> Option<String> 
     None
 }
 
-fn preferred_input(devices: &[DeviceInfo]) -> Option<&DeviceInfo> {
-    let usb = |d: &&DeviceInfo| d.connection == Connection::Usb;
+/// The input Kontra takes when none is chosen: where the bass is plugged in by `kind`. An
+/// interface or a USB microphone is a USB device; the laptop's jack is its built-in card (QA
+/// 27.10.: "Klinke direkt" still listened to the Scarlett). The system's default first if it
+/// is one of them.
+fn preferred_input(devices: &[DeviceInfo], kind: InputKind) -> Option<&DeviceInfo> {
+    let wanted = match kind {
+        InputKind::LaptopJack => Connection::BuiltIn,
+        InputKind::Line | InputKind::Microphone | InputKind::Midi => Connection::Usb,
+    };
+    let fits = |d: &&DeviceInfo| d.connection == wanted;
     devices
         .iter()
-        .filter(usb)
+        .filter(fits)
         .find(|d| d.is_default)
-        .or_else(|| devices.iter().find(usb))
+        .or_else(|| devices.iter().find(fits))
 }
 
 /// A seed that differs between rounds (quiz and ear training questions).

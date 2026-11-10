@@ -11,7 +11,7 @@
 //! Only the app asks for it (`keep_devices_open`): tests and recordings never open a device.
 
 use crate::mixer::gains;
-use crate::{chosen_input, Core, Settings};
+use crate::{chosen_input, Core, InputKind, Settings};
 use kontra_model::InputSource;
 use kontra_session::{list_devices, DeviceInfo, Direction, InputChoice, LiveMonitor, LiveSetup};
 use std::time::{Duration, Instant};
@@ -53,7 +53,8 @@ fn standby_input(
     if lost {
         return None;
     }
-    chosen_input(saved, devices)
+    // An interface only: the laptop's own card is its microphone when no cable is in the jack.
+    chosen_input(saved, devices, InputKind::Line)
 }
 
 impl Core {
