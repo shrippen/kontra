@@ -212,6 +212,10 @@ jobs:
       - name: Portable folder
         run: |
           scripts/package-windows.sh dist/Kontra
+          # What the packed program would not find with a bare PATH (a missing DLL only shows
+          # a dialog and hangs).
+          missing=$(PATH="/c/Windows/System32:/c/Windows:/usr/bin" /usr/bin/ldd dist/Kontra/bin/kontra.exe dist/Kontra/bin/*.dll | grep -i "not found" | sort -u || true)
+          if [ -n "$missing" ]; then echo "$missing"; exit 1; fi
           env -u QML_IMPORT_PATH -u QML2_IMPORT_PATH -u QT_PLUGIN_PATH -u QMAKE -u CMAKE_PREFIX_PATH \
             PATH="/c/Windows/System32:/c/Windows:/usr/bin" QT_QPA_PLATFORM=offscreen \
             QT_QUICK_CONTROLS_STYLE=Fusion KONTRA_DATA_DIR="$RUNNER_TEMP/kontra-portable" \
