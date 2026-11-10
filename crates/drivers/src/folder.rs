@@ -99,11 +99,15 @@ const DOWNLOAD_VARIABLE: &str = "KONTRA_DOWNLOAD_DIR";
 
 /// Where the browser saves downloads: the folder named for Kontra, else the system's.
 pub fn download_dir() -> Option<PathBuf> {
-    named_download_dir(&|key| std::env::var_os(key)).or_else(system_download_dir)
+    download_dir_in(&|key| std::env::var_os(key), system_download_dir)
 }
 
-fn named_download_dir(env: &dyn Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
-    folder(env, DOWNLOAD_VARIABLE)
+/// The folder named for Kontra if there is one; the system's is not even asked then.
+fn download_dir_in(
+    env: &dyn Fn(&str) -> Option<OsString>,
+    system: impl FnOnce() -> Option<PathBuf>,
+) -> Option<PathBuf> {
+    folder(env, DOWNLOAD_VARIABLE).or_else(system)
 }
 
 /// The download folder as the desktop names it (XDG user dirs), else `~/Downloads`.
@@ -190,19 +194,18 @@ mod tests {
     /// variable holds on every system.
     #[test]
     fn a_named_download_folder_wins() {
-        let named = [
-            ("KONTRA_DOWNLOAD_DIR", "/demo/downloads"),
-            ("HOME", "/home/lea"),
-        ];
+        let real = || Some(PathBuf::from("/home/lea/Downloads"));
+        let named = [("KONTRA_DOWNLOAD_DIR", "/demo/downloads")];
         assert_eq!(
-            named_download_dir(&env(&named)),
+            download_dir_in(&env(&named), || panic!("the real folder is not asked")),
             Some(PathBuf::from("/demo/downloads"))
         );
+        // Not named, or named empty: the system's.
+        assert_eq!(download_dir_in(&env(&[]), real), real());
         assert_eq!(
-            named_download_dir(&env(&[("KONTRA_DOWNLOAD_DIR", "")])),
-            None
+            download_dir_in(&env(&[("KONTRA_DOWNLOAD_DIR", "")]), real),
+            real()
         );
-        assert_eq!(named_download_dir(&env(&[("HOME", "/home/lea")])), None);
     }
 
     /// LH-NF-17 (Win4): data and cache went below `HOME` and XDG folders on every system; on

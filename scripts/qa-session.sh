@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # One isolated test run of Kontra in its own X server (Harmonicon W2). Kontra never sees the
-# desktop, the real audio interface or the real data folder:
+# desktop, the real audio interface, the real data folder or the real Downloads (review #236:
+# a file name from there would stand in a QA picture of the library):
 #
 #   Xvfb :N ─► Kontra (xcb, no Wayland, own XDG_RUNTIME_DIR, own data folder with output
 #              "kontra:null", input from a file) ─► [--run CMD with DISPLAY=:N] ─► clean up
@@ -63,7 +64,7 @@ fi
 base="${KONTRA_QA_TMP:-$HOME/.cache/claude/kontra-qa}"
 mkdir -p "$base"
 work="$(mktemp -d -p "$base" session.XXXXXX)"
-mkdir -p "$work/data" "$work/runtime"
+mkdir -p "$work/data" "$work/runtime" "$work/downloads"
 chmod 700 "$work/runtime"
 python3 -c 'import json, sys; print(json.dumps({**json.loads(sys.argv[1]), "output_device": "kontra:null"}))' \
     "$extra" > "$work/data/settings.json"
@@ -108,7 +109,7 @@ fi
 # the desktop's environment let a portal attach to the real Wayland session (28.10.).
 clean=(env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE -u DBUS_SESSION_BUS_ADDRESS
     QT_QPA_PLATFORM=xcb DISPLAY=":$display" XDG_RUNTIME_DIR="$work/runtime"
-    KONTRA_DATA_DIR="$work/data")
+    KONTRA_DATA_DIR="$work/data" KONTRA_DOWNLOAD_DIR="$work/downloads")
 # Private buses for Kontra and the --run command (qactl talks to Kontra over AT-SPI): a session
 # bus, the accessibility bus beside it and the AT-SPI registry on it, all started here. Not by
 # activation: at-spi-bus-launcher starts the registry through systemd where dbus-broker is used,
