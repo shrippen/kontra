@@ -33,6 +33,8 @@ mod tests {
 
     const CONTEXT: &str = "GlobalDrawer";
     const SOURCE: &str = "Close Sidebar";
+    /// Kirigami's German catalog below a data folder.
+    const GERMAN_CATALOG: &str = "locale/de/LC_MESSAGES/libkirigami6_qt.qm";
 
     /// Review #237: Kontra in English on a German system. Kirigami installs its German
     /// translation when its library loads (with the first page, and again later), in front of
@@ -45,9 +47,12 @@ mod tests {
         std::env::set_var("LANGUAGE", "de");
         std::env::set_var("LANG", "de_DE.UTF-8");
         std::env::set_var("QT_QPA_PLATFORM", "offscreen");
-        // CI keeps Kirigami outside the system folders (scripts/setup-qt-env.sh).
+        // CI keeps Kirigami outside the system folders (scripts/setup-qt-env.sh). Where its
+        // German catalog is there, the test must prove its point and may not skip.
+        let mut proof_expected = false;
         if let Some(prefix) = std::env::var_os("KF6_PREFIX") {
             let share = std::path::PathBuf::from(prefix).join("share");
+            proof_expected = share.join(GERMAN_CATALOG).is_file();
             let dirs = std::env::var("XDG_DATA_DIRS").unwrap_or_else(|_| "/usr/share".into());
             std::env::set_var("XDG_DATA_DIRS", format!("{}:{dirs}", share.display()));
         }
@@ -56,13 +61,20 @@ mod tests {
         // As at the start: Kontra's language first, then the pages bring Kirigami, which puts
         // its German in front. Kontra's must come back to the front by itself.
         install_kirigami_translator("en");
-        if !load_kirigami() {
+        let loaded = load_kirigami();
+        assert!(loaded || !proof_expected, "Kirigami did not load");
+        if !loaded {
             return;
         }
         assert_eq!(translated(CONTEXT, SOURCE), SOURCE);
 
         // And German when asked for (skipped without a German catalog).
-        if install_kirigami_translator("de") {
+        let german = install_kirigami_translator("de");
+        assert!(
+            german || !proof_expected,
+            "the German catalog was not found"
+        );
+        if german {
             assert_ne!(translated(CONTEXT, SOURCE), SOURCE);
         }
     }
