@@ -96,18 +96,20 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   MSVC, seine Tests laufen, die Einstellungsseite kommt als Screenshot (offscreen; Job `windows-app`, im CI-PR).
   Im echten Fenster (`QT_QPA_PLATFORM=windows`) stimmt das Bild: Segoe UI als Fließtext, Kantes Überschriften
   und Farben (offscreen hat Windows keine Systemschrift). Kontra setzt außerhalb von Linux den Stil Fusion
-  (der native Windows-Stil lässt sich nicht einkleiden: weißes Zahlenfeld). Offen: alle Seiten wie
-  `scripts/screenshots.sh`, Dateidialoge, Tastenkürzel, hohe DPI. Erledigt (10.11.): Datei-URLs in beide
+  (der native Windows-Stil lässt sich nicht einkleiden: weißes Zahlenfeld). `scripts/screenshots.sh` läuft auch
+  in Git Bash: alle 40 Seitenbilder entstehen unter Windows (Lauf 42758812310, Artefakt `screenshots-windows`),
+  darunter Üben mit Noten und Tab-Lane, Erkennung und Auswertung aus einer Aufnahme (86 % getroffen wie unter
+  Linux). Offen: Dateidialoge, Tastenkürzel, hohe DPI, Bilder als Prüfung statt nur zum Ansehen. Erledigt (10.11.): Datei-URLs in beide
   Richtungen für beide Systeme in `drivers/src/urls.rs` (abgelegte Dateien, Kursvideos, Live-QML, Startordner des
   Dateidialogs über `ctl.folderUrl`).
 - [ ] Win4 Pfade und Dienste. Erledigt (10.11.): Daten in `%APPDATA%\Kontra`, Cache in `%LOCALAPPDATA%\Kontra`
   (`drivers/folder.rs` nennt Kontras Ordner je System; unter Linux wie bisher XDG). Demucs endet unter Windows mit Kontra, auch nach einem Absturz (Job Object,
   `separator/process.rs`, Test `ends_when_the_leash_goes`). Die Stem-Tests in `session`, `appcore` und J-D1
-  laufen unter Windows mit Batch-Dateien als Ersatz-Demucs. Offen: verschobener Download-Ordner (Known Folders),
-  Kirigamis Übersetzungen, Dateidialoge, Tastenkürzel, Schriftarten, hohe DPI. Clippy läuft für Windows ohne Warnung (`scripts/check-windows.sh build`).
-- [ ] Win5 Paket und Signierung. Erledigt (10.11., Lauf 42747939331): `scripts/package-windows.sh` baut einen
-  Ordner (`bin/` neben `share/` wie im Flatpak, Qt über `windeployqt`, Kirigami samt Übersetzungen, 141 MB, als
-  CI-Artefakt `Kontra-windows-portable` 56 MB), der ohne installiertes Qt startet (Screenshot mit leerem `PATH`).
+  laufen unter Windows mit Batch-Dateien als Ersatz-Demucs. Kirigamis Übersetzungen liegen im Paket
+  (`package-windows.sh` bricht ohne sie ab). Offen: verschobener Download-Ordner (Known Folders), Dateidialoge, Tastenkürzel, Schriftarten, hohe DPI. Clippy läuft für Windows ohne Warnung (`scripts/check-windows.sh build`).
+- [ ] Win5 Paket und Signierung. Erledigt (10.11., Lauf 42753483624): `scripts/package-windows.sh` baut einen
+  Ordner (`bin/` neben `share/` wie im Flatpak, Qt über `windeployqt`, Kirigami samt Übersetzungen, 142 MB, als
+  CI-Artefakt `Kontra-windows-portable` 57 MB), der ohne installiertes Qt startet (Screenshot mit leerem `PATH`).
   Die Visual-C++-Laufzeit liegt bei. Qt liest seine Umgebungsvariablen unter Windows aus der Kopie der
   C-Laufzeit: Kontra setzt Stil und Thema darum über `qputenv` (`cpp/qt_env.cpp`), sonst kam der gepackte Kontra
   im nativen Windows-Stil hoch. Offen: Installer und Signierung (Entscheidung 10.11.: signieren
