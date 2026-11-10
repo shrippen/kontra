@@ -1,7 +1,7 @@
 //! Settings: instrument, tuning, mixer, scoring, devices.
 
 use super::*;
-use kontra_session::{Limit, Shaping};
+use kontra_session::{Connection, DeviceInfo, Limit, Shaping};
 
 #[test]
 fn midi_choice_by_name_falls_back_to_the_first() {
@@ -338,10 +338,9 @@ fn free_timing_window() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// LH-EIN-02: Scarlett Solo and the internal card → the interface, default or not.
-#[test]
-fn interface_before_internal_card() {
-    let device = |id: &str, connection: Connection, is_default: bool| DeviceInfo {
+/// An audio input as the system lists it.
+fn device(id: &str, connection: Connection, is_default: bool) -> DeviceInfo {
+    DeviceInfo {
         id: id.into(),
         name: id.into(),
         direction: Direction::Input,
@@ -350,45 +349,68 @@ fn interface_before_internal_card() {
         sample_rate: 48_000,
         channels: 2,
         past_pipewire: false,
-    };
+    }
+}
+
+/// LH-EIN-02: Scarlett Solo and the internal card → the interface, default or not.
+#[test]
+fn interface_before_internal_card() {
     let internal = device("hda", Connection::BuiltIn, true);
     let scarlett = device("scarlett", Connection::Usb, false);
     let list = [internal.clone(), scarlett.clone()];
     assert_eq!(
-        preferred_input(&list).map(|d| d.id.as_str()),
+        preferred_input(&list, InputKind::Line).map(|d| d.id.as_str()),
         Some("scarlett")
     );
 
     let usb_default = device("usb-default", Connection::Usb, true);
     let list = [scarlett, internal.clone(), usb_default];
     assert_eq!(
-        preferred_input(&list).map(|d| d.id.as_str()),
+        preferred_input(&list, InputKind::Line).map(|d| d.id.as_str()),
         Some("usb-default")
     );
 
     let list = [internal, device("pipewire", Connection::Other, false)];
-    assert_eq!(preferred_input(&list), None);
+    assert_eq!(preferred_input(&list, InputKind::Line), None);
+}
+
+/// QA 27.10. (B8, P1 Lea): with "Klinke direkt in den Laptop" chosen, the input still said
+/// "Automatisch: Scarlett Solo" and Kontra listened to the interface. The laptop's own card is
+/// the automatic input then, the system's default first.
+#[test]
+fn laptop_jack_takes_the_built_in_card() {
+    let list = [
+        device("scarlett", Connection::Usb, true),
+        device("hda", Connection::BuiltIn, false),
+        device("hdmi", Connection::Hdmi, false),
+    ];
+    let preferred = |kind| preferred_input(&list, kind).map(|d| d.id.as_str());
+    assert_eq!(preferred(InputKind::LaptopJack), Some("hda"));
+    assert_eq!(preferred(InputKind::Line), Some("scarlett"));
+    // A USB microphone for the double bass stays the first choice (LH-EIN-11).
+    assert_eq!(preferred(InputKind::Microphone), Some("scarlett"));
+    assert_eq!(
+        chosen_input(None, &list, InputKind::LaptopJack).as_deref(),
+        Some("hda")
+    );
+    // Chosen by the player: kept, whatever the connection.
+    assert_eq!(
+        chosen_input(Some("scarlett"), &list, InputKind::LaptopJack).as_deref(),
+        Some("scarlett")
+    );
+    // No built-in card (a desktop with an interface only): the system decides.
+    assert_eq!(preferred_input(&list[..1], InputKind::LaptopJack), None);
 }
 
 /// Review #73: a saved device that is not listed (an ALSA id under PipeWire, an unplugged
 /// interface) means "Automatic": the interface first, not the system default.
 #[test]
 fn unlisted_choice_is_automatic() {
-    let device = |id: &str, connection: Connection, is_default: bool| DeviceInfo {
-        id: id.into(),
-        name: id.into(),
-        direction: Direction::Input,
-        is_default,
-        connection,
-        sample_rate: 48_000,
-        channels: 2,
-        past_pipewire: false,
-    };
     let list = [
         device("hda", Connection::BuiltIn, true),
         device("scarlett", Connection::Usb, false),
     ];
-    let input = |saved: Option<&str>| chosen_input(saved, &list);
+    let input = |saved: Option<&str>| chosen_input(saved, &list, InputKind::Line);
     assert_eq!(
         input(Some("alsa:hw:CARD=2,DEV=0")).as_deref(),
         Some("scarlett")

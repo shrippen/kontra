@@ -19,7 +19,7 @@ fn missing_backing_plays_without_it() {
     );
     core.update_settings(|s| s.language = Some("de".into()));
     core.open(&demo()).unwrap();
-    core.set_backing(Some(dir.join("weg.wav")), 0.0);
+    core.set_backing(Some(dir.join("weg.wav")), 0.0).unwrap();
     let events = core.play();
     assert!(
         !events.iter().any(|e| matches!(e, UiEvent::Error(_))),
@@ -57,7 +57,7 @@ fn backing_is_prepared_in_the_background() {
         .collect();
     let wav = dir.join("band.wav");
     kontra_session::write_mono_wav(&wav, &audio, rate).unwrap();
-    core.set_backing(Some(wav), 0.0);
+    core.set_backing(Some(wav), 0.0).unwrap();
 
     let events = core.tick();
     assert!(
@@ -117,7 +117,7 @@ fn backing_beats_set_the_tempo() {
     }
     let wav = dir.join("band.wav");
     kontra_session::write_mono_wav(&wav, &audio, rate).unwrap();
-    core.set_backing(Some(wav), 0.0);
+    core.set_backing(Some(wav), 0.0).unwrap();
     core.backing_analyse().unwrap();
     let info: serde_json::Value = serde_json::from_str(&core.backing_json()).unwrap();
     assert!(
@@ -166,7 +166,7 @@ fn backing_without_low_beats_is_unsure() {
     }
     let wav = dir.join("hats.wav");
     kontra_session::write_mono_wav(&wav, &audio, rate).unwrap();
-    core.set_backing(Some(wav), 0.0);
+    core.set_backing(Some(wav), 0.0).unwrap();
     core.backing_analyse().unwrap();
     let info: serde_json::Value = serde_json::from_str(&core.backing_json()).unwrap();
     assert_eq!(info["sure"], false, "{info}");

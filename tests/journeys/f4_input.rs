@@ -66,7 +66,7 @@ fn a_broken_backing_is_no_input_fault() {
     std::fs::write(&backing, b"no audio").unwrap();
     let mut core = profile.core(Some(&take));
     core.open(&score).unwrap();
-    core.set_backing(Some(backing), 0.0);
+    core.set_backing(Some(backing), 0.0).unwrap();
     run_until(&mut core, Duration::from_millis(500), |_| false);
 
     let start = core.play();

@@ -4,6 +4,7 @@ use super::{local_path, q, qobject};
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
+use kontra_appcore::BackingChange;
 
 impl qobject::Controller {
     pub(super) fn change_transpose(mut self: Pin<&mut Self>, semitones: i32) {
@@ -40,11 +41,23 @@ impl qobject::Controller {
             self.as_mut().show_error(&reason);
             return;
         }
-        self.as_mut().core().set_backing(path, 0.0);
+        let result = self.as_mut().core().set_backing(path, 0.0);
         let name = self.as_ref().rust().core.backing_name();
         self.as_mut().set_backing_name(q(&name));
         self.as_mut().show_stems();
-        self.as_mut().set_playing(false);
+        match result {
+            // The page stays as it is, the summary of a finished run included (review #240);
+            // the library learns whether the piece has a recording ("Audio mitgeben").
+            Ok(BackingChange::Kept) => {
+                let recent = self.as_ref().rust().core.recent_json();
+                self.as_mut().set_recent_json(q(&recent));
+                self.as_mut().set_playing(false);
+            }
+            // A run ended or the bars are back at the piece's own tempo: marks, the note
+            // waited at and the position start over.
+            Ok(BackingChange::StartOver) => self.as_mut().after_retune(Ok(())),
+            Err(reason) => self.as_mut().after_retune(Err(reason)),
+        }
     }
 
     pub(super) fn remove_bass(mut self: Pin<&mut Self>, on: bool) {

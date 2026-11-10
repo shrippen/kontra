@@ -330,7 +330,7 @@ Kirigami.ScrollablePage {
                     Layout.fillWidth: true
                     QQC2.Label {
                         Layout.fillWidth: true
-                        text: list.modelData.name + " · " + texts.t("setlist.count", { n: list.modelData.pieces.length })
+                        text: list.modelData.name + " · " + texts.t(list.modelData.pieces.length === 1 ? "setlist.count.one" : "setlist.count", { n: list.modelData.pieces.length })
                         color: KanteStyle.strongTextColor
                         font.bold: true
                     }

@@ -52,7 +52,7 @@ fn backing_beats_slow_and_transposed() {
     // Step 1: couple and detect: the bars follow the band.
     let mut setup = profile.core(None);
     setup.open(&score).unwrap();
-    setup.set_backing(Some(wav.clone()), 0.0);
+    setup.set_backing(Some(wav.clone()), 0.0).unwrap();
     setup.backing_analyse().unwrap();
     let info: serde_json::Value = serde_json::from_str(&setup.backing_json()).unwrap();
     assert!(
@@ -124,6 +124,21 @@ fn backing_beats_slow_and_transposed() {
         "{original:?} → {moved:?}"
     );
     play_all_hit(&mut again, 9);
+
+    // Step 7: the same recording chosen again after the finished run: the core says `Kept`,
+    // so the page keeps the summary (review #242; only a run under way starts it over).
+    let same = again.set_backing(Some(wav.clone()), 0.0);
+    assert_eq!(same, Ok(kontra_appcore::BackingChange::Kept));
+
+    // Another recording takes the place of the aligned one: its alignment goes, the new one
+    // starts unaligned. Removing it afterwards changes nothing more.
+    let aligned = again.arrangement().unwrap().tempo.clone();
+    again.set_backing(Some(slow_take.clone()), 0.0).unwrap();
+    assert_ne!(again.arrangement().unwrap().tempo, aligned, "own tempo");
+    let info: serde_json::Value = serde_json::from_str(&again.backing_json()).unwrap();
+    assert_eq!(info["analysed"], false, "{info}");
+    again.set_backing(None, 0.0).unwrap();
+    assert_eq!(again.backing_name(), "");
 }
 
 /// A stand-in for Demucs (`--two-stems bass -n htdemucs -o OUT SONG`): its progress bar with the
@@ -186,7 +201,7 @@ fn bass_removed_once_and_kept() {
     take(&played, core.arrangement().unwrap(), 1.0);
     let mut core = profile.core(Some(&played));
     core.open(&score).unwrap();
-    core.set_backing(Some(wav.clone()), 0.0);
+    core.set_backing(Some(wav.clone()), 0.0).unwrap();
 
     // Without Demucs: greyed out, and it says how to install it.
     core.qa_separator(None);

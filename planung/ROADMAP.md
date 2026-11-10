@@ -818,8 +818,8 @@ Orca nicht genutzt, statt dessen der AT-SPI-Baum.
   entscheiden. Dazu gehört B6 vor dem Abspielen (Vorschlag: Klappe „Einstellungen“).
 - [x] B7 (mittel, Kante 1.51, übernommen #176): Saitenfarben der Tabulatur in Kante Light auf hellem Grund 1,7–2,6:1, am Beamer kaum lesbar.
 - [ ] B8 (niedrig): Nach Seitenwechsel Fokus auf der ScrollView; Trenner der Seitenleiste als unbenannte
-  Listeneinträge (gehört nach Kante: `KanteScope.popup`); Tempo-Regler mit zwei Tab-Halten; nach „Klinke direkt“ zeigt der Eingang weiter „Automatisch:
-  Scarlett Solo …“; nach Esc aus der Präsentation Seitenleiste 216 statt 260 px; Saitenbuchstaben und Taktzahlen in
+  Listeneinträge (gehört nach Kante: `KanteScope.popup`); Tempo-Regler mit zwei Tab-Halten; nach „Klinke direkt“ zeigte der Eingang weiter „Automatisch:
+  Scarlett Solo …“ (behoben 10.11.: die eingebaute Karte, Test `laptop_jack_takes_the_built_in_card`); nach Esc aus der Präsentation Seitenleiste 216 statt 260 px; Saitenbuchstaben und Taktzahlen in
   der Präsentation etwa 8 px; frühe Note (orange) unter Deuteranopie wie eine D-Saiten-Note, nur das kleine Abzeichen
   trägt.
 - [x] B9 (niedrig, Kante 1.51, übersetzt #176): Timing-Histogramm nennt dem Screenreader keine Balkenwerte (S5 nur teils).
@@ -882,7 +882,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - M15 (mittel, behoben #143): Alt+5 (Klaviatur) fehlte, Tastenliste nannte alte Modi.
   - Offen (niedrig): M7 Liste „zweiter Blick“ unsortiert; M8 Live-Etikett überdeckt Marken; M11 Fähnchen, Hälse;
     M12 „in BB“, ♭ im Dateinamen verloren; M13 Generator vergisst Einstellungen; M14 Akkordantworten mit
-    Oktavzahl; M16 Gehör-Versuchsliste unbegrenzt; M18 Laid-back-Hilfe ohne ms.
+    Oktavzahl; M16 Gehör-Versuchsliste unbegrenzt (behoben 10.11.: die letzten 12); M18 Laid-back-Hilfe ohne ms.
 - **P4 Thomas (J-B5, J-D2, J-G4, J-G6): bestanden nach Befunden; J-D2 nicht prüfbar (Portal-Dialog).**
   - M20 (mittel, Entscheidung): „Kante Light“ bleibt bei dunklem System dunkel (LH-ALL-02).
   - M21 (mittel, behoben #145): Bei 853 px fehlte der Präsentations-Knopf; nur F5 half.
@@ -904,8 +904,9 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
     (Rock Powerchords #158; Pop, Ballade und Pop-Grooves Dreiklänge #169, Runde 16); Teilnamen brauchen Probenzeichen in Kante.
   - J11 (mittel, Inhalt): Glossar ohne Abbildungen und Hörbeispiele.
   - Offen (niedrig): J1b englischer Rohfehler im Kurs-Satz; J5 Mithör-Hinweis ohne ms; J6 Lane 45 px bei Mixer,
-    Mithören und Callout; J12 „bestes Ergebnis“ aus Frei spielen; J13 Sammelbefund („1 Stücke“, Schlagzeug-Regler
-    ohne Schlagzeug, Start zeigt 0:00 trotz Loop, alter Beat-Map nach Entfernen des Backings).
+    Mithören und Callout; J12 „bestes Ergebnis“ aus Frei spielen; J13 Sammelbefund (Schlagzeug-Regler
+    ohne Schlagzeug, Start zeigt 0:00 trotz Loop; behoben 10.11.: „1 Stücke“, alter Beat-Map nach Entfernen des
+    Backings).
 - **Vorfälle (Testumgebung):** `kontra --help` lief zweimal ~2 min mit dem echten Eingang (behoben, M27); ein
   Ordnerdialog öffnete über das Portal auf dem echten Desktop (`main.rs` setzt das Portal-Theme); Songsterr-Treffer
   öffneten Browser-Tabs; `kontra-cli practice --backing` hat keinen stummen Ausgang. Scarlett-Knoten danach geprüft.

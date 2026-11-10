@@ -5,7 +5,80 @@ use kontra_session::{import_file, ProgressStore};
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
+/// What choosing a backing track did to the loaded piece.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BackingChange {
+    /// Nothing the page shows of the piece changed: loop, building blocks and the summary of
+    /// a finished run stay. Also when nothing was set (no piece, a name that cannot be kept).
+    Kept,
+    /// The page starts over: a run under way was ended, or a beat map went and the piece
+    /// was loaded again at its own tempo.
+    StartOver,
+}
+
 impl Core {
+    /// What an import says about its count.
+    pub fn imported_text(&self, added: usize) -> String {
+        let key = match added {
+            1 => "library.imported.one",
+            _ => "library.imported",
+        };
+        self.tr(key, &[("n", added.to_string())])
+    }
+
+    /// Sets (or with `None` removes) the backing track of the loaded piece. An error: the
+    /// piece could not be loaded again without the old recording's beat map.
+    pub fn set_backing(
+        &mut self,
+        path: Option<PathBuf>,
+        offset_s: f64,
+    ) -> Result<BackingChange, String> {
+        // A name the library cannot keep never gets in (the caller says why: `keepable`).
+        if path.as_deref().is_some_and(|p| self.keepable(p).is_err()) {
+            return Ok(BackingChange::Kept);
+        }
+        let Some(loaded) = self.loaded_path().map(Path::to_path_buf) else {
+            return Ok(BackingChange::Kept);
+        };
+        self.cancel_stems_of(&loaded);
+
+        // The beat map belongs to the recording it was heard in (QA J13): with another file
+        // or none it goes. The same file again keeps the map and the place it gave.
+        let same_file = self
+            .library
+            .entry(&loaded)
+            .is_some_and(|e| e.backing == path);
+        let mapped = self.library.beat_maps.contains_key(&loaded);
+        let map_goes = mapped && !same_file;
+        if map_goes {
+            self.library.beat_maps.remove(&loaded);
+        }
+
+        if let Some(entry) = self.library.entry_mut(&loaded) {
+            entry.backing = path;
+            entry.backing_without_bass = false;
+            if !(mapped && same_file) {
+                entry.backing_offset_s = offset_s;
+            }
+        }
+        // A finished run leaves its summary on the page; one under way ends here.
+        let under_way = self
+            .live
+            .as_ref()
+            .is_some_and(|l| !l.practice().session().is_finished());
+        self.stop_live();
+        if map_goes {
+            // Saves, and loads the piece again at its own tempo. Loading drops the loop, so
+            // only then (review #240).
+            return self.apply_beat_map().map(|()| BackingChange::StartOver);
+        }
+        let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+        if under_way {
+            return Ok(BackingChange::StartOver);
+        }
+        Ok(BackingChange::Kept)
+    }
+
     pub fn recent_json(&self) -> String {
         let store = self.progress_store();
         let list: Vec<_> = self
