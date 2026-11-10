@@ -1692,7 +1692,8 @@ impl Core {
         self.reconfigure(|s| s.midi_port = value);
     }
 
-    /// The chosen input, else an interface before the built-in card (LH-EIN-02).
+    /// The chosen input, else the one that fits the connection (LH-EIN-02): an interface, or
+    /// the built-in card for the laptop jack.
     fn input_device(&self) -> Option<String> {
         chosen_input(
             self.settings.input_device.as_deref(),
@@ -2857,8 +2858,9 @@ fn names_of(tuning: &Tuning) -> Vec<String> {
     tuning.strings.iter().map(ToString::to_string).collect()
 }
 
-/// The saved input if it is listed, else an interface (LH-EIN-02): an unplugged device or an
-/// ALSA id saved before PipeWire means "Automatic", not the system default (review #73).
+/// The saved input if it is listed, else the one that fits the connection `kind` (LH-EIN-02):
+/// an unplugged device or an ALSA id saved before PipeWire means "Automatic", not the system
+/// default (review #73).
 fn chosen_input(saved: Option<&str>, devices: &[DeviceInfo], kind: InputKind) -> Option<String> {
     if let Some(id) = saved.filter(|id| devices.iter().any(|d| d.id == *id)) {
         return Some(id.to_string());

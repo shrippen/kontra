@@ -338,10 +338,9 @@ fn free_timing_window() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// LH-EIN-02: Scarlett Solo and the internal card → the interface, default or not.
-#[test]
-fn interface_before_internal_card() {
-    let device = |id: &str, connection: Connection, is_default: bool| DeviceInfo {
+/// An audio input as the system lists it.
+fn device(id: &str, connection: Connection, is_default: bool) -> DeviceInfo {
+    DeviceInfo {
         id: id.into(),
         name: id.into(),
         direction: Direction::Input,
@@ -350,7 +349,12 @@ fn interface_before_internal_card() {
         sample_rate: 48_000,
         channels: 2,
         past_pipewire: false,
-    };
+    }
+}
+
+/// LH-EIN-02: Scarlett Solo and the internal card → the interface, default or not.
+#[test]
+fn interface_before_internal_card() {
     let internal = device("hda", Connection::BuiltIn, true);
     let scarlett = device("scarlett", Connection::Usb, false);
     let list = [internal.clone(), scarlett.clone()];
@@ -375,16 +379,6 @@ fn interface_before_internal_card() {
 /// the automatic input then, the system's default first.
 #[test]
 fn laptop_jack_takes_the_built_in_card() {
-    let device = |id: &str, connection: Connection, is_default: bool| DeviceInfo {
-        id: id.into(),
-        name: id.into(),
-        direction: Direction::Input,
-        is_default,
-        connection,
-        sample_rate: 48_000,
-        channels: 2,
-        past_pipewire: false,
-    };
     let list = [
         device("scarlett", Connection::Usb, true),
         device("hda", Connection::BuiltIn, false),
@@ -412,16 +406,6 @@ fn laptop_jack_takes_the_built_in_card() {
 /// interface) means "Automatic": the interface first, not the system default.
 #[test]
 fn unlisted_choice_is_automatic() {
-    let device = |id: &str, connection: Connection, is_default: bool| DeviceInfo {
-        id: id.into(),
-        name: id.into(),
-        direction: Direction::Input,
-        is_default,
-        connection,
-        sample_rate: 48_000,
-        channels: 2,
-        past_pipewire: false,
-    };
     let list = [
         device("hda", Connection::BuiltIn, true),
         device("scarlett", Connection::Usb, false),

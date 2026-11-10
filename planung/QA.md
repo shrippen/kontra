@@ -37,7 +37,7 @@ Markierungen: ⚙ automatisiert · 🔍 auch mit 200 % Skalierung und Farbfilter
 
 **J-A1 Anstecken und los** ⚙ 🔍 · Persona: P1 Lea · Phase 1 · LH-EIN-01, -02, -03, -04, LH-NF-01
 1. Kontra zum ersten Mal starten, Bass per Klinke in die Laptop-Buchse (`--input-profile laptop-jack`).
-2. Assistent: Instrument „E-Bass, 4 Saiten“, Stimmung „Standard“; Anschluss „Klinke direkt in den Laptop“ (daneben Interface und Mikrofon; MIDI kommt mit dem Instrument „Bass über MIDI“); Eingang wählen (ein Interface ist vorgewählt). Pegel ist zu leise.
+2. Assistent: Instrument „E-Bass, 4 Saiten“, Stimmung „Standard“; Anschluss „Klinke direkt in den Laptop“ (daneben Interface und Mikrofon; MIDI kommt mit dem Instrument „Bass über MIDI“); Eingang wählen (vorgewählt ist die eingebaute Karte; beim Anschluss „Interface“ ein Interface). Pegel ist zu leise.
 3. Den Hinweis lesen und befolgen (Lautstärke am Bass auf, Gain im Assistenten).
 4. Kalibrierung überspringen.
 5. Am Ende „Wie spielst du bisher?“: „Neu am Bass“ öffnet die erste Lektion und schaltet die einfache Ansicht ein; „Ich spiele schon“ (P3 Mira) öffnet die Übungen mit den Grundlagen; „Eigene Songs“ (P2 Jens) die Bibliothek. Ersten Ton spielen.

@@ -65,7 +65,8 @@ Kirigami.ScrollablePage {
         }
     }
 
-    // LH-EIN-02: what "automatic" means right now (an interface before the built-in card).
+    // LH-EIN-02: what "automatic" means right now (the input that fits the connection: an
+    // interface, or the built-in card for the laptop jack).
     readonly property string autoInput: {
         for (var i = 0; i < inputs.length; i++) {
             if (inputs[i].preferred) {
