@@ -10,7 +10,7 @@
 //! control ─► command ring ───────────────┴─► output callback: voices + backing + monitor ─► device
 //! ```
 
-use crate::clock::Clock;
+use crate::clock::{settle, Clock};
 use crate::{EngineError, Event};
 use kontra_drivers::{OutputStream, StreamConfig};
 use kontra_dsp::synth::Noise;
@@ -272,22 +272,22 @@ impl Player {
             sum_limit: OutputLimiter::new(48_000.0),
         };
         let mut frame: u64 = 0;
-        let mut first_block = true;
         // The device's rate is known only after opening; the callback reads it from here.
         let rate = Arc::new(AtomicU64::new(48_000));
         let rate_cb = Arc::clone(&rate);
         let stream = OutputStream::open(
             config,
-            move |data: &mut [f32], channels: usize| {
-                if first_block {
-                    started_cb.store(clock.now_s().to_bits(), Ordering::Relaxed);
-                    first_block = false;
-                }
+            move |data: &mut [f32], channels: usize, lead_s: f64| {
+                let sr = rate_cb.load(Ordering::Relaxed) as f64;
+                // When the first frame sounds: the device's lead after now, less what played
+                // before (R3).
+                let played_s = frame as f64 / sr;
                 let t0 = f64::from_bits(started_cb.load(Ordering::Relaxed));
+                let t0 = settle(t0, clock.now_s() + lead_s - played_s, played_s);
+                started_cb.store(t0.to_bits(), Ordering::Relaxed);
                 while let Ok(command) = consumer.pop() {
                     mixer.apply(command);
                 }
-                let sr = rate_cb.load(Ordering::Relaxed) as f64;
                 mixer.trim_monitor(sr);
                 for out in data.chunks_mut(channels.max(1)) {
                     let now = t0 + frame as f64 / sr;
