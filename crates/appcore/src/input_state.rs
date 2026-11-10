@@ -244,9 +244,6 @@ impl Core {
     pub(crate) fn input_opened(&mut self, using: InputUse) {
         let choice = self.input_choice();
         let name = self.input_label(&choice);
-        if let InputChoice::Device { id, .. } = &choice {
-            self.forget_lost_for(id.as_deref());
-        }
         self.input.opened(using, name, choice);
     }
 

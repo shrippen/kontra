@@ -386,6 +386,9 @@ Erkennung und Messung:
   Kirigami lädt seine Übersetzung selbst nach der Systemsprache.
 - [ ] Ein USB-Mikrofon (Webcam, Headset) gilt bei „Automatisch“ als Interface (`preferred_input`, LH-EIN-02) und
   würde im Leerlauf offen gehalten (Review #231): Geräte mit nur einem Mikrofon erkennen oder nachfragen.
+- [ ] Verlorener Eingang, der wegbleibt (Review #231, #232): Steckt der Spieler ein anderes Interface an, nutzen
+  Läufe es, der Standby wartet aber weiter auf das alte (bis es zurück ist oder ein Eingang gewählt wird). Das
+  Warten darf nur zusammen mit dem Angebot in der Leiste enden (`InputBack`), sonst bleibt das Angebot stehen.
 - [ ] Summenbegrenzer (Review #230): Mithören plus Backing, Klick und Ton kann die Summe über Vollaussteuerung
   bringen, dort schneidet der Mixer hart. Ein weicher Begrenzer auf der Summe ändert alles, was spielt; erst messen,
   wie oft es vorkommt. Stimmgerät hört im Leerlauf nicht mit (es öffnet nur den Eingang, Mithören ruht dort).

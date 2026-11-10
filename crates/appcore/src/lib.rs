@@ -814,6 +814,7 @@ impl Core {
     /// Changes the mixer (volumes, monitoring) and saves; a running practice hears it at once.
     /// Returns a hint when monitoring is on but cannot work.
     pub fn remix(&mut self, change: impl FnOnce(&mut Settings)) -> Option<String> {
+        let was_on = self.settings.monitor;
         self.update_settings(change);
         let gains = gains(&self.settings);
         if let Some(live) = self.live.as_mut() {
@@ -823,7 +824,9 @@ impl Core {
             live_ear.set_gains(ear_gains(&self.settings));
         }
         self.remix_standby();
-        self.monitor_hint().or_else(|| self.standby_hint())
+        let switched_on = !was_on && self.settings.monitor;
+        self.monitor_hint()
+            .or_else(|| self.standby_hint(switched_on))
     }
 
     /// Monitoring is on, but the running practice has no output or devices at different rates.
