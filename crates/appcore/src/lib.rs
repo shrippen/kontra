@@ -13,6 +13,7 @@ mod choice;
 mod course;
 mod data;
 pub mod ear;
+mod effects;
 mod goal;
 mod i18n;
 mod input_state;

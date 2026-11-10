@@ -376,21 +376,32 @@ impl qobject::Controller {
                 self.as_mut().set_monitor_warmth(amount);
                 self.as_mut().core().remix(|s| s.monitor_warmth = amount)
             }
-            "drive" => {
-                let amount = value.clamp(0.0, 1.0);
-                self.as_mut().set_monitor_drive(amount);
-                self.as_mut().core().remix(|s| s.set_monitor_drive(amount))
-            }
-            "width" => {
-                let amount = value.clamp(0.0, 1.0);
-                self.as_mut().set_monitor_width(amount);
-                self.as_mut().core().remix(|s| s.set_monitor_width(amount))
-            }
             _ => None,
         };
         if let Some(hint) = hint {
             self.as_mut().set_message(q(&hint));
         }
+    }
+
+    pub(super) fn edit_effects(
+        mut self: Pin<&mut Self>,
+        op: &QString,
+        index: i32,
+        name: &QString,
+        value: f64,
+    ) {
+        let (op, name) = (op.to_string(), name.to_string());
+        let index = usize::try_from(index).unwrap_or(usize::MAX);
+        let hint = self.as_mut().core().edit_effects(&op, index, &name, value);
+        self.as_mut().refresh_effects();
+        if let Some(hint) = hint {
+            self.as_mut().set_message(q(&hint));
+        }
+    }
+
+    pub(super) fn refresh_effects(mut self: Pin<&mut Self>) {
+        let json = self.as_ref().rust().core.effects_json();
+        self.as_mut().set_effects_json(q(&json));
     }
 
     pub(super) fn change_limit(mut self: Pin<&mut Self>, on: bool) {
@@ -408,8 +419,7 @@ impl qobject::Controller {
         self.as_mut().set_monitor_high_db(s.monitor_high_db);
         self.as_mut().set_monitor_compress(s.monitor_compress);
         self.as_mut().set_monitor_warmth(s.monitor_warmth);
-        self.as_mut().set_monitor_drive(s.monitor_drive());
-        self.as_mut().set_monitor_width(s.monitor_width());
+        self.as_mut().refresh_effects();
         self.as_mut().set_monitor_limit(s.monitor_limit);
         if let Some(hint) = hint {
             self.as_mut().set_message(q(&hint));

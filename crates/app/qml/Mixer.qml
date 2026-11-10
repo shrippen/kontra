@@ -6,7 +6,7 @@ import Kante
 // Mixer (LH-WIE-03, LH-MOD-05): volumes of backing track (and its removed bass, LH-BIB-09),
 // metronome, reference tone and drums (LH-LRN-01), and the bass played through Kontra (off by default: the interface's direct
 // monitoring has no delay). While it plays, three tone bands, a compressor, warmth (LH-EIN-08),
-// overdrive and stereo width shape it, a limiter (on by default) catches peaks (LH-EIN-17);
+// the effect chain (LH-EIN-19: free order, on or off, own values) shapes it, a limiter (on by default) catches peaks (LH-EIN-17);
 // "Neutral" resets them.
 // Changes apply at once, also while playing. On the practice page and in the settings.
 ColumnLayout {
@@ -168,17 +168,158 @@ ColumnLayout {
         band: "warmth"
         value: mixer.ctl.monitorWarmth
     }
-    Shaping {
-        title: mixer.texts.t("mixer.shaping.drive")
-        hint: mixer.texts.t("mixer.shaping.drive.hint")
-        band: "drive"
-        value: mixer.ctl.monitorDrive
+    // The effect chain of the monitored bass (LH-EIN-19): free order, each slot on or off,
+    // with its own values. Everything is a button or a slider (no dragging); the list comes
+    // from the core, the page keeps no logic.
+    readonly property var fx: JSON.parse(ctl.effectsJson)
+    // Where a slot's move buttons stand, so keyboard focus follows the slot that moved.
+    function focusMoved(to) {
+        var slot = slots.itemAt(to)
+        if (slot) {
+            slot.focusMove()
+        }
     }
-    Shaping {
-        title: mixer.texts.t("mixer.shaping.width")
-        hint: mixer.texts.t("mixer.shaping.width.hint")
-        band: "width"
-        value: mixer.ctl.monitorWidth
+
+    KanteSettingRow {
+        Layout.fillWidth: true
+        visible: mixer.ctl.monitor
+        section: mixer.texts.t("fx.title")
+        title: mixer.texts.t("fx.add")
+        hint: mixer.texts.t("fx.hint")
+        RowLayout {
+            spacing: KanteStyle.unit(8)
+            KanteComboBox {
+                id: kindChoice
+                Accessible.name: mixer.texts.t("fx.add")
+                Layout.preferredWidth: KanteStyle.unit(180)
+                enabled: !mixer.fx.full
+                model: mixer.fx.kinds.map(function(k) { return k.name })
+            }
+            KanteButton {
+                id: addButton
+                text: mixer.texts.t("fx.add")
+                Accessible.name: mixer.texts.t("fx.add.button", { name: kindChoice.currentText })
+                enabled: !mixer.fx.full
+                onClicked: mixer.ctl.editEffects("add", 0, mixer.fx.kinds[kindChoice.currentIndex].key, 0)
+            }
+        }
+    }
+    // A full chain says so in words; the add buttons are off then.
+    KanteCallout {
+        Layout.fillWidth: true
+        Layout.topMargin: KanteStyle.unit(8)
+        visible: mixer.ctl.monitor && mixer.fx.full
+        kind: KanteCallout.Kind.Warn
+        text: mixer.fx.fullText
+    }
+    Text {
+        Layout.fillWidth: true
+        Layout.topMargin: KanteStyle.unit(8)
+        visible: mixer.ctl.monitor && mixer.fx.empty
+        color: KanteStyle.mutedTextColor
+        font: KanteStyle.smallFont
+        text: mixer.texts.t("fx.empty")
+    }
+    // Later: plugin slots (LH-EIN-20, -21) join the kinds above and this list; a plugin slot
+    // has no values here, only its own window.
+    Repeater {
+        id: slots
+        model: mixer.fx.slots.length
+        delegate: ColumnLayout {
+            id: slotItem
+            readonly property var slot: mixer.fx.slots[index] || ({ values: [], name: "", hint: "" })
+            readonly property string slotName: mixer.texts.t("fx.slot", { number: index + 1, name: slot.name })
+            Layout.fillWidth: true
+            visible: mixer.ctl.monitor
+            spacing: 0
+
+            // After a move the focus goes to the same button at the slot's new place.
+            function focusMove() {
+                var button = slot.first ? downButton : upButton
+                button.forceActiveFocus()
+            }
+
+            KanteSettingRow {
+                Layout.fillWidth: true
+                title: slotItem.slotName
+                hint: slotItem.slot.hint
+                RowLayout {
+                    spacing: KanteStyle.unit(8)
+                    KanteSwitch {
+                        Accessible.name: mixer.texts.t("fx.on", { name: slotItem.slotName })
+                        focusPolicy: Qt.StrongFocus
+                        checked: slotItem.slot.on === true
+                        onToggled: mixer.ctl.editEffects("on", index, "", checked ? 1 : 0)
+                    }
+                    KanteButton {
+                        id: upButton
+                        text: mixer.texts.t("fx.up.label")
+                        Accessible.name: mixer.texts.t("fx.up", { name: slotItem.slotName })
+                        emphasis: KanteButton.Emphasis.Quiet
+                        size: KanteButton.Size.Small
+                        enabled: slotItem.slot.first !== true
+                        onClicked: {
+                            mixer.ctl.editEffects("up", index, "", 0)
+                            mixer.focusMoved(index - 1)
+                        }
+                    }
+                    KanteButton {
+                        id: downButton
+                        text: mixer.texts.t("fx.down.label")
+                        Accessible.name: mixer.texts.t("fx.down", { name: slotItem.slotName })
+                        emphasis: KanteButton.Emphasis.Quiet
+                        size: KanteButton.Size.Small
+                        enabled: slotItem.slot.last !== true
+                        onClicked: {
+                            mixer.ctl.editEffects("down", index, "", 0)
+                            mixer.focusMoved(index + 1)
+                        }
+                    }
+                    KanteButton {
+                        text: mixer.texts.t("fx.remove.label")
+                        Accessible.name: mixer.texts.t("fx.remove", { name: slotItem.slotName })
+                        emphasis: KanteButton.Emphasis.Quiet
+                        size: KanteButton.Size.Small
+                        destructive: true
+                        onClicked: {
+                            mixer.ctl.editEffects("remove", index, "", 0)
+                            kindChoice.forceActiveFocus()
+                        }
+                    }
+                }
+            }
+            Repeater {
+                model: slotItem.slot.values.length
+                delegate: KanteSettingRow {
+                    id: valueRow
+                    readonly property var entry: slotItem.slot.values[index] || ({ key: "", label: "", value: 0 })
+                    Layout.fillWidth: true
+                    title: entry.label
+                    RowLayout {
+                        spacing: KanteStyle.unit(8)
+                        QQC2.Slider {
+                            id: valueSlider
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: KanteStyle.unit(220)
+                            from: 0
+                            to: 1
+                            stepSize: 0.05
+                            value: valueRow.entry.value
+                            focusPolicy: Qt.StrongFocus
+                            Accessible.name: slotItem.slotName + ": " + valueRow.entry.label
+                            onMoved: mixer.ctl.editEffects("set", slotItem.slot.index, valueRow.entry.key, value)
+                            KanteSliderSkin { control: valueSlider }
+                        }
+                        QQC2.Label {
+                            Layout.preferredWidth: KanteStyle.unit(48)
+                            horizontalAlignment: Text.AlignRight
+                            color: KanteStyle.textColor
+                            text: mixer.texts.t("mixer.percent", { percent: Math.round(valueSlider.value * 100) })
+                        }
+                    }
+                }
+            }
+        }
     }
     KanteSettingRow {
         Layout.fillWidth: true
@@ -202,8 +343,7 @@ ColumnLayout {
             Accessible.name: mixer.texts.t("mixer.shaping.neutral.title")
             enabled: mixer.ctl.monitorLowDb !== 0 || mixer.ctl.monitorMidDb !== 0
                 || mixer.ctl.monitorHighDb !== 0 || mixer.ctl.monitorCompress !== 0
-                || mixer.ctl.monitorWarmth !== 0 || mixer.ctl.monitorDrive !== 0
-                || mixer.ctl.monitorWidth !== 0 || !mixer.ctl.monitorLimit
+                || mixer.ctl.monitorWarmth !== 0 || !mixer.fx.empty || !mixer.ctl.monitorLimit
             onClicked: mixer.ctl.resetShaping()
         }
     }
