@@ -207,11 +207,27 @@ jobs:
           KONTRA_DATA_DIR="$RUNNER_TEMP/kontra-data" QT_QPA_PLATFORM=windows timeout 120 target/debug/kontra.exe \
             --language de --page settings --screenshot shots/settings-de-window.png --screenshot-after 3000
           test -f shots/settings-de-window.png
+      # Win5: the folder the installer will wrap. It must run without the Qt of this job: a
+      # screenshot with a bare PATH proves it. Uploaded for the test machine, not released.
+      - name: Portable folder
+        run: |
+          scripts/package-windows.sh dist/Kontra
+          env -u QML_IMPORT_PATH -u QML2_IMPORT_PATH -u QT_PLUGIN_PATH -u QMAKE -u CMAKE_PREFIX_PATH \
+            PATH="/c/Windows/System32:/c/Windows:/usr/bin" QT_QPA_PLATFORM=offscreen \
+            QT_QUICK_CONTROLS_STYLE=Fusion KONTRA_DATA_DIR="$RUNNER_TEMP/kontra-portable" \
+            timeout 120 dist/Kontra/bin/kontra.exe --language de --page settings \
+            --screenshot shots/portable-de.png --screenshot-after 2000
+          test -f shots/portable-de.png
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: screenshots-windows
           path: shots/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kontra-windows-portable
+          path: dist/Kontra/
+          retention-days: 14
 
   app:
     # The Qt app: Qt 6.10 and Kirigami from scripts/setup-qt-env.sh (cached), headless screenshots.
