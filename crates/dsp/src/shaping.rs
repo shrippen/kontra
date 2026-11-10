@@ -1,12 +1,23 @@
 //! Tone shaping for input monitoring (LH-EIN-08): three equaliser bands, a compressor,
-//! warmth (light saturation, like an amp driven a little harder), overdrive, a mono-to-stereo
-//! widener and a limiter (LH-EIN-17).
+//! warmth (light saturation, like an amp driven a little harder), the effect chain (overdrive,
+//! widener and more, LH-EIN-17, LH-EIN-19) and a limiter.
 //!
 //! ```text
-//! input ─► low shelf ─► mid bell ─► high shelf ─► compressor ─► warmth ─► overdrive
-//!                                                                  │          │
-//!                         2× rate: up ─► tanh ─► anti-alias ─► down          ▼
-//!                                                       (L, R) ◄─ limiter ◄─ widener
+//! input ─► low shelf ─► mid bell ─► high shelf ─► compressor ─► warmth ─► chain
+//!                                                                  │         │
+//!                         2× rate: up ─► tanh ─► anti-alias ─► down         ▼
+//!                                                        (L, R) ◄─ limiter ◄┘
+//!
+//! Chain: [slot] ─► [slot] ─► … (see `Chain`). A change of its shape (effects, order,
+//! on/off) is made outside the audio callback and handed in; the shaper then fades from
+//! the old chain to the new one:
+//!
+//!   old ──────╲___________ × (1 − t)
+//!                         ├─► sum ─► limiter      t: 0 → 1 over `FADE_S`
+//!   new ───────‾‾‾‾‾‾‾‾‾‾‾ × t
+//!
+//! The old chain then waits in `retired` until `take_retired` hands it back, so the
+//! callback never frees it.
 //!
 //! The band frequencies come from the instrument profile (`ToneBands`; bass: 100 Hz,
 //! 800 Hz, 4 kHz), so another instrument needs no change here.
@@ -16,8 +27,9 @@
 //! towards their target in small steps every 32 samples, so moving a slider does not click.
 
 use crate::biquad::{Biquad, EqKind, FilterKind};
-use crate::effects::{Limiter, Overdrive, Widener};
-use kontra_model::ToneBands;
+use crate::chain::Chain;
+use crate::effects::Limiter;
+use kontra_model::{ChainSpec, ToneBands};
 
 /// Largest boost or cut of a band, in dB.
 pub const SHAPING_RANGE_DB: f32 = 12.0;
@@ -26,6 +38,8 @@ pub const SHAPING_RANGE_DB: f32 = 12.0;
 const RAMP_FRAMES: u32 = 32;
 /// Largest band change per step: 12 dB take 48 steps, 32 ms at 48 kHz.
 const RAMP_DB: f32 = 0.25;
+/// The fade from one chain to the next.
+const FADE_S: f64 = 0.008;
 /// Largest compressor change per step.
 const RAMP_COMPRESS: f32 = 0.02;
 
@@ -73,10 +87,9 @@ pub struct Shaping {
     pub compress: f32,
     /// Saturation, 0 (off) to 1 (warm).
     pub warmth: f32,
-    /// Overdrive, 0 (off) to 1 (strong).
-    pub drive: f32,
-    /// Stereo width, 0 (mono, in the middle) to 1 (wide).
-    pub width: f32,
+    /// The effects after the tone shaping (overdrive, widener, ...). The values act at once
+    /// (gliding); a different shape (effects, order, on/off) needs `Shaper::swap_chain`.
+    pub chain: ChainSpec,
     pub limit: Limit,
     /// Where the bands sit, from the instrument profile; changes at once, not gliding.
     pub bands: ToneBands,
@@ -89,8 +102,7 @@ impl Shaping {
         high_db: 0.0,
         compress: 0.0,
         warmth: 0.0,
-        drive: 0.0,
-        width: 0.0,
+        chain: ChainSpec::EMPTY,
         limit: Limit::Off,
         bands: ToneBands::BASS,
     };
@@ -103,8 +115,7 @@ impl Shaping {
             high_db: band(self.high_db),
             compress: self.compress.clamp(0.0, 1.0),
             warmth: self.warmth.clamp(0.0, 1.0),
-            drive: self.drive.clamp(0.0, 1.0),
-            width: self.width.clamp(0.0, 1.0),
+            chain: self.chain.clamped(),
             limit: self.limit,
             bands: self.bands,
         }
@@ -118,7 +129,7 @@ impl Default for Shaping {
 }
 
 /// Applies a `Shaping` to a mono signal; stereo out.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Shaper {
     low: Biquad,
     mid: Biquad,
@@ -132,8 +143,14 @@ pub struct Shaper {
     attack: f32,
     release: f32,
     warmth: Saturator,
-    overdrive: Overdrive,
-    widener: Widener,
+    /// Runs the effects; replaced by `swap_chain`.
+    chain: Box<Chain>,
+    /// The chain being faded out, and the fade's samples left.
+    fading: Option<Box<Chain>>,
+    fade_left: u32,
+    fade_len: u32,
+    /// A faded-out chain waiting for `take_retired`.
+    retired: Option<Box<Chain>>,
     limiter: Limiter,
     /// The limiter faded in (0..=1), gliding towards `target.limit`.
     limit: f32,
@@ -156,8 +173,11 @@ impl Shaper {
             attack: 0.0,
             release: 0.0,
             warmth: Saturator::new(sample_rate),
-            overdrive: Overdrive::new(sample_rate),
-            widener: Widener::new(sample_rate),
+            chain: Box::new(Chain::new(&ChainSpec::EMPTY, sample_rate)),
+            fading: None,
+            fade_left: 0,
+            fade_len: 1,
+            retired: None,
             limiter: Limiter::new(sample_rate),
             limit: 0.0,
             fresh: true,
@@ -166,9 +186,11 @@ impl Shaper {
         shaper
     }
 
-    /// New target; the shaper glides there.
+    /// New target; the shaper glides there. The chain's values go to the running chain if
+    /// the shape fits, else they wait for the chain that does.
     pub fn set(&mut self, shaping: Shaping) {
         self.target = shaping.clamped();
+        self.chain.set_values(&self.target.chain);
         if self.fresh {
             self.fresh = false;
             self.limit = self.target.limit.amount();
@@ -182,8 +204,10 @@ impl Shaper {
             self.retime(sample_rate);
             self.retune();
             self.warmth = Saturator::new(sample_rate);
-            self.overdrive = Overdrive::new(sample_rate);
-            self.widener.retime(sample_rate);
+            self.chain.retime(sample_rate);
+            if let Some(old) = self.fading.as_mut() {
+                old.retime(sample_rate);
+            }
             self.limiter.retime(sample_rate);
         }
         if self.countdown == 0 {
@@ -200,9 +224,54 @@ impl Shaper {
         let y = if flat { x } else { shaped };
         let y = self.compress(y);
         let y = self.warmth.process(y, c.warmth);
-        let y = self.overdrive.process(y, c.drive);
-        let wide = self.widener.process(y, c.width);
+        let wide = self.run_chain(y);
         self.limiter.process(wide, self.limit)
+    }
+
+    /// Whether `swap_chain` can take a chain now: none is fading out or waiting to leave.
+    pub fn can_swap(&self) -> bool {
+        self.fading.is_none() && self.retired.is_none()
+    }
+
+    /// Fades over to `chain` (built outside the audio callback for the shaper's rate) and
+    /// applies the latest values to it. Gives it back if `can_swap` is false.
+    pub fn swap_chain(&mut self, mut chain: Box<Chain>) -> Result<(), Box<Chain>> {
+        if !self.can_swap() {
+            return Err(chain);
+        }
+        chain.set_values(&self.target.chain);
+        self.fading = Some(std::mem::replace(&mut self.chain, chain));
+        self.fade_len = (FADE_S * self.sample_rate) as u32 + 1;
+        self.fade_left = self.fade_len;
+        Ok(())
+    }
+
+    /// The chain that has been faded out, to be dropped by the control side.
+    pub fn take_retired(&mut self) -> Option<Box<Chain>> {
+        self.retired.take()
+    }
+
+    /// Frames the chain delays the signal by (plugins with lookahead; 0 for the built-in
+    /// effects).
+    pub fn latency_frames(&self) -> usize {
+        self.chain.latency_frames()
+    }
+
+    fn run_chain(&mut self, x: f32) -> (f32, f32) {
+        let new = self.chain.process(x);
+        let Some(old) = self.fading.as_mut() else {
+            return new;
+        };
+        let old = old.process(x);
+        let weight = self.fade_left as f32 / self.fade_len as f32;
+        self.fade_left -= 1;
+        if self.fade_left == 0 {
+            self.retired = self.fading.take();
+        }
+        (
+            new.0 + (old.0 - new.0) * weight,
+            new.1 + (old.1 - new.1) * weight,
+        )
     }
 
     /// Moves `current` one step towards `target` and recomputes the filters if it moved.
@@ -219,8 +288,7 @@ impl Shaper {
             high_db: toward(c.high_db, t.high_db, RAMP_DB),
             compress: toward(c.compress, t.compress, RAMP_COMPRESS),
             warmth: toward(c.warmth, t.warmth, RAMP_COMPRESS),
-            drive: toward(c.drive, t.drive, RAMP_COMPRESS),
-            width: toward(c.width, t.width, RAMP_COMPRESS),
+            chain: t.chain,
             limit: t.limit,
             bands: t.bands,
         };
@@ -316,6 +384,7 @@ impl Saturator {
 mod tests {
     use super::*;
     use crate::level::{peak_db, rms_db};
+    use kontra_model::{EffectKind, SlotSpec};
     use std::f64::consts::PI;
 
     const SR: f64 = 48_000.0;
@@ -462,17 +531,120 @@ mod tests {
         assert!(peak <= crate::effects::LIMIT_CEILING + 1e-6, "peak {peak}");
     }
 
+    /// A shaper whose chain was swapped to `slots` and has finished fading.
+    fn with_chain(slots: &[SlotSpec]) -> (Shaper, Shaping) {
+        let chain: ChainSpec = slots.to_vec().into();
+        let shaping = Shaping {
+            chain,
+            limit: Limit::On,
+            ..Shaping::FLAT
+        };
+        let mut shaper = Shaper::new(SR);
+        shaper.set(shaping);
+        assert!(shaper.swap_chain(Box::new(Chain::new(&chain, SR))).is_ok());
+        run(&mut shaper, &sine(55.0, 0.1, 1000));
+        drop(shaper.take_retired());
+        (shaper, shaping)
+    }
+
     #[test]
     fn width_spreads_the_sides() {
-        let mut shaper = Shaper::new(SR);
-        shaper.set(Shaping {
-            width: 1.0,
-            ..Shaping::FLAT
-        });
+        let wide = SlotSpec {
+            a: 1.0,
+            ..SlotSpec::new(EffectKind::Widener)
+        };
+        let (mut shaper, _) = with_chain(&[wide]);
         let input = sine(1000.0, 0.3, 48_000);
         let out: Vec<(f32, f32)> = input.iter().map(|&x| shaper.process(x, SR)).collect();
         let side: Vec<f32> = out[24_000..].iter().map(|(l, r)| l - r).collect();
         assert!(rms_db(&side) - rms_db(&input[24_000..]) > -12.0);
+    }
+
+    #[test]
+    fn a_new_chain_fades_in_and_the_old_one_leaves() {
+        let mut shaper = Shaper::new(SR);
+        assert!(shaper.can_swap());
+        let fuzz: ChainSpec = vec![SlotSpec::new(EffectKind::Fuzz)].into();
+        assert!(shaper.swap_chain(Box::new(Chain::new(&fuzz, SR))).is_ok());
+        // One chain is fading out: a second must wait.
+        assert!(!shaper.can_swap());
+        let second = Box::new(Chain::new(&fuzz, SR));
+        assert!(shaper.swap_chain(second).is_err());
+        assert!(shaper.take_retired().is_none());
+
+        run(&mut shaper, &sine(110.0, 0.3, 4800));
+        assert!(
+            shaper.take_retired().is_some(),
+            "the old chain waits to be taken"
+        );
+        assert!(shaper.take_retired().is_none());
+        assert!(shaper.can_swap());
+    }
+
+    #[test]
+    fn swapping_does_not_jump() {
+        // From dry to a fuzz mid-note: no sample step beyond what the fuzz itself makes (its
+        // edges are steep); the fade takes ~8 ms, not one sample.
+        let step = |out: &[f32]| {
+            out.windows(2)
+                .map(|w| (w[1] - w[0]).abs())
+                .fold(0.0, f32::max)
+        };
+        let fuzz: ChainSpec = vec![SlotSpec::new(EffectKind::Fuzz)].into();
+        let input = sine(110.0, 0.3, 9600);
+
+        let (mut reference, _) = with_chain(&[SlotSpec::new(EffectKind::Fuzz)]);
+        let fuzzed = run(&mut reference, &input);
+
+        let (mut shaper, _) = with_chain(&[]);
+        let mut out = run(&mut shaper, &input[..4800]);
+        assert!(shaper.swap_chain(Box::new(Chain::new(&fuzz, SR))).is_ok());
+        out.extend(run(&mut shaper, &input[4800..]));
+        assert!(
+            step(&out) <= 1.2 * step(&fuzzed),
+            "{} {}",
+            step(&out),
+            step(&fuzzed)
+        );
+    }
+
+    #[test]
+    fn the_limiter_holds_through_swaps() {
+        let loud = sine(55.0, 1.6, 48_000);
+        let (mut shaper, _) = with_chain(&[SlotSpec::new(EffectKind::Overdrive)]);
+        let mut out = Vec::new();
+        for (i, block) in loud.chunks(2400).enumerate() {
+            if i % 2 == 0 {
+                let kind = if i % 4 == 0 {
+                    EffectKind::Fuzz
+                } else {
+                    EffectKind::Octaver
+                };
+                let chain: ChainSpec = vec![SlotSpec::new(kind)].into();
+                let _ = shaper.swap_chain(Box::new(Chain::new(&chain, SR)));
+            }
+            out.extend(run(&mut shaper, block));
+            drop(shaper.take_retired());
+        }
+        let peak = out.iter().fold(0.0f32, |m, v| m.max(v.abs()));
+        assert!(peak <= crate::effects::LIMIT_CEILING + 1e-6, "peak {peak}");
+    }
+
+    #[test]
+    fn values_reach_the_running_chain() {
+        let drive = SlotSpec {
+            mix: 0.0,
+            ..SlotSpec::new(EffectKind::Overdrive)
+        };
+        let (mut shaper, mut shaping) = with_chain(&[drive]);
+        let input = sine(110.0, 0.5, 4800);
+        let before = run(&mut shaper, &input);
+        assert!(before.iter().zip(&input).all(|(o, i)| (o - i).abs() < 1e-3));
+
+        shaping.chain.slots_mut()[0].mix = 1.0;
+        shaper.set(shaping);
+        let after = run(&mut shaper, &input);
+        assert!(after.iter().zip(&input).any(|(o, i)| (o - i).abs() > 0.05));
     }
 
     /// Level of `hz` in `signal`, in dB relative to a full-scale sine (Goertzel).

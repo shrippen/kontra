@@ -314,7 +314,8 @@ pub fn startup_language(data_dir: &Path) -> &'static str {
 
 impl Core {
     pub fn new(data_dir: &Path, qa: QaOptions) -> Core {
-        let settings: Settings = store::load(&data_dir.join("settings.json"));
+        let mut settings: Settings = store::load(&data_dir.join("settings.json"));
+        settings.migrate();
         let mut library: Library = store::load(&data_dir.join("library.json"));
         library.plain_paths();
         library.find_moved(&Self::exercises_dir());
