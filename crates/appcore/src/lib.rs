@@ -36,6 +36,7 @@ mod stems;
 mod store;
 mod summary;
 mod unplug;
+mod urls;
 
 pub use data::DataImport;
 pub use i18n::{Catalog, Language};
@@ -46,6 +47,7 @@ pub use store::{
     data_dir, AudioPath, Bass, InputKind, LatencyFrom, Library, PracticeLoop, RecentEntry,
     SectionBars, SectionDensity, Setlist, Settings,
 };
+pub use urls::{file_url, local_path};
 
 use input_state::{InputUse, Unstarted};
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Technique, Tuning};

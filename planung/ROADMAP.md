@@ -92,10 +92,12 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   unterschreibt) oder GPLv3. GPL verträgt sich nicht mit der Abhängigkeitsregel, also die Vereinbarung:
   vor dem ersten Paket mit ASIO klären (Lizenztext prüfen, Logo-Pflicht).
 - [ ] Win3 Qt-App: Qt 6 und Kirigami auf Windows (KDE Craft oder Qt-Installer plus Kirigami aus den Quellen),
-  cxx-qt mit MSVC; CI baut die App und nimmt Screenshots (offscreen). Dabei: `local_path` und `main_qml` in
-  `crates/app` lesen und bauen Datei-URLs nur in Unix-Schreibweise; „Ordner öffnen“ in `LibraryPage.qml` sucht `/`.
-- [ ] Win4 Pfade und Dienste: Daten in `%APPDATA%\Kontra`, Cache in `%LOCALAPPDATA%\Kontra` (heute `HOME` und
-  XDG in `appcore/src/store.rs`; gehört nach `drivers/folder.rs`), verschobener Download-Ordner (Known Folders),
+  cxx-qt mit MSVC; CI baut die App und nimmt Screenshots (offscreen). Erledigt (10.11.): Datei-URLs in beide
+  Richtungen für beide Systeme in `appcore/src/urls.rs` (abgelegte Dateien, Kursvideos, Live-QML, Startordner des
+  Dateidialogs über `ctl.folderUrl`).
+- [ ] Win4 Pfade und Dienste. Erledigt (10.11.): Daten in `%APPDATA%\Kontra`, Cache in `%LOCALAPPDATA%\Kontra`
+  (`drivers/folder.rs` nennt die Ordner des Systems, `appcore/src/store.rs` legt Kontras Ordner hinein; unter Linux
+  wie bisher XDG). Offen: verschobener Download-Ordner (Known Folders),
   Demucs endet mit einem abgestürzten Kontra (Job Object), Ersatz-Demucs für die Stem-Tests in `session`,
   `appcore` und J-D1 unter Windows, Kirigamis Übersetzungen, Dateidialoge, Tastenkürzel, Schriftarten, hohe DPI.
   Clippy für Windows meldet `LiveOutput` (große Variante `Player`): beim Aufnehmen von Clippy in den Job klären.
