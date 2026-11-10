@@ -1086,3 +1086,57 @@ fn the_same_backing_again_keeps_its_place() {
     assert_eq!(core.backing().unwrap().1, placed);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Review #240: the page cleared the summary of the last run whenever a recording was
+/// chosen. `set_backing` says whether the piece was loaded again; only then the page starts
+/// over. And the direct way from an aligned recording to another one drops the alignment.
+#[test]
+fn set_backing_says_whether_it_loaded_again() {
+    let dir = temp_dir("backing-change");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.open(&demo()).unwrap();
+    let own_tempo = core.arrangement().unwrap().tempo.clone();
+    let first = core.set_backing(Some(dir.join("band.wav")), 0.0);
+    assert_eq!(first, Ok(BackingChange::Kept));
+
+    let beats: Vec<f64> = (0..64).map(|i| 1.0 + f64::from(i) * 0.4).collect();
+    let map = store::BeatMap {
+        beats,
+        bpm: 150.0,
+        ..store::BeatMap::default()
+    };
+    core.library.beat_maps.insert(demo(), map);
+    core.backing_adjust(0, 0.0, None).unwrap();
+
+    let other = core.set_backing(Some(dir.join("other.wav")), 0.0);
+    assert_eq!(other, Ok(BackingChange::StartOver));
+    assert_eq!(core.arrangement().unwrap().tempo, own_tempo);
+    assert_eq!(core.backing().unwrap().1, 0.0);
+    assert!(core.backing_json().contains("\"analysed\":false"));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Review #242: a run under way ends when a recording is chosen. The page must start over
+/// then (marks, the note it waited at); only without such a run it may keep what it shows.
+#[test]
+fn a_run_under_way_starts_the_page_over() {
+    let dir = temp_dir("backing-run");
+    // A recording as input: never the real microphone.
+    let take = dir.join("take.wav");
+    kontra_session::write_mono_wav(&take, &vec![0.0; 48_000], 48_000).unwrap();
+    let options = QaOptions {
+        input_file: Some(take),
+        laptop_jack: false,
+    };
+    let mut core = Core::new(&dir, options);
+    core.open(&demo()).unwrap();
+    core.play();
+    assert!(core.has_run());
+
+    let chosen = core.set_backing(Some(dir.join("band.wav")), 0.0);
+    assert_eq!(chosen, Ok(BackingChange::StartOver));
+    assert!(!core.has_run());
+    // No run: the page keeps what it shows.
+    assert_eq!(core.set_backing(None, 0.0), Ok(BackingChange::Kept));
+    let _ = std::fs::remove_dir_all(dir);
+}

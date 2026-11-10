@@ -55,7 +55,7 @@ const MAX_STEP: u64 = 5;
 const MAX_LINE: usize = 4;
 /// Questions right at the first try before the line grows by one note.
 const STREAK_UP: u32 = 3;
-/// Played notes kept per question: two rows on the page; older tries drop out.
+/// Played notes kept per question, about two rows on a wide page; older tries drop out.
 const MAX_PLAYED: usize = 12;
 const CHORDS: [(&str, [i32; 3]); 2] = [("major", [0, 4, 7]), ("minor", [0, 3, 7])];
 
@@ -93,7 +93,7 @@ pub struct EarQuiz {
     /// Notes of the answer already played right.
     pub progress: usize,
     pub solved: bool,
-    /// Played notes of this question with their verdict.
+    /// The latest `MAX_PLAYED` notes played for this question with their verdict.
     pub played: Vec<Played>,
     /// Length of the next echo line, 1..=`MAX_LINE`.
     pub line_len: usize,

@@ -125,13 +125,15 @@ fn backing_beats_slow_and_transposed() {
     );
     play_all_hit(&mut again, 9);
 
-    // Step 7: the recording goes, and its alignment with it; another one starts unaligned.
+    // Step 7: another recording takes the place of the aligned one: its alignment goes, the
+    // new one starts unaligned. Removing it afterwards changes nothing more.
     let aligned = again.arrangement().unwrap().tempo.clone();
-    again.set_backing(None, 0.0).unwrap();
-    assert_ne!(again.arrangement().unwrap().tempo, aligned, "own tempo");
     again.set_backing(Some(slow_take.clone()), 0.0).unwrap();
+    assert_ne!(again.arrangement().unwrap().tempo, aligned, "own tempo");
     let info: serde_json::Value = serde_json::from_str(&again.backing_json()).unwrap();
     assert_eq!(info["analysed"], false, "{info}");
+    again.set_backing(None, 0.0).unwrap();
+    assert_eq!(again.backing_name(), "");
 }
 
 /// A stand-in for Demucs (`--two-stems bass -n htdemucs -o OUT SONG`): its progress bar with the
