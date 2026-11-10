@@ -215,7 +215,7 @@ jobs:
           env -u QML_IMPORT_PATH -u QML2_IMPORT_PATH -u QT_PLUGIN_PATH -u QMAKE -u CMAKE_PREFIX_PATH \
             PATH="/c/Windows/System32:/c/Windows:/usr/bin" QT_QPA_PLATFORM=offscreen \
             QT_QUICK_CONTROLS_STYLE=Fusion KONTRA_DATA_DIR="$RUNNER_TEMP/kontra-portable" \
-            timeout 120 dist/Kontra/bin/kontra.exe --language de --page settings \
+            /usr/bin/timeout 120 dist/Kontra/bin/kontra.exe --language de --page settings \
             --screenshot shots/portable-de.png --screenshot-after 2000
           test -f shots/portable-de.png
       - uses: actions/upload-artifact@v4
