@@ -406,6 +406,7 @@
   "mixer.shaping.neutral": "Neutral",
   "mixer.shaping.neutral.title": "Reset sound",
   "mixer.shaping.off": "Off",
+  "hint.monitor.input": "Kontra hears no input right now, so your bass stays silent between runs. Choose your device under Settings → Input or plug in the interface.",
   "hint.monitor.rate": "Kontra cannot pass your bass through: input and output run at different sample rates. Choose the same device for both or use the interface's direct monitoring.",
   "keys.present": "Presentation on/off (Esc to exit)",
   "keys.mixer": "Show or hide the mixer",

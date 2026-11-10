@@ -384,6 +384,8 @@ Erkennung und Messung:
   dem nächsten Start (der Lauf endet beim Ändern).
 - [ ] Kirigamis Texte auf einem deutschen System bleiben deutsch, wenn Kontra Englisch spricht (auch beim Start):
   Kirigami lädt seine Übersetzung selbst nach der Systemsprache.
+- [ ] Ein USB-Mikrofon (Webcam, Headset) gilt bei „Automatisch“ als Interface (`preferred_input`, LH-EIN-02) und
+  würde im Leerlauf offen gehalten (Review #231): Geräte mit nur einem Mikrofon erkennen oder nachfragen.
 - [ ] Summenbegrenzer (Review #230): Mithören plus Backing, Klick und Ton kann die Summe über Vollaussteuerung
   bringen, dort schneidet der Mixer hart. Ein weicher Begrenzer auf der Summe ändert alles, was spielt; erst messen,
   wie oft es vorkommt. Stimmgerät hört im Leerlauf nicht mit (es öffnet nur den Eingang, Mithören ruht dort).

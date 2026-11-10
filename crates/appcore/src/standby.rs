@@ -46,6 +46,16 @@ fn standby_input(
     chosen_input(saved, devices)
 }
 
+/// Whether the wait for the lost input `lost` goes on after a run opened the device `opened`
+/// (`None`: a recording or MIDI). It ends when Kontra itself picked another device: the player
+/// plugged in another interface. With a stand-in taken it goes on: the own input may return.
+fn still_lost(lost: Option<&str>, stand_in: Option<&str>, opened: Option<&str>) -> bool {
+    let Some(opened) = opened else {
+        return true;
+    };
+    stand_in.is_some() || lost == Some(opened)
+}
+
 impl Core {
     /// Holds input and output open while nothing else uses them (the app, at start).
     pub fn keep_devices_open(&mut self) {
@@ -89,13 +99,30 @@ impl Core {
         }
     }
 
-    /// Monitoring is on, but the standby devices run at different rates.
+    /// Monitoring is on, but nothing is heard between runs: no input the standby may open
+    /// (none chosen and no interface, or it did not open), or devices at different rates.
     pub(crate) fn standby_hint(&self) -> Option<String> {
-        let monitor = self.standby.monitor.as_ref()?;
-        if !self.settings.monitor || monitor.can_monitor() {
+        if !self.settings.monitor {
+            return None;
+        }
+        let Some(monitor) = self.standby.monitor.as_ref() else {
+            return self
+                .may_stand_by()
+                .then(|| self.tr("hint.monitor.input", &[]));
+        };
+        if monitor.can_monitor() {
             return None;
         }
         Some(self.tr("hint.monitor.rate", &[]))
+    }
+
+    /// A run opened `opened`: an input other than the lost one, chosen by Kontra (no stand-in
+    /// taken), ends the wait for the lost one.
+    pub(crate) fn forget_lost_for(&mut self, opened: Option<&str>) {
+        let lost = self.lost.as_ref().and_then(|l| l.id.as_deref());
+        if self.lost.is_some() && !still_lost(lost, self.fallback_input.as_deref(), opened) {
+            self.lost = None;
+        }
     }
 
     /// Once per tick: drops a monitor whose device failed, opens one when the devices are idle.
@@ -300,6 +327,20 @@ mod device_change {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// Review #231: "Bass hören" on, but no input the standby may open (laptop jack on
+    /// "Automatic", interface unplugged): the switch was on and nothing said why it is silent.
+    #[test]
+    fn says_when_no_input_is_heard() {
+        let (mut core, dir) = core("no-input");
+        core.keep_devices_open();
+        core.update_settings(|s| s.setup_done = true);
+        // Not ticked: no monitor is open, as when no input can be named.
+        let hint = core.remix(|s| s.monitor = true);
+        assert_eq!(hint, Some(core.tr("hint.monitor.input", &[])));
+        assert_eq!(core.remix(|s| s.monitor = false), None);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// Only a device change frees the devices: a count-in or a scoring change keeps the bass
     /// playing without a gap.
     #[test]
@@ -356,6 +397,26 @@ mod which_input {
             standby_input(None, false, saved, &devices).as_deref(),
             Some("internal-mic"),
             "chosen by the player (laptop jack)"
+        );
+    }
+
+    /// Review #231: the lost interface stays away and the player plugs in another one. Runs
+    /// used it, but the standby waited for the old one for good.
+    #[test]
+    fn another_input_in_use_ends_the_wait() {
+        use super::still_lost;
+        assert!(!still_lost(Some("solo"), None, Some("other-usb")));
+        assert!(
+            still_lost(Some("solo"), None, Some("solo")),
+            "not back for good yet"
+        );
+        assert!(
+            still_lost(Some("solo"), Some("other-usb"), Some("other-usb")),
+            "a stand-in: Kontra goes back to the own input when it returns"
+        );
+        assert!(
+            still_lost(Some("solo"), None, None),
+            "a recording or MIDI says nothing"
         );
     }
 
