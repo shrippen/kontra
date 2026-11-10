@@ -435,7 +435,7 @@
   "fx.value.envelope.b": "Resonance",
   "fx.kind.delay": "Delay",
   "fx.kind.delay.hint": "Repeats what you play.",
-  "fx.value.delay.a": "Time (30 to 800 ms)",
+  "fx.value.delay.a": "Time",
   "fx.value.delay.b": "Feedback",
   "fx.kind.reverb": "Reverb",
   "fx.kind.reverb.hint": "A small room.",

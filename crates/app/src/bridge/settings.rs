@@ -147,6 +147,7 @@ impl qobject::Controller {
         self.as_mut().refresh_devices();
         self.as_mut().refresh_density();
         self.as_mut().refresh_chain();
+        self.as_mut().refresh_effects();
         self.as_mut().refresh_stems();
         self.as_mut().refresh_call();
     }
