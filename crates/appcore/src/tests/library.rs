@@ -997,3 +997,51 @@ fn open_lists_notes_and_remembers_recent() {
     assert!(again.recent_json().contains("Etude 1"));
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+/// QA J13: one imported file read "1 Stücke importiert."
+#[test]
+fn one_imported_piece_is_singular() {
+    let dir = temp_dir("one-piece");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.update_settings(|s| s.language = Some("de".into()));
+    assert_eq!(core.imported_text(1), "1 Stück importiert.");
+    assert_eq!(core.imported_text(3), "3 Stücke importiert.");
+    core.update_settings(|s| s.language = Some("en".into()));
+    assert_eq!(core.imported_text(1), "1 piece imported.");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// QA J13: taking the backing track away kept its beat map. The bars stayed on the old band's
+/// tempo, and the next backing track started aligned to beats that are not its own.
+#[test]
+fn a_beat_map_goes_with_its_backing() {
+    let dir = temp_dir("beat-map");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.open(&demo()).unwrap();
+    let own_tempo = core.arrangement().unwrap().tempo.clone();
+    core.set_backing(Some(dir.join("band.wav")), 0.0);
+    // A band at 150 BPM, as the analysis leaves it.
+    let beats: Vec<f64> = (0..64).map(|i| f64::from(i) * 0.4).collect();
+    let map = store::BeatMap {
+        beats,
+        bpm: 150.0,
+        ..store::BeatMap::default()
+    };
+    core.library.beat_maps.insert(demo(), map);
+    core.backing_adjust(0, 0.0, None).unwrap();
+    assert_ne!(
+        core.arrangement().unwrap().tempo,
+        own_tempo,
+        "follows the band"
+    );
+
+    core.set_backing(None, 0.0);
+    assert_eq!(
+        core.arrangement().unwrap().tempo,
+        own_tempo,
+        "own tempo again"
+    );
+    core.set_backing(Some(dir.join("other.wav")), 0.0);
+    assert!(core.backing_json().contains("\"analysed\":false"));
+    let _ = std::fs::remove_dir_all(dir);
+}

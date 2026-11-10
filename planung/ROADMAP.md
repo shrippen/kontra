@@ -891,8 +891,9 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
     (Rock Powerchords #158; Pop, Ballade und Pop-Grooves Dreiklänge #169, Runde 16); Teilnamen brauchen Probenzeichen in Kante.
   - J11 (mittel, Inhalt): Glossar ohne Abbildungen und Hörbeispiele.
   - Offen (niedrig): J1b englischer Rohfehler im Kurs-Satz; J5 Mithör-Hinweis ohne ms; J6 Lane 45 px bei Mixer,
-    Mithören und Callout; J12 „bestes Ergebnis“ aus Frei spielen; J13 Sammelbefund („1 Stücke“, Schlagzeug-Regler
-    ohne Schlagzeug, Start zeigt 0:00 trotz Loop, alter Beat-Map nach Entfernen des Backings).
+    Mithören und Callout; J12 „bestes Ergebnis“ aus Frei spielen; J13 Sammelbefund (Schlagzeug-Regler
+    ohne Schlagzeug, Start zeigt 0:00 trotz Loop; behoben 10.11.: „1 Stücke“, alter Beat-Map nach Entfernen des
+    Backings).
 - **Vorfälle (Testumgebung):** `kontra --help` lief zweimal ~2 min mit dem echten Eingang (behoben, M27); ein
   Ordnerdialog öffnete über das Portal auf dem echten Desktop (`main.rs` setzt das Portal-Theme); Songsterr-Treffer
   öffneten Browser-Tabs; `kontra-cli practice --backing` hat keinen stummen Ausgang. Scarlett-Knoten danach geprüft.

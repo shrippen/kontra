@@ -44,7 +44,8 @@ impl qobject::Controller {
         let name = self.as_ref().rust().core.backing_name();
         self.as_mut().set_backing_name(q(&name));
         self.as_mut().show_stems();
-        self.as_mut().set_playing(false);
+        // Another recording drops the beat map: the bars show the piece's own tempo again.
+        self.as_mut().after_retune(Ok(()));
     }
 
     pub(super) fn remove_bass(mut self: Pin<&mut Self>, on: bool) {

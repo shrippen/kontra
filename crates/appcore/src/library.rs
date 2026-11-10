@@ -6,6 +6,50 @@ use serde_json::json;
 use std::path::{Path, PathBuf};
 
 impl Core {
+    /// What an import says about its count.
+    pub fn imported_text(&self, added: usize) -> String {
+        let key = match added {
+            1 => "library.imported.one",
+            _ => "library.imported",
+        };
+        self.tr(key, &[("n", added.to_string())])
+    }
+
+    /// Sets (or with `None` removes) the backing track of the loaded piece.
+    pub fn set_backing(&mut self, path: Option<PathBuf>, offset_s: f64) {
+        // A name the library cannot keep never gets in (the caller says why: `keepable`).
+        if path.as_deref().is_some_and(|p| self.keepable(p).is_err()) {
+            return;
+        }
+        let Some(loaded) = self.loaded_path().map(Path::to_path_buf) else {
+            return;
+        };
+        self.cancel_stems_of(&loaded);
+
+        // The beat map belongs to the recording it was heard in (QA J13): another file or
+        // none, and the bars go back to the piece's own tempo.
+        let other_file = self
+            .library
+            .entry(&loaded)
+            .is_some_and(|e| e.backing != path);
+        if other_file {
+            self.library.beat_maps.remove(&loaded);
+        }
+
+        if let Some(entry) = self.library.entry_mut(&loaded) {
+            entry.backing = path;
+            entry.backing_offset_s = offset_s;
+            entry.backing_without_bass = false;
+        }
+        self.stop_live();
+        if other_file {
+            // Saves, and loads the piece again without the map.
+            let _ = self.apply_beat_map();
+            return;
+        }
+        let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+    }
+
     pub fn recent_json(&self) -> String {
         let store = self.progress_store();
         let list: Vec<_> = self
