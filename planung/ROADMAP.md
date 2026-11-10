@@ -94,8 +94,10 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 - [ ] Win3 Qt-App. Erledigt (10.11., Lauf 42737035615 auf `windows-latest`): `scripts/setup-qt-windows.sh` holt
   Qt 6.10.3 (aqtinstall, MSVC) und baut ECM und Kirigami 6.30 mit Visual Studio; `kontra-app` baut mit cxx-qt und
   MSVC, seine Tests laufen, die Einstellungsseite kommt als Screenshot (offscreen; Job `windows-app`, im CI-PR).
-  Offen: Screenshot im echten Fenster (offscreen hat Windows keine Systemschrift, der Fließtext fällt auf eine
-  Ersatzschrift), alle Seiten wie `scripts/screenshots.sh`, Dateidialoge, Tastenkürzel, hohe DPI. Erledigt (10.11.): Datei-URLs in beide
+  Im echten Fenster (`QT_QPA_PLATFORM=windows`) stimmt das Bild: Segoe UI als Fließtext, Kantes Überschriften
+  und Farben (offscreen hat Windows keine Systemschrift). Kontra setzt außerhalb von Linux den Stil Fusion
+  (der native Windows-Stil lässt sich nicht einkleiden: weißes Zahlenfeld). Offen: alle Seiten wie
+  `scripts/screenshots.sh`, Dateidialoge, Tastenkürzel, hohe DPI. Erledigt (10.11.): Datei-URLs in beide
   Richtungen für beide Systeme in `drivers/src/urls.rs` (abgelegte Dateien, Kursvideos, Live-QML, Startordner des
   Dateidialogs über `ctl.folderUrl`).
 - [ ] Win4 Pfade und Dienste. Erledigt (10.11.): Daten in `%APPDATA%\Kontra`, Cache in `%LOCALAPPDATA%\Kontra`
@@ -103,7 +105,11 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   `separator/process.rs`, Test `ends_when_the_leash_goes`). Die Stem-Tests in `session`, `appcore` und J-D1
   laufen unter Windows mit Batch-Dateien als Ersatz-Demucs. Offen: verschobener Download-Ordner (Known Folders),
   Kirigamis Übersetzungen, Dateidialoge, Tastenkürzel, Schriftarten, hohe DPI. Clippy läuft für Windows ohne Warnung (`scripts/check-windows.sh build`).
-- [ ] Win5 Paket und Signierung (Entscheidung 10.11.: signieren ja; Form offen, Vorschlag unten), gebaut und
+- [ ] Win5 Paket und Signierung. Erledigt (10.11., Lauf 42747939331): `scripts/package-windows.sh` baut einen
+  Ordner (`bin/` neben `share/` wie im Flatpak, Qt über `windeployqt`, Kirigami samt Übersetzungen, 141 MB, als
+  CI-Artefakt `Kontra-windows-portable` 56 MB), der ohne installiertes Qt startet (Screenshot mit leerem `PATH`).
+  Offen: MSVC-Laufzeit beilegen (`vcruntime140.dll`), Installer und Signierung (Entscheidung 10.11.: signieren
+  ja; Form offen, Vorschlag unten), gebaut und
   angehängt nur von GitHub Actions (CLAUDE.md), Demo-Ausschluss geprüft wie im Flatpak; Landing Page mit
   Windows-Download.
 - [ ] Win6 QA unter Windows (Entscheidung 10.11.: zuerst in einer KVM-Maschine auf dem Rechner des Eigentümers;

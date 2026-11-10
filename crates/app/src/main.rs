@@ -39,6 +39,13 @@ const THEME_VAR: &str = "QT_QPA_PLATFORMTHEME";
 /// desktop's own dialog and keeps KDE's colours and icons.
 const PORTAL_THEME: &str = "xdgdesktopportal";
 
+/// Qt Quick Controls' style, read before the app starts.
+const STYLE_VAR: &str = "QT_QUICK_CONTROLS_STYLE";
+
+/// The style Kante's skins sit on where the desktop brings none of its own (Windows: the
+/// native style cannot be skinned, a spin box stayed white on the dark page).
+const PLAIN_STYLE: &str = "Fusion";
+
 /// Exit status for a wrong command line (sysexits EX_USAGE).
 const EXIT_USAGE: i32 = 64;
 
@@ -55,6 +62,9 @@ fn main() {
     }
     if let Some(theme) = platform_theme(std::env::var_os(THEME_VAR)) {
         std::env::set_var(THEME_VAR, theme);
+    }
+    if let Some(style) = controls_style(std::env::var_os(STYLE_VAR)) {
+        std::env::set_var(STYLE_VAR, style);
     }
     let mut app = QGuiApplication::new();
     // Kirigami's own texts in Kontra's language (round 12: "Close Sidebar" in German Kontra).
@@ -160,9 +170,33 @@ fn platform_theme(current: Option<std::ffi::OsString>) -> Option<&'static str> {
     Some(PORTAL_THEME)
 }
 
+/// The controls style to set: on Linux the desktop's (none set here); elsewhere Fusion, unless
+/// the user chose one.
+fn controls_style(current: Option<std::ffi::OsString>) -> Option<&'static str> {
+    if cfg!(target_os = "linux") || current.is_some_and(|s| !s.is_empty()) {
+        return None;
+    }
+
+    Some(PLAIN_STYLE)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Win5: the packed program took Windows' native style (a white spin box on the dark page).
+    #[cfg(not(target_os = "linux"))]
+    #[test]
+    fn plain_style_off_linux() {
+        assert_eq!(controls_style(None), Some(PLAIN_STYLE));
+        assert_eq!(controls_style(Some("Basic".into())), None);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn the_desktops_style_on_linux() {
+        assert_eq!(controls_style(None), None);
+    }
 
     #[cfg(target_os = "linux")]
     #[test]

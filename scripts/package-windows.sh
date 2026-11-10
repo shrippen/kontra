@@ -56,4 +56,12 @@ mapfile -t kirigami < <(find "$OUT/bin" -name '*.dll')
     --qmldir crates/app/qml --qmlimport "$KF6_PREFIX/lib/qml" \
     "$OUT/bin/kontra.exe" "${kirigami[@]}"
 
+# The Fusion style Kontra sets on Windows (main.rs): no page imports it, so windeployqt may
+# leave it out.
+if [ ! -d "$OUT/bin/qml/QtQuick/Controls/Fusion" ]; then
+    mkdir -p "$OUT/bin/qml/QtQuick/Controls"
+    cp -r "$QT_ROOT/qml/QtQuick/Controls/Fusion" "$OUT/bin/qml/QtQuick/Controls/"
+    cp "$QT_ROOT"/bin/Qt6QuickControls2Fusion*.dll "$OUT/bin/"
+fi
+
 echo "package-windows: $OUT ($(du -sh "$OUT" | cut -f1))"
