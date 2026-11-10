@@ -1,7 +1,7 @@
 //! How a device is connected: guessed from its name, and a USB microphone told from a
-//! USB interface (LH-EIN-02): under PipeWire by the device's form factor (headset, webcam,
-//! microphone), else by having no output. cpal gives no WASAPI form factor: Windows uses only the
-//! output rule, so a USB headset stays an interface there.
+//! USB interface (LH-EIN-02): a USB input whose device has no output is a microphone. A headset
+//! has an output and stays an interface (open: ROADMAP); so does every USB device under Windows
+//! that shows an output.
 
 use super::{Connection, DeviceInfo};
 
@@ -111,38 +111,6 @@ mod tests {
         )];
         mark(&mut inputs, &outputs);
         assert_eq!(inputs[0].connection, Connection::Usb);
-    }
-
-    // Review #254: a USB headset also plays back; PipeWire's form factor says it is a voice device.
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn a_headset_is_a_microphone() {
-        use crate::pipewire::NodeClass;
-        let headset = "alsa_input.usb-Logitech_H390-00.analog-stereo";
-        let scarlett = "alsa_input.usb-Focusrite_Scarlett_Solo_USB-00.analog-stereo";
-        let graph = crate::pipewire::Graph::fake(
-            &[(headset, NodeClass::Source), (scarlett, NodeClass::Source)],
-            None,
-            None,
-        )
-        .with_voice(headset);
-        let listed = vec![
-            device(
-                &format!("pipewire:{headset}"),
-                Direction::Input,
-                Connection::Usb,
-            ),
-            device(
-                &format!("pipewire:{scarlett}"),
-                Direction::Input,
-                Connection::Usb,
-            ),
-        ];
-        let kinds: Vec<_> = crate::audio::pipewire_devices(listed, &graph)
-            .iter()
-            .map(|d| d.connection)
-            .collect();
-        assert_eq!(kinds, [Connection::UsbMicrophone, Connection::Usb]);
     }
 
     #[test]

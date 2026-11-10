@@ -231,8 +231,8 @@ pub enum Direction {
 pub enum Connection {
     BuiltIn,
     Usb,
-    /// A USB input without an output (webcam), or a headset, webcam or microphone by PipeWire's
-    /// form factor: not the bass interface. An interface also plays back (LH-EIN-02).
+    /// A USB input without an output (webcam): not the bass interface. An interface also plays
+    /// back (LH-EIN-02).
     UsbMicrophone,
     Bluetooth,
     Hdmi,
@@ -322,9 +322,6 @@ fn pipewire_devices(listed: Vec<DeviceInfo>, graph: &Graph) -> Vec<DeviceInfo> {
                 return None;
             }
             device.is_default = graph.is_default(node, device.direction);
-            if device.connection == Connection::Usb && graph.is_voice(node) {
-                device.connection = Connection::UsbMicrophone;
-            }
             Some(device)
         })
         .collect()

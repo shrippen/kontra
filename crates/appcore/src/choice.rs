@@ -35,8 +35,7 @@ pub(crate) fn chosen_output(saved: Option<&str>, devices: &[DeviceInfo]) -> Opti
 }
 
 /// The input Kontra takes when none is chosen: where the bass is plugged in by `kind`. An
-/// interface is a USB device that also plays back, a USB microphone one that only listens or
-/// is a headset under PipeWire (never taken for the cable, review #231); the laptop's jack is its built-in card (QA
+/// interface is a USB device that also plays back, a USB microphone one that only listens (a webcam, never taken for the cable, review #231); the laptop's jack is its built-in card (QA
 /// 27.10.: "Klinke direkt" still listened to the Scarlett). The system's default first if it
 /// is one of them.
 pub(crate) fn preferred_input(devices: &[DeviceInfo], kind: InputKind) -> Option<&DeviceInfo> {
