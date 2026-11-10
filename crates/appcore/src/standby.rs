@@ -25,6 +25,8 @@ pub(crate) struct Standby {
     wanted: bool,
     monitor: Option<LiveMonitor>,
     retry_at: Option<Instant>,
+    /// The last look found no input to open: none chosen and no interface.
+    no_input: bool,
 }
 
 /// The input the standby may hold open, by id: the stand-in the player took for a lost input,
@@ -63,6 +65,7 @@ impl Core {
     pub(crate) fn release_standby(&mut self) {
         self.standby.monitor = None;
         self.standby.retry_at = None;
+        self.standby.no_input = false;
     }
 
     /// Another device or connection chosen: the standby monitor lets go, the next tick opens
@@ -89,10 +92,18 @@ impl Core {
         }
     }
 
-    /// Monitoring is on, but the standby devices run at different rates.
-    pub(crate) fn standby_hint(&self) -> Option<String> {
-        let monitor = self.standby.monitor.as_ref()?;
-        if !self.settings.monitor || monitor.can_monitor() {
+    /// What to say about the standby after a mixer change. `switched_on`: "Bass hören" just
+    /// went on; only then Kontra says that it found no input (none chosen and no interface),
+    /// not on every slider. Devices at different rates are named whenever monitoring is on.
+    pub(crate) fn standby_hint(&self, switched_on: bool) -> Option<String> {
+        if !self.settings.monitor {
+            return None;
+        }
+        let Some(monitor) = self.standby.monitor.as_ref() else {
+            let silent = switched_on && self.standby.no_input && self.may_stand_by();
+            return silent.then(|| self.tr("hint.monitor.input", &[]));
+        };
+        if monitor.can_monitor() {
             return None;
         }
         Some(self.tr("hint.monitor.rate", &[]))
@@ -119,10 +130,14 @@ impl Core {
         let devices = list_devices(Direction::Input);
         let saved = self.settings.input_device.as_deref();
         let stand_in = self.fallback_input.as_deref();
-        let Some(input) = standby_input(stand_in, self.lost.is_some(), saved, &devices) else {
+        let lost = self.lost.is_some();
+        let Some(input) = standby_input(stand_in, lost, saved, &devices) else {
+            // A lost input waits for the player's answer: the offer says so, not this.
+            self.standby.no_input = !lost;
             self.standby.retry_at = Some(Instant::now() + RETRY);
             return;
         };
+        self.standby.no_input = false;
         let setup = self.monitor_setup(input);
         let opened = LiveMonitor::start(&setup, &self.instrument(), gains(&self.settings));
         match opened {
@@ -297,6 +312,26 @@ mod device_change {
         core.standby.retry_at = Some(Instant::now() + RETRY);
         core.use_offered_input("pipewire:stand-in");
         assert_eq!(core.standby.retry_at, None);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Review #231: "Bass hören" on, but no input the standby may open (laptop jack on
+    /// "Automatic", interface unplugged): the switch was on and nothing said why it is silent.
+    #[test]
+    fn says_when_no_input_is_heard() {
+        let (mut core, dir) = core("no-input");
+        core.keep_devices_open();
+        core.update_settings(|s| s.setup_done = true);
+        // As after a tick that found no input to open (not ticked: that asks the system).
+        core.standby.no_input = true;
+        let hint = core.remix(|s| s.monitor = true);
+        assert_eq!(hint, Some(core.tr("hint.monitor.input", &[])));
+        // Review #232: said once at the switch, not again with every slider.
+        assert_eq!(core.remix(|s| s.backing_volume = 0.5), None);
+        assert_eq!(core.remix(|s| s.monitor = false), None);
+        // An output that did not open or a lost input waiting for an answer: not this hint.
+        core.standby.no_input = false;
+        assert_eq!(core.remix(|s| s.monitor = true), None);
         let _ = std::fs::remove_dir_all(dir);
     }
 

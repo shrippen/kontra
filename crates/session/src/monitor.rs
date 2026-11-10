@@ -89,3 +89,47 @@ impl LiveMonitor {
         out
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kontra_model::InputSource;
+
+    /// Review #231: an output that does not open is an error the caller retries, not a silent
+    /// monitor. The output opens first: no input is touched here.
+    #[test]
+    fn a_missing_output_is_an_error() {
+        let setup = LiveSetup {
+            input: InputChoice::Device {
+                id: Some("kontra-test:no-such-input".into()),
+                channel: None,
+            },
+            output_device: Some("kontra-test:no-such-output".into()),
+            source: InputSource::Line,
+            backing: None,
+            original: None,
+            backing_cache: None,
+            onset_gate_db: None,
+        };
+        let started = LiveMonitor::start(&setup, &Instrument::default_bass(), Gains::default());
+        assert!(matches!(started, Some(Err(_))), "{started:?}");
+    }
+
+    #[test]
+    fn a_recording_is_not_monitored() {
+        let setup = LiveSetup {
+            input: InputChoice::File {
+                path: "take.wav".into(),
+                laptop_jack: false,
+            },
+            output_device: None,
+            source: InputSource::Line,
+            backing: None,
+            original: None,
+            backing_cache: None,
+            onset_gate_db: None,
+        };
+        let started = LiveMonitor::start(&setup, &Instrument::default_bass(), Gains::default());
+        assert!(started.is_none());
+    }
+}
