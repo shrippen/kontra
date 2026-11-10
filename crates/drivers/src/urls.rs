@@ -31,17 +31,17 @@ impl Paths {
 /// with `#` or `%` ("teil#1.webm") is not read as a fragment or an escape. A Windows path
 /// keeps its drive and turns its backslashes:
 /// `C:\Users\Lea B\a.webm` → `file:///C:/Users/Lea%20B/a.webm`.
-fn file_url_in(path: &str, paths: Paths) -> String {
+fn file_url_in(path: &[u8], paths: Paths) -> String {
     let plain: &[u8] = match paths {
         Paths::Unix => b"/-._~",
         Paths::Windows => b"/-._~:",
     };
     let mut out = String::from(FILE_URL);
     // A drive has no leading slash; the URL's path needs one.
-    if paths == Paths::Windows && !path.starts_with(['/', '\\']) {
+    if paths == Paths::Windows && !path.starts_with(b"/") && !path.starts_with(b"\\") {
         out.push('/');
     }
-    for byte in path.bytes() {
+    for &byte in path {
         let byte = match (paths, byte) {
             (Paths::Windows, b'\\') => b'/',
             _ => byte,
@@ -99,9 +99,19 @@ fn unescaped(text: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// The file URL of `path` on this system.
+/// The file URL of `path` on this system; a relative path counts from the working folder.
 pub fn file_url(path: &Path) -> String {
-    file_url_in(&path.to_string_lossy(), Paths::HERE)
+    let path = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    #[cfg(unix)]
+    {
+        // The name's own bytes: a name that is not UTF-8 stays what it is.
+        use std::os::unix::ffi::OsStrExt;
+        file_url_in(path.as_os_str().as_bytes(), Paths::HERE)
+    }
+    #[cfg(not(unix))]
+    {
+        file_url_in(path.to_string_lossy().as_bytes(), Paths::HERE)
+    }
 }
 
 /// The path a file URL names on this system; a plain path stays.
@@ -117,21 +127,24 @@ mod tests {
     #[test]
     fn file_urls_on_both_systems() {
         assert_eq!(
-            file_url_in("/home/lea b/teil#1.webm", Paths::Unix),
+            file_url_in(b"/home/lea b/teil#1.webm", Paths::Unix),
             "file:///home/lea%20b/teil%231.webm"
         );
         assert_eq!(
-            file_url_in(r"C:\Users\Lea B\a.webm", Paths::Windows),
+            file_url_in(br"C:\Users\Lea B\a.webm", Paths::Windows),
             "file:///C:/Users/Lea%20B/a.webm"
         );
         // A backslash is a letter of the name on Unix.
-        assert_eq!(file_url_in(r"/a\b.webm", Paths::Unix), "file:///a%5Cb.webm");
+        assert_eq!(
+            file_url_in(br"/a\b.webm", Paths::Unix),
+            "file:///a%5Cb.webm"
+        );
     }
 
     #[test]
     fn a_file_url_escapes_its_path() {
         assert_eq!(
-            file_url_in("/c/media/teil#1 ä%.webm", Paths::Unix),
+            file_url_in("/c/media/teil#1 ä%.webm".as_bytes(), Paths::Unix),
             "file:///c/media/teil%231%20%C3%A4%25.webm"
         );
     }
@@ -163,13 +176,35 @@ mod tests {
         );
     }
 
+    /// Review #233: a name that is not UTF-8 lost its bytes on the way (U+FFFD).
+    #[cfg(unix)]
+    #[test]
+    fn a_name_keeps_its_bytes() {
+        use std::os::unix::ffi::OsStrExt;
+        let path = Path::new(std::ffi::OsStr::from_bytes(b"/c/\xFF/a.webm"));
+        assert_eq!(file_url(path), "file:///c/%FF/a.webm");
+    }
+
+    /// Review #233: a relative path got a slash in front and pointed at the drive's root.
+    #[test]
+    fn a_relative_path_counts_from_here() {
+        let here = std::env::current_dir().unwrap();
+        assert_eq!(
+            file_url(Path::new("media/a.webm")),
+            file_url(&here.join("media/a.webm"))
+        );
+    }
+
     #[test]
     fn a_path_survives_the_round_trip() {
         for (path, paths) in [
             ("/home/lea b/ä#1 100%.webm", Paths::Unix),
             ("C:/Users/Noah B/ä#1 100%.webm", Paths::Windows),
         ] {
-            assert_eq!(local_path_in(&file_url_in(path, paths), paths), path);
+            assert_eq!(
+                local_path_in(&file_url_in(path.as_bytes(), paths), paths),
+                path
+            );
         }
     }
 }

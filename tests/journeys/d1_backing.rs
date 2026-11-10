@@ -126,32 +126,50 @@ fn backing_beats_slow_and_transposed() {
     play_all_hit(&mut again, 9);
 }
 
-#[cfg(unix)]
 /// A stand-in for Demucs (`--two-stems bass -n htdemucs -o OUT SONG`): its progress bar with the
-/// time left, then the song as "no_bass.wav" after `seconds`.
+/// time left, then the song as "no_bass.wav" after `seconds` (a shell script; on Windows a
+/// batch file, which waits whole seconds with `ping`).
 fn fake_demucs(dir: &Path, seconds: &str) -> std::path::PathBuf {
-    let script = dir.join("demucs");
-    let body = format!(
-        "#!/bin/sh\n\
-         printf '  0%%| | 0.0/9.0 [00:00<?, ?seconds/s]\\r' >&2\n\
-         printf ' 50%%|#  | 4.5/9.0 [00:01<00:42, 1s/seconds]\\r' >&2\n\
-         sleep {seconds}\n\
-         name=$(basename \"$7\"); name=\"${{name%.*}}\"\n\
-         mkdir -p \"$6/htdemucs/$name\" && cp \"$7\" \"$6/htdemucs/$name/no_bass.wav\"\n\
-         printf '100%%|###| 9.0/9.0 [00:02<00:00, 1s/seconds]\\n' >&2\n"
-    );
-    std::fs::write(&script, body).unwrap();
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
-    script
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let script = dir.join("demucs");
+        let body = format!(
+            "#!/bin/sh\n\
+             printf '  0%%| | 0.0/9.0 [00:00<?, ?seconds/s]\\r' >&2\n\
+             printf ' 50%%|#  | 4.5/9.0 [00:01<00:42, 1s/seconds]\\r' >&2\n\
+             sleep {seconds}\n\
+             name=$(basename \"$7\"); name=\"${{name%.*}}\"\n\
+             mkdir -p \"$6/htdemucs/$name\" && cp \"$7\" \"$6/htdemucs/$name/no_bass.wav\"\n\
+             printf '100%%|###| 9.0/9.0 [00:02<00:00, 1s/seconds]\\n' >&2\n"
+        );
+        std::fs::write(&script, body).unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        script
+    }
+    #[cfg(windows)]
+    {
+        // `ping -n N` waits N-1 seconds; a fraction of a second waits none.
+        let pings = seconds.parse::<f64>().map_or(1, |s| s as u32 + 1);
+        let script = dir.join("demucs.cmd");
+        let body = format!(
+            "@echo off\r\n\
+             echo   0%%^| ^| 0.0/9.0 [00:00^<?, ?seconds/s] 1>&2\r\n\
+             echo  50%%^|#  ^| 4.5/9.0 [00:01^<00:42, 1s/seconds] 1>&2\r\n\
+             ping -n {pings} 127.0.0.1 >nul\r\n\
+             mkdir \"%~6\\htdemucs\\%~n7\"\r\n\
+             copy \"%~7\" \"%~6\\htdemucs\\%~n7\\no_bass.wav\" >nul\r\n\
+             echo 100%%^|###^| 9.0/9.0 [00:02^<00:00, 1s/seconds] 1>&2\r\n"
+        );
+        std::fs::write(&script, body).unwrap();
+        script
+    }
 }
 
-#[cfg(unix)]
 fn stems(core: &mut kontra_appcore::Core) -> serde_json::Value {
     serde_json::from_str(&core.stems_json()).unwrap()
 }
 
-#[cfg(unix)]
 /// Step 5: the recording's bass removed (first without Demucs, then with), cancelled once,
 /// kept for the next start, deleted again.
 #[test]

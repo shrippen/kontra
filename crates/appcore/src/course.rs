@@ -184,7 +184,7 @@ impl Core {
         };
         let cache = crate::store::cache_dir(&self.data_dir);
         match CourseStore::new(&self.data_dir).media_file(&pack.manifest.id, &src, &cache) {
-            Ok(path) => crate::urls::file_url(&path),
+            Ok(path) => kontra_session::file_url(&path),
             Err(e) => {
                 eprintln!("kontra: {e}");
                 String::new()

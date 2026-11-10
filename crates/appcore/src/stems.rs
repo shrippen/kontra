@@ -363,13 +363,11 @@ fn copy_over(from: &Path, to: &Path) -> std::io::Result<()> {
 mod tests {
     use super::*;
 
-    #[cfg(unix)]
     /// One test at a time writes and starts a script: a child forked by another test can hold
     /// the file still open for writing, and starting it fails with "Text file busy" (ETXTBSY),
     /// as in `kontra_drivers::separator` (CI 14.10.: "failed" instead of "running").
     static SCRIPTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-    #[cfg(unix)]
     fn scripts() -> std::sync::MutexGuard<'static, ()> {
         SCRIPTS
             .lock()
@@ -387,21 +385,43 @@ mod tests {
         dir
     }
 
-    #[cfg(unix)]
-    /// A stand-in for Demucs that copies the song as its result.
-    fn fake_demucs(dir: &Path) -> PathBuf {
-        let script = dir.join("demucs");
-        std::fs::write(
-            &script,
-            "#!/bin/sh\nname=$(basename \"$7\"); name=\"${name%.*}\"\nprintf ' 50%%|##   |\\r' >&2\nmkdir -p \"$6/htdemucs/$name\" && cp \"$7\" \"$6/htdemucs/$name/no_bass.wav\"\n",
-        )
-        .unwrap();
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
-        script
+    /// A stand-in for Demucs (`--two-stems bass -n htdemucs -o OUT SONG`: OUT is the sixth
+    /// argument, SONG the seventh) with the body for this system: a shell script, on Windows a
+    /// batch file.
+    fn stand_in(dir: &Path, (shell, batch): (&str, &str)) -> PathBuf {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = batch;
+            let script = dir.join("demucs");
+            std::fs::write(&script, format!("#!/bin/sh\n{shell}\n")).unwrap();
+            std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+            script
+        }
+        #[cfg(windows)]
+        {
+            let _ = shell;
+            let script = dir.join("demucs.cmd");
+            std::fs::write(&script, format!("@echo off\r\n{batch}\r\n")).unwrap();
+            script
+        }
     }
 
-    #[cfg(unix)]
+    /// Copies the song as its result, after half a progress bar.
+    const COPIES: (&str, &str) = (
+        "name=$(basename \"$7\"); name=\"${name%.*}\"\nprintf ' 50%%|##   |\\r' >&2\nmkdir -p \"$6/htdemucs/$name\" && cp \"$7\" \"$6/htdemucs/$name/no_bass.wav\"",
+        "echo  50%%^|##   ^| 1>&2\r\nmkdir \"%~6\\htdemucs\\%~n7\"\r\ncopy \"%~7\" \"%~6\\htdemucs\\%~n7\\no_bass.wav\" >nul",
+    );
+    /// Says "kaputt" and fails.
+    const FAILS: (&str, &str) = ("echo 'kaputt' >&2; exit 1", "echo kaputt 1>&2\r\nexit /b 1");
+    /// Runs half a minute, until it is stopped.
+    const WAITS: (&str, &str) = ("sleep 30", "ping -n 31 127.0.0.1 >nul");
+
+    /// A stand-in for Demucs that copies the song as its result.
+    fn fake_demucs(dir: &Path) -> PathBuf {
+        stand_in(dir, COPIES)
+    }
+
     #[test]
     fn backing_plays_without_bass_once_separated() {
         let _scripts = scripts();
@@ -449,19 +469,8 @@ mod tests {
         assert_eq!(state(&mut core)["cached"], false);
     }
 
-    #[cfg(unix)]
-    /// A stand-in for Demucs from a shell body.
-    fn script(dir: &Path, body: &str) -> PathBuf {
-        let script = dir.join("demucs");
-        std::fs::write(&script, format!("#!/bin/sh\n{body}\n")).unwrap();
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
-        script
-    }
-
-    #[cfg(unix)]
     /// Jens with two pieces, each with its own backing song, and `separator` as Demucs.
-    fn two_pieces(name: &str, body: &str) -> (Core, PathBuf, PathBuf) {
+    fn two_pieces(name: &str, body: (&str, &str)) -> (Core, PathBuf, PathBuf) {
         let dir = temp_dir(name);
         std::fs::create_dir_all(&dir).unwrap();
         let mut core = Core::new(&dir.join("jens"), QaOptions::default());
@@ -473,17 +482,15 @@ mod tests {
             core.open(piece).unwrap();
             core.set_backing(Some(song), 0.0);
         }
-        core.qa_separator(Some(&script(&dir, body)));
+        core.qa_separator(Some(&stand_in(&dir, body)));
         let [first, second] = pieces;
         (core, first, second)
     }
 
-    #[cfg(unix)]
     fn state(core: &mut Core) -> serde_json::Value {
         serde_json::from_str(&core.stems_json()).unwrap()
     }
 
-    #[cfg(unix)]
     fn finish(core: &mut Core) {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
         while core.stems.job.is_some() && std::time::Instant::now() < deadline {
@@ -492,12 +499,11 @@ mod tests {
         }
     }
 
-    #[cfg(unix)]
     /// QA P2 (J-D1, 14.10.): a failure with one song showed on every other piece.
     #[test]
     fn failure_stays_with_its_song() {
         let _scripts = scripts();
-        let (mut core, first, second) = two_pieces("stems-fail", "echo 'kaputt' >&2; exit 1");
+        let (mut core, first, second) = two_pieces("stems-fail", FAILS);
         core.remove_bass(true);
         finish(&mut core);
         let json = state(&mut core);
@@ -513,13 +519,12 @@ mod tests {
         assert_eq!(state(&mut core)["state"], "failed", "still its own failure");
     }
 
-    #[cfg(unix)]
     /// QA P2 (J-D1, 14.10.): while another song was separated, "without bass" did nothing and
     /// said nothing.
     #[test]
     fn says_when_another_song_is_separated() {
         let _scripts = scripts();
-        let (mut core, first, _) = two_pieces("stems-busy", "sleep 30");
+        let (mut core, first, _) = two_pieces("stems-busy", WAITS);
         core.remove_bass(true);
         let started = state(&mut core);
         assert_eq!(started["state"], "running", "{started}");
@@ -535,13 +540,12 @@ mod tests {
         core.cancel_stems();
     }
 
-    #[cfg(unix)]
     /// QA P2 (J-D1, 14.10.): another backing track for the piece kept Demucs busy with the old
     /// one for minutes.
     #[test]
     fn new_backing_stops_the_old_separation() {
         let _scripts = scripts();
-        let (mut core, _, _) = two_pieces("stems-swap", "sleep 30");
+        let (mut core, _, _) = two_pieces("stems-swap", WAITS);
         core.remove_bass(true);
         assert!(core.stems.job.is_some());
 

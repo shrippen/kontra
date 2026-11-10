@@ -13,8 +13,8 @@ const PROMPT_VOLUME: f64 = 0.8;
 /// Free timing window before the user picks one (LH-BEW-02): as "normal".
 const WINDOW_DEFAULT_MS: f64 = 60.0;
 
-/// Kontra's folder inside the system's folders; Windows names them with a capital.
-const APP_FOLDER: &str = if cfg!(windows) { "Kontra" } else { "kontra" };
+/// Kontra's name for its folders; the system decides how it is written.
+const PROGRAM: &str = "kontra";
 /// Overrides the data folder (tests, QA runs, a second profile).
 const DATA_VARIABLE: &str = "KONTRA_DATA_DIR";
 
@@ -24,8 +24,7 @@ pub fn data_dir() -> PathBuf {
     if let Some(dir) = std::env::var_os(DATA_VARIABLE) {
         return PathBuf::from(dir);
     }
-    let home = kontra_session::data_home().unwrap_or_else(|| PathBuf::from("."));
-    home.join(APP_FOLDER)
+    kontra_session::data_dir_of(PROGRAM).unwrap_or_else(|| PathBuf::from(".").join(PROGRAM))
 }
 
 /// Files Kontra can make again (separated songs, LH-BIB-09): `$XDG_CACHE_HOME/kontra` or
@@ -36,7 +35,7 @@ pub fn cache_dir(data: &Path) -> PathBuf {
         return data.join("cache");
     }
     // Without a home the cache stays inside the data folder, not on top of it.
-    kontra_session::cache_home().map_or_else(|| data.join("cache"), |home| home.join(APP_FOLDER))
+    kontra_session::cache_dir_of(PROGRAM).unwrap_or_else(|| data.join("cache"))
 }
 
 /// Reads JSON or returns the default (a damaged file is kept aside as `.broken`).

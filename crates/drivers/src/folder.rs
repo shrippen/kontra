@@ -7,9 +7,10 @@
 //!
 //! Windows: %USERPROFILE%\Downloads ─→ download_dir()   (a moved folder: known folders, Win4)
 //!
-//!            data_home()                         cache_home()
-//! Unix       $XDG_DATA_HOME, ~/.local/share      $XDG_CACHE_HOME, ~/.cache
-//! Windows    %APPDATA% (roams with the user)     %LOCALAPPDATA% (stays on the machine)
+//!            data_dir_of("kontra")                cache_dir_of("kontra")
+//! Unix       $XDG_DATA_HOME/kontra,               $XDG_CACHE_HOME/kontra,
+//!            ~/.local/share/kontra                ~/.cache/kontra
+//! Windows    %APPDATA%\Kontra (roams)             %LOCALAPPDATA%\Kontra (stays on the machine)
 //! ```
 
 use std::ffi::OsString;
@@ -39,14 +40,26 @@ impl System {
     };
 }
 
-/// Where programs keep the user's data (settings, library, progress); `None` without a home.
-pub fn data_home() -> Option<PathBuf> {
-    data_home_in(System::HERE, &|key| std::env::var_os(key))
+/// Where `program` ("kontra") keeps the user's data (settings, library, progress) on this
+/// system; `None` without a home.
+pub fn data_dir_of(program: &str) -> Option<PathBuf> {
+    let home = data_home_in(System::HERE, &|key| std::env::var_os(key))?;
+    Some(home.join(folder_name(program, System::HERE)))
 }
 
-/// Where programs keep what they can make again (prepared audio); `None` without a home.
-pub fn cache_home() -> Option<PathBuf> {
-    cache_home_in(System::HERE, &|key| std::env::var_os(key))
+/// Where `program` keeps what it can make again (prepared audio); `None` without a home.
+pub fn cache_dir_of(program: &str) -> Option<PathBuf> {
+    let home = cache_home_in(System::HERE, &|key| std::env::var_os(key))?;
+    Some(home.join(folder_name(program, System::HERE)))
+}
+
+/// A program's folder as the system writes them: "kontra" on Unix, "Kontra" on Windows.
+fn folder_name(program: &str, system: System) -> String {
+    let mut letters = program.chars();
+    match (system, letters.next()) {
+        (System::Windows, Some(first)) => first.to_uppercase().chain(letters).collect(),
+        _ => program.to_string(),
+    }
 }
 
 fn data_home_in(system: System, env: &dyn Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
@@ -204,6 +217,8 @@ mod tests {
             cache_home_in(System::Windows, &env(&windows)),
             Some(PathBuf::from(r"C:\Users\Noah B\AppData\Local"))
         );
+        assert_eq!(folder_name("kontra", System::Unix), "kontra");
+        assert_eq!(folder_name("kontra", System::Windows), "Kontra");
         assert_eq!(data_home_in(System::Windows, &env(&[])), None);
         assert_eq!(cache_home_in(System::Unix, &env(&[])), None);
     }

@@ -75,14 +75,24 @@ pub fn download_dir() -> Option<PathBuf> {
     kontra_engine::download_dir()
 }
 
-/// Where the system keeps programs' data; `None` without a home.
-pub fn data_home() -> Option<PathBuf> {
-    kontra_engine::data_home()
+/// Where `program` keeps the user's data on this system; `None` without a home.
+pub fn data_dir_of(program: &str) -> Option<PathBuf> {
+    kontra_engine::data_dir_of(program)
 }
 
-/// Where the system keeps what programs can make again; `None` without a home.
-pub fn cache_home() -> Option<PathBuf> {
-    kontra_engine::cache_home()
+/// Where `program` keeps what it can make again; `None` without a home.
+pub fn cache_dir_of(program: &str) -> Option<PathBuf> {
+    kontra_engine::cache_dir_of(program)
+}
+
+/// The file URL of `path` on this system (QML, the media player).
+pub fn file_url(path: &Path) -> String {
+    kontra_engine::file_url(path)
+}
+
+/// The path a file URL names on this system; a plain path stays.
+pub fn local_path(url: &str) -> PathBuf {
+    kontra_engine::local_path(url)
 }
 
 /// Files Kontra can open that arrived in `dir` within `max_age`, newest first.

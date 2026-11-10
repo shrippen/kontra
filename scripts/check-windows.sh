@@ -41,6 +41,7 @@ case "$mode" in
         cargo clippy --target "$TARGET" --all-targets "${scope[@]}" -- -D warnings
         ;;
     test)
+        mkdir -p "$WORK"
         export WINEPREFIX="$WORK/wineprefix" WINEDEBUG=-all
         unset DISPLAY WAYLAND_DISPLAY
         # No audio driver: WASAPI lists no device, nothing opens the owner's interface.
