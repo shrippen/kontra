@@ -158,6 +158,8 @@ pub enum UiEvent {
     },
     /// The lost input is back and used again.
     InputBack(String),
+    /// The player chose an input: the offer of a stand-in is no longer open.
+    InputOfferEnded,
     /// Bass removal of the backing track changed (`Core::stems_json`).
     Stems(String),
     /// The backing track is being prepared (true) or ready (false); play waits for it.
@@ -245,6 +247,8 @@ pub struct Core {
     input: input_state::InputStatus,
     /// Input used instead of the lost one; never saved.
     fallback_input: Option<String>,
+    /// The player chose an input while one was lost: the next tick takes the offer away.
+    offer_ended: bool,
     /// Dropouts of finished runs since the start (LH-NF-04).
     xruns_done: u64,
     /// Courses the player added (LH-LRN-14), read once and after each change.
@@ -334,6 +338,7 @@ impl Core {
             lost: None,
             input: input_state::InputStatus::new(),
             fallback_input: None,
+            offer_ended: false,
             xruns_done: 0,
             catalog: Catalog::new(language),
             settings,
@@ -824,9 +829,14 @@ impl Core {
             live_ear.set_gains(ear_gains(&self.settings));
         }
         self.remix_standby();
-        let switched_on = !was_on && self.settings.monitor;
-        self.monitor_hint()
-            .or_else(|| self.standby_hint(switched_on))
+        let change = if !was_on && self.settings.monitor {
+            // Look for the input at once, not at the next retry.
+            self.wake_standby();
+            standby::MixerChange::MonitorOn
+        } else {
+            standby::MixerChange::Other
+        };
+        self.monitor_hint().or_else(|| self.standby_hint(change))
     }
 
     /// Monitoring is on, but the running practice has no output or devices at different rates.

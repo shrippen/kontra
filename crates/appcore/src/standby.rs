@@ -29,6 +29,14 @@ pub(crate) struct Standby {
     no_input: bool,
 }
 
+/// What a mixer change did to "Bass hören".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MixerChange {
+    /// It was off and is on now.
+    MonitorOn,
+    Other,
+}
+
 /// The input the standby may hold open, by id: the stand-in the player took for a lost input,
 /// else the saved input if it is listed, else an interface (USB). Never the system's default
 /// (on a laptop the built-in microphone, review #231), and none while a lost input waits for
@@ -76,12 +84,20 @@ impl Core {
         let input = before.input_device != s.input_device || before.input_kind != s.input_kind;
         let other = before.output_device != s.output_device || before.midi_port != s.midi_port;
         if input {
+            // The offer in the bar goes with the wait (review #232), else a late click on it
+            // would bring the stand-in back over the choice.
+            self.offer_ended = self.lost.is_some() || self.fallback_input.is_some();
             self.fallback_input = None;
             self.lost = None;
         }
         if input || other {
             self.release_standby();
         }
+    }
+
+    /// The next tick looks for the devices again, whatever the last try said.
+    pub(crate) fn wake_standby(&mut self) {
+        self.standby.retry_at = None;
     }
 
     /// New volumes and effects for the standby monitor.
@@ -92,14 +108,15 @@ impl Core {
         }
     }
 
-    /// What to say about the standby after a mixer change. `switched_on`: "Bass hören" just
-    /// went on; only then Kontra says that it found no input (none chosen and no interface),
-    /// not on every slider. Devices at different rates are named whenever monitoring is on.
-    pub(crate) fn standby_hint(&self, switched_on: bool) -> Option<String> {
+    /// What to say about the standby after a mixer change. Only when "Bass hören" just went on
+    /// Kontra says that it found no input (none chosen and no interface), not on every slider.
+    /// Devices at different rates are named whenever monitoring is on.
+    pub(crate) fn standby_hint(&self, change: MixerChange) -> Option<String> {
         if !self.settings.monitor {
             return None;
         }
         let Some(monitor) = self.standby.monitor.as_ref() else {
+            let switched_on = change == MixerChange::MonitorOn;
             let silent = switched_on && self.standby.no_input && self.may_stand_by();
             return silent.then(|| self.tr("hint.monitor.input", &[]));
         };
@@ -253,7 +270,7 @@ mod tests {
 #[cfg(test)]
 mod device_change {
     use super::*;
-    use crate::QaOptions;
+    use crate::{QaOptions, UiEvent};
 
     /// Owner 10.11.: a new output applied only after a restart; the standby monitor kept the
     /// old device open. A device change frees the devices, the next tick opens the new ones.
@@ -290,6 +307,22 @@ mod device_change {
         core.reconfigure(|s| s.input_device = Some("pipewire:chosen".into()));
         assert_eq!(core.fallback_input, None);
         assert!(core.lost.is_none());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Review #232: an input chosen in the settings while a stand-in was on offer ended the
+    /// wait, but the offer stayed in the bar for good; a late click on it fixed the stand-in.
+    #[test]
+    fn a_chosen_input_takes_the_offer_away() {
+        let (mut core, dir) = core("offer-away");
+        core.lost = Some(crate::unplug::Lost::of(Some("pipewire:solo".into())));
+        core.reconfigure(|s| s.input_device = Some("pipewire:chosen".into()));
+        let events = core.tick();
+        assert!(events.contains(&UiEvent::InputOfferEnded), "{events:?}");
+        assert!(
+            !core.tick().contains(&UiEvent::InputOfferEnded),
+            "said once"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 
