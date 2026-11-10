@@ -1,7 +1,41 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-11-09. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+Übergabe zwischen Sitzungen. Stand: 2026-11-10. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
+
+## Übergabe (10.11.2026, Mithören und Windows)
+
+In `main`: #228 (Kante 1.76.2, ruhende versteckte Ansichten), #229 (Kleinigkeiten), #230 (Overdrive, Stereobreite,
+Begrenzer, LH-EIN-17), #231 („Bass hören“ in der Seitenleiste, Geräte bleiben im Leerlauf offen, Einstellungen
+wirken zur Laufzeit, LH-EIN-18); Kante #131 (1.76.2), #132.
+
+Windows (LH-NF-17, Roadmap „Multiplattform: Windows“), gestapelte Branches, jeder auf dem vorigen:
+
+```text
+main ─► windows-core (#233) ─► windows-paths ─► windows-ci ─► windows-app
+        Plan, P8, J-A6,        %APPDATA%,       Job `windows`  Job `windows-app`:
+        Rust-Kern              Datei-URLs,      in ci.yml,     Qt + Kirigami mit MSVC
+                               Job Object,      agent.md       (scripts/setup-qt-windows.sh),
+                               Clippy           P1–P8          App bauen, Screenshot
+```
+
+- `windows-core` und `windows-paths` ändern nur Code und Planung: Claude merged nach Review. `windows-ci` und
+  `windows-app` ändern die CI (`windows-ci` auch `agent.md`): Bestätigung des Eigentümers (Runde 18).
+- Lokal prüfen: `KONTRA_WIN_RUST=~/.cache/claude/rust-win scripts/check-windows.sh [build|test]` (rustup-Toolchain
+  mit `x86_64-pc-windows-gnu` in `~/.cache/claude/rust-win`, Tests unter Wine in eigenem Prefix ohne Audiotreiber).
+  Referenz bleibt `windows-latest` (MSVC): Kern dort grün (Lauf zu `windows-ci`).
+- Stand `windows-app`: Qt per aqtinstall und ECM gehen, Kirigami baut; offen war zuletzt das Packen mit `tar`.
+  Danach: App bauen (cxx-qt mit MSVC), ein Screenshot offscreen.
+- Entschieden (Eigentümer, 10.11.): ASIO ja, Signierung ja, Tests zuerst über KVM, Persona P8. Offen in Runde 18
+  (Entscheidungs-Artefakt, `antworten/runde-18`): CI-PR, Installer-Form, Signierweg, ASIO-Lizenz, welche
+  KVM-Maschine (vorhanden: `win` in libvirt, nicht angefasst), #220, Summenbegrenzer, pub, Reihenfolge.
+
+Offen sonst:
+- #232 (Hinweis, wenn „Bass hören“ keinen Eingang hat) in Review.
+- Am Scarlett: Gain von Eingang 2 zurück (Aufnahme 9.11.: 1957 Samples in 10 s auf Vollaussteuerung);
+  Direktmonitor aus, wenn „Bass hören“ an ist.
+- PR-Agent scheiterte in dieser Nacht in jeder Runde („Failed to review PR“, je etwa 14 Minuten); alle Reviews
+  kamen vom neuen Claude-Agenten.
 
 ## Übergabe (09.11.2026, Harmonicon)
 
