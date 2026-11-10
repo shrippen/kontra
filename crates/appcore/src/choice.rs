@@ -2,7 +2,8 @@
 //!
 //! ```text
 //! saved and listed ─► that one
-//! else by connection: interface, microphone ─► a USB device   (the system's default first)
+//! else by connection: interface  ─► a USB device with an output
+//!                     microphone ─► a USB device                  (the system's default first)
 //!                     laptop jack           ─► the built-in card
 //! else ─► None: the system decides
 //! ```
@@ -34,15 +35,18 @@ pub(crate) fn chosen_output(saved: Option<&str>, devices: &[DeviceInfo]) -> Opti
 }
 
 /// The input Kontra takes when none is chosen: where the bass is plugged in by `kind`. An
-/// interface or a USB microphone is a USB device; the laptop's jack is its built-in card (QA
+/// interface is a USB device that also plays back, a USB microphone one that only listens (a
+/// webcam or headset is never taken for the cable, review #231); the laptop's jack is its built-in card (QA
 /// 27.10.: "Klinke direkt" still listened to the Scarlett). The system's default first if it
 /// is one of them.
 pub(crate) fn preferred_input(devices: &[DeviceInfo], kind: InputKind) -> Option<&DeviceInfo> {
-    let wanted = match kind {
-        InputKind::LaptopJack => Connection::BuiltIn,
-        InputKind::Line | InputKind::Microphone | InputKind::Midi => Connection::Usb,
+    let fits = |d: &&DeviceInfo| match kind {
+        InputKind::LaptopJack => d.connection == Connection::BuiltIn,
+        InputKind::Line | InputKind::Midi => d.connection == Connection::Usb,
+        InputKind::Microphone => {
+            matches!(d.connection, Connection::Usb | Connection::UsbMicrophone)
+        }
     };
-    let fits = |d: &&DeviceInfo| d.connection == wanted;
     devices
         .iter()
         .filter(fits)

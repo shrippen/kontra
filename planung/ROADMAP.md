@@ -512,8 +512,10 @@ Erkennung und Messung:
   Quelltexte davor (`cpp/translator.cpp`, `SourceTexts`) und hält den eigenen Übersetzer vorn (`KeepInFront`),
   weil Kirigami seine Übersetzung erst mit den Seiten und später noch einmal davorsetzt. Test `english_goes_in_front_of_kirigamis_own_german`; im
   isolierten Lauf auf deutschem System: de → en → de, Start auf Englisch, Seitenleiste ein- und ausklappen.
-- [ ] Ein USB-Mikrofon (Webcam, Headset) gilt bei „Automatisch“ als Interface (`preferred_input`, LH-EIN-02) und
-  würde im Leerlauf offen gehalten (Review #231): Geräte mit nur einem Mikrofon erkennen oder nachfragen.
+- [x] Ein USB-Mikrofon (Webcam, Headset) gilt bei „Automatisch“ als Interface (`preferred_input`, LH-EIN-02) und
+  würde im Leerlauf offen gehalten (Review #231). Regel: ein USB-Eingang ist ein Interface nur, wenn dasselbe Gerät
+  auch einen Ausgang hat (Kartenteil des Knotennamens, unter Windows der Treiber in Klammern); sonst
+  `Connection::UsbMicrophone`: nie automatisch am Kabel, nie im Leerlauf offen, nur bei „Mikrofon“ vorgewählt.
 - [ ] Verlorener Eingang, der wegbleibt (Review #231, #232): Steckt der Spieler ein anderes Interface an, nutzen
   Läufe es, der Standby wartet aber weiter auf das alte (bis es zurück ist oder ein Eingang gewählt wird). Das
   Warten darf nur zusammen mit dem Angebot in der Leiste enden (`InputBack`, `InputOfferEnded`), sonst bleibt das

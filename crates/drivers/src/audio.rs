@@ -2,11 +2,13 @@
 //! block. Input is delivered as mono f32 (the chosen channel or the loudest), output as
 //! interleaved f32.
 
+mod connection;
 mod samples;
 mod shared;
 
 #[cfg(target_os = "linux")]
 use crate::pipewire::Graph;
+use connection::guess_connection;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::fmt;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -225,6 +227,9 @@ pub enum Direction {
 pub enum Connection {
     BuiltIn,
     Usb,
+    /// A USB device with an input and no output (webcam, headset microphone): not the bass
+    /// interface. An interface also plays back (LH-EIN-02).
+    UsbMicrophone,
     Bluetooth,
     Hdmi,
     Other,
@@ -285,6 +290,9 @@ pub fn list_devices(direction: Direction) -> Vec<DeviceInfo> {
             list.extend(direct);
         }
     }
+    if direction == Direction::Input {
+        connection::mark(&mut list, &list_devices(Direction::Output));
+    }
     interfaces_first(&mut list);
     // After the system's own devices: the defaults stay WASAPI's, an ASIO driver is a choice.
     #[cfg(all(windows, feature = "asio"))]
@@ -319,10 +327,11 @@ fn pipewire_devices(listed: Vec<DeviceInfo>, graph: &Graph) -> Vec<DeviceInfo> {
 fn interfaces_first(list: &mut [DeviceInfo]) {
     let rank = |connection: Connection| match connection {
         Connection::Usb => 0,
-        Connection::BuiltIn => 1,
-        Connection::Other => 2,
-        Connection::Hdmi => 3,
-        Connection::Bluetooth => 4,
+        Connection::UsbMicrophone => 1,
+        Connection::BuiltIn => 2,
+        Connection::Other => 3,
+        Connection::Hdmi => 4,
+        Connection::Bluetooth => 5,
     };
     list.sort_by_key(|d| rank(d.connection));
 }
@@ -494,20 +503,6 @@ fn describe(
         channels: config.channels(),
         past_pipewire: false,
     })
-}
-
-fn guess_connection(name: &str) -> Connection {
-    let lower = name.to_lowercase();
-    if lower.contains("bluez") || lower.contains("bluetooth") {
-        return Connection::Bluetooth;
-    }
-    if lower.contains("usb") || lower.contains("scarlett") || lower.contains("focusrite") {
-        return Connection::Usb;
-    }
-    if lower.contains("hdmi") || lower.contains("displayport") {
-        return Connection::Hdmi;
-    }
-    Connection::Other
 }
 
 /// Environment variable that forces ALSA ("alsa"), e.g. to compare with PipeWire.
@@ -1111,16 +1106,6 @@ mod tests {
         );
         solo.name = "Scarlett Solo USB Analoges Stereo".into();
         assert!(uncovered(&cards, &[builtin, solo]).is_empty());
-    }
-
-    #[test]
-    fn guesses_connections() {
-        assert_eq!(
-            guess_connection("bluez_output.AA_BB"),
-            Connection::Bluetooth
-        );
-        assert_eq!(guess_connection("Scarlett Solo USB"), Connection::Usb);
-        assert_eq!(guess_connection("HDA Intel HDMI 0"), Connection::Hdmi);
     }
 
     #[test]

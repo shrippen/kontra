@@ -480,6 +480,16 @@ mod which_input {
         );
     }
 
+    /// Review #231: a USB webcam is no interface; the standby leaves it closed.
+    #[test]
+    fn a_usb_microphone_is_not_held_open() {
+        let devices = [device("webcam", Connection::UsbMicrophone, true)];
+        assert_eq!(
+            standby_input(None, false, None, &devices, InputKind::Line),
+            None
+        );
+    }
+
     /// Review #239: with the laptop jack the standby still took the interface (it only knew
     /// "an interface"), while runs and the settings named the built-in card. It opens what the
     /// player chose there, else nothing: the card by itself is the laptop's microphone.
