@@ -74,12 +74,6 @@ fn play_through_a_setlist() {
     assert!(!events.iter().any(|e| matches!(e, UiEvent::Holding { .. })));
     assert_eq!(core.view(), "tab");
 
-    // A recording chosen after the finished run leaves the page as it is, summary included;
-    // only a run under way starts it over (review #242).
-    let chosen = core.set_backing(Some(profile.dir.join("band.wav")), 0.0);
-    assert_eq!(chosen, Ok(kontra_appcore::BackingChange::Kept));
-    core.set_backing(None, 0.0).unwrap();
-
     // Step 5: next piece in one call (one click in the UI).
     // Titles come from the file names (the MIDI track name names the part).
     assert_eq!(core.next_title().as_deref(), Some("2-Zwei"));

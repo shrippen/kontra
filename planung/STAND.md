@@ -26,7 +26,7 @@ Seit der ersten Fassung in `main`: #237 (Kirigami auf Englisch auch auf deutsche
 notiert), #239 („Klinke direkt“ auf „Automatisch“ nimmt die eingebaute Karte, der Standby folgt), #240 (Hinweis
 an der Buchse, alter Abgleich geht mit dem Backing-Track, „1 Stück“), #241 (Gehör: Liste der gespielten Töne
 begrenzt, M16), #242 (eine Aufnahme wählen lässt die Auswertung eines fertigen Laufs stehen; ein laufender Lauf
-beginnt neu), #243 (Test dazu in J-B1).
+beginnt neu), #243 (Test dazu in J-D1).
 
 Offene Kleinigkeiten aus den Reviews vom 10.11.:
 - Nach dem Wählen einer Aufnahme bei fertigem Lauf bleibt die Auswertung, die Position springt aber an den Anfang
