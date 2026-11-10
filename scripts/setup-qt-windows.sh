@@ -45,15 +45,16 @@ else
     echo "present"
 fi
 
-# 2. KDE sources (release tarballs, checksum verified).
+# 2. KDE sources (release tarballs, checksum verified). Downloads are retried: one failed TLS
+# handshake turned the whole Windows job red (10.11.2026), and that job blocks merges.
 fetch() {
     local name="$1" file="$1-${KF_VERSION}.tar.xz"
     local url="https://download.kde.org/stable/frameworks/${KF_SERIES}/${file}"
     mkdir -p "${SRC_DIR}/dl"
     if [ ! -d "${SRC_DIR}/${name}-${KF_VERSION}" ]; then
-        curl -sSfL -o "${SRC_DIR}/dl/${file}" "${url}"
+        curl -sSfL --retry 5 --retry-delay 10 --retry-all-errors -o "${SRC_DIR}/dl/${file}" "${url}"
         local want="${KNOWN_SHA256[$file]:-}"
-        [ -n "${want}" ] || want=$(curl -sSfL "${url}.sha256" | awk '{print $1}')
+        [ -n "${want}" ] || want=$(curl -sSfL --retry 5 --retry-delay 10 --retry-all-errors "${url}.sha256" | awk '{print $1}')
         echo "${want}  ${SRC_DIR}/dl/${file}" | sha256sum -c -
         "${WINDOWS_TAR}" -C "${SRC_DIR}" -xf "${SRC_DIR}/dl/${file}"
     fi

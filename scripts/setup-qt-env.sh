@@ -71,9 +71,9 @@ fetch() {
     local url="https://download.kde.org/stable/frameworks/${KF_SERIES}/${file}"
     mkdir -p "${SRC_DIR}/dl"
     if [ ! -d "${SRC_DIR}/${name}-${KF_VERSION}" ]; then
-        curl -sSfL -o "${SRC_DIR}/dl/${file}" "${url}"
+        curl -sSfL --retry 5 --retry-delay 10 --retry-all-errors -o "${SRC_DIR}/dl/${file}" "${url}"
         local want="${KNOWN_SHA256[$file]:-}"
-        [ -n "${want}" ] || want=$(curl -sSfL "${url}.sha256" | awk '{print $1}')
+        [ -n "${want}" ] || want=$(curl -sSfL --retry 5 --retry-delay 10 --retry-all-errors "${url}.sha256" | awk '{print $1}')
         echo "${want}  ${SRC_DIR}/dl/${file}" | sha256sum -c -
         tar -C "${SRC_DIR}" -xf "${SRC_DIR}/dl/${file}"
     fi

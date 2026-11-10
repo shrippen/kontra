@@ -124,7 +124,7 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 
 ### Entscheidungen 10.11.2026 (Eigentümer, im Gespräch)
 
-- ASIO: ja (Win2). Code-Signierung: ja (Win5). Tests unter Windows zuerst über KVM auf dem Rechner des
+- ASIO: ja (Win2). Code-Signierung: ja (Win5; Runde 18: zurückgestellt). Tests unter Windows zuerst über KVM auf dem Rechner des
   Eigentümers (Win6). Persona mit Windows: ja → P8 Noah in `PERSONAS.md`, Journey J-A6.
 - Installer: Vorschläge gewünscht. Vorschlag, Entscheidung in Runde 18:
 
@@ -136,7 +136,7 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 | MSI (WiX) | Verteilung in Firmen und Schulen per Richtlinie | viel Aufwand, für Einzelne ohne Vorteil |
 | winget-Eintrag, später | `winget install Kontra`, zeigt auf den signierten Installer | setzt Installer und Signatur voraus |
 
-- Signierung, Wege zur Wahl (Runde 18): Azure Trusted Signing (Abo, Identitätsprüfung), SignPath Foundation
+- Signierung, Wege zur Wahl (in Runde 18 zurückgestellt, keiner gewählt): Azure Trusted Signing (Abo, Identitätsprüfung), SignPath Foundation
   (kostenlos für freie Projekte, signiert unter deren Namen), eigenes Zertifikat (z. B. Certum Open Source).
 
 ### Entscheidungen Runde 18 (10.11.2026)
