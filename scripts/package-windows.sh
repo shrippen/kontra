@@ -48,8 +48,12 @@ for locale in "$KF6_PREFIX/bin/data/locale" "$KF6_PREFIX/share/locale"; do
     fi
 done
 
-# Qt: the libraries, plugins and QML modules the pages and Kante import.
+# Qt: the libraries, plugins and QML modules the pages and Kante import, and what Kirigami's
+# own libraries and QML plugins need (windeployqt follows only the files it is given: without
+# them the program stopped at a "DLL not found" dialog).
+mapfile -t kirigami < <(find "$OUT/bin" -name '*.dll')
 "$QT_ROOT/bin/windeployqt.exe" --release --no-compiler-runtime \
-    --qmldir crates/app/qml --qmlimport "$KF6_PREFIX/lib/qml" "$OUT/bin/kontra.exe"
+    --qmldir crates/app/qml --qmlimport "$KF6_PREFIX/lib/qml" \
+    "$OUT/bin/kontra.exe" "${kirigami[@]}"
 
 echo "package-windows: $OUT ($(du -sh "$OUT" | cut -f1))"
