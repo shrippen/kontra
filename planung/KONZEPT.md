@@ -221,7 +221,7 @@ die Session nie einen Audio-Treiber. Rohes Audio- und MIDI-I/O liegt in einer ei
 
 ### 6.2 Stack
 
-Entschieden: **Rust**, **MIT-Lizenz**, **Linux zuerst**, und: **im Zweifel eigene Funktionalität statt fremder Bibliothek.**
+Entschieden: **Rust**, **MIT-Lizenz**, **Linux zuerst** (Windows wird seit 10.11.2026 vorbereitet, LH-NF-17), und: **im Zweifel eigene Funktionalität statt fremder Bibliothek.**
 
 **Abhängigkeitsregel.** Erlaubt sind nur freizügige Lizenzen (MIT, Apache-2.0, BSD, ISC, Zlib, Unlicense, CC0) sowie
 SIL OFL für Schriften. Einzige Ausnahme sind Qt und KDE Frameworks (LGPL), dynamisch gelinkt. Keine GPL, kein MPL,

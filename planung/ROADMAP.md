@@ -60,6 +60,34 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 | LH-ALL-06 Startseite | umgesetzt (#48, 13.10.) |
 | Vor 0.1 offen | Hardware-Prüfungen (Runde 10: zuerst), Tastatur/Screenreader am Gerät, Release-Log, Screenshots, Flatpak |
 
+## Multiplattform: Windows (Eigentümer, 10.11.2026)
+
+Kontra wird für weitere Systeme vorbereitet, Windows zuerst (vorher: Windows und macOS erst nach 1.0). Linux bleibt das
+Hauptsystem; jeder Schritt hält die Linux-Fassung grün. Plattformcode liegt nur in `drivers/` (Schichtregel), die
+Schichten darüber wissen nichts vom System.
+
+```text
+Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Dienste ─► Win5 Paket ─► Win6 QA am Gerät
+ (CI, ohne Qt)     (WASAPI, WinMM)   (Kirigami)      (%APPDATA%, Demucs)  (nur GitHub)  (Personas)
+```
+
+- [ ] Win1 Rust-Kern unter Windows: alles unter der Oberfläche (`--exclude kontra-app`) baut und testet auf
+  `windows-latest` (GitHub, Job `windows` in `ci.yml`). Linux-Eigenes (PipeWire-Graph, ALSA, rtkit, `/proc`)
+  steht hinter `cfg(target_os = "linux")` und hat auf Windows ein Gegenstück oder ein klares „gibt es hier nicht“.
+- [ ] Win2 Audio und MIDI: cpal über WASAPI (geteilt; exklusiv für niedrige Latenz prüfen), Gerätelisten ohne
+  PipeWire, Standardgeräte, Latenz und Xruns gemessen wie unter Linux (LH-NF-01); MIDI über midir (WinMM).
+  ASIO nur nach Entscheidung (Steinberg-SDK ist nicht frei).
+- [ ] Win3 Qt-App: Qt 6 und Kirigami auf Windows (KDE Craft oder Qt-Installer plus Kirigami aus den Quellen),
+  cxx-qt mit MSVC; CI baut die App und nimmt Screenshots (offscreen).
+- [ ] Win4 Pfade und Dienste: Datenordner (`%APPDATA%`), Cache, Downloads, Demucs-Suche (`python.exe`), Kirigamis
+  Übersetzungen, Dateidialoge, Tastenkürzel, Schriftarten, hohe DPI.
+- [ ] Win5 Paket: Installer, gebaut und angehängt nur von GitHub Actions (CLAUDE.md), Demo-Ausschluss geprüft wie im
+  Flatpak; Landing Page mit Windows-Download; Signierung offen.
+- [ ] Win6 QA unter Windows: Journeys mit echtem Interface (Treiber des Herstellers), Personas.
+
+Offene Fragen an den Eigentümer (nächste Runde): ASIO (proprietäres SDK) ja oder nein; Installer-Form (MSIX,
+MSI, NSIS/Inno); Code-Signierung; wer prüft auf einem Windows-Rechner mit Interface; eine Persona mit Windows?
+
 ## Entscheidungen Runde 3 (9.10.2026)
 
 - 3D-Highway (nach 1.0): Qt bleibt. Zuerst eine perspektivische Lane (2,5D) in Qt Quick (LGPL, gleiches Fenster,
