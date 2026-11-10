@@ -9,6 +9,11 @@ publish.workspace = true
 
 [dependencies]
 thiserror.workspace = true
+# Plugin lists between the scan and its probe processes (MIT/Apache-2.0; already in the tree).
+serde.workspace = true
+serde_json.workspace = true
+# Parameter changes to the audio thread of a plugin without a lock (MIT/Apache-2.0; as in engine).
+rtrb.workspace = true
 # Audio devices: PipeWire natively when it runs (nodes by name, latency as quantum), else ALSA.
 cpal = { version = "0.18", features = ["pipewire"] }
 # Decoders, all permissive: WAV (Apache-2.0), FLAC (Apache-2.0), Ogg Vorbis (MIT/Apache-2.0), MP3 (MIT, CC0 core).
@@ -26,6 +31,10 @@ ureq = { version = "3.4", default-features = false, features = ["rustls-no-provi
 # The system's root certificates for the Songsterr search; ureq's platform verifier pulls in
 # webpki-root-certs (CDLA-Permissive-2.0, not allowed by deny.toml).
 rustls-native-certs = "0.8"
+# CLAP plugin hosting (FX2; MIT/Apache-2.0): loading, processing; the extensions are separate crates.
+clack-host = "0.2"
+# CLAP params, state, latency and audio-ports extensions for the host side (MIT/Apache-2.0).
+clack-extensions = { version = "0.2", features = ["clack-host", "params", "state", "latency", "audio-ports"] }
 
 # alsa-lib's own error print, silenced while probing devices (MIT; already in the tree under
 # cpal and midir, same version).
