@@ -1,7 +1,7 @@
 //! Settings: instrument, tuning, mixer, scoring, devices.
 
 use super::*;
-use kontra_session::{Limit, Shaping};
+use kontra_session::{Connection, DeviceInfo, Limit, Shaping};
 
 #[test]
 fn midi_choice_by_name_falls_back_to_the_first() {

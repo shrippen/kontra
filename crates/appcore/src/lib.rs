@@ -9,6 +9,7 @@ mod bundled;
 mod caches;
 mod calibrate;
 mod call;
+mod choice;
 mod course;
 mod data;
 pub mod ear;
@@ -48,12 +49,13 @@ pub use store::{
     SectionBars, SectionDensity, Setlist, Settings,
 };
 
+use choice::{chosen_input, chosen_output, preferred_input};
 use input_state::{InputUse, Unstarted};
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Technique, Tuning};
 use kontra_session::{
-    import_file, list_devices, Chain, Connection, DeviceInfo, Direction, ImportResult, InputChoice,
-    Live, LiveCalibration, LiveEar, LiveError, LiveLoopback, LiveSetup, LiveTuner, LoopRange, Mode,
-    Outcome, PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings, SessionEvent,
+    import_file, list_devices, Chain, Direction, ImportResult, InputChoice, Live, LiveCalibration,
+    LiveEar, LiveError, LiveLoopback, LiveSetup, LiveTuner, LoopRange, Mode, Outcome,
+    PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings, SessionEvent,
     TechniqueOutcome, Workshop,
 };
 use mixer::{ear_gains, gains};
@@ -2856,42 +2858,6 @@ fn drop_lowest(standard: &Tuning) -> Option<Tuning> {
 /// Note names of a tuning's open strings, lowest first ("D1", "A1", …).
 fn names_of(tuning: &Tuning) -> Vec<String> {
     tuning.strings.iter().map(ToString::to_string).collect()
-}
-
-/// The saved input if it is listed, else the one that fits the connection `kind` (LH-EIN-02):
-/// an unplugged device or an ALSA id saved before PipeWire means "Automatic", not the system
-/// default (review #73).
-fn chosen_input(saved: Option<&str>, devices: &[DeviceInfo], kind: InputKind) -> Option<String> {
-    if let Some(id) = saved.filter(|id| devices.iter().any(|d| d.id == *id)) {
-        return Some(id.to_string());
-    }
-    preferred_input(devices, kind).map(|d| d.id.clone())
-}
-
-/// The saved output if it is listed (or the engine's timer), else the system default.
-fn chosen_output(saved: Option<&str>, devices: &[DeviceInfo]) -> Option<String> {
-    let id = saved?;
-    if id == kontra_session::NULL_DEVICE || devices.iter().any(|d| d.id == id) {
-        return Some(id.to_string());
-    }
-    None
-}
-
-/// The input Kontra takes when none is chosen: where the bass is plugged in by `kind`. An
-/// interface or a USB microphone is a USB device; the laptop's jack is its built-in card (QA
-/// 27.10.: "Klinke direkt" still listened to the Scarlett). The system's default first if it
-/// is one of them.
-fn preferred_input(devices: &[DeviceInfo], kind: InputKind) -> Option<&DeviceInfo> {
-    let wanted = match kind {
-        InputKind::LaptopJack => Connection::BuiltIn,
-        InputKind::Line | InputKind::Microphone | InputKind::Midi => Connection::Usb,
-    };
-    let fits = |d: &&DeviceInfo| d.connection == wanted;
-    devices
-        .iter()
-        .filter(fits)
-        .find(|d| d.is_default)
-        .or_else(|| devices.iter().find(fits))
 }
 
 /// A seed that differs between rounds (quiz and ear training questions).
