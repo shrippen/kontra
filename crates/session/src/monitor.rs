@@ -7,7 +7,7 @@
 //!           └─► analysis ─► levels and errors only (notes are dropped)
 //! ```
 
-use crate::live::{input_kind, output_config, InputChoice, LiveSetup};
+use crate::live::{input_kind, live_output_config, InputChoice, LiveSetup};
 use crate::practice::PracticeEvent;
 use kontra_engine::{Clock, EngineError, Event, Gains, Input, Output, Player};
 use kontra_model::Instrument;
@@ -45,7 +45,7 @@ impl LiveMonitor {
         let clock = Clock::new();
         let (tx, rx) = channel();
         // No output is an error here, not silence: the caller tries again later (review #231).
-        let config = output_config(setup.output_device.as_deref());
+        let config = live_output_config(setup);
         let mut output = Player::start(&config, &clock, tx.clone())?;
         output.set_gains(gains);
         let sample_rate = output.sample_rate();
@@ -113,6 +113,32 @@ mod tests {
         };
         let started = LiveMonitor::start(&setup, &Instrument::default_bass(), Gains::default());
         assert!(matches!(started, Some(Err(_))), "{started:?}");
+    }
+
+    /// Hardware, not for the suite's normal run (it opens the system's own devices): Win2,
+    /// 10.11.2026, Scarlett Solo under Windows 11. Input 48 kHz and output 44.1 kHz gave a
+    /// monitor that could not play the bass.
+    #[test]
+    #[ignore = "opens the real audio devices; by hand on the test machine: -- --ignored"]
+    fn the_default_devices_can_monitor() {
+        let setup = LiveSetup {
+            input: InputChoice::Device {
+                id: None,
+                channel: None,
+            },
+            output_device: None,
+            source: InputSource::Line,
+            backing: None,
+            original: None,
+            backing_cache: None,
+            onset_gate_db: None,
+        };
+        let started = LiveMonitor::start(&setup, &Instrument::default_bass(), Gains::default());
+        let monitor = started.unwrap().unwrap();
+        assert!(
+            monitor.can_monitor(),
+            "input and output run at different rates"
+        );
     }
 
     #[test]

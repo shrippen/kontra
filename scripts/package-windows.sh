@@ -10,6 +10,9 @@
 #     share/kontra/qml/Kante    Kante, copied unchanged
 #     share/kontra/exercises    the bundled exercises
 #     share/kontra/demo         the piece of the first start
+#     share/licenses/Kontra     LICENSE (MIT), GPL-3.0.txt and ASIO.txt: this package is built
+#                               with ASIO (cargo feature `asio` of kontra-drivers), whose SDK
+#                               is GPLv3, so the package is GPLv3 (agent.md, owner, round 18)
 #
 #   scripts/package-windows.sh [OUT]     (default dist/Kontra)
 #
@@ -23,7 +26,9 @@ cd "$(dirname "$0")/.."
 OUT="${1:-dist/Kontra}"
 SHARE="$OUT/share/kontra"
 
-cargo build --release -p kontra-app
+# With ASIO: only this package gets it (see the head). Its build needs libclang (bindgen),
+# which the GitHub runner and the test machine have under "C:\Program Files\LLVM".
+cargo build --release -p kontra-app -p kontra-drivers --features kontra-drivers/asio
 
 rm -rf "$OUT"
 mkdir -p "$OUT/bin" "$SHARE/qml" "$SHARE/demo"
@@ -76,5 +81,10 @@ cp "$runtime"/*.dll "$OUT/bin/"
 # The Fusion style Kontra sets on Windows (main.rs) comes with windeployqt; without it the
 # program would start in the native style again.
 test -d "$OUT/bin/qml/QtQuick/Controls/Fusion"
+
+# The licences this package is under, and why (ASIO).
+LICENSES="$OUT/share/licenses/Kontra"
+mkdir -p "$LICENSES"
+cp LICENSE packaging/windows/GPL-3.0.txt packaging/windows/ASIO.txt "$LICENSES/"
 
 echo "package-windows: $OUT ($(du -sh "$OUT" | cut -f1))"

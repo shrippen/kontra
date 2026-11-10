@@ -1,0 +1,15 @@
+Kontra for Windows and ASIO
+
+This package of Kontra is built with support for ASIO audio drivers. For that it contains
+code of the ASIO SDK by Steinberg Media Technologies GmbH, used under the GNU General Public
+License, version 3 (GPL-3.0.txt in this folder).
+
+  ASIO is a trademark and software of Steinberg Media Technologies GmbH.
+
+What that means for this package:
+
+- This Windows package as a whole is distributed under the GPL, version 3.
+- Kontra's own source code stays under the MIT license (LICENSE in this folder). It is at
+  https://github.com/shrippen/kontra, with the scripts that build this package
+  (scripts/package-windows.sh). The ASIO SDK is downloaded from Steinberg while building.
+- Every other build of Kontra (Linux, Flatpak) contains no ASIO code and stays under MIT.

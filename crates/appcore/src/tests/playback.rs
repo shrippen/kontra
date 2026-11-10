@@ -91,6 +91,13 @@ fn backing_is_prepared_in_the_background() {
     // Played from the prepared file: no second one at another rate (review #162).
     assert_eq!(cache.usage().0, 1);
     core.stop_live();
+
+    // Review #247: under Windows the output follows the input's rate, so another input may
+    // mean another rate: it prepares again, like another output does.
+    core.update_settings(|s| s.input_kind = crate::InputKind::Microphone);
+    let events = core.tick();
+    let again = |e: &UiEvent| matches!(e, UiEvent::BackingLoading(true));
+    assert!(events.iter().any(again), "{events:?}");
     let _ = std::fs::remove_dir_all(dir);
 }
 

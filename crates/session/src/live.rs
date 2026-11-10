@@ -5,8 +5,8 @@ use crate::practice::{Practice, PracticeEvent, PracticeOptions, Told};
 use crate::session::Mode;
 use crate::settings::ScoreSettings;
 use kontra_engine::{
-    BackingTrack, Clock, EngineError, Event, Input, InputKind, NullOutput, Output, Pace, Player,
-    Sound, StreamConfig,
+    monitor_rate, BackingTrack, Clock, EngineError, Event, Input, InputKind, NullOutput, Output,
+    Pace, Player, Sound, StreamConfig,
 };
 use kontra_model::{Arrangement, InputSource, Instrument, Pitch};
 use std::path::PathBuf;
@@ -151,7 +151,7 @@ impl Live {
     ) -> Result<Live, LiveError> {
         let clock = Clock::new();
         let (tx, rx) = channel();
-        let mut output = open_output(setup.output_device.as_deref(), &clock, tx.clone());
+        let mut output = open_output(setup, &clock, tx.clone());
         let output_is_silent = matches!(output, LiveOutput::Silent(_));
         let sample_rate = output.sample_rate();
         let load = |path: &std::path::Path| match &setup.backing_cache {
@@ -212,11 +212,7 @@ impl Live {
         // and the old output's stay counted.
         self.xruns_before += self.input.take().map_or(0, |i| i.xruns());
         let output_xruns = self.practice.output().xruns();
-        let mut output = open_output(
-            setup.output_device.as_deref(),
-            &self.clock,
-            self.sender.clone(),
-        );
+        let mut output = open_output(setup, &self.clock, self.sender.clone());
         let player = match &mut output {
             LiveOutput::Device(p) => Some(&mut **p),
             LiveOutput::Silent(_) => None,
@@ -404,7 +400,7 @@ impl LiveEar {
     pub fn start(setup: &LiveSetup, instrument: &Instrument) -> Result<LiveEar, EngineError> {
         let clock = Clock::new();
         let (tx, rx) = channel();
-        let output = open_output(setup.output_device.as_deref(), &clock, tx.clone());
+        let output = open_output(setup, &clock, tx.clone());
         let mut input = Input::start(
             &input_kind(&setup.input),
             instrument,
@@ -536,12 +532,23 @@ pub(crate) fn output_config(device: Option<&str>) -> StreamConfig {
     }
 }
 
+/// The output's stream for `setup`: at the input's rate where the system needs that to play
+/// the bass through (Windows: input 48 kHz, output 44.1 kHz by default).
+pub(crate) fn live_output_config(setup: &LiveSetup) -> StreamConfig {
+    let output = setup.output_device.as_deref();
+    let mut config = output_config(output);
+    if let InputChoice::Device { id, .. } = &setup.input {
+        config.sample_rate = monitor_rate(id.as_deref(), output);
+    }
+    config
+}
+
 pub(crate) fn open_output(
-    device: Option<&str>,
+    setup: &LiveSetup,
     clock: &Clock,
     events: std::sync::mpsc::Sender<Event>,
 ) -> LiveOutput {
-    let config = output_config(device);
+    let config = live_output_config(setup);
     match Player::start(&config, clock, events) {
         Ok(player) => LiveOutput::Device(Box::new(player)),
         Err(_) => LiveOutput::Silent(NullOutput {
@@ -574,7 +581,7 @@ impl LiveCalibration {
     ) -> Result<LiveCalibration, EngineError> {
         let clock = Clock::new();
         let (tx, rx) = channel();
-        let output = open_output(setup.output_device.as_deref(), &clock, tx.clone());
+        let output = open_output(setup, &clock, tx.clone());
         let mut input = Input::start(
             &input_kind(&setup.input),
             instrument,

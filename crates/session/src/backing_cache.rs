@@ -13,8 +13,11 @@
 //! by song (`cache_files`).
 
 use crate::cache_files::{self, CacheEntry, Partial};
+use crate::live::InputChoice;
 use crate::stems::file_key;
-use kontra_engine::{list_devices, BackingTrack, Direction, EngineError, NULL_DEVICE};
+use kontra_engine::{
+    list_devices, monitor_rate, BackingTrack, Direction, EngineError, NULL_DEVICE,
+};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
 
@@ -77,14 +80,20 @@ impl BackingCache {
         cache_files::prune(&self.dir, 0, Partial::All);
     }
 
-    /// Prepares `songs` in a thread for the output `device` (`None`: the default one).
-    pub fn prepare(&self, songs: Vec<PathBuf>, device: Option<String>) -> Preparing {
+    /// Prepares `songs` in a thread for the output `device` (`None`: the default one) as it
+    /// runs with `input` (under Windows the output follows a device input's rate).
+    pub fn prepare(
+        &self,
+        songs: Vec<PathBuf>,
+        device: Option<String>,
+        input: InputChoice,
+    ) -> Preparing {
         let (tx, rx) = channel();
         let cache = self.clone();
         let spawned = std::thread::Builder::new()
             .name("kontra-backing".into())
             .spawn(move || {
-                let rate = output_rate(device.as_deref());
+                let rate = output_rate(device.as_deref(), &input);
                 for song in &songs {
                     if !cache.cached(song, rate) {
                         // A song that does not load says so when it is played.
@@ -139,11 +148,17 @@ impl Preparing {
     }
 }
 
-/// The rate the output will run at: the chosen device's, else (gone or none chosen) the
-/// default device's.
-fn output_rate(device: Option<&str>) -> u32 {
+/// The rate the output will run at, as `live_output_config` opens it: the input's where the
+/// output follows it (review #247: prepared at 44.1 kHz, played at 48 kHz, the cache missed),
+/// else the chosen device's, else (gone or none chosen) the default device's.
+fn output_rate(device: Option<&str>, input: &InputChoice) -> u32 {
     if device == Some(NULL_DEVICE) {
         return FALLBACK_RATE;
+    }
+    if let InputChoice::Device { id, .. } = input {
+        if let Some(shared) = monitor_rate(id.as_deref(), device) {
+            return shared;
+        }
     }
     let devices = list_devices(Direction::Output);
     let chosen = device.and_then(|id| devices.iter().find(|d| d.id == id));
@@ -158,6 +173,14 @@ mod tests {
 
     const RATE: u32 = 44_100;
     const OUTPUT_RATE: u32 = 48_000;
+
+    /// An input that is no device: nothing for the output to follow.
+    fn no_device() -> InputChoice {
+        InputChoice::File {
+            path: "take.wav".into(),
+            laptop_jack: false,
+        }
+    }
 
     fn temp_dir(name: &str) -> PathBuf {
         let dir =
@@ -230,7 +253,7 @@ mod tests {
         let dir = temp_dir("busy");
         let song = song(&dir);
         let cache = BackingCache::new(&dir.join("cache"));
-        let mut job = cache.prepare(vec![song.clone()], Some(NULL_DEVICE.into()));
+        let mut job = cache.prepare(vec![song.clone()], Some(NULL_DEVICE.into()), no_device());
         cache.clear();
         let end = std::time::Instant::now() + std::time::Duration::from_secs(20);
         while job.running() && std::time::Instant::now() < end {
@@ -247,7 +270,7 @@ mod tests {
         let dir = temp_dir("prepare");
         let song = song(&dir);
         let cache = BackingCache::new(&dir.join("cache"));
-        let mut job = cache.prepare(vec![song.clone()], Some(NULL_DEVICE.into()));
+        let mut job = cache.prepare(vec![song.clone()], Some(NULL_DEVICE.into()), no_device());
         let end = std::time::Instant::now() + std::time::Duration::from_secs(20);
         while job.running() && std::time::Instant::now() < end {
             std::thread::sleep(std::time::Duration::from_millis(10));

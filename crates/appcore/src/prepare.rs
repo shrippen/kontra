@@ -7,19 +7,25 @@
 //! play ─ while preparing ─► a hint, no run; afterwards Live reads the prepared file
 //! ```
 
-use crate::{store, Core, UiEvent};
+use crate::{store, Core, InputKind, UiEvent};
 use kontra_session::{BackingCache, Preparing};
 use std::path::PathBuf;
 
 const CACHE_DIR: &str = "backing";
 
-/// The songs and output last prepared for (or being prepared) and the running job.
+/// The songs and devices last prepared for (or being prepared) and the running job.
 #[derive(Debug, Default)]
 pub(crate) struct Prepare {
     songs: Vec<PathBuf>,
     device: Option<String>,
+    /// The saved input as the player set it: under Windows the output runs at the input's
+    /// rate, so another input may need the songs at another rate (review #247).
+    input: Option<InputKey>,
     job: Option<Preparing>,
 }
+
+/// What names the input without asking the system: saved device, connection, stand-in.
+type InputKey = (Option<String>, InputKind, Option<String>);
 
 impl Core {
     /// Folder of the prepared backing tracks, beside the separated songs.
@@ -46,19 +52,29 @@ impl Core {
             return None;
         }
         let songs = self.backing_songs();
-        // The saved device as it is: listing devices is left to the thread. Another output may
-        // play at another rate, so a change prepares again (review #162).
+        // The saved devices as they are: comparing them asks the system nothing. Another
+        // output or input may play at another rate, so a change prepares again (review #162).
         let device = self.settings.output_device.clone();
-        if songs == self.prepare.songs && device == self.prepare.device {
+        let input = Some((
+            self.settings.input_device.clone(),
+            self.settings.input_kind,
+            self.fallback_input.clone(),
+        ));
+        let same_devices = device == self.prepare.device && input == self.prepare.input;
+        if songs == self.prepare.songs && same_devices {
             return None;
         }
         self.prepare.songs = songs.clone();
-        self.prepare.device = device.clone();
+        self.prepare.device = device;
+        self.prepare.input = input;
         if songs.is_empty() {
             return None;
         }
         let cache = BackingCache::new(&self.backing_cache_dir());
-        self.prepare.job = Some(cache.prepare(songs, device));
+        // The devices as the run will open them (this lists devices, once per change): a
+        // saved output that is gone plays on the default one.
+        let (output, input) = (self.output_device(), self.input_choice());
+        self.prepare.job = Some(cache.prepare(songs, output, input));
         Some(UiEvent::BackingLoading(true))
     }
 
@@ -66,6 +82,7 @@ impl Core {
     pub(crate) fn prepare_again(&mut self) {
         self.prepare.songs.clear();
         self.prepare.device = None;
+        self.prepare.input = None;
     }
 
     /// Files the next run plays: the backing track and, without bass, the original.

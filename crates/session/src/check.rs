@@ -83,7 +83,7 @@ impl LiveTake {
     ) -> Result<LiveTake, EngineError> {
         let clock = Clock::new();
         let (tx, rx) = channel();
-        let output = open_output(setup.output_device.as_deref(), &clock, tx.clone());
+        let output = open_output(setup, &clock, tx.clone());
         let input = Input::start(
             &input_kind(&setup.input),
             instrument,

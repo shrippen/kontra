@@ -85,14 +85,40 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   - Tests, die Shell-Skripte, symbolische Links oder `\` im Dateinamen brauchen, laufen nur unter Unix.
   - `.gitattributes`: Zeilenenden bleiben LF, auch im Checkout unter Windows (`tests/hidden_views.rs` fand mit
     CRLF seine Zeilen nicht).
-- [ ] Win2 Audio und MIDI: cpal über WASAPI (geteilt; exklusiv für niedrige Latenz prüfen) und **ASIO**
-  (Entscheidung 10.11.: ja), Gerätelisten ohne PipeWire, Standardgeräte, Latenz und Xruns gemessen wie unter
-  Linux (LH-NF-01); MIDI über midir (WinMM). ASIO: cpal-Feature `asio` braucht das Steinberg-SDK beim Bauen
-  (MSVC, LLVM für bindgen); das SDK steht unter Steinbergs eigener Lizenz (Vereinbarung) oder GPLv3.
-  Entscheidung Runde 18: das Windows-Paket mit ASIO wird unter GPLv3 ausgeliefert, der Quelltext bleibt MIT
-  (Ausnahme von der Abhängigkeitsregel nur für dieses Paket, `agent.md`). ASIO darum als Cargo-Feature, das nur
-  der Windows-Paketbau einschaltet; Lizenztext und Quellen-Hinweis liegen dem Paket bei. Nächster Schritt nach
-  Runde 18 (Reihenfolge: Win2 zuerst), in der KVM-Maschine.
+- [ ] Win2 Audio und MIDI. Stand 10.11. (in der libvirt-Maschine `win`, Windows 11, Scarlett Solo per USB
+  durchgereicht; Hilfen in `scripts/win-vm/`):
+  - **WASAPI** (cpal, geteilter Modus; exklusiv bietet cpal nicht): Gerätelisten mit Windows-Namen, Standardgeräte
+    und Anschlussart stimmen (Scarlett als „Usb“ vorn). Aus- und Eingang öffnen, Stimmgerät und Üben laufen.
+  - **Mithören:** Windows führt jedes Gerät mit eigener Rate (Scarlett: Eingang 48 kHz, Ausgang 44,1 kHz); der Bass
+    ließ sich nicht durchschleifen. Jetzt öffnet der Ausgang mit der Rate des Eingangs (`monitor_rate`; Windows
+    wandelt). Test am Gerät: `the_default_devices_can_monitor` (ignoriert im normalen Lauf).
+  - **ASIO** (Entscheidung Runde 18: GPLv3 nur im Windows-Paket): Cargo-Feature `asio` in `kontra-drivers`; die
+    Treiber stehen als „… (ASIO)“ mit der Id `asio:<Treiber>` hinter den Geräten des Systems. Der Focusrite-Treiber
+    spricht i32: Kontra öffnet Ströme jetzt im Format des Geräts und wandelt (`audio/samples.rs`).
+    `scripts/package-windows.sh` baut mit ASIO und legt `GPL-3.0.txt`, `ASIO.txt` und `LICENSE` ins Paket.
+  - **Aussetzer** (`kontra-cli soak`, 2 min, in der VM): ASIO (Focusrite) 4, WASAPI mit Focusrite-Treiber 16, WASAPI
+    mit Windows-Treiber 3. Die VM reicht USB-Audio über einen emulierten Controller durch: die Zahlen zeigen, dass
+    es läuft, nicht wie gut. Messung auf echtem Windows steht aus.
+  - **Offen aus dem Review von #247:** Die Lizenzliste im Programm (LH-NF-11) nennt im Windows-Paket weder GPLv3
+    noch das ASIO-SDK (sie entsteht für Linux ohne Feature). Die CI prüft den ASIO-Code nur im Release-Build des
+    Pakets, ohne Clippy und Tests (Änderung an `ci.yml`: Bestätigung des Eigentümers). `asio-sys` lädt beim Bauen die
+    jeweils neueste SDK-Version von Steinberg: Version festhalten (`CPAL_ASIO_DIR`) und in `ASIO.txt` nennen. Unter
+    Linux nehmen ALSA-Geräte mit i16 oder i32 jetzt den Wandlungsweg (vorher ließen sie sich nicht öffnen): Latenz
+    und Xruns dort messen.
+  - **Offen:** Latenz „mit Kabel messen“ (braucht ein Kabel vom Ausgang in den Eingang); MIDI über WinMM mit einem
+    Gerät; Ein- und Ausgang auf verschiedenen ASIO-Treibern oder ASIO mit WASAPI gemischt (ein ASIO-Treiber zur
+    Zeit); cpal lädt beim Auflisten und beim Öffnen jeden ASIO-Treiber der Reihe nach: ein kaputter Treiber reißt
+    Kontra mit (FlexASIO 1.9 neben den Focusrite-Treibern: Absturz in dessen `MSVCP140.dll`; nach dem Entfernen
+    stabil). Abhilfe wäre, Treiber beim Namen zu öffnen, ohne die anderen zu laden (in cpal nicht vorgesehen).
+  - Stand der Maschine (10.11., 13:45): ausgeschaltet (der Eigentümer braucht den Arbeitsspeicher), Scarlett wieder
+    am Host. In der VM bleiben: Build Tools, LLVM, Git, Rust (`C:\KontraDev`), der Focusrite-Treiber 4.150, das
+    Paket aus der CI (`C:\KontraTest`), drei geplante Aufgaben `KontraTest*`/`KontraCli`. Zurück auf den Stand davor:
+    `virsh snapshot-revert win vor-kontra`.
+  - Einmal rot in der VM, danach viermal grün: `take_annotation_lands_on_the_notes` (`crates/session/tests/check.rs`,
+    6 von 8 Noten erkannt), als alle Tests der drei Crates zugleich liefen und der Ausgang das echte Gerät war. Auf
+    `main` in der VM grün. Vermutlich Last (der Test läuft in Echtzeit); nicht geklärt.
+  - Sonst aufgefallen: erster Start des Pakets über eine Minute (vermutlich Defender, unsigniert), danach 5 s
+    (VM ohne GPU); das Zahlenfeld der Latenz zeigt + und − übereinander (Fusion-Stil).
 - [ ] Win3 Qt-App. Erledigt (10.11., Lauf 42737035615 auf `windows-latest`): `scripts/setup-qt-windows.sh` holt
   Qt 6.10.3 (aqtinstall, MSVC) und baut ECM und Kirigami 6.30 mit Visual Studio; `kontra-app` baut mit cxx-qt und
   MSVC, seine Tests laufen, die Einstellungsseite kommt als Screenshot (offscreen; Job `windows-app`, #236).

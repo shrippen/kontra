@@ -225,7 +225,8 @@ Entschieden: **Rust**, **MIT-Lizenz**, **Linux zuerst** (Windows wird seit 10.11
 
 **Abhängigkeitsregel.** Erlaubt sind nur freizügige Lizenzen (MIT, Apache-2.0, BSD, ISC, Zlib, Unlicense, CC0) sowie
 SIL OFL für Schriften. Einzige Ausnahme sind Qt und KDE Frameworks (LGPL), dynamisch gelinkt. Keine GPL, kein MPL,
-kein LGPL in Rust-Crates (Rust linkt statisch). Ist eine Lizenz unklar, eine Bibliothek kaum gepflegt oder nur für
+kein LGPL in Rust-Crates (Rust linkt statisch). Ausnahme seit Runde 18 (10.11.2026): das ASIO-SDK (GPLv3) nur im
+Windows-Paket, das darum unter GPLv3 ausgeliefert wird; der Quelltext bleibt MIT (`agent.md`). Ist eine Lizenz unklar, eine Bibliothek kaum gepflegt oder nur für
 einen kleinen Teil nötig, bauen wir die Funktion selbst. `cargo-deny` setzt die Liste in `make check` durch.
 
 | Bereich | Wahl | Lizenz | Begründung |
