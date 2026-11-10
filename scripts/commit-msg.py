@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Commit message rules 1-6 of agent.md (W4), for the commit-msg hook and the CI.
+"""Commit message rules 1-6 of RULES.md (W4), for the commit-msg hook and the CI.
 
     scripts/commit-msg.py FILE          check one message (the hook: .git/COMMIT_EDITMSG)
     scripts/commit-msg.py --range A..B  check every commit in A..B but merges (CI, pre-push)

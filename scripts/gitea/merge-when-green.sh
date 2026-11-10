@@ -2,7 +2,7 @@
 # merge-when-green.sh PR SHA: wait for the status "github / test" on SHA (CI on the GitHub mirror);
 # merge PR when it is success.
 # Checks CI only: the review (PR-Agent, closing Claude agent) is a merge condition the session
-# checks before it calls this (agent.md, owner 22.10.2026).
+# checks before it calls this (skill pr-review, owner 22.10.2026).
 # Reports MERGED only if Gitea says the PR is merged.
 S=$(dirname "$0")
 for i in $(seq 200); do

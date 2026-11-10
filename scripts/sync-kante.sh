@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copies Kante's QML module into the app (GUI rule in agent.md): crates/app/qml/Kante,
+# Copies Kante's QML module into the app (GUI rule in RULES.md and agent.md): crates/app/qml/Kante,
 # and Kante's web stylesheet for the progress report (LH-FOR-04): crates/appcore/report.
 #
 # Source: KANTE_DS, default ../Kante (https://git.arianw.de/shrippen/Kante).
