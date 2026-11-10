@@ -112,8 +112,8 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - PR-Agent schreibt sein Review einmal und aktualisiert danach denselben Kommentar („Review updated until
   commit <sha>“, neues `updated_at`, altes `created_at`). Ein neues Review erkennt man am Commit im Text, nicht am
   Erstellungsdatum. Kommentare, die nicht mit `/` beginnen, starten keinen Lauf (Status „skipped“).
-- CI läuft nur auf GitHub (`.github/workflows/ci.yml`, Jobs core, app, windows und windows-app; die Windows-Jobs
-  zählen seit 10.11.2026 mit, Runde 18; seit 24.10.2026 wie lmix) und meldet das
+- CI läuft seit 24.10.2026 nur auf GitHub, wie lmix (`.github/workflows/ci.yml`, Jobs core, app, windows und
+  windows-app; die Windows-Jobs zählen seit 10.11.2026 mit, Runde 18), und meldet das
   Ergebnis als Status `github / test` an Gitea; Gitea führt nur PR-Agent aus. Flatpak baut ebenfalls GitHub.
 - Mehrere Arbeitsstände parallel: je Branch ein `git worktree` und ein eigenes `CARGO_TARGET_DIR`, dazu
   `CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0`, sonst ist die Platte schnell voll. `cargo clippy` baut kein Binary;

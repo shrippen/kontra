@@ -157,9 +157,10 @@ jobs:
       - run: cargo test --workspace --exclude kontra-app --no-fail-fast
 
   windows-app:
-    # Win3 (LH-NF-17): the Qt app builds and starts on Windows: Qt and Kirigami from
-    # scripts/setup-qt-windows.sh (cached), one headless screenshot as proof. Counts for
-    # "github / test" like `windows`.
+    # Win3 and Win5 (LH-NF-17): the Qt app builds and starts on Windows: Qt and Kirigami from
+    # scripts/setup-qt-windows.sh (cached). Counts for "github / test" like `windows`; what
+    # blocks a merge: the build, the app's tests, the headless screenshot and the portable
+    # folder (missing DLLs, start with a bare PATH). The steps with continue-on-error do not.
     timeout-minutes: 90
     runs-on: windows-latest
     defaults:
@@ -223,11 +224,17 @@ jobs:
           # a dialog and hangs).
           missing=$(PATH="/c/Windows/System32:/c/Windows:/usr/bin" /usr/bin/ldd dist/Kontra/bin/kontra.exe dist/Kontra/bin/*.dll | grep -i "not found" | sort -u || true)
           if [ -n "$missing" ]; then echo "$missing"; exit 1; fi
-          env -u QML_IMPORT_PATH -u QML2_IMPORT_PATH -u QT_PLUGIN_PATH -u QMAKE -u CMAKE_PREFIX_PATH \
-            PATH="/c/Windows/System32:/c/Windows:/usr/bin" QT_QPA_PLATFORM=windows \
-            QT_FORCE_STDERR_LOGGING=1 KONTRA_DATA_DIR="$RUNNER_TEMP/kontra-portable" \
-            /usr/bin/timeout 90 dist/Kontra/bin/kontra.exe --language de --page settings \
-            --screenshot shots/portable-de.png --screenshot-after 2000
+          # Up to three starts: the runner's session may refuse a window once, and this step
+          # blocks merges.
+          for try in 1 2 3; do
+            env -u QML_IMPORT_PATH -u QML2_IMPORT_PATH -u QT_PLUGIN_PATH -u QMAKE -u CMAKE_PREFIX_PATH \
+              PATH="/c/Windows/System32:/c/Windows:/usr/bin" QT_QPA_PLATFORM=windows \
+              QT_FORCE_STDERR_LOGGING=1 KONTRA_DATA_DIR="$RUNNER_TEMP/kontra-portable" \
+              /usr/bin/timeout 90 dist/Kontra/bin/kontra.exe --language de --page settings \
+              --screenshot shots/portable-de.png --screenshot-after 2000 || true
+            if [ -f shots/portable-de.png ]; then break; fi
+            echo "start $try gave no picture"
+          done
           test -f shots/portable-de.png
       - uses: actions/upload-artifact@v4
         if: always()

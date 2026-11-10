@@ -73,8 +73,8 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 
 - [x] Win1 Rust-Kern unter Windows: alles unter der Oberfläche (`--exclude kontra-app`) baut und besteht seine
   Tests für Windows (10.11.: auf `windows-latest` mit MSVC grün, Lauf 42733510273 zu `windows-ci`; lokal mit
-  `scripts/check-windows.sh` als `x86_64-pc-windows-gnu` unter Wine, 56 Testprogramme). Der Job `windows` für `ci.yml` kommt in einem
-  eigenen PR (ändert die CI: Bestätigung des Eigentümers). Was dafür nötig war:
+  `scripts/check-windows.sh` als `x86_64-pc-windows-gnu` unter Wine, 56 Testprogramme). Der Job `windows` steht seit #236 in
+  `ci.yml` und zählt wie `windows-app` für `github / test` (Runde 18). Was dafür nötig war:
   - Demucs starten und beenden (`drivers/src/separator/process.rs`): Unix wie bisher (`nice`, Prozessgruppe,
     SIGTERM/SIGKILL, endet mit Kontra); Windows mit niedriger Prioritätsklasse, ohne Konsolenfenster, beendet
     samt Kindern über `taskkill /T /F`, Programme am Namen erkannt (`.exe`, `.cmd`, `.bat`, `.com`). Tests mit
@@ -95,7 +95,7 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   Runde 18 (Reihenfolge: Win2 zuerst), in der KVM-Maschine.
 - [ ] Win3 Qt-App. Erledigt (10.11., Lauf 42737035615 auf `windows-latest`): `scripts/setup-qt-windows.sh` holt
   Qt 6.10.3 (aqtinstall, MSVC) und baut ECM und Kirigami 6.30 mit Visual Studio; `kontra-app` baut mit cxx-qt und
-  MSVC, seine Tests laufen, die Einstellungsseite kommt als Screenshot (offscreen; Job `windows-app`, im CI-PR).
+  MSVC, seine Tests laufen, die Einstellungsseite kommt als Screenshot (offscreen; Job `windows-app`, #236).
   Im echten Fenster (`QT_QPA_PLATFORM=windows`) stimmt das Bild: Segoe UI als Fließtext, Kantes Überschriften
   und Farben (offscreen hat Windows keine Systemschrift). Kontra setzt außerhalb von Linux den Stil Fusion
   (der native Windows-Stil lässt sich nicht einkleiden: weißes Zahlenfeld). `scripts/screenshots.sh` läuft auch
