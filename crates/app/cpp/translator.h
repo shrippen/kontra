@@ -11,3 +11,11 @@ bool install_kirigami_translator(rust::Str language);
 
 // The engine whose texts a later language change translates again.
 void translate_engine(QQmlApplicationEngine &engine);
+
+// `source` in `context` as Qt translates it now ("GlobalDrawer", "Close Sidebar").
+rust::String translated(rust::Str context, rust::Str source);
+
+// Loads the Kirigami library as the first page does; it then installs its own translation for
+// the system's language. False if it is not there.
+bool load_kirigami();
+
