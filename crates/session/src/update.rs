@@ -9,7 +9,7 @@
 //! ```
 //! Format and comparison rules: shrippen.github.io/overview/VERSIONS.md.
 
-use kontra_engine::Http;
+use kontra_engine::{Http, HttpError};
 use serde::Deserialize;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -45,11 +45,15 @@ struct Entry {
     url: String,
 }
 
+/// `Err`: no answer from the site (offline, timeout, status); the check is tried again later.
+/// `Ok(None)`: answered, nothing newer (or nothing readable).
+type Answer = Result<Option<NewRelease>, HttpError>;
+
 /// At most one request in flight; the UI polls for its end.
 #[derive(Debug)]
 pub struct UpdateCheck {
     http: Arc<dyn Http>,
-    running: Option<Receiver<Option<NewRelease>>>,
+    running: Option<Receiver<Answer>>,
 }
 
 impl UpdateCheck {
@@ -69,19 +73,19 @@ impl UpdateCheck {
         let current = current.to_string();
         let (tx, rx) = channel();
         std::thread::spawn(move || {
-            let answer = http.get(VERSIONS_URL).ok();
-            let _ = tx.send(answer.and_then(|body| newer(&body, &current)));
+            let answer = http.get(VERSIONS_URL).map(|body| newer(&body, &current));
+            let _ = tx.send(answer);
         });
         self.running = Some(rx);
     }
 
-    /// The finished check, once: `Some(None)` is "nothing newer"; `None` while it runs.
-    pub fn poll(&mut self) -> Option<Option<NewRelease>> {
+    /// The finished check, once; `None` while it runs.
+    pub fn poll(&mut self) -> Option<Answer> {
         let rx = self.running.as_ref()?;
         let outcome = match rx.try_recv() {
             Ok(outcome) => outcome,
             Err(TryRecvError::Empty) => return None,
-            Err(TryRecvError::Disconnected) => None,
+            Err(TryRecvError::Disconnected) => Ok(None),
         };
         self.running = None;
         Some(outcome)
@@ -99,13 +103,18 @@ pub fn newer(body: &[u8], current: &str) -> Option<NewRelease> {
     if !entry.url.starts_with(HTTPS) {
         return None;
     }
-    if compare(&entry.version, current) != Ordering::Greater {
+    if !is_newer(&entry.version, current) {
         return None;
     }
     Some(NewRelease {
         version: entry.version.trim_start_matches('v').to_string(),
         url: entry.url.clone(),
     })
+}
+
+/// Whether `version` is newer than `current`.
+pub fn is_newer(version: &str, current: &str) -> bool {
+    compare(version, current) == Ordering::Greater
 }
 
 /// "0.10.0" > "0.9.3": parts split at `.` compare as numbers, missing parts count 0, anything
@@ -149,7 +158,7 @@ mod tests {
         .into_bytes()
     }
 
-    fn check(answer: Result<Vec<u8>, HttpError>, current: &str) -> Option<NewRelease> {
+    fn ask(answer: Result<Vec<u8>, HttpError>, current: &str) -> Answer {
         let mut check = UpdateCheck::new(Arc::new(Canned(answer)));
         check.start(current);
         loop {
@@ -170,23 +179,31 @@ mod tests {
 
     #[test]
     fn newer_release_is_offered() {
-        let release = check(Ok(listing("0.2.0")), "0.1.0").expect("a newer release");
+        let release = ask(Ok(listing("0.2.0")), "0.1.0")
+            .unwrap()
+            .expect("a newer release");
         assert_eq!(release.version, "0.2.0");
         assert!(release.url.ends_with("v0.2.0"));
     }
 
     #[test]
     fn same_or_older_is_silent() {
-        assert_eq!(check(Ok(listing("0.1.0")), "0.1.0"), None);
-        assert_eq!(check(Ok(listing("0.1.0")), "0.2.0"), None);
+        assert_eq!(ask(Ok(listing("0.1.0")), "0.1.0"), Ok(None));
+        assert_eq!(ask(Ok(listing("0.1.0")), "0.2.0"), Ok(None));
     }
 
     #[test]
     fn offline_is_silent() {
         let offline = HttpError::Offline("no route".into());
-        assert_eq!(check(Err(offline), "0.1.0"), None);
-        assert_eq!(check(Err(HttpError::Timeout), "0.1.0"), None);
-        assert_eq!(check(Err(HttpError::Status(500)), "0.1.0"), None);
+        assert_eq!(ask(Err(offline.clone()), "0.1.0"), Err(offline));
+        assert_eq!(
+            ask(Err(HttpError::Timeout), "0.1.0"),
+            Err(HttpError::Timeout)
+        );
+        assert_eq!(
+            ask(Err(HttpError::Status(500)), "0.1.0"),
+            Err(HttpError::Status(500))
+        );
     }
 
     #[test]

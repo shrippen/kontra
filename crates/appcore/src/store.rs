@@ -233,6 +233,11 @@ pub struct Settings {
     pub update_check: bool,
     /// The release whose notice was dismissed; the next newer one shows again.
     pub update_dismissed: Option<String>,
+    /// When the update check last got an answer (Unix seconds): asked once a day at most
+    /// (`overview/VERSIONS.md` of the site). What it found is kept, so the notice stays.
+    pub update_checked_unix: u64,
+    pub update_found_version: String,
+    pub update_found_url: String,
 }
 
 impl Default for Settings {
@@ -295,6 +300,9 @@ impl Default for Settings {
             left_handed: false,
             update_check: true,
             update_dismissed: None,
+            update_checked_unix: 0,
+            update_found_version: String::new(),
+            update_found_url: String::new(),
         }
     }
 }

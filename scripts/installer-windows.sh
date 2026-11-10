@@ -36,18 +36,24 @@ mkdir -p "$OUT"
     "//DOutputDir=$(cygpath -w "$OUT")" "$(cygpath -w packaging/windows/Kontra.iss)"
 test -f "$OUT/Kontra-$VERSION-windows-setup.exe"
 
-# The portable ZIP: the folder under its own name, so unpacking makes one folder.
-zip_path="$(cygpath -w "$PWD/$OUT/Kontra-$VERSION-windows-portable.zip")"
-powershell -NoProfile -Command \
-    "Compress-Archive -Path '$(cygpath -w "$DIST")' -DestinationPath '$zip_path'"
-test -f "$OUT/Kontra-$VERSION-windows-portable.zip"
+# The portable ZIP: the folder under its own name, so unpacking makes one folder. Windows' own
+# bsdtar writes it (by path: Git Bash's tar is GNU tar, which cannot write or read ZIP);
+# Compress-Archive wrote backslashes into the entry names.
+bsdtar="$(cygpath -u "$SYSTEMROOT")/System32/tar.exe"
+zip="$OUT/Kontra-$VERSION-windows-portable.zip"
+"$bsdtar" -a -c -f "$(cygpath -w "$PWD/$zip")" -C "$(cygpath -w "$(dirname "$DIST")")" "$(basename "$DIST")"
+test -f "$zip"
 
 # Agent files belong in no package (release-changelog); the licences do.
-listing="$(tar -tf "$OUT/Kontra-$VERSION-windows-portable.zip")"
+listing="$("$bsdtar" -tf "$(cygpath -w "$PWD/$zip")")"
 if echo "$listing" | grep -qiE '(^|/)(CLAUDE|agent|RULES|RELEASE)\.md$'; then
     echo "installer-windows: rules files in the ZIP" >&2
     exit 1
 fi
-echo "$listing" | grep -q 'share/licenses/Kontra/GPL-3.0.txt'
-
+if echo "$listing" | grep -q '\\'; then
+    echo "installer-windows: backslashes in the ZIP's entry names" >&2
+    exit 1
+fi
+echo "$listing" | grep -q '/share/licenses/Kontra/GPL-3.0.txt'
+echo "$listing" | grep -q '/share/licenses/Kontra/LGPL-3.0.txt'
 ls -l "$OUT"

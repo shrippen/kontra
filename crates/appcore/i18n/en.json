@@ -1119,5 +1119,5 @@
   "update.text": "A newer version is out. Kontra does not download it; the release page has the installer.",
   "update.open": "Open release page",
   "settings.update": "Look for new versions",
-  "settings.update.hint": "At start, Kontra asks shrippen.github.io which version is the latest and says so here if yours is older. It sends nothing else. Takes effect at the next start."
+  "settings.update.hint": "At start, Kontra asks shrippen.github.io which version is the latest and says so here if yours is older. The request names Kontra and its version, nothing else. At most once a day. Takes effect at the next start."
 }

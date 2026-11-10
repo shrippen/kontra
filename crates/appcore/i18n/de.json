@@ -1119,5 +1119,5 @@
   "update.text": "Es gibt eine neuere Version. Kontra lädt sie nicht selbst; die Release-Seite hat den Installer.",
   "update.open": "Release-Seite öffnen",
   "settings.update": "Nach neuen Versionen suchen",
-  "settings.update.hint": "Beim Start fragt Kontra shrippen.github.io nach der neuesten Version und sagt es hier, wenn deine älter ist. Mehr wird nicht gesendet. Gilt ab dem nächsten Start."
+  "settings.update.hint": "Beim Start fragt Kontra shrippen.github.io nach der neuesten Version und sagt es hier, wenn deine älter ist. Die Anfrage nennt Kontra und seine Version, sonst nichts. Höchstens einmal am Tag. Gilt ab dem nächsten Start."
 }

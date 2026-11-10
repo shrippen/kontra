@@ -93,4 +93,4 @@ pub use technique::{
     TechniqueResult, TechniqueTally, TechniqueTarget,
 };
 pub use transport::{LoopRange, Transport};
-pub use update::{NewRelease, UpdateCheck};
+pub use update::{is_newer, NewRelease, UpdateCheck};

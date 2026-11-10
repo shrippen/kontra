@@ -28,11 +28,11 @@ AppPublisherURL=https://shrippen.github.io/
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-; The package is GPLv3 (ASIO): the user reads that before installing.
-LicenseFile={#SourceDir}\share\licenses\Kontra\GPL-3.0.txt
+; The package is GPLv3 (ASIO) and carries Qt and KDE Frameworks under the LGPL: the user reads
+; that notice before installing; the full texts are in the installed licence folder.
+LicenseFile={#SourceDir}\share\licenses\Kontra\NOTICE.txt
 OutputDir={#OutputDir}
 OutputBaseFilename=Kontra-{#AppVersion}-windows-setup
 UninstallDisplayName={#AppName}

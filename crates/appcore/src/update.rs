@@ -7,10 +7,14 @@
 //! ```
 
 use crate::Core;
-use kontra_session::{FileHttp, Http, NewRelease, UpdateCheck, Web};
+use kontra_session::{is_newer, FileHttp, Http, NewRelease, UpdateCheck, Web};
 use serde_json::json;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+const DAY_S: u64 = 24 * 60 * 60;
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Set inside a Flatpak, whose store announces updates.
 const FLATPAK_ENV: &str = "FLATPAK_ID";
@@ -44,13 +48,18 @@ impl Core {
         if !self.settings.update_check || self.update_by_store() || (recorded && !fake) {
             return;
         }
+        let now = unix_now();
+        if answer.is_none() && now.saturating_sub(self.settings.update_checked_unix) < DAY_S {
+            self.recall_update();
+            return;
+        }
         let http = self
             .updater
             .http
             .get_or_insert_with(|| Arc::new(Web::new()))
             .clone();
         let mut check = UpdateCheck::new(http);
-        check.start(env!("CARGO_PKG_VERSION"));
+        check.start(VERSION);
         self.updater.check = Some(check);
     }
 
@@ -58,7 +67,11 @@ impl Core {
     pub fn update_poll(&mut self) -> Option<String> {
         let outcome = self.updater.check.as_mut()?.poll()?;
         self.updater.check = None;
-        self.updater.found = outcome;
+        // No answer (offline): nothing is remembered, the next start asks again.
+        if let Ok(found) = outcome {
+            self.remember_update(&found);
+            self.updater.found = found;
+        }
         Some(self.update_json())
     }
 
@@ -100,7 +113,37 @@ impl Core {
         self.updater.http = Some(http);
     }
 
+    /// The answer of today's first request, for the starts that follow it.
+    fn remember_update(&mut self, found: &Option<NewRelease>) {
+        let (version, url) = found
+            .as_ref()
+            .map_or_else(Default::default, |r| (r.version.clone(), r.url.clone()));
+        self.update_settings(|s| {
+            s.update_checked_unix = unix_now();
+            s.update_found_version = version;
+            s.update_found_url = url;
+        });
+    }
+
+    /// Shows what the last request found, as long as this version is still older.
+    fn recall_update(&mut self) {
+        let s = &self.settings;
+        if s.update_found_version.is_empty() || !is_newer(&s.update_found_version, VERSION) {
+            return;
+        }
+        self.updater.found = Some(NewRelease {
+            version: s.update_found_version.clone(),
+            url: s.update_found_url.clone(),
+        });
+    }
+
     fn update_by_store(&self) -> bool {
         std::env::var_os(FLATPAK_ENV).is_some()
     }
+}
+
+fn unix_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
 }

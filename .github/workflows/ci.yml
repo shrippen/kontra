@@ -253,6 +253,8 @@ jobs:
         run: |
           target="$RUNNER_TEMP/kontra-installed"
           setup=$(ls dist/release/Kontra-*-windows-setup.exe)
+          # Git Bash would turn "/VERYSILENT" into a path: no conversion for these calls.
+          export MSYS2_ARG_CONV_EXCL='*'
           "$setup" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/DIR=$(cygpath -w "$target")"
           test -f "$target/bin/kontra.exe"
           test -f "$target/share/licenses/Kontra/GPL-3.0.txt"
