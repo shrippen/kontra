@@ -1,6 +1,6 @@
 # Regel → Prüfung (W4)
 
-Welche Regel aus `agent.md` und `../CLAUDE.md` eine Maschine prüft und welche nur das Review (`REVIEW.md`).
+Welche Regel aus `agent.md`, `RULES.md` und `../CLAUDE.md` eine Maschine prüft und welche nur das Review (`REVIEW.md`).
 „Hook“: `scripts/hooks/` (einmal `make hooks`); „CI“: `.github/workflows/ci.yml`, Job `core` oder `app`.
 Eine Regel, die eine Prüfung bekommt, wandert hier von „Review“ nach oben.
 
