@@ -66,6 +66,7 @@ impl Core {
             .live
             .as_ref()
             .is_some_and(|l| !l.practice().session().is_finished());
+        let finished_at = (self.live.is_some() && !under_way).then(|| self.position_s());
         self.stop_live();
         if map_goes {
             // Saves, and loads the piece again at its own tempo. Loading drops the loop, so
@@ -76,7 +77,16 @@ impl Core {
         if under_way {
             return Ok(BackingChange::StartOver);
         }
+        self.finished_at_s = finished_at;
         Ok(BackingChange::Kept)
+    }
+
+    /// Where the run stands; a finished run that a chosen recording ended stays where it was.
+    pub fn position_s(&self) -> f64 {
+        let Some(live) = self.live.as_ref() else {
+            return self.finished_at_s.unwrap_or(0.0);
+        };
+        live.practice().position_s()
     }
 
     pub fn recent_json(&self) -> String {

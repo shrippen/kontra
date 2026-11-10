@@ -1191,8 +1191,8 @@ impl Default for ControllerRust {
             monitor_high_db: s.monitor_high_db,
             monitor_compress: s.monitor_compress,
             monitor_warmth: s.monitor_warmth,
-            monitor_drive: s.monitor_drive,
-            monitor_width: s.monitor_width,
+            monitor_drive: s.monitor_drive(),
+            monitor_width: s.monitor_width(),
             monitor_limit: s.monitor_limit,
             shaping_range_db: kontra_appcore::Core::shaping_range_db(),
             density: 100,
@@ -1912,8 +1912,8 @@ impl qobject::Controller {
         self.as_mut().set_monitor_high_db(s.monitor_high_db);
         self.as_mut().set_monitor_compress(s.monitor_compress);
         self.as_mut().set_monitor_warmth(s.monitor_warmth);
-        self.as_mut().set_monitor_drive(s.monitor_drive);
-        self.as_mut().set_monitor_width(s.monitor_width);
+        self.as_mut().set_monitor_drive(s.monitor_drive());
+        self.as_mut().set_monitor_width(s.monitor_width());
         self.as_mut().set_monitor_limit(s.monitor_limit);
         self.as_mut().set_setup_done(s.setup_done);
         self.as_mut().set_playing(false);

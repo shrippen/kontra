@@ -10,11 +10,12 @@
 //! control ─► command ring ───────────────┴─► output callback: voices + backing + monitor ─► device
 //! ```
 
-use crate::clock::Clock;
+use crate::clock::{settle, Clock};
 use crate::{EngineError, Event};
 use kontra_drivers::{OutputStream, StreamConfig};
 use kontra_dsp::synth::Noise;
-use kontra_dsp::{OutputLimiter, PitchShifter, Shaper, Shaping, PITCH_LATENCY};
+use kontra_dsp::{Chain, OutputLimiter, PitchShifter, Shaper, Shaping, PITCH_LATENCY};
+use kontra_model::ChainSpec;
 use kontra_model::DrumKind;
 use std::f32::consts::TAU;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -213,6 +214,9 @@ const IDLE_VOICE: Voice = Voice {
     active: false,
 };
 
+/// Chains in flight in each direction (a new shape waits here while one is fading out).
+const CHAIN_RING: usize = 8;
+
 /// Running output; dropping it stops playback.
 #[derive(Debug)]
 pub struct Player {
@@ -223,6 +227,12 @@ pub struct Player {
     monitor: Option<rtrb::Producer<f32>>,
     /// Read end of what played, until a microphone input takes it (boxed: rarely used).
     reference: Option<Box<Reference>>,
+    /// New effect chains, built here, for the mixer.
+    chains: rtrb::Producer<Box<Chain>>,
+    /// Chains the mixer has faded out; dropped here, not in the callback.
+    retired: rtrb::Consumer<Box<Chain>>,
+    /// The shape of the chain last handed to the mixer.
+    chain_shape: ChainSpec,
     pub sample_rate: u32,
 }
 
@@ -249,6 +259,8 @@ impl Player {
         let (producer, mut consumer) = rtrb::RingBuffer::<Command>::new(COMMANDS);
         let (monitor, monitor_rx) = rtrb::RingBuffer::<f32>::new(MONITOR_RING);
         let (reference_tx, reference_rx) = rtrb::RingBuffer::<f32>::new(REFERENCE_RING);
+        let (chains_tx, chains_rx) = rtrb::RingBuffer::<Box<Chain>>::new(CHAIN_RING);
+        let (retired_tx, retired_rx) = rtrb::RingBuffer::<Box<Chain>>::new(CHAIN_RING);
         let armed = Arc::new(AtomicBool::new(false));
         let reference_start = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
         let started = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
@@ -261,6 +273,10 @@ impl Player {
             next: None,
             monitor: Some(monitor_rx),
             shaper: Shaper::new(48_000.0),
+            chains: Some(ChainLink {
+                incoming: chains_rx,
+                retired: retired_tx,
+            }),
             shifter: Box::new(PitchShifter::new()),
             shift_next: None,
             reference: Some(ReferenceTap {
@@ -272,23 +288,24 @@ impl Player {
             sum_limit: OutputLimiter::new(48_000.0),
         };
         let mut frame: u64 = 0;
-        let mut first_block = true;
         // The device's rate is known only after opening; the callback reads it from here.
         let rate = Arc::new(AtomicU64::new(48_000));
         let rate_cb = Arc::clone(&rate);
         let stream = OutputStream::open(
             config,
-            move |data: &mut [f32], channels: usize| {
-                if first_block {
-                    started_cb.store(clock.now_s().to_bits(), Ordering::Relaxed);
-                    first_block = false;
-                }
+            move |data: &mut [f32], channels: usize, lead_s: f64| {
+                let sr = rate_cb.load(Ordering::Relaxed) as f64;
+                // When the first frame sounds: the device's lead after now, less what played
+                // before (R3).
+                let played_s = frame as f64 / sr;
                 let t0 = f64::from_bits(started_cb.load(Ordering::Relaxed));
+                let t0 = settle(t0, clock.now_s() + lead_s - played_s, played_s);
+                started_cb.store(t0.to_bits(), Ordering::Relaxed);
                 while let Ok(command) = consumer.pop() {
                     mixer.apply(command);
                 }
-                let sr = rate_cb.load(Ordering::Relaxed) as f64;
                 mixer.trim_monitor(sr);
+                mixer.swap_chains();
                 for out in data.chunks_mut(channels.max(1)) {
                     let now = t0 + frame as f64 / sr;
                     let (left, right) = mixer.render(now, sr);
@@ -320,6 +337,9 @@ impl Player {
                 armed,
                 start_s: reference_start,
             })),
+            chains: chains_tx,
+            retired: retired_rx,
+            chain_shape: ChainSpec::EMPTY,
         })
     }
 
@@ -331,6 +351,20 @@ impl Player {
     /// Hands the monitor ring's write end to an input (once).
     pub(crate) fn take_monitor(&mut self) -> Option<rtrb::Producer<f32>> {
         self.monitor.take()
+    }
+
+    /// Makes a new chain when the effects, their order or on/off differ from the last; the
+    /// mixer fades over to it. Values alone travel with the gains. A full ring keeps the old
+    /// shape, so the next call tries again.
+    fn fit_chain(&mut self, spec: &ChainSpec) {
+        while self.retired.pop().is_ok() {}
+        if self.chain_shape.same_shape(spec) {
+            return;
+        }
+        let chain = Box::new(Chain::new(spec, f64::from(self.sample_rate)));
+        if self.chains.push(chain).is_ok() {
+            self.chain_shape = *spec;
+        }
     }
 
     /// Output dropouts since the start (LH-NF-04).
@@ -372,6 +406,7 @@ impl Output for Player {
     }
 
     fn set_gains(&mut self, gains: Gains) {
+        self.fit_chain(&gains.shaping.chain);
         let _ = self.commands.push(Command::Gains(gains));
     }
 
@@ -419,6 +454,12 @@ impl ReferenceTap {
     }
 }
 
+/// The mixer's ends of the rings that carry effect chains.
+struct ChainLink {
+    incoming: rtrb::Consumer<Box<Chain>>,
+    retired: rtrb::Producer<Box<Chain>>,
+}
+
 /// State owned by the audio callback.
 struct Mixer {
     voices: [Voice; VOICES],
@@ -430,6 +471,8 @@ struct Mixer {
     monitor: Option<rtrb::Consumer<f32>>,
     /// Shapes the monitored bass.
     shaper: Shaper,
+    /// Where new effect chains come from and old ones go; `None` in tests.
+    chains: Option<ChainLink>,
     /// Write side of `Reference`.
     reference: Option<ReferenceTap>,
     /// Transposes the backing track (made with the mixer: no allocation in the callback).
@@ -495,6 +538,26 @@ impl Mixer {
                 }
                 self.shifter.set_semitones(semitones);
             }
+        }
+    }
+
+    /// Once per block: hands a faded-out chain back and takes the next new one, when the
+    /// shaper is ready for it (one fade at a time). Nothing here allocates or frees.
+    fn swap_chains(&mut self) {
+        let Some(link) = self.chains.as_mut() else {
+            return;
+        };
+        if let Some(old) = self.shaper.take_retired() {
+            // Only a control side that stopped listening leaves the ring full: then the
+            // chain is freed here, once, rather than kept for ever.
+            let _ = link.retired.push(old);
+        }
+        if !self.shaper.can_swap() {
+            return;
+        }
+        if let Ok(new) = link.incoming.pop() {
+            // `can_swap` held, so the shaper takes it.
+            let _ = self.shaper.swap_chain(new);
         }
     }
 
@@ -692,6 +755,7 @@ mod tests {
             next: None,
             monitor: None,
             shaper: Shaper::new(48_000.0),
+            chains: None,
             shifter: Box::new(PitchShifter::new()),
             shift_next: None,
             reference: None,
@@ -920,6 +984,49 @@ mod tests {
             }
         }
         assert!(peak <= kontra_dsp::LIMIT_CEILING + 1e-6, "peak {peak}");
+    }
+
+    /// LH-EIN-19: a new chain arrives through the ring between blocks, the monitored bass
+    /// fades over to it, and the old chain goes back out through the other ring.
+    #[test]
+    fn chains_come_in_and_go_back_out() {
+        let (mut m, mut tx) = monitored(1.0);
+        let (mut chains, incoming) = rtrb::RingBuffer::<Box<Chain>>::new(CHAIN_RING);
+        let (retired, mut back) = rtrb::RingBuffer::<Box<Chain>>::new(CHAIN_RING);
+        m.chains = Some(ChainLink { incoming, retired });
+        let sr = 48_000.0;
+        let fuzz: ChainSpec =
+            vec![kontra_model::SlotSpec::new(kontra_model::EffectKind::Fuzz)].into();
+        chains.push(Box::new(Chain::new(&fuzz, sr))).unwrap();
+        m.apply(Command::Gains(Gains {
+            shaping: Shaping {
+                chain: fuzz,
+                ..Shaping::FLAT
+            },
+            ..m.gains
+        }));
+
+        let tone = |i: usize| 0.3 * (std::f64::consts::TAU * 110.0 * i as f64 / sr).sin() as f32;
+        let mut played = Vec::new();
+        for block in 0..4 {
+            for i in 0..480 {
+                tx.push(tone(block * 480 + i)).unwrap();
+            }
+            m.trim_monitor(sr);
+            m.swap_chains();
+            for i in 0..480 {
+                played.push(m.render((block * 480 + i) as f64 / sr, sr).0);
+            }
+        }
+        // The fuzz is heard at the end, and the empty chain it replaced came back.
+        let last = &played[played.len() - 480..];
+        let apart = last
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (v - tone(1440 + i)).abs())
+            .fold(0.0, f32::max);
+        assert!(apart > 0.05, "{apart}");
+        assert!(back.pop().is_ok());
     }
 
     /// LH-WIE-02 (round 8): the mixer transposes the backing while it plays; a note in the

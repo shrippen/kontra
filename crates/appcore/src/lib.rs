@@ -224,6 +224,9 @@ pub struct Core {
     loaded: Option<Loaded>,
     pending: Option<(PathBuf, ImportResult)>,
     live: Option<Live>,
+    /// Where a finished run stood when a recording was chosen: the run is gone, the page keeps
+    /// its summary and position (review #242). Ends with the next run or piece.
+    finished_at_s: Option<f64>,
     tuner: Option<LiveTuner>,
     calibration: Option<LiveCalibration>,
     loopback: Option<LiveLoopback>,
@@ -311,7 +314,8 @@ pub fn startup_language(data_dir: &Path) -> &'static str {
 
 impl Core {
     pub fn new(data_dir: &Path, qa: QaOptions) -> Core {
-        let settings: Settings = store::load(&data_dir.join("settings.json"));
+        let mut settings: Settings = store::load(&data_dir.join("settings.json"));
+        settings.migrate();
         let mut library: Library = store::load(&data_dir.join("library.json"));
         library.plain_paths();
         library.find_moved(&Self::exercises_dir());
@@ -352,6 +356,7 @@ impl Core {
             loaded: None,
             pending: None,
             live: None,
+            finished_at_s: None,
             tuner: None,
             calibration: None,
             loopback: None,
@@ -962,6 +967,7 @@ impl Core {
             tracks: playable(imported).collect(),
             track,
         });
+        self.finished_at_s = None;
         self.rethin();
         Ok(())
     }
@@ -1033,12 +1039,6 @@ impl Core {
 
     pub fn duration_s(&self) -> f64 {
         self.arrangement().map_or(0.0, Arrangement::duration_s)
-    }
-
-    pub fn position_s(&self) -> f64 {
-        self.live
-            .as_ref()
-            .map_or(0.0, |l| l.practice().position_s())
     }
 
     /// True while a run exists, playing or paused (it goes on after a change of key).
@@ -1156,6 +1156,7 @@ impl Core {
         }
         self.input.stopped(InputUse::Practice);
         self.probe = None;
+        self.finished_at_s = None;
     }
 
     /// Audio dropouts since Kontra started, over all runs (LH-NF-04).
@@ -1747,6 +1748,7 @@ impl Core {
         live.practice_mut().set_gains(gains(&self.settings));
         let silent = live.output_is_silent;
         self.live = Some(live);
+        self.finished_at_s = None;
         self.input_opened(InputUse::Practice);
         self.run_started = Some(std::time::Instant::now());
         self.input_since = self.run_started;

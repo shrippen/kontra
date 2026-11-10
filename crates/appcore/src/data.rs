@@ -62,7 +62,8 @@ pub struct Merged {
 
 impl Bundle {
     pub fn parse(text: &str) -> Result<Bundle, BundleError> {
-        let bundle: Bundle = serde_json::from_str(text).map_err(|_| BundleError::Unreadable)?;
+        let mut bundle: Bundle = serde_json::from_str(text).map_err(|_| BundleError::Unreadable)?;
+        bundle.settings.migrate();
         if bundle.format != FORMAT {
             return Err(BundleError::Unreadable);
         }
@@ -188,6 +189,28 @@ mod tests {
         assert_eq!(Bundle::parse(&text(&bundle)), Err(BundleError::BadSongId));
         bundle.format = "other".into();
         assert_eq!(Bundle::parse(&text(&bundle)), Err(BundleError::Unreadable));
+    }
+
+    /// A backup from before the chain (LH-EIN-19) holds overdrive and width as numbers; they
+    /// import as slots, not lost at the next save.
+    #[test]
+    fn an_old_backup_brings_its_drive_and_width() {
+        let text = serde_json::json!({
+            "format": FORMAT,
+            "version": VERSION,
+            "settings": { "monitor_drive": 0.5, "monitor_width": 0.25 },
+            "library": {},
+        })
+        .to_string();
+        let bundle = Bundle::parse(&text).unwrap();
+        assert_eq!(bundle.settings.monitor_chain.slots().len(), 2);
+        assert_eq!(
+            (
+                bundle.settings.monitor_drive(),
+                bundle.settings.monitor_width()
+            ),
+            (0.5, 0.25)
+        );
     }
 
     #[test]

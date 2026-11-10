@@ -11,6 +11,7 @@
 mod arrangement;
 mod chord;
 mod event;
+mod fx;
 mod instrument;
 mod pitch;
 mod tempo;
@@ -26,6 +27,7 @@ pub use event::{
     ExpectedTone, InputSource, NoteEnd, NoteRetraction, PitchRevision, StringHeard, StringVerdict,
     TechniqueRevision, Unclear,
 };
+pub use fx::{ChainSpec, EffectKind, SlotSpec, CHAIN_SLOTS};
 pub use instrument::{Instrument, InstrumentError, InstrumentKind, KeyRange, ToneBands};
 pub use pitch::{cents_between, hz_to_midi, midi_to_hz, NoteName, Pitch, A4_HZ};
 pub use tempo::{TempoChange, TempoMap};
