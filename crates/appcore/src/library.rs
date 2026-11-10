@@ -89,6 +89,11 @@ impl Core {
         live.practice().position_s()
     }
 
+    /// Audio dropouts since Kontra started, over all runs (LH-NF-04).
+    pub fn xruns(&self) -> u64 {
+        self.xruns_done + self.live.as_ref().map_or(0, |live| live.xruns())
+    }
+
     pub fn recent_json(&self) -> String {
         let store = self.progress_store();
         let list: Vec<_> = self
