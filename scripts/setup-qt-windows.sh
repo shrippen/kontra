@@ -76,7 +76,10 @@ if [ ! -d "${KF6_PREFIX}/lib/cmake/KF6Kirigami" ] \
     cmake -S "$s" -B "$s/build" -A x64 -Wno-dev \
         -DCMAKE_INSTALL_PREFIX="${KF6_PREFIX}" -DCMAKE_PREFIX_PATH="${QT_ROOT};${KF6_PREFIX}" \
         -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF -DUSE_DBUS=OFF
-    cmake --build "$s/build" --config Release --parallel
+    # Kirigami packs a file with "tar": Git Bash's reads "C:" as a host name ("Cannot connect
+    # to C: resolve failed"), so Windows' own tar goes first for the build.
+    PATH="$(cygpath -u "${SYSTEMROOT:-C:/Windows}")/System32:${PATH}" \
+        cmake --build "$s/build" --config Release --parallel
     cmake --install "$s/build" --config Release
     echo "${QT_VERSION}" > "${KF6_PREFIX}/.qt-version"   # Kirigami is tied to this Qt build
 else
