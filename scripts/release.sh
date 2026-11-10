@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Checks a release and tags it locally (W6, release rule in agent.md). Never pushes or
+# Checks a release and tags it locally (W6, release steps in RELEASE.md). Never pushes or
 # publishes: it prints the commands for that, the owner confirms a release in words first.
 #
 #   scripts/release.sh X.Y.Z [--dry-run]   check everything; tag vX.Y.Z unless --dry-run
