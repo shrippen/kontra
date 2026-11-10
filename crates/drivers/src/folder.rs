@@ -1,6 +1,7 @@
 //! The user's folders: where the browser saves downloads and which files arrived there lately.
 //!
 //! ```text
+//! $KONTRA_DOWNLOAD_DIR ─→ download_dir()   (every system: tests, screenshots)
 //! $XDG_DOWNLOAD_DIR ─┐
 //! user-dirs.dirs ────┼─→ download_dir() ─→ recent_files(dir, max_age) ─→ newest first
 //! $HOME/Downloads ───┘
@@ -92,9 +93,22 @@ pub struct RecentFile {
     pub modified_unix: u64,
 }
 
+/// Names the download folder for Kontra alone, on every system (tests, screenshots: a demo
+/// folder, never the real one).
+const DOWNLOAD_VARIABLE: &str = "KONTRA_DOWNLOAD_DIR";
+
+/// Where the browser saves downloads: the folder named for Kontra, else the system's.
+pub fn download_dir() -> Option<PathBuf> {
+    named_download_dir(&|key| std::env::var_os(key)).or_else(system_download_dir)
+}
+
+fn named_download_dir(env: &dyn Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
+    folder(env, DOWNLOAD_VARIABLE)
+}
+
 /// The download folder as the desktop names it (XDG user dirs), else `~/Downloads`.
 #[cfg(unix)]
-pub fn download_dir() -> Option<PathBuf> {
+fn system_download_dir() -> Option<PathBuf> {
     let home = PathBuf::from(std::env::var_os("HOME")?);
     if let Some(dir) = std::env::var_os(DOWNLOAD_KEY).filter(|d| !d.is_empty()) {
         return Some(PathBuf::from(dir));
@@ -110,7 +124,7 @@ pub fn download_dir() -> Option<PathBuf> {
 
 /// The profile's download folder (LH-NF-17).
 #[cfg(windows)]
-pub fn download_dir() -> Option<PathBuf> {
+fn system_download_dir() -> Option<PathBuf> {
     let profile = PathBuf::from(std::env::var_os("USERPROFILE")?);
     Some(profile.join(FALLBACK))
 }
@@ -169,6 +183,26 @@ mod tests {
                 .find(|(k, _)| *k == key)
                 .map(|(_, v)| OsString::from(v))
         }
+    }
+
+    /// Review #236: the screenshots named a demo folder through `XDG_DOWNLOAD_DIR`, which
+    /// Windows does not read; Kontra looked into the real Downloads there. Kontra's own
+    /// variable holds on every system.
+    #[test]
+    fn a_named_download_folder_wins() {
+        let named = [
+            ("KONTRA_DOWNLOAD_DIR", "/demo/downloads"),
+            ("HOME", "/home/lea"),
+        ];
+        assert_eq!(
+            named_download_dir(&env(&named)),
+            Some(PathBuf::from("/demo/downloads"))
+        );
+        assert_eq!(
+            named_download_dir(&env(&[("KONTRA_DOWNLOAD_DIR", "")])),
+            None
+        );
+        assert_eq!(named_download_dir(&env(&[("HOME", "/home/lea")])), None);
     }
 
     /// LH-NF-17 (Win4): data and cache went below `HOME` and XDG folders on every system; on

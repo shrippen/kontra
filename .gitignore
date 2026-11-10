@@ -13,3 +13,4 @@ __pycache__/
 /flatpak-repo/
 /flatpak-out/
 /packaging/cargo-vendor.toml
+dist/

@@ -5,10 +5,20 @@
 #   scripts/screenshots.sh [OUT_DIR]
 #
 # Needs the Qt environment (scripts/setup-qt-env.sh) and builds the app and CLI first.
+# On Windows (Git Bash, LH-NF-17): the environment of scripts/setup-qt-windows.sh; set
+# QT_QPA_PLATFORM=windows for real windows, offscreen has no system font there.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+EXE=""
+QT_ENV=scripts/qt-env.sh
+case "$(uname -s)" in
+    MINGW* | MSYS*)
+        EXE=.exe
+        QT_ENV=scripts/qt-env-windows.sh
+        ;;
+esac
 # shellcheck source=qt-env.sh
-. scripts/qt-env.sh
+. "$QT_ENV"
 
 OUT="${1:-docs/shots}"
 WORK="$(mktemp -d)"
@@ -18,8 +28,8 @@ mkdir -p "$OUT"
 # cxx-qt: an old qmlcachegen output can call stale method indices after bridge changes.
 cargo clean -q -p kontra-app
 cargo build -q -p kontra-app -p kontra-cli
-APP=target/debug/kontra
-CLI=target/debug/kontra-cli
+APP="target/debug/kontra$EXE"
+CLI="target/debug/kontra-cli$EXE"
 DEMO=testdata/demo/etude-1.mid
 
 # A take with a few mistakes: 20 ms late, every 7th note wrong; one count-in bar (2.4 s).
@@ -37,7 +47,7 @@ cp testdata/demo/groove-techniken.musicxml "$WORK/downloads/"
 shot() {
     local name="$1" lang="$2" after="$3"
     shift 3
-    XDG_DOWNLOAD_DIR="$WORK/downloads" KONTRA_DATA_DIR="$WORK/data-$lang" timeout 120 "$APP" --language "$lang" \
+    KONTRA_DOWNLOAD_DIR="$WORK/downloads" KONTRA_DATA_DIR="$WORK/data-$lang" timeout 120 "$APP" --language "$lang" \
         --screenshot "$OUT/$name-$lang.png" --screenshot-after "$after" "$@" > /dev/null 2>&1 || true
     [ -f "$OUT/$name-$lang.png" ] && echo "$OUT/$name-$lang.png"
 }

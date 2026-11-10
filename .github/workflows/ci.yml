@@ -136,6 +136,110 @@ jobs:
           # Techniques on real slaps, pops and dead notes (LH-BEW-06); reported, no floor yet.
           cargo run -q -p kontra-cli --release -- korpus techniques $L/conv/idmt-st
 
+  windows:
+    # Win1 (LH-NF-17): everything below the GUI builds and passes its tests on Windows (MSVC).
+    # Counts for "github / test" (owner, round 18, 10.11.2026): a red Windows run blocks a merge.
+    timeout-minutes: 45
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal -c clippy && rustup default stable
+      - uses: actions/cache@v4
+        # Without the cache the job only takes longer.
+        continue-on-error: true
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+          key: windows-${{ hashFiles('Cargo.lock') }}
+      - run: cargo clippy --workspace --exclude kontra-app --all-targets -- -D warnings
+      - run: cargo test --workspace --exclude kontra-app --no-fail-fast
+
+  windows-app:
+    # Win3 (LH-NF-17): the Qt app builds and starts on Windows: Qt and Kirigami from
+    # scripts/setup-qt-windows.sh (cached), one headless screenshot as proof. Counts for
+    # "github / test" like `windows`.
+    timeout-minutes: 90
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        # Without the cache the job only takes longer.
+        continue-on-error: true
+        with:
+          path: |
+            C:/Qt
+            C:/kf6
+          key: qt-windows-6.10.3-kf-6.30.0-multimedia
+      - uses: actions/cache@v4
+        continue-on-error: true
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+          key: windows-app-${{ hashFiles('Cargo.lock') }}
+      - name: Qt and Kirigami
+        run: scripts/setup-qt-windows.sh
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: Build and test
+        run: |
+          . scripts/qt-env-windows.sh
+          cargo build -p kontra-app
+          cargo test -p kontra-app
+      - name: Screenshot
+        run: |
+          . scripts/qt-env-windows.sh
+          mkdir -p shots
+          KONTRA_DATA_DIR="$RUNNER_TEMP/kontra-data" timeout 120 target/debug/kontra.exe \
+            --language en --page settings --screenshot shots/settings-en.png --screenshot-after 2000
+          test -f shots/settings-en.png
+      # With Windows' own platform plugin (fonts, scaling as a user sees them); the runner's
+      # session may refuse a window, so this one may fail.
+      - name: Screenshot in a real window
+        continue-on-error: true
+        run: |
+          . scripts/qt-env-windows.sh
+          KONTRA_DATA_DIR="$RUNNER_TEMP/kontra-data" QT_QPA_PLATFORM=windows timeout 120 target/debug/kontra.exe \
+            --language de --page settings --screenshot shots/settings-de-window.png --screenshot-after 3000
+          test -f shots/settings-de-window.png
+      # Every page as scripts/screenshots.sh takes them on Linux, in real windows. For looking
+      # at, not a check yet: a page that does not come up does not fail the job.
+      - name: Screenshots of every page
+        continue-on-error: true
+        run: QT_QPA_PLATFORM=windows scripts/screenshots.sh shots/pages
+      # Win5: the folder the installer will wrap. It must run without the Qt of this job: a
+      # screenshot with a bare PATH proves it, in a real window as a user starts it (the folder
+      # has Windows' platform plugin only, and the style Kontra picks itself). Uploaded for the
+      # test machine, not released.
+      - name: Portable folder
+        run: |
+          scripts/package-windows.sh dist/Kontra
+          # What the packed program would not find with a bare PATH (a missing DLL only shows
+          # a dialog and hangs).
+          missing=$(PATH="/c/Windows/System32:/c/Windows:/usr/bin" /usr/bin/ldd dist/Kontra/bin/kontra.exe dist/Kontra/bin/*.dll | grep -i "not found" | sort -u || true)
+          if [ -n "$missing" ]; then echo "$missing"; exit 1; fi
+          env -u QML_IMPORT_PATH -u QML2_IMPORT_PATH -u QT_PLUGIN_PATH -u QMAKE -u CMAKE_PREFIX_PATH \
+            PATH="/c/Windows/System32:/c/Windows:/usr/bin" QT_QPA_PLATFORM=windows \
+            QT_FORCE_STDERR_LOGGING=1 KONTRA_DATA_DIR="$RUNNER_TEMP/kontra-portable" \
+            /usr/bin/timeout 90 dist/Kontra/bin/kontra.exe --language de --page settings \
+            --screenshot shots/portable-de.png --screenshot-after 2000
+          test -f shots/portable-de.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-windows
+          path: shots/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kontra-windows-portable
+          path: dist/Kontra/
+          retention-days: 14
+
   app:
     # The Qt app: Qt 6.10 and Kirigami from scripts/setup-qt-env.sh (cached), headless screenshots.
     timeout-minutes: 45
@@ -188,22 +292,22 @@ jobs:
 
   # Also runs when a check failed or was cancelled, so Gitea never keeps a stale "pending".
   report:
-    needs: [pending, core, app]
+    needs: [pending, core, app, windows, windows-app]
     if: always()
     timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - name: Report result to Gitea
         run: |
-          all="$CORE $APP"
-          if [ "$all" = "success success" ]; then
+          all="$CORE $APP $WINDOWS $WINDOWS_APP"
+          if [ "$all" = "success success success success" ]; then
             state=success
           elif echo "$all" | grep -qw failure; then
             state=failure
           else
             state=error
           fi
-          desc="core $CORE, app $APP"
+          desc="core $CORE, app $APP, windows $WINDOWS, windows-app $WINDOWS_APP"
           if [ -n "$STARTED" ]; then desc="$desc in $(( ($(date +%s) - STARTED) / 60 )) min"; fi
           # Retried: a lost result would leave "pending" and the merge waiting.
           curl -fsS --retry 10 --retry-delay 15 --retry-all-errors -X POST "$GITEA_STATUS" \
@@ -212,5 +316,7 @@ jobs:
         env:
           CORE: ${{ needs.core.result }}
           APP: ${{ needs.app.result }}
+          WINDOWS: ${{ needs.windows.result }}
+          WINDOWS_APP: ${{ needs.windows-app.result }}
           STARTED: ${{ needs.pending.outputs.started }}
           GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}

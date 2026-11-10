@@ -55,7 +55,7 @@ impl Core {
             .map(|e| {
                 let progress = store.load_id(&e.song_id);
                 json!({
-                    "path": e.path,
+                    "path": e.path.to_string_lossy(),
                     "title": self.library_title(e),
                     "artist": e.artist,
                     "best": progress.as_ref().and_then(|p| p.best_hit_rate()),
@@ -141,7 +141,7 @@ impl Core {
         let repeated = |bar: u32| {
             repeat
                 .iter()
-                .any(|r| r["path"] == json!(entry.path) && r["bar"] == bar)
+                .any(|r| r["path"] == json!(entry.path.to_string_lossy()) && r["bar"] == bar)
         };
         let picked: Vec<u32> = bars
             .iter()
@@ -153,7 +153,7 @@ impl Core {
             return None;
         }
         Some(json!({
-            "path": entry.path,
+            "path": entry.path.to_string_lossy(),
             "title": self.library_title(entry),
             "bars": picked,
         }))
@@ -209,8 +209,9 @@ impl Core {
                 let Some(s) = spacing(&list).filter(|s| s.due_unix <= now) else {
                     continue;
                 };
-                let card =
-                    json!({ "path": entry.path, "title": self.library_title(entry), "bar": bar });
+                // Lossy, as the piece list: a path that is not text must not end the program.
+                let path = entry.path.to_string_lossy();
+                let card = json!({ "path": path, "title": self.library_title(entry), "bar": bar });
                 due.push((s.due_unix, card));
             }
         }
@@ -286,7 +287,7 @@ impl Core {
         }
         let (_, entry, bars) = latest?;
         Some(json!({
-            "path": entry.path,
+            "path": entry.path.to_string_lossy(),
             "title": self.library_title(entry),
             "from": bars.from_bar,
             "to": bars.to_bar,

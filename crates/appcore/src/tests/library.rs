@@ -43,8 +43,30 @@ fn a_name_kontra_cannot_keep_is_refused() {
     core.open(&demo()).unwrap();
     core.set_backing(Some(file), 0.0).unwrap();
     assert_eq!(core.backing_name(), "");
-    // A package's own path is never kept: its name does not matter.
-    assert!(core.keepable(&dir.join("gut.mid")).is_ok());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// A package's own path is never kept: it opens whatever its file is called (review #235).
+/// Skipped on a file system that refuses the name.
+#[cfg(unix)]
+#[test]
+fn a_package_opens_under_any_name() {
+    let dir = temp_dir("latin1-package");
+    let mut teacher = Core::new(&dir.join("thomas"), QaOptions::default());
+    teacher.open(&demo()).unwrap();
+    let package = dir.join("plain.kontra");
+    teacher
+        .export_package(&demo(), &package, PackageAudio::Link)
+        .unwrap();
+    let odd = dir.join(latin1(b"st\xFCck.kontra"));
+    if std::fs::copy(&package, &odd).is_err() {
+        let _ = std::fs::remove_dir_all(dir);
+        return;
+    }
+
+    let mut student = Core::new(&dir.join("schueler"), QaOptions::default());
+    student.open(&odd).unwrap();
+    assert!(store::save(&dir.join("probe.json"), &student.library).is_ok());
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -95,6 +117,19 @@ fn a_plain_path_stays_text() {
     assert!(store::save(&dir.join("probe.json"), &core.library).is_ok());
     let recent: serde_json::Value = serde_json::from_str(&core.recent_json()).unwrap();
     assert_eq!(recent.as_array().map(Vec::len), Some(1));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The start page and the progress page name pieces too (review #236).
+#[cfg(unix)]
+#[test]
+fn pages_survive_a_name_that_is_not_text() {
+    let dir = temp_dir("latin1-pages");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.open(&demo()).unwrap();
+    core.library.recent[0].path = latin1(b"/alt/st\xFCck.mid");
+    assert!(serde_json::from_str::<serde_json::Value>(&core.home_json(0)).is_ok());
+    assert!(serde_json::from_str::<serde_json::Value>(&core.progress_json()).is_ok());
     let _ = std::fs::remove_dir_all(dir);
 }
 
