@@ -60,6 +60,39 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 | LH-ALL-06 Startseite | umgesetzt (#48, 13.10.) |
 | Vor 0.1 offen | Hardware-Prüfungen (Runde 10: zuerst), Tastatur/Screenreader am Gerät, Release-Log, Screenshots, Flatpak |
 
+## Effekte und Plugins: CLAP, VST3 (Eigentümer, 10.11.2026)
+
+Auf den mitgehörten Bass lassen sich verschiedene Effekte legen, eigene und Plugins im Format CLAP oder VST3
+(VST3-SDK seit 3.8 unter MIT). Die Erkennung hört weiter den trockenen Eingang; Effekte ändern nur, was der Spieler
+hört (LH-EIN-19 bis LH-EIN-21). Personas: P2 und P8 (eigener Sound, Plugins schon gekauft), P3 (Kompressor, Hall
+beim Üben), P1 (alles aus, bis sie es sucht).
+
+```text
+Eingang ─┬─────────────────────────────────────────────────────────► Erkennung (trocken)
+         └─► Klangformung ─► [Slot 1] ─► [Slot 2] ─► … ─► Begrenzer ─► Ausgang
+             (EQ, Kompr.)     eigener Effekt oder Plugin      (immer an, −1 dBFS)
+
+session  Kette als Einstellung (Reihenfolge, an/aus, Werte, Zustand der Plugins)
+engine   Kette im Audio-Callback; Umbau außerhalb, fertige Kette per Ringpuffer hinein
+drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier)
+```
+
+- [ ] FX1 Kette: Overdrive und Breite (LH-EIN-17) werden Slots einer Kette mit freier Reihenfolge; dazu eigene
+  Effekte, die am Bass üblich sind: Chorus, Hüllkurvenfilter (Auto-Wah), Oktaver, Delay, Hall, Fuzz. Allokationsfrei,
+  Umbau ohne Knacken (Überblenden), Latenz der Kette sichtbar.
+- [ ] FX2 CLAP-Host (`clack-host`, MIT/Apache-2.0): Suchpfade nach Spezifikation (`CLAP_PATH`, `~/.clap`,
+  `/usr/lib/clap`; Windows `%COMMONPROGRAMFILES%\CLAP`, `%LOCALAPPDATA%\Programs\Common\CLAP`), Parameter,
+  Zustand, Latenz. Das Durchsuchen läuft in einem eigenen Prozess (`kontra-cli plugins scan`): ein abstürzendes
+  Plugin reißt Kontra nicht mit, es wird als kaputt gemerkt.
+- [ ] FX3 VST3-Host (`vst3`, MIT/Apache-2.0, Bindungen des MIT-SDK): Suchpfade (`~/.vst3`, `/usr/lib/vst3`,
+  `/usr/local/lib/vst3`; Windows `%COMMONPROGRAMFILES%\VST3`), Bundles `.vst3`, Parameter, Zustand, Latenz.
+- [ ] FX4 Oberfläche: Effekte im Mixer neben der Klangformung, Plugins wählen, Reihenfolge, an/aus, Parameter als
+  Liste mit Reglern (Kante), Voreinstellungen je Kette. Tastatur und Screenreader (P7).
+- [ ] FX5 Eigene Fenster der Plugins (CLAP `gui`, VST3 `IPlugView`; unter Wayland über XWayland).
+- [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket.
+- Offen für den Eigentümer: Name und Logo „VST“ sind Marken von Steinberg; ob Kontra sie nennen darf, klärt die
+  nächste Runde.
+
 ## Multiplattform: Windows (Eigentümer, 10.11.2026)
 
 Kontra wird für weitere Systeme vorbereitet, Windows zuerst (vorher: Windows und macOS erst nach 1.0). Linux bleibt das
