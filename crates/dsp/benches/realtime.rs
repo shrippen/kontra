@@ -16,8 +16,8 @@
 use criterion::{criterion_group, Criterion, Throughput};
 use kontra_dsp::synth::{add_noise, render, SynthNote, ToneShape};
 use kontra_dsp::{
-    EchoCanceller, Limit, NoteTracker, OnsetConfig, OnsetDetector, Shaper, Shaping, TrackerConfig,
-    Tuner, Yin, ECHO_BLOCK,
+    EchoCanceller, Limit, NoteTracker, OnsetConfig, OnsetDetector, OutputLimiter, Shaper, Shaping,
+    TrackerConfig, Tuner, Yin, ECHO_BLOCK,
 };
 use kontra_model::{InputSource, Instrument, Pitch, A4_HZ};
 use std::f64::consts::TAU;
@@ -180,6 +180,15 @@ fn report() {
         move |b: &[f32]| {
             for &x in b {
                 black_box(shape.process(x, SR));
+            }
+        }
+    });
+    // The limiter on the output sum (LH-WIE-06), working: the line at twice full scale.
+    budget("output/limit", &line, BLOCK, || {
+        let mut limit = OutputLimiter::new(SR);
+        move |b: &[f32]| {
+            for &x in b {
+                black_box(limit.process((2.0 * x, 2.0 * x), SR));
             }
         }
     });

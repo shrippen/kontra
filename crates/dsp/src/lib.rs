@@ -35,7 +35,7 @@ pub mod synth;
 pub use beats::{track_beats, BeatGrid};
 pub use biquad::{Biquad, EqKind, FilterKind};
 pub use echo::{EchoCanceller, ECHO_BLOCK};
-pub use effects::LIMIT_CEILING;
+pub use effects::{OutputLimiter, LIMIT_CEILING};
 pub use inharmonicity::{
     InharmonicityMeter, Pick, Stiffness, StringModel, FROM_PEAK_S, LOG_B_PER_FRET, WINDOW_S,
 };
