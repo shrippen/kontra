@@ -25,10 +25,10 @@ pub use backing::{BackingTrack, Resolution};
 pub use clock::Clock;
 pub use input::{Input, InputKind, Pace, Recording};
 pub use kontra_drivers::{
-    audio_priority, download_dir, find_separator, in_sandbox, list_devices, list_midi_inputs,
-    read_audio, recent_files, write_wav, AudioBuffer, Connection, DeviceInfo, Direction, FileHttp,
-    Http, HttpError, MidiPort, Priority, RecentFile, SeparationJob, Separator, SeparatorError,
-    StreamConfig, Web, NULL_DEVICE,
+    audio_priority, cache_home, data_home, download_dir, find_separator, in_sandbox, list_devices,
+    list_midi_inputs, read_audio, recent_files, write_wav, AudioBuffer, Connection, DeviceInfo,
+    Direction, FileHttp, Http, HttpError, MidiPort, Priority, RecentFile, SeparationJob, Separator,
+    SeparatorError, StreamConfig, Web, NULL_DEVICE,
 };
 pub use kontra_dsp::{
     track_beats, BeatGrid, Limit, Pick, Shaping, StringModel, LOG_B_PER_FRET, SHAPING_RANGE_DB,

@@ -6,8 +6,13 @@
 //! $HOME/Downloads ───┘
 //!
 //! Windows: %USERPROFILE%\Downloads ─→ download_dir()   (a moved folder: known folders, Win4)
+//!
+//!            data_home()                         cache_home()
+//! Unix       $XDG_DATA_HOME, ~/.local/share      $XDG_CACHE_HOME, ~/.cache
+//! Windows    %APPDATA% (roams with the user)     %LOCALAPPDATA% (stays on the machine)
 //! ```
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -18,6 +23,54 @@ const USER_DIRS: &str = "user-dirs.dirs";
 const FALLBACK: &str = "Downloads";
 #[cfg(unix)]
 const HOME_VARIABLE: &str = "$HOME";
+
+/// The systems whose folders differ.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum System {
+    Unix,
+    Windows,
+}
+
+impl System {
+    const HERE: System = if cfg!(windows) {
+        System::Windows
+    } else {
+        System::Unix
+    };
+}
+
+/// Where programs keep the user's data (settings, library, progress); `None` without a home.
+pub fn data_home() -> Option<PathBuf> {
+    data_home_in(System::HERE, &|key| std::env::var_os(key))
+}
+
+/// Where programs keep what they can make again (prepared audio); `None` without a home.
+pub fn cache_home() -> Option<PathBuf> {
+    cache_home_in(System::HERE, &|key| std::env::var_os(key))
+}
+
+fn data_home_in(system: System, env: &dyn Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
+    match system {
+        System::Unix => folder(env, "XDG_DATA_HOME").or_else(|| below_home(env, ".local/share")),
+        System::Windows => folder(env, "APPDATA"),
+    }
+}
+
+fn cache_home_in(system: System, env: &dyn Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
+    match system {
+        System::Unix => folder(env, "XDG_CACHE_HOME").or_else(|| below_home(env, ".cache")),
+        System::Windows => folder(env, "LOCALAPPDATA"),
+    }
+}
+
+/// The folder a variable names; set but empty counts as not set.
+fn folder(env: &dyn Fn(&str) -> Option<OsString>, key: &str) -> Option<PathBuf> {
+    env(key).filter(|v| !v.is_empty()).map(PathBuf::from)
+}
+
+fn below_home(env: &dyn Fn(&str) -> Option<OsString>, rest: &str) -> Option<PathBuf> {
+    folder(env, "HOME").map(|home| home.join(rest))
+}
 
 /// A file and when it last changed.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -96,6 +149,64 @@ pub fn recent_files(dir: &Path, max_age: Duration) -> Vec<RecentFile> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn env<'a>(set: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<OsString> + 'a {
+        move |key| {
+            set.iter()
+                .find(|(k, _)| *k == key)
+                .map(|(_, v)| OsString::from(v))
+        }
+    }
+
+    /// LH-NF-17 (Win4): data and cache went below `HOME` and XDG folders on every system; on
+    /// Windows that was `.\.local\share\kontra` in whatever folder Kontra started in.
+    #[test]
+    fn program_folders_on_both_systems() {
+        let linux = [("HOME", "/home/lea")];
+        assert_eq!(
+            data_home_in(System::Unix, &env(&linux)),
+            Some(PathBuf::from("/home/lea/.local/share"))
+        );
+        assert_eq!(
+            cache_home_in(System::Unix, &env(&linux)),
+            Some(PathBuf::from("/home/lea/.cache"))
+        );
+        let xdg = [
+            ("HOME", "/home/lea"),
+            ("XDG_DATA_HOME", "/data"),
+            ("XDG_CACHE_HOME", "/fast"),
+        ];
+        assert_eq!(
+            data_home_in(System::Unix, &env(&xdg)),
+            Some(PathBuf::from("/data"))
+        );
+        assert_eq!(
+            cache_home_in(System::Unix, &env(&xdg)),
+            Some(PathBuf::from("/fast"))
+        );
+        // Set but empty counts as not set (XDG base directory specification).
+        let empty = [("HOME", "/home/lea"), ("XDG_DATA_HOME", "")];
+        assert_eq!(
+            data_home_in(System::Unix, &env(&empty)),
+            Some(PathBuf::from("/home/lea/.local/share"))
+        );
+
+        let windows = [
+            ("APPDATA", r"C:\Users\Noah B\AppData\Roaming"),
+            ("LOCALAPPDATA", r"C:\Users\Noah B\AppData\Local"),
+            ("HOME", "/not/used"),
+        ];
+        assert_eq!(
+            data_home_in(System::Windows, &env(&windows)),
+            Some(PathBuf::from(r"C:\Users\Noah B\AppData\Roaming"))
+        );
+        assert_eq!(
+            cache_home_in(System::Windows, &env(&windows)),
+            Some(PathBuf::from(r"C:\Users\Noah B\AppData\Local"))
+        );
+        assert_eq!(data_home_in(System::Windows, &env(&[])), None);
+        assert_eq!(cache_home_in(System::Unix, &env(&[])), None);
+    }
 
     #[cfg(unix)]
     #[test]

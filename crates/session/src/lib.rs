@@ -77,7 +77,7 @@ pub use service::*;
 pub use session::{Mode, Session, SessionEvent, Workshop};
 pub use settings::{ScoreSettings, Strictness};
 pub use songsterr::{BassTrack, SearchError, SearchStart, SongHit, SongSearch};
-pub use sources::{download_dir, recent_scores, search_url, SongSite};
+pub use sources::{cache_home, data_home, download_dir, recent_scores, search_url, SongSite};
 pub use spacing::{spacing, streak_days, PassageEvent, Spacing};
 pub use stems::{BassRemoval, StemJob};
 pub use summary::{

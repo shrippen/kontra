@@ -75,6 +75,16 @@ pub fn download_dir() -> Option<PathBuf> {
     kontra_engine::download_dir()
 }
 
+/// Where the system keeps programs' data; `None` without a home.
+pub fn data_home() -> Option<PathBuf> {
+    kontra_engine::data_home()
+}
+
+/// Where the system keeps what programs can make again; `None` without a home.
+pub fn cache_home() -> Option<PathBuf> {
+    kontra_engine::cache_home()
+}
+
 /// Files Kontra can open that arrived in `dir` within `max_age`, newest first.
 pub fn recent_scores(dir: &Path, max_age: Duration) -> Vec<RecentFile> {
     let mut files = kontra_engine::recent_files(dir, max_age);
