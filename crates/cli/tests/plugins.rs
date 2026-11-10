@@ -265,7 +265,12 @@ fn params_and_run() {
 #[test]
 fn scan_refuses_a_timeout_below_zero() {
     let dir = plugin_dir("timeout");
-    for bad in ["--timeout-s=-1", "--timeout-s=inf", "--timeout-s=NaN"] {
+    for bad in [
+        "--timeout-s=-1",
+        "--timeout-s=0",
+        "--timeout-s=inf",
+        "--timeout-s=NaN",
+    ] {
         let out = cli(&dir, &["plugins", "scan", bad]);
         assert_eq!(out.status.code(), Some(1), "{bad}");
         assert!(String::from_utf8_lossy(&out.stderr).contains("--timeout-s"));
