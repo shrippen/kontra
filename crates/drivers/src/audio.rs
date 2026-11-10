@@ -597,10 +597,11 @@ fn stream_config(
     if probe && !accepts(device, direction, &config, probe_format) {
         config.buffer_size = cpal::BufferSize::Default;
     }
-    // The largest block the stream may deliver: the one asked for, else the device's limit.
-    let largest = match (config.buffer_size, default.buffer_size()) {
-        (cpal::BufferSize::Fixed(frames), _) => Some(frames),
-        (_, cpal::SupportedBufferSize::Range { max, .. }) => Some(*max),
+    // The largest block the stream may deliver: the device's limit (ALSA may round the block
+    // asked for), else the one asked for.
+    let largest = match (default.buffer_size(), config.buffer_size) {
+        (cpal::SupportedBufferSize::Range { max, .. }, _) => Some(*max),
+        (_, cpal::BufferSize::Fixed(frames)) => Some(frames),
         _ => None,
     };
     let scratch = samples::scratch_len(config.channels, largest);
