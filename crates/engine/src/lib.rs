@@ -24,6 +24,7 @@ mod strings_korpus;
 pub use backing::{BackingTrack, Resolution};
 pub use clock::Clock;
 pub use input::{Input, InputKind, Pace, Recording};
+pub use kontra_drivers::plugins;
 pub use kontra_drivers::{
     audio_priority, cache_dir_of, data_dir_of, download_dir, file_url, find_separator, in_sandbox,
     list_devices, list_midi_inputs, local_path, monitor_rate, read_audio, recent_files, write_wav,

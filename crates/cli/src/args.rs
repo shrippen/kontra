@@ -43,6 +43,49 @@ pub enum Command {
     Course(CourseArgs),
     /// Write the JSON Schemas of package and course files (W8); `schema/` is the output.
     Schemas(SchemasArgs),
+    /// Effect plugins (CLAP): scan, parameters, offline render.
+    Plugins(PluginsArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct PluginsArgs {
+    #[command(subcommand)]
+    pub command: PluginsCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum PluginsCommand {
+    /// List the plugins in the search paths. Every file is probed in a process of its own; a
+    /// file that crashes or hangs is listed as broken.
+    Scan {
+        #[arg(long)]
+        json: bool,
+        /// Seconds a file may take.
+        #[arg(long, default_value_t = 10.0)]
+        timeout_s: f32,
+    },
+    /// Internal: the probe process of `scan`; prints one line of JSON.
+    #[command(hide = true)]
+    Probe { path: PathBuf },
+    /// Show the parameters and latency of a plugin.
+    Params {
+        path: PathBuf,
+        /// Plugin id, when the file holds several.
+        #[arg(long)]
+        id: Option<String>,
+    },
+    /// Run an audio file through a plugin and write a WAV.
+    Run {
+        path: PathBuf,
+        input: PathBuf,
+        output: PathBuf,
+        /// Plugin id, when the file holds several.
+        #[arg(long)]
+        id: Option<String>,
+        /// Parameter as id=value (see `params`), repeatable.
+        #[arg(long)]
+        param: Vec<String>,
+    },
 }
 
 #[derive(Debug, Args)]
