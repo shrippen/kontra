@@ -27,6 +27,11 @@ declare -A KNOWN_SHA256=(
     [kirigami-6.30.0.tar.xz]=6de811e559c20dc1086c0cf2c34bb98712dbe4d45f960c62c3c3f887332c95f8
 )
 
+# Windows' own tar (bsdtar): reads .xz. Kirigami's app templates are packed with the tar ECM
+# finds; Git Bash's GNU tar takes "C:" for a host ("Cannot connect to C: resolve failed"), so
+# ECM gets this one, sees it is not GNU tar and packs with "cmake -E tar".
+WINDOWS_TAR="${SYSTEMROOT:-C:/Windows}/System32/tar.exe"
+
 log() { printf '\n== %s\n' "$*"; }
 
 # 1. Qt.
@@ -40,7 +45,7 @@ else
     echo "present"
 fi
 
-# 2. KDE sources (release tarballs, checksum verified). Windows' own tar reads .xz.
+# 2. KDE sources (release tarballs, checksum verified).
 fetch() {
     local name="$1" file="$1-${KF_VERSION}.tar.xz"
     local url="https://download.kde.org/stable/frameworks/${KF_SERIES}/${file}"
@@ -50,7 +55,7 @@ fetch() {
         local want="${KNOWN_SHA256[$file]:-}"
         [ -n "${want}" ] || want=$(curl -sSfL "${url}.sha256" | awk '{print $1}')
         echo "${want}  ${SRC_DIR}/dl/${file}" | sha256sum -c -
-        "${SYSTEMROOT:-C:/Windows}/System32/tar.exe" -C "${SRC_DIR}" -xf "${SRC_DIR}/dl/${file}"
+        "${WINDOWS_TAR}" -C "${SRC_DIR}" -xf "${SRC_DIR}/dl/${file}"
     fi
 }
 
@@ -75,11 +80,9 @@ if [ ! -d "${KF6_PREFIX}/lib/cmake/KF6Kirigami" ] \
     rm -rf "$s/build"
     cmake -S "$s" -B "$s/build" -A x64 -Wno-dev \
         -DCMAKE_INSTALL_PREFIX="${KF6_PREFIX}" -DCMAKE_PREFIX_PATH="${QT_ROOT};${KF6_PREFIX}" \
-        -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF -DUSE_DBUS=OFF
-    # Kirigami packs a file with "tar": Git Bash's reads "C:" as a host name ("Cannot connect
-    # to C: resolve failed"), so Windows' own tar goes first for the build.
-    PATH="$(cygpath -u "${SYSTEMROOT:-C:/Windows}")/System32:${PATH}" \
-        cmake --build "$s/build" --config Release --parallel
+        -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF -DUSE_DBUS=OFF \
+        -D_tar_executable:FILEPATH="${WINDOWS_TAR}"
+    cmake --build "$s/build" --config Release --parallel
     cmake --install "$s/build" --config Release
     echo "${QT_VERSION}" > "${KF6_PREFIX}/.qt-version"   # Kirigami is tied to this Qt build
 else
