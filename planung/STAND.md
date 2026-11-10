@@ -5,22 +5,23 @@ nur, was offen ist und wo es liegt.
 
 ## Übergabe (10.11.2026, Mithören und Windows)
 
-In `main`: #228 (Kante 1.76.2, ruhende versteckte Ansichten), #229 (Kleinigkeiten), #230 (Overdrive, Stereobreite,
+In `main`: #228 (Kante 1.76.2, ruhende versteckte Ansichten), #229 (Kleinigkeiten), #233 (Windows-Kern), #230 (Overdrive, Stereobreite,
 Begrenzer, LH-EIN-17), #231 („Bass hören“ in der Seitenleiste, Geräte bleiben im Leerlauf offen, Einstellungen
 wirken zur Laufzeit, LH-EIN-18); Kante #131 (1.76.2), #132.
 
-Windows (LH-NF-17, Roadmap „Multiplattform: Windows“), gestapelte Branches, jeder auf dem vorigen:
+Windows (LH-NF-17, Roadmap „Multiplattform: Windows“): #233 (Plan, P8, J-A6, Rust-Kern) ist in `main`. Darauf
+gestapelt, jeder Branch auf dem vorigen:
 
 ```text
-main ─► windows-core (#233) ─► windows-paths ─► windows-ci ─► windows-app
-        Plan, P8, J-A6,        %APPDATA%,       Job `windows`  Job `windows-app`:
-        Rust-Kern              Datei-URLs,      in ci.yml,     Qt + Kirigami mit MSVC
-                               Job Object,      agent.md       (scripts/setup-qt-windows.sh),
-                               Clippy           P1–P8          App bauen, Screenshot
+main ─► windows-paths ─► windows-ci ─► windows-app
+        %APPDATA%,       Job `windows`  Job `windows-app`:
+        Datei-URLs,      in ci.yml,     Qt + Kirigami mit MSVC
+        Job Object,      agent.md       (scripts/setup-qt-windows.sh),
+        Clippy, Stems    P1–P8          App bauen, Screenshot
 ```
 
-- `windows-core` und `windows-paths` ändern nur Code und Planung: Claude merged nach Review. `windows-ci` und
-  `windows-app` ändern die CI (`windows-ci` auch `agent.md`): Bestätigung des Eigentümers (Runde 18).
+- `windows-paths` ändert nur Code und Planung: Claude merged nach Review. `windows-ci` und `windows-app` ändern
+  die CI (`windows-ci` auch `agent.md`): Bestätigung des Eigentümers (Runde 18).
 - Lokal prüfen: `KONTRA_WIN_RUST=~/.cache/claude/rust-win scripts/check-windows.sh [build|test]` (rustup-Toolchain
   mit `x86_64-pc-windows-gnu` in `~/.cache/claude/rust-win`, Tests unter Wine in eigenem Prefix ohne Audiotreiber).
   Referenz bleibt `windows-latest` (MSVC): Kern dort grün (Lauf zu `windows-ci`).
