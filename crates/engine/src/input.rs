@@ -632,10 +632,13 @@ fn start_device(
     let monitor_cb = Arc::clone(&monitor_on);
     let stream = InputStream::open(
         config,
-        move |samples: &[f32], captured_s: f64| {
-            if f64::from_bits(started_cb.load(Ordering::Relaxed)).is_nan() {
-                // First block: the stream started about one block earlier; calibration absorbs the rest.
-                started_cb.store(clock_cb.now_s().to_bits(), Ordering::Relaxed);
+        move |samples: &[f32], captured_s: f64, first_ago_s: f64| {
+            // The first sample on the engine clock. A late callback only makes it later, so the
+            // earliest guess wins (R3).
+            let first_s = clock_cb.now_s() - first_ago_s;
+            let started_s = f64::from_bits(started_cb.load(Ordering::Relaxed));
+            if started_s.is_nan() || first_s < started_s {
+                started_cb.store(first_s.to_bits(), Ordering::Relaxed);
             }
             block_cb.fetch_max(
                 u32::try_from(samples.len()).unwrap_or(u32::MAX),

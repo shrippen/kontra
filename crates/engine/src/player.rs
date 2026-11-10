@@ -22,6 +22,8 @@ use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
 const COMMANDS: usize = 1024;
+/// The output's start settles over this much playback, then holds (R3).
+const SETTLE_S: f64 = 0.5;
 const VOICES: usize = 48;
 const CLICK_S: f32 = 0.02;
 /// Drum voices: length, decay time constant of the body.
@@ -272,22 +274,28 @@ impl Player {
             sum_limit: OutputLimiter::new(48_000.0),
         };
         let mut frame: u64 = 0;
-        let mut first_block = true;
         // The device's rate is known only after opening; the callback reads it from here.
         let rate = Arc::new(AtomicU64::new(48_000));
         let rate_cb = Arc::clone(&rate);
         let stream = OutputStream::open(
             config,
-            move |data: &mut [f32], channels: usize| {
-                if first_block {
-                    started_cb.store(clock.now_s().to_bits(), Ordering::Relaxed);
-                    first_block = false;
-                }
+            move |data: &mut [f32], channels: usize, lead_s: f64| {
+                let sr = rate_cb.load(Ordering::Relaxed) as f64;
+                // When the first frame sounds: the device's lead after now, less what played
+                // before. A late callback only makes it later, so the earliest guess wins; it
+                // settles in the first blocks and then holds, so the beat never jumps (R3).
+                let first_s = clock.now_s() + lead_s - frame as f64 / sr;
                 let t0 = f64::from_bits(started_cb.load(Ordering::Relaxed));
+                let settling = (frame as f64) < SETTLE_S * sr;
+                let t0 = if t0.is_nan() || (settling && first_s < t0) {
+                    started_cb.store(first_s.to_bits(), Ordering::Relaxed);
+                    first_s
+                } else {
+                    t0
+                };
                 while let Ok(command) = consumer.pop() {
                     mixer.apply(command);
                 }
-                let sr = rate_cb.load(Ordering::Relaxed) as f64;
                 mixer.trim_monitor(sr);
                 for out in data.chunks_mut(channels.max(1)) {
                     let now = t0 + frame as f64 / sr;
