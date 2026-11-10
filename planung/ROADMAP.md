@@ -518,9 +518,9 @@ Erkennung und Messung:
   Läufe es, der Standby wartet aber weiter auf das alte (bis es zurück ist oder ein Eingang gewählt wird). Das
   Warten darf nur zusammen mit dem Angebot in der Leiste enden (`InputBack`, `InputOfferEnded`), sonst bleibt das
   Angebot stehen. Der Hinweis „kein Eingang“ beruht auf dem letzten Blick des Standby (bis 5 s alt).
-- [ ] Dateinamen, die kein UTF-8 sind (Review #235): Kontra lehnt sie mit Grund ab (umbenennen), weil Bibliothek
+- [x] Dateinamen, die kein UTF-8 sind (Review #235): Kontra lehnt sie mit Grund ab (umbenennen), weil Bibliothek
   und Fortschritt JSON sind. Von der Kommandozeile oder aus dem Dateimanager kommt der Name verlustbehaftet an
-  (`args.rs`), die Meldung ist dann „nicht gefunden“ statt „umbenennen“.
+  (`args.rs`), die Meldung ist dann „nicht gefunden“ statt „umbenennen“. Behoben 11.11.: `args.rs` behält die Bytes der Pfade.
 - [x] Summenbegrenzer (Review #230; Runde 18, 10.11.: bauen, immer an; LH-WIE-06, #244): Mithören plus Backing,
   Klick und Ton konnte die Summe über Vollaussteuerung bringen, dort schnitt der Mixer hart. Jetzt liegt auf der
   Summe ein Begrenzer (−1 dBFS, gekoppelt, 80 ms), die Echo-Referenz folgt ihm. Hörprobe und Xruns am Gerät offen.
