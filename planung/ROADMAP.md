@@ -335,7 +335,13 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   Toleranzen auf der Hälfte der Dateien bestätigt, auf der anderen gleich.
 - [ ] R3 Gerätezeitstempel (cpal `capture`/`playback`) mit DLL statt Anker am ersten Callback. Simulation: heute
   37 ms Fehler bei anderem Quantum als beim Kalibrieren, zwei Geräte nach 5 min p95 24 ms; mit Stempeln < 0,2 ms.
-  Offen: Semantik der Stempel am Scarlett Solo (Loopback, etwa 15 min mit dem Eigentümer).
+  Messung 10.11. (Scarlett Solo, Ausgang per Kabel im Eingang, PipeWire, Block 128): Die Stempel von Ein- und
+  Ausgang liegen auf einer Uhr (CLOCK_MONOTONIC); je Klick aus den Stempeln 17,1–17,5 ms über drei Öffnungen, mit
+  dem Anker am ersten Callback 24,9–30,8 ms. Erster Schritt (#249): Start von Ein- und Ausgang aus dem Vorlauf des
+  Geräts, frühester Schätzwert der ersten halben Sekunde, danach fest. Abwechselnd je 8 Öffnungen: vorher Median
+  25,0 ms, Streuung (SD) 2,5 ms (22,5–29,1); nachher 17,4 ms, SD 1,7 ms (13,6–18,8). Der Rest der Streuung kommt
+  nicht aus den Stempeln (je Klick ±0,4 ms). Offen: Zeit je Block aus den Stempeln (DLL) für beide Seiten über die
+  ganze Laufzeit (Drift, Aussetzer im Ausgang).
 - [x] R4 Latenz per Loopback oder Gerät, nicht per Klick: die Klick-Kalibrierung zieht die Neigung des Spielers ab
   (15 ms früh gilt als „Auf den Punkt“). Klick zeigt danach nur „deine Neigung“; LH-EIN-14 und LH-BEW-09 passen sich an.
   Umgesetzt in #202 (LH-EIN-05): „Mit Kabel messen“, die Klicks zeigen danach die Neigung.

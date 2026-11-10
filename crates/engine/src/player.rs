@@ -10,7 +10,7 @@
 //! control ─► command ring ───────────────┴─► output callback: voices + backing + monitor ─► device
 //! ```
 
-use crate::clock::Clock;
+use crate::clock::{settle, Clock};
 use crate::{EngineError, Event};
 use kontra_drivers::{OutputStream, StreamConfig};
 use kontra_dsp::synth::Noise;
@@ -22,8 +22,6 @@ use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
 const COMMANDS: usize = 1024;
-/// The output's start settles over this much playback, then holds (R3).
-const SETTLE_S: f64 = 0.5;
 const VOICES: usize = 48;
 const CLICK_S: f32 = 0.02;
 /// Drum voices: length, decay time constant of the body.
@@ -282,17 +280,11 @@ impl Player {
             move |data: &mut [f32], channels: usize, lead_s: f64| {
                 let sr = rate_cb.load(Ordering::Relaxed) as f64;
                 // When the first frame sounds: the device's lead after now, less what played
-                // before. A late callback only makes it later, so the earliest guess wins; it
-                // settles in the first blocks and then holds, so the beat never jumps (R3).
-                let first_s = clock.now_s() + lead_s - frame as f64 / sr;
+                // before (R3).
+                let played_s = frame as f64 / sr;
                 let t0 = f64::from_bits(started_cb.load(Ordering::Relaxed));
-                let settling = (frame as f64) < SETTLE_S * sr;
-                let t0 = if t0.is_nan() || (settling && first_s < t0) {
-                    started_cb.store(first_s.to_bits(), Ordering::Relaxed);
-                    first_s
-                } else {
-                    t0
-                };
+                let t0 = settle(t0, clock.now_s() + lead_s - played_s, played_s);
+                started_cb.store(t0.to_bits(), Ordering::Relaxed);
                 while let Ok(command) = consumer.pop() {
                     mixer.apply(command);
                 }
