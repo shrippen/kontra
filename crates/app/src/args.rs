@@ -1,5 +1,6 @@
 //! Command line options of the app (QA runs, screenshots).
 
+use std::ffi::OsString;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -70,48 +71,51 @@ Usage: kontra [FILE] [OPTIONS]
 
 impl AppArgs {
     pub fn from_env() -> AppArgs {
-        // Lossy: `std::env::args` ends the program on an argument that is not UTF-8 (a file
+        // `args_os`: `std::env::args` ends the program on an argument that is not UTF-8 (a file
         // from the file manager named in an old encoding, review #235).
-        let args = std::env::args_os().map(|a| a.to_string_lossy().into_owned());
-        AppArgs::parse(args.skip(1))
+        AppArgs::parse(std::env::args_os().skip(1))
     }
 
-    pub fn parse(args: impl Iterator<Item = String>) -> AppArgs {
+    /// Paths keep their bytes, so the library can refuse a name that is not UTF-8 with its
+    /// reason (`Library::keepable`); only option names and text values are read lossy.
+    pub fn parse(args: impl Iterator<Item = impl Into<OsString>>) -> AppArgs {
         let mut out = AppArgs {
             screenshot_after_ms: 1500,
             ..AppArgs::default()
         };
-        let mut args = args.peekable();
-        while let Some(arg) = args.next() {
-            let arg = single_dash(arg);
+        let mut args = args.map(Into::into).peekable();
+        while let Some(raw) = args.next() {
+            let arg = single_dash(raw.to_string_lossy().into_owned());
             let mut value = || args.next().unwrap_or_default();
             match arg.as_str() {
                 "--open" => out.open = Some(PathBuf::from(value())),
-                "--page" => out.page = Some(value()),
+                "--page" => out.page = Some(text(value())),
                 "--input-file" => out.input_file = Some(PathBuf::from(value())),
-                "--input-profile" => out.laptop_jack = value() == "laptop-jack",
+                "--input-profile" => out.laptop_jack = text(value()) == "laptop-jack",
                 "--autoplay" => out.autoplay = true,
                 "--probe" => out.probe = true,
                 "--screenshot" => out.screenshot = Some(PathBuf::from(value())),
-                "--screenshot-after" => out.screenshot_after_ms = value().parse().unwrap_or(1500),
-                "--quit-after" => out.quit_after_ms = value().parse().unwrap_or(0),
+                "--screenshot-after" => {
+                    out.screenshot_after_ms = text(value()).parse().unwrap_or(1500)
+                }
+                "--quit-after" => out.quit_after_ms = text(value()).parse().unwrap_or(0),
                 // Not "--style": QGuiApplication takes that for a Qt Quick Controls style and
                 // fails to load the UI (QA round 9.10.2026).
-                "--theme" => out.style = Some(value()),
-                "--language" => out.language = Some(value()),
-                "--mode" => out.mode = Some(value()),
-                "--view" => out.view = Some(value()),
+                "--theme" => out.style = Some(text(value())),
+                "--language" => out.language = Some(text(value())),
+                "--mode" => out.mode = Some(text(value())),
+                "--view" => out.view = Some(text(value())),
                 "--calibrate" => out.calibrate = true,
                 "--mixer" => out.mixer = true,
                 "--present" => out.present = true,
-                "--section" => out.section = Some(value()),
+                "--section" => out.section = Some(text(value())),
                 "--align" => out.align = true,
                 "--remove-bass" => out.remove_bass = true,
                 "--songsterr-answer" => out.songsterr_answer = Some(PathBuf::from(value())),
-                "--song-search" => out.song_search = Some(value()),
+                "--song-search" => out.song_search = Some(text(value())),
                 "--course-answer" => out.course_answer = Some(PathBuf::from(value())),
                 "--loop-bars" => {
-                    let v = value();
+                    let v = text(value());
                     let mut parts = v.split('-').map(|p| p.trim().parse::<i32>());
                     if let (Some(Ok(a)), b) = (parts.next(), parts.next()) {
                         let b = b.and_then(Result::ok).unwrap_or(a);
@@ -128,7 +132,7 @@ impl AppArgs {
                 "--focus-log" | "--screenshot-notes" => {}
                 // A file from the file manager (desktop file `%f`).
                 other if !other.starts_with('-') && out.open.is_none() => {
-                    out.open = Some(PathBuf::from(other));
+                    out.open = Some(PathBuf::from(raw));
                 }
                 other if other.starts_with("--") && out.unknown.is_none() => {
                     out.unknown = Some(other.to_string());
@@ -138,6 +142,10 @@ impl AppArgs {
         }
         out
     }
+}
+
+fn text(value: OsString) -> String {
+    value.to_string_lossy().into_owned()
 }
 
 /// Qt's own options that take a value.
@@ -190,6 +198,25 @@ mod tests {
         let qt = parse(&["--platform", "offscreen", "--reverse", "song.gp5"]);
         assert_eq!(qt.unknown, None);
         assert_eq!(qt.open, Some(PathBuf::from("song.gp5")));
+    }
+
+    /// Review #235: a file name that is not UTF-8 (Latin-1 "stück.mid") arrived with U+FFFD, so
+    /// the player read "not found" instead of "rename it".
+    #[cfg(unix)]
+    #[test]
+    fn a_name_that_is_not_utf8_keeps_its_bytes() {
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+
+        let odd = OsStr::from_bytes(b"st\xFCck.mid").to_os_string();
+        let parse = |a: &[&OsString]| AppArgs::parse(a.iter().map(|s| (*s).clone()));
+        let from_file_manager = parse(&[&odd]);
+        assert_eq!(from_file_manager.open, Some(PathBuf::from(&odd)));
+
+        let flag = OsString::from("--open");
+        let named = parse(&[&flag, &odd]);
+        assert_eq!(named.open.as_deref().and_then(|p| p.to_str()), None);
+        assert_eq!(named.open, Some(PathBuf::from(&odd)));
     }
 
     #[test]
