@@ -108,7 +108,7 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 - [ ] Win5 Paket und Signierung. Erledigt (10.11., Lauf 42747939331): `scripts/package-windows.sh` baut einen
   Ordner (`bin/` neben `share/` wie im Flatpak, Qt über `windeployqt`, Kirigami samt Übersetzungen, 141 MB, als
   CI-Artefakt `Kontra-windows-portable` 56 MB), der ohne installiertes Qt startet (Screenshot mit leerem `PATH`).
-  Offen: MSVC-Laufzeit beilegen (`vcruntime140.dll`), Installer und Signierung (Entscheidung 10.11.: signieren
+  Die Visual-C++-Laufzeit liegt bei. Offen: Installer und Signierung (Entscheidung 10.11.: signieren
   ja; Form offen, Vorschlag unten), gebaut und
   angehängt nur von GitHub Actions (CLAUDE.md), Demo-Ausschluss geprüft wie im Flatpak; Landing Page mit
   Windows-Download.

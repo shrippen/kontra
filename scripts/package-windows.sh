@@ -5,7 +5,7 @@
 #
 #   Kontra/
 #     bin/kontra.exe            release build
-#     bin/*.dll, bin/qml, …     Qt (windeployqt) and Kirigami
+#     bin/*.dll, bin/qml, …     Qt (windeployqt), Kirigami and the Visual C++ runtime
 #     bin/data/locale           Kirigami's translations (Qt looks in <exe folder>/data)
 #     share/kontra/qml/Kante    Kante, copied unchanged
 #     share/kontra/exercises    the bundled exercises
@@ -55,6 +55,14 @@ mapfile -t kirigami < <(find "$OUT/bin" -name '*.dll')
 "$QT_ROOT/bin/windeployqt.exe" --release --no-compiler-runtime \
     --qmldir crates/app/qml --qmlimport "$KF6_PREFIX/lib/qml" \
     "$OUT/bin/kontra.exe" "${kirigami[@]}"
+
+# The C++ runtime of this Visual Studio next to the program: a fresh Windows has none, and the
+# folder must start without an installer (Microsoft allows shipping these files app-local).
+vswhere="${PROGRAMFILES_X86:-C:/Program Files (x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+studio="$("$vswhere" -latest -products '*' -property installationPath | tr -d '\r')"
+runtime="$(find "$(cygpath -u "$studio")/VC/Redist/MSVC" -type d -path '*/x64/Microsoft.VC*.CRT' | sort | tail -1)"
+test -d "$runtime"
+cp "$runtime"/*.dll "$OUT/bin/"
 
 # The Fusion style Kontra sets on Windows (main.rs) comes with windeployqt; without it the
 # program would start in the native style again.
