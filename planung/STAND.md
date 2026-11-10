@@ -9,30 +9,31 @@ In `main`: #228 (Kante 1.76.2, ruhende versteckte Ansichten), #229 (Kleinigkeite
 Begrenzer, LH-EIN-17), #231 („Bass hören“ in der Seitenleiste, Geräte bleiben im Leerlauf offen, Einstellungen
 wirken zur Laufzeit, LH-EIN-18); Kante #131 (1.76.2), #132.
 
-Windows (LH-NF-17, Roadmap „Multiplattform: Windows“): #233 (Plan, P8, J-A6, Rust-Kern) ist in `main`. Darauf
-gestapelt, jeder Branch auf dem vorigen:
+Windows (LH-NF-17, Roadmap „Multiplattform: Windows“): #233 (Plan, P8, J-A6, Rust-Kern) und #234 (Datenordner,
+Datei-URLs, Job Object, Clippy, Stem-Tests) sind in `main`. Darauf gestapelt:
 
 ```text
-main ─► windows-paths ─► windows-ci ─► windows-app
-        %APPDATA%,       Job `windows`  Job `windows-app`:
-        Datei-URLs,      in ci.yml,     Qt + Kirigami mit MSVC
-        Job Object,      agent.md       (scripts/setup-qt-windows.sh),
-        Clippy, Stems    P1–P8          App bauen, Screenshot
+main ─► windows-ci ─► windows-app
+        Job `windows`  Job `windows-app`: Qt + Kirigami mit MSVC
+        in ci.yml,     (scripts/setup-qt-windows.sh), App bauen und testen,
+        agent.md       Screenshot, portabler Ordner (scripts/package-windows.sh)
+        P1–P8          als CI-Artefakt
 ```
 
-- `windows-paths` ändert nur Code und Planung: Claude merged nach Review. `windows-ci` und `windows-app` ändern
-  die CI (`windows-ci` auch `agent.md`): Bestätigung des Eigentümers (Runde 18).
+- Beide ändern die CI (`windows-ci` auch `agent.md`): Bestätigung des Eigentümers (Runde 18).
 - Lokal prüfen: `KONTRA_WIN_RUST=~/.cache/claude/rust-win scripts/check-windows.sh [build|test]` (rustup-Toolchain
   mit `x86_64-pc-windows-gnu` in `~/.cache/claude/rust-win`, Tests unter Wine in eigenem Prefix ohne Audiotreiber).
   Referenz bleibt `windows-latest` (MSVC): Kern dort grün (Lauf zu `windows-ci`).
-- Stand `windows-app`: Qt per aqtinstall und ECM gehen, Kirigami baut; offen war zuletzt das Packen mit `tar`.
-  Danach: App bauen (cxx-qt mit MSVC), ein Screenshot offscreen.
+- Stand `windows-app`: Qt, ECM und Kirigami bauen auf `windows-latest`, die App baut, ihre Tests laufen, die
+  Einstellungsseite kommt als Screenshot (Lauf 42737035615). In Arbeit: Screenshot im echten Fenster, portabler
+  Ordner. Offscreen hat Windows keine Systemschrift (Fließtext in Ersatzschrift).
 - Entschieden (Eigentümer, 10.11.): ASIO ja, Signierung ja, Tests zuerst über KVM, Persona P8. Offen in Runde 18
   (Entscheidungs-Artefakt, `antworten/runde-18`): CI-PR, Installer-Form, Signierweg, ASIO-Lizenz, welche
   KVM-Maschine (vorhanden: `win` in libvirt, nicht angefasst), #220, Summenbegrenzer, pub, Reihenfolge.
 
 Offen sonst:
-- #232 (Hinweis, wenn „Bass hören“ keinen Eingang hat) in Review.
+- #232 (Hinweis, wenn „Bass hören“ keinen Eingang hat) ist in `main`; #235 (Ersatz-Angebot endet mit dem
+  Warten, Kleinigkeiten aus #234) in Review.
 - Am Scarlett: Gain von Eingang 2 zurück (Aufnahme 9.11.: 1957 Samples in 10 s auf Vollaussteuerung);
   Direktmonitor aus, wenn „Bass hören“ an ist.
 - PR-Agent scheiterte in dieser Nacht in jeder Runde („Failed to review PR“, je etwa 14 Minuten); alle Reviews

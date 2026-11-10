@@ -290,7 +290,6 @@ mod tests {
         let cache = dir.join("cache");
         let stale = cache.join(WORK_DIR).join("0000000000000000/htdemucs");
         std::fs::create_dir_all(&stale).unwrap();
-        std::fs::create_dir_all(&dir).unwrap();
         let script = stand_in(&dir, WAITS.0, WAITS.1);
         let song = dir.join("Song.wav");
         std::fs::write(&song, b"RIFF").unwrap();
