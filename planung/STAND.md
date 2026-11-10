@@ -5,37 +5,41 @@ nur, was offen ist und wo es liegt.
 
 ## Übergabe (10.11.2026, Mithören und Windows)
 
-In `main`: #228 (Kante 1.76.2, ruhende versteckte Ansichten), #229 (Kleinigkeiten), #233 (Windows-Kern), #230 (Overdrive, Stereobreite,
+In `main`: #228 (Kante 1.76.2, ruhende versteckte Ansichten), #229 (Kleinigkeiten), #230 (Overdrive, Stereobreite,
 Begrenzer, LH-EIN-17), #231 („Bass hören“ in der Seitenleiste, Geräte bleiben im Leerlauf offen, Einstellungen
-wirken zur Laufzeit, LH-EIN-18); Kante #131 (1.76.2), #132.
+wirken zur Laufzeit, LH-EIN-18), #232 (Hinweis ohne Eingang), #235 (Ersatz-Angebot endet mit dem Warten;
+Dateinamen, die kein UTF-8 sind, werden mit Grund abgelehnt); Kante #131 (1.76.2), #132.
 
-Windows (LH-NF-17, Roadmap „Multiplattform: Windows“): #233 (Plan, P8, J-A6, Rust-Kern) und #234 (Datenordner,
-Datei-URLs, Job Object, Clippy, Stem-Tests) sind in `main`. Darauf gestapelt:
+Windows (LH-NF-17, Roadmap „Multiplattform: Windows“) in `main`: #233 (Plan, P8, J-A6, Rust-Kern), #234
+(Datenordner, Datei-URLs, Job Object, Clippy, Stem-Tests).
 
-```text
-main ─► windows-ci ─► windows-app
-        Job `windows`  Job `windows-app`: Qt + Kirigami mit MSVC
-        in ci.yml,     (scripts/setup-qt-windows.sh), App bauen und testen,
-        agent.md       Screenshot, portabler Ordner (scripts/package-windows.sh)
-        P1–P8          als CI-Artefakt
-```
+Offene PRs:
+- **#236 „Windows in der CI“** (Branch `windows-app`): Jobs `windows` (Kern: Clippy, Tests) und `windows-app` (Qt
+  und Kirigami mit MSVC über `scripts/setup-qt-windows.sh`, App bauen und testen, Screenshots, portabler Ordner
+  über `scripts/package-windows.sh` als CI-Artefakt). Lauf 42753483624 in allen Jobs grün. Ändert die CI und
+  `agent.md` (P1–P8): **wartet auf die Bestätigung des Eigentümers** (Runde 18). Review ohne Wichtig.
+- #237 (Kirigami auf Englisch auch auf deutschem System) in Review.
 
-- Beide ändern die CI (`windows-ci` auch `agent.md`): Bestätigung des Eigentümers (Runde 18).
+Stand unter Windows:
+- Kern: alle Tests grün auf `windows-latest` (MSVC) und lokal unter Wine.
+- App: baut, Tests grün, Einstellungsseite rendert im echten Fenster richtig (Segoe UI, Kante-Stil, Fusion als
+  Controls-Stil). Der gepackte Ordner (141 MB, Artefakt 57 MB) startet mit leerem `PATH`, bringt Qt, Kirigami samt
+  Übersetzungen und die Visual-C++-Laufzeit mit.
 - Lokal prüfen: `KONTRA_WIN_RUST=~/.cache/claude/rust-win scripts/check-windows.sh [build|test]` (rustup-Toolchain
   mit `x86_64-pc-windows-gnu` in `~/.cache/claude/rust-win`, Tests unter Wine in eigenem Prefix ohne Audiotreiber).
-  Referenz bleibt `windows-latest` (MSVC): Kern dort grün (Lauf zu `windows-ci`).
-- Stand `windows-app`: Qt, ECM und Kirigami bauen auf `windows-latest`, die App baut, ihre Tests laufen, die
-  Einstellungsseite kommt als Screenshot (Lauf 42737035615). In Arbeit: Screenshot im echten Fenster, portabler
-  Ordner. Offscreen hat Windows keine Systemschrift (Fließtext in Ersatzschrift).
+  Die App lässt sich nur auf `windows-latest` bauen (Qt für MSVC).
+- Nächste Schritte nach den Entscheidungen: Installer (Vorschlag Inno Setup und ZIP) und Signierung (Win5),
+  Testmaschine in KVM (Win6; vorhanden ist `win` in libvirt, nicht angefasst), Audio mit WASAPI und ASIO (Win2).
 - Entschieden (Eigentümer, 10.11.): ASIO ja, Signierung ja, Tests zuerst über KVM, Persona P8. Offen in Runde 18
-  (Entscheidungs-Artefakt, `antworten/runde-18`): CI-PR, Installer-Form, Signierweg, ASIO-Lizenz, welche
-  KVM-Maschine (vorhanden: `win` in libvirt, nicht angefasst), #220, Summenbegrenzer, pub, Reihenfolge.
+  (Entscheidungs-Artefakt, `antworten/runde-18`): #236, Installer-Form, Signierweg, ASIO-Lizenz, KVM-Maschine,
+  #220, Summenbegrenzer, pub, Reihenfolge.
 
 Offen sonst:
-- #232 (Hinweis, wenn „Bass hören“ keinen Eingang hat) ist in `main`; #235 (Ersatz-Angebot endet mit dem
-  Warten, Kleinigkeiten aus #234) in Review.
 - Am Scarlett: Gain von Eingang 2 zurück (Aufnahme 9.11.: 1957 Samples in 10 s auf Vollaussteuerung);
-  Direktmonitor aus, wenn „Bass hören“ an ist.
+  Direktmonitor aus, wenn „Bass hören“ an ist. J-A5 Schritt 6 und J-F3 Schritt 3 am Gerät spielen.
+- L11 (Shuffle aus importierten Dateien) ist eine Entwurfsfrage: Swing nur in der Zeit oder auch im Notenbild.
+- Mehrere Worktrees dürfen sich kein `CARGO_TARGET_DIR` teilen, wenn sie gleichzeitig bauen (10.11.: veraltete
+  Artefakte, „cannot find function“).
 - PR-Agent scheiterte in dieser Nacht in jeder Runde („Failed to review PR“, je etwa 14 Minuten); alle Reviews
   kamen vom neuen Claude-Agenten.
 

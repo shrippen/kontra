@@ -458,8 +458,11 @@ Erkennung und Messung:
   Sprache wechselt auch Kirigamis Texte und alle in Rust gebauten Texte (Teilnamen, Notennamen, Latenz-Hinweis,
   Geräte); eine geladene Sicherung erreicht den Mixer. Messung, Bewertung, Einzähler und Modus gelten wie bisher ab
   dem nächsten Start (der Lauf endet beim Ändern).
-- [ ] Kirigamis Texte auf einem deutschen System bleiben deutsch, wenn Kontra Englisch spricht (auch beim Start):
-  Kirigami lädt seine Übersetzung selbst nach der Systemsprache.
+- [x] Kirigamis Texte auf einem deutschen System blieben deutsch, wenn Kontra auf Englisch wechselte: Kirigami
+  lädt seine Übersetzung selbst nach der Systemsprache und gibt sie nie wieder her. Für Englisch legt Kontra die
+  Quelltexte davor (`cpp/translator.cpp`, `SourceTexts`) und hält den eigenen Übersetzer vorn (`KeepInFront`),
+  weil Kirigami seine Übersetzung erst mit den Seiten und später noch einmal davorsetzt. Test `english_goes_in_front_of_kirigamis_own_german`; im
+  isolierten Lauf auf deutschem System: de → en → de, Start auf Englisch, Seitenleiste ein- und ausklappen.
 - [ ] Ein USB-Mikrofon (Webcam, Headset) gilt bei „Automatisch“ als Interface (`preferred_input`, LH-EIN-02) und
   würde im Leerlauf offen gehalten (Review #231): Geräte mit nur einem Mikrofon erkennen oder nachfragen.
 - [ ] Verlorener Eingang, der wegbleibt (Review #231, #232): Steckt der Spieler ein anderes Interface an, nutzen
@@ -610,8 +613,11 @@ Kleinigkeiten aus den Reviews, W9, L3, W3 und E5 jetzt; der Rest steht hier:
 - [ ] E8 Brummen-Abzug bei Spiel ohne Pause über 8 s (Weiterlernen unter Noten).
 - [ ] W3 Prüfung sieht nicht in selbst gezeichnete Flächen (Lane, Noten, Griffbrett) und keinen abgeschnittenen Text
       in Labels; läuft nur lokal (kein AT-SPI in der CI).
-- [ ] W6 Ergebnis des ersten flatpak-builder-lint-Laufs ansehen; Screenshot-Adressen der metainfo gehen erst mit der
-      Landing Page.
+- [ ] W6 flatpak-builder-lint (Lauf 42750329419, 10.11.): ein Fehler, eine Warnung. Fehler
+      `appid-url-not-reachable`: die App-ID `org.shrippen.Kontra` verweist auf `shrippen.org`, die Domain gibt es
+      nicht; Flathub verlangt eine erreichbare (Entscheidung Runde 18: `io.github.shrippen.Kontra`, eine eigene
+      Domain oder `shrippen.org` anlegen). Warnung: Laufzeit `org.kde.Platform` 6.11 ist da (Manifest: 6.10).
+      Screenshot-Adressen der metainfo gehen erst mit der Landing Page.
 
 ## Entscheidungen Runde 17 (30.10.2026)
 
