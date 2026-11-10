@@ -13,7 +13,10 @@ const FORMATS: [PluginFormat; 2] = [PluginFormat::Clap, PluginFormat::Vst3];
 
 pub fn run(a: &PluginsArgs) -> CliResult {
     match &a.command {
-        PluginsCommand::Scan { json, timeout_s } => scan(*json, *timeout_s),
+        PluginsCommand::Scan { json, timeout_s } => {
+            let listing = if *json { Listing::Json } else { Listing::Text };
+            scan(listing, *timeout_s)
+        }
         PluginsCommand::Probe { path } => {
             println!("{}", probe_line(path));
             Ok(())
@@ -34,14 +37,23 @@ fn open(path: &Path, id: Option<&str>) -> Result<LoadedPlugin, String> {
     LoadedPlugin::open(format, path, id).map_err(|e| e.to_string())
 }
 
+/// How `scan` prints what it found.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Listing {
+    Text,
+    Json,
+}
+
 /// Every probe is a process of this program, so a crashing plugin ends only its probe.
-fn scan(json: bool, timeout_s: f32) -> CliResult {
+fn scan(listing: Listing, timeout_s: f32) -> CliResult {
     let program = std::env::current_exe().map_err(|e| format!("cannot find myself: {e}"))?;
     let probe = ProbeCommand {
         program,
         args: vec!["plugins".into(), "probe".into()],
     };
-    let timeout = Duration::from_secs_f32(timeout_s);
+    let timeout = Duration::try_from_secs_f32(timeout_s).map_err(|_| {
+        format!("--timeout-s must be a positive number of seconds, not {timeout_s}")
+    })?;
 
     let mut report = ScanReport::default();
     let mut searched = Vec::new();
@@ -52,7 +64,7 @@ fn scan(json: bool, timeout_s: f32) -> CliResult {
         report.broken.append(&mut part.broken);
     }
 
-    if json {
+    if listing == Listing::Json {
         let text = serde_json::to_string_pretty(&report).map_err(|e| e.to_string())?;
         println!("{text}");
         return Ok(());

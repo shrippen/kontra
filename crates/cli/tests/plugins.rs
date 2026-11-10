@@ -242,10 +242,33 @@ fn params_and_run() {
     assert!(output.exists());
 
     // A bad parameter is an error, not a silent skip.
+    let wrong = dir.join("wrong.wav");
     let out = cli(
         &dir,
-        &["plugins", "run", gain, "x.wav", "y.wav", "--param", "99=1"],
+        &[
+            "plugins",
+            "run",
+            gain,
+            input.to_str().expect("path"),
+            wrong.to_str().expect("path"),
+            "--param",
+            "99=1",
+        ],
     );
     assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("99"));
+    assert!(!wrong.exists());
+    std::fs::remove_dir_all(&dir).expect("clean up");
+}
+
+/// A timeout that is no length of time is a message, not a panic (review #248).
+#[test]
+fn scan_refuses_a_timeout_below_zero() {
+    let dir = plugin_dir("timeout");
+    for bad in ["--timeout-s=-1", "--timeout-s=inf", "--timeout-s=NaN"] {
+        let out = cli(&dir, &["plugins", "scan", bad]);
+        assert_eq!(out.status.code(), Some(1), "{bad}");
+        assert!(String::from_utf8_lossy(&out.stderr).contains("--timeout-s"));
+    }
     std::fs::remove_dir_all(&dir).expect("clean up");
 }
