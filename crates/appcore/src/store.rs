@@ -15,6 +15,10 @@ const WINDOW_DEFAULT_MS: f64 = 60.0;
 
 /// Kontra's name for its folders; the system decides how it is written.
 const PROGRAM: &str = "kontra";
+/// Without a home (a bare container): below the working folder, where Kontra always put them
+/// (review #234: data kept there must still be found).
+const HOMELESS_DATA: &str = "./.local/share/kontra";
+const HOMELESS_CACHE: &str = "./.cache/kontra";
 /// Overrides the data folder (tests, QA runs, a second profile).
 const DATA_VARIABLE: &str = "KONTRA_DATA_DIR";
 
@@ -24,18 +28,17 @@ pub fn data_dir() -> PathBuf {
     if let Some(dir) = std::env::var_os(DATA_VARIABLE) {
         return PathBuf::from(dir);
     }
-    kontra_session::data_dir_of(PROGRAM).unwrap_or_else(|| PathBuf::from(".").join(PROGRAM))
+    kontra_session::data_dir_of(PROGRAM).unwrap_or_else(|| PathBuf::from(HOMELESS_DATA))
 }
 
 /// Files Kontra can make again (separated songs, LH-BIB-09): `$XDG_CACHE_HOME/kontra` or
 /// `~/.cache/kontra`, Windows `%LOCALAPPDATA%\Kontra`, so backups skip them. A data folder of
-/// its own (`KONTRA_DATA_DIR`, tests) keeps them inside, in `cache/`, as does a system without a home.
+/// its own (`KONTRA_DATA_DIR`, tests) keeps them inside, in `cache/`.
 pub fn cache_dir(data: &Path) -> PathBuf {
     if data != data_dir() || std::env::var_os(DATA_VARIABLE).is_some() {
         return data.join("cache");
     }
-    // Without a home the cache stays inside the data folder, not on top of it.
-    kontra_session::cache_dir_of(PROGRAM).unwrap_or_else(|| data.join("cache"))
+    kontra_session::cache_dir_of(PROGRAM).unwrap_or_else(|| PathBuf::from(HOMELESS_CACHE))
 }
 
 /// Reads JSON or returns the default (a damaged file is kept aside as `.broken`).
@@ -554,7 +557,9 @@ impl Library {
     }
 }
 
-/// `path` without ".." if it has some and exists; else as it is.
+/// `path` without ".." if it has some and exists; else as it is. A plain form that is not
+/// text (a link into a folder named in an old encoding) is not taken: the library is JSON and
+/// could not be saved with it (review #235).
 fn plain(path: &Path) -> PathBuf {
     let dotted = path
         .components()
@@ -562,7 +567,10 @@ fn plain(path: &Path) -> PathBuf {
     if !dotted {
         return path.to_path_buf();
     }
-    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+    std::fs::canonicalize(path)
+        .ok()
+        .filter(|plain| plain.to_str().is_some())
+        .unwrap_or_else(|| path.to_path_buf())
 }
 
 #[cfg(test)]

@@ -159,6 +159,8 @@ pub enum UiEvent {
     },
     /// The lost input is back and used again.
     InputBack(String),
+    /// The player chose an input: the offer of a stand-in is no longer open.
+    InputOfferEnded,
     /// Bass removal of the backing track changed (`Core::stems_json`).
     Stems(String),
     /// The backing track is being prepared (true) or ready (false); play waits for it.
@@ -246,6 +248,8 @@ pub struct Core {
     input: input_state::InputStatus,
     /// Input used instead of the lost one; never saved.
     fallback_input: Option<String>,
+    /// The player chose an input while one was lost: the next tick takes the offer away.
+    offer_ended: bool,
     /// Dropouts of finished runs since the start (LH-NF-04).
     xruns_done: u64,
     /// Courses the player added (LH-LRN-14), read once and after each change.
@@ -335,6 +339,7 @@ impl Core {
             lost: None,
             input: input_state::InputStatus::new(),
             fallback_input: None,
+            offer_ended: false,
             xruns_done: 0,
             catalog: Catalog::new(language),
             settings,
@@ -812,39 +817,14 @@ impl Core {
         ms
     }
 
-    /// Changes the mixer (volumes, monitoring) and saves; a running practice hears it at once.
-    /// Returns a hint when monitoring is on but cannot work.
-    pub fn remix(&mut self, change: impl FnOnce(&mut Settings)) -> Option<String> {
-        let was_on = self.settings.monitor;
-        self.update_settings(change);
-        let gains = gains(&self.settings);
-        if let Some(live) = self.live.as_mut() {
-            live.practice_mut().set_gains(gains);
-        }
-        if let Some(live_ear) = self.live_ear.as_mut() {
-            live_ear.set_gains(ear_gains(&self.settings));
-        }
-        self.remix_standby();
-        let switched_on = !was_on && self.settings.monitor;
-        self.monitor_hint()
-            .or_else(|| self.standby_hint(switched_on))
-    }
-
-    /// Monitoring is on, but the running practice has no output or devices at different rates.
-    fn monitor_hint(&self) -> Option<String> {
-        let live = self.live.as_ref()?;
-        if !self.settings.monitor || live.can_monitor() || live.output_is_silent {
-            return None;
-        }
-        Some(self.tr("hint.monitor.rate", &[]))
-    }
-
     /// Imports a score; picks the bass track or asks.
     pub fn open(&mut self, path: &Path) -> Result<Opened, String> {
         self.active_setlist = None;
+        // A package is unpacked into the data folder: its own path is never kept.
         if package::is_package(path) {
             return self.open_package(path).map(|()| Opened::Ready);
         }
+        self.keepable(path)?;
         let imported = import_file(path).map_err(|e| self.import_error(&e))?;
         // Round 12: plan exercises in a run-through, own pieces in the mode last chosen for them.
         let mode = if self.is_bundled(path) {
@@ -2134,6 +2114,10 @@ impl Core {
 
     /// Sets (or with `None` removes) the backing track of the loaded piece.
     pub fn set_backing(&mut self, path: Option<PathBuf>, offset_s: f64) {
+        // A name the library cannot keep never gets in (the caller says why: `keepable`).
+        if path.as_deref().is_some_and(|p| self.keepable(p).is_err()) {
+            return;
+        }
         let Some(loaded) = self.loaded_path().map(Path::to_path_buf) else {
             return;
         };

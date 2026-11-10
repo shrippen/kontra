@@ -55,48 +55,61 @@ fn file_url_in(path: &[u8], paths: Paths) -> String {
     out
 }
 
-/// The path a file URL names; a plain path stays. Percent escapes are decoded
+/// The path a file URL names, as its bytes; a plain path stays. Percent escapes are decoded
 /// (`a%20b` → `a b`). On Windows a drive loses the URL's own slash (`/C:/a` → `C:/a`) and a
 /// share keeps its server (`file://server/a` → `//server/a`).
-fn local_path_in(url: &str, paths: Paths) -> String {
+fn local_path_bytes(url: &str, paths: Paths) -> Vec<u8> {
     let Some(rest) = url.strip_prefix(FILE_URL) else {
-        return url.to_string();
+        return url.as_bytes().to_vec();
     };
-    let path = unescaped(rest);
+    let mut path = unescaped(rest);
     if paths == Paths::Unix {
         return path;
     }
 
-    let bytes = path.as_bytes();
-    let drive = matches!(bytes, [b'/', letter, b':', ..] if letter.is_ascii_alphabetic());
+    let drive = matches!(path[..], [b'/', letter, b':', ..] if letter.is_ascii_alphabetic());
     if drive {
-        return path[1..].to_string();
+        path.remove(0);
+        return path;
     }
-    if !path.starts_with('/') {
-        return format!("//{path}");
+    if !path.starts_with(b"/") {
+        path.splice(0..0, *b"//");
     }
     path
 }
 
+/// `local_path_bytes` as text, for a system whose paths are text (and for the tests).
+#[cfg(any(test, not(unix)))]
+fn local_path_in(url: &str, paths: Paths) -> String {
+    String::from_utf8_lossy(&local_path_bytes(url, paths)).into_owned()
+}
+
 /// `text` with its percent escapes decoded; a `%` without two hex digits stays.
-fn unescaped(text: &str) -> String {
+fn unescaped(text: &str) -> Vec<u8> {
     let bytes = text.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
     while i < bytes.len() {
-        let escape = (bytes[i] == b'%')
-            .then(|| text.get(i + 1..i + 3))
-            .flatten()
-            .and_then(|hex| u8::from_str_radix(hex, 16).ok());
-        if let Some(value) = escape {
-            out.push(value);
+        let escape = match bytes.get(i..i + 3) {
+            Some([b'%', high, low]) => hex_digit(*high).zip(hex_digit(*low)),
+            _ => None,
+        };
+        if let Some((high, low)) = escape {
+            out.push(high * HEX + low);
             i += 3;
             continue;
         }
         out.push(bytes[i]);
         i += 1;
     }
-    String::from_utf8_lossy(&out).into_owned()
+    out
+}
+
+const HEX: u8 = 16;
+
+/// The value of a hex digit; a sign or another letter is none.
+fn hex_digit(byte: u8) -> Option<u8> {
+    char::from(byte).to_digit(u32::from(HEX)).map(|d| d as u8)
 }
 
 /// The file URL of `path` on this system; a relative path counts from the working folder.
@@ -116,7 +129,19 @@ pub fn file_url(path: &Path) -> String {
 
 /// The path a file URL names on this system; a plain path stays.
 pub fn local_path(url: &str) -> PathBuf {
-    PathBuf::from(local_path_in(url, Paths::HERE))
+    #[cfg(unix)]
+    {
+        // The name's own bytes, as `file_url` wrote them.
+        use std::os::unix::ffi::OsStringExt;
+        PathBuf::from(std::ffi::OsString::from_vec(local_path_bytes(
+            url,
+            Paths::HERE,
+        )))
+    }
+    #[cfg(not(unix))]
+    {
+        PathBuf::from(local_path_in(url, Paths::HERE))
+    }
 }
 
 #[cfg(test)]
@@ -193,6 +218,25 @@ mod tests {
             file_url(Path::new("media/a.webm")),
             file_url(&here.join("media/a.webm"))
         );
+    }
+
+    /// Review #234: a dropped file whose name is not UTF-8 came back with U+FFFD in its name
+    /// and did not open.
+    #[cfg(unix)]
+    #[test]
+    fn a_dropped_name_keeps_its_bytes() {
+        use std::os::unix::ffi::OsStrExt;
+        let path = local_path("file:///c/%FF/a.webm");
+        assert_eq!(path.as_os_str().as_bytes(), b"/c/\xFF/a.webm");
+        assert_eq!(local_path(&file_url(&path)), path);
+    }
+
+    /// Review #234: "%+1" was read as an escape (a sign is no hex digit).
+    #[test]
+    fn only_hex_digits_escape() {
+        assert_eq!(local_path_in("file:///a%+1b", Paths::Unix), "/a%+1b");
+        assert_eq!(local_path_in("file:///a%4", Paths::Unix), "/a%4");
+        assert_eq!(local_path_in("file:///a%41", Paths::Unix), "/aA");
     }
 
     #[test]

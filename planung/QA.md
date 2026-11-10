@@ -407,7 +407,8 @@ Erwartet: keine rohen Schlüssel, kein Sprachmix, Fachbegriffe in beiden Sprache
 **J-F3 Störungen** · Persona: P2 Jens · Phase 1 · LH-ALL-04, LH-NF-04
 1. Während des Spielens das Interface abziehen, wieder anstecken (10-mal).
 2. 60 Minuten Modus „Frei spielen“ mit Time-Stretch auf Mindest-Hardware.
-Erwartet: kein Absturz, klare Meldung, Interface wird wieder genutzt; Xrun-Zähler 0.
+3. Interface abziehen; solange das Angebot „<Gerät> nutzen“ in der Leiste steht, in den Einstellungen einen anderen Eingang wählen.
+Erwartet: kein Absturz, klare Meldung, Interface wird wieder genutzt; Xrun-Zähler 0. In Schritt 3 verschwindet das Angebot mit der Wahl, der gewählte Eingang gilt.
 
 **J-F4 Eingang gestört** ⚙ 🔍 · Personas: P2 Jens, P1 Lea, P7 Sam, P6 Karl · Phase 1 · LH-EIN-15
 1. Interface abgezogen, ein Stück öffnen, Abspielen.

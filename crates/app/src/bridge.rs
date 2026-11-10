@@ -1747,6 +1747,10 @@ impl qobject::Controller {
                     self.as_mut().set_offer_input(q(&id));
                     self.as_mut().set_offer_text(q(&text));
                 }
+                UiEvent::InputOfferEnded => {
+                    self.as_mut().set_offer_input(QString::default());
+                    self.as_mut().set_offer_text(QString::default());
+                }
                 UiEvent::InputBack(text) => {
                     self.as_mut().set_offer_input(QString::default());
                     self.as_mut().set_offer_text(QString::default());

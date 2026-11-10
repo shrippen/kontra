@@ -122,6 +122,7 @@
   "hint.silent": "Kein Audioausgang gefunden. Kontra läuft ohne Ton weiter.",
   "error.import": "Die Datei lässt sich nicht öffnen: {reason}",
   "error.audio": "Audio-Problem: {reason}",
+  "error.file.name": "Der Dateiname „{name}“ enthält Zeichen in einer alten Kodierung, die Kontra nicht speichern kann. Bitte die Datei umbenennen und noch einmal öffnen.",
   "transport.rewind": "Zum Anfang",
   "transport.countin": "Einzähler",
   "transport.position": "Position",

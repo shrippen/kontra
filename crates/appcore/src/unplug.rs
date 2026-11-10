@@ -20,6 +20,16 @@ pub(crate) struct Lost {
     polled: Instant,
 }
 
+impl Lost {
+    /// The input `id` went away now.
+    pub(crate) fn of(id: Option<String>) -> Lost {
+        Lost {
+            id,
+            polled: Instant::now(),
+        }
+    }
+}
+
 /// The input to offer instead of `lost`: the system default if it is another device, else
 /// the first other one.
 pub(crate) fn next_input<'a>(
@@ -65,10 +75,7 @@ impl Core {
             .lost
             .as_ref()
             .map_or_else(|| id.clone(), |l| l.id.clone());
-        self.lost = Some(Lost {
-            id: original.clone(),
-            polled: Instant::now(),
-        });
+        self.lost = Some(Lost::of(original.clone()));
         let offer = next_input(&devices, id.as_deref().or(original.as_deref()))?;
         Some(UiEvent::InputOffer {
             id: offer.id.clone(),
@@ -83,8 +90,12 @@ impl Core {
         self.fallback_input = Some(id.to_string());
     }
 
-    /// Every two seconds while an input is lost: is it back?
+    /// Every two seconds while an input is lost: is it back? And once after the player chose
+    /// an input instead: the offer ends.
     pub(crate) fn watch_lost(&mut self) -> Option<UiEvent> {
+        if std::mem::take(&mut self.offer_ended) {
+            return Some(UiEvent::InputOfferEnded);
+        }
         let lost = self.lost.as_mut()?;
         if lost.polled.elapsed() < POLL {
             return None;

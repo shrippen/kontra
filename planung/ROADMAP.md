@@ -451,7 +451,11 @@ Erkennung und Messung:
   würde im Leerlauf offen gehalten (Review #231): Geräte mit nur einem Mikrofon erkennen oder nachfragen.
 - [ ] Verlorener Eingang, der wegbleibt (Review #231, #232): Steckt der Spieler ein anderes Interface an, nutzen
   Läufe es, der Standby wartet aber weiter auf das alte (bis es zurück ist oder ein Eingang gewählt wird). Das
-  Warten darf nur zusammen mit dem Angebot in der Leiste enden (`InputBack`), sonst bleibt das Angebot stehen.
+  Warten darf nur zusammen mit dem Angebot in der Leiste enden (`InputBack`, `InputOfferEnded`), sonst bleibt das
+  Angebot stehen. Der Hinweis „kein Eingang“ beruht auf dem letzten Blick des Standby (bis 5 s alt).
+- [ ] Dateinamen, die kein UTF-8 sind (Review #235): Kontra lehnt sie mit Grund ab (umbenennen), weil Bibliothek
+  und Fortschritt JSON sind. Von der Kommandozeile oder aus dem Dateimanager kommt der Name verlustbehaftet an
+  (`args.rs`), die Meldung ist dann „nicht gefunden“ statt „umbenennen“.
 - [ ] Summenbegrenzer (Review #230): Mithören plus Backing, Klick und Ton kann die Summe über Vollaussteuerung
   bringen, dort schneidet der Mixer hart. Ein weicher Begrenzer auf der Summe ändert alles, was spielt; erst messen,
   wie oft es vorkommt. Stimmgerät hört im Leerlauf nicht mit (es öffnet nur den Eingang, Mithören ruht dort).
