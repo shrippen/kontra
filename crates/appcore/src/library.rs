@@ -15,39 +15,45 @@ impl Core {
         self.tr(key, &[("n", added.to_string())])
     }
 
-    /// Sets (or with `None` removes) the backing track of the loaded piece.
-    pub fn set_backing(&mut self, path: Option<PathBuf>, offset_s: f64) {
+    /// Sets (or with `None` removes) the backing track of the loaded piece. An error: the
+    /// piece could not be loaded again without the old recording's beat map.
+    pub fn set_backing(&mut self, path: Option<PathBuf>, offset_s: f64) -> Result<(), String> {
         // A name the library cannot keep never gets in (the caller says why: `keepable`).
         if path.as_deref().is_some_and(|p| self.keepable(p).is_err()) {
-            return;
+            return Ok(());
         }
         let Some(loaded) = self.loaded_path().map(Path::to_path_buf) else {
-            return;
+            return Ok(());
         };
         self.cancel_stems_of(&loaded);
 
-        // The beat map belongs to the recording it was heard in (QA J13): another file or
-        // none, and the bars go back to the piece's own tempo.
-        let other_file = self
+        // The beat map belongs to the recording it was heard in (QA J13): with another file
+        // or none it goes. The same file again keeps the map and the place it gave.
+        let same_file = self
             .library
             .entry(&loaded)
-            .is_some_and(|e| e.backing != path);
-        if other_file {
+            .is_some_and(|e| e.backing == path);
+        let mapped = self.library.beat_maps.contains_key(&loaded);
+        let map_goes = mapped && !same_file;
+        if map_goes {
             self.library.beat_maps.remove(&loaded);
         }
 
         if let Some(entry) = self.library.entry_mut(&loaded) {
             entry.backing = path;
-            entry.backing_offset_s = offset_s;
             entry.backing_without_bass = false;
+            if !(mapped && same_file) {
+                entry.backing_offset_s = offset_s;
+            }
         }
         self.stop_live();
-        if other_file {
-            // Saves, and loads the piece again without the map.
-            let _ = self.apply_beat_map();
-            return;
+        if map_goes {
+            // Saves, and loads the piece again at its own tempo. Loading drops the loop, so
+            // only then (review #240).
+            return self.apply_beat_map();
         }
         let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+        Ok(())
     }
 
     pub fn recent_json(&self) -> String {

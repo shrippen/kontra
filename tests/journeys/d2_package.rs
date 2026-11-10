@@ -65,7 +65,7 @@ fn package_carries_loops_tempo_backing() {
     // Step 1: backing aligned, loops and target tempo set, one run practised.
     let mut setup = thomas.core(None);
     setup.open(&score).unwrap();
-    setup.set_backing(Some(wav.clone()), 0.0);
+    setup.set_backing(Some(wav.clone()), 0.0).unwrap();
     setup.backing_analyse().unwrap();
     for (from, to) in LOOPS {
         setup.set_loop(from, to);

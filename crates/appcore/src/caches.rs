@@ -141,7 +141,7 @@ mod tests {
         };
         let mut core = Core::new(&data, qa);
         core.open(&demo()).unwrap();
-        core.set_backing(Some(song), 0.0);
+        core.set_backing(Some(song), 0.0).unwrap();
         core
     }
 

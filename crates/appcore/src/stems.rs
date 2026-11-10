@@ -431,7 +431,7 @@ mod tests {
         kontra_session::write_mono_wav(&song, &vec![0.0; 4_800], 48_000).unwrap();
         let mut core = Core::new(&dir.join("jens"), QaOptions::default());
         core.open(&demo()).unwrap();
-        core.set_backing(Some(song.clone()), 0.5);
+        core.set_backing(Some(song.clone()), 0.5).unwrap();
         core.qa_separator(Some(&fake_demucs(&dir)));
         let state = |core: &mut Core| -> serde_json::Value {
             serde_json::from_str(&core.stems_json()).unwrap()
@@ -480,7 +480,7 @@ mod tests {
             let song = dir.join(format!("Song{i}.wav"));
             kontra_session::write_mono_wav(&song, &vec![0.0; 4_800], 48_000).unwrap();
             core.open(piece).unwrap();
-            core.set_backing(Some(song), 0.0);
+            core.set_backing(Some(song), 0.0).unwrap();
         }
         core.qa_separator(Some(&stand_in(&dir, body)));
         let [first, second] = pieces;
@@ -549,7 +549,7 @@ mod tests {
         core.remove_bass(true);
         assert!(core.stems.job.is_some());
 
-        core.set_backing(None, 0.0);
+        core.set_backing(None, 0.0).unwrap();
         assert!(core.stems.job.is_none());
     }
 
@@ -592,7 +592,7 @@ mod tests {
         let mut core = Core::new(&dir.join("jens"), QaOptions::default());
         core.update_settings(|s| s.language = Some("de".into()));
         core.open(&demo()).unwrap();
-        core.set_backing(Some(song), 0.0);
+        core.set_backing(Some(song), 0.0).unwrap();
         core.qa_separator(None);
         // `stems_json` looks again; a test machine may have Demucs, so only check the texts.
         let json: serde_json::Value = serde_json::from_str(&core.stems_json()).unwrap();
