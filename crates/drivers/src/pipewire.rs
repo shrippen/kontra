@@ -13,7 +13,7 @@ use pipewire::{
     spa::utils::result::AsyncSeq, types::ObjectType,
 };
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -21,6 +21,9 @@ use std::time::Duration;
 const READ_TIMEOUT: Duration = Duration::from_secs(2);
 const MEDIA_CLASS: &str = "media.class";
 const NODE_NAME: &str = "node.name";
+const FORM_FACTOR: &str = "device.form-factor";
+/// Form factors of a device made for a voice, not for an instrument.
+const VOICE_FORM_FACTORS: [&str; 4] = ["headset", "handset", "webcam", "microphone"];
 const METADATA_NAME: &str = "metadata.name";
 /// The metadata object holding the effective defaults (WirePlumber).
 const DEFAULT_METADATA: &str = "default";
@@ -65,9 +68,17 @@ pub(crate) struct Graph {
     classes: HashMap<String, NodeClass>,
     default_source: Option<String>,
     default_sink: Option<String>,
+    /// Nodes whose `device.form-factor` says headset, webcam or microphone.
+    voices: HashSet<String>,
 }
 
 impl Graph {
+    /// Whether node `name` belongs to a headset, webcam or microphone, whatever else the card
+    /// offers (a headset also plays back).
+    pub(crate) fn is_voice(&self, name: &str) -> bool {
+        self.voices.contains(name)
+    }
+
     /// Whether node `name` is a device for `direction` (a sink is no input: its monitor would
     /// record the music, not the bass).
     pub(crate) fn serves(&self, name: &str, direction: Direction) -> bool {
@@ -127,10 +138,14 @@ impl Graph {
                 if global.type_ == ObjectType::Node {
                     let class = props.get(MEDIA_CLASS).and_then(NodeClass::parse);
                     if let (Some(class), Some(name)) = (class, props.get(NODE_NAME)) {
-                        graph_global
-                            .borrow_mut()
-                            .classes
-                            .insert(name.to_string(), class);
+                        let mut graph = graph_global.borrow_mut();
+                        graph.classes.insert(name.to_string(), class);
+                        if props
+                            .get(FORM_FACTOR)
+                            .is_some_and(|f| VOICE_FORM_FACTORS.contains(&f))
+                        {
+                            graph.voices.insert(name.to_string());
+                        }
                     }
                     return;
                 }
@@ -187,7 +202,14 @@ impl Graph {
                 .collect(),
             default_source: default_source.map(str::to_string),
             default_sink: default_sink.map(str::to_string),
+            voices: HashSet::new(),
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_voice(mut self, name: &str) -> Graph {
+        self.voices.insert(name.to_string());
+        self
     }
 }
 

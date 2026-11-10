@@ -1,5 +1,7 @@
-//! How a device is connected: guessed from its name, and a USB microphone (webcam, headset) told
-//! from a USB interface (LH-EIN-02).
+//! How a device is connected: guessed from its name, and a USB microphone told from a
+//! USB interface (LH-EIN-02): under PipeWire by the device's form factor (headset, webcam,
+//! microphone), else by having no output. cpal gives no WASAPI form factor: Windows uses only the
+//! output rule, so a USB headset stays an interface there.
 
 use super::{Connection, DeviceInfo};
 
@@ -37,11 +39,12 @@ fn device_key(device: &DeviceInfo) -> &str {
 }
 
 /// A USB input whose device offers no output is a microphone, not the bass interface: a webcam
-/// or headset must not be taken by "Automatic" nor held open in standby (review #231).
+/// must not be taken by "Automatic" nor held open in standby (review #231). ALSA fallback inputs
+/// (`past_pipewire`) have no PipeWire output to match and stay interfaces (review #73).
 pub(super) fn mark(inputs: &mut [DeviceInfo], outputs: &[DeviceInfo]) {
     for input in inputs
         .iter_mut()
-        .filter(|d| d.connection == Connection::Usb)
+        .filter(|d| d.connection == Connection::Usb && !d.past_pipewire)
     {
         let key = device_key(input);
         let plays = outputs
@@ -88,6 +91,58 @@ mod tests {
         );
         assert_eq!(guess_connection("Scarlett Solo USB"), Connection::Usb);
         assert_eq!(guess_connection("HDA Intel HDMI 0"), Connection::Hdmi);
+    }
+
+    // Review #254: the ALSA fallback of a card PipeWire lost has no PipeWire output to match; it
+    // stays an interface (review #73).
+    #[test]
+    fn a_direct_input_stays_an_interface() {
+        let mut direct = named(
+            "alsa:plughw:CARD=2,DEV=0",
+            "Scarlett Solo USB, USB Audio",
+            Direction::Input,
+        );
+        direct.past_pipewire = true;
+        let mut inputs = vec![direct];
+        let outputs = vec![named(
+            "pipewire:alsa_output.usb-Focusrite_Scarlett_Solo_USB-00.pro-output-0",
+            "Scarlett Solo USB Pro",
+            Direction::Output,
+        )];
+        mark(&mut inputs, &outputs);
+        assert_eq!(inputs[0].connection, Connection::Usb);
+    }
+
+    // Review #254: a USB headset also plays back; PipeWire's form factor says it is a voice device.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_headset_is_a_microphone() {
+        use crate::pipewire::NodeClass;
+        let headset = "alsa_input.usb-Logitech_H390-00.analog-stereo";
+        let scarlett = "alsa_input.usb-Focusrite_Scarlett_Solo_USB-00.analog-stereo";
+        let graph = crate::pipewire::Graph::fake(
+            &[(headset, NodeClass::Source), (scarlett, NodeClass::Source)],
+            None,
+            None,
+        )
+        .with_voice(headset);
+        let listed = vec![
+            device(
+                &format!("pipewire:{headset}"),
+                Direction::Input,
+                Connection::Usb,
+            ),
+            device(
+                &format!("pipewire:{scarlett}"),
+                Direction::Input,
+                Connection::Usb,
+            ),
+        ];
+        let kinds: Vec<_> = crate::audio::pipewire_devices(listed, &graph)
+            .iter()
+            .map(|d| d.connection)
+            .collect();
+        assert_eq!(kinds, [Connection::UsbMicrophone, Connection::Usb]);
     }
 
     #[test]
