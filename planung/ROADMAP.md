@@ -97,8 +97,9 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   Dateidialogs über `ctl.folderUrl`).
 - [ ] Win4 Pfade und Dienste. Erledigt (10.11.): Daten in `%APPDATA%\Kontra`, Cache in `%LOCALAPPDATA%\Kontra`
   (`drivers/folder.rs` nennt die Ordner des Systems, `appcore/src/store.rs` legt Kontras Ordner hinein; unter Linux
-  wie bisher XDG). Offen: verschobener Download-Ordner (Known Folders),
-  Demucs endet mit einem abgestürzten Kontra (Job Object), Ersatz-Demucs für die Stem-Tests in `session`,
+  wie bisher XDG). Demucs endet unter Windows mit Kontra, auch nach einem Absturz (Job Object,
+  `separator/process.rs`, Test `ends_when_the_leash_goes`). Offen: verschobener Download-Ordner (Known Folders),
+  Ersatz-Demucs für die Stem-Tests in `session`,
   `appcore` und J-D1 unter Windows, Kirigamis Übersetzungen, Dateidialoge, Tastenkürzel, Schriftarten, hohe DPI.
   Clippy für Windows meldet `LiveOutput` (große Variante `Player`): beim Aufnehmen von Clippy in den Job klären.
 - [ ] Win5 Paket und Signierung (Entscheidung 10.11.: signieren ja; Form offen, Vorschlag unten), gebaut und

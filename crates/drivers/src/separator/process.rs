@@ -7,7 +7,9 @@
 //! Windows    .exe/.cmd     below-normal priority, own group   taskkill /T /F (the tree)
 //! ```
 //!
-//! Not on Windows yet: ending with a crashed Kontra (needs a job object, Win4).
+//! Both end the program with Kontra, also after a crash: Unix by a signal the kernel sends when
+//! the starter dies, Windows by a job object that ends its processes when its last handle
+//! closes (`Leash`).
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -15,7 +17,7 @@ use std::process::Command;
 #[cfg(all(test, unix))]
 pub(super) use imp::NICENESS;
 pub(super) use imp::{
-    ask_to_end, detach, is_executable, kill_tree, lower_priority, user_bin, PROGRAM,
+    ask_to_end, detach, is_executable, kill_tree, leash, lower_priority, user_bin, Leash, PROGRAM,
 };
 
 #[cfg(unix)]
@@ -65,6 +67,14 @@ mod imp {
     pub(in super::super) fn detach(command: &mut Command) {
         orphan::end_with_parent(command);
         command.process_group(0);
+    }
+
+    /// Nothing to hold on Unix: `detach` already ties the program to its starter.
+    #[derive(Debug)]
+    pub(in super::super) struct Leash;
+
+    pub(in super::super) fn leash(_child: &std::process::Child) -> Option<Leash> {
+        Some(Leash)
     }
 
     /// Asks the whole process group of `pid` to end.
@@ -153,6 +163,76 @@ mod imp {
         command.creation_flags(
             CREATE_NEW_PROCESS_GROUP | BELOW_NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW,
         );
+    }
+
+    /// Ends the program and what it starts from now on when dropped, or when Kontra is gone
+    /// (Windows then closes the handle): a job object with "kill on close".
+    #[derive(Debug)]
+    pub(in super::super) struct Leash {
+        /// Held, not read: dropping it closes the job.
+        _job: job::Job,
+    }
+
+    /// `None` if Windows refuses the job: the program then runs without it, as before.
+    pub(in super::super) fn leash(child: &std::process::Child) -> Option<Leash> {
+        job::Job::holding(child).map(|job| Leash { _job: job })
+    }
+
+    /// The Win32 calls behind `Leash`.
+    #[allow(unsafe_code)]
+    mod job {
+        use std::os::windows::io::AsRawHandle;
+        use std::process::Child;
+        use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+        use windows_sys::Win32::System::JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+            SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        };
+
+        #[derive(Debug)]
+        pub(super) struct Job(HANDLE);
+
+        // SAFETY: a job handle is a kernel object that any thread may close.
+        unsafe impl Send for Job {}
+
+        impl Job {
+            /// A job that ends its processes when closed, with `child` in it.
+            pub(super) fn holding(child: &Child) -> Option<Job> {
+                // SAFETY: no security attributes and no name are valid arguments; the handle
+                // is checked before use and owned by `Job` from here on.
+                let handle = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
+                if handle.is_null() {
+                    return None;
+                }
+                let job = Job(handle);
+
+                let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+                limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+                let size = std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32;
+                // SAFETY: `limits` lives through the call and `size` is its size; the job and
+                // the child's process handle are open (the child is not reaped yet).
+                let held = unsafe {
+                    SetInformationJobObject(
+                        job.0,
+                        JobObjectExtendedLimitInformation,
+                        std::ptr::from_ref(&limits).cast(),
+                        size,
+                    ) != 0
+                        && AssignProcessToJobObject(job.0, child.as_raw_handle().cast()) != 0
+                };
+                held.then_some(job)
+            }
+        }
+
+        impl Drop for Job {
+            fn drop(&mut self) {
+                // SAFETY: the handle is open and closed only here.
+                unsafe {
+                    CloseHandle(self.0);
+                }
+            }
+        }
     }
 
     /// A program without a window cannot be asked: it ends at once, with what it started.

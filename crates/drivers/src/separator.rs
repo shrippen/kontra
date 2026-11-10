@@ -168,8 +168,10 @@ impl Separator {
         let stem = input
             .file_stem()
             .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+        let leash = process::leash(&child);
         Ok(SeparationJob {
             child,
+            _leash: leash,
             progress,
             left,
             tail,
@@ -185,6 +187,8 @@ impl Separator {
 #[derive(Debug)]
 pub struct SeparationJob {
     child: Child,
+    /// Ends the program with Kontra (Windows; `None` if the system refused). Held, not read.
+    _leash: Option<process::Leash>,
     progress: Arc<AtomicU32>,
     /// Seconds left + 1, `UNKNOWN` before the bar says.
     left: Arc<AtomicU32>,
@@ -715,6 +719,31 @@ mod batch_tests {
         assert!(
             started.elapsed() < READER_GRACE,
             "the child went with the wrapper"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Win4: Demucs outlived a Kontra that crashed (nothing ran `taskkill`). The job object
+    /// ends the tree when its last handle closes, which Windows does for a dead Kontra too.
+    #[test]
+    fn ends_when_the_leash_goes() {
+        let dir = work_dir("leash");
+        let song = dir.join("Song.wav");
+        std::fs::write(&song, b"RIFF").unwrap();
+        let mut job = Separator::with_program(&batch(&dir, "ping -n 30 127.0.0.1 >nul"))
+            .start(&song, &dir.join("out"))
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(300));
+        assert!(matches!(job.child.try_wait(), Ok(None)), "still running");
+        // As when Kontra is gone: only the handle closes, nobody cancels.
+        drop(job._leash.take());
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while matches!(job.child.try_wait(), Ok(None)) && Instant::now() < deadline {
+            std::thread::sleep(STOP_POLL);
+        }
+        assert!(
+            !matches!(job.child.try_wait(), Ok(None)),
+            "Demucs outlived the leash"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
