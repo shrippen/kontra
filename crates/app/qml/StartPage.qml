@@ -87,6 +87,8 @@ Kirigami.ScrollablePage {
 
         KanteHeading { text: texts.t("home.title"); pageTitle: true }
 
+        UpdateNotice { Layout.fillWidth: true }
+
         // The assistant was skipped: offer it once more, it is what makes the first notes count.
         KanteHintCard {
             Layout.fillWidth: true

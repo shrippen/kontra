@@ -229,6 +229,10 @@ pub struct Settings {
     pub string_colors: String,
     /// Mirrored fretboard, nut on the right (LH-ANZ-08).
     pub left_handed: bool,
+    /// Look for a newer release at start (LH-ALL-07); never in Flatpak, tests and QA runs.
+    pub update_check: bool,
+    /// The release whose notice was dismissed; the next newer one shows again.
+    pub update_dismissed: Option<String>,
 }
 
 impl Default for Settings {
@@ -289,6 +293,8 @@ impl Default for Settings {
             window_ms: WINDOW_DEFAULT_MS,
             string_colors: "kante".into(),
             left_handed: false,
+            update_check: true,
+            update_dismissed: None,
         }
     }
 }

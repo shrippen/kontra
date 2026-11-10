@@ -37,10 +37,11 @@ mod stems;
 mod store;
 mod summary;
 mod unplug;
+mod update;
 
 pub use data::DataImport;
 pub use i18n::{Catalog, Language};
-pub use input_state::InputState;
+pub use input_state::{InputState, QaOptions};
 pub use kontra_session::{exercise, Blocks, ChainOrder, Density};
 pub use kontra_session::{file_url, local_path};
 pub use library::BackingChange;
@@ -87,13 +88,6 @@ const DEFAULT_KEYS: (u8, u8) = (28, 67);
 const MIDDLE_C: u8 = 60;
 /// Tunings the settings offer (LH-TUN-02); "drop" lowers the lowest string a whole step.
 const TUNINGS: [&str; 5] = ["standard", "drop", "half-down", "whole-down", "custom"];
-
-/// Options for QA runs (planung/QA.md): a recording instead of the audio input.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct QaOptions {
-    pub input_file: Option<PathBuf>,
-    pub laptop_jack: bool,
-}
 
 /// What the UI has to show after a call or a tick.
 #[derive(Debug, Clone, PartialEq)]
@@ -278,6 +272,7 @@ pub struct Core {
     downloads: Option<PathBuf>,
     /// Songsterr search (LH-BIB-11, round 12).
     finder: songsterr::Finder,
+    updater: update::Updater,
     /// The blind probe running now (DIDAKTIK I1), if any.
     probe: Option<Probe>,
     /// Building blocks in the workshop (DIDAKTIK I6), if chosen, and the loop chosen before them.
@@ -333,6 +328,7 @@ impl Core {
             prepare: prepare::Prepare::default(),
             downloads: kontra_session::download_dir(),
             finder: songsterr::Finder::default(),
+            updater: update::Updater::default(),
             probe: None,
             chain: None,
             lesson_goal: None,

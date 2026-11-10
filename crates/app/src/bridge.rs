@@ -320,6 +320,11 @@ pub mod qobject {
         #[cxx_name = "changeStreak"]
         fn change_streak(self: Pin<&mut Self>, on: bool);
 
+        /// Update notice (LH-ALL-07): "poll", "dismiss", "on" or "off"; answers its JSON.
+        #[qinvokable]
+        #[cxx_name = "updateNotice"]
+        fn update_notice(self: Pin<&mut Self>, action: &QString) -> QString;
+
         /// What the loaded bundled exercise trains ("" for other pieces).
         #[qinvokable]
         #[cxx_name = "loadedGoal"]
@@ -1090,6 +1095,7 @@ impl Default for ControllerRust {
         if let Some(answer) = &args.course_answer {
             core.fake_course_web(answer);
         }
+        core.start_update_check(args.update_answer.as_deref(), args.screenshot.as_deref());
         if let Some(style) = &args.style {
             core.update_settings(|s| s.style = style.clone());
         }

@@ -140,10 +140,11 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   CI-Artefakt `Kontra-windows-portable` 57 MB), der ohne installiertes Qt startet (Screenshot mit leerem `PATH`).
   Die Visual-C++-Laufzeit liegt bei. Qt liest seine Umgebungsvariablen unter Windows aus der Kopie der
   C-Laufzeit: Kontra setzt Stil und Thema darum über `qputenv` (`cpp/qt_env.cpp`), sonst kam der gepackte Kontra
-  im nativen Windows-Stil hoch. Offen: Installer (Runde 18: Inno Setup und portable ZIP, winget später) mit
-  Update-Hinweis im Programm (LH-ALL-07); Signierung zurückgestellt (Runde 18); gebaut und
-  angehängt nur von GitHub Actions (CLAUDE.md), Demo-Ausschluss geprüft wie im Flatpak; Landing Page mit
-  Windows-Download.
+  im nativen Windows-Stil hoch. Installer (Runde 18: Inno Setup und portable ZIP, winget später): `packaging/windows/Kontra.iss`,
+  `scripts/installer-windows.sh`; die CI baut beide bei jedem Push als Artefakt `Kontra-windows-installer`, angehängt an
+  ein Release werden sie nur von `.github/workflows/release.yml` beim Tag `v*` (GitHub Actions). Update-Hinweis im
+  Programm (LH-ALL-07) umgesetzt. Offen: Signierung zurückgestellt (Runde 18); Demo-Ausschluss prüfen wie im Flatpak;
+  Landing Page mit Windows-Download; Eintrag `kontra` in `versions.json`.
 - [ ] Win6 QA unter Windows (Entscheidung 10.11.: zuerst in einer KVM-Maschine auf dem Rechner des Eigentümers;
   Runde 18: die vorhandene libvirt-Maschine `win`, vorher ein Snapshot; Interface per USB-Durchreichung, sobald
   Win2 steht): Journeys als P8, J-A6 neu.

@@ -1,0 +1,56 @@
+name: release
+
+# Release artifacts are built and attached here, on GitHub, and only on a tag (the Gitea mirror
+# pushes tags like branches). Gitea releases carry no files (CLAUDE.md, skill ci-regeln).
+# Windows: the Inno Setup installer and the portable ZIP of scripts/installer-windows.sh.
+# The release notes come from CHANGELOG.md (scripts/release-notes.sh); the run stops without
+# the section of this version, so the changelog is written before the tag.
+on:
+  push:
+    tags: ["v*"]
+
+# A tag run builds the release: never cancelled.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    if: github.server_url == 'https://github.com'
+    timeout-minutes: 90
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        continue-on-error: true
+        with:
+          path: |
+            C:/Qt
+            C:/kf6
+          key: qt-windows-6.10.3-kf-6.30.0-multimedia
+      - name: Tag and version agree
+        run: |
+          version="$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p}' Cargo.toml)"
+          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME, Cargo.toml $version"; exit 1; }
+          scripts/release-notes.sh "$version" > "$RUNNER_TEMP/notes.md"
+      - name: Qt and Kirigami
+        run: scripts/setup-qt-windows.sh
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: Package
+        run: |
+          scripts/package-windows.sh dist/Kontra
+          scripts/installer-windows.sh dist/Kontra dist/release
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
+          gh release upload "$GITHUB_REF_NAME" dist/release/* --clobber

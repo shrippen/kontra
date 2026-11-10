@@ -11,6 +11,7 @@ mod notation;
 mod note_list;
 mod playback;
 mod settings;
+mod update;
 
 fn demo() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/demo/etude-1.mid")

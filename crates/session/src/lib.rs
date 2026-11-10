@@ -40,6 +40,7 @@ mod stems;
 mod summary;
 mod technique;
 mod transport;
+mod update;
 
 pub use backing_cache::{BackingCache, Preparing};
 pub use band::Band;
@@ -92,3 +93,4 @@ pub use technique::{
     TechniqueResult, TechniqueTally, TechniqueTarget,
 };
 pub use transport::{LoopRange, Transport};
+pub use update::{NewRelease, UpdateCheck};

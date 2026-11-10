@@ -12,6 +12,14 @@ use crate::{Core, UiEvent};
 use kontra_session::{
     list_devices, DeviceInfo, Direction, EngineError, InputChoice, PracticeEvent,
 };
+use std::path::PathBuf;
+
+/// Options for QA runs (planung/QA.md): a recording instead of the audio input.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct QaOptions {
+    pub input_file: Option<PathBuf>,
+    pub laptop_jack: bool,
+}
 
 /// The input's state for the player.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

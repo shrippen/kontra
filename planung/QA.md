@@ -81,14 +81,15 @@ nennt Kontra die Abhilfe (ab- und anstecken oder `systemctl --user restart wirep
 
 **J-A6 Windows: installieren und erster Ton** · Persona: P8 Noah · nach Phase 1 (Win5, Win6) · LH-NF-17
 1. Windows 11 ohne Adminkonto, Benutzerordner mit Leerzeichen und Umlaut, Skalierung 150 %; Interface mit ASIO-Treiber am USB.
-2. Installer von der Landing Page laden und starten; Kontra aus dem Startmenü öffnen.
+2. Installer (`Kontra-<Version>-windows-setup.exe`) von der Landing Page laden und starten (Installation für den Benutzer, ohne Adminabfrage); Kontra aus dem Startmenü öffnen. Dazu einmal das portable ZIP entpacken und `bin\kontra.exe` starten.
 3. Einrichtung: Interface wählen (ASIO, danach WASAPI), Pegel, Stimmgerät, Latenz „mit Kabel messen“.
 4. Mitgelieferte Übung durchspielen; Sicherung von einem Linux-Rechner laden; Kontra schließen und wieder öffnen.
-5. Kontra entfernen.
+5. Mit einer älteren Version als der in `versions.json` (oder `--update-answer`): die Startseite zeigt den Hinweis mit Link; „×“ blendet ihn aus, der Schalter „Nach neuen Versionen suchen“ in den Einstellungen schaltet die Anfrage ab. Ohne Netz kein Hinweis und keine Verzögerung.
+6. Kontra entfernen (Einstellungen > Apps oder Startmenü).
 Erwartet: keine Warnung von SmartScreen (signiert), keine Frage nach Adminrechten; das Interface steht mit seinem
 Windows-Namen in der Liste; Latenz mit ASIO ≤ 20 ms (LH-NF-01), mit WASAPI gemessen und genannt; Daten in
 `%APPDATA%\Kontra`, nach dem Neustart alles wie verlassen; die Sicherung bringt Stücke und Fortschritt; nach dem
-Entfernen bleibt nur der Datenordner. Bis Win5: in der KVM-Maschine des Eigentümers mit dem Paket aus der CI.
+Entfernen bleibt nur der Datenordner; der Hinweis erscheint nur bei einer neueren Version. Bis Win5: in der KVM-Maschine des Eigentümers mit dem Paket aus der CI.
 
 ## B. Spielen und Üben
 

@@ -1114,5 +1114,10 @@
   "songmap.hint": "Height = hits per bar over the last runs. Drag over bars to set the loop.",
   "call.title": "Call and response",
   "call.hint": "Kontra plays two bars of bass over softer backing; you answer in the next two with the same motif of chord tones. The tab appears after two failed tries. In “Play” mode without scoring.",
-  "call.listen": "Listen and answer: Kontra plays two bars, you play them back. The tab comes after two failed tries."
+  "call.listen": "Listen and answer: Kontra plays two bars, you play them back. The tab comes after two failed tries.",
+  "update.title": "Kontra {version} is available",
+  "update.text": "A newer version is out. Kontra does not download it; the release page has the installer.",
+  "update.open": "Open release page",
+  "settings.update": "Look for new versions",
+  "settings.update.hint": "At start, Kontra asks shrippen.github.io which version is the latest and says so here if yours is older. It sends nothing else. Takes effect at the next start."
 }

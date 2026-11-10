@@ -41,6 +41,9 @@ pub struct AppArgs {
     /// `--course-answer FILE`: every course address answers with this file, never the network
     /// (QA of J-G5).
     pub course_answer: Option<PathBuf>,
+    /// `--update-answer FILE`: the update check reads this file as `versions.json`, never the
+    /// network (QA of the update notice, screenshots).
+    pub update_answer: Option<PathBuf>,
     /// `--help` or `-h`: print `USAGE` and quit, never open the audio input (QA 27.10.).
     pub help: bool,
     /// The first `--option` Kontra does not know: an error instead of a start with real audio.
@@ -63,7 +66,7 @@ Usage: kontra [FILE] [OPTIONS]
   --autoplay, --probe, --calibrate, --mixer, --present, --align, --remove-bass
   --loop-bars A-B, --section NAME
   --screenshot PNG, --screenshot-after MS, --quit-after MS
-  --songsterr-answer FILE, --song-search TEXT, --course-answer FILE
+  --songsterr-answer FILE, --song-search TEXT, --course-answer FILE, --update-answer FILE
   --focus-log, --screenshot-notes
   -h, --help               this text
 ";
@@ -109,6 +112,7 @@ impl AppArgs {
                 "--remove-bass" => out.remove_bass = true,
                 "--songsterr-answer" => out.songsterr_answer = Some(PathBuf::from(value())),
                 "--song-search" => out.song_search = Some(value()),
+                "--update-answer" => out.update_answer = Some(PathBuf::from(value())),
                 "--course-answer" => out.course_answer = Some(PathBuf::from(value())),
                 "--loop-bars" => {
                     let v = value();
