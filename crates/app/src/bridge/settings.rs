@@ -379,12 +379,12 @@ impl qobject::Controller {
             "drive" => {
                 let amount = value.clamp(0.0, 1.0);
                 self.as_mut().set_monitor_drive(amount);
-                self.as_mut().core().remix(|s| s.monitor_drive = amount)
+                self.as_mut().core().remix(|s| s.set_monitor_drive(amount))
             }
             "width" => {
                 let amount = value.clamp(0.0, 1.0);
                 self.as_mut().set_monitor_width(amount);
-                self.as_mut().core().remix(|s| s.monitor_width = amount)
+                self.as_mut().core().remix(|s| s.set_monitor_width(amount))
             }
             _ => None,
         };
@@ -408,8 +408,8 @@ impl qobject::Controller {
         self.as_mut().set_monitor_high_db(s.monitor_high_db);
         self.as_mut().set_monitor_compress(s.monitor_compress);
         self.as_mut().set_monitor_warmth(s.monitor_warmth);
-        self.as_mut().set_monitor_drive(s.monitor_drive);
-        self.as_mut().set_monitor_width(s.monitor_width);
+        self.as_mut().set_monitor_drive(s.monitor_drive());
+        self.as_mut().set_monitor_width(s.monitor_width());
         self.as_mut().set_monitor_limit(s.monitor_limit);
         if let Some(hint) = hint {
             self.as_mut().set_message(q(&hint));
