@@ -156,6 +156,54 @@ jobs:
       - run: cargo clippy --workspace --exclude kontra-app --all-targets -- -D warnings
       - run: cargo test --workspace --exclude kontra-app --no-fail-fast
 
+  windows-app:
+    # Win3 (LH-NF-17): the Qt app builds and starts on Windows: Qt and Kirigami from
+    # scripts/setup-qt-windows.sh (cached), one headless screenshot as proof. Not part of
+    # "github / test" yet.
+    timeout-minutes: 90
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        # Without the cache the job only takes longer.
+        continue-on-error: true
+        with:
+          path: |
+            C:/Qt
+            C:/kf6
+          key: qt-windows-6.10.3-kf-6.30.0-multimedia
+      - uses: actions/cache@v4
+        continue-on-error: true
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+          key: windows-app-${{ hashFiles('Cargo.lock') }}
+      - name: Qt and Kirigami
+        run: scripts/setup-qt-windows.sh
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: Build and test
+        run: |
+          . scripts/qt-env-windows.sh
+          cargo build -p kontra-app
+          cargo test -p kontra-app
+      - name: Screenshot
+        run: |
+          . scripts/qt-env-windows.sh
+          mkdir -p shots
+          KONTRA_DATA_DIR="$RUNNER_TEMP/kontra-data" timeout 120 target/debug/kontra.exe \
+            --language en --page settings --screenshot shots/settings-en.png --screenshot-after 2000
+          test -f shots/settings-en.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-windows
+          path: shots/
+
   app:
     # The Qt app: Qt 6.10 and Kirigami from scripts/setup-qt-env.sh (cached), headless screenshots.
     timeout-minutes: 45
