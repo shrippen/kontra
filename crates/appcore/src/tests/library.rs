@@ -41,7 +41,7 @@ fn a_name_kontra_cannot_keep_is_refused() {
     let err = core.open(&file).unwrap_err();
     assert!(err.contains("umbenennen"), "{err}");
     core.open(&demo()).unwrap();
-    core.set_backing(Some(file), 0.0);
+    core.set_backing(Some(file), 0.0).unwrap();
     assert_eq!(core.backing_name(), "");
     // A package's own path is never kept: its name does not matter.
     assert!(core.keepable(&dir.join("gut.mid")).is_ok());
@@ -812,7 +812,7 @@ fn package_moves_a_piece_to_another_profile() {
     kontra_session::write_mono_wav(&backing, &vec![0.0; 4_800], 48_000).unwrap();
     let mut teacher = Core::new(&dir.join("thomas"), QaOptions::default());
     teacher.open(&demo()).unwrap();
-    teacher.set_backing(Some(backing.clone()), 0.5);
+    teacher.set_backing(Some(backing.clone()), 0.5).unwrap();
     // An alignment as the beat sheet makes it: beats every half second from 0.25 s.
     let beats = (0..200).map(|i| 0.25 + f64::from(i) * 0.5).collect();
     teacher.library.beat_maps.insert(
@@ -996,4 +996,93 @@ fn open_lists_notes_and_remembers_recent() {
     let again = Core::new(&dir, QaOptions::default());
     assert!(again.recent_json().contains("Etude 1"));
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// QA J13: one imported file read "1 Stücke importiert."
+#[test]
+fn one_imported_piece_is_singular() {
+    let dir = temp_dir("one-piece");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.update_settings(|s| s.language = Some("de".into()));
+    assert_eq!(core.imported_text(1), "1 Stück importiert.");
+    assert_eq!(core.imported_text(3), "3 Stücke importiert.");
+    core.update_settings(|s| s.language = Some("en".into()));
+    assert_eq!(core.imported_text(1), "1 piece imported.");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// QA J13: taking the backing track away kept its beat map. The bars stayed on the old band's
+/// tempo, and the next backing track started aligned to beats that are not its own.
+#[test]
+fn a_beat_map_goes_with_its_backing() {
+    let dir = temp_dir("beat-map");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.open(&demo()).unwrap();
+    let own_tempo = core.arrangement().unwrap().tempo.clone();
+    core.set_backing(Some(dir.join("band.wav")), 0.0).unwrap();
+    // A band at 150 BPM, as the analysis leaves it.
+    let beats: Vec<f64> = (0..64).map(|i| f64::from(i) * 0.4).collect();
+    let map = store::BeatMap {
+        beats,
+        bpm: 150.0,
+        ..store::BeatMap::default()
+    };
+    core.library.beat_maps.insert(demo(), map);
+    core.backing_adjust(0, 0.0, None).unwrap();
+    assert_ne!(
+        core.arrangement().unwrap().tempo,
+        own_tempo,
+        "follows the band"
+    );
+
+    core.set_backing(None, 0.0).unwrap();
+    assert_eq!(
+        core.arrangement().unwrap().tempo,
+        own_tempo,
+        "own tempo again"
+    );
+    core.set_backing(Some(dir.join("other.wav")), 0.0).unwrap();
+    assert!(core.backing_json().contains("\"analysed\":false"));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Review #240: choosing the first backing track loaded the piece again and with that took
+/// the loop away. Only a beat map that goes loads it again.
+#[test]
+fn a_first_backing_keeps_the_loop() {
+    let dir = temp_dir("backing-loop");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.open(&demo()).unwrap();
+    core.set_loop(1, 2);
+    let looped = core.loop_seconds();
+    assert!(looped.0 >= 0.0, "{looped:?}");
+    core.set_backing(Some(dir.join("band.wav")), 0.0).unwrap();
+    assert_eq!(core.loop_seconds(), looped);
+    core.set_backing(None, 0.0).unwrap();
+    assert_eq!(core.loop_seconds(), looped, "no map, nothing to load again");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Review #240: choosing the same recording again kept its beat map but put the offset back
+/// to zero: bars on the band's tempo, the recording a first beat off.
+#[test]
+fn the_same_backing_again_keeps_its_place() {
+    let dir = temp_dir("backing-again");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.open(&demo()).unwrap();
+    let band = dir.join("band.wav");
+    core.set_backing(Some(band.clone()), 0.0).unwrap();
+    let beats: Vec<f64> = (0..64).map(|i| 1.0 + f64::from(i) * 0.4).collect();
+    let map = store::BeatMap {
+        beats,
+        bpm: 150.0,
+        ..store::BeatMap::default()
+    };
+    core.library.beat_maps.insert(demo(), map);
+    core.backing_adjust(0, 0.0, None).unwrap();
+    let placed = core.backing().unwrap().1;
+    assert!((placed - 1.0).abs() < 1e-9, "{placed}");
+    core.set_backing(Some(band), 0.0).unwrap();
+    assert_eq!(core.backing().unwrap().1, placed);
+    let _ = std::fs::remove_dir_all(dir);
 }

@@ -2116,25 +2116,6 @@ impl Core {
         reloaded
     }
 
-    /// Sets (or with `None` removes) the backing track of the loaded piece.
-    pub fn set_backing(&mut self, path: Option<PathBuf>, offset_s: f64) {
-        // A name the library cannot keep never gets in (the caller says why: `keepable`).
-        if path.as_deref().is_some_and(|p| self.keepable(p).is_err()) {
-            return;
-        }
-        let Some(loaded) = self.loaded_path().map(Path::to_path_buf) else {
-            return;
-        };
-        self.cancel_stems_of(&loaded);
-        if let Some(entry) = self.library.entry_mut(&loaded) {
-            entry.backing = path;
-            entry.backing_offset_s = offset_s;
-            entry.backing_without_bass = false;
-        }
-        let _ = store::save(&self.data_dir.join("library.json"), &self.library);
-        self.stop_live();
-    }
-
     fn translate(&self, event: PracticeEvent) -> Option<UiEvent> {
         match event {
             PracticeEvent::Level {

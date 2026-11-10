@@ -24,7 +24,7 @@ impl qobject::Controller {
         let (text, recent, lists) = {
             let this = self.as_ref();
             let core = &this.rust().core;
-            let mut text = core.tr("library.imported", &[("n", added.to_string())]);
+            let mut text = core.imported_text(added);
             for (name, reason) in &failed {
                 text.push_str(&format!("\n{name}: {reason}"));
             }
@@ -42,7 +42,7 @@ impl qobject::Controller {
         let (text, recent) = {
             let this = self.as_ref();
             let core = &this.rust().core;
-            let mut text = core.tr("library.imported", &[("n", added.to_string())]);
+            let mut text = core.imported_text(added);
             for (name, reason) in &failed {
                 text.push_str(&format!("\n{name}: {reason}"));
             }
