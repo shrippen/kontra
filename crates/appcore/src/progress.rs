@@ -141,7 +141,7 @@ impl Core {
         let repeated = |bar: u32| {
             repeat
                 .iter()
-                .any(|r| r["path"] == json!(entry.path) && r["bar"] == bar)
+                .any(|r| r["path"] == json!(entry.path.to_string_lossy()) && r["bar"] == bar)
         };
         let picked: Vec<u32> = bars
             .iter()
@@ -209,8 +209,9 @@ impl Core {
                 let Some(s) = spacing(&list).filter(|s| s.due_unix <= now) else {
                     continue;
                 };
-                let card =
-                    json!({ "path": entry.path, "title": self.library_title(entry), "bar": bar });
+                // Lossy, as the piece list: a path that is not text must not end the program.
+                let path = entry.path.to_string_lossy();
+                let card = json!({ "path": path, "title": self.library_title(entry), "bar": bar });
                 due.push((s.due_unix, card));
             }
         }
