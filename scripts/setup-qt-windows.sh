@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Qt and Kirigami for Kontra on Windows (LH-NF-17, Win3), the counterpart of
 # scripts/setup-qt-env.sh. Runs in Git Bash (GitHub's windows-latest: Python, CMake, Visual
-# Studio 2022 and curl are there).
+# Studio and curl are there). CMake takes the newest Visual Studio it finds; Qt's msvc2022
+# libraries link with later compilers too.
 #
 #   C:/Qt/<ver>/msvc2022_64   Qt from download.qt.io (aqtinstall), plus qtshadertools and
 #                             qtmultimedia
@@ -19,7 +20,6 @@ KF6_PREFIX="${KF6_PREFIX:-C:/kf6}"
 SRC_DIR="${SRC_DIR:-C:/src/kf6-${KF_VERSION}}"
 QT_ROOT="${QT_BASE}/${QT_VERSION}/msvc2022_64"
 KF_SERIES="${KF_VERSION%.*}"
-GENERATOR="${CMAKE_GENERATOR:-Visual Studio 17 2022}"
 
 # The same tarballs as on Linux (scripts/setup-qt-env.sh).
 declare -A KNOWN_SHA256=(
@@ -59,7 +59,7 @@ log "extra-cmake-modules ${KF_VERSION} -> ${KF6_PREFIX}"
 if [ ! -f "${KF6_PREFIX}/share/ECM/cmake/ECMConfigVersion.cmake" ]; then
     fetch extra-cmake-modules
     s="${SRC_DIR}/extra-cmake-modules-${KF_VERSION}"
-    cmake -S "$s" -B "$s/build" -G "${GENERATOR}" -A x64 -DCMAKE_INSTALL_PREFIX="${KF6_PREFIX}" \
+    cmake -S "$s" -B "$s/build" -A x64 -DCMAKE_INSTALL_PREFIX="${KF6_PREFIX}" \
         -DBUILD_TESTING=OFF -DBUILD_DOC=OFF
     cmake --build "$s/build" --config Release
     cmake --install "$s/build" --config Release
@@ -73,7 +73,7 @@ if [ ! -d "${KF6_PREFIX}/lib/cmake/KF6Kirigami" ] \
     fetch kirigami
     s="${SRC_DIR}/kirigami-${KF_VERSION}"
     rm -rf "$s/build"
-    cmake -S "$s" -B "$s/build" -G "${GENERATOR}" -A x64 -Wno-dev \
+    cmake -S "$s" -B "$s/build" -A x64 -Wno-dev \
         -DCMAKE_INSTALL_PREFIX="${KF6_PREFIX}" -DCMAKE_PREFIX_PATH="${QT_ROOT};${KF6_PREFIX}" \
         -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF -DUSE_DBUS=OFF
     cmake --build "$s/build" --config Release --parallel
