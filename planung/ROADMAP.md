@@ -71,22 +71,53 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
  (CI, ohne Qt)     (WASAPI, WinMM)   (Kirigami)      (%APPDATA%, Demucs)  (nur GitHub)  (Personas)
 ```
 
-- [ ] Win1 Rust-Kern unter Windows: alles unter der Oberfläche (`--exclude kontra-app`) baut und testet auf
-  `windows-latest` (GitHub, Job `windows` in `ci.yml`). Linux-Eigenes (PipeWire-Graph, ALSA, rtkit, `/proc`)
-  steht hinter `cfg(target_os = "linux")` und hat auf Windows ein Gegenstück oder ein klares „gibt es hier nicht“.
-- [ ] Win2 Audio und MIDI: cpal über WASAPI (geteilt; exklusiv für niedrige Latenz prüfen), Gerätelisten ohne
-  PipeWire, Standardgeräte, Latenz und Xruns gemessen wie unter Linux (LH-NF-01); MIDI über midir (WinMM).
-  ASIO nur nach Entscheidung (Steinberg-SDK ist nicht frei).
+- [x] Win1 Rust-Kern unter Windows: alles unter der Oberfläche (`--exclude kontra-app`) baut und besteht seine
+  Tests für Windows (10.11.: lokal mit `scripts/check-windows.sh` als `x86_64-pc-windows-gnu` unter Wine, 56
+  Testprogramme grün; Referenz ist der Job `windows` auf `windows-latest` in `ci.yml`). Was dafür nötig war:
+  - Demucs starten und beenden (`drivers/src/separator/process.rs`): Unix wie bisher (`nice`, Prozessgruppe,
+    SIGTERM/SIGKILL, endet mit Kontra); Windows mit niedriger Prioritätsklasse, ohne Konsolenfenster, beendet
+    samt Kindern über `taskkill /T /F`, Programme am Namen erkannt (`.exe`, `.cmd`, `.bat`). Tests mit
+    Batch-Dateien als Ersatz-Demucs.
+  - ALSA-Host nur unter Linux; Windows nimmt den Host des Systems (WASAPI).
+  - Download-Ordner: `%USERPROFILE%\Downloads`.
+  - Datei-URLs der Kursvideos: `file:///C:/…` statt `file://C%3A%5C…` (Test auf beiden Schreibweisen).
+  - Tests, die Shell-Skripte, symbolische Links oder `\` im Dateinamen brauchen, laufen nur unter Unix.
+- [ ] Win2 Audio und MIDI: cpal über WASAPI (geteilt; exklusiv für niedrige Latenz prüfen) und **ASIO**
+  (Entscheidung 10.11.: ja), Gerätelisten ohne PipeWire, Standardgeräte, Latenz und Xruns gemessen wie unter
+  Linux (LH-NF-01); MIDI über midir (WinMM). ASIO: cpal-Feature `asio` braucht das Steinberg-SDK beim Bauen
+  (MSVC, LLVM für bindgen); das SDK steht unter Steinbergs eigener Lizenz (Vereinbarung, die der Eigentümer
+  unterschreibt) oder GPLv3. GPL verträgt sich nicht mit der Abhängigkeitsregel, also die Vereinbarung:
+  vor dem ersten Paket mit ASIO klären (Lizenztext prüfen, Logo-Pflicht).
 - [ ] Win3 Qt-App: Qt 6 und Kirigami auf Windows (KDE Craft oder Qt-Installer plus Kirigami aus den Quellen),
-  cxx-qt mit MSVC; CI baut die App und nimmt Screenshots (offscreen).
-- [ ] Win4 Pfade und Dienste: Datenordner (`%APPDATA%`), Cache, Downloads, Demucs-Suche (`python.exe`), Kirigamis
-  Übersetzungen, Dateidialoge, Tastenkürzel, Schriftarten, hohe DPI.
-- [ ] Win5 Paket: Installer, gebaut und angehängt nur von GitHub Actions (CLAUDE.md), Demo-Ausschluss geprüft wie im
-  Flatpak; Landing Page mit Windows-Download; Signierung offen.
-- [ ] Win6 QA unter Windows: Journeys mit echtem Interface (Treiber des Herstellers), Personas.
+  cxx-qt mit MSVC; CI baut die App und nimmt Screenshots (offscreen). Dabei: `local_path` und `main_qml` in
+  `crates/app` lesen und bauen Datei-URLs nur in Unix-Schreibweise; „Ordner öffnen“ in `LibraryPage.qml` sucht `/`.
+- [ ] Win4 Pfade und Dienste: Daten in `%APPDATA%\Kontra`, Cache in `%LOCALAPPDATA%\Kontra` (heute `HOME` und
+  XDG in `appcore/src/store.rs`; gehört nach `drivers/folder.rs`), verschobener Download-Ordner (Known Folders),
+  Demucs endet mit einem abgestürzten Kontra (Job Object), Ersatz-Demucs für die Stem-Tests in `session`,
+  `appcore` und J-D1 unter Windows, Kirigamis Übersetzungen, Dateidialoge, Tastenkürzel, Schriftarten, hohe DPI.
+  Clippy für Windows meldet `LiveOutput` (große Variante `Player`): beim Aufnehmen von Clippy in den Job klären.
+- [ ] Win5 Paket und Signierung (Entscheidung 10.11.: signieren ja; Form offen, Vorschlag unten), gebaut und
+  angehängt nur von GitHub Actions (CLAUDE.md), Demo-Ausschluss geprüft wie im Flatpak; Landing Page mit
+  Windows-Download.
+- [ ] Win6 QA unter Windows (Entscheidung 10.11.: zuerst in einer KVM-Maschine auf dem Rechner des Eigentümers;
+  Interface per USB-Durchreichung, sobald Win2 steht): Journeys als P8, J-A6 neu.
 
-Offene Fragen an den Eigentümer (nächste Runde): ASIO (proprietäres SDK) ja oder nein; Installer-Form (MSIX,
-MSI, NSIS/Inno); Code-Signierung; wer prüft auf einem Windows-Rechner mit Interface; eine Persona mit Windows?
+### Entscheidungen 10.11.2026 (Eigentümer, im Gespräch)
+
+- ASIO: ja (Win2). Code-Signierung: ja (Win5). Tests unter Windows zuerst über KVM auf dem Rechner des
+  Eigentümers (Win6). Persona mit Windows: ja → P8 Noah in `PERSONAS.md`, Journey J-A6.
+- Installer: Vorschläge gewünscht. Vorschlag, Entscheidung in Runde 18:
+
+| Form | Dafür | Dagegen |
+|---|---|---|
+| **Inno Setup (`Kontra-Setup.exe`)**, empfohlen | eine Datei, Installation ohne Adminrechte je Benutzer, bündelt Qt/Kirigami (`windeployqt`), mit `signtool` signierbar, auf den GitHub-Runnern vorhanden, sauberes Entfernen | kein Auto-Update (Kontra müsste selbst nachsehen), ohne Signatur warnt SmartScreen |
+| **Portable ZIP** dazu, empfohlen | läuft ohne Installation (P4 an Schulrechnern), fällt beim Bauen des Installers mit ab | kein Startmenü-Eintrag, Daten liegen trotzdem in `%APPDATA%` |
+| MSIX | Updates über App Installer, Store-fähig, restloses Entfernen | läuft in einem Container (Zugriff auf ASIO-Treiber und fremde Ordner prüfen), nur signiert installierbar, aufwendiger |
+| MSI (WiX) | Verteilung in Firmen und Schulen per Richtlinie | viel Aufwand, für Einzelne ohne Vorteil |
+| winget-Eintrag, später | `winget install Kontra`, zeigt auf den signierten Installer | setzt Installer und Signatur voraus |
+
+- Signierung, Wege zur Wahl (Runde 18): Azure Trusted Signing (Abo, Identitätsprüfung), SignPath Foundation
+  (kostenlos für freie Projekte, signiert unter deren Namen), eigenes Zertifikat (z. B. Certum Open Source).
 
 ## Entscheidungen Runde 3 (9.10.2026)
 

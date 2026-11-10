@@ -7,16 +7,18 @@
 //!               └─► <out>/htdemucs/song/no_bass.wav
 //! ```
 //!
-//! It runs at a lower priority (`nice`), so playing along and the UI keep the processor first
-//! on a slow machine; it only takes longer then.
+//! It runs at a lower priority (`nice`; on Windows a priority class), so playing along and the
+//! UI keep the processor first on a slow machine; it only takes longer then. What differs
+//! between the systems is in `process`.
 //!
 //! Where it is looked for: `KONTRA_DEMUCS` (a path, for an install outside `PATH`, e.g. a conda
 //! environment), then `demucs` in `PATH` and in `~/.local/bin` (where `pipx` puts it; a desktop
 //! session often lacks it in `PATH`). Inside a Flatpak through `flatpak-spawn --host`, if the
 //! sandbox allows it.
 
+mod process;
+
 use std::io::Read;
-use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -24,11 +26,10 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use thiserror::Error;
 
-const PROGRAM: &str = "demucs";
-/// Starts a program at a lower priority (coreutils, on every Linux).
-const NICE: &str = "nice";
-/// Niceness of the separator: below the UI and the audio, above idle jobs.
-const NICENESS: &str = "10";
+use process::PROGRAM;
+/// The program as the host of a Flatpak knows it, started at a lower priority there.
+const HOST_PROGRAM: &str = "demucs";
+const HOST_NICE: [&str; 3] = ["nice", "-n", "10"];
 const OVERRIDE_ENV: &str = "KONTRA_DEMUCS";
 /// The model Demucs downloads on its first run (about 80 MB) and its output folder name.
 const MODEL: &str = "htdemucs";
@@ -70,12 +71,12 @@ pub struct Separator {
 pub fn find_separator() -> Option<Separator> {
     if let Some(path) = std::env::var_os(OVERRIDE_ENV) {
         let path = PathBuf::from(path);
-        return is_executable(&path).then(|| Separator::with_program(&path).niced());
+        return process::is_executable(&path).then(|| Separator::with_program(&path).niced());
     }
     if in_sandbox() {
         return host_separator();
     }
-    let home_bin = std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/bin"));
+    let home_bin = process::user_bin();
     let path_dirs = std::env::var_os("PATH")
         .map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
         .unwrap_or_default();
@@ -83,7 +84,7 @@ pub fn find_separator() -> Option<Separator> {
         .into_iter()
         .chain(home_bin)
         .map(|dir| dir.join(PROGRAM))
-        .find(|p| is_executable(p))
+        .find(|p| process::is_executable(p))
         .map(|p| Separator::with_program(&p).niced())
 }
 
@@ -102,10 +103,10 @@ fn host_separator() -> Option<Separator> {
             "flatpak-spawn".into(),
             "--host".into(),
             "--watch-bus".into(),
-            NICE.into(),
-            "-n".into(),
-            NICENESS.into(),
-            PROGRAM.into(),
+            HOST_NICE[0].into(),
+            HOST_NICE[1].into(),
+            HOST_NICE[2].into(),
+            HOST_PROGRAM.into(),
         ],
     })
 }
@@ -113,11 +114,6 @@ fn host_separator() -> Option<Separator> {
 /// True inside a Flatpak: programs of the system are reached only through `flatpak-spawn`.
 pub fn in_sandbox() -> bool {
     Path::new("/.flatpak-info").exists()
-}
-
-fn is_executable(path: &Path) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::metadata(path).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
 }
 
 impl Separator {
@@ -128,22 +124,11 @@ impl Separator {
         }
     }
 
-    /// The same program at a lower priority, if `nice` is there.
+    /// The same program at a lower priority, where that takes a wrapper (`nice`).
     fn niced(self) -> Separator {
-        let Some(nice) = ["/usr/bin", "/bin"]
-            .iter()
-            .map(|dir| Path::new(dir).join(NICE))
-            .find(|p| is_executable(p))
-        else {
-            return self;
-        };
-        let mut command = vec![
-            nice.to_string_lossy().into_owned(),
-            "-n".into(),
-            NICENESS.into(),
-        ];
-        command.extend(self.command);
-        Separator { command }
+        Separator {
+            command: process::lower_priority(self.command),
+        }
     }
 
     /// Starts removing the bass from `input`; the result lands below `out_dir`.
@@ -154,11 +139,9 @@ impl Separator {
                 return Err(SeparatorError::Failed("no program".into()));
             }
         };
-        // Its own process group: cancelling also stops what a wrapper (conda, a script) started.
         let mut command = Command::new(program);
-        orphan::end_with_parent(&mut command);
+        process::detach(&mut command);
         let mut child = command
-            .process_group(0)
             .args(prefix)
             .args(["--two-stems", "bass", "-n", MODEL, "-o"])
             .arg(out_dir)
@@ -272,22 +255,13 @@ impl SeparationJob {
         while Instant::now() < deadline && matches!(self.child.try_wait(), Ok(None)) {
             std::thread::sleep(STOP_POLL);
         }
-        self.signal_group("-KILL");
+        process::kill_tree(self.child.id());
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
 
     fn stop_group(&self) {
-        self.signal_group("-TERM");
-    }
-
-    fn signal_group(&self, signal: &str) {
-        let group = format!("-{}", self.child.id());
-        let _ = Command::new("kill")
-            .args([signal, "--", &group])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+        process::ask_to_end(self.child.id());
     }
 }
 
@@ -299,34 +273,6 @@ impl Drop for SeparationJob {
         } else if self.reader.as_ref().is_some_and(|r| !r.is_finished()) {
             // Gone, but something it started still runs (it holds the output).
             self.stop_group();
-        }
-    }
-}
-
-/// Demucs must not outlive Kontra: in its own process group it misses the terminal's hang-up,
-/// and after a crash it would keep every core busy for minutes.
-#[allow(unsafe_code)]
-mod orphan {
-    use std::os::unix::process::CommandExt;
-    use std::process::Command;
-
-    /// The child gets SIGKILL when the thread that started it ends (in Kontra the UI thread,
-    /// so: when Kontra ends, also by a crash).
-    pub(super) fn end_with_parent(command: &mut Command) {
-        let parent = std::process::id();
-        // SAFETY: runs in the forked child before exec; prctl and getppid are async-signal-safe
-        // and the closure neither allocates nor takes locks.
-        unsafe {
-            command.pre_exec(move || {
-                if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) != 0 {
-                    return Err(std::io::Error::last_os_error());
-                }
-                // Kontra died between fork and prctl: the signal will not come.
-                if u32::try_from(libc::getppid()) != Ok(parent) {
-                    libc::_exit(1);
-                }
-                Ok(())
-            });
         }
     }
 }
@@ -417,16 +363,6 @@ fn is_exception(name: &str) -> bool {
 mod tests {
     use super::*;
 
-    /// One test at a time writes and starts a script: a child forked by the other test can hold
-    /// the file still open for writing, and starting it fails with "Text file busy" (ETXTBSY).
-    static SCRIPTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
-    fn scripts() -> std::sync::MutexGuard<'static, ()> {
-        SCRIPTS
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-    }
-
     #[test]
     fn reads_the_progress_bar() {
         assert_eq!(
@@ -459,6 +395,24 @@ mod tests {
         );
         assert_eq!(seconds_left("  0%| | 0.0/23.4 [00:00<?, ?seconds/s]"), None);
         assert_eq!(seconds_left("no bar"), None);
+    }
+}
+
+/// Shell scripts as stand-ins for Demucs: process groups, signals and `nice`.
+#[cfg(test)]
+#[cfg(unix)]
+mod script_tests {
+    use super::process::NICENESS;
+    use super::*;
+
+    /// One test at a time writes and starts a script: a child forked by the other test can hold
+    /// the file still open for writing, and starting it fails with "Text file busy" (ETXTBSY).
+    static SCRIPTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn scripts() -> std::sync::MutexGuard<'static, ()> {
+        SCRIPTS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// Demucs takes every processor it gets; playing along must not stutter meanwhile.
@@ -670,6 +624,110 @@ mod tests {
             started.elapsed() < READER_GRACE,
             "the child went with the wrapper"
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+/// Batch files as stand-ins for Demucs on Windows (LH-NF-17): started without a console
+/// window, found by their extension, stopped with what they started.
+#[cfg(test)]
+#[cfg(windows)]
+mod batch_tests {
+    use super::*;
+
+    /// A stand-in for Demucs (`--two-stems bass -n htdemucs -o OUT SONG`): `body` after the
+    /// echo is switched off.
+    fn batch(dir: &Path, body: &str) -> PathBuf {
+        let script = dir.join("demucs.cmd");
+        std::fs::write(&script, format!("@echo off\r\n{body}\r\n")).unwrap();
+        script
+    }
+
+    fn work_dir(name: &str) -> PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("kontra-separator-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn wait(job: &mut SeparationJob) -> Result<PathBuf, SeparatorError> {
+        loop {
+            if let Some(r) = job.poll() {
+                return r;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    #[test]
+    fn runs_the_program_and_finds_its_result() {
+        let dir = work_dir("run");
+        let song = dir.join("Song.wav");
+        std::fs::write(&song, b"RIFF").unwrap();
+        // %6 is OUT, %7 the song; %~n7 its name without extension.
+        let body = "mkdir \"%~6\\htdemucs\\%~n7\"\r\n\
+                    copy \"%~7\" \"%~6\\htdemucs\\%~n7\\no_bass.wav\" >nul\r\n\
+                    echo 100%%^|##########^| 2/2 1>&2";
+        let mut job = Separator::with_program(&batch(&dir, body))
+            .start(&song, &dir.join("out"))
+            .unwrap();
+        let result = wait(&mut job).unwrap();
+        let expected = dir.join("out").join(MODEL).join("Song").join(RESULT_FILE);
+        assert_eq!(result, expected);
+        assert!((job.progress() - 1.0).abs() < 1e-9);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn failure_keeps_the_programs_words() {
+        let dir = work_dir("fail");
+        let song = dir.join("Song.wav");
+        std::fs::write(&song, b"RIFF").unwrap();
+        let body = "echo broken model 1>&2\r\nexit /b 1";
+        let mut job = Separator::with_program(&batch(&dir, body))
+            .start(&song, &dir.join("out"))
+            .unwrap();
+        match wait(&mut job) {
+            Err(SeparatorError::Failed(m)) => assert_eq!(m, "broken model"),
+            other => panic!("{other:?}"),
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The batch file's child holds the output open: cancelling ends the whole tree.
+    #[test]
+    fn cancel_stops_what_a_wrapper_started() {
+        let dir = work_dir("cancel");
+        let song = dir.join("Song.wav");
+        std::fs::write(&song, b"RIFF").unwrap();
+        let mut job = Separator::with_program(&batch(&dir, "ping -n 30 127.0.0.1 >nul"))
+            .start(&song, &dir.join("out"))
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(300));
+        job.cancel();
+        let started = Instant::now();
+        let result = wait(&mut job);
+        assert!(
+            matches!(result, Err(SeparatorError::Cancelled)),
+            "{result:?}"
+        );
+        assert!(
+            started.elapsed() < READER_GRACE,
+            "the child went with the wrapper"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn programs_are_known_by_their_extension() {
+        let dir = work_dir("ext");
+        let program = batch(&dir, "exit /b 0");
+        let text = dir.join("demucs.txt");
+        std::fs::write(&text, b"").unwrap();
+        assert!(process::is_executable(&program));
+        assert!(!process::is_executable(&text));
+        assert!(!process::is_executable(&dir.join("missing.exe")));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

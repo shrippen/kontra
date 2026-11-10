@@ -77,6 +77,17 @@ Eingangsliste; Block 128 Frames (`kontra-cli check --steps loopback`). Mit ALSA 
 Schritt 4 bleibt das Interface wählbar und vorgewählt (über ALSA, in `devices` markiert); beim Start des Eingangs
 nennt Kontra die Abhilfe (ab- und anstecken oder `systemctl --user restart wireplumber`).
 
+**J-A6 Windows: installieren und erster Ton** · Persona: P8 Noah · nach Phase 1 (Win5, Win6) · LH-NF-17
+1. Windows 11 ohne Adminkonto, Benutzerordner mit Leerzeichen und Umlaut, Skalierung 150 %; Interface mit ASIO-Treiber am USB.
+2. Installer von der Landing Page laden und starten; Kontra aus dem Startmenü öffnen.
+3. Einrichtung: Interface wählen (ASIO, danach WASAPI), Pegel, Stimmgerät, Latenz „mit Kabel messen“.
+4. Mitgelieferte Übung durchspielen; Sicherung von einem Linux-Rechner laden; Kontra schließen und wieder öffnen.
+5. Kontra entfernen.
+Erwartet: keine Warnung von SmartScreen (signiert), keine Frage nach Adminrechten; das Interface steht mit seinem
+Windows-Namen in der Liste; Latenz mit ASIO ≤ 20 ms (LH-NF-01), mit WASAPI gemessen und genannt; Daten in
+`%APPDATA%\Kontra`, nach dem Neustart alles wie verlassen; die Sicherung bringt Stücke und Fortschritt; nach dem
+Entfernen bleibt nur der Datenordner. Bis Win5: in der KVM-Maschine des Eigentümers mit dem Paket aus der CI.
+
 ## B. Spielen und Üben
 
 **J-B1 Lied durchspielen** ⚙ 📽 · Persona: P2 Jens · Phase 1 · LH-BIB-01, -04, LH-MOD-01, LH-WIE-03, LH-EIN-08, -17, LH-ANZ-01, -02

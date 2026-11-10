@@ -679,6 +679,8 @@ mod tests {
     }
 
     /// A link counts with the size of what it points to: packing follows it (review #131).
+    /// Unix only: a link on Windows needs a privilege the test has not.
+    #[cfg(unix)]
     #[test]
     fn a_link_counts_with_its_target() {
         let dir = std::env::temp_dir().join(format!("kontra-course-link-{}", std::process::id()));
@@ -698,6 +700,8 @@ mod tests {
     }
 
     /// A folder name the archive would refuse is refused in the folder too (review #131).
+    /// Unix only: on Windows a backslash separates folders and cannot be in a name.
+    #[cfg(unix)]
     #[test]
     fn a_folder_has_the_archive_names() {
         let dir = std::env::temp_dir().join(format!("kontra-course-name-{}", std::process::id()));

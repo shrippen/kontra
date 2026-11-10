@@ -338,14 +338,14 @@ Nicht im Umfang: Online-Konten, Song-Shop, Multiplayer übers Netz.
 | Darstellung | **2D-Tab-Lane als Standard, 3D später; Tabulatur und Notenansicht schon im MVP** |
 | Lizenz | **MIT**; nur freizügige Abhängigkeiten, **im Zweifel eigene Implementierung** (Time-Stretch, Tonerkennung, Notensatz, Import) |
 | Plattformen im MVP | **Nur Linux (Flatpak)** |
-| Personas | Alle sieben vorgeschlagenen, siehe [`PERSONAS.md`](PERSONAS.md) |
+| Personas | Alle sieben vorgeschlagenen und P8 für Windows (10.11.2026), siehe [`PERSONAS.md`](PERSONAS.md) |
 
 ---
 
 ## 10. Dokumente
 
 - [`LASTENHEFT.md`](LASTENHEFT.md): nummerierte Anforderungen mit Priorität, Phase und Abnahmekriterium.
-- [`PERSONAS.md`](PERSONAS.md): sieben Personas mit Ausrüstung, Zielen, Frust und Prüfschwerpunkt.
+- [`PERSONAS.md`](PERSONAS.md): acht Personas mit Ausrüstung, Zielen, Frust und Prüfschwerpunkt.
 - [`QA.md`](QA.md): User Journeys je Persona für explorative QA und automatisierte Journey-Tests.
 - [`QUELLEN-SONGS.md`](QUELLEN-SONGS.md): was Kontra mit Songsterr und MuseScore.com darf (Nutzungsbedingungen).
 - [`LERNEN.md`](LERNEN.md): Plan für das Lernmodul (Lektionen, Glossar „Was ist …?“).

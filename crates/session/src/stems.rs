@@ -193,7 +193,9 @@ impl Drop for StemJob {
     }
 }
 
+/// Shell scripts stand in for Demucs: Unix only (LH-NF-17, Win4 brings stand-ins for Windows).
 #[cfg(test)]
+#[cfg(unix)]
 mod tests {
     use super::*;
 

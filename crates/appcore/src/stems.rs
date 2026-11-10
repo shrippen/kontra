@@ -363,11 +363,13 @@ fn copy_over(from: &Path, to: &Path) -> std::io::Result<()> {
 mod tests {
     use super::*;
 
+    #[cfg(unix)]
     /// One test at a time writes and starts a script: a child forked by another test can hold
     /// the file still open for writing, and starting it fails with "Text file busy" (ETXTBSY),
     /// as in `kontra_drivers::separator` (CI 14.10.: "failed" instead of "running").
     static SCRIPTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+    #[cfg(unix)]
     fn scripts() -> std::sync::MutexGuard<'static, ()> {
         SCRIPTS
             .lock()
@@ -385,6 +387,7 @@ mod tests {
         dir
     }
 
+    #[cfg(unix)]
     /// A stand-in for Demucs that copies the song as its result.
     fn fake_demucs(dir: &Path) -> PathBuf {
         let script = dir.join("demucs");
@@ -398,6 +401,7 @@ mod tests {
         script
     }
 
+    #[cfg(unix)]
     #[test]
     fn backing_plays_without_bass_once_separated() {
         let _scripts = scripts();
@@ -445,6 +449,7 @@ mod tests {
         assert_eq!(state(&mut core)["cached"], false);
     }
 
+    #[cfg(unix)]
     /// A stand-in for Demucs from a shell body.
     fn script(dir: &Path, body: &str) -> PathBuf {
         let script = dir.join("demucs");
@@ -454,6 +459,7 @@ mod tests {
         script
     }
 
+    #[cfg(unix)]
     /// Jens with two pieces, each with its own backing song, and `separator` as Demucs.
     fn two_pieces(name: &str, body: &str) -> (Core, PathBuf, PathBuf) {
         let dir = temp_dir(name);
@@ -472,10 +478,12 @@ mod tests {
         (core, first, second)
     }
 
+    #[cfg(unix)]
     fn state(core: &mut Core) -> serde_json::Value {
         serde_json::from_str(&core.stems_json()).unwrap()
     }
 
+    #[cfg(unix)]
     fn finish(core: &mut Core) {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
         while core.stems.job.is_some() && std::time::Instant::now() < deadline {
@@ -484,6 +492,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
     /// QA P2 (J-D1, 14.10.): a failure with one song showed on every other piece.
     #[test]
     fn failure_stays_with_its_song() {
@@ -504,6 +513,7 @@ mod tests {
         assert_eq!(state(&mut core)["state"], "failed", "still its own failure");
     }
 
+    #[cfg(unix)]
     /// QA P2 (J-D1, 14.10.): while another song was separated, "without bass" did nothing and
     /// said nothing.
     #[test]
@@ -525,6 +535,7 @@ mod tests {
         core.cancel_stems();
     }
 
+    #[cfg(unix)]
     /// QA P2 (J-D1, 14.10.): another backing track for the piece kept Demucs busy with the old
     /// one for minutes.
     #[test]

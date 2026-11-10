@@ -503,16 +503,24 @@ fn guess_connection(name: &str) -> Connection {
 }
 
 /// Environment variable that forces ALSA ("alsa"), e.g. to compare with PipeWire.
+#[cfg(target_os = "linux")]
 const HOST_VARIABLE: &str = "KONTRA_AUDIO_HOST";
 
 /// PipeWire when it runs (cpal finds its socket and nodes), else ALSA, e.g. without PipeWire
 /// or in a sandbox without the socket.
+#[cfg(target_os = "linux")]
 fn host() -> cpal::Host {
     if std::env::var(HOST_VARIABLE).as_deref() == Ok("alsa") {
         if let Ok(alsa) = cpal::host_from_id(cpal::HostId::Alsa) {
             return alsa;
         }
     }
+    cpal::default_host()
+}
+
+/// The system's own host (Windows: WASAPI).
+#[cfg(not(target_os = "linux"))]
+fn host() -> cpal::Host {
     cpal::default_host()
 }
 
@@ -1036,6 +1044,7 @@ mod tests {
     // A saved id opens on its own host: an ALSA fallback device while PipeWire runs.
     #[test]
     fn ids_name_their_host() {
+        #[cfg(target_os = "linux")]
         assert_eq!(host_of("alsa:hw:CARD=2,DEV=0"), Some(cpal::HostId::Alsa));
         #[cfg(target_os = "linux")]
         assert_eq!(

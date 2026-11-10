@@ -4,14 +4,19 @@
 //! $XDG_DOWNLOAD_DIR ─┐
 //! user-dirs.dirs ────┼─→ download_dir() ─→ recent_files(dir, max_age) ─→ newest first
 //! $HOME/Downloads ───┘
+//!
+//! Windows: %USERPROFILE%\Downloads ─→ download_dir()   (a moved folder: known folders, Win4)
 //! ```
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+#[cfg(unix)]
 const DOWNLOAD_KEY: &str = "XDG_DOWNLOAD_DIR";
+#[cfg(unix)]
 const USER_DIRS: &str = "user-dirs.dirs";
 const FALLBACK: &str = "Downloads";
+#[cfg(unix)]
 const HOME_VARIABLE: &str = "$HOME";
 
 /// A file and when it last changed.
@@ -22,6 +27,7 @@ pub struct RecentFile {
 }
 
 /// The download folder as the desktop names it (XDG user dirs), else `~/Downloads`.
+#[cfg(unix)]
 pub fn download_dir() -> Option<PathBuf> {
     let home = PathBuf::from(std::env::var_os("HOME")?);
     if let Some(dir) = std::env::var_os(DOWNLOAD_KEY).filter(|d| !d.is_empty()) {
@@ -36,7 +42,15 @@ pub fn download_dir() -> Option<PathBuf> {
     Some(named.unwrap_or_else(|| home.join(FALLBACK)))
 }
 
+/// The profile's download folder (LH-NF-17).
+#[cfg(windows)]
+pub fn download_dir() -> Option<PathBuf> {
+    let profile = PathBuf::from(std::env::var_os("USERPROFILE")?);
+    Some(profile.join(FALLBACK))
+}
+
 /// `XDG_DOWNLOAD_DIR="$HOME/Downloads"` from a `user-dirs.dirs` file.
+#[cfg(unix)]
 fn user_dir(text: &str, home: &Path) -> Option<PathBuf> {
     let line = text
         .lines()
@@ -83,6 +97,7 @@ pub fn recent_files(dir: &Path, max_age: Duration) -> Vec<RecentFile> {
 mod tests {
     use super::*;
 
+    #[cfg(unix)]
     #[test]
     fn reads_user_dirs() {
         let home = Path::new("/home/lea");
