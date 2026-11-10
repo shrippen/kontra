@@ -207,6 +207,11 @@ jobs:
           KONTRA_DATA_DIR="$RUNNER_TEMP/kontra-data" QT_QPA_PLATFORM=windows timeout 120 target/debug/kontra.exe \
             --language de --page settings --screenshot shots/settings-de-window.png --screenshot-after 3000
           test -f shots/settings-de-window.png
+      # Every page as scripts/screenshots.sh takes them on Linux, in real windows. For looking
+      # at, not a check yet: a page that does not come up does not fail the job.
+      - name: Screenshots of every page
+        continue-on-error: true
+        run: QT_QPA_PLATFORM=windows scripts/screenshots.sh shots/pages
       # Win5: the folder the installer will wrap. It must run without the Qt of this job: a
       # screenshot with a bare PATH proves it, in a real window as a user starts it (the folder
       # has Windows' platform plugin only, and the style Kontra picks itself). Uploaded for the
