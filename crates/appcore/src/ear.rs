@@ -55,6 +55,8 @@ const MAX_STEP: u64 = 5;
 const MAX_LINE: usize = 4;
 /// Questions right at the first try before the line grows by one note.
 const STREAK_UP: u32 = 3;
+/// Played notes kept per question: two rows on the page; older tries drop out.
+const MAX_PLAYED: usize = 12;
 const CHORDS: [(&str, [i32; 3]); 2] = [("major", [0, 4, 7]), ("minor", [0, 3, 7])];
 
 /// A played note and how it compares with the wanted one.
@@ -316,6 +318,10 @@ impl EarQuiz {
             Match::Exact => i32::from(played.0) - i32::from(wanted.0),
             Match::AnyOctave => 0,
         };
+        // Only the latest tries are shown (QA M16).
+        if self.played.len() == MAX_PLAYED {
+            self.played.remove(0);
+        }
         self.played.push(Played {
             pitch: played,
             right,
@@ -404,6 +410,19 @@ mod tests {
             assert_eq!(quiz.answer(33.0, NOW), Verdict::Right);
         }
         assert_eq!(quiz.answer(33.2, NOW), Verdict::Solved);
+    }
+
+    /// QA M16: every wrong try stayed in the list; after a minute of searching the played
+    /// notes pushed the page's controls out of the window.
+    #[test]
+    fn the_played_list_keeps_the_latest_notes() {
+        let mut quiz = EarQuiz::fixed(vec![Pitch(33)], Match::Exact);
+        for _ in 0..40 {
+            assert_eq!(quiz.answer(35.0, NOW), Verdict::Wrong);
+        }
+        assert_eq!(quiz.answer(33.0, NOW), Verdict::Solved);
+        assert_eq!(quiz.played.len(), MAX_PLAYED);
+        assert!(quiz.played[MAX_PLAYED - 1].right, "the latest note is last");
     }
 
     #[test]
