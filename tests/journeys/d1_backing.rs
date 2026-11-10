@@ -133,6 +133,9 @@ fn backing_beats_slow_and_transposed() {
     let same = again.set_backing(Some(wav.clone()), 0.0);
     assert_eq!(same, Ok(kontra_appcore::BackingChange::Kept));
     assert_eq!(again.position_s(), end_s, "the position stays with Kept");
+    // "Back to the start" afterwards really goes there (review #251).
+    let start_s = again.rewind();
+    assert_eq!(again.position_s(), start_s, "back to the start after Kept");
 
     // Another recording takes the place of the aligned one: its alignment goes, the new one
     // starts unaligned. Removing it afterwards changes nothing more.

@@ -1155,6 +1155,7 @@ impl Core {
         }
         self.input.stopped(InputUse::Practice);
         self.probe = None;
+        self.finished_at_s = None;
     }
 
     /// Audio dropouts since Kontra started, over all runs (LH-NF-04).

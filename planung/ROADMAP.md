@@ -520,7 +520,7 @@ Erkennung und Messung:
   Angebot stehen. Der Hinweis „kein Eingang“ beruht auf dem letzten Blick des Standby (bis 5 s alt).
 - [x] Dateinamen, die kein UTF-8 sind (Review #235): Kontra lehnt sie mit Grund ab (umbenennen), weil Bibliothek
   und Fortschritt JSON sind. Von der Kommandozeile oder aus dem Dateimanager kommt der Name verlustbehaftet an
-  (`args.rs`), die Meldung ist dann „nicht gefunden“ statt „umbenennen“. Behoben 11.11.: `args.rs` behält die Bytes der Pfade.
+  (`args.rs`), die Meldung ist dann „nicht gefunden“ statt „umbenennen“. Behoben 11.11. für Stücke: `args.rs` behält die Bytes der Pfade. Offen: ein Kurs über `--open` geht als `to_string_lossy()` an `startCourse` (`bridge.rs`).
 - [x] Summenbegrenzer (Review #230; Runde 18, 10.11.: bauen, immer an; LH-WIE-06, #244): Mithören plus Backing,
   Klick und Ton konnte die Summe über Vollaussteuerung bringen, dort schnitt der Mixer hart. Jetzt liegt auf der
   Summe ein Begrenzer (−1 dBFS, gekoppelt, 80 ms), die Echo-Referenz folgt ihm. Hörprobe und Xruns am Gerät offen.
