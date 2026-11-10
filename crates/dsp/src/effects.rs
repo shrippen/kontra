@@ -142,6 +142,39 @@ impl Limiter {
     }
 }
 
+/// The limiter on everything that leaves Kontra (LH-WIE-06): always on, follows the device's
+/// rate. Example: backing track, click and bass together reach 1.4; the sum comes out at the
+/// ceiling and the loud spot gets quieter for a moment instead of crackling.
+#[derive(Debug, Clone)]
+pub struct OutputLimiter {
+    limiter: Limiter,
+    sample_rate: f64,
+}
+
+impl OutputLimiter {
+    pub fn new(sample_rate: f64) -> OutputLimiter {
+        OutputLimiter {
+            limiter: Limiter::new(sample_rate),
+            sample_rate,
+        }
+    }
+
+    /// One stereo frame at `sample_rate`; the output device's rate may change between streams.
+    pub fn process(&mut self, frame: (f32, f32), sample_rate: f64) -> (f32, f32) {
+        if sample_rate != self.sample_rate {
+            self.sample_rate = sample_rate;
+            self.limiter.retime(sample_rate);
+        }
+        self.limiter.process(frame, 1.0)
+    }
+
+    /// The gain of the last frame, 1 while nothing is limited: what else follows the output
+    /// (the echo reference) scales with it.
+    pub fn gain(&self) -> f32 {
+        self.limiter.gain
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -193,6 +226,20 @@ mod tests {
             .collect();
         let change = rms_db(&out[24_000..]) - rms_db(&quiet[24_000..]);
         assert!(change.abs() < 0.1, "{change} dB");
+    }
+
+    #[test]
+    fn output_limiter_follows_the_rate_and_tells_its_gain() {
+        let mut limiter = OutputLimiter::new(SR);
+        assert_eq!(limiter.process((0.5, -0.5), SR), (0.5, -0.5));
+        assert_eq!(limiter.gain(), 1.0);
+        // Twice the ceiling on one side: both sides halve, at another rate too.
+        let (l, r) = limiter.process((2.0 * LIMIT_CEILING, 0.4), 96_000.0);
+        assert!(
+            (l - LIMIT_CEILING).abs() < 1e-6 && (r - 0.2).abs() < 1e-6,
+            "{l} {r}"
+        );
+        assert!((limiter.gain() - 0.5).abs() < 1e-6);
     }
 
     #[test]

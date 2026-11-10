@@ -14,7 +14,7 @@ use crate::clock::Clock;
 use crate::{EngineError, Event};
 use kontra_drivers::{OutputStream, StreamConfig};
 use kontra_dsp::synth::Noise;
-use kontra_dsp::{PitchShifter, Shaper, Shaping, PITCH_LATENCY};
+use kontra_dsp::{OutputLimiter, PitchShifter, Shaper, Shaping, PITCH_LATENCY};
 use kontra_model::DrumKind;
 use std::f32::consts::TAU;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -269,6 +269,7 @@ impl Player {
                 start_s: Arc::clone(&reference_start),
             }),
             noise: Noise::new(1),
+            sum_limit: OutputLimiter::new(48_000.0),
         };
         let mut frame: u64 = 0;
         let mut first_block = true;
@@ -437,6 +438,8 @@ struct Mixer {
     shift_next: Option<usize>,
     /// Source of snare and hi-hat noise.
     noise: Noise,
+    /// Holds the sum of everything under full scale (LH-WIE-06).
+    sum_limit: OutputLimiter,
 }
 
 impl Mixer {
@@ -544,15 +547,20 @@ impl Mixer {
             }
         }
         // What plays from the speakers, before the monitored bass (that one the mic hears anyway).
-        if let Some(tap) = self.reference.as_mut() {
-            tap.push(now, 0.5 * (left + right));
-        }
+        let played = 0.5 * (left + right);
         // Monitoring: one input sample per frame; an empty ring (underrun) stays silent.
         if let Some(ring) = self.monitor.as_mut() {
             let dry = ring.pop().unwrap_or(0.0);
             let (l, r) = self.shaper.process(dry, sr);
             left += l * self.gains.monitor;
             right += r * self.gains.monitor;
+        }
+
+        // The sum never reaches full scale: a loud spot gets quieter for a moment instead of
+        // being cut off (a crackle). The echo reference follows, it is what the speakers play.
+        let (left, right) = self.sum_limit.process((left, right), sr);
+        if let Some(tap) = self.reference.as_mut() {
+            tap.push(now, played * self.sum_limit.gain());
         }
         (left.clamp(-1.0, 1.0), right.clamp(-1.0, 1.0))
     }
@@ -688,6 +696,7 @@ mod tests {
             shift_next: None,
             reference: None,
             noise: Noise::new(1),
+            sum_limit: OutputLimiter::new(48_000.0),
         }
     }
 
@@ -707,6 +716,25 @@ mod tests {
         assert!(during > 1.0);
         m.render(1.0, sr);
         assert!(m.voices.iter().all(|v| !v.active));
+    }
+
+    /// LH-WIE-06: many sounds at once went over full scale and were cut off hard (a crackle).
+    /// The sum stays under the limiter's ceiling instead.
+    #[test]
+    fn the_sum_stays_under_the_ceiling() {
+        let mut m = mixer();
+        for _ in 0..6 {
+            m.apply(Command::Schedule {
+                at_s: 0.0,
+                sound: Sound::Click(Accent::Downbeat),
+            });
+        }
+        let sr = 48_000.0;
+        let peak = (0..2400)
+            .map(|i| m.render(i as f64 / sr, sr).0.abs())
+            .fold(0.0, f32::max);
+        assert!(peak > 0.5, "the clicks sound: {peak}");
+        assert!(peak <= kontra_dsp::LIMIT_CEILING + 1e-6, "peak {peak}");
     }
 
     // LH-WIE-04: the shuffle's off-beat click is softer than the beat, so the pulse stays clear.
