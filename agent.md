@@ -157,7 +157,7 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 
 ## Persona rule
 
-- `planung/PERSONAS.md` holds the fixed personas P1–P7. They are used automatically, without being asked:
+- `planung/PERSONAS.md` holds the fixed personas P1–P8. They are used automatically, without being asked:
   - Before designing a flow or screen, name the personas it serves and check it against
     their equipment, knowledge and frustrations.
   - Every PR names the affected personas and the journeys from `planung/QA.md` that were played
