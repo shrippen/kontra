@@ -566,7 +566,8 @@ impl Core {
                             .join(format!("{}.json", old.song_id)),
                     );
                 }
-                self.update_settings(|s| *s = bundle.settings);
+                // Volumes and effects of the backup reach what plays now.
+                self.remix(|s| *s = bundle.settings);
             }
             DataImport::Merge => merged = data::merge_library(&mut self.library, bundle.library),
         }
@@ -689,6 +690,7 @@ impl Core {
             kontra_session::list_midi_inputs()
         };
         calibrate::forget_on_switch(&before, &mut self.settings, &ports);
+        self.switch_devices(&before);
         if let Some(code) = &self.settings.language {
             self.catalog = Catalog::new(Language::from_code(code));
         }
@@ -700,6 +702,15 @@ impl Core {
     pub fn reconfigure(&mut self, change: impl FnOnce(&mut Settings)) {
         self.update_settings(change);
         self.stop_live();
+    }
+
+    /// "Band reagiert" (LH-WIE-05) on or off, also for the run going on (audit 10.11.).
+    pub fn set_reacting_band(&mut self, on: bool) {
+        self.update_settings(|s| s.reacting_band = on);
+        let options = self.practice_options();
+        if let Some(live) = self.live.as_mut() {
+            live.practice_mut().set_options(options);
+        }
     }
 
     /// Changes the instrument profile (strings, tuning, reference pitch) so that it acts at once:

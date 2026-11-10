@@ -79,6 +79,7 @@ impl Core {
     /// Uses `id` until the lost input comes back (the saved choice stays).
     pub fn use_offered_input(&mut self, id: &str) {
         self.stop_live();
+        self.release_standby();
         self.fallback_input = Some(id.to_string());
     }
 
@@ -97,6 +98,7 @@ impl Core {
         if self.fallback_input.take().is_some() {
             // The run on the stand-in device ends; the next play uses the own one.
             self.stop_live();
+            self.release_standby();
         }
         Some(UiEvent::InputBack(self.tr("unplug.back", &[])))
     }

@@ -445,3 +445,26 @@ fn licence_list_is_complete_and_permissive() {
         assert!(!licence.contains("GPL"), "{c}");
     }
 }
+
+/// Audit 10.11.: "Band reagiert" reached a running run only after it ended; settings act while
+/// Kontra runs.
+#[test]
+fn reacting_band_reaches_the_running_run() {
+    let dir = temp_dir("band-live");
+    let take = dir.join("take.wav");
+    kontra_session::write_mono_wav(&take, &vec![0.0; 48_000], 48_000).unwrap();
+    let mut core = Core::new(
+        &dir,
+        QaOptions {
+            input_file: Some(take),
+            laptop_jack: false,
+        },
+    );
+    core.open(&demo()).unwrap();
+    core.play();
+    core.set_reacting_band(true);
+    let band = core.live.as_ref().map(|l| l.practice().options().band);
+    assert_eq!(band, Some(kontra_session::Band::Reacting));
+    core.stop_live();
+    let _ = std::fs::remove_dir_all(dir);
+}

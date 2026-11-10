@@ -1568,8 +1568,11 @@ impl qobject::Controller {
         let texts = self.as_ref().rust().core.texts_json();
         self.as_mut().set_texts(q(&texts));
         self.as_mut().set_language(q(&code));
-        // Note names follow the language (H in German).
+        // Kirigami's own texts ("Close Sidebar") at once, not after a restart (audit 10.11.).
+        crate::translator::ffi::install_kirigami_translator(&code);
+        // Note names follow the language (H in German), as do texts made from the settings.
         self.as_mut().refresh_tuning();
+        self.as_mut().refresh_texts();
     }
 
     fn loop_bars(mut self: Pin<&mut Self>, from: i32, to: i32) {

@@ -198,6 +198,10 @@ impl<O: Output> Practice<O> {
         self.output.set_gains(gains);
     }
 
+    pub fn options(&self) -> &PracticeOptions {
+        &self.options
+    }
+
     pub fn set_options(&mut self, options: PracticeOptions) {
         self.options = options;
         self.reschedule();

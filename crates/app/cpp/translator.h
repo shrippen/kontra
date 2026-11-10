@@ -2,5 +2,11 @@
 #pragma once
 #include "rust/cxx.h"
 
-// Installs libkirigami6_qt for `language` ("de", "en") from the XDG data folders; false if none.
+#include <QQmlApplicationEngine>
+
+// Installs libkirigami6_qt for `language` ("de", "en") from the XDG data folders, replacing the
+// one installed before (a language change at runtime); false if none (English: Kirigami's own).
 bool install_kirigami_translator(rust::Str language);
+
+// The engine whose texts a later language change translates again.
+void translate_engine(QQmlApplicationEngine &engine);

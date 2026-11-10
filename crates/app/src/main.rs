@@ -88,6 +88,7 @@ fn main() {
                 std::process::exit(1);
             })
             .release();
+        translator::ffi::translate_engine(engine.as_mut());
         engine.as_mut().load(&main_qml());
         #[cfg(debug_assertions)]
         if let Some(dir) = live_qml_dir() {

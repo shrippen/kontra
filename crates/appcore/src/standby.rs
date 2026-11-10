@@ -11,7 +11,7 @@
 //! Only the app asks for it (`keep_devices_open`): tests and recordings never open a device.
 
 use crate::mixer::gains;
-use crate::Core;
+use crate::{Core, Settings};
 use kontra_model::InputSource;
 use kontra_session::{LiveMonitor, LiveSetup};
 use std::time::{Duration, Instant};
@@ -43,6 +43,22 @@ impl Core {
     pub(crate) fn release_standby(&mut self) {
         self.standby.monitor = None;
         self.standby.retry_at = None;
+    }
+
+    /// Another device or connection chosen: the standby monitor lets go, the next tick opens
+    /// the new devices (owner 10.11.: the output changed only after a restart), and a stand-in
+    /// for a lost input ends (the choice is the player's now).
+    pub(crate) fn switch_devices(&mut self, before: &Settings) {
+        let s = &self.settings;
+        let input = before.input_device != s.input_device || before.input_kind != s.input_kind;
+        let other = before.output_device != s.output_device || before.midi_port != s.midi_port;
+        if input {
+            self.fallback_input = None;
+            self.lost = None;
+        }
+        if input || other {
+            self.release_standby();
+        }
     }
 
     /// New volumes and effects for the standby monitor.
@@ -185,6 +201,84 @@ mod tests {
         assert!(!core.may_stand_by());
         core.tick();
         assert!(!core.is_standing_by());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
+#[cfg(test)]
+mod device_change {
+    use super::*;
+    use crate::QaOptions;
+
+    /// Owner 10.11.: a new output applied only after a restart; the standby monitor kept the
+    /// old device open. A device change frees the devices, the next tick opens the new ones.
+    #[test]
+    fn a_new_output_reopens_at_once() {
+        let dir = std::env::temp_dir().join(format!("kontra-standby-out-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let mut core = Core::new(&dir, QaOptions::default());
+        // As after a failed open: the next try waits.
+        core.standby.retry_at = Some(Instant::now() + RETRY);
+        core.reconfigure(|s| s.output_device = Some("kontra:null".into()));
+        assert_eq!(
+            core.standby.retry_at, None,
+            "the new device is tried at once"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    fn core(name: &str) -> (Core, std::path::PathBuf) {
+        let dir =
+            std::env::temp_dir().join(format!("kontra-standby-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        (Core::new(&dir, QaOptions::default()), dir)
+    }
+
+    /// Audit 10.11.: an input chosen while a stand-in served for a lost one was ignored until
+    /// the lost one came back.
+    #[test]
+    fn a_chosen_input_ends_the_stand_in() {
+        let (mut core, dir) = core("stand-in");
+        core.fallback_input = Some("pipewire:stand-in".into());
+        core.reconfigure(|s| s.input_device = Some("pipewire:chosen".into()));
+        assert_eq!(core.fallback_input, None);
+        assert!(core.lost.is_none());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Audit 10.11.: switching to a microphone kept the cable monitor open (and playing).
+    #[test]
+    fn a_microphone_closes_the_monitor() {
+        let (mut core, dir) = core("to-mic");
+        core.keep_devices_open();
+        core.standby.retry_at = Some(Instant::now() + RETRY);
+        core.retune(|s| s.input_kind = crate::InputKind::Microphone)
+            .unwrap();
+        assert_eq!(core.standby.retry_at, None, "the monitor let go");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Audit 10.11.: taking the offered stand-in kept the monitor on the lost input.
+    #[test]
+    fn a_stand_in_reopens_the_monitor() {
+        let (mut core, dir) = core("offer");
+        core.standby.retry_at = Some(Instant::now() + RETRY);
+        core.use_offered_input("pipewire:stand-in");
+        assert_eq!(core.standby.retry_at, None);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Only a device change frees the devices: a count-in or a scoring change keeps the bass
+    /// playing without a gap.
+    #[test]
+    fn other_changes_keep_the_monitor() {
+        let (mut core, dir) = core("keep");
+        let waiting = Instant::now() + RETRY;
+        core.standby.retry_at = Some(waiting);
+        core.reconfigure(|s| s.count_in_bars = 2);
+        assert_eq!(core.standby.retry_at, Some(waiting));
         let _ = std::fs::remove_dir_all(dir);
     }
 }
