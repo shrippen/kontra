@@ -805,8 +805,8 @@ Orca nicht genutzt, statt dessen der AT-SPI-Baum.
   entscheiden. Dazu gehört B6 vor dem Abspielen (Vorschlag: Klappe „Einstellungen“).
 - [x] B7 (mittel, Kante 1.51, übernommen #176): Saitenfarben der Tabulatur in Kante Light auf hellem Grund 1,7–2,6:1, am Beamer kaum lesbar.
 - [ ] B8 (niedrig): Nach Seitenwechsel Fokus auf der ScrollView; Trenner der Seitenleiste als unbenannte
-  Listeneinträge (gehört nach Kante: `KanteScope.popup`); Tempo-Regler mit zwei Tab-Halten; nach „Klinke direkt“ zeigt der Eingang weiter „Automatisch:
-  Scarlett Solo …“; nach Esc aus der Präsentation Seitenleiste 216 statt 260 px; Saitenbuchstaben und Taktzahlen in
+  Listeneinträge (gehört nach Kante: `KanteScope.popup`); Tempo-Regler mit zwei Tab-Halten; nach „Klinke direkt“ zeigte der Eingang weiter „Automatisch:
+  Scarlett Solo …“ (behoben 10.11.: die eingebaute Karte, Test `laptop_jack_takes_the_built_in_card`); nach Esc aus der Präsentation Seitenleiste 216 statt 260 px; Saitenbuchstaben und Taktzahlen in
   der Präsentation etwa 8 px; frühe Note (orange) unter Deuteranopie wie eine D-Saiten-Note, nur das kleine Abzeichen
   trägt.
 - [x] B9 (niedrig, Kante 1.51, übersetzt #176): Timing-Histogramm nennt dem Screenreader keine Balkenwerte (S5 nur teils).

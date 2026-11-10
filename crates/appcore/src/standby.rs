@@ -11,7 +11,7 @@
 //! Only the app asks for it (`keep_devices_open`): tests and recordings never open a device.
 
 use crate::mixer::gains;
-use crate::{chosen_input, Core, Settings};
+use crate::{chosen_input, Core, InputKind, Settings};
 use kontra_model::InputSource;
 use kontra_session::{list_devices, DeviceInfo, Direction, InputChoice, LiveMonitor, LiveSetup};
 use std::time::{Duration, Instant};
@@ -41,11 +41,16 @@ pub(crate) enum MixerChange {
 /// else the saved input if it is listed, else an interface (USB). Never the system's default
 /// (on a laptop the built-in microphone, review #231), and none while a lost input waits for
 /// the player's answer: `None` waits and looks again.
+///
+/// With the laptop jack only the input the player chose: by itself the built-in card is the
+/// laptop's microphone when no cable is in the jack, and an interface is not where the bass
+/// is (review #239).
 fn standby_input(
     stand_in: Option<&str>,
     lost: bool,
     saved: Option<&str>,
     devices: &[DeviceInfo],
+    kind: InputKind,
 ) -> Option<String> {
     if let Some(id) = stand_in {
         return Some(id.to_string());
@@ -53,7 +58,11 @@ fn standby_input(
     if lost {
         return None;
     }
-    chosen_input(saved, devices)
+    if kind == InputKind::LaptopJack {
+        let listed = |id: &&str| devices.iter().any(|d| d.id == **id);
+        return saved.filter(listed).map(str::to_string);
+    }
+    chosen_input(saved, devices, kind)
 }
 
 impl Core {
@@ -148,7 +157,8 @@ impl Core {
         let saved = self.settings.input_device.as_deref();
         let stand_in = self.fallback_input.as_deref();
         let lost = self.lost.is_some();
-        let Some(input) = standby_input(stand_in, lost, saved, &devices) else {
+        let kind = self.settings.input_kind;
+        let Some(input) = standby_input(stand_in, lost, saved, &devices, kind) else {
             // A lost input waits for the player's answer: the offer says so, not this.
             self.standby.no_input = !lost;
             self.standby.retry_at = Some(Instant::now() + RETRY);
@@ -397,6 +407,7 @@ mod device_change {
 #[cfg(test)]
 mod which_input {
     use super::standby_input;
+    use crate::InputKind;
     use kontra_session::{Connection, DeviceInfo, Direction};
 
     fn device(id: &str, connection: Connection, is_default: bool) -> DeviceInfo {
@@ -417,9 +428,15 @@ mod which_input {
     #[test]
     fn never_the_system_default() {
         let laptop = [device("internal-mic", Connection::Other, true)];
-        assert_eq!(standby_input(None, false, None, &laptop), None);
+        assert_eq!(
+            standby_input(None, false, None, &laptop, InputKind::Line),
+            None
+        );
         // The saved interface is unplugged: wait for it, not the microphone.
-        assert_eq!(standby_input(None, false, Some("solo"), &laptop), None);
+        assert_eq!(
+            standby_input(None, false, Some("solo"), &laptop, InputKind::Line),
+            None
+        );
     }
 
     #[test]
@@ -429,15 +446,34 @@ mod which_input {
             device("solo", Connection::Usb, false),
         ];
         assert_eq!(
-            standby_input(None, false, None, &devices).as_deref(),
+            standby_input(None, false, None, &devices, InputKind::Line).as_deref(),
             Some("solo")
         );
         let saved = Some("internal-mic");
         assert_eq!(
-            standby_input(None, false, saved, &devices).as_deref(),
+            standby_input(None, false, saved, &devices, InputKind::Line).as_deref(),
             Some("internal-mic"),
             "chosen by the player (laptop jack)"
         );
+    }
+
+    /// Review #239: with the laptop jack the standby still took the interface (it only knew
+    /// "an interface"), while runs and the settings named the built-in card. It opens what the
+    /// player chose there, else nothing: the card by itself is the laptop's microphone.
+    #[test]
+    fn the_laptop_jack_wants_a_chosen_input() {
+        let devices = [
+            device("hda", Connection::BuiltIn, true),
+            device("solo", Connection::Usb, false),
+        ];
+        let jack = |saved| standby_input(None, false, saved, &devices, InputKind::LaptopJack);
+        assert_eq!(
+            jack(None),
+            None,
+            "not the interface, not the card by itself"
+        );
+        assert_eq!(jack(Some("hda")).as_deref(), Some("hda"));
+        assert_eq!(jack(Some("gone")), None, "the chosen one is unplugged");
     }
 
     /// Review #231: an input lost in a run is offered a stand-in; the standby waits for the
@@ -448,9 +484,19 @@ mod which_input {
             device("internal-mic", Connection::Other, true),
             device("other-usb", Connection::Usb, false),
         ];
-        assert_eq!(standby_input(None, true, Some("solo"), &devices), None);
         assert_eq!(
-            standby_input(Some("other-usb"), true, Some("solo"), &devices).as_deref(),
+            standby_input(None, true, Some("solo"), &devices, InputKind::Line),
+            None
+        );
+        assert_eq!(
+            standby_input(
+                Some("other-usb"),
+                true,
+                Some("solo"),
+                &devices,
+                InputKind::Line
+            )
+            .as_deref(),
             Some("other-usb"),
             "the stand-in the player took"
         );
