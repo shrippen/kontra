@@ -47,7 +47,7 @@ cp testdata/demo/groove-techniken.musicxml "$WORK/downloads/"
 shot() {
     local name="$1" lang="$2" after="$3"
     shift 3
-    XDG_DOWNLOAD_DIR="$WORK/downloads" KONTRA_DATA_DIR="$WORK/data-$lang" timeout 120 "$APP" --language "$lang" \
+    KONTRA_DOWNLOAD_DIR="$WORK/downloads" KONTRA_DATA_DIR="$WORK/data-$lang" timeout 120 "$APP" --language "$lang" \
         --screenshot "$OUT/$name-$lang.png" --screenshot-after "$after" "$@" > /dev/null 2>&1 || true
     [ -f "$OUT/$name-$lang.png" ] && echo "$OUT/$name-$lang.png"
 }

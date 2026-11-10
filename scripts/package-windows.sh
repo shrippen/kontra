@@ -66,7 +66,8 @@ test ! -e "$OUT/bin/qml/QtTest"
 
 # The C++ runtime of this Visual Studio next to the program: a fresh Windows has none, and the
 # folder must start without an installer (Microsoft allows shipping these files app-local).
-vswhere="${PROGRAMFILES_X86:-C:/Program Files (x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+# vswhere always installs here (Bash cannot read the variable "ProgramFiles(x86)").
+vswhere="C:/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
 studio="$("$vswhere" -latest -products '*' -property installationPath | tr -d '\r')"
 runtime="$(find "$(cygpath -u "$studio")/VC/Redist/MSVC" -type d -path '*/x64/Microsoft.VC*.CRT' | sort | tail -1)"
 test -d "$runtime"
