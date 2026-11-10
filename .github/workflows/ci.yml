@@ -136,26 +136,6 @@ jobs:
           # Techniques on real slaps, pops and dead notes (LH-BEW-06); reported, no floor yet.
           cargo run -q -p kontra-cli --release -- korpus techniques $L/conv/idmt-st
 
-  windows:
-    # Win1 (LH-NF-17): everything below the GUI builds and passes its tests on Windows. Not
-    # part of "github / test" until it is green.
-    timeout-minutes: 45
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Rust
-        run: rustup toolchain install stable --profile minimal && rustup default stable
-      - uses: actions/cache@v4
-        # Without the cache the job only takes longer.
-        continue-on-error: true
-        with:
-          path: |
-            ~/.cargo/registry
-            target
-          key: windows-${{ hashFiles('Cargo.lock') }}
-      - run: cargo build --workspace --exclude kontra-app --all-targets
-      - run: cargo test --workspace --exclude kontra-app --no-fail-fast
-
   app:
     # The Qt app: Qt 6.10 and Kirigami from scripts/setup-qt-env.sh (cached), headless screenshots.
     timeout-minutes: 45

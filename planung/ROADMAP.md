@@ -72,8 +72,9 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 ```
 
 - [x] Win1 Rust-Kern unter Windows: alles unter der Oberfläche (`--exclude kontra-app`) baut und besteht seine
-  Tests für Windows (10.11.: lokal mit `scripts/check-windows.sh` als `x86_64-pc-windows-gnu` unter Wine, 56
-  Testprogramme grün; Referenz ist der Job `windows` auf `windows-latest` in `ci.yml`). Was dafür nötig war:
+  Tests für Windows (10.11.: auf `windows-latest` mit MSVC alles grün; lokal mit `scripts/check-windows.sh`
+  als `x86_64-pc-windows-gnu` unter Wine, 56 Testprogramme). Der Job `windows` für `ci.yml` kommt in einem
+  eigenen PR (ändert die CI: Bestätigung des Eigentümers). Was dafür nötig war:
   - Demucs starten und beenden (`drivers/src/separator/process.rs`): Unix wie bisher (`nice`, Prozessgruppe,
     SIGTERM/SIGKILL, endet mit Kontra); Windows mit niedriger Prioritätsklasse, ohne Konsolenfenster, beendet
     samt Kindern über `taskkill /T /F`, Programme am Namen erkannt (`.exe`, `.cmd`, `.bat`). Tests mit
@@ -82,6 +83,8 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   - Download-Ordner: `%USERPROFILE%\Downloads`.
   - Datei-URLs der Kursvideos: `file:///C:/…` statt `file://C%3A%5C…` (Test auf beiden Schreibweisen).
   - Tests, die Shell-Skripte, symbolische Links oder `\` im Dateinamen brauchen, laufen nur unter Unix.
+  - `.gitattributes`: Zeilenenden bleiben LF, auch im Checkout unter Windows (`tests/hidden_views.rs` fand mit
+    CRLF seine Zeilen nicht).
 - [ ] Win2 Audio und MIDI: cpal über WASAPI (geteilt; exklusiv für niedrige Latenz prüfen) und **ASIO**
   (Entscheidung 10.11.: ja), Gerätelisten ohne PipeWire, Standardgeräte, Latenz und Xruns gemessen wie unter
   Linux (LH-NF-01); MIDI über midir (WinMM). ASIO: cpal-Feature `asio` braucht das Steinberg-SDK beim Bauen
