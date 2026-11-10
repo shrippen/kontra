@@ -150,9 +150,10 @@ fn qml_dirs() -> Vec<PathBuf> {
         .collect()
 }
 
-/// The theme to set: the portal, unless the user chose one.
+/// The theme to set: the portal, unless the user chose one. Only where there are portals:
+/// Windows and macOS show their own dialogs anyway.
 fn platform_theme(current: Option<std::ffi::OsString>) -> Option<&'static str> {
-    if current.is_some_and(|t| !t.is_empty()) {
+    if !cfg!(target_os = "linux") || current.is_some_and(|t| !t.is_empty()) {
         return None;
     }
 
@@ -163,6 +164,7 @@ fn platform_theme(current: Option<std::ffi::OsString>) -> Option<&'static str> {
 mod tests {
     use super::*;
 
+    #[cfg(target_os = "linux")]
     #[test]
     fn portal_theme_by_default() {
         assert_eq!(platform_theme(None), Some(PORTAL_THEME));
