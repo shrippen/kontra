@@ -126,9 +126,13 @@ fn backing_beats_slow_and_transposed() {
     play_all_hit(&mut again, 9);
 
     // Step 7: the same recording chosen again after the finished run: the core says `Kept`,
-    // so the page keeps the summary (review #242; only a run under way starts it over).
+    // so the page keeps the summary and the position (review #242; only a run under way
+    // starts it over).
+    let end_s = again.position_s();
+    assert!(end_s > 0.0, "the finished run stands at its end");
     let same = again.set_backing(Some(wav.clone()), 0.0);
     assert_eq!(same, Ok(kontra_appcore::BackingChange::Kept));
+    assert_eq!(again.position_s(), end_s, "the position stays with Kept");
 
     // Another recording takes the place of the aligned one: its alignment goes, the new one
     // starts unaligned. Removing it afterwards changes nothing more.
