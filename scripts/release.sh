@@ -13,7 +13,7 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 2
 
-METAINFO=packaging/org.shrippen.Kontra.metainfo.xml
+METAINFO=packaging/io.github.shrippen.Kontra.metainfo.xml
 LANDING=docs/index.html
 CHANGELOG=CHANGELOG.md
 MAIN=main

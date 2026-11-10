@@ -13,27 +13,25 @@ Dateinamen, die kein UTF-8 sind, werden mit Grund abgelehnt); Kante #131 (1.76.2
 Windows (LH-NF-17, Roadmap „Multiplattform: Windows“) in `main`: #233 (Plan, P8, J-A6, Rust-Kern), #234
 (Datenordner, Datei-URLs, Job Object, Clippy, Stem-Tests).
 
-Offene PRs:
-- **#236 „Windows in der CI“** (Branch `windows-app`): Jobs `windows` (Kern: Clippy, Tests) und `windows-app` (Qt
-  und Kirigami mit MSVC über `scripts/setup-qt-windows.sh`, App bauen und testen, Screenshots, portabler Ordner
-  über `scripts/package-windows.sh` als CI-Artefakt). Lauf 42753483624 in allen Jobs grün. Ändert die CI und
-  `agent.md` (P1–P8): **wartet auf die Bestätigung des Eigentümers** (Runde 18). Review ohne Wichtig.
-  Letzter grüner Lauf am Kopf c27573b: 42763539089.
-- Branch `windows-reste` (ein Commit auf `windows-app`, ohne PR): Screenshots lesen unter Windows nicht die
-  echten Downloads (`KONTRA_DOWNLOAD_DIR`). PR erst, wenn #236 in `main` ist.
+Runde 18 ist beantwortet (10.11.; Roadmap „Entscheidungen Runde 18“): #236 gemerged, die Windows-Jobs zählen
+für `github / test`; App-ID `io.github.shrippen.Kontra`, Laufzeit 6.11.
 
-Seit der ersten Fassung in `main`: #237 (Kirigami auf Englisch auch auf deutschem System), #238 (Flatpak-Lint
-notiert), #239 („Klinke direkt“ auf „Automatisch“ nimmt die eingebaute Karte, der Standby folgt), #240 (Hinweis
-an der Buchse, alter Abgleich geht mit dem Backing-Track, „1 Stück“), #241 (Gehör: Liste der gespielten Töne
-begrenzt, M16), #242 (eine Aufnahme wählen lässt die Auswertung eines fertigen Laufs stehen; ein laufender Lauf
-beginnt neu), #243 (Test dazu in J-D1).
+Offen daraus:
+- Branch `windows-reste` (ein Commit, Screenshots lesen unter Windows nicht die echten Downloads): PR öffnen.
+- Summenbegrenzer (LH-WIE-06).
+- Win2 zuerst: Audio (WASAPI, ASIO als Feature unter GPLv3 nur im Windows-Paket) in der libvirt-Maschine `win`,
+  vorher Snapshot.
+- Win5: Inno Setup und ZIP, Update-Hinweis (LH-ALL-07). Signierung zurückgestellt.
+- Kaiwa und hansei: App-IDs auf `io.github.shrippen.*` (eigene PRs dort).
+
+In `main` seit der ersten Fassung: #237 bis #243 (Kirigami auf Englisch, Flatpak-Lint, „Klinke direkt“ nimmt die
+eingebaute Karte, alter Abgleich geht mit dem Backing-Track, Gehör-Liste begrenzt, Auswertung bleibt beim Wählen
+einer Aufnahme).
 
 Offene Kleinigkeiten aus den Reviews vom 10.11.:
 - Nach dem Wählen einer Aufnahme bei fertigem Lauf bleibt die Auswertung, die Position springt aber an den Anfang
   (#242).
 - Die Brücke (`crates/app/src/bridge/`) hat keine Tests; was die Seite nach `set_backing` zeigt, ist nur gelesen.
-- Neue `pub` seit Runde 18: `Core::imported_text`, `kontra_appcore::BackingChange`, `Core::set_backing` gibt
-  `Result<BackingChange, String>` (im Entscheidungs-Artefakt nachgetragen).
 
 Stand unter Windows:
 - Kern: alle Tests grün auf `windows-latest` (MSVC) und lokal unter Wine.
@@ -45,9 +43,6 @@ Stand unter Windows:
   Die App lässt sich nur auf `windows-latest` bauen (Qt für MSVC).
 - Nächste Schritte nach den Entscheidungen: Installer (Vorschlag Inno Setup und ZIP) und Signierung (Win5),
   Testmaschine in KVM (Win6; vorhanden ist `win` in libvirt, nicht angefasst), Audio mit WASAPI und ASIO (Win2).
-- Entschieden (Eigentümer, 10.11.): ASIO ja, Signierung ja, Tests zuerst über KVM, Persona P8. Offen in Runde 18
-  (Entscheidungs-Artefakt, `antworten/runde-18`): #236, Installer-Form, Signierweg, ASIO-Lizenz, KVM-Maschine,
-  #220, Summenbegrenzer, pub, Reihenfolge.
 
 Offen sonst:
 - Am Scarlett: Gain von Eingang 2 zurück (Aufnahme 9.11.: 1957 Samples in 10 s auf Vollaussteuerung);

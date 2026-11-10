@@ -3,7 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import Kante
-import org.shrippen.kontra
+import io.github.shrippen.kontra
 
 Kirigami.ApplicationWindow {
     id: root

@@ -88,9 +88,11 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 - [ ] Win2 Audio und MIDI: cpal über WASAPI (geteilt; exklusiv für niedrige Latenz prüfen) und **ASIO**
   (Entscheidung 10.11.: ja), Gerätelisten ohne PipeWire, Standardgeräte, Latenz und Xruns gemessen wie unter
   Linux (LH-NF-01); MIDI über midir (WinMM). ASIO: cpal-Feature `asio` braucht das Steinberg-SDK beim Bauen
-  (MSVC, LLVM für bindgen); das SDK steht unter Steinbergs eigener Lizenz (Vereinbarung, die der Eigentümer
-  unterschreibt) oder GPLv3. GPL verträgt sich nicht mit der Abhängigkeitsregel, also die Vereinbarung:
-  vor dem ersten Paket mit ASIO klären (Lizenztext prüfen, Logo-Pflicht).
+  (MSVC, LLVM für bindgen); das SDK steht unter Steinbergs eigener Lizenz (Vereinbarung) oder GPLv3.
+  Entscheidung Runde 18: das Windows-Paket mit ASIO wird unter GPLv3 ausgeliefert, der Quelltext bleibt MIT
+  (Ausnahme von der Abhängigkeitsregel nur für dieses Paket, `agent.md`). ASIO darum als Cargo-Feature, das nur
+  der Windows-Paketbau einschaltet; Lizenztext und Quellen-Hinweis liegen dem Paket bei. Nächster Schritt nach
+  Runde 18 (Reihenfolge: Win2 zuerst), in der KVM-Maschine.
 - [ ] Win3 Qt-App. Erledigt (10.11., Lauf 42737035615 auf `windows-latest`): `scripts/setup-qt-windows.sh` holt
   Qt 6.10.3 (aqtinstall, MSVC) und baut ECM und Kirigami 6.30 mit Visual Studio; `kontra-app` baut mit cxx-qt und
   MSVC, seine Tests laufen, die Einstellungsseite kommt als Screenshot (offscreen; Job `windows-app`, im CI-PR).
@@ -112,12 +114,13 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   CI-Artefakt `Kontra-windows-portable` 57 MB), der ohne installiertes Qt startet (Screenshot mit leerem `PATH`).
   Die Visual-C++-Laufzeit liegt bei. Qt liest seine Umgebungsvariablen unter Windows aus der Kopie der
   C-Laufzeit: Kontra setzt Stil und Thema darum über `qputenv` (`cpp/qt_env.cpp`), sonst kam der gepackte Kontra
-  im nativen Windows-Stil hoch. Offen: Installer und Signierung (Entscheidung 10.11.: signieren
-  ja; Form offen, Vorschlag unten), gebaut und
+  im nativen Windows-Stil hoch. Offen: Installer (Runde 18: Inno Setup und portable ZIP, winget später) mit
+  Update-Hinweis im Programm (LH-ALL-07); Signierung zurückgestellt (Runde 18); gebaut und
   angehängt nur von GitHub Actions (CLAUDE.md), Demo-Ausschluss geprüft wie im Flatpak; Landing Page mit
   Windows-Download.
 - [ ] Win6 QA unter Windows (Entscheidung 10.11.: zuerst in einer KVM-Maschine auf dem Rechner des Eigentümers;
-  Interface per USB-Durchreichung, sobald Win2 steht): Journeys als P8, J-A6 neu.
+  Runde 18: die vorhandene libvirt-Maschine `win`, vorher ein Snapshot; Interface per USB-Durchreichung, sobald
+  Win2 steht): Journeys als P8, J-A6 neu.
 
 ### Entscheidungen 10.11.2026 (Eigentümer, im Gespräch)
 
@@ -135,6 +138,24 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 
 - Signierung, Wege zur Wahl (Runde 18): Azure Trusted Signing (Abo, Identitätsprüfung), SignPath Foundation
   (kostenlos für freie Projekte, signiert unter deren Namen), eigenes Zertifikat (z. B. Certum Open Source).
+
+### Entscheidungen Runde 18 (10.11.2026)
+
+- #236 (Windows in der CI): mergen, die Jobs `windows` und `windows-app` zählen sofort für `github / test`.
+- Installer: Inno Setup und portable ZIP; winget später. Dazu ein Update-Hinweis im Programm, der
+  `https://shrippen.github.io/versions.json` liest (LH-ALL-07; Kante hat dafür `KanteUpdateCheck`).
+- Signierung: zurückgestellt.
+- ASIO: Windows-Paket mit ASIO unter GPLv3, Quelltext bleibt MIT (Win2, `agent.md`).
+- Testmaschine: die vorhandene `win` in libvirt, vorher Snapshot.
+- P8 Noah bleibt. #220 (`tea` → `gt`) ist in `main`. Die `pub`-Liste bis #242 ist freigegeben.
+- App-ID: `io.github.shrippen.Kontra` (vorher `org.shrippen.Kontra`; `shrippen.org` gibt es nicht), Laufzeit
+  KDE 6.11. Umgesetzt: Dateien in `packaging/`, QML-Modul `io.github.shrippen.kontra`, Organisations-Domain
+  `shrippen.github.io`. Bricht: ein installiertes Flatpak der alten ID bleibt als eigene App stehen (es gibt
+  kein Release; lokal `flatpak uninstall org.shrippen.Kontra`); Kontras Daten liegen unter `kontra/` und
+  bleiben. Dieselbe Domain nutzen Kaiwa (`org.shrippen.kaiwa`) und hansei (`org.shrippen.hansei`), beide ohne
+  Release: eigene PRs dort.
+- Summenbegrenzer: bauen, immer an (LH-WIE-06).
+- Reihenfolge: zuerst Win2 (Audio in der KVM).
 
 ## Entscheidungen Runde 3 (9.10.2026)
 
@@ -613,7 +634,8 @@ Kleinigkeiten aus den Reviews, W9, L3, W3 und E5 jetzt; der Rest steht hier:
 - [ ] E8 Brummen-Abzug bei Spiel ohne Pause über 8 s (Weiterlernen unter Noten).
 - [ ] W3 Prüfung sieht nicht in selbst gezeichnete Flächen (Lane, Noten, Griffbrett) und keinen abgeschnittenen Text
       in Labels; läuft nur lokal (kein AT-SPI in der CI).
-- [ ] W6 flatpak-builder-lint (Lauf 42750329419, 10.11.): ein Fehler, eine Warnung. Fehler
+- [x] W6 flatpak-builder-lint (Lauf 42750329419, 10.11.): ein Fehler, eine Warnung; beide mit Runde 18 behoben
+      (App-ID `io.github.shrippen.Kontra`, Laufzeit 6.11). Fehler
       `appid-url-not-reachable`: die App-ID `org.shrippen.Kontra` verweist auf `shrippen.org`, die Domain gibt es
       nicht; Flathub verlangt eine erreichbare (Entscheidung Runde 18: `io.github.shrippen.Kontra`, eine eigene
       Domain oder `shrippen.org` anlegen). Warnung: Laufzeit `org.kde.Platform` 6.11 ist da (Manifest: 6.10).

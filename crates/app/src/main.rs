@@ -23,7 +23,7 @@ use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QString, QUrl};
 use std::path::PathBuf;
 
 /// The app id: the desktop file's name without `.desktop`.
-const APP_ID: &str = "org.shrippen.Kontra";
+const APP_ID: &str = "io.github.shrippen.Kontra";
 
 const MAIN_QML: &str = "qrc:/qt/qml/org/shrippen/kontra/qml/Main.qml";
 
@@ -77,10 +77,10 @@ fn main() {
     if let Some(mut app) = app.as_mut() {
         app.as_mut().set_application_name(&QString::from("Kontra"));
         app.as_mut()
-            .set_organization_domain(&QString::from("shrippen.org"));
+            .set_organization_domain(&QString::from("shrippen.github.io"));
     }
-    // Wayland compositors find the window icon (packaging/org.shrippen.Kontra.svg) through the
-    // desktop file of this name. Only when it is installed: Qt registers the name with the
+    // Wayland compositors find the window icon (packaging/io.github.shrippen.Kontra.svg)
+    // through the desktop file of this name. Only when it is installed: Qt registers the name with the
     // desktop portal, which warns about an unknown one (a run from the source tree).
     if desktop_file_installed() {
         QGuiApplication::set_desktop_file_name(&QString::from(APP_ID));

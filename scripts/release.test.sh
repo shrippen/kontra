@@ -20,7 +20,7 @@ git checkout -q -B main
 git remote remove origin
 # What the script reads, as it is now, also when it is not committed yet.
 for f in scripts/release.sh scripts/release-notes.sh CHANGELOG.md docs/index.html \
-    packaging/org.shrippen.Kontra.metainfo.xml; do
+    packaging/io.github.shrippen.Kontra.metainfo.xml; do
     cp "$root/$f" "$f"
 done
 git add -A
@@ -55,7 +55,7 @@ A test release.
 Eine Testversion.
 NOTES
 sed -i "s|<releases>|<releases>\n    <release version=\"$V\" date=\"$D\"/>|" \
-    packaging/org.shrippen.Kontra.metainfo.xml
+    packaging/io.github.shrippen.Kontra.metainfo.xml
 sed -i "s|<ol class=\"changelog\">|<ol class=\"changelog\"><li>$V</li>|" docs/index.html
 sed -i "s|MIT · shrippen ·|MIT · shrippen · $V ·|" docs/index.html
 git commit -qam "Prepare $V"

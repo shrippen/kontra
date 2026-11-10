@@ -29,7 +29,7 @@ rm -rf "$OUT"
 mkdir -p "$OUT/bin" "$SHARE/qml" "$SHARE/demo"
 cp target/release/kontra.exe "$OUT/bin/"
 
-# Kontra's own files, as packaging/org.shrippen.Kontra.yml installs them.
+# Kontra's own files, as packaging/io.github.shrippen.Kontra.yml installs them.
 cp -r crates/app/qml/Kante "$SHARE/qml/Kante"
 cp testdata/demo/etude-1.mid "$SHARE/demo/"
 cp -r testdata/exercises "$SHARE/exercises"
