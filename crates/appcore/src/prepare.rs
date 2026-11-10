@@ -58,7 +58,7 @@ impl Core {
             return None;
         }
         let cache = BackingCache::new(&self.backing_cache_dir());
-        self.prepare.job = Some(cache.prepare(songs, device));
+        self.prepare.job = Some(cache.prepare(songs, device, self.input_choice()));
         Some(UiEvent::BackingLoading(true))
     }
 

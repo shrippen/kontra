@@ -99,6 +99,12 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   - **Aussetzer** (`kontra-cli soak`, 2 min, in der VM): ASIO (Focusrite) 4, WASAPI mit Focusrite-Treiber 16, WASAPI
     mit Windows-Treiber 3. Die VM reicht USB-Audio über einen emulierten Controller durch: die Zahlen zeigen, dass
     es läuft, nicht wie gut. Messung auf echtem Windows steht aus.
+  - **Offen aus dem Review von #247:** Die Lizenzliste im Programm (LH-NF-11) nennt im Windows-Paket weder GPLv3
+    noch das ASIO-SDK (sie entsteht für Linux ohne Feature). Die CI prüft den ASIO-Code nur im Release-Build des
+    Pakets, ohne Clippy und Tests (Änderung an `ci.yml`: Bestätigung des Eigentümers). `asio-sys` lädt beim Bauen die
+    jeweils neueste SDK-Version von Steinberg: Version festhalten (`CPAL_ASIO_DIR`) und in `ASIO.txt` nennen. Unter
+    Linux nehmen ALSA-Geräte mit i16 oder i32 jetzt den Wandlungsweg (vorher ließen sie sich nicht öffnen): Latenz
+    und Xruns dort messen.
   - **Offen:** Latenz „mit Kabel messen“ (braucht ein Kabel vom Ausgang in den Eingang); MIDI über WinMM mit einem
     Gerät; Ein- und Ausgang auf verschiedenen ASIO-Treibern oder ASIO mit WASAPI gemischt (ein ASIO-Treiber zur
     Zeit); cpal lädt beim Auflisten und beim Öffnen jeden ASIO-Treiber der Reihe nach: ein kaputter Treiber reißt

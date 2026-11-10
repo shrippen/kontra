@@ -579,7 +579,7 @@ fn stream_config(
     device: &cpal::Device,
     direction: Direction,
     wanted: &StreamConfig,
-) -> Result<(cpal::StreamConfig, cpal::SampleFormat), AudioError> {
+) -> Result<(cpal::StreamConfig, (cpal::SampleFormat, usize)), AudioError> {
     let default = match direction {
         Direction::Input => device.default_input_config(),
         Direction::Output => device.default_output_config(),
@@ -593,10 +593,18 @@ fn stream_config(
     };
     // PipeWire takes any block in its quantum range (cpal checks it) as a wish (node.latency).
     let probe = !is_pipewire(device) && config.buffer_size != cpal::BufferSize::Default;
-    if probe && !accepts(device, direction, &config, format) {
+    let probe_format = (format, samples::scratch_len(config.channels, None));
+    if probe && !accepts(device, direction, &config, probe_format) {
         config.buffer_size = cpal::BufferSize::Default;
     }
-    Ok((config, format))
+    // The largest block the stream may deliver: the one asked for, else the device's limit.
+    let largest = match (config.buffer_size, default.buffer_size()) {
+        (cpal::BufferSize::Fixed(frames), _) => Some(frames),
+        (_, cpal::SupportedBufferSize::Range { max, .. }) => Some(*max),
+        _ => None,
+    };
+    let scratch = samples::scratch_len(config.channels, largest);
+    Ok((config, (format, scratch)))
 }
 
 #[cfg(target_os = "linux")]
@@ -619,7 +627,7 @@ fn accepts(
     device: &cpal::Device,
     direction: Direction,
     config: &cpal::StreamConfig,
-    format: cpal::SampleFormat,
+    format: (cpal::SampleFormat, usize),
 ) -> bool {
     let quiet = |_: cpal::Error| {};
     match direction {
