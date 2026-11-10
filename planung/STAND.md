@@ -17,7 +17,7 @@ Runde 18 ist beantwortet (10.11.; Roadmap „Entscheidungen Runde 18“): #236 g
 für `github / test`; App-ID `io.github.shrippen.Kontra`, Laufzeit 6.11.
 
 Offen daraus:
-- Summenbegrenzer (LH-WIE-06).
+- Summenbegrenzer (LH-WIE-06): gebaut (#244); Hörprobe und Xruns am Gerät stehen aus.
 - Win2 zuerst: Audio (WASAPI, ASIO als Feature unter GPLv3 nur im Windows-Paket) in der libvirt-Maschine `win`,
   vorher Snapshot.
 - Win5: Inno Setup und ZIP, Update-Hinweis (LH-ALL-07). Signierung zurückgestellt.

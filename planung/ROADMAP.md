@@ -156,7 +156,7 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   kein Release; lokal `flatpak uninstall org.shrippen.Kontra`); Kontras Daten liegen unter `kontra/` und
   bleiben. Dieselbe Domain nutzen Kaiwa (`org.shrippen.kaiwa`) und hansei (`org.shrippen.hansei`), beide ohne
   Release: eigene PRs dort.
-- Summenbegrenzer: bauen, immer an (LH-WIE-06).
+- Summenbegrenzer: bauen, immer an (LH-WIE-06; umgesetzt in #244).
 - Reihenfolge: zuerst Win2 (Audio in der KVM).
 
 ## Entscheidungen Runde 3 (9.10.2026)
