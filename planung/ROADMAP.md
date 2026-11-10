@@ -64,13 +64,13 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 
 Auf den mitgehörten Bass lassen sich verschiedene Effekte legen, eigene und Plugins im Format CLAP oder VST3
 (VST3-SDK seit 3.8 unter MIT). Die Erkennung hört weiter den trockenen Eingang; Effekte ändern nur, was der Spieler
-hört (LH-EIN-19 bis LH-EIN-21). Personas: P2 und P8 (eigener Sound, Plugins schon gekauft), P3 (Kompressor, Hall
-beim Üben), P1 (alles aus, bis sie es sucht).
+hört (LH-EIN-19 bis LH-EIN-21). Personas: P2 (spielt in der Coverband und will beim Üben nach dem Song klingen),
+P1 (alles aus, bis sie es sucht); P8 erst mit dem Windows-Paket. Nach 0.1 (Phase 2).
 
 ```text
 Eingang ─┬─────────────────────────────────────────────────────────► Erkennung (trocken)
          └─► Klangformung ─► [Slot 1] ─► [Slot 2] ─► … ─► Begrenzer ─► Ausgang
-             (EQ, Kompr.)     eigener Effekt oder Plugin      (immer an, −1 dBFS)
+             (EQ, Kompr.)     eigener Effekt oder Plugin      (LH-EIN-17: an, abschaltbar)
 
 session  Kette als Einstellung (Reihenfolge, an/aus, Werte, Zustand der Plugins)
 engine   Kette im Audio-Callback; Umbau außerhalb, fertige Kette per Ringpuffer hinein
@@ -89,7 +89,9 @@ drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier
 - [ ] FX4 Oberfläche: Effekte im Mixer neben der Klangformung, Plugins wählen, Reihenfolge, an/aus, Parameter als
   Liste mit Reglern (Kante), Voreinstellungen je Kette. Tastatur und Screenreader (P7).
 - [ ] FX5 Eigene Fenster der Plugins (CLAP `gui`, VST3 `IPlugView`; unter Wayland über XWayland).
-- [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket.
+- [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket. Der
+  Scan-Prozess muss mitkommen: Pakete liefern heute nur `kontra`, nicht `kontra-cli`; entweder startet `kontra`
+  sich selbst zum Prüfen eines Plugins, oder das Paket bringt das Prüfprogramm mit.
 - Offen für den Eigentümer: Name und Logo „VST“ sind Marken von Steinberg; ob Kontra sie nennen darf, klärt die
   nächste Runde.
 
