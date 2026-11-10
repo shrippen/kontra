@@ -7,16 +7,16 @@
 //!           └─► analysis ─► levels and errors only (notes are dropped)
 //! ```
 
-use crate::live::{input_kind, open_output, InputChoice, LiveOutput, LiveSetup};
+use crate::live::{input_kind, output_config, InputChoice, LiveSetup};
 use crate::practice::PracticeEvent;
-use kontra_engine::{Clock, EngineError, Event, Gains, Input, Output};
+use kontra_engine::{Clock, EngineError, Event, Gains, Input, Output, Player};
 use kontra_model::Instrument;
 use std::sync::mpsc::{channel, Receiver};
 
 /// Input and output held open for monitoring.
 #[derive(Debug)]
 pub struct LiveMonitor {
-    output: LiveOutput,
+    output: Player,
     /// Held, not read: dropping it closes the input.
     _input: Input,
     events: Receiver<Event>,
@@ -44,23 +44,20 @@ impl LiveMonitor {
     ) -> Result<LiveMonitor, EngineError> {
         let clock = Clock::new();
         let (tx, rx) = channel();
-        let mut output = open_output(setup.output_device.as_deref(), &clock, tx.clone());
+        // No output is an error here, not silence: the caller tries again later (review #231).
+        let config = output_config(setup.output_device.as_deref());
+        let mut output = Player::start(&config, &clock, tx.clone())?;
         output.set_gains(gains);
         let sample_rate = output.sample_rate();
-        let player = match &mut output {
-            LiveOutput::Device(p) => Some(p),
-            LiveOutput::Silent(_) => None,
-        };
         let input = Input::start(
             &input_kind(&setup.input),
             instrument,
             setup.source,
             &clock,
             tx,
-            player,
+            Some(&mut output),
         )?;
-        let can_monitor =
-            matches!(output, LiveOutput::Device(_)) && input.sample_rate == sample_rate;
+        let can_monitor = input.sample_rate == sample_rate;
         Ok(LiveMonitor {
             output,
             _input: input,
@@ -74,7 +71,7 @@ impl LiveMonitor {
         self.output.set_gains(gains);
     }
 
-    /// The input reaches the output (an output device at the input's rate).
+    /// The input reaches the output (both at the same rate).
     pub fn can_monitor(&self) -> bool {
         self.can_monitor
     }

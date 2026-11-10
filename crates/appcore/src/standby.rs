@@ -11,9 +11,9 @@
 //! Only the app asks for it (`keep_devices_open`): tests and recordings never open a device.
 
 use crate::mixer::gains;
-use crate::{Core, Settings};
+use crate::{chosen_input, Core, Settings};
 use kontra_model::InputSource;
-use kontra_session::{LiveMonitor, LiveSetup};
+use kontra_session::{list_devices, DeviceInfo, Direction, InputChoice, LiveMonitor, LiveSetup};
 use std::time::{Duration, Instant};
 
 /// A monitor that did not open (interface unplugged) is tried again this much later.
@@ -27,6 +27,25 @@ pub(crate) struct Standby {
     retry_at: Option<Instant>,
 }
 
+/// The input the standby may hold open, by id: the stand-in the player took for a lost input,
+/// else the saved input if it is listed, else an interface (USB). Never the system's default
+/// (on a laptop the built-in microphone, review #231), and none while a lost input waits for
+/// the player's answer: `None` waits and looks again.
+fn standby_input(
+    stand_in: Option<&str>,
+    lost: bool,
+    saved: Option<&str>,
+    devices: &[DeviceInfo],
+) -> Option<String> {
+    if let Some(id) = stand_in {
+        return Some(id.to_string());
+    }
+    if lost {
+        return None;
+    }
+    chosen_input(saved, devices)
+}
+
 impl Core {
     /// Holds input and output open while nothing else uses them (the app, at start).
     pub fn keep_devices_open(&mut self) {
@@ -34,7 +53,8 @@ impl Core {
     }
 
     /// True while the standby monitor holds the devices.
-    pub fn is_standing_by(&self) -> bool {
+    #[cfg(test)]
+    pub(crate) fn is_standing_by(&self) -> bool {
         self.standby.monitor.is_some()
     }
 
@@ -96,7 +116,14 @@ impl Core {
             return;
         }
 
-        let setup = self.monitor_setup();
+        let devices = list_devices(Direction::Input);
+        let saved = self.settings.input_device.as_deref();
+        let stand_in = self.fallback_input.as_deref();
+        let Some(input) = standby_input(stand_in, self.lost.is_some(), saved, &devices) else {
+            self.standby.retry_at = Some(Instant::now() + RETRY);
+            return;
+        };
+        let setup = self.monitor_setup(input);
         let opened = LiveMonitor::start(&setup, &self.instrument(), gains(&self.settings));
         match opened {
             Some(Ok(monitor)) => {
@@ -107,10 +134,13 @@ impl Core {
         }
     }
 
-    /// The run's devices, without backing track.
-    fn monitor_setup(&self) -> LiveSetup {
+    /// The run's devices with `input`, without backing track.
+    fn monitor_setup(&self, input: String) -> LiveSetup {
         LiveSetup {
-            input: self.input_choice(),
+            input: InputChoice::Device {
+                id: Some(input),
+                channel: None,
+            },
             output_device: self.output_device(),
             source: self.source(),
             backing: None,
@@ -280,5 +310,68 @@ mod device_change {
         core.reconfigure(|s| s.count_in_bars = 2);
         assert_eq!(core.standby.retry_at, Some(waiting));
         let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
+#[cfg(test)]
+mod which_input {
+    use super::standby_input;
+    use kontra_session::{Connection, DeviceInfo, Direction};
+
+    fn device(id: &str, connection: Connection, is_default: bool) -> DeviceInfo {
+        DeviceInfo {
+            id: id.into(),
+            name: id.into(),
+            direction: Direction::Input,
+            is_default,
+            connection,
+            sample_rate: 48_000,
+            channels: 2,
+            past_pipewire: false,
+        }
+    }
+
+    /// Review #231: without an interface the standby opened the system's default input, on a
+    /// laptop the built-in microphone, and held it open (with "Bass hören" on: feedback).
+    #[test]
+    fn never_the_system_default() {
+        let laptop = [device("internal-mic", Connection::Other, true)];
+        assert_eq!(standby_input(None, false, None, &laptop), None);
+        // The saved interface is unplugged: wait for it, not the microphone.
+        assert_eq!(standby_input(None, false, Some("solo"), &laptop), None);
+    }
+
+    #[test]
+    fn the_interface_or_the_saved_input() {
+        let devices = [
+            device("internal-mic", Connection::Other, true),
+            device("solo", Connection::Usb, false),
+        ];
+        assert_eq!(
+            standby_input(None, false, None, &devices).as_deref(),
+            Some("solo")
+        );
+        let saved = Some("internal-mic");
+        assert_eq!(
+            standby_input(None, false, saved, &devices).as_deref(),
+            Some("internal-mic"),
+            "chosen by the player (laptop jack)"
+        );
+    }
+
+    /// Review #231: an input lost in a run is offered a stand-in; the standby waits for the
+    /// answer and does not pick one itself.
+    #[test]
+    fn a_lost_input_waits_for_the_answer() {
+        let devices = [
+            device("internal-mic", Connection::Other, true),
+            device("other-usb", Connection::Usb, false),
+        ];
+        assert_eq!(standby_input(None, true, Some("solo"), &devices), None);
+        assert_eq!(
+            standby_input(Some("other-usb"), true, Some("solo"), &devices).as_deref(),
+            Some("other-usb"),
+            "the stand-in the player took"
+        );
     }
 }
