@@ -91,8 +91,11 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   (MSVC, LLVM für bindgen); das SDK steht unter Steinbergs eigener Lizenz (Vereinbarung, die der Eigentümer
   unterschreibt) oder GPLv3. GPL verträgt sich nicht mit der Abhängigkeitsregel, also die Vereinbarung:
   vor dem ersten Paket mit ASIO klären (Lizenztext prüfen, Logo-Pflicht).
-- [ ] Win3 Qt-App: Qt 6 und Kirigami auf Windows (KDE Craft oder Qt-Installer plus Kirigami aus den Quellen),
-  cxx-qt mit MSVC; CI baut die App und nimmt Screenshots (offscreen). Erledigt (10.11.): Datei-URLs in beide
+- [ ] Win3 Qt-App. Erledigt (10.11., Lauf 42737035615 auf `windows-latest`): `scripts/setup-qt-windows.sh` holt
+  Qt 6.10.3 (aqtinstall, MSVC) und baut ECM und Kirigami 6.30 mit Visual Studio; `kontra-app` baut mit cxx-qt und
+  MSVC, seine Tests laufen, die Einstellungsseite kommt als Screenshot (offscreen; Job `windows-app`, im CI-PR).
+  Offen: Screenshot im echten Fenster (offscreen hat Windows keine Systemschrift, der Fließtext fällt auf eine
+  Ersatzschrift), alle Seiten wie `scripts/screenshots.sh`, Dateidialoge, Tastenkürzel, hohe DPI. Erledigt (10.11.): Datei-URLs in beide
   Richtungen für beide Systeme in `drivers/src/urls.rs` (abgelegte Dateien, Kursvideos, Live-QML, Startordner des
   Dateidialogs über `ctl.folderUrl`).
 - [ ] Win4 Pfade und Dienste. Erledigt (10.11.): Daten in `%APPDATA%\Kontra`, Cache in `%LOCALAPPDATA%\Kontra`

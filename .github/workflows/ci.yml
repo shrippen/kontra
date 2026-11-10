@@ -198,6 +198,15 @@ jobs:
           KONTRA_DATA_DIR="$RUNNER_TEMP/kontra-data" timeout 120 target/debug/kontra.exe \
             --language en --page settings --screenshot shots/settings-en.png --screenshot-after 2000
           test -f shots/settings-en.png
+      # With Windows' own platform plugin (fonts, scaling as a user sees them); the runner's
+      # session may refuse a window, so this one may fail.
+      - name: Screenshot in a real window
+        continue-on-error: true
+        run: |
+          . scripts/qt-env-windows.sh
+          KONTRA_DATA_DIR="$RUNNER_TEMP/kontra-data" QT_QPA_PLATFORM=windows timeout 120 target/debug/kontra.exe \
+            --language de --page settings --screenshot shots/settings-de-window.png --screenshot-after 3000
+          test -f shots/settings-de-window.png
       - uses: actions/upload-artifact@v4
         if: always()
         with:
