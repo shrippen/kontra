@@ -20,38 +20,94 @@ fn import_errors_are_translated() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// Review #235: a file whose name is not UTF-8 ("stück.mid" from a Latin-1 stick) opened, then
-/// the library could not be saved any more and listing the pieces crashed Kontra. It is
-/// refused with a reason, opened alone or with its folder.
+/// A name that is not UTF-8: Latin-1 "stück.mid", as an old stick or archive brings it.
+#[cfg(unix)]
+fn latin1(name: &[u8]) -> PathBuf {
+    use std::os::unix::ffi::OsStrExt;
+    PathBuf::from(std::ffi::OsStr::from_bytes(name))
+}
+
+/// Review #235: a file whose name is not UTF-8 opened, then the library could not be saved any
+/// more and listing the pieces crashed Kontra. It is refused with a reason, opened alone or as
+/// a backing track. No such file is made: some file systems refuse the name.
 #[cfg(unix)]
 #[test]
 fn a_name_kontra_cannot_keep_is_refused() {
-    use std::os::unix::ffi::OsStrExt;
     let dir = temp_dir("latin1");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.update_settings(|s| s.language = Some("de".into()));
+    let file = dir.join(latin1(b"st\xFCck.mid"));
+
+    let err = core.open(&file).unwrap_err();
+    assert!(err.contains("umbenennen"), "{err}");
+    core.open(&demo()).unwrap();
+    core.set_backing(Some(file), 0.0);
+    assert_eq!(core.backing_name(), "");
+    // A package's own path is never kept: its name does not matter.
+    assert!(core.keepable(&dir.join("gut.mid")).is_ok());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The same through a folder, where the file must exist: skipped on a file system that
+/// refuses the name (ZFS with utf8only, review #235).
+#[cfg(unix)]
+#[test]
+fn a_folder_leaves_such_a_name_out() {
+    let dir = temp_dir("latin1-folder");
     let folder = dir.join("tabs");
     std::fs::create_dir_all(&folder).unwrap();
-    let file = folder.join(std::ffi::OsStr::from_bytes(b"st\xFCck.mid"));
-    std::fs::copy(demo(), &file).unwrap();
+    if std::fs::copy(demo(), folder.join(latin1(b"st\xFCck.mid"))).is_err() {
+        let _ = std::fs::remove_dir_all(dir);
+        return;
+    }
     std::fs::copy(demo(), folder.join("gut.mid")).unwrap();
     let mut core = Core::new(&dir, QaOptions::default());
     core.update_settings(|s| s.language = Some("de".into()));
 
-    let err = core.open(&file).unwrap_err();
-    assert!(err.contains("umbenennen"), "{err}");
     let (added, failed) = core.import_folder(&folder, false);
     assert_eq!(added, 1, "the other file is taken");
     assert_eq!(failed.len(), 1, "{failed:?}");
     assert!(failed[0].1.contains("umbenennen"), "{failed:?}");
-
-    // A backing track with such a name is not taken either.
-    core.open(&folder.join("gut.mid")).unwrap();
-    core.set_backing(Some(file.clone()), 0.0);
-    assert_eq!(core.backing_name(), "");
-
-    // The library lists and saves as before.
     let recent: serde_json::Value = serde_json::from_str(&core.recent_json()).unwrap();
     assert_eq!(recent.as_array().map(Vec::len), Some(1));
     assert!(store::save(&dir.join("probe.json"), &core.library).is_ok());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Review #235, round 2: a text path through ".." became one that is not text when the
+/// library made it plain (a link into a folder with such a name). The library keeps the path
+/// as it was given. Skipped where the file system refuses the folder's name.
+#[cfg(unix)]
+#[test]
+fn a_plain_path_stays_text() {
+    let dir = temp_dir("latin1-link");
+    let odd = dir.join(latin1(b"b\xFCcher"));
+    std::fs::create_dir_all(dir.join("tabs")).unwrap();
+    if std::fs::create_dir_all(&odd).is_err() {
+        let _ = std::fs::remove_dir_all(dir);
+        return;
+    }
+    std::fs::copy(demo(), odd.join("a.mid")).unwrap();
+    std::os::unix::fs::symlink(&odd, dir.join("link")).unwrap();
+    let mut core = Core::new(&dir.join("data"), QaOptions::default());
+
+    core.open(&dir.join("tabs/../link/a.mid")).unwrap();
+    assert!(store::save(&dir.join("probe.json"), &core.library).is_ok());
+    let recent: serde_json::Value = serde_json::from_str(&core.recent_json()).unwrap();
+    assert_eq!(recent.as_array().map(Vec::len), Some(1));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Whatever gets into the library: listing the pieces does not crash (review #235).
+#[cfg(unix)]
+#[test]
+fn listing_survives_a_name_that_is_not_text() {
+    let dir = temp_dir("latin1-list");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.open(&demo()).unwrap();
+    core.library.recent[0].path = latin1(b"/alt/st\xFCck.mid");
+    let recent: serde_json::Value = serde_json::from_str(&core.recent_json()).unwrap();
+    assert_eq!(recent[0]["path"], "/alt/st\u{fffd}ck.mid");
     let _ = std::fs::remove_dir_all(dir);
 }
 

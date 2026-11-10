@@ -557,7 +557,9 @@ impl Library {
     }
 }
 
-/// `path` without ".." if it has some and exists; else as it is.
+/// `path` without ".." if it has some and exists; else as it is. A plain form that is not
+/// text (a link into a folder named in an old encoding) is not taken: the library is JSON and
+/// could not be saved with it (review #235).
 fn plain(path: &Path) -> PathBuf {
     let dotted = path
         .components()
@@ -565,7 +567,10 @@ fn plain(path: &Path) -> PathBuf {
     if !dotted {
         return path.to_path_buf();
     }
-    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+    std::fs::canonicalize(path)
+        .ok()
+        .filter(|plain| plain.to_str().is_some())
+        .unwrap_or_else(|| path.to_path_buf())
 }
 
 #[cfg(test)]

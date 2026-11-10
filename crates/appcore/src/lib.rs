@@ -819,11 +819,12 @@ impl Core {
 
     /// Imports a score; picks the bass track or asks.
     pub fn open(&mut self, path: &Path) -> Result<Opened, String> {
-        self.keepable(path)?;
         self.active_setlist = None;
+        // A package is unpacked into the data folder: its own path is never kept.
         if package::is_package(path) {
             return self.open_package(path).map(|()| Opened::Ready);
         }
+        self.keepable(path)?;
         let imported = import_file(path).map_err(|e| self.import_error(&e))?;
         // Round 12: plan exercises in a run-through, own pieces in the mode last chosen for them.
         let mode = if self.is_bundled(path) {

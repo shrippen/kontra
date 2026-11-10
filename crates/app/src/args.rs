@@ -70,7 +70,10 @@ Usage: kontra [FILE] [OPTIONS]
 
 impl AppArgs {
     pub fn from_env() -> AppArgs {
-        AppArgs::parse(std::env::args().skip(1))
+        // Lossy: `std::env::args` ends the program on an argument that is not UTF-8 (a file
+        // from the file manager named in an old encoding, review #235).
+        let args = std::env::args_os().map(|a| a.to_string_lossy().into_owned());
+        AppArgs::parse(args.skip(1))
     }
 
     pub fn parse(args: impl Iterator<Item = String>) -> AppArgs {
