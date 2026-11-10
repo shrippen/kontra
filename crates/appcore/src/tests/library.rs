@@ -1086,3 +1086,32 @@ fn the_same_backing_again_keeps_its_place() {
     assert_eq!(core.backing().unwrap().1, placed);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Review #240: the page cleared the summary of the last run whenever a recording was
+/// chosen. `set_backing` says whether the piece was loaded again; only then the page starts
+/// over. And the direct way from an aligned recording to another one drops the alignment.
+#[test]
+fn set_backing_says_whether_it_loaded_again() {
+    let dir = temp_dir("backing-change");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.open(&demo()).unwrap();
+    let own_tempo = core.arrangement().unwrap().tempo.clone();
+    let first = core.set_backing(Some(dir.join("band.wav")), 0.0);
+    assert_eq!(first, Ok(BackingChange::Kept));
+
+    let beats: Vec<f64> = (0..64).map(|i| 1.0 + f64::from(i) * 0.4).collect();
+    let map = store::BeatMap {
+        beats,
+        bpm: 150.0,
+        ..store::BeatMap::default()
+    };
+    core.library.beat_maps.insert(demo(), map);
+    core.backing_adjust(0, 0.0, None).unwrap();
+
+    let other = core.set_backing(Some(dir.join("other.wav")), 0.0);
+    assert_eq!(other, Ok(BackingChange::Reloaded));
+    assert_eq!(core.arrangement().unwrap().tempo, own_tempo);
+    assert_eq!(core.backing().unwrap().1, 0.0);
+    assert!(core.backing_json().contains("\"analysed\":false"));
+    let _ = std::fs::remove_dir_all(dir);
+}

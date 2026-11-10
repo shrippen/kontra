@@ -43,6 +43,7 @@ pub use i18n::{Catalog, Language};
 pub use input_state::InputState;
 pub use kontra_session::{exercise, Blocks, ChainOrder, Density};
 pub use kontra_session::{file_url, local_path};
+pub use library::BackingChange;
 pub use package::PackageAudio;
 pub use store::{
     data_dir, AudioPath, Bass, InputKind, LatencyFrom, Library, PracticeLoop, RecentEntry,
@@ -2480,7 +2481,7 @@ impl Core {
         changed.then(|| UiEvent::Ear(self.ear_json()))
     }
 
-    /// The question in words, the notes played so far and, once solved, what it was and where
+    /// The question in words, the latest notes played and, once solved, what it was and where
     /// it lies: `{"prompt", "prompting", "solved", "progress", "total", "played": [{note,
     /// right, direction ("high", "low" or "")}], "reveal", "score", "positions": [{string, fret,
     /// role}], "silent", "listening" (false without an input: answers come by click)}`.

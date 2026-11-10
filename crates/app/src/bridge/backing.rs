@@ -4,6 +4,7 @@ use super::{local_path, q, qobject};
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
+use kontra_appcore::BackingChange;
 
 impl qobject::Controller {
     pub(super) fn change_transpose(mut self: Pin<&mut Self>, semitones: i32) {
@@ -45,7 +46,12 @@ impl qobject::Controller {
         self.as_mut().set_backing_name(q(&name));
         self.as_mut().show_stems();
         // Another recording drops the beat map: the bars show the piece's own tempo again.
-        self.as_mut().after_retune(result);
+        // Otherwise the page stays as it is, the last summary included (review #240).
+        match result {
+            Ok(BackingChange::Kept) => self.as_mut().set_playing(false),
+            Ok(BackingChange::Reloaded) => self.as_mut().after_retune(Ok(())),
+            Err(reason) => self.as_mut().after_retune(Err(reason)),
+        }
     }
 
     pub(super) fn remove_bass(mut self: Pin<&mut Self>, on: bool) {
