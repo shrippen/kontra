@@ -142,12 +142,14 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 ### Entscheidungen Runde 18 (10.11.2026)
 
 - #236 (Windows in der CI): mergen, die Jobs `windows` und `windows-app` zählen sofort für `github / test`.
-- Installer: Inno Setup und portable ZIP; winget später. Dazu ein Update-Hinweis im Programm, der
-  `https://shrippen.github.io/versions.json` liest (LH-ALL-07; Kante hat dafür `KanteUpdateCheck`).
+- Installer: Inno Setup und portable ZIP, winget später (so die gewählte Option). Dazu, als Notiz des
+  Eigentümers, ein Update-Hinweis im Programm, der `https://shrippen.github.io/versions.json` liest (LH-ALL-07;
+  die Einzelheiten dort sind Entwurf; Kante hat `KanteUpdateCheck`).
 - Signierung: zurückgestellt.
 - ASIO: Windows-Paket mit ASIO unter GPLv3, Quelltext bleibt MIT (Win2, `agent.md`).
 - Testmaschine: die vorhandene `win` in libvirt, vorher Snapshot.
-- P8 Noah bleibt. #220 (`tea` → `gt`) ist in `main`. Die `pub`-Liste bis #242 ist freigegeben.
+- P8 Noah bleibt (Antwort „in Ordnung“). #220 (`tea` → `gt`): Antwort „mergen“; der Inhalt war schon in `main`.
+  Die `pub`-Liste der Runde ist freigegeben, samt der am 10.11. nachgetragenen Schnittstellen aus #240 und #242.
 - App-ID: `io.github.shrippen.Kontra` (vorher `org.shrippen.Kontra`; `shrippen.org` gibt es nicht), Laufzeit
   KDE 6.11. Umgesetzt: Dateien in `packaging/`, QML-Modul `io.github.shrippen.kontra`, Organisations-Domain
   `shrippen.github.io`. Bricht: ein installiertes Flatpak der alten ID bleibt als eigene App stehen (es gibt

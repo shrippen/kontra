@@ -17,12 +17,14 @@ Runde 18 ist beantwortet (10.11.; Roadmap „Entscheidungen Runde 18“): #236 g
 für `github / test`; App-ID `io.github.shrippen.Kontra`, Laufzeit 6.11.
 
 Offen daraus:
-- Branch `windows-reste` (ein Commit, Screenshots lesen unter Windows nicht die echten Downloads): PR öffnen.
 - Summenbegrenzer (LH-WIE-06).
 - Win2 zuerst: Audio (WASAPI, ASIO als Feature unter GPLv3 nur im Windows-Paket) in der libvirt-Maschine `win`,
   vorher Snapshot.
 - Win5: Inno Setup und ZIP, Update-Hinweis (LH-ALL-07). Signierung zurückgestellt.
 - Kaiwa und hansei: App-IDs auf `io.github.shrippen.*` (eigene PRs dort).
+- `pub`: Die Liste der Runde 18 ist freigegeben, samt der dort am 10.11. nachgetragenen `Core::imported_text`,
+  `kontra_appcore::BackingChange` und `Core::set_backing` mit `Result<BackingChange, String>`. Neu seither, für
+  die nächste Runde: `kontra_dsp::OutputLimiter` (#244).
 
 In `main` seit der ersten Fassung: #237 bis #243 (Kirigami auf Englisch, Flatpak-Lint, „Klinke direkt“ nimmt die
 eingebaute Karte, alter Abgleich geht mit dem Backing-Track, Gehör-Liste begrenzt, Auswertung bleibt beim Wählen
@@ -41,8 +43,8 @@ Stand unter Windows:
 - Lokal prüfen: `KONTRA_WIN_RUST=~/.cache/claude/rust-win scripts/check-windows.sh [build|test]` (rustup-Toolchain
   mit `x86_64-pc-windows-gnu` in `~/.cache/claude/rust-win`, Tests unter Wine in eigenem Prefix ohne Audiotreiber).
   Die App lässt sich nur auf `windows-latest` bauen (Qt für MSVC).
-- Nächste Schritte nach den Entscheidungen: Installer (Vorschlag Inno Setup und ZIP) und Signierung (Win5),
-  Testmaschine in KVM (Win6; vorhanden ist `win` in libvirt, nicht angefasst), Audio mit WASAPI und ASIO (Win2).
+- Nächste Schritte: siehe oben „Offen daraus“ (Win2 zuerst). Die Maschine `win` in libvirt ist noch nicht
+  angefasst (aus, kein Snapshot).
 
 Offen sonst:
 - Am Scarlett: Gain von Eingang 2 zurück (Aufnahme 9.11.: 1957 Samples in 10 s auf Vollaussteuerung);

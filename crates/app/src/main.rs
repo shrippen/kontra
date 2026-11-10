@@ -25,7 +25,7 @@ use std::path::PathBuf;
 /// The app id: the desktop file's name without `.desktop`.
 const APP_ID: &str = "io.github.shrippen.Kontra";
 
-const MAIN_QML: &str = "qrc:/qt/qml/org/shrippen/kontra/qml/Main.qml";
+const MAIN_QML: &str = "qrc:/qt/qml/io/github/shrippen/kontra/qml/Main.qml";
 
 /// Development only (LH-LRN-21): set, a debug build loads its pages from `crates/app/qml` on
 /// disk instead of the compiled ones and builds the current page again when a file there
@@ -184,6 +184,20 @@ fn controls_style(current: Option<std::ffi::OsString>) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Review #245: the QML module was renamed and `MAIN_QML` kept the old address; Kontra
+    /// would have come up without a window. The address follows the module's name.
+    #[test]
+    fn main_qml_lies_in_the_module() {
+        let build = include_str!("../build.rs");
+        let module = build
+            .split("QmlModule::new(\"")
+            .nth(1)
+            .and_then(|rest| rest.split('"').next())
+            .unwrap();
+        let wanted = format!("qrc:/qt/qml/{}/qml/Main.qml", module.replace('.', "/"));
+        assert_eq!(MAIN_QML, wanted);
+    }
 
     /// Win5: the packed program took Windows' native style (a white spin box on the dark page).
     #[cfg(not(target_os = "linux"))]

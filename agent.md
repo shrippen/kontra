@@ -82,9 +82,9 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
   Audio-Pfad misst Latenz und Xruns.
 - Abhängigkeiten nur unter MIT, Apache-2.0, BSD, ISC, Zlib, Unlicense, CC0 (Schriften: SIL OFL);
   Qt und KDE Frameworks (LGPL) nur dynamisch. Keine GPL, MPL oder LGPL-Crates.
-  Ausnahme (Eigentümer, Runde 18, 10.11.2026): das ASIO-SDK von Steinberg unter GPLv3, nur im Windows-Paket und
-  nur hinter einem Cargo-Feature, das allein der Windows-Paketbau einschaltet; dieses Paket wird unter GPLv3
-  ausgeliefert, der Quelltext bleibt MIT, alle anderen Builds bleiben ohne GPL.
+  Ausnahme (Eigentümer, Runde 18, 10.11.2026): das ASIO-SDK von Steinberg unter GPLv3, nur im Windows-Paket;
+  dieses Paket wird unter GPLv3 ausgeliefert, der Quelltext bleibt MIT. Umsetzung: ein Cargo-Feature, das allein
+  der Windows-Paketbau einschaltet, damit alle anderen Builds ohne GPL bleiben.
   Im Zweifel (Lizenz unklar, kaum gepflegt, nur kleiner Teil gebraucht) selbst bauen.
   Neue Abhängigkeit nur mit Begründung im PR.
 - Texte nur über Übersetzungsschlüssel (Deutsch und Englisch); keine Texte im Code.
