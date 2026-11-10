@@ -86,7 +86,7 @@ impl Core {
         if input {
             // The offer in the bar goes with the wait (review #232), else a late click on it
             // would bring the stand-in back over the choice.
-            self.offer_ended = self.lost.is_some() || self.fallback_input.is_some();
+            self.offer_ended |= self.lost.is_some() || self.fallback_input.is_some();
             self.fallback_input = None;
             self.lost = None;
         }
@@ -307,6 +307,19 @@ mod device_change {
         core.reconfigure(|s| s.input_device = Some("pipewire:chosen".into()));
         assert_eq!(core.fallback_input, None);
         assert!(core.lost.is_none());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Review #235: switching "Bass hören" on looks for the devices at once, not at the next
+    /// retry five seconds later.
+    #[test]
+    fn switching_on_looks_at_once() {
+        let (mut core, dir) = core("wake");
+        core.standby.retry_at = Some(Instant::now() + RETRY);
+        core.remix(|s| s.backing_volume = 0.5);
+        assert!(core.standby.retry_at.is_some(), "a slider does not");
+        core.remix(|s| s.monitor = true);
+        assert_eq!(core.standby.retry_at, None);
         let _ = std::fs::remove_dir_all(dir);
     }
 

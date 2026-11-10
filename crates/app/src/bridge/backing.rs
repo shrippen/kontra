@@ -33,6 +33,13 @@ impl qobject::Controller {
     pub(super) fn choose_backing(mut self: Pin<&mut Self>, url: &QString) {
         let url = url.to_string();
         let path = (!url.is_empty()).then(|| local_path(&url));
+        let refused = path
+            .as_deref()
+            .and_then(|p| self.as_ref().rust().core.keepable(p).err());
+        if let Some(reason) = refused {
+            self.as_mut().show_error(&reason);
+            return;
+        }
         self.as_mut().core().set_backing(path, 0.0);
         let name = self.as_ref().rust().core.backing_name();
         self.as_mut().set_backing_name(q(&name));

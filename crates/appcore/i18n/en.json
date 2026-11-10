@@ -122,6 +122,7 @@
   "hint.silent": "No audio output found. Kontra keeps running without sound.",
   "error.import": "The file cannot be opened: {reason}",
   "error.audio": "Audio problem: {reason}",
+  "error.file.name": "The file name “{name}” has characters in an old encoding that Kontra cannot keep. Please rename the file and open it again.",
   "transport.rewind": "To the start",
   "transport.countin": "Count-in",
   "transport.position": "Position",

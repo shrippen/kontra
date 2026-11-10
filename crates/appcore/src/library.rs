@@ -84,6 +84,19 @@ impl Core {
 
     /// Adds scores to the library without playing them; returns the added paths and, per
     /// failed file, its name and the reason in the user's language.
+    /// Whether the library can keep `path`: its files are JSON, which holds text only. A name
+    /// that is not UTF-8 (from an old stick or archive) is refused with what to do; before it
+    /// opened, the library was never saved again and listing the pieces crashed (review #235).
+    pub fn keepable(&self, path: &Path) -> Result<(), String> {
+        if path.to_str().is_some() {
+            return Ok(());
+        }
+        let name = path
+            .file_name()
+            .map_or_else(String::new, |n| n.to_string_lossy().into());
+        Err(self.tr("error.file.name", &[("name", name)]))
+    }
+
     pub(crate) fn add_files(&mut self, files: &[PathBuf]) -> (Vec<PathBuf>, Vec<(String, String)>) {
         let mut added = Vec::new();
         let mut failed = Vec::new();
@@ -91,8 +104,9 @@ impl Core {
             let name = path
                 .file_name()
                 .map_or_else(String::new, |n| n.to_string_lossy().into());
-            let arrangement = import_file(&path)
-                .map_err(|e| self.import_error(&e))
+            let arrangement = self
+                .keepable(&path)
+                .and_then(|()| import_file(&path).map_err(|e| self.import_error(&e)))
                 .and_then(|i| {
                     i.arrangement(i.suggested().unwrap_or(0))
                         .map_err(|e| self.import_error(&e))

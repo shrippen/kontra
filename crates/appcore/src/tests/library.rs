@@ -20,6 +20,41 @@ fn import_errors_are_translated() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// Review #235: a file whose name is not UTF-8 ("stück.mid" from a Latin-1 stick) opened, then
+/// the library could not be saved any more and listing the pieces crashed Kontra. It is
+/// refused with a reason, opened alone or with its folder.
+#[cfg(unix)]
+#[test]
+fn a_name_kontra_cannot_keep_is_refused() {
+    use std::os::unix::ffi::OsStrExt;
+    let dir = temp_dir("latin1");
+    let folder = dir.join("tabs");
+    std::fs::create_dir_all(&folder).unwrap();
+    let file = folder.join(std::ffi::OsStr::from_bytes(b"st\xFCck.mid"));
+    std::fs::copy(demo(), &file).unwrap();
+    std::fs::copy(demo(), folder.join("gut.mid")).unwrap();
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.update_settings(|s| s.language = Some("de".into()));
+
+    let err = core.open(&file).unwrap_err();
+    assert!(err.contains("umbenennen"), "{err}");
+    let (added, failed) = core.import_folder(&folder, false);
+    assert_eq!(added, 1, "the other file is taken");
+    assert_eq!(failed.len(), 1, "{failed:?}");
+    assert!(failed[0].1.contains("umbenennen"), "{failed:?}");
+
+    // A backing track with such a name is not taken either.
+    core.open(&folder.join("gut.mid")).unwrap();
+    core.set_backing(Some(file.clone()), 0.0);
+    assert_eq!(core.backing_name(), "");
+
+    // The library lists and saves as before.
+    let recent: serde_json::Value = serde_json::from_str(&core.recent_json()).unwrap();
+    assert_eq!(recent.as_array().map(Vec::len), Some(1));
+    assert!(store::save(&dir.join("probe.json"), &core.library).is_ok());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// LH-ANZ-04, QA P2 (R7): each piece keeps its own view.
 #[test]
 fn view_is_remembered_per_piece() {

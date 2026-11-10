@@ -817,40 +817,9 @@ impl Core {
         ms
     }
 
-    /// Changes the mixer (volumes, monitoring) and saves; a running practice hears it at once.
-    /// Returns a hint when monitoring is on but cannot work.
-    pub fn remix(&mut self, change: impl FnOnce(&mut Settings)) -> Option<String> {
-        let was_on = self.settings.monitor;
-        self.update_settings(change);
-        let gains = gains(&self.settings);
-        if let Some(live) = self.live.as_mut() {
-            live.practice_mut().set_gains(gains);
-        }
-        if let Some(live_ear) = self.live_ear.as_mut() {
-            live_ear.set_gains(ear_gains(&self.settings));
-        }
-        self.remix_standby();
-        let change = if !was_on && self.settings.monitor {
-            // Look for the input at once, not at the next retry.
-            self.wake_standby();
-            standby::MixerChange::MonitorOn
-        } else {
-            standby::MixerChange::Other
-        };
-        self.monitor_hint().or_else(|| self.standby_hint(change))
-    }
-
-    /// Monitoring is on, but the running practice has no output or devices at different rates.
-    fn monitor_hint(&self) -> Option<String> {
-        let live = self.live.as_ref()?;
-        if !self.settings.monitor || live.can_monitor() || live.output_is_silent {
-            return None;
-        }
-        Some(self.tr("hint.monitor.rate", &[]))
-    }
-
     /// Imports a score; picks the bass track or asks.
     pub fn open(&mut self, path: &Path) -> Result<Opened, String> {
+        self.keepable(path)?;
         self.active_setlist = None;
         if package::is_package(path) {
             return self.open_package(path).map(|()| Opened::Ready);
@@ -2144,6 +2113,10 @@ impl Core {
 
     /// Sets (or with `None` removes) the backing track of the loaded piece.
     pub fn set_backing(&mut self, path: Option<PathBuf>, offset_s: f64) {
+        // A name the library cannot keep never gets in (the caller says why: `keepable`).
+        if path.as_deref().is_some_and(|p| self.keepable(p).is_err()) {
+            return;
+        }
         let Some(loaded) = self.loaded_path().map(Path::to_path_buf) else {
             return;
         };
