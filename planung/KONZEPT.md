@@ -221,7 +221,7 @@ die Session nie einen Audio-Treiber. Rohes Audio- und MIDI-I/O liegt in einer ei
 
 ### 6.2 Stack
 
-Entschieden: **Rust**, **MIT-Lizenz**, **Linux zuerst**, und: **im Zweifel eigene Funktionalität statt fremder Bibliothek.**
+Entschieden: **Rust**, **MIT-Lizenz**, **Linux zuerst** (Windows wird seit 10.11.2026 vorbereitet, LH-NF-17), und: **im Zweifel eigene Funktionalität statt fremder Bibliothek.**
 
 **Abhängigkeitsregel.** Erlaubt sind nur freizügige Lizenzen (MIT, Apache-2.0, BSD, ISC, Zlib, Unlicense, CC0) sowie
 SIL OFL für Schriften. Einzige Ausnahme sind Qt und KDE Frameworks (LGPL), dynamisch gelinkt. Keine GPL, kein MPL,
@@ -338,14 +338,14 @@ Nicht im Umfang: Online-Konten, Song-Shop, Multiplayer übers Netz.
 | Darstellung | **2D-Tab-Lane als Standard, 3D später; Tabulatur und Notenansicht schon im MVP** |
 | Lizenz | **MIT**; nur freizügige Abhängigkeiten, **im Zweifel eigene Implementierung** (Time-Stretch, Tonerkennung, Notensatz, Import) |
 | Plattformen im MVP | **Nur Linux (Flatpak)** |
-| Personas | Alle sieben vorgeschlagenen, siehe [`PERSONAS.md`](PERSONAS.md) |
+| Personas | Alle sieben vorgeschlagenen und P8 für Windows (10.11.2026), siehe [`PERSONAS.md`](PERSONAS.md) |
 
 ---
 
 ## 10. Dokumente
 
 - [`LASTENHEFT.md`](LASTENHEFT.md): nummerierte Anforderungen mit Priorität, Phase und Abnahmekriterium.
-- [`PERSONAS.md`](PERSONAS.md): sieben Personas mit Ausrüstung, Zielen, Frust und Prüfschwerpunkt.
+- [`PERSONAS.md`](PERSONAS.md): acht Personas mit Ausrüstung, Zielen, Frust und Prüfschwerpunkt.
 - [`QA.md`](QA.md): User Journeys je Persona für explorative QA und automatisierte Journey-Tests.
 - [`QUELLEN-SONGS.md`](QUELLEN-SONGS.md): was Kontra mit Songsterr und MuseScore.com darf (Nutzungsbedingungen).
 - [`LERNEN.md`](LERNEN.md): Plan für das Lernmodul (Lektionen, Glossar „Was ist …?“).

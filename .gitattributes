@@ -1,0 +1,9 @@
+# Line feeds on every system (LH-NF-17): a Windows checkout would turn them into CRLF, and
+# tests that read sources or compare generated files (exercises, schemas) would differ.
+* text=auto eol=lf
+*.mid binary
+*.png binary
+*.ttf binary
+*.otf binary
+*.webm binary
+*.mp4 binary

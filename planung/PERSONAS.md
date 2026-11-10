@@ -1,6 +1,6 @@
 # Kontra: Personas
 
-Sieben feste Personas für Entwurf, User Journeys ([`QA.md`](QA.md)) und QA. Sie sind erfunden; Ähnlichkeiten mit echten Menschen sind nicht beabsichtigt.
+Acht feste Personas für Entwurf, User Journeys ([`QA.md`](QA.md)) und QA. Sie sind erfunden; Ähnlichkeiten mit echten Menschen sind nicht beabsichtigt.
 
 **So werden sie benutzt** (verbindlich über [`agent.md`](../agent.md)):
 
@@ -18,6 +18,7 @@ Sieben feste Personas für Entwurf, User Journeys ([`QA.md`](QA.md)) und QA. Sie
 | P5 | Aylin, Keyboarderin | Synth-Bass am MIDI-Keyboard | Basslinien mit der linken Hand spielen | 4 |
 | P6 | Karl, Kontrabassist | Kontrabass vor USB-Mikrofon | Jazz-Standards üben, ohne Technikärger | 4 |
 | P7 | Sam, sehbehindert | E-Bass, Interface, Bildschirmlupe 200 % | Üben trotz Sehschwäche und Farbsehschwäche | 1 |
+| P8 | Noah, spielt unter Windows | E-Bass, Interface mit ASIO-Treiber, Windows 11 | Kontra installieren und spielen wie unter Linux | nach 1 (Windows, LH-NF-17) |
 
 ---
 
@@ -97,3 +98,17 @@ Sieben feste Personas für Entwurf, User Journeys ([`QA.md`](QA.md)) und QA. Sie
 - **Zitat:** „Grün heißt richtig? Für mich sind beide Kästchen ocker.“
 - **Prüft:** Farbunabhängige Rückmeldung (Form, Symbol, Text), Skalierung 100 bis 200 % ohne abgeschnittene Inhalte, Kontrast in allen Stilen, Tastaturbedienung, „Bewegung reduzieren“, Barrierefreiheitsnamen.
 - **Journeys:** J-F1, außerdem jede Journey einmal mit 200 % und Farbfilter Deuteranopie.
+
+## P8 Noah Lindqvist, spielt unter Windows
+
+Vom Eigentümer gewünscht (10.11.2026), mit der Vorbereitung für Windows (LH-NF-17).
+
+- **Alter, Lage:** 27, Mediengestalter. Spielt seit sechs Jahren Bass in einer Coverband, übt abends am Spielerechner. Hat nie Linux benutzt und will es nicht müssen.
+- **Ausrüstung:** E-Bass, USB-Interface mit dem ASIO-Treiber des Herstellers, Desktop mit Windows 11 (Skalierung 150 %), Kopfhörer am Interface. Kein Adminkonto im Alltag.
+- **Vorwissen:** Liest Tabs, kennt Rocksmith und Guitar Pro. Weiß, was ASIO ist, und erwartet, dass es geht.
+- **Ziel:** Installer laden, doppelklicken, Interface wählen, spielen. Dieselben Stücke und derselbe Fortschritt wie auf dem Linux-Rechner eines Bandkollegen (Sicherung laden).
+- **Frust:** Warnungen von SmartScreen, Installer, die Adminrechte wollen, hörbare Verzögerung über den Windows-Mixer, Programme, die ihre Daten irgendwo ablegen, Pfade mit Leerzeichen und Umlauten, die nicht gehen.
+- **Zitat:** „Wenn ich erst einen Treiber-Guide lesen muss, spiele ich wieder Rocksmith.“
+- **Prüft:** Vor dem ersten Paket: dass der Kern unter Windows baut und Kontra nichts voraussetzt, was es nur unter Linux gibt. Danach: Installation ohne Adminrechte und ohne Warnung (Signatur), ASIO und WASAPI mit Latenz wie unter Linux, Geräteliste mit den Namen aus Windows, Daten in `%APPDATA%`, Benutzerordner mit Leerzeichen und Umlauten, Skalierung 150 %, Sicherung von Linux laden.
+- **Journeys:** J-A6 (ab Win5), danach J-A5 und J-B1 unter Windows.
+

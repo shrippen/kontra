@@ -126,6 +126,7 @@ fn backing_beats_slow_and_transposed() {
     play_all_hit(&mut again, 9);
 }
 
+#[cfg(unix)]
 /// A stand-in for Demucs (`--two-stems bass -n htdemucs -o OUT SONG`): its progress bar with the
 /// time left, then the song as "no_bass.wav" after `seconds`.
 fn fake_demucs(dir: &Path, seconds: &str) -> std::path::PathBuf {
@@ -145,10 +146,12 @@ fn fake_demucs(dir: &Path, seconds: &str) -> std::path::PathBuf {
     script
 }
 
+#[cfg(unix)]
 fn stems(core: &mut kontra_appcore::Core) -> serde_json::Value {
     serde_json::from_str(&core.stems_json()).unwrap()
 }
 
+#[cfg(unix)]
 /// Step 5: the recording's bass removed (first without Demucs, then with), cancelled once,
 /// kept for the next start, deleted again.
 #[test]

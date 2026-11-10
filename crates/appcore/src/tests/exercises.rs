@@ -117,7 +117,9 @@ fn a_course_video_is_unpacked_on_request() {
         "no video unpacked before a click"
     );
     let url = core.lesson_video("weber.start", 0, 1);
-    let path = url.strip_prefix("file://").unwrap();
+    // A Windows drive follows the URL's own slash: file:///C:/…
+    let scheme = if cfg!(windows) { "file:///" } else { "file://" };
+    let path = url.strip_prefix(scheme).unwrap();
     assert_eq!(std::fs::read(path).unwrap(), b"video");
     assert_eq!(
         core.lesson_video("weber.start", 0, 0),
