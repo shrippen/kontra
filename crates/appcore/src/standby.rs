@@ -25,7 +25,8 @@ pub(crate) struct Standby {
     wanted: bool,
     monitor: Option<LiveMonitor>,
     retry_at: Option<Instant>,
-    /// The last look found no input to open: none chosen and no interface.
+    /// The last look found no input to open: none chosen and no interface, or none chosen at
+    /// the laptop jack.
     no_input: bool,
 }
 
@@ -118,7 +119,8 @@ impl Core {
     }
 
     /// What to say about the standby after a mixer change. Only when "Bass hören" just went on
-    /// Kontra says that it found no input (none chosen and no interface), not on every slider.
+    /// Kontra says that it found no input (none chosen and no interface, or none chosen at the
+    /// laptop jack), not on every slider.
     /// Devices at different rates are named whenever monitoring is on.
     pub(crate) fn standby_hint(&self, change: MixerChange) -> Option<String> {
         if !self.settings.monitor {
@@ -127,7 +129,12 @@ impl Core {
         let Some(monitor) = self.standby.monitor.as_ref() else {
             let switched_on = change == MixerChange::MonitorOn;
             let silent = switched_on && self.standby.no_input && self.may_stand_by();
-            return silent.then(|| self.tr("hint.monitor.input", &[]));
+            // At the laptop jack an interface does not help: name only the choice.
+            let key = match self.settings.input_kind {
+                InputKind::LaptopJack => "hint.monitor.jack",
+                _ => "hint.monitor.input",
+            };
+            return silent.then(|| self.tr(key, &[]));
         };
         if monitor.can_monitor() {
             return None;
@@ -388,6 +395,22 @@ mod device_change {
         // An output that did not open or a lost input waiting for an answer: not this hint.
         core.standby.no_input = false;
         assert_eq!(core.remix(|s| s.monitor = true), None);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Review #239: at the laptop jack plugging in the interface changes nothing, so the hint
+    /// names only the way that helps (choose the input).
+    #[test]
+    fn the_laptop_jack_hint_names_no_interface() {
+        let (mut core, dir) = core("no-input-jack");
+        core.keep_devices_open();
+        core.update_settings(|s| {
+            s.setup_done = true;
+            s.input_kind = crate::InputKind::LaptopJack;
+        });
+        core.standby.no_input = true;
+        let hint = core.remix(|s| s.monitor = true);
+        assert_eq!(hint, Some(core.tr("hint.monitor.jack", &[])));
         let _ = std::fs::remove_dir_all(dir);
     }
 

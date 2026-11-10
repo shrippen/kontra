@@ -408,6 +408,7 @@
   "mixer.shaping.neutral.title": "Klang zurücksetzen",
   "mixer.shaping.off": "Aus",
   "hint.monitor.input": "Kontra hört gerade keinen Eingang, darum bleibt dein Bass zwischen den Läufen still. Wähle unter Einstellungen → Eingang dein Gerät oder stecke das Interface an.",
+  "hint.monitor.jack": "Kontra hört gerade keinen Eingang, darum bleibt dein Bass zwischen den Läufen still. Wähle unter Einstellungen → Eingang dein Gerät.",
   "hint.monitor.rate": "Kontra kann deinen Bass nicht durchschleifen: Eingang und Ausgang laufen mit verschiedenen Abtastraten. Wähle für beide dasselbe Gerät oder nutze das Direct Monitoring des Interfaces.",
   "keys.present": "Präsentation an/aus (Esc beendet)",
   "keys.mixer": "Mixer ein- und ausblenden",
