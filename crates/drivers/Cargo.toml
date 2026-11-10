@@ -38,6 +38,12 @@ libc = "0.2"
 # in the tree under cpal, same version; builds against the system libpipewire, MIT).
 pipewire = "0.10"
 
+[features]
+# ASIO devices under Windows (LH-NF-17, Win2). The Steinberg SDK it builds against is GPLv3:
+# only the Windows package switches this on (agent.md, owner, round 18); every other build
+# stays without it.
+asio = ["cpal/asio"]
+
 [lints]
 workspace = true
 

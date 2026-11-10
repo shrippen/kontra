@@ -18,8 +18,12 @@ für `github / test`; App-ID `io.github.shrippen.Kontra`, Laufzeit 6.11.
 
 Offen daraus:
 - Summenbegrenzer (LH-WIE-06): gebaut (#244); Hörprobe und Xruns am Gerät stehen aus.
-- Win2 zuerst: Audio (WASAPI, ASIO als Feature unter GPLv3 nur im Windows-Paket) in der libvirt-Maschine `win`,
-  vorher Snapshot.
+- Win2 läuft (Roadmap „Win2“): WASAPI und ASIO gehen in der libvirt-Maschine `win` (Snapshot `vor-kontra`,
+  Bauwerkzeuge in `C:\KontraDev`, Hilfen in `scripts/win-vm/`). Die Maschine ist seit 10.11. mittags aus (der
+  Eigentümer braucht den Arbeitsspeicher); vor weiteren Tests fragen, dann starten und das Scarlett durchreichen
+  (README dort). Offen: Latenz mit Kabel, MIDI, Messung auf echtem Windows, ein kaputter ASIO-Treiber reißt Kontra
+  mit, ein Echtzeit-Test war in der VM unter Last einmal rot (Roadmap „Win2“).
+- `pub` für die nächste Runde: `kontra_drivers::monitor_rate` (über `kontra_engine` weitergereicht).
 - Win5: Inno Setup und ZIP, Update-Hinweis (LH-ALL-07). Signierung zurückgestellt.
 - Kaiwa und hansei: App-IDs auf `io.github.shrippen.*` (eigene PRs dort).
 - `pub`: Die Liste der Runde 18 ist freigegeben, samt der dort am 10.11. nachgetragenen `Core::imported_text`,

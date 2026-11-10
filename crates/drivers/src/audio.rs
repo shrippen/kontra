@@ -2,6 +2,9 @@
 //! block. Input is delivered as mono f32 (the chosen channel or the loudest), output as
 //! interleaved f32.
 
+mod samples;
+mod shared;
+
 #[cfg(target_os = "linux")]
 use crate::pipewire::Graph;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -10,6 +13,8 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use thiserror::Error;
+
+pub use shared::monitor_rate;
 
 /// Largest block a callback receives at once; bigger device buffers are split.
 const MAX_BLOCK: usize = 8192;
@@ -281,6 +286,9 @@ pub fn list_devices(direction: Direction) -> Vec<DeviceInfo> {
         }
     }
     interfaces_first(&mut list);
+    // After the system's own devices: the defaults stay WASAPI's, an ASIO driver is a choice.
+    #[cfg(all(windows, feature = "asio"))]
+    list.extend(shared::asio_devices(direction));
     list
 }
 
@@ -571,12 +579,13 @@ fn stream_config(
     device: &cpal::Device,
     direction: Direction,
     wanted: &StreamConfig,
-) -> Result<cpal::StreamConfig, AudioError> {
+) -> Result<(cpal::StreamConfig, cpal::SampleFormat), AudioError> {
     let default = match direction {
         Direction::Input => device.default_input_config(),
         Direction::Output => device.default_output_config(),
     }
     .map_err(|e| device_error(device, e))?;
+    let format = default.sample_format();
     let mut config = cpal::StreamConfig {
         channels: default.channels(),
         sample_rate: wanted.sample_rate.unwrap_or(default.sample_rate()),
@@ -584,10 +593,10 @@ fn stream_config(
     };
     // PipeWire takes any block in its quantum range (cpal checks it) as a wish (node.latency).
     let probe = !is_pipewire(device) && config.buffer_size != cpal::BufferSize::Default;
-    if probe && !accepts(device, direction, &config) {
+    if probe && !accepts(device, direction, &config, format) {
         config.buffer_size = cpal::BufferSize::Default;
     }
-    Ok(config)
+    Ok((config, format))
 }
 
 #[cfg(target_os = "linux")]
@@ -606,25 +615,22 @@ fn is_pipewire(_: &cpal::Device) -> bool {
 /// ALSA's `sysdefault` of a Scarlett Solo (dsnoop) says 85..91 M frames and opens only 1024
 /// ("Buffer size 128 is not in the supported range", 14.10.). A stream that is never started
 /// is built and dropped, so the real one can fall back to the default block.
-fn accepts(device: &cpal::Device, direction: Direction, config: &cpal::StreamConfig) -> bool {
+fn accepts(
+    device: &cpal::Device,
+    direction: Direction,
+    config: &cpal::StreamConfig,
+    format: cpal::SampleFormat,
+) -> bool {
     let quiet = |_: cpal::Error| {};
     match direction {
-        Direction::Input => device
-            .build_input_stream(
-                *config,
-                |_: &[f32], _: &cpal::InputCallbackInfo| {},
-                quiet,
-                None,
-            )
-            .is_ok(),
-        Direction::Output => device
-            .build_output_stream(
-                *config,
-                |_: &mut [f32], _: &cpal::OutputCallbackInfo| {},
-                quiet,
-                None,
-            )
-            .is_ok(),
+        Direction::Input => {
+            let nothing = |_: &[f32], _: &cpal::InputCallbackInfo| {};
+            samples::build_input(device, *config, format, nothing, quiet).is_ok()
+        }
+        Direction::Output => {
+            let nothing = |_: &mut [f32], _: &cpal::OutputCallbackInfo| {};
+            samples::build_output(device, *config, format, nothing, quiet).is_ok()
+        }
     }
 }
 
@@ -670,7 +676,7 @@ impl InputStream {
         E: FnMut(String) + Send + 'static,
     {
         let device = find_device(Direction::Input, config.device_id.as_deref())?;
-        let stream_config = stream_config(&device, Direction::Input, config)?;
+        let (stream_config, format) = stream_config(&device, Direction::Input, config)?;
         let channels = usize::from(stream_config.channels.max(1));
         let pick = config
             .input_channel
@@ -696,8 +702,8 @@ impl InputStream {
                 captured_s += frames as f64 / f64::from(rate);
             }
         };
-        let stream = device
-            .build_input_stream(stream_config, callback, xruns.errors(on_error), None)
+        let errors = xruns.errors(on_error);
+        let stream = samples::build_input(&device, stream_config, format, callback, errors)
             .map_err(|e| device_error(&device, e))?;
         stream.play().map_err(|e| device_error(&device, e))?;
         Ok(InputStream {
@@ -834,7 +840,7 @@ impl OutputStream {
             return Ok(Self::open_null(fill));
         }
         let device = find_device(Direction::Output, config.device_id.as_deref())?;
-        let stream_config = stream_config(&device, Direction::Output, config)?;
+        let (stream_config, format) = stream_config(&device, Direction::Output, config)?;
         let channels = usize::from(stream_config.channels.max(1));
         let xruns = XrunCounter::default();
         let mut late = LateCheck::new(&xruns);
@@ -845,8 +851,8 @@ impl OutputStream {
             late.block(data.len() / channels, rate);
             fill(data, channels);
         };
-        let stream = device
-            .build_output_stream(stream_config, callback, xruns.errors(on_error), None)
+        let errors = xruns.errors(on_error);
+        let stream = samples::build_output(&device, stream_config, format, callback, errors)
             .map_err(|e| device_error(&device, e))?;
         stream.play().map_err(|e| device_error(&device, e))?;
         Ok(OutputStream {
