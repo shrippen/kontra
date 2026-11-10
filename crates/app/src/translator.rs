@@ -8,8 +8,13 @@
 #[cxx_qt::bridge]
 pub mod ffi {
     unsafe extern "C++" {
+        include!("cxx-qt-lib/qqmlapplicationengine.h");
+        type QQmlApplicationEngine = cxx_qt_lib::QQmlApplicationEngine;
+
         include!("kontra-app/translator.h");
         /// Installs Kirigami's Qt translation for `language`; false if none is installed.
         fn install_kirigami_translator(language: &str) -> bool;
+        /// The engine a later `install_kirigami_translator` translates again.
+        fn translate_engine(engine: Pin<&mut QQmlApplicationEngine>);
     }
 }

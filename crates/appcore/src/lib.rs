@@ -31,6 +31,7 @@ mod report;
 mod song_map;
 mod songsterr;
 mod sources;
+mod standby;
 mod stems;
 mod store;
 mod summary;
@@ -220,6 +221,8 @@ pub struct Core {
     tuner: Option<LiveTuner>,
     calibration: Option<LiveCalibration>,
     loopback: Option<LiveLoopback>,
+    /// Input and output held open while idle (LH-EIN-18).
+    standby: standby::Standby,
     /// Engine-independent start of the current run, for practice time.
     run_started: Option<std::time::Instant>,
     /// The audio server's block size was checked for this run (LH-EIN-07).
@@ -343,6 +346,7 @@ impl Core {
             tuner: None,
             calibration: None,
             loopback: None,
+            standby: standby::Standby::default(),
             run_started: None,
             quantum_checked: false,
             direct_checked: false,
@@ -562,7 +566,8 @@ impl Core {
                             .join(format!("{}.json", old.song_id)),
                     );
                 }
-                self.update_settings(|s| *s = bundle.settings);
+                // Volumes and effects of the backup reach what plays now.
+                self.remix(|s| *s = bundle.settings);
             }
             DataImport::Merge => merged = data::merge_library(&mut self.library, bundle.library),
         }
@@ -685,6 +690,7 @@ impl Core {
             kontra_session::list_midi_inputs()
         };
         calibrate::forget_on_switch(&before, &mut self.settings, &ports);
+        self.switch_devices(&before);
         if let Some(code) = &self.settings.language {
             self.catalog = Catalog::new(Language::from_code(code));
         }
@@ -696,6 +702,15 @@ impl Core {
     pub fn reconfigure(&mut self, change: impl FnOnce(&mut Settings)) {
         self.update_settings(change);
         self.stop_live();
+    }
+
+    /// "Band reagiert" (LH-WIE-05) on or off, also for the run going on (audit 10.11.).
+    pub fn set_reacting_band(&mut self, on: bool) {
+        self.update_settings(|s| s.reacting_band = on);
+        let options = self.practice_options();
+        if let Some(live) = self.live.as_mut() {
+            live.practice_mut().set_options(options);
+        }
     }
 
     /// Changes the instrument profile (strings, tuning, reference pitch) so that it acts at once:
@@ -807,7 +822,8 @@ impl Core {
         if let Some(live_ear) = self.live_ear.as_mut() {
             live_ear.set_gains(ear_gains(&self.settings));
         }
-        self.monitor_hint()
+        self.remix_standby();
+        self.monitor_hint().or_else(|| self.standby_hint())
     }
 
     /// Monitoring is on, but the running practice has no output or devices at different rates.
@@ -1722,6 +1738,7 @@ impl Core {
         let settings = self.score_settings(arrangement.instrument.kind);
         let options = self.practice_options();
         let setup = self.live_setup();
+        self.release_standby();
         let mut live = match Live::start(arrangement, self.mode(), settings, options, &setup) {
             Ok(live) => live,
             Err(LiveError::Input(e)) => {
@@ -1768,6 +1785,7 @@ impl Core {
         self.live_ear = None;
         self.level.reset();
         let instrument = self.instrument();
+        self.release_standby();
         let tuner = match LiveTuner::start(&self.input_choice(), &instrument, self.source()) {
             Ok(tuner) => tuner,
             Err(e) => {
@@ -1793,6 +1811,7 @@ impl Core {
 
     /// Polls audio and session; call every ~16 ms.
     pub fn tick(&mut self) -> Vec<UiEvent> {
+        self.tick_standby();
         let mut raw = Vec::new();
         if let Some(live) = self.live.as_mut() {
             raw.extend(live.poll());
@@ -2375,6 +2394,7 @@ impl Core {
             backing_cache: None,
             onset_gate_db: self.settings.onset_gate_db,
         };
+        self.release_standby();
         let mut live_ear = LiveEar::start(&setup, &instrument)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
         live_ear.set_gains(ear_gains(&self.settings));

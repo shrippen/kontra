@@ -13,11 +13,9 @@ impl qobject::Controller {
         self.as_mut().set_streak(on);
     }
 
-    /// The drums answer the bass in free play (LH-WIE-05), from the next run.
+    /// The drums answer the bass in free play (LH-WIE-05), also in the run going on.
     pub(super) fn change_reacting_band(mut self: Pin<&mut Self>, on: bool) {
-        self.as_mut()
-            .core()
-            .update_settings(|s| s.reacting_band = on);
+        self.as_mut().core().set_reacting_band(on);
         self.as_mut().set_reacting_band(on);
     }
 
@@ -50,12 +48,15 @@ impl qobject::Controller {
         let id = id.to_string();
         let value = (!id.is_empty()).then(|| id.clone());
         self.as_mut().core().reconfigure(|s| s.input_device = value);
+        // The run ended (audit 10.11.: the transport showed it still playing).
+        self.as_mut().set_playing(false);
         self.as_mut().set_input_device(q(&id));
         self.as_mut().refresh_latency_note();
     }
 
     pub(super) fn choose_midi(mut self: Pin<&mut Self>, name: &QString) {
         self.as_mut().core().choose_midi(&name.to_string());
+        self.as_mut().set_playing(false);
         self.as_mut().refresh_devices();
     }
 
@@ -65,6 +66,7 @@ impl qobject::Controller {
         self.as_mut()
             .core()
             .reconfigure(|s| s.output_device = value);
+        self.as_mut().set_playing(false);
         self.as_mut().set_output_device(q(&id));
         self.as_mut().refresh_latency_note();
     }
@@ -129,6 +131,24 @@ impl qobject::Controller {
         if let Err(e) = result {
             self.as_mut().show_error(&e);
         }
+    }
+
+    /// After a language change: every text made in Rust again (part names, note names, the
+    /// latency note, device and MIDI texts, building blocks), not only after a restart
+    /// (audit 10.11.).
+    pub(super) fn refresh_texts(mut self: Pin<&mut Self>) {
+        if self.as_ref().rust().core.arrangement().is_some() {
+            self.as_mut().refresh_arrangement();
+        } else {
+            let keys = self.as_ref().rust().core.key_range_json();
+            self.as_mut().set_key_range_json(q(&keys));
+        }
+        self.as_mut().refresh_latency_note();
+        self.as_mut().refresh_devices();
+        self.as_mut().refresh_density();
+        self.as_mut().refresh_chain();
+        self.as_mut().refresh_stems();
+        self.as_mut().refresh_call();
     }
 
     pub(super) fn refresh_tuning(mut self: Pin<&mut Self>) {

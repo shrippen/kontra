@@ -372,6 +372,21 @@ Erkennung und Messung:
   Versteckte Ansichten folgen der Position nicht mehr (`tests/hidden_views.rs`): QML-Zeit beim Spielen 2–4 % eines
   Kerns in jeder Ansicht (Notenansicht vorher 22 %). Gemessen, nicht geändert: `play` mit Aufnahme dekodiert sie im
   GUI-Thread (60–90 ms, nur QA); Öffnen der Ausgabe < 5 ms; ein echtes Interface ließ sich isoliert nicht messen.
+- [x] Mithören am Scarlett (Eigentümer, 9.11.): Bass nur links, rechts Knacken. Aufnahme am Eingang: Bass nur auf
+  Kanal 2, 1957 Samples in 10 s auf Vollaussteuerung (Interface übersteuert; Gain zurück, Direktmonitor des Solo 2.
+  Generation ist aus Linux nicht einstellbar). Effekte auf dem Mithören mit Begrenzer (LH-EIN-17, #230) und
+  Mithören im Leerlauf mit „Bass hören“ in der Seitenleiste (LH-EIN-18).
+- [x] Einstellungen zur Laufzeit (Eigentümer, 10.11.: der Ausgang galt erst nach einem Neustart). Durchsicht aller
+  Einstellungen: Ein anderes Gerät oder ein anderer Anschluss gibt die Geräte des Mithörens frei und beendet einen
+  Ersatz-Eingang; der Ersatz-Eingang selbst wechselt die Geräte; „Band reagiert“ wirkt im laufenden Lauf;
+  Sprache wechselt auch Kirigamis Texte und alle in Rust gebauten Texte (Teilnamen, Notennamen, Latenz-Hinweis,
+  Geräte); eine geladene Sicherung erreicht den Mixer. Messung, Bewertung, Einzähler und Modus gelten wie bisher ab
+  dem nächsten Start (der Lauf endet beim Ändern).
+- [ ] Kirigamis Texte auf einem deutschen System bleiben deutsch, wenn Kontra Englisch spricht (auch beim Start):
+  Kirigami lädt seine Übersetzung selbst nach der Systemsprache.
+- [ ] Summenbegrenzer (Review #230): Mithören plus Backing, Klick und Ton kann die Summe über Vollaussteuerung
+  bringen, dort schneidet der Mixer hart. Ein weicher Begrenzer auf der Summe ändert alles, was spielt; erst messen,
+  wie oft es vorkommt. Stimmgerät hört im Leerlauf nicht mit (es öffnet nur den Eingang, Mithören ruht dort).
 - [x] E5 Notenende (LH-BEW-10, `h-detect`): Der Tracker folgt jeder Note bis zu ihrem Ende und meldet `NoteEnd`
   (Engine `Event::End`): `Muted` (Pegel ≥ 10 dB binnen 60 ms und 100 ms lang unten, oder bis zum nächsten Anschlag),
   `Decayed` (30 dB unter dem Start), `Replaced` (nächster Anschlag oder Legato-Ton). `korpus ends` (09.11.):

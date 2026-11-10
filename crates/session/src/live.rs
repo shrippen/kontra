@@ -527,7 +527,7 @@ pub fn is_midi_file(path: &std::path::Path) -> bool {
 /// (hardware check 13.10.), 128 is 20 ms.
 const LIVE_BUFFER_FRAMES: u32 = 128;
 
-fn output_config(device: Option<&str>) -> StreamConfig {
+pub(crate) fn output_config(device: Option<&str>) -> StreamConfig {
     StreamConfig {
         device_id: device.map(str::to_string),
         buffer_frames: Some(LIVE_BUFFER_FRAMES),
