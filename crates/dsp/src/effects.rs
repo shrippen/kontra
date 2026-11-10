@@ -165,7 +165,11 @@ impl OutputLimiter {
             self.sample_rate = sample_rate;
             self.limiter.retime(sample_rate);
         }
-        self.limiter.process(frame, 1.0)
+        // A sample that is no number (a broken float file) is silence: behind the limiter it
+        // would stay NaN, and nothing after it could catch that.
+        let finite = |v: f32| if v.is_finite() { v } else { 0.0 };
+        self.limiter
+            .process((finite(frame.0), finite(frame.1)), 1.0)
     }
 
     /// The gain of the last frame, 1 while nothing is limited: what else follows the output

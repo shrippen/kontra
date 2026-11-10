@@ -737,6 +737,49 @@ mod tests {
         assert!(peak <= kontra_dsp::LIMIT_CEILING + 1e-6, "peak {peak}");
     }
 
+    /// Review #244: the echo reference is what the speakers play, so it follows the limiter.
+    #[test]
+    fn the_echo_reference_follows_the_limiter() {
+        let (tx, mut rx) = rtrb::RingBuffer::<f32>::new(4800);
+        let mut m = mixer();
+        m.reference = Some(ReferenceTap {
+            samples: tx,
+            armed: Arc::new(AtomicBool::new(true)),
+            start_s: Arc::new(AtomicU64::new(f64::NAN.to_bits())),
+        });
+        for _ in 0..6 {
+            m.apply(Command::Schedule {
+                at_s: 0.0,
+                sound: Sound::Click(Accent::Downbeat),
+            });
+        }
+        let sr = 48_000.0;
+        for i in 0..2400 {
+            let (left, _) = m.render(i as f64 / sr, sr);
+            // No monitored bass here: the reference is the output (up to rounding).
+            let reference = rx.pop().unwrap();
+            assert!(
+                (reference - left).abs() < 1e-6,
+                "{reference} against {left}"
+            );
+        }
+    }
+
+    /// Review #244: an infinite sample (a broken float file) became NaN behind the limiter,
+    /// where the hard clip used to give full scale. It is silence now, and the next frame
+    /// plays again.
+    #[test]
+    fn a_sample_that_is_no_number_is_silence() {
+        let mut limit = OutputLimiter::new(48_000.0);
+        assert_eq!(limit.process((f32::INFINITY, 0.25), 48_000.0), (0.0, 0.25));
+        assert_eq!(
+            limit.process((f32::NAN, f32::NEG_INFINITY), 48_000.0),
+            (0.0, 0.0)
+        );
+        assert_eq!(limit.gain(), 1.0);
+        assert_eq!(limit.process((0.5, 0.5), 48_000.0), (0.5, 0.5));
+    }
+
     // LH-WIE-04: the shuffle's off-beat click is softer than the beat, so the pulse stays clear.
     #[test]
     fn offbeat_click_is_softer() {

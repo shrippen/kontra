@@ -459,9 +459,10 @@ Erkennung und Messung:
 - [ ] Dateinamen, die kein UTF-8 sind (Review #235): Kontra lehnt sie mit Grund ab (umbenennen), weil Bibliothek
   und Fortschritt JSON sind. Von der Kommandozeile oder aus dem Dateimanager kommt der Name verlustbehaftet an
   (`args.rs`), die Meldung ist dann „nicht gefunden“ statt „umbenennen“.
-- [ ] Summenbegrenzer (Review #230): Mithören plus Backing, Klick und Ton kann die Summe über Vollaussteuerung
-  bringen, dort schneidet der Mixer hart. Ein weicher Begrenzer auf der Summe ändert alles, was spielt; erst messen,
-  wie oft es vorkommt. Stimmgerät hört im Leerlauf nicht mit (es öffnet nur den Eingang, Mithören ruht dort).
+- [x] Summenbegrenzer (Review #230; Runde 18, 10.11.: bauen, immer an; LH-WIE-06, #244): Mithören plus Backing,
+  Klick und Ton konnte die Summe über Vollaussteuerung bringen, dort schnitt der Mixer hart. Jetzt liegt auf der
+  Summe ein Begrenzer (−1 dBFS, gekoppelt, 80 ms), die Echo-Referenz folgt ihm. Hörprobe und Xruns am Gerät offen.
+- [ ] Stimmgerät hört im Leerlauf nicht mit (es öffnet nur den Eingang, Mithören ruht dort).
 - [x] E5 Notenende (LH-BEW-10, `h-detect`): Der Tracker folgt jeder Note bis zu ihrem Ende und meldet `NoteEnd`
   (Engine `Event::End`): `Muted` (Pegel ≥ 10 dB binnen 60 ms und 100 ms lang unten, oder bis zum nächsten Anschlag),
   `Decayed` (30 dB unter dem Start), `Replaced` (nächster Anschlag oder Legato-Ton). `korpus ends` (09.11.):
