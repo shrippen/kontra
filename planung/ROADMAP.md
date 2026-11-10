@@ -869,7 +869,7 @@ P3 Mira mit P4 Thomas, P2 Jens. Entscheidungen dazu: Runde 15 im Entscheidungs-A
   - M15 (mittel, behoben #143): Alt+5 (Klaviatur) fehlte, Tastenliste nannte alte Modi.
   - Offen (niedrig): M7 Liste „zweiter Blick“ unsortiert; M8 Live-Etikett überdeckt Marken; M11 Fähnchen, Hälse;
     M12 „in BB“, ♭ im Dateinamen verloren; M13 Generator vergisst Einstellungen; M14 Akkordantworten mit
-    Oktavzahl; M16 Gehör-Versuchsliste unbegrenzt; M18 Laid-back-Hilfe ohne ms.
+    Oktavzahl; M16 Gehör-Versuchsliste unbegrenzt (behoben 10.11.: die letzten 12); M18 Laid-back-Hilfe ohne ms.
 - **P4 Thomas (J-B5, J-D2, J-G4, J-G6): bestanden nach Befunden; J-D2 nicht prüfbar (Portal-Dialog).**
   - M20 (mittel, Entscheidung): „Kante Light“ bleibt bei dunklem System dunkel (LH-ALL-02).
   - M21 (mittel, behoben #145): Bei 853 px fehlte der Präsentations-Knopf; nur F5 half.
