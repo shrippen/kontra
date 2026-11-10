@@ -19,7 +19,6 @@ use std::path::Path;
 use std::sync::Arc;
 
 const HTTPS: &str = "https://";
-const FILE_URL: &str = "file://";
 
 /// Problems shown before adding; the rest are counted (`kontra-cli course check` lists all).
 const PREVIEW_PROBLEMS: usize = 5;
@@ -185,7 +184,7 @@ impl Core {
         };
         let cache = crate::store::cache_dir(&self.data_dir);
         match CourseStore::new(&self.data_dir).media_file(&pack.manifest.id, &src, &cache) {
-            Ok(path) => file_url(&path.to_string_lossy(), Paths::HERE),
+            Ok(path) => kontra_session::file_url(&path),
             Err(e) => {
                 eprintln!("kontra: {e}");
                 String::new()
@@ -263,69 +262,9 @@ impl Core {
     }
 }
 
-/// How a system writes its paths.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Paths {
-    /// `/home/lea/a.webm`
-    Unix,
-    /// `C:\Users\Lea\a.webm`
-    Windows,
-}
-
-impl Paths {
-    const HERE: Paths = if cfg!(windows) {
-        Paths::Windows
-    } else {
-        Paths::Unix
-    };
-}
-
-/// The file URL of `path`: every byte but unreserved ones and `/` percent-encoded, so a name
-/// with `#` or `%` ("teil#1.webm") is not read as a fragment or an escape. A Windows path
-/// keeps its drive and turns its backslashes:
-/// `C:\Users\Lea B\a.webm` → `file:///C:/Users/Lea%20B/a.webm`.
-fn file_url(path: &str, paths: Paths) -> String {
-    let plain: &[u8] = match paths {
-        Paths::Unix => b"/-._~",
-        Paths::Windows => b"/-._~:",
-    };
-    let mut out = String::from(FILE_URL);
-    // A drive has no leading slash; the URL's path needs one.
-    if paths == Paths::Windows && !path.starts_with(['/', '\\']) {
-        out.push('/');
-    }
-    for byte in path.bytes() {
-        let byte = match (paths, byte) {
-            (Paths::Windows, b'\\') => b'/',
-            _ => byte,
-        };
-        if byte.is_ascii_alphanumeric() || plain.contains(&byte) {
-            out.push(char::from(byte));
-            continue;
-        }
-        out.push_str(&format!("%{byte:02X}"));
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// LH-NF-17: a Windows path gave "file://C%3A%5CUsers…", which no player opens.
-    #[test]
-    fn file_urls_on_both_systems() {
-        assert_eq!(
-            file_url("/home/lea b/teil#1.webm", Paths::Unix),
-            "file:///home/lea%20b/teil%231.webm"
-        );
-        assert_eq!(
-            file_url(r"C:\Users\Lea B\a.webm", Paths::Windows),
-            "file:///C:/Users/Lea%20B/a.webm"
-        );
-        // A backslash is a letter of the name on Unix.
-        assert_eq!(file_url(r"/a\b.webm", Paths::Unix), "file:///a%5Cb.webm");
-    }
 
     #[test]
     fn a_newer_course_is_named_in_the_language() {
@@ -336,13 +275,5 @@ mod tests {
         assert_eq!(text, core.tr("courses.newer", &[("version", "2".into())]));
         assert!(!text.contains("newer"), "{text}");
         let _ = std::fs::remove_dir_all(dir);
-    }
-
-    #[test]
-    fn a_file_url_escapes_its_path() {
-        assert_eq!(
-            file_url("/c/media/teil#1 ä%.webm", Paths::Unix),
-            "file:///c/media/teil%231%20%C3%A4%25.webm"
-        );
     }
 }

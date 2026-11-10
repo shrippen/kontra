@@ -383,6 +383,11 @@ pub mod qobject {
             low_string_on_top: bool,
         );
 
+        /// The URL of the folder `path` lies in, for a file dialog ("" for a bare name).
+        #[qinvokable]
+        #[cxx_name = "folderUrl"]
+        fn folder_url(self: &Self, path: &QString) -> QString;
+
         /// Adds all scores of a folder (URL) to the library, optionally as a setlist.
         #[qinvokable]
         #[cxx_name = "importFolder"]
@@ -913,9 +918,9 @@ use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
 use kontra_appcore::{
-    data_dir, Bass, Core, DensityLock, InstrumentChoice, LoopEdge, Opened, QaOptions, UiEvent,
+    data_dir, file_url, local_path, Bass, Core, DensityLock, InstrumentChoice, LoopEdge, Opened,
+    QaOptions, UiEvent,
 };
-use std::path::PathBuf;
 
 /// `calibrationBeat` while no calibration runs.
 const NO_BEAT: i32 = -99;
@@ -1312,28 +1317,6 @@ impl ControllerRust {
             Err(e) => self.error_text = q(&e),
         }
     }
-}
-
-/// `file:///a%20b.gp5` → `/a b.gp5`; plain paths stay.
-fn local_path(url: &str) -> PathBuf {
-    let Some(rest) = url.strip_prefix("file://") else {
-        return PathBuf::from(url);
-    };
-    let bytes = rest.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let Ok(value) = u8::from_str_radix(&rest[i + 1..i + 3], 16) {
-                out.push(value);
-                i += 3;
-                continue;
-            }
-        }
-        out.push(bytes[i]);
-        i += 1;
-    }
-    PathBuf::from(String::from_utf8_lossy(&out).to_string())
 }
 
 /// The connection's key for QML: "line", "laptop" or "midi".
@@ -1957,23 +1940,5 @@ impl qobject::Controller {
     fn dismiss_message(mut self: Pin<&mut Self>) {
         self.as_mut().set_message(QString::default());
         self.as_mut().set_error_text(QString::default());
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::local_path;
-    use std::path::PathBuf;
-
-    #[test]
-    fn decodes_file_urls() {
-        assert_eq!(
-            local_path("file:///home/a%20b/x.gp5"),
-            PathBuf::from("/home/a b/x.gp5")
-        );
-        assert_eq!(
-            local_path("/plain/path.mid"),
-            PathBuf::from("/plain/path.mid")
-        );
     }
 }

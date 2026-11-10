@@ -40,3 +40,8 @@ pipewire = "0.10"
 
 [lints]
 workspace = true
+
+[target.'cfg(windows)'.dependencies]
+# Job objects: the separator's program ends with Kontra (MIT/Apache-2.0; already in the tree
+# under cpal's dependencies, same version).
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }

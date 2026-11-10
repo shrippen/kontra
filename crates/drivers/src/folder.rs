@@ -6,8 +6,14 @@
 //! $HOME/Downloads ───┘
 //!
 //! Windows: %USERPROFILE%\Downloads ─→ download_dir()   (a moved folder: known folders, Win4)
+//!
+//!            data_dir_of("kontra")                cache_dir_of("kontra")
+//! Unix       $XDG_DATA_HOME/kontra,               $XDG_CACHE_HOME/kontra,
+//!            ~/.local/share/kontra                ~/.cache/kontra
+//! Windows    %APPDATA%\Kontra (roams)             %LOCALAPPDATA%\Kontra (stays on the machine)
 //! ```
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -18,6 +24,66 @@ const USER_DIRS: &str = "user-dirs.dirs";
 const FALLBACK: &str = "Downloads";
 #[cfg(unix)]
 const HOME_VARIABLE: &str = "$HOME";
+
+/// The systems whose folders differ.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum System {
+    Unix,
+    Windows,
+}
+
+impl System {
+    const HERE: System = if cfg!(windows) {
+        System::Windows
+    } else {
+        System::Unix
+    };
+}
+
+/// Where `program` ("kontra") keeps the user's data (settings, library, progress) on this
+/// system; `None` without a home.
+pub fn data_dir_of(program: &str) -> Option<PathBuf> {
+    let home = data_home_in(System::HERE, &|key| std::env::var_os(key))?;
+    Some(home.join(folder_name(program, System::HERE)))
+}
+
+/// Where `program` keeps what it can make again (prepared audio); `None` without a home.
+pub fn cache_dir_of(program: &str) -> Option<PathBuf> {
+    let home = cache_home_in(System::HERE, &|key| std::env::var_os(key))?;
+    Some(home.join(folder_name(program, System::HERE)))
+}
+
+/// A program's folder as the system writes them: "kontra" on Unix, "Kontra" on Windows.
+fn folder_name(program: &str, system: System) -> String {
+    let mut letters = program.chars();
+    match (system, letters.next()) {
+        (System::Windows, Some(first)) => first.to_uppercase().chain(letters).collect(),
+        _ => program.to_string(),
+    }
+}
+
+fn data_home_in(system: System, env: &dyn Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
+    match system {
+        System::Unix => folder(env, "XDG_DATA_HOME").or_else(|| below_home(env, ".local/share")),
+        System::Windows => folder(env, "APPDATA"),
+    }
+}
+
+fn cache_home_in(system: System, env: &dyn Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
+    match system {
+        System::Unix => folder(env, "XDG_CACHE_HOME").or_else(|| below_home(env, ".cache")),
+        System::Windows => folder(env, "LOCALAPPDATA"),
+    }
+}
+
+/// The folder a variable names; set but empty counts as not set.
+fn folder(env: &dyn Fn(&str) -> Option<OsString>, key: &str) -> Option<PathBuf> {
+    env(key).filter(|v| !v.is_empty()).map(PathBuf::from)
+}
+
+fn below_home(env: &dyn Fn(&str) -> Option<OsString>, rest: &str) -> Option<PathBuf> {
+    folder(env, "HOME").map(|home| home.join(rest))
+}
 
 /// A file and when it last changed.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -96,6 +162,66 @@ pub fn recent_files(dir: &Path, max_age: Duration) -> Vec<RecentFile> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn env<'a>(set: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<OsString> + 'a {
+        move |key| {
+            set.iter()
+                .find(|(k, _)| *k == key)
+                .map(|(_, v)| OsString::from(v))
+        }
+    }
+
+    /// LH-NF-17 (Win4): data and cache went below `HOME` and XDG folders on every system; on
+    /// Windows that was `.\.local\share\kontra` in whatever folder Kontra started in.
+    #[test]
+    fn program_folders_on_both_systems() {
+        let linux = [("HOME", "/home/lea")];
+        assert_eq!(
+            data_home_in(System::Unix, &env(&linux)),
+            Some(PathBuf::from("/home/lea/.local/share"))
+        );
+        assert_eq!(
+            cache_home_in(System::Unix, &env(&linux)),
+            Some(PathBuf::from("/home/lea/.cache"))
+        );
+        let xdg = [
+            ("HOME", "/home/lea"),
+            ("XDG_DATA_HOME", "/data"),
+            ("XDG_CACHE_HOME", "/fast"),
+        ];
+        assert_eq!(
+            data_home_in(System::Unix, &env(&xdg)),
+            Some(PathBuf::from("/data"))
+        );
+        assert_eq!(
+            cache_home_in(System::Unix, &env(&xdg)),
+            Some(PathBuf::from("/fast"))
+        );
+        // Set but empty counts as not set (XDG base directory specification).
+        let empty = [("HOME", "/home/lea"), ("XDG_DATA_HOME", "")];
+        assert_eq!(
+            data_home_in(System::Unix, &env(&empty)),
+            Some(PathBuf::from("/home/lea/.local/share"))
+        );
+
+        let windows = [
+            ("APPDATA", r"C:\Users\Noah B\AppData\Roaming"),
+            ("LOCALAPPDATA", r"C:\Users\Noah B\AppData\Local"),
+            ("HOME", "/not/used"),
+        ];
+        assert_eq!(
+            data_home_in(System::Windows, &env(&windows)),
+            Some(PathBuf::from(r"C:\Users\Noah B\AppData\Roaming"))
+        );
+        assert_eq!(
+            cache_home_in(System::Windows, &env(&windows)),
+            Some(PathBuf::from(r"C:\Users\Noah B\AppData\Local"))
+        );
+        assert_eq!(folder_name("kontra", System::Unix), "kontra");
+        assert_eq!(folder_name("kontra", System::Windows), "Kontra");
+        assert_eq!(data_home_in(System::Windows, &env(&[])), None);
+        assert_eq!(cache_home_in(System::Unix, &env(&[])), None);
+    }
 
     #[cfg(unix)]
     #[test]

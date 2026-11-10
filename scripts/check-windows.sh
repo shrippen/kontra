@@ -7,6 +7,8 @@
 #
 #   scripts/check-windows.sh [build|test] [cargo arguments, e.g. -p kontra-drivers]
 #
+# build: clippy without warnings for the target; test: the tests under Wine.
+#
 # Needs: a rustup toolchain with the target (`rustup target add x86_64-pc-windows-gnu`; the
 # distribution's Rust has none), mingw-w64-gcc, and Wine for `test`. A toolchain outside PATH:
 # KONTRA_WIN_RUST=<folder with rustup/ and cargo/>.
@@ -36,9 +38,10 @@ scope=(--workspace --exclude kontra-app)
 
 case "$mode" in
     build)
-        cargo check --target "$TARGET" --all-targets "${scope[@]}"
+        cargo clippy --target "$TARGET" --all-targets "${scope[@]}" -- -D warnings
         ;;
     test)
+        mkdir -p "$WORK"
         export WINEPREFIX="$WORK/wineprefix" WINEDEBUG=-all
         unset DISPLAY WAYLAND_DISPLAY
         # No audio driver: WASAPI lists no device, nothing opens the owner's interface.
