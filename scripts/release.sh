@@ -13,7 +13,7 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 2
 
-METAINFO=packaging/org.shrippen.Kontra.metainfo.xml
+METAINFO=packaging/io.github.shrippen.Kontra.metainfo.xml
 LANDING=docs/index.html
 CHANGELOG=CHANGELOG.md
 MAIN=main
@@ -93,4 +93,4 @@ $notes" || exit 1
 echo "release: tagged $tag. After the owner's go, publish with:"
 echo "  git push origin $tag"
 echo "  scripts/release-notes.sh $version > notes.md"
-echo "  tea release create --repo shrippen/Kontra --tag $tag --title 'Kontra $version' --note-file notes.md"
+echo "  gt release create $tag --remote origin --title 'Kontra $version' --notes-file notes.md"

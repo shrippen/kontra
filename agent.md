@@ -82,6 +82,9 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
   Audio-Pfad misst Latenz und Xruns.
 - Abhängigkeiten nur unter MIT, Apache-2.0, BSD, ISC, Zlib, Unlicense, CC0 (Schriften: SIL OFL);
   Qt und KDE Frameworks (LGPL) nur dynamisch. Keine GPL, MPL oder LGPL-Crates.
+  Ausnahme (Eigentümer, Runde 18, 10.11.2026): das ASIO-SDK von Steinberg unter GPLv3, nur im Windows-Paket;
+  dieses Paket wird unter GPLv3 ausgeliefert, der Quelltext bleibt MIT. Umsetzung: ein Cargo-Feature, das allein
+  der Windows-Paketbau einschaltet, damit alle anderen Builds ohne GPL bleiben.
   Im Zweifel (Lizenz unklar, kaum gepflegt, nur kleiner Teil gebraucht) selbst bauen.
   Neue Abhängigkeit nur mit Begründung im PR.
 - Texte nur über Übersetzungsschlüssel (Deutsch und Englisch); keine Texte im Code.
@@ -109,8 +112,8 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - PR-Agent schreibt sein Review einmal und aktualisiert danach denselben Kommentar („Review updated until
   commit <sha>“, neues `updated_at`, altes `created_at`). Ein neues Review erkennt man am Commit im Text, nicht am
   Erstellungsdatum. Kommentare, die nicht mit `/` beginnen, starten keinen Lauf (Status „skipped“).
-- CI läuft nur auf GitHub (`.github/workflows/ci.yml`, Jobs core, app, windows und windows-app; die Windows-Jobs
-  zählen seit 10.11.2026 mit, Runde 18; seit 24.10.2026 wie lmix) und meldet das
+- CI läuft seit 24.10.2026 nur auf GitHub, wie lmix (`.github/workflows/ci.yml`, Jobs core, app, windows und
+  windows-app; die Windows-Jobs zählen seit 10.11.2026 mit, Runde 18), und meldet das
   Ergebnis als Status `github / test` an Gitea; Gitea führt nur PR-Agent aus. Flatpak baut ebenfalls GitHub.
 - Mehrere Arbeitsstände parallel: je Branch ein `git worktree` und ein eigenes `CARGO_TARGET_DIR`, dazu
   `CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0`, sonst ist die Platte schnell voll. `cargo clippy` baut kein Binary;

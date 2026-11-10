@@ -1,4 +1,4 @@
-// Builds the QML module `org.shrippen.kontra` (pages compiled into the binary) and the Rust
+// Builds the QML module `io.github.shrippen.kontra` (pages compiled into the binary) and the Rust
 // bridge. Kante is loaded from its folder at run time (see main.rs), copied unchanged.
 use cxx_qt_build::{CxxQtBuilder, QmlModule};
 
@@ -44,7 +44,7 @@ const PAGES: &[&str] = &[
 
 fn main() {
     let mut builder =
-        CxxQtBuilder::new_qml_module(QmlModule::new("org.shrippen.kontra").qml_files(PAGES))
+        CxxQtBuilder::new_qml_module(QmlModule::new("io.github.shrippen.kontra").qml_files(PAGES))
             .files(["src/bridge.rs", "src/translator.rs", "src/qt_env.rs"])
             .crate_include_root(Some("cpp".into()))
             .cpp_file("cpp/translator.cpp")

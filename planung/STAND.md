@@ -13,27 +13,27 @@ Dateinamen, die kein UTF-8 sind, werden mit Grund abgelehnt); Kante #131 (1.76.2
 Windows (LH-NF-17, Roadmap „Multiplattform: Windows“) in `main`: #233 (Plan, P8, J-A6, Rust-Kern), #234
 (Datenordner, Datei-URLs, Job Object, Clippy, Stem-Tests).
 
-Offene PRs:
-- **#236 „Windows in der CI“** (Branch `windows-app`): Jobs `windows` (Kern: Clippy, Tests) und `windows-app` (Qt
-  und Kirigami mit MSVC über `scripts/setup-qt-windows.sh`, App bauen und testen, Screenshots, portabler Ordner
-  über `scripts/package-windows.sh` als CI-Artefakt). Lauf 42753483624 in allen Jobs grün. Ändert die CI und
-  `agent.md` (P1–P8): **wartet auf die Bestätigung des Eigentümers** (Runde 18). Review ohne Wichtig.
-  Letzter grüner Lauf am Kopf c27573b: 42763539089.
-- Branch `windows-reste` (ein Commit auf `windows-app`, ohne PR): Screenshots lesen unter Windows nicht die
-  echten Downloads (`KONTRA_DOWNLOAD_DIR`). PR erst, wenn #236 in `main` ist.
+Runde 18 ist beantwortet (10.11.; Roadmap „Entscheidungen Runde 18“): #236 gemerged, die Windows-Jobs zählen
+für `github / test`; App-ID `io.github.shrippen.Kontra`, Laufzeit 6.11.
 
-Seit der ersten Fassung in `main`: #237 (Kirigami auf Englisch auch auf deutschem System), #238 (Flatpak-Lint
-notiert), #239 („Klinke direkt“ auf „Automatisch“ nimmt die eingebaute Karte, der Standby folgt), #240 (Hinweis
-an der Buchse, alter Abgleich geht mit dem Backing-Track, „1 Stück“), #241 (Gehör: Liste der gespielten Töne
-begrenzt, M16), #242 (eine Aufnahme wählen lässt die Auswertung eines fertigen Laufs stehen; ein laufender Lauf
-beginnt neu), #243 (Test dazu in J-D1).
+Offen daraus:
+- Summenbegrenzer (LH-WIE-06): gebaut (#244); Hörprobe und Xruns am Gerät stehen aus.
+- Win2 zuerst: Audio (WASAPI, ASIO als Feature unter GPLv3 nur im Windows-Paket) in der libvirt-Maschine `win`,
+  vorher Snapshot.
+- Win5: Inno Setup und ZIP, Update-Hinweis (LH-ALL-07). Signierung zurückgestellt.
+- Kaiwa und hansei: App-IDs auf `io.github.shrippen.*` (eigene PRs dort).
+- `pub`: Die Liste der Runde 18 ist freigegeben, samt der dort am 10.11. nachgetragenen `Core::imported_text`,
+  `kontra_appcore::BackingChange` und `Core::set_backing` mit `Result<BackingChange, String>`. Neu seither, für
+  die nächste Runde: `kontra_dsp::OutputLimiter` (#244).
+
+In `main` seit der ersten Fassung: #237 bis #243 (Kirigami auf Englisch, Flatpak-Lint, „Klinke direkt“ nimmt die
+eingebaute Karte, alter Abgleich geht mit dem Backing-Track, Gehör-Liste begrenzt, Auswertung bleibt beim Wählen
+einer Aufnahme).
 
 Offene Kleinigkeiten aus den Reviews vom 10.11.:
 - Nach dem Wählen einer Aufnahme bei fertigem Lauf bleibt die Auswertung, die Position springt aber an den Anfang
   (#242).
 - Die Brücke (`crates/app/src/bridge/`) hat keine Tests; was die Seite nach `set_backing` zeigt, ist nur gelesen.
-- Neue `pub` seit Runde 18: `Core::imported_text`, `kontra_appcore::BackingChange`, `Core::set_backing` gibt
-  `Result<BackingChange, String>` (im Entscheidungs-Artefakt nachgetragen).
 
 Stand unter Windows:
 - Kern: alle Tests grün auf `windows-latest` (MSVC) und lokal unter Wine.
@@ -43,11 +43,8 @@ Stand unter Windows:
 - Lokal prüfen: `KONTRA_WIN_RUST=~/.cache/claude/rust-win scripts/check-windows.sh [build|test]` (rustup-Toolchain
   mit `x86_64-pc-windows-gnu` in `~/.cache/claude/rust-win`, Tests unter Wine in eigenem Prefix ohne Audiotreiber).
   Die App lässt sich nur auf `windows-latest` bauen (Qt für MSVC).
-- Nächste Schritte nach den Entscheidungen: Installer (Vorschlag Inno Setup und ZIP) und Signierung (Win5),
-  Testmaschine in KVM (Win6; vorhanden ist `win` in libvirt, nicht angefasst), Audio mit WASAPI und ASIO (Win2).
-- Entschieden (Eigentümer, 10.11.): ASIO ja, Signierung ja, Tests zuerst über KVM, Persona P8. Offen in Runde 18
-  (Entscheidungs-Artefakt, `antworten/runde-18`): #236, Installer-Form, Signierweg, ASIO-Lizenz, KVM-Maschine,
-  #220, Summenbegrenzer, pub, Reihenfolge.
+- Nächste Schritte: siehe oben „Offen daraus“ (Win2 zuerst). Die Maschine `win` in libvirt ist noch nicht
+  angefasst (aus, kein Snapshot).
 
 Offen sonst:
 - Am Scarlett: Gain von Eingang 2 zurück (Aufnahme 9.11.: 1957 Samples in 10 s auf Vollaussteuerung);
@@ -202,7 +199,8 @@ cues, Cue}`, `MAX_COURSE_BYTES`, `Settings::course`, Core `course_preview`, `cou
 Plan (Eigentümer, 24.10.): Didaktik I4 (#106), I5 (#107), I6 umgesetzt. Offen aus
 I5: Ziel-Band im Histogramm (Kante). I6 Phrasengrenzen aus Zögern: #128.
 
-CI läuft seit 24.10. auf GitHub (`.github/workflows/ci.yml`, Status `github / test` an Gitea, #102); Gitea führt nur
+CI läuft seit 24.10. auf GitHub (`.github/workflows/ci.yml`, Status `github / test` an Gitea, #102; seit
+10.11. mit den Windows-Jobs); Gitea führt nur
 PR-Agent aus.
 
 Gemerged seit 14.10.: #90–#97 (STAND, Tests, Dateidialoge, Review-Regel), #98 (Kante 1.35–1.39, G9), #99 (I1 Ohne

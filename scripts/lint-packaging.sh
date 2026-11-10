@@ -6,7 +6,7 @@
 #   scripts/lint-packaging.sh
 set -uo pipefail
 cd "$(dirname "$0")/.."
-APP=org.shrippen.Kontra
+APP=io.github.shrippen.Kontra
 # Builder of Flathub, which carries flatpak-builder-lint.
 BUILDER=org.flatpak.Builder
 

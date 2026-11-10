@@ -4,17 +4,17 @@
 #
 #   scripts/flatpak.sh [OUT_DIR]      (default: flatpak-out)
 #
-# Needs flatpak, flatpak-builder and librsvg2-common (appstreamcli reads the SVG icon on the host); installs org.kde.Sdk//6.10 and the Rust extension from
+# Needs flatpak, flatpak-builder and librsvg2-common (appstreamcli reads the SVG icon on the host); installs org.kde.Sdk//6.11 and the Rust extension from
 # Flathub for the current user if missing.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT="${1:-flatpak-out}"
-APP=org.shrippen.Kontra
+APP=io.github.shrippen.Kontra
 mkdir -p "$OUT"
 
 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak install --user -y --noninteractive flathub \
-    org.kde.Sdk//6.10 org.kde.Platform//6.10 org.freedesktop.Sdk.Extension.rust-stable//25.08 \
+    org.kde.Sdk//6.11 org.kde.Platform//6.11 org.freedesktop.Sdk.Extension.rust-stable//25.08 \
     org.freedesktop.Sdk.Extension.llvm20//25.08
 
 # The build has no network: vendor all crates and point cargo at them.
