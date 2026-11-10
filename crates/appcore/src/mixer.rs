@@ -1,6 +1,7 @@
 //! The mixer's settings as the player's gains (LH-WIE-03, LH-EIN-08, LH-EIN-17).
 
 use crate::{instrument_from, standby, Settings};
+use kontra_model::ChainSpec;
 use kontra_session::{Gains, Limit, Shaping};
 
 /// The mixer's volumes for the player; monitoring off mutes the input.
@@ -24,8 +25,7 @@ pub(crate) fn gains(settings: &Settings) -> Gains {
             high_db: settings.monitor_high_db as f32,
             compress: settings.monitor_compress as f32,
             warmth: settings.monitor_warmth as f32,
-            drive: settings.monitor_drive as f32,
-            width: settings.monitor_width as f32,
+            chain: settings.monitor_chain,
             limit: if settings.monitor_limit {
                 Limit::On
             } else {
@@ -86,8 +86,7 @@ impl crate::Core {
             s.monitor_high_db = 0.0;
             s.monitor_compress = 0.0;
             s.monitor_warmth = 0.0;
-            s.monitor_drive = 0.0;
-            s.monitor_width = 0.0;
+            s.monitor_chain = ChainSpec::EMPTY;
             s.monitor_limit = true;
         })
     }

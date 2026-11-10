@@ -57,6 +57,7 @@ pub use courses::{CourseError, CourseFetch, CourseStore};
 pub use density::Density;
 pub use expected::{expected_notes, ExpectedNote};
 pub use improv::{fit, Fit, Improvisation};
+pub use kontra_engine::plugins;
 pub use kontra_engine::Separator;
 pub use kontra_engine::{EngineError, FileHttp, Http, HttpError, Web};
 pub use kontra_engine::{Gains, Limit, SeparatorError, Shaping, SHAPING_RANGE_DB};

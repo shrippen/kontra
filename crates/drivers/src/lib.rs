@@ -8,6 +8,7 @@ mod http;
 mod midi;
 #[cfg(target_os = "linux")]
 mod pipewire;
+pub mod plugins;
 mod separator;
 mod urls;
 

@@ -194,21 +194,35 @@ fn report() {
     });
 }
 
-/// Monitor shaping with every stage working: bands, compressor, warmth, overdrive, width and
-/// limiter (the output callback runs it per sample).
+/// Monitor shaping with every stage working: bands, compressor, warmth, a chain of all eight
+/// effects (LH-EIN-19) and the limiter (the output callback runs it per sample).
 fn shaper() -> Shaper {
+    use kontra_model::{ChainSpec, EffectKind, SlotSpec};
+    let chain: ChainSpec = [
+        EffectKind::Overdrive,
+        EffectKind::Chorus,
+        EffectKind::EnvelopeFilter,
+        EffectKind::Octaver,
+        EffectKind::Widener,
+        EffectKind::Delay,
+        EffectKind::Reverb,
+        EffectKind::Fuzz,
+    ]
+    .map(SlotSpec::new)
+    .to_vec()
+    .into();
     let mut shaper = Shaper::new(SR);
     shaper.set(Shaping {
+        chain,
         low_db: 4.0,
         mid_db: -3.0,
         high_db: 2.0,
         compress: 0.5,
         warmth: 0.5,
-        drive: 0.5,
-        width: 0.5,
         limit: Limit::On,
         ..Shaping::FLAT
     });
+    let _ = shaper.swap_chain(Box::new(kontra_dsp::Chain::new(&chain, SR)));
     shaper
 }
 

@@ -60,6 +60,41 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 | LH-ALL-06 Startseite | umgesetzt (#48, 13.10.) |
 | Vor 0.1 offen | Hardware-Prüfungen (Runde 10: zuerst), Tastatur/Screenreader am Gerät, Release-Log, Screenshots, Flatpak |
 
+## Effekte und Plugins: CLAP, VST3 (Eigentümer, 10.11.2026)
+
+Auf den mitgehörten Bass lassen sich verschiedene Effekte legen, eigene und Plugins im Format CLAP oder VST3
+(VST3-SDK seit 3.8 unter MIT). Die Erkennung hört weiter den trockenen Eingang; Effekte ändern nur, was der Spieler
+hört (LH-EIN-19 bis LH-EIN-21). Personas: P2 (spielt in der Coverband und will beim Üben nach dem Song klingen),
+P1 (alles aus, bis sie es sucht); P8 erst mit dem Windows-Paket. Nach 0.1 (Phase 2).
+
+```text
+Eingang ─┬─────────────────────────────────────────────────────────► Erkennung (trocken)
+         └─► Klangformung ─► [Slot 1] ─► [Slot 2] ─► … ─► Begrenzer ─► Ausgang
+             (EQ, Kompr.)     eigener Effekt oder Plugin      (LH-EIN-17: an, abschaltbar)
+
+session  Kette als Einstellung (Reihenfolge, an/aus, Werte, Zustand der Plugins)
+engine   Kette im Audio-Callback; Umbau außerhalb, fertige Kette per Ringpuffer hinein
+drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier)
+```
+
+- [ ] FX1 Kette: Overdrive und Breite (LH-EIN-17) werden Slots einer Kette mit freier Reihenfolge; dazu eigene
+  Effekte, die am Bass üblich sind: Chorus, Hüllkurvenfilter (Auto-Wah), Oktaver, Delay, Hall, Fuzz. Allokationsfrei,
+  Umbau ohne Knacken (Überblenden), Latenz der Kette sichtbar.
+- [ ] FX2 CLAP-Host (`clack-host`, MIT/Apache-2.0): Suchpfade nach Spezifikation (`CLAP_PATH`, `~/.clap`,
+  `/usr/lib/clap`; Windows `%COMMONPROGRAMFILES%\CLAP`, `%LOCALAPPDATA%\Programs\Common\CLAP`), Parameter,
+  Zustand, Latenz. Das Durchsuchen läuft in einem eigenen Prozess (`kontra-cli plugins scan`): ein abstürzendes
+  Plugin reißt Kontra nicht mit, es wird als kaputt gemerkt.
+- [ ] FX3 VST3-Host (`vst3`, MIT/Apache-2.0, Bindungen des MIT-SDK): Suchpfade (`~/.vst3`, `/usr/lib/vst3`,
+  `/usr/local/lib/vst3`; Windows `%COMMONPROGRAMFILES%\VST3`), Bundles `.vst3`, Parameter, Zustand, Latenz.
+- [ ] FX4 Oberfläche: Effekte im Mixer neben der Klangformung, Plugins wählen, Reihenfolge, an/aus, Parameter als
+  Liste mit Reglern (Kante), Voreinstellungen je Kette. Tastatur und Screenreader (P7).
+- [ ] FX5 Eigene Fenster der Plugins (CLAP `gui`, VST3 `IPlugView`; unter Wayland über XWayland).
+- [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket. Der
+  Scan-Prozess muss mitkommen: Pakete liefern heute nur `kontra`, nicht `kontra-cli`; entweder startet `kontra`
+  sich selbst zum Prüfen eines Plugins, oder das Paket bringt das Prüfprogramm mit.
+- Offen für den Eigentümer: Name und Logo „VST“ sind Marken von Steinberg; ob Kontra sie nennen darf, klärt die
+  nächste Runde.
+
 ## Multiplattform: Windows (Eigentümer, 10.11.2026)
 
 Kontra wird für weitere Systeme vorbereitet, Windows zuerst (vorher: Windows und macOS erst nach 1.0). Linux bleibt das
@@ -335,7 +370,13 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   Toleranzen auf der Hälfte der Dateien bestätigt, auf der anderen gleich.
 - [ ] R3 Gerätezeitstempel (cpal `capture`/`playback`) mit DLL statt Anker am ersten Callback. Simulation: heute
   37 ms Fehler bei anderem Quantum als beim Kalibrieren, zwei Geräte nach 5 min p95 24 ms; mit Stempeln < 0,2 ms.
-  Offen: Semantik der Stempel am Scarlett Solo (Loopback, etwa 15 min mit dem Eigentümer).
+  Messung 10.11. (Scarlett Solo, Ausgang per Kabel im Eingang, PipeWire, Block 128): Die Stempel von Ein- und
+  Ausgang liegen auf einer Uhr (CLOCK_MONOTONIC); je Klick aus den Stempeln 17,1–17,5 ms über drei Öffnungen, mit
+  dem Anker am ersten Callback 24,9–30,8 ms. Erster Schritt (#249): Start von Ein- und Ausgang aus dem Vorlauf des
+  Geräts, frühester Schätzwert der ersten halben Sekunde, danach fest. Abwechselnd je 8 Öffnungen: vorher Median
+  25,0 ms, Streuung (SD) 2,5 ms (22,5–29,1); nachher 17,4 ms, SD 1,7 ms (13,6–18,8). Der Rest der Streuung kommt
+  nicht aus den Stempeln (je Klick ±0,4 ms). Offen: Zeit je Block aus den Stempeln (DLL) für beide Seiten über die
+  ganze Laufzeit (Drift, Aussetzer im Ausgang).
 - [x] R4 Latenz per Loopback oder Gerät, nicht per Klick: die Klick-Kalibrierung zieht die Neigung des Spielers ab
   (15 ms früh gilt als „Auf den Punkt“). Klick zeigt danach nur „deine Neigung“; LH-EIN-14 und LH-BEW-09 passen sich an.
   Umgesetzt in #202 (LH-EIN-05): „Mit Kabel messen“, die Klicks zeigen danach die Neigung.
@@ -522,9 +563,9 @@ Erkennung und Messung:
   Läufe es, der Standby wartet aber weiter auf das alte (bis es zurück ist oder ein Eingang gewählt wird). Das
   Warten darf nur zusammen mit dem Angebot in der Leiste enden (`InputBack`, `InputOfferEnded`), sonst bleibt das
   Angebot stehen. Der Hinweis „kein Eingang“ beruht auf dem letzten Blick des Standby (bis 5 s alt).
-- [ ] Dateinamen, die kein UTF-8 sind (Review #235): Kontra lehnt sie mit Grund ab (umbenennen), weil Bibliothek
+- [x] Dateinamen, die kein UTF-8 sind (Review #235): Kontra lehnt sie mit Grund ab (umbenennen), weil Bibliothek
   und Fortschritt JSON sind. Von der Kommandozeile oder aus dem Dateimanager kommt der Name verlustbehaftet an
-  (`args.rs`), die Meldung ist dann „nicht gefunden“ statt „umbenennen“.
+  (`args.rs`), die Meldung ist dann „nicht gefunden“ statt „umbenennen“. Behoben 11.11. für Stücke: `args.rs` behält die Bytes der Pfade. Offen: ein Kurs über `--open` geht als `to_string_lossy()` an `startCourse` (`bridge.rs`).
 - [x] Summenbegrenzer (Review #230; Runde 18, 10.11.: bauen, immer an; LH-WIE-06, #244): Mithören plus Backing,
   Klick und Ton konnte die Summe über Vollaussteuerung bringen, dort schnitt der Mixer hart. Jetzt liegt auf der
   Summe ein Begrenzer (−1 dBFS, gekoppelt, 80 ms), die Echo-Referenz folgt ihm. Hörprobe und Xruns am Gerät offen.

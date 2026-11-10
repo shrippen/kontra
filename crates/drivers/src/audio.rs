@@ -3,13 +3,17 @@
 //! interleaved f32.
 
 mod connection;
+mod downmix;
 mod samples;
 mod shared;
+mod stamps;
 
 #[cfg(target_os = "linux")]
 use crate::pipewire::Graph;
 use connection::guess_connection;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use downmix::Downmix;
+use stamps::lead_s;
 use std::fmt;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -671,15 +675,16 @@ impl fmt::Debug for InputStream {
 impl InputStream {
     /// Opens capture; `on_samples` gets mono blocks on the audio thread with the device time
     /// their first frame was captured, in seconds since the stream's first block (a jump ahead
-    /// of the samples: the device skipped some); `on_error` reports device errors (e.g.
-    /// unplugged interface).
+    /// of the samples: the device skipped some), and how long before this callback the stream's
+    /// first frame was captured, counted in frames plus the device's lead (0 when it does not
+    /// say; R3); `on_error` reports device errors (e.g. unplugged interface).
     pub fn open<F, E>(
         config: &StreamConfig,
         mut on_samples: F,
         on_error: E,
     ) -> Result<InputStream, AudioError>
     where
-        F: FnMut(&[f32], f64) + Send + 'static,
+        F: FnMut(&[f32], f64, f64) + Send + 'static,
         E: FnMut(String) + Send + 'static,
     {
         let device = find_device(Direction::Input, config.device_id.as_deref())?;
@@ -696,16 +701,20 @@ impl InputStream {
         let rate = stream_config.sample_rate;
         let mut realtime = Realtime::default();
         let mut origin: Option<cpal::StreamInstant> = None;
+        let mut received: u64 = 0;
         let callback = move |data: &[f32], info: &cpal::InputCallbackInfo| {
             realtime.once();
             late.block(data.len() / channels, rate);
-            let captured = info.timestamp().capture;
+            let stamps = info.timestamp();
+            let captured = stamps.capture;
             let first = *origin.get_or_insert(captured);
             let mut captured_s = captured.duration_since(first).as_secs_f64();
+            let ago_s = lead_s(stamps.callback, captured) + received as f64 / f64::from(rate);
+            received += (data.len() / channels) as u64;
             for chunk in data.chunks(MAX_BLOCK * channels) {
                 let frames = chunk.len() / channels;
                 downmix.mono(chunk, &mut mono[..frames]);
-                on_samples(&mono[..frames], captured_s);
+                on_samples(&mono[..frames], captured_s, ago_s);
                 captured_s += frames as f64 / f64::from(rate);
             }
         };
@@ -723,65 +732,6 @@ impl InputStream {
                 .map(|d| d.name().to_string())
                 .unwrap_or_default(),
         })
-    }
-}
-
-/// Turns interleaved frames into the instrument's mono signal: the chosen channel, or else the
-/// loudest one. An average would halve a bass on one input of a two-input interface and hide its
-/// clipping (hardware check 13.10.: Scarlett Solo, peaks at −6 dBFS while clipping).
-///
-/// ```text
-/// in 1 (empty)  ─────────            held peak per channel, decaying;
-/// in 2 (bass)   ─╱╲╱╲╱╲──  ──► out   switch only when another is 6 dB louder
-/// ```
-struct Downmix {
-    channels: usize,
-    pick: Option<usize>,
-    /// Recent peak per channel; allocated before the audio thread starts.
-    held: Vec<f32>,
-    current: usize,
-}
-
-/// Per block, a held peak keeps this share (a few seconds at usual block sizes).
-const HOLD_DECAY: f32 = 0.995;
-/// Another channel takes over only this much louder (6 dB): no flipping between equal inputs.
-const SWITCH_RATIO: f32 = 2.0;
-
-impl Downmix {
-    fn new(channels: usize, pick: Option<usize>) -> Downmix {
-        Downmix {
-            channels,
-            pick,
-            held: vec![0.0; channels],
-            current: 0,
-        }
-    }
-
-    /// `out` gets one sample per frame of `frames`.
-    fn mono(&mut self, frames: &[f32], out: &mut [f32]) {
-        let channel = self.pick.unwrap_or_else(|| self.follow(frames));
-        for (i, frame) in frames.chunks_exact(self.channels).enumerate() {
-            out[i] = frame[channel];
-        }
-    }
-
-    /// The loudest channel of the last blocks.
-    fn follow(&mut self, frames: &[f32]) -> usize {
-        for held in &mut self.held {
-            *held *= HOLD_DECAY;
-        }
-        for frame in frames.chunks_exact(self.channels) {
-            for (held, sample) in self.held.iter_mut().zip(frame) {
-                *held = held.max(sample.abs());
-            }
-        }
-        let loudest = (0..self.channels)
-            .max_by(|a, b| self.held[*a].total_cmp(&self.held[*b]))
-            .unwrap_or(0);
-        if self.held[loudest] > self.held[self.current] * SWITCH_RATIO {
-            self.current = loudest;
-        }
-        self.current
     }
 }
 
@@ -833,14 +783,16 @@ impl fmt::Debug for OutputStream {
 }
 
 impl OutputStream {
-    /// Opens playback; `fill` writes interleaved samples (`channels` per frame) on the audio thread.
+    /// Opens playback; `fill` writes interleaved samples (`channels` per frame) on the audio
+    /// thread, told how long after this callback the block's first frame sounds (the device's
+    /// lead, 0 when it does not say).
     pub fn open<F, E>(
         config: &StreamConfig,
         mut fill: F,
         on_error: E,
     ) -> Result<OutputStream, AudioError>
     where
-        F: FnMut(&mut [f32], usize) + Send + 'static,
+        F: FnMut(&mut [f32], usize, f64) + Send + 'static,
         E: FnMut(String) + Send + 'static,
     {
         if config.device_id.as_deref() == Some(NULL_DEVICE) {
@@ -853,10 +805,11 @@ impl OutputStream {
         let mut late = LateCheck::new(&xruns);
         let rate = stream_config.sample_rate;
         let mut realtime = Realtime::default();
-        let callback = move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+        let callback = move |data: &mut [f32], info: &cpal::OutputCallbackInfo| {
             realtime.once();
             late.block(data.len() / channels, rate);
-            fill(data, channels);
+            let stamps = info.timestamp();
+            fill(data, channels, lead_s(stamps.playback, stamps.callback));
         };
         let errors = xruns.errors(on_error);
         let stream = samples::build_output(&device, stream_config, format, callback, errors)
@@ -878,7 +831,7 @@ impl OutputStream {
     /// card. A block that is ready later than its deadline counts as a dropout.
     fn open_null<F>(mut fill: F) -> OutputStream
     where
-        F: FnMut(&mut [f32], usize) + Send + 'static,
+        F: FnMut(&mut [f32], usize, f64) + Send + 'static,
     {
         let xruns = XrunCounter::default();
         let counter = xruns.clone();
@@ -889,7 +842,7 @@ impl OutputStream {
             let mut buffer = vec![0.0f32; NULL_BLOCK * channels];
             let mut clock = NullClock::new(Instant::now(), &counter);
             while !stop_thread.load(Ordering::Relaxed) {
-                fill(&mut buffer, channels);
+                fill(&mut buffer, channels, 0.0);
                 let wake = clock.after_block(Instant::now());
                 std::thread::sleep(wake.saturating_duration_since(Instant::now()));
             }
@@ -1159,7 +1112,7 @@ mod tests {
         let start = Instant::now();
         let stream = OutputStream::open(
             &config,
-            move |data: &mut [f32], _| {
+            move |data: &mut [f32], _, _| {
                 data.fill(0.0);
                 seen.fetch_add(1, Ordering::Relaxed);
             },

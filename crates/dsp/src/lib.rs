@@ -12,10 +12,12 @@
 
 mod beats;
 mod biquad;
+mod chain;
 mod dehum;
 mod dyad;
 mod echo;
 mod effects;
+mod fx;
 mod hum;
 mod inharmonicity;
 mod intonation;
@@ -34,6 +36,7 @@ pub mod synth;
 
 pub use beats::{track_beats, BeatGrid};
 pub use biquad::{Biquad, EqKind, FilterKind};
+pub use chain::{Chain, Insert};
 pub use echo::{EchoCanceller, ECHO_BLOCK};
 pub use effects::{OutputLimiter, LIMIT_CEILING};
 pub use inharmonicity::{

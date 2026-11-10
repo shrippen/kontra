@@ -89,18 +89,17 @@ fn gains_follow_the_mixer() {
     settings.monitor_low_db = 3.0;
     settings.monitor_compress = 0.5;
     settings.monitor_warmth = 0.25;
-    settings.monitor_drive = 0.75;
-    settings.monitor_width = 1.0;
+    settings.set_monitor_drive(0.75);
+    settings.set_monitor_width(1.0);
     settings.monitor_limit = false;
     let shaped = gains(&settings).shaping;
     assert_eq!(
         (shaped.low_db, shaped.compress, shaped.warmth),
         (3.0, 0.5, 0.25)
     );
-    assert_eq!(
-        (shaped.drive, shaped.width, shaped.limit),
-        (0.75, 1.0, Limit::Off)
-    );
+    assert_eq!(shaped.chain, settings.monitor_chain);
+    assert_eq!(shaped.chain.slots().len(), 2);
+    assert_eq!(shaped.limit, Limit::Off);
 }
 
 /// LH-WIE-03: mixer changes reach a running practice without restarting it and are saved.
