@@ -1,5 +1,5 @@
-//! Audio plugins as effects (LH-EIN-20, LH-EIN-21; FX2): find them, load them, run audio through
-//! them. CLAP is the first format; VST3 plugs in behind the same types.
+//! Audio plugins as effects (LH-EIN-20, LH-EIN-21; FX2, FX3): find them, load them, run audio
+//! through them. CLAP and VST3 sit behind the same types.
 //!
 //! ```text
 //!  main thread                                      audio thread
@@ -18,6 +18,8 @@
 mod clap;
 mod paths;
 mod scan;
+#[allow(unsafe_code)]
+mod vst3;
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -135,13 +137,29 @@ pub enum ProcessError {
 /// A plugin on the main thread: parameters, state, latency. `activate` hands the audio side to
 /// the audio thread.
 pub struct LoadedPlugin {
-    inner: clap::ClapPlugin,
+    inner: Backend,
+}
+
+/// The format a plugin was loaded with.
+enum Backend {
+    Clap(clap::ClapPlugin),
+    Vst3(vst3::Vst3Plugin),
+}
+
+/// The same call on whichever backend is behind `$backend`.
+macro_rules! each {
+    ($backend:expr, $p:ident => $call:expr) => {
+        match $backend {
+            Backend::Clap($p) => $call,
+            Backend::Vst3($p) => $call,
+        }
+    };
 }
 
 impl fmt::Debug for LoadedPlugin {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LoadedPlugin")
-            .field("info", self.inner.info())
+            .field("info", each!(&self.inner, p => p.info()))
             .finish_non_exhaustive()
     }
 }
@@ -158,40 +176,39 @@ impl LoadedPlugin {
         path: &Path,
         id: Option<&str>,
     ) -> Result<LoadedPlugin, PluginError> {
-        match format {
-            PluginFormat::Clap => Ok(LoadedPlugin {
-                inner: clap::ClapPlugin::open(path, id)?,
-            }),
-            PluginFormat::Vst3 => Err(PluginError::Unsupported(format)),
-        }
+        let inner = match format {
+            PluginFormat::Clap => Backend::Clap(clap::ClapPlugin::open(path, id)?),
+            PluginFormat::Vst3 => Backend::Vst3(vst3::Vst3Plugin::open(path, id)?),
+        };
+        Ok(LoadedPlugin { inner })
     }
 
     pub fn info(&self) -> &PluginInfo {
-        self.inner.info()
+        each!(&self.inner, p => p.info())
     }
 
     /// Parameters with their current values.
     pub fn params(&mut self) -> Vec<ParamInfo> {
-        self.inner.params()
+        each!(&mut self.inner, p => p.params())
     }
 
     /// Sets a parameter, clamped to its range. While active the change goes through a ring
     /// to the audio thread and takes effect with the next block.
     pub fn set_param(&mut self, id: u32, value: f64) -> Result<(), PluginError> {
-        self.inner.set_param(id, value)
+        each!(&mut self.inner, p => p.set_param(id, value))
     }
 
     /// Delay the plugin adds, in samples.
     pub fn latency_samples(&mut self) -> u32 {
-        self.inner.latency_samples()
+        each!(&mut self.inner, p => p.latency_samples())
     }
 
     pub fn save_state(&mut self) -> Result<Vec<u8>, PluginError> {
-        self.inner.save_state()
+        each!(&mut self.inner, p => p.save_state())
     }
 
     pub fn load_state(&mut self, bytes: &[u8]) -> Result<(), PluginError> {
-        self.inner.load_state(bytes)
+        each!(&mut self.inner, p => p.load_state(bytes))
     }
 
     /// Prepares the plugin for blocks of up to `max_block` frames. Allocates; not for the audio
@@ -201,9 +218,11 @@ impl LoadedPlugin {
         sample_rate: f64,
         max_block: u32,
     ) -> Result<PluginProcessor, PluginError> {
-        Ok(PluginProcessor {
-            inner: self.inner.activate(sample_rate, max_block)?,
-        })
+        let inner = match &mut self.inner {
+            Backend::Clap(p) => Processor::Clap(p.activate(sample_rate, max_block)?),
+            Backend::Vst3(p) => Processor::Vst3(p.activate(sample_rate, max_block)?),
+        };
+        Ok(PluginProcessor { inner })
     }
 
     /// Offline: runs a whole audio file through the plugin and writes a WAV of the same length
@@ -248,13 +267,18 @@ impl LoadedPlugin {
 
     /// Ends the activation (fails while the processor still exists).
     pub fn deactivate(&mut self) -> Result<(), PluginError> {
-        self.inner.deactivate()
+        each!(&mut self.inner, p => p.deactivate())
     }
 }
 
 /// The audio side of an activated plugin. `Send`, for the audio thread.
 pub struct PluginProcessor {
-    inner: clap::ClapProcessor,
+    inner: Processor,
+}
+
+enum Processor {
+    Clap(clap::ClapProcessor),
+    Vst3(vst3::Vst3Processor),
 }
 
 impl fmt::Debug for PluginProcessor {
@@ -271,7 +295,10 @@ impl PluginProcessor {
         input: [&[f32]; CHANNELS],
         output: [&mut [f32]; CHANNELS],
     ) -> Result<(), ProcessError> {
-        self.inner.process(input, output)
+        match &mut self.inner {
+            Processor::Clap(p) => p.process(input, output),
+            Processor::Vst3(p) => p.process(input, output),
+        }
     }
 }
 

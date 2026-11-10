@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 /// Each crate and the Kontra crates it may depend on (`[dependencies]`, `[build-dependencies]`);
 /// tests (`[dev-dependencies]`) may reach further.
-const ALLOWED: [(&str, &[&str]); 11] = [
+const ALLOWED: [(&str, &[&str]); 12] = [
     ("app", &["appcore"]),
     ("appcore", &["session", "model"]),
     ("cli", &["session", "model"]),
@@ -26,6 +26,7 @@ const ALLOWED: [(&str, &[&str]); 11] = [
     ("model", &[]),
     // Test plugins for the plugin host; they depend on no Kontra crate.
     ("test-clap-gain", &[]),
+    ("test-vst3-gain", &[]),
 ];
 
 /// Lines a Rust or QML file may have.

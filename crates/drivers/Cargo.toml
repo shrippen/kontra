@@ -33,6 +33,10 @@ ureq = { version = "3.4", default-features = false, features = ["rustls-no-provi
 rustls-native-certs = "0.8"
 # CLAP plugin hosting (FX2; MIT/Apache-2.0): loading, processing; the extensions are separate crates.
 clack-host = "0.2"
+# VST3 hosting (FX3; MIT/Apache-2.0): bindings of the MIT-licensed VST3 SDK and COM helpers.
+vst3 = "0.3"
+# Opens plugin files at runtime (ISC; already in the tree under clack-host, same version).
+libloading = "0.8"
 # CLAP params, state, latency and audio-ports extensions for the host side (MIT/Apache-2.0).
 clack-extensions = { version = "0.2", features = ["clack-host", "params", "state", "latency", "audio-ports"] }
 
