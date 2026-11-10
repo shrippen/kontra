@@ -47,14 +47,22 @@ for locale in "$KF6_PREFIX/bin/data/locale" "$KF6_PREFIX/share/locale"; do
         break
     fi
 done
+# Without them a German Kontra says "Close Sidebar".
+test -f "$OUT/bin/data/locale/de/LC_MESSAGES/libkirigami6_qt.qm"
 
 # Qt: the libraries, plugins and QML modules the pages and Kante import, and what Kirigami's
 # own libraries and QML plugins need (windeployqt follows only the files it is given: without
 # them the program stopped at a "DLL not found" dialog).
+# Scanned without the pages' tests: they import QtTest, which the program does not need.
+scan="$(mktemp -d)"
+cp -r crates/app/qml/. "$scan/"
+rm -rf "$scan/tests"
 mapfile -t kirigami < <(find "$OUT/bin" -name '*.dll')
 "$QT_ROOT/bin/windeployqt.exe" --release --no-compiler-runtime \
-    --qmldir crates/app/qml --qmlimport "$KF6_PREFIX/lib/qml" \
+    --qmldir "$scan" --qmlimport "$KF6_PREFIX/lib/qml" \
     "$OUT/bin/kontra.exe" "${kirigami[@]}"
+rm -rf "$scan"
+test ! -e "$OUT/bin/qml/QtTest"
 
 # The C++ runtime of this Visual Studio next to the program: a fresh Windows has none, and the
 # folder must start without an installer (Microsoft allows shipping these files app-local).

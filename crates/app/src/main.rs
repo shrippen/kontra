@@ -15,6 +15,7 @@ mod args;
 mod bridge;
 #[cfg(debug_assertions)]
 mod live_qml;
+mod qt_env;
 mod sync_check;
 mod translator;
 
@@ -61,10 +62,10 @@ fn main() {
         std::process::exit(EXIT_USAGE);
     }
     if let Some(theme) = platform_theme(std::env::var_os(THEME_VAR)) {
-        std::env::set_var(THEME_VAR, theme);
+        qt_env::ffi::set_qt_env(THEME_VAR, theme);
     }
     if let Some(style) = controls_style(std::env::var_os(STYLE_VAR)) {
-        std::env::set_var(STYLE_VAR, style);
+        qt_env::ffi::set_qt_env(STYLE_VAR, style);
     }
     let mut app = QGuiApplication::new();
     // Kirigami's own texts in Kontra's language (round 12: "Close Sidebar" in German Kontra).

@@ -55,7 +55,7 @@ impl Core {
             .map(|e| {
                 let progress = store.load_id(&e.song_id);
                 json!({
-                    "path": e.path,
+                    "path": e.path.to_string_lossy(),
                     "title": self.library_title(e),
                     "artist": e.artist,
                     "best": progress.as_ref().and_then(|p| p.best_hit_rate()),
@@ -153,7 +153,7 @@ impl Core {
             return None;
         }
         Some(json!({
-            "path": entry.path,
+            "path": entry.path.to_string_lossy(),
             "title": self.library_title(entry),
             "bars": picked,
         }))
@@ -287,7 +287,7 @@ impl Core {
         }
         let (_, entry, bars) = latest?;
         Some(json!({
-            "path": entry.path,
+            "path": entry.path.to_string_lossy(),
             "title": self.library_title(entry),
             "from": bars.from_bar,
             "to": bars.to_bar,

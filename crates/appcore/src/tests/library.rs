@@ -120,6 +120,19 @@ fn a_plain_path_stays_text() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// The start page and the progress page name pieces too (review #236).
+#[cfg(unix)]
+#[test]
+fn pages_survive_a_name_that_is_not_text() {
+    let dir = temp_dir("latin1-pages");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.open(&demo()).unwrap();
+    core.library.recent[0].path = latin1(b"/alt/st\xFCck.mid");
+    assert!(serde_json::from_str::<serde_json::Value>(&core.home_json(0)).is_ok());
+    assert!(serde_json::from_str::<serde_json::Value>(&core.progress_json()).is_ok());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// Whatever gets into the library: listing the pieces does not crash (review #235).
 #[cfg(unix)]
 #[test]

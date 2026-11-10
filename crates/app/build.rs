@@ -45,9 +45,10 @@ const PAGES: &[&str] = &[
 fn main() {
     let mut builder =
         CxxQtBuilder::new_qml_module(QmlModule::new("org.shrippen.kontra").qml_files(PAGES))
-            .files(["src/bridge.rs", "src/translator.rs"])
+            .files(["src/bridge.rs", "src/translator.rs", "src/qt_env.rs"])
             .crate_include_root(Some("cpp".into()))
-            .cpp_file("cpp/translator.cpp");
+            .cpp_file("cpp/translator.cpp")
+            .cpp_file("cpp/qt_env.cpp");
     // QML reload without restart (KONTRA_LIVE_QML) is a development tool: debug builds only.
     if std::env::var_os("CARGO_CFG_DEBUG_ASSERTIONS").is_some() {
         builder = builder
