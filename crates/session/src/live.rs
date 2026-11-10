@@ -55,7 +55,8 @@ impl LiveSetup {
 /// Either a real player or silence; lets `Practice` run without a sound card.
 #[derive(Debug)]
 pub enum LiveOutput {
-    Device(Player),
+    /// Boxed: a player is far larger than silence (on Windows by hundreds of bytes more).
+    Device(Box<Player>),
     Silent(NullOutput),
 }
 
@@ -171,7 +172,7 @@ impl Live {
         };
         // The input starts before the practice owns the output: it takes the player's monitor ring.
         let player = match &mut output {
-            LiveOutput::Device(p) => Some(p),
+            LiveOutput::Device(p) => Some(&mut **p),
             LiveOutput::Silent(_) => None,
         };
         let mut input = Input::start(
@@ -217,7 +218,7 @@ impl Live {
             self.sender.clone(),
         );
         let player = match &mut output {
-            LiveOutput::Device(p) => Some(p),
+            LiveOutput::Device(p) => Some(&mut **p),
             LiveOutput::Silent(_) => None,
         };
         let instrument = self.practice.session().arrangement().instrument.clone();
@@ -542,7 +543,7 @@ pub(crate) fn open_output(
 ) -> LiveOutput {
     let config = output_config(device);
     match Player::start(&config, clock, events) {
-        Ok(player) => LiveOutput::Device(player),
+        Ok(player) => LiveOutput::Device(Box::new(player)),
         Err(_) => LiveOutput::Silent(NullOutput {
             sample_rate: 48_000,
         }),
@@ -666,7 +667,7 @@ pub fn soak(
     let clock = Clock::new();
     let (tx, rx) = channel();
     let config = output_config(output_device);
-    let output = LiveOutput::Device(Player::start(&config, &clock, tx)?);
+    let output = LiveOutput::Device(Box::new(Player::start(&config, &clock, tx)?));
     let backing = backing
         .map(|p| BackingTrack::load(p, output.sample_rate()))
         .transpose()?;

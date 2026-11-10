@@ -193,11 +193,34 @@ impl Drop for StemJob {
     }
 }
 
-/// Shell scripts stand in for Demucs: Unix only (LH-NF-17, Win4 brings stand-ins for Windows).
 #[cfg(test)]
-#[cfg(unix)]
 mod tests {
     use super::*;
+
+    /// A stand-in for Demucs (`--two-stems bass -n htdemucs -o OUT SONG`: OUT is the sixth
+    /// argument, SONG the seventh) with the body for this system: a shell script, on Windows a
+    /// batch file.
+    fn stand_in(dir: &Path, shell: &str, batch: &str) -> PathBuf {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = batch;
+            let script = dir.join("demucs");
+            std::fs::write(&script, format!("#!/bin/sh\n{shell}\n")).unwrap();
+            std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+            script
+        }
+        #[cfg(windows)]
+        {
+            let _ = shell;
+            let script = dir.join("demucs.cmd");
+            std::fs::write(&script, format!("@echo off\r\n{batch}\r\n")).unwrap();
+            script
+        }
+    }
+
+    /// Runs half a minute, until it is stopped.
+    const WAITS: (&str, &str) = ("sleep 30", "ping -n 31 127.0.0.1 >nul");
 
     /// One test at a time writes and starts a script: a child forked by another test can hold
     /// the file still open for writing, and starting it fails with "Text file busy" (ETXTBSY),
@@ -216,14 +239,11 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("kontra-stems-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let script = dir.join("demucs");
-        std::fs::write(
-            &script,
-            "#!/bin/sh\nname=$(basename \"$7\"); name=\"${name%.*}\"\nmkdir -p \"$6/htdemucs/$name\" && cp \"$7\" \"$6/htdemucs/$name/no_bass.wav\"\n",
-        )
-        .unwrap();
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let script = stand_in(
+            &dir,
+            "name=$(basename \"$7\"); name=\"${name%.*}\"\nmkdir -p \"$6/htdemucs/$name\" && cp \"$7\" \"$6/htdemucs/$name/no_bass.wav\"",
+            "mkdir \"%~6\\htdemucs\\%~n7\"\r\ncopy \"%~7\" \"%~6\\htdemucs\\%~n7\\no_bass.wav\" >nul",
+        );
         let song = dir.join("Song.wav");
         std::fs::write(&song, b"RIFF").unwrap();
         let cache = dir.join("cache");
@@ -270,10 +290,8 @@ mod tests {
         let cache = dir.join("cache");
         let stale = cache.join(WORK_DIR).join("0000000000000000/htdemucs");
         std::fs::create_dir_all(&stale).unwrap();
-        let script = dir.join("demucs");
-        std::fs::write(&script, "#!/bin/sh\nsleep 30\n").unwrap();
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::create_dir_all(&dir).unwrap();
+        let script = stand_in(&dir, WAITS.0, WAITS.1);
         let song = dir.join("Song.wav");
         std::fs::write(&song, b"RIFF").unwrap();
 
@@ -291,14 +309,17 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("kontra-stems-cancel-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let script = dir.join("demucs");
-        std::fs::write(
-            &script,
-            "#!/bin/sh\nmkdir -p \"$6/htdemucs/x\" && echo half > \"$6/htdemucs/x/no_bass.wav\"\nsleep 30\n",
-        )
-        .unwrap();
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let script = stand_in(
+            &dir,
+            &format!(
+                "mkdir -p \"$6/htdemucs/x\" && echo half > \"$6/htdemucs/x/no_bass.wav\"\n{}",
+                WAITS.0
+            ),
+            &format!(
+                "mkdir \"%~6\\htdemucs\\x\"\r\necho half> \"%~6\\htdemucs\\x\\no_bass.wav\"\r\n{}",
+                WAITS.1
+            ),
+        );
         let song = dir.join("Song.wav");
         std::fs::write(&song, b"RIFF").unwrap();
         let cache = dir.join("cache");

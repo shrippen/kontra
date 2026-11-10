@@ -1,6 +1,6 @@
 //! Library: import, search, setlists, tags, caches, progress, exercises and data export.
 
-use super::{local_path, q, qobject};
+use super::{file_url, local_path, q, qobject};
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
@@ -10,6 +10,12 @@ use std::path::PathBuf;
 impl qobject::Controller {
     pub(super) fn song_map(&self) -> QString {
         q(&self.rust().core.song_map_json())
+    }
+
+    pub(super) fn folder_url(&self, path: &QString) -> QString {
+        let path = PathBuf::from(path.to_string());
+        let folder = path.parent().filter(|p| !p.as_os_str().is_empty());
+        folder.map_or_else(QString::default, |p| q(&file_url(p)))
     }
 
     pub(super) fn import_folder(mut self: Pin<&mut Self>, url: &QString, as_setlist: bool) {

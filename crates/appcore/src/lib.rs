@@ -41,6 +41,7 @@ pub use data::DataImport;
 pub use i18n::{Catalog, Language};
 pub use input_state::InputState;
 pub use kontra_session::{exercise, Blocks, ChainOrder, Density};
+pub use kontra_session::{file_url, local_path};
 pub use package::PackageAudio;
 pub use store::{
     data_dir, AudioPath, Bass, InputKind, LatencyFrom, Library, PracticeLoop, RecentEntry,

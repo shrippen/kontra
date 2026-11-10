@@ -13,30 +13,29 @@ const PROMPT_VOLUME: f64 = 0.8;
 /// Free timing window before the user picks one (LH-BEW-02): as "normal".
 const WINDOW_DEFAULT_MS: f64 = 60.0;
 
-/// `KONTRA_DATA_DIR`, else `$XDG_DATA_HOME/kontra`, else `~/.local/share/kontra`.
+/// Kontra's name for its folders; the system decides how it is written.
+const PROGRAM: &str = "kontra";
+/// Overrides the data folder (tests, QA runs, a second profile).
+const DATA_VARIABLE: &str = "KONTRA_DATA_DIR";
+
+/// `KONTRA_DATA_DIR`, else Kontra's folder where the system keeps data: `$XDG_DATA_HOME/kontra`
+/// or `~/.local/share/kontra`; Windows `%APPDATA%\Kontra` (LH-NF-17). Without a home: here.
 pub fn data_dir() -> PathBuf {
-    if let Some(dir) = std::env::var_os("KONTRA_DATA_DIR") {
+    if let Some(dir) = std::env::var_os(DATA_VARIABLE) {
         return PathBuf::from(dir);
     }
-    if let Some(dir) = std::env::var_os("XDG_DATA_HOME") {
-        return PathBuf::from(dir).join("kontra");
-    }
-    let home = std::env::var_os("HOME").map_or_else(|| PathBuf::from("."), PathBuf::from);
-    home.join(".local/share/kontra")
+    kontra_session::data_dir_of(PROGRAM).unwrap_or_else(|| PathBuf::from(".").join(PROGRAM))
 }
 
-/// Files Kontra can make again (separated songs, LH-BIB-09): `$XDG_CACHE_HOME/kontra`, else
-/// `~/.cache/kontra`, so backups skip them. A data folder of its own (`KONTRA_DATA_DIR`, tests)
-/// keeps them inside, in `cache/`.
+/// Files Kontra can make again (separated songs, LH-BIB-09): `$XDG_CACHE_HOME/kontra` or
+/// `~/.cache/kontra`, Windows `%LOCALAPPDATA%\Kontra`, so backups skip them. A data folder of
+/// its own (`KONTRA_DATA_DIR`, tests) keeps them inside, in `cache/`, as does a system without a home.
 pub fn cache_dir(data: &Path) -> PathBuf {
-    if data != data_dir() || std::env::var_os("KONTRA_DATA_DIR").is_some() {
+    if data != data_dir() || std::env::var_os(DATA_VARIABLE).is_some() {
         return data.join("cache");
     }
-    if let Some(dir) = std::env::var_os("XDG_CACHE_HOME") {
-        return PathBuf::from(dir).join("kontra");
-    }
-    let home = std::env::var_os("HOME").map_or_else(|| PathBuf::from("."), PathBuf::from);
-    home.join(".cache/kontra")
+    // Without a home the cache stays inside the data folder, not on top of it.
+    kontra_session::cache_dir_of(PROGRAM).unwrap_or_else(|| data.join("cache"))
 }
 
 /// Reads JSON or returns the default (a damaged file is kept aside as `.broken`).

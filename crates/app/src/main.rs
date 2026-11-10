@@ -107,7 +107,7 @@ fn main_qml() -> QUrl {
     };
     let file = dir.join("Main.qml");
     eprintln!("kontra: pages from {}, reloaded on change", file.display());
-    QUrl::from(format!("file://{}", file.display()).as_str())
+    QUrl::from(kontra_appcore::file_url(&file).as_str())
 }
 
 /// The QML folder on disk when pages load from there (debug build, `LIVE_QML_VAR` set).

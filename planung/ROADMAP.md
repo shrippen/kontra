@@ -72,12 +72,12 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 ```
 
 - [x] Win1 Rust-Kern unter Windows: alles unter der Oberfläche (`--exclude kontra-app`) baut und besteht seine
-  Tests für Windows (10.11.: auf `windows-latest` mit MSVC alles grün; lokal mit `scripts/check-windows.sh`
-  als `x86_64-pc-windows-gnu` unter Wine, 56 Testprogramme). Der Job `windows` für `ci.yml` kommt in einem
+  Tests für Windows (10.11.: auf `windows-latest` mit MSVC grün, Lauf 42733510273 zu `windows-ci`; lokal mit
+  `scripts/check-windows.sh` als `x86_64-pc-windows-gnu` unter Wine, 56 Testprogramme). Der Job `windows` für `ci.yml` kommt in einem
   eigenen PR (ändert die CI: Bestätigung des Eigentümers). Was dafür nötig war:
   - Demucs starten und beenden (`drivers/src/separator/process.rs`): Unix wie bisher (`nice`, Prozessgruppe,
     SIGTERM/SIGKILL, endet mit Kontra); Windows mit niedriger Prioritätsklasse, ohne Konsolenfenster, beendet
-    samt Kindern über `taskkill /T /F`, Programme am Namen erkannt (`.exe`, `.cmd`, `.bat`). Tests mit
+    samt Kindern über `taskkill /T /F`, Programme am Namen erkannt (`.exe`, `.cmd`, `.bat`, `.com`). Tests mit
     Batch-Dateien als Ersatz-Demucs.
   - ALSA-Host nur unter Linux; Windows nimmt den Host des Systems (WASAPI).
   - Download-Ordner: `%USERPROFILE%\Downloads`.
@@ -92,13 +92,14 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   unterschreibt) oder GPLv3. GPL verträgt sich nicht mit der Abhängigkeitsregel, also die Vereinbarung:
   vor dem ersten Paket mit ASIO klären (Lizenztext prüfen, Logo-Pflicht).
 - [ ] Win3 Qt-App: Qt 6 und Kirigami auf Windows (KDE Craft oder Qt-Installer plus Kirigami aus den Quellen),
-  cxx-qt mit MSVC; CI baut die App und nimmt Screenshots (offscreen). Dabei: `local_path` und `main_qml` in
-  `crates/app` lesen und bauen Datei-URLs nur in Unix-Schreibweise; „Ordner öffnen“ in `LibraryPage.qml` sucht `/`.
-- [ ] Win4 Pfade und Dienste: Daten in `%APPDATA%\Kontra`, Cache in `%LOCALAPPDATA%\Kontra` (heute `HOME` und
-  XDG in `appcore/src/store.rs`; gehört nach `drivers/folder.rs`), verschobener Download-Ordner (Known Folders),
-  Demucs endet mit einem abgestürzten Kontra (Job Object), Ersatz-Demucs für die Stem-Tests in `session`,
-  `appcore` und J-D1 unter Windows, Kirigamis Übersetzungen, Dateidialoge, Tastenkürzel, Schriftarten, hohe DPI.
-  Clippy für Windows meldet `LiveOutput` (große Variante `Player`): beim Aufnehmen von Clippy in den Job klären.
+  cxx-qt mit MSVC; CI baut die App und nimmt Screenshots (offscreen). Erledigt (10.11.): Datei-URLs in beide
+  Richtungen für beide Systeme in `drivers/src/urls.rs` (abgelegte Dateien, Kursvideos, Live-QML, Startordner des
+  Dateidialogs über `ctl.folderUrl`).
+- [ ] Win4 Pfade und Dienste. Erledigt (10.11.): Daten in `%APPDATA%\Kontra`, Cache in `%LOCALAPPDATA%\Kontra`
+  (`drivers/folder.rs` nennt Kontras Ordner je System; unter Linux wie bisher XDG). Demucs endet unter Windows mit Kontra, auch nach einem Absturz (Job Object,
+  `separator/process.rs`, Test `ends_when_the_leash_goes`). Die Stem-Tests in `session`, `appcore` und J-D1
+  laufen unter Windows mit Batch-Dateien als Ersatz-Demucs. Offen: verschobener Download-Ordner (Known Folders),
+  Kirigamis Übersetzungen, Dateidialoge, Tastenkürzel, Schriftarten, hohe DPI. Clippy läuft für Windows ohne Warnung (`scripts/check-windows.sh build`).
 - [ ] Win5 Paket und Signierung (Entscheidung 10.11.: signieren ja; Form offen, Vorschlag unten), gebaut und
   angehängt nur von GitHub Actions (CLAUDE.md), Demo-Ausschluss geprüft wie im Flatpak; Landing Page mit
   Windows-Download.
