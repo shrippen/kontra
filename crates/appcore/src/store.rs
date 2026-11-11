@@ -1,5 +1,6 @@
 //! Settings and library on disk (LH-ALL-03, LH-FOR-03): JSON in the data directory.
 
+use crate::effects::ChainPreset;
 use kontra_model::{ChainSpec, EffectKind, PluginSpec, SlotSpec, A4_HZ};
 use kontra_session::Gains;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -208,6 +209,8 @@ pub struct Settings {
     pub monitor_chain: ChainSpec,
     /// What the plugin slots of the chain need (LH-EIN-20, -21): the slot names one by id.
     pub plugins: Vec<PluginSpec>,
+    /// Named chains the player saved (LH-EIN-19), in the order saved.
+    pub chain_presets: Vec<ChainPreset>,
     /// The limiter after the chain (LH-EIN-17; on by default: a hard slap does not crackle).
     pub monitor_limit: bool,
     /// Overdrive and width as older files stored them; `migrate` makes slots of them.
@@ -296,6 +299,7 @@ impl Default for Settings {
             monitor_warmth: 0.0,
             monitor_chain: ChainSpec::EMPTY,
             plugins: Vec::new(),
+            chain_presets: Vec::new(),
             monitor_limit: true,
             legacy_drive: 0.0,
             legacy_width: 0.0,

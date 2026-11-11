@@ -4,12 +4,16 @@
 //! ```text
 //! page ── effects_json() ──► {"slots": [{name, on, values: [{label, shown, value}]}], "kinds": …,
 //!                             "plugins": found ones, "scan": {…}}
-//! page ── edit_effects("add" | "remove" | "up" | "down" | "on" | "set" | "scan", …)
+//! page ── edit_effects("add" | "remove" | "up" | "down" | "on" | "set" | "scan"
+//!                       | "save" | "load" | "delete", …)
 //!                                      ──► Settings.monitor_chain (+ Settings.plugins)
 //! ```
 //!
 //! A plugin slot lists the plugin's parameters like the built-in values: sliders from 0 to 1 that
 //! `fx_plugins::from_unit` maps onto the plugin's own range.
+
+mod presets;
+pub use presets::ChainPreset;
 
 use crate::fx_plugins::{self, found_at, param_key, param_mut, PLUGIN_KEY};
 use crate::{Core, Settings};
@@ -76,7 +80,7 @@ fn value_mut<'a>(slot: &'a mut SlotSpec, name: &str) -> Option<&'a mut f32> {
 
 impl Core {
     /// The chain for the mixer: `{"max", "full", "empty", "fullText", "latencyText", "kinds":
-    /// [{"key", "name"}], "plugins": [{"key", "name", "vendor", "format"}], "scan": {"running", "text",
+    /// [{"key", "name"}], "plugins": [{"key", "name", "vendor", "format"}], "presets": [name], "scan": {"running", "text",
     /// "broken": [{"file", "reason"}]}, "slots": [{"index", "kind", "name", "hint", "problem",
     /// "on", "first", "last", "values": [{"key", "label", "value", "shown"}]}]}`.
     pub fn effects_json(&self) -> String {
@@ -103,6 +107,7 @@ impl Core {
             "plugins": self.found_plugins_json(),
             "scan": self.scan_json(),
             "slots": slots,
+            "presets": self.settings().chain_presets.iter().map(|p| &p.name).collect::<Vec<_>>(),
         })
         .to_string()
     }
@@ -240,8 +245,9 @@ impl Core {
 
     /// Edits the chain and applies it at once (the audio crossfades). `op`: "add" (`name` is
     /// the kind, or `plugin:<n>` for the n-th plugin found), "remove", "up", "down", "on"
-    /// (`value` 0 or 1), "set" (`name` is "a", "b", "mix", or `p<id>` for a plugin parameter)
-    /// or "scan" (looks for plugins). Returns a hint when nothing changed for a reason the
+    /// (`value` 0 or 1), "set" (`name` is "a", "b", "mix", or `p<id>` for a plugin parameter),
+    /// "scan" (looks for plugins), "save" (the chain as preset `name`), "load" or "delete"
+    /// (preset `index`). Returns a hint when nothing changed for a reason the
     /// player should know (full chain, a plugin that does not load) or monitoring cannot work,
     /// as `remix` does.
     pub fn edit_effects(
@@ -262,6 +268,19 @@ impl Core {
             "scan" => {
                 self.plugins.scan();
                 return None;
+            }
+            "save" | "delete" => return self.edit_presets(op, index, name),
+            "load" => {
+                let preset = self.settings().chain_presets.get(index)?;
+                let ids: Vec<u32> = preset.plugins.iter().map(|p| p.id).collect();
+                // Ids in a preset may have named other plugins here: their old notes do not apply.
+                for id in ids {
+                    self.plugins.problems.clear(id);
+                    self.plugins.crashed.remove(&id);
+                }
+                Box::new(move |s| {
+                    presets::load_preset(s, index);
+                })
             }
             "add" if len >= CHAIN_SLOTS => {
                 return Some(self.tr("fx.full", &[("max", CHAIN_SLOTS.to_string())]));
@@ -307,6 +326,21 @@ impl Core {
             apply(s);
             s.prune_plugins();
         })
+    }
+
+    /// Saves the chain as `name` or deletes preset `index`; neither touches the sound. A full
+    /// list says so.
+    fn edit_presets(&mut self, op: &str, index: usize, name: &str) -> Option<String> {
+        let mut done = false;
+        self.update_settings(|s| {
+            done = match op {
+                "save" => presets::save_preset(s, name),
+                _ => presets::delete_preset(s, index),
+            };
+        });
+        let full = op == "save" && !done && !name.trim().is_empty();
+        let max = presets::MAX_PRESETS.to_string();
+        full.then(|| self.tr("fx.preset.full", &[("max", max)]))
     }
 
     /// Loads the plugin the page chose from the scan to learn its parameters and state. `None`

@@ -93,7 +93,8 @@ drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier
   eigenen Effekte im Mixer fertig (hinzufügen, Reihenfolge per Knopf, an/aus, Werte, entfernen); Plugins
   ebenso: „Plugins suchen“ (Prozess je Datei über `kontra --probe-plugin`, Ergebnis in `plugins.json`), Auswahl
   mit Name, Hersteller und Format, Parameter als Regler, Zustand in den Einstellungen; ein Plugin, das nicht
-  lädt, bleibt als stummer Eintrag mit Grund. Voreinstellungen je Kette fehlen. Plugins laden auf einem
+  lädt, bleibt als stummer Eintrag mit Grund. Ketten unter einem Namen speichern, laden, löschen (Runde 19; je
+  Kette eine Kopie ihrer Plugins mit Zustand, höchstens 32). Plugins laden auf einem
   eigenen Thread (`kontra-plugins`, 11.11.); bis die neue Kette steht, spielt die alte. Stürzt Kontra beim Laden
   ab, bleibt das Plugin beim nächsten Start aus, mit Hinweis (Runde 19). Instanzen überleben Umbauten der Kette
   (eine je Plugin-Slot, solange er in den Einstellungen steht; Umsortieren, aus/an, anderer Effekt dazu: kein
@@ -105,8 +106,7 @@ drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier
 - [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket. Der
   Scan-Prozess kommt mit: `kontra` startet sich selbst zum Prüfen (`--probe-plugin <Datei>`, vor Qt in `main`),
   die Pakete brauchen kein zweites Programm; offen bleibt, dass die Sandbox die Plugin-Ordner sieht.
-- Offen für den Eigentümer: Name und Logo „VST“ sind Marken von Steinberg; ob Kontra sie nennen darf, klärt die
-  nächste Runde.
+- „VST 3“ nach Steinbergs Regeln, Markenhinweis unter „Über Kontra“, kein Logo (Runde 19, #273).
 
 ## Multiplattform: Windows (Eigentümer, 10.11.2026)
 
