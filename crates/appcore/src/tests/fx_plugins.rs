@@ -232,6 +232,8 @@ fn the_search_runs_in_the_background_and_is_kept() {
         program: "sh".into(),
         args: vec!["-c".into(), "echo '{\"Failed\":\"for the test\"}'".into()],
     });
+    // Not the machine's plugin folders: what is installed there must not change the test.
+    core.plugins.set_files(vec![dir.join("one.clap")]);
     core.edit_effects("scan", 0, "", 0.0);
     assert!(effects(&core)["scan"]["running"].as_bool().unwrap());
 
