@@ -180,6 +180,21 @@ fn assert_gain(out: &[f32], input: &[f32], factor: f32) {
     }
 }
 
+/// The builder knows what the chain it built last delays the bass by, in ms.
+#[test]
+fn the_builder_reports_the_latency_in_ms() {
+    let bank = bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 0.5)]);
+    let mut builder = ChainBuilder::new(RATE);
+    assert_eq!(builder.latency_ms(), 0.0, "nothing built yet");
+
+    builder.fit(&plugin_chain(), &bank).expect("new chain");
+    let want_ms = LATENCY as f64 / RATE * 1000.0;
+    assert!((builder.latency_ms() - want_ms).abs() < 1e-9);
+
+    builder.fit(&ChainSpec::EMPTY, &bank).expect("empty chain");
+    assert_eq!(builder.latency_ms(), 0.0, "plugin gone");
+}
+
 fn gain_halves_the_bass(format: PluginFormat, name: &str) {
     let bank = bank(vec![gain_spec(format, name, 0.5)]);
     let mut builder = ChainBuilder::new(RATE);

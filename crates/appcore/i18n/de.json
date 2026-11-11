@@ -405,6 +405,8 @@
   "fx.add": "Effekt hinzufügen",
   "fx.add.button": "{name} hinzufügen",
   "fx.full": "Die Kette ist voll ({max} Effekte). Entferne erst einen.",
+  "fx.latency": "Effekte verzögern den Bass um {ms} ms.",
+  "fx.latency.mark": ",",
   "fx.slot": "{number}. {name}",
   "fx.on": "{name} an",
   "fx.remove": "{name} entfernen",

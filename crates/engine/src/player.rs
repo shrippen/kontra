@@ -379,6 +379,12 @@ impl Player {
         }
     }
 
+    /// What the effect chain running now delays the bass by, in ms. The chain fades in a moment
+    /// after it was built; the figure is the new one from then on.
+    pub fn chain_latency_ms(&self) -> f64 {
+        self.builder.latency_ms()
+    }
+
     /// Output dropouts since the start (LH-NF-04).
     pub fn xruns(&self) -> u64 {
         self._stream.xruns()

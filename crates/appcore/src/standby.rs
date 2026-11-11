@@ -133,6 +133,18 @@ impl Core {
         }
     }
 
+    /// What the effect chain delays the bass by, in ms: in the run, else in the standby monitor;
+    /// `None` when no device output plays.
+    pub(crate) fn chain_latency_ms(&self) -> Option<f64> {
+        if let Some(live) = self.live.as_ref() {
+            return live.chain_latency_ms();
+        }
+        self.standby
+            .monitor
+            .as_ref()
+            .map(LiveMonitor::chain_latency_ms)
+    }
+
     /// What to say about the standby after a mixer change. Only when "Bass hören" just went on
     /// Kontra says that it found no input (none chosen and no interface, or none chosen at the
     /// laptop jack), not on every slider.

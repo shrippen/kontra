@@ -71,6 +71,11 @@ impl LiveMonitor {
         self.output.set_gains(gains);
     }
 
+    /// What the effect chain delays the bass by, in ms.
+    pub fn chain_latency_ms(&self) -> f64 {
+        self.output.chain_latency_ms()
+    }
+
     /// The input reaches the output (both at the same rate).
     pub fn can_monitor(&self) -> bool {
         self.can_monitor

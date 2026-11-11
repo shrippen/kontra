@@ -360,6 +360,16 @@ ColumnLayout {
             }
         }
     }
+    // What the chain adds to the delay of the heard bass; empty when it adds none.
+    Text {
+        Layout.fillWidth: true
+        Layout.topMargin: KanteStyle.unit(8)
+        visible: mixer.ctl.monitor && mixer.fx.latencyText !== ""
+        color: KanteStyle.mutedTextColor
+        font: KanteStyle.smallFont
+        wrapMode: Text.WordWrap
+        text: mixer.fx.latencyText
+    }
     KanteSettingRow {
         Layout.fillWidth: true
         visible: mixer.ctl.monitor

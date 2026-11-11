@@ -105,6 +105,14 @@ impl Output for LiveOutput {
 }
 
 impl LiveOutput {
+    /// What the effect chain delays the bass by, in ms; `None` for silence.
+    fn chain_latency_ms(&self) -> Option<f64> {
+        match self {
+            LiveOutput::Device(p) => Some(p.chain_latency_ms()),
+            LiveOutput::Silent(_) => None,
+        }
+    }
+
     /// Output dropouts since the start (LH-NF-04); silence has none.
     pub fn xruns(&self) -> u64 {
         match self {
@@ -242,6 +250,11 @@ impl Live {
     pub fn input_block(&self) -> Option<(u32, u32)> {
         let input = self.input.as_ref()?;
         input.block_frames().map(|b| (b, input.sample_rate))
+    }
+
+    /// What the effect chain delays the bass by, in ms; `None` without a device output.
+    pub fn chain_latency_ms(&self) -> Option<f64> {
+        self.practice.output().chain_latency_ms()
     }
 
     /// Input and output dropouts since the start (LH-NF-04).
