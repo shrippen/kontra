@@ -20,6 +20,7 @@ mod korpus;
 mod offline;
 mod player;
 mod plugin_chain;
+mod plugin_group;
 mod strings_korpus;
 
 pub use backing::{BackingTrack, Resolution};
@@ -50,6 +51,7 @@ pub use plugin_chain::{
     describe_plugin, describe_plugin_later, ChainBuilder, PendingSpec, PluginBank, PluginProblems,
     PluginRack,
 };
+pub use plugin_group::{group_of_effect, group_of_plugin, PluginGroup};
 pub use strings_korpus::{tell_strings, StringTold};
 
 use kontra_dsp::TunerReading;

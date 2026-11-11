@@ -120,6 +120,10 @@ pub struct PluginInfo {
     pub vendor: String,
     pub path: PathBuf,
     pub ports: PortLayout,
+    /// What the plugin says it is: VST 3 sub-categories ("Fx", "Dynamics"), CLAP features
+    /// ("audio-effect", "compressor"). Empty in scans from before this field.
+    #[serde(default)]
+    pub categories: Vec<String>,
 }
 
 /// A parameter with its range and current value, in the plugin's own units.

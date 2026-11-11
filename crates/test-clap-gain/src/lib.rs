@@ -162,7 +162,7 @@ impl<const CHANNELS: u32> Plugin for Gain<CHANNELS> {
 
 impl<const CHANNELS: u32> DefaultPluginFactory for Gain<CHANNELS> {
     fn get_descriptor() -> PluginDescriptor {
-        use clack_plugin::plugin::features::{AUDIO_EFFECT, MONO, STEREO};
+        use clack_plugin::plugin::features::{AUDIO_EFFECT, MONO, STEREO, UTILITY};
 
         let (id, name, layout) = if CHANNELS == 1 {
             (PLUGIN_ID_MONO, "Kontra Test Gain Mono", MONO)
@@ -171,7 +171,7 @@ impl<const CHANNELS: u32> DefaultPluginFactory for Gain<CHANNELS> {
         };
         PluginDescriptor::new(id, name)
             .with_vendor("Kontra Tests")
-            .with_features([AUDIO_EFFECT, layout])
+            .with_features([AUDIO_EFFECT, UTILITY, layout])
     }
 
     fn new_shared(_host: HostSharedHandle<'_>) -> Result<Shared, PluginError> {

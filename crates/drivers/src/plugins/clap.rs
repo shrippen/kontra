@@ -124,6 +124,13 @@ fn lossy(s: Option<&std::ffi::CStr>) -> String {
         .unwrap_or_default()
 }
 
+fn features_of(descriptor: &clack_host::plugin::PluginDescriptor) -> Vec<String> {
+    descriptor
+        .features()
+        .map(|f| f.to_string_lossy().into_owned())
+        .collect()
+}
+
 fn read_ports(instance: &mut PluginInstance<Host>) -> PortLayout {
     let handle = instance.plugin_handle();
     let Some(ports) = handle.get_extension::<PluginAudioPorts>() else {
@@ -173,6 +180,7 @@ pub(super) fn probe(path: &Path) -> Result<Vec<PluginInfo>, PluginError> {
             vendor: lossy(descriptor.vendor()),
             path: path.to_path_buf(),
             ports: read_ports(&mut instance),
+            categories: features_of(descriptor),
         });
     }
     match (found.is_empty(), first_error) {
@@ -242,6 +250,7 @@ impl ClapPlugin {
             .find(|d| d.id() == Some(plugin_id.as_c_str()))
             .ok_or_else(|| load_error(path, "plugin vanished"))?;
         let (name, vendor) = (lossy(descriptor.name()), lossy(descriptor.vendor()));
+        let categories = features_of(descriptor);
 
         let mut instance = instantiate(&entry, &plugin_id, path)?;
         let ports = read_ports(&mut instance);
@@ -275,6 +284,7 @@ impl ClapPlugin {
                 vendor,
                 path: path.to_path_buf(),
                 ports,
+                categories,
             },
             instance,
             params,
