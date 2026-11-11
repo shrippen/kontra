@@ -153,6 +153,16 @@ pub(crate) fn next_id(plugins: &[PluginSpec]) -> u32 {
     plugins.iter().map(|p| p.id).max().unwrap_or(0) + 1
 }
 
+/// A plugin value to read: up to two decimals, no trailing zeros, the language's decimal mark
+/// (2.0 → "2", 1.5 → "1,5" in German).
+pub(crate) fn shown_value(value: f64, mark: &str) -> String {
+    let text = format!("{value:.2}");
+    let text = text.trim_end_matches('0').trim_end_matches('.');
+    // A value just below zero rounds to "-0".
+    let text = if text == "-0" { "0" } else { text };
+    text.replace('.', mark)
+}
+
 /// The parameter named by a slider key, if the plugin has it.
 pub(crate) fn param_mut<'a>(spec: &'a mut PluginSpec, key: &str) -> Option<&'a mut ParamSpec> {
     let id: u32 = key.strip_prefix('p')?.parse().ok()?;
@@ -177,5 +187,18 @@ impl crate::Core {
     /// Once when a plugin search has finished.
     pub(crate) fn poll_plugins(&mut self) -> Option<crate::UiEvent> {
         self.plugins.poll().then_some(crate::UiEvent::PluginScan)
+    }
+}
+
+#[cfg(test)]
+mod shown {
+    use super::shown_value;
+
+    /// Review #264: a value just below zero read "-0".
+    #[test]
+    fn no_negative_zero() {
+        assert_eq!(shown_value(-0.001, ","), "0");
+        assert_eq!(shown_value(-1.5, ","), "-1,5");
+        assert_eq!(shown_value(10.0, "."), "10");
     }
 }
