@@ -109,7 +109,7 @@ drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier
   (HWND) für CLAP und VST 3, in der VM mit den Test-Plugins geprüft (Runde 20). Im Flatpak über X11 (#281).
   Offen: ein echtes Plugin-Fenster am Gerät ansehen.
   Voraussetzung steht: Instanzen leben so lang wie ihr Slot (FX4), ein offenes Fenster geht beim Umbauen der Kette
-  nicht verloren. Je Player eine eigene Instanz; ein gemeinsames Register über Player hinweg fehlt noch.
+  nicht verloren. Eine Instanz je Plugin für alle Player (`PluginRack`, Runde 20): ein Wechsel lädt nichts neu, das Fenster bleibt offen.
 - [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket. Der
   Scan-Prozess kommt mit: `kontra` startet sich selbst zum Prüfen (`--probe-plugin <Datei>`, vor Qt in `main`),
   die Pakete brauchen kein zweites Programm. Flatpak erledigt (Runde 20, #281): X11 für die Fenster, `~/.clap`
@@ -233,13 +233,15 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 - Plugin-Fenster unter Windows (HWND): in der Windows-VM bauen und prüfen; VM freigegeben.
 - R3 (Zeit je Block aus den Gerätestempeln, DLL): mit dem Scarlett messen (Ausgang per Kabel im Eingang); freigegeben.
 - USB-Eingang ohne Ausgang: Schalter „Instrument/Mikrofon“ je Gerät in den Einstellungen (LH-EIN-02).
-- Plugin-Instanzen über einen Wechsel des Players hinweg: eine Instanz je Plugin für alle Player (#283). „Das
-  Wechseln von Player zu Player darf nicht spürbar sein!“ Gemessen 11.11. (`kontra-cli check --steps switch`,
-  Scarlett, PipeWire, Block 128, je 10 Wechsel, zwei Läufe): schon das Schließen und Öffnen der Geräte lässt den
-  Ausgang 31–42 ms stumm (Median 36–37 ms; Schließen 2–6 ms, Öffnen 21–25 ms, bis zum ersten Block 5–15 ms), ohne
-  Ausblenden. Das ist die Untergrenze: ein echter Wechsel ist länger (ein Lauf lädt seinen Begleit-Track, bevor er
-  den Eingang öffnet; zurück in die Bereitschaft bis zu einem Tick von 16 ms; die Effektkette blendet erst danach
-  ein; hörbar wird der Bass erst mit dem ersten Block des Eingangs). Das ist hörbar; eine Audio-Engine, die über alle Modi offen bleibt, wird eine eigene Frage an den Eigentümer.
+- Plugin-Instanzen über einen Wechsel des Players hinweg: eine Instanz je Plugin für alle Player (Bereitschaft,
+  Lauf, Gehörtraining, Stimmgerät), das Fenster bleibt offen, nichts lädt neu (#283). „Das Wechseln von Player zu
+  Player darf nicht spürbar sein!“ (Neuladen eines VST dauert Sekunden.) Gemessen 11.11. (`kontra-cli check
+  --steps switch`, Scarlett, PipeWire, Block 128, je 10 Wechsel, zwei Läufe): schon das Schließen und Öffnen der
+  Geräte lässt den Ausgang 31–42 ms stumm (Median 36–37 ms; Schließen 2–6 ms, Öffnen 21–25 ms, bis zum ersten
+  Block 5–15 ms), ohne Ausblenden. Das ist die Untergrenze: ein echter Wechsel ist länger (ein Lauf lädt seinen
+  Begleit-Track, bevor er den Eingang öffnet; zurück in die Bereitschaft bis zu einem Tick von 16 ms; die
+  Effektkette blendet erst danach ein; hörbar wird der Bass erst mit dem ersten Block des Eingangs). Das ist
+  hörbar; eine Audio-Engine, die über alle Modi offen bleibt, wird eine eigene Frage an den Eigentümer.
 
 ### Entscheidungen Runde 19 (11.11.2026)
 

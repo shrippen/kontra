@@ -37,7 +37,18 @@
 //!   reason goes to `PluginProblems`, which the settings page reads.
 //! - Audio runs in blocks of `BLOCK` frames: the insert collects a block, so it adds `BLOCK`
 //!   frames of latency to the plugin's own (reported by `Insert::latency_frames`).
-//! - Each `Player` has its own builder and so its own instances; players never run at once.
+//! - The instances belong to the `PluginRack` the bank carries, not to a builder: every player
+//!   (standby, run, ear training, tuner) has its own builder, but they share one instance per
+//!   slot, with its state and its open window (Runde 20: switching players must not be
+//!   noticeable; loading a VST takes seconds). A builder keeps only what its own chain holds.
+//!   Players overlap for a moment when one takes over: the new builder waits until the old
+//!   chain is gone and has parked the processor, as for a reshape.
+//!
+//! ```text
+//!  standby player ─ builder ─┐                    ┌─ Active (slot 1): handle, parked processor
+//!  run player ───── builder ─┼─ bank ─ PluginRack ┼─ Active (slot 4)
+//!  tuner ────────── builder ─┘                    └─ retiring: removed slots, closed when free
+//! ```
 
 use kontra_drivers::plugins::FrameMaker;
 use kontra_drivers::plugins::{
@@ -48,7 +59,7 @@ use kontra_dsp::{Chain, Insert};
 use kontra_model::{ChainSpec, EffectKind, ParamSpec, PluginSpec};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 /// Frames the plugin gets at once, and the delay this adds.
 const BLOCK: usize = 64;
@@ -100,12 +111,14 @@ impl PluginProblems {
     }
 }
 
-/// The plugins of the settings, as the engine needs them.
+/// The plugins of the settings, as the engine needs them, with the rack their instances live
+/// in.
 #[derive(Debug, Clone, Default)]
 pub struct PluginBank {
     specs: Arc<Vec<PluginSpec>>,
     problems: PluginProblems,
     crash_marker: Option<PathBuf>,
+    rack: PluginRack,
 }
 
 impl PluginBank {
@@ -114,7 +127,15 @@ impl PluginBank {
             specs: Arc::new(specs),
             problems,
             crash_marker: None,
+            rack: PluginRack::default(),
         }
+    }
+
+    /// The instances of this bank's plugins live in `rack`: give every bank of the settings the
+    /// same one, so that every player finds the instances already loaded.
+    pub fn with_rack(mut self, rack: PluginRack) -> PluginBank {
+        self.rack = rack;
+        self
     }
 
     /// Loads of this bank leave a marker at `path` while a plugin's code runs (see
@@ -314,9 +335,18 @@ struct Active {
     sent: Vec<(u32, f64)>,
     /// Delay the plugin adds, in samples.
     latency_samples: u32,
+    /// The rate the processor runs at; a player at another rate cannot take it.
+    rate: f64,
+    /// Which plugin it is (file and id within it): a slot that names another one loads anew.
+    plugin: (PathBuf, String),
 }
 
 impl Active {
+    /// Whether this is the plugin `spec` names.
+    fn is(&self, spec: &PluginSpec) -> bool {
+        self.plugin.0 == spec.path && self.plugin.1 == spec.plugin
+    }
+
     fn place(&self) -> Place {
         // The count first: an insert that is gone has parked its processor before.
         let holders = Arc::strong_count(&self.parked);
@@ -340,6 +370,39 @@ impl Active {
     }
 }
 
+/// The plugin instances every player shares: one per plugin slot of the settings. Lives as long
+/// as the settings (the app keeps one for its whole run); a chain borrows a processor and parks
+/// it again when it is dropped. Touched only on the control thread.
+#[derive(Clone, Default)]
+pub struct PluginRack(Arc<Mutex<Rack>>);
+
+impl std::fmt::Debug for PluginRack {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let rack = lock(self);
+        f.debug_struct("PluginRack")
+            .field("plugins", &rack.held.len())
+            .field("retiring", &rack.retiring.len())
+            .finish()
+    }
+}
+
+#[derive(Default)]
+struct Rack {
+    /// The instance of every plugin slot of the settings that loaded.
+    held: Vec<Active>,
+    /// Instances of slots that left the settings, or of another rate; closed when their chain
+    /// is gone.
+    retiring: Vec<Active>,
+}
+
+/// The rack's contents. A poisoned lock still holds intact instances (nothing panics while
+/// changing them halfway), so it is used as it is.
+fn lock(rack: &PluginRack) -> MutexGuard<'_, Rack> {
+    rack.0
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 /// One slot of a chain that waits to be built.
 enum Wait {
     /// Not a plugin, off, or failed: the signal passes.
@@ -359,16 +422,15 @@ struct Pending {
     slots: Vec<Wait>,
 }
 
-/// Builds the effect chain of the monitored bass with its plugins and keeps their instances.
+/// Builds the effect chain of the monitored bass with its plugins; their instances live in the
+/// bank's `PluginRack`, shared with the other players.
 pub struct ChainBuilder {
     rate: f64,
     shape: ChainSpec,
-    /// The instance of every plugin slot of the settings that loaded.
-    held: Vec<Active>,
+    /// Where the instances live: the rack of the bank seen last.
+    rack: PluginRack,
     /// The plugins in the chain handed over last: their processors are not here.
     in_chain: Vec<u32>,
-    /// Instances of slots that left the settings; closed when their chain is gone.
-    retiring: Vec<Active>,
     /// A new shape that waits for its plugins.
     pending: Option<Pending>,
     /// What the chain built last delays the signal by.
@@ -378,8 +440,7 @@ pub struct ChainBuilder {
 impl std::fmt::Debug for ChainBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ChainBuilder")
-            .field("plugins", &self.held.len())
-            .field("retiring", &self.retiring.len())
+            .field("rack", &self.rack)
             .field("loading", &self.pending.is_some())
             .finish_non_exhaustive()
     }
@@ -390,9 +451,8 @@ impl ChainBuilder {
         ChainBuilder {
             rate: sample_rate,
             shape: ChainSpec::EMPTY,
-            held: Vec::new(),
+            rack: PluginRack::default(),
             in_chain: Vec::new(),
-            retiring: Vec::new(),
             pending: None,
             latency_frames: 0,
         }
@@ -406,12 +466,14 @@ impl ChainBuilder {
     /// Closes the instances of removed slots whose chain is gone. Call after dropping retired
     /// chains.
     pub fn reap(&mut self) {
-        self.retiring.retain(|a| Arc::strong_count(&a.parked) > 1);
+        lock(&self.rack)
+            .retiring
+            .retain(|a| Arc::strong_count(&a.parked) > 1);
     }
 
     /// Instances of removed slots still held for chains that have not come back yet.
     pub fn retiring(&self) -> usize {
-        self.retiring.len()
+        lock(&self.rack).retiring.len()
     }
 
     /// Whether a new shape still waits (for plugins to load, or for a chain to come back with a
@@ -425,6 +487,7 @@ impl ChainBuilder {
     /// loaded (never `fit`, so whether it comes now or later does not depend on how fast they
     /// load). Parameter changes of plugins go to their instances.
     pub fn fit(&mut self, spec: &ChainSpec, bank: &PluginBank) -> Option<Box<Chain>> {
+        self.rack = bank.rack.clone();
         self.reap();
         self.prune(bank);
         if let Some(pending) = self.pending.as_mut() {
@@ -474,27 +537,41 @@ impl ChainBuilder {
 
     /// Forgets the instances of plugins that left the bank: they close once their chain is
     /// gone.
+    /// The bank is the settings' list, and its rack holds only its own plugins: a player
+    /// without plugins has an empty bank with an empty rack and closes nothing shared.
     fn prune(&mut self, bank: &PluginBank) {
-        let (kept, gone): (Vec<Active>, Vec<Active>) = std::mem::take(&mut self.held)
+        let mut rack = lock(&self.rack);
+        let (kept, gone): (Vec<Active>, Vec<Active>) = std::mem::take(&mut rack.held)
             .into_iter()
             .partition(|a| bank.find(a.id).is_some());
-        self.held = kept;
+        rack.held = kept;
+        rack.retiring.extend(gone);
         self.in_chain
-            .retain(|id| self.held.iter().any(|a| a.id == *id));
-        self.retiring.extend(gone);
+            .retain(|id| rack.held.iter().any(|a| a.id == *id));
     }
 
     /// Sends the loads of the plugin slots of `spec` that have no instance yet.
     fn start(&self, spec: &ChainSpec, bank: &PluginBank) -> Pending {
+        let mut rack = lock(&self.rack);
         let mut slots = Vec::new();
         for slot in spec.slots() {
             if !(slot.on && slot.kind == EffectKind::Plugin) {
                 slots.push(Wait::Bypass);
                 continue;
             }
-            if self.held.iter().any(|a| a.id == slot.plugin) {
-                slots.push(Wait::Held(slot.plugin));
-                continue;
+            let held = rack.held.iter().position(|a| a.id == slot.plugin);
+            if let Some(at) = held {
+                let same = bank
+                    .find(slot.plugin)
+                    .is_some_and(|spec| rack.held[at].is(spec));
+                if same && rack.held[at].rate == self.rate {
+                    slots.push(Wait::Held(slot.plugin));
+                    continue;
+                }
+                // Another rate (another device) or another plugin under this id: this player
+                // loads its own; the old one closes once its chain is gone.
+                let other = rack.held.remove(at);
+                rack.retiring.push(other);
             }
             slots.push(self.load(slot.plugin, bank));
         }
@@ -525,13 +602,14 @@ impl ChainBuilder {
     fn answered(&mut self, pending: &mut Pending) -> bool {
         let problems = pending.bank.problems.clone();
         let mut waiting = false;
+        let mut rack = lock(&self.rack);
         for wait in &mut pending.slots {
             if let Wait::Held(id) = wait {
                 let id = *id;
-                let place = self.held.iter().position(|a| a.id == id);
-                *wait = match place.map(|i| (i, self.held[i].place())) {
+                let place = rack.held.iter().position(|a| a.id == id);
+                *wait = match place.map(|i| (i, rack.held[i].place())) {
                     Some((i, Place::Lost)) => {
-                        self.held.remove(i);
+                        rack.held.remove(i);
                         self.load(id, &pending.bank)
                     }
                     Some(_) => continue,
@@ -573,8 +651,9 @@ impl ChainBuilder {
 
     /// Whether every kept plugin of the pending shape has its processor back.
     fn all_parked(&self, pending: &Pending) -> bool {
+        let rack = lock(&self.rack);
         pending.slots.iter().all(|w| match w {
-            Wait::Held(id) => self
+            Wait::Held(id) => rack
                 .held
                 .iter()
                 .any(|a| a.id == *id && a.place() == Place::Parked),
@@ -604,11 +683,19 @@ impl ChainBuilder {
         let mut inserts: Vec<Option<Box<dyn Insert>>> = Vec::new();
         for wait in pending.slots {
             let insert = match wait {
-                Wait::Ready(id, loaded) => Some(self.adopt(id, *loaded)),
-                Wait::Held(id) => self.held.iter().find(|a| a.id == id).and_then(|a| {
-                    self.in_chain.push(id);
-                    a.take_insert()
-                }),
+                Wait::Ready(id, loaded) => Some(self.adopt(id, *loaded, &pending.bank)),
+                Wait::Held(id) => {
+                    let rack = lock(&self.rack);
+                    let insert = rack
+                        .held
+                        .iter()
+                        .find(|a| a.id == id)
+                        .and_then(Active::take_insert);
+                    if insert.is_some() {
+                        self.in_chain.push(id);
+                    }
+                    insert
+                }
                 Wait::Bypass | Wait::Loading(..) => None,
             };
             inserts.push(insert);
@@ -623,7 +710,7 @@ impl ChainBuilder {
     }
 
     /// Takes a loaded plugin as the instance of its slot; returns the insert that runs it.
-    fn adopt(&mut self, id: u32, loaded: PluginLoaded) -> Box<dyn Insert> {
+    fn adopt(&mut self, id: u32, loaded: PluginLoaded, bank: &PluginBank) -> Box<dyn Insert> {
         let PluginLoaded {
             processor,
             handle,
@@ -632,12 +719,23 @@ impl ChainBuilder {
         } = loaded;
         let parked = Parked::default();
         let insert = PluginInsert::new(processor, latency_samples, Arc::clone(&parked));
-        self.held.push(Active {
+        let mut rack = lock(&self.rack);
+        // Two players loaded the slot at once: the newer instance stays, the other retires.
+        if let Some(at) = rack.held.iter().position(|a| a.id == id) {
+            let older = rack.held.remove(at);
+            rack.retiring.push(older);
+        }
+        rack.held.push(Active {
             parked,
             id,
             handle,
             sent: applied,
             latency_samples,
+            rate: self.rate,
+            plugin: bank
+                .find(id)
+                .map(|spec| (spec.path.clone(), spec.plugin.clone()))
+                .unwrap_or_default(),
         });
         self.in_chain.push(id);
         Box::new(insert)
@@ -652,7 +750,8 @@ impl ChainBuilder {
         title: &str,
         make_frame: FrameMaker,
     ) -> Result<(), PluginError> {
-        let active = self.held.iter().find(|a| a.id == plugin);
+        let rack = lock(&self.rack);
+        let active = rack.held.iter().find(|a| a.id == plugin);
         let active = active.ok_or(PluginError::NotLoaded)?;
         active.handle.open_editor(title, make_frame)
     }
@@ -661,7 +760,7 @@ impl ChainBuilder {
     /// value in the plugin's units, text with unit).
     pub fn take_param_texts(&mut self) -> Vec<(u32, u32, f64, String)> {
         let mut all = Vec::new();
-        for active in &self.held {
+        for active in &lock(&self.rack).held {
             let texts = active.handle.take_texts();
             all.extend(texts.into_iter().map(|(p, v, t)| (active.id, p, v, t)));
         }
@@ -672,7 +771,7 @@ impl ChainBuilder {
     /// id, value in the plugin's units).
     pub fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
         let mut all = Vec::new();
-        for active in &mut self.held {
+        for active in &mut lock(&self.rack).held {
             for (param, value) in active.handle.take_changes() {
                 // The plugin's value is what it was last told: the settings that take it over
                 // are not sent back.
@@ -690,7 +789,7 @@ impl ChainBuilder {
     /// plugin is only drained while it processes: for the others the values wait (`sent` stays
     /// as it is) and go out when their chain is built.
     fn send_params(&mut self, bank: &PluginBank) {
-        for active in &mut self.held {
+        for active in &mut lock(&self.rack).held {
             if !self.in_chain.contains(&active.id) {
                 continue;
             }

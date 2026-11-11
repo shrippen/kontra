@@ -19,7 +19,7 @@ use kontra_session::plugins::{clear_crash_marker, crashed_plugin, settle_plugins
 use kontra_session::plugins::{
     plugin_files, probe_line, scan_files, PluginFormat, PluginInfo, ProbeCommand, ScanReport,
 };
-use kontra_session::{PendingSpec, PluginBank, PluginProblems};
+use kontra_session::{PendingSpec, PluginBank, PluginProblems, PluginRack};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
@@ -70,12 +70,17 @@ pub(crate) struct Plugins {
     probe: Option<ProbeCommand>,
     /// The chain latency the page shows, in tenths of a ms; `None` while nothing plays.
     shown_latency: Option<i64>,
+    /// The plugin instances every player shares (Runde 20: a switch of players loads nothing).
+    rack: PluginRack,
 }
 
 // Kontra ends (Core drops `plugins` after its players): let the plugin thread finish a load, so
 // no crash marker stays, and close the plugins before the program goes.
 impl Drop for Plugins {
     fn drop(&mut self) {
+        // The players are gone, so every processor is parked: the instances close now, and the
+        // settle below waits for that too.
+        drop(std::mem::take(&mut self.rack));
         let _ = settle_plugins(SETTLE_PATIENCE);
     }
 }
@@ -118,6 +123,7 @@ impl Plugins {
             cache,
             probe: None,
             shown_latency: None,
+            rack: PluginRack::default(),
         }
     }
 
@@ -166,6 +172,7 @@ impl Plugins {
     pub(crate) fn bank(&self, settings: &Settings) -> PluginBank {
         PluginBank::new(settings.plugins.clone(), self.problems.clone())
             .with_crash_marker(self.crash_marker.clone())
+            .with_rack(self.rack.clone())
     }
 
     pub(crate) fn crash_marker(&self) -> &Path {
