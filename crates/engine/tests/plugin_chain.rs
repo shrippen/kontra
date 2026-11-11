@@ -835,3 +835,46 @@ fn quick_changes_keep_one_owner() {
     run(&mut running, &input);
     assert_gain(&run(&mut running, &input), &input, REPORTED as f32);
 }
+
+/// More moves while the slot is off than a parameter ring holds.
+const MOVES_WHILE_OFF: usize = 300;
+
+/// Parameter moves while the slot is off are not lost: the plugin has the last one when it is
+/// on again, however many there were.
+#[test]
+fn moves_while_off_arrive_when_on() {
+    let spec = gain_spec(PluginFormat::Clap, "kontra_clap_gain", 1.0);
+    let with_gain = |gain: f64| {
+        let mut moved = spec.clone();
+        for p in &mut moved.params {
+            if p.id == GAIN_PARAM {
+                p.value = gain;
+            }
+        }
+        bank(vec![moved])
+    };
+    let mut builder = ChainBuilder::new(RATE);
+    let chain = fit_ready(&mut builder, &plugin_chain(), &with_gain(1.0));
+    let (chain, _) = switch(
+        &mut builder,
+        chain,
+        (&ChainSpec::EMPTY, &with_gain(1.0)),
+        Some(&spec.path),
+    );
+
+    for i in 0..MOVES_WHILE_OFF {
+        builder.fit(&ChainSpec::EMPTY, &with_gain(1.0 + i as f64 * 0.001));
+    }
+    builder.fit(&ChainSpec::EMPTY, &with_gain(0.25));
+
+    let (mut chain, _) = switch(
+        &mut builder,
+        chain,
+        (&plugin_chain(), &with_gain(0.25)),
+        Some(&spec.path),
+    );
+    let input = sine(2048);
+    run_until(&mut chain, &input, |out| {
+        (DELAY..out.len()).all(|n| (out[n] - input[n - DELAY] * 0.25).abs() < 1e-5)
+    });
+}

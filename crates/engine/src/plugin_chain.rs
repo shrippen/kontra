@@ -623,8 +623,14 @@ impl ChainBuilder {
         all
     }
 
+    /// Sends the bank's values to the plugins that run in the chain. The parameter ring of a
+    /// plugin is only drained while it processes: for the others the values wait (`sent` stays
+    /// as it is) and go out when their chain is built.
     fn send_params(&mut self, bank: &PluginBank) {
         for active in &mut self.held {
+            if !self.in_chain.contains(&active.id) {
+                continue;
+            }
             let Some(spec) = bank.find(active.id) else {
                 continue;
             };
