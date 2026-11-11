@@ -14,7 +14,7 @@
 
 use crate::store::{self, Settings};
 use kontra_model::{EffectKind, ParamSpec, PluginSpec};
-use kontra_session::plugins::{clear_crash_marker, crashed_plugin};
+use kontra_session::plugins::{clear_crash_marker, crashed_plugin, settle_plugins};
 use kontra_session::plugins::{
     plugin_files, probe_line, scan_files, PluginFormat, PluginInfo, ProbeCommand, ScanReport,
 };
@@ -36,6 +36,8 @@ const CACHE_FILE: &str = "plugins.json";
 /// Left in the data folder while a plugin's code runs (loading, describing): if it is still
 /// there at the next start, Kontra died inside that plugin (LH-EIN-20).
 const CRASH_MARKER_FILE: &str = "plugin-loading.marker";
+/// How long Kontra waits at its end for loads to finish and plugins to close.
+const SETTLE_PATIENCE: Duration = Duration::from_secs(2);
 
 const FORMATS: [PluginFormat; 2] = [PluginFormat::Clap, PluginFormat::Vst3];
 
@@ -62,6 +64,14 @@ pub(crate) struct Plugins {
     probe: Option<ProbeCommand>,
     /// The chain latency the page shows, in tenths of a ms; `None` while nothing plays.
     shown_latency: Option<i64>,
+}
+
+// Kontra ends (Core drops `plugins` after its players): let the plugin thread finish a load, so
+// no crash marker stays, and close the plugins before the program goes.
+impl Drop for Plugins {
+    fn drop(&mut self) {
+        let _ = settle_plugins(SETTLE_PATIENCE);
+    }
 }
 
 impl Plugins {

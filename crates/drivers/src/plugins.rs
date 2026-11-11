@@ -28,8 +28,8 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 pub use host::{
-    clear_crash_marker, crashed_plugin, PendingLoad, PluginDescription, PluginHandle, PluginHost,
-    PluginLoaded, PluginSetup,
+    clear_crash_marker, crashed_plugin, settle_plugins, PendingLoad, PluginDescription,
+    PluginHandle, PluginHost, PluginLoaded, PluginSetup,
 };
 pub use paths::{plugin_files, search_paths};
 pub use scan::{probe_file, probe_line, scan_files, BrokenFile, ProbeCommand, ScanReport};

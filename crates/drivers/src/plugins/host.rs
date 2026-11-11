@@ -148,7 +148,14 @@ enum Command {
     Close {
         plugin: u64,
     },
+    /// Answers once everything sent before, and what that sent in turn, is done.
+    Settle {
+        reply: Sender<()>,
+    },
 }
+
+/// The plugin thread of this process, once something used it.
+static HOST: OnceLock<PluginHost> = OnceLock::new();
 
 /// The one plugin thread of the process.
 pub struct PluginHost {
@@ -165,7 +172,6 @@ impl fmt::Debug for PluginHost {
 impl PluginHost {
     /// The host of this process; the thread starts with the first call.
     pub fn global() -> &'static PluginHost {
-        static HOST: OnceLock<PluginHost> = OnceLock::new();
         HOST.get_or_init(PluginHost::start)
     }
 
@@ -221,6 +227,20 @@ impl PluginHost {
     }
 }
 
+/// Waits up to `patience` until the plugin thread has finished every load and closed every
+/// instance it was asked to; true when it did. Call it when Kontra ends, after the players are
+/// gone: a load cut short would leave its crash marker, and a plugin would end with the program.
+pub fn settle_plugins(patience: Duration) -> bool {
+    let Some(host) = HOST.get() else {
+        return true;
+    };
+    let (reply, receiver) = mpsc::channel();
+    if host.commands.send(Command::Settle { reply }).is_err() {
+        return false;
+    }
+    receiver.recv_timeout(patience).is_ok()
+}
+
 fn gone() -> PluginError {
     PluginError::Plugin("the plugin thread is not running".into())
 }
@@ -260,6 +280,13 @@ fn run(inbox: Receiver<Command>) {
     let mut slots: HashMap<u64, Slot> = HashMap::new();
     loop {
         match inbox.recv_timeout(TICK) {
+            Ok(Command::Settle { reply }) => {
+                // Closes that the work before sent (a load nobody waited for) come after this.
+                while let Ok(command) = inbox.try_recv() {
+                    handle(command, &mut slots);
+                }
+                let _ = reply.send(());
+            }
             Ok(command) => handle(command, &mut slots),
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => return,
@@ -302,6 +329,10 @@ fn handle(command: Command, slots: &mut HashMap<u64, Slot>) {
         }
         Command::Describe { setup, reply } => {
             let _ = reply.send(guarded(&setup, || describe(&setup)));
+        }
+        // A second settle in the same drain: everything before it is done too.
+        Command::Settle { reply } => {
+            let _ = reply.send(());
         }
         Command::Count { path, reply } => {
             let open = slots.values().filter(|s| s.plugin.info().path == path);

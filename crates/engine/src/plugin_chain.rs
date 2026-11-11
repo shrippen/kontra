@@ -298,6 +298,8 @@ impl ChainBuilder {
         if let Some(pending) = self.pending.as_mut() {
             if pending.spec.same_shape(spec) {
                 pending.bank = bank.clone();
+                // The running chain follows the sliders while the new one loads.
+                self.send_params(bank);
                 return self.poll();
             }
             // Changed again: the loads end, their instances close on the plugin thread.

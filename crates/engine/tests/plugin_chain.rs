@@ -310,11 +310,13 @@ fn parameter_changes_reach_the_running_plugin() {
     // so the audio follows within a few blocks).
     let louder = bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 2.0)]);
     assert!(builder.fit(&plugin_chain(), &louder).is_none());
-    let out = run_until(&mut chain, &input, |out| {
+    run_until(&mut chain, &input, |out| {
         let at = out.len() - 1;
         (out[at] - input[at - DELAY] * 2.0).abs() < 1e-5
     });
-    assert_gain(&out, &input, 2.0);
+    // The change may land within that block (review #271: "frame 65: 0.0072 != 0.0144"); the
+    // next one is louder from its first frame.
+    assert_gain(&run(&mut chain, &input), &input, 2.0);
 }
 
 #[test]
@@ -557,4 +559,28 @@ fn no_crash_marker_is_left_behind() {
         fit_ready(&mut builder, &plugin_chain(), &bank);
         assert!(!marker.exists(), "after a load");
     }
+}
+
+/// Review #271: Kontra ended while a plugin loaded; the marker stayed and the plugin counted as
+/// crashed at the next start, and instances were not closed before the program ended.
+#[test]
+fn settling_finishes_loads_and_closes() {
+    let dir = plugin_file(PluginFormat::Clap, "kontra_clap_gain");
+    let marker = dir.with_file_name("plugin-settle.marker");
+    let spec = gain_spec(PluginFormat::Clap, "kontra_clap_gain", 0.5);
+    let path = spec.path.clone();
+    let bank = bank(vec![spec]).with_crash_marker(marker.clone());
+
+    // A load starts, then its builder goes, as when Kontra ends.
+    let mut builder = ChainBuilder::new(RATE);
+    assert!(builder.fit(&plugin_chain(), &bank).is_none());
+    drop(builder);
+
+    assert!(kontra_drivers::plugins::settle_plugins(PATIENCE));
+    assert!(!marker.exists(), "the load finished");
+    assert_eq!(
+        PluginHost::global().open_of(&path),
+        0,
+        "its instance closed"
+    );
 }
