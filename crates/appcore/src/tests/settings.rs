@@ -401,7 +401,7 @@ fn laptop_jack_takes_the_built_in_card() {
     assert_eq!(preferred_input(&list[..1], InputKind::LaptopJack), None);
 }
 
-/// Review #231: a USB webcam or headset (input only) is no interface; "Automatic" skips it
+/// Review #231: a USB webcam (input only) is no interface; "Automatic" skips it
 /// for the cable and takes it only for "Microphone" (LH-EIN-02, LH-EIN-11).
 #[test]
 fn a_usb_microphone_is_no_interface() {
