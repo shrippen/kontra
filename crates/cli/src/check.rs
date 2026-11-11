@@ -32,6 +32,8 @@ const STEMS_LIMIT_S: f64 = 180.0;
 /// Soak speed: time-stretched like a slowed-down practice (as `soak`).
 const SOAK_SPEED: f64 = 0.8;
 const SECONDS_PER_DAY: u64 = 86_400;
+const SECONDS_PER_MINUTE: f64 = 60.0;
+const MS_PER_S: f64 = 1000.0;
 /// First measured click of "play on the click", after the count-in (as in the app).
 const CALIBRATION_LEAD_S: f64 = 3.0;
 
@@ -213,12 +215,12 @@ fn loopback(
         report.line("skipped".into());
         return Ok(());
     }
-    let plan = session::loopback_plan();
+    let plan = session::loopback_plan(a.loopback_tones);
     let take = record(
         setup,
         instrument,
         plan.clone(),
-        session::loopback_length_s(),
+        session::loopback_length_s(a.loopback_tones),
     )?;
     let block = take
         .block_frames
@@ -237,6 +239,12 @@ fn loopback(
         "- round trip {:.1} ms (±{:.1} ms, {} of {} tones), {verdict} the {INTERFACE_LIMIT_MS:.0} ms of LH-NF-01",
         trip.median_ms, trip.spread_ms, trip.heard, trip.sent
     ));
+    let delays = session::tone_delays_s(&plan, &take);
+    let drift = drift_of(&plan, &delays);
+    report.line(format!(
+        "- per tone: SD {:.2} ms, drift {:+.3} ms/min",
+        drift.sd_ms, drift.ms_per_min
+    ));
     report.line(format!("- block {block} frames, {} xruns", take.xruns));
     // Refused real-time priority loses blocks under load (14.10.); the report says which ran.
     let realtime = session::audio_priority() == session::Priority::Realtime;
@@ -249,11 +257,53 @@ fn loopback(
             "spreadMs": trip.spread_ms,
             "heard": trip.heard,
             "sent": trip.sent,
+            "sdMs": drift.sd_ms,
+            "driftMsPerMin": drift.ms_per_min,
+            "delaysMs": delays.iter().map(|d| d.map(|d| d * MS_PER_S)).collect::<Vec<_>>(),
             "blockFrames": take.block_frames,
             "xruns": take.xruns,
         }),
     );
     Ok(())
+}
+
+/// How the tones' delays scatter and move over a loopback take (R3).
+struct Drift {
+    /// Standard deviation of the delays.
+    sd_ms: f64,
+    /// Slope of a straight line through the delays: two clocks drifting apart.
+    ms_per_min: f64,
+}
+
+/// Least squares over (plan time, delay) of the tones that came back; zero below two tones.
+fn drift_of(plan: &[(f64, session::TakeSound)], delays: &[Option<f64>]) -> Drift {
+    // Tones only in the plan: delays line up with the plan's entries.
+    let points: Vec<(f64, f64)> = plan
+        .iter()
+        .zip(delays)
+        .filter_map(|((at, _), d)| d.map(|d| (*at, d * MS_PER_S)))
+        .collect();
+    let n = points.len() as f64;
+    if points.len() < 2 {
+        return Drift {
+            sd_ms: 0.0,
+            ms_per_min: 0.0,
+        };
+    }
+
+    let mean_t = points.iter().map(|p| p.0).sum::<f64>() / n;
+    let mean_d = points.iter().map(|p| p.1).sum::<f64>() / n;
+    let var_d = points.iter().map(|p| (p.1 - mean_d).powi(2)).sum::<f64>() / n;
+    let var_t = points.iter().map(|p| (p.0 - mean_t).powi(2)).sum::<f64>();
+    let cov = points
+        .iter()
+        .map(|p| (p.0 - mean_t) * (p.1 - mean_d))
+        .sum::<f64>();
+    let slope_per_s = if var_t > 0.0 { cov / var_t } else { 0.0 };
+    Drift {
+        sd_ms: var_d.sqrt(),
+        ms_per_min: slope_per_s * SECONDS_PER_MINUTE,
+    }
 }
 
 /// "Play on the click" with the bass; the measured latency places the takes' annotations.
@@ -570,6 +620,32 @@ mod tests {
         // 12 Oct 2026.
         assert_eq!(civil_from_days(20_738), (2026, 10, 12));
         assert_eq!(civil_from_days(11_016), (2000, 2, 29));
+    }
+
+    #[test]
+    fn drift_is_the_slope_over_the_take() {
+        // 7 ms rising by 0.5 ms a minute over 20 minutes, alternating ±1 ms; one tone lost.
+        let plan = session::loopback_plan(2000);
+        let delays: Vec<Option<f64>> = plan
+            .iter()
+            .enumerate()
+            .map(|(i, (at, _))| {
+                let wobble = if i % 2 == 0 { 0.001 } else { -0.001 };
+                Some(0.007 + 0.0005 * at / SECONDS_PER_MINUTE + wobble)
+            })
+            .collect();
+        let mut delays = delays;
+        delays[10] = None;
+        let drift = drift_of(&plan, &delays);
+        assert!(
+            (drift.ms_per_min - 0.5).abs() < 0.01,
+            "{}",
+            drift.ms_per_min
+        );
+        assert!(drift.sd_ms > 1.0 && drift.sd_ms < 3.5, "{}", drift.sd_ms);
+
+        let none = drift_of(&plan[..1], &delays[..1]);
+        assert_eq!(none.ms_per_min, 0.0);
     }
 
     #[test]

@@ -7,7 +7,9 @@
 //!           │◄──────── round trip (median) ────────►│ = latency
 //! ```
 
-use crate::check::{loopback_length_s, loopback_plan, round_trip, LiveTake, RoundTrip, TakeSound};
+use crate::check::{
+    loopback_length_s, loopback_plan, round_trip, LiveTake, RoundTrip, TakeSound, LOOPBACK_TONES,
+};
 use crate::live::LiveSetup;
 use kontra_engine::EngineError;
 use kontra_model::Instrument;
@@ -58,8 +60,9 @@ pub struct LiveLoopback {
 impl LiveLoopback {
     /// Starts input and output; the tones begin one second after the input's first sample.
     pub fn start(setup: &LiveSetup, instrument: &Instrument) -> Result<LiveLoopback, EngineError> {
-        let plan = loopback_plan();
-        let take = LiveTake::start(setup, instrument, plan.clone(), loopback_length_s())?;
+        let plan = loopback_plan(LOOPBACK_TONES);
+        let length_s = loopback_length_s(LOOPBACK_TONES);
+        let take = LiveTake::start(setup, instrument, plan.clone(), length_s)?;
         Ok(LiveLoopback {
             take: Some(take),
             plan,

@@ -31,7 +31,7 @@ const PLAYER_WINDOW_S: f64 = 0.25;
 const A4_HZ: f64 = 440.0;
 
 /// Loopback: tones at a pitch the tracker hears well, far enough apart to tell them apart.
-const LOOPBACK_TONES: usize = 12;
+pub const LOOPBACK_TONES: usize = 12;
 const LOOPBACK_MIDI: u8 = 40; // E2
 const LOOPBACK_SPACING_S: f64 = 0.6;
 const LOOPBACK_TONE_S: f64 = 0.25;
@@ -166,9 +166,9 @@ fn engine_sound(sound: TakeSound) -> Sound {
     }
 }
 
-/// The loopback plan: tones only, no clicks (a click has no pitch to find).
-pub fn loopback_plan() -> Vec<(f64, TakeSound)> {
-    (0..LOOPBACK_TONES)
+/// The loopback plan of `tones` tones: no clicks (a click has no pitch to find).
+pub fn loopback_plan(tones: usize) -> Vec<(f64, TakeSound)> {
+    (0..tones)
         .map(|i| {
             let tone = TakeSound::Tone {
                 midi: LOOPBACK_MIDI,
@@ -179,9 +179,9 @@ pub fn loopback_plan() -> Vec<(f64, TakeSound)> {
         .collect()
 }
 
-/// Length of the loopback take.
-pub fn loopback_length_s() -> f64 {
-    LOOPBACK_TONES as f64 * LOOPBACK_SPACING_S + LOOPBACK_WINDOW_S
+/// Length of a loopback take of `tones` tones.
+pub fn loopback_length_s(tones: usize) -> f64 {
+    tones as f64 * LOOPBACK_SPACING_S + LOOPBACK_WINDOW_S
 }
 
 /// Output to input through a cable: how late each tone came back.
@@ -196,20 +196,7 @@ pub struct RoundTrip {
 
 /// The round trip of a loopback take; `None` if no tone came back.
 pub fn round_trip(plan: &[(f64, TakeSound)], take: &Take) -> Option<RoundTrip> {
-    let mut delays: Vec<f64> = plan
-        .iter()
-        .filter_map(|(at, sound)| {
-            let TakeSound::Tone { midi, .. } = sound else {
-                return None;
-            };
-            take.notes
-                .iter()
-                .filter(|n| same_pitch_class(n.midi, *midi))
-                .map(|n| n.onset_s - at)
-                .filter(|d| (0.0..=LOOPBACK_WINDOW_S).contains(d))
-                .min_by(f64::total_cmp)
-        })
-        .collect();
+    let mut delays: Vec<f64> = tone_delays_s(plan, take).into_iter().flatten().collect();
     if delays.is_empty() {
         return None;
     }
@@ -225,6 +212,26 @@ pub fn round_trip(plan: &[(f64, TakeSound)], take: &Take) -> Option<RoundTrip> {
         heard: delays.len(),
         sent: plan.len(),
     })
+}
+
+/// How late each planned tone came back, in plan order; `None` where it did not (R3: jitter
+/// and drift over a long take, e.g. `[Some(0.0071), None, Some(0.0069)]`).
+pub fn tone_delays_s(plan: &[(f64, TakeSound)], take: &Take) -> Vec<Option<f64>> {
+    plan.iter()
+        .filter_map(|(at, sound)| {
+            let TakeSound::Tone { midi, .. } = sound else {
+                return None;
+            };
+            let delay = take
+                .notes
+                .iter()
+                .filter(|n| same_pitch_class(n.midi, *midi))
+                .map(|n| n.onset_s - at)
+                .filter(|d| (0.0..=LOOPBACK_WINDOW_S).contains(d))
+                .min_by(f64::total_cmp);
+            Some(delay)
+        })
+        .collect()
 }
 
 /// The tone came back, maybe an octave off (the tracker's usual error on a sine).
@@ -452,7 +459,7 @@ mod tests {
 
     #[test]
     fn round_trip_is_the_median_delay() {
-        let plan = loopback_plan();
+        let plan = loopback_plan(LOOPBACK_TONES);
         // 21 ms back, one tone 25 ms, one lost; a stray note before the first tone and another pitch
         // where the lost one was.
         let mut notes: Vec<_> = plan
