@@ -7,7 +7,6 @@ use cxx_qt_lib::QString;
 use kontra_appcore::{Bass, InstrumentChoice};
 
 impl qobject::Controller {
-    /// The practice streak on the start page on or off (LH-FOR-05).
     pub(super) fn change_simple_view(mut self: Pin<&mut Self>, on: bool) {
         self.as_mut().core().update_settings(|s| s.simple_view = on);
         self.as_mut().set_simple_view(on);
@@ -21,6 +20,7 @@ impl qobject::Controller {
         }
     }
 
+    /// The practice streak on the start page on or off (LH-FOR-05).
     pub(super) fn change_streak(mut self: Pin<&mut Self>, on: bool) {
         self.as_mut().core().update_settings(|s| s.streak = on);
         self.as_mut().set_streak(on);
