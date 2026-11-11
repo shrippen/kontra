@@ -106,13 +106,14 @@ drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier
   Rückrufe, Größenwünsche; Schließen per Fenster, #275); Knopf „Fenster“ je Plugin im Mixer, das Fenster gehört
   zum Player, der die Kette gerade spielt (Ende des Laufs schließt es). VST 3 ebenso (`IPlugView` in X11,
   `IPlugFrame` mit `IRunLoop`). Der Plugin-Thread übersteht eine Panik (FX4). Windows: eigenes Win32-Fenster
-  (HWND) für CLAP und VST 3, in der VM mit den Test-Plugins geprüft (Runde 20). Offen: Flatpak-Zugang zu X11
-  (Eigentümer, `packaging/`).
+  (HWND) für CLAP und VST 3, in der VM mit den Test-Plugins geprüft (Runde 20). Im Flatpak über X11 (#281).
+  Offen: ein echtes Plugin-Fenster am Gerät ansehen.
   Voraussetzung steht: Instanzen leben so lang wie ihr Slot (FX4), ein offenes Fenster geht beim Umbauen der Kette
   nicht verloren. Je Player eine eigene Instanz; ein gemeinsames Register über Player hinweg fehlt noch.
 - [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket. Der
   Scan-Prozess kommt mit: `kontra` startet sich selbst zum Prüfen (`--probe-plugin <Datei>`, vor Qt in `main`),
-  die Pakete brauchen kein zweites Programm; offen bleibt, dass die Sandbox die Plugin-Ordner sieht.
+  die Pakete brauchen kein zweites Programm. Flatpak erledigt (Runde 20, #281): X11 für die Fenster, `~/.clap`
+  und `~/.vst3` lesend, Erweiterungspunkt `org.freedesktop.LinuxAudio.Plugins`; offen: das Windows-Paket.
 - „VST 3“ nach Steinbergs Regeln, Markenhinweis unter „Über Kontra“, kein Logo (Runde 19, #273).
 
 ## Multiplattform: Windows (Eigentümer, 10.11.2026)
@@ -224,6 +225,15 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 
 - Signierung, Wege zur Wahl (in Runde 18 zurückgestellt, keiner gewählt): Azure Trusted Signing (Abo, Identitätsprüfung), SignPath Foundation
   (kostenlos für freie Projekte, signiert unter deren Namen), eigenes Zertifikat (z. B. Certum Open Source).
+
+### Entscheidungen Runde 20 (11.11.2026, im Gespräch)
+
+- Flatpak: X11 auch unter Wayland (Plugin-Fenster), Lesezugriff auf `~/.clap` und `~/.vst3`, Erweiterungspunkt
+  `org.freedesktop.LinuxAudio.Plugins` (FX6).
+- Plugin-Fenster unter Windows (HWND): in der Windows-VM bauen und prüfen; VM freigegeben.
+- R3 (Zeit je Block aus den Gerätestempeln, DLL): mit dem Scarlett messen (Ausgang per Kabel im Eingang); freigegeben.
+- USB-Eingang ohne Ausgang: Schalter „Instrument/Mikrofon“ je Gerät in den Einstellungen (LH-EIN-02).
+- Offen: Plugin-Fenster über einen Start hinweg (eine Instanz für alle Player oder Fenster neu öffnen).
 
 ### Entscheidungen Runde 19 (11.11.2026)
 

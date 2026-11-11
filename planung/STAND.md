@@ -3,20 +3,22 @@
 Übergabe zwischen Sitzungen. Stand: 2026-11-11. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
 
-## Übergabe (11.11.2026, Tag: Runde 19 umgesetzt, Plugin-Fenster)
+## Übergabe (11.11.2026, Abend: Runde 20)
 
-In `main`: #253 Win5, #270 Installer-Logo, #271/#272 Plugin-Thread und Instanzen je Slot, #273 „VST 3“ mit
-Markenhinweis, #274 benannte Ketten, #275 CLAP-Editor im Plugin-Thread (X11 über x11rb), #276 Frage beim Einstecken
-eines USB-Eingangs ohne Ausgang, #277 Knopf „Fenster“ im Mixer, VST-3-Editoren, Einheiten der Plugin-Werte,
-Plugin-Thread übersteht eine Panik. Offen als PR: Hinzufügen eines Plugins ohne Warten (FX4 fertig).
+In `main`: #278 Hinzufügen ohne Warten, #279 USB-Eingang Instrument/Mikrofon in den Einstellungen, #280
+Plugin-Fenster unter Windows (Win32, in der VM geprüft), #282 R3-Messung (Verzögerung je Ton, lange Takes) mit
+Befund in der Roadmap unter R3. Dieser PR (#281): Flatpak sieht Plugins und öffnet ihre Fenster.
 
-Wartet auf den Eigentümer (Fragen für Runde 20 gesammelt):
-- Flatpak: Zugang zu X11 für Plugin-Fenster und Lesezugriff auf `~/.clap`, `~/.vst3` (FX6, `packaging/`).
-- Plugin-Fenster unter Windows (HWND) und R3 (DLL je Block, Audiopfad, Messung): brauchen VM bzw. Scarlett.
-- Ein Plugin-Fenster gehört dem Player, der die Kette spielt; ein Lauf schließt das im Standby offene Fenster.
-- USB-Frage: Schalter in den Einstellungen für schon steckende Kabel.
-
-Am Gerät nicht geprüft: ein echtes Plugin mit eigenem Fenster (Tests nur mit den Test-Plugins; X11 unter Xvfb).
+Offen:
+- Runde 20, Frage 4 (Eigentümer hat Erklärung erbeten, Antwort steht aus): ein Plugin-Fenster gehört dem Player,
+  der die Kette spielt; ein Lauf schließt das im Standby offene Fenster. A: eine Instanz für alle Player,
+  B: Fenster im neuen Player wieder öffnen (Empfehlung), C: so lassen.
+- R3 nach der Messung: Stempel, die verlorene Blöcke mitzählen, und ein Start ohne Einschwingen; zwei Geräte
+  (eingebaute Karte und Scarlett) messen, braucht die Freigabe des Eigentümers.
+- Am Gerät nicht geprüft: ein echtes Plugin mit eigenem Fenster (Linux, Windows, Flatpak), die USB-Zeile mit
+  einem echten Kabel.
+- Neue `pub` zur Freigabe in Runde 21: `Core::set_usb_role`, `FrameHandle::Win32`, `session::tone_delays_s`,
+  `session::LOOPBACK_TONES`.
 
 ## Übergabe (11.11.2026, Nacht: Effekte, Plugins, Windows)
 

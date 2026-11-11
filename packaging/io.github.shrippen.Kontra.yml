@@ -16,7 +16,8 @@ command: kontra
 finish-args:
   - --share=ipc
   - --socket=wayland
-  - --socket=fallback-x11
+  # X11 also under Wayland: a plugin's own window (FX5) is an X11 window (XWayland).
+  - --socket=x11
   - --device=dri
   # Audio through PipeWire/PulseAudio (ALSA in the runtime routes there). No home access:
   # files are opened through the portal file dialog.
@@ -28,6 +29,20 @@ finish-args:
   # folder, nothing else of the home folder.
   - --share=network
   - --filesystem=xdg-download:ro
+  # Plugins the player installed for their user (FX6, Runde 20); system plugins under /usr are
+  # not visible in the sandbox: they come as Flatpak extensions (below).
+  - --filesystem=~/.clap:ro
+  - --filesystem=~/.vst3:ro
+# CLAP and VST 3 plugins packaged for Flatpak (org.freedesktop.LinuxAudio.Plugins.*), as other
+# audio apps take them; Kontra searches /app/extensions/Plugins/{clap,vst3} in the sandbox.
+add-extensions:
+  org.freedesktop.LinuxAudio.Plugins:
+    directory: extensions/Plugins
+    version: "25.08"
+    add-ld-path: lib
+    merge-dirs: clap;vst3
+    subdirectories: true
+    no-autodownload: true
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin
   env:
@@ -41,6 +56,8 @@ modules:
       - mkdir -p .cargo && cp packaging/cargo-vendor.toml .cargo/config.toml
       - cargo --offline build --release -p kontra-app
       - install -Dm755 target/release/kontra /app/bin/kontra
+      # Mount point of the plugin extensions (add-extensions above).
+      - mkdir -p /app/extensions/Plugins
       - mkdir -p /app/share/kontra/qml /app/share/kontra/demo
       - cp -r crates/app/qml/Kante /app/share/kontra/qml/Kante
       - install -Dm644 testdata/demo/etude-1.mid /app/share/kontra/demo/etude-1.mid
