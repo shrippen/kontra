@@ -158,6 +158,8 @@ pub(crate) fn next_id(plugins: &[PluginSpec]) -> u32 {
 pub(crate) fn shown_value(value: f64, mark: &str) -> String {
     let text = format!("{value:.2}");
     let text = text.trim_end_matches('0').trim_end_matches('.');
+    // A value just below zero rounds to "-0".
+    let text = if text == "-0" { "0" } else { text };
     text.replace('.', mark)
 }
 
@@ -185,5 +187,18 @@ impl crate::Core {
     /// Once when a plugin search has finished.
     pub(crate) fn poll_plugins(&mut self) -> Option<crate::UiEvent> {
         self.plugins.poll().then_some(crate::UiEvent::PluginScan)
+    }
+}
+
+#[cfg(test)]
+mod shown {
+    use super::shown_value;
+
+    /// Review #264: a value just below zero read "-0".
+    #[test]
+    fn no_negative_zero() {
+        assert_eq!(shown_value(-0.001, ","), "0");
+        assert_eq!(shown_value(-1.5, ","), "-1,5");
+        assert_eq!(shown_value(10.0, "."), "10");
     }
 }
