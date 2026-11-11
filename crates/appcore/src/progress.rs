@@ -180,13 +180,14 @@ impl Core {
                 std::collections::BTreeMap::new();
             for run in &progress.runs {
                 let unix = run.finished_unix;
-                for bar in &run.hardest_bars {
-                    events
-                        .entry(*bar)
-                        .or_default()
-                        .push(PassageEvent::Hardest { unix });
-                }
+                // A probe passes or fails on its own; its hardest bars must not reset a pass.
                 if run.mode != PROBE_MODE {
+                    for bar in &run.hardest_bars {
+                        events
+                            .entry(*bar)
+                            .or_default()
+                            .push(PassageEvent::Hardest { unix });
+                    }
                     continue;
                 }
                 let Some(bars) = run.section.and_then(|(start_s, end_s)| {

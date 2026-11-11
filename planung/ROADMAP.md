@@ -718,8 +718,8 @@ Kleinigkeiten aus den Reviews, W9, L3, W3 und E5 jetzt; der Rest steht hier:
 - [ ] L9 Fill schon auf dem ersten freien Schlag (heute der zweite, Entscheidung 100 ms vorher); Latenz und Xruns
       der Schlagzeug-Lautstärke messen; mit echten Aufnahmen und am echten Bass prüfen.
 - [ ] A3 Pausenfenster auch ohne Pausen im Beispiel (eigene Angabe in der Lektion).
-- [ ] L1 Ein Lauf, der eine geplante Stelle wieder unter die schwersten bringt, zählt nicht als nicht bestanden
-      (nur Proben zählen); entscheiden, ob er sollte.
+- [x] L1 Ein Lauf, der eine geplante Stelle wieder unter die schwersten bringt, zählt als nicht bestanden (Runde 19):
+      der Abstand springt auf 1 Tag zurück; bestanden wird weiter nur durch eine Probe (`spacing`, `due_passages`).
 - [ ] L11 Shuffle-Angaben importierter Dateien lesen (Guitar Pro „Triplet Feel“, MusicXML `<swing>`).
 - [ ] M2 echte MIDI-Aufnahmen von Akkorden; Audio hört höchstens zwei Töne.
 - [ ] M3 Filter für blinde Akkordkandidaten, sobald es sie gibt.

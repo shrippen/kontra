@@ -992,6 +992,24 @@ fn home_brings_hard_passages_back() {
         .unwrap();
     assert_eq!(repeat(&core, start + 3 * day), serde_json::json!([]));
     assert_eq!(repeat(&core, start + 4 * day)[0]["bar"], 3);
+
+    // A normal run with the bar among the hardest again: not learned, back after a day.
+    store
+        .record(&a, run(start + 3 * day + 8 * 3600, "song", 0.6, 1.0, &[3]))
+        .unwrap();
+    assert_eq!(
+        repeat(&core, start + 3 * day + 10 * 3600),
+        serde_json::json!([])
+    );
+    assert_eq!(repeat(&core, start + 3 * day + 20 * 3600)[0]["bar"], 3);
+    // A probe that passes with the bar among its hardest stays a pass.
+    store
+        .record(
+            &a,
+            run(start + 4 * day + 8 * 3600, PROBE_MODE, 0.9, 1.0, &[3]),
+        )
+        .unwrap();
+    assert_eq!(repeat(&core, start + 5 * day), serde_json::json!([]));
     let _ = std::fs::remove_dir_all(dir);
 }
 
