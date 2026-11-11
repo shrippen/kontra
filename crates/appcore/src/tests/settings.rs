@@ -1,6 +1,7 @@
 //! Settings: instrument, tuning, mixer, scoring, devices.
 
 use super::*;
+use crate::mixer::ear_gains;
 use kontra_session::{Connection, DeviceInfo, Limit, Shaping};
 
 #[test]

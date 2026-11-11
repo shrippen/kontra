@@ -11,6 +11,10 @@
 //! the standby opens again, and the fade-in of the effect chain; the bass is heard only once the
 //! input delivers too. Monitoring stays at 0: the loop cable of the loopback step would feed
 //! back.
+//!
+//! Then the same switches on one rig, as the app makes them since Runde 20: the output never
+//! stops, so what is left is how long the handover takes and whether the devices drop out
+//! meanwhile.
 
 use super::Report;
 use crate::CliResult;
@@ -87,9 +91,22 @@ pub(super) fn switch(
             g.running_ms
         ));
     }
+    let handover = handover(monitor, instrument, &quiet);
+    let mut taken = handover.taken_ms.clone();
+    taken.sort_by(f64::total_cmp);
+    let (taken_median, taken_worst) = (self::median(&taken), taken[taken.len() - 1]);
+    report.line(format!(
+        "- on one rig: handover median {taken_median:.1} ms, worst {taken_worst:.1} ms, {} output xruns ({SWITCHES} switches)",
+        handover.xruns
+    ));
     report.json.insert(
         "switch".into(),
         json!({
+            "rigHandover": {
+                "medianMs": taken_median,
+                "worstMs": taken_worst,
+                "xruns": handover.xruns,
+            },
             "medianMs": median,
             "worstMs": worst,
             "gaps": gaps.iter().map(|g| json!({
@@ -100,6 +117,36 @@ pub(super) fn switch(
         }),
     );
     Ok(())
+}
+
+/// The switches on one rig: how long each handover took, and the output's dropouts meanwhile.
+struct Handover {
+    taken_ms: Vec<f64>,
+    xruns: u64,
+}
+
+fn handover(
+    monitor: session::LiveMonitor,
+    instrument: &Instrument,
+    gains: &session::Gains,
+) -> Handover {
+    let xruns = |rig: &session::Rig| rig.player().map_or(0, |p| p.xruns());
+    let mut monitor = monitor;
+    let mut taken_ms = Vec::new();
+    let mut before = None;
+    for _ in 0..SWITCHES {
+        std::thread::sleep(STAY);
+        let start = Instant::now();
+        let rig = monitor.into_rig();
+        before = before.or(Some(xruns(&rig)));
+        monitor = session::LiveMonitor::on(rig, instrument, gains.clone());
+        taken_ms.push(ms(start));
+    }
+    let rig = monitor.into_rig();
+    Handover {
+        taken_ms,
+        xruns: xruns(&rig).saturating_sub(before.unwrap_or(0)),
+    }
 }
 
 fn open(

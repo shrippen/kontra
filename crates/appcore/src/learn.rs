@@ -13,7 +13,7 @@ use crate::{ear, exercise, unix_now, Core, Language};
 use kontra_model::Pitch;
 use kontra_session::lesson::{Block, Doc, ExerciseRef, Lang, Practice, Span, Tones};
 use kontra_session::{
-    place, positions, Answer, LearnState, LearnStore, Learning, LiveEar, LiveSetup, QuestionRef,
+    place, positions, Answer, LearnState, LearnStore, Learning, LiveSetup, QuestionRef,
 };
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -638,7 +638,7 @@ impl Core {
         self.ear = Some(ear::EarQuiz::fixed(pitches, matching));
         if self.live_ear.is_none() {
             self.stop_live();
-            self.tuner = None;
+            self.end_tuner();
             self.level.reset();
             let setup = LiveSetup {
                 input: self.input_choice(),
@@ -650,10 +650,8 @@ impl Core {
                 onset_gate_db: self.settings.onset_gate_db,
             };
             self.release_standby();
-            let mut live_ear = LiveEar::start(&setup, &self.instrument())
-                .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
-            live_ear.set_gains(crate::ear_gains(&self.settings, &self.plugins));
-            self.live_ear = Some(live_ear);
+            let instrument = self.instrument();
+            self.live_ear = Some(self.open_ear(&setup, &instrument)?);
             self.input
                 .remember(crate::input_state::InputUse::Ear, setup.input);
         }

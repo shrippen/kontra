@@ -54,6 +54,9 @@ enum InputState {
     Stalled(f64),
     /// A file reached its end (`Event::Ended`): no rebase follows.
     Ended,
+    /// A device reported an error (gone, unplugged): a mode must not take it over, even when
+    /// the same device is back (its stream is not).
+    Failed,
 }
 
 /// The devices a rig was opened with: a mode that wants others opens its own.
@@ -169,10 +172,13 @@ impl Rig {
     }
 
     /// Whether this rig has the devices a mode asks for.
-    /// Not once its input is gone or ended: the next mode opens anew.
+    /// Not once its input is gone, ended or failed, and never at a microphone (only cable
+    /// inputs stay open, owner 11.11.2026; its echo removal depends on the mode): the next mode
+    /// opens anew.
     pub fn fits(&self, input: &InputChoice, output: &RigOutput, source: InputSource) -> bool {
         let devices = &self.devices;
-        let alive = self.input.is_some() && self.state != InputState::Ended;
+        let ended = matches!(self.state, InputState::Ended | InputState::Failed);
+        let alive = self.input.is_some() && !ended && source != InputSource::Microphone;
         alive && devices.input == *input && devices.output == *output && devices.source == source
     }
 
@@ -205,12 +211,15 @@ impl Rig {
         match self.retell.take() {
             Some(InputState::Stalled(at_s)) => out.push(Event::Stalled { at_s }),
             Some(InputState::Ended) => out.push(Event::Ended),
-            Some(InputState::Running) | None => {}
+            Some(InputState::Running | InputState::Failed) | None => {}
         }
         while let Ok(event) = self.events.try_recv() {
             match &event {
                 Event::Stalled { at_s } => self.state = InputState::Stalled(*at_s),
-                Event::Resumed { .. } => self.state = InputState::Running,
+                Event::Resumed { .. } if self.state != InputState::Failed => {
+                    self.state = InputState::Running
+                }
+                Event::Error(..) => self.state = InputState::Failed,
                 Event::Ended => {
                     self.state = InputState::Ended;
                     self.waiting = None;
@@ -774,5 +783,28 @@ mod tests {
 
         assert_eq!(heard.map(f64::round), Some(f64::from(a1.0)));
         assert!(back.fits(&input, &null_output(), InputSource::Line));
+    }
+
+    /// A device that reported an error is no rig for the next mode, even if it is back: its
+    /// stream is not. A microphone is never handed on (owner, 11.11.2026).
+    #[test]
+    fn a_failed_device_or_a_microphone_fits_no_mode() {
+        let (input, path) = file_input("failed", 0.0);
+        let bass = Instrument::default_bass();
+        let mut rig = Rig::open(
+            &input,
+            null_output(),
+            OnOutputError::Fail,
+            InputTap::Player,
+            InputSource::Line,
+            &bass,
+            Gains::default(),
+        )
+        .unwrap();
+        assert!(!rig.fits(&input, &null_output(), InputSource::Microphone));
+        rig.tell_for_test(Event::Error(Direction::Input, "gone".into()));
+        let _ = rig.poll();
+        let _ = std::fs::remove_file(path);
+        assert!(!rig.fits(&input, &null_output(), InputSource::Line));
     }
 }

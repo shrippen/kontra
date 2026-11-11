@@ -25,10 +25,12 @@ impl Core {
         // A cable value from other devices is no base for a lean.
         self.check_audio_path();
         self.stop_live();
-        self.tuner = None;
-        self.live_ear = None;
+        self.end_tuner();
+        self.end_ear();
         self.input.stopped(crate::input_state::InputUse::Ear);
-        self.calibration = None;
+        if let Some(calibration) = self.calibration.take() {
+            self.park(calibration.into_rig());
+        }
         self.loopback = None;
         self.level.reset();
         LiveSetup {
@@ -47,8 +49,14 @@ impl Core {
         let setup = self.calibration_setup();
         let instrument = self.instrument();
         self.release_standby();
-        let calibration = LiveCalibration::start(&setup, &instrument, CALIBRATION_LEAD_S)
-            .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
+        let calibration = match self.take_rig(&setup) {
+            Some(rig) => {
+                let gains = kontra_session::Gains::default();
+                LiveCalibration::on(rig, &setup, &instrument, gains, CALIBRATION_LEAD_S)
+            }
+            None => LiveCalibration::start(&setup, &instrument, CALIBRATION_LEAD_S)
+                .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?,
+        };
         self.calibration = Some(calibration);
         Ok(())
     }
@@ -58,6 +66,8 @@ impl Core {
         let setup = self.calibration_setup();
         let instrument = self.instrument();
         self.release_standby();
+        // The loopback records on devices of its own (aligned to their first sample).
+        self.drop_rig();
         let loopback = LiveLoopback::start(&setup, &instrument)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
         self.loopback = Some(loopback);
@@ -80,7 +90,9 @@ impl Core {
                 .calibration
                 .as_ref()
                 .and_then(LiveCalibration::onset_gate_db);
-            self.calibration = None;
+            if let Some(calibration) = self.calibration.take() {
+                self.park(calibration.into_rig());
+            }
             if let Some(gate_db) = gate_db {
                 self.floor_measured(gate_db);
             }

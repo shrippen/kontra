@@ -232,6 +232,8 @@ impl Core {
         self.stop_live();
         self.tuner = None;
         self.live_ear = None;
+        // A device that went away is no rig for the next mode.
+        self.drop_rig();
         if side == Direction::Input {
             self.input = input.lost(&reason);
         }

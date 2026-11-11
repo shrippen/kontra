@@ -171,6 +171,8 @@ pub struct Live {
     opened: Opened,
     /// Dropouts of input and output replaced by `reopen` (LH-NF-04 counts since the start).
     xruns_before: u64,
+    /// Dropouts the devices had before this run took them over (the mode before counted them).
+    xruns_base: u64,
     pub output_is_silent: bool,
     /// The bass input reaches the output (same rate on both devices); the gain decides if heard.
     can_monitor: bool,
@@ -240,6 +242,7 @@ impl Live {
     ) -> Result<Live, LiveError> {
         let output_is_silent = rig.player().is_none();
         let can_monitor = rig.is_monitoring();
+        let xruns_base = rig.input().map_or(0, Input::xruns) + rig.output().xruns();
         let sample_rate = rig.output().sample_rate();
         let load = |path: &std::path::Path| match &setup.backing_cache {
             Some(dir) => crate::BackingCache::new(dir).load(path, sample_rate),
@@ -269,6 +272,7 @@ impl Live {
             rig,
             opened,
             xruns_before: 0,
+            xruns_base,
             output_is_silent,
             can_monitor,
         })
@@ -343,9 +347,10 @@ impl Live {
 
     /// Input and output dropouts since the start (LH-NF-04).
     pub fn xruns(&self) -> u64 {
-        self.xruns_before
+        let since_open = self.xruns_before
             + self.rig.input().map_or(0, Input::xruns)
-            + self.practice.output().xruns()
+            + self.practice.output().xruns();
+        since_open.saturating_sub(self.xruns_base)
     }
 
     /// False when monitoring cannot work: no output, or input and output run at different rates.

@@ -87,6 +87,7 @@ impl Core {
     pub fn use_offered_input(&mut self, id: &str) {
         self.stop_live();
         self.release_standby();
+        self.drop_rig();
         self.fallback_input = Some(id.to_string());
     }
 
@@ -113,6 +114,7 @@ impl Core {
             // The run on the stand-in device ends; the next play uses the own one.
             self.stop_live();
             self.release_standby();
+            self.drop_rig();
         }
         Some(UiEvent::InputBack(self.tr("unplug.back", &[])))
     }
