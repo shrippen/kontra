@@ -258,8 +258,8 @@ pub struct Player {
     /// Chains the mixer has faded out; dropped here, not in the callback.
     retired: rtrb::Consumer<Box<Chain>>,
     pub sample_rate: u32,
-    /// Builds the chains and holds their plugins. Last: dropped after the stream and the rings
-    /// (and with them every plugin processor) are gone.
+    /// Builds the chains from the instances of the bank's `PluginRack`. Last: dropped after the
+    /// stream and the rings, so every processor this player ran is parked in the rack again.
     builder: ChainBuilder,
 }
 
