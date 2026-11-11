@@ -494,6 +494,39 @@ mod tests {
         assert_eq!(due_until(&plan, 0, 1e9), plan.len());
     }
 
+    /// Review #282: `poll` hands over only what is due soon, not the whole plan.
+    #[test]
+    fn a_long_take_schedules_as_it_goes() {
+        let dir = std::env::temp_dir().join(format!("kontra-long-take-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("quiet.wav");
+        let rate = 48_000;
+        crate::write_mono_wav(&path, &vec![0.0; rate as usize * 3], rate).unwrap();
+        let setup = LiveSetup {
+            input: crate::InputChoice::File {
+                path: path.clone(),
+                laptop_jack: false,
+            },
+            output_device: Some(kontra_engine::NULL_DEVICE.to_string()),
+            source: InputSource::Line,
+            backing: None,
+            original: None,
+            backing_cache: None,
+            onset_gate_db: None,
+        };
+        let plan = loopback_plan(2000);
+        let mut take = LiveTake::start(&setup, &Instrument::default_bass(), plan, 1.0).unwrap();
+        while take.zero_s.is_none() {
+            take.poll();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+
+        // The plan starts LEAD_S after the input: what plays before AHEAD_S after zero, at most.
+        assert!(take.scheduled > 0, "the first tones go out");
+        assert!(take.scheduled <= 4, "{} of 2000 at once", take.scheduled);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn round_trip_is_the_median_delay() {
         let plan = loopback_plan(LOOPBACK_TONES);
