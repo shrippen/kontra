@@ -319,6 +319,30 @@ fn parameter_changes_reach_the_running_plugin() {
     assert_gain(&run(&mut chain, &input), &input, 2.0);
 }
 
+/// Review #271: while a chain of a new shape loads, the running one follows the sliders.
+#[test]
+fn the_running_chain_follows_while_another_loads() {
+    let mut builder = ChainBuilder::new(RATE);
+    let quiet = bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 1.0)]);
+    let mut chain = fit_ready(&mut builder, &plugin_chain(), &quiet);
+    let input = sine(2048);
+
+    // A widener joins: the new shape loads (and is never polled here, so it stays loading).
+    let bigger = chain_of(&[
+        SlotSpec::for_plugin(PLUGIN_ID),
+        SlotSpec::new(EffectKind::Widener),
+    ]);
+    assert!(builder.fit(&bigger, &quiet).is_none());
+    let louder = bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 2.0)]);
+    assert!(builder.fit(&bigger, &louder).is_none());
+
+    run_until(&mut chain, &input, |out| {
+        let at = out.len() - 1;
+        (out[at] - input[at - DELAY] * 2.0).abs() < 1e-5
+    });
+    assert_gain(&run(&mut chain, &input), &input, 2.0);
+}
+
 #[test]
 fn a_missing_plugin_bypasses_its_slot() {
     let mut spec = gain_spec(PluginFormat::Clap, "kontra_clap_gain", 0.5);

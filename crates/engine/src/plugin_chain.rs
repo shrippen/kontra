@@ -290,9 +290,10 @@ impl ChainBuilder {
         self.pending.is_some()
     }
 
-    /// A new chain when effects, their order or on/off differ from the last one and all its
-    /// plugins are ready (a chain without plugins is, at once), else `None`; then `poll` brings
-    /// it. Parameter changes of plugins go to their instances.
+    /// A new chain at once when effects, their order or on/off differ from the last one and it
+    /// has no plugin to load; with plugins `None`, and `poll` brings it once they are loaded
+    /// (never `fit`, so whether it comes now or later does not depend on how fast they load).
+    /// Parameter changes of plugins go to their instances.
     pub fn fit(&mut self, spec: &ChainSpec, bank: &PluginBank) -> Option<Box<Chain>> {
         self.reap();
         if let Some(pending) = self.pending.as_mut() {
@@ -300,7 +301,7 @@ impl ChainBuilder {
                 pending.bank = bank.clone();
                 // The running chain follows the sliders while the new one loads.
                 self.send_params(bank);
-                return self.poll();
+                return None;
             }
             // Changed again: the loads end, their instances close on the plugin thread.
             self.pending = None;
@@ -309,7 +310,12 @@ impl ChainBuilder {
             self.send_params(bank);
             return None;
         }
-        self.pending = Some(self.start(spec, bank));
+        let pending = self.start(spec, bank);
+        let loads = pending.slots.iter().any(|w| matches!(w, Wait::Loading(..)));
+        self.pending = Some(pending);
+        if loads {
+            return None;
+        }
         self.poll()
     }
 
