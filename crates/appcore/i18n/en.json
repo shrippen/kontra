@@ -387,6 +387,7 @@
   "mixer.prompt": "Prompts (ear training)",
   "mixer.drums": "Drums",
   "mixer.percent": "{percent} %",
+  "number.decimal_mark": ".",
   "mixer.monitor": "Hear my bass through Kontra",
   "mixer.monitor.hint": "The sound passes through the computer and so arrives a little late. If your interface has direct monitoring, use that and leave this off.",
   "mixer.monitor.volume": "Bass volume",

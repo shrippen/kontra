@@ -156,6 +156,38 @@ fn a_reason_from_the_engine_reaches_the_slot() {
     assert!(problem.contains("the plugin crashed"), "{problem}");
 }
 
+/// Review #262: a removed plugin's reason stayed noted, and the next plugin, given the same id,
+/// showed it.
+#[test]
+fn a_new_plugin_shows_no_old_reason() {
+    let mut core = core_with_plugin("fx-plugin-old-reason");
+    core.edit_effects("add", 0, "plugin:0", 0.0);
+    let id = core.settings().plugins[0].id;
+    core.plugins.problems.note(id, "the plugin crashed".into());
+    core.edit_effects("remove", 0, "", 0.0);
+
+    core.edit_effects("add", 0, "plugin:0", 0.0);
+    assert_eq!(effects(&core)["slots"][0]["problem"], "");
+}
+
+/// Review #262: plugin values showed as "2.00" in German too.
+#[test]
+fn a_plugin_value_reads_in_the_language() {
+    let mut core = core_with_plugin("fx-plugin-shown");
+    core.update_settings(|s| s.language = Some("de".into()));
+    core.edit_effects("add", 0, "plugin:0", 0.0);
+    let shown = |core: &Core| effects(core)["slots"][0]["values"][0]["shown"].clone();
+    assert_eq!(
+        shown(&core),
+        "1",
+        "the default gain, without trailing zeros"
+    );
+    core.edit_effects("set", 0, GAIN_PARAM, 0.375);
+    assert_eq!(shown(&core), "1,5");
+    core.update_settings(|s| s.language = Some("en".into()));
+    assert_eq!(shown(&core), "1.5");
+}
+
 #[test]
 fn the_search_runs_in_the_background_and_is_kept() {
     let dir = temp_dir("fx-plugin-scan");
