@@ -883,6 +883,11 @@ pub mod qobject {
         #[cxx_name = "answerUsbAsk"]
         fn answer_usb_ask(self: Pin<&mut Self>, answer: &QString);
 
+        /// The role of a USB input without output, "instrument" or "microphone" (LH-EIN-02).
+        #[qinvokable]
+        #[cxx_name = "setUsbRole"]
+        fn set_usb_role(self: Pin<&mut Self>, id: &QString, role: &QString);
+
         /// Opens the failed or silent input again (LH-EIN-15).
         #[qinvokable]
         #[cxx_name = "retryInput"]
@@ -1535,14 +1540,6 @@ impl qobject::Controller {
         let view = view.to_string();
         self.as_mut().core().set_view(&view);
         self.as_mut().set_view(q(&view));
-    }
-
-    fn change_style(mut self: Pin<&mut Self>, style: &QString) {
-        let style = style.to_string();
-        self.as_mut()
-            .core()
-            .update_settings(|s| s.style = style.clone());
-        self.as_mut().set_style(q(&style));
     }
 
     fn change_language(mut self: Pin<&mut Self>, code: &QString) {

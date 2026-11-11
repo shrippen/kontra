@@ -102,6 +102,22 @@ Kirigami.ScrollablePage {
                 onActivated: function(index) { ctl.chooseInput(index === 0 ? "" : page.inputs[index - 1].id) }
             }
         }
+        // LH-EIN-02: what hangs on a USB input without output; an answer holds at once.
+        Repeater {
+            model: ctl.connection !== "midi" ? page.inputs.filter(function(d) { return d.usbRole !== "" }) : []
+            delegate: KanteSettingRow {
+                required property var modelData
+                Layout.fillWidth: true
+                title: texts.t("settings.usbrole", { name: modelData.name })
+                KanteSegmented {
+                    Accessible.name: texts.t("settings.usbrole", { name: modelData.name })
+                    model: [texts.t("usbask.instrument"), texts.t("usbask.microphone")]
+                    // "open": no answer yet, neither side chosen.
+                    currentIndex: modelData.usbRole === "instrument" ? 0 : modelData.usbRole === "microphone" ? 1 : -1
+                    onActivated: function(index) { ctl.setUsbRole(modelData.id, index === 0 ? "instrument" : "microphone") }
+                }
+            }
+        }
         KanteSettingRow {
             Layout.fillWidth: true
             // Over MIDI the input row is hidden; the section starts here then.
