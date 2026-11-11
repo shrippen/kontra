@@ -348,7 +348,7 @@ ColumnLayout {
                             KanteSliderSkin { control: valueSlider }
                         }
                         QQC2.Label {
-                            Layout.preferredWidth: KanteStyle.unit(slotItem.slot.kind === "plugin" ? 64 : 48)
+                            Layout.preferredWidth: KanteStyle.unit(64)
                             horizontalAlignment: Text.AlignRight
                             color: KanteStyle.textColor
                             // A plugin's value is in its own units; the core says it.

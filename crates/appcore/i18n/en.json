@@ -454,7 +454,7 @@
   "fx.scan.button.hint": "Looks for CLAP and VST3 plugins in the usual folders. Each file is checked in a process of its own; one that crashes or hangs counts as broken.",
   "fx.scan.running": "Searching …",
   "fx.scan.none": "No plugins found. Start a search to find CLAP and VST3 plugins.",
-  "fx.scan.result": "{found} plugins found, {broken} broken.",
+  "fx.scan.result": "Found: {found}. Broken: {broken}.",
   "fx.scan.broken": "{file}: {reason}",
   "mixer.shaping.limit": "Limiter",
   "mixer.shaping.limit.hint": "Catches hard notes and slaps before they crackle. If the interface itself clips (gain ring red), turn its gain down.",

@@ -454,7 +454,7 @@
   "fx.scan.button.hint": "Sucht CLAP- und VST3-Plugins in den üblichen Ordnern. Jede Datei wird in einem eigenen Prozess geprüft; was dabei abstürzt oder hängt, gilt als kaputt.",
   "fx.scan.running": "Suche läuft …",
   "fx.scan.none": "Keine Plugins gefunden. Suche starten, um CLAP- und VST3-Plugins zu finden.",
-  "fx.scan.result": "{found} Plugins gefunden, {broken} kaputt.",
+  "fx.scan.result": "Gefunden: {found}. Kaputt: {broken}.",
   "fx.scan.broken": "{file}: {reason}",
   "mixer.shaping.limit": "Begrenzer",
   "mixer.shaping.limit.hint": "Fängt harte Anschläge und Slaps ab, bevor sie knacken. Übersteuert schon das Interface (Gain-Ring rot), den Gain dort zurückdrehen.",
