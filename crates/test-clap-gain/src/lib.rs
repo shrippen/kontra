@@ -9,7 +9,9 @@
 
 mod editor;
 
-pub use editor::{EditorState, EDITOR_GAIN, EDITOR_RESIZED, EDITOR_SIZE};
+pub use editor::{
+    EditorState, EDITOR_CLOSE_GAIN, EDITOR_GAIN, EDITOR_MAX_WIDTH, EDITOR_RESIZED, EDITOR_SIZE,
+};
 
 use clack_extensions::audio_ports::{
     AudioPortFlags, AudioPortInfo, AudioPortInfoWriter, PluginAudioPorts, PluginAudioPortsImpl,
@@ -273,7 +275,7 @@ impl PluginMainThreadParams for GainMainThread<'_> {
         value: f64,
         writer: &mut ParamDisplayWriter,
     ) -> std::fmt::Result {
-        write!(writer, "{value:.2}")
+        write!(writer, "{value:.2} x")
     }
 
     fn text_to_value(&self, _id: ClapId, text: &CStr) -> Option<f64> {

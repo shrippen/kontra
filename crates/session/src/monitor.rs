@@ -9,6 +9,7 @@
 
 use crate::live::{input_kind, live_output_config, InputChoice, LiveSetup};
 use crate::practice::PracticeEvent;
+use kontra_engine::plugins::PluginError;
 use kontra_engine::{Clock, EngineError, Event, Gains, Input, Output, Player};
 use kontra_model::Instrument;
 use std::sync::mpsc::{channel, Receiver};
@@ -80,6 +81,16 @@ impl LiveMonitor {
     /// (plugin id, parameter id, value).
     pub fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
         self.output.take_param_changes()
+    }
+
+    /// The chain's plugins' texts for values since the last call.
+    pub fn take_param_texts(&mut self) -> Vec<(u32, u32, f64, String)> {
+        self.output.take_param_texts()
+    }
+
+    /// Opens the own editor of the chain's plugin `plugin`.
+    pub fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
+        self.output.open_editor(plugin, title)
     }
 
     /// The input reaches the output (both at the same rate).

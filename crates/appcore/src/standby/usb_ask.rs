@@ -3,7 +3,7 @@
 //! answer by device id.
 //!
 //! ```text
-//! list, every POLL ──► new USB-only name, no answer yet ──► question (one at a time)
+//! list, every POLL ──► new USB-only id, no answer yet ────► question (one at a time)
 //!                                                              │
 //!   "instrument": counts as an interface ◄── answer ──────────┴─► "microphone": as before
 //! ```

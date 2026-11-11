@@ -340,6 +340,15 @@ ColumnLayout {
                 hint: slotItem.slot.hint
                 RowLayout {
                     spacing: KanteStyle.unit(8)
+                    // FX5: the plugin's own window, where it has one.
+                    KanteButton {
+                        visible: slotItem.slot.kind === "plugin"
+                        text: mixer.texts.t("fx.window.label")
+                        Accessible.name: mixer.texts.t("fx.window", { name: slotItem.slot.name })
+                        emphasis: KanteButton.Emphasis.Quiet
+                        size: KanteButton.Size.Small
+                        onClicked: mixer.ctl.editEffects("window", index, "", 0)
+                    }
                     KanteSwitch {
                         Accessible.name: mixer.texts.t("fx.on", { name: slotItem.slotName })
                         focusPolicy: Qt.StrongFocus

@@ -162,6 +162,10 @@ pub enum PluginError {
     Editor(String),
     #[error("the plugin has no editor of its own")]
     NoEditor,
+    #[error("the plugin is not loaded now")]
+    NotLoaded,
+    #[error("the plugin thread is busy")]
+    Busy,
     #[error(transparent)]
     File(#[from] crate::FileError),
 }
@@ -251,6 +255,12 @@ impl LoadedPlugin {
         each!(&mut self.inner, p => p.take_changes())
     }
 
+    /// The plugin's own text for `value` (plugin units) of parameter `id`, with its unit where
+    /// it has one ("-6.0 dB"). `None`: the plugin has no text for it.
+    pub fn value_text(&mut self, id: u32, value: f64) -> Option<String> {
+        each!(&mut self.inner, p => p.value_text(id, value))
+    }
+
     pub fn save_state(&mut self) -> Result<Vec<u8>, PluginError> {
         each!(&mut self.inner, p => p.save_state())
     }
@@ -319,33 +329,23 @@ impl LoadedPlugin {
     }
 
     /// Opens the plugin's own editor in a frame `make_frame` makes; an open one stays. Only on
-    /// the thread that drives `idle`. VST 3 editors come later.
+    /// the thread that drives `idle`.
     pub fn open_editor(&mut self, title: &str, make_frame: FrameMaker) -> Result<(), PluginError> {
-        match &mut self.inner {
-            Backend::Clap(p) => p.open_editor(title, make_frame),
-            Backend::Vst3(_) => Err(PluginError::NoEditor),
-        }
+        each!(&mut self.inner, p => p.open_editor(title, make_frame))
     }
 
     pub fn close_editor(&mut self) {
-        if let Backend::Clap(p) = &mut self.inner {
-            p.close_editor();
-        }
+        each!(&mut self.inner, p => p.close_editor())
     }
 
     pub fn editor_open(&self) -> bool {
-        match &self.inner {
-            Backend::Clap(p) => p.editor_open(),
-            Backend::Vst3(_) => false,
-        }
+        each!(&self.inner, p => p.editor_open())
     }
 
     /// Lets the plugin do what it asked for (timers, callbacks) and its editor follow the
     /// window. Call it often (every 10 ms or so) on the plugin's thread.
     pub fn idle(&mut self) {
-        if let Backend::Clap(p) = &mut self.inner {
-            p.idle();
-        }
+        each!(&mut self.inner, p => p.idle())
     }
 }
 

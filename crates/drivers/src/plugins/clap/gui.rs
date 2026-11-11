@@ -240,20 +240,26 @@ impl ClapPlugin {
         let _ = gui.set_scale(&handle, X11_SCALE);
         let size = gui.get_size(&handle).unwrap_or(FALLBACK_SIZE);
 
-        let frame = make_frame(title, size.width, size.height);
-        let embedded = frame.and_then(|frame| embed(&gui, &handle, frame));
-        match embedded {
-            Ok(frame) => {
-                self.instance
-                    .access_shared_handler(|s| s.closed.store(false, Ordering::Relaxed));
-                self.editor = Some(frame);
-                Ok(())
-            }
+        let frame = match make_frame(title, size.width, size.height) {
+            Ok(frame) => frame,
             Err(e) => {
                 gui.destroy(&handle);
-                Err(e)
+                return Err(e);
             }
-        }
+        };
+        // A plugin that fails after taking the window still has it: destroy, then the frame.
+        let frame = match embed(&gui, &handle, frame) {
+            Ok(frame) => frame,
+            Err((e, frame)) => {
+                gui.destroy(&handle);
+                drop(frame);
+                return Err(e);
+            }
+        };
+        self.instance
+            .access_shared_handler(|s| s.closed.store(false, Ordering::Relaxed));
+        self.editor = Some(frame);
+        Ok(())
     }
 
     /// Closes the editor if it is open: the plugin lets go of the frame before it goes.
@@ -358,25 +364,34 @@ impl ClapPlugin {
     }
 }
 
-/// Puts the editor into `frame` and shows both. The frame must outlive the editor: the caller
-/// keeps it until `gui.destroy`.
+/// Puts the editor into `frame` and shows both. The frame must outlive the editor: on failure
+/// it comes back with the error, for the caller to drop after `gui.destroy`.
 // `c_ulong` is u64 on Linux and u32 on Windows: the conversion is real only on Linux.
 #[allow(clippy::useless_conversion)]
 fn embed(
     gui: &PluginGui,
     handle: &PluginMainThreadHandle,
     mut frame: Box<dyn EditorFrame>,
-) -> Result<Box<dyn EditorFrame>, PluginError> {
+) -> Result<Box<dyn EditorFrame>, (PluginError, Box<dyn EditorFrame>)> {
     let FrameHandle::X11(window) = frame.handle();
     let parent = GuiWindow::from_x11_handle(window.into());
-    // SAFETY: the window exists (the frame owns it) and stays until `close_editor`, which calls
-    // `gui.destroy` before it drops the frame.
+    // SAFETY: the window exists (the frame owns it) and stays until `gui.destroy`: in
+    // `close_editor`, in `Drop for ClapPlugin`, or on failure here through the caller.
     #[allow(unsafe_code)]
     let set = unsafe { gui.set_parent(handle, parent) };
-    set.map_err(editor_error)?;
+    if let Err(e) = set {
+        return Err((editor_error(e), frame));
+    }
     let _ = gui.show(handle);
     frame.show();
     Ok(frame)
+}
+
+impl Drop for ClapPlugin {
+    // The editor goes before the instance, whoever drops the plugin.
+    fn drop(&mut self) {
+        self.close_editor();
+    }
 }
 
 impl Host {

@@ -1,4 +1,4 @@
-//! A CLAP plugin's own editor on the plugin thread (FX5), with the test gain plugin and a frame
+//! A plugin's own editor on the plugin thread (FX5), CLAP and VST 3, with the test gain plugins and a frame
 //! that only records: no window system needed. The plugin's editor registers a timer and (Linux)
 //! a descriptor, asks for a size once it sits in a window, and turns its knob on a timer tick
 //! (`crates/test-clap-gain/src/editor.rs`).
@@ -6,35 +6,55 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use kontra_drivers::plugins::{
-    EditorFrame, FrameEvent, FrameHandle, FrameMaker, PluginError, PluginFormat, PluginHandle,
-    PluginHost, PluginLoaded, PluginProcessor, PluginSetup,
+    probe_file, EditorFrame, FrameEvent, FrameHandle, FrameMaker, PluginError, PluginFormat,
+    PluginHandle, PluginHost, PluginLoaded, PluginProcessor, PluginSetup,
 };
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-const GAIN_ID: &str = "de.arianw.kontra.test.gain";
 const GAIN_PARAM: u32 = 7;
-/// `kontra_clap_gain::EDITOR_*`.
+/// `kontra_clap_gain::EDITOR_*` and `kontra_vst3_gain::EDITOR_*` (the same values).
 const EDITOR_SIZE: (u32, u32) = (300, 200);
 // Asked for once a descriptor wakes the editor: Linux only.
 #[cfg(target_os = "linux")]
 const EDITOR_RESIZED: (u32, u32) = (320, 240);
 const EDITOR_GAIN: f64 = 2.5;
+const EDITOR_CLOSE_GAIN: f64 = 3.25;
+const EDITOR_MAX_WIDTH: u32 = 400;
 const RATE: f64 = 48_000.0;
 const BLOCK: usize = 256;
 const WINDOW: u32 = 0x4242;
 /// How long the plugin thread may take for what the tests wait for.
 const PATIENCE: Duration = Duration::from_secs(5);
+const BOTH: [PluginFormat; 2] = [PluginFormat::Clap, PluginFormat::Vst3];
 
-/// The test plugin `kontra_clap_gain` copied to a folder of its own as `.clap`.
-fn gain_file() -> PathBuf {
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const ARCH_DIR: &str = "x86_64-linux";
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+const ARCH_DIR: &str = "aarch64-linux";
+#[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+const ARCH_DIR: &str = "x86_64-win";
+#[cfg(all(target_os = "windows", target_arch = "aarch64"))]
+const ARCH_DIR: &str = "arm64-win";
+#[cfg(windows)]
+const BINARY_EXTENSION: &str = "vst3";
+#[cfg(not(windows))]
+const BINARY_EXTENSION: &str = "so";
+
+/// The test gain plugin of `format`, copied where the host recognises it: `<name>.clap`, or a
+/// `<name>.vst3` bundle; a copy of its own per call (a loaded file must not be overwritten).
+fn gain_file(format: PluginFormat) -> PathBuf {
     static NEXT: AtomicU32 = AtomicU32::new(0);
+    let name = match format {
+        PluginFormat::Clap => "kontra_clap_gain",
+        PluginFormat::Vst3 => "kontra_vst3_gain",
+    };
     let exe = std::env::current_exe().expect("test binary path");
     let profile = exe.parent().and_then(Path::parent).expect("target folder");
     let built = profile.join("examples").join(format!(
-        "{}kontra_clap_gain{}",
+        "{}{name}{}",
         std::env::consts::DLL_PREFIX,
         std::env::consts::DLL_SUFFIX
     ));
@@ -44,17 +64,26 @@ fn gain_file() -> PathBuf {
         std::process::id(),
         NEXT.fetch_add(1, Ordering::Relaxed)
     ));
-    std::fs::create_dir_all(&dir).expect("folder");
-    let file = dir.join("kontra_clap_gain.clap");
-    std::fs::copy(&built, &file).expect("copy plugin");
-    file
+    if format == PluginFormat::Clap {
+        std::fs::create_dir_all(&dir).expect("folder");
+        let file = dir.join(format!("{name}.clap"));
+        std::fs::copy(&built, &file).expect("copy plugin");
+        return file;
+    }
+    let bundle = dir.join(format!("{name}.vst3"));
+    let arch = bundle.join("Contents").join(ARCH_DIR);
+    std::fs::create_dir_all(&arch).expect("bundle folder");
+    std::fs::copy(&built, arch.join(format!("{name}.{BINARY_EXTENSION}"))).expect("copy");
+    bundle
 }
 
-fn load_gain() -> PluginLoaded {
+fn load_gain(format: PluginFormat) -> PluginLoaded {
+    let path = gain_file(format);
+    let id = probe_file(format, &path).expect("probe").remove(0).id;
     let setup = PluginSetup {
-        format: PluginFormat::Clap,
-        path: gain_file(),
-        id: GAIN_ID.into(),
+        format,
+        path,
+        id,
         state: Vec::new(),
         params: Vec::new(),
         sample_rate: RATE,
@@ -85,6 +114,8 @@ struct Seen {
     shown: bool,
     /// Set by the test: the player closes the window.
     close: bool,
+    /// Set by the test: the player drags the window to this size.
+    drag: Option<(u32, u32)>,
     dropped: bool,
 }
 
@@ -108,7 +139,11 @@ impl EditorFrame for Recording {
         if std::mem::take(&mut seen.close) {
             return vec![FrameEvent::Closed];
         }
-        Vec::new()
+        seen.drag
+            .take()
+            .map(|(width, height)| FrameEvent::Resized { width, height })
+            .into_iter()
+            .collect()
     }
 }
 
@@ -140,11 +175,17 @@ fn closed(handle: &PluginHandle) -> Option<()> {
 
 #[test]
 fn the_editor_lives_in_its_frame_and_follows_the_plugin() {
+    for format in BOTH {
+        lives_in_its_frame(format);
+    }
+}
+
+fn lives_in_its_frame(format: PluginFormat) {
     let PluginLoaded {
         mut processor,
         handle,
         ..
-    } = load_gain();
+    } = load_gain(format);
     let seen = Arc::new(Mutex::new(Seen::default()));
 
     handle
@@ -179,11 +220,119 @@ fn the_editor_lives_in_its_frame_and_follows_the_plugin() {
     drop(processor);
 }
 
+/// Review #275: the player's size goes to the plugin; one it refuses snaps back to its own.
 #[test]
-fn a_frame_that_cannot_be_made_leaves_no_editor() {
+fn the_player_resizes_within_what_the_editor_takes() {
     let PluginLoaded {
         processor, handle, ..
-    } = load_gain();
+    } = load_gain(PluginFormat::Clap);
+    let seen = Arc::new(Mutex::new(Seen::default()));
+    handle
+        .open_editor("Gain", recording(&seen))
+        .expect("editor");
+
+    let taken = (EDITOR_MAX_WIDTH - 50, 260);
+    seen.lock().unwrap().drag = Some(taken);
+    wait_for(|| seen.lock().unwrap().drag.is_none().then_some(()));
+    seen.lock().unwrap().drag = Some((EDITOR_MAX_WIDTH + 100, 300));
+    wait_for(|| {
+        let sizes = seen.lock().unwrap().sizes.clone();
+        sizes.contains(&taken).then_some(())
+    });
+
+    handle.close_editor();
+    wait_for(|| closed(&handle));
+    drop(processor);
+}
+
+/// FX4: values with the plugin's own text and unit, for the values the host set and the ones the
+/// plugin changed itself ("1.00 x": the test plugins' gain).
+#[test]
+fn values_come_with_the_plugins_text() {
+    for format in BOTH {
+        texts_follow(format);
+    }
+}
+
+fn texts_follow(format: PluginFormat) {
+    let PluginLoaded {
+        mut processor,
+        handle,
+        ..
+    } = load_gain(format);
+    let mut texts = Vec::new();
+    let mut seen = |want: (u32, f64, &str), processor: &mut PluginProcessor| {
+        wait_for(|| {
+            run_block(processor);
+            let _ = handle.take_changes();
+            texts.extend(handle.take_texts());
+            let found = texts
+                .iter()
+                .any(|(id, value, text)| (*id, *value, text.as_str()) == want);
+            found.then_some(())
+        });
+    };
+    seen((GAIN_PARAM, 1.0, "1.00 x"), &mut processor);
+    handle.set_param(GAIN_PARAM, 2.0);
+    seen((GAIN_PARAM, 2.0, "2.00 x"), &mut processor);
+    drop(processor);
+}
+
+/// VST 3: the view's size constraint fits the player's size; the window follows.
+#[test]
+fn a_vst3_view_fits_the_players_size() {
+    let PluginLoaded {
+        processor, handle, ..
+    } = load_gain(PluginFormat::Vst3);
+    let seen = Arc::new(Mutex::new(Seen::default()));
+    handle
+        .open_editor("Gain", recording(&seen))
+        .expect("editor");
+
+    seen.lock().unwrap().drag = Some((EDITOR_MAX_WIDTH + 100, 300));
+    wait_for(|| {
+        let sizes = seen.lock().unwrap().sizes.clone();
+        sizes.contains(&(EDITOR_MAX_WIDTH, 300)).then_some(())
+    });
+
+    handle.close_editor();
+    wait_for(|| closed(&handle));
+    drop(processor);
+}
+
+/// Review #275: an editor that closes itself (its own close button) is gone for the host too.
+#[test]
+fn the_editor_may_close_itself() {
+    let PluginLoaded {
+        mut processor,
+        handle,
+        ..
+    } = load_gain(PluginFormat::Clap);
+    let seen = Arc::new(Mutex::new(Seen::default()));
+    handle
+        .open_editor("Gain", recording(&seen))
+        .expect("editor");
+
+    handle.set_param(GAIN_PARAM, EDITOR_CLOSE_GAIN);
+    wait_for(|| {
+        run_block(&mut processor);
+        closed(&handle)
+    });
+    assert!(seen.lock().unwrap().dropped);
+    drop(processor);
+}
+
+#[test]
+fn a_frame_that_cannot_be_made_leaves_no_editor() {
+    for format in BOTH {
+        no_frame_no_editor(format);
+    }
+}
+
+fn no_frame_no_editor(format: PluginFormat) {
+    let PluginLoaded {
+        processor, handle, ..
+    } = load_gain(format);
     let failing: FrameMaker = Box::new(|_, _, _| Err(PluginError::Editor("no display".into())));
 
     let opened = handle.open_editor("Gain", failing);
@@ -204,9 +353,15 @@ fn a_frame_that_cannot_be_made_leaves_no_editor() {
 
 #[test]
 fn closing_the_plugin_closes_its_editor_first() {
+    for format in BOTH {
+        closes_with_the_plugin(format);
+    }
+}
+
+fn closes_with_the_plugin(format: PluginFormat) {
     let PluginLoaded {
         processor, handle, ..
-    } = load_gain();
+    } = load_gain(format);
     let seen = Arc::new(Mutex::new(Seen::default()));
     handle
         .open_editor("Gain", recording(&seen))
@@ -223,9 +378,16 @@ fn closing_the_plugin_closes_its_editor_first() {
 #[test]
 #[ignore = "needs an X display"]
 fn the_editor_opens_in_an_x11_window() {
+    for format in BOTH {
+        opens_in_x11(format);
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn opens_in_x11(format: PluginFormat) {
     let PluginLoaded {
         processor, handle, ..
-    } = load_gain();
+    } = load_gain(format);
     handle
         .open_editor("Kontra Test Gain", kontra_drivers::plugins::system_frame())
         .expect("X11 window");

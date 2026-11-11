@@ -5,16 +5,19 @@
 //!  create      ─► registers a timer and (Linux) a pipe with one byte in it
 //!  set_parent  ─► remembers the window
 //!  on_fd       ─► reads the byte; with a window: asks for EDITOR_RESIZED
-//!  on_timer    ─► "turns the knob": the next block reports EDITOR_GAIN as its own change
+//!  on_timer    ─► "turns the knob": the next block reports EDITOR_GAIN as its own change;
+//!                 at gain EDITOR_CLOSE_GAIN it closes itself (`closed`)
+//!  set_size    ─► refuses anything wider than EDITOR_MAX_WIDTH
 //!  destroy     ─► unregisters both
 //! ```
 
 use crate::GainMainThread;
-#[cfg(target_os = "linux")]
-use clack_extensions::gui::HostGui;
-use clack_extensions::gui::{GuiApiType, GuiConfiguration, GuiSize, PluginGuiImpl, Window};
+use clack_extensions::gui::{
+    GuiApiType, GuiConfiguration, GuiSize, HostGui, PluginGuiImpl, Window,
+};
 use clack_extensions::timer::{HostTimer, PluginTimerImpl, TimerId};
 use clack_plugin::prelude::*;
+use std::cell::Cell;
 
 /// The size the editor starts with.
 pub const EDITOR_SIZE: (u32, u32) = (300, 200);
@@ -22,6 +25,10 @@ pub const EDITOR_SIZE: (u32, u32) = (300, 200);
 pub const EDITOR_RESIZED: (u32, u32) = (320, 240);
 /// The gain the editor sets on its first timer tick.
 pub const EDITOR_GAIN: f64 = 2.5;
+/// At this gain the editor closes itself, as a plugin's own close button would.
+pub const EDITOR_CLOSE_GAIN: f64 = 3.25;
+/// Wider sizes are refused: the host gives the window the editor's size back.
+pub const EDITOR_MAX_WIDTH: u32 = 400;
 const TIMER_MS: u32 = 10;
 
 /// What the editor holds while it exists.
@@ -29,8 +36,10 @@ const TIMER_MS: u32 = 10;
 pub struct EditorState {
     timer: Option<TimerId>,
     parent: Option<u64>,
+    /// The size the host last set (or the first one).
+    size: Cell<Option<(u32, u32)>>,
     #[cfg(target_os = "linux")]
-    pipe: Option<[std::os::fd::RawFd; 2]>,
+    pipe: Option<fds::Pipe>,
 }
 
 fn x11_embedded(configuration: GuiConfiguration) -> bool {
@@ -71,7 +80,7 @@ impl PluginGuiImpl for GainMainThread<'_> {
         }
         #[cfg(target_os = "linux")]
         if let Some(pipe) = editor.pipe.take() {
-            fds::close(&self.host, pipe);
+            fds::close(&self.host, &pipe);
         }
         *editor = EditorState::default();
     }
@@ -81,17 +90,22 @@ impl PluginGuiImpl for GainMainThread<'_> {
     }
 
     fn get_size(&self) -> Option<GuiSize> {
-        Some(GuiSize {
-            width: EDITOR_SIZE.0,
-            height: EDITOR_SIZE.1,
-        })
+        let (width, height) = self.editor.borrow().size.get().unwrap_or(EDITOR_SIZE);
+        Some(GuiSize { width, height })
     }
 
     fn can_resize(&self) -> bool {
         true
     }
 
-    fn set_size(&self, _size: GuiSize) -> Result<(), PluginError> {
+    fn set_size(&self, size: GuiSize) -> Result<(), PluginError> {
+        if size.width > EDITOR_MAX_WIDTH {
+            return Err(PluginError::Message("too wide"));
+        }
+        self.editor
+            .borrow()
+            .size
+            .set(Some((size.width, size.height)));
         Ok(())
     }
 
@@ -117,6 +131,12 @@ impl PluginGuiImpl for GainMainThread<'_> {
 
 impl PluginTimerImpl for GainMainThread<'_> {
     fn on_timer(&self, _timer_id: TimerId) {
+        if f64::from(self.shared.gain()) == EDITOR_CLOSE_GAIN {
+            if let Some(gui) = self.host.get_extension::<HostGui>() {
+                gui.closed(&self.host, true);
+            }
+            return;
+        }
         self.shared.turn_knob(EDITOR_GAIN);
     }
 }
@@ -140,45 +160,47 @@ mod fds {
     use crate::GainMainThread;
     use clack_extensions::posix_fd::{FdFlags, HostPosixFd, PluginPosixFdImpl};
     use clack_plugin::prelude::*;
-    use std::os::fd::RawFd;
+    use std::io::{PipeReader, PipeWriter, Read, Write};
+    use std::os::fd::{AsRawFd, RawFd};
 
-    /// A pipe with one byte waiting, registered for reading.
-    pub(super) fn open(host: &HostMainThreadHandle) -> Option<[RawFd; 2]> {
-        let mut pipe = [0; 2];
-        // SAFETY: `pipe` has room for the two descriptors; `write` reads one byte of a live
-        // buffer.
-        #[allow(unsafe_code)]
-        unsafe {
-            if libc::pipe(pipe.as_mut_ptr()) != 0 {
-                return None;
-            }
-            libc::write(pipe[1], b"x".as_ptr().cast(), 1);
-        }
-        let ext = host.get_extension::<HostPosixFd>()?;
-        ext.register_fd(host, pipe[0], FdFlags::READ).ok()?;
-        Some(pipe)
+    /// Both ends: the reader is registered, the writer keeps the pipe open.
+    #[derive(Debug)]
+    pub(super) struct Pipe {
+        reader: PipeReader,
+        _writer: PipeWriter,
     }
 
-    pub(super) fn close(host: &HostMainThreadHandle, pipe: [RawFd; 2]) {
+    /// A pipe with one byte waiting, registered for reading.
+    pub(super) fn open(host: &HostMainThreadHandle) -> Option<Pipe> {
+        let (reader, mut writer) = std::io::pipe().ok()?;
+        writer.write_all(b"x").ok()?;
+        let ext = host.get_extension::<HostPosixFd>()?;
+        ext.register_fd(host, reader.as_raw_fd(), FdFlags::READ)
+            .ok()?;
+        Some(Pipe {
+            reader,
+            _writer: writer,
+        })
+    }
+
+    pub(super) fn close(host: &HostMainThreadHandle, pipe: &Pipe) {
         if let Some(ext) = host.get_extension::<HostPosixFd>() {
-            let _ = ext.unregister_fd(host, pipe[0]);
-        }
-        // SAFETY: both descriptors came from `pipe` and are closed once.
-        #[allow(unsafe_code)]
-        unsafe {
-            libc::close(pipe[0]);
-            libc::close(pipe[1]);
+            let _ = ext.unregister_fd(host, pipe.reader.as_raw_fd());
         }
     }
 
     impl PluginPosixFdImpl for GainMainThread<'_> {
-        fn on_fd(&self, fd: RawFd, _flags: FdFlags) {
+        fn on_fd(&self, _fd: RawFd, _flags: FdFlags) {
             let mut byte = [0_u8; 1];
-            // SAFETY: reads at most one byte into a live buffer; the pipe is non-empty when
-            // the host calls this, so it does not block.
-            #[allow(unsafe_code)]
-            let read = unsafe { libc::read(fd, byte.as_mut_ptr().cast(), 1) };
-            if read == 1 {
+            // The host calls this only when the pipe holds a byte, so it does not block.
+            let read = {
+                let mut editor = self.editor.borrow_mut();
+                let Some(pipe) = editor.pipe.as_mut() else {
+                    return;
+                };
+                pipe.reader.read(&mut byte)
+            };
+            if read.is_ok_and(|n| n == 1) {
                 self.grow();
             }
         }

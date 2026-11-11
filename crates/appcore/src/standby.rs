@@ -169,6 +169,44 @@ impl Core {
         }
     }
 
+    /// The plugins' texts for values since the last call, from whichever player runs the
+    /// chain, as (plugin id, parameter id, value, text).
+    pub(crate) fn plugin_texts(&mut self) -> Vec<(u32, u32, f64, String)> {
+        if let Some(live) = self.live.as_mut() {
+            return live.take_param_texts();
+        }
+        if let Some(ear) = self.live_ear.as_mut() {
+            return ear.take_param_texts();
+        }
+        if let Some(tuner) = self.tuner.as_mut() {
+            return tuner.take_param_texts();
+        }
+        match self.standby.monitor.as_mut() {
+            Some(monitor) => monitor.take_param_texts(),
+            None => Vec::new(),
+        }
+    }
+
+    /// Opens the own editor of the chain's plugin `plugin` in whichever player runs the chain:
+    /// the run, the ear training, the tuner or the standby monitor. `None` when none does.
+    pub(crate) fn open_plugin_editor(
+        &mut self,
+        plugin: u32,
+        title: &str,
+    ) -> Option<Result<(), kontra_session::plugins::PluginError>> {
+        if let Some(live) = self.live.as_mut() {
+            return Some(live.open_editor(plugin, title));
+        }
+        if let Some(ear) = self.live_ear.as_mut() {
+            return Some(ear.open_editor(plugin, title));
+        }
+        if let Some(tuner) = self.tuner.as_mut() {
+            return Some(tuner.open_editor(plugin, title));
+        }
+        let monitor = self.standby.monitor.as_mut()?;
+        Some(monitor.open_editor(plugin, title))
+    }
+
     /// What to say about the standby after a mixer change. Only when "Bass hören" just went on
     /// Kontra says that it found no input (none chosen and no interface, or none chosen at the
     /// laptop jack), not on every slider.

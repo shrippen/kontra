@@ -99,11 +99,14 @@ drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier
   ab, bleibt das Plugin beim nächsten Start aus, mit Hinweis (Runde 19). Instanzen überleben Umbauten der Kette
   (eine je Plugin-Slot, solange er in den Einstellungen steht; Umsortieren, aus/an, anderer Effekt dazu: kein
   Neuladen, Zustand bleibt; ein Plugin, das umzieht, ist kurz überbrückt). Offen: Hinzufügen wartet noch auf den
-  Thread; stirbt er (Panik im Plugin), lädt kein Plugin mehr bis zum Neustart; Werte ohne Einheit.
+  Thread. Werte zeigen den Text des Plugins mit Einheit („-6,0 dB“), sobald es ihn für genau diesen Wert
+  geliefert hat; bis dahin die Zahl.
 - [ ] FX5 Eigene Fenster der Plugins (CLAP `gui`, VST3 `IPlugView`; unter Wayland über XWayland).
   Stand 11.11.: CLAP-Editor im Plugin-Thread (eigenes X11-Fenster über x11rb, Timer, Dateideskriptoren,
-  Rückrufe, Größenwünsche; Schließen per Fenster). Offen: Knopf im Mixer, VST 3 (`IPlugView`, `IRunLoop`),
-  Windows (HWND), Flatpak-Zugang zu X11 (Eigentümer, `packaging/`).
+  Rückrufe, Größenwünsche; Schließen per Fenster, #275); Knopf „Fenster“ je Plugin im Mixer, das Fenster gehört
+  zum Player, der die Kette gerade spielt (Ende des Laufs schließt es). VST 3 ebenso (`IPlugView` in X11,
+  `IPlugFrame` mit `IRunLoop`). Der Plugin-Thread übersteht eine Panik (FX4). Offen: Windows (HWND),
+  Flatpak-Zugang zu X11 (Eigentümer, `packaging/`).
   Voraussetzung steht: Instanzen leben so lang wie ihr Slot (FX4), ein offenes Fenster geht beim Umbauen der Kette
   nicht verloren. Je Player eine eigene Instanz; ein gemeinsames Register über Player hinweg fehlt noch.
 - [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket. Der
@@ -1425,7 +1428,8 @@ Durchgespielt mit gerenderten Aufnahmen (`kontra-cli render`) und Screenshots al
 - [x] LH-BEW-06, Slides an echten Aufnahmen (13.10.): Befund an den 20 IDMT-Slides: IDMT markiert die Ausgangsnote; sie wird normal angeschlagen und gleitet 150–350 ms später um 1 oder 2 Bünde (`modulationFrequencyRange` 100/200 Cent, Zielton nicht annotiert), immer aufwärts, meist auf eine andere Saite weiter. Die alte Auswertung verglich das Slide-Label mit dem Anschlag der Ausgangsnote, also 0 von 20 per Definition. Neu: Import als `slide_cents` an der Note (Technik bleibt der Anschlag, bei SP Pop), `korpus techniques` sucht den Slide dort, wo Kontra ihn meldet (Ankunft vor der nächsten Note). Damit ehrlich vorher: 0 von 20 (10 als Hammer-on, 4 als neuer Anschlag, 6 nicht gehört). Bundierte Slides gleiten nicht, sie springen von Bund zu Bund: über einen Bund ist der Übergang 0–22 ms lang, ein synthetischer Hammer-on 2–24 ms; über die Tonhöhe allein nicht trennbar. Über zwei Bünde ruht die Tonhöhe 20–40 ms auf dem Bund dazwischen: neue Regel (`Change`, ≥ 2 übereinstimmende Schätzungen und dann ≥ 50 Cent weiter = Bund passiert → Slide). Nachher: Slide 3 von 20 (alle erkannten Zwei-Bund-Slides; der vierte kommt als Anschlag an), Recall/Präzision 89,6/79,7 % unverändert, Slap 78,8 %, Ghost 96,4 % unverändert; Pop 32 von 46 unverändert (Zeile jetzt 50 mit den vier Pop-Slides aus Datei 013, die bisher in der Slide-Zeile standen), normale Anschläge 90,3 % richtig (663 von 734, vorher 647 von 718; 2 bisherige Hammer-on-Fehlalarme heißen jetzt Slide); Technik-Korpus 95,8 % unverändert. Verworfen: Anschläge mit schwachem Anstieg (< 1,4) bei 1–2 Halbtönen Abstand als Slide (5 Slides mehr, aber 4–9 echte Anschläge verloren). Offen: Ein-Bund-Slides vom Hammer-on trennen (Pegel/Klick beim Aufschlagen; braucht echte Hammer-on-Aufnahmen, IDMT hat keine); 4 Slides in 013 nicht gehört (Ausgangston nach dem Pop 30–40 Cent zu hoch, das Ziel liegt dann unter 80 Cent).
 - [x] LH-EIN-03/04: Pegel-Hinweis entscheidet Core (`appcore::level`, Grenzen −60/−36/−6 dB über die letzten 3 s, Laptop-Vorschlag nach 4 s leise am Line-Eingang, nicht bei MIDI); `LevelAdvice.qml` zeigt nur noch an. J-A1 prüft jetzt den Hinweis selbst. „Laptop-Buchse verwenden“ wählt den Anschluss statt die Instrument-Einstellung.
 - [x] Frage zu USB-Eingängen (Runde 19, LH-EIN-02): Erscheint ein USB-Eingang ohne Ausgang neu, während Kontra läuft
-  (`standby/usb_ask.rs`, Liste alle 5 s, nur in der App, nie geöffnet), fragt eine Leiste unter dem Hinweis des
+  (`standby/usb_ask.rs`, Liste alle 5 s, nur in der App und nur im Leerlauf: kein Üben, Stimmgerät, Gehör,
+  Kalibrierung; nie geöffnet), fragt eine Leiste unter dem Hinweis des
   Eingangs: „Hängt ein Instrument oder ein Mikrofon an <Name>?“. „Instrument“ macht das Gerät zum Interface für die
   automatische Wahl und für „Bass hören“, „Mikrofon“ lässt es, wie es war. Die Antwort steht je Geräte-Kennung in
   `Settings::usb_inputs`; ein bekanntes Gerät fragt nie wieder. Beim Start fragt Kontra nicht nach Geräten, die

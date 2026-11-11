@@ -28,6 +28,8 @@ mod gui;
 use gui::{HostMain, HostShared};
 
 const HOST_NAME: &str = "Kontra";
+/// Room for a value's text (CLAP gives no limit; 64 is what hosts commonly offer).
+const TEXT_BYTES: usize = 64;
 const HOST_VENDOR: &str = "shrippen";
 
 /// A parameter change on its way to the audio thread.
@@ -335,6 +337,23 @@ impl ClapPlugin {
         let mut output = OutputEvents::from_buffer(&mut sink);
         ext.flush(&mut handle, &events.as_input(), &mut output);
         Ok(())
+    }
+
+    /// The plugin's own text for `value` of parameter `id` ("-6.0 dB"); `None` if it has none.
+    pub(super) fn value_text(&mut self, id: u32, value: f64) -> Option<String> {
+        let ext = self.params_ext?;
+        let clap_id = ClapId::from_raw(id)?;
+        let mut buffer = [0_u8; TEXT_BYTES];
+        let handle = self.instance.plugin_handle();
+        let written = ext
+            .value_to_text(&handle, clap_id, value, &mut buffer)
+            .ok()?;
+        let end = written
+            .iter()
+            .position(|b| *b == 0)
+            .unwrap_or(written.len());
+        let text = text(&written[..end]);
+        (!text.trim().is_empty()).then(|| text.trim().to_string())
     }
 
     /// Changes the plugin made itself since the last call, the last value per parameter.
