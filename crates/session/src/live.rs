@@ -5,8 +5,8 @@ use crate::practice::{Practice, PracticeEvent, PracticeOptions, Told};
 use crate::session::Mode;
 use crate::settings::ScoreSettings;
 use kontra_engine::{
-    monitor_rate, BackingTrack, Clock, EngineError, Event, Input, InputKind, NullOutput, Output,
-    Pace, Player, Sound, StreamConfig,
+    monitor_rate, BackingTrack, Clock, EngineError, Event, Gains, Input, InputKind, NullOutput,
+    Output, Pace, Player, Sound, StreamConfig,
 };
 use kontra_model::{Arrangement, InputSource, Instrument, Pitch};
 use std::path::PathBuf;
@@ -306,6 +306,15 @@ impl Live {
 pub struct LiveTuner {
     input: Input,
     events: Receiver<Event>,
+    /// The output the bass passes through while tuning (LH-EIN-18); `None`: silent.
+    output: Option<Player>,
+}
+
+/// The bass heard while tuning: the output and the mixer's volume and effects.
+#[derive(Debug, Clone)]
+pub struct TunerMonitor {
+    pub output_device: Option<String>,
+    pub gains: Gains,
 }
 
 impl LiveTuner {
@@ -313,12 +322,43 @@ impl LiveTuner {
         input: &InputChoice,
         instrument: &Instrument,
         source: InputSource,
+        monitor: Option<TunerMonitor>,
     ) -> Result<LiveTuner, EngineError> {
         let clock = Clock::new();
         let (tx, rx) = channel();
-        let input = Input::start(&input_kind(input), instrument, source, &clock, tx, None)?;
+        // An output that does not open leaves the tuner silent: tuning matters more.
+        let mut output = monitor.and_then(|m| {
+            let config = monitor_config(input, m.output_device.as_deref());
+            let mut player = Player::start(&config, &clock, tx.clone()).ok()?;
+            player.set_gains(m.gains);
+            Some(player)
+        });
+        let input = Input::start(
+            &input_kind(input),
+            instrument,
+            source,
+            &clock,
+            tx,
+            output.as_mut(),
+        )?;
         input.set_tuner(true);
-        Ok(LiveTuner { input, events: rx })
+        Ok(LiveTuner {
+            input,
+            events: rx,
+            output,
+        })
+    }
+
+    /// True while the bass passes through the output.
+    pub fn is_monitoring(&self) -> bool {
+        self.output.is_some()
+    }
+
+    /// New volumes and effects; heard at once.
+    pub fn set_gains(&mut self, gains: Gains) {
+        if let Some(output) = self.output.as_mut() {
+            output.set_gains(gains);
+        }
     }
 
     /// The input's block size in frames and its sample rate, once the device delivered audio.
@@ -535,9 +575,12 @@ pub(crate) fn output_config(device: Option<&str>) -> StreamConfig {
 /// The output's stream for `setup`: at the input's rate where the system needs that to play
 /// the bass through (Windows: input 48 kHz, output 44.1 kHz by default).
 pub(crate) fn live_output_config(setup: &LiveSetup) -> StreamConfig {
-    let output = setup.output_device.as_deref();
+    monitor_config(&setup.input, setup.output_device.as_deref())
+}
+
+fn monitor_config(input: &InputChoice, output: Option<&str>) -> StreamConfig {
     let mut config = output_config(output);
-    if let InputChoice::Device { id, .. } = &setup.input {
+    if let InputChoice::Device { id, .. } = input {
         config.sample_rate = monitor_rate(id.as_deref(), output);
     }
     config

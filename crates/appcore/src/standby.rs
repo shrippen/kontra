@@ -13,7 +13,9 @@
 use crate::mixer::gains;
 use crate::{chosen_input, Core, InputKind, Settings};
 use kontra_model::InputSource;
-use kontra_session::{list_devices, DeviceInfo, Direction, InputChoice, LiveMonitor, LiveSetup};
+use kontra_session::{
+    list_devices, DeviceInfo, Direction, InputChoice, LiveMonitor, LiveSetup, TunerMonitor,
+};
 use std::time::{Duration, Instant};
 
 /// A monitor that did not open (interface unplugged) is tried again this much later.
@@ -110,9 +112,22 @@ impl Core {
         self.standby.retry_at = None;
     }
 
-    /// New volumes and effects for the standby monitor.
+    /// The bass through the output while the tuner listens (LH-EIN-18): "Bass hören" on and a
+    /// cable input, like the standby (a microphone would feed back).
+    pub(crate) fn tuner_monitor(&self) -> Option<TunerMonitor> {
+        let cable = matches!(self.source(), InputSource::Line | InputSource::LaptopJack);
+        (self.settings.monitor && cable).then(|| TunerMonitor {
+            output_device: self.output_device(),
+            gains: gains(&self.settings),
+        })
+    }
+
+    /// New volumes and effects for the standby monitor and the tuner.
     pub(crate) fn remix_standby(&mut self) {
         let gains = gains(&self.settings);
+        if let Some(tuner) = self.tuner.as_mut() {
+            tuner.set_gains(gains);
+        }
         if let Some(monitor) = self.standby.monitor.as_mut() {
             monitor.set_gains(gains);
         }
@@ -523,5 +538,63 @@ mod which_input {
             Some("other-usb"),
             "the stand-in the player took"
         );
+    }
+}
+
+#[cfg(test)]
+mod tuner {
+    use crate::{Core, InputKind, QaOptions};
+
+    /// A core that tunes on a recording, with the null output (no device is opened).
+    fn core(name: &str) -> (Core, std::path::PathBuf) {
+        let dir = std::env::temp_dir().join(format!("kontra-tuner-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let silent = serde_json::json!({ "output_device": "kontra:null" });
+        let _ = std::fs::write(dir.join("settings.json"), silent.to_string());
+        let take = dir.join("take.wav");
+        kontra_session::write_mono_wav(&take, &vec![0.0; 48_000], 48_000).unwrap();
+        let qa = QaOptions {
+            input_file: Some(take),
+            laptop_jack: false,
+        };
+        (Core::new(&dir, qa), dir)
+    }
+
+    fn heard(core: &Core) -> bool {
+        core.tuner.as_ref().is_some_and(|t| t.is_monitoring())
+    }
+
+    /// Owner 10.11.: "Bass hören" on, but the tuner opened only the input: silence while tuning.
+    #[test]
+    fn the_tuner_plays_the_bass_through() {
+        let (mut core, dir) = core("on");
+        core.update_settings(|s| s.monitor = true);
+        core.start_tuner().unwrap();
+        assert!(heard(&core), "monitoring is on: the bass passes through");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_tuner_is_silent_when_monitoring_is_off() {
+        let (mut core, dir) = core("off");
+        core.update_settings(|s| s.monitor = false);
+        core.start_tuner().unwrap();
+        assert!(!heard(&core));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A microphone hears the speakers: no feedback loop (LH-EIN-18).
+    #[test]
+    fn the_tuner_does_not_play_a_microphone() {
+        let (mut core, dir) = core("mic");
+        core.update_settings(|s| {
+            s.monitor = true;
+            s.input_kind = InputKind::Microphone;
+        });
+        core.qa.laptop_jack = false;
+        core.start_tuner().unwrap();
+        assert!(!heard(&core));
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

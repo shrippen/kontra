@@ -1770,9 +1770,13 @@ impl Core {
         self.stop_live();
         self.live_ear = None;
         self.level.reset();
-        let instrument = self.instrument();
         self.release_standby();
-        let tuner = match LiveTuner::start(&self.input_choice(), &instrument, self.source()) {
+        let tuner = match LiveTuner::start(
+            &self.input_choice(),
+            &self.instrument(),
+            self.source(),
+            self.tuner_monitor(),
+        ) {
             Ok(tuner) => tuner,
             Err(e) => {
                 self.input.failed(InputUse::Tuner, &e);
