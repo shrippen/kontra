@@ -4,7 +4,7 @@
 //! ```text
 //! hardest twice ─▶ due after 1 day ─pass─▶ 2 days ─pass─▶ 4 … 64 days
 //!                       ▲                                   │
-//!                       └────────────── fail ───────────────┘   (a pass before it is due: nothing)
+//!                       └─ fail, or hardest again in a run ─┘   (a pass before it is due: nothing)
 //! ```
 
 const SECONDS_PER_DAY: u64 = 86_400;
@@ -50,7 +50,7 @@ pub fn streak_days(days: &[i64], today: i64) -> u32 {
 /// Something that happened to a passage, in the order of time.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PassageEvent {
-    /// A run had it among its hardest bars.
+    /// A normal run had it among its hardest bars (a probe's verdict is a `Probe`).
     Hardest { unix: u64 },
     /// A run without help (LH-LRN-05) played it; `passed` when it reached the bar of a pass
     /// (at least 80 % at the target tempo, the caller decides).
@@ -83,7 +83,8 @@ impl Spacing {
 }
 
 /// The schedule of a passage from its history, `None` while it was not among the hardest
-/// bars twice. Probes before that do not count; a pass before it is due changes nothing.
+/// bars twice. Probes before that do not count; a pass before it is due changes nothing; among
+/// the hardest again once scheduled counts as a fail.
 pub fn spacing(events: &[PassageEvent]) -> Option<Spacing> {
     let mut events = events.to_vec();
     events.sort_by_key(|e| e.unix());
@@ -97,6 +98,10 @@ pub fn spacing(events: &[PassageEvent]) -> Option<Spacing> {
                 if hard >= HARD_TIMES {
                     current = Some(Spacing::after(unix, FIRST_DAYS));
                 }
+            }
+            // Hard again while scheduled: not learned, like a failed probe.
+            (PassageEvent::Hardest { unix }, Some(_)) => {
+                current = Some(Spacing::after(unix, FIRST_DAYS));
             }
             (PassageEvent::Probe { unix, passed: true }, Some(s)) if unix >= s.due_unix => {
                 let longer = (s.interval_days * 2).min(LONGEST_DAYS);
@@ -185,5 +190,18 @@ mod tests {
         let fail = probe(entered.due_unix + DAY, false);
         let s = spacing(&[hard(0), hard(0), on_time, fail]).unwrap();
         assert_eq!(s, Spacing::after(entered.due_unix + DAY, 1));
+    }
+
+    #[test]
+    fn a_scheduled_passage_among_the_hardest_starts_over() {
+        let entered = spacing(&[hard(0), hard(0)]).unwrap();
+        let again = hard(3);
+        let s = spacing(&[hard(0), hard(0), again]).unwrap();
+        assert_eq!(s, Spacing::after(3 * DAY, 1));
+
+        // Also after passes: the interval is back to one day.
+        let on_time = probe(entered.due_unix, true);
+        let s = spacing(&[hard(0), hard(0), on_time, hard(9)]).unwrap();
+        assert_eq!(s, Spacing::after(9 * DAY, 1));
     }
 }
