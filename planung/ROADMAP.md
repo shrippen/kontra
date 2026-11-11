@@ -223,8 +223,9 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 - #253 (Win5: Inno Setup, ZIP, Update-Hinweis, `release.yml`): mergen.
 - Update-Suche: von Anfang an an, abschaltbar (LH-ALL-07; #253). Hinweis unter Windows und unter Linux außerhalb
   des Flatpaks, Link auf die Release-Seite auf GitHub; `.ico` für den Installer aus dem Kontra-Logo erzeugen.
-- Name „VST3“: Claude liest Steinbergs Regeln zur Marke und schlägt den Wortlaut vor; bis dahin „VST3“ als
-  Formatname, ohne Logo.
+- Name „VST3“: Claude liest Steinbergs Regeln zur Marke und schlägt den Wortlaut vor. Danach (Eigentümer, 11.11.):
+  in Kontra „VST 3“, ® beim ersten Vorkommen, Markenhinweis unter „Über Kontra“, kein Logo. Gespeicherte Ketten
+  behalten den Schlüssel `vst3`.
 - Abstürzende Plugins: im Prozess lassen, aber merken. Ein Plugin, bei dem Kontra abstürzte, ist beim nächsten Start
   aus, mit Hinweis; Laden in einen Hintergrund-Thread (LH-EIN-20).
 - Voreinstellungen je Kette: benannte Ketten speichern und wählen (LH-EIN-19, FX4).

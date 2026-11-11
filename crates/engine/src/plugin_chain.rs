@@ -167,7 +167,7 @@ pub fn describe_plugin(
         .collect();
     Ok(PluginSpec {
         id: 0,
-        format: info.format.to_string().to_ascii_lowercase(),
+        format: info.format.key().into(),
         path: info.path.clone(),
         plugin: info.id.clone(),
         name: info.name.clone(),
@@ -655,10 +655,8 @@ fn setup_of(
     rate: f64,
     crash_marker: Option<PathBuf>,
 ) -> Result<PluginSetup, String> {
-    let format = match spec.format.as_str() {
-        "clap" => PluginFormat::Clap,
-        "vst3" => PluginFormat::Vst3,
-        other => return Err(format!("unknown format {other}")),
+    let Some(format) = PluginFormat::from_key(&spec.format) else {
+        return Err(format!("unknown format {}", spec.format));
     };
     Ok(PluginSetup {
         format,

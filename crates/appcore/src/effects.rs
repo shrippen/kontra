@@ -15,6 +15,7 @@ use crate::fx_plugins::{self, found_at, param_key, param_mut, PLUGIN_KEY};
 use crate::{Core, Settings};
 use kontra_model::{EffectKind, PluginSpec, SlotSpec, CHAIN_SLOTS};
 use kontra_session::describe_plugin;
+use kontra_session::plugins::PluginFormat;
 use serde_json::json;
 
 /// A delay below this rounds to 0.0 ms and is not worth a line.
@@ -223,7 +224,8 @@ impl Core {
                 "shown": fx_plugins::shown_value(p.value, &mark),
             }));
         }
-        let hint = format!("{} · {}", spec.vendor, spec.format.to_ascii_uppercase());
+        let shown = PluginFormat::from_key(&spec.format).map(|f| f.to_string());
+        let hint = format!("{} · {}", spec.vendor, shown.unwrap_or_default());
         let problem = if !spec.path.exists() {
             self.tr("fx.plugin.gone", &[])
         } else if self.plugins.crashed.contains(&spec.id) {

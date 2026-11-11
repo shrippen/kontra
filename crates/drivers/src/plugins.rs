@@ -70,13 +70,29 @@ impl PluginFormat {
             _ => None,
         }
     }
+
+    /// The name saved in chains and settings ("clap", "vst3"); never shown.
+    pub fn key(self) -> &'static str {
+        match self {
+            PluginFormat::Clap => "clap",
+            PluginFormat::Vst3 => "vst3",
+        }
+    }
+
+    /// The format a saved [`PluginFormat::key`] names.
+    pub fn from_key(key: &str) -> Option<PluginFormat> {
+        [PluginFormat::Clap, PluginFormat::Vst3]
+            .into_iter()
+            .find(|f| f.key() == key)
+    }
 }
 
+/// The name shown to the player. "VST 3" is spelled as Steinberg's trademark rules ask.
 impl fmt::Display for PluginFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PluginFormat::Clap => f.write_str("CLAP"),
-            PluginFormat::Vst3 => f.write_str("VST3"),
+            PluginFormat::Vst3 => f.write_str("VST 3"),
         }
     }
 }
@@ -347,5 +363,17 @@ mod tests {
             Some(PluginFormat::Vst3)
         );
         assert_eq!(PluginFormat::of_file(Path::new("x.so")), None);
+    }
+
+    #[test]
+    fn shown_names_follow_steinberg() {
+        // Steinberg's rules: "VST 3" with a space; saved chains keep the key.
+        assert_eq!(PluginFormat::Vst3.to_string(), "VST 3");
+        assert_eq!(PluginFormat::Clap.to_string(), "CLAP");
+        for format in [PluginFormat::Clap, PluginFormat::Vst3] {
+            assert_eq!(PluginFormat::from_key(format.key()), Some(format));
+        }
+        assert_eq!(PluginFormat::Vst3.key(), "vst3");
+        assert_eq!(PluginFormat::from_key("vst"), None);
     }
 }
