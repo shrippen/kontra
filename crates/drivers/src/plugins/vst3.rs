@@ -40,10 +40,16 @@ const TUID_BYTES: usize = 16;
 const MAX_QUEUES: usize = 64;
 /// Sample rate of the short activation that delivers changes made while inactive.
 const FLUSH_RATE_HZ: f64 = 48_000.0;
+// The SDK's enum constants are u32 on Linux and i32 on Windows; the casts are no-ops there.
+#[allow(clippy::unnecessary_cast)]
 const AUDIO: i32 = MediaTypes_::kAudio as i32;
+#[allow(clippy::unnecessary_cast)]
 const INPUT: i32 = BusDirections_::kInput as i32;
+#[allow(clippy::unnecessary_cast)]
 const OUTPUT: i32 = BusDirections_::kOutput as i32;
+#[allow(clippy::unnecessary_cast)]
 const SAMPLE_32: i32 = SymbolicSampleSizes_::kSample32 as i32;
+#[allow(clippy::unnecessary_cast)]
 const REALTIME: i32 = ProcessModes_::kRealtime as i32;
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
