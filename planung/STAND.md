@@ -6,19 +6,17 @@ nur, was offen ist und wo es liegt.
 ## Übergabe (11.11.2026, Abend: Runde 20)
 
 In `main`: #278 Hinzufügen ohne Warten, #279 USB-Eingang Instrument/Mikrofon in den Einstellungen, #280
-Plugin-Fenster unter Windows (Win32, in der VM geprüft), #282 R3-Messung (Verzögerung je Ton, lange Takes) mit
-Befund in der Roadmap unter R3. Dieser PR (#281): Flatpak sieht Plugins und öffnet ihre Fenster.
+Plugin-Fenster unter Windows (Win32, in der VM geprüft), #281 Flatpak sieht Plugins und öffnet ihre Fenster, #282
+R3-Messung (Verzögerung je Ton, lange Takes) mit Befund in der Roadmap unter R3, #283 eine Plugin-Instanz für alle
+Player (Runde 20, Punkt 4: Option A), #284 Messung des Wechsels (`check --steps switch`: mindestens 31–42 ms stumm).
 
 Offen:
-- Runde 20, Frage 4 (Eigentümer hat Erklärung erbeten, Antwort steht aus): ein Plugin-Fenster gehört dem Player,
-  der die Kette spielt; ein Lauf schließt das im Standby offene Fenster. A: eine Instanz für alle Player,
-  B: Fenster im neuen Player wieder öffnen (Empfehlung), C: so lassen.
 - R3 nach der Messung: Stempel, die verlorene Blöcke mitzählen, und ein Start ohne Einschwingen; zwei Geräte
   (eingebaute Karte und Scarlett) messen, braucht die Freigabe des Eigentümers.
 - Am Gerät nicht geprüft: ein echtes Plugin mit eigenem Fenster (Linux, Windows, Flatpak), die USB-Zeile mit
   einem echten Kabel.
-- Neue `pub` zur Freigabe in Runde 21: `Core::set_usb_role`, `FrameHandle::Win32`, `session::tone_delays_s`,
-  `session::LOOPBACK_TONES`.
+- Runde 20 erledigt bis auf den Umbau „eine Audio-Engine über alle Modi“ (Eigentümer 11.11., Branch
+  `audio-engine`); die `pub`-Schnittstellen aus #279 bis #284 sind freigegeben.
 
 ## Übergabe (11.11.2026, Nacht: Effekte, Plugins, Windows)
 

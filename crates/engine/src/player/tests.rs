@@ -3,6 +3,16 @@ use super::*;
 fn mixer() -> Mixer {
     Mixer {
         voices: [IDLE_VOICE; VOICES],
+        levels: Levels::of(&Gains {
+            click: 1.0,
+            tone: 1.0,
+            backing: 1.0,
+            drums: 1.0,
+            bass: 0.0,
+            monitor: 1.0,
+            shaping: Shaping::FLAT,
+            plugins: None,
+        }),
         gains: Gains {
             click: 1.0,
             tone: 1.0,
@@ -142,6 +152,7 @@ fn drums_sound_and_end() {
     // The drum bus has its own volume.
     let mut m = mixer();
     m.gains.drums = 0.0;
+    m.levels.drums = 0.0;
     m.apply(Command::Schedule {
         at_s: 0.0,
         sound: Sound::drum(DrumKind::Kick),
@@ -198,6 +209,7 @@ fn monitored(gain: f32) -> (Mixer, rtrb::Producer<f32>) {
     let (tx, rx) = rtrb::RingBuffer::<f32>::new(MONITOR_RING);
     let mut m = mixer();
     m.gains.monitor = gain;
+    m.levels.monitor = gain;
     m.monitor = Some(rx);
     (m, tx)
 }
@@ -341,6 +353,10 @@ fn removed_bass_follows_its_gain() {
         bass: 0.5,
         ..m.gains.clone()
     }));
+    // After the ramp (8 ms: 8 frames at this rate).
+    for i in 0..10 {
+        m.render(0.11 + f64::from(i) / sr, sr);
+    }
     let (l, r) = m.render(0.2, sr);
     assert!((l - 0.3).abs() < 1e-6 && (r + 0.1).abs() < 1e-6, "{l} {r}");
 }
@@ -397,4 +413,37 @@ fn lagging_monitor_is_cut_to_the_newest_audio() {
     }
     m.trim_monitor(sr);
     assert!((m.render(0.0, sr).0 - 0.3).abs() < 1e-6);
+}
+
+/// Audio engine across modes (Runde 20): a mode's gains replace the last mode's while the bass
+/// sounds. A jump in gain is a jump in the signal (a click); the mixer ramps instead.
+/// Example: a 97 Hz sine at 0.5 moves at most 0.0064 per frame; muting it near a peak (at 0.1 s,
+/// 9.7 periods in) at once jumps about 0.47.
+#[test]
+fn a_gain_change_ramps_instead_of_clicking() {
+    let (mut m, mut tx) = monitored(1.0);
+    let sr = 48_000.0;
+    let sine = |i: usize| 0.5 * (std::f64::consts::TAU * 97.0 * i as f64 / sr).sin() as f32;
+    let mut last = 0.0f32;
+    let mut jump = 0.0f32;
+    for block in 0..20 {
+        if block == 10 {
+            m.apply(Command::Gains(Gains {
+                monitor: 0.0,
+                ..m.gains.clone()
+            }));
+        }
+        for i in 0..480 {
+            tx.push(sine(block * 480 + i)).unwrap();
+        }
+        for i in 0..480 {
+            let (l, _) = m.render((block * 480 + i) as f64 / sr, sr);
+            if block >= 5 {
+                jump = jump.max((l - last).abs());
+            }
+            last = l;
+        }
+    }
+    assert!(jump < 0.05, "the signal jumped {jump}");
+    assert!(last.abs() < 1e-6, "muted in the end: {last}");
 }
