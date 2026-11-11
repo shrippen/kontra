@@ -1436,8 +1436,8 @@ Durchgespielt mit gerenderten Aufnahmen (`kontra-cli render`) und Screenshots al
   schon da sind (einfach gehalten); eine Frage, deren Gerät verschwindet, geht weg. Offen: ein Schalter
   „<Gerät>: Instrument/Mikrofon“ in den Einstellungen, damit sich die Antwort ändern lässt (auch für Geräte, die
   schon beim Start steckten). Umgesetzt (Runde 20, 11.11.): unter dem Eingang in den Einstellungen je USB-Eingang
-  ohne Ausgang eine Zeile „USB-Eingang <Name>“ mit Instrument/Mikrofon (`KanteSegmented`); ohne Antwort steht
-  „Mikrofon“, nur aufgelistete Geräte (ein nicht steckendes Gerät behält seine Antwort, zeigt aber keine Zeile);
+  ohne Ausgang eine Zeile „USB-Eingang <Name>“ mit Instrument/Mikrofon (`KanteSegmented`); ohne Antwort ist
+  keine Seite gewählt (ein Klick auf jede Seite speichert), nur aufgelistete Geräte (ein nicht steckendes Gerät behält seine Antwort, zeigt aber keine Zeile);
   die Wahl gilt sofort und beendet eine offene Frage zu dem Gerät. Neue `pub`: `Core::set_usb_role`; `pub(crate)`:
   `Core::usb_role`; Invokable `setUsbRole`, Feld `usbRole` im Geräte-JSON. Neue `pub(crate)`: `Core::inputs`, `Core::input_device`, `Core::watch_usb`; `pub`:
   `Core::answer_usb`, `UiEvent::UsbAsk`, `UsbRole`, `Settings::usb_inputs`.
