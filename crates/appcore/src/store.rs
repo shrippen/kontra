@@ -4,6 +4,7 @@ use crate::effects::ChainPreset;
 use kontra_model::{ChainSpec, EffectKind, PluginSpec, SlotSpec, A4_HZ};
 use kontra_session::Gains;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 /// Pieces the library keeps (LH-BIB-04 asks for 200 with fast search).
@@ -137,6 +138,15 @@ fn bass_or_fretless<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Bass, D::E
     })
 }
 
+/// What the player connected to a USB input without output.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum UsbRole {
+    /// A cable from the bass: counts as an interface.
+    Instrument,
+    Microphone,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
@@ -146,6 +156,9 @@ pub struct Settings {
     pub instrument: Bass,
     pub input_kind: InputKind,
     pub input_device: Option<String>,
+    /// What hangs on a USB input without output, by device id (the audio server's stable node
+    /// name; the display name is translated) (LH-EIN-02, round 19).
+    pub usb_inputs: BTreeMap<String, UsbRole>,
     /// MIDI device by name when `input_kind` is MIDI (port ids change when it is plugged in
     /// again); `None` or not connected: the first one.
     pub midi_port: Option<String>,
@@ -261,6 +274,7 @@ impl Default for Settings {
             instrument: Bass::Fretted,
             input_kind: InputKind::Line,
             input_device: None,
+            usb_inputs: BTreeMap::new(),
             midi_port: None,
             output_device: None,
             latency_ms: 0.0,

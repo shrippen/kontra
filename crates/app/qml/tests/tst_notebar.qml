@@ -15,6 +15,8 @@ Item {
         property string errorText: ""
         property string offerInput: ""
         property string offerText: ""
+        property string usbAsk: ""
+        property string answered: ""
         property string inputState: "off"
         property string inputDetail: ""
         property int retries: 0
@@ -23,6 +25,7 @@ Item {
             errorText = ""
         }
         function useOfferedInput() {}
+        function answerUsbAsk(answer) { answered = answer; usbAsk = "" }
         function retryInput() { retries++ }
     }
 
@@ -71,6 +74,19 @@ Item {
 
             fakeCtl.message = "3 imported"
             compare(bar.visible, true)
+        }
+
+        // LH-EIN-02: a new USB input; two buttons, the answer closes the question.
+        function test_asks_about_a_usb_input() {
+            var bar = loader.item
+            compare(bar.visible, false)
+            fakeCtl.usbAsk = JSON.stringify({ name: "Guitar Link", text: "Which?" })
+            compare(bar.visible, true)
+            var microphone = findChild(bar, "usbMicrophone")
+            verify(microphone !== null)
+            mouseClick(microphone)
+            compare(fakeCtl.answered, "microphone")
+            compare(bar.visible, false)
         }
     }
 }

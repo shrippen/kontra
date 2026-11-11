@@ -171,6 +171,7 @@ pub mod qobject {
         #[qproperty(QString, input_state, cxx_name = "inputState")]
         #[qproperty(QString, input_detail, cxx_name = "inputDetail")]
         #[qproperty(QString, offer_text, cxx_name = "offerText")]
+        #[qproperty(QString, usb_ask, cxx_name = "usbAsk")]
         #[qproperty(QString, error_text, cxx_name = "errorText")]
         #[qproperty(QString, start_page, cxx_name = "startPage")]
         /// A course package given at start (`kontra kurs.kontrakurs`); the learn page shows it
@@ -877,6 +878,11 @@ pub mod qobject {
         #[cxx_name = "useOfferedInput"]
         fn use_offered_input(self: Pin<&mut Self>);
 
+        /// Answers the question about a new USB input: "instrument" or "microphone" (LH-EIN-02).
+        #[qinvokable]
+        #[cxx_name = "answerUsbAsk"]
+        fn answer_usb_ask(self: Pin<&mut Self>, answer: &QString);
+
         /// Opens the failed or silent input again (LH-EIN-15).
         #[qinvokable]
         #[cxx_name = "retryInput"]
@@ -1056,6 +1062,7 @@ pub struct ControllerRust {
     input_state: QString,
     input_detail: QString,
     offer_text: QString,
+    usb_ask: QString,
     error_text: QString,
     start_page: QString,
     start_course: QString,
@@ -1232,6 +1239,7 @@ impl Default for ControllerRust {
             input_state: QString::default(),
             input_detail: QString::default(),
             offer_text: QString::default(),
+            usb_ask: QString::default(),
             error_text: QString::default(),
             start_page: q(args.page.as_deref().unwrap_or("")),
             start_course: QString::default(),
@@ -1745,6 +1753,7 @@ impl qobject::Controller {
                     self.as_mut().set_offer_input(QString::default());
                     self.as_mut().set_offer_text(QString::default());
                 }
+                UiEvent::UsbAsk(json) => self.as_mut().set_usb_ask(q(&json)),
                 UiEvent::InputBack(text) => {
                     self.as_mut().set_offer_input(QString::default());
                     self.as_mut().set_offer_text(QString::default());
@@ -1911,28 +1920,5 @@ impl qobject::Controller {
         self.as_mut().set_monitor_limit(s.monitor_limit);
         self.as_mut().set_setup_done(s.setup_done);
         self.as_mut().set_playing(false);
-    }
-
-    fn use_offered_input(mut self: Pin<&mut Self>) {
-        let id = self.as_ref().offer_input().to_string();
-        self.as_mut().core().use_offered_input(&id);
-        self.as_mut().set_offer_input(QString::default());
-        self.as_mut().set_offer_text(QString::default());
-        self.as_mut().set_error_text(QString::default());
-    }
-
-    fn retry_input(mut self: Pin<&mut Self>) {
-        let events = self.as_mut().core().retry_input();
-        if events.is_empty() {
-            self.as_mut().set_error_text(QString::default());
-        }
-        let tuning = self.as_ref().rust().core.is_tuning();
-        self.as_mut().set_tuner_active(tuning);
-        self.as_mut().apply(events);
-    }
-
-    fn dismiss_message(mut self: Pin<&mut Self>) {
-        self.as_mut().set_message(QString::default());
-        self.as_mut().set_error_text(QString::default());
     }
 }

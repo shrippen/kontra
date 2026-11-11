@@ -12,7 +12,7 @@ Rectangle {
     color: KanteStyle.backgroundColor
     // From the texts, not from the children: a child is only visible while the bar is, so the
     // bar stayed hidden after the first close (QA 27.10., J-B1: no import or error message).
-    visible: ctl.offerInput !== "" || notice.text !== "" || inputStatus.fault
+    visible: ctl.offerInput !== "" || ctl.usbAsk !== "" || notice.text !== "" || inputStatus.fault
     height: notes.implicitHeight + KanteStyle.unit(24)
 
     ColumnLayout {
@@ -44,6 +44,32 @@ Rectangle {
                 emphasis: KanteButton.Emphasis.Primary
                 Accessible.name: noteBar.texts.t("unplug.use")
                 onClicked: noteBar.ctl.useOfferedInput()
+            }
+        }
+
+        // LH-EIN-02: a new USB input without output; an instrument or a microphone?
+        RowLayout {
+            id: usbAsk
+            readonly property var asked: noteBar.ctl.usbAsk !== "" ? JSON.parse(noteBar.ctl.usbAsk) : null
+            Layout.fillWidth: true
+            visible: asked !== null
+            KanteCallout {
+                Layout.fillWidth: true
+                kind: KanteCallout.Kind.Info
+                text: usbAsk.asked ? usbAsk.asked.text : ""
+                autoHide: false
+            }
+            KanteButton {
+                text: noteBar.texts.t("usbask.instrument")
+                emphasis: KanteButton.Emphasis.Primary
+                Accessible.name: noteBar.texts.t("usbask.instrument")
+                onClicked: noteBar.ctl.answerUsbAsk("instrument")
+            }
+            KanteButton {
+                objectName: "usbMicrophone"
+                text: noteBar.texts.t("usbask.microphone")
+                Accessible.name: noteBar.texts.t("usbask.microphone")
+                onClicked: noteBar.ctl.answerUsbAsk("microphone")
             }
         }
 
