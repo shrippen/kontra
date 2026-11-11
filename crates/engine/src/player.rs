@@ -10,7 +10,7 @@
 //! control ─► command ring ───────────────┴─► output callback: voices + backing + monitor ─► device
 //! ```
 
-use crate::clock::{settle, Clock};
+use crate::clock::{Anchor, Clock};
 use crate::plugin_chain::{ChainBuilder, PluginBank};
 use crate::{EngineError, Event};
 use kontra_drivers::plugins::{system_frame, PluginError};
@@ -250,6 +250,8 @@ pub struct Player {
     commands: rtrb::Producer<Command>,
     _stream: OutputStream,
     started: Arc<AtomicU64>,
+    /// Set by `rebase`: the callback settles its start again.
+    rebase: Arc<AtomicBool>,
     /// Write end of the monitor ring, until an input takes it.
     monitor: Option<rtrb::Producer<f32>>,
     /// Read end of what played, until a microphone input takes it (boxed: rarely used).
@@ -293,6 +295,9 @@ impl Player {
         let reference_start = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
         let started = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
         let started_cb = Arc::clone(&started);
+        let rebase = Arc::new(AtomicBool::new(false));
+        let rebase_cb = Arc::clone(&rebase);
+        let mut anchor = Anchor::new();
         let clock = clock.clone();
         let mut mixer = Mixer {
             voices: [IDLE_VOICE; VOICES],
@@ -327,8 +332,10 @@ impl Player {
                 // When the first frame sounds: the device's lead after now, less what played
                 // before (R3).
                 let played_s = frame as f64 / sr;
-                let t0 = f64::from_bits(started_cb.load(Ordering::Relaxed));
-                let t0 = settle(t0, clock.now_s() + lead_s - played_s, played_s);
+                if rebase_cb.swap(false, Ordering::Relaxed) {
+                    anchor.rebase(played_s);
+                }
+                let t0 = anchor.guess(clock.now_s() + lead_s - played_s, played_s);
                 started_cb.store(t0.to_bits(), Ordering::Relaxed);
                 while let Ok(command) = consumer.pop() {
                     mixer.apply(command);
@@ -361,6 +368,7 @@ impl Player {
             sample_rate: stream.sample_rate,
             _stream: stream,
             started,
+            rebase,
             monitor: Some(monitor),
             reference: Some(Box::new(Reference {
                 samples: reference_rx,
@@ -422,6 +430,13 @@ impl Player {
     /// Output dropouts since the start (LH-NF-04).
     pub fn xruns(&self) -> u64 {
         self._stream.xruns()
+    }
+
+    /// Settles the start again from the next block, as at the beginning: a mode attaches to an
+    /// output that stays open (Runde 20), and the device clock has drifted since. Schedule
+    /// after the new start has settled (`SETTLE_S`); times before it may move by that drift.
+    pub fn rebase(&self) {
+        self.rebase.store(true, Ordering::Relaxed);
     }
 
     /// True once the device asked for its first block (before that, nothing plays).

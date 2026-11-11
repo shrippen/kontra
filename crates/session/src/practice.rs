@@ -372,6 +372,8 @@ impl<O: Output> Practice<O> {
             }
             // Asked for by the calibration only.
             Event::NoiseFloor { .. } => None,
+            // The audio engine across modes waits for it before a run starts (Runde 20).
+            Event::Rebased { .. } => None,
         }
     }
 

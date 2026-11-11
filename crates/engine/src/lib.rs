@@ -107,6 +107,11 @@ pub enum Event {
     },
     /// File input reached its end.
     Ended,
+    /// The input runs the analysis `Input::rebase` asked for with this epoch: events before it
+    /// belong to the mode before.
+    Rebased {
+        epoch: u64,
+    },
 }
 
 #[derive(Debug, thiserror::Error)]

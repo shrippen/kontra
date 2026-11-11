@@ -1,9 +1,10 @@
 //! Input: a sound device or a file, analyzed on a worker thread and optionally monitored
 //! (copied to a player's output); or MIDI (LH-EIN-12), whose note-ons are the notes as played.
 
+mod rebase;
 mod ring;
 
-use crate::clock::{settle, Clock};
+use crate::clock::{Anchor, Clock};
 use crate::player::{Player, Reference};
 use crate::{EngineError, Event};
 use kontra_drivers::{
@@ -14,6 +15,7 @@ use kontra_dsp::{
     gate_over_floor, peak_db, rms_db, EchoCanceller, NoteTracker, TrackerConfig, Tuner, ECHO_BLOCK,
 };
 use kontra_model::{DetectedNote, ExpectedStrike, InputSource, Instrument};
+use rebase::{swap_ring, take_swaps, Follow, Rebasing, Swap};
 use ring::input_ring;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
@@ -280,6 +282,10 @@ pub struct Input {
     recorder: Arc<Recorder>,
     /// To the analysis thread (audio input only).
     expected: Option<rtrb::Producer<Expect>>,
+    /// New analyses for the worker (audio input only), and the epoch of the last one.
+    swaps: Option<rtrb::Producer<Box<Swap>>>,
+    epoch: u64,
+    rebasing: Arc<Rebasing>,
     pub sample_rate: u32,
 }
 
@@ -378,6 +384,32 @@ impl Input {
         }
     }
 
+    /// A new mode takes the input over (Runde 20): the analysis starts over for `instrument`
+    /// and `source`, and a device settles its start again over the next `SETTLE_S`. Returns the
+    /// epoch the worker announces with `Event::Rebased` once the new analysis runs; events
+    /// before it are the last mode's. `Rebased` can come before the start has settled: the
+    /// stamps right after it may still move by the device's drift (up to about 72 ms after an
+    /// hour), so schedule against them once `SETTLE_S` has passed.
+    ///
+    /// `None` when no analysis will announce it: MIDI, a file that has ended, or four rebases
+    /// still waiting for the worker. The onset gate and expected strikes start over (the mode
+    /// sets them). The echo removal of a microphone stays as the input started: switching the
+    /// source neither adds nor removes it, and its buffer delays the new start by up to one of
+    /// its blocks; the audio engine keeps only cable inputs open (owner, 11.11.2026).
+    pub fn rebase(&mut self, instrument: &Instrument, source: InputSource) -> Option<u64> {
+        if self.worker.as_ref().is_none_or(JoinHandle::is_finished) {
+            return None;
+        }
+        let swaps = self.swaps.as_mut()?;
+        let (analysis, expected) = Analysis::new(f64::from(self.sample_rate), instrument, source);
+        let epoch = self.epoch + 1;
+        swaps.push(Box::new(Swap { analysis, epoch })).ok()?;
+        self.epoch = epoch;
+        self.expected = Some(expected);
+        self.rebasing.settle.store(true, Ordering::Relaxed);
+        Some(epoch)
+    }
+
     /// Switches tuner readings on or off.
     pub fn set_tuner(&self, on: bool) {
         self.tuner_on.store(on, Ordering::Relaxed);
@@ -414,6 +446,9 @@ struct Analysis {
     level: Vec<f32>,
     level_len: usize,
     start_s: f64,
+    /// Where this analysis began, in seconds after the input's start: 0 for the first, later
+    /// for one a rebase brought (its tracker counts from there).
+    origin_s: f64,
     sample_rate: f64,
     /// Samples analysed since the input started.
     analysed: u64,
@@ -442,6 +477,7 @@ impl Analysis {
             level: Vec::with_capacity(level_len),
             level_len,
             start_s: 0.0,
+            origin_s: 0.0,
             sample_rate,
             analysed: 0,
             sounding: false,
@@ -451,12 +487,17 @@ impl Analysis {
         (analysis, tx)
     }
 
+    /// Engine time of the tracker's first sample: its times are counted from there.
+    fn zero_s(&self) -> f64 {
+        self.start_s + self.origin_s
+    }
+
     /// Hands the strikes told since the last block to the tracker, on its clock.
     fn take_expected(&mut self) {
         while let Ok(told) = self.expected.pop() {
             match told {
                 Expect::Strike(mut strike) => {
-                    strike.onset_s -= self.start_s;
+                    strike.onset_s -= self.zero_s();
                     self.tracker.expect(&strike);
                 }
                 Expect::Forget => self.tracker.forget_expected(),
@@ -472,7 +513,7 @@ impl Analysis {
 
     /// The sample (counted from the input's first) at `at_s` on the engine clock.
     fn sample_at(&self, at_s: f64) -> u64 {
-        ((at_s - self.start_s) * self.sample_rate).round().max(0.0) as u64
+        ((at_s - self.zero_s()) * self.sample_rate).round().max(0.0) as u64
     }
 
     /// Tells the noise floor asked for once its span is analysed.
@@ -499,7 +540,7 @@ impl Analysis {
     /// No onset is taken from `resumed_s` (on this input's clock) for `RESUME_GUARD_S`: there
     /// the signal jumps from the bridge's silence back to a ringing string.
     fn guard_resume(&mut self, resumed_s: f64) {
-        let from = ((resumed_s - self.start_s) * self.sample_rate)
+        let from = ((resumed_s - self.zero_s()) * self.sample_rate)
             .round()
             .max(0.0) as u64;
         let len = (RESUME_GUARD_S * self.sample_rate) as u64;
@@ -557,7 +598,7 @@ impl Analysis {
                 continue;
             }
             let mut retraction = *retraction;
-            retraction.onset_s += self.start_s;
+            retraction.onset_s += self.zero_s();
             let _ = events.send(Event::Retracted(retraction));
         }
         for note in told {
@@ -565,7 +606,7 @@ impl Analysis {
                 continue;
             }
             let mut note = *note;
-            note.onset_s += self.start_s;
+            note.onset_s += self.zero_s();
             let _ = events.send(Event::Note(note));
         }
         self.send_revisions(events);
@@ -576,28 +617,28 @@ impl Analysis {
     fn send_revisions(&self, events: &Sender<Event>) {
         for revision in self.tracker.revised() {
             let mut revision = *revision;
-            revision.onset_s += self.start_s;
+            revision.onset_s += self.zero_s();
             let _ = events.send(Event::Technique(revision));
         }
         for revision in self.tracker.pitch_revised() {
             let mut revision = *revision;
-            revision.onset_s += self.start_s;
+            revision.onset_s += self.zero_s();
             let _ = events.send(Event::Pitch(revision));
         }
         for verdict in self.tracker.string_verdicts() {
             let mut verdict = *verdict;
-            verdict.onset_s += self.start_s;
+            verdict.onset_s += self.zero_s();
             let _ = events.send(Event::String(verdict));
         }
         for verdict in self.tracker.double_stops() {
             let mut verdict = *verdict;
-            verdict.onset_s += self.start_s;
+            verdict.onset_s += self.zero_s();
             let _ = events.send(Event::DoubleStop(verdict));
         }
         for end in self.tracker.ends() {
             let mut end = *end;
-            end.onset_s += self.start_s;
-            end.end_s += self.start_s;
+            end.onset_s += self.zero_s();
+            end.end_s += self.zero_s();
             let _ = events.send(Event::End(end));
         }
     }
@@ -630,13 +671,32 @@ fn start_device(
     let mut tap = tap;
     let monitor_on = Arc::new(AtomicBool::new(false));
     let monitor_cb = Arc::clone(&monitor_on);
+    let rebasing = Arc::new(Rebasing::default());
+    let rebasing_cb = Arc::clone(&rebasing);
+    let rebasing_worker = Arc::clone(&rebasing);
+    let mut anchor = Anchor::new();
     let stream = InputStream::open(
         config,
         move |samples: &[f32], captured_s: f64, first_ago_s: f64| {
-            // The first sample on the engine clock (R3).
-            let started_s = f64::from_bits(started_cb.load(Ordering::Relaxed));
-            let first_s = settle(started_s, clock_cb.now_s() - first_ago_s, captured_s);
-            started_cb.store(first_s.to_bits(), Ordering::Relaxed);
+            // The first sample on the engine clock (R3), settled again when a mode attaches.
+            let rebase = rebasing_cb.settle.swap(false, Ordering::Relaxed);
+            if rebase {
+                // The data so far keeps the old start (`Follow`).
+                let old_start = started_cb.load(Ordering::Relaxed);
+                rebasing_cb.old_start.store(old_start, Ordering::Relaxed);
+                let from_sample = capture.received();
+                rebasing_cb
+                    .from_sample
+                    .store(from_sample, Ordering::Relaxed);
+                anchor.rebase(captured_s);
+            }
+            let first_s = anchor.guess(clock_cb.now_s() - first_ago_s, captured_s);
+            // Counted before the new start shows: a worker that reads the new start (Acquire)
+            // also sees the rebase and where it holds from (review #286).
+            if rebase {
+                rebasing_cb.settled.fetch_add(1, Ordering::Release);
+            }
+            started_cb.store(first_s.to_bits(), Ordering::Release);
             block_cb.fetch_max(
                 u32::try_from(samples.len()).unwrap_or(u32::MAX),
                 Ordering::Relaxed,
@@ -653,6 +713,7 @@ fn start_device(
     let sample_rate = stream.sample_rate;
     monitor_on.store(tap_rate == sample_rate, Ordering::Relaxed);
     let (mut analysis, expected) = Analysis::new(f64::from(sample_rate), instrument, source);
+    let (swaps, mut swapped) = swap_ring();
     // Echo removal only when input and output run at the same rate (as monitoring).
     let mut echo = reference
         .filter(|(_, rate)| *rate == sample_rate)
@@ -668,7 +729,9 @@ fn start_device(
             let mut block = vec![0.0f32; BLOCK];
             let mut watch = Watch::new(clock_worker.now_s());
             let rate = f64::from(sample_rate);
+            let mut follow = Follow::default();
             while !stop_worker.load(Ordering::Relaxed) {
+                take_swaps(&mut swapped, &mut analysis, &events);
                 let available = drain.read(&mut block);
                 if available == 0 {
                     if let Some(e) = watch.idle(clock_worker.now_s(), analysis.heard_s()) {
@@ -677,10 +740,11 @@ fn start_device(
                     std::thread::sleep(IDLE);
                     continue;
                 }
-                let start = f64::from_bits(started.load(Ordering::Relaxed));
+                let start = f64::from_bits(started.load(Ordering::Acquire));
+                let start = (!start.is_nan()).then_some(start);
                 let arrival = Arrival {
                     now_s: clock_worker.now_s(),
-                    start_s: (!start.is_nan()).then_some(start),
+                    start_s: follow.start_s(&rebasing_worker, start),
                     skipped_s: drain.skipped_s(rate),
                 };
                 let tuner = tuner_worker.load(Ordering::Relaxed);
@@ -701,6 +765,9 @@ fn start_device(
                     &events,
                     feed,
                 );
+                if let Some(shift_s) = follow.shift_s(drain.position(), analysis.analysed, rate) {
+                    watch.shift_s = shift_s;
+                }
             }
         })
         .map_err(EngineError::Thread)?;
@@ -714,6 +781,9 @@ fn start_device(
         _midi: None,
         recorder,
         expected: Some(expected),
+        swaps: Some(swaps),
+        epoch: 0,
+        rebasing,
         sample_rate,
     })
 }
@@ -739,6 +809,7 @@ fn start_file(
         samples = laptop_jack(&samples, sr, 1);
     }
     let (mut analysis, expected) = Analysis::new(sr, instrument, source);
+    let (swaps, mut swapped) = swap_ring();
     let mut tap = tap.filter(|t| t.rate == sample_rate);
     let clock = clock.clone();
     let started_flag = Arc::new(AtomicU64::new(f64::NAN.to_bits()));
@@ -765,6 +836,7 @@ fn start_file(
                         std::thread::sleep(Duration::from_secs_f64(wait));
                     }
                 }
+                take_swaps(&mut swapped, &mut analysis, &events);
                 if let Some(tap) = tap.as_mut() {
                     tap.push(block);
                 }
@@ -785,6 +857,9 @@ fn start_file(
         _midi: None,
         recorder,
         expected: Some(expected),
+        swaps: Some(swaps),
+        epoch: 0,
+        rebasing: Arc::new(Rebasing::default()),
         sample_rate,
     })
 }
@@ -936,6 +1011,9 @@ fn start_midi(
         _midi: Some(connection),
         recorder: Arc::default(),
         expected: None,
+        swaps: None,
+        epoch: 0,
+        rebasing: Arc::new(Rebasing::default()),
         sample_rate: 0,
     })
 }
@@ -993,6 +1071,9 @@ fn start_midi_file(
         _midi: None,
         recorder: Arc::default(),
         expected: None,
+        swaps: None,
+        epoch: 0,
+        rebasing: Arc::new(Rebasing::default()),
         sample_rate: 0,
     })
 }

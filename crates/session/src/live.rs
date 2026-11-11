@@ -488,7 +488,8 @@ impl LiveTuner {
                 | Event::DoubleStop(_)
                 | Event::End(_)
                 | Event::Heard { .. }
-                | Event::NoiseFloor { .. } => {}
+                | Event::NoiseFloor { .. }
+                | Event::Rebased { .. } => {}
             }
         }
         out
@@ -635,7 +636,8 @@ impl LiveEar {
                 | Event::DoubleStop(_)
                 | Event::End(_)
                 | Event::Heard { .. }
-                | Event::NoiseFloor { .. } => {}
+                | Event::NoiseFloor { .. }
+                | Event::Rebased { .. } => {}
             }
         }
         out
