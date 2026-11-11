@@ -194,7 +194,8 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   im nativen Windows-Stil hoch. Installer (Runde 18: Inno Setup und portable ZIP, winget später): `packaging/windows/Kontra.iss`,
   `scripts/installer-windows.sh`; die CI baut beide bei jedem Push als Artefakt `Kontra-windows-installer`, angehängt an
   ein Release werden sie nur von `.github/workflows/release.yml` beim Tag `v*` (GitHub Actions). Update-Hinweis im
-  Programm (LH-ALL-07) umgesetzt. Offen: Signierung zurückgestellt (Runde 18); Demo-Ausschluss prüfen wie im Flatpak;
+  Programm (LH-ALL-07) umgesetzt; Kontras Logo als `packaging/windows/Kontra.ico` für Setup, Startmenü und
+  App-Liste (Runde 19). Offen: Signierung zurückgestellt (Runde 18); Demo-Ausschluss prüfen wie im Flatpak;
   Landing Page mit Windows-Download; Eintrag `kontra` in `versions.json`.
 - [ ] Win6 QA unter Windows (Entscheidung 10.11.: zuerst in einer KVM-Maschine auf dem Rechner des Eigentümers;
   Runde 18: die vorhandene libvirt-Maschine `win`, vorher ein Snapshot; Interface per USB-Durchreichung, sobald
