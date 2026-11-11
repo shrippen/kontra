@@ -123,6 +123,8 @@ impl PluginTimerImpl for GainMainThread<'_> {
 
 impl GainMainThread<'_> {
     /// The editor sits in a window and has news: it asks for a new size.
+    // Only the descriptor (Linux) wakes it.
+    #[cfg(target_os = "linux")]
     fn grow(&self) {
         if self.editor.borrow().parent.is_none() {
             return;
