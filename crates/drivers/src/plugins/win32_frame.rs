@@ -18,8 +18,8 @@ use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     AdjustWindowRectEx, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
     GetWindowLongPtrW, PeekMessageW, RegisterClassW, SetWindowLongPtrW, SetWindowPos, ShowWindow,
-    TranslateMessage, CW_USEDEFAULT, GWLP_USERDATA, MSG, PM_REMOVE, SWP_NOMOVE, SWP_NOZORDER,
-    SW_SHOW, WM_CLOSE, WM_SIZE, WNDCLASSW, WS_EX_APPWINDOW, WS_OVERLAPPEDWINDOW,
+    TranslateMessage, CW_USEDEFAULT, GWLP_USERDATA, MSG, PM_REMOVE, SIZE_MINIMIZED, SWP_NOMOVE,
+    SWP_NOZORDER, SW_SHOW, WM_CLOSE, WM_SIZE, WNDCLASSW, WS_EX_APPWINDOW, WS_OVERLAPPEDWINDOW,
 };
 
 /// The window class of all editor frames.
@@ -85,6 +85,8 @@ unsafe extern "system" fn window_proc(
             state.events.borrow_mut().push(FrameEvent::Closed);
             0
         }
+        // Minimized is 0×0: no size for the editor.
+        WM_SIZE if wparam == SIZE_MINIMIZED as WPARAM => 0,
         WM_SIZE => {
             let (width, height) = words(lparam);
             let resized = FrameEvent::Resized { width, height };
@@ -202,5 +204,29 @@ impl Drop for Win32Frame {
             DestroyWindow(self.window);
             drop(Box::from_raw(self.state));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use windows_sys::Win32::UI::WindowsAndMessaging::SW_MINIMIZE;
+
+    /// Review #280: minimizing reports 0×0; the editor must not be sized to that.
+    #[test]
+    #[ignore = "needs a display"]
+    fn minimizing_is_no_resize() {
+        let mut frame = Win32Frame::open("Minimize", 300, 200).expect("window");
+        frame.show();
+        let _ = frame.poll();
+
+        // SAFETY: the frame's window is alive until it drops at the end.
+        unsafe { ShowWindow(frame.window, SW_MINIMIZE) };
+        let events = frame.poll();
+        let zero = FrameEvent::Resized {
+            width: 0,
+            height: 0,
+        };
+        assert!(!events.contains(&zero), "{events:?}");
     }
 }

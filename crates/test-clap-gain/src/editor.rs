@@ -7,6 +7,7 @@
 //!  on_fd       ─► reads the byte; with a window: asks for EDITOR_RESIZED
 //!  on_timer    ─► "turns the knob": the next block reports EDITOR_GAIN as its own change;
 //!                 at gain EDITOR_CLOSE_GAIN it closes itself (`closed`)
+//!  set_scale   ─► overrides EDITOR_SYSTEM_SCALE for the first size
 //!  set_size    ─► refuses anything wider than EDITOR_MAX_WIDTH
 //!  destroy     ─► unregisters both
 //! ```
@@ -29,6 +30,9 @@ pub const EDITOR_GAIN: f64 = 2.5;
 pub const EDITOR_CLOSE_GAIN: f64 = 3.25;
 /// Wider sizes are refused: the host gives the window the editor's size back.
 pub const EDITOR_MAX_WIDTH: u32 = 400;
+/// The scale the editor reads from the system when the host sets none, as on a 150 % screen.
+/// Its first size is `EDITOR_SIZE` times the scale in effect.
+pub const EDITOR_SYSTEM_SCALE: f64 = 1.5;
 const TIMER_MS: u32 = 10;
 
 /// What the editor holds while it exists.
@@ -38,6 +42,8 @@ pub struct EditorState {
     parent: Option<u64>,
     /// The size the host last set (or the first one).
     size: Cell<Option<(u32, u32)>>,
+    /// The scale the host set, overriding the system's.
+    scale: Cell<Option<f64>>,
     #[cfg(target_os = "linux")]
     pipe: Option<fds::Pipe>,
 }
@@ -66,7 +72,7 @@ impl PluginGuiImpl for GainMainThread<'_> {
 
     fn create(&self, configuration: GuiConfiguration) -> Result<(), PluginError> {
         if !embedded_here(configuration) {
-            return Err(PluginError::Message("only embedded X11"));
+            return Err(PluginError::Message("only embedded X11 or Win32"));
         }
         let mut editor = self.editor.borrow_mut();
         if let Some(timer) = self.host.get_extension::<HostTimer>() {
@@ -91,13 +97,24 @@ impl PluginGuiImpl for GainMainThread<'_> {
         *editor = EditorState::default();
     }
 
-    fn set_scale(&self, _scale: f64) -> Result<(), PluginError> {
+    fn set_scale(&self, scale: f64) -> Result<(), PluginError> {
+        self.editor.borrow().scale.set(Some(scale));
         Ok(())
     }
 
     fn get_size(&self) -> Option<GuiSize> {
-        let (width, height) = self.editor.borrow().size.get().unwrap_or(EDITOR_SIZE);
-        Some(GuiSize { width, height })
+        let editor = self.editor.borrow();
+        if let Some((width, height)) = editor.size.get() {
+            return Some(GuiSize { width, height });
+        }
+
+        // First size: scaled as the host says, else as the system says.
+        let scale = editor.scale.get().unwrap_or(EDITOR_SYSTEM_SCALE);
+        let scaled = |v: u32| (f64::from(v) * scale).round() as u32;
+        Some(GuiSize {
+            width: scaled(EDITOR_SIZE.0),
+            height: scaled(EDITOR_SIZE.1),
+        })
     }
 
     fn can_resize(&self) -> bool {

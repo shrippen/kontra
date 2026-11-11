@@ -37,9 +37,10 @@ const FALLBACK_SIZE: GuiSize = GuiSize {
     height: 480,
 };
 
-/// X11 and Win32 sizes are in physical pixels: the plugin draws 1:1 (`set_scale` is for the
-/// APIs with logical sizes).
-const PHYSICAL_SCALE: f64 = 1.0;
+/// X11 has no scale a plugin could read: Kontra says 1:1. Win32 has one, so there `set_scale`
+/// stays out (it overrides the system's; CLAP `gui.h`), and the plugin reads it itself.
+#[cfg(not(windows))]
+const X11_SCALE: f64 = 1.0;
 
 /// The window API this platform embeds editors with.
 #[cfg(windows)]
@@ -243,7 +244,8 @@ impl ClapPlugin {
             return Err(PluginError::NoEditor);
         }
         gui.create(&handle, embedded()).map_err(editor_error)?;
-        let _ = gui.set_scale(&handle, PHYSICAL_SCALE);
+        #[cfg(not(windows))]
+        let _ = gui.set_scale(&handle, X11_SCALE);
         let size = gui.get_size(&handle).unwrap_or(FALLBACK_SIZE);
 
         let frame = match make_frame(title, size.width, size.height) {

@@ -3,7 +3,7 @@
 //! there, and the plugin thread runs them in `idle`, as for CLAP.
 //!
 //! ```text
-//!  controller.createView ─► view: isPlatformTypeSupported(X11) ─ setFrame(Frame) ─ getSize
+//!  controller.createView ─► view: isPlatformTypeSupported(X11 or HWND) ─ setFrame(Frame) ─ getSize
 //!  make_frame ─► window ─► view.attached(window) ─► window.show
 //!  every tick:  timers due ─► onTimer    descriptor readable ─► onFDIsSet
 //!               view asks resizeView ─► window.resize, view.onSize
