@@ -11,7 +11,6 @@ eines USB-Eingangs ohne Ausgang, #277 Knopf „Fenster“ im Mixer, VST-3-Editor
 Plugin-Thread übersteht eine Panik. Offen als PR: Hinzufügen eines Plugins ohne Warten (FX4 fertig).
 
 Wartet auf den Eigentümer (Fragen für Runde 20 gesammelt):
-- Flatpak: Zugang zu X11 für Plugin-Fenster und Lesezugriff auf `~/.clap`, `~/.vst3` (FX6, `packaging/`).
 - Plugin-Fenster unter Windows (HWND) und R3 (DLL je Block, Audiopfad, Messung): brauchen VM bzw. Scarlett.
 - Ein Plugin-Fenster gehört dem Player, der die Kette spielt; ein Lauf schließt das im Standby offene Fenster.
 - USB-Frage: Schalter in den Einstellungen für schon steckende Kabel.

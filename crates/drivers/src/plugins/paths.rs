@@ -4,10 +4,10 @@
 //! Linux    $CLAP_PATH (':'-separated), ~/.clap, /usr/lib/clap
 //! Windows  %CLAP_PATH% (';'), %COMMONPROGRAMFILES%\CLAP, %LOCALAPPDATA%\Programs\Common\CLAP
 //! VST3     ~/.vst3, /usr/lib/vst3, /usr/local/lib/vst3
-//! Flatpak  also the plugin extension point /app/extensions/Plugins/{clap,vst3}
-//!          (org.freedesktop.LinuxAudio.Plugins.*; the host's /usr is not visible there)
 //!          Windows: %COMMONPROGRAMFILES%\VST3, %LOCALAPPDATA%\Programs\Common\VST3
 //!          (bundles `*.vst3` are folders)
+//! Flatpak  also the plugin extension point /app/extensions/Plugins/{clap,vst3}
+//!          (org.freedesktop.LinuxAudio.Plugins.*; the host's /usr is not visible there)
 //! ```
 
 use super::PluginFormat;

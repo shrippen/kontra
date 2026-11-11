@@ -111,7 +111,8 @@ drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier
   nicht verloren. Je Player eine eigene Instanz; ein gemeinsames Register über Player hinweg fehlt noch.
 - [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket. Der
   Scan-Prozess kommt mit: `kontra` startet sich selbst zum Prüfen (`--probe-plugin <Datei>`, vor Qt in `main`),
-  die Pakete brauchen kein zweites Programm; offen bleibt, dass die Sandbox die Plugin-Ordner sieht.
+  die Pakete brauchen kein zweites Programm. Flatpak erledigt (Runde 20, #281): X11 für die Fenster, `~/.clap`
+  und `~/.vst3` lesend, Erweiterungspunkt `org.freedesktop.LinuxAudio.Plugins`; offen: das Windows-Paket.
 - „VST 3“ nach Steinbergs Regeln, Markenhinweis unter „Über Kontra“, kein Logo (Runde 19, #273).
 
 ## Multiplattform: Windows (Eigentümer, 10.11.2026)
