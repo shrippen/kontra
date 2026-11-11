@@ -15,7 +15,7 @@ use kontra_dsp::{
     gate_over_floor, peak_db, rms_db, EchoCanceller, NoteTracker, TrackerConfig, Tuner, ECHO_BLOCK,
 };
 use kontra_model::{DetectedNote, ExpectedStrike, InputSource, Instrument};
-use rebase::{swap_ring, take_swaps, Rebasing, Swap};
+use rebase::{swap_ring, take_swaps, Follow, Rebasing, Swap};
 use ring::input_ring;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
@@ -127,8 +127,6 @@ struct Watch {
     shift_s: f64,
     /// Device time skipped as of the last data (`Drain::skipped_s`).
     skipped_s: f64,
-    /// Silence fed in place of what stalls lost, in seconds since the start.
-    bridged_s: f64,
 }
 
 /// The end of a stall on the input's own count, and the seconds the device did not deliver.
@@ -145,15 +143,7 @@ impl Watch {
             stalled: false,
             shift_s: 0.0,
             skipped_s: 0.0,
-            bridged_s: 0.0,
         }
-    }
-
-    /// The start settled again from the device's own count of samples, which the time it
-    /// skipped already moved; only the silence fed in its place is counted twice now. (Samples
-    /// a full ring dropped are counted by the device but not analysed: rare, and left out.)
-    fn rebased(&mut self) {
-        self.shift_s = -self.bridged_s;
     }
 
     /// No data at `now_s`; heard up to `heard_s`. Armed with the first data: a device slow to
@@ -233,7 +223,6 @@ fn deliver(
         left -= n;
     }
     watch.shift_s += lost.lost_s - silent as f64 / analysis.sample_rate;
-    watch.bridged_s += silent as f64 / analysis.sample_rate;
     restart(analysis, watch.shift_s);
     if silent > 0 && sounding {
         analysis.guard_resume(resumed_s);
@@ -396,10 +385,21 @@ impl Input {
     }
 
     /// A new mode takes the input over (Runde 20): the analysis starts over for `instrument`
-    /// and `source`, and a device settles its start again. Returns the epoch the worker
-    /// announces with `Event::Rebased` once it runs; events before it are the last mode's.
-    /// `None` for MIDI, which has no analysis. The onset gate and expected strikes start over.
+    /// and `source`, and a device settles its start again over the next `SETTLE_S`. Returns the
+    /// epoch the worker announces with `Event::Rebased` once the new analysis runs; events
+    /// before it are the last mode's. `Rebased` can come before the start has settled: the
+    /// stamps right after it may still move by the device's drift (up to about 72 ms after an
+    /// hour), so schedule against them once `SETTLE_S` has passed.
+    ///
+    /// `None` when no analysis will announce it: MIDI, a file that has ended, or four rebases
+    /// still waiting for the worker. The onset gate and expected strikes start over (the mode
+    /// sets them). The echo removal of a microphone stays as the input started: switching the
+    /// source neither adds nor removes it, and its buffer delays the new start by up to one of
+    /// its blocks; the audio engine keeps only cable inputs open (owner, 11.11.2026).
     pub fn rebase(&mut self, instrument: &Instrument, source: InputSource) -> Option<u64> {
+        if self.worker.as_ref().is_none_or(JoinHandle::is_finished) {
+            return None;
+        }
         let swaps = self.swaps.as_mut()?;
         let (analysis, expected) = Analysis::new(f64::from(self.sample_rate), instrument, source);
         let epoch = self.epoch + 1;
@@ -681,6 +681,13 @@ fn start_device(
             // The first sample on the engine clock (R3), settled again when a mode attaches.
             let rebase = rebasing_cb.settle.swap(false, Ordering::Relaxed);
             if rebase {
+                // The data so far keeps the old start (`Follow`).
+                let old_start = started_cb.load(Ordering::Relaxed);
+                rebasing_cb.old_start.store(old_start, Ordering::Relaxed);
+                let from_sample = capture.received();
+                rebasing_cb
+                    .from_sample
+                    .store(from_sample, Ordering::Relaxed);
                 anchor.rebase(captured_s);
             }
             let first_s = anchor.guess(clock_cb.now_s() - first_ago_s, captured_s);
@@ -720,14 +727,9 @@ fn start_device(
             let mut block = vec![0.0f32; BLOCK];
             let mut watch = Watch::new(clock_worker.now_s());
             let rate = f64::from(sample_rate);
-            let mut settled = 0;
+            let mut follow = Follow::default();
             while !stop_worker.load(Ordering::Relaxed) {
                 take_swaps(&mut swapped, &mut analysis, &events);
-                let now_settled = rebasing_worker.settled.load(Ordering::Acquire);
-                if now_settled != settled {
-                    settled = now_settled;
-                    watch.rebased();
-                }
                 let available = drain.read(&mut block);
                 if available == 0 {
                     if let Some(e) = watch.idle(clock_worker.now_s(), analysis.heard_s()) {
@@ -737,9 +739,10 @@ fn start_device(
                     continue;
                 }
                 let start = f64::from_bits(started.load(Ordering::Relaxed));
+                let start = (!start.is_nan()).then_some(start);
                 let arrival = Arrival {
                     now_s: clock_worker.now_s(),
-                    start_s: (!start.is_nan()).then_some(start),
+                    start_s: follow.start_s(&rebasing_worker, start),
                     skipped_s: drain.skipped_s(rate),
                 };
                 let tuner = tuner_worker.load(Ordering::Relaxed);
@@ -760,6 +763,9 @@ fn start_device(
                     &events,
                     feed,
                 );
+                if let Some(shift_s) = follow.shift_s(drain.position(), analysis.analysed, rate) {
+                    watch.shift_s = shift_s;
+                }
             }
         })
         .map_err(EngineError::Thread)?;

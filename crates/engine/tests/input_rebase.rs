@@ -14,6 +14,8 @@ const RATE: f64 = 48_000.0;
 const REBASE_AT_S: f64 = 1.3;
 /// How far a stamp may be off (the file test allows the same).
 const TOLERANCE_S: f64 = 0.006;
+/// Ample time for a file's worker to return after it told the end.
+const WORKER_END: Duration = Duration::from_millis(200);
 
 #[test]
 fn a_rebased_input_goes_on_with_its_stamps() {
@@ -90,4 +92,39 @@ fn a_rebased_input_goes_on_with_its_stamps() {
     for (heard, want) in before.iter().chain(&after).zip(onsets) {
         assert!((heard - want).abs() < TOLERANCE_S, "{heard} for {want}");
     }
+}
+
+/// Review #286: a file that has ended runs no analysis any more; a rebase there must say so
+/// instead of promising an `Event::Rebased` that never comes.
+#[test]
+fn an_ended_file_takes_no_rebase() {
+    let samples = vec![0.0f32; RATE as usize / 10];
+    let path = std::env::temp_dir().join(format!("kontra-ended-{}.wav", std::process::id()));
+    write_wav(
+        &path,
+        &AudioBuffer {
+            sample_rate: RATE as u32,
+            channels: vec![samples],
+        },
+    )
+    .unwrap();
+    let (tx, rx) = channel();
+    let kind = InputKind::File {
+        path: path.clone(),
+        pace: Pace::Fast,
+        laptop_jack: false,
+    };
+    let bass = Instrument::default_bass();
+    let mut input = Input::start(&kind, &bass, InputSource::Line, &Clock::new(), tx, None).unwrap();
+    for event in rx.iter() {
+        if matches!(event, Event::Ended) {
+            break;
+        }
+    }
+    // The worker ends right after it told the end; the first rebase after that is refused
+    // (a full ring of four would refuse only the fifth).
+    std::thread::sleep(WORKER_END);
+    assert_eq!(input.rebase(&bass, InputSource::Line), None);
+    drop(input);
+    let _ = std::fs::remove_file(path);
 }

@@ -47,6 +47,11 @@ pub(super) struct Capture {
 impl Capture {
     /// Copies a block the device captured at `captured_s` (device time since its first block)
     /// into the ring without blocking or allocating.
+    /// Samples pushed so far.
+    pub(super) fn received(&self) -> u64 {
+        self.received
+    }
+
     pub(super) fn push(&mut self, samples: &[f32], captured_s: f64) {
         let _ = self.stamps.push(Stamp {
             sample: self.received,
@@ -90,6 +95,11 @@ pub(super) struct Drain {
 
 impl Drain {
     /// Fills the front of `out` with the next samples; returns how many.
+    /// Samples read so far, owed silence included: the device's own count.
+    pub(super) fn position(&self) -> u64 {
+        self.read
+    }
+
     pub(super) fn read(&mut self, out: &mut [f32]) -> usize {
         let mut n = 0;
         while n < out.len() {

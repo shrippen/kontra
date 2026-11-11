@@ -734,33 +734,85 @@ fn gate_reaches_the_tracker() {
     assert_eq!(analysis.tracker.config().onset.gate_db, -62.0);
 }
 
-/// Runde 20: after a stall the analysis owes the lost time not filled with silence (0.8 s lost,
-/// 0.5 s bridged: 0.3 s). A start settled again from the device's own count already holds the
-/// whole 0.8 s, so only the bridged silence is counted twice and comes off.
+/// Review #286: a rebase asked for during a stall. The callback settles the new start with the
+/// first data after the stall, which already holds the lost 0.8 s; the worker must not add the
+/// stall again. Heard times follow the device: data resumes at 1.8 s.
 #[test]
-fn a_rebase_keeps_only_the_bridged_silence() {
+fn a_rebase_during_a_stall_counts_the_loss_once() {
+    use super::rebase::{Follow, Rebasing};
+    use std::sync::atomic::Ordering;
+
     let rate = 48_000.0;
     let (mut analysis, _expected) =
         Analysis::new(rate, &Instrument::default_bass(), InputSource::Line);
     let mut watch = Watch::new(0.0);
+    let mut follow = Follow::default();
+    let rebasing = Rebasing::default();
     let (tx, _rx) = std::sync::mpsc::channel();
     let block = [0.0f32; BLOCK];
-    let take = |analysis: &mut Analysis, watch: &mut Watch, at_s: f64, skipped_s| {
+    let mut position = 0u64;
+    let mut started = 0.0;
+    let mut take = |analysis: &mut Analysis,
+                    watch: &mut Watch,
+                    follow: &mut Follow,
+                    at_s: f64,
+                    skipped_s,
+                    started: f64| {
+        let start_s = follow.start_s(&rebasing, Some(started));
         let arrival = Arrival {
             now_s: at_s,
-            start_s: Some(0.0),
+            start_s,
             skipped_s,
         };
         deliver(analysis, watch, arrival, &block, &tx, |a, b| {
             a.process(b, false, &tx)
         });
+        position += BLOCK as u64;
+        if let Some(shift) = follow.shift_s(position, analysis.analysed, rate) {
+            watch.shift_s = shift;
+        }
     };
 
-    take(&mut analysis, &mut watch, 0.01, 0.0);
-    assert!(watch.idle(0.5, analysis.heard_s()).is_some(), "stalled");
-    take(&mut analysis, &mut watch, 1.3, 0.8);
-    assert!((watch.shift_s - 0.3).abs() < 1e-9, "{}", watch.shift_s);
+    // One second of data, then the device stalls.
+    let blocks = (rate as usize) / BLOCK;
+    for i in 0..blocks {
+        take(
+            &mut analysis,
+            &mut watch,
+            &mut follow,
+            (i * BLOCK) as f64 / rate,
+            0.0,
+            started,
+        );
+    }
+    assert!(watch.idle(1.4, analysis.heard_s()).is_some(), "stalled");
 
-    watch.rebased();
-    assert!((watch.shift_s + BRIDGE_S).abs() < 1e-9, "{}", watch.shift_s);
+    // The mode switches; the first callback after the stall settles the start again from the
+    // device's count (1 s of samples delivered, 1.8 s passed): 0.8 s later than before.
+    rebasing
+        .old_start
+        .store(started.to_bits(), Ordering::Relaxed);
+    rebasing
+        .from_sample
+        .store((blocks * BLOCK) as u64, Ordering::Relaxed);
+    started = 0.8;
+    rebasing.settled.fetch_add(1, Ordering::Release);
+
+    let resumed = 1.8;
+    for i in 0..3 {
+        take(
+            &mut analysis,
+            &mut watch,
+            &mut follow,
+            resumed + (i * BLOCK) as f64 / rate,
+            0.8,
+            started,
+        );
+    }
+    let heard = analysis.heard_s().expect("heard");
+    let want = resumed + (3 * BLOCK) as f64 / rate;
+    assert!(
+        (heard - want).abs() < 1e-6,
+        "heard up to {heard}, not {want}"
+    );
 }
