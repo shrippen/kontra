@@ -234,9 +234,14 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 - R3 (Zeit je Block aus den Gerätestempeln, DLL): mit dem Scarlett messen (Ausgang per Kabel im Eingang); freigegeben.
 - USB-Eingang ohne Ausgang: Schalter „Instrument/Mikrofon“ je Gerät in den Einstellungen (LH-EIN-02).
 - Plugin-Instanzen über einen Wechsel des Players hinweg: eine Instanz je Plugin für alle Player (Bereitschaft,
-  Lauf, Gehörtraining, Stimmgerät), das Fenster bleibt offen, nichts lädt neu. „Das Wechseln von Player zu Player
-  darf nicht spürbar sein!“ (Neuladen eines VST dauert Sekunden.) Danach messen, wie hörbar das Neuöffnen der
-  Geräte beim Wechsel ist; ist es das, wird eine Audio-Engine über alle Modi eine eigene Frage.
+  Lauf, Gehörtraining, Stimmgerät), das Fenster bleibt offen, nichts lädt neu (#283). „Das Wechseln von Player zu
+  Player darf nicht spürbar sein!“ (Neuladen eines VST dauert Sekunden.) Gemessen 11.11. (`kontra-cli check
+  --steps switch`, Scarlett, PipeWire, Block 128, je 10 Wechsel, zwei Läufe): schon das Schließen und Öffnen der
+  Geräte lässt den Ausgang 31–42 ms stumm (Median 36–37 ms; Schließen 2–6 ms, Öffnen 21–25 ms, bis zum ersten
+  Block 5–15 ms), ohne Ausblenden. Das ist die Untergrenze: ein echter Wechsel ist länger (ein Lauf lädt seinen
+  Begleit-Track, bevor er den Eingang öffnet; zurück in die Bereitschaft bis zu einem Tick von 16 ms; die
+  Effektkette blendet erst danach ein; hörbar wird der Bass erst mit dem ersten Block des Eingangs). Das ist
+  hörbar; eine Audio-Engine, die über alle Modi offen bleibt, wird eine eigene Frage an den Eigentümer.
 
 ### Entscheidungen Runde 19 (11.11.2026)
 

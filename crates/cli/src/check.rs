@@ -3,9 +3,11 @@
 //!
 //! ```text
 //! check-<date>/
-//!   report.md, report.json    loopback, calibration, takes, soak, stems, manual checklist
+//!   report.md, report.json    loopback, calibration, takes, soak, stems, switch, manual checklist
 //!   takes/<name>.wav + .json  real bass for `korpus measure` / `korpus techniques`
 //! ```
+
+mod switch;
 
 use crate::args::{CheckArgs, CheckStep};
 use crate::{load_arrangement, CliResult};
@@ -103,6 +105,7 @@ pub fn run(a: &CheckArgs) -> CliResult {
             CheckStep::Takes => takes(&mut report, a, &setup, &instrument, &takes_dir, latency_ms)?,
             CheckStep::Soak => soak(&mut report, a)?,
             CheckStep::Stems => stems(&mut report, a, &out)?,
+            CheckStep::Switch => switch::switch(&mut report, &setup, &instrument)?,
         }
     }
     manual(&mut report);
