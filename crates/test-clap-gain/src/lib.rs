@@ -11,6 +11,7 @@ mod editor;
 
 pub use editor::{
     EditorState, EDITOR_CLOSE_GAIN, EDITOR_GAIN, EDITOR_MAX_WIDTH, EDITOR_RESIZED, EDITOR_SIZE,
+    EDITOR_SYSTEM_SCALE,
 };
 
 use clack_extensions::audio_ports::{

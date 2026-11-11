@@ -23,6 +23,9 @@ const EDITOR_RESIZED: (u32, u32) = (320, 240);
 const EDITOR_GAIN: f64 = 2.5;
 const EDITOR_CLOSE_GAIN: f64 = 3.25;
 const EDITOR_MAX_WIDTH: u32 = 400;
+/// `kontra_clap_gain::EDITOR_SYSTEM_SCALE`: the CLAP editor's own scale where the host sets none.
+#[cfg(windows)]
+const EDITOR_SYSTEM_SCALE: f64 = 1.5;
 const RATE: f64 = 48_000.0;
 const BLOCK: usize = 256;
 const WINDOW: u32 = 0x4242;
@@ -123,7 +126,10 @@ struct Recording(Arc<Mutex<Seen>>);
 
 impl EditorFrame for Recording {
     fn handle(&self) -> FrameHandle {
-        FrameHandle::X11(WINDOW)
+        #[cfg(windows)]
+        return FrameHandle::Win32(WINDOW as isize);
+        #[cfg(not(windows))]
+        return FrameHandle::X11(WINDOW);
     }
 
     fn resize(&mut self, width: u32, height: u32) {
@@ -173,6 +179,19 @@ fn closed(handle: &PluginHandle) -> Option<()> {
     (!handle.editor_open()).then_some(())
 }
 
+/// The size an editor opens with. Review #280: Win32 sizes follow the system's scale, which a
+/// CLAP editor reads itself; Kontra must not override it with 1:1 (a 150 % screen drew a third
+/// too small). X11 has no scale to read: there Kontra says 1:1.
+fn first_size(format: PluginFormat) -> (u32, u32) {
+    #[cfg(windows)]
+    if format == PluginFormat::Clap {
+        let scaled = |v: u32| (f64::from(v) * EDITOR_SYSTEM_SCALE).round() as u32;
+        return (scaled(EDITOR_SIZE.0), scaled(EDITOR_SIZE.1));
+    }
+    let _ = format;
+    EDITOR_SIZE
+}
+
 #[test]
 fn the_editor_lives_in_its_frame_and_follows_the_plugin() {
     for format in BOTH {
@@ -195,7 +214,8 @@ fn lives_in_its_frame(format: PluginFormat) {
     {
         let seen = seen.lock().unwrap();
         let made = seen.made.clone().expect("frame made");
-        assert_eq!(made, ("Gain".into(), EDITOR_SIZE.0, EDITOR_SIZE.1));
+        let (width, height) = first_size(format);
+        assert_eq!(made, ("Gain".into(), width, height));
         assert!(seen.shown);
     }
 
@@ -372,25 +392,26 @@ fn closes_with_the_plugin(format: PluginFormat) {
     wait_for(|| seen.lock().unwrap().dropped.then_some(()));
 }
 
-/// The real window (X11). Needs a display, so it runs only on request, under Xvfb:
-/// `xvfb-run cargo test -p kontra-drivers --test plugin_editor -- --ignored`.
-#[cfg(target_os = "linux")]
+/// The real window of the system (X11, Win32). Needs a display, so it runs only on request:
+/// `xvfb-run cargo test -p kontra-drivers --test plugin_editor -- --ignored` (Linux), the same
+/// without `xvfb-run` under Windows.
+#[cfg(any(target_os = "linux", windows))]
 #[test]
-#[ignore = "needs an X display"]
-fn the_editor_opens_in_an_x11_window() {
+#[ignore = "needs a display"]
+fn the_editor_opens_in_a_system_window() {
     for format in BOTH {
-        opens_in_x11(format);
+        opens_in_system_window(format);
     }
 }
 
-#[cfg(target_os = "linux")]
-fn opens_in_x11(format: PluginFormat) {
+#[cfg(any(target_os = "linux", windows))]
+fn opens_in_system_window(format: PluginFormat) {
     let PluginLoaded {
         processor, handle, ..
     } = load_gain(format);
     handle
         .open_editor("Kontra Test Gain", kontra_drivers::plugins::system_frame())
-        .expect("X11 window");
+        .expect("system window");
     assert!(handle.editor_open());
     std::thread::sleep(Duration::from_millis(200));
     assert!(handle.editor_open(), "still open after the first ticks");
