@@ -123,7 +123,10 @@ struct Recording(Arc<Mutex<Seen>>);
 
 impl EditorFrame for Recording {
     fn handle(&self) -> FrameHandle {
-        FrameHandle::X11(WINDOW)
+        #[cfg(windows)]
+        return FrameHandle::Win32(WINDOW as isize);
+        #[cfg(not(windows))]
+        return FrameHandle::X11(WINDOW);
     }
 
     fn resize(&mut self, width: u32, height: u32) {
@@ -372,25 +375,26 @@ fn closes_with_the_plugin(format: PluginFormat) {
     wait_for(|| seen.lock().unwrap().dropped.then_some(()));
 }
 
-/// The real window (X11). Needs a display, so it runs only on request, under Xvfb:
-/// `xvfb-run cargo test -p kontra-drivers --test plugin_editor -- --ignored`.
-#[cfg(target_os = "linux")]
+/// The real window of the system (X11, Win32). Needs a display, so it runs only on request:
+/// `xvfb-run cargo test -p kontra-drivers --test plugin_editor -- --ignored` (Linux), the same
+/// without `xvfb-run` under Windows.
+#[cfg(any(target_os = "linux", windows))]
 #[test]
-#[ignore = "needs an X display"]
-fn the_editor_opens_in_an_x11_window() {
+#[ignore = "needs a display"]
+fn the_editor_opens_in_a_system_window() {
     for format in BOTH {
-        opens_in_x11(format);
+        opens_in_system_window(format);
     }
 }
 
-#[cfg(target_os = "linux")]
-fn opens_in_x11(format: PluginFormat) {
+#[cfg(any(target_os = "linux", windows))]
+fn opens_in_system_window(format: PluginFormat) {
     let PluginLoaded {
         processor, handle, ..
     } = load_gain(format);
     handle
         .open_editor("Kontra Test Gain", kontra_drivers::plugins::system_frame())
-        .expect("X11 window");
+        .expect("system window");
     assert!(handle.editor_open());
     std::thread::sleep(Duration::from_millis(200));
     assert!(handle.editor_open(), "still open after the first ticks");

@@ -37,9 +37,15 @@ const FALLBACK_SIZE: GuiSize = GuiSize {
     height: 480,
 };
 
-/// X11 sizes are in physical pixels: the plugin draws 1:1 (`set_scale` is for the APIs with
-/// logical sizes).
-const X11_SCALE: f64 = 1.0;
+/// X11 and Win32 sizes are in physical pixels: the plugin draws 1:1 (`set_scale` is for the
+/// APIs with logical sizes).
+const PHYSICAL_SCALE: f64 = 1.0;
+
+/// The window API this platform embeds editors with.
+#[cfg(windows)]
+const EMBEDDED_API: GuiApiType<'static> = GuiApiType::WIN32;
+#[cfg(not(windows))]
+const EMBEDDED_API: GuiApiType<'static> = GuiApiType::X11;
 
 /// What the plugin asks for from any thread; the plugin thread acts on it in `idle`.
 #[derive(Default)]
@@ -216,7 +222,7 @@ fn editor_error(e: impl ToString) -> PluginError {
 /// The window API this platform embeds editors with.
 fn embedded() -> GuiConfiguration<'static> {
     GuiConfiguration {
-        api_type: GuiApiType::X11,
+        api_type: EMBEDDED_API,
         is_floating: false,
     }
 }
@@ -237,7 +243,7 @@ impl ClapPlugin {
             return Err(PluginError::NoEditor);
         }
         gui.create(&handle, embedded()).map_err(editor_error)?;
-        let _ = gui.set_scale(&handle, X11_SCALE);
+        let _ = gui.set_scale(&handle, PHYSICAL_SCALE);
         let size = gui.get_size(&handle).unwrap_or(FALLBACK_SIZE);
 
         let frame = match make_frame(title, size.width, size.height) {
@@ -373,8 +379,12 @@ fn embed(
     handle: &PluginMainThreadHandle,
     mut frame: Box<dyn EditorFrame>,
 ) -> Result<Box<dyn EditorFrame>, (PluginError, Box<dyn EditorFrame>)> {
-    let FrameHandle::X11(window) = frame.handle();
-    let parent = GuiWindow::from_x11_handle(window.into());
+    let parent = match frame.handle() {
+        FrameHandle::X11(window) => GuiWindow::from_x11_handle(window.into()),
+        // SAFETY: the handle is the frame's live window (see below).
+        #[allow(unsafe_code)]
+        FrameHandle::Win32(window) => unsafe { GuiWindow::from_win32_hwnd(window as *mut _) },
+    };
     // SAFETY: the window exists (the frame owns it) and stays until `gui.destroy`: in
     // `close_editor`, in `Drop for ClapPlugin`, or on failure here through the caller.
     #[allow(unsafe_code)]

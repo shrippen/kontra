@@ -75,8 +75,9 @@ impl Class for View {
 
 impl IPlugViewTrait for View {
     unsafe fn isPlatformTypeSupported(&self, kind: FIDString) -> tresult {
-        let wanted = CStr::from_ptr(kPlatformTypeX11EmbedWindowID);
-        if !kind.is_null() && CStr::from_ptr(kind) == wanted {
+        let known = [kPlatformTypeX11EmbedWindowID, kPlatformTypeHWND];
+        let wanted = |k: FIDString| CStr::from_ptr(k) == CStr::from_ptr(kind);
+        if !kind.is_null() && known.into_iter().any(wanted) {
             kResultTrue
         } else {
             kResultFalse

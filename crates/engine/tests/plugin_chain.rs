@@ -888,7 +888,10 @@ struct Quiet;
 
 impl EditorFrame for Quiet {
     fn handle(&self) -> FrameHandle {
-        FrameHandle::X11(1)
+        #[cfg(windows)]
+        return FrameHandle::Win32(1);
+        #[cfg(not(windows))]
+        return FrameHandle::X11(1);
     }
     fn resize(&mut self, _width: u32, _height: u32) {}
     fn show(&mut self) {}

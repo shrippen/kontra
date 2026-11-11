@@ -20,6 +20,8 @@ use std::sync::Arc;
 pub enum FrameHandle {
     /// An X11 window id (Linux, also under XWayland).
     X11(u32),
+    /// A Win32 window handle (Windows).
+    Win32(isize),
 }
 
 /// What happened to a frame since the last look.
@@ -61,8 +63,8 @@ impl EditorShown {
     }
 }
 
-/// Frames of the window system Kontra runs on: X11 under Linux (XWayland under Wayland). Other
-/// systems have none yet: their editors do not open.
+/// Frames of the window system Kontra runs on: X11 under Linux (XWayland under Wayland), Win32
+/// under Windows. Other systems have none yet: their editors do not open.
 pub fn system_frame() -> FrameMaker {
     Box::new(|title, width, height| {
         #[cfg(target_os = "linux")]
@@ -70,7 +72,12 @@ pub fn system_frame() -> FrameMaker {
             let frame = super::x11_frame::X11Frame::open(title, width, height)?;
             Ok(Box::new(frame) as Box<dyn EditorFrame>)
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(windows)]
+        {
+            let frame = super::win32_frame::Win32Frame::open(title, width, height)?;
+            Ok(Box::new(frame) as Box<dyn EditorFrame>)
+        }
+        #[cfg(not(any(target_os = "linux", windows)))]
         {
             let _ = (title, width, height);
             Err(PluginError::NoEditor)

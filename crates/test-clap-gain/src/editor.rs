@@ -42,24 +42,30 @@ pub struct EditorState {
     pipe: Option<fds::Pipe>,
 }
 
-fn x11_embedded(configuration: GuiConfiguration) -> bool {
-    configuration.api_type == GuiApiType::X11 && !configuration.is_floating
+/// The window API of this platform: X11, or Win32 under Windows.
+#[cfg(windows)]
+const API: GuiApiType<'static> = GuiApiType::WIN32;
+#[cfg(not(windows))]
+const API: GuiApiType<'static> = GuiApiType::X11;
+
+fn embedded_here(configuration: GuiConfiguration) -> bool {
+    configuration.api_type == API && !configuration.is_floating
 }
 
 impl PluginGuiImpl for GainMainThread<'_> {
     fn is_api_supported(&self, configuration: GuiConfiguration) -> bool {
-        x11_embedded(configuration)
+        embedded_here(configuration)
     }
 
     fn get_preferred_api(&self) -> Option<GuiConfiguration<'_>> {
         Some(GuiConfiguration {
-            api_type: GuiApiType::X11,
+            api_type: API,
             is_floating: false,
         })
     }
 
     fn create(&self, configuration: GuiConfiguration) -> Result<(), PluginError> {
-        if !x11_embedded(configuration) {
+        if !embedded_here(configuration) {
             return Err(PluginError::Message("only embedded X11"));
         }
         let mut editor = self.editor.borrow_mut();
@@ -112,7 +118,9 @@ impl PluginGuiImpl for GainMainThread<'_> {
     // `c_ulong` is u64 on Linux and u32 on Windows.
     #[allow(clippy::useless_conversion)]
     fn set_parent(&self, window: Window) -> Result<(), PluginError> {
-        self.editor.borrow_mut().parent = window.as_x11_handle().map(u64::from);
+        let x11 = window.as_x11_handle().map(u64::from);
+        let win32 = window.as_win32_hwnd().map(|h| h as u64);
+        self.editor.borrow_mut().parent = x11.or(win32);
         Ok(())
     }
 

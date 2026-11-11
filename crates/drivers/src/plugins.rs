@@ -22,6 +22,9 @@ mod paths;
 mod scan;
 #[allow(unsafe_code)]
 mod vst3;
+#[cfg(windows)]
+#[allow(unsafe_code)]
+mod win32_frame;
 #[cfg(target_os = "linux")]
 mod x11_frame;
 
