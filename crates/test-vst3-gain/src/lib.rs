@@ -133,7 +133,7 @@ impl IComponentTrait for Processor {
         };
         copy_wstring(name, &mut bus.name);
         bus.busType = BusTypes_::kMain as BusType;
-        bus.flags = BusInfo_::BusFlags_::kDefaultActive;
+        bus.flags = BusInfo_::BusFlags_::kDefaultActive as _;
         kResultOk
     }
 
@@ -332,7 +332,7 @@ impl IEditControllerTrait for Controller {
         info.stepCount = 0;
         info.defaultNormalizedValue = GAIN_DEFAULT_NORMALIZED;
         info.unitId = 0;
-        info.flags = ParameterInfo_::ParameterFlags_::kCanAutomate;
+        info.flags = ParameterInfo_::ParameterFlags_::kCanAutomate as _;
         kResultOk
     }
 

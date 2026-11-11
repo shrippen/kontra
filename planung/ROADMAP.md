@@ -135,6 +135,9 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
     Treiber stehen als „… (ASIO)“ mit der Id `asio:<Treiber>` hinter den Geräten des Systems. Der Focusrite-Treiber
     spricht i32: Kontra öffnet Ströme jetzt im Format des Geräts und wandelt (`audio/samples.rs`).
     `scripts/package-windows.sh` baut mit ASIO und legt `GPL-3.0.txt`, `ASIO.txt` und `LICENSE` ins Paket.
+  - ASIO in beide Richtungen (11.11., Debug-Build, VM): Loopback mit `asio:Focusrite USB ASIO` als Ein- und Ausgang
+    lief vorher nicht („no audio device found for Input“: der Ausgang hält den Treiber, und das Auflisten bricht
+    am ersten anderen Treiber ab; steht einer vor ihm, fehlt er); jetzt 5 Läufe, Rundlauf 240,6 bis 241,6 ms, 128 Frames, Aussetzer 1/1/1/5/1.
   - **Aussetzer** (`kontra-cli soak`, 2 min, in der VM): ASIO (Focusrite) 4, WASAPI mit Focusrite-Treiber 16, WASAPI
     mit Windows-Treiber 3. Die VM reicht USB-Audio über einen emulierten Controller durch: die Zahlen zeigen, dass
     es läuft, nicht wie gut. Messung auf echtem Windows steht aus.
@@ -557,8 +560,15 @@ Erkennung und Messung:
   Quelltexte davor (`cpp/translator.cpp`, `SourceTexts`) und hält den eigenen Übersetzer vorn (`KeepInFront`),
   weil Kirigami seine Übersetzung erst mit den Seiten und später noch einmal davorsetzt. Test `english_goes_in_front_of_kirigamis_own_german`; im
   isolierten Lauf auf deutschem System: de → en → de, Start auf Englisch, Seitenleiste ein- und ausklappen.
-- [ ] Ein USB-Mikrofon (Webcam, Headset) gilt bei „Automatisch“ als Interface (`preferred_input`, LH-EIN-02) und
-  würde im Leerlauf offen gehalten (Review #231): Geräte mit nur einem Mikrofon erkennen oder nachfragen.
+- [x] Ein USB-Mikrofon (etwa eine Webcam) gilt bei „Automatisch“ als Interface (`preferred_input`, LH-EIN-02) und
+  würde im Leerlauf offen gehalten (Review #231). Regel: ein USB-Eingang ist ein Interface nur, wenn dasselbe Gerät
+  auch einen Ausgang hat (Kartenteil des Knotennamens, unter Windows der Treiber in Klammern); ALSA-Direkteingänge
+  bleiben Interface; sonst `Connection::UsbMicrophone`: nie automatisch am Kabel, nie im Leerlauf offen, nur bei
+  „Mikrofon“ vorgewählt.
+- [ ] USB-Headsets (Ein- und Ausgang auf einer Karte) gelten weiter als Interface. `device.form-factor` steht nur in
+  `info.props` des gebundenen PipeWire-Knotens (nicht in den Registry-Props); dort lesen, dann in `uncovered`
+  (`direct_inputs`) auch `UsbMicrophone` als vertreten zählen, sonst erscheint die Karte als ALSA-Direkteingang
+  wieder als Interface. Unter Windows kennt cpal die Bauform nicht.
 - [ ] Verlorener Eingang, der wegbleibt (Review #231, #232): Steckt der Spieler ein anderes Interface an, nutzen
   Läufe es, der Standby wartet aber weiter auf das alte (bis es zurück ist oder ein Eingang gewählt wird). Das
   Warten darf nur zusammen mit dem Angebot in der Leiste enden (`InputBack`, `InputOfferEnded`), sonst bleibt das
@@ -569,7 +579,7 @@ Erkennung und Messung:
 - [x] Summenbegrenzer (Review #230; Runde 18, 10.11.: bauen, immer an; LH-WIE-06, #244): Mithören plus Backing,
   Klick und Ton konnte die Summe über Vollaussteuerung bringen, dort schnitt der Mixer hart. Jetzt liegt auf der
   Summe ein Begrenzer (−1 dBFS, gekoppelt, 80 ms), die Echo-Referenz folgt ihm. Hörprobe und Xruns am Gerät offen.
-- [ ] Stimmgerät hört im Leerlauf nicht mit (es öffnet nur den Eingang, Mithören ruht dort).
+- [x] Stimmgerät hört mit (11.11.): Bei „Bass hören“ an und Kabel-Eingang öffnet es auch den Ausgang; der Bass läuft mit Lautstärke und Effekten des Mixers durch (`TunerMonitor`). Offen: Hörprobe, Latenz und Xruns am Scarlett; bei verschiedenen Abtastraten bleibt das Stimmgerät stumm ohne Hinweis.
 - [x] E5 Notenende (LH-BEW-10, `h-detect`): Der Tracker folgt jeder Note bis zu ihrem Ende und meldet `NoteEnd`
   (Engine `Event::End`): `Muted` (Pegel ≥ 10 dB binnen 60 ms und 100 ms lang unten, oder bis zum nächsten Anschlag),
   `Decayed` (30 dB unter dem Start), `Replaced` (nächster Anschlag oder Legato-Ton). `korpus ends` (09.11.):

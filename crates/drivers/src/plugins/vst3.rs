@@ -40,10 +40,16 @@ const TUID_BYTES: usize = 16;
 const MAX_QUEUES: usize = 64;
 /// Sample rate of the short activation that delivers changes made while inactive.
 const FLUSH_RATE_HZ: f64 = 48_000.0;
+// The SDK's enum constants are u32 on Linux and i32 on Windows; the casts are no-ops there.
+#[allow(clippy::unnecessary_cast)]
 const AUDIO: i32 = MediaTypes_::kAudio as i32;
+#[allow(clippy::unnecessary_cast)]
 const INPUT: i32 = BusDirections_::kInput as i32;
+#[allow(clippy::unnecessary_cast)]
 const OUTPUT: i32 = BusDirections_::kOutput as i32;
+#[allow(clippy::unnecessary_cast)]
 const SAMPLE_32: i32 = SymbolicSampleSizes_::kSample32 as i32;
+#[allow(clippy::unnecessary_cast)]
 const REALTIME: i32 = ProcessModes_::kRealtime as i32;
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
@@ -326,7 +332,8 @@ fn arrangement_channels(processor: &ComPtr<IAudioProcessor>, direction: i32) -> 
     (ok(result) && arrangement != 0).then(|| arrangement.count_ones())
 }
 
-/// A plugin's COM objects. Dropping ends them in order: controller, component, module.
+/// A plugin's COM objects, shared by the plugin and its processor. The last owner ends them:
+/// deactivate, disconnect, controller, component; the module goes last (last field).
 struct Parts {
     component: ComPtr<IComponent>,
     processor: ComPtr<IAudioProcessor>,
@@ -808,9 +815,9 @@ pub(super) struct Vst3Processor {
 }
 
 // SAFETY: a VST3 processor may be called from any one thread at a time, here the audio thread
-// that owns this value; its COM objects and the raw pointers into the owned buffers are used
-// from that thread only. The main thread keeps its own references to the same plugin and talks to
-// the processor only through the ring.
+// that owns this value; its audio calls and the raw pointers into the owned buffers are used from
+// that thread only. The plugin on the main thread shares `Parts` and calls only the component and
+// the controller. The engine drops the processor on its control thread, not in the callback.
 unsafe impl Send for Vst3Processor {}
 
 impl Vst3Processor {

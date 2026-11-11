@@ -211,8 +211,8 @@ pub fn tune(a: &TuneArgs) -> CliResult {
             channel: None,
         },
     };
-    let mut tuner =
-        LiveTuner::start(&input, &instrument, InputSource::Line).map_err(|e| e.to_string())?;
+    let mut tuner = LiveTuner::start(&input, &instrument, InputSource::Line, None)
+        .map_err(|e| e.to_string())?;
     let end = Instant::now() + Duration::from_secs_f64(a.seconds);
     while Instant::now() < end {
         for event in tuner.poll() {

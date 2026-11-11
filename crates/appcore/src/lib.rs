@@ -38,6 +38,7 @@ mod standby;
 mod stems;
 mod store;
 mod summary;
+mod tuner;
 mod unplug;
 
 pub use data::DataImport;
@@ -1770,37 +1771,6 @@ impl Core {
             backing_cache: Some(self.backing_cache_dir()),
             onset_gate_db: self.settings.onset_gate_db,
         }
-    }
-
-    /// Starts the tuner; a failed input shows as the input's state (the text is for callers
-    /// without one).
-    pub fn start_tuner(&mut self) -> Result<(), String> {
-        self.stop_live();
-        self.live_ear = None;
-        self.level.reset();
-        let instrument = self.instrument();
-        self.release_standby();
-        let tuner = match LiveTuner::start(&self.input_choice(), &instrument, self.source()) {
-            Ok(tuner) => tuner,
-            Err(e) => {
-                self.input.failed(InputUse::Tuner, &e);
-                return Err(self.tr("error.audio", &[("reason", e.to_string())]));
-            }
-        };
-        self.tuner = Some(tuner);
-        self.input_opened(InputUse::Tuner);
-        self.input_since = Some(std::time::Instant::now());
-        Ok(())
-    }
-
-    /// True while the tuner listens.
-    pub fn is_tuning(&self) -> bool {
-        self.tuner.is_some()
-    }
-
-    pub fn stop_tuner(&mut self) {
-        self.tuner = None;
-        self.input.stopped(InputUse::Tuner);
     }
 
     /// Polls audio and session; call every ~16 ms.

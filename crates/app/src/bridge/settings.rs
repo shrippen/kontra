@@ -128,6 +128,8 @@ impl qobject::Controller {
         if self.as_ref().rust().core.arrangement().is_some() {
             self.as_mut().refresh_arrangement();
         }
+        let tuning = self.as_ref().rust().core.is_tuning();
+        self.as_mut().set_tuner_active(tuning);
         if let Err(e) = result {
             self.as_mut().show_error(&e);
         }
@@ -349,6 +351,9 @@ impl qobject::Controller {
         if let Some(hint) = self.as_mut().core().remix(|s| s.monitor = on) {
             self.as_mut().set_message(q(&hint));
         }
+        // A failed tuner restart leaves no tuner.
+        let tuning = self.as_ref().rust().core.is_tuning();
+        self.as_mut().set_tuner_active(tuning);
     }
 
     pub(super) fn change_shaping(mut self: Pin<&mut Self>, band: &QString, value: f64) {
