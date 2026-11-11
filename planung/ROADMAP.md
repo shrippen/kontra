@@ -420,6 +420,15 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   25,0 ms, Streuung (SD) 2,5 ms (22,5–29,1); nachher 17,4 ms, SD 1,7 ms (13,6–18,8). Der Rest der Streuung kommt
   nicht aus den Stempeln (je Klick ±0,4 ms). Offen: Zeit je Block aus den Stempeln (DLL) für beide Seiten über die
   ganze Laufzeit (Drift, Aussetzer im Ausgang).
+  Messung 11.11. (Runde 20, Scarlett per Kabel, Block 128, `kontra-cli check --loopback-tones N`, Verzögerung je
+  Ton): Innerhalb eines Laufs keine Streuung (SD 0,03–0,05 ms je 100 Töne), zwischen 8 Öffnungen 17,0–19,2 ms. Die
+  Streuung von R3 entsteht also beim Öffnen. In 20 Minuten am Stück (2000 Töne) keine Drift (6 Minuten lang
+  genau 14,750 ms; dieselbe Uhr für beide Seiten), aber Sprünge um genau einen Block (±128 Frames, 2,67 ms) bei
+  10,5, 15,9, 17,7 und 17,9 min, dazu zweimal ein Einschwingen über einige Sekunden wie am Anfang (die ersten 7 s:
+  8 → 17 → 14,9 ms); 8 Xruns, der Rechner baute nebenher. Folgerung: „Eingang folgt Ausgang“ (Drift zweier Uhren)
+  hilft hier nicht; nötig sind Zeitstempel, die einen verlorenen Block mitzählen, und ein Start ohne Einschwingen.
+  Zwei Geräte (eingebaute Karte und Scarlett) sind ungemessen. Dabei gefunden: `LiveTake` übergab den ganzen Plan
+  auf einmal, der Player hält 48 Stimmen; jetzt rollend 2 s voraus.
   In der Windows-VM (11.11., WASAPI, Block 480, Scarlett per Kabel, je 4 bis 6 Öffnungen im Wechsel): `main`
   265–280 ms, R3 249–258 ms, beide meist ±0–3 ms. R3 erkannte dabei öfter nur 3 bis 5 der 12 Töne (`main` meist 12);
   Xruns 0–5 auf beiden Seiten. Zwei Läufe hingen, beide, während ein zweites Skript dasselbe Gerät öffnete; allein
