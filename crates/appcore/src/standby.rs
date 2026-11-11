@@ -149,8 +149,8 @@ impl Core {
     }
 
     /// Changes the plugins of the effect chain made themselves since the last call, as (plugin
-    /// id, parameter id, value): from the run, the ear training or the standby monitor, as
-    /// `chain_latency_ms` picks it.
+    /// id, parameter id, value): from the run, the ear training, the tuner or the standby
+    /// monitor, whichever plays.
     pub(crate) fn plugin_changes(&mut self) -> Vec<(u32, u32, f64)> {
         if let Some(live) = self.live.as_mut() {
             return live.take_param_changes();

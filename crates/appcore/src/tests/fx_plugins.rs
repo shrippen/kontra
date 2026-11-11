@@ -272,7 +272,10 @@ fn a_change_in_the_tuner_is_saved() {
     core.edit_effects("set", 0, GAIN_PARAM, f64::from(trigger));
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     while core.settings().plugins[0].params[0].value != REPORTED_GAIN {
-        assert!(std::time::Instant::now() < deadline, "the tuner's change never arrived");
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the tuner's change never arrived"
+        );
         let _ = core.poll_effects();
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
