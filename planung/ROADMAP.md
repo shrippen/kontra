@@ -98,8 +98,8 @@ drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier
   eigenen Thread (`kontra-plugins`, 11.11.); bis die neue Kette steht, spielt die alte. Stürzt Kontra beim Laden
   ab, bleibt das Plugin beim nächsten Start aus, mit Hinweis (Runde 19). Instanzen überleben Umbauten der Kette
   (eine je Plugin-Slot, solange er in den Einstellungen steht; Umsortieren, aus/an, anderer Effekt dazu: kein
-  Neuladen, Zustand bleibt; ein Plugin, das umzieht, ist kurz überbrückt). Offen: Hinzufügen wartet noch auf den
-  Thread. Werte zeigen den Text des Plugins mit Einheit („-6,0 dB“), sobald es ihn für genau diesen Wert
+  Neuladen, Zustand bleibt; ein Plugin, das umzieht, ist kurz überbrückt). Hinzufügen wartet nicht mehr auf den
+  Thread (die Zeile sagt „… wird geladen“). Werte zeigen den Text des Plugins mit Einheit („-6,0 dB“), sobald es ihn für genau diesen Wert
   geliefert hat; bis dahin die Zahl.
 - [ ] FX5 Eigene Fenster der Plugins (CLAP `gui`, VST3 `IPlugView`; unter Wayland über XWayland).
   Stand 11.11.: CLAP-Editor im Plugin-Thread (eigenes X11-Fenster über x11rb, Timer, Dateideskriptoren,

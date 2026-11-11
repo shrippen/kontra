@@ -18,7 +18,7 @@ use kontra_session::plugins::{clear_crash_marker, crashed_plugin, settle_plugins
 use kontra_session::plugins::{
     plugin_files, probe_line, scan_files, PluginFormat, PluginInfo, ProbeCommand, ScanReport,
 };
-use kontra_session::{PluginBank, PluginProblems};
+use kontra_session::{PendingSpec, PluginBank, PluginProblems};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
@@ -56,6 +56,8 @@ pub(crate) struct Plugins {
     seen_problems: u64,
     /// Plugins (by `PluginSpec::id`) that took Kontra down while loading and were switched off.
     pub(crate) crashed: BTreeSet<u32>,
+    /// The plugin an "add" is loading to describe it (FX4: the page does not wait).
+    pub(crate) adding: Option<PendingSpec>,
     /// The plugins' own texts for values, by (plugin id, parameter id): the value they are for
     /// and the text with its unit (FX4).
     texts: BTreeMap<(u32, u32), (f64, String)>,
@@ -107,6 +109,7 @@ impl Plugins {
             problems: PluginProblems::default(),
             seen_problems: 0,
             crashed: BTreeSet::new(),
+            adding: None,
             texts: BTreeMap::new(),
             crash_marker: data_dir.join(CRASH_MARKER_FILE),
             report: store::load(&cache),
@@ -303,7 +306,12 @@ impl crate::Core {
     /// Once when a plugin search has finished, the chain's latency changed (the standby built
     /// its chain, a run started or ended, the output went away) or a plugin changed a parameter
     /// by itself.
-    pub(crate) fn poll_effects(&mut self) -> Option<crate::UiEvent> {
+    pub(crate) fn poll_effects(&mut self) -> Vec<crate::UiEvent> {
+        let mut events = Vec::new();
+        let added = self.finish_adding();
+        if let Some(Some(hint)) = &added {
+            events.push(crate::UiEvent::Message(hint.clone()));
+        }
         let scanned = self.plugins.poll();
         let latency = self.chain_latency_ms();
         let moved = self.plugins.latency_moved(latency);
@@ -312,7 +320,10 @@ impl crate::Core {
         let texts = self.plugin_texts();
         let worded = self.plugins.note_texts(texts);
         let reasons = self.plugins.problems_moved();
-        (scanned || moved || edited || reasons || worded).then_some(crate::UiEvent::EffectsChanged)
+        if added.is_some() || scanned || moved || edited || reasons || worded {
+            events.push(crate::UiEvent::EffectsChanged);
+        }
+        events
     }
 
     /// Writes what plugins changed by themselves (their own editor) into the settings and saves

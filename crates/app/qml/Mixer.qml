@@ -189,7 +189,8 @@ ColumnLayout {
         visible: mixer.ctl.monitor
         section: mixer.texts.t("fx.title")
         title: mixer.texts.t("fx.add")
-        hint: mixer.texts.t("fx.hint")
+        // While a plugin loads to be added (FX4), the row says so instead of its usual hint.
+        hint: mixer.fx.adding !== "" ? mixer.fx.adding : mixer.texts.t("fx.hint")
         RowLayout {
             spacing: KanteStyle.unit(8)
             KanteComboBox {

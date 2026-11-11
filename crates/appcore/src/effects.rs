@@ -18,7 +18,7 @@ pub use presets::ChainPreset;
 use crate::fx_plugins::{self, found_at, param_key, param_mut, PLUGIN_KEY};
 use crate::{Core, Settings};
 use kontra_model::{EffectKind, PluginSpec, SlotSpec, CHAIN_SLOTS};
-use kontra_session::describe_plugin;
+use kontra_session::describe_plugin_later;
 use kontra_session::plugins::{PluginError, PluginFormat};
 use serde_json::json;
 
@@ -107,6 +107,9 @@ impl Core {
             "plugins": self.found_plugins_json(),
             "scan": self.scan_json(),
             "slots": slots,
+            "adding": self.plugins.adding.as_ref().map_or_else(String::new, |p| {
+                self.tr("fx.plugin.adding", &[("name", p.info().name.clone())])
+            }),
             "presets": self.settings().chain_presets.iter().map(|p| &p.name).collect::<Vec<_>>(),
         })
         .to_string()
@@ -290,20 +293,7 @@ impl Core {
             "add" if len >= CHAIN_SLOTS => {
                 return Some(self.tr("fx.full", &[("max", CHAIN_SLOTS.to_string())]));
             }
-            "add" if name.starts_with(PLUGIN_KEY) => {
-                let spec = match self.describe_found(name)? {
-                    Ok(spec) => spec,
-                    Err(hint) => return Some(hint),
-                };
-                // Ids come back after a removal: forget what the last holder could not load.
-                let id = fx_plugins::next_id(&self.settings().plugins);
-                self.plugins.problems.clear(id);
-                self.plugins.forget_texts(id);
-                Box::new(move |s| {
-                    s.plugins.push(PluginSpec { id, ..spec });
-                    s.monitor_chain.push(SlotSpec::for_plugin(id));
-                })
-            }
+            "add" if name.starts_with(PLUGIN_KEY) => return self.start_adding(name),
             "add" => {
                 let kind = kind_of(name)?;
                 Box::new(move |s| {
@@ -368,16 +358,45 @@ impl Core {
         full.then(|| self.tr("fx.preset.full", &[("max", max)]))
     }
 
-    /// Loads the plugin the page chose from the scan to learn its parameters and state. `None`
-    /// for a key that names nothing; `Err` with the player's hint when it does not load.
-    fn describe_found(&self, key: &str) -> Option<Result<PluginSpec, String>> {
+    /// Starts loading the plugin the page chose from the scan, to learn its parameters and
+    /// state, without waiting for it (FX4): `finish_adding` puts it in the chain. One at a time.
+    fn start_adding(&mut self, key: &str) -> Option<String> {
+        if let Some(busy) = &self.plugins.adding {
+            let name = busy.info().name.clone();
+            return Some(self.tr("fx.plugin.adding", &[("name", name)]));
+        }
         let info = found_at(self.plugins.report(), key)?;
-        let described = describe_plugin(info, Some(self.plugins.crash_marker()));
-        Some(described.map_err(|e| {
-            self.tr(
-                "fx.plugin.cannot",
-                &[("name", info.name.clone()), ("reason", e.to_string())],
-            )
+        let pending = describe_plugin_later(info, Some(self.plugins.crash_marker()));
+        self.plugins.adding = Some(pending);
+        None
+    }
+
+    /// The plugin being added, once described: into the settings and the chain, or the hint
+    /// why not. `None` while it loads or when nothing is added.
+    pub(crate) fn finish_adding(&mut self) -> Option<Option<String>> {
+        let result = self.plugins.adding.as_ref()?.poll()?;
+        let pending = self.plugins.adding.take()?;
+        let name = pending.info().name.clone();
+        let spec = match result {
+            Ok(spec) => spec,
+            Err(e) => {
+                let args = [("name", name), ("reason", e.to_string())];
+                return Some(Some(self.tr("fx.plugin.cannot", &args)));
+            }
+        };
+        if self.settings().monitor_chain.slots().len() >= CHAIN_SLOTS {
+            return Some(Some(
+                self.tr("fx.full", &[("max", CHAIN_SLOTS.to_string())]),
+            ));
+        }
+        // Ids come back after a removal: forget what the last holder could not load.
+        let id = fx_plugins::next_id(&self.settings().plugins);
+        self.plugins.problems.clear(id);
+        self.plugins.forget_texts(id);
+        Some(self.remix(|s| {
+            s.plugins.push(PluginSpec { id, ..spec });
+            s.monitor_chain.push(SlotSpec::for_plugin(id));
+            s.prune_plugins();
         }))
     }
 }

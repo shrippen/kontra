@@ -94,6 +94,23 @@ impl PendingLoad {
     }
 }
 
+/// A description in progress.
+#[derive(Debug)]
+pub struct PendingDescribe {
+    reply: Receiver<Result<PluginDescription, PluginError>>,
+}
+
+impl PendingDescribe {
+    /// The result once the plugin thread has it, `None` before. Not blocking.
+    pub fn poll(&self) -> Option<Result<PluginDescription, PluginError>> {
+        match self.reply.try_recv() {
+            Ok(result) => Some(result),
+            Err(mpsc::TryRecvError::Empty) => None,
+            Err(mpsc::TryRecvError::Disconnected) => Some(Err(gone())),
+        }
+    }
+}
+
 /// An instance on the plugin thread. Dropping it closes the instance (after the processor is
 /// gone, see `PluginLoaded`).
 #[derive(Debug)]
@@ -263,13 +280,18 @@ impl PluginHost {
     }
 
     /// Loads a plugin once to learn its parameters and state. Waits for the plugin thread (it
-    /// may be busy with other loads), so call it only for a user's action, never per frame.
+    /// may be busy with other loads): for tools and tests; the app uses `describe_later`.
     pub fn describe(&self, setup: PluginSetup) -> Result<PluginDescription, PluginError> {
+        let pending = self.describe_later(setup);
+        pending.reply.recv().map_err(|_| gone())?
+    }
+
+    /// As `describe`, without waiting: the result comes through `PendingDescribe::poll`.
+    pub fn describe_later(&self, setup: PluginSetup) -> PendingDescribe {
         let (reply, receiver) = mpsc::channel();
-        self.commands
-            .send(Command::Describe { setup, reply })
-            .map_err(|_| gone())?;
-        receiver.recv().map_err(|_| gone())?
+        // Without a thread the reply sender is gone and the poll says so.
+        drop(self.commands.send(Command::Describe { setup, reply }));
+        PendingDescribe { reply: receiver }
     }
 }
 
