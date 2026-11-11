@@ -57,4 +57,5 @@ if grep -q '\\' <<<"$listing"; then
 fi
 grep -q '/share/licenses/Kontra/GPL-3.0.txt' <<<"$listing"
 grep -q '/share/licenses/Kontra/LGPL-3.0.txt' <<<"$listing"
+grep -q '/share/licenses/Kontra/LGPL-2.1.txt' <<<"$listing"
 ls -l "$OUT"

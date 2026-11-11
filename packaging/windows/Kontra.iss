@@ -30,7 +30,7 @@ DefaultGroupName={#AppName}
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-; The package is GPLv3 (ASIO) and carries Qt and KDE Frameworks under the LGPL: the user reads
+; The package is GPLv3 (ASIO) and carries Qt, KDE Frameworks and FFmpeg under the LGPL: the user reads
 ; that notice before installing; the full texts are in the installed licence folder.
 LicenseFile={#SourceDir}\share\licenses\Kontra\NOTICE.txt
 OutputDir={#OutputDir}
