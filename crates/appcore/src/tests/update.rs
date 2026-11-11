@@ -160,3 +160,14 @@ impl Http for Offline {
         Err(HttpError::Offline("no route".into()))
     }
 }
+
+#[test]
+fn a_date_in_the_future_counts_as_due() {
+    let (http, count) = counted("99.0.0");
+    let mut core = Core::new(&temp_dir("update-future"), QaOptions::default());
+    core.update_settings(|s| s.update_checked_unix = u64::MAX);
+    core.set_update_http(http);
+    core.start_update_check(None, None);
+    wait(&mut core);
+    assert_eq!(count.load(Ordering::SeqCst), 1);
+}

@@ -1,4 +1,4 @@
-//! Update notice in the app core (LH-ALL-07): one look at `versions.json` per start, a hint
+//! Update notice in the app core (LH-ALL-07): one look at `versions.json` a day, a hint
 //! with a link when a newer release exists, dismissed until the next one.
 //!
 //! ```text
@@ -36,7 +36,7 @@ impl std::fmt::Debug for Updater {
 }
 
 impl Core {
-    /// Starts the one request of this run, unless the setting, a Flatpak, a QA run with a
+    /// Starts the day's request, unless a day has not passed since the last answer or the setting, a Flatpak, a QA run with a
     /// recording or a screenshot run says no. `answer`: a file read as `versions.json` instead
     /// of the web (QA, screenshots); it also lets those runs ask.
     pub fn start_update_check(&mut self, answer: Option<&Path>, screenshot: Option<&Path>) {
@@ -49,7 +49,9 @@ impl Core {
             return;
         }
         let now = unix_now();
-        if answer.is_none() && now.saturating_sub(self.settings.update_checked_unix) < DAY_S {
+        // A date in the future (clock set back) counts as due.
+        let since = now.checked_sub(self.settings.update_checked_unix);
+        if answer.is_none() && since.is_some_and(|s| s < DAY_S) {
             self.recall_update();
             return;
         }

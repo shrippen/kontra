@@ -32,8 +32,8 @@ fi
 rm -rf "$OUT"
 mkdir -p "$OUT"
 # Windows paths for iscc; MSYS would turn a leading "/D" into a path, hence the doubled slash.
-"$iscc" "//DAppVersion=$VERSION" "//DSourceDir=$(cygpath -w "$DIST")" \
-    "//DOutputDir=$(cygpath -w "$OUT")" "$(cygpath -w packaging/windows/Kontra.iss)"
+"$iscc" "//DAppVersion=$VERSION" "//DSourceDir=$(cygpath -aw "$DIST")" \
+    "//DOutputDir=$(cygpath -aw "$OUT")" "$(cygpath -aw packaging/windows/Kontra.iss)"
 test -f "$OUT/Kontra-$VERSION-windows-setup.exe"
 
 # The portable ZIP: the folder under its own name, so unpacking makes one folder. Windows' own

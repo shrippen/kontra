@@ -7,8 +7,9 @@ version 3 (GPL-3.0.txt). Reason: it is built with the ASIO driver SDK
 of Steinberg, which is available under GPLv3 (ASIO.txt). The source
 code of Kontra stays MIT; builds without ASIO are not GPL.
 
-It also contains libraries under the GNU Lesser General Public License,
-version 3 (LGPL-3.0.txt):
+It also contains libraries under the GNU Lesser General Public License:
+version 3 for Qt and KDE Frameworks (LGPL-3.0.txt), version 2.1 or later
+for FFmpeg (LGPL-2.1.txt):
 
   Qt 6.10.3 (the Qt Company and contributors): the DLLs next to
   kontra.exe in the bin folder, and the plugins and QML modules below
@@ -18,6 +19,14 @@ version 3 (LGPL-3.0.txt):
   KDE Frameworks 6.30.0 (KDE contributors), Kirigami and its
   libraries: the DLLs in the bin folder and bin\qml\org\kde. Sources:
   https://download.kde.org/stable/frameworks/6.30/
+
+  FFmpeg (avcodec-61, avformat-61, avutil-59, swresample-5 and
+  swscale-8 DLLs in the bin folder), which Qt Multimedia uses to play
+  audio and video. It is the build that comes with Qt 6.10.3 and is
+  under the GNU Lesser General Public License, version 2.1 or later
+  (LGPL-2.1.txt). Sources: https://ffmpeg.org/download.html and the
+  FFmpeg sources Qt names for 6.10.3 at
+  https://doc.qt.io/qt-6/qtmultimedia-attribution-ffmpeg.html
 
 Kontra links these libraries dynamically: they are separate DLL files.
 You may replace them with your own build of the same libraries; Kontra
