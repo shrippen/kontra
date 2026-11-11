@@ -51,6 +51,10 @@ pub struct Rig {
     sender: Sender<Event>,
     /// The epoch the mode waits for; its events start after `Event::Rebased` with it.
     waiting: Option<u64>,
+    /// Since when the input has delivered nothing (`Event::Stalled`, told only once).
+    stalled_s: Option<f64>,
+    /// A stall the last mode took, told again to the attached one.
+    retell_s: Option<f64>,
 }
 
 impl Rig {
@@ -103,6 +107,8 @@ impl Rig {
             #[cfg(test)]
             sender,
             waiting: None,
+            stalled_s: None,
+            retell_s: None,
         })
     }
 
@@ -115,7 +121,8 @@ impl Rig {
     /// A new mode takes the rig over: what the last one planned stops (sounds, backing,
     /// transposing), the volumes move to `gains` (the mixer ramps them, no click), and output
     /// and input settle their starts again with the analysis for `instrument`. Events until
-    /// the input confirms are the last mode's and are dropped (`poll`).
+    /// the input confirms are the last mode's and are dropped (`poll`); a stall still going on
+    /// is told again.
     pub fn attach(&mut self, instrument: &Instrument, gains: Gains) {
         self.output.clear_from(f64::NEG_INFINITY);
         self.output.stop_backing(f64::NEG_INFINITY);
@@ -125,18 +132,33 @@ impl Rig {
             player.rebase();
         }
         self.waiting = self.input.rebase(instrument, self.devices.source);
+        self.retell_s = self.stalled_s;
     }
 
-    /// The events since the last call that belong to the attached mode. Device errors always
-    /// count: a device going away is news to whichever mode runs.
+    /// The events since the last call that belong to the attached mode. What the device says
+    /// (gone, stalled, back, ended) always counts: it is news to whichever mode runs. An end
+    /// also ends the wait: no rebase follows it.
     pub fn poll(&mut self) -> Vec<Event> {
         let mut out = Vec::new();
+        if let Some(at_s) = self.retell_s.take() {
+            out.push(Event::Stalled { at_s });
+        }
         while let Ok(event) = self.events.try_recv() {
+            match &event {
+                Event::Stalled { at_s } => self.stalled_s = Some(*at_s),
+                Event::Resumed { .. } => self.stalled_s = None,
+                Event::Ended => self.waiting = None,
+                _ => {}
+            }
             match (&event, self.waiting) {
                 (Event::Rebased { epoch }, Some(waiting)) if *epoch == waiting => {
                     self.waiting = None;
                 }
-                (Event::Error(..), _) | (_, None) => out.push(event),
+                (
+                    Event::Error(..) | Event::Stalled { .. } | Event::Resumed { .. } | Event::Ended,
+                    _,
+                )
+                | (_, None) => out.push(event),
                 _ => {}
             }
         }
@@ -221,13 +243,27 @@ mod tests {
         (input, path)
     }
 
+    /// A time no real event of these short files carries.
+    const OLD_S: f64 = -7.0;
+
+    /// Polls until the input confirms the rebase (or patience ends).
+    fn poll_until_rebased(rig: &mut Rig) -> Vec<Event> {
+        let mut seen = rig.poll();
+        let start = Instant::now();
+        while rig.waiting.is_some() && start.elapsed() < PATIENCE {
+            std::thread::sleep(POLL_EVERY);
+            seen.extend(rig.poll());
+        }
+        seen
+    }
+
     fn null_output() -> RigOutput {
         RigOutput::Device(Some(NULL_OUTPUT.into()))
     }
 
-    /// Events the last mode left behind never reach the next one; a device error does.
+    /// A mode's own readings from before never reach the next one.
     #[test]
-    fn the_last_modes_events_are_dropped() {
+    fn the_last_modes_readings_are_dropped() {
         let (input, path) = file_input("drop", 0.0);
         let bass = Instrument::default_bass();
         let mut rig = Rig::open(
@@ -238,26 +274,83 @@ mod tests {
             Gains::default(),
         )
         .unwrap();
-        rig.tell_for_test(Event::Ended);
-        rig.tell_for_test(Event::Error(Direction::Input, "gone".into()));
+        rig.tell_for_test(Event::Heard { at_s: OLD_S });
         rig.attach(&bass, Gains::default());
         assert!(rig.waiting.is_some(), "a running file takes the rebase");
 
-        let mut seen = rig.poll();
-        let start = Instant::now();
-        while rig.waiting.is_some() && start.elapsed() < PATIENCE {
-            std::thread::sleep(POLL_EVERY);
-            seen.extend(rig.poll());
-        }
+        let seen = poll_until_rebased(&mut rig);
         let _ = std::fs::remove_file(path);
 
         assert!(rig.waiting.is_none(), "the worker confirms the rebase");
-        assert!(!seen.iter().any(|e| matches!(e, Event::Ended)), "{seen:?}");
         assert!(
-            seen.iter()
-                .any(|e| matches!(e, Event::Error(Direction::Input, _))),
+            !seen
+                .iter()
+                .any(|e| matches!(e, Event::Heard { at_s } if *at_s == OLD_S)),
             "{seen:?}"
         );
+    }
+
+    /// Review #287: what the device says (gone, stalled, back, ended) is news to whichever
+    /// mode runs; an end also ends the wait, as no rebase follows it.
+    #[test]
+    fn device_states_reach_the_next_mode() {
+        let (input, path) = file_input("states", 0.0);
+        let bass = Instrument::default_bass();
+        let mut rig = Rig::open(
+            &input,
+            null_output(),
+            InputSource::Line,
+            &bass,
+            Gains::default(),
+        )
+        .unwrap();
+        rig.tell_for_test(Event::Error(Direction::Input, "gone".into()));
+        rig.tell_for_test(Event::Resumed { at_s: OLD_S });
+        rig.tell_for_test(Event::Ended);
+        rig.attach(&bass, Gains::default());
+
+        let seen = rig.poll();
+        let _ = std::fs::remove_file(path);
+
+        assert!(
+            seen.iter().any(|e| matches!(e, Event::Error(..))),
+            "{seen:?}"
+        );
+        assert!(
+            seen.iter().any(|e| matches!(e, Event::Resumed { .. })),
+            "{seen:?}"
+        );
+        assert!(seen.iter().any(|e| matches!(e, Event::Ended)), "{seen:?}");
+        assert!(rig.waiting.is_none(), "no rebase after the end");
+    }
+
+    /// Review #287: the device tells a stall once. The last mode took it; the next one hears
+    /// it too, and only once.
+    #[test]
+    fn a_stall_is_told_to_the_next_mode() {
+        let (input, path) = file_input("stall", 0.0);
+        let bass = Instrument::default_bass();
+        let mut rig = Rig::open(
+            &input,
+            null_output(),
+            InputSource::Line,
+            &bass,
+            Gains::default(),
+        )
+        .unwrap();
+        rig.tell_for_test(Event::Stalled { at_s: OLD_S });
+        let old_mode = rig.poll();
+        assert!(old_mode.iter().any(|e| matches!(e, Event::Stalled { .. })));
+        rig.attach(&bass, Gains::default());
+
+        let seen = poll_until_rebased(&mut rig);
+        let _ = std::fs::remove_file(path);
+
+        let stalls = seen
+            .iter()
+            .filter(|e| matches!(e, Event::Stalled { at_s } if *at_s == OLD_S))
+            .count();
+        assert_eq!(stalls, 1, "{seen:?}");
     }
 
     /// The standby hands its devices to the tuner: the tuner reads the bass on them.
