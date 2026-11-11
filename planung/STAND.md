@@ -9,8 +9,8 @@ Auftrag des Eigentümers (10.11. abends): freie Punkte der Roadmap, Effekte auf 
 VM und Scarlett freigegeben, Ausgang per Kabel im Eingang.
 
 In `main`: #252 (Plan FX1–FX6, LH-EIN-19 bis -21), #250 Effektkette, #248 CLAP, #256 VST3, #257 Kette im Mixer,
-#262 Plugins in der Kette (Suche je Datei in eigenem Prozess, `plugins.json`), #264 und #265 (Latenz der Kette im
-Mixer, FX1 fertig); #249 R3 erster Schritt (Gerätestempel), #251, #254 USB-Mikrofon, #255, #258 und #260 Stimmgerät
+#262 Plugins in der Kette (Suche je Datei in eigenem Prozess, `plugins.json`), #264 (alter Ladefehler, Werte je
+Sprache), #265 (Latenz der Kette im Mixer, FX1 fertig); #249 R3 erster Schritt (Gerätestempel), #251, #254 USB-Mikrofon, #255, #258 und #260 Stimmgerät
 mit „Bass hören“, #259 ASIO in beide Richtungen am selben Treiber, #261, #263 `qactl press` mit AT-SPI 2.62.
 
 Wartet auf den Eigentümer:
