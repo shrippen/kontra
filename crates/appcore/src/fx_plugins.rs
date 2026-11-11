@@ -70,7 +70,10 @@ impl Plugins {
     /// Whether the chain latency changed in the digit the page shows (0.1 ms), or appeared or
     /// went away; remembers it.
     pub(crate) fn latency_moved(&mut self, latency_ms: Option<f64>) -> bool {
-        let tenths = latency_ms.map(|ms| (ms * TENTHS_PER_MS).round() as i64);
+        // Below a tenth the page shows no line, like nothing playing.
+        let tenths = latency_ms
+            .map(|ms| (ms * TENTHS_PER_MS).round() as i64)
+            .filter(|t| *t > 0);
         let moved = tenths != self.shown_latency;
         self.shown_latency = tenths;
         moved
@@ -152,10 +155,10 @@ pub(crate) fn found_at<'a>(report: &'a ScanReport, key: &str) -> Option<&'a Plug
     report.plugins.get(n)
 }
 
-/// What the key of an addable plugin starts with, then its number in the scan.
 /// The latency line shows one decimal.
 const TENTHS_PER_MS: f64 = 10.0;
 
+/// What the key of an addable plugin starts with, then its number in the scan.
 pub(crate) const PLUGIN_KEY: &str = "plugin:";
 
 /// The key of a parameter slider of a plugin slot (`p<id>`).
@@ -233,6 +236,10 @@ mod shown {
             "the same to the shown digit"
         );
         assert!(plugins.latency_moved(None), "the output went away");
+        assert!(
+            !plugins.latency_moved(Some(0.0)),
+            "an empty chain shows no line either"
+        );
     }
 
     /// Review #264: a value just below zero read "-0".
