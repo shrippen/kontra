@@ -1169,5 +1169,10 @@
   "songmap.hint": "Höhe = Treffer je Takt in den letzten Durchläufen. Über Takte ziehen setzt die Schleife.",
   "call.title": "Ruf und Antwort",
   "call.hint": "Kontra spielt zwei Takte Bass, leiser begleitet; du antwortest in den nächsten zwei mit demselben Motiv aus Akkordtönen. Die Tab erscheint nach zwei Fehlversuchen. Im Modus „Spielen“ ohne Bewertung.",
-  "call.listen": "Hör zu und antworte: Kontra spielt zwei Takte vor, du spielst sie nach. Die Tab kommt nach zwei Fehlversuchen."
+  "call.listen": "Hör zu und antworte: Kontra spielt zwei Takte vor, du spielst sie nach. Die Tab kommt nach zwei Fehlversuchen.",
+  "update.title": "Kontra {version} ist erschienen",
+  "update.text": "Es gibt eine neuere Version. Kontra lädt sie nicht selbst; die Release-Seite hat den Installer.",
+  "update.open": "Release-Seite öffnen",
+  "settings.update": "Nach neuen Versionen suchen",
+  "settings.update.hint": "Beim Start fragt Kontra shrippen.github.io nach der neuesten Version und sagt es hier, wenn deine älter ist. Die Anfrage nennt Kontra und seine Version, sonst nichts. Höchstens einmal am Tag. Gilt ab dem nächsten Start."
 }

@@ -10,7 +10,9 @@
 #     share/kontra/qml/Kante    Kante, copied unchanged
 #     share/kontra/exercises    the bundled exercises
 #     share/kontra/demo         the piece of the first start
-#     share/licenses/Kontra     LICENSE (MIT), GPL-3.0.txt and ASIO.txt: this package is built
+#     share/licenses/Kontra     LICENSE (MIT), NOTICE.txt, LGPL-3.0.txt (Qt, KDE Frameworks),
+#                               LGPL-2.1.txt (FFmpeg in Qt Multimedia),
+#                               GPL-3.0.txt and ASIO.txt: this package is built
 #                               with ASIO (cargo feature `asio` of kontra-drivers), whose SDK
 #                               is GPLv3, so the package is GPLv3 (agent.md, owner, round 18)
 #
@@ -28,6 +30,10 @@ SHARE="$OUT/share/kontra"
 
 # With ASIO: only this package gets it (see the head). Its build needs libclang (bindgen),
 # which the GitHub runner and the test machine have under "C:\Program Files\LLVM".
+# The app anew, never from a cached target: the QML compiled ahead of time (qmlcachegen) calls
+# the bridge's methods by index, and a stale copy crashed the packed program at start
+# (agent.md, "Gelernte Fehler"; CI run 42920055788).
+cargo clean --release -p kontra-app
 cargo build --release -p kontra-app -p kontra-drivers --features kontra-drivers/asio
 
 rm -rf "$OUT"
@@ -85,6 +91,7 @@ test -d "$OUT/bin/qml/QtQuick/Controls/Fusion"
 # The licences this package is under, and why (ASIO).
 LICENSES="$OUT/share/licenses/Kontra"
 mkdir -p "$LICENSES"
-cp LICENSE packaging/windows/GPL-3.0.txt packaging/windows/ASIO.txt "$LICENSES/"
+cp LICENSE packaging/windows/GPL-3.0.txt packaging/windows/LGPL-3.0.txt packaging/windows/LGPL-2.1.txt packaging/windows/ASIO.txt \
+    packaging/windows/NOTICE.txt "$LICENSES/"
 
 echo "package-windows: $OUT ($(du -sh "$OUT" | cut -f1))"

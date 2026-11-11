@@ -23,6 +23,7 @@ Kirigami.ScrollablePage {
     readonly property var styles: ["kante", "kante-light", "system"]
     // LH-FOR-03: how a loaded backup is taken over.
     property string dataHow: "merge"
+    property var updateState: JSON.parse(ctl.updateNotice("poll"))
     // Round 16 (P3, P4): prepared backing tracks and separated songs, by song.
     property var caches: JSON.parse(ctl.cachesJson())
     readonly property var cacheGroups: [
@@ -375,6 +376,18 @@ Kirigami.ScrollablePage {
                 Accessible.name: texts.t("settings.streak")
                 checked: ctl.streak
                 onToggled: ctl.changeStreak(checked)
+            }
+        }
+        KanteSettingRow {
+            Layout.fillWidth: true
+            // Not where a store announces updates (Flatpak).
+            visible: updateState.offered
+            title: texts.t("settings.update")
+            hint: texts.t("settings.update.hint")
+            KanteSwitch {
+                Accessible.name: texts.t("settings.update")
+                checked: updateState.enabled
+                onToggled: updateState = JSON.parse(ctl.updateNotice(checked ? "on" : "off"))
             }
         }
         KanteSectionLabel { id: mixerLabel; text: texts.t("mixer.title"); Layout.topMargin: KanteStyle.unit(12) }

@@ -319,6 +319,11 @@ pub mod qobject {
         #[cxx_name = "changeStreak"]
         fn change_streak(self: Pin<&mut Self>, on: bool);
 
+        /// Update notice (LH-ALL-07): "poll", "dismiss", "on" or "off"; answers its JSON.
+        #[qinvokable]
+        #[cxx_name = "updateNotice"]
+        fn update_notice(self: Pin<&mut Self>, action: &QString) -> QString;
+
         /// What the loaded bundled exercise trains ("" for other pieces).
         #[qinvokable]
         #[cxx_name = "loadedGoal"]
@@ -1092,6 +1097,7 @@ impl Default for ControllerRust {
         if let Some(answer) = &args.course_answer {
             core.fake_course_web(answer);
         }
+        core.start_update_check(args.update_answer.as_deref(), args.screenshot.as_deref());
         if let Some(style) = &args.style {
             core.update_settings(|s| s.style = style.clone());
         }
@@ -1405,21 +1411,8 @@ impl qobject::Controller {
         self.as_mut().set_target_speed(target);
     }
 
-    fn change_simple_view(mut self: Pin<&mut Self>, on: bool) {
-        self.as_mut().core().update_settings(|s| s.simple_view = on);
-        self.as_mut().set_simple_view(on);
-    }
-
     fn loaded_goal(&self) -> QString {
         q(&self.rust().core.loaded_goal())
-    }
-
-    fn change_adaptive(mut self: Pin<&mut Self>, on: bool) {
-        self.as_mut().core().update_settings(|s| s.adaptive = on);
-        self.as_mut().set_adaptive(on);
-        if !on {
-            self.as_mut().set_density_suggestion(0);
-        }
     }
 
     fn show_error(mut self: Pin<&mut Self>, text: &str) {

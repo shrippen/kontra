@@ -16,6 +16,13 @@ sudo scripts/setup-qt-env.sh && . scripts/qt-env.sh
 cargo run -p kontra-app                          # App (Qt 6.10, Kirigami, Kante)
 ```
 
+## Update-Hinweis
+
+Beim Start fragt Kontra höchstens einmal am Tag `https://shrippen.github.io/versions.json` ab (ein GET, Kennung
+„Kontra/<Version>“, keine Cookies oder Parameter) und zeigt auf der Startseite einen Hinweis mit Link, wenn dort eine
+neuere Version steht. Es lädt nichts herunter. Ohne Netz bleibt es still. Abschaltbar unter Einstellungen; aus im
+Flatpak (`FLATPAK_ID`), in Läufen mit `--input-file` und in Screenshots ohne `--update-answer FILE`.
+
 ## Ausprobieren ohne Bass
 
 ```sh

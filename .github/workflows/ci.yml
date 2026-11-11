@@ -242,6 +242,30 @@ jobs:
             echo "start $try failed"
           done
           [ "$started" = yes ]
+      # Win5: the two downloads of a release, built on every push so they can be tried before a
+      # tag: the Inno Setup installer and the portable ZIP. Released only by release.yml.
+      - name: Installer and ZIP
+        run: scripts/installer-windows.sh dist/Kontra dist/release
+      # The installer as a user runs it (silent): per user without administrator rights, then
+      # removed again. Reports, does not block: the runner's session may differ from a desktop.
+      - name: Install and uninstall
+        continue-on-error: true
+        run: |
+          target="$RUNNER_TEMP/kontra-installed"
+          setup=$(ls dist/release/Kontra-*-windows-setup.exe)
+          # Git Bash would turn "/VERYSILENT" into a path: no conversion for these calls.
+          export MSYS2_ARG_CONV_EXCL='*'
+          "$setup" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/DIR=$(cygpath -w "$target")"
+          test -f "$target/bin/kontra.exe"
+          test -f "$target/share/licenses/Kontra/GPL-3.0.txt"
+          unins=$(ls "$target"/unins*.exe | head -1)
+          "$unins" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+          # The uninstaller removes itself a moment after it ends.
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            [ -e "$target/bin/kontra.exe" ] || break
+            sleep 1
+          done
+          test ! -e "$target/bin/kontra.exe"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -251,6 +275,12 @@ jobs:
         with:
           name: Kontra-windows-portable
           path: dist/Kontra/
+          retention-days: 14
+      # The installer and the ZIP; Actions > the run > Artifacts. Not a release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kontra-windows-installer
+          path: dist/release/
           retention-days: 14
 
   app:

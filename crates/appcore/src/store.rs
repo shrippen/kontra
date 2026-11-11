@@ -238,6 +238,15 @@ pub struct Settings {
     pub string_colors: String,
     /// Mirrored fretboard, nut on the right (LH-ANZ-08).
     pub left_handed: bool,
+    /// Look for a newer release at start (LH-ALL-07); never in Flatpak, tests and QA runs.
+    pub update_check: bool,
+    /// The release whose notice was dismissed; the next newer one shows again.
+    pub update_dismissed: Option<String>,
+    /// When the update check last got an answer (Unix seconds): asked once a day at most
+    /// (`overview/VERSIONS.md` of the site). What it found is kept, so the notice stays.
+    pub update_checked_unix: u64,
+    pub update_found_version: String,
+    pub update_found_url: String,
 }
 
 impl Default for Settings {
@@ -300,6 +309,11 @@ impl Default for Settings {
             window_ms: WINDOW_DEFAULT_MS,
             string_colors: "kante".into(),
             left_handed: false,
+            update_check: true,
+            update_dismissed: None,
+            update_checked_unix: 0,
+            update_found_version: String::new(),
+            update_found_url: String::new(),
         }
     }
 }

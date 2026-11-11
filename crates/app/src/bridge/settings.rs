@@ -7,10 +7,38 @@ use cxx_qt_lib::QString;
 use kontra_appcore::{Bass, InstrumentChoice};
 
 impl qobject::Controller {
+    pub(super) fn change_simple_view(mut self: Pin<&mut Self>, on: bool) {
+        self.as_mut().core().update_settings(|s| s.simple_view = on);
+        self.as_mut().set_simple_view(on);
+    }
+
+    pub(super) fn change_adaptive(mut self: Pin<&mut Self>, on: bool) {
+        self.as_mut().core().update_settings(|s| s.adaptive = on);
+        self.as_mut().set_adaptive(on);
+        if !on {
+            self.as_mut().set_density_suggestion(0);
+        }
+    }
+
     /// The practice streak on the start page on or off (LH-FOR-05).
     pub(super) fn change_streak(mut self: Pin<&mut Self>, on: bool) {
         self.as_mut().core().update_settings(|s| s.streak = on);
         self.as_mut().set_streak(on);
+    }
+
+    /// The update notice (LH-ALL-07): "dismiss" hides it until a newer release, "on" and "off"
+    /// set the check (from the next start); every action answers `Core::update_json`.
+    pub(super) fn update_notice(mut self: Pin<&mut Self>, action: &QString) -> QString {
+        let core = self.as_mut().core();
+        match action.to_string().as_str() {
+            "dismiss" => core.dismiss_update(),
+            "on" => core.update_settings(|s| s.update_check = true),
+            "off" => core.update_settings(|s| s.update_check = false),
+            _ => {
+                let _ = core.update_poll();
+            }
+        }
+        q(&core.update_json())
     }
 
     /// The drums answer the bass in free play (LH-WIE-05), also in the run going on.
