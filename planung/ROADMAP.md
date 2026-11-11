@@ -224,6 +224,15 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 - Signierung, Wege zur Wahl (in Runde 18 zurückgestellt, keiner gewählt): Azure Trusted Signing (Abo, Identitätsprüfung), SignPath Foundation
   (kostenlos für freie Projekte, signiert unter deren Namen), eigenes Zertifikat (z. B. Certum Open Source).
 
+### Entscheidungen Runde 20 (11.11.2026, im Gespräch)
+
+- Flatpak: X11 auch unter Wayland (Plugin-Fenster), Lesezugriff auf `~/.clap` und `~/.vst3`, Erweiterungspunkt
+  `org.freedesktop.LinuxAudio.Plugins` (FX6).
+- Plugin-Fenster unter Windows (HWND): in der Windows-VM bauen und prüfen; VM freigegeben.
+- R3 (Zeit je Block aus den Gerätestempeln, DLL): mit dem Scarlett messen (Ausgang per Kabel im Eingang); freigegeben.
+- USB-Eingang ohne Ausgang: Schalter „Instrument/Mikrofon“ je Gerät in den Einstellungen (LH-EIN-02).
+- Offen: Plugin-Fenster über einen Start hinweg (eine Instanz für alle Player oder Fenster neu öffnen).
+
 ### Entscheidungen Runde 19 (11.11.2026)
 
 - #253 (Win5: Inno Setup, ZIP, Update-Hinweis, `release.yml`): mergen.

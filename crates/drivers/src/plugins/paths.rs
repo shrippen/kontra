@@ -4,6 +4,8 @@
 //! Linux    $CLAP_PATH (':'-separated), ~/.clap, /usr/lib/clap
 //! Windows  %CLAP_PATH% (';'), %COMMONPROGRAMFILES%\CLAP, %LOCALAPPDATA%\Programs\Common\CLAP
 //! VST3     ~/.vst3, /usr/lib/vst3, /usr/local/lib/vst3
+//! Flatpak  also the plugin extension point /app/extensions/Plugins/{clap,vst3}
+//!          (org.freedesktop.LinuxAudio.Plugins.*; the host's /usr is not visible there)
 //!          Windows: %COMMONPROGRAMFILES%\VST3, %LOCALAPPDATA%\Programs\Common\VST3
 //!          (bundles `*.vst3` are folders)
 //! ```
@@ -15,6 +17,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const CLAP_PATH_ENV: &str = "CLAP_PATH";
+/// Where Flatpak mounts the plugin extensions (`add-extensions` in the manifest).
+const FLATPAK_PLUGINS: &str = "/app/extensions/Plugins";
 /// Plugin folders nest ("vendor/plugin.clap"); deeper than this is not a plugin folder.
 const MAX_DEPTH: usize = 6;
 
@@ -24,6 +28,9 @@ pub fn search_paths(format: PluginFormat) -> Vec<PathBuf> {
     match format {
         PluginFormat::Clap => clap_paths(&mut paths),
         PluginFormat::Vst3 => vst3_system_paths(&mut paths),
+    }
+    if crate::in_sandbox() {
+        paths.push(extension_dir(format));
     }
     let mut unique: Vec<PathBuf> = Vec::new();
     for p in paths {
@@ -39,6 +46,11 @@ fn clap_paths(paths: &mut Vec<PathBuf>) {
         paths.extend(std::env::split_paths(&list).filter(|p| !p.as_os_str().is_empty()));
     }
     clap_system_paths(paths);
+}
+
+/// The folder of the Flatpak plugin extensions for `format`.
+fn extension_dir(format: PluginFormat) -> PathBuf {
+    Path::new(FLATPAK_PLUGINS).join(format.key())
 }
 
 #[cfg(not(windows))]
@@ -120,6 +132,13 @@ fn collect(format: PluginFormat, dir: &Path, depth: usize, files: &mut Vec<PathB
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn flatpak_extensions_have_a_folder_per_format() {
+        let dir = |f| extension_dir(f).to_string_lossy().replace('\\', "/");
+        assert_eq!(dir(PluginFormat::Clap), "/app/extensions/Plugins/clap");
+        assert_eq!(dir(PluginFormat::Vst3), "/app/extensions/Plugins/vst3");
+    }
 
     #[test]
     fn finds_clap_files_in_nested_folders() {
