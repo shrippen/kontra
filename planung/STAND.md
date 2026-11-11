@@ -1,7 +1,23 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-11-11. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+Übergabe zwischen Sitzungen. Stand: 2026-11-12. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
+
+## Übergabe (12.11.2026: eine Audio-Engine über alle Modi)
+
+In `main`: #285 Lautstärke-Rampe, #286 Neu-Basis von Ein- und Ausgang, #287 `Rig` mit Stimmgerät und
+Bereitschaft, #288 Lauf und „Erneut versuchen“, #289 Gehör und Kalibrierung, #290 appcore gibt die Geräte von
+Modus zu Modus weiter. Befund und Messung in der Roadmap unter „Entscheidungen Runde 20“.
+
+Offen:
+- J-A5 Schritt 5 am Scarlett mit dem Ohr: Wechsel zwischen Bereitschaft, Stimmgerät und Lauf bei „Bass hören“
+  ohne hörbare Lücke (gemessen: Ausgang läuft durch, Übergabe 2,1–2,3 ms, 0 Xruns).
+- Für die nächste Runde: die neuen `pub` aus #285 bis #290 (`Player::rebase`, `Input::rebase`, `Event::Rebased`,
+  `Rig` samt `RigOutput`, `OnOutputError`, `InputTap`, `on`/`into_rig` der Modi, `Practice::into_output`) und die
+  Frage, ob das Gehörtraining den Bass bei „Bass hören“ durchlässt (heute nicht, LH-EIN-18).
+- Der Loopback öffnet weiter eigene Geräte (seine Aufnahme hängt am ersten Sample).
+- Hardware-Prüfungen mit `kontra-cli check` immer mit `--input`/`--output` des Scarletts: der Systemstandard für
+  die Ausgabe ist die eingebaute Karte (IEC958).
 
 ## Übergabe (11.11.2026, Abend: Runde 20)
 
