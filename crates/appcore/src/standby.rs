@@ -118,13 +118,13 @@ impl Core {
         let cable = matches!(self.source(), InputSource::Line | InputSource::LaptopJack);
         (self.settings.monitor && cable).then(|| TunerMonitor {
             output_device: self.output_device(),
-            gains: gains(&self.settings, &self.plugins.problems),
+            gains: gains(&self.settings, &self.plugins),
         })
     }
 
     /// New volumes and effects for the standby monitor and the tuner.
     pub(crate) fn remix_standby(&mut self) {
-        let gains = gains(&self.settings, &self.plugins.problems);
+        let gains = gains(&self.settings, &self.plugins);
         if let Some(tuner) = self.tuner.as_mut() {
             tuner.set_gains(gains.clone());
         }
@@ -225,7 +225,7 @@ impl Core {
         let opened = LiveMonitor::start(
             &setup,
             &self.instrument(),
-            gains(&self.settings, &self.plugins.problems),
+            gains(&self.settings, &self.plugins),
         );
         match opened {
             Some(Ok(monitor)) => {

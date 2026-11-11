@@ -449,6 +449,7 @@
   "fx.kind.plugin": "Plugin",
   "fx.plugin.lost": "Zu diesem Eintrag fehlt das Plugin in den Einstellungen. Entferne ihn.",
   "fx.plugin.gone": "Die Plugin-Datei fehlt. Der Eintrag bleibt stumm (der Bass läuft unverändert durch), bis sie wieder da ist.",
+  "fx.plugin.crashed": "Kontra wurde beim Laden dieses Plugins beendet. Es bleibt aus, bis du es einschaltest.",
   "fx.plugin.failed": "Das Plugin lädt nicht: {reason}. Der Eintrag bleibt stumm.",
   "fx.plugin.cannot": "{name} lässt sich nicht laden: {reason}",
   "fx.plugin.label": "{name} ({vendor}, {format})",

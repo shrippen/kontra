@@ -12,12 +12,14 @@
 //! The probe is this program itself: packages ship only `kontra`, and `main` answers
 //! `--probe-plugin <file>` before Qt starts (`probe_plugin_line`).
 
-use crate::store;
-use kontra_model::{ParamSpec, PluginSpec};
+use crate::store::{self, Settings};
+use kontra_model::{EffectKind, ParamSpec, PluginSpec};
+use kontra_session::plugins::{clear_crash_marker, crashed_plugin};
 use kontra_session::plugins::{
     plugin_files, probe_line, scan_files, PluginFormat, PluginInfo, ProbeCommand, ScanReport,
 };
-use kontra_session::PluginProblems;
+use kontra_session::{PluginBank, PluginProblems};
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Duration;
@@ -31,6 +33,10 @@ const PROBE_TIMEOUT: Duration = Duration::from_secs(10);
 /// The last scan, in the data folder.
 const CACHE_FILE: &str = "plugins.json";
 
+/// Left in the data folder while a plugin's code runs (loading, describing): if it is still
+/// there at the next start, Kontra died inside that plugin (LH-EIN-20).
+const CRASH_MARKER_FILE: &str = "plugin-loading.marker";
+
 const FORMATS: [PluginFormat; 2] = [PluginFormat::Clap, PluginFormat::Vst3];
 
 /// The body of the probe process: what `PROBE_FLAG` prints for `path` (one line of JSON).
@@ -40,10 +46,15 @@ pub fn probe_plugin_line(path: &Path) -> String {
 
 /// What the mixer knows about plugins: the last scan, a scan that runs, and why slots are
 /// bypassed.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct Plugins {
     /// Why plugin slots sound dry; filled by the engine, shown in the mixer.
     pub(crate) problems: PluginProblems,
+    /// How often `problems` had changed when the page last looked.
+    seen_problems: u64,
+    /// Plugins (by `PluginSpec::id`) that took Kontra down while loading and were switched off.
+    pub(crate) crashed: BTreeSet<u32>,
+    crash_marker: PathBuf,
     report: ScanReport,
     running: Option<mpsc::Receiver<ScanReport>>,
     cache: PathBuf,
@@ -59,12 +70,44 @@ impl Plugins {
         let cache = data_dir.join(CACHE_FILE);
         Plugins {
             problems: PluginProblems::default(),
+            seen_problems: 0,
+            crashed: BTreeSet::new(),
+            crash_marker: data_dir.join(CRASH_MARKER_FILE),
             report: store::load(&cache),
             running: None,
             cache,
             probe: None,
             shown_latency: None,
         }
+    }
+
+    /// As `new`, and if the last run died while a plugin loaded (a marker is left), switches
+    /// that plugin's slots off in `settings` and saves them, so it stays off until the player
+    /// switches it on.
+    pub(crate) fn start(data_dir: &Path, settings: &mut Settings) -> Plugins {
+        let mut plugins = Plugins::new(data_dir);
+        let Some((path, plugin)) = crashed_plugin(&plugins.crash_marker) else {
+            return plugins;
+        };
+        clear_crash_marker(&plugins.crash_marker);
+
+        let ids: Vec<u32> = settings
+            .plugins
+            .iter()
+            .filter(|p| p.path == path && p.plugin == plugin)
+            .map(|p| p.id)
+            .collect();
+        for slot in settings.monitor_chain.slots_mut() {
+            if slot.kind != EffectKind::Plugin || !ids.contains(&slot.plugin) {
+                continue;
+            }
+            slot.on = false;
+            plugins.crashed.insert(slot.plugin);
+        }
+        if !plugins.crashed.is_empty() {
+            let _ = store::save(&data_dir.join("settings.json"), settings);
+        }
+        plugins
     }
 
     /// Whether the chain latency changed in the digit the page shows (0.1 ms), or appeared or
@@ -76,6 +119,25 @@ impl Plugins {
             .filter(|t| *t > 0);
         let moved = tenths != self.shown_latency;
         self.shown_latency = tenths;
+        moved
+    }
+
+    /// The plugins of the settings for the engine, which loads them with a crash marker.
+    pub(crate) fn bank(&self, settings: &Settings) -> PluginBank {
+        PluginBank::new(settings.plugins.clone(), self.problems.clone())
+            .with_crash_marker(self.crash_marker.clone())
+    }
+
+    pub(crate) fn crash_marker(&self) -> &Path {
+        &self.crash_marker
+    }
+
+    /// Whether the reasons for bypassed slots changed since the last call (a plugin finished
+    /// loading, or failed to).
+    pub(crate) fn problems_moved(&mut self) -> bool {
+        let now = self.problems.revision();
+        let moved = now != self.seen_problems;
+        self.seen_problems = now;
         moved
     }
 
@@ -211,7 +273,8 @@ impl crate::Core {
         let moved = self.plugins.latency_moved(latency);
         let changes = self.plugin_changes();
         let edited = self.take_plugin_changes(&changes);
-        (scanned || moved || edited).then_some(crate::UiEvent::EffectsChanged)
+        let reasons = self.plugins.problems_moved();
+        (scanned || moved || edited || reasons).then_some(crate::UiEvent::EffectsChanged)
     }
 
     /// Writes what plugins changed by themselves (their own editor) into the settings and saves

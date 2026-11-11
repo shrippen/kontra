@@ -652,7 +652,7 @@ impl Core {
             self.release_standby();
             let mut live_ear = LiveEar::start(&setup, &self.instrument())
                 .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
-            live_ear.set_gains(crate::ear_gains(&self.settings, &self.plugins.problems));
+            live_ear.set_gains(crate::ear_gains(&self.settings, &self.plugins));
             self.live_ear = Some(live_ear);
             self.input
                 .remember(crate::input_state::InputUse::Ear, setup.input);

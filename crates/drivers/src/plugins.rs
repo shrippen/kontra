@@ -16,6 +16,7 @@
 //! Only the first input and the first output port of a plugin are used (no side chain).
 
 mod clap;
+mod host;
 mod paths;
 mod scan;
 #[allow(unsafe_code)]
@@ -26,6 +27,10 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
+pub use host::{
+    clear_crash_marker, crashed_plugin, PendingLoad, PluginDescription, PluginHandle, PluginHost,
+    PluginLoaded, PluginSetup,
+};
 pub use paths::{plugin_files, search_paths};
 pub use scan::{probe_file, probe_line, scan_files, BrokenFile, ProbeCommand, ScanReport};
 

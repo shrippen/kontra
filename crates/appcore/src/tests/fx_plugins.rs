@@ -282,3 +282,53 @@ fn a_change_in_the_tuner_is_saved() {
     core.stop_tuner();
     let _ = std::fs::remove_dir_all(core.data_dir.clone());
 }
+
+/// LH-EIN-20: a marker left in the data folder means Kontra died while loading that plugin; its
+/// slot is off at the next start, with a notice, until the player switches it on.
+#[test]
+fn a_plugin_that_took_kontra_down_stays_off() {
+    let mut core = core_with_plugin("fx-plugin-crash");
+    core.update_settings(|s| s.language = Some("en".into()));
+    core.edit_effects("add", 0, "plugin:0", 0.0);
+    let dir = core.data_dir.clone();
+    let spec = core.settings().plugins[0].clone();
+    assert!(core.settings().monitor_chain.slots()[0].on);
+    drop(core);
+
+    // What the plugin thread leaves behind when the process dies inside the plugin.
+    let marker = dir.join("plugin-loading.marker");
+    std::fs::write(&marker, format!("{}\n{}", spec.path.display(), spec.plugin)).unwrap();
+
+    let mut core = Core::new(&dir, QaOptions::default());
+    assert!(!core.settings().monitor_chain.slots()[0].on, "switched off");
+    assert!(!marker.exists(), "the marker is taken note of once");
+    let problem = effects(&core)["slots"][0]["problem"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert!(problem.contains("stopped while loading"), "{problem}");
+
+    // Saved: the next start finds it off as well, and the player can switch it on again.
+    let again = Core::new(&dir, QaOptions::default());
+    assert!(!again.settings().monitor_chain.slots()[0].on);
+    core.edit_effects("on", 0, "", 1.0);
+    assert!(core.settings().monitor_chain.slots()[0].on);
+    assert_eq!(effects(&core)["slots"][0]["problem"], "");
+}
+
+/// A marker that names another plugin changes nothing.
+#[test]
+fn a_marker_of_another_plugin_leaves_the_slot_on() {
+    let mut core = core_with_plugin("fx-plugin-crash-other");
+    core.edit_effects("add", 0, "plugin:0", 0.0);
+    let dir = core.data_dir.clone();
+    drop(core);
+    std::fs::write(
+        dir.join("plugin-loading.marker"),
+        "/elsewhere/other.clap\nother",
+    )
+    .unwrap();
+
+    let core = Core::new(&dir, QaOptions::default());
+    assert!(core.settings().monitor_chain.slots()[0].on);
+}

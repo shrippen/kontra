@@ -226,6 +226,8 @@ impl Core {
         let hint = format!("{} · {}", spec.vendor, spec.format.to_ascii_uppercase());
         let problem = if !spec.path.exists() {
             self.tr("fx.plugin.gone", &[])
+        } else if self.plugins.crashed.contains(&spec.id) {
+            self.tr("fx.plugin.crashed", &[])
         } else if let Some(reason) = self.plugins.problems.get(spec.id) {
             self.tr("fx.plugin.failed", &[("reason", reason)])
         } else {
@@ -249,6 +251,11 @@ impl Core {
     ) -> Option<String> {
         let len = self.settings().monitor_chain.slots().len();
         let value = if value.is_finite() { value } else { 0.0 };
+        if op == "on" && value >= 0.5 && index < len {
+            // Switched on by the player: the crash notice has done its job.
+            let plugin = self.settings().monitor_chain.slots()[index].plugin;
+            self.plugins.crashed.remove(&plugin);
+        }
         let apply: Box<dyn FnOnce(&mut Settings)> = match op {
             "scan" => {
                 self.plugins.scan();
@@ -304,7 +311,7 @@ impl Core {
     /// for a key that names nothing; `Err` with the player's hint when it does not load.
     fn describe_found(&self, key: &str) -> Option<Result<PluginSpec, String>> {
         let info = found_at(self.plugins.report(), key)?;
-        let described = describe_plugin(info);
+        let described = describe_plugin(info, Some(self.plugins.crash_marker()));
         Some(described.map_err(|e| {
             self.tr(
                 "fx.plugin.cannot",
