@@ -36,7 +36,10 @@ LicenseFile={#SourceDir}\share\licenses\Kontra\NOTICE.txt
 OutputDir={#OutputDir}
 OutputBaseFilename=Kontra-{#AppVersion}-windows-setup
 UninstallDisplayName={#AppName}
-UninstallDisplayIcon={app}\bin\{#AppExe}
+; Kontra's logo (packaging/icons at 16 to 256 px, joined by magick) for the setup, the start menu
+; entry and the list of installed apps; kontra.exe has no icon of its own.
+SetupIconFile=Kontra.ico
+UninstallDisplayIcon={app}\Kontra.ico
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -48,9 +51,10 @@ Name: "german"; MessagesFile: "compiler:Languages\German.isl"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "Kontra.ico"; DestDir: "{app}"
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\bin\{#AppExe}"
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\bin\{#AppExe}"; IconFilename: "{app}\Kontra.ico"
 
 [Run]
 Filename: "{app}\bin\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
