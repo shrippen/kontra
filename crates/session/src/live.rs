@@ -2,6 +2,7 @@
 
 use crate::calibration::{Calibration, CalibrationResult};
 use crate::practice::{Practice, PracticeEvent, PracticeOptions, Told};
+use crate::rig::{Rig, RigOutput};
 use crate::session::Mode;
 use crate::settings::ScoreSettings;
 use kontra_engine::plugins::PluginError;
@@ -349,15 +350,11 @@ impl Live {
     }
 }
 
-/// A running tuner.
+/// A running tuner, on a rig of its own or one it took over.
 #[derive(Debug)]
 pub struct LiveTuner {
-    input: Input,
-    events: Receiver<Event>,
-    /// The output the bass passes through while tuning (LH-EIN-18); `None`: silent.
-    output: Option<Player>,
-    #[cfg(test)]
-    errors: Sender<Event>,
+    /// Its output is the monitor the bass passes through while tuning (LH-EIN-18), or silence.
+    rig: Rig,
 }
 
 /// The bass heard while tuning: the output and the mixer's volume and effects.
@@ -374,39 +371,40 @@ impl LiveTuner {
         source: InputSource,
         monitor: Option<TunerMonitor>,
     ) -> Result<LiveTuner, EngineError> {
-        let clock = Clock::new();
-        let (tx, rx) = channel();
-        #[cfg(test)]
-        let errors = tx.clone();
+        let gains = monitor
+            .as_ref()
+            .map(|m| m.gains.clone())
+            .unwrap_or_default();
+        let output = match monitor {
+            Some(m) => RigOutput::Device(m.output_device),
+            None => RigOutput::Silent,
+        };
         // An output that does not open leaves the tuner silent: tuning matters more.
-        let mut output = monitor.and_then(|m| {
-            let config = monitor_config(input, m.output_device.as_deref());
-            let mut player = Player::start(&config, &clock, tx.clone()).ok()?;
-            player.set_gains(m.gains);
-            Some(player)
-        });
-        let input = Input::start(
-            &input_kind(input),
-            instrument,
-            source,
-            &clock,
-            tx,
-            output.as_mut(),
-        )?;
-        input.set_tuner(true);
-        Ok(LiveTuner {
-            input,
-            events: rx,
-            output,
-            #[cfg(test)]
-            errors,
-        })
+        let rig = match Rig::open(input, output, source, instrument, gains.clone()) {
+            Ok(rig) => rig,
+            Err(_) => Rig::open(input, RigOutput::Silent, source, instrument, gains)?,
+        };
+        rig.input().set_tuner(true);
+        Ok(LiveTuner { rig })
+    }
+
+    /// Tunes on the devices of `rig`, with the bass at `gains`.
+    pub fn on(mut rig: Rig, instrument: &Instrument, gains: Gains) -> LiveTuner {
+        rig.attach(instrument, gains);
+        rig.input().set_tuner(true);
+        LiveTuner { rig }
+    }
+
+    /// Hands the devices on to the next mode; the readings stop.
+    pub fn into_rig(self) -> Rig {
+        self.rig.input().set_tuner(false);
+        self.rig
     }
 
     /// Test: the output reports an error, as a device that went away would.
     #[cfg(test)]
     fn fail_output_for_test(&self) {
-        let _ = self.errors.send(Event::Error(
+        self.rig.tell_for_test(Event::Error(
             kontra_engine::Direction::Output,
             "gone".into(),
         ));
@@ -414,52 +412,39 @@ impl LiveTuner {
 
     /// True while the bass passes through the output.
     pub fn is_monitoring(&self) -> bool {
-        // At different rates the input's samples are not passed on (the tap drops them).
-        self.output
-            .as_ref()
-            .is_some_and(|o| o.sample_rate() == self.input.sample_rate)
+        self.rig.is_monitoring()
     }
 
     /// As `Live::take_param_changes`; nothing while silent.
     pub fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
-        self.output
-            .as_mut()
-            .map(Output::take_param_changes)
-            .unwrap_or_default()
+        self.rig.output().take_param_changes()
     }
 
     /// As `Live::take_param_texts`; nothing while silent.
     pub fn take_param_texts(&mut self) -> Vec<(u32, u32, f64, String)> {
-        self.output
-            .as_mut()
-            .map(Output::take_param_texts)
-            .unwrap_or_default()
+        self.rig.output().take_param_texts()
     }
 
     /// As `Live::open_editor`; none while silent.
     pub fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
-        let output = self.output.as_mut().ok_or(PluginError::NoEditor)?;
-        output.open_editor(plugin, title)
+        self.rig.output().open_editor(plugin, title)
     }
 
     /// New volumes and effects; heard at once.
     pub fn set_gains(&mut self, gains: Gains) {
-        if let Some(output) = self.output.as_mut() {
-            output.set_gains(gains);
-        }
+        self.rig.output().set_gains(gains);
     }
 
     /// The input's block size in frames and its sample rate, once the device delivered audio.
     pub fn input_block(&self) -> Option<(u32, u32)> {
-        self.input
-            .block_frames()
-            .map(|b| (b, self.input.sample_rate))
+        let input = self.rig.input();
+        input.block_frames().map(|b| (b, input.sample_rate))
     }
 
     /// Readings and levels since the last call.
     pub fn poll(&mut self) -> Vec<PracticeEvent> {
         let mut out = Vec::new();
-        while let Ok(event) = self.events.try_recv() {
+        for event in self.rig.poll() {
             match event {
                 Event::Tuner(r) => out.push(PracticeEvent::Tuner {
                     note: r.pitch.to_string(),
@@ -475,7 +460,7 @@ impl LiveTuner {
                     clipped,
                 }),
                 // The monitor's output went away: tuning goes on without it.
-                Event::Error(kontra_engine::Direction::Output, _) => self.output = None,
+                Event::Error(kontra_engine::Direction::Output, _) => self.rig.silence_output(),
                 Event::Error(side, m) => out.push(PracticeEvent::Error(side, m)),
                 Event::Ended => out.push(PracticeEvent::InputEnded),
                 Event::Stalled { .. } => out.push(PracticeEvent::InputStalled),
@@ -690,7 +675,7 @@ pub(crate) fn live_output_config(setup: &LiveSetup) -> StreamConfig {
     monitor_config(&setup.input, setup.output_device.as_deref())
 }
 
-fn monitor_config(input: &InputChoice, output: Option<&str>) -> StreamConfig {
+pub(crate) fn monitor_config(input: &InputChoice, output: Option<&str>) -> StreamConfig {
     let mut config = output_config(output);
     if let InputChoice::Device { id, .. } = input {
         config.sample_rate = monitor_rate(id.as_deref(), output);
