@@ -2,7 +2,7 @@
 
 use crate::calibration::{Calibration, CalibrationResult};
 use crate::practice::{Practice, PracticeEvent, PracticeOptions, Told};
-use crate::rig::{OnOutputError, Rig, RigOutput};
+use crate::rig::{InputTap, OnOutputError, Rig, RigOutput};
 use crate::session::Mode;
 use crate::settings::ScoreSettings;
 use kontra_engine::plugins::PluginError;
@@ -190,6 +190,7 @@ impl Live {
             &setup.input,
             RigOutput::Device(setup.output_device.clone()),
             OnOutputError::PlaySilent,
+            InputTap::Player,
             setup.source,
             &instrument,
             Gains::default(),
@@ -434,7 +435,8 @@ impl LiveTuner {
         };
         // An output that does not open leaves the tuner silent: tuning matters more.
         let silent = OnOutputError::PlaySilent;
-        let rig = Rig::open(input, output, silent, source, instrument, gains)?;
+        let tap = InputTap::Player;
+        let rig = Rig::open(input, output, silent, tap, source, instrument, gains)?;
         if let Some(input) = rig.input() {
             input.set_tuner(true);
         }
@@ -688,12 +690,19 @@ impl LiveEar {
     }
 }
 
-/// The devices of `setup` for a mode that can play silent when the output does not open.
+/// The devices of `setup` for ear training or calibration: silent when the output does not
+/// open; a microphone does not take what plays (its prompts and clicks are what the player
+/// answers; review #289).
 fn open_rig(setup: &LiveSetup, instrument: &Instrument, gains: Gains) -> Result<Rig, EngineError> {
+    let tap = match setup.source {
+        InputSource::Microphone => InputTap::Off,
+        _ => InputTap::Player,
+    };
     Rig::open(
         &setup.input,
         RigOutput::Device(setup.output_device.clone()),
         OnOutputError::PlaySilent,
+        tap,
         setup.source,
         instrument,
         gains,
@@ -978,6 +987,41 @@ mod tests {
         let quiet = quiet(gains);
         assert_eq!(quiet.monitor, 0.0);
         assert_eq!(quiet.click, 0.3);
+    }
+
+    /// Review #289: ear training and calibration at a microphone ran without echo removal
+    /// before the rig and stay so: their prompts and clicks are what the player answers or
+    /// plucks on. The player keeps what it plays to itself.
+    #[test]
+    fn a_microphone_keeps_its_prompts_and_clicks() {
+        let path = std::env::temp_dir().join(format!("kontra-mic-{}.wav", std::process::id()));
+        crate::write_mono_wav(&path, &vec![0.0; 48_000], 48_000).unwrap();
+        let setup = LiveSetup {
+            input: InputChoice::File {
+                path: path.clone(),
+                laptop_jack: false,
+            },
+            output_device: Some("kontra:null".into()),
+            source: InputSource::Microphone,
+            backing: None,
+            original: None,
+            backing_cache: None,
+            onset_gate_db: None,
+        };
+        let bass = Instrument::default_bass();
+        let mut ear = LiveEar::start(&setup, &bass).unwrap();
+        let mut calibration = LiveCalibration::start(&setup, &bass, 1.0).unwrap();
+        let _ = std::fs::remove_file(path);
+
+        for output in [ear.rig.output(), calibration.rig.output()] {
+            let LiveOutput::Device(player) = output else {
+                panic!("a device output");
+            };
+            assert!(
+                player.take_reference().is_some(),
+                "the echo removal took it"
+            );
+        }
     }
 
     /// Review #258: an output error while tuning ended the tuner. Tuning comes first: only the

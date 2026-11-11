@@ -37,6 +37,15 @@ pub enum OnOutputError {
     PlaySilent,
 }
 
+/// Whether the input takes from the player: the monitor ring (the bass through the output)
+/// and, at a microphone, what plays (echo removal, LH-EIN-11).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InputTap {
+    Player,
+    /// Neither: ear training and calibration at a microphone answer what plays.
+    Off,
+}
+
 /// What the input last said about itself; a new mode hears it again (the device says it once).
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum InputState {
@@ -59,6 +68,7 @@ struct Devices {
 #[derive(Debug)]
 pub struct Rig {
     devices: Devices,
+    tap: InputTap,
     clock: Clock,
     output: LiveOutput,
     /// `None` after a reopen whose input did not open.
@@ -80,6 +90,7 @@ impl Rig {
         input: &InputChoice,
         output: RigOutput,
         on_error: OnOutputError,
+        tap: InputTap,
         source: InputSource,
         instrument: &Instrument,
         gains: Gains,
@@ -100,7 +111,7 @@ impl Rig {
             source,
             &clock,
             sender.clone(),
-            player.as_mut(),
+            player.as_mut().filter(|_| tap == InputTap::Player),
         )?;
         Ok(Rig {
             devices: Devices {
@@ -108,6 +119,7 @@ impl Rig {
                 output,
                 source,
             },
+            tap,
             clock,
             output: live_output(player),
             input: Some(input_device),
@@ -141,7 +153,7 @@ impl Rig {
             source,
             &self.clock,
             self.sender.clone(),
-            player.as_mut(),
+            player.as_mut().filter(|_| self.tap == InputTap::Player),
         );
         self.output = live_output(player);
         self.devices = Devices {
@@ -274,7 +286,7 @@ impl Rig {
 
     /// True while the input's samples reach the output (a device, at the input's rate).
     pub fn is_monitoring(&self) -> bool {
-        let Some(input) = &self.input else {
+        let Some(input) = self.input.as_ref().filter(|_| self.tap == InputTap::Player) else {
             return false;
         };
         matches!(&self.output, LiveOutput::Device(p) if p.sample_rate() == input.sample_rate)
@@ -330,6 +342,8 @@ mod tests {
     const COUNT_IN_S: f64 = 2.0;
     /// The calibration's count-in (4 clicks, 0.6 s apart) begins 0.1 s after this lead.
     const CALIBRATION_LEAD_S: f64 = 2.5;
+    /// The answer in the ear-training file: after the rig was handed over.
+    const ANSWER_AT_S: f64 = 1.0;
     /// Time between starting and reading the position, with room for a slow machine.
     const TOLERANCE_S: f64 = 0.2;
 
@@ -375,6 +389,7 @@ mod tests {
             &input,
             null_output(),
             OnOutputError::Fail,
+            InputTap::Player,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -406,6 +421,7 @@ mod tests {
             &input,
             null_output(),
             OnOutputError::Fail,
+            InputTap::Player,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -441,6 +457,7 @@ mod tests {
             &input,
             null_output(),
             OnOutputError::Fail,
+            InputTap::Player,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -471,6 +488,7 @@ mod tests {
             &input,
             null_output(),
             OnOutputError::Fail,
+            InputTap::Player,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -544,6 +562,7 @@ mod tests {
             &input,
             null_output(),
             OnOutputError::Fail,
+            InputTap::Player,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -591,6 +610,7 @@ mod tests {
             &input,
             null_output(),
             OnOutputError::Fail,
+            InputTap::Player,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -622,6 +642,7 @@ mod tests {
             &input,
             null_output(),
             OnOutputError::Fail,
+            InputTap::Player,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -679,6 +700,7 @@ mod tests {
             &input,
             null_output(),
             OnOutputError::Fail,
+            InputTap::Player,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -702,15 +724,33 @@ mod tests {
         assert!(back.fits(&input, &null_output(), InputSource::Line));
     }
 
-    /// Ear training on devices taken over hears answers and hands the devices back.
+    /// Ear training on devices taken over hears the answer played after it took them, and
+    /// hands the devices back.
     #[test]
     fn ear_training_takes_and_hands_back_the_rig() {
-        let (input, path) = file_input("ear", 0.0);
+        let a1 = Pitch::parse("A1").unwrap();
+        let path = std::env::temp_dir().join(format!("kontra-rig-ear-{}.wav", std::process::id()));
+        let rate = f64::from(RATE);
+        let samples: Vec<f32> = (0..(FILE_S * rate) as usize)
+            .map(|i| {
+                let t = i as f64 / rate;
+                if t < ANSWER_AT_S {
+                    return 0.0;
+                }
+                (0.5 * (std::f64::consts::TAU * a1.hz(A4_HZ) * t).sin()) as f32
+            })
+            .collect();
+        crate::write_mono_wav(&path, &samples, RATE).unwrap();
+        let input = InputChoice::File {
+            path: path.clone(),
+            laptop_jack: false,
+        };
         let bass = Instrument::default_bass();
         let rig = Rig::open(
             &input,
             null_output(),
             OnOutputError::Fail,
+            InputTap::Player,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -719,10 +759,20 @@ mod tests {
         let setup = setup_of(&input);
         let mut ear = LiveEar::on(rig, &setup, &bass, Gains::default());
         assert!(!ear.output_is_silent());
-        let _ = ear.poll();
+
+        let mut heard = None;
+        let start = Instant::now();
+        while heard.is_none() && start.elapsed() < PATIENCE {
+            std::thread::sleep(POLL_EVERY);
+            heard = ear.poll().into_iter().find_map(|e| match e {
+                PracticeEvent::Heard { midi } => Some(midi),
+                _ => None,
+            });
+        }
         let back = ear.into_rig();
         let _ = std::fs::remove_file(path);
 
+        assert_eq!(heard.map(f64::round), Some(f64::from(a1.0)));
         assert!(back.fits(&input, &null_output(), InputSource::Line));
     }
 }
