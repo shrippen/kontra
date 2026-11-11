@@ -327,14 +327,22 @@ fn the_running_chain_follows_while_another_loads() {
     let mut chain = fit_ready(&mut builder, &plugin_chain(), &quiet);
     let input = sine(2048);
 
-    // A widener joins: the new shape loads (and is never polled here, so it stays loading).
+    // A second plugin joins: the new shape loads it (and is never polled here, so it stays
+    // loading).
+    let mut second = gain_spec(PluginFormat::Clap, "kontra_clap_gain", 1.0);
+    second.id = PLUGIN_ID + 1;
     let bigger = chain_of(&[
         SlotSpec::for_plugin(PLUGIN_ID),
-        SlotSpec::new(EffectKind::Widener),
+        SlotSpec::for_plugin(PLUGIN_ID + 1),
     ]);
-    assert!(builder.fit(&bigger, &quiet).is_none());
-    let louder = bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 2.0)]);
-    assert!(builder.fit(&bigger, &louder).is_none());
+    let both = |gain| {
+        bank(vec![
+            gain_spec(PluginFormat::Clap, "kontra_clap_gain", gain),
+            second.clone(),
+        ])
+    };
+    assert!(builder.fit(&bigger, &both(1.0)).is_none());
+    assert!(builder.fit(&bigger, &both(2.0)).is_none());
 
     run_until(&mut chain, &input, |out| {
         let at = out.len() - 1;
@@ -377,8 +385,14 @@ fn instances_close_after_their_chain_is_gone() {
     let first = fit_ready(&mut builder, &plugin_chain(), &bank);
     assert_eq!(builder.retiring(), 0);
 
-    // Taking the plugin out: its instance waits for the chain that runs it.
+    // Switching the plugin off keeps its instance (the slot is still in the settings).
     let second = builder.fit(&ChainSpec::EMPTY, &bank).expect("second");
+    assert_eq!(builder.retiring(), 0);
+
+    // Taking the slot out of the settings: its instance waits for the chain that runs it.
+    assert!(builder
+        .fit(&ChainSpec::EMPTY, &PluginBank::default())
+        .is_none());
     assert_eq!(builder.retiring(), 1);
     builder.reap();
     assert_eq!(builder.retiring(), 1);
@@ -529,7 +543,7 @@ fn loading_does_not_block_the_control_thread() {
 }
 
 /// A shape that changes while the plugins load drops those loads; their instances close, and
-/// the same shape twice loads once.
+/// the same shape twice loads once. The instance of a slot stays through shape changes.
 #[test]
 fn quick_shape_changes_do_not_leak_instances() {
     let spec = gain_spec(PluginFormat::Clap, "kontra_clap_gain", 0.5);
@@ -544,7 +558,7 @@ fn quick_shape_changes_do_not_leak_instances() {
     let chain = await_chain(&mut builder);
     assert_eq!(host.open_of(&path), 1);
 
-    // Shape changes, and changes again before the answer: the stale loads close.
+    // Shape changes, and changes again before the answer: the one instance is kept, no load.
     let widener = chain_of(&[SlotSpec::new(EffectKind::Widener)]);
     assert!(builder.fit(&ChainSpec::EMPTY, &bank).is_some());
     assert!(builder.fit(&plugin_chain(), &bank).is_none());
@@ -552,10 +566,13 @@ fn quick_shape_changes_do_not_leak_instances() {
     assert!(builder.fit(&widener, &bank).is_some(), "built at once");
     assert!(!builder.is_loading());
 
-    // The chains that fade out go back; then only stale instances are left, and they close.
+    // The chains that fade out go back; the slot leaves the settings and its instance closes.
     drop(chain);
     builder.reap();
     assert_eq!(builder.retiring(), 0);
+    assert_eq!(host.open_of(&path), 1, "kept while the slot exists");
+    assert!(builder.fit(&widener, &PluginBank::default()).is_none());
+    builder.reap();
     let start = Instant::now();
     while host.open_of(&path) > 0 {
         assert!(start.elapsed() < PATIENCE, "an instance leaked");
@@ -607,4 +624,257 @@ fn settling_finishes_loads_and_closes() {
         0,
         "its instance closed"
     );
+}
+
+// Instances outlive chains (FX5, step 3): one per plugin slot of the settings, whatever the shape.
+
+/// A widener that passes the signal untouched (mix 0): a second effect to reorder against.
+fn quiet_widener() -> SlotSpec {
+    SlotSpec {
+        mix: 0.0,
+        ..SlotSpec::new(EffectKind::Widener)
+    }
+}
+
+fn plugin_then_widener() -> ChainSpec {
+    chain_of(&[SlotSpec::for_plugin(PLUGIN_ID), quiet_widener()])
+}
+
+fn widener_then_plugin() -> ChainSpec {
+    chain_of(&[quiet_widener(), SlotSpec::for_plugin(PLUGIN_ID)])
+}
+
+/// The bank a settings page would hold after the plugin changed its gain by itself: without
+/// parameters and state, so only a kept instance still has the gain (a fresh one starts at 1).
+fn bare_bank(spec: &PluginSpec) -> PluginBank {
+    let mut bare = spec.clone();
+    bare.params.clear();
+    bare.state.clear();
+    bank(vec![bare])
+}
+
+/// What the audio thread does with the chains of a shape change: it takes each chain the
+/// builder hands over and gives the old one back (here: drops it). `watch` names a plugin file
+/// of which exactly one instance must be open at every step. Returns the running chain and how
+/// often the running chain allocated while blocks played through it during the change.
+fn switch(
+    builder: &mut ChainBuilder,
+    mut running: Box<Chain>,
+    to: (&ChainSpec, &PluginBank),
+    watch: Option<&Path>,
+) -> (Box<Chain>, usize) {
+    let input = sine(256);
+    let mut allocated = 0;
+    let start = Instant::now();
+    let mut next = builder.fit(to.0, to.1);
+    loop {
+        if let Some(chain) = next.take() {
+            drop(std::mem::replace(&mut running, chain));
+            builder.reap();
+        }
+        if let Some(path) = watch {
+            assert_eq!(PluginHost::global().open_of(path), 1, "one instance");
+        }
+        if !builder.is_loading() {
+            return (running, allocated);
+        }
+        allocated += allocations(|| {
+            for &x in &input {
+                running.process(x);
+            }
+        });
+        assert!(start.elapsed() < PATIENCE, "the chain did not come");
+        std::thread::sleep(POLL_EVERY);
+        next = builder.poll();
+    }
+}
+
+/// A plugin that set its own gain (0.5) in a running chain of `first`, and the bank that no
+/// longer knows the value.
+fn started(
+    format: PluginFormat,
+    name: &str,
+    first: &ChainSpec,
+) -> (ChainBuilder, Box<Chain>, PluginSpec, PluginBank) {
+    let spec = gain_spec(format, name, TRIGGER);
+    let mut builder = ChainBuilder::new(RATE);
+    let mut chain = fit_ready(&mut builder, first, &bank(vec![spec.clone()]));
+    let changes = await_changes(&mut builder, &mut chain, &sine(2048));
+    assert_eq!(changes.len(), 1, "{name}: {changes:?}");
+    let bare = bare_bank(&spec);
+    (builder, chain, spec, bare)
+}
+
+/// Reordering keeps the instance: it is never loaded again (one open at every step) and keeps
+/// the gain it set itself, which a fresh instance from the settings would not have.
+#[test]
+fn reordering_keeps_the_instance() {
+    for (format, name) in [
+        (PluginFormat::Clap, "kontra_clap_gain"),
+        (PluginFormat::Vst3, "kontra_vst3_gain"),
+    ] {
+        let (mut builder, chain, spec, bare) = started(format, name, &plugin_then_widener());
+        let (mut chain, _) = switch(
+            &mut builder,
+            chain,
+            (&widener_then_plugin(), &bare),
+            Some(&spec.path),
+        );
+
+        let input = sine(2048);
+        run(&mut chain, &input);
+        assert_gain(&run(&mut chain, &input), &input, REPORTED as f32);
+        assert_eq!(PluginHost::global().open_of(&spec.path), 1, "{name}");
+    }
+}
+
+/// Off keeps the instance, on uses it again.
+#[test]
+fn off_then_on_keeps_the_instance() {
+    let (mut builder, chain, spec, bare) =
+        started(PluginFormat::Clap, "kontra_clap_gain", &plugin_chain());
+    let (chain, _) = switch(
+        &mut builder,
+        chain,
+        (&ChainSpec::EMPTY, &bare),
+        Some(&spec.path),
+    );
+    assert_eq!(builder.retiring(), 0, "kept, not retired");
+
+    let (mut chain, _) = switch(
+        &mut builder,
+        chain,
+        (&plugin_chain(), &bare),
+        Some(&spec.path),
+    );
+    let input = sine(2048);
+    run(&mut chain, &input);
+    assert_gain(&run(&mut chain, &input), &input, REPORTED as f32);
+}
+
+/// A slot that leaves the settings closes its instance.
+#[test]
+fn removing_the_slot_closes_the_instance() {
+    let (mut builder, chain, spec, bare) =
+        started(PluginFormat::Clap, "kontra_clap_gain", &plugin_chain());
+    let (chain, _) = switch(
+        &mut builder,
+        chain,
+        (&ChainSpec::EMPTY, &bare),
+        Some(&spec.path),
+    );
+
+    let gone = bank(Vec::new());
+    let (chain, _) = switch(&mut builder, chain, (&ChainSpec::EMPTY, &gone), None);
+    builder.reap();
+    let start = Instant::now();
+    while PluginHost::global().open_of(&spec.path) > 0 {
+        assert!(start.elapsed() < PATIENCE, "the instance stayed open");
+        std::thread::sleep(POLL_EVERY);
+    }
+    drop(chain);
+}
+
+/// The blocks that play while the chain changes shape do not allocate, and the plugin gain is
+/// back after it.
+#[test]
+fn no_allocation_while_the_instance_moves() {
+    let (mut builder, chain, spec, bare) = started(
+        PluginFormat::Clap,
+        "kontra_clap_gain",
+        &plugin_then_widener(),
+    );
+    let (mut chain, allocated) = switch(
+        &mut builder,
+        chain,
+        (&widener_then_plugin(), &bare),
+        Some(&spec.path),
+    );
+    assert_eq!(allocated, 0, "the callback allocated during the change");
+
+    let input = sine(1000);
+    run(&mut chain, &input);
+    assert_gain(&run(&mut chain, &input), &input, REPORTED as f32);
+}
+
+/// Shapes that change again before the last one is built neither leak an instance nor hand one
+/// processor to two chains: at the end one plugin runs, one instance is open.
+#[test]
+fn quick_changes_keep_one_owner() {
+    let (mut builder, mut running, spec, bare) = started(
+        PluginFormat::Clap,
+        "kontra_clap_gain",
+        &plugin_then_widener(),
+    );
+    let shapes = [
+        widener_then_plugin(),
+        plugin_chain(),
+        ChainSpec::EMPTY,
+        plugin_then_widener(),
+        widener_then_plugin(),
+        plugin_chain(),
+    ];
+    for shape in &shapes {
+        // The audio thread gets to run between two changes, but not always.
+        if let Some(chain) = builder.fit(shape, &bare) {
+            drop(std::mem::replace(&mut running, chain));
+        }
+        if let Some(chain) = builder.poll() {
+            drop(std::mem::replace(&mut running, chain));
+        }
+        assert!(PluginHost::global().open_of(&spec.path) <= 1);
+    }
+    let (mut running, _) = switch(
+        &mut builder,
+        running,
+        (&plugin_chain(), &bare),
+        Some(&spec.path),
+    );
+
+    let input = sine(2048);
+    run(&mut running, &input);
+    assert_gain(&run(&mut running, &input), &input, REPORTED as f32);
+}
+
+/// More moves while the slot is off than a parameter ring holds.
+const MOVES_WHILE_OFF: usize = 300;
+
+/// Parameter moves while the slot is off are not lost: the plugin has the last one when it is
+/// on again, however many there were.
+#[test]
+fn moves_while_off_arrive_when_on() {
+    let spec = gain_spec(PluginFormat::Clap, "kontra_clap_gain", 1.0);
+    let with_gain = |gain: f64| {
+        let mut moved = spec.clone();
+        for p in &mut moved.params {
+            if p.id == GAIN_PARAM {
+                p.value = gain;
+            }
+        }
+        bank(vec![moved])
+    };
+    let mut builder = ChainBuilder::new(RATE);
+    let chain = fit_ready(&mut builder, &plugin_chain(), &with_gain(1.0));
+    let (chain, _) = switch(
+        &mut builder,
+        chain,
+        (&ChainSpec::EMPTY, &with_gain(1.0)),
+        Some(&spec.path),
+    );
+
+    for i in 0..MOVES_WHILE_OFF {
+        builder.fit(&ChainSpec::EMPTY, &with_gain(1.0 + i as f64 * 0.001));
+    }
+    builder.fit(&ChainSpec::EMPTY, &with_gain(0.25));
+
+    let (mut chain, _) = switch(
+        &mut builder,
+        chain,
+        (&plugin_chain(), &with_gain(0.25)),
+        Some(&spec.path),
+    );
+    let input = sine(2048);
+    run_until(&mut chain, &input, |out| {
+        (DELAY..out.len()).all(|n| (out[n] - input[n - DELAY] * 0.25).abs() < 1e-5)
+    });
 }
