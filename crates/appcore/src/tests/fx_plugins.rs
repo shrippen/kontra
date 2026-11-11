@@ -444,3 +444,25 @@ fn adding_a_plugin_does_not_wait() {
     assert_eq!(core.settings().monitor_chain.slots().len(), 1);
     assert_eq!(effects(&core)["adding"], "");
 }
+
+/// Review #278: "Neutral" or a loaded chain while a plugin is being added: the plugin does not
+/// come back into the new chain.
+#[test]
+fn a_new_chain_drops_the_plugin_being_added() {
+    let mut core = core_with_plugin("fx-plugin-async-neutral");
+    assert!(core.edit_effects("add", 0, "plugin:0", 0.0).is_none());
+    core.neutral_shaping();
+    assert_eq!(settle_adding(&mut core), None);
+    assert!(core.settings().monitor_chain.is_empty());
+
+    core.edit_effects("add", 0, "reverb", 0.0);
+    core.edit_effects("save", 0, "Hall", 0.0);
+    assert!(core.edit_effects("add", 0, "plugin:0", 0.0).is_none());
+    core.edit_effects("load", 0, "", 0.0);
+    assert_eq!(settle_adding(&mut core), None);
+    assert_eq!(
+        core.settings().monitor_chain.slots().len(),
+        1,
+        "only the reverb"
+    );
+}

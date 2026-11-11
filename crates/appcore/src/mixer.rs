@@ -87,6 +87,8 @@ impl crate::Core {
     /// "Neutral": no shaping and no effects, the limiter on (it protects, it does not colour).
     /// Returns a hint as `remix` does.
     pub fn neutral_shaping(&mut self) -> Option<String> {
+        // A plugin still loading to be added would come back into the neutral chain.
+        self.plugins.adding = None;
         self.remix(|s| {
             s.monitor_low_db = 0.0;
             s.monitor_mid_db = 0.0;

@@ -5,7 +5,8 @@
 //! "Plugins suchen" ─► thread ─► one `kontra --probe-plugin <file>` process per file ─► report
 //!                                                      (crash or hang: file marked broken)
 //! report ─► plugins.json (data folder) ─► "Effekt hinzufügen" lists the plugins found
-//! add    ─► describe_plugin (loads it once: parameters, state) ─► Settings.plugins + a slot
+//! add    ─► describe_plugin_later (loads it once on the plugin thread: parameters, state)
+//!        ─► poll_effects / finish_adding ─► Settings.plugins + a slot ("Neutral", "load": dropped)
 //! Settings.plugins ─► PluginBank in the Gains ─► engine builds the instances
 //! ```
 //!
@@ -303,9 +304,10 @@ pub(crate) fn to_unit(param: &ParamSpec) -> f64 {
 }
 
 impl crate::Core {
-    /// Once when a plugin search has finished, the chain's latency changed (the standby built
-    /// its chain, a run started or ended, the output went away) or a plugin changed a parameter
-    /// by itself.
+    /// Every tick: finishes a plugin being added (with a hint when it cannot be), and says
+    /// "effects changed" once when that happened, a plugin search has finished, the chain's
+    /// latency changed (the standby built its chain, a run started or ended, the output went
+    /// away), a plugin changed a parameter by itself or gave a value's text.
     pub(crate) fn poll_effects(&mut self) -> Vec<crate::UiEvent> {
         let mut events = Vec::new();
         let added = self.finish_adding();

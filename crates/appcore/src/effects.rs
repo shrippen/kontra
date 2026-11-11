@@ -278,6 +278,8 @@ impl Core {
             "save" | "delete" => return self.edit_presets(op, index, name),
             "window" if index < len => return self.open_slot_window(index),
             "load" => {
+                // The loaded chain replaces what is being added too.
+                self.plugins.adding = None;
                 let (chain, plugins) = presets::fresh_copy(self.settings(), index)?;
                 // Fresh ids may have named removed plugins before: their old notes do not apply.
                 for p in &plugins {
@@ -392,6 +394,7 @@ impl Core {
         // Ids come back after a removal: forget what the last holder could not load.
         let id = fx_plugins::next_id(&self.settings().plugins);
         self.plugins.problems.clear(id);
+        self.plugins.crashed.remove(&id);
         self.plugins.forget_texts(id);
         Some(self.remix(|s| {
             s.plugins.push(PluginSpec { id, ..spec });
