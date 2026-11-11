@@ -142,7 +142,8 @@ def text_of(node):
 
 def press(node):
     """Runs the widget's activating action; Qt lists them by name."""
-    names = [Atspi.Action.get_name(node, i).lower()
+    # get_name is deprecated since AT-SPI 2.10; 2.62 no longer exposes it.
+    names = [Atspi.Action.get_action_name(node, i).lower()
              for i in range(Atspi.Action.get_n_actions(node))]
     for wanted in ACTIONS:
         if wanted in names:
