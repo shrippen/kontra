@@ -96,6 +96,9 @@ impl Core {
         if std::mem::take(&mut self.offer_ended) {
             return Some(UiEvent::InputOfferEnded);
         }
+        if let Some(ask) = self.watch_usb() {
+            return Some(ask);
+        }
         let lost = self.lost.as_mut()?;
         if lost.polled.elapsed() < POLL {
             return None;
