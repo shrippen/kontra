@@ -13,6 +13,8 @@ mod choice;
 mod course;
 mod data;
 pub mod ear;
+mod effects;
+pub mod fx_plugins;
 mod goal;
 mod i18n;
 mod input_state;
@@ -36,6 +38,7 @@ mod standby;
 mod stems;
 mod store;
 mod summary;
+mod tuner;
 mod unplug;
 mod update;
 
@@ -167,6 +170,8 @@ pub enum UiEvent {
     ChainStep {
         chain_json: String,
     },
+    /// The effects page changed: a search ended or the chain latency moved (`effects_json`).
+    EffectsChanged,
     /// Calibration finished: new latency (if measured) and a text for the user.
     Calibrated {
         latency_ms: Option<f64>,
@@ -218,6 +223,9 @@ pub struct Core {
     loaded: Option<Loaded>,
     pending: Option<(PathBuf, ImportResult)>,
     live: Option<Live>,
+    /// Where a finished run stood when a recording was chosen: the run is gone, the page keeps
+    /// its summary and position (review #242). Ends with the next run or piece.
+    finished_at_s: Option<f64>,
     tuner: Option<LiveTuner>,
     calibration: Option<LiveCalibration>,
     loopback: Option<LiveLoopback>,
@@ -281,6 +289,8 @@ pub struct Core {
     lesson_goal: Option<(PathBuf, kontra_session::lesson::Goal)>,
     /// A course folder open live (LH-LRN-21).
     live_course: Option<live_course::LiveCourse>,
+    /// Plugins of the effect chain: the scan, and why slots are bypassed (LH-EIN-20).
+    plugins: fx_plugins::Plugins,
 }
 
 /// One pass of the loop without notes on screen (DIDAKTIK I1), at the speed it was practised.
@@ -306,7 +316,8 @@ pub fn startup_language(data_dir: &Path) -> &'static str {
 
 impl Core {
     pub fn new(data_dir: &Path, qa: QaOptions) -> Core {
-        let settings: Settings = store::load(&data_dir.join("settings.json"));
+        let mut settings: Settings = store::load(&data_dir.join("settings.json"));
+        settings.migrate();
         let mut library: Library = store::load(&data_dir.join("library.json"));
         library.plain_paths();
         library.find_moved(&Self::exercises_dir());
@@ -333,6 +344,7 @@ impl Core {
             chain: None,
             lesson_goal: None,
             live_course: None,
+            plugins: fx_plugins::Plugins::new(data_dir),
             notice: None,
             active_setlist: None,
             lost: None,
@@ -348,6 +360,7 @@ impl Core {
             loaded: None,
             pending: None,
             live: None,
+            finished_at_s: None,
             tuner: None,
             calibration: None,
             loopback: None,
@@ -958,6 +971,7 @@ impl Core {
             tracks: playable(imported).collect(),
             track,
         });
+        self.finished_at_s = None;
         self.rethin();
         Ok(())
     }
@@ -1029,12 +1043,6 @@ impl Core {
 
     pub fn duration_s(&self) -> f64 {
         self.arrangement().map_or(0.0, Arrangement::duration_s)
-    }
-
-    pub fn position_s(&self) -> f64 {
-        self.live
-            .as_ref()
-            .map_or(0.0, |l| l.practice().position_s())
     }
 
     /// True while a run exists, playing or paused (it goes on after a change of key).
@@ -1152,11 +1160,7 @@ impl Core {
         }
         self.input.stopped(InputUse::Practice);
         self.probe = None;
-    }
-
-    /// Audio dropouts since Kontra started, over all runs (LH-NF-04).
-    pub fn xruns(&self) -> u64 {
-        self.xruns_done + self.live.as_ref().map_or(0, Live::xruns)
+        self.finished_at_s = None;
     }
 
     pub fn set_speed(&mut self, speed: f64) {
@@ -1740,9 +1744,11 @@ impl Core {
         live.practice_mut()
             .set_speed(self.probe.map_or(self.speed, |p| p.speed));
         live.practice_mut().set_loop(self.loop_range());
-        live.practice_mut().set_gains(gains(&self.settings));
+        live.practice_mut()
+            .set_gains(gains(&self.settings, &self.plugins.problems));
         let silent = live.output_is_silent;
         self.live = Some(live);
+        self.finished_at_s = None;
         self.input_opened(InputUse::Practice);
         self.run_started = Some(std::time::Instant::now());
         self.input_since = self.run_started;
@@ -1763,37 +1769,6 @@ impl Core {
         }
     }
 
-    /// Starts the tuner; a failed input shows as the input's state (the text is for callers
-    /// without one).
-    pub fn start_tuner(&mut self) -> Result<(), String> {
-        self.stop_live();
-        self.live_ear = None;
-        self.level.reset();
-        let instrument = self.instrument();
-        self.release_standby();
-        let tuner = match LiveTuner::start(&self.input_choice(), &instrument, self.source()) {
-            Ok(tuner) => tuner,
-            Err(e) => {
-                self.input.failed(InputUse::Tuner, &e);
-                return Err(self.tr("error.audio", &[("reason", e.to_string())]));
-            }
-        };
-        self.tuner = Some(tuner);
-        self.input_opened(InputUse::Tuner);
-        self.input_since = Some(std::time::Instant::now());
-        Ok(())
-    }
-
-    /// True while the tuner listens.
-    pub fn is_tuning(&self) -> bool {
-        self.tuner.is_some()
-    }
-
-    pub fn stop_tuner(&mut self) {
-        self.tuner = None;
-        self.input.stopped(InputUse::Tuner);
-    }
-
     /// Polls audio and session; call every ~16 ms.
     pub fn tick(&mut self) -> Vec<UiEvent> {
         self.tick_standby();
@@ -1812,6 +1787,7 @@ impl Core {
         let mut events: Vec<UiEvent> = raw.into_iter().filter_map(|e| self.translate(e)).collect();
         events.extend(ear_event);
         events.extend(self.prepare_backing());
+        events.extend(self.poll_effects());
         events.extend(self.advise_level(&events));
         // The meter holds the peak the advice judges, so both say the same.
         let held = f64::from(self.level.held_peak_db());
@@ -2367,7 +2343,7 @@ impl Core {
         self.release_standby();
         let mut live_ear = LiveEar::start(&setup, &instrument)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
-        live_ear.set_gains(ear_gains(&self.settings));
+        live_ear.set_gains(ear_gains(&self.settings, &self.plugins.problems));
         self.live_ear = Some(live_ear);
         self.input.remember(InputUse::Ear, setup.input);
         let stats = store::load(&self.data_dir.join(quiz_stats::FILE));

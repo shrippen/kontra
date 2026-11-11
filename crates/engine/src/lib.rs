@@ -19,11 +19,13 @@ mod input;
 mod korpus;
 mod offline;
 mod player;
+mod plugin_chain;
 mod strings_korpus;
 
 pub use backing::{BackingTrack, Resolution};
 pub use clock::Clock;
 pub use input::{Input, InputKind, Pace, Recording};
+pub use kontra_drivers::plugins;
 pub use kontra_drivers::{
     audio_priority, cache_dir_of, data_dir_of, download_dir, file_url, find_separator, in_sandbox,
     list_devices, list_midi_inputs, local_path, monitor_rate, read_audio, recent_files, write_wav,
@@ -44,6 +46,7 @@ pub use korpus::{
 };
 pub use offline::{analyze, analyze_without, retract, revise, revise_pitch};
 pub use player::{Accent, BackingAudio, Gains, NullOutput, Output, Player, Sound};
+pub use plugin_chain::{describe_plugin, ChainBuilder, PluginBank, PluginProblems};
 pub use strings_korpus::{tell_strings, StringTold};
 
 use kontra_dsp::TunerReading;

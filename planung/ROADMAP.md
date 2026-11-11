@@ -60,6 +60,49 @@ Phasen und Inhalte: [`KONZEPT.md`](KONZEPT.md), Abschnitt 7. Anforderungen je Ph
 | LH-ALL-06 Startseite | umgesetzt (#48, 13.10.) |
 | Vor 0.1 offen | Hardware-Prüfungen (Runde 10: zuerst), Tastatur/Screenreader am Gerät, Release-Log, Screenshots, Flatpak |
 
+## Effekte und Plugins: CLAP, VST3 (Eigentümer, 10.11.2026)
+
+Auf den mitgehörten Bass lassen sich verschiedene Effekte legen, eigene und Plugins im Format CLAP oder VST3
+(VST3-SDK seit 3.8 unter MIT). Die Erkennung hört weiter den trockenen Eingang; Effekte ändern nur, was der Spieler
+hört (LH-EIN-19 bis LH-EIN-21). Personas: P2 (spielt in der Coverband und will beim Üben nach dem Song klingen),
+P1 (alles aus, bis sie es sucht); P8 erst mit dem Windows-Paket. Nach 0.1 (Phase 2).
+
+```text
+Eingang ─┬─────────────────────────────────────────────────────────► Erkennung (trocken)
+         └─► Klangformung ─► [Slot 1] ─► [Slot 2] ─► … ─► Begrenzer ─► Ausgang
+             (EQ, Kompr.)     eigener Effekt oder Plugin      (LH-EIN-17: an, abschaltbar)
+
+session  Kette als Einstellung (Reihenfolge, an/aus, Werte, Zustand der Plugins)
+engine   Kette im Audio-Callback; Umbau außerhalb, fertige Kette per Ringpuffer hinein
+drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier)
+```
+
+- [x] FX1 Kette: Overdrive und Breite (LH-EIN-17) werden Slots einer Kette mit freier Reihenfolge; dazu eigene
+  Effekte, die am Bass üblich sind: Chorus, Hüllkurvenfilter (Auto-Wah), Oktaver, Delay, Hall, Fuzz. Allokationsfrei,
+  Umbau ohne Knacken (Überblenden), Latenz der Kette sichtbar (11.11.: Zeile unter der Kette im Mixer, solange ein
+  Lauf, die Gehörbildung oder „Bass hören“ spielt, nachgeführt beim Öffnen und Schließen; das Stimmgerät meldet sie
+  nicht).
+- [x] FX2 CLAP-Host (`clack-host`, MIT/Apache-2.0): Suchpfade nach Spezifikation (`CLAP_PATH`, `~/.clap`,
+  `/usr/lib/clap`; Windows `%COMMONPROGRAMFILES%\CLAP`, `%LOCALAPPDATA%\Programs\Common\CLAP`), Parameter,
+  Zustand, Latenz. Das Durchsuchen läuft in einem eigenen Prozess (`kontra-cli plugins scan`): ein abstürzendes
+  Plugin reißt Kontra nicht mit, es wird als kaputt gemerkt.
+- [x] FX3 VST3-Host (`vst3`, MIT/Apache-2.0, Bindungen des MIT-SDK): Suchpfade (`~/.vst3`, `/usr/lib/vst3`,
+  `/usr/local/lib/vst3`; Windows `%COMMONPROGRAMFILES%\VST3`), Bundles `.vst3`, Parameter, Zustand, Latenz.
+- [ ] FX4 Oberfläche: Effekte im Mixer neben der Klangformung, Plugins wählen, Reihenfolge, an/aus, Parameter als
+  Liste mit Reglern (Kante), Voreinstellungen je Kette. Tastatur und Screenreader (P7). Stand: Liste der
+  eigenen Effekte im Mixer fertig (hinzufügen, Reihenfolge per Knopf, an/aus, Werte, entfernen); Plugins
+  ebenso: „Plugins suchen“ (Prozess je Datei über `kontra --probe-plugin`, Ergebnis in `plugins.json`), Auswahl
+  mit Name, Hersteller und Format, Parameter als Regler, Zustand in den Einstellungen; ein Plugin, das nicht
+  lädt, bleibt als stummer Eintrag mit Grund. Voreinstellungen je Kette fehlen. Offen (Review #262): Plugins
+  laden im UI-Thread (beim Hinzufügen und bei jeder neuen Form der Kette in `Player::set_gains`), ein langsames
+  Plugin hält die Oberfläche an, ein abstürzendes reißt Kontra mit; Werte ohne Einheit.
+- [ ] FX5 Eigene Fenster der Plugins (CLAP `gui`, VST3 `IPlugView`; unter Wayland über XWayland).
+- [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket. Der
+  Scan-Prozess kommt mit: `kontra` startet sich selbst zum Prüfen (`--probe-plugin <Datei>`, vor Qt in `main`),
+  die Pakete brauchen kein zweites Programm; offen bleibt, dass die Sandbox die Plugin-Ordner sieht.
+- Offen für den Eigentümer: Name und Logo „VST“ sind Marken von Steinberg; ob Kontra sie nennen darf, klärt die
+  nächste Runde.
+
 ## Multiplattform: Windows (Eigentümer, 10.11.2026)
 
 Kontra wird für weitere Systeme vorbereitet, Windows zuerst (vorher: Windows und macOS erst nach 1.0). Linux bleibt das
@@ -96,6 +139,9 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
     Treiber stehen als „… (ASIO)“ mit der Id `asio:<Treiber>` hinter den Geräten des Systems. Der Focusrite-Treiber
     spricht i32: Kontra öffnet Ströme jetzt im Format des Geräts und wandelt (`audio/samples.rs`).
     `scripts/package-windows.sh` baut mit ASIO und legt `GPL-3.0.txt`, `ASIO.txt` und `LICENSE` ins Paket.
+  - ASIO in beide Richtungen (11.11., Debug-Build, VM): Loopback mit `asio:Focusrite USB ASIO` als Ein- und Ausgang
+    lief vorher nicht („no audio device found for Input“: der Ausgang hält den Treiber, und das Auflisten bricht
+    am ersten anderen Treiber ab; steht einer vor ihm, fehlt er); jetzt 5 Läufe, Rundlauf 240,6 bis 241,6 ms, 128 Frames, Aussetzer 1/1/1/5/1.
   - **Aussetzer** (`kontra-cli soak`, 2 min, in der VM): ASIO (Focusrite) 4, WASAPI mit Focusrite-Treiber 16, WASAPI
     mit Windows-Treiber 3. Die VM reicht USB-Audio über einen emulierten Controller durch: die Zahlen zeigen, dass
     es läuft, nicht wie gut. Messung auf echtem Windows steht aus.
@@ -336,7 +382,17 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   Toleranzen auf der Hälfte der Dateien bestätigt, auf der anderen gleich.
 - [ ] R3 Gerätezeitstempel (cpal `capture`/`playback`) mit DLL statt Anker am ersten Callback. Simulation: heute
   37 ms Fehler bei anderem Quantum als beim Kalibrieren, zwei Geräte nach 5 min p95 24 ms; mit Stempeln < 0,2 ms.
-  Offen: Semantik der Stempel am Scarlett Solo (Loopback, etwa 15 min mit dem Eigentümer).
+  Messung 10.11. (Scarlett Solo, Ausgang per Kabel im Eingang, PipeWire, Block 128): Die Stempel von Ein- und
+  Ausgang liegen auf einer Uhr (CLOCK_MONOTONIC); je Klick aus den Stempeln 17,1–17,5 ms über drei Öffnungen, mit
+  dem Anker am ersten Callback 24,9–30,8 ms. Erster Schritt (#249): Start von Ein- und Ausgang aus dem Vorlauf des
+  Geräts, frühester Schätzwert der ersten halben Sekunde, danach fest. Abwechselnd je 8 Öffnungen: vorher Median
+  25,0 ms, Streuung (SD) 2,5 ms (22,5–29,1); nachher 17,4 ms, SD 1,7 ms (13,6–18,8). Der Rest der Streuung kommt
+  nicht aus den Stempeln (je Klick ±0,4 ms). Offen: Zeit je Block aus den Stempeln (DLL) für beide Seiten über die
+  ganze Laufzeit (Drift, Aussetzer im Ausgang).
+  In der Windows-VM (11.11., WASAPI, Block 480, Scarlett per Kabel, je 4 bis 6 Öffnungen im Wechsel): `main`
+  265–280 ms, R3 249–258 ms, beide meist ±0–3 ms. R3 erkannte dabei öfter nur 3 bis 5 der 12 Töne (`main` meist 12);
+  Xruns 0–5 auf beiden Seiten. Zwei Läufe hingen, beide, während ein zweites Skript dasselbe Gerät öffnete; allein
+  lief keiner fest (16 Läufe). Das emulierte USB macht die Zahlen unsicher: auf echtem Windows wiederholen.
 - [x] R4 Latenz per Loopback oder Gerät, nicht per Klick: die Klick-Kalibrierung zieht die Neigung des Spielers ab
   (15 ms früh gilt als „Auf den Punkt“). Klick zeigt danach nur „deine Neigung“; LH-EIN-14 und LH-BEW-09 passen sich an.
   Umgesetzt in #202 (LH-EIN-05): „Mit Kabel messen“, die Klicks zeigen danach die Neigung.
@@ -513,19 +569,27 @@ Erkennung und Messung:
   Quelltexte davor (`cpp/translator.cpp`, `SourceTexts`) und hält den eigenen Übersetzer vorn (`KeepInFront`),
   weil Kirigami seine Übersetzung erst mit den Seiten und später noch einmal davorsetzt. Test `english_goes_in_front_of_kirigamis_own_german`; im
   isolierten Lauf auf deutschem System: de → en → de, Start auf Englisch, Seitenleiste ein- und ausklappen.
-- [ ] Ein USB-Mikrofon (Webcam, Headset) gilt bei „Automatisch“ als Interface (`preferred_input`, LH-EIN-02) und
-  würde im Leerlauf offen gehalten (Review #231): Geräte mit nur einem Mikrofon erkennen oder nachfragen.
+- [x] Ein USB-Mikrofon (etwa eine Webcam) gilt bei „Automatisch“ als Interface (`preferred_input`, LH-EIN-02) und
+  würde im Leerlauf offen gehalten (Review #231). Regel: ein USB-Eingang ist ein Interface nur, wenn dasselbe Gerät
+  auch einen Ausgang hat (Kartenteil des Knotennamens, unter Windows der Treiber in Klammern); ALSA-Direkteingänge
+  bleiben Interface; sonst `Connection::UsbMicrophone`: nie automatisch am Kabel, nie im Leerlauf offen, nur bei
+  „Mikrofon“ vorgewählt.
+- [ ] USB-Headsets (Ein- und Ausgang auf einer Karte) gelten weiter als Interface. `device.form-factor` steht nur in
+  `info.props` des gebundenen PipeWire-Knotens (nicht in den Registry-Props); dort lesen, dann in `uncovered`
+  (`direct_inputs`) auch `UsbMicrophone` als vertreten zählen, sonst erscheint die Karte als ALSA-Direkteingang
+  wieder als Interface. Unter Windows kennt cpal die Bauform nicht.
 - [ ] Verlorener Eingang, der wegbleibt (Review #231, #232): Steckt der Spieler ein anderes Interface an, nutzen
   Läufe es, der Standby wartet aber weiter auf das alte (bis es zurück ist oder ein Eingang gewählt wird). Das
   Warten darf nur zusammen mit dem Angebot in der Leiste enden (`InputBack`, `InputOfferEnded`), sonst bleibt das
   Angebot stehen. Der Hinweis „kein Eingang“ beruht auf dem letzten Blick des Standby (bis 5 s alt).
-- [ ] Dateinamen, die kein UTF-8 sind (Review #235): Kontra lehnt sie mit Grund ab (umbenennen), weil Bibliothek
+- [x] Dateinamen, die kein UTF-8 sind (Review #235): Kontra lehnt sie mit Grund ab (umbenennen), weil Bibliothek
   und Fortschritt JSON sind. Von der Kommandozeile oder aus dem Dateimanager kommt der Name verlustbehaftet an
-  (`args.rs`), die Meldung ist dann „nicht gefunden“ statt „umbenennen“.
+  (`args.rs`), die Meldung ist dann „nicht gefunden“ statt „umbenennen“. Behoben 11.11. für Stücke: `args.rs` behält die Bytes der Pfade. Offen: ein Kurs über `--open` geht als `to_string_lossy()` an `startCourse` (`bridge.rs`).
 - [x] Summenbegrenzer (Review #230; Runde 18, 10.11.: bauen, immer an; LH-WIE-06, #244): Mithören plus Backing,
   Klick und Ton konnte die Summe über Vollaussteuerung bringen, dort schnitt der Mixer hart. Jetzt liegt auf der
-  Summe ein Begrenzer (−1 dBFS, gekoppelt, 80 ms), die Echo-Referenz folgt ihm. Hörprobe und Xruns am Gerät offen.
-- [ ] Stimmgerät hört im Leerlauf nicht mit (es öffnet nur den Eingang, Mithören ruht dort).
+  Summe ein Begrenzer (−1 dBFS, gekoppelt, 80 ms), die Echo-Referenz folgt ihm. Xruns am Scarlett (11.11., `soak`,
+  5 min, 80 %): 0. Hörprobe offen.
+- [x] Stimmgerät hört mit (11.11.): Bei „Bass hören“ an und Kabel-Eingang öffnet es auch den Ausgang; der Bass läuft mit Lautstärke und Effekten des Mixers durch (`TunerMonitor`). Offen: Hörprobe, Latenz und Xruns am Scarlett; bei verschiedenen Abtastraten bleibt das Stimmgerät stumm ohne Hinweis.
 - [x] E5 Notenende (LH-BEW-10, `h-detect`): Der Tracker folgt jeder Note bis zu ihrem Ende und meldet `NoteEnd`
   (Engine `Event::End`): `Muted` (Pegel ≥ 10 dB binnen 60 ms und 100 ms lang unten, oder bis zum nächsten Anschlag),
   `Decayed` (30 dB unter dem Start), `Replaced` (nächster Anschlag oder Legato-Ton). `korpus ends` (09.11.):

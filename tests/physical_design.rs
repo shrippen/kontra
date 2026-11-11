@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 /// Each crate and the Kontra crates it may depend on (`[dependencies]`, `[build-dependencies]`);
 /// tests (`[dev-dependencies]`) may reach further.
-const ALLOWED: [(&str, &[&str]); 10] = [
+const ALLOWED: [(&str, &[&str]); 12] = [
     ("app", &["appcore"]),
     ("appcore", &["session", "model"]),
     ("cli", &["session", "model"]),
@@ -24,6 +24,9 @@ const ALLOWED: [(&str, &[&str]); 10] = [
     ("drivers", &[]),
     ("stretch", &[]),
     ("model", &[]),
+    // Test plugins for the plugin host; they depend on no Kontra crate.
+    ("test-clap-gain", &[]),
+    ("test-vst3-gain", &[]),
 ];
 
 /// Lines a Rust or QML file may have.
@@ -32,8 +35,8 @@ const BUDGET: usize = 1200;
 /// Files over `BUDGET`, each with the most lines it may grow to until it is split (break-up
 /// list, 29.10.2026). Lower a limit when a file shrinks; drop the entry once it fits.
 const OVER_BUDGET: [(&str, usize); 5] = [
-    ("crates/appcore/src/lib.rs", 2880),
-    ("crates/app/src/bridge.rs", 1950),
+    ("crates/appcore/src/lib.rs", 2855),
+    ("crates/app/src/bridge.rs", 1938),
     ("crates/content/src/exercise.rs", 2450),
     ("crates/app/qml/PracticePage.qml", 1400),
     ("crates/dsp/src/tracker.rs", 1450),

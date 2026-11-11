@@ -71,13 +71,13 @@ Erwartet: Das Instrument ist eine eigene Wahl (E-Bass, Kontrabass, Bass über MI
 2. Einstellungen → Eingang: Liste ansehen, Interface wählen; Kontra neu starten.
 3. `kontra-cli devices`; ohne PipeWire (`KONTRA_AUDIO_HOST=alsa`) dasselbe.
 4. Interface ohne PipeWire-Eingang (Zustand nach „device busy“: Karte in `/proc/asound/cards`, kein Quellknoten).
-5. Direktmonitor am Interface aus, in der Seitenleiste „Bass hören“ an, fünf Minuten nichts tun, dann spielen; Stimmgerät öffnen und schließen, wieder spielen.
+5. Direktmonitor am Interface aus, in der Seitenleiste „Bass hören“ an, fünf Minuten nichts tun, dann spielen; Stimmgerät öffnen (der Bass ist dort ebenfalls zu hören) und schließen, wieder spielen.
 6. Interface abziehen, Eingang auf „Automatisch“, „Bass hören“ aus und wieder an; danach einen Mixer-Regler bewegen.
 Erwartet: Das Interface steht oben mit seinem Namen („Scarlett Solo USB Analoges Stereo“), ist bei „Automatisch“
 vorgewählt und bleibt nach dem Neustart gewählt; keine Monitore („Monitor of …“), keine Streams anderer Programme in der
 Eingangsliste; Block 128 Frames (`kontra-cli check --steps loopback`). Mit ALSA gilt die alte Liste weiter. In
 Schritt 4 bleibt das Interface wählbar und vorgewählt (über ALSA, in `devices` markiert); beim Start des Eingangs
-nennt Kontra die Abhilfe (ab- und anstecken oder `systemctl --user restart wireplumber`). In Schritt 5 ist der Bass auf beiden Seiten zu hören, auch nach dem Leerlauf (das Interface bleibt wach), und nach dem Stimmgerät wieder. In Schritt 6 sagt Kontra beim Einschalten, dass es keinen Eingang hört, und nennt die Einstellungen; der Regler holt die Meldung nicht zurück, und das Laptop-Mikrofon wird nicht geöffnet.
+nennt Kontra die Abhilfe (ab- und anstecken oder `systemctl --user restart wireplumber`). In Schritt 5 ist der Bass auf beiden Seiten zu hören, auch nach dem Leerlauf (das Interface bleibt wach), im Stimmgerät und nach dem Stimmgerät wieder. In Schritt 6 sagt Kontra beim Einschalten, dass es keinen Eingang hört, und nennt die Einstellungen; der Regler holt die Meldung nicht zurück, und das Laptop-Mikrofon wird nicht geöffnet.
 
 **J-A6 Windows: installieren und erster Ton** · Persona: P8 Noah · nach Phase 1 (Win5, Win6) · LH-NF-17
 1. Windows 11 ohne Adminkonto, Benutzerordner mit Leerzeichen und Umlaut, Skalierung 150 %; Interface mit ASIO-Treiber am USB.
@@ -93,13 +93,13 @@ Entfernen bleibt nur der Datenordner; der Hinweis erscheint nur bei einer neuere
 
 ## B. Spielen und Üben
 
-**J-B1 Lied durchspielen** ⚙ 📽 · Persona: P2 Jens · Phase 1 · LH-BIB-01, -04, LH-MOD-01, LH-WIE-03, LH-EIN-08, -17, LH-ANZ-01, -02
+**J-B1 Lied durchspielen** ⚙ 📽 · Persona: P2 Jens · Phase 1 · LH-BIB-01, -04, LH-MOD-01, LH-WIE-03, LH-EIN-08, -17, -19, -20, -21, LH-ANZ-01, -02
 1. Ordner mit vier Guitar-Pro-Dateien der Setlist importieren (eine davon defekt).
 2. Setlist „Freitag“ anlegen, Lieder über „Stück hinzufügen …“ aufnehmen (ohne sie zu öffnen), erstes Lied, Bassspur wählen.
-3. Modus „Frei spielen“, Backing Track (synthetisch bzw. ab Phase 3 eigene MP3), durchspielen; im Mixer (X) Backing leiser, Metronom lauter, Mithören an, Tiefen +4 dB, Kompressor und Wärme halb, Overdrive und Stereobreite halb, Begrenzer aus und wieder an, „Neutral“, Mithören aus.
+3. Modus „Frei spielen“, Backing Track (synthetisch bzw. ab Phase 3 eigene MP3), durchspielen; im Mixer (X) Backing leiser, Metronom lauter, Mithören an, Tiefen +4 dB, Kompressor und Wärme halb, unter „Effekte“ Overdrive, Delay und Stereobreite hinzufügen, Delay mit „Hoch“ an die erste Stelle, Overdrive aus und wieder an, den Drive-Regler und den Anteil des Delays bewegen, Stereobreite entfernen, „Plugins suchen“ (das Ergebnis steht dabei, kaputte Dateien mit Grund), ein gefundenes CLAP- oder VST3-Plugin hinzufügen, dessen Regler bewegen, es aus und wieder an schalten und verschieben, bis zur vollen Kette (8) weitere Effekte hinzufügen, Begrenzer aus und wieder an, „Neutral“, Mithören aus. Alles nur mit Tastatur (Tab, Leertaste, Pfeile).
 4. Mitten im Lied von Tab-Lane auf Tabulatur umschalten.
 5. Nächstes Lied der Setlist.
-Erwartet: eine verständliche Meldung zur defekten Datei, drei Lieder importiert; kein Anhalten, keine Punkte; Mixer wirkt sofort ohne Neustart, Mithören nennt die Latenz; Klangregler knacken nicht und ändern die Bewertung nicht; Umschalten ohne Aussetzer; Liedwechsel in ≤ 2 Klicks.
+Erwartet: eine verständliche Meldung zur defekten Datei, drei Lieder importiert; kein Anhalten, keine Punkte; Mixer wirkt sofort ohne Neustart, Mithören nennt die Latenz; Klangregler und Effekte knacken nicht und ändern die Bewertung nicht; die Effektliste zeigt Reihenfolge, Schalter und Werte als Text und Zahl (nicht nur Farbe), der Fokus bleibt beim verschobenen Effekt, eine volle Kette sagt es in Worten und sperrt „Hinzufügen“, „Neutral“ leert die Liste, die Kette bleibt nach Neustart; ein Plugin-Eintrag nennt Name, Hersteller und Format, zeigt seine Parameter als Regler mit Zahl, behält Werte und Zustand nach Neustart und sagt in Worten, wenn es nicht lädt (Datei fehlt): sein Eintrag bleibt dann stumm, der Rest der Kette klingt weiter; die Suche blockiert die Oberfläche nicht, ein abstürzendes Plugin gilt als kaputt. Automatisiert sind Suche, Hinzufügen, Regler, Speichern und der Pegel durch die Kette mit dem Test-Plugin in `crates/appcore` und `crates/engine` geprüft; Schritt 3 mit den eingebauten Effekten läuft in `tests/journeys/b1_song.rs`; Umschalten ohne Aussetzer; Liedwechsel in ≤ 2 Klicks.
 
 **J-B2 Warten-Modus** ⚙ 🔍 · Persona: P1 Lea · Phase 1 · LH-MOD-03, LH-BEW-04
 1. Übung „Seven-Nation-Riff“ (eigene Datei) im Modus Warten.

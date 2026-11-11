@@ -1,6 +1,6 @@
 //! Settings and library on disk (LH-ALL-03, LH-FOR-03): JSON in the data directory.
 
-use kontra_model::A4_HZ;
+use kontra_model::{ChainSpec, EffectKind, PluginSpec, SlotSpec, A4_HZ};
 use kontra_session::Gains;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -203,11 +203,20 @@ pub struct Settings {
     pub monitor_high_db: f64,
     pub monitor_compress: f64,
     pub monitor_warmth: f64,
-    /// Overdrive and stereo width of the monitored bass 0..=1, and its limiter (LH-EIN-17; on
-    /// by default: a hard slap does not crackle).
-    pub monitor_drive: f64,
-    pub monitor_width: f64,
+    /// Effects of the monitored bass (LH-EIN-17, LH-EIN-19): slots in free order, empty when
+    /// new. Overdrive and stereo width are slots of it (`monitor_drive`, `monitor_width`).
+    pub monitor_chain: ChainSpec,
+    /// What the plugin slots of the chain need (LH-EIN-20, -21): the slot names one by id.
+    pub plugins: Vec<PluginSpec>,
+    /// The limiter after the chain (LH-EIN-17; on by default: a hard slap does not crackle).
     pub monitor_limit: bool,
+    /// Overdrive and width as older files stored them; `migrate` makes slots of them.
+    #[serde(default, rename = "monitor_drive", skip_serializing)]
+    #[doc(hidden)]
+    pub legacy_drive: f64,
+    #[serde(default, rename = "monitor_width", skip_serializing)]
+    #[doc(hidden)]
+    pub legacy_width: f64,
     /// Suggest more or fewer notes between runs (LH-MOD-06).
     pub adaptive: bool,
     /// Generated drums answer the bass in free play (LH-WIE-05).
@@ -285,9 +294,11 @@ impl Default for Settings {
             monitor_high_db: 0.0,
             monitor_compress: 0.0,
             monitor_warmth: 0.0,
-            monitor_drive: 0.0,
-            monitor_width: 0.0,
+            monitor_chain: ChainSpec::EMPTY,
+            plugins: Vec::new(),
             monitor_limit: true,
+            legacy_drive: 0.0,
+            legacy_width: 0.0,
             adaptive: true,
             reacting_band: false,
             simple_view: false,
@@ -303,6 +314,86 @@ impl Default for Settings {
             update_checked_unix: 0,
             update_found_version: String::new(),
             update_found_url: String::new(),
+        }
+    }
+}
+
+impl Settings {
+    /// After loading: overdrive and width from before the chain (LH-EIN-19) become its slots,
+    /// in their old order (drive, then width). Once; saving writes only the chain.
+    pub(crate) fn migrate(&mut self) {
+        let (drive, width) = (self.legacy_drive, self.legacy_width);
+        self.legacy_drive = 0.0;
+        self.legacy_width = 0.0;
+        if !self.monitor_chain.is_empty() {
+            return;
+        }
+        self.set_monitor_drive(drive);
+        self.set_monitor_width(width);
+    }
+
+    /// Drops the plugins no slot of the chain names any more.
+    pub(crate) fn prune_plugins(&mut self) {
+        let chain = &self.monitor_chain;
+        let used = |id: u32| {
+            chain
+                .slots()
+                .iter()
+                .any(|s| s.plugin == id && s.kind == EffectKind::Plugin)
+        };
+        self.plugins.retain(|p| used(p.id));
+    }
+
+    /// Overdrive of the monitored bass, 0 (no slot) to 1: the first overdrive slot of the chain.
+    pub fn monitor_drive(&self) -> f64 {
+        self.amount(EffectKind::Overdrive)
+    }
+
+    /// Sets the overdrive slot: 0 takes it out; more adds it in front of the chain if missing.
+    pub fn set_monitor_drive(&mut self, value: f64) {
+        self.set_amount(EffectKind::Overdrive, value, 0);
+    }
+
+    /// Stereo width of the monitored bass, 0 (no slot) to 1: the first widener slot.
+    pub fn monitor_width(&self) -> f64 {
+        self.amount(EffectKind::Widener)
+    }
+
+    /// Sets the widener slot: 0 takes it out; more adds it at the end of the chain if missing.
+    pub fn set_monitor_width(&mut self, value: f64) {
+        let end = self.monitor_chain.slots().len();
+        self.set_amount(EffectKind::Widener, value, end);
+    }
+
+    fn amount(&self, kind: EffectKind) -> f64 {
+        let slot = self.monitor_chain.active().find(|s| s.kind == kind);
+        slot.map_or(0.0, |s| f64::from(s.a))
+    }
+
+    /// The first slot of `kind` gets `a` = `value`; none and `value` > 0: a new one at `at`.
+    fn set_amount(&mut self, kind: EffectKind, value: f64, at: usize) {
+        let value = value.clamp(0.0, 1.0) as f32;
+        let chain = &mut self.monitor_chain;
+        let found = chain.slots().iter().position(|s| s.kind == kind);
+        match found {
+            Some(i) if value <= 0.0 => {
+                chain.remove(i);
+            }
+            Some(i) => {
+                let slot = &mut chain.slots_mut()[i];
+                slot.a = value;
+                slot.on = true;
+            }
+            None if value > 0.0 => {
+                chain.insert(
+                    at,
+                    SlotSpec {
+                        a: value,
+                        ..SlotSpec::new(kind)
+                    },
+                );
+            }
+            None => {}
         }
     }
 }
@@ -624,6 +715,111 @@ mod tests {
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(text.contains(r#""instrument": "Fretted""#) && !text.contains("fretless"));
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// Files from before the chain (LH-EIN-19) kept overdrive and width as numbers; they
+    /// become the chain's first slots, in that order. New files hold the chain only.
+    #[test]
+    fn old_drive_and_width_become_slots() {
+        let dir = std::env::temp_dir().join(format!("kontra-store-fx-{}", std::process::id()));
+        let path = dir.join("settings.json");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(&path, r#"{ "monitor_drive": 0.5, "monitor_width": 0.25 }"#).unwrap();
+        let mut settings: Settings = load(&path);
+        settings.migrate();
+        let kinds: Vec<_> = settings
+            .monitor_chain
+            .slots()
+            .iter()
+            .map(|s| s.kind)
+            .collect();
+        assert_eq!(kinds, [EffectKind::Overdrive, EffectKind::Widener]);
+        assert_eq!(
+            (settings.monitor_drive(), settings.monitor_width()),
+            (0.5, 0.25)
+        );
+
+        save(&path, &settings).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(!text.contains("monitor_drive") && text.contains("monitor_chain"));
+        let mut again: Settings = load(&path);
+        again.migrate();
+        assert_eq!(again, settings, "migrating twice changes nothing");
+
+        // Files from before both: nothing to migrate, the chain is empty.
+        std::fs::write(&path, "{}").unwrap();
+        let mut fresh: Settings = load(&path);
+        fresh.migrate();
+        assert!(fresh.monitor_chain.is_empty());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// The chain's order and values stay through save and load (LH-EIN-19).
+    #[test]
+    fn the_chain_survives_save_and_load() {
+        let dir = std::env::temp_dir().join(format!("kontra-store-chain-{}", std::process::id()));
+        let path = dir.join("settings.json");
+        let mut settings = Settings::default();
+        for kind in [EffectKind::Delay, EffectKind::Fuzz, EffectKind::Reverb] {
+            settings.monitor_chain.push(SlotSpec::new(kind));
+        }
+        settings.monitor_chain.slots_mut()[1].on = false;
+        settings.monitor_chain.slots_mut()[2].a = 0.9;
+        assert!(settings.monitor_chain.move_slot(2, 0));
+        save(&path, &settings).unwrap();
+        let mut loaded: Settings = load(&path);
+        loaded.migrate();
+        assert_eq!(loaded, settings);
+        let order: Vec<_> = loaded
+            .monitor_chain
+            .slots()
+            .iter()
+            .map(|s| s.kind)
+            .collect();
+        assert_eq!(
+            order,
+            [EffectKind::Reverb, EffectKind::Delay, EffectKind::Fuzz]
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// A new setup has an empty chain and the limiter on.
+    #[test]
+    fn a_new_setup_has_no_effects() {
+        let settings = Settings::default();
+        assert!(settings.monitor_chain.is_empty() && settings.monitor_limit);
+    }
+
+    /// The old sliders drive the chain's slots and leave it empty at 0.
+    #[test]
+    fn drive_and_width_sliders_map_onto_slots() {
+        let mut settings = Settings::default();
+        settings
+            .monitor_chain
+            .push(SlotSpec::new(EffectKind::Delay));
+        settings.set_monitor_width(0.4);
+        settings.set_monitor_drive(0.6);
+        let kinds: Vec<_> = settings
+            .monitor_chain
+            .slots()
+            .iter()
+            .map(|s| s.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            [
+                EffectKind::Overdrive,
+                EffectKind::Delay,
+                EffectKind::Widener
+            ]
+        );
+        settings.set_monitor_drive(0.0);
+        settings.set_monitor_width(0.0);
+        assert_eq!(settings.monitor_chain.slots().len(), 1);
+        assert_eq!(
+            (settings.monitor_drive(), settings.monitor_width()),
+            (0.0, 0.0)
+        );
     }
 
     /// Files from before the mixer load with its defaults: monitoring off, volumes as before.

@@ -3,7 +3,7 @@
 
 mod ring;
 
-use crate::clock::Clock;
+use crate::clock::{settle, Clock};
 use crate::player::{Player, Reference};
 use crate::{EngineError, Event};
 use kontra_drivers::{
@@ -331,8 +331,8 @@ impl Input {
         }
     }
 
-    /// Engine time of the input's first sample, once known (device: first callback; file: start
-    /// of playback after decoding).
+    /// Engine time of the input's first sample, once known (device: from its stamps, settled in
+    /// the first half second; file: start of playback after decoding).
     pub fn started_s(&self) -> Option<f64> {
         let value = f64::from_bits(self.started.load(Ordering::Relaxed));
         (!value.is_nan()).then_some(value)
@@ -632,11 +632,11 @@ fn start_device(
     let monitor_cb = Arc::clone(&monitor_on);
     let stream = InputStream::open(
         config,
-        move |samples: &[f32], captured_s: f64| {
-            if f64::from_bits(started_cb.load(Ordering::Relaxed)).is_nan() {
-                // First block: the stream started about one block earlier; calibration absorbs the rest.
-                started_cb.store(clock_cb.now_s().to_bits(), Ordering::Relaxed);
-            }
+        move |samples: &[f32], captured_s: f64, first_ago_s: f64| {
+            // The first sample on the engine clock (R3).
+            let started_s = f64::from_bits(started_cb.load(Ordering::Relaxed));
+            let first_s = settle(started_s, clock_cb.now_s() - first_ago_s, captured_s);
+            started_cb.store(first_s.to_bits(), Ordering::Relaxed);
             block_cb.fetch_max(
                 u32::try_from(samples.len()).unwrap_or(u32::MAX),
                 Ordering::Relaxed,

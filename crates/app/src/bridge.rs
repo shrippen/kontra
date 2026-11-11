@@ -122,9 +122,8 @@ pub mod qobject {
         #[qproperty(f64, monitor_high_db, cxx_name = "monitorHighDb")]
         #[qproperty(f64, monitor_compress, cxx_name = "monitorCompress")]
         #[qproperty(f64, monitor_warmth, cxx_name = "monitorWarmth")]
-        /// Overdrive and stereo width 0..1, limiter on (LH-EIN-17).
-        #[qproperty(f64, monitor_drive, cxx_name = "monitorDrive")]
-        #[qproperty(f64, monitor_width, cxx_name = "monitorWidth")]
+        /// The effect chain as JSON (`Core::effects_json`, LH-EIN-19); limiter on (LH-EIN-17).
+        #[qproperty(QString, effects_json, cxx_name = "effectsJson")]
         #[qproperty(bool, monitor_limit, cxx_name = "monitorLimit")]
         #[qproperty(f64, shaping_range_db, cxx_name = "shapingRangeDb")]
         /// Share of the notes in the current section, 25..=100 % (LH-MOD-06), and whether it is fixed.
@@ -547,8 +546,7 @@ pub mod qobject {
         fn change_monitor(self: Pin<&mut Self>, on: bool);
 
         /// Sets a tone band of the monitored bass in dB (`band` "low", "mid", "high") or the
-        /// compressor, warmth, overdrive or width 0..1 (`band` "compress", "warmth", "drive",
-        /// "width").
+        /// compressor or warmth 0..1 (`band` "compress", "warmth").
         #[qinvokable]
         #[cxx_name = "changeShaping"]
         fn change_shaping(self: Pin<&mut Self>, band: &QString, value: f64);
@@ -557,6 +555,11 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "changeLimit"]
         fn change_limit(self: Pin<&mut Self>, on: bool);
+
+        /// Edits the effect chain, or starts the plugin search (`Core::edit_effects`: `op`).
+        #[qinvokable]
+        #[cxx_name = "editEffects"]
+        fn edit_effects(self: Pin<&mut Self>, op: &QString, index: i32, name: &QString, value: f64);
 
         /// Back to the unshaped bass.
         #[qinvokable]
@@ -1020,8 +1023,7 @@ pub struct ControllerRust {
     monitor_high_db: f64,
     monitor_compress: f64,
     monitor_warmth: f64,
-    monitor_drive: f64,
-    monitor_width: f64,
+    effects_json: QString,
     monitor_limit: bool,
     shaping_range_db: f64,
     density: i32,
@@ -1197,8 +1199,7 @@ impl Default for ControllerRust {
             monitor_high_db: s.monitor_high_db,
             monitor_compress: s.monitor_compress,
             monitor_warmth: s.monitor_warmth,
-            monitor_drive: s.monitor_drive,
-            monitor_width: s.monitor_width,
+            effects_json: q(&core.effects_json()),
             monitor_limit: s.monitor_limit,
             shaping_range_db: kontra_appcore::Core::shaping_range_db(),
             density: 100,
@@ -1410,21 +1411,8 @@ impl qobject::Controller {
         self.as_mut().set_target_speed(target);
     }
 
-    fn change_simple_view(mut self: Pin<&mut Self>, on: bool) {
-        self.as_mut().core().update_settings(|s| s.simple_view = on);
-        self.as_mut().set_simple_view(on);
-    }
-
     fn loaded_goal(&self) -> QString {
         q(&self.rust().core.loaded_goal())
-    }
-
-    fn change_adaptive(mut self: Pin<&mut Self>, on: bool) {
-        self.as_mut().core().update_settings(|s| s.adaptive = on);
-        self.as_mut().set_adaptive(on);
-        if !on {
-            self.as_mut().set_density_suggestion(0);
-        }
     }
 
     fn show_error(mut self: Pin<&mut Self>, text: &str) {
@@ -1773,6 +1761,7 @@ impl qobject::Controller {
                     self.as_mut().set_density_suggestion(i32::from(percent));
                     self.as_mut().set_density_text(q(&text));
                 }
+                UiEvent::EffectsChanged => self.as_mut().refresh_effects(),
                 UiEvent::Stems(state) => self.as_mut().set_stems_json(q(&state)),
                 UiEvent::BackingLoading(loading) => self.as_mut().set_backing_loading(loading),
                 UiEvent::ChainStep { chain_json } => {
@@ -1918,8 +1907,7 @@ impl qobject::Controller {
         self.as_mut().set_monitor_high_db(s.monitor_high_db);
         self.as_mut().set_monitor_compress(s.monitor_compress);
         self.as_mut().set_monitor_warmth(s.monitor_warmth);
-        self.as_mut().set_monitor_drive(s.monitor_drive);
-        self.as_mut().set_monitor_width(s.monitor_width);
+        self.as_mut().refresh_effects();
         self.as_mut().set_monitor_limit(s.monitor_limit);
         self.as_mut().set_setup_done(s.setup_done);
         self.as_mut().set_playing(false);

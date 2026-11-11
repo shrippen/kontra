@@ -1,0 +1,36 @@
+[package]
+name = "kontra-vst3-gain"
+description = "Test VST3 plugins for the plugin host tests: a gain, and variants that crash or hang."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Builds the VST3 plugins the host is tested against (MIT/Apache-2.0; bindings of the MIT SDK).
+vst3 = "0.3"
+
+[lints]
+workspace = true
+
+# One module file per example: a stereo gain, a mono gain, one that aborts and one that hangs
+# when loaded. `cargo test` builds examples, so the host tests find them next to the test binaries.
+[[example]]
+name = "kontra_vst3_gain"
+path = "examples/gain.rs"
+crate-type = ["cdylib"]
+
+[[example]]
+name = "kontra_vst3_gain_mono"
+path = "examples/gain_mono.rs"
+crate-type = ["cdylib"]
+
+[[example]]
+name = "kontra_vst3_crash"
+path = "examples/crash.rs"
+crate-type = ["cdylib"]
+
+[[example]]
+name = "kontra_vst3_hang"
+path = "examples/hang.rs"
+crate-type = ["cdylib"]

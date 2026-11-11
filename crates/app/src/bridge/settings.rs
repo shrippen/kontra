@@ -8,6 +8,19 @@ use kontra_appcore::{Bass, InstrumentChoice};
 
 impl qobject::Controller {
     /// The practice streak on the start page on or off (LH-FOR-05).
+    pub(super) fn change_simple_view(mut self: Pin<&mut Self>, on: bool) {
+        self.as_mut().core().update_settings(|s| s.simple_view = on);
+        self.as_mut().set_simple_view(on);
+    }
+
+    pub(super) fn change_adaptive(mut self: Pin<&mut Self>, on: bool) {
+        self.as_mut().core().update_settings(|s| s.adaptive = on);
+        self.as_mut().set_adaptive(on);
+        if !on {
+            self.as_mut().set_density_suggestion(0);
+        }
+    }
+
     pub(super) fn change_streak(mut self: Pin<&mut Self>, on: bool) {
         self.as_mut().core().update_settings(|s| s.streak = on);
         self.as_mut().set_streak(on);
@@ -143,6 +156,8 @@ impl qobject::Controller {
         if self.as_ref().rust().core.arrangement().is_some() {
             self.as_mut().refresh_arrangement();
         }
+        let tuning = self.as_ref().rust().core.is_tuning();
+        self.as_mut().set_tuner_active(tuning);
         if let Err(e) = result {
             self.as_mut().show_error(&e);
         }
@@ -162,6 +177,7 @@ impl qobject::Controller {
         self.as_mut().refresh_devices();
         self.as_mut().refresh_density();
         self.as_mut().refresh_chain();
+        self.as_mut().refresh_effects();
         self.as_mut().refresh_stems();
         self.as_mut().refresh_call();
     }
@@ -363,6 +379,9 @@ impl qobject::Controller {
         if let Some(hint) = self.as_mut().core().remix(|s| s.monitor = on) {
             self.as_mut().set_message(q(&hint));
         }
+        // A failed tuner restart leaves no tuner.
+        let tuning = self.as_ref().rust().core.is_tuning();
+        self.as_mut().set_tuner_active(tuning);
     }
 
     pub(super) fn change_shaping(mut self: Pin<&mut Self>, band: &QString, value: f64) {
@@ -391,21 +410,32 @@ impl qobject::Controller {
                 self.as_mut().set_monitor_warmth(amount);
                 self.as_mut().core().remix(|s| s.monitor_warmth = amount)
             }
-            "drive" => {
-                let amount = value.clamp(0.0, 1.0);
-                self.as_mut().set_monitor_drive(amount);
-                self.as_mut().core().remix(|s| s.monitor_drive = amount)
-            }
-            "width" => {
-                let amount = value.clamp(0.0, 1.0);
-                self.as_mut().set_monitor_width(amount);
-                self.as_mut().core().remix(|s| s.monitor_width = amount)
-            }
             _ => None,
         };
         if let Some(hint) = hint {
             self.as_mut().set_message(q(&hint));
         }
+    }
+
+    pub(super) fn edit_effects(
+        mut self: Pin<&mut Self>,
+        op: &QString,
+        index: i32,
+        name: &QString,
+        value: f64,
+    ) {
+        let (op, name) = (op.to_string(), name.to_string());
+        let index = usize::try_from(index).unwrap_or(usize::MAX);
+        let hint = self.as_mut().core().edit_effects(&op, index, &name, value);
+        self.as_mut().refresh_effects();
+        if let Some(hint) = hint {
+            self.as_mut().set_message(q(&hint));
+        }
+    }
+
+    pub(super) fn refresh_effects(mut self: Pin<&mut Self>) {
+        let json = self.as_ref().rust().core.effects_json();
+        self.as_mut().set_effects_json(q(&json));
     }
 
     pub(super) fn change_limit(mut self: Pin<&mut Self>, on: bool) {
@@ -423,8 +453,7 @@ impl qobject::Controller {
         self.as_mut().set_monitor_high_db(s.monitor_high_db);
         self.as_mut().set_monitor_compress(s.monitor_compress);
         self.as_mut().set_monitor_warmth(s.monitor_warmth);
-        self.as_mut().set_monitor_drive(s.monitor_drive);
-        self.as_mut().set_monitor_width(s.monitor_width);
+        self.as_mut().refresh_effects();
         self.as_mut().set_monitor_limit(s.monitor_limit);
         if let Some(hint) = hint {
             self.as_mut().set_message(q(&hint));

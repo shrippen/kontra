@@ -10,6 +10,7 @@ mod double_stops;
 mod ends;
 mod korpus;
 mod live;
+mod plugins;
 mod strings;
 mod tab;
 
@@ -35,6 +36,7 @@ fn main() -> ExitCode {
         Command::Check(a) => check::run(&a),
         Command::Course(a) => course::run(&a),
         Command::Schemas(a) => schemas(&a),
+        Command::Plugins(a) => plugins::run(&a),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

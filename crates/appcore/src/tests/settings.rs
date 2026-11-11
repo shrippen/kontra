@@ -72,11 +72,11 @@ fn gains_follow_the_mixer() {
         monitor_volume: 0.5,
         ..Settings::default()
     };
-    let off = gains(&settings);
+    let off = gains(&settings, &Default::default());
     assert_eq!((off.backing, off.click, off.tone), (0.25, 1.0, 0.0));
     assert_eq!(off.monitor, 0.0);
     settings.monitor = true;
-    assert_eq!(gains(&settings).monitor, 0.5);
+    assert_eq!(gains(&settings, &Default::default()).monitor, 0.5);
 
     // Unshaped, but the limiter on by default (LH-EIN-17).
     assert_eq!(
@@ -89,18 +89,17 @@ fn gains_follow_the_mixer() {
     settings.monitor_low_db = 3.0;
     settings.monitor_compress = 0.5;
     settings.monitor_warmth = 0.25;
-    settings.monitor_drive = 0.75;
-    settings.monitor_width = 1.0;
+    settings.set_monitor_drive(0.75);
+    settings.set_monitor_width(1.0);
     settings.monitor_limit = false;
-    let shaped = gains(&settings).shaping;
+    let shaped = gains(&settings, &Default::default()).shaping;
     assert_eq!(
         (shaped.low_db, shaped.compress, shaped.warmth),
         (3.0, 0.5, 0.25)
     );
-    assert_eq!(
-        (shaped.drive, shaped.width, shaped.limit),
-        (0.75, 1.0, Limit::Off)
-    );
+    assert_eq!(shaped.chain, settings.monitor_chain);
+    assert_eq!(shaped.chain.slots().len(), 2);
+    assert_eq!(shaped.limit, Limit::Off);
 }
 
 /// LH-WIE-03: mixer changes reach a running practice without restarting it and are saved.
@@ -402,6 +401,31 @@ fn laptop_jack_takes_the_built_in_card() {
     assert_eq!(preferred_input(&list[..1], InputKind::LaptopJack), None);
 }
 
+/// Review #231: a USB webcam (input only) is no interface; "Automatic" skips it
+/// for the cable and takes it only for "Microphone" (LH-EIN-02, LH-EIN-11).
+#[test]
+fn a_usb_microphone_is_no_interface() {
+    let list = [
+        device("webcam", Connection::UsbMicrophone, true),
+        device("hda", Connection::BuiltIn, false),
+    ];
+    assert_eq!(preferred_input(&list, InputKind::Line), None);
+    assert_eq!(preferred_input(&list, InputKind::Midi), None);
+    assert_eq!(
+        preferred_input(&list, InputKind::Microphone).map(|d| d.id.as_str()),
+        Some("webcam")
+    );
+
+    let list = [
+        device("webcam", Connection::UsbMicrophone, true),
+        device("scarlett", Connection::Usb, false),
+    ];
+    assert_eq!(
+        preferred_input(&list, InputKind::Line).map(|d| d.id.as_str()),
+        Some("scarlett")
+    );
+}
+
 /// Review #73: a saved device that is not listed (an ALSA id under PipeWire, an unplugged
 /// interface) means "Automatic": the interface first, not the system default.
 #[test]
@@ -438,8 +462,8 @@ fn ear_prompts_have_their_own_volume() {
         prompt_volume: 0.9,
         ..Settings::default()
     };
-    assert_eq!(ear_gains(&settings).tone, 0.9);
-    assert_eq!(gains(&settings).tone, 0.2);
+    assert_eq!(ear_gains(&settings, &Default::default()).tone, 0.9);
+    assert_eq!(gains(&settings, &Default::default()).tone, 0.2);
 }
 
 /// LH-NF-11: the licence list names Kontra (MIT) and only permissive crate licences.
@@ -489,4 +513,78 @@ fn reacting_band_reaches_the_running_run() {
     assert_eq!(band, Some(kontra_session::Band::Reacting));
     core.stop_live();
     let _ = std::fs::remove_dir_all(dir);
+}
+
+/// LH-EIN-19: the mixer's chain list: add, move, switch, set and remove through the core, the
+/// list the page shows follows, the settings are saved, and a full chain says so.
+#[test]
+fn the_chain_is_edited_through_the_core() {
+    let dir = temp_dir("chain-edit");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let list =
+        |core: &Core| -> serde_json::Value { serde_json::from_str(&core.effects_json()).unwrap() };
+    let names = |core: &Core| -> Vec<String> {
+        list(core)["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["kind"].as_str().unwrap().to_string())
+            .collect()
+    };
+    assert_eq!(list(&core)["empty"], true);
+
+    for kind in ["delay", "overdrive", "reverb"] {
+        assert!(core.edit_effects("add", 0, kind, 0.0).is_none());
+    }
+    assert_eq!(names(&core), ["delay", "overdrive", "reverb"]);
+
+    // Order: the last one up, the first one down; the ends stay put.
+    core.edit_effects("up", 2, "", 0.0);
+    core.edit_effects("down", 0, "", 0.0);
+    assert_eq!(names(&core), ["reverb", "delay", "overdrive"]);
+    core.edit_effects("up", 0, "", 0.0);
+    core.edit_effects("down", 2, "", 0.0);
+    assert_eq!(names(&core), ["reverb", "delay", "overdrive"]);
+    let json = list(&core);
+    assert_eq!(json["slots"][0]["first"], true);
+    assert_eq!(json["slots"][2]["last"], true);
+
+    // Values: mix only where there is a dry part; clamped; unknown keys change nothing.
+    core.edit_effects("set", 1, "b", 0.8);
+    core.edit_effects("set", 1, "mix", 2.0);
+    core.edit_effects("set", 2, "mix", 0.1);
+    core.edit_effects("set", 2, "b", 0.9);
+    core.edit_effects("on", 0, "", 0.0);
+    let slots = core.settings().monitor_chain.slots().to_vec();
+    assert_eq!((slots[1].b, slots[1].mix), (0.8, 1.0));
+    assert_eq!((slots[2].b, slots[2].mix), (0.0, 1.0));
+    assert!(!slots[0].on);
+    let delay = &list(&core)["slots"][1];
+    assert_eq!(delay["values"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        list(&core)["slots"][2]["values"].as_array().unwrap().len(),
+        1
+    );
+
+    // It is saved.
+    let again = Core::new(&dir, QaOptions::default());
+    assert_eq!(
+        again.settings().monitor_chain,
+        core.settings().monitor_chain
+    );
+
+    // Remove, then fill up: the ninth effect is refused with a hint.
+    core.edit_effects("remove", 0, "", 0.0);
+    assert_eq!(names(&core), ["delay", "overdrive"]);
+    while !list(&core)["full"].as_bool().unwrap() {
+        assert!(core.edit_effects("add", 0, "chorus", 0.0).is_none());
+    }
+    assert_eq!(names(&core).len(), kontra_model::CHAIN_SLOTS);
+    let hint = core.edit_effects("add", 0, "fuzz", 0.0);
+    assert!(hint.is_some_and(|h| h.contains('8')));
+    assert_eq!(names(&core).len(), kontra_model::CHAIN_SLOTS);
+
+    // "Neutral" empties the list.
+    core.neutral_shaping();
+    assert_eq!(list(&core)["empty"], true);
 }

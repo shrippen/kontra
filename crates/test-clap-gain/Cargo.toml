@@ -1,0 +1,37 @@
+[package]
+name = "kontra-clap-gain"
+description = "Test CLAP plugins for the plugin host tests: a gain, and variants that crash or hang."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Builds the CLAP plugins the host is tested against (MIT/Apache-2.0).
+clack-plugin = "0.2"
+clack-extensions = { version = "0.2", features = ["clack-plugin", "params", "state", "latency", "audio-ports"] }
+
+[lints]
+workspace = true
+
+# One plugin file per example: a stereo gain, a mono gain, one that aborts and one that hangs in
+# `init`. `cargo test` builds examples, so the host tests find them next to the test binaries.
+[[example]]
+name = "kontra_clap_gain"
+path = "examples/gain.rs"
+crate-type = ["cdylib"]
+
+[[example]]
+name = "kontra_clap_gain_mono"
+path = "examples/gain_mono.rs"
+crate-type = ["cdylib"]
+
+[[example]]
+name = "kontra_clap_crash"
+path = "examples/crash.rs"
+crate-type = ["cdylib"]
+
+[[example]]
+name = "kontra_clap_hang"
+path = "examples/hang.rs"
+crate-type = ["cdylib"]

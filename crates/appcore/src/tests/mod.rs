@@ -6,6 +6,7 @@ use kontra_session::{NoteResult, OutsideNote};
 
 mod coaching;
 mod exercises;
+mod fx_plugins;
 mod library;
 mod notation;
 mod note_list;

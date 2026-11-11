@@ -194,7 +194,7 @@ impl Core {
             };
         }
         let setup = self.live_setup();
-        let gains = crate::gains(&self.settings);
+        let gains = crate::gains(&self.settings, &self.plugins.problems);
         let Some(live) = self.live.as_mut() else {
             return Vec::new();
         };
