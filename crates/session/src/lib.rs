@@ -61,7 +61,7 @@ pub use improv::{fit, Fit, Improvisation};
 pub use kontra_engine::plugins;
 pub use kontra_engine::Separator;
 pub use kontra_engine::{
-    describe_plugin, describe_plugin_later, PendingSpec, PluginBank, PluginProblems,
+    describe_plugin, describe_plugin_later, PendingSpec, PluginBank, PluginProblems, PluginRack,
 };
 pub use kontra_engine::{EngineError, FileHttp, Http, HttpError, Web};
 pub use kontra_engine::{Gains, Limit, SeparatorError, Shaping, SHAPING_RANGE_DB};

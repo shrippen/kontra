@@ -13,7 +13,7 @@ use kontra_drivers::plugins::{
     PluginHost, PluginInfo,
 };
 use kontra_dsp::Chain;
-use kontra_engine::{describe_plugin, ChainBuilder, PluginBank, PluginProblems};
+use kontra_engine::{describe_plugin, ChainBuilder, PluginBank, PluginProblems, PluginRack};
 use kontra_model::{ChainSpec, EffectKind, PluginSpec, SlotSpec};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
@@ -162,8 +162,19 @@ fn plugin_chain() -> ChainSpec {
     chain_of(&[SlotSpec::for_plugin(PLUGIN_ID)])
 }
 
+thread_local! {
+    /// The app keeps one rack for every bank of its settings; a test runs on its own thread.
+    static RACK: PluginRack = PluginRack::default();
+}
+
+/// The settings after the slot left them: same rack, no plugin.
+fn removed() -> PluginBank {
+    bank(Vec::new())
+}
+
 fn bank(specs: Vec<PluginSpec>) -> PluginBank {
-    PluginBank::new(specs, PluginProblems::default())
+    let rack = RACK.with(PluginRack::clone);
+    PluginBank::new(specs, PluginProblems::default()).with_rack(rack)
 }
 
 /// Polls the builder until the chain of a pending `fit` is ready.
@@ -327,7 +338,8 @@ fn parameter_changes_reach_the_running_plugin() {
 #[test]
 fn the_running_chain_follows_while_another_loads() {
     let mut builder = ChainBuilder::new(RATE);
-    let quiet = bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 1.0)]);
+    let first = gain_spec(PluginFormat::Clap, "kontra_clap_gain", 1.0);
+    let quiet = bank(vec![first.clone()]);
     let mut chain = fit_ready(&mut builder, &plugin_chain(), &quiet);
     let input = sine(2048);
 
@@ -339,11 +351,15 @@ fn the_running_chain_follows_while_another_loads() {
         SlotSpec::for_plugin(PLUGIN_ID),
         SlotSpec::for_plugin(PLUGIN_ID + 1),
     ]);
+    // The same slot (same file) at another gain.
     let both = |gain| {
-        bank(vec![
-            gain_spec(PluginFormat::Clap, "kontra_clap_gain", gain),
-            second.clone(),
-        ])
+        let mut first = first.clone();
+        for p in &mut first.params {
+            if p.id == GAIN_PARAM {
+                p.value = gain;
+            }
+        }
+        bank(vec![first, second.clone()])
     };
     assert!(builder.fit(&bigger, &both(1.0)).is_none());
     assert!(builder.fit(&bigger, &both(2.0)).is_none());
@@ -394,9 +410,7 @@ fn instances_close_after_their_chain_is_gone() {
     assert_eq!(builder.retiring(), 0);
 
     // Taking the slot out of the settings: its instance waits for the chain that runs it.
-    assert!(builder
-        .fit(&ChainSpec::EMPTY, &PluginBank::default())
-        .is_none());
+    assert!(builder.fit(&ChainSpec::EMPTY, &removed()).is_none());
     assert_eq!(builder.retiring(), 1);
     builder.reap();
     assert_eq!(builder.retiring(), 1);
@@ -575,7 +589,7 @@ fn quick_shape_changes_do_not_leak_instances() {
     builder.reap();
     assert_eq!(builder.retiring(), 0);
     assert_eq!(host.open_of(&path), 1, "kept while the slot exists");
-    assert!(builder.fit(&widener, &PluginBank::default()).is_none());
+    assert!(builder.fit(&widener, &removed()).is_none());
     builder.reap();
     let start = Instant::now();
     while host.open_of(&path) > 0 {
