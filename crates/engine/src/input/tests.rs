@@ -733,3 +733,34 @@ fn gate_reaches_the_tracker() {
     analysis.process(&[0.0; BLOCK], false, &events);
     assert_eq!(analysis.tracker.config().onset.gate_db, -62.0);
 }
+
+/// Runde 20: after a stall the analysis owes the lost time not filled with silence (0.8 s lost,
+/// 0.5 s bridged: 0.3 s). A start settled again from the device's own count already holds the
+/// whole 0.8 s, so only the bridged silence is counted twice and comes off.
+#[test]
+fn a_rebase_keeps_only_the_bridged_silence() {
+    let rate = 48_000.0;
+    let (mut analysis, _expected) =
+        Analysis::new(rate, &Instrument::default_bass(), InputSource::Line);
+    let mut watch = Watch::new(0.0);
+    let (tx, _rx) = std::sync::mpsc::channel();
+    let block = [0.0f32; BLOCK];
+    let take = |analysis: &mut Analysis, watch: &mut Watch, at_s: f64, skipped_s| {
+        let arrival = Arrival {
+            now_s: at_s,
+            start_s: Some(0.0),
+            skipped_s,
+        };
+        deliver(analysis, watch, arrival, &block, &tx, |a, b| {
+            a.process(b, false, &tx)
+        });
+    };
+
+    take(&mut analysis, &mut watch, 0.01, 0.0);
+    assert!(watch.idle(0.5, analysis.heard_s()).is_some(), "stalled");
+    take(&mut analysis, &mut watch, 1.3, 0.8);
+    assert!((watch.shift_s - 0.3).abs() < 1e-9, "{}", watch.shift_s);
+
+    watch.rebased();
+    assert!((watch.shift_s + BRIDGE_S).abs() < 1e-9, "{}", watch.shift_s);
+}
