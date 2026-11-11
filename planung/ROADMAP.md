@@ -105,8 +105,9 @@ drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier
   Stand 11.11.: CLAP-Editor im Plugin-Thread (eigenes X11-Fenster über x11rb, Timer, Dateideskriptoren,
   Rückrufe, Größenwünsche; Schließen per Fenster, #275); Knopf „Fenster“ je Plugin im Mixer, das Fenster gehört
   zum Player, der die Kette gerade spielt (Ende des Laufs schließt es). VST 3 ebenso (`IPlugView` in X11,
-  `IPlugFrame` mit `IRunLoop`). Der Plugin-Thread übersteht eine Panik (FX4). Offen: Windows (HWND),
-  Flatpak-Zugang zu X11 (Eigentümer, `packaging/`).
+  `IPlugFrame` mit `IRunLoop`). Der Plugin-Thread übersteht eine Panik (FX4). Windows: eigenes Win32-Fenster
+  (HWND) für CLAP und VST 3, in der VM mit den Test-Plugins geprüft (Runde 20). Offen: Flatpak-Zugang zu X11
+  (Eigentümer, `packaging/`).
   Voraussetzung steht: Instanzen leben so lang wie ihr Slot (FX4), ein offenes Fenster geht beim Umbauen der Kette
   nicht verloren. Je Player eine eigene Instanz; ein gemeinsames Register über Player hinweg fehlt noch.
 - [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket. Der
@@ -246,7 +247,7 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   aus, mit Hinweis; Laden in einen Hintergrund-Thread (LH-EIN-20).
 - Voreinstellungen je Kette: benannte Ketten speichern und wählen (LH-EIN-19, FX4).
 - USB-Kabel nur mit Eingang: beim Einstecken fragen, ob Instrument oder Mikrofon (LH-EIN-02). Umgesetzt, siehe
-  „Frage zu USB-Eingängen“ unten; offen: die Antwort später in den Einstellungen ändern.
+  „Frage zu USB-Eingängen“ unten; die Antwort lässt sich in den Einstellungen ändern (Runde 20).
 - R3 weiter: Zeit je Block aus den Stempeln (DLL), danach auf echtem Windows messen.
 - L1: Auch Läufe zählen; ein Lauf, der eine geplante Stelle wieder unter die schwersten bringt, gilt als nicht
   bestanden (LH-LRN-16).
@@ -430,6 +431,19 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   25,0 ms, Streuung (SD) 2,5 ms (22,5–29,1); nachher 17,4 ms, SD 1,7 ms (13,6–18,8). Der Rest der Streuung kommt
   nicht aus den Stempeln (je Klick ±0,4 ms). Offen: Zeit je Block aus den Stempeln (DLL) für beide Seiten über die
   ganze Laufzeit (Drift, Aussetzer im Ausgang).
+  Messung 11.11. (Runde 20, Scarlett per Kabel, Block 128, `kontra-cli check --loopback-tones N`, Verzögerung je
+  Ton): 8 Öffnungen mit je 100 Tönen (alle gehört): Mediane 14,9–18,9 ms, einmal 12,3 ms (4 Xruns); innerhalb eines
+  Laufs nach den ersten 7 s SD 0,03–0,60 ms. In den ersten Sekunden schwingt der Wert in 5 von 8 Läufen um 1–2 ms
+  ein (einmal 5,3 → 14,4 ms, einmal bis etwa 15 s), einmal springt er bei einem Xrun um einen Block. Die Streuung
+  von R3 entsteht also vor allem beim Öffnen und im Einschwingen, danach nur bei Xruns.
+  20 Minuten am Stück (2000 Töne, alle gehört): keine Drift (5,2 min lang genau 14,750 ms; dieselbe Uhr für beide
+  Seiten), zeitweise ein Hin und Her um 0,25 ms (Erkennung), aber Sprünge um genau einen Block (±128 Frames,
+  2,67 ms) bei 10,5, 15,9, 17,7 und 17,9 min, dazu zweimal ein Einschwingen über einige Sekunden wie am Anfang
+  (die ersten 7 s: 8 → 17 → 14,9 ms); 8 Xruns, der Rechner baute nebenher. Folgerung: „Eingang folgt Ausgang“
+  (Drift zweier Uhren) hilft hier nicht; nötig sind Zeitstempel, die einen verlorenen Block mitzählen, und ein
+  Start ohne Einschwingen. Zwei Geräte (eingebaute Karte und Scarlett) sind ungemessen. Dabei gefunden:
+  `LiveTake` übergab den ganzen Plan auf einmal, der Player hält 48 Stimmen; jetzt rollend 2 s voraus (die erste
+  Messreihe hörte deshalb nur 48 Töne je Lauf).
   In der Windows-VM (11.11., WASAPI, Block 480, Scarlett per Kabel, je 4 bis 6 Öffnungen im Wechsel): `main`
   265–280 ms, R3 249–258 ms, beide meist ±0–3 ms. R3 erkannte dabei öfter nur 3 bis 5 der 12 Töne (`main` meist 12);
   Xruns 0–5 auf beiden Seiten. Zwei Läufe hingen, beide, während ein zweites Skript dasselbe Gerät öffnete; allein
@@ -1445,5 +1459,9 @@ Durchgespielt mit gerenderten Aufnahmen (`kontra-cli render`) und Screenshots al
   `Settings::usb_inputs`; ein bekanntes Gerät fragt nie wieder. Beim Start fragt Kontra nicht nach Geräten, die
   schon da sind (einfach gehalten); eine Frage, deren Gerät verschwindet, geht weg. Offen: ein Schalter
   „<Gerät>: Instrument/Mikrofon“ in den Einstellungen, damit sich die Antwort ändern lässt (auch für Geräte, die
-  schon beim Start steckten). Neue `pub(crate)`: `Core::inputs`, `Core::input_device`, `Core::watch_usb`; `pub`:
+  schon beim Start steckten). Umgesetzt (Runde 20, 11.11.): unter dem Eingang in den Einstellungen je USB-Eingang
+  ohne Ausgang eine Zeile „USB-Eingang <Name>“ mit Instrument/Mikrofon (`KanteSegmented`); ohne Antwort ist
+  keine Seite gewählt (ein Klick auf jede Seite speichert), nur aufgelistete Geräte (ein nicht steckendes Gerät behält seine Antwort, zeigt aber keine Zeile);
+  die Wahl gilt sofort und beendet eine offene Frage zu dem Gerät. Neue `pub`: `Core::set_usb_role`; `pub(crate)`:
+  `Core::usb_role`; Invokable `setUsbRole`, Feld `usbRole` im Geräte-JSON. Neue `pub(crate)`: `Core::inputs`, `Core::input_device`, `Core::watch_usb`; `pub`:
   `Core::answer_usb`, `UiEvent::UsbAsk`, `UsbRole`, `Settings::usb_inputs`.

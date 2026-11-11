@@ -36,6 +36,26 @@ impl qobject::Controller {
         self.as_mut().set_usb_ask(QString::default());
     }
 
+    /// A USB input's role chosen in the settings; an open question about it goes away.
+    pub(super) fn set_usb_role(mut self: Pin<&mut Self>, id: &QString, role: &QString) {
+        let ended = self
+            .as_mut()
+            .core()
+            .set_usb_role(&id.to_string(), &role.to_string());
+        if ended {
+            self.as_mut().set_usb_ask(QString::default());
+        }
+        self.as_mut().refresh_devices();
+    }
+
+    pub(super) fn change_style(mut self: Pin<&mut Self>, style: &QString) {
+        let style = style.to_string();
+        self.as_mut()
+            .core()
+            .update_settings(|s| s.style = style.clone());
+        self.as_mut().set_style(q(&style));
+    }
+
     pub(super) fn change_simple_view(mut self: Pin<&mut Self>, on: bool) {
         self.as_mut().core().update_settings(|s| s.simple_view = on);
         self.as_mut().set_simple_view(on);

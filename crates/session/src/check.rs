@@ -30,8 +30,12 @@ const PLAYER_WINDOW_S: f64 = 0.25;
 /// Concert pitch of the planned tones.
 const A4_HZ: f64 = 440.0;
 
+/// Sounds go to the output this long before they are due: it holds only a few dozen (R3, 11.11.:
+/// a 2000-tone loopback heard 48).
+const AHEAD_S: f64 = 2.0;
+
 /// Loopback: tones at a pitch the tracker hears well, far enough apart to tell them apart.
-const LOOPBACK_TONES: usize = 12;
+pub const LOOPBACK_TONES: usize = 12;
 const LOOPBACK_MIDI: u8 = 40; // E2
 const LOOPBACK_SPACING_S: f64 = 0.6;
 const LOOPBACK_TONE_S: f64 = 0.25;
@@ -69,6 +73,8 @@ pub struct LiveTake {
     plan: Vec<(f64, TakeSound)>,
     length_s: f64,
     zero_s: Option<f64>,
+    /// Plan entries handed to the output so far.
+    scheduled: usize,
     notes: Vec<DetectedNote>,
 }
 
@@ -93,6 +99,9 @@ impl LiveTake {
             None,
         )?;
         input.record();
+        // In time order: sounds go out shortly before they are due (`due_until`).
+        let mut plan = plan;
+        plan.sort_by(|a, b| a.0.total_cmp(&b.0));
         Ok(LiveTake {
             clock,
             output,
@@ -101,6 +110,7 @@ impl LiveTake {
             plan,
             length_s,
             zero_s: None,
+            scheduled: 0,
             notes: Vec::new(),
         })
     }
@@ -116,15 +126,22 @@ impl LiveTake {
             let Some(start) = self.input.started_s() else {
                 return false;
             };
-            let zero = start + LEAD_S;
-            for (at, sound) in &self.plan {
-                self.output.schedule(zero + at, engine_sound(*sound));
-            }
-            self.zero_s = Some(zero);
+            self.zero_s = Some(start + LEAD_S);
         }
         let Some(zero) = self.zero_s else {
             return false;
         };
+
+        // The output holds a few dozen sounds: hand them over shortly before they are due.
+        let due = due_until(
+            &self.plan,
+            self.scheduled,
+            self.clock.now_s() - zero + AHEAD_S,
+        );
+        for (at, sound) in &self.plan[self.scheduled..due] {
+            self.output.schedule(zero + at, engine_sound(*sound));
+        }
+        self.scheduled = due;
         while let Ok(event) = self.events.try_recv() {
             if let Event::Note(mut note) = event {
                 note.onset_s -= zero;
@@ -151,6 +168,15 @@ impl LiveTake {
     }
 }
 
+/// End of the plan entries due before `until_s` (plan time), starting at `from`.
+fn due_until(plan: &[(f64, TakeSound)], from: usize, until_s: f64) -> usize {
+    let due = plan[from..]
+        .iter()
+        .take_while(|(at, _)| *at < until_s)
+        .count();
+    from + due
+}
+
 fn engine_sound(sound: TakeSound) -> Sound {
     match sound {
         TakeSound::Click { downbeat } => Sound::Click(if downbeat {
@@ -166,9 +192,9 @@ fn engine_sound(sound: TakeSound) -> Sound {
     }
 }
 
-/// The loopback plan: tones only, no clicks (a click has no pitch to find).
-pub fn loopback_plan() -> Vec<(f64, TakeSound)> {
-    (0..LOOPBACK_TONES)
+/// The loopback plan of `tones` tones: no clicks (a click has no pitch to find).
+pub fn loopback_plan(tones: usize) -> Vec<(f64, TakeSound)> {
+    (0..tones)
         .map(|i| {
             let tone = TakeSound::Tone {
                 midi: LOOPBACK_MIDI,
@@ -179,9 +205,9 @@ pub fn loopback_plan() -> Vec<(f64, TakeSound)> {
         .collect()
 }
 
-/// Length of the loopback take.
-pub fn loopback_length_s() -> f64 {
-    LOOPBACK_TONES as f64 * LOOPBACK_SPACING_S + LOOPBACK_WINDOW_S
+/// Length of a loopback take of `tones` tones.
+pub fn loopback_length_s(tones: usize) -> f64 {
+    tones as f64 * LOOPBACK_SPACING_S + LOOPBACK_WINDOW_S
 }
 
 /// Output to input through a cable: how late each tone came back.
@@ -196,20 +222,7 @@ pub struct RoundTrip {
 
 /// The round trip of a loopback take; `None` if no tone came back.
 pub fn round_trip(plan: &[(f64, TakeSound)], take: &Take) -> Option<RoundTrip> {
-    let mut delays: Vec<f64> = plan
-        .iter()
-        .filter_map(|(at, sound)| {
-            let TakeSound::Tone { midi, .. } = sound else {
-                return None;
-            };
-            take.notes
-                .iter()
-                .filter(|n| same_pitch_class(n.midi, *midi))
-                .map(|n| n.onset_s - at)
-                .filter(|d| (0.0..=LOOPBACK_WINDOW_S).contains(d))
-                .min_by(f64::total_cmp)
-        })
-        .collect();
+    let mut delays: Vec<f64> = tone_delays_s(plan, take).into_iter().flatten().collect();
     if delays.is_empty() {
         return None;
     }
@@ -225,6 +238,26 @@ pub fn round_trip(plan: &[(f64, TakeSound)], take: &Take) -> Option<RoundTrip> {
         heard: delays.len(),
         sent: plan.len(),
     })
+}
+
+/// How late each planned tone came back, in plan order; `None` where it did not (R3: jitter
+/// and drift over a long take, e.g. `[Some(0.0071), None, Some(0.0069)]`).
+pub fn tone_delays_s(plan: &[(f64, TakeSound)], take: &Take) -> Vec<Option<f64>> {
+    plan.iter()
+        .filter_map(|(at, sound)| {
+            let TakeSound::Tone { midi, .. } = sound else {
+                return None;
+            };
+            let delay = take
+                .notes
+                .iter()
+                .filter(|n| same_pitch_class(n.midi, *midi))
+                .map(|n| n.onset_s - at)
+                .filter(|d| (0.0..=LOOPBACK_WINDOW_S).contains(d))
+                .min_by(f64::total_cmp);
+            Some(delay)
+        })
+        .collect()
 }
 
 /// The tone came back, maybe an octave off (the tracker's usual error on a sine).
@@ -451,8 +484,52 @@ mod tests {
     }
 
     #[test]
+    fn sounds_go_out_shortly_before_they_are_due() {
+        let plan = loopback_plan(2000);
+        // At the start only what plays in the next AHEAD_S (0.6 s apart: 0, 0.6, 1.2, 1.8).
+        assert_eq!(due_until(&plan, 0, AHEAD_S), 4);
+        // Later: from where it stopped, never back.
+        assert_eq!(due_until(&plan, 4, 600.0 + AHEAD_S), 1004);
+        assert_eq!(due_until(&plan, 1004, 1.0), 1004);
+        assert_eq!(due_until(&plan, 0, 1e9), plan.len());
+    }
+
+    /// Review #282: `poll` hands over only what is due soon, not the whole plan.
+    #[test]
+    fn a_long_take_schedules_as_it_goes() {
+        let dir = std::env::temp_dir().join(format!("kontra-long-take-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("quiet.wav");
+        let rate = 48_000;
+        crate::write_mono_wav(&path, &vec![0.0; rate as usize * 3], rate).unwrap();
+        let setup = LiveSetup {
+            input: crate::InputChoice::File {
+                path: path.clone(),
+                laptop_jack: false,
+            },
+            output_device: Some(kontra_engine::NULL_DEVICE.to_string()),
+            source: InputSource::Line,
+            backing: None,
+            original: None,
+            backing_cache: None,
+            onset_gate_db: None,
+        };
+        let plan = loopback_plan(2000);
+        let mut take = LiveTake::start(&setup, &Instrument::default_bass(), plan, 1.0).unwrap();
+        while take.zero_s.is_none() {
+            take.poll();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+
+        // The plan starts LEAD_S after the input: what plays before AHEAD_S after zero, at most.
+        assert!(take.scheduled > 0, "the first tones go out");
+        assert!(take.scheduled <= 4, "{} of 2000 at once", take.scheduled);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn round_trip_is_the_median_delay() {
-        let plan = loopback_plan();
+        let plan = loopback_plan(LOOPBACK_TONES);
         // 21 ms back, one tone 25 ms, one lost; a stray note before the first tone and another pitch
         // where the lost one was.
         let mut notes: Vec<_> = plan

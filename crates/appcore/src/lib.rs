@@ -2578,7 +2578,7 @@ impl Core {
             .map(|d| d.id.clone());
         let list: Vec<_> = devices
             .iter()
-            .map(|d| json!({ "id": d.id, "name": d.name, "default": d.is_default, "connection": format!("{:?}", d.connection), "preferred": preferred.as_ref() == Some(&d.id), "direct": d.past_pipewire }))
+            .map(|d| json!({ "id": d.id, "name": d.name, "default": d.is_default, "connection": format!("{:?}", d.connection), "preferred": preferred.as_ref() == Some(&d.id), "direct": d.past_pipewire, "usbRole": self.usb_role(d) }))
             .collect();
         serde_json::Value::Array(list).to_string()
     }

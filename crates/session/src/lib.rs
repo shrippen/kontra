@@ -51,8 +51,8 @@ pub use calibration::{
 pub use call::call_and_response;
 pub use chain::{Blocks, Chain, ChainOrder};
 pub use check::{
-    check_takes, loopback_length_s, loopback_plan, round_trip, CheckNote, CheckTake, LiveTake,
-    RoundTrip, Take, TakeSound, CHECK_BPM,
+    check_takes, loopback_length_s, loopback_plan, round_trip, tone_delays_s, CheckNote, CheckTake,
+    LiveTake, RoundTrip, Take, TakeSound, CHECK_BPM, LOOPBACK_TONES,
 };
 pub use courses::{CourseError, CourseFetch, CourseStore};
 pub use density::Density;

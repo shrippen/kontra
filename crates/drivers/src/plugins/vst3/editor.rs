@@ -3,7 +3,7 @@
 //! there, and the plugin thread runs them in `idle`, as for CLAP.
 //!
 //! ```text
-//!  controller.createView ─► view: isPlatformTypeSupported(X11) ─ setFrame(Frame) ─ getSize
+//!  controller.createView ─► view: isPlatformTypeSupported(X11 or HWND) ─ setFrame(Frame) ─ getSize
 //!  make_frame ─► window ─► view.attached(window) ─► window.show
 //!  every tick:  timers due ─► onTimer    descriptor readable ─► onFDIsSet
 //!               view asks resizeView ─► window.resize, view.onSize
@@ -150,7 +150,10 @@ fn editor_error(message: &str) -> PluginError {
 
 /// The window type this platform embeds views with.
 fn platform() -> FIDString {
-    kPlatformTypeX11EmbedWindowID
+    #[cfg(windows)]
+    return kPlatformTypeHWND;
+    #[cfg(not(windows))]
+    return kPlatformTypeX11EmbedWindowID;
 }
 
 impl Vst3Plugin {
@@ -198,10 +201,14 @@ impl Vst3Plugin {
                 return Err(e);
             }
         };
-        let FrameHandle::X11(id) = window.handle();
+        // An X11 id travels as the pointer value, as the VST 3 spec says; an HWND is one.
+        let parent = match window.handle() {
+            FrameHandle::X11(id) => id as usize as *mut c_void,
+            FrameHandle::Win32(hwnd) => hwnd as *mut c_void,
+        };
         // SAFETY: the window exists (the frame owns it) and stays until `removed` in
-        // `close_editor`; an X11 id travels as the pointer value, as the VST 3 spec says.
-        let attached = unsafe { view.attached(id as usize as *mut c_void, platform()) };
+        // `close_editor`.
+        let attached = unsafe { view.attached(parent, platform()) };
         if !ok(attached) {
             // SAFETY: as above.
             unsafe { view.setFrame(ptr::null_mut()) };

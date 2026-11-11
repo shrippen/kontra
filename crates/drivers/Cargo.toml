@@ -66,4 +66,5 @@ workspace = true
 [target.'cfg(windows)'.dependencies]
 # Job objects: the separator's program ends with Kontra (MIT/Apache-2.0; already in the tree
 # under cpal's dependencies, same version).
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }
+# The window of a plugin's own editor (FX5): Win32 windows and their messages.
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_System_LibraryLoader", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi"] }

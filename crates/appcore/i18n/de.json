@@ -596,6 +596,7 @@
   "usbask.question": "Hängt ein Instrument oder ein Mikrofon an „{name}“?",
   "usbask.instrument": "Instrument",
   "usbask.microphone": "Mikrofon",
+  "settings.usbrole": "USB-Eingang „{name}“",
   "settings.xruns": "Audio-Aussetzer seit dem Start: {n}",
   "about.title": "Über Kontra",
   "about.all": "Alle Bausteine ({n})",

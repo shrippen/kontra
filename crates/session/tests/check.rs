@@ -5,8 +5,8 @@ use kontra_model::{
     Arrangement, InputSource, Instrument, Note, Pitch, TempoMap, TICKS_PER_QUARTER,
 };
 use kontra_session::{
-    loopback_length_s, loopback_plan, render_performance, round_trip, write_mono_wav, InputChoice,
-    LiveSetup, LiveTake, Mistakes, NULL_DEVICE,
+    loopback_length_s, loopback_plan, render_performance, round_trip, tone_delays_s,
+    write_mono_wav, InputChoice, LiveSetup, LiveTake, Mistakes, LOOPBACK_TONES, NULL_DEVICE,
 };
 use std::time::Duration;
 
@@ -20,7 +20,7 @@ const DELAY_S: f64 = 0.015;
 fn tones() -> Arrangement {
     let mut a = Arrangement::new("Loopback", Instrument::default_bass());
     a.tempo = TempoMap::constant(100.0);
-    for i in 0..loopback_plan().len() as u64 {
+    for i in 0..LOOPBACK_TONES as u64 {
         let mut n = Note::new(i * TICKS_PER_QUARTER, TICKS_PER_QUARTER / 2, Pitch(40));
         n.string = Some(1);
         a.notes.push(n);
@@ -46,12 +46,12 @@ fn loopback_take_measures_the_round_trip() {
         backing_cache: None,
         onset_gate_db: None,
     };
-    let plan = loopback_plan();
+    let plan = loopback_plan(LOOPBACK_TONES);
     let mut live = LiveTake::start(
         &setup,
         &Instrument::default_bass(),
         plan.clone(),
-        loopback_length_s(),
+        loopback_length_s(LOOPBACK_TONES),
     )
     .unwrap();
     while !live.poll() {
@@ -63,6 +63,14 @@ fn loopback_take_measures_the_round_trip() {
     let trip = round_trip(&plan, &take).unwrap();
     assert_eq!(trip.heard, trip.sent, "{trip:?}");
     assert!((trip.median_ms - DELAY_S * 1000.0).abs() < 8.0, "{trip:?}");
+
+    // Each tone's own delay, in plan order (R3 looks at jitter and drift over long takes).
+    let delays = tone_delays_s(&plan, &take);
+    assert_eq!(delays.len(), plan.len());
+    for delay in &delays {
+        let delay = delay.expect("every tone came back");
+        assert!((delay - DELAY_S).abs() < 0.008, "{delays:?}");
+    }
 
     // The recording starts at the file's start: about 1 s before the plan's zero.
     assert!((take.start_s + LEAD_S).abs() < 0.05, "{}", take.start_s);
