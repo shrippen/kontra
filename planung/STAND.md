@@ -15,8 +15,9 @@ Offen:
   (eingebaute Karte und Scarlett) messen, braucht die Freigabe des Eigentümers.
 - Am Gerät nicht geprüft: ein echtes Plugin mit eigenem Fenster (Linux, Windows, Flatpak), die USB-Zeile mit
   einem echten Kabel.
-- Runde 20 erledigt bis auf den Umbau „eine Audio-Engine über alle Modi“ (Eigentümer 11.11., Branch
-  `audio-engine`); die `pub`-Schnittstellen aus #279 bis #284 sind freigegeben.
+- Runde 20 erledigt bis auf den Umbau „eine Audio-Engine über alle Modi“ (Eigentümer 11.11., Plan A bis E in
+  der Roadmap); A ist #285 (Lautstärke-Rampe, Branch `gain-ramp`), B (Neu-Basis der Zeit beim Anhängen) folgt.
+  Die `pub`-Schnittstellen aus #279 bis #284 sind freigegeben.
 
 ## Übergabe (11.11.2026, Nacht: Effekte, Plugins, Windows)
 

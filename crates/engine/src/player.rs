@@ -637,12 +637,14 @@ impl Mixer {
             return;
         };
         let queued = ring.slots();
-        let keep = if self.gains.monitor > 0.0 {
+        // Still heard while the volume ramps down: kept until it is silent (review #285).
+        let heard = self.gains.monitor > 0.0 || self.levels.monitor > 0.0;
+        let keep = if heard {
             (MONITOR_KEEP_S * sr) as usize
         } else {
             0
         };
-        if self.gains.monitor > 0.0 && queued <= (MONITOR_MAX_S * sr) as usize {
+        if heard && queued <= (MONITOR_MAX_S * sr) as usize {
             return;
         }
         if let Ok(chunk) = ring.read_chunk(queued.saturating_sub(keep)) {

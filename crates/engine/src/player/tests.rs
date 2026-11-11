@@ -436,6 +436,8 @@ fn a_gain_change_ramps_instead_of_clicking() {
         for i in 0..480 {
             tx.push(sine(block * 480 + i)).unwrap();
         }
+        // As the callback does: commands, then the trim, then the frames (review #285).
+        m.trim_monitor(sr);
         for i in 0..480 {
             let (l, _) = m.render((block * 480 + i) as f64 / sr, sr);
             if block >= 5 {
