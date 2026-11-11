@@ -489,3 +489,77 @@ fn reacting_band_reaches_the_running_run() {
     core.stop_live();
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// LH-EIN-19: the mixer's chain list: add, move, switch, set and remove through the core, the
+/// list the page shows follows, the settings are saved, and a full chain says so.
+#[test]
+fn the_chain_is_edited_through_the_core() {
+    let dir = temp_dir("chain-edit");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let list =
+        |core: &Core| -> serde_json::Value { serde_json::from_str(&core.effects_json()).unwrap() };
+    let names = |core: &Core| -> Vec<String> {
+        list(core)["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["kind"].as_str().unwrap().to_string())
+            .collect()
+    };
+    assert_eq!(list(&core)["empty"], true);
+
+    for kind in ["delay", "overdrive", "reverb"] {
+        assert!(core.edit_effects("add", 0, kind, 0.0).is_none());
+    }
+    assert_eq!(names(&core), ["delay", "overdrive", "reverb"]);
+
+    // Order: the last one up, the first one down; the ends stay put.
+    core.edit_effects("up", 2, "", 0.0);
+    core.edit_effects("down", 0, "", 0.0);
+    assert_eq!(names(&core), ["reverb", "delay", "overdrive"]);
+    core.edit_effects("up", 0, "", 0.0);
+    core.edit_effects("down", 2, "", 0.0);
+    assert_eq!(names(&core), ["reverb", "delay", "overdrive"]);
+    let json = list(&core);
+    assert_eq!(json["slots"][0]["first"], true);
+    assert_eq!(json["slots"][2]["last"], true);
+
+    // Values: mix only where there is a dry part; clamped; unknown keys change nothing.
+    core.edit_effects("set", 1, "b", 0.8);
+    core.edit_effects("set", 1, "mix", 2.0);
+    core.edit_effects("set", 2, "mix", 0.1);
+    core.edit_effects("set", 2, "b", 0.9);
+    core.edit_effects("on", 0, "", 0.0);
+    let slots = core.settings().monitor_chain.slots().to_vec();
+    assert_eq!((slots[1].b, slots[1].mix), (0.8, 1.0));
+    assert_eq!((slots[2].b, slots[2].mix), (0.0, 1.0));
+    assert!(!slots[0].on);
+    let delay = &list(&core)["slots"][1];
+    assert_eq!(delay["values"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        list(&core)["slots"][2]["values"].as_array().unwrap().len(),
+        1
+    );
+
+    // It is saved.
+    let again = Core::new(&dir, QaOptions::default());
+    assert_eq!(
+        again.settings().monitor_chain,
+        core.settings().monitor_chain
+    );
+
+    // Remove, then fill up: the ninth effect is refused with a hint.
+    core.edit_effects("remove", 0, "", 0.0);
+    assert_eq!(names(&core), ["delay", "overdrive"]);
+    while !list(&core)["full"].as_bool().unwrap() {
+        assert!(core.edit_effects("add", 0, "chorus", 0.0).is_none());
+    }
+    assert_eq!(names(&core).len(), kontra_model::CHAIN_SLOTS);
+    let hint = core.edit_effects("add", 0, "fuzz", 0.0);
+    assert!(hint.is_some_and(|h| h.contains('8')));
+    assert_eq!(names(&core).len(), kontra_model::CHAIN_SLOTS);
+
+    // "Neutral" empties the list.
+    core.neutral_shaping();
+    assert_eq!(list(&core)["empty"], true);
+}

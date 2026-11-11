@@ -36,7 +36,7 @@ const BUDGET: usize = 1200;
 /// list, 29.10.2026). Lower a limit when a file shrinks; drop the entry once it fits.
 const OVER_BUDGET: [(&str, usize); 5] = [
     ("crates/appcore/src/lib.rs", 2880),
-    ("crates/app/src/bridge.rs", 1950),
+    ("crates/app/src/bridge.rs", 1945),
     ("crates/content/src/exercise.rs", 2450),
     ("crates/app/qml/PracticePage.qml", 1400),
     ("crates/dsp/src/tracker.rs", 1450),

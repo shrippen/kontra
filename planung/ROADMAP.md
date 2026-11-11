@@ -87,7 +87,9 @@ drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier
 - [ ] FX3 VST3-Host (`vst3`, MIT/Apache-2.0, Bindungen des MIT-SDK): Suchpfade (`~/.vst3`, `/usr/lib/vst3`,
   `/usr/local/lib/vst3`; Windows `%COMMONPROGRAMFILES%\VST3`), Bundles `.vst3`, Parameter, Zustand, Latenz.
 - [ ] FX4 Oberfläche: Effekte im Mixer neben der Klangformung, Plugins wählen, Reihenfolge, an/aus, Parameter als
-  Liste mit Reglern (Kante), Voreinstellungen je Kette. Tastatur und Screenreader (P7).
+  Liste mit Reglern (Kante), Voreinstellungen je Kette. Tastatur und Screenreader (P7). Stand: Liste der
+  eigenen Effekte im Mixer fertig (hinzufügen, Reihenfolge per Knopf, an/aus, Werte, entfernen); Plugins und
+  Voreinstellungen fehlen.
 - [ ] FX5 Eigene Fenster der Plugins (CLAP `gui`, VST3 `IPlugView`; unter Wayland über XWayland).
 - [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket. Der
   Scan-Prozess muss mitkommen: Pakete liefern heute nur `kontra`, nicht `kontra-cli`; entweder startet `kontra`

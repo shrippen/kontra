@@ -44,11 +44,22 @@ fn play_through_a_setlist() {
         s.monitor_low_db = 4.0;
         s.monitor_compress = 0.5;
         s.monitor_warmth = 0.5;
-        s.set_monitor_drive(0.5);
-        s.set_monitor_width(0.5);
         s.monitor_limit = false;
     });
     assert!(hint.is_none(), "{hint:?}");
+    // The mixer's effect list while playing (LH-EIN-19): add, reorder, switch, set, remove.
+    for kind in ["overdrive", "delay", "widener"] {
+        assert!(core.edit_effects("add", 0, kind, 0.0).is_none());
+    }
+    core.edit_effects("up", 1, "", 0.0);
+    core.edit_effects("on", 1, "", 0.0);
+    core.edit_effects("on", 1, "", 1.0);
+    core.edit_effects("set", 0, "mix", 0.4);
+    core.edit_effects("remove", 2, "", 0.0);
+    let chain = core.settings().monitor_chain;
+    assert_eq!(chain.slots().len(), 2);
+    assert_eq!(chain.slots()[0].kind, kontra_model::EffectKind::Delay);
+    assert!(chain.slots()[1].on);
     // Limiter back on, then "Neutral": effects off, the limiter on (LH-EIN-17, review #230).
     core.remix(|s| s.monitor_limit = true);
     assert!(core.settings().monitor_limit);
@@ -60,7 +71,7 @@ fn play_through_a_setlist() {
         (s.monitor_low_db, s.monitor_compress, s.monitor_warmth),
         (0.0, 0.0, 0.0)
     );
-    assert_eq!((s.monitor_drive(), s.monitor_width()), (0.0, 0.0));
+    assert!(s.monitor_chain.is_empty());
     core.set_view("tab");
     assert!(core.is_playing());
     events.extend(run_until(&mut core, Duration::from_secs(8), |e| {

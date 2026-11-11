@@ -95,10 +95,10 @@ Entfernen bleibt nur der Datenordner. Bis Win5: in der KVM-Maschine des Eigentü
 **J-B1 Lied durchspielen** ⚙ 📽 · Persona: P2 Jens · Phase 1 · LH-BIB-01, -04, LH-MOD-01, LH-WIE-03, LH-EIN-08, -17, LH-ANZ-01, -02
 1. Ordner mit vier Guitar-Pro-Dateien der Setlist importieren (eine davon defekt).
 2. Setlist „Freitag“ anlegen, Lieder über „Stück hinzufügen …“ aufnehmen (ohne sie zu öffnen), erstes Lied, Bassspur wählen.
-3. Modus „Frei spielen“, Backing Track (synthetisch bzw. ab Phase 3 eigene MP3), durchspielen; im Mixer (X) Backing leiser, Metronom lauter, Mithören an, Tiefen +4 dB, Kompressor und Wärme halb, Overdrive und Stereobreite halb, Begrenzer aus und wieder an, „Neutral“, Mithören aus.
+3. Modus „Frei spielen“, Backing Track (synthetisch bzw. ab Phase 3 eigene MP3), durchspielen; im Mixer (X) Backing leiser, Metronom lauter, Mithören an, Tiefen +4 dB, Kompressor und Wärme halb, unter „Effekte“ Overdrive, Delay und Stereobreite hinzufügen, Delay mit „Hoch“ an die erste Stelle, Overdrive aus und wieder an, den Drive-Regler und den Anteil des Delays bewegen, Stereobreite entfernen, bis zur vollen Kette (8) weitere Effekte hinzufügen, Begrenzer aus und wieder an, „Neutral“, Mithören aus. Alles nur mit Tastatur (Tab, Leertaste, Pfeile).
 4. Mitten im Lied von Tab-Lane auf Tabulatur umschalten.
 5. Nächstes Lied der Setlist.
-Erwartet: eine verständliche Meldung zur defekten Datei, drei Lieder importiert; kein Anhalten, keine Punkte; Mixer wirkt sofort ohne Neustart, Mithören nennt die Latenz; Klangregler knacken nicht und ändern die Bewertung nicht; Umschalten ohne Aussetzer; Liedwechsel in ≤ 2 Klicks.
+Erwartet: eine verständliche Meldung zur defekten Datei, drei Lieder importiert; kein Anhalten, keine Punkte; Mixer wirkt sofort ohne Neustart, Mithören nennt die Latenz; Klangregler und Effekte knacken nicht und ändern die Bewertung nicht; die Effektliste zeigt Reihenfolge, Schalter und Werte als Text und Zahl (nicht nur Farbe), der Fokus bleibt beim verschobenen Effekt, eine volle Kette sagt es in Worten und sperrt „Hinzufügen“, „Neutral“ leert die Liste, die Kette bleibt nach Neustart; Umschalten ohne Aussetzer; Liedwechsel in ≤ 2 Klicks.
 
 **J-B2 Warten-Modus** ⚙ 🔍 · Persona: P1 Lea · Phase 1 · LH-MOD-03, LH-BEW-04
 1. Übung „Seven-Nation-Riff“ (eigene Datei) im Modus Warten.
