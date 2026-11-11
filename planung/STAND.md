@@ -3,6 +3,21 @@
 Übergabe zwischen Sitzungen. Stand: 2026-11-11. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
 
+## Übergabe (11.11.2026, Tag: Runde 19 umgesetzt, Plugin-Fenster)
+
+In `main`: #253 Win5, #270 Installer-Logo, #271/#272 Plugin-Thread und Instanzen je Slot, #273 „VST 3“ mit
+Markenhinweis, #274 benannte Ketten, #275 CLAP-Editor im Plugin-Thread (X11 über x11rb), #276 Frage beim Einstecken
+eines USB-Eingangs ohne Ausgang, #277 Knopf „Fenster“ im Mixer, VST-3-Editoren, Einheiten der Plugin-Werte,
+Plugin-Thread übersteht eine Panik. Offen als PR: Hinzufügen eines Plugins ohne Warten (FX4 fertig).
+
+Wartet auf den Eigentümer (Fragen für Runde 20 gesammelt):
+- Flatpak: Zugang zu X11 für Plugin-Fenster und Lesezugriff auf `~/.clap`, `~/.vst3` (FX6, `packaging/`).
+- Plugin-Fenster unter Windows (HWND) und R3 (DLL je Block, Audiopfad, Messung): brauchen VM bzw. Scarlett.
+- Ein Plugin-Fenster gehört dem Player, der die Kette spielt; ein Lauf schließt das im Standby offene Fenster.
+- USB-Frage: Schalter in den Einstellungen für schon steckende Kabel.
+
+Am Gerät nicht geprüft: ein echtes Plugin mit eigenem Fenster (Tests nur mit den Test-Plugins; X11 unter Xvfb).
+
 ## Übergabe (11.11.2026, Nacht: Effekte, Plugins, Windows)
 
 Auftrag des Eigentümers (10.11. abends): freie Punkte der Roadmap, Effekte auf dem Instrument mit CLAP und VST3;
