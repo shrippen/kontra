@@ -262,7 +262,12 @@ impl Core {
             && self.settings.setup_done
             && self.qa.input_file.is_none()
             && cable
-            && self.live.is_none()
+            && self.idle()
+    }
+
+    /// Nothing uses the devices: no run, tuner, ear training or calibration.
+    pub(crate) fn idle(&self) -> bool {
+        self.live.is_none()
             && self.tuner.is_none()
             && self.calibration.is_none()
             && self.loopback.is_none()

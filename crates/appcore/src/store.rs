@@ -156,7 +156,8 @@ pub struct Settings {
     pub instrument: Bass,
     pub input_kind: InputKind,
     pub input_device: Option<String>,
-    /// What hangs on a USB input without output, by device name (LH-EIN-02, round 19).
+    /// What hangs on a USB input without output, by device id (the audio server's stable node
+    /// name; the display name is translated) (LH-EIN-02, round 19).
     pub usb_inputs: BTreeMap<String, UsbRole>,
     /// MIDI device by name when `input_kind` is MIDI (port ids change when it is plugged in
     /// again); `None` or not connected: the first one.

@@ -1,6 +1,6 @@
 //! A USB input without output (a guitar cable, a webcam) that newly appears: Kontra asks once
 //! whether an instrument or a microphone hangs on it (LH-EIN-02, round 19) and remembers the
-//! answer by device name.
+//! answer by device id.
 //!
 //! ```text
 //! list, every POLL ──► new USB-only name, no answer yet ──► question (one at a time)
@@ -11,7 +11,6 @@
 //! Only the app watches (`keep_devices_open`); the first look at the start only notes what is
 //! plugged in, so nothing already there is asked about. Devices are listed, never opened.
 
-use super::Standby;
 use crate::store::UsbRole;
 use crate::{Core, UiEvent};
 use kontra_session::{list_devices, Connection, DeviceInfo, Direction};
@@ -25,18 +24,19 @@ const POLL: Duration = Duration::from_secs(5);
 #[derive(Debug, Default)]
 pub(super) struct UsbAsk {
     polled: Option<Instant>,
-    /// Names seen at the last look; `None` before the first.
+    /// Ids seen at the last look; `None` before the first.
     seen: Option<BTreeSet<String>>,
-    /// The device the open question is about.
+    /// The id of the device the open question is about.
     pending: Option<String>,
 }
 
-/// Names of the USB inputs without an output in `devices`.
-fn usb_only(devices: &[DeviceInfo]) -> BTreeSet<String> {
+/// The USB inputs without an output in `devices`, id to name. The id is the stable node name;
+/// the name is translated by the audio server.
+fn usb_only(devices: &[DeviceInfo]) -> BTreeMap<String, String> {
     devices
         .iter()
         .filter(|d| d.connection == Connection::UsbMicrophone)
-        .map(|d| d.name.clone())
+        .map(|d| (d.id.clone(), d.name.clone()))
         .collect()
 }
 
@@ -47,7 +47,7 @@ pub(super) fn as_answered(
     answers: &BTreeMap<String, UsbRole>,
 ) -> Vec<DeviceInfo> {
     for d in &mut devices {
-        let instrument = answers.get(&d.name) == Some(&UsbRole::Instrument);
+        let instrument = answers.get(&d.id) == Some(&UsbRole::Instrument);
         if instrument && d.connection == Connection::UsbMicrophone {
             d.connection = Connection::Usb;
         }
@@ -56,9 +56,9 @@ pub(super) fn as_answered(
 }
 
 impl UsbAsk {
-    /// The device to ask about after this look: a name that was not there at the last one and
-    /// has no answer. While a question is open the others wait, unseen, for their turn.
-    fn next(
+    /// Takes this look: the id to ask about, if a new one without answer came and no question
+    /// is open. What still waits for its turn stays unseen, so the next look finds it again.
+    fn look(
         &mut self,
         now: &BTreeSet<String>,
         answers: &BTreeMap<String, UsbRole>,
@@ -67,29 +67,21 @@ impl UsbAsk {
         let before = self.seen.take().unwrap_or_default();
         let mut fresh: Vec<String> = now
             .iter()
-            .filter(|n| !before.contains(*n) && !answers.contains_key(*n))
+            .filter(|id| !before.contains(*id) && !answers.contains_key(*id))
             .cloned()
             .collect();
         let ask = match (first, &self.pending) {
             (false, None) if !fresh.is_empty() => Some(fresh.remove(0)),
             _ => None,
         };
-        // What is still to ask stays unseen, so the next look finds it again.
         let waiting = if first { Vec::new() } else { fresh };
         self.seen = Some(
             now.iter()
-                .filter(|n| !waiting.contains(n))
+                .filter(|id| !waiting.contains(id))
                 .cloned()
                 .collect(),
         );
         ask
-    }
-}
-
-impl Standby {
-    /// The open question, if any.
-    fn asking(&self) -> Option<&str> {
-        self.usb.pending.as_deref()
     }
 }
 
@@ -109,12 +101,13 @@ impl Core {
         )
     }
 
-    /// Every few seconds: is there a new USB-only input to ask about? Only for the app.
+    /// Every few seconds: is there a new USB-only input to ask about? Only for the app, and only
+    /// while idle: listing asks the audio server and would stall a run, the tuner or a calibration.
     pub(crate) fn watch_usb(&mut self) -> Option<UiEvent> {
-        let usb = &mut self.standby.usb;
-        if !self.standby.wanted || self.qa.input_file.is_some() {
+        if !self.standby.wanted || self.qa.input_file.is_some() || !self.idle() {
             return None;
         }
+        let usb = &mut self.standby.usb;
         if usb.polled.is_some_and(|at| at.elapsed() < POLL) {
             return None;
         }
@@ -123,22 +116,20 @@ impl Core {
     }
 
     /// One look at `devices`: the question for a new USB-only input, or its end when the
-    /// device it was about is gone.
+    /// device it was about is gone (the ones waiting come next look).
     fn look_at_usb(&mut self, devices: &[DeviceInfo]) -> Option<UiEvent> {
-        let now = usb_only(devices);
-        let gone = self
-            .standby
-            .asking()
-            .filter(|p| !now.contains(*p))
-            .is_some();
-        if gone {
-            self.standby.usb.pending = None;
-            self.standby.usb.seen = Some(now);
+        let names = usb_only(devices);
+        let now: BTreeSet<String> = names.keys().cloned().collect();
+        // The open question holds the next one back during this look, also when it ends.
+        let id = self.standby.usb.look(&now, &self.settings.usb_inputs);
+        let gone = self.standby.usb.pending.take_if(|id| !now.contains(id));
+        if gone.is_some() {
             return Some(UiEvent::UsbAsk(String::new()));
         }
-        let name = self.standby.usb.next(&now, &self.settings.usb_inputs)?;
+        let id = id?;
+        let name = names.get(&id).cloned().unwrap_or_default();
         let text = self.tr("usbask.question", &[("name", name.clone())]);
-        self.standby.usb.pending = Some(name.clone());
+        self.standby.usb.pending = Some(id);
         Some(UiEvent::UsbAsk(
             json!({ "name": name, "text": text }).to_string(),
         ))
@@ -152,11 +143,11 @@ impl Core {
             "microphone" => UsbRole::Microphone,
             _ => return,
         };
-        let Some(name) = self.standby.usb.pending.take() else {
+        let Some(id) = self.standby.usb.pending.take() else {
             return;
         };
         self.update_settings(|s| {
-            s.usb_inputs.insert(name, role);
+            s.usb_inputs.insert(id, role);
         });
         // An instrument is an interface now: the standby looks again.
         self.release_standby();
@@ -255,7 +246,7 @@ mod tests {
         // Remembered across a restart, and plugging it in again asks nothing.
         let mut again = Core::new(&dir, QaOptions::default());
         assert_eq!(
-            again.settings.usb_inputs.get("Guitar Link"),
+            again.settings.usb_inputs.get("id-Guitar Link"),
             Some(&UsbRole::Instrument)
         );
         again.look_at_usb(&[]);
@@ -303,6 +294,58 @@ mod tests {
         );
         // Unplugged unanswered: the question goes away.
         assert_eq!(core.look_at_usb(&[a]), Some(UiEvent::UsbAsk(String::new())));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_waiting_device_is_asked_after_the_open_ones_goes() {
+        let (mut core, dir) = core("waiting");
+        let a = device("A cable", Connection::UsbMicrophone);
+        let b = device("B cable", Connection::UsbMicrophone);
+        core.look_at_usb(&[]);
+        assert_eq!(
+            asked(core.look_at_usb(&[a, b.clone()])).as_deref(),
+            Some("A cable")
+        );
+        // A is unplugged unanswered: B still waits for its turn.
+        assert_eq!(
+            core.look_at_usb(std::slice::from_ref(&b)),
+            Some(UiEvent::UsbAsk(String::new()))
+        );
+        assert_eq!(asked(core.look_at_usb(&[b])).as_deref(), Some("B cable"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_answer_follows_the_id_not_the_translated_name() {
+        let (mut core, dir) = core("id");
+        let cable = device("Guitar Link", Connection::UsbMicrophone);
+        core.look_at_usb(&[]);
+        core.look_at_usb(std::slice::from_ref(&cable));
+        core.answer_usb("instrument");
+
+        let mut renamed = cable;
+        renamed.name = "Gitarrenkabel".into();
+        core.look_at_usb(&[]);
+        assert_eq!(
+            asked(core.look_at_usb(std::slice::from_ref(&renamed))),
+            None
+        );
+        let list = as_answered(vec![renamed], &core.settings.usb_inputs);
+        assert_eq!(list[0].connection, Connection::Usb);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_watch_waits_for_an_idle_core() {
+        let (mut core, dir) = core("idle");
+        assert!(core.idle());
+        let take = dir.join("take.wav");
+        kontra_session::write_mono_wav(&take, &vec![0.0; 48_000], 48_000).unwrap();
+        core.qa.input_file = Some(take);
+        core.update_settings(|s| s.output_device = Some("kontra:null".into()));
+        core.start_tuner().unwrap();
+        assert!(!core.idle(), "a tuner listens: no device listing");
         let _ = std::fs::remove_dir_all(dir);
     }
 }

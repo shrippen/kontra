@@ -1424,7 +1424,7 @@ Durchgespielt mit gerenderten Aufnahmen (`kontra-cli render`) und Screenshots al
 - [x] Frage zu USB-Eingängen (Runde 19, LH-EIN-02): Erscheint ein USB-Eingang ohne Ausgang neu, während Kontra läuft
   (`standby/usb_ask.rs`, Liste alle 5 s, nur in der App, nie geöffnet), fragt eine Leiste unter dem Hinweis des
   Eingangs: „Hängt ein Instrument oder ein Mikrofon an <Name>?“. „Instrument“ macht das Gerät zum Interface für die
-  automatische Wahl und für „Bass hören“, „Mikrofon“ lässt es, wie es war. Die Antwort steht je Gerätename in
+  automatische Wahl und für „Bass hören“, „Mikrofon“ lässt es, wie es war. Die Antwort steht je Geräte-Kennung in
   `Settings::usb_inputs`; ein bekanntes Gerät fragt nie wieder. Beim Start fragt Kontra nicht nach Geräten, die
   schon da sind (einfach gehalten); eine Frage, deren Gerät verschwindet, geht weg. Offen: ein Schalter
   „<Gerät>: Instrument/Mikrofon“ in den Einstellungen, damit sich die Antwort ändern lässt (auch für Geräte, die
