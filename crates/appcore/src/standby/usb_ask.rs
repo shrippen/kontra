@@ -163,13 +163,14 @@ impl Core {
     }
 
     /// What hangs on `d` for the settings row: "instrument" or "microphone" for a USB input
-    /// without output, "" for every other input. Without an answer a USB-only input counts as a
-    /// microphone, as it does for the choice.
+    /// without output, "open" for one without an answer (neither side chosen, so either click
+    /// saves), "" for every other input.
     pub(crate) fn usb_role(&self, d: &DeviceInfo) -> &'static str {
-        let instrument = self.settings.usb_inputs.get(&d.id) == Some(&UsbRole::Instrument);
-        match d.connection {
-            Connection::UsbMicrophone => "microphone",
-            Connection::Usb if instrument => "instrument",
+        let answer = self.settings.usb_inputs.get(&d.id);
+        match (d.connection, answer) {
+            (Connection::UsbMicrophone, None) => "open",
+            (Connection::UsbMicrophone, Some(_)) => "microphone",
+            (Connection::Usb, Some(UsbRole::Instrument)) => "instrument",
             _ => "",
         }
     }
@@ -374,7 +375,8 @@ mod tests {
     fn the_settings_row_sets_the_role_by_id() {
         let (mut core, dir) = core("row");
         let cable = device("Guitar Link", Connection::UsbMicrophone);
-        assert_eq!(core.usb_role(&cable), "microphone", "no answer yet");
+        // No answer yet: neither side chosen, so either click saves (review #279).
+        assert_eq!(core.usb_role(&cable), "open", "no answer yet");
 
         assert!(!core.set_usb_role(&cable.id, "instrument"));
         assert_eq!(

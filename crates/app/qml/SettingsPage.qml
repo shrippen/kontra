@@ -112,7 +112,8 @@ Kirigami.ScrollablePage {
                 KanteSegmented {
                     Accessible.name: texts.t("settings.usbrole", { name: modelData.name })
                     model: [texts.t("usbask.instrument"), texts.t("usbask.microphone")]
-                    currentIndex: modelData.usbRole === "instrument" ? 0 : 1
+                    // "open": no answer yet, neither side chosen.
+                    currentIndex: modelData.usbRole === "instrument" ? 0 : modelData.usbRole === "microphone" ? 1 : -1
                     onActivated: function(index) { ctl.setUsbRole(modelData.id, index === 0 ? "instrument" : "microphone") }
                 }
             }
