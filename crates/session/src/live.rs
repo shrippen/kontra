@@ -287,9 +287,8 @@ impl Live {
     /// old input ✕ ─► new output (monitor ring, echo reference) ─► new input ─► Resumed{now}
     /// ```
     pub fn reopen(&mut self, setup: &LiveSetup) -> Result<(), EngineError> {
-        // The dropouts of the old input and the old output stay counted.
+        // The dropouts of the old input stay counted; the old output's once it is replaced.
         self.xruns_before += self.rig.input().map_or(0, Input::xruns);
-        self.xruns_before += self.practice.output().xruns();
         let instrument = self.practice.session().arrangement().instrument.clone();
         let device = RigOutput::Device(setup.output_device.clone());
         let reopened = self
@@ -303,6 +302,7 @@ impl Live {
         }
         self.output_is_silent = self.rig.player().is_none();
         self.can_monitor = self.rig.is_monitoring();
+        self.xruns_before += self.practice.output().xruns();
         self.practice.replace_output(self.rig.take_output());
         if let Some(input) = self.rig.input_mut() {
             setup.gate(input);
