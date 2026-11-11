@@ -136,21 +136,42 @@ impl Core {
     }
 
     /// The player's answer, "instrument" or "microphone", to the open question: remembered by
-    /// the device's name.
+    /// the device's id.
     pub fn answer_usb(&mut self, answer: &str) {
-        let role = match answer {
-            "instrument" => UsbRole::Instrument,
-            "microphone" => UsbRole::Microphone,
-            _ => return,
-        };
-        let Some(id) = self.standby.usb.pending.take() else {
+        let Some(id) = self.standby.usb.pending.clone() else {
             return;
         };
+        self.set_usb_role(&id, answer);
+    }
+
+    /// The role of a USB-only input as chosen in the settings (LH-EIN-02): "instrument" or
+    /// "microphone", remembered by id and applied at once. Returns whether it ended the open
+    /// question about that device.
+    pub fn set_usb_role(&mut self, id: &str, role: &str) -> bool {
+        let role = match role {
+            "instrument" => UsbRole::Instrument,
+            "microphone" => UsbRole::Microphone,
+            _ => return false,
+        };
+        let ended = self.standby.usb.pending.take_if(|p| p == id).is_some();
         self.update_settings(|s| {
-            s.usb_inputs.insert(id, role);
+            s.usb_inputs.insert(id.to_string(), role);
         });
         // An instrument is an interface now: the standby looks again.
         self.release_standby();
+        ended
+    }
+
+    /// What hangs on `d` for the settings row: "instrument" or "microphone" for a USB input
+    /// without output, "" for every other input. Without an answer a USB-only input counts as a
+    /// microphone, as it does for the choice.
+    pub(crate) fn usb_role(&self, d: &DeviceInfo) -> &'static str {
+        let instrument = self.settings.usb_inputs.get(&d.id) == Some(&UsbRole::Instrument);
+        match d.connection {
+            Connection::UsbMicrophone => "microphone",
+            Connection::Usb if instrument => "instrument",
+            _ => "",
+        }
     }
 }
 
@@ -346,6 +367,66 @@ mod tests {
         core.update_settings(|s| s.output_device = Some("kontra:null".into()));
         core.start_tuner().unwrap();
         assert!(!core.idle(), "a tuner listens: no device listing");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_settings_row_sets_the_role_by_id() {
+        let (mut core, dir) = core("row");
+        let cable = device("Guitar Link", Connection::UsbMicrophone);
+        assert_eq!(core.usb_role(&cable), "microphone", "no answer yet");
+
+        assert!(!core.set_usb_role(&cable.id, "instrument"));
+        assert_eq!(
+            core.settings.usb_inputs.get(&cable.id),
+            Some(&UsbRole::Instrument)
+        );
+        let list = as_answered(vec![cable.clone()], &core.settings.usb_inputs);
+        assert_eq!(list[0].connection, Connection::Usb);
+        assert_eq!(core.usb_role(&list[0]), "instrument");
+
+        core.set_usb_role(&cable.id, "microphone");
+        let list = as_answered(vec![cable], &core.settings.usb_inputs);
+        assert_eq!(list[0].connection, Connection::UsbMicrophone);
+        assert_eq!(core.usb_role(&list[0]), "microphone");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn an_unknown_role_changes_nothing() {
+        let (mut core, dir) = core("unknown");
+        assert!(!core.set_usb_role("id-x", "drums"));
+        assert!(core.settings.usb_inputs.is_empty());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_row_ends_the_open_question_about_its_device_only() {
+        let (mut core, dir) = core("ends");
+        let a = device("A cable", Connection::UsbMicrophone);
+        let b = device("B cable", Connection::UsbMicrophone);
+        core.look_at_usb(&[]);
+        core.look_at_usb(&[a.clone(), b.clone()]);
+
+        assert!(
+            !core.set_usb_role(&b.id, "microphone"),
+            "the question is about A"
+        );
+        assert!(core.set_usb_role(&a.id, "instrument"));
+        // Nothing open any more: answering again does nothing.
+        core.answer_usb("microphone");
+        assert_eq!(
+            core.settings.usb_inputs.get(&a.id),
+            Some(&UsbRole::Instrument)
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn other_inputs_have_no_role() {
+        let (core, dir) = core("none");
+        assert_eq!(core.usb_role(&device("Scarlett", Connection::Usb)), "");
+        assert_eq!(core.usb_role(&device("HDA", Connection::BuiltIn)), "");
         let _ = std::fs::remove_dir_all(dir);
     }
 }

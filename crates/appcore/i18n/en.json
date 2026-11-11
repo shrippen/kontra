@@ -596,6 +596,7 @@
   "usbask.question": "Is an instrument or a microphone connected to “{name}”?",
   "usbask.instrument": "Instrument",
   "usbask.microphone": "Microphone",
+  "settings.usbrole": "USB input “{name}”",
   "settings.xruns": "Audio dropouts since start: {n}",
   "about.title": "About Kontra",
   "about.all": "All libraries ({n})",
