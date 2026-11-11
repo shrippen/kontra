@@ -19,6 +19,9 @@ use std::ffi::{c_char, c_void, CString};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::{ptr, slice};
 
+mod view;
+
+pub use view::{EDITOR_GAIN, EDITOR_MAX_WIDTH, EDITOR_RESIZED, EDITOR_SIZE};
 pub use vst3;
 use vst3::{uid, Class, ComPtr, ComRef, ComWrapper, Steinberg::Vst::*, Steinberg::*};
 
@@ -393,8 +396,13 @@ impl IEditControllerTrait for Controller {
         kResultOk
     }
 
-    unsafe fn createView(&self, _name: *const c_char) -> *mut IPlugView {
-        ptr::null_mut()
+    unsafe fn createView(&self, name: *const c_char) -> *mut IPlugView {
+        if !view::is_editor(name) {
+            return ptr::null_mut();
+        }
+        let view = ComWrapper::new(view::View::new(self.handler.borrow().clone()));
+        view.to_com_ptr::<IPlugView>()
+            .map_or(ptr::null_mut(), ComPtr::into_raw)
     }
 }
 

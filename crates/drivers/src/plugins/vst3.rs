@@ -16,6 +16,7 @@
 //! changes) are classes of this file. The ones the audio thread touches are made once, at
 //! activation.
 
+mod editor;
 mod host;
 
 use super::{
@@ -524,6 +525,8 @@ pub(super) struct Vst3Plugin {
     active: bool,
     in_channels: usize,
     out_channels: usize,
+    /// The plugin's own editor while it is open.
+    editor: Option<editor::Vst3Editor>,
 }
 
 impl Vst3Plugin {
@@ -590,6 +593,7 @@ impl Vst3Plugin {
             active: false,
             in_channels,
             out_channels,
+            editor: None,
         })
     }
 
@@ -784,7 +788,8 @@ impl Vst3Plugin {
 
 impl Drop for Vst3Plugin {
     fn drop(&mut self) {
-        // The component ends inactive.
+        // The editor goes before the plugin; the component ends inactive.
+        self.close_editor();
         let _ = self.deactivate();
     }
 }
