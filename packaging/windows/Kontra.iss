@@ -36,8 +36,9 @@ LicenseFile={#SourceDir}\share\licenses\Kontra\NOTICE.txt
 OutputDir={#OutputDir}
 OutputBaseFilename=Kontra-{#AppVersion}-windows-setup
 UninstallDisplayName={#AppName}
-; Kontra's logo (packaging/icons at 16 to 256 px, joined by magick) for the setup, the start menu
-; entry and the list of installed apps; kontra.exe has no icon of its own.
+; Kontra's logo for the setup, the start menu entry and the list of installed apps (kontra.exe
+; has no icon of its own). After a change of packaging/icons, from the repository root:
+;   magick packaging/icons/{16,24,32,48,64,128,256}.png packaging/windows/Kontra.ico
 SetupIconFile=Kontra.ico
 UninstallDisplayIcon={app}\Kontra.ico
 Compression=lzma2
