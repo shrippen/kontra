@@ -190,6 +190,11 @@ impl<O: Output> Practice<O> {
         self.output.open_editor(plugin, title)
     }
 
+    /// Ends the practice; its output goes on (to the next mode).
+    pub fn into_output(self) -> O {
+        self.output
+    }
+
     /// Plays on `output` from now (a reopened device): its sounds and backing planned anew,
     /// pitch shift as before; volumes are the caller's.
     pub fn replace_output(&mut self, output: O) {

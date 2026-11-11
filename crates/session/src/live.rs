@@ -12,7 +12,7 @@ use kontra_engine::{
 };
 use kontra_model::{Arrangement, InputSource, Instrument, Pitch};
 use std::path::PathBuf;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver};
 
 /// Where the player's sound comes from.
 #[derive(Debug, Clone, PartialEq)]
@@ -152,16 +152,23 @@ pub enum LiveError {
     Setup(EngineError),
 }
 
+/// How a run came to its devices: it decides where the run starts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Opened {
+    /// Opened for this run: it starts with the input's first sample (a recording begins with
+    /// the count-in).
+    Fresh,
+    /// Taken over from the mode before: the input runs since then; the run starts now.
+    Attached,
+}
+
 /// A running live practice.
 #[derive(Debug)]
 pub struct Live {
     practice: Practice<LiveOutput>,
-    /// `None` after a reopen that failed: the run waits for the next one.
-    input: Option<Input>,
-    events: Receiver<Event>,
-    /// For a reopened input and output: same clock, same channel.
-    clock: Clock,
-    sender: Sender<Event>,
+    /// The devices; the practice holds the output meanwhile (`into_rig` returns it).
+    rig: Rig,
+    opened: Opened,
     /// Dropouts of input and output replaced by `reopen` (LH-NF-04 counts since the start).
     xruns_before: u64,
     pub output_is_silent: bool,
@@ -177,11 +184,66 @@ impl Live {
         options: PracticeOptions,
         setup: &LiveSetup,
     ) -> Result<Live, LiveError> {
-        let clock = Clock::new();
-        let (tx, rx) = channel();
-        let mut output = open_output(setup, &clock, tx.clone());
-        let output_is_silent = matches!(output, LiveOutput::Silent(_));
-        let sample_rate = output.sample_rate();
+        let instrument = arrangement.instrument.clone();
+        let device = RigOutput::Device(setup.output_device.clone());
+        let open = |output| {
+            Rig::open(
+                &setup.input,
+                output,
+                setup.source,
+                &instrument,
+                Gains::default(),
+            )
+        };
+        // An output that does not open leaves the run silent; then only the input can fail.
+        let rig = open(device)
+            .or_else(|_| open(RigOutput::Silent))
+            .map_err(LiveError::Input)?;
+        Live::run_on(
+            rig,
+            Opened::Fresh,
+            arrangement,
+            mode,
+            settings,
+            options,
+            setup,
+        )
+    }
+
+    /// Runs on the devices of `rig`, at `gains`: nothing opens, nothing goes silent.
+    pub fn on(
+        mut rig: Rig,
+        gains: Gains,
+        arrangement: Arrangement,
+        mode: Mode,
+        settings: ScoreSettings,
+        options: PracticeOptions,
+        setup: &LiveSetup,
+    ) -> Result<Live, LiveError> {
+        rig.attach(&arrangement.instrument, gains);
+        Live::run_on(
+            rig,
+            Opened::Attached,
+            arrangement,
+            mode,
+            settings,
+            options,
+            setup,
+        )
+    }
+
+    fn run_on(
+        mut rig: Rig,
+        opened: Opened,
+        arrangement: Arrangement,
+        mode: Mode,
+        settings: ScoreSettings,
+        options: PracticeOptions,
+        setup: &LiveSetup,
+    ) -> Result<Live, LiveError> {
+        let output_is_silent = rig.player().is_none();
+        let can_monitor = rig.is_monitoring();
+        let sample_rate = rig.output().sample_rate();
         let load = |path: &std::path::Path| match &setup.backing_cache {
             Some(dir) => crate::BackingCache::new(dir).load(path, sample_rate),
             None => BackingTrack::load(path, sample_rate),
@@ -198,35 +260,28 @@ impl Live {
             (Some(without), Some(original)) => Some(without.with_bass_of(&original)),
             (backing, _) => backing,
         };
-        // The input starts before the practice owns the output: it takes the player's monitor ring.
-        let player = match &mut output {
-            LiveOutput::Device(p) => Some(&mut **p),
-            LiveOutput::Silent(_) => None,
-        };
-        let mut input = Input::start(
-            &input_kind(&setup.input),
-            &arrangement.instrument,
-            setup.source,
-            &clock,
-            tx.clone(),
-            player,
-        )
-        .map_err(LiveError::Input)?;
-        setup.gate(&mut input);
-        let can_monitor = !output_is_silent && input.sample_rate == sample_rate;
-        let mut practice =
-            Practice::new(arrangement, mode, settings, options, output, clock.clone());
+        if let Some(input) = rig.input_mut() {
+            setup.gate(input);
+        }
+        let output = rig.take_output();
+        let clock = rig.clock().clone();
+        let mut practice = Practice::new(arrangement, mode, settings, options, output, clock);
         practice.set_backing(backing);
         Ok(Live {
             practice,
-            input: Some(input),
-            events: rx,
-            clock,
-            sender: tx,
+            rig,
+            opened,
             xruns_before: 0,
             output_is_silent,
             can_monitor,
         })
+    }
+
+    /// Hands the devices on to the next mode; the run's sounds stop with its `attach`.
+    pub fn into_rig(self) -> Rig {
+        let mut rig = self.rig;
+        rig.put_output(self.practice.into_output());
+        rig
     }
 
     /// Opens input and output again (LH-EIN-15, "Erneut versuchen"); the run goes on where it
@@ -236,39 +291,31 @@ impl Live {
     /// old input ✕ ─► new output (monitor ring, echo reference) ─► new input ─► Resumed{now}
     /// ```
     pub fn reopen(&mut self, setup: &LiveSetup) -> Result<(), EngineError> {
-        // The old input closes first: an exclusive device (ALSA hw) would be busy. Its dropouts
-        // and the old output's stay counted.
-        self.xruns_before += self.input.take().map_or(0, |i| i.xruns());
-        let output_xruns = self.practice.output().xruns();
-        let mut output = open_output(setup, &self.clock, self.sender.clone());
-        let player = match &mut output {
-            LiveOutput::Device(p) => Some(&mut **p),
-            LiveOutput::Silent(_) => None,
-        };
+        // The dropouts of the old input and the old output stay counted.
+        self.xruns_before += self.rig.input().map_or(0, Input::xruns);
+        self.xruns_before += self.practice.output().xruns();
         let instrument = self.practice.session().arrangement().instrument.clone();
-        let mut input = Input::start(
-            &input_kind(&setup.input),
-            &instrument,
-            setup.source,
-            &self.clock,
-            self.sender.clone(),
-            player,
-        )?;
-        setup.gate(&mut input);
-        self.output_is_silent = matches!(output, LiveOutput::Silent(_));
-        self.can_monitor = !self.output_is_silent && input.sample_rate == output.sample_rate();
-        self.input = Some(input);
-        self.xruns_before += output_xruns;
-        self.practice.replace_output(output);
+        let device = RigOutput::Device(setup.output_device.clone());
+        let reopened = self
+            .rig
+            .reopen(&setup.input, device, setup.source, &instrument);
+        // The new output takes over even without an input: the old one may be gone.
+        self.output_is_silent = self.rig.player().is_none();
+        self.can_monitor = self.rig.is_monitoring();
+        self.practice.replace_output(self.rig.take_output());
+        reopened?;
+        if let Some(input) = self.rig.input_mut() {
+            setup.gate(input);
+        }
         self.practice.handle(Event::Resumed {
-            at_s: self.clock.now_s(),
+            at_s: self.rig.clock().now_s(),
         });
         Ok(())
     }
 
     /// The input's block size in frames and its sample rate, once the device delivered audio.
     pub fn input_block(&self) -> Option<(u32, u32)> {
-        let input = self.input.as_ref()?;
+        let input = self.rig.input()?;
         input.block_frames().map(|b| (b, input.sample_rate))
     }
 
@@ -296,7 +343,7 @@ impl Live {
     /// Input and output dropouts since the start (LH-NF-04).
     pub fn xruns(&self) -> u64 {
         self.xruns_before
-            + self.input.as_ref().map_or(0, Input::xruns)
+            + self.rig.input().map_or(0, Input::xruns)
             + self.practice.output().xruns()
     }
 
@@ -314,11 +361,17 @@ impl Live {
     }
 
     /// Starts in step with the input's first sample (a recording begins with the count-in).
-    /// Waits up to two seconds for the input to start; returns false if it did not.
+    /// Waits up to two seconds for the input to start; returns false if it did not. On devices
+    /// taken over, the input started long ago: the run starts now.
     pub fn play_aligned(&mut self) -> bool {
+        if self.opened == Opened::Attached {
+            let now = self.rig.clock().now_s();
+            self.practice.play_from(now);
+            return true;
+        }
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
         while std::time::Instant::now() < deadline {
-            if let Some(start) = self.input.as_ref().and_then(Input::started_s) {
+            if let Some(start) = self.rig.input().and_then(Input::started_s) {
                 self.practice.play_from(start);
                 return true;
             }
@@ -330,14 +383,14 @@ impl Live {
     /// Drains engine events and advances the practice; call every 10–20 ms.
     pub fn poll(&mut self) -> Vec<PracticeEvent> {
         let mut out = Vec::new();
-        while let Ok(event) = self.events.try_recv() {
+        for event in self.rig.poll() {
             if let Some(e) = self.practice.handle(event) {
                 out.push(e);
             }
         }
         out.extend(self.practice.tick());
         let told = self.practice.take_told();
-        let Some(input) = self.input.as_mut() else {
+        let Some(input) = self.rig.input_mut() else {
             return out;
         };
         for told in told {
@@ -384,20 +437,26 @@ impl LiveTuner {
             Ok(rig) => rig,
             Err(_) => Rig::open(input, RigOutput::Silent, source, instrument, gains)?,
         };
-        rig.input().set_tuner(true);
+        if let Some(input) = rig.input() {
+            input.set_tuner(true);
+        }
         Ok(LiveTuner { rig })
     }
 
     /// Tunes on the devices of `rig`, with the bass at `gains`.
     pub fn on(mut rig: Rig, instrument: &Instrument, gains: Gains) -> LiveTuner {
         rig.attach(instrument, gains);
-        rig.input().set_tuner(true);
+        if let Some(input) = rig.input() {
+            input.set_tuner(true);
+        }
         LiveTuner { rig }
     }
 
     /// Hands the devices on to the next mode; the readings stop.
     pub fn into_rig(self) -> Rig {
-        self.rig.input().set_tuner(false);
+        if let Some(input) = self.rig.input() {
+            input.set_tuner(false);
+        }
         self.rig
     }
 
@@ -437,7 +496,7 @@ impl LiveTuner {
 
     /// The input's block size in frames and its sample rate, once the device delivered audio.
     pub fn input_block(&self) -> Option<(u32, u32)> {
-        let input = self.rig.input();
+        let input = self.rig.input()?;
         input.block_frames().map(|b| (b, input.sample_rate))
     }
 
