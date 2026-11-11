@@ -368,8 +368,6 @@ impl ClapPlugin {
 /// it comes back with the error, for the caller to drop after `gui.destroy`.
 // `c_ulong` is u64 on Linux and u32 on Windows: the conversion is real only on Linux.
 #[allow(clippy::useless_conversion)]
-// `c_ulong` is u64 on Linux and u32 on Windows: the conversion is real only on Linux.
-#[allow(clippy::useless_conversion)]
 fn embed(
     gui: &PluginGui,
     handle: &PluginMainThreadHandle,
