@@ -3,6 +3,9 @@
 //! ```text
 //! Linux    $CLAP_PATH (':'-separated), ~/.clap, /usr/lib/clap
 //! Windows  %CLAP_PATH% (';'), %COMMONPROGRAMFILES%\CLAP, %LOCALAPPDATA%\Programs\Common\CLAP
+//! VST3     ~/.vst3, /usr/lib/vst3, /usr/local/lib/vst3
+//!          Windows: %COMMONPROGRAMFILES%\VST3, %LOCALAPPDATA%\Programs\Common\VST3
+//!          (bundles `*.vst3` are folders)
 //! ```
 
 use super::PluginFormat;
@@ -20,8 +23,7 @@ pub fn search_paths(format: PluginFormat) -> Vec<PathBuf> {
     let mut paths = Vec::new();
     match format {
         PluginFormat::Clap => clap_paths(&mut paths),
-        // The VST3 backend adds its paths (~/.vst3, /usr/lib/vst3, …).
-        PluginFormat::Vst3 => {}
+        PluginFormat::Vst3 => vst3_system_paths(&mut paths),
     }
     let mut unique: Vec<PathBuf> = Vec::new();
     for p in paths {
@@ -57,6 +59,25 @@ fn clap_system_paths(paths: &mut Vec<PathBuf>) {
     paths.extend(join("LOCALAPPDATA", r"Programs\Common\CLAP"));
 }
 
+#[cfg(not(windows))]
+fn vst3_system_paths(paths: &mut Vec<PathBuf>) {
+    if let Some(home) = std::env::var_os("HOME") {
+        paths.push(Path::new(&home).join(".vst3"));
+    }
+    paths.push(PathBuf::from("/usr/lib/vst3"));
+    paths.push(PathBuf::from("/usr/local/lib/vst3"));
+}
+
+#[cfg(windows)]
+fn vst3_system_paths(paths: &mut Vec<PathBuf>) {
+    let join = |var: &str, rest: &str| -> Option<PathBuf> {
+        let base: OsString = std::env::var_os(var)?;
+        Some(Path::new(&base).join(rest))
+    };
+    paths.extend(join("COMMONPROGRAMFILES", "VST3"));
+    paths.extend(join("LOCALAPPDATA", r"Programs\Common\VST3"));
+}
+
 /// All plugin files in the search paths, sorted.
 pub fn plugin_files(format: PluginFormat) -> Vec<PathBuf> {
     let mut files = Vec::new();
@@ -78,6 +99,12 @@ fn collect(format: PluginFormat, dir: &Path, depth: usize, files: &mut Vec<PathB
         let Ok(meta) = fs::metadata(&path) else {
             continue;
         };
+        // A VST3 bundle is a folder; it is the plugin, not a folder to search.
+        let bundle = format == PluginFormat::Vst3 && PluginFormat::of_file(&path) == Some(format);
+        if meta.is_dir() && bundle {
+            files.push(path);
+            continue;
+        }
         if meta.is_dir() {
             if depth < MAX_DEPTH {
                 collect(format, &path, depth + 1, files);
@@ -111,5 +138,24 @@ mod tests {
         assert_eq!(files.len(), 2);
         assert!(files[0].ends_with("a.clap"));
         assert!(files[1].ends_with("b.CLAP"));
+    }
+
+    #[test]
+    fn vst3_bundle_is_one_hit_and_not_searched() {
+        let dir = std::env::temp_dir().join(format!("kontra-vst3-paths-{}", std::process::id()));
+        let inside = dir.join("Foo.vst3").join("Contents").join("x86_64-linux");
+        fs::create_dir_all(&inside).unwrap();
+        fs::write(inside.join("Foo.so"), b"").unwrap();
+        fs::write(dir.join("Single.vst3"), b"").unwrap();
+        fs::write(dir.join("a.clap"), b"").unwrap();
+
+        let mut files = Vec::new();
+        collect(PluginFormat::Vst3, &dir, 0, &mut files);
+        files.sort();
+        fs::remove_dir_all(&dir).unwrap();
+
+        assert_eq!(files.len(), 2);
+        assert!(files[0].ends_with("Foo.vst3"));
+        assert!(files[1].ends_with("Single.vst3"));
     }
 }

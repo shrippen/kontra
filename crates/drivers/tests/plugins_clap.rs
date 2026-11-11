@@ -346,3 +346,17 @@ fn renders_a_file() {
     assert_scaled(&out.channels[0], &samples, 0.5);
     assert_scaled(&out.channels[1], &samples, 0.5);
 }
+
+/// The plugin may end before its processor (the audio thread lets go later): no crash.
+#[test]
+fn plugin_dropped_before_processor() {
+    let mut plugin = gain_plugin();
+    let mut processor = plugin.activate(RATE, BLOCK as u32).expect("activate");
+    let input = ramp();
+    run(&mut processor, &input).expect("process");
+
+    drop(plugin);
+    let [l, _] = run(&mut processor, &input).expect("process after the plugin is gone");
+    assert_scaled(&l, &input, 1.0);
+    drop(processor);
+}

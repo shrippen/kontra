@@ -51,9 +51,12 @@ fn scan(listing: Listing, timeout_s: f32) -> CliResult {
         program,
         args: vec!["plugins".into(), "probe".into()],
     };
-    let timeout = Duration::try_from_secs_f32(timeout_s).map_err(|_| {
-        format!("--timeout-s must be a positive number of seconds, not {timeout_s}")
-    })?;
+    let timeout = Duration::try_from_secs_f32(timeout_s)
+        .ok()
+        .filter(|t| !t.is_zero())
+        .ok_or_else(|| {
+            format!("--timeout-s must be a positive number of seconds, not {timeout_s}")
+        })?;
 
     let mut report = ScanReport::default();
     let mut searched = Vec::new();

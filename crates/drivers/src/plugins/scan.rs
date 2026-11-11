@@ -10,7 +10,7 @@
 //!                  └─► BrokenFile { path, reason }
 //! ```
 
-use super::{clap, PluginError, PluginFormat, PluginInfo};
+use super::{clap, vst3, PluginError, PluginFormat, PluginInfo};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use std::io::Read;
@@ -56,7 +56,7 @@ enum Answer {
 pub fn probe_file(format: PluginFormat, path: &Path) -> Result<Vec<PluginInfo>, PluginError> {
     match format {
         PluginFormat::Clap => clap::probe(path),
-        PluginFormat::Vst3 => Err(PluginError::Unsupported(format)),
+        PluginFormat::Vst3 => vst3::probe(path),
     }
 }
 
