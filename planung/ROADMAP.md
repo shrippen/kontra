@@ -80,20 +80,22 @@ drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier
 - [ ] FX1 Kette: Overdrive und Breite (LH-EIN-17) werden Slots einer Kette mit freier Reihenfolge; dazu eigene
   Effekte, die am Bass üblich sind: Chorus, Hüllkurvenfilter (Auto-Wah), Oktaver, Delay, Hall, Fuzz. Allokationsfrei,
   Umbau ohne Knacken (Überblenden), Latenz der Kette sichtbar.
-- [ ] FX2 CLAP-Host (`clack-host`, MIT/Apache-2.0): Suchpfade nach Spezifikation (`CLAP_PATH`, `~/.clap`,
+- [x] FX2 CLAP-Host (`clack-host`, MIT/Apache-2.0): Suchpfade nach Spezifikation (`CLAP_PATH`, `~/.clap`,
   `/usr/lib/clap`; Windows `%COMMONPROGRAMFILES%\CLAP`, `%LOCALAPPDATA%\Programs\Common\CLAP`), Parameter,
   Zustand, Latenz. Das Durchsuchen läuft in einem eigenen Prozess (`kontra-cli plugins scan`): ein abstürzendes
   Plugin reißt Kontra nicht mit, es wird als kaputt gemerkt.
-- [ ] FX3 VST3-Host (`vst3`, MIT/Apache-2.0, Bindungen des MIT-SDK): Suchpfade (`~/.vst3`, `/usr/lib/vst3`,
+- [x] FX3 VST3-Host (`vst3`, MIT/Apache-2.0, Bindungen des MIT-SDK): Suchpfade (`~/.vst3`, `/usr/lib/vst3`,
   `/usr/local/lib/vst3`; Windows `%COMMONPROGRAMFILES%\VST3`), Bundles `.vst3`, Parameter, Zustand, Latenz.
 - [ ] FX4 Oberfläche: Effekte im Mixer neben der Klangformung, Plugins wählen, Reihenfolge, an/aus, Parameter als
   Liste mit Reglern (Kante), Voreinstellungen je Kette. Tastatur und Screenreader (P7). Stand: Liste der
-  eigenen Effekte im Mixer fertig (hinzufügen, Reihenfolge per Knopf, an/aus, Werte, entfernen); Plugins und
-  Voreinstellungen fehlen.
+  eigenen Effekte im Mixer fertig (hinzufügen, Reihenfolge per Knopf, an/aus, Werte, entfernen); Plugins
+  ebenso: „Plugins suchen“ (Prozess je Datei über `kontra --probe-plugin`, Ergebnis in `plugins.json`), Auswahl
+  mit Name, Hersteller und Format, Parameter als Regler, Zustand in den Einstellungen; ein Plugin, das nicht
+  lädt, bleibt als stummer Eintrag mit Grund. Voreinstellungen je Kette fehlen.
 - [ ] FX5 Eigene Fenster der Plugins (CLAP `gui`, VST3 `IPlugView`; unter Wayland über XWayland).
 - [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket. Der
-  Scan-Prozess muss mitkommen: Pakete liefern heute nur `kontra`, nicht `kontra-cli`; entweder startet `kontra`
-  sich selbst zum Prüfen eines Plugins, oder das Paket bringt das Prüfprogramm mit.
+  Scan-Prozess kommt mit: `kontra` startet sich selbst zum Prüfen (`--probe-plugin <Datei>`, vor Qt in `main`),
+  die Pakete brauchen kein zweites Programm; offen bleibt, dass die Sandbox die Plugin-Ordner sieht.
 - Offen für den Eigentümer: Name und Logo „VST“ sind Marken von Steinberg; ob Kontra sie nennen darf, klärt die
   nächste Runde.
 

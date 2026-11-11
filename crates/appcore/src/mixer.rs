@@ -2,10 +2,10 @@
 
 use crate::{instrument_from, standby, Settings};
 use kontra_model::ChainSpec;
-use kontra_session::{Gains, Limit, Shaping};
+use kontra_session::{Gains, Limit, PluginBank, PluginProblems, Shaping};
 
 /// The mixer's volumes for the player; monitoring off mutes the input.
-pub(crate) fn gains(settings: &Settings) -> Gains {
+pub(crate) fn gains(settings: &Settings, problems: &PluginProblems) -> Gains {
     let volume = |v: f64| v.clamp(0.0, 1.0) as f32;
     Gains {
         click: volume(settings.metronome_volume),
@@ -33,14 +33,15 @@ pub(crate) fn gains(settings: &Settings) -> Gains {
             },
             bands: instrument_from(settings).tone_bands(),
         },
+        plugins: Some(PluginBank::new(settings.plugins.clone(), problems.clone())),
     }
 }
 
 /// Ear training plays its prompts as tones at the "Vorspielen" volume (round 8).
-pub(crate) fn ear_gains(settings: &Settings) -> Gains {
+pub(crate) fn ear_gains(settings: &Settings, problems: &PluginProblems) -> Gains {
     Gains {
         tone: settings.prompt_volume.clamp(0.0, 1.0) as f32,
-        ..gains(settings)
+        ..gains(settings, problems)
     }
 }
 
@@ -50,12 +51,12 @@ impl crate::Core {
     pub fn remix(&mut self, change: impl FnOnce(&mut Settings)) -> Option<String> {
         let was_on = self.settings.monitor;
         self.update_settings(change);
-        let gains = gains(&self.settings);
+        let gains = gains(&self.settings, &self.plugins.problems);
         if let Some(live) = self.live.as_mut() {
             live.practice_mut().set_gains(gains);
         }
         if let Some(live_ear) = self.live_ear.as_mut() {
-            live_ear.set_gains(ear_gains(&self.settings));
+            live_ear.set_gains(ear_gains(&self.settings, &self.plugins.problems));
         }
         self.remix_standby();
         let change = if !was_on && self.settings.monitor {
@@ -87,6 +88,7 @@ impl crate::Core {
             s.monitor_compress = 0.0;
             s.monitor_warmth = 0.0;
             s.monitor_chain = ChainSpec::EMPTY;
+            s.plugins.clear();
             s.monitor_limit = true;
         })
     }

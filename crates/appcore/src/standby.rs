@@ -112,7 +112,7 @@ impl Core {
 
     /// New volumes and effects for the standby monitor.
     pub(crate) fn remix_standby(&mut self) {
-        let gains = gains(&self.settings);
+        let gains = gains(&self.settings, &self.plugins.problems);
         if let Some(monitor) = self.standby.monitor.as_mut() {
             monitor.set_gains(gains);
         }
@@ -173,7 +173,11 @@ impl Core {
         };
         self.standby.no_input = false;
         let setup = self.monitor_setup(input);
-        let opened = LiveMonitor::start(&setup, &self.instrument(), gains(&self.settings));
+        let opened = LiveMonitor::start(
+            &setup,
+            &self.instrument(),
+            gains(&self.settings, &self.plugins.problems),
+        );
         match opened {
             Some(Ok(monitor)) => {
                 self.standby.monitor = Some(monitor);

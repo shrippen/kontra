@@ -14,6 +14,7 @@ mod course;
 mod data;
 pub mod ear;
 mod effects;
+pub mod fx_plugins;
 mod goal;
 mod i18n;
 mod input_state;
@@ -174,6 +175,8 @@ pub enum UiEvent {
     ChainStep {
         chain_json: String,
     },
+    /// The search for plugins finished (`Core::effects_json` lists them).
+    PluginScan,
     /// Calibration finished: new latency (if measured) and a text for the user.
     Calibrated {
         latency_ms: Option<f64>,
@@ -290,6 +293,8 @@ pub struct Core {
     lesson_goal: Option<(PathBuf, kontra_session::lesson::Goal)>,
     /// A course folder open live (LH-LRN-21).
     live_course: Option<live_course::LiveCourse>,
+    /// Plugins of the effect chain: the scan, and why slots are bypassed (LH-EIN-20).
+    plugins: fx_plugins::Plugins,
 }
 
 /// One pass of the loop without notes on screen (DIDAKTIK I1), at the speed it was practised.
@@ -342,6 +347,7 @@ impl Core {
             chain: None,
             lesson_goal: None,
             live_course: None,
+            plugins: fx_plugins::Plugins::new(data_dir),
             notice: None,
             active_setlist: None,
             lost: None,
@@ -1741,7 +1747,8 @@ impl Core {
         live.practice_mut()
             .set_speed(self.probe.map_or(self.speed, |p| p.speed));
         live.practice_mut().set_loop(self.loop_range());
-        live.practice_mut().set_gains(gains(&self.settings));
+        live.practice_mut()
+            .set_gains(gains(&self.settings, &self.plugins.problems));
         let silent = live.output_is_silent;
         self.live = Some(live);
         self.finished_at_s = None;
@@ -1814,6 +1821,7 @@ impl Core {
         let mut events: Vec<UiEvent> = raw.into_iter().filter_map(|e| self.translate(e)).collect();
         events.extend(ear_event);
         events.extend(self.prepare_backing());
+        events.extend(self.poll_plugins());
         events.extend(self.advise_level(&events));
         // The meter holds the peak the advice judges, so both say the same.
         let held = f64::from(self.level.held_peak_db());
@@ -2369,7 +2377,7 @@ impl Core {
         self.release_standby();
         let mut live_ear = LiveEar::start(&setup, &instrument)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
-        live_ear.set_gains(ear_gains(&self.settings));
+        live_ear.set_gains(ear_gains(&self.settings, &self.plugins.problems));
         self.live_ear = Some(live_ear);
         self.input.remember(InputUse::Ear, setup.input);
         let stats = store::load(&self.data_dir.join(quiz_stats::FILE));

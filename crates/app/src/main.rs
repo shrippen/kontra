@@ -6,6 +6,7 @@
 //!        [--quit-after MS] [--theme kante|kante-light|system] [--language de|en]
 //!        [--mode play|song|wait|workshop] [--view lane|tab|notation|combined|keys] [--calibrate]
 //!        [--loop-bars FROM-TO] [--probe] [--remove-bass]
+//! kontra --probe-plugin FILE      (internal: the plugin search checks one file, prints a JSON line)
 //!
 //! Window size for QA (e.g. a 1280×720 beamer at 150 %): Qt's own `-qwindowgeometry 853x480`
 //! with `QT_SCALE_FACTOR=1.5`.
@@ -15,6 +16,7 @@ mod args;
 mod bridge;
 #[cfg(debug_assertions)]
 mod live_qml;
+mod probe;
 mod qt_env;
 mod sync_check;
 mod translator;
@@ -51,6 +53,10 @@ const PLAIN_STYLE: &str = "Fusion";
 const EXIT_USAGE: i32 = 64;
 
 fn main() {
+    // The plugin search probes one file per process, before Qt and audio (LH-EIN-20).
+    if probe::answer() {
+        return;
+    }
     // Before Qt and audio: help or a typo never opens the input (QA 27.10.).
     let options = args::AppArgs::from_env();
     if options.help {

@@ -4,7 +4,7 @@
 //!
 //! ```text
 //! ChainSpec = [ Slot 1 ][ Slot 2 ] … [ Slot 8 ]      free order, at most `CHAIN_SLOTS`
-//! Slot      = kind + on/off + a, b, mix (each 0..=1)
+//! Slot      = kind + on/off + a, b, mix (each 0..=1); a plugin slot also names its plugin
 //! ```
 //!
 //! `a` and `b` mean something different per kind (see `EffectKind`); `mix` blends the dry
@@ -63,6 +63,9 @@ pub struct SlotSpec {
     pub a: f32,
     pub b: f32,
     pub mix: f32,
+    /// For `EffectKind::Plugin`: the `PluginSpec::id` of its plugin; else 0.
+    #[serde(default)]
+    pub plugin: u32,
 }
 
 impl SlotSpec {
@@ -75,6 +78,15 @@ impl SlotSpec {
             a,
             b,
             mix,
+            plugin: 0,
+        }
+    }
+
+    /// A switched-on slot for the plugin `plugin` (`PluginSpec::id`); the mix stays at 1.
+    pub fn for_plugin(plugin: u32) -> SlotSpec {
+        SlotSpec {
+            plugin,
+            ..SlotSpec::new(EffectKind::Plugin)
         }
     }
 
@@ -101,6 +113,7 @@ const IDLE_SLOT: SlotSpec = SlotSpec {
     a: 0.0,
     b: 0.0,
     mix: 0.0,
+    plugin: 0,
 };
 
 /// The slots in order. `Copy` (a fixed array), so it travels with the mixer's settings to the
@@ -187,7 +200,7 @@ impl ChainSpec {
         loop {
             match (a.next(), b.next()) {
                 (None, None) => return true,
-                (Some(x), Some(y)) if x.kind == y.kind => {}
+                (Some(x), Some(y)) if x.kind == y.kind && x.plugin == y.plugin => {}
                 _ => return false,
             }
         }
