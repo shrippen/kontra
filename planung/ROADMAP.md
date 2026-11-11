@@ -235,9 +235,11 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 - USB-Eingang ohne Ausgang: Schalter „Instrument/Mikrofon“ je Gerät in den Einstellungen (LH-EIN-02).
 - Plugin-Instanzen über einen Wechsel des Players hinweg: eine Instanz je Plugin für alle Player (#283). „Das
   Wechseln von Player zu Player darf nicht spürbar sein!“ Gemessen 11.11. (`kontra-cli check --steps switch`,
-  Scarlett, PipeWire, Block 128, je 10 Wechsel, zwei Läufe): der Ausgang ist bei jedem Wechsel 31–42 ms stumm
-  (Median 36–39 ms; Schließen 2–6 ms, Öffnen 24–29 ms, bis zum ersten Block weitere 7–15 ms), ohne Ausblenden.
-  Das ist hörbar; eine Audio-Engine, die über alle Modi offen bleibt, wird eine eigene Frage an den Eigentümer.
+  Scarlett, PipeWire, Block 128, je 10 Wechsel, zwei Läufe): schon das Schließen und Öffnen der Geräte lässt den
+  Ausgang 31–42 ms stumm (Median 36–37 ms; Schließen 2–6 ms, Öffnen 21–25 ms, bis zum ersten Block 5–15 ms), ohne
+  Ausblenden. Das ist die Untergrenze: ein echter Wechsel ist länger (ein Lauf lädt seinen Begleit-Track, bevor er
+  den Eingang öffnet; zurück in die Bereitschaft bis zu einem Tick von 16 ms; die Effektkette blendet erst danach
+  ein; hörbar wird der Bass erst mit dem ersten Block des Eingangs). Das ist hörbar; eine Audio-Engine, die über alle Modi offen bleibt, wird eine eigene Frage an den Eigentümer.
 
 ### Entscheidungen Runde 19 (11.11.2026)
 

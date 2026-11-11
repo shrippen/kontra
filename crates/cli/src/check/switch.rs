@@ -6,11 +6,13 @@
 //!  │◄─ closing ─►│◄──── opening ────►│◄──── first callback ────►│ = silent gap
 //! ```
 //!
-//! Every player opens and closes its devices the same way, so monitor to monitor stands for
-//! all of them. Monitoring stays at 0: the loop cable of the loopback step would feed back.
+//! A lower bound: monitor to monitor only closes and opens the devices. A real switch adds what
+//! the new mode does before its input opens (a run loads its backing), up to one app tick until
+//! the standby opens again, and the fade-in of the effect chain; the bass is heard only once the
+//! input delivers too. Monitoring stays at 0: the loop cable of the loopback step would feed
+//! back.
 
 use super::Report;
-use crate::args::CheckArgs;
 use crate::CliResult;
 use kontra_model::Instrument;
 use kontra_session as session;
@@ -27,7 +29,8 @@ const MS_PER_S: f64 = 1000.0;
 /// How often the first block is looked for: fine enough for a gap in ms.
 const POLL: Duration = Duration::from_millis(1);
 
-/// One switch: when the old devices were closed, the new ones opened, the new output ran.
+/// One switch, each from its start: when the old devices were closed, the new ones opened, the
+/// new output ran.
 struct Gap {
     closed_ms: f64,
     opened_ms: f64,
@@ -36,7 +39,6 @@ struct Gap {
 
 pub(super) fn switch(
     report: &mut Report,
-    _a: &CheckArgs,
     setup: &session::LiveSetup,
     instrument: &Instrument,
 ) -> CliResult {
@@ -71,15 +73,18 @@ pub(super) fn switch(
 
     let mut silent: Vec<f64> = gaps.iter().map(|g| g.running_ms).collect();
     silent.sort_by(f64::total_cmp);
-    let median = silent[silent.len() / 2];
+    let median = median(&silent);
     let worst = silent[silent.len() - 1];
     report.line(format!(
-        "- silent gap per switch: median {median:.0} ms, worst {worst:.0} ms ({SWITCHES} switches)"
+        "- silent gap per switch, at least: median {median:.0} ms, worst {worst:.0} ms ({SWITCHES} switches)"
     ));
     for g in &gaps {
         report.line(format!(
-            "  - closed {:.0} ms, opened {:.0} ms, running {:.0} ms",
-            g.closed_ms, g.opened_ms, g.running_ms
+            "  - close {:.0} ms, open {:.0} ms, first block {:.0} ms, silent {:.0} ms",
+            g.closed_ms,
+            g.opened_ms - g.closed_ms,
+            g.running_ms - g.opened_ms,
+            g.running_ms
         ));
     }
     report.json.insert(
@@ -119,6 +124,27 @@ fn running(monitor: &session::LiveMonitor) -> CliResult {
     Ok(())
 }
 
+/// The middle of sorted values; with an even count the mean of the two middle ones.
+fn median(sorted: &[f64]) -> f64 {
+    let half = sorted.len() / 2;
+    if sorted.len() % 2 == 1 {
+        return sorted[half];
+    }
+    (sorted[half - 1] + sorted[half]) / 2.0
+}
+
 fn ms(since: Instant) -> f64 {
     since.elapsed().as_secs_f64() * MS_PER_S
+}
+
+#[cfg(test)]
+mod tests {
+    use super::median;
+
+    /// Review #284: with ten switches the upper of the two middle values was called the median.
+    #[test]
+    fn the_median_of_an_even_count_is_the_mean_of_the_middle() {
+        assert_eq!(median(&[1.0, 2.0, 3.0, 4.0]), 2.5);
+        assert_eq!(median(&[1.0, 2.0, 3.0]), 2.0);
+    }
 }
