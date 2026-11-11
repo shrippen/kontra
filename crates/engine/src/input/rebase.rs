@@ -28,7 +28,7 @@ pub(super) struct Rebasing {
     pub(super) settle: AtomicBool,
     /// Starts settled again so far; the worker follows when this moves.
     pub(super) settled: AtomicU64,
-    /// The device's sample count where the new start holds from (bits of the last rebase).
+    /// The device's sample count where the new start of the last rebase holds from.
     pub(super) from_sample: AtomicU64,
     /// The start before it (`f64` bits): the samples before `from_sample` keep it.
     pub(super) old_start: AtomicU64,
@@ -65,8 +65,11 @@ impl Follow {
             self.seen = settled;
             let old_start_s = f64::from_bits(rebasing.old_start.load(Ordering::Relaxed));
             let from_sample = rebasing.from_sample.load(Ordering::Relaxed);
-            // A second rebase before the first was reached: the data before both keeps the
-            // start from before the first.
+            // A second rebase seen before the first was reached: the data before both keeps
+            // the start from before the first. Not covered: two rebases the worker sees as one
+            // (both within one of its rounds), where the callback already replaced the first
+            // one's start; the backlog before the first then runs on the second's start. Modes
+            // attach seconds apart, so this needs two switches within a few ms.
             let old_start_s = self.pending.map_or(old_start_s, |p| p.old_start_s);
             self.pending = Some(Pending {
                 from_sample,

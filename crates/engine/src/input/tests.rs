@@ -798,21 +798,17 @@ fn a_rebase_during_a_stall_counts_the_loss_once() {
     started = 0.8;
     rebasing.settled.fetch_add(1, Ordering::Release);
 
+    // The first block after the stall still runs on the old start (it lies before the sample
+    // the new one holds from), the later ones on the new: each ends where the device is.
     let resumed = 1.8;
     for i in 0..3 {
-        take(
-            &mut analysis,
-            &mut watch,
-            &mut follow,
-            resumed + (i * BLOCK) as f64 / rate,
-            0.8,
-            started,
+        let at_s = resumed + (i * BLOCK) as f64 / rate;
+        take(&mut analysis, &mut watch, &mut follow, at_s, 0.8, started);
+        let heard = analysis.heard_s().expect("heard");
+        let want = at_s + BLOCK as f64 / rate;
+        assert!(
+            (heard - want).abs() < 1e-6,
+            "block {i}: heard up to {heard}, not {want}"
         );
     }
-    let heard = analysis.heard_s().expect("heard");
-    let want = resumed + (3 * BLOCK) as f64 / rate;
-    assert!(
-        (heard - want).abs() < 1e-6,
-        "heard up to {heard}, not {want}"
-    );
 }

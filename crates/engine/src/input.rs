@@ -691,10 +691,12 @@ fn start_device(
                 anchor.rebase(captured_s);
             }
             let first_s = anchor.guess(clock_cb.now_s() - first_ago_s, captured_s);
-            started_cb.store(first_s.to_bits(), Ordering::Relaxed);
+            // Counted before the new start shows: a worker that reads the new start (Acquire)
+            // also sees the rebase and where it holds from (review #286).
             if rebase {
                 rebasing_cb.settled.fetch_add(1, Ordering::Release);
             }
+            started_cb.store(first_s.to_bits(), Ordering::Release);
             block_cb.fetch_max(
                 u32::try_from(samples.len()).unwrap_or(u32::MAX),
                 Ordering::Relaxed,
@@ -738,7 +740,7 @@ fn start_device(
                     std::thread::sleep(IDLE);
                     continue;
                 }
-                let start = f64::from_bits(started.load(Ordering::Relaxed));
+                let start = f64::from_bits(started.load(Ordering::Acquire));
                 let start = (!start.is_nan()).then_some(start);
                 let arrival = Arrival {
                     now_s: clock_worker.now_s(),
