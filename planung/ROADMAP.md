@@ -565,7 +565,7 @@ Erkennung und Messung:
 - [x] Summenbegrenzer (Review #230; Runde 18, 10.11.: bauen, immer an; LH-WIE-06, #244): Mithören plus Backing,
   Klick und Ton konnte die Summe über Vollaussteuerung bringen, dort schnitt der Mixer hart. Jetzt liegt auf der
   Summe ein Begrenzer (−1 dBFS, gekoppelt, 80 ms), die Echo-Referenz folgt ihm. Hörprobe und Xruns am Gerät offen.
-- [x] Stimmgerät hört mit (11.11.): Bei „Bass hören“ an und Kabel-Eingang öffnet es auch den Ausgang; der Bass läuft mit Lautstärke und Effekten des Mixers durch (`TunerMonitor`).
+- [x] Stimmgerät hört mit (11.11.): Bei „Bass hören“ an und Kabel-Eingang öffnet es auch den Ausgang; der Bass läuft mit Lautstärke und Effekten des Mixers durch (`TunerMonitor`). Offen: Hörprobe, Latenz und Xruns am Scarlett; bei verschiedenen Abtastraten bleibt das Stimmgerät stumm ohne Hinweis.
 - [x] E5 Notenende (LH-BEW-10, `h-detect`): Der Tracker folgt jeder Note bis zu ihrem Ende und meldet `NoteEnd`
   (Engine `Event::End`): `Muted` (Pegel ≥ 10 dB binnen 60 ms und 100 ms lang unten, oder bis zum nächsten Anschlag),
   `Decayed` (30 dB unter dem Start), `Replaced` (nächster Anschlag oder Legato-Ton). `korpus ends` (09.11.):

@@ -308,6 +308,8 @@ pub struct LiveTuner {
     events: Receiver<Event>,
     /// The output the bass passes through while tuning (LH-EIN-18); `None`: silent.
     output: Option<Player>,
+    #[cfg(test)]
+    errors: Sender<Event>,
 }
 
 /// The bass heard while tuning: the output and the mixer's volume and effects.
@@ -326,6 +328,8 @@ impl LiveTuner {
     ) -> Result<LiveTuner, EngineError> {
         let clock = Clock::new();
         let (tx, rx) = channel();
+        #[cfg(test)]
+        let errors = tx.clone();
         // An output that does not open leaves the tuner silent: tuning matters more.
         let mut output = monitor.and_then(|m| {
             let config = monitor_config(input, m.output_device.as_deref());
@@ -346,12 +350,26 @@ impl LiveTuner {
             input,
             events: rx,
             output,
+            #[cfg(test)]
+            errors,
         })
+    }
+
+    /// Test: the output reports an error, as a device that went away would.
+    #[cfg(test)]
+    fn fail_output_for_test(&self) {
+        let _ = self.errors.send(Event::Error(
+            kontra_engine::Direction::Output,
+            "gone".into(),
+        ));
     }
 
     /// True while the bass passes through the output.
     pub fn is_monitoring(&self) -> bool {
-        self.output.is_some()
+        // At different rates the input's samples are not passed on (the tap drops them).
+        self.output
+            .as_ref()
+            .is_some_and(|o| o.sample_rate() == self.input.sample_rate)
     }
 
     /// New volumes and effects; heard at once.
@@ -386,6 +404,8 @@ impl LiveTuner {
                     rms_db,
                     clipped,
                 }),
+                // The monitor's output went away: tuning goes on without it.
+                Event::Error(kontra_engine::Direction::Output, _) => self.output = None,
                 Event::Error(side, m) => out.push(PracticeEvent::Error(side, m)),
                 Event::Ended => out.push(PracticeEvent::InputEnded),
                 Event::Stalled { .. } => out.push(PracticeEvent::InputStalled),
@@ -770,5 +790,36 @@ mod tests {
         };
         assert_eq!(input.buffer_frames, Some(LIVE_BUFFER_FRAMES));
         assert_eq!(output_config(None).buffer_frames, Some(LIVE_BUFFER_FRAMES));
+    }
+
+    /// Review #258: an output error while tuning ended the tuner. Tuning comes first: only the
+    /// monitor goes.
+    #[test]
+    fn an_output_error_keeps_the_tuner() {
+        let path =
+            std::env::temp_dir().join(format!("kontra-tuner-err-{}.wav", std::process::id()));
+        crate::write_mono_wav(&path, &vec![0.0; 48_000], 48_000).unwrap();
+        let input = InputChoice::File {
+            path,
+            laptop_jack: false,
+        };
+        let monitor = TunerMonitor {
+            output_device: Some("kontra:null".into()),
+            gains: Gains::default(),
+        };
+        let started = LiveTuner::start(
+            &input,
+            &Instrument::default_bass(),
+            InputSource::Line,
+            Some(monitor),
+        );
+        let mut tuner = started.unwrap();
+        tuner.fail_output_for_test();
+        let events = tuner.poll();
+        assert!(
+            !events.iter().any(|e| matches!(e, PracticeEvent::Error(..))),
+            "{events:?}"
+        );
+        assert!(!tuner.is_monitoring());
     }
 }

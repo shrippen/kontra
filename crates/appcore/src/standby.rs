@@ -547,13 +547,18 @@ mod tuner {
 
     /// A core that tunes on a recording, with the null output (no device is opened).
     fn core(name: &str) -> (Core, std::path::PathBuf) {
+        take_core(name, 48_000)
+    }
+
+    /// The same with a recording at `rate` (the null output runs at 48 kHz).
+    fn take_core(name: &str, rate: u32) -> (Core, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!("kontra-tuner-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::create_dir_all(&dir);
         let silent = serde_json::json!({ "output_device": "kontra:null" });
         let _ = std::fs::write(dir.join("settings.json"), silent.to_string());
         let take = dir.join("take.wav");
-        kontra_session::write_mono_wav(&take, &vec![0.0; 48_000], 48_000).unwrap();
+        kontra_session::write_mono_wav(&take, &vec![0.0; rate as usize], rate).unwrap();
         let qa = QaOptions {
             input_file: Some(take),
             laptop_jack: false,
@@ -579,6 +584,35 @@ mod tuner {
     fn the_tuner_is_silent_when_monitoring_is_off() {
         let (mut core, dir) = core("off");
         core.update_settings(|s| s.monitor = false);
+        core.start_tuner().unwrap();
+        assert!(!heard(&core));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Review #258: "Bass hören" switched on in the running tuner stayed silent; off again
+    /// closes the output.
+    #[test]
+    fn switching_monitoring_restarts_the_tuner() {
+        let (mut core, dir) = core("flip");
+        core.update_settings(|s| s.monitor = false);
+        core.start_tuner().unwrap();
+        assert!(!heard(&core));
+        core.remix(|s| s.monitor = true);
+        assert!(
+            core.is_tuning() && heard(&core),
+            "on: the bass passes through"
+        );
+        core.remix(|s| s.monitor = false);
+        assert!(core.is_tuning() && !heard(&core), "off: silent");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Review #258: input and output at different rates cannot pass the bass through; the
+    /// tuner must not claim it does.
+    #[test]
+    fn different_rates_are_not_monitoring() {
+        let (mut core, dir) = take_core("rates", 44_100);
+        core.update_settings(|s| s.monitor = true);
         core.start_tuner().unwrap();
         assert!(!heard(&core));
         let _ = std::fs::remove_dir_all(dir);
