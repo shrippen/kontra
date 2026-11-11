@@ -144,7 +144,16 @@ impl Core {
     /// State of the plugin search for the mixer: a line of text and the broken files.
     fn scan_json(&self) -> serde_json::Value {
         let report = self.plugins.report();
-        let text = if self.plugins.is_scanning() {
+        let progress = self.plugins.progress();
+        let text = if let Some(p) = progress {
+            let args = [
+                ("done", (p.done + 1).to_string()),
+                ("total", p.total.to_string()),
+                ("name", p.name.clone()),
+                ("found", p.found.to_string()),
+            ];
+            self.tr("fx.scan.progress", &args)
+        } else if self.plugins.is_scanning() {
             self.tr("fx.scan.running", &[])
         } else if report.plugins.is_empty() && report.broken.is_empty() {
             self.tr("fx.scan.none", &[])
@@ -166,7 +175,13 @@ impl Core {
                 json!({ "file": file, "reason": b.reason })
             })
             .collect();
-        json!({ "running": self.plugins.is_scanning(), "text": text, "broken": broken })
+        json!({
+            "running": self.plugins.is_scanning(),
+            "text": text,
+            "broken": broken,
+            "done": progress.map_or(0, |p| p.done),
+            "total": progress.map_or(0, |p| p.total),
+        })
     }
 
     fn slot_json(&self, index: usize, slot: &SlotSpec, len: usize) -> serde_json::Value {

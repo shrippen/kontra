@@ -236,8 +236,10 @@ fn the_search_runs_in_the_background_and_is_kept() {
     assert!(effects(&core)["scan"]["running"].as_bool().unwrap());
 
     let start = std::time::Instant::now();
-    while core.poll_effects().is_empty() {
+    // Progress is news too; the search is over when the page no longer sees it running.
+    while effects(&core)["scan"]["running"].as_bool().unwrap() {
         assert!(start.elapsed().as_secs() < 30, "the search does not end");
+        core.poll_effects();
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
     assert!(!effects(&core)["scan"]["running"].as_bool().unwrap());
@@ -248,6 +250,39 @@ fn the_search_runs_in_the_background_and_is_kept() {
     let again = Core::new(&dir, QaOptions::default());
     assert_eq!(again.plugins.report(), &kept);
     let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The search showed only "Searching …" until its end. Before the fix: "no progress while the
+/// search runs" (`scan.done`, `scan.total` and the file's name were not in the scan JSON).
+#[test]
+fn the_search_shows_its_progress() {
+    let dir = temp_dir("fx-plugin-scan-progress");
+    let mut core = Core::new(&dir, QaOptions::default());
+    // Two files that are never loaded: the probe is a shell that answers slowly with no plugins.
+    core.plugins
+        .set_files(vec!["first.clap".into(), "second.clap".into()]);
+    core.plugins.set_probe(ProbeCommand {
+        program: "sh".into(),
+        args: vec!["-c".into(), "sleep 0.3; echo '{\"Plugins\":[]}'".into()],
+    });
+    core.edit_effects("scan", 0, "", 0.0);
+
+    let mut shown = Vec::new();
+    let start = std::time::Instant::now();
+    while effects(&core)["scan"]["running"].as_bool().unwrap() {
+        assert!(start.elapsed().as_secs() < 30, "the search does not end");
+        if !core.poll_effects().is_empty() {
+            shown.push(effects(&core)["scan"].clone());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    let midway = shown
+        .iter()
+        .find(|s| s["running"] == true && s["total"] == 2 && s["done"] == 1)
+        .expect("no progress while the search runs");
+    let text = midway["text"].as_str().unwrap();
+    assert!(text.contains("second"), "the file being probed: {text}");
+    assert!(text.contains('2'), "the count: {text}");
 }
 
 #[test]

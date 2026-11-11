@@ -475,6 +475,8 @@
   "fx.scan.button": "Plugins suchen",
   "fx.scan.button.hint": "Sucht CLAP- und VST® 3-Plugins in den üblichen Ordnern. Jede Datei wird in einem eigenen Prozess geprüft; was dabei abstürzt oder hängt, gilt als kaputt.",
   "fx.scan.running": "Suche läuft …",
+  "fx.scan.progress": "Prüfe {done} von {total}: {name}. Gefunden: {found}.",
+  "fx.scan.bar": "Fortschritt der Plugin-Suche",
   "fx.scan.none": "Keine Plugins gefunden. Suche starten, um CLAP- und VST® 3-Plugins zu finden.",
   "fx.scan.result": "Gefunden: {found}. Kaputt: {broken}.",
   "fx.scan.broken": "{file}: {reason}",

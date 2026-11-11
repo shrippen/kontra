@@ -47,6 +47,21 @@ pub fn probe_plugin_line(path: &Path) -> String {
     probe_line(path)
 }
 
+/// Where a running scan stands: `done` of `total` files are probed, `name` is being probed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ScanProgress {
+    pub(crate) done: usize,
+    pub(crate) total: usize,
+    pub(crate) name: String,
+    pub(crate) found: usize,
+}
+
+/// What the scan thread tells the page.
+enum ScanMessage {
+    Progress(ScanProgress),
+    Done(ScanReport),
+}
+
 /// What the mixer knows about plugins: the last scan, a scan that runs, and why slots are
 /// bypassed.
 #[derive(Debug, Default)]
@@ -64,10 +79,14 @@ pub(crate) struct Plugins {
     texts: BTreeMap<(u32, u32), (f64, String)>,
     crash_marker: PathBuf,
     report: ScanReport,
-    running: Option<mpsc::Receiver<ScanReport>>,
+    running: Option<mpsc::Receiver<ScanMessage>>,
     cache: PathBuf,
     /// The program that probes a file; `None`: this program.
     probe: Option<ProbeCommand>,
+    /// The files to scan instead of the plugin folders; only tests set it.
+    files: Option<Vec<PathBuf>>,
+    /// Where the running scan stands; `None` before it knows its files.
+    progress: Option<ScanProgress>,
     /// The chain latency the page shows, in tenths of a ms; `None` while nothing plays.
     shown_latency: Option<i64>,
     /// The plugin instances every player shares (Runde 20: a switch of players loads nothing).
@@ -122,6 +141,8 @@ impl Plugins {
             running: None,
             cache,
             probe: None,
+            files: None,
+            progress: None,
             shown_latency: None,
             rack: PluginRack::default(),
         }
@@ -202,39 +223,65 @@ impl Plugins {
             return false;
         }
         let probe = self.probe.clone().or_else(own_probe);
+        let only = self.files.clone();
         let (tx, rx) = mpsc::channel();
         self.running = Some(rx);
+        self.progress = None;
         std::thread::spawn(move || {
             let mut report = ScanReport::default();
             let Some(probe) = probe else {
-                let _ = tx.send(report);
+                let _ = tx.send(ScanMessage::Done(report));
                 return;
             };
-            for format in FORMATS {
-                let mut part = scan_files(&plugin_files(format), &probe, PROBE_TIMEOUT);
+            let files =
+                only.unwrap_or_else(|| FORMATS.iter().flat_map(|f| plugin_files(*f)).collect());
+            for (done, file) in files.iter().enumerate() {
+                let name = file
+                    .file_stem()
+                    .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+                let found = report.plugins.len();
+                let _ = tx.send(ScanMessage::Progress(ScanProgress {
+                    done,
+                    total: files.len(),
+                    name,
+                    found,
+                }));
+                let mut part = scan_files(std::slice::from_ref(file), &probe, PROBE_TIMEOUT);
                 report.plugins.append(&mut part.plugins);
                 report.broken.append(&mut part.broken);
             }
-            let _ = tx.send(report);
+            let _ = tx.send(ScanMessage::Done(report));
         });
         true
     }
 
-    /// True once when a scan has finished; its result is kept and saved.
+    /// Where the running scan stands.
+    pub(crate) fn progress(&self) -> Option<&ScanProgress> {
+        self.progress.as_ref()
+    }
+
+    /// True when the scan moved on (a new file) or has finished; a finished scan's result is
+    /// kept and saved.
     pub(crate) fn poll(&mut self) -> bool {
         let Some(running) = self.running.as_ref() else {
             return false;
         };
-        let done = match running.try_recv() {
-            Ok(report) => Some(report),
-            Err(mpsc::TryRecvError::Empty) => return false,
-            Err(mpsc::TryRecvError::Disconnected) => Some(ScanReport::default()),
+        let mut moved = false;
+        let finished = loop {
+            match running.try_recv() {
+                Ok(ScanMessage::Progress(progress)) => {
+                    self.progress = Some(progress);
+                    moved = true;
+                }
+                Ok(ScanMessage::Done(report)) => break report,
+                Err(mpsc::TryRecvError::Empty) => return moved,
+                Err(mpsc::TryRecvError::Disconnected) => break ScanReport::default(),
+            }
         };
         self.running = None;
-        if let Some(report) = done {
-            let _ = store::save(&self.cache, &report);
-            self.report = report;
-        }
+        self.progress = None;
+        let _ = store::save(&self.cache, &finished);
+        self.report = finished;
         true
     }
 
@@ -242,6 +289,12 @@ impl Plugins {
     #[cfg(test)]
     pub(crate) fn set_report(&mut self, report: ScanReport) {
         self.report = report;
+    }
+
+    /// Scans these files instead of the plugin folders (a test must not touch the real ones).
+    #[cfg(test)]
+    pub(crate) fn set_files(&mut self, files: Vec<PathBuf>) {
+        self.files = Some(files);
     }
 
     #[cfg(test)]
