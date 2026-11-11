@@ -44,16 +44,17 @@ zip="$OUT/Kontra-$VERSION-windows-portable.zip"
 "$bsdtar" -a -c -f "$(cygpath -w "$PWD/$zip")" -C "$(cygpath -w "$(dirname "$DIST")")" "$(basename "$DIST")"
 test -f "$zip"
 
-# Agent files belong in no package (release-changelog); the licences do.
+# Agent files belong in no package (release-changelog); the licences do. Here-strings, not
+# pipes: grep -q stops at the first match, and pipefail fails on the writer's SIGPIPE.
 listing="$("$bsdtar" -tf "$(cygpath -w "$PWD/$zip")")"
-if echo "$listing" | grep -qiE '(^|/)(CLAUDE|agent|RULES|RELEASE)\.md$'; then
+if grep -qiE '(^|/)(CLAUDE|agent|RULES|RELEASE)\.md$' <<<"$listing"; then
     echo "installer-windows: rules files in the ZIP" >&2
     exit 1
 fi
-if echo "$listing" | grep -q '\\'; then
+if grep -q '\\' <<<"$listing"; then
     echo "installer-windows: backslashes in the ZIP's entry names" >&2
     exit 1
 fi
-echo "$listing" | grep -q '/share/licenses/Kontra/GPL-3.0.txt'
-echo "$listing" | grep -q '/share/licenses/Kontra/LGPL-3.0.txt'
+grep -q '/share/licenses/Kontra/GPL-3.0.txt' <<<"$listing"
+grep -q '/share/licenses/Kontra/LGPL-3.0.txt' <<<"$listing"
 ls -l "$OUT"
