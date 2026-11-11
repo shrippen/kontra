@@ -55,6 +55,38 @@ fn effects(core: &Core) -> Value {
     serde_json::from_str(&core.effects_json()).unwrap()
 }
 
+/// "add" of a found plugin, waited for: the hint it gave, if any.
+fn add_plugin(core: &mut Core, key: &str) -> Option<String> {
+    if let Some(hint) = core.edit_effects("add", 0, key, 0.0) {
+        return Some(hint);
+    }
+    settle_adding(core)
+}
+
+/// Waits for a plugin "add" to finish: the hint it ended with, if any.
+fn settle_adding(core: &mut Core) -> Option<String> {
+    let start = std::time::Instant::now();
+    loop {
+        for event in core.poll_effects() {
+            if let UiEvent::Message(text) = event {
+                return Some(text);
+            }
+        }
+        if effects(core)["adding"]
+            .as_str()
+            .unwrap_or_default()
+            .is_empty()
+        {
+            return None;
+        }
+        assert!(
+            start.elapsed() < std::time::Duration::from_secs(5),
+            "add never ended"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+}
+
 #[test]
 fn a_found_plugin_becomes_a_slot_with_sliders() {
     let mut core = core_with_plugin("fx-plugin-add");
@@ -63,7 +95,7 @@ fn a_found_plugin_becomes_a_slot_with_sliders() {
     assert_eq!(json["plugins"][0]["format"], "CLAP");
     let key = json["plugins"][0]["key"].as_str().unwrap().to_string();
 
-    assert!(core.edit_effects("add", 0, &key, 0.0).is_none());
+    assert!(add_plugin(&mut core, &key).is_none());
     let slot = &effects(&core)["slots"][0];
     assert_eq!(slot["kind"], "plugin");
     assert_eq!(slot["name"], "Kontra Test Gain");
@@ -83,7 +115,7 @@ fn a_found_plugin_becomes_a_slot_with_sliders() {
 #[test]
 fn the_plugin_and_its_values_survive_a_restart() {
     let mut core = core_with_plugin("fx-plugin-keep");
-    core.edit_effects("add", 0, "plugin:0", 0.0);
+    add_plugin(&mut core, "plugin:0");
     core.edit_effects("add", 0, "reverb", 0.0);
     core.edit_effects("set", 0, GAIN_PARAM, 0.5);
     let saved = core.settings().clone();
@@ -103,8 +135,8 @@ fn the_plugin_and_its_values_survive_a_restart() {
 #[test]
 fn removing_the_slot_removes_the_plugin() {
     let mut core = core_with_plugin("fx-plugin-remove");
-    core.edit_effects("add", 0, "plugin:0", 0.0);
-    core.edit_effects("add", 0, "plugin:0", 0.0);
+    add_plugin(&mut core, "plugin:0");
+    add_plugin(&mut core, "plugin:0");
     let ids: Vec<u32> = core.settings().plugins.iter().map(|p| p.id).collect();
     assert_eq!(
         ids,
@@ -126,7 +158,7 @@ fn a_plugin_that_does_not_load_is_not_added() {
     report.plugins[0].path = "/nonexistent/gone.clap".into();
     core.plugins.set_report(report);
 
-    let hint = core.edit_effects("add", 0, "plugin:0", 0.0).unwrap();
+    let hint = add_plugin(&mut core, "plugin:0").unwrap();
     assert!(hint.contains("Kontra Test Gain"), "{hint}");
     assert!(core.settings().monitor_chain.is_empty());
     assert!(core.settings().plugins.is_empty());
@@ -135,7 +167,7 @@ fn a_plugin_that_does_not_load_is_not_added() {
 #[test]
 fn a_plugin_that_is_gone_says_so_and_the_chain_stays() {
     let mut core = core_with_plugin("fx-plugin-gone");
-    core.edit_effects("add", 0, "plugin:0", 0.0);
+    add_plugin(&mut core, "plugin:0");
     core.edit_effects("add", 0, "reverb", 0.0);
     core.reconfigure(|s| s.plugins[0].path = "/nonexistent/gone.clap".into());
 
@@ -148,7 +180,7 @@ fn a_plugin_that_is_gone_says_so_and_the_chain_stays() {
 #[test]
 fn a_reason_from_the_engine_reaches_the_slot() {
     let mut core = core_with_plugin("fx-plugin-reason");
-    core.edit_effects("add", 0, "plugin:0", 0.0);
+    add_plugin(&mut core, "plugin:0");
     let id = core.settings().plugins[0].id;
     // The engine notes it when it cannot load an instance for a chain.
     core.plugins.problems.note(id, "the plugin crashed".into());
@@ -164,12 +196,12 @@ fn a_reason_from_the_engine_reaches_the_slot() {
 #[test]
 fn a_new_plugin_shows_no_old_reason() {
     let mut core = core_with_plugin("fx-plugin-old-reason");
-    core.edit_effects("add", 0, "plugin:0", 0.0);
+    add_plugin(&mut core, "plugin:0");
     let id = core.settings().plugins[0].id;
     core.plugins.problems.note(id, "the plugin crashed".into());
     core.edit_effects("remove", 0, "", 0.0);
 
-    core.edit_effects("add", 0, "plugin:0", 0.0);
+    add_plugin(&mut core, "plugin:0");
     assert_eq!(effects(&core)["slots"][0]["problem"], "");
 }
 
@@ -178,7 +210,7 @@ fn a_new_plugin_shows_no_old_reason() {
 fn a_plugin_value_reads_in_the_language() {
     let mut core = core_with_plugin("fx-plugin-shown");
     core.update_settings(|s| s.language = Some("de".into()));
-    core.edit_effects("add", 0, "plugin:0", 0.0);
+    add_plugin(&mut core, "plugin:0");
     let shown = |core: &Core| effects(core)["slots"][0]["values"][0]["shown"].clone();
     assert_eq!(
         shown(&core),
@@ -204,7 +236,7 @@ fn the_search_runs_in_the_background_and_is_kept() {
     assert!(effects(&core)["scan"]["running"].as_bool().unwrap());
 
     let start = std::time::Instant::now();
-    while core.poll_effects().is_none() {
+    while core.poll_effects().is_empty() {
         assert!(start.elapsed().as_secs() < 30, "the search does not end");
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
@@ -234,7 +266,7 @@ fn the_chain_latency_is_a_line_for_the_page() {
 #[test]
 fn a_change_made_by_the_plugin_is_saved() {
     let mut core = core_with_plugin("fx-plugin-own-change");
-    core.edit_effects("add", 0, "plugin:0", 0.0);
+    add_plugin(&mut core, "plugin:0");
     let id = core.settings().plugins[0].id;
     let param = 7;
 
@@ -264,7 +296,7 @@ fn a_change_in_the_tuner_is_saved() {
     kontra_session::write_mono_wav(&take, &vec![0.0; 48_000], 48_000).unwrap();
     core.qa.input_file = Some(take);
     core.update_settings(|s| s.monitor = true);
-    core.edit_effects("add", 0, "plugin:0", 0.0);
+    add_plugin(&mut core, "plugin:0");
     core.start_tuner().unwrap();
 
     // The test plugin answers this gain with its own change to GAIN_REPORTED (0.5).
@@ -289,7 +321,7 @@ fn a_change_in_the_tuner_is_saved() {
 fn a_plugin_that_took_kontra_down_stays_off() {
     let mut core = core_with_plugin("fx-plugin-crash");
     core.update_settings(|s| s.language = Some("en".into()));
-    core.edit_effects("add", 0, "plugin:0", 0.0);
+    add_plugin(&mut core, "plugin:0");
     let dir = core.data_dir.clone();
     let spec = core.settings().plugins[0].clone();
     assert!(core.settings().monitor_chain.slots()[0].on);
@@ -320,7 +352,7 @@ fn a_plugin_that_took_kontra_down_stays_off() {
 #[test]
 fn a_marker_of_another_plugin_leaves_the_slot_on() {
     let mut core = core_with_plugin("fx-plugin-crash-other");
-    core.edit_effects("add", 0, "plugin:0", 0.0);
+    add_plugin(&mut core, "plugin:0");
     let dir = core.data_dir.clone();
     drop(core);
     std::fs::write(
@@ -342,7 +374,7 @@ fn a_plugin_window_needs_the_running_chain() {
         .as_str()
         .unwrap()
         .to_string();
-    core.edit_effects("add", 0, &key, 0.0);
+    add_plugin(&mut core, &key);
     core.edit_effects("add", 0, "reverb", 0.0);
 
     let hint = core.edit_effects("window", 0, "", 0.0);
@@ -359,7 +391,7 @@ fn values_show_the_plugins_text() {
         .as_str()
         .unwrap()
         .to_string();
-    core.edit_effects("add", 0, &key, 0.0);
+    add_plugin(&mut core, &key);
     let id = core.settings().plugins[0].id;
     let shown = |core: &Core| effects(core)["slots"][0]["values"][0]["shown"].clone();
     assert_eq!(shown(&core), "1");
@@ -383,13 +415,54 @@ fn a_reused_id_starts_without_texts() {
         .as_str()
         .unwrap()
         .to_string();
-    core.edit_effects("add", 0, &key, 0.0);
+    add_plugin(&mut core, &key);
     let id = core.settings().plugins[0].id;
     core.plugins
         .note_texts(vec![(id, 7, 1.0, "old text".into())]);
 
     core.edit_effects("remove", 0, "", 0.0);
-    core.edit_effects("add", 0, &key, 0.0);
+    add_plugin(&mut core, &key);
     assert_eq!(core.settings().plugins[0].id, id, "the id comes back");
     assert_eq!(effects(&core)["slots"][0]["values"][0]["shown"], "1");
+}
+
+/// FX4: "add" does not wait for the plugin thread (it may be loading another plugin for
+/// seconds): the mixer says the plugin is being added, the slot comes once it is described.
+#[test]
+fn adding_a_plugin_does_not_wait() {
+    let mut core = core_with_plugin("fx-plugin-async");
+    assert!(core.edit_effects("add", 0, "plugin:0", 0.0).is_none());
+    assert!(core.settings().monitor_chain.is_empty(), "not yet");
+    let adding = effects(&core)["adding"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    assert!(adding.contains("Kontra Test Gain"), "{adding}");
+
+    let hint = settle_adding(&mut core);
+    assert_eq!(hint, None);
+    assert_eq!(core.settings().monitor_chain.slots().len(), 1);
+    assert_eq!(effects(&core)["adding"], "");
+}
+
+/// Review #278: "Neutral" or a loaded chain while a plugin is being added: the plugin does not
+/// come back into the new chain.
+#[test]
+fn a_new_chain_drops_the_plugin_being_added() {
+    let mut core = core_with_plugin("fx-plugin-async-neutral");
+    assert!(core.edit_effects("add", 0, "plugin:0", 0.0).is_none());
+    core.neutral_shaping();
+    assert_eq!(settle_adding(&mut core), None);
+    assert!(core.settings().monitor_chain.is_empty());
+
+    core.edit_effects("add", 0, "reverb", 0.0);
+    core.edit_effects("save", 0, "Hall", 0.0);
+    assert!(core.edit_effects("add", 0, "plugin:0", 0.0).is_none());
+    core.edit_effects("load", 0, "", 0.0);
+    assert_eq!(settle_adding(&mut core), None);
+    assert_eq!(
+        core.settings().monitor_chain.slots().len(),
+        1,
+        "only the reverb"
+    );
 }

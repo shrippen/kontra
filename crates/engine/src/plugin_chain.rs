@@ -41,8 +41,8 @@
 
 use kontra_drivers::plugins::FrameMaker;
 use kontra_drivers::plugins::{
-    PendingLoad, PluginError, PluginFormat, PluginHandle, PluginHost, PluginInfo, PluginLoaded,
-    PluginProcessor, PluginSetup, CHANNELS,
+    PendingDescribe, PendingLoad, PluginDescription, PluginError, PluginFormat, PluginHandle,
+    PluginHost, PluginInfo, PluginLoaded, PluginProcessor, PluginSetup, CHANNELS,
 };
 use kontra_dsp::{Chain, Insert};
 use kontra_model::{ChainSpec, EffectKind, ParamSpec, PluginSpec};
@@ -143,7 +143,41 @@ pub fn describe_plugin(
     info: &PluginInfo,
     crash_marker: Option<&Path>,
 ) -> Result<PluginSpec, PluginError> {
-    let setup = PluginSetup {
+    let described = PluginHost::global().describe(describe_setup(info, crash_marker))?;
+    Ok(spec_of(info, described))
+}
+
+/// As `describe_plugin`, without waiting for the plugin thread (it may be loading another
+/// plugin for seconds): the spec comes through `PendingSpec::poll`.
+pub fn describe_plugin_later(info: &PluginInfo, crash_marker: Option<&Path>) -> PendingSpec {
+    PendingSpec {
+        pending: PluginHost::global().describe_later(describe_setup(info, crash_marker)),
+        info: info.clone(),
+    }
+}
+
+/// A `describe_plugin_later` in progress.
+#[derive(Debug)]
+pub struct PendingSpec {
+    pending: PendingDescribe,
+    info: PluginInfo,
+}
+
+impl PendingSpec {
+    /// The spec once the plugin is described, `None` before. Not blocking.
+    pub fn poll(&self) -> Option<Result<PluginSpec, PluginError>> {
+        let described = self.pending.poll()?;
+        Some(described.map(|d| spec_of(&self.info, d)))
+    }
+
+    /// The plugin being described.
+    pub fn info(&self) -> &PluginInfo {
+        &self.info
+    }
+}
+
+fn describe_setup(info: &PluginInfo, crash_marker: Option<&Path>) -> PluginSetup {
+    PluginSetup {
         format: info.format,
         path: info.path.clone(),
         id: info.id.clone(),
@@ -152,8 +186,11 @@ pub fn describe_plugin(
         sample_rate: f64::from(DESCRIBE_RATE),
         max_block: BLOCK as u32,
         crash_marker: crash_marker.map(Path::to_path_buf),
-    };
-    let described = PluginHost::global().describe(setup)?;
+    }
+}
+
+/// The settings entry of a described plugin (id 0: the caller numbers it).
+fn spec_of(info: &PluginInfo, described: PluginDescription) -> PluginSpec {
     let params = described
         .params
         .into_iter()
@@ -166,7 +203,7 @@ pub fn describe_plugin(
             value: p.current,
         })
         .collect();
-    Ok(PluginSpec {
+    PluginSpec {
         id: 0,
         format: info.format.key().into(),
         path: info.path.clone(),
@@ -175,7 +212,7 @@ pub fn describe_plugin(
         vendor: info.vendor.clone(),
         state: described.state,
         params,
-    })
+    }
 }
 
 /// The rate a plugin is tried at before it is added; any usual one works.

@@ -46,7 +46,9 @@ pub use korpus::{
 };
 pub use offline::{analyze, analyze_without, retract, revise, revise_pitch};
 pub use player::{Accent, BackingAudio, Gains, NullOutput, Output, Player, Sound};
-pub use plugin_chain::{describe_plugin, ChainBuilder, PluginBank, PluginProblems};
+pub use plugin_chain::{
+    describe_plugin, describe_plugin_later, ChainBuilder, PendingSpec, PluginBank, PluginProblems,
+};
 pub use strings_korpus::{tell_strings, StringTold};
 
 use kontra_dsp::TunerReading;

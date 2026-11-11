@@ -405,6 +405,7 @@
   "fx.empty": "No effects.",
   "fx.add": "Add effect",
   "fx.add.button": "Add {name}",
+  "fx.plugin.adding": "Loading {name} …",
   "fx.window.label": "Window",
   "fx.window": "Open the window of {name}",
   "fx.window.none": "Kontra cannot show the window of {name} here yet.",
