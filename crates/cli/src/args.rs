@@ -146,6 +146,9 @@ pub struct CheckArgs {
     /// Steps in order (default: loopback, calibrate, takes).
     #[arg(long, value_delimiter = ',')]
     pub steps: Vec<CheckStep>,
+    /// Tones of the loopback take, 0.6 s apart (R3: 2000 for a 20-minute run).
+    #[arg(long, default_value_t = kontra_session::LOOPBACK_TONES)]
+    pub loopback_tones: usize,
     /// Takes to record by name (default: all; see the list when it starts).
     #[arg(long, value_delimiter = ',')]
     pub takes: Vec<String>,
