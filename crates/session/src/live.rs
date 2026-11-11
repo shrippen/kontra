@@ -12,7 +12,7 @@ use kontra_engine::{
 };
 use kontra_model::{Arrangement, InputSource, Instrument, Pitch};
 use std::path::PathBuf;
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::channel;
 
 /// Where the player's sound comes from.
 #[derive(Debug, Clone, PartialEq)]
@@ -560,10 +560,8 @@ const PROMPT_TAIL_S: f64 = 0.1;
 /// ```
 #[derive(Debug)]
 pub struct LiveEar {
-    clock: Clock,
-    output: LiveOutput,
-    input: Input,
-    events: Receiver<Event>,
+    /// Its output plays the prompts; the bass is not heard through it (`quiet`).
+    rig: Rig,
     a4_hz: f64,
     /// Engine time from which notes count as answers.
     listen_from_s: f64,
@@ -572,59 +570,64 @@ pub struct LiveEar {
 impl LiveEar {
     /// What the effect chain delays the bass by, in ms; `None` without a device output.
     pub fn chain_latency_ms(&self) -> Option<f64> {
-        self.output.chain_latency_ms()
+        self.rig.player().map(Player::chain_latency_ms)
     }
 
     /// As `Live::take_param_changes`.
     pub fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
-        self.output.take_param_changes()
+        self.rig.output().take_param_changes()
     }
 
     /// As `Live::open_editor`.
     pub fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
-        self.output.open_editor(plugin, title)
+        self.rig.output().open_editor(plugin, title)
     }
 
     /// As `Live::take_param_texts`.
     pub fn take_param_texts(&mut self) -> Vec<(u32, u32, f64, String)> {
-        self.output.take_param_texts()
+        self.rig.output().take_param_texts()
     }
 
     pub fn start(setup: &LiveSetup, instrument: &Instrument) -> Result<LiveEar, EngineError> {
-        let clock = Clock::new();
-        let (tx, rx) = channel();
-        let output = open_output(setup, &clock, tx.clone());
-        let mut input = Input::start(
-            &input_kind(&setup.input),
-            instrument,
-            setup.source,
-            &clock,
-            tx,
-            None,
-        )?;
-        setup.gate(&mut input);
-        Ok(LiveEar {
-            clock,
-            output,
-            input,
-            events: rx,
+        let rig = open_rig(setup, instrument, quiet(Gains::default()))?;
+        Ok(LiveEar::with(rig, setup, instrument))
+    }
+
+    /// Ear training on the devices of `rig`, its prompts at `gains`.
+    pub fn on(mut rig: Rig, setup: &LiveSetup, instrument: &Instrument, gains: Gains) -> LiveEar {
+        rig.attach(instrument, quiet(gains));
+        LiveEar::with(rig, setup, instrument)
+    }
+
+    fn with(mut rig: Rig, setup: &LiveSetup, instrument: &Instrument) -> LiveEar {
+        if let Some(input) = rig.input_mut() {
+            setup.gate(input);
+        }
+        LiveEar {
+            rig,
             a4_hz: instrument.a4_hz,
             listen_from_s: 0.0,
-        })
+        }
+    }
+
+    /// Hands the devices on to the next mode.
+    pub fn into_rig(self) -> Rig {
+        self.rig
     }
 
     pub fn set_gains(&mut self, gains: kontra_engine::Gains) {
-        self.output.set_gains(gains);
+        self.rig.output().set_gains(quiet(gains));
     }
 
     /// Plays `tones` now (replacing a prompt still sounding); returns its length in seconds.
     pub fn play(&mut self, tones: &[PromptTone]) -> f64 {
-        let start_s = self.clock.now_s() + PROMPT_LEAD_S;
-        self.output.clear_from(0.0);
+        let start_s = self.rig.clock().now_s() + PROMPT_LEAD_S;
+        let output = self.rig.output();
+        output.clear_from(0.0);
         let mut end_s = start_s;
         for tone in tones {
             let at_s = start_s + tone.at_s;
-            self.output.schedule(
+            output.schedule(
                 at_s,
                 Sound::Tone {
                     hz: tone.pitch.hz(self.a4_hz) as f32,
@@ -635,23 +638,22 @@ impl LiveEar {
             end_s = end_s.max(at_s + tone.duration_s);
         }
         self.listen_from_s = end_s + PROMPT_TAIL_S;
-        end_s - self.clock.now_s()
+        end_s - self.rig.clock().now_s()
     }
 
     /// Whether the prompt still sounds (answers are not heard yet).
     pub fn is_prompting(&self) -> bool {
-        self.clock.now_s() < self.listen_from_s
+        self.rig.clock().now_s() < self.listen_from_s
     }
 
     pub fn output_is_silent(&self) -> bool {
-        matches!(self.output, LiveOutput::Silent(_))
+        self.rig.player().is_none()
     }
 
     /// Answers and levels since the last call.
     pub fn poll(&mut self) -> Vec<PracticeEvent> {
-        let _ = &self.input;
         let mut out = Vec::new();
-        while let Ok(event) = self.events.try_recv() {
+        for event in self.rig.poll() {
             match event {
                 Event::Note(n) if n.onset_s >= self.listen_from_s => {
                     out.push(PracticeEvent::Heard { midi: n.midi })
@@ -683,6 +685,27 @@ impl LiveEar {
             }
         }
         out
+    }
+}
+
+/// The devices of `setup` for a mode that can play silent when the output does not open.
+fn open_rig(setup: &LiveSetup, instrument: &Instrument, gains: Gains) -> Result<Rig, EngineError> {
+    Rig::open(
+        &setup.input,
+        RigOutput::Device(setup.output_device.clone()),
+        OnOutputError::PlaySilent,
+        setup.source,
+        instrument,
+        gains,
+    )
+}
+
+/// `gains` without the bass: ear training and calibration play only their own sounds (the
+/// bass through the output would ring into the answers and plucks; LH-EIN-18).
+fn quiet(gains: Gains) -> Gains {
+    Gains {
+        monitor: 0.0,
+        ..gains
     }
 }
 
@@ -757,10 +780,11 @@ pub(crate) fn open_output(
 /// A running latency calibration: clicks on the output, plucks on the input.
 #[derive(Debug)]
 pub struct LiveCalibration {
-    clock: Clock,
-    output: LiveOutput,
-    input: Input,
-    events: Receiver<Event>,
+    /// Its output plays the clicks; the bass is not heard through it (`quiet`).
+    rig: Rig,
+    /// When the devices were taken over (the input runs since long before); `None`: opened
+    /// for the calibration, which counts from the input's first sample.
+    taken_s: Option<f64>,
     calibration: Option<Calibration>,
     /// Engine time of the first click after the input has started.
     lead_s: f64,
@@ -776,27 +800,39 @@ impl LiveCalibration {
         instrument: &Instrument,
         lead_s: f64,
     ) -> Result<LiveCalibration, EngineError> {
-        let clock = Clock::new();
-        let (tx, rx) = channel();
-        let output = open_output(setup, &clock, tx.clone());
-        let mut input = Input::start(
-            &input_kind(&setup.input),
-            instrument,
-            setup.source,
-            &clock,
-            tx,
-            None,
-        )?;
-        setup.gate(&mut input);
-        Ok(LiveCalibration {
-            clock,
-            output,
-            input,
-            events: rx,
+        let rig = open_rig(setup, instrument, quiet(Gains::default()))?;
+        Ok(LiveCalibration::with(rig, None, setup, lead_s))
+    }
+
+    /// Calibrates on the devices of `rig`, its clicks at `gains`; they begin `lead_s` from now.
+    pub fn on(
+        mut rig: Rig,
+        setup: &LiveSetup,
+        instrument: &Instrument,
+        gains: Gains,
+        lead_s: f64,
+    ) -> LiveCalibration {
+        rig.attach(instrument, quiet(gains));
+        let now = rig.clock().now_s();
+        LiveCalibration::with(rig, Some(now), setup, lead_s)
+    }
+
+    fn with(mut rig: Rig, taken_s: Option<f64>, setup: &LiveSetup, lead_s: f64) -> Self {
+        if let Some(input) = rig.input_mut() {
+            setup.gate(input);
+        }
+        LiveCalibration {
+            rig,
+            taken_s,
             calibration: None,
             lead_s,
             onset_gate_db: None,
-        })
+        }
+    }
+
+    /// Hands the devices on to the next mode.
+    pub fn into_rig(self) -> Rig {
+        self.rig
     }
 
     /// The onset gate from the count-in's noise floor, once its last click passed.
@@ -806,19 +842,22 @@ impl LiveCalibration {
 
     /// The click last passed (see `Calibration::beat_at`).
     pub fn beat(&self) -> Option<i32> {
-        self.calibration.as_ref()?.beat_at(self.clock.now_s())
+        self.calibration.as_ref()?.beat_at(self.rig.clock().now_s())
     }
 
     /// Polls; returns the result once all clicks are through.
     pub fn poll(&mut self) -> Option<CalibrationResult> {
         if self.calibration.is_none() {
-            let start = self.input.started_s()?;
+            let start = match self.taken_s {
+                Some(taken_s) => taken_s,
+                None => self.rig.input().and_then(Input::started_s)?,
+            };
             let calibration = Calibration::new(start + self.lead_s);
             // The count-in and the measured clicks each start on an accent.
             let count_in = calibration.count_in();
             // The count-in is the noise floor (LH-EIN-16): the player waits for the clicks.
-            if let Some(first) = count_in.first() {
-                self.input.measure_floor(*first, start + self.lead_s);
+            if let (Some(first), Some(input)) = (count_in.first(), self.rig.input_mut()) {
+                input.measure_floor(*first, start + self.lead_s);
             }
             for clicks in [count_in.as_slice(), calibration.clicks()] {
                 for (i, click) in clicks.iter().enumerate() {
@@ -827,24 +866,26 @@ impl LiveCalibration {
                     } else {
                         kontra_engine::Accent::Beat
                     };
-                    self.output.schedule(*click, Sound::Click(accent));
+                    self.rig.output().schedule(*click, Sound::Click(accent));
                 }
             }
             self.calibration = Some(calibration);
         }
         let calibration = self.calibration.as_mut()?;
-        while let Ok(event) = self.events.try_recv() {
+        for event in self.rig.poll() {
             match event {
                 Event::Note(note) => calibration.on_onset(note.onset_s),
                 // The plucks after the count-in already meet the new gate.
                 Event::NoiseFloor { gate_db, .. } => {
                     self.onset_gate_db = Some(gate_db);
-                    self.input.set_onset_gate(gate_db);
+                    if let Some(input) = self.rig.input_mut() {
+                        input.set_onset_gate(gate_db);
+                    }
                 }
                 _ => {}
             }
         }
-        (self.clock.now_s() > calibration.ends_at()).then(|| calibration.result())
+        (self.rig.clock().now_s() > calibration.ends_at()).then(|| calibration.result())
     }
 }
 
@@ -924,6 +965,19 @@ mod tests {
         };
         assert_eq!(input.buffer_frames, Some(LIVE_BUFFER_FRAMES));
         assert_eq!(output_config(None).buffer_frames, Some(LIVE_BUFFER_FRAMES));
+    }
+
+    /// Ear training and calibration never pass the bass on: only the monitor volume goes.
+    #[test]
+    fn quiet_gains_keep_all_but_the_bass() {
+        let gains = Gains {
+            monitor: 0.9,
+            click: 0.3,
+            ..Gains::default()
+        };
+        let quiet = quiet(gains);
+        assert_eq!(quiet.monitor, 0.0);
+        assert_eq!(quiet.click, 0.3);
     }
 
     /// Review #258: an output error while tuning ended the tuner. Tuning comes first: only the

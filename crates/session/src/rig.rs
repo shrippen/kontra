@@ -307,7 +307,7 @@ fn live_output(player: Option<Player>) -> LiveOutput {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::live::{Live, LiveTuner, TunerMonitor};
+    use crate::live::{Live, LiveCalibration, LiveEar, LiveTuner, TunerMonitor};
     use crate::monitor::LiveMonitor;
     use crate::practice::PracticeEvent;
     use crate::{Mode, PracticeOptions, ScoreSettings};
@@ -328,6 +328,8 @@ mod tests {
     const STANDBY: Duration = Duration::from_millis(1500);
     /// One bar of 4/4 at 120 bpm.
     const COUNT_IN_S: f64 = 2.0;
+    /// The calibration's count-in (4 clicks, 0.6 s apart) begins 0.1 s after this lead.
+    const CALIBRATION_LEAD_S: f64 = 2.5;
     /// Time between starting and reading the position, with room for a slow machine.
     const TOLERANCE_S: f64 = 0.2;
 
@@ -665,5 +667,62 @@ mod tests {
             "the output was replaced"
         );
         assert!(live.output_is_silent);
+    }
+
+    /// A calibration on devices taken over counts in from now, not from the input's first
+    /// sample (which lies as far back as the mode before ran): no click has passed yet.
+    #[test]
+    fn a_calibration_on_a_taken_rig_counts_in_from_now() {
+        let (input, path) = file_input("calibrate", 0.0);
+        let bass = Instrument::default_bass();
+        let rig = Rig::open(
+            &input,
+            null_output(),
+            OnOutputError::Fail,
+            InputSource::Line,
+            &bass,
+            Gains::default(),
+        )
+        .unwrap();
+        let start = Instant::now();
+        while rig.input().and_then(Input::started_s).is_none() && start.elapsed() < PATIENCE {
+            std::thread::sleep(POLL_EVERY);
+        }
+        std::thread::sleep(STANDBY);
+
+        let setup = setup_of(&input);
+        let mut calibration =
+            LiveCalibration::on(rig, &setup, &bass, Gains::default(), CALIBRATION_LEAD_S);
+        let _ = calibration.poll();
+        let beat = calibration.beat();
+        let back = calibration.into_rig();
+        let _ = std::fs::remove_file(path);
+
+        assert_eq!(beat, None, "clicks passed already");
+        assert!(back.fits(&input, &null_output(), InputSource::Line));
+    }
+
+    /// Ear training on devices taken over hears answers and hands the devices back.
+    #[test]
+    fn ear_training_takes_and_hands_back_the_rig() {
+        let (input, path) = file_input("ear", 0.0);
+        let bass = Instrument::default_bass();
+        let rig = Rig::open(
+            &input,
+            null_output(),
+            OnOutputError::Fail,
+            InputSource::Line,
+            &bass,
+            Gains::default(),
+        )
+        .unwrap();
+        let setup = setup_of(&input);
+        let mut ear = LiveEar::on(rig, &setup, &bass, Gains::default());
+        assert!(!ear.output_is_silent());
+        let _ = ear.poll();
+        let back = ear.into_rig();
+        let _ = std::fs::remove_file(path);
+
+        assert!(back.fits(&input, &null_output(), InputSource::Line));
     }
 }
