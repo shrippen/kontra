@@ -360,6 +360,8 @@ impl ClapPlugin {
 
 /// Puts the editor into `frame` and shows both. The frame must outlive the editor: the caller
 /// keeps it until `gui.destroy`.
+// `c_ulong` is u64 on Linux and u32 on Windows: the conversion is real only on Linux.
+#[allow(clippy::useless_conversion)]
 fn embed(
     gui: &PluginGui,
     handle: &PluginMainThreadHandle,

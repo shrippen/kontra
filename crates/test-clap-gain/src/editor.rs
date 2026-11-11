@@ -10,9 +10,9 @@
 //! ```
 
 use crate::GainMainThread;
-use clack_extensions::gui::{
-    GuiApiType, GuiConfiguration, GuiSize, HostGui, PluginGuiImpl, Window,
-};
+#[cfg(target_os = "linux")]
+use clack_extensions::gui::HostGui;
+use clack_extensions::gui::{GuiApiType, GuiConfiguration, GuiSize, PluginGuiImpl, Window};
 use clack_extensions::timer::{HostTimer, PluginTimerImpl, TimerId};
 use clack_plugin::prelude::*;
 
