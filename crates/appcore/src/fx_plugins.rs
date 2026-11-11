@@ -49,6 +49,8 @@ pub(crate) struct Plugins {
     cache: PathBuf,
     /// The program that probes a file; `None`: this program.
     probe: Option<ProbeCommand>,
+    /// The chain latency the page shows, in tenths of a ms; `None` while nothing plays.
+    shown_latency: Option<i64>,
 }
 
 impl Plugins {
@@ -61,7 +63,20 @@ impl Plugins {
             running: None,
             cache,
             probe: None,
+            shown_latency: None,
         }
+    }
+
+    /// Whether the chain latency changed in the digit the page shows (0.1 ms), or appeared or
+    /// went away; remembers it.
+    pub(crate) fn latency_moved(&mut self, latency_ms: Option<f64>) -> bool {
+        // Below a tenth the page shows no line, like nothing playing.
+        let tenths = latency_ms
+            .map(|ms| (ms * TENTHS_PER_MS).round() as i64)
+            .filter(|t| *t > 0);
+        let moved = tenths != self.shown_latency;
+        self.shown_latency = tenths;
+        moved
     }
 
     pub(crate) fn report(&self) -> &ScanReport {
@@ -140,6 +155,9 @@ pub(crate) fn found_at<'a>(report: &'a ScanReport, key: &str) -> Option<&'a Plug
     report.plugins.get(n)
 }
 
+/// The latency line shows one decimal.
+const TENTHS_PER_MS: f64 = 10.0;
+
 /// What the key of an addable plugin starts with, then its number in the scan.
 pub(crate) const PLUGIN_KEY: &str = "plugin:";
 
@@ -184,15 +202,45 @@ pub(crate) fn to_unit(param: &ParamSpec) -> f64 {
 }
 
 impl crate::Core {
-    /// Once when a plugin search has finished.
-    pub(crate) fn poll_plugins(&mut self) -> Option<crate::UiEvent> {
-        self.plugins.poll().then_some(crate::UiEvent::PluginScan)
+    /// Once when a plugin search has finished or the chain's latency changed (the standby built
+    /// its chain, a run started or ended, the output went away).
+    pub(crate) fn poll_effects(&mut self) -> Option<crate::UiEvent> {
+        let scanned = self.plugins.poll();
+        let latency = self.chain_latency_ms();
+        let moved = self.plugins.latency_moved(latency);
+        (scanned || moved).then_some(crate::UiEvent::EffectsChanged)
     }
 }
 
 #[cfg(test)]
 mod shown {
     use super::shown_value;
+
+    /// Review #265: the latency line stayed empty after the standby built its chain, and kept
+    /// an old figure after the output went away.
+    #[test]
+    fn a_new_latency_is_news_once() {
+        let dir = std::env::temp_dir().join(format!("kontra-fx-lat-{}", std::process::id()));
+        let mut plugins = super::Plugins::new(&dir);
+        assert!(
+            !plugins.latency_moved(None),
+            "nothing plays, as at the start"
+        );
+        assert!(
+            plugins.latency_moved(Some(2.67)),
+            "the standby built its chain"
+        );
+        assert!(!plugins.latency_moved(Some(2.67)));
+        assert!(
+            !plugins.latency_moved(Some(2.671)),
+            "the same to the shown digit"
+        );
+        assert!(plugins.latency_moved(None), "the output went away");
+        assert!(
+            !plugins.latency_moved(Some(0.0)),
+            "an empty chain shows no line either"
+        );
+    }
 
     /// Review #264: a value just below zero read "-0".
     #[test]

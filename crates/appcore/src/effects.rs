@@ -17,6 +17,9 @@ use kontra_model::{EffectKind, PluginSpec, SlotSpec, CHAIN_SLOTS};
 use kontra_session::describe_plugin;
 use serde_json::json;
 
+/// A delay below this rounds to 0.0 ms and is not worth a line.
+const MIN_SHOWN_LATENCY_MS: f64 = 0.05;
+
 /// What a page may add besides the plugins found: the built-in effects.
 const ADDABLE: [EffectKind; 8] = [
     EffectKind::Overdrive,
@@ -71,8 +74,8 @@ fn value_mut<'a>(slot: &'a mut SlotSpec, name: &str) -> Option<&'a mut f32> {
 }
 
 impl Core {
-    /// The chain for the mixer: `{"max", "full", "empty", "fullText", "kinds": [{"key",
-    /// "name"}], "plugins": [{"key", "name", "vendor", "format"}], "scan": {"running", "text",
+    /// The chain for the mixer: `{"max", "full", "empty", "fullText", "latencyText", "kinds":
+    /// [{"key", "name"}], "plugins": [{"key", "name", "vendor", "format"}], "scan": {"running", "text",
     /// "broken": [{"file", "reason"}]}, "slots": [{"index", "kind", "name", "hint", "problem",
     /// "on", "first", "last", "values": [{"key", "label", "value", "shown"}]}]}`.
     pub fn effects_json(&self) -> String {
@@ -94,12 +97,24 @@ impl Core {
             "full": chain.slots().len() >= CHAIN_SLOTS,
             "empty": chain.is_empty(),
             "fullText": self.tr("fx.full", &[("max", CHAIN_SLOTS.to_string())]),
+            "latencyText": self.latency_text(self.chain_latency_ms()),
             "kinds": kinds,
             "plugins": self.found_plugins_json(),
             "scan": self.scan_json(),
             "slots": slots,
         })
         .to_string()
+    }
+
+    /// The line under the chain: what it delays the bass by. Empty when nothing runs or the chain
+    /// adds nothing.
+    pub(crate) fn latency_text(&self, latency_ms: Option<f64>) -> String {
+        let Some(ms) = latency_ms.filter(|ms| *ms >= MIN_SHOWN_LATENCY_MS) else {
+            return String::new();
+        };
+        let mark = self.tr("number.decimal_mark", &[]);
+        let shown = format!("{ms:.1}").replace('.', &mark);
+        self.tr("fx.latency", &[("ms", shown)])
     }
 
     /// The plugins the last scan found, as `edit_effects("add", …)` takes them.

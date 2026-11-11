@@ -29,6 +29,7 @@ use std::sync::{Arc, Mutex};
 
 /// Frames the plugin gets at once, and the delay this adds.
 const BLOCK: usize = 64;
+const MS_PER_S: f64 = 1000.0;
 
 /// Why a plugin slot is bypassed, by `PluginSpec::id`. Shared between the control side that
 /// builds chains and the page that shows the reasons.
@@ -173,6 +174,8 @@ pub struct ChainBuilder {
     current: Vec<Active>,
     /// Of chains that fade out or wait to be dropped; closed when the lease says so.
     retiring: Vec<Active>,
+    /// What the chain built last delays the signal by.
+    latency_frames: usize,
 }
 
 impl std::fmt::Debug for ChainBuilder {
@@ -191,7 +194,13 @@ impl ChainBuilder {
             shape: ChainSpec::EMPTY,
             current: Vec::new(),
             retiring: Vec::new(),
+            latency_frames: 0,
         }
+    }
+
+    /// What the chain built last delays the bass by, in ms (0 before the first).
+    pub fn latency_ms(&self) -> f64 {
+        self.latency_frames as f64 / self.rate * MS_PER_S
     }
 
     /// Closes the instances of chains that are gone. Call after dropping retired chains.
@@ -224,6 +233,7 @@ impl ChainBuilder {
             inserts.push(insert);
         }
         let chain = Chain::with_plugins(spec, self.rate, &mut |at| inserts.get_mut(at)?.take());
+        self.latency_frames = chain.latency_frames();
         Some(Box::new(chain))
     }
 

@@ -176,8 +176,8 @@ pub enum UiEvent {
     ChainStep {
         chain_json: String,
     },
-    /// The search for plugins finished (`Core::effects_json` lists them).
-    PluginScan,
+    /// The effects page changed: a search ended or the chain latency moved (`effects_json`).
+    EffectsChanged,
     /// Calibration finished: new latency (if measured) and a text for the user.
     Calibrated {
         latency_ms: Option<f64>,
@@ -1791,7 +1791,7 @@ impl Core {
         let mut events: Vec<UiEvent> = raw.into_iter().filter_map(|e| self.translate(e)).collect();
         events.extend(ear_event);
         events.extend(self.prepare_backing());
-        events.extend(self.poll_plugins());
+        events.extend(self.poll_effects());
         events.extend(self.advise_level(&events));
         // The meter holds the peak the advice judges, so both say the same.
         let held = f64::from(self.level.held_peak_db());

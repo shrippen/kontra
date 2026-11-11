@@ -1768,7 +1768,7 @@ impl qobject::Controller {
                     self.as_mut().set_density_suggestion(i32::from(percent));
                     self.as_mut().set_density_text(q(&text));
                 }
-                UiEvent::PluginScan => self.as_mut().refresh_effects(),
+                UiEvent::EffectsChanged => self.as_mut().refresh_effects(),
                 UiEvent::Stems(state) => self.as_mut().set_stems_json(q(&state)),
                 UiEvent::BackingLoading(loading) => self.as_mut().set_backing_loading(loading),
                 UiEvent::ChainStep { chain_json } => {
