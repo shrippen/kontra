@@ -214,7 +214,7 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 ### Entscheidungen Runde 19 (11.11.2026)
 
 - #253 (Win5: Inno Setup, ZIP, Update-Hinweis, `release.yml`): mergen.
-- Update-Suche: von Anfang an an, abschaltbar (LH-ALL-07, so gebaut). Hinweis unter Windows und unter Linux außerhalb
+- Update-Suche: von Anfang an an, abschaltbar (LH-ALL-07; kommt mit #253). Hinweis unter Windows und unter Linux außerhalb
   des Flatpaks, Link auf die Release-Seite auf GitHub; `.ico` für den Installer aus dem Kontra-Logo erzeugen.
 - Name „VST3“: Claude liest Steinbergs Regeln zur Marke und schlägt den Wortlaut vor; bis dahin „VST3“ als
   Formatname, ohne Logo.
@@ -226,7 +226,7 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 - L1: Auch Läufe zählen; ein Lauf, der eine geplante Stelle wieder unter die schwersten bringt, gilt als nicht
   bestanden (LH-LRN-16).
 - Die `pub`-Liste der Runde ist freigegeben.
-- Reihenfolge: FX5 (Fenster der Plugins) und FX6 (Pakete) zuerst, dann die Hörprobe am Scarlett.
+- Reihenfolge: FX5 (Fenster der Plugins) und FX6 (Pakete) zuerst.
 
 ### Entscheidungen Runde 18 (10.11.2026)
 
