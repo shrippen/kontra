@@ -50,18 +50,25 @@ pub(super) fn fresh_copy(
 ) -> Option<(ChainSpec, Vec<PluginSpec>)> {
     let preset = settings.chain_presets.get(index)?;
     let first = fx_plugins::next_id(&settings.plugins);
+    let fresh = |old: u32| {
+        let at = preset.plugins.iter().position(|p| p.id == old)?;
+        Some(first + at as u32)
+    };
+
+    // Each slot once, from its old id: renumbering plugin by plugin could move a slot twice.
     let mut chain = preset.chain;
-    let mut plugins = preset.plugins.clone();
-    for (n, plugin) in plugins.iter_mut().enumerate() {
-        let old = plugin.id;
-        plugin.id = first + n as u32;
-        let named = chain
-            .slots_mut()
-            .iter_mut()
-            .filter(|s| s.kind == EffectKind::Plugin);
-        for slot in named.filter(|s| s.plugin == old) {
-            slot.plugin = plugin.id;
+    let named = chain
+        .slots_mut()
+        .iter_mut()
+        .filter(|s| s.kind == EffectKind::Plugin);
+    for slot in named {
+        if let Some(id) = fresh(slot.plugin) {
+            slot.plugin = id;
         }
+    }
+    let mut plugins = preset.plugins.clone();
+    for (at, plugin) in plugins.iter_mut().enumerate() {
+        plugin.id = first + at as u32;
     }
     Some((chain, plugins))
 }
@@ -166,5 +173,26 @@ mod tests {
             s.chain_presets[0].plugins[0].id, 1,
             "the preset itself stays"
         );
+    }
+    #[test]
+    fn every_slot_is_renumbered_once() {
+        // Review #274: running [2], preset [1, 3] → first fresh id 3; renumbering plugin by
+        // plugin moved slot 1 → 3 and then, with plugin 3 → 4, once more.
+        let mut s = Settings::default();
+        s.monitor_chain.push(SlotSpec::for_plugin(1));
+        s.monitor_chain.push(SlotSpec::for_plugin(3));
+        s.plugins = vec![gain(1), gain(3)];
+        s.plugins[1].name = "C".into();
+        assert!(save_preset(&mut s, "X"));
+        s.monitor_chain = ChainSpec::EMPTY;
+        s.monitor_chain.push(SlotSpec::for_plugin(2));
+        s.plugins = vec![gain(2)];
+
+        assert!(load_preset(&mut s, 0));
+        let ids: Vec<u32> = s.plugins.iter().map(|p| p.id).collect();
+        let slots: Vec<u32> = s.monitor_chain.slots().iter().map(|x| x.plugin).collect();
+        assert_eq!(ids, [3, 4]);
+        assert_eq!(slots, ids, "each slot names its own plugin");
+        assert_eq!(s.plugins[1].name, "C");
     }
 }
