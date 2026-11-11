@@ -19,6 +19,7 @@ use kontra_dsp::synth::Noise;
 use kontra_dsp::{Chain, OutputLimiter, PitchShifter, Shaper, Shaping, PITCH_LATENCY};
 use kontra_model::ChainSpec;
 use kontra_model::DrumKind;
+use levels::Levels;
 use std::f32::consts::TAU;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
@@ -301,6 +302,7 @@ impl Player {
         let mut mixer = Mixer {
             voices: [IDLE_VOICE; VOICES],
             gains: Gains::default(),
+            levels: Levels::of(&Gains::default()),
             backing: None,
             next: None,
             monitor: Some(monitor_rx),
@@ -544,6 +546,8 @@ struct ChainLink {
 struct Mixer {
     voices: [Voice; VOICES],
     gains: Gains,
+    /// The volumes heard now; they follow `gains` over a few ms.
+    levels: Levels,
     backing: Option<Backing>,
     /// Starts at its `at_s` and replaces `backing`.
     next: Option<Backing>,
@@ -648,12 +652,14 @@ impl Mixer {
             return;
         };
         let queued = ring.slots();
-        let keep = if self.gains.monitor > 0.0 {
+        // Still heard while the volume ramps down: kept until it is silent (review #285).
+        let heard = self.gains.monitor > 0.0 || self.levels.monitor > 0.0;
+        let keep = if heard {
             (MONITOR_KEEP_S * sr) as usize
         } else {
             0
         };
-        if self.gains.monitor > 0.0 && queued <= (MONITOR_MAX_S * sr) as usize {
+        if heard && queued <= (MONITOR_MAX_S * sr) as usize {
             return;
         }
         if let Ok(chunk) = ring.read_chunk(queued.saturating_sub(keep)) {
@@ -663,11 +669,12 @@ impl Mixer {
 
     /// One stereo frame at engine time `now`.
     fn render(&mut self, now: f64, sr: f64) -> (f32, f32) {
+        self.levels.follow(&Levels::of(&self.gains), sr as f32);
         let mono = render(
             &mut self.voices,
             now,
             sr as f32,
-            &self.gains,
+            &self.levels,
             &mut self.noise,
         );
         let (mut left, mut right) = (mono, mono);
@@ -678,15 +685,15 @@ impl Mixer {
         if let Some(b) = &self.backing {
             if now >= b.at_s && now < b.stop_s {
                 let frame = b.from_frame + ((now - b.at_s) * sr) as usize;
-                let bass = self.gains.bass;
+                let bass = self.levels.bass;
                 let (l, r) = if self.shifter.semitones() == 0.0 {
                     b.audio.frame(frame, bass)
                 } else {
                     let shift = (&mut *self.shifter, &mut self.shift_next);
                     shifted_frame(shift, &b.audio, frame, bass)
                 };
-                left += l * self.gains.backing;
-                right += r * self.gains.backing;
+                left += l * self.levels.backing;
+                right += r * self.levels.backing;
             }
         }
         // What plays from the speakers, before the monitored bass (that one the mic hears anyway).
@@ -695,8 +702,8 @@ impl Mixer {
         if let Some(ring) = self.monitor.as_mut() {
             let dry = ring.pop().unwrap_or(0.0);
             let (l, r) = self.shaper.process(dry, sr);
-            left += l * self.gains.monitor;
-            right += r * self.gains.monitor;
+            left += l * self.levels.monitor;
+            right += r * self.levels.monitor;
         }
 
         // The sum never reaches full scale: a loud spot gets quieter for a moment instead of
@@ -735,7 +742,7 @@ fn render(
     voices: &mut [Voice; VOICES],
     now: f64,
     sr: f32,
-    gains: &Gains,
+    gains: &Levels,
     noise: &mut Noise,
 ) -> f32 {
     let mut mix = 0.0;
@@ -821,5 +828,6 @@ fn drum(v: &mut Voice, kind: DrumKind, t: f32, sr: f32, white: f32) -> f32 {
     }
 }
 
+mod levels;
 #[cfg(test)]
 mod tests;

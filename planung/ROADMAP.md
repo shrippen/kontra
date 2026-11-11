@@ -241,7 +241,16 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   Block 5–15 ms), ohne Ausblenden. Das ist die Untergrenze: ein echter Wechsel ist länger (ein Lauf lädt seinen
   Begleit-Track, bevor er den Eingang öffnet; zurück in die Bereitschaft bis zu einem Tick von 16 ms; die
   Effektkette blendet erst danach ein; hörbar wird der Bass erst mit dem ersten Block des Eingangs). Das ist
-  hörbar; eine Audio-Engine, die über alle Modi offen bleibt, wird eine eigene Frage an den Eigentümer.
+  hörbar. Eigentümer (11.11.): „gehe diesen Umbau an“: eine Audio-Engine, die über alle Modi offen bleibt; die
+  Modi hängen sich an, statt Geräte zu öffnen. Dazu (Eigentümer 11.11.): eine Wahl des Eingangs für Bereitschaft
+  und Modi (nach den Regeln der Bereitschaft); offen bleiben nur Kabel-Eingänge (Mikrofon und MIDI behalten die
+  Lücke, kein dauerhaft offenes Mikrofon); im Hintergrund bleiben die Geräte offen. Plan nach zweiter Meinung: A
+  Lautstärke-Rampe im Mixer (heute springen die Gains), B Neu-Basis von Ein- und Ausgang beim Anhängen eines
+  Modus (Instrument, Zeitbasis, Epoche der Ereignisse; ein Anker auf „jetzt“ driftete über Stunden), C `Rig` mit
+  dem Stimmgerät zuerst, D die übrigen Modi und `Rig::reopen`, E appcore mit einem Rig, dann messen.
+- Die `pub`-Schnittstellen aus #279 bis #284 sind freigegeben (`Core::set_usb_role`, `FrameHandle::Win32`,
+  `session::tone_delays_s`, `session::LOOPBACK_TONES`, `PluginRack`, `PluginBank::with_rack`,
+  `LiveMonitor::is_running`).
 
 ### Entscheidungen Runde 19 (11.11.2026)
 
