@@ -211,6 +211,23 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 - Signierung, Wege zur Wahl (in Runde 18 zurückgestellt, keiner gewählt): Azure Trusted Signing (Abo, Identitätsprüfung), SignPath Foundation
   (kostenlos für freie Projekte, signiert unter deren Namen), eigenes Zertifikat (z. B. Certum Open Source).
 
+### Entscheidungen Runde 19 (11.11.2026)
+
+- #253 (Win5: Inno Setup, ZIP, Update-Hinweis, `release.yml`): mergen.
+- Update-Suche: von Anfang an an, abschaltbar (LH-ALL-07; kommt mit #253). Hinweis unter Windows und unter Linux außerhalb
+  des Flatpaks, Link auf die Release-Seite auf GitHub; `.ico` für den Installer aus dem Kontra-Logo erzeugen.
+- Name „VST3“: Claude liest Steinbergs Regeln zur Marke und schlägt den Wortlaut vor; bis dahin „VST3“ als
+  Formatname, ohne Logo.
+- Abstürzende Plugins: im Prozess lassen, aber merken. Ein Plugin, bei dem Kontra abstürzte, ist beim nächsten Start
+  aus, mit Hinweis; Laden in einen Hintergrund-Thread (LH-EIN-20).
+- Voreinstellungen je Kette: benannte Ketten speichern und wählen (LH-EIN-19, FX4).
+- USB-Kabel nur mit Eingang: beim Einstecken fragen, ob Instrument oder Mikrofon (LH-EIN-02).
+- R3 weiter: Zeit je Block aus den Stempeln (DLL), danach auf echtem Windows messen.
+- L1: Auch Läufe zählen; ein Lauf, der eine geplante Stelle wieder unter die schwersten bringt, gilt als nicht
+  bestanden (LH-LRN-16).
+- Die `pub`-Liste der Runde ist freigegeben.
+- Reihenfolge: FX5 (Fenster der Plugins) und FX6 (Pakete) zuerst.
+
 ### Entscheidungen Runde 18 (10.11.2026)
 
 - #236 (Windows in der CI): mergen, die Jobs `windows` und `windows-app` zählen sofort für `github / test`.
