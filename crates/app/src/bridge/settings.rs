@@ -7,6 +7,35 @@ use cxx_qt_lib::QString;
 use kontra_appcore::{Bass, InstrumentChoice};
 
 impl qobject::Controller {
+    pub(super) fn retry_input(mut self: Pin<&mut Self>) {
+        let events = self.as_mut().core().retry_input();
+        if events.is_empty() {
+            self.as_mut().set_error_text(QString::default());
+        }
+        let tuning = self.as_ref().rust().core.is_tuning();
+        self.as_mut().set_tuner_active(tuning);
+        self.as_mut().apply(events);
+    }
+
+    pub(super) fn dismiss_message(mut self: Pin<&mut Self>) {
+        self.as_mut().set_message(QString::default());
+        self.as_mut().set_error_text(QString::default());
+    }
+
+    pub(super) fn use_offered_input(mut self: Pin<&mut Self>) {
+        let id = self.as_ref().offer_input().to_string();
+        self.as_mut().core().use_offered_input(&id);
+        self.as_mut().set_offer_input(QString::default());
+        self.as_mut().set_offer_text(QString::default());
+        self.as_mut().set_error_text(QString::default());
+    }
+
+    /// The answer to the question about a new USB input; the question goes away.
+    pub(super) fn answer_usb_ask(mut self: Pin<&mut Self>, answer: &QString) {
+        self.as_mut().core().answer_usb(&answer.to_string());
+        self.as_mut().set_usb_ask(QString::default());
+    }
+
     pub(super) fn change_simple_view(mut self: Pin<&mut Self>, on: bool) {
         self.as_mut().core().update_settings(|s| s.simple_view = on);
         self.as_mut().set_simple_view(on);

@@ -13,10 +13,10 @@
 use crate::mixer::gains;
 use crate::{chosen_input, Core, InputKind, Settings};
 use kontra_model::InputSource;
-use kontra_session::{
-    list_devices, DeviceInfo, Direction, InputChoice, LiveMonitor, LiveSetup, TunerMonitor,
-};
+use kontra_session::{DeviceInfo, InputChoice, LiveMonitor, LiveSetup, TunerMonitor};
 use std::time::{Duration, Instant};
+
+mod usb_ask;
 
 /// A monitor that did not open (interface unplugged) is tried again this much later.
 const RETRY: Duration = Duration::from_secs(5);
@@ -30,6 +30,8 @@ pub(crate) struct Standby {
     /// The last look found no input to open: none chosen and no interface, or none chosen at
     /// the laptop jack.
     no_input: bool,
+    /// The question whether a new USB input is an instrument or a microphone.
+    usb: usb_ask::UsbAsk,
 }
 
 /// What a mixer change did to "Bass hören".
@@ -209,7 +211,7 @@ impl Core {
             return;
         }
 
-        let devices = list_devices(Direction::Input);
+        let devices = self.inputs();
         let saved = self.settings.input_device.as_deref();
         let stand_in = self.fallback_input.as_deref();
         let lost = self.lost.is_some();

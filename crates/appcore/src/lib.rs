@@ -161,6 +161,9 @@ pub enum UiEvent {
     InputBack(String),
     /// The player chose an input: the offer of a stand-in is no longer open.
     InputOfferEnded,
+    /// A new USB input without output: JSON `{name, text}` of the question whether an instrument
+    /// or a microphone hangs on it (LH-EIN-02); empty: the question is gone.
+    UsbAsk(String),
     /// Bass removal of the backing track changed (`Core::stems_json`).
     Stems(String),
     /// The backing track is being prepared (true) or ready (false); play waits for it.
@@ -1695,16 +1698,6 @@ impl Core {
         self.reconfigure(|s| s.midi_port = value);
     }
 
-    /// The chosen input, else the one that fits the connection (LH-EIN-02): an interface, or
-    /// the built-in card for the laptop jack.
-    fn input_device(&self) -> Option<String> {
-        chosen_input(
-            self.settings.input_device.as_deref(),
-            &list_devices(Direction::Input),
-            self.settings.input_kind,
-        )
-    }
-
     /// The chosen output if it is there, else the system default.
     fn output_device(&self) -> Option<String> {
         let saved = self.settings.output_device.as_deref()?;
@@ -2575,7 +2568,10 @@ impl Core {
         } else {
             Direction::Output
         };
-        let devices = list_devices(direction);
+        let devices = match direction {
+            Direction::Input => self.inputs(),
+            Direction::Output => list_devices(direction),
+        };
         // Input: the one Kontra takes when none is chosen (LH-EIN-02).
         let preferred = preferred_input(&devices, self.settings.input_kind)
             .filter(|_| input)
