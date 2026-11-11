@@ -23,6 +23,7 @@ use super::editor::{EditorShown, FrameMaker};
 use super::{coalesce, LoadedPlugin, ParamInfo, PluginError, PluginFormat, PluginProcessor};
 use std::collections::HashMap;
 use std::fmt;
+use std::panic::{self, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
@@ -321,19 +322,39 @@ fn run(inbox: Receiver<Command>) {
             Ok(Command::Settle { reply }) => {
                 // Closes that the work before sent (a load nobody waited for) come after this.
                 while let Ok(command) = inbox.try_recv() {
-                    handle(command, &mut slots);
+                    survive(|| handle(command, &mut slots));
                 }
                 let _ = reply.send(());
             }
-            Ok(command) => handle(command, &mut slots),
+            Ok(command) => survive(|| handle(command, &mut slots)),
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => return,
         }
-        for slot in slots.values_mut() {
+        idle_all(&mut slots);
+        collect_changes(&mut slots);
+    }
+}
+
+/// Runs `work` and lets the thread go on if it panics: one bug must not leave Kontra without
+/// plugins until a restart. The command's caller then gets no reply, which reads as "gone".
+fn survive(work: impl FnOnce()) {
+    let _ = panic::catch_unwind(AssertUnwindSafe(work));
+}
+
+/// One tick for every instance; an instance whose tick panics is closed.
+fn idle_all(slots: &mut HashMap<u64, Slot>) {
+    let mut broken = Vec::new();
+    for (&id, slot) in slots.iter_mut() {
+        let ticked = panic::catch_unwind(AssertUnwindSafe(|| {
             slot.plugin.idle();
             slot.editor.set(slot.plugin.editor_open());
+        }));
+        if ticked.is_err() {
+            broken.push(id);
         }
-        collect_changes(&mut slots);
+    }
+    for id in broken {
+        slots.remove(&id);
     }
 }
 
