@@ -66,7 +66,7 @@ pub use learning::{
 };
 pub use live::{
     is_midi_file, soak, InputChoice, Live, LiveCalibration, LiveEar, LiveError, LiveOutput,
-    LiveSetup, LiveTuner, PromptTone, SoakReport,
+    LiveSetup, LiveTuner, PromptTone, SoakReport, TunerMonitor,
 };
 pub use loopback::{LiveLoopback, LoopbackResult};
 pub use matcher::{NoteResult, Outcome};

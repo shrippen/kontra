@@ -71,13 +71,13 @@ Erwartet: Das Instrument ist eine eigene Wahl (E-Bass, Kontrabass, Bass über MI
 2. Einstellungen → Eingang: Liste ansehen, Interface wählen; Kontra neu starten.
 3. `kontra-cli devices`; ohne PipeWire (`KONTRA_AUDIO_HOST=alsa`) dasselbe.
 4. Interface ohne PipeWire-Eingang (Zustand nach „device busy“: Karte in `/proc/asound/cards`, kein Quellknoten).
-5. Direktmonitor am Interface aus, in der Seitenleiste „Bass hören“ an, fünf Minuten nichts tun, dann spielen; Stimmgerät öffnen und schließen, wieder spielen.
+5. Direktmonitor am Interface aus, in der Seitenleiste „Bass hören“ an, fünf Minuten nichts tun, dann spielen; Stimmgerät öffnen (der Bass ist dort ebenfalls zu hören) und schließen, wieder spielen.
 6. Interface abziehen, Eingang auf „Automatisch“, „Bass hören“ aus und wieder an; danach einen Mixer-Regler bewegen.
 Erwartet: Das Interface steht oben mit seinem Namen („Scarlett Solo USB Analoges Stereo“), ist bei „Automatisch“
 vorgewählt und bleibt nach dem Neustart gewählt; keine Monitore („Monitor of …“), keine Streams anderer Programme in der
 Eingangsliste; Block 128 Frames (`kontra-cli check --steps loopback`). Mit ALSA gilt die alte Liste weiter. In
 Schritt 4 bleibt das Interface wählbar und vorgewählt (über ALSA, in `devices` markiert); beim Start des Eingangs
-nennt Kontra die Abhilfe (ab- und anstecken oder `systemctl --user restart wireplumber`). In Schritt 5 ist der Bass auf beiden Seiten zu hören, auch nach dem Leerlauf (das Interface bleibt wach), und nach dem Stimmgerät wieder. In Schritt 6 sagt Kontra beim Einschalten, dass es keinen Eingang hört, und nennt die Einstellungen; der Regler holt die Meldung nicht zurück, und das Laptop-Mikrofon wird nicht geöffnet.
+nennt Kontra die Abhilfe (ab- und anstecken oder `systemctl --user restart wireplumber`). In Schritt 5 ist der Bass auf beiden Seiten zu hören, auch nach dem Leerlauf (das Interface bleibt wach), im Stimmgerät und nach dem Stimmgerät wieder. In Schritt 6 sagt Kontra beim Einschalten, dass es keinen Eingang hört, und nennt die Einstellungen; der Regler holt die Meldung nicht zurück, und das Laptop-Mikrofon wird nicht geöffnet.
 
 **J-A6 Windows: installieren und erster Ton** · Persona: P8 Noah · nach Phase 1 (Win5, Win6) · LH-NF-17
 1. Windows 11 ohne Adminkonto, Benutzerordner mit Leerzeichen und Umlaut, Skalierung 150 %; Interface mit ASIO-Treiber am USB.
