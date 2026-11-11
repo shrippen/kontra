@@ -49,6 +49,7 @@ impl crate::Core {
     /// Returns a hint when monitoring is on but cannot work.
     pub fn remix(&mut self, change: impl FnOnce(&mut Settings)) -> Option<String> {
         let was_on = self.settings.monitor;
+        let passed = self.tuner_monitor().is_some();
         self.update_settings(change);
         let gains = gains(&self.settings);
         if let Some(live) = self.live.as_mut() {
@@ -58,8 +59,8 @@ impl crate::Core {
             live_ear.set_gains(ear_gains(&self.settings));
         }
         self.remix_standby();
-        // The tuner's output opens or closes with "Bass hören".
-        if self.tuner.is_some() && was_on != self.settings.monitor {
+        // The tuner's output opens or closes with "Bass hören" (only on a cable input).
+        if self.tuner.is_some() && passed != self.tuner_monitor().is_some() {
             let _ = self.start_tuner();
         }
         let change = if !was_on && self.settings.monitor {
