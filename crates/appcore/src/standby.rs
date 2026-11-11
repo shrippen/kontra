@@ -167,6 +167,24 @@ impl Core {
         }
     }
 
+    /// The plugins' texts for values since the last call, from whichever player runs the
+    /// chain, as (plugin id, parameter id, value, text).
+    pub(crate) fn plugin_texts(&mut self) -> Vec<(u32, u32, f64, String)> {
+        if let Some(live) = self.live.as_mut() {
+            return live.take_param_texts();
+        }
+        if let Some(ear) = self.live_ear.as_mut() {
+            return ear.take_param_texts();
+        }
+        if let Some(tuner) = self.tuner.as_mut() {
+            return tuner.take_param_texts();
+        }
+        match self.standby.monitor.as_mut() {
+            Some(monitor) => monitor.take_param_texts(),
+            None => Vec::new(),
+        }
+    }
+
     /// Opens the own editor of the chain's plugin `plugin` in whichever player runs the chain:
     /// the run, the ear training, the tuner or the standby monitor. `None` when none does.
     pub(crate) fn open_plugin_editor(

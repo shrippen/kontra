@@ -99,8 +99,12 @@ pub struct PluginHandle {
     id: u64,
     commands: Sender<Command>,
     changes: Arc<Mutex<Vec<(u32, f64)>>>,
+    texts: Texts,
     editor: EditorShown,
 }
+
+/// The plugin's texts for values, (parameter, value, text), oldest first, until taken.
+type Texts = Arc<Mutex<Vec<(u32, f64, String)>>>;
 
 impl PluginHandle {
     /// Tells the plugin a value, in its units; clamped there. No answer: a parameter the
@@ -125,6 +129,16 @@ impl PluginHandle {
         };
         self.commands.send(command).map_err(|_| gone())?;
         receiver.recv().map_err(|_| gone())?
+    }
+
+    /// The plugin's texts for the values set and changed since the last call, as (parameter,
+    /// value, text), oldest first: for every value at the load, every `set_param` and every
+    /// change the plugin made itself. Not blocking.
+    pub fn take_texts(&self) -> Vec<(u32, f64, String)> {
+        match self.texts.lock() {
+            Ok(mut inbox) => std::mem::take(&mut *inbox),
+            Err(_) => Vec::new(),
+        }
     }
 
     /// Closes the editor if it is open. Not blocking.
@@ -311,7 +325,24 @@ fn guarded<T>(setup: &PluginSetup, work: impl FnOnce() -> T) -> T {
 struct Slot {
     plugin: LoadedPlugin,
     changes: Arc<Mutex<Vec<(u32, f64)>>>,
+    texts: Texts,
     editor: EditorShown,
+}
+
+impl Slot {
+    /// Asks the plugin for the texts of `values` and puts them in the handle's inbox.
+    fn tell_texts(&mut self, values: impl IntoIterator<Item = (u32, f64)>) {
+        let texts: Vec<_> = values
+            .into_iter()
+            .filter_map(|(id, value)| Some((id, value, self.plugin.value_text(id, value)?)))
+            .collect();
+        if texts.is_empty() {
+            return;
+        }
+        if let Ok(mut inbox) = self.texts.lock() {
+            inbox.extend(texts);
+        }
+    }
 }
 
 /// The loop of the plugin thread.
@@ -368,22 +399,35 @@ fn handle(command: Command, slots: &mut HashMap<u64, Slot>) {
             reply,
         } => {
             let loaded = guarded(&setup, || open(&setup));
-            let result = loaded.map(|opened| {
+            let result = loaded.map(|mut opened| {
                 let editor = EditorShown::default();
-                slots.insert(
-                    id,
-                    Slot {
-                        plugin: opened.plugin,
-                        changes: Arc::clone(&changes),
-                        editor: editor.clone(),
-                    },
-                );
+                let texts = Texts::default();
+                let values: Vec<_> = opened
+                    .plugin
+                    .params()
+                    .into_iter()
+                    .map(|p| (p.id, p.current))
+                    .collect();
+                let mut slot = Slot {
+                    plugin: opened.plugin,
+                    changes: Arc::clone(&changes),
+                    texts: Arc::clone(&texts),
+                    editor: editor.clone(),
+                };
+                // The values as set: the texts of the setup's values, the rest as they are.
+                let set = opened.applied.iter().copied();
+                let rest = values
+                    .into_iter()
+                    .filter(|(id, _)| !opened.applied.iter().any(|(a, _)| a == id));
+                slot.tell_texts(set.chain(rest));
+                slots.insert(id, slot);
                 PluginLoaded {
                     processor: opened.processor,
                     handle: PluginHandle {
                         id,
                         commands: handle_commands,
                         changes,
+                        texts,
                         editor,
                     },
                     latency_samples: opened.latency_samples,
@@ -410,7 +454,9 @@ fn handle(command: Command, slots: &mut HashMap<u64, Slot>) {
             value,
         } => {
             if let Some(slot) = slots.get_mut(&plugin) {
-                let _ = slot.plugin.set_param(param, value);
+                if slot.plugin.set_param(param, value).is_ok() {
+                    slot.tell_texts([(param, value)]);
+                }
             }
         }
         Command::Close { plugin } => {
@@ -491,6 +537,7 @@ fn collect_changes(slots: &mut HashMap<u64, Slot>) {
         if fresh.is_empty() {
             continue;
         }
+        slot.tell_texts(fresh.iter().copied());
         let Ok(mut inbox) = slot.changes.lock() else {
             continue;
         };

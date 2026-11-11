@@ -339,7 +339,7 @@ impl IEditControllerTrait for Controller {
         info.id = GAIN_PARAM_ID;
         copy_wstring("gain", &mut info.title);
         copy_wstring("gain", &mut info.shortTitle);
-        copy_wstring("", &mut info.units);
+        copy_wstring("x", &mut info.units);
         info.stepCount = 0;
         info.defaultNormalizedValue = GAIN_DEFAULT_NORMALIZED;
         info.unitId = 0;

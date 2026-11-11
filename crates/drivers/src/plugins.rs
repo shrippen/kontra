@@ -251,6 +251,12 @@ impl LoadedPlugin {
         each!(&mut self.inner, p => p.take_changes())
     }
 
+    /// The plugin's own text for `value` (plugin units) of parameter `id`, with its unit where
+    /// it has one ("-6.0 dB"). `None`: the plugin has no text for it.
+    pub fn value_text(&mut self, id: u32, value: f64) -> Option<String> {
+        each!(&mut self.inner, p => p.value_text(id, value))
+    }
+
     pub fn save_state(&mut self) -> Result<Vec<u8>, PluginError> {
         each!(&mut self.inner, p => p.save_state())
     }

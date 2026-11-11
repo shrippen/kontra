@@ -19,7 +19,7 @@ use kontra_session::plugins::{
     plugin_files, probe_line, scan_files, PluginFormat, PluginInfo, ProbeCommand, ScanReport,
 };
 use kontra_session::{PluginBank, PluginProblems};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Duration;
@@ -56,6 +56,9 @@ pub(crate) struct Plugins {
     seen_problems: u64,
     /// Plugins (by `PluginSpec::id`) that took Kontra down while loading and were switched off.
     pub(crate) crashed: BTreeSet<u32>,
+    /// The plugins' own texts for values, by (plugin id, parameter id): the value they are for
+    /// and the text with its unit (FX4).
+    texts: BTreeMap<(u32, u32), (f64, String)>,
     crash_marker: PathBuf,
     report: ScanReport,
     running: Option<mpsc::Receiver<ScanReport>>,
@@ -75,6 +78,23 @@ impl Drop for Plugins {
 }
 
 impl Plugins {
+    /// Keeps the plugins' texts; true when one is new.
+    pub(crate) fn note_texts(&mut self, texts: Vec<(u32, u32, f64, String)>) -> bool {
+        let mut news = false;
+        for (plugin, param, value, text) in texts {
+            let entry = (value, text);
+            let known = self.texts.insert((plugin, param), entry.clone());
+            news |= known.as_ref() != Some(&entry);
+        }
+        news
+    }
+
+    /// The plugin's text for `value` of a parameter, if it gave one for exactly that value.
+    pub(crate) fn text_of(&self, plugin: u32, param: u32, value: f64) -> Option<&str> {
+        let (known, text) = self.texts.get(&(plugin, param))?;
+        (*known == value).then_some(text.as_str())
+    }
+
     /// With the last scan of `data_dir`, if any.
     pub(crate) fn new(data_dir: &Path) -> Plugins {
         let cache = data_dir.join(CACHE_FILE);
@@ -82,6 +102,7 @@ impl Plugins {
             problems: PluginProblems::default(),
             seen_problems: 0,
             crashed: BTreeSet::new(),
+            texts: BTreeMap::new(),
             crash_marker: data_dir.join(CRASH_MARKER_FILE),
             report: store::load(&cache),
             running: None,
@@ -283,8 +304,10 @@ impl crate::Core {
         let moved = self.plugins.latency_moved(latency);
         let changes = self.plugin_changes();
         let edited = self.take_plugin_changes(&changes);
+        let texts = self.plugin_texts();
+        let worded = self.plugins.note_texts(texts);
         let reasons = self.plugins.problems_moved();
-        (scanned || moved || edited || reasons).then_some(crate::UiEvent::EffectsChanged)
+        (scanned || moved || edited || reasons || worded).then_some(crate::UiEvent::EffectsChanged)
     }
 
     /// Writes what plugins changed by themselves (their own editor) into the settings and saves

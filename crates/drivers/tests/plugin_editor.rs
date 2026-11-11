@@ -245,6 +245,39 @@ fn the_player_resizes_within_what_the_editor_takes() {
     drop(processor);
 }
 
+/// FX4: values with the plugin's own text and unit, for the values the host set and the ones the
+/// plugin changed itself ("1.00 x": the test plugins' gain).
+#[test]
+fn values_come_with_the_plugins_text() {
+    for format in BOTH {
+        texts_follow(format);
+    }
+}
+
+fn texts_follow(format: PluginFormat) {
+    let PluginLoaded {
+        mut processor,
+        handle,
+        ..
+    } = load_gain(format);
+    let mut texts = Vec::new();
+    let mut seen = |want: (u32, f64, &str), processor: &mut PluginProcessor| {
+        wait_for(|| {
+            run_block(processor);
+            let _ = handle.take_changes();
+            texts.extend(handle.take_texts());
+            let found = texts
+                .iter()
+                .any(|(id, value, text)| (*id, *value, text.as_str()) == want);
+            found.then_some(())
+        });
+    };
+    seen((GAIN_PARAM, 1.0, "1.00 x"), &mut processor);
+    handle.set_param(GAIN_PARAM, 2.0);
+    seen((GAIN_PARAM, 2.0, "2.00 x"), &mut processor);
+    drop(processor);
+}
+
 /// VST 3: the view's size constraint fits the player's size; the window follows.
 #[test]
 fn a_vst3_view_fits_the_players_size() {

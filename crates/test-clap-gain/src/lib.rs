@@ -275,7 +275,7 @@ impl PluginMainThreadParams for GainMainThread<'_> {
         value: f64,
         writer: &mut ParamDisplayWriter,
     ) -> std::fmt::Result {
-        write!(writer, "{value:.2}")
+        write!(writer, "{value:.2} x")
     }
 
     fn text_to_value(&self, _id: ClapId, text: &CStr) -> Option<f64> {

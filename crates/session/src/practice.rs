@@ -180,6 +180,11 @@ impl<O: Output> Practice<O> {
         self.output.take_param_changes()
     }
 
+    /// The output chain's plugins' texts for values since the last call.
+    pub fn take_param_texts(&mut self) -> Vec<(u32, u32, f64, String)> {
+        self.output.take_param_texts()
+    }
+
     /// Opens the own editor of the output chain's plugin `plugin`.
     pub fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
         self.output.open_editor(plugin, title)

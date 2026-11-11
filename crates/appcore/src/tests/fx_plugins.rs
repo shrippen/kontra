@@ -349,3 +349,28 @@ fn a_plugin_window_needs_the_running_chain() {
     assert_eq!(hint, Some(core.tr("fx.window.off", &[])));
     assert_eq!(core.edit_effects("window", 1, "", 0.0), None);
 }
+
+/// FX4: a value shows with the plugin's own text and unit once the plugin gave one for exactly
+/// that value; before, and for another value, the number.
+#[test]
+fn values_show_the_plugins_text() {
+    let mut core = core_with_plugin("fx-plugin-texts");
+    let key = effects(&core)["plugins"][0]["key"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    core.edit_effects("add", 0, &key, 0.0);
+    let id = core.settings().plugins[0].id;
+    let shown = |core: &Core| effects(core)["slots"][0]["values"][0]["shown"].clone();
+    assert_eq!(shown(&core), "1");
+
+    assert!(core.plugins.note_texts(vec![(id, 7, 1.0, "1.00 x".into())]));
+    assert!(
+        !core.plugins.note_texts(vec![(id, 7, 1.0, "1.00 x".into())]),
+        "no news"
+    );
+    assert_eq!(shown(&core), "1.00 x");
+
+    core.edit_effects("set", 0, GAIN_PARAM, 0.5);
+    assert_eq!(shown(&core), "2", "a text for another value does not fit");
+}

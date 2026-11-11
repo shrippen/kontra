@@ -143,6 +143,11 @@ pub trait Output {
     fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
         Vec::new()
     }
+    /// The chain's plugins' texts for values since the last call, as (`PluginSpec::id`,
+    /// parameter id, value, text); outputs without plugins have none.
+    fn take_param_texts(&mut self) -> Vec<(u32, u32, f64, String)> {
+        Vec::new()
+    }
     /// Opens the own editor of the chain's plugin `plugin` (`PluginSpec::id`); outputs without
     /// plugins have none.
     fn open_editor(&mut self, _plugin: u32, _title: &str) -> Result<(), PluginError> {
@@ -468,6 +473,10 @@ impl Output for Player {
 
     fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
         self.builder.open_editor(plugin, title, system_frame())
+    }
+
+    fn take_param_texts(&mut self) -> Vec<(u32, u32, f64, String)> {
+        self.builder.take_param_texts()
     }
 }
 

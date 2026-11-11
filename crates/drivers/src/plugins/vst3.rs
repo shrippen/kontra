@@ -527,6 +527,8 @@ pub(super) struct Vst3Plugin {
     out_channels: usize,
     /// The plugin's own editor while it is open.
     editor: Option<editor::Vst3Editor>,
+    /// Each parameter's unit, as the controller names it ("dB"; often empty).
+    units: Vec<(u32, String)>,
 }
 
 impl Vst3Plugin {
@@ -577,6 +579,7 @@ impl Vst3Plugin {
 
         let vendor = vendor_of(module.factory()?);
         let params = list_params(&parts);
+        let units = param_units(&parts);
         Ok(Vst3Plugin {
             info: PluginInfo {
                 format: PluginFormat::Vst3,
@@ -594,6 +597,7 @@ impl Vst3Plugin {
             in_channels,
             out_channels,
             editor: None,
+            units,
         })
     }
 
@@ -648,6 +652,34 @@ impl Vst3Plugin {
             },
         }
         Ok(())
+    }
+
+    /// The plugin's own text for the plain `value` of parameter `id`, with its unit ("-6.0 dB");
+    /// `None` if it has none.
+    pub(super) fn value_text(&mut self, id: u32, value: f64) -> Option<String> {
+        let controller = self.parts.controller.as_ref()?;
+        let mut chars: String128 = [0; 128];
+        // SAFETY: plain calls on the live controller; `chars` is the String128 it fills.
+        let shown = unsafe {
+            let normalized = controller.plainParamToNormalized(id, value);
+            ok(controller.getParamStringByValue(id, normalized, &mut chars))
+        };
+        if !shown {
+            return None;
+        }
+        let text = wide_text(&chars).trim().to_string();
+        if text.is_empty() {
+            return None;
+        }
+        let unit = self
+            .units
+            .iter()
+            .find(|(p, _)| *p == id)
+            .map(|(_, u)| u.as_str());
+        Some(match unit {
+            Some(unit) if !unit.is_empty() && !text.ends_with(unit) => format!("{text} {unit}"),
+            _ => text,
+        })
     }
 
     /// Changes the plugin's controller made itself (`performEdit`) since the last call, in plain
@@ -792,6 +824,23 @@ impl Drop for Vst3Plugin {
         self.close_editor();
         let _ = self.deactivate();
     }
+}
+
+fn param_units(parts: &Parts) -> Vec<(u32, String)> {
+    let Some(controller) = &parts.controller else {
+        return Vec::new();
+    };
+    let mut units = Vec::new();
+    // SAFETY: as in `list_params`.
+    unsafe {
+        for index in 0..controller.getParameterCount() {
+            let mut info: ParameterInfo = std::mem::zeroed();
+            if ok(controller.getParameterInfo(index, &mut info)) {
+                units.push((info.id, wide_text(&info.units).trim().to_string()));
+            }
+        }
+    }
+    units
 }
 
 fn list_params(parts: &Parts) -> Vec<ParamInfo> {

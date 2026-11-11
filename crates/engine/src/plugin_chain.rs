@@ -620,6 +620,17 @@ impl ChainBuilder {
         active.handle.open_editor(title, make_frame)
     }
 
+    /// The plugins' texts for values since the last call, as (`PluginSpec::id`, parameter id,
+    /// value in the plugin's units, text with unit).
+    pub fn take_param_texts(&mut self) -> Vec<(u32, u32, f64, String)> {
+        let mut all = Vec::new();
+        for active in &self.held {
+            let texts = active.handle.take_texts();
+            all.extend(texts.into_iter().map(|(p, v, t)| (active.id, p, v, t)));
+        }
+        all
+    }
+
     /// Changes the plugins made themselves since the last call, as (`PluginSpec::id`, parameter
     /// id, value in the plugin's units).
     pub fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {

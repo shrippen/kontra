@@ -226,7 +226,10 @@ impl Core {
                 "key": param_key(p.id),
                 "label": p.name,
                 "value": fx_plugins::to_unit(p),
-                "shown": fx_plugins::shown_value(p.value, &mark),
+                "shown": self.plugins.text_of(spec.id, p.id, p.value).map_or_else(
+                    || fx_plugins::shown_value(p.value, &mark),
+                    str::to_string,
+                ),
             }));
         }
         let shown = PluginFormat::from_key(&spec.format).map(|f| f.to_string());
