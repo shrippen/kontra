@@ -345,7 +345,7 @@ struct Parts {
     /// The component is active (set by the plugin, ended in `drop` if still on).
     active: AtomicBool,
     _host: ComWrapper<HostApp>,
-    _handler: ComWrapper<Handler>,
+    handler: ComWrapper<Handler>,
     module: Arc<Module>,
 }
 
@@ -353,7 +353,7 @@ impl Parts {
     fn new(module: &Arc<Module>, cid: &TUID, path: &Path) -> Result<Parts, PluginError> {
         let factory = module.factory()?;
         let host = ComWrapper::new(HostApp);
-        let handler = ComWrapper::new(Handler);
+        let handler = Handler::new();
         let context = host
             .to_com_ptr::<FUnknown>()
             .ok_or_else(|| fail("host object"))?;
@@ -380,7 +380,7 @@ impl Parts {
             in_use: Arc::new(AtomicBool::new(false)),
             active: AtomicBool::new(false),
             _host: host,
-            _handler: handler,
+            handler,
             module: Arc::clone(module),
         };
         parts.find_controller(&context);
@@ -413,7 +413,7 @@ impl Parts {
         };
         // SAFETY: plain COM calls with live objects; the handler outlives the controller.
         unsafe {
-            if let Some(handler) = self._handler.as_com_ref::<IComponentHandler>() {
+            if let Some(handler) = self.handler.as_com_ref::<IComponentHandler>() {
                 controller.setComponentHandler(handler.as_ptr());
             }
             if self.separate {
@@ -612,10 +612,11 @@ impl Vst3Plugin {
     }
 
     pub(super) fn set_param(&mut self, id: u32, value: f64) -> Result<(), PluginError> {
-        let (Some(controller), Some(info)) = (
-            &self.parts.controller,
-            self.params.iter().find(|p| p.id == id),
-        ) else {
+        // A second owner, so that `deliver` can borrow `self` while the controller is in use.
+        let parts = Arc::clone(&self.parts);
+        let (Some(controller), Some(info)) =
+            (&parts.controller, self.params.iter().find(|p| p.id == id))
+        else {
             return Err(PluginError::NoParam(id));
         };
         let plain = value.clamp(info.min, info.max);
@@ -625,18 +626,43 @@ impl Vst3Plugin {
             id,
             value: normalized,
         };
+        self.deliver(change)?;
+        // SAFETY: as above.
+        unsafe { controller.setParamNormalized(id, normalized) };
+        Ok(())
+    }
+
+    /// Hands a change to the audio thread, or keeps it for the activation.
+    fn deliver(&mut self, change: ParamChange) -> Result<(), PluginError> {
         match self.ring.as_mut() {
             // Only a value the processor got is shown by `params`.
             Some(ring) => ring.push(change).map_err(|_| PluginError::QueueFull)?,
             // One entry per parameter, the last value wins: the list stays as short as the plugin.
-            None => match self.pending.iter_mut().find(|c| c.id == id) {
-                Some(known) => known.value = normalized,
+            None => match self.pending.iter_mut().find(|c| c.id == change.id) {
+                Some(known) => known.value = change.value,
                 None => self.pending.push(change),
             },
         }
-        // SAFETY: as above.
-        unsafe { controller.setParamNormalized(id, normalized) };
         Ok(())
+    }
+
+    /// Changes the plugin's controller made itself (`performEdit`) since the last call, in plain
+    /// units. The processor is a separate object that does not hear of them: it gets them here.
+    pub(super) fn take_changes(&mut self) -> Vec<(u32, f64)> {
+        let parts = Arc::clone(&self.parts);
+        let edits = parts.handler.take_edits();
+        let Some(controller) = &parts.controller else {
+            return Vec::new();
+        };
+        let mut changes = Vec::with_capacity(edits.len());
+        for edit in edits {
+            // A full ring drops it: the processor catches up with the next change.
+            let _ = self.deliver(edit);
+            // SAFETY: plain call on the live controller.
+            let plain = unsafe { controller.normalizedParamToPlain(edit.id, edit.value) };
+            changes.push((edit.id, plain));
+        }
+        changes
     }
 
     pub(super) fn latency_samples(&mut self) -> u32 {

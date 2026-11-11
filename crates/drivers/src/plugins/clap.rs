@@ -9,8 +9,11 @@ use clack_extensions::latency::PluginLatency;
 use clack_extensions::params::{ParamInfoBuffer, ParamInfoFlags, PluginParams};
 use clack_extensions::state::PluginState;
 use clack_host::events::event_types::ParamValueEvent;
-use clack_host::events::io::{EventBuffer, InputEvents, OutputEvents};
-use clack_host::events::Pckn;
+use clack_host::events::io::{
+    EventBuffer, InputEvents, OutputEventBuffer, OutputEvents, TryPushError,
+};
+use clack_host::events::spaces::CoreEventSpace;
+use clack_host::events::{Pckn, UnknownEvent};
 use clack_host::prelude::*;
 use clack_host::utils::ClapId;
 use rtrb::{Consumer, Producer, RingBuffer};
@@ -25,6 +28,30 @@ const HOST_VENDOR: &str = "shrippen";
 struct ParamChange {
     id: u32,
     value: f64,
+}
+
+/// Takes the parameter value events a plugin writes while it is called, one `report` call each.
+/// No allocation of its own: `report` decides where they go (a ring, or a list on the main
+/// thread).
+struct Sink<F: FnMut(ParamChange)> {
+    report: F,
+}
+
+impl<F: FnMut(ParamChange)> OutputEventBuffer for Sink<F> {
+    fn try_push(&mut self, event: &UnknownEvent) -> Result<(), TryPushError> {
+        // Other events (notes, transport requests) are of no use for effects.
+        let Some(CoreEventSpace::ParamValue(e)) = event.as_core_event() else {
+            return Ok(());
+        };
+        let Some(id) = e.param_id() else {
+            return Ok(());
+        };
+        (self.report)(ParamChange {
+            id: id.get(),
+            value: e.value(),
+        });
+        Ok(())
+    }
 }
 
 struct Host;
@@ -154,6 +181,10 @@ pub(super) struct ClapPlugin {
     latency_ext: Option<PluginLatency>,
     /// Main thread end of the ring to the audio thread while activated.
     ring: Option<Producer<ParamChange>>,
+    /// Main thread end of the ring from the audio thread: changes the plugin made itself.
+    reports: Option<Consumer<ParamChange>>,
+    /// Changes the plugin made itself while inactive (in a flush).
+    flushed: Vec<ParamChange>,
     in_channels: usize,
     out_channels: usize,
 }
@@ -231,6 +262,8 @@ impl ClapPlugin {
             state_ext,
             latency_ext,
             ring: None,
+            reports: None,
+            flushed: Vec::new(),
             in_channels: in_channels as usize,
             out_channels: out_channels as usize,
         })
@@ -273,8 +306,21 @@ impl ClapPlugin {
             .instance
             .inactive_plugin_handle()
             .ok_or(PluginError::InUse)?;
-        ext.flush(&mut handle, &events.as_input(), &mut OutputEvents::void());
+        let mut sink = Sink {
+            report: |change| self.flushed.push(change),
+        };
+        let mut output = OutputEvents::from_buffer(&mut sink);
+        ext.flush(&mut handle, &events.as_input(), &mut output);
         Ok(())
+    }
+
+    /// Changes the plugin made itself since the last call, the last value per parameter.
+    pub(super) fn take_changes(&mut self) -> Vec<(u32, f64)> {
+        let mut all = std::mem::take(&mut self.flushed);
+        while let Some(change) = self.reports.as_mut().and_then(|r| r.pop().ok()) {
+            all.push(change);
+        }
+        super::coalesce(all.into_iter().map(|c| (c.id, c.value)))
     }
 
     pub(super) fn latency_samples(&mut self) -> u32 {
@@ -318,7 +364,9 @@ impl ClapPlugin {
             .map_err(|e| PluginError::Plugin(e.to_string()))?;
 
         let (tx, rx) = RingBuffer::new(PARAM_RING_SLOTS);
+        let (report_tx, report_rx) = RingBuffer::new(PARAM_RING_SLOTS);
         self.ring = Some(tx);
+        self.reports = Some(report_rx);
         let frames = max_block as usize;
         Ok(ClapProcessor {
             processor: stopped.into(),
@@ -328,6 +376,7 @@ impl ClapPlugin {
             scratch_out: [vec![0.0; frames], vec![0.0; frames]],
             events: EventBuffer::with_capacity(PARAM_RING_SLOTS),
             changes: rx,
+            reports: report_tx,
             in_channels: self.in_channels,
             out_channels: self.out_channels,
             max_block: frames,
@@ -339,8 +388,20 @@ impl ClapPlugin {
         self.instance
             .try_deactivate()
             .map_err(|_| PluginError::InUse)?;
+        // Reports still in the ring are kept for the next `take_changes`.
+        self.flush_reports();
         self.ring = None;
+        self.reports = None;
         Ok(())
+    }
+}
+
+impl ClapPlugin {
+    /// Moves what the ring holds to the list, which outlives the activation.
+    fn flush_reports(&mut self) {
+        while let Some(change) = self.reports.as_mut().and_then(|r| r.pop().ok()) {
+            self.flushed.push(change);
+        }
     }
 }
 
@@ -376,6 +437,8 @@ pub(super) struct ClapProcessor {
     scratch_out: [Vec<f32>; CHANNELS],
     events: EventBuffer,
     changes: Consumer<ParamChange>,
+    /// Parameter changes the plugin makes itself, to the main thread.
+    reports: Producer<ParamChange>,
     in_channels: usize,
     out_channels: usize,
     max_block: usize,
@@ -478,11 +541,18 @@ impl ClapProcessor {
             ),
         }]);
 
+        // A full ring drops the report: the plugin's value is read again at the next `params`.
+        let reports = &mut self.reports;
+        let mut sink = Sink {
+            report: |change| {
+                let _ = reports.push(change);
+            },
+        };
         let status = started.process(
             &in_bufs,
             &mut out_bufs,
             &InputEvents::from_buffer(&self.events),
-            &mut OutputEvents::void(),
+            &mut OutputEvents::from_buffer(&mut sink),
             Some(self.steady_time),
             None,
         );

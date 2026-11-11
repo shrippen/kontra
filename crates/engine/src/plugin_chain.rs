@@ -256,6 +256,24 @@ impl ChainBuilder {
         }
     }
 
+    /// Changes the plugins made themselves since the last call, as (`PluginSpec::id`, parameter
+    /// id, value in the plugin's units).
+    pub fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
+        let mut all = Vec::new();
+        for active in &mut self.current {
+            for (param, value) in active.plugin.take_changes() {
+                // The plugin's value is what it was last told: the settings that take it over
+                // are not sent back.
+                match active.sent.iter_mut().find(|(id, _)| *id == param) {
+                    Some(entry) => entry.1 = value,
+                    None => active.sent.push((param, value)),
+                }
+                all.push((active.id, param, value));
+            }
+        }
+        all
+    }
+
     fn send_params(&mut self, bank: &PluginBank) {
         for active in &mut self.current {
             let Some(spec) = bank.find(active.id) else {

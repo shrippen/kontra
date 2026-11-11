@@ -148,6 +148,22 @@ impl Core {
             .map(LiveMonitor::chain_latency_ms)
     }
 
+    /// Changes the plugins of the effect chain made themselves since the last call, as (plugin
+    /// id, parameter id, value): from the run, the ear training or the standby monitor, as
+    /// `chain_latency_ms` picks it.
+    pub(crate) fn plugin_changes(&mut self) -> Vec<(u32, u32, f64)> {
+        if let Some(live) = self.live.as_mut() {
+            return live.take_param_changes();
+        }
+        if let Some(ear) = self.live_ear.as_mut() {
+            return ear.take_param_changes();
+        }
+        match self.standby.monitor.as_mut() {
+            Some(monitor) => monitor.take_param_changes(),
+            None => Vec::new(),
+        }
+    }
+
     /// What to say about the standby after a mixer change. Only when "Bass hören" just went on
     /// Kontra says that it found no input (none chosen and no interface, or none chosen at the
     /// laptop jack), not on every slider.

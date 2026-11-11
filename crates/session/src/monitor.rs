@@ -76,6 +76,12 @@ impl LiveMonitor {
         self.output.chain_latency_ms()
     }
 
+    /// Changes the plugins of the effect chain made themselves since the last call, as
+    /// (plugin id, parameter id, value).
+    pub fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
+        self.output.take_param_changes()
+    }
+
     /// The input reaches the output (both at the same rate).
     pub fn can_monitor(&self) -> bool {
         self.can_monitor

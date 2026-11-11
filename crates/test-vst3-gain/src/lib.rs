@@ -3,6 +3,10 @@
 //! normalized value as eight bytes, latency is `LATENCY_SAMPLES`. Component and controller are two
 //! classes, as in many real plugins.
 //!
+//! Setting the gain to `GAIN_TRIGGER` makes the controller change it by itself to `GAIN_REPORTED`
+//! and report that to the host's component handler with `performEdit`, the way a plugin's own
+//! editor does (tests of FX5). The processor is not told: the host has to forward it.
+//!
 //! The same code builds a stereo and a mono variant (`export_module!(2, …)`, `(1, …)`); the crash
 //! and hang modules are in `examples/`.
 //!
@@ -10,17 +14,20 @@
 #![allow(unsafe_code)]
 #![allow(non_snake_case, non_upper_case_globals, missing_debug_implementations)]
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::ffi::{c_char, c_void, CString};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::{ptr, slice};
 
 pub use vst3;
-use vst3::{uid, Class, ComRef, ComWrapper, Steinberg::Vst::*, Steinberg::*};
+use vst3::{uid, Class, ComPtr, ComRef, ComWrapper, Steinberg::Vst::*, Steinberg::*};
 
 pub const LATENCY_SAMPLES: u32 = 64;
 pub const GAIN_PARAM_ID: u32 = 7;
 pub const GAIN_MAX: f64 = 4.0;
+/// Set as the gain, this makes the controller report `GAIN_REPORTED` as its own change.
+pub const GAIN_TRIGGER: f64 = 3.5;
+pub const GAIN_REPORTED: f64 = 0.5;
 const GAIN_DEFAULT_NORMALIZED: f64 = 0.25;
 const STATE_BYTES: i32 = 8;
 const MONO_CHANNELS: u32 = 1;
@@ -277,6 +284,7 @@ impl IProcessContextRequirementsTrait for Processor {
 
 struct Controller {
     gain: Cell<f64>,
+    handler: RefCell<Option<ComPtr<IComponentHandler>>>,
 }
 
 impl Class for Controller {
@@ -365,11 +373,23 @@ impl IEditControllerTrait for Controller {
         if id != GAIN_PARAM_ID {
             return kInvalidArgument;
         }
-        self.gain.set(value);
+        if value != GAIN_TRIGGER / GAIN_MAX {
+            self.gain.set(value);
+            return kResultOk;
+        }
+        // The plugin's "editor" moves the gain itself and tells the host.
+        let reported = GAIN_REPORTED / GAIN_MAX;
+        self.gain.set(reported);
+        if let Some(handler) = self.handler.borrow().as_ref() {
+            handler.beginEdit(GAIN_PARAM_ID);
+            handler.performEdit(GAIN_PARAM_ID, reported);
+            handler.endEdit(GAIN_PARAM_ID);
+        }
         kResultOk
     }
 
-    unsafe fn setComponentHandler(&self, _handler: *mut IComponentHandler) -> tresult {
+    unsafe fn setComponentHandler(&self, handler: *mut IComponentHandler) -> tresult {
+        *self.handler.borrow_mut() = ComRef::from_raw(handler).map(|h| h.to_com_ptr());
         kResultOk
     }
 
@@ -436,6 +456,7 @@ impl IPluginFactoryTrait for Factory {
         } else if wanted == controller_cid(self.channels) {
             ComWrapper::new(Controller {
                 gain: Cell::new(GAIN_DEFAULT_NORMALIZED),
+                handler: RefCell::new(None),
             })
             .to_com_ptr::<FUnknown>()
         } else {

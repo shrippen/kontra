@@ -225,3 +225,29 @@ fn the_chain_latency_is_a_line_for_the_page() {
     let line = core.latency_text(Some(1.33));
     assert!(line.contains("1.3") || line.contains("1,3"), "{line}");
 }
+
+/// FX5: a value the plugin changed by itself (the engine reports it as plugin id, parameter id,
+/// value) lands in the settings, the slider follows, and it is there after a restart.
+#[test]
+fn a_change_made_by_the_plugin_is_saved() {
+    let mut core = core_with_plugin("fx-plugin-own-change");
+    core.edit_effects("add", 0, "plugin:0", 0.0);
+    let id = core.settings().plugins[0].id;
+    let param = 7;
+
+    assert!(core.take_plugin_changes(&[(id, param, 0.5)]));
+    assert_eq!(core.settings().plugins[0].params[0].value, 0.5);
+    // 0.5 of a range of 0 to 4.
+    assert_eq!(effects(&core)["slots"][0]["values"][0]["value"], 0.125);
+
+    // The same value again is no news; a plugin or parameter that is not there is ignored.
+    assert!(!core.take_plugin_changes(&[(id, param, 0.5)]));
+    assert!(!core.take_plugin_changes(&[(id + 1, param, 1.0), (id, param + 1, 1.0)]));
+    assert_eq!(core.settings().plugins[0].params[0].value, 0.5);
+
+    let dir = core.data_dir.clone();
+    drop(core);
+    let again = Core::new(&dir, QaOptions::default());
+    assert_eq!(again.settings().plugins[0].params[0].value, 0.5);
+    let _ = std::fs::remove_dir_all(dir);
+}
