@@ -407,7 +407,6 @@
   "fx.add.button": "Add {name}",
   "fx.full": "The chain is full ({max} effects). Remove one first.",
   "fx.latency": "Effects delay the bass by {ms} ms.",
-  "fx.latency.mark": ".",
   "fx.slot": "{number}. {name}",
   "fx.on": "{name} on",
   "fx.remove": "Remove {name}",

@@ -112,7 +112,7 @@ impl Core {
         let Some(ms) = latency_ms.filter(|ms| *ms >= MIN_SHOWN_LATENCY_MS) else {
             return String::new();
         };
-        let mark = self.tr("fx.latency.mark", &[]);
+        let mark = self.tr("number.decimal_mark", &[]);
         let shown = format!("{ms:.1}").replace('.', &mark);
         self.tr("fx.latency", &[("ms", shown)])
     }

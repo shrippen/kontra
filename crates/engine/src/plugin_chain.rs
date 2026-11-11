@@ -28,8 +28,8 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 /// Frames the plugin gets at once, and the delay this adds.
-const MS_PER_S: f64 = 1000.0;
 const BLOCK: usize = 64;
+const MS_PER_S: f64 = 1000.0;
 
 /// Why a plugin slot is bypassed, by `PluginSpec::id`. Shared between the control side that
 /// builds chains and the page that shows the reasons.
