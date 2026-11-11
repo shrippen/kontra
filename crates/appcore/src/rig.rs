@@ -8,7 +8,9 @@
 //! ```
 //!
 //! Only the app keeps devices (`keep_devices_open`), and only at a cable input: a microphone
-//! and MIDI keep the gap (owner, 11.11.2026). The loopback opens its own devices.
+//! and MIDI keep the gap (owner, 11.11.2026). Devices left when no mode runs go to the standby
+//! at the next tick, or close where it holds nothing (`tick_standby`). The loopback opens its
+//! own devices.
 
 use crate::mixer::{ear_gains, gains};
 use crate::Core;
@@ -181,5 +183,41 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
         assert!(core.standby.rig.is_none());
         assert_eq!(core.standby.taken, 0);
+    }
+
+    /// Review #290: before the setup (the level step runs the tuner) the standby holds
+    /// nothing, so a parked rig closes at the next tick instead of staying open.
+    #[test]
+    fn before_the_setup_the_parked_rig_closes() {
+        let (mut core, dir) = core("setup");
+        core.keep_devices_open();
+        core.start_tuner().unwrap();
+        core.stop_tuner();
+        assert!(core.standby.rig.is_some());
+        // Safe to tick: with a recording as input the standby opens nothing.
+        core.tick_standby();
+        let _ = std::fs::remove_dir_all(dir);
+        assert!(core.standby.rig.is_none());
+    }
+
+    /// Review #290: at the laptop jack without a chosen input the standby holds nothing (the
+    /// built-in card is the laptop's microphone), so a run's devices do not stay open there.
+    #[test]
+    fn the_laptop_jack_without_a_choice_keeps_nothing() {
+        let (mut core, dir) = core("jack");
+        core.update_settings(|s| {
+            s.setup_done = true;
+            s.input_kind = crate::InputKind::LaptopJack;
+            s.input_device = None;
+        });
+        core.keep_devices_open();
+        core.start_tuner().unwrap();
+        core.stop_tuner();
+        // As the app without a recording: the standby looks for a chosen input, finds none,
+        // and opens nothing.
+        core.qa.input_file = None;
+        core.tick_standby();
+        let _ = std::fs::remove_dir_all(dir);
+        assert!(core.standby.rig.is_none());
     }
 }

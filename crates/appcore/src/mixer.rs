@@ -61,7 +61,8 @@ impl crate::Core {
             live_ear.set_gains(ear_gains(&self.settings, &self.plugins));
         }
         self.remix_standby();
-        // The tuner's output opens or closes with "Bass hören" (only on a cable input).
+        // The tuner's output opens or closes with "Bass hören" (only on a cable input); on
+        // devices the app keeps open it stays, the gains carry the switch.
         if self.tuner.is_some() && passed != self.tuner_monitor().is_some() {
             let _ = self.start_tuner();
         }

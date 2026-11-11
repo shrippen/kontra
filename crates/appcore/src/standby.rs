@@ -257,10 +257,20 @@ impl Core {
             self.standby.monitor = None;
             self.standby.retry_at = Some(Instant::now() + RETRY);
         }
-        if self.standby.monitor.is_some() || !self.may_stand_by() {
+        if self.standby.monitor.is_some() {
             return;
         }
-        if self.standby.retry_at.is_some_and(|at| Instant::now() < at) {
+        // Devices a mode left go to the standby or close: none stay open where the standby
+        // holds nothing (before the setup, a recording, the laptop jack without a choice;
+        // review #290).
+        if !self.may_stand_by() {
+            if self.idle() {
+                self.drop_rig();
+            }
+            return;
+        }
+        let parked = self.standby.rig.is_some();
+        if !parked && self.standby.retry_at.is_some_and(|at| Instant::now() < at) {
             return;
         }
 
@@ -271,6 +281,7 @@ impl Core {
         let kind = self.settings.input_kind;
         let Some(input) = standby_input(stand_in, lost, saved, &devices, kind) else {
             // A lost input waits for the player's answer: the offer says so, not this.
+            self.drop_rig();
             self.standby.no_input = !lost;
             self.standby.retry_at = Some(Instant::now() + RETRY);
             return;
