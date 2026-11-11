@@ -48,7 +48,8 @@ impl PluginProblems {
         }
     }
 
-    fn clear(&self, id: u32) {
+    /// Forgets the reason for `id`: it loaded, or its id goes to a new plugin.
+    pub fn clear(&self, id: u32) {
         if let Ok(mut all) = self.0.lock() {
             all.remove(&id);
         }

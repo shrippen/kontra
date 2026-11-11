@@ -351,7 +351,7 @@ ColumnLayout {
                             Layout.preferredWidth: KanteStyle.unit(64)
                             horizontalAlignment: Text.AlignRight
                             color: KanteStyle.textColor
-                            // A plugin's value is in its own units; the core says it.
+                            // A plugin's value is in its own numbers (plugins name no unit here); the core formats it.
                             text: slotItem.slot.kind === "plugin" ? valueRow.entry.shown
                                 : mixer.texts.t("mixer.percent", { percent: Math.round(valueSlider.value * 100) })
                         }

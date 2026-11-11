@@ -214,12 +214,13 @@ impl Core {
                 self.tr("fx.plugin.lost", &[]),
             );
         };
+        let mark = self.tr("number.decimal_mark", &[]);
         for p in &spec.params {
             values.push(json!({
                 "key": param_key(p.id),
                 "label": p.name,
                 "value": fx_plugins::to_unit(p),
-                "shown": format!("{:.2}", p.value),
+                "shown": fx_plugins::shown_value(p.value, &mark),
             }));
         }
         let hint = format!("{} · {}", spec.vendor, spec.format.to_ascii_uppercase());
@@ -261,8 +262,10 @@ impl Core {
                     Ok(spec) => spec,
                     Err(hint) => return Some(hint),
                 };
+                // Ids come back after a removal: forget what the last holder could not load.
+                let id = fx_plugins::next_id(&self.settings().plugins);
+                self.plugins.problems.clear(id);
                 Box::new(move |s| {
-                    let id = fx_plugins::next_id(&s.plugins);
                     s.plugins.push(PluginSpec { id, ..spec });
                     s.monitor_chain.push(SlotSpec::for_plugin(id));
                 })
