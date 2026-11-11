@@ -628,6 +628,31 @@ mod tuner {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// Review #258: "Bass hören" restarted the tuner on a microphone too, though it never
+    /// plays one; the input dropped out for nothing.
+    #[test]
+    fn monitoring_leaves_a_microphone_tuner_alone() {
+        let (mut core, dir) = core("mic-flip");
+        core.update_settings(|s| s.input_kind = InputKind::Microphone);
+        core.start_tuner().unwrap();
+        let since = core.input_since;
+        core.remix(|s| s.monitor = !s.monitor);
+        assert_eq!(core.input_since, since, "the tuner kept its input");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Review #258: a restart opened the new input while the old tuner still held it (EBUSY
+    /// on a direct ALSA device); a failed restart kept the old tuner running.
+    #[test]
+    fn a_restart_releases_the_old_tuner_first() {
+        let (mut core, dir) = core("restart");
+        core.start_tuner().unwrap();
+        core.qa.input_file = Some(dir.join("gone.wav"));
+        assert!(core.start_tuner().is_err());
+        assert!(!core.is_tuning(), "the old tuner is gone");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// A microphone hears the speakers: no feedback loop (LH-EIN-18).
     #[test]
     fn the_tuner_does_not_play_a_microphone() {
