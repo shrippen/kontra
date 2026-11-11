@@ -31,6 +31,7 @@ mod progress;
 pub mod quiz;
 pub mod quiz_stats;
 mod report;
+mod rig;
 mod song_map;
 mod songsterr;
 mod sources;
@@ -63,7 +64,7 @@ use kontra_session::{
     PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings, SessionEvent,
     TechniqueOutcome, Workshop,
 };
-use mixer::{ear_gains, gains};
+use mixer::gains;
 use notation::key_at;
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -1160,6 +1161,7 @@ impl Core {
         }
         if let Some(live) = self.live.take() {
             self.xruns_done += live.xruns();
+            self.park(live.into_rig());
         }
         self.input.stopped(InputUse::Practice);
         self.probe = None;
@@ -1713,15 +1715,14 @@ impl Core {
         let Some(loaded) = self.loaded.as_ref() else {
             return Err(Unstarted::Other(self.tr("library.empty.hint", &[])));
         };
-        self.tuner = None;
-        self.live_ear = None;
-        self.level.reset();
         let arrangement = loaded.arrangement.clone();
+        self.end_tuner_and_ear();
+        self.level.reset();
         let settings = self.score_settings(arrangement.instrument.kind);
         let options = self.practice_options();
         let setup = self.live_setup();
         self.release_standby();
-        let mut live = match Live::start(arrangement, self.mode(), settings, options, &setup) {
+        let mut live = match self.open_live(arrangement, settings, options, &setup) {
             Ok(live) => live,
             Err(LiveError::Input(e)) => {
                 self.input.failed(InputUse::Practice, &e);
@@ -2320,8 +2321,7 @@ impl Core {
             _ => ear::EarKind::Echo,
         };
         self.stop_live();
-        self.tuner = None;
-        self.live_ear = None;
+        self.end_tuner_and_ear();
         self.level.reset();
         let instrument = self.instrument();
         let setup = LiveSetup {
@@ -2334,10 +2334,7 @@ impl Core {
             onset_gate_db: self.settings.onset_gate_db,
         };
         self.release_standby();
-        let mut live_ear = LiveEar::start(&setup, &instrument)
-            .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
-        live_ear.set_gains(ear_gains(&self.settings, &self.plugins));
-        self.live_ear = Some(live_ear);
+        self.live_ear = Some(self.open_ear(&setup, &instrument)?);
         self.input.remember(InputUse::Ear, setup.input);
         let stats = store::load(&self.data_dir.join(quiz_stats::FILE));
         self.ear = Some(ear::EarQuiz::new(
@@ -2352,7 +2349,7 @@ impl Core {
     }
 
     pub fn ear_stop(&mut self) {
-        self.live_ear = None;
+        self.end_ear();
         self.input.stopped(InputUse::Ear);
         self.ear = None;
         self.ear_prompting = false;

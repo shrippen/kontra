@@ -32,6 +32,11 @@ pub(crate) struct Standby {
     no_input: bool,
     /// The question whether a new USB input is an instrument or a microphone.
     usb: usb_ask::UsbAsk,
+    /// The devices a mode left for the next one (`rig.rs`).
+    pub(crate) rig: Option<kontra_session::Rig>,
+    /// Test: how often a mode took over the devices instead of opening its own.
+    #[cfg(test)]
+    pub(crate) taken: u32,
 }
 
 /// What a mixer change did to "Bass hören".
@@ -40,6 +45,13 @@ pub(crate) enum MixerChange {
     /// It was off and is on now.
     MonitorOn,
     Other,
+}
+
+impl Standby {
+    /// The app asked to hold devices open: modes hand theirs on (`rig.rs`).
+    pub(crate) fn keeps_devices(&self) -> bool {
+        self.wanted
+    }
 }
 
 /// The input the standby may hold open, by id: the stand-in the player took for a lost input,
@@ -82,10 +94,12 @@ impl Core {
         self.standby.monitor.is_some()
     }
 
-    /// Frees the devices for practice, tuner, ear training or calibration; the next idle tick
-    /// opens them again.
+    /// Frees the devices for practice, tuner, ear training or calibration: they go on to that
+    /// mode (`rig.rs`); the next idle tick takes them back.
     pub(crate) fn release_standby(&mut self) {
-        self.standby.monitor = None;
+        if let Some(monitor) = self.standby.monitor.take() {
+            self.park(monitor.into_rig());
+        }
         self.standby.retry_at = None;
         self.standby.no_input = false;
     }
@@ -106,6 +120,7 @@ impl Core {
         }
         if input || other {
             self.release_standby();
+            self.drop_rig();
         }
     }
 
@@ -242,10 +257,20 @@ impl Core {
             self.standby.monitor = None;
             self.standby.retry_at = Some(Instant::now() + RETRY);
         }
-        if self.standby.monitor.is_some() || !self.may_stand_by() {
+        if self.standby.monitor.is_some() {
             return;
         }
-        if self.standby.retry_at.is_some_and(|at| Instant::now() < at) {
+        // Devices a mode left go to the standby or close: none stay open where the standby
+        // holds nothing (before the setup, a recording, the laptop jack without a choice;
+        // review #290).
+        if !self.may_stand_by() {
+            if self.idle() {
+                self.drop_rig();
+            }
+            return;
+        }
+        let parked = self.standby.rig.is_some();
+        if !parked && self.standby.retry_at.is_some_and(|at| Instant::now() < at) {
             return;
         }
 
@@ -256,17 +281,18 @@ impl Core {
         let kind = self.settings.input_kind;
         let Some(input) = standby_input(stand_in, lost, saved, &devices, kind) else {
             // A lost input waits for the player's answer: the offer says so, not this.
+            self.drop_rig();
             self.standby.no_input = !lost;
             self.standby.retry_at = Some(Instant::now() + RETRY);
             return;
         };
         self.standby.no_input = false;
         let setup = self.monitor_setup(input);
-        let opened = LiveMonitor::start(
-            &setup,
-            &self.instrument(),
-            gains(&self.settings, &self.plugins),
-        );
+        let gains = gains(&self.settings, &self.plugins);
+        let opened = match self.take_rig(&setup) {
+            Some(rig) => Some(Ok(LiveMonitor::on(rig, &self.instrument(), gains))),
+            None => LiveMonitor::start(&setup, &self.instrument(), gains),
+        };
         match opened {
             Some(Ok(monitor)) => {
                 self.standby.monitor = Some(monitor);

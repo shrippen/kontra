@@ -248,6 +248,14 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
   Lautstärke-Rampe im Mixer (heute springen die Gains), B Neu-Basis von Ein- und Ausgang beim Anhängen eines
   Modus (Instrument, Zeitbasis, Epoche der Ereignisse; ein Anker auf „jetzt“ driftete über Stunden), C `Rig` mit
   dem Stimmgerät zuerst, D die übrigen Modi und `Rig::reopen`, E appcore mit einem Rig, dann messen.
+  Umgesetzt (11.11.): A #285, B #286, C #287, D1 #288 (Lauf, „Erneut versuchen“), D2 #289 (Gehör, Kalibrierung;
+  der Loopback öffnet weiter eigene Geräte: seine Aufnahme hängt am ersten Sample, und er braucht ein umgestecktes
+  Kabel), E (appcore parkt die Geräte eines endenden Modus, der nächste übernimmt sie, wenn sie passen; nur bei
+  „Geräte offen halten“ der App und am Kabel-Eingang; ein Gerät mit Fehler wird nie übernommen). Die beiden
+  Eingangswahlen stimmen überall überein, wo die Bereitschaft ein Gerät hält; zusammengelegt wurde deshalb nichts.
+  Gemessen (`check --steps switch`, Scarlett ausdrücklich als Ein- und Ausgang, je 10 Wechsel, zwei Läufe): auf
+  einem Rig dauert die Übergabe 2,1 / 2,3 ms (Median, schlechtester 4,4 ms) im Thread der App, der Ausgang läuft
+  durch, 0 Xruns; Schließen und Öffnen wie bisher 36 / 40 ms stumm. Loopback 18,3 / 20,2 ms, 0 Xruns.
 - Die `pub`-Schnittstellen aus #279 bis #284 sind freigegeben (`Core::set_usb_role`, `FrameHandle::Win32`,
   `session::tone_delays_s`, `session::LOOPBACK_TONES`, `PluginRack`, `PluginBank::with_rack`,
   `LiveMonitor::is_running`).

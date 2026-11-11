@@ -159,6 +159,7 @@ impl Core {
         });
         // An instrument is an interface now: the standby looks again.
         self.release_standby();
+        self.drop_rig();
         ended
     }
 
