@@ -106,8 +106,8 @@ drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier
   Rückrufe, Größenwünsche; Schließen per Fenster, #275); Knopf „Fenster“ je Plugin im Mixer, das Fenster gehört
   zum Player, der die Kette gerade spielt (Ende des Laufs schließt es). VST 3 ebenso (`IPlugView` in X11,
   `IPlugFrame` mit `IRunLoop`). Der Plugin-Thread übersteht eine Panik (FX4). Windows: eigenes Win32-Fenster
-  (HWND) für CLAP und VST 3, in der VM mit den Test-Plugins geprüft (Runde 20). Offen: Flatpak-Zugang zu X11
-  (Eigentümer, `packaging/`).
+  (HWND) für CLAP und VST 3, in der VM mit den Test-Plugins geprüft (Runde 20). Im Flatpak über X11 (#281).
+  Offen: ein echtes Plugin-Fenster am Gerät ansehen.
   Voraussetzung steht: Instanzen leben so lang wie ihr Slot (FX4), ein offenes Fenster geht beim Umbauen der Kette
   nicht verloren. Je Player eine eigene Instanz; ein gemeinsames Register über Player hinweg fehlt noch.
 - [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket. Der
