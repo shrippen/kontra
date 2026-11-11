@@ -127,6 +127,8 @@ pub enum CheckStep {
     Takes,
     Soak,
     Stems,
+    /// How long a change of player leaves the output silent.
+    Switch,
 }
 
 #[derive(Debug, Args)]

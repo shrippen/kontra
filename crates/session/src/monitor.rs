@@ -93,6 +93,11 @@ impl LiveMonitor {
         self.output.open_editor(plugin, title)
     }
 
+    /// True once the output asked for its first block (before that, nothing plays).
+    pub fn is_running(&self) -> bool {
+        self.output.is_running()
+    }
+
     /// The input reaches the output (both at the same rate).
     pub fn can_monitor(&self) -> bool {
         self.can_monitor
