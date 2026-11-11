@@ -30,6 +30,10 @@ const PLAYER_WINDOW_S: f64 = 0.25;
 /// Concert pitch of the planned tones.
 const A4_HZ: f64 = 440.0;
 
+/// Sounds go to the output this long before they are due: it holds only a few dozen (R3, 11.11.:
+/// a 2000-tone loopback heard 48).
+const AHEAD_S: f64 = 2.0;
+
 /// Loopback: tones at a pitch the tracker hears well, far enough apart to tell them apart.
 pub const LOOPBACK_TONES: usize = 12;
 const LOOPBACK_MIDI: u8 = 40; // E2
@@ -69,6 +73,8 @@ pub struct LiveTake {
     plan: Vec<(f64, TakeSound)>,
     length_s: f64,
     zero_s: Option<f64>,
+    /// Plan entries handed to the output so far.
+    scheduled: usize,
     notes: Vec<DetectedNote>,
 }
 
@@ -93,6 +99,9 @@ impl LiveTake {
             None,
         )?;
         input.record();
+        // In time order: sounds go out shortly before they are due (`due_until`).
+        let mut plan = plan;
+        plan.sort_by(|a, b| a.0.total_cmp(&b.0));
         Ok(LiveTake {
             clock,
             output,
@@ -101,6 +110,7 @@ impl LiveTake {
             plan,
             length_s,
             zero_s: None,
+            scheduled: 0,
             notes: Vec::new(),
         })
     }
@@ -116,15 +126,22 @@ impl LiveTake {
             let Some(start) = self.input.started_s() else {
                 return false;
             };
-            let zero = start + LEAD_S;
-            for (at, sound) in &self.plan {
-                self.output.schedule(zero + at, engine_sound(*sound));
-            }
-            self.zero_s = Some(zero);
+            self.zero_s = Some(start + LEAD_S);
         }
         let Some(zero) = self.zero_s else {
             return false;
         };
+
+        // The output holds a few dozen sounds: hand them over shortly before they are due.
+        let due = due_until(
+            &self.plan,
+            self.scheduled,
+            self.clock.now_s() - zero + AHEAD_S,
+        );
+        for (at, sound) in &self.plan[self.scheduled..due] {
+            self.output.schedule(zero + at, engine_sound(*sound));
+        }
+        self.scheduled = due;
         while let Ok(event) = self.events.try_recv() {
             if let Event::Note(mut note) = event {
                 note.onset_s -= zero;
@@ -149,6 +166,15 @@ impl LiveTake {
             block_frames: self.input.block_frames(),
         }
     }
+}
+
+/// End of the plan entries due before `until_s` (plan time), starting at `from`.
+fn due_until(plan: &[(f64, TakeSound)], from: usize, until_s: f64) -> usize {
+    let due = plan[from..]
+        .iter()
+        .take_while(|(at, _)| *at < until_s)
+        .count();
+    from + due
 }
 
 fn engine_sound(sound: TakeSound) -> Sound {
@@ -455,6 +481,17 @@ mod tests {
             xruns: 0,
             block_frames: None,
         }
+    }
+
+    #[test]
+    fn sounds_go_out_shortly_before_they_are_due() {
+        let plan = loopback_plan(2000);
+        // At the start only what plays in the next AHEAD_S (0.6 s apart: 0, 0.6, 1.2, 1.8).
+        assert_eq!(due_until(&plan, 0, AHEAD_S), 4);
+        // Later: from where it stopped, never back.
+        assert_eq!(due_until(&plan, 4, 600.0 + AHEAD_S), 1004);
+        assert_eq!(due_until(&plan, 1004, 1.0), 1004);
+        assert_eq!(due_until(&plan, 0, 1e9), plan.len());
     }
 
     #[test]
