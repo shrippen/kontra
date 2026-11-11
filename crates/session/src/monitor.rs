@@ -7,21 +7,17 @@
 //!           └─► analysis ─► levels and errors only (notes are dropped)
 //! ```
 
-use crate::live::{input_kind, live_output_config, InputChoice, LiveSetup};
+use crate::live::{InputChoice, LiveSetup};
 use crate::practice::PracticeEvent;
+use crate::rig::{Rig, RigOutput};
 use kontra_engine::plugins::PluginError;
-use kontra_engine::{Clock, EngineError, Event, Gains, Input, Output, Player};
+use kontra_engine::{EngineError, Event, Gains, Output};
 use kontra_model::Instrument;
-use std::sync::mpsc::{channel, Receiver};
 
 /// Input and output held open for monitoring.
 #[derive(Debug)]
 pub struct LiveMonitor {
-    output: Player,
-    /// Held, not read: dropping it closes the input.
-    _input: Input,
-    events: Receiver<Event>,
-    can_monitor: bool,
+    rig: Rig,
 }
 
 impl LiveMonitor {
@@ -35,78 +31,63 @@ impl LiveMonitor {
         if !matches!(setup.input, InputChoice::Device { .. }) {
             return None;
         }
-        Some(LiveMonitor::open(setup, instrument, gains))
+        // No output is an error here, not silence: the caller tries again later (review #231).
+        let output = RigOutput::Device(setup.output_device.clone());
+        let rig = Rig::open(&setup.input, output, setup.source, instrument, gains);
+        Some(rig.map(|rig| LiveMonitor { rig }))
     }
 
-    fn open(
-        setup: &LiveSetup,
-        instrument: &Instrument,
-        gains: Gains,
-    ) -> Result<LiveMonitor, EngineError> {
-        let clock = Clock::new();
-        let (tx, rx) = channel();
-        // No output is an error here, not silence: the caller tries again later (review #231).
-        let config = live_output_config(setup);
-        let mut output = Player::start(&config, &clock, tx.clone())?;
-        output.set_gains(gains);
-        let sample_rate = output.sample_rate();
-        let input = Input::start(
-            &input_kind(&setup.input),
-            instrument,
-            setup.source,
-            &clock,
-            tx,
-            Some(&mut output),
-        )?;
-        let can_monitor = input.sample_rate == sample_rate;
-        Ok(LiveMonitor {
-            output,
-            _input: input,
-            events: rx,
-            can_monitor,
-        })
+    /// Monitors on the devices of `rig`, at `gains`.
+    pub fn on(mut rig: Rig, instrument: &Instrument, gains: Gains) -> LiveMonitor {
+        rig.attach(instrument, gains);
+        LiveMonitor { rig }
+    }
+
+    /// Hands the devices on to the next mode.
+    pub fn into_rig(self) -> Rig {
+        self.rig
     }
 
     /// New volumes and effects; heard at once.
     pub fn set_gains(&mut self, gains: Gains) {
-        self.output.set_gains(gains);
+        self.rig.output().set_gains(gains);
     }
 
-    /// What the effect chain delays the bass by, in ms.
+    /// What the effect chain delays the bass by, in ms; 0 while silent.
     pub fn chain_latency_ms(&self) -> f64 {
-        self.output.chain_latency_ms()
+        self.rig.player().map_or(0.0, |p| p.chain_latency_ms())
     }
 
     /// Changes the plugins of the effect chain made themselves since the last call, as
     /// (plugin id, parameter id, value).
     pub fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
-        self.output.take_param_changes()
+        self.rig.output().take_param_changes()
     }
 
     /// The chain's plugins' texts for values since the last call.
     pub fn take_param_texts(&mut self) -> Vec<(u32, u32, f64, String)> {
-        self.output.take_param_texts()
+        self.rig.output().take_param_texts()
     }
 
     /// Opens the own editor of the chain's plugin `plugin`.
     pub fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
-        self.output.open_editor(plugin, title)
+        self.rig.output().open_editor(plugin, title)
     }
 
     /// True once the output asked for its first block (before that, nothing plays).
     pub fn is_running(&self) -> bool {
-        self.output.is_running()
+        self.rig.player().is_some_and(|p| p.is_running())
     }
 
     /// The input reaches the output (both at the same rate).
     pub fn can_monitor(&self) -> bool {
-        self.can_monitor
+        self.rig.is_monitoring()
     }
 
     /// Errors since the last call (a device gone); everything else is dropped.
     pub fn poll(&mut self) -> Vec<PracticeEvent> {
         let mut out = Vec::new();
-        while let Ok(event) = self.events.try_recv() {
+        for event in self.rig.poll() {
             match event {
                 Event::Error(side, m) => out.push(PracticeEvent::Error(side, m)),
                 Event::Ended => out.push(PracticeEvent::InputEnded),

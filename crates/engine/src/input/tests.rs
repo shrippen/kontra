@@ -798,8 +798,9 @@ fn a_rebase_during_a_stall_counts_the_loss_once() {
     started = 0.8;
     rebasing.settled.fetch_add(1, Ordering::Release);
 
-    // The first block after the stall still runs on the old start (it lies before the sample
-    // the new one holds from), the later ones on the new: each ends where the device is.
+    // The first block after the stall starts at the sample the new start holds from, but runs
+    // on the old one until it is analysed; the later ones run on the new: each ends where the
+    // device is.
     let resumed = 1.8;
     for i in 0..3 {
         let at_s = resumed + (i * BLOCK) as f64 / rate;
