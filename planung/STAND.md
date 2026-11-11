@@ -1,7 +1,32 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-11-10. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+Übergabe zwischen Sitzungen. Stand: 2026-11-11. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
+
+## Übergabe (11.11.2026, Nacht: Effekte, Plugins, Windows)
+
+Auftrag des Eigentümers (10.11. abends): freie Punkte der Roadmap, Effekte auf dem Instrument mit CLAP und VST3;
+VM und Scarlett freigegeben, Ausgang per Kabel im Eingang.
+
+In `main`: #252 (Plan FX1–FX6, LH-EIN-19 bis -21), #250 Effektkette, #248 CLAP, #256 VST3, #257 Kette im Mixer,
+#262 Plugins in der Kette (Suche je Datei in eigenem Prozess, `plugins.json`), #264 (alter Ladefehler, Werte je
+Sprache), #265 (Latenz der Kette im Mixer, FX1 fertig); #249 R3 erster Schritt (Gerätestempel), #251, #254 USB-Mikrofon, #255, #258 und #260 Stimmgerät
+mit „Bass hören“, #259 ASIO in beide Richtungen am selben Treiber, #261, #263 `qactl press` mit AT-SPI 2.62.
+
+Wartet auf den Eigentümer:
+- #253 Win5 (Installer, ZIP, Update-Hinweis): Review ohne Wichtig, CI grün; ändert `.github/workflows/` und
+  `packaging/`, braucht die Bestätigung in Worten. Fragen dazu in Runde 19.
+- Runde 19 (Entscheidungs-Artefakt, Dokument `antworten/runde-19`): #253, Update-Suche, Marke „VST3“, abstürzende
+  Plugins, Voreinstellungen je Kette, USB-Instrumentenkabel, R3 weiter, L1, `pub`-Liste der Nacht, nächster Schwerpunkt.
+
+Offen aus der Nacht:
+- Am Gerät nicht geprüft: alles, was „Bass hören“ braucht (Effekte, Plugins, Latenzzeile, Stimmgerät mit Mithören,
+  Hörprobe Begrenzer). Das Kabel vom Ausgang in den Eingang hätte rückgekoppelt. Vor einer Hörprobe das Kabel ziehen.
+- Plugins laden im UI-Thread und im Kontra-Prozess (Frage in Runde 19); Werte ohne Einheit; Plugin-Schlüssel in
+  „Effekt hinzufügen“ sind Positionen der letzten Suche (#265, Kleinigkeit).
+- Lange deutsche Titel im Mixer (2×) schneiden den Wert rechts ab: `KanteSettingRow`, also in Kante beheben.
+- Windows-VM: aus, Scarlett wieder am Host (Ein- und Ausgang unter PipeWire da). Die geplanten Aufgaben der Nacht sind
+  gelöscht; `KontraCli`, `KontraTest`, `KontraTestSw` bleiben. Messungen in der ROADMAP (R3, Win2).
 
 ## Übergabe (10.11.2026, Mithören und Windows)
 

@@ -388,6 +388,10 @@ Neun Punkte aus Literatur und Praxis, je als Prototyp gemessen (vorher/nachher, 
   25,0 ms, Streuung (SD) 2,5 ms (22,5–29,1); nachher 17,4 ms, SD 1,7 ms (13,6–18,8). Der Rest der Streuung kommt
   nicht aus den Stempeln (je Klick ±0,4 ms). Offen: Zeit je Block aus den Stempeln (DLL) für beide Seiten über die
   ganze Laufzeit (Drift, Aussetzer im Ausgang).
+  In der Windows-VM (11.11., WASAPI, Block 480, Scarlett per Kabel, je 4 bis 6 Öffnungen im Wechsel): `main`
+  265–280 ms, R3 249–258 ms, beide meist ±0–3 ms. R3 erkannte dabei öfter nur 3 bis 5 der 12 Töne (`main` meist 12);
+  Xruns 0–5 auf beiden Seiten. Zwei Läufe hingen, beide, während ein zweites Skript dasselbe Gerät öffnete; allein
+  lief keiner fest (16 Läufe). Das emulierte USB macht die Zahlen unsicher: auf echtem Windows wiederholen.
 - [x] R4 Latenz per Loopback oder Gerät, nicht per Klick: die Klick-Kalibrierung zieht die Neigung des Spielers ab
   (15 ms früh gilt als „Auf den Punkt“). Klick zeigt danach nur „deine Neigung“; LH-EIN-14 und LH-BEW-09 passen sich an.
   Umgesetzt in #202 (LH-EIN-05): „Mit Kabel messen“, die Klicks zeigen danach die Neigung.
@@ -582,7 +586,8 @@ Erkennung und Messung:
   (`args.rs`), die Meldung ist dann „nicht gefunden“ statt „umbenennen“. Behoben 11.11. für Stücke: `args.rs` behält die Bytes der Pfade. Offen: ein Kurs über `--open` geht als `to_string_lossy()` an `startCourse` (`bridge.rs`).
 - [x] Summenbegrenzer (Review #230; Runde 18, 10.11.: bauen, immer an; LH-WIE-06, #244): Mithören plus Backing,
   Klick und Ton konnte die Summe über Vollaussteuerung bringen, dort schnitt der Mixer hart. Jetzt liegt auf der
-  Summe ein Begrenzer (−1 dBFS, gekoppelt, 80 ms), die Echo-Referenz folgt ihm. Hörprobe und Xruns am Gerät offen.
+  Summe ein Begrenzer (−1 dBFS, gekoppelt, 80 ms), die Echo-Referenz folgt ihm. Xruns am Scarlett (11.11., `soak`,
+  5 min, 80 %): 0. Hörprobe offen.
 - [x] Stimmgerät hört mit (11.11.): Bei „Bass hören“ an und Kabel-Eingang öffnet es auch den Ausgang; der Bass läuft mit Lautstärke und Effekten des Mixers durch (`TunerMonitor`). Offen: Hörprobe, Latenz und Xruns am Scarlett; bei verschiedenen Abtastraten bleibt das Stimmgerät stumm ohne Hinweis.
 - [x] E5 Notenende (LH-BEW-10, `h-detect`): Der Tracker folgt jeder Note bis zu ihrem Ende und meldet `NoteEnd`
   (Engine `Event::End`): `Muted` (Pegel ≥ 10 dB binnen 60 ms und 100 ms lang unten, oder bis zum nächsten Anschlag),
