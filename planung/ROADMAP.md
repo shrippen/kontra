@@ -80,7 +80,8 @@ drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier
 - [x] FX1 Kette: Overdrive und Breite (LH-EIN-17) werden Slots einer Kette mit freier Reihenfolge; dazu eigene
   Effekte, die am Bass üblich sind: Chorus, Hüllkurvenfilter (Auto-Wah), Oktaver, Delay, Hall, Fuzz. Allokationsfrei,
   Umbau ohne Knacken (Überblenden), Latenz der Kette sichtbar (11.11.: Zeile unter der Kette im Mixer, solange ein
-  Lauf oder „Bass hören“ spielt; das Stimmgerät meldet sie nicht).
+  Lauf, die Gehörbildung oder „Bass hören“ spielt, nachgeführt beim Öffnen und Schließen; das Stimmgerät meldet sie
+  nicht).
 - [x] FX2 CLAP-Host (`clack-host`, MIT/Apache-2.0): Suchpfade nach Spezifikation (`CLAP_PATH`, `~/.clap`,
   `/usr/lib/clap`; Windows `%COMMONPROGRAMFILES%\CLAP`, `%LOCALAPPDATA%\Programs\Common\CLAP`), Parameter,
   Zustand, Latenz. Das Durchsuchen läuft in einem eigenen Prozess (`kontra-cli plugins scan`): ein abstürzendes

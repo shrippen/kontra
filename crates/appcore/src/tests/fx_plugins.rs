@@ -201,7 +201,7 @@ fn the_search_runs_in_the_background_and_is_kept() {
     assert!(effects(&core)["scan"]["running"].as_bool().unwrap());
 
     let start = std::time::Instant::now();
-    while core.poll_plugins().is_none() {
+    while core.poll_effects().is_none() {
         assert!(start.elapsed().as_secs() < 30, "the search does not end");
         std::thread::sleep(std::time::Duration::from_millis(20));
     }

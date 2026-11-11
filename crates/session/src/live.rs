@@ -470,6 +470,11 @@ pub struct LiveEar {
 }
 
 impl LiveEar {
+    /// What the effect chain delays the bass by, in ms; `None` without a device output.
+    pub fn chain_latency_ms(&self) -> Option<f64> {
+        self.output.chain_latency_ms()
+    }
+
     pub fn start(setup: &LiveSetup, instrument: &Instrument) -> Result<LiveEar, EngineError> {
         let clock = Clock::new();
         let (tx, rx) = channel();

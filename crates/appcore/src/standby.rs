@@ -133,11 +133,14 @@ impl Core {
         }
     }
 
-    /// What the effect chain delays the bass by, in ms: in the run, else in the standby monitor;
-    /// `None` when no device output plays.
+    /// What the effect chain delays the bass by, in ms: in the run, the ear training or the
+    /// standby monitor; `None` when no device output plays.
     pub(crate) fn chain_latency_ms(&self) -> Option<f64> {
         if let Some(live) = self.live.as_ref() {
             return live.chain_latency_ms();
+        }
+        if let Some(ear) = self.live_ear.as_ref() {
+            return ear.chain_latency_ms();
         }
         self.standby
             .monitor
