@@ -174,6 +174,11 @@ impl<O: Output> Practice<O> {
         &self.output
     }
 
+    /// Changes the plugins of the output's effect chain made themselves since the last call.
+    pub fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
+        self.output.take_param_changes()
+    }
+
     /// Plays on `output` from now (a reopened device): its sounds and backing planned anew,
     /// pitch shift as before; volumes are the caller's.
     pub fn replace_output(&mut self, output: O) {

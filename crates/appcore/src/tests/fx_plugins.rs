@@ -9,6 +9,9 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 const GAIN_PARAM: &str = "p7";
 const GAIN_MAX: f64 = 4.0;
+/// The test plugin's trigger and answer (`GAIN_TRIGGER`, `GAIN_REPORTED` in its crate).
+const TRIGGER_GAIN: f64 = 3.5;
+const REPORTED_GAIN: f64 = 0.5;
 
 /// The built CLAP gain plugin as `<name>.clap` in the target folder (the host recognises plugin
 /// files by that extension).
@@ -224,4 +227,58 @@ fn the_chain_latency_is_a_line_for_the_page() {
 
     let line = core.latency_text(Some(1.33));
     assert!(line.contains("1.3") || line.contains("1,3"), "{line}");
+}
+
+/// FX5: a value the plugin changed by itself (the engine reports it as plugin id, parameter id,
+/// value) lands in the settings, the slider follows, and it is there after a restart.
+#[test]
+fn a_change_made_by_the_plugin_is_saved() {
+    let mut core = core_with_plugin("fx-plugin-own-change");
+    core.edit_effects("add", 0, "plugin:0", 0.0);
+    let id = core.settings().plugins[0].id;
+    let param = 7;
+
+    assert!(core.take_plugin_changes(&[(id, param, 0.5)]));
+    assert_eq!(core.settings().plugins[0].params[0].value, 0.5);
+    // 0.5 of a range of 0 to 4.
+    assert_eq!(effects(&core)["slots"][0]["values"][0]["value"], 0.125);
+
+    // The same value again is no news; a plugin or parameter that is not there is ignored.
+    assert!(!core.take_plugin_changes(&[(id, param, 0.5)]));
+    assert!(!core.take_plugin_changes(&[(id + 1, param, 1.0), (id, param + 1, 1.0)]));
+    assert_eq!(core.settings().plugins[0].params[0].value, 0.5);
+
+    let dir = core.data_dir.clone();
+    drop(core);
+    let again = Core::new(&dir, QaOptions::default());
+    assert_eq!(again.settings().plugins[0].params[0].value, 0.5);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Review #268: the tuner plays the chain too ("Bass hören" on a cable), but its plugins'
+/// own changes never reached the settings.
+#[test]
+fn a_change_in_the_tuner_is_saved() {
+    let mut core = core_with_plugin("fx-plugin-tuner-change");
+    let take = core.data_dir.join("take.wav");
+    kontra_session::write_mono_wav(&take, &vec![0.0; 48_000], 48_000).unwrap();
+    core.qa.input_file = Some(take);
+    core.update_settings(|s| s.monitor = true);
+    core.edit_effects("add", 0, "plugin:0", 0.0);
+    core.start_tuner().unwrap();
+
+    // The test plugin answers this gain with its own change to GAIN_REPORTED (0.5).
+    let trigger = (TRIGGER_GAIN / GAIN_MAX) as f32;
+    core.edit_effects("set", 0, GAIN_PARAM, f64::from(trigger));
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while core.settings().plugins[0].params[0].value != REPORTED_GAIN {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the tuner's change never arrived"
+        );
+        let _ = core.poll_effects();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    core.stop_tuner();
+    let _ = std::fs::remove_dir_all(core.data_dir.clone());
 }

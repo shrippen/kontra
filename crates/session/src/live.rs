@@ -102,6 +102,12 @@ impl Output for LiveOutput {
             p.set_transpose(semitones);
         }
     }
+    fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
+        match self {
+            LiveOutput::Device(p) => p.take_param_changes(),
+            LiveOutput::Silent(_) => Vec::new(),
+        }
+    }
 }
 
 impl LiveOutput {
@@ -257,6 +263,12 @@ impl Live {
         self.practice.output().chain_latency_ms()
     }
 
+    /// Changes the plugins of the effect chain made themselves since the last call, as
+    /// (plugin id, parameter id, value).
+    pub fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
+        self.practice.take_param_changes()
+    }
+
     /// Input and output dropouts since the start (LH-NF-04).
     pub fn xruns(&self) -> u64 {
         self.xruns_before
@@ -385,6 +397,14 @@ impl LiveTuner {
             .is_some_and(|o| o.sample_rate() == self.input.sample_rate)
     }
 
+    /// As `Live::take_param_changes`; nothing while silent.
+    pub fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
+        self.output
+            .as_mut()
+            .map(Output::take_param_changes)
+            .unwrap_or_default()
+    }
+
     /// New volumes and effects; heard at once.
     pub fn set_gains(&mut self, gains: Gains) {
         if let Some(output) = self.output.as_mut() {
@@ -473,6 +493,11 @@ impl LiveEar {
     /// What the effect chain delays the bass by, in ms; `None` without a device output.
     pub fn chain_latency_ms(&self) -> Option<f64> {
         self.output.chain_latency_ms()
+    }
+
+    /// As `Live::take_param_changes`.
+    pub fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
+        self.output.take_param_changes()
     }
 
     pub fn start(setup: &LiveSetup, instrument: &Instrument) -> Result<LiveEar, EngineError> {

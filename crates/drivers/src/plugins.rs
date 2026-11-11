@@ -33,6 +33,18 @@ pub use scan::{probe_file, probe_line, scan_files, BrokenFile, ProbeCommand, Sca
 pub const CHANNELS: usize = 2;
 /// Parameter changes that fit in the ring between two blocks.
 const PARAM_RING_SLOTS: usize = 256;
+/// One entry per id, in the order the ids first appear; the last value of an id wins.
+fn coalesce(changes: impl Iterator<Item = (u32, f64)>) -> Vec<(u32, f64)> {
+    let mut merged: Vec<(u32, f64)> = Vec::new();
+    for (id, value) in changes {
+        match merged.iter_mut().find(|(known, _)| *known == id) {
+            Some(entry) => entry.1 = value,
+            None => merged.push((id, value)),
+        }
+    }
+    merged
+}
+
 /// Block size of the offline render.
 const RENDER_BLOCK: u32 = 512;
 
@@ -201,6 +213,13 @@ impl LoadedPlugin {
     /// Delay the plugin adds, in samples.
     pub fn latency_samples(&mut self) -> u32 {
         each!(&mut self.inner, p => p.latency_samples())
+    }
+
+    /// Parameter changes the plugin made itself since the last call (its own editor, a preset,
+    /// an automation of its own), as (parameter id, value in the plugin's units): one entry per
+    /// parameter, the last value. Not echoed: they are not sent back with `set_param`. Main thread.
+    pub fn take_changes(&mut self) -> Vec<(u32, f64)> {
+        each!(&mut self.inner, p => p.take_changes())
     }
 
     pub fn save_state(&mut self) -> Result<Vec<u8>, PluginError> {

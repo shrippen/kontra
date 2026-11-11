@@ -202,13 +202,39 @@ pub(crate) fn to_unit(param: &ParamSpec) -> f64 {
 }
 
 impl crate::Core {
-    /// Once when a plugin search has finished or the chain's latency changed (the standby built
-    /// its chain, a run started or ended, the output went away).
+    /// Once when a plugin search has finished, the chain's latency changed (the standby built
+    /// its chain, a run started or ended, the output went away) or a plugin changed a parameter
+    /// by itself.
     pub(crate) fn poll_effects(&mut self) -> Option<crate::UiEvent> {
         let scanned = self.plugins.poll();
         let latency = self.chain_latency_ms();
         let moved = self.plugins.latency_moved(latency);
-        (scanned || moved).then_some(crate::UiEvent::EffectsChanged)
+        let changes = self.plugin_changes();
+        let edited = self.take_plugin_changes(&changes);
+        (scanned || moved || edited).then_some(crate::UiEvent::EffectsChanged)
+    }
+
+    /// Writes what plugins changed by themselves (their own editor) into the settings and saves
+    /// them, so the values survive a restart. No remix: the engine's instance already has the
+    /// value (it made it), and it does not get it back. True if a value differs from the
+    /// settings.
+    pub(crate) fn take_plugin_changes(&mut self, changes: &[(u32, u32, f64)]) -> bool {
+        let mut changed = false;
+        for &(plugin, param, value) in changes {
+            let spec = self.settings.plugins.iter_mut().find(|p| p.id == plugin);
+            let Some(param) = spec.and_then(|s| s.params.iter_mut().find(|p| p.id == param)) else {
+                continue;
+            };
+            if param.value == value {
+                continue;
+            }
+            param.value = value;
+            changed = true;
+        }
+        if changed {
+            let _ = store::save(&self.data_dir.join("settings.json"), &self.settings);
+        }
+        changed
     }
 }
 

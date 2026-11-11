@@ -135,6 +135,11 @@ pub trait Output {
     /// Pitch of the backing track in semitones (LH-WIE-02), changed while it plays; outputs
     /// without sound ignore it.
     fn set_transpose(&mut self, _semitones: f32) {}
+    /// Changes the plugins in the effect chain made themselves since the last call, as
+    /// (`PluginSpec::id`, parameter id, value); outputs without plugins have none.
+    fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
+        Vec::new()
+    }
 }
 
 /// Bus volumes, 0..=1.
@@ -432,6 +437,10 @@ impl Output for Player {
 
     fn set_transpose(&mut self, semitones: f32) {
         let _ = self.commands.push(Command::Transpose(semitones));
+    }
+
+    fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
+        self.builder.take_param_changes()
     }
 }
 

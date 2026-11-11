@@ -5,6 +5,7 @@ use super::write_wide;
 use std::cell::{Cell, RefCell};
 use std::ffi::c_void;
 use std::ptr;
+use std::sync::Mutex;
 use vst3::Steinberg::Vst::*;
 use vst3::Steinberg::*;
 use vst3::{Class, ComWrapper};
@@ -36,8 +37,30 @@ impl IHostApplicationTrait for HostApp {
     }
 }
 
-/// The controller's handler: Kontra shows no plugin windows (FX5), edits and restarts are ignored.
-pub(super) struct Handler;
+/// The controller's handler: collects the edits the plugin makes itself (`performEdit`, by its
+/// editor or by a preset load); begin, end and restart requests are ignored. The plugin calls it
+/// from inside its own calls, so it only queues: one entry per parameter, the last value wins.
+pub(super) struct Handler {
+    /// A mutex, not a `RefCell`: the plugin's parts are shared with the audio thread's processor.
+    /// Only the main thread ever takes it.
+    edits: Mutex<Vec<super::ParamChange>>,
+}
+
+impl Handler {
+    pub(super) fn new() -> ComWrapper<Handler> {
+        ComWrapper::new(Handler {
+            edits: Mutex::new(Vec::new()),
+        })
+    }
+
+    /// The edits since the last call, as normalized values.
+    pub(super) fn take_edits(&self) -> Vec<super::ParamChange> {
+        match self.edits.lock() {
+            Ok(mut edits) => std::mem::take(&mut *edits),
+            Err(_) => Vec::new(),
+        }
+    }
+}
 
 impl Class for Handler {
     type Interfaces = (IComponentHandler,);
@@ -48,7 +71,14 @@ impl IComponentHandlerTrait for Handler {
         kResultOk
     }
 
-    unsafe fn performEdit(&self, _id: ParamID, _value: ParamValue) -> tresult {
+    unsafe fn performEdit(&self, id: ParamID, value: ParamValue) -> tresult {
+        let Ok(mut edits) = self.edits.lock() else {
+            return kResultOk;
+        };
+        match edits.iter_mut().find(|e| e.id == id) {
+            Some(known) => known.value = value,
+            None => edits.push(super::ParamChange { id, value }),
+        }
         kResultOk
     }
 

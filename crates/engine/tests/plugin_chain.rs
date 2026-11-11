@@ -324,3 +324,105 @@ fn no_allocation_in_the_callback_with_a_plugin() {
     });
     assert_eq!(count, 0, "the chain allocated while a plugin ran");
 }
+
+/// The value the test plugins move their gain to by themselves, and the value that makes them.
+const TRIGGER: f64 = 3.5;
+const REPORTED: f64 = 0.5;
+
+/// Runs blocks until `want` changes came out of the builder, or gives up.
+fn changes_after_trigger(format: PluginFormat, name: &str) -> Vec<(u32, u32, f64)> {
+    let mut builder = ChainBuilder::new(RATE);
+    let mut chain = builder
+        .fit(&plugin_chain(), &bank(vec![gain_spec(format, name, 1.0)]))
+        .expect("new chain");
+    let input = sine(1024);
+    run(&mut chain, &input);
+    assert!(
+        builder.take_param_changes().is_empty(),
+        "nothing changed yet"
+    );
+
+    // The plugin answers the trigger with a change of its own.
+    let trigger = bank(vec![gain_spec(format, name, TRIGGER)]);
+    assert!(builder.fit(&plugin_chain(), &trigger).is_none());
+    run(&mut chain, &input);
+    run(&mut chain, &input);
+    let changes = builder.take_param_changes();
+    assert!(
+        builder.take_param_changes().is_empty(),
+        "a change comes out once"
+    );
+    changes
+}
+
+#[test]
+fn a_clap_plugin_reports_its_own_change() {
+    let changes = changes_after_trigger(PluginFormat::Clap, "kontra_clap_gain");
+    assert_eq!(changes, [(PLUGIN_ID, GAIN_PARAM, REPORTED)]);
+}
+
+#[test]
+fn a_vst3_plugin_reports_its_own_change() {
+    let changes = changes_after_trigger(PluginFormat::Vst3, "kontra_vst3_gain");
+    assert_eq!(changes.len(), 1, "{changes:?}");
+    let (plugin, param, value) = changes[0];
+    assert_eq!((plugin, param), (PLUGIN_ID, GAIN_PARAM));
+    assert!((value - REPORTED).abs() < 1e-9, "{value}");
+}
+
+/// A change the plugin reported is its value now: the same value from the settings is not
+/// sent back, and the plugin keeps it (here the processor runs it as the gain).
+#[test]
+fn a_reported_change_is_not_echoed_and_the_processor_follows() {
+    for (format, name) in [
+        (PluginFormat::Clap, "kontra_clap_gain"),
+        (PluginFormat::Vst3, "kontra_vst3_gain"),
+    ] {
+        let mut builder = ChainBuilder::new(RATE);
+        let mut chain = builder
+            .fit(
+                &plugin_chain(),
+                &bank(vec![gain_spec(format, name, TRIGGER)]),
+            )
+            .expect("new chain");
+        let input = sine(2048);
+        run(&mut chain, &input);
+        run(&mut chain, &input);
+        let changes = builder.take_param_changes();
+        assert_eq!(changes.len(), 1, "{name}: {changes:?}");
+
+        // The settings took the plugin's value: same shape, no new chain, nothing to send.
+        let same = bank(vec![gain_spec(format, name, changes[0].2)]);
+        assert!(builder.fit(&plugin_chain(), &same).is_none());
+        run(&mut chain, &input);
+        assert_gain(&run(&mut chain, &input), &input, REPORTED as f32);
+        assert!(builder.take_param_changes().is_empty(), "{name}: no echo");
+    }
+}
+
+/// The plugin reports from inside the callback: that path must not allocate either.
+#[test]
+fn no_allocation_while_a_plugin_reports_changes() {
+    let mut builder = ChainBuilder::new(RATE);
+    let mut chain = builder
+        .fit(
+            &plugin_chain(),
+            &bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 1.0)]),
+        )
+        .expect("new chain");
+    let input = sine(1000);
+    run(&mut chain, &input);
+
+    let trigger = bank(vec![gain_spec(
+        PluginFormat::Clap,
+        "kontra_clap_gain",
+        TRIGGER,
+    )]);
+    assert!(builder.fit(&plugin_chain(), &trigger).is_none());
+    let mut out = Vec::with_capacity(input.len());
+    let count = allocations(|| {
+        out.extend(input.iter().map(|&x| chain.process(x).0));
+    });
+    assert_eq!(count, 0, "the chain allocated while a plugin reported");
+    assert_eq!(builder.take_param_changes().len(), 1);
+}
