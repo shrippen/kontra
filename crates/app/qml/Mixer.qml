@@ -198,6 +198,15 @@ ColumnLayout {
                 Layout.preferredWidth: KanteStyle.unit(180)
                 enabled: !mixer.fx.full
                 model: mixer.addable.map(function(k) { return k.name })
+                // The list is rebuilt whenever the core reports a change: keep the chosen entry.
+                property string chosenKey: ""
+                onActivated: chosenKey = mixer.addable[currentIndex].key
+                onModelChanged: Qt.callLater(function() {
+                    var at = mixer.addable.findIndex(function(k) { return k.key === kindChoice.chosenKey })
+                    if (at >= 0) {
+                        kindChoice.currentIndex = at
+                    }
+                })
             }
             KanteButton {
                 id: addButton
@@ -359,6 +368,16 @@ ColumnLayout {
                 }
             }
         }
+    }
+    // What the chain adds to the delay of the heard bass; empty when it adds none.
+    Text {
+        Layout.fillWidth: true
+        Layout.topMargin: KanteStyle.unit(8)
+        visible: mixer.ctl.monitor && mixer.fx.latencyText !== ""
+        color: KanteStyle.mutedTextColor
+        font: KanteStyle.smallFont
+        wrapMode: Text.WordWrap
+        text: mixer.fx.latencyText
     }
     KanteSettingRow {
         Layout.fillWidth: true

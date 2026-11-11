@@ -201,7 +201,7 @@ fn the_search_runs_in_the_background_and_is_kept() {
     assert!(effects(&core)["scan"]["running"].as_bool().unwrap());
 
     let start = std::time::Instant::now();
-    while core.poll_plugins().is_none() {
+    while core.poll_effects().is_none() {
         assert!(start.elapsed().as_secs() < 30, "the search does not end");
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
@@ -213,4 +213,15 @@ fn the_search_runs_in_the_background_and_is_kept() {
     let again = Core::new(&dir, QaOptions::default());
     assert_eq!(again.plugins.report(), &kept);
     let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn the_chain_latency_is_a_line_for_the_page() {
+    let core = Core::new(&temp_dir("fx-latency"), QaOptions::default());
+    assert_eq!(effects(&core)["latencyText"], "", "nothing runs: no line");
+    assert_eq!(core.latency_text(Some(0.0)), "", "no delay: no line");
+    assert_eq!(core.latency_text(None), "");
+
+    let line = core.latency_text(Some(1.33));
+    assert!(line.contains("1.3") || line.contains("1,3"), "{line}");
 }
