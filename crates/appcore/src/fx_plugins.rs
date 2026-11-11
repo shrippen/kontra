@@ -89,6 +89,11 @@ impl Plugins {
         news
     }
 
+    /// Forgets the texts of plugin `id`: the id may name another plugin now.
+    pub(crate) fn forget_texts(&mut self, id: u32) {
+        self.texts.retain(|(plugin, _), _| *plugin != id);
+    }
+
     /// The plugin's text for `value` of a parameter, if it gave one for exactly that value.
     pub(crate) fn text_of(&self, plugin: u32, param: u32, value: f64) -> Option<&str> {
         let (known, text) = self.texts.get(&(plugin, param))?;

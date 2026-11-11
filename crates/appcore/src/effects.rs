@@ -279,6 +279,7 @@ impl Core {
                 // Fresh ids may have named removed plugins before: their old notes do not apply.
                 for p in &plugins {
                     self.plugins.problems.clear(p.id);
+                    self.plugins.forget_texts(p.id);
                     self.plugins.crashed.remove(&p.id);
                 }
                 Box::new(move |s| {
@@ -297,6 +298,7 @@ impl Core {
                 // Ids come back after a removal: forget what the last holder could not load.
                 let id = fx_plugins::next_id(&self.settings().plugins);
                 self.plugins.problems.clear(id);
+                self.plugins.forget_texts(id);
                 Box::new(move |s| {
                     s.plugins.push(PluginSpec { id, ..spec });
                     s.monitor_chain.push(SlotSpec::for_plugin(id));
@@ -345,6 +347,8 @@ impl Core {
             Err(PluginError::Editor(reason)) => {
                 Some(self.tr("fx.window.failed", &[("name", name), ("reason", reason)]))
             }
+            Err(PluginError::NotLoaded) => Some(self.tr("fx.window.notloaded", &[("name", name)])),
+            Err(PluginError::Busy) => Some(self.tr("fx.window.busy", &[("name", name)])),
             Err(_) => Some(self.tr("fx.window.none", &[("name", name)])),
         }
     }

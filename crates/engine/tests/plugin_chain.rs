@@ -921,6 +921,9 @@ fn the_editor_of_a_chain_plugin_opens() {
 
     let other = Arc::new(AtomicBool::new(false));
     let missing = builder.open_editor(PLUGIN_ID + 1, "Gain", quiet(&other));
-    assert!(matches!(missing, Err(PluginError::NoEditor)), "{missing:?}");
+    assert!(
+        matches!(missing, Err(PluginError::NotLoaded)),
+        "{missing:?}"
+    );
     assert!(!other.load(Ordering::Relaxed));
 }

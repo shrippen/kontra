@@ -35,6 +35,8 @@ use std::time::Duration;
 /// parameter changes, timers, descriptors and editor windows.
 const TICK: Duration = Duration::from_millis(10);
 
+/// How long a click on "Window" waits for the plugin thread before the player hears it is busy.
+const EDITOR_PATIENCE: Duration = Duration::from_secs(3);
 /// Separates the file and the plugin id in a crash marker.
 const MARKER_SEPARATOR: char = '\n';
 
@@ -118,7 +120,8 @@ impl PluginHandle {
     }
 
     /// Opens the plugin's own editor in a frame `make_frame` makes (`system_frame` for a real
-    /// window); an open one stays. Waits for the plugin thread.
+    /// window); an open one stays. Waits for the plugin thread, at most `EDITOR_PATIENCE`
+    /// (then `Busy`: a load holds it; the editor may still open a moment later).
     pub fn open_editor(&self, title: &str, make_frame: FrameMaker) -> Result<(), PluginError> {
         let (reply, receiver) = mpsc::channel();
         let command = Command::OpenEditor {
@@ -128,7 +131,11 @@ impl PluginHandle {
             reply,
         };
         self.commands.send(command).map_err(|_| gone())?;
-        receiver.recv().map_err(|_| gone())?
+        match receiver.recv_timeout(EDITOR_PATIENCE) {
+            Ok(opened) => opened,
+            Err(RecvTimeoutError::Timeout) => Err(PluginError::Busy),
+            Err(RecvTimeoutError::Disconnected) => Err(gone()),
+        }
     }
 
     /// The plugin's texts for the values set and changed since the last call, as (parameter,

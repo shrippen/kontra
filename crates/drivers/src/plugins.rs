@@ -162,6 +162,10 @@ pub enum PluginError {
     Editor(String),
     #[error("the plugin has no editor of its own")]
     NoEditor,
+    #[error("the plugin is not loaded now")]
+    NotLoaded,
+    #[error("the plugin thread is busy")]
+    Busy,
     #[error(transparent)]
     File(#[from] crate::FileError),
 }

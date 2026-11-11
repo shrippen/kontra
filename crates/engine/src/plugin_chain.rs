@@ -607,8 +607,8 @@ impl ChainBuilder {
     }
 
     /// Opens the own editor of plugin `plugin` (a `PluginSpec::id`) in a frame `make_frame`
-    /// makes (`system_frame` for a real window); an open one stays. `NoEditor` when it is not
-    /// loaded here.
+    /// makes (`system_frame` for a real window); an open one stays. `NotLoaded` when this chain
+    /// does not hold it (off since the start, still loading, or failed to load).
     pub fn open_editor(
         &self,
         plugin: u32,
@@ -616,7 +616,7 @@ impl ChainBuilder {
         make_frame: FrameMaker,
     ) -> Result<(), PluginError> {
         let active = self.held.iter().find(|a| a.id == plugin);
-        let active = active.ok_or(PluginError::NoEditor)?;
+        let active = active.ok_or(PluginError::NotLoaded)?;
         active.handle.open_editor(title, make_frame)
     }
 
