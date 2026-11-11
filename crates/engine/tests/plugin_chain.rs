@@ -8,7 +8,7 @@
 //! allocator, so it is sound.
 #![allow(unsafe_code, clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use kontra_drivers::plugins::{probe_file, PluginFormat, PluginInfo};
+use kontra_drivers::plugins::{probe_file, PluginFormat, PluginHost, PluginInfo};
 use kontra_dsp::Chain;
 use kontra_engine::{describe_plugin, ChainBuilder, PluginBank, PluginProblems};
 use kontra_model::{ChainSpec, EffectKind, PluginSpec, SlotSpec};
@@ -16,6 +16,7 @@ use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::time::{Duration, Instant};
 
 const RATE: f64 = 48_000.0;
 const GAIN_PARAM: u32 = 7;
@@ -25,6 +26,9 @@ const DELAY: usize = 64;
 /// 64 frames but does not delay the audio).
 const LATENCY: usize = 64 + 64;
 const PLUGIN_ID: u32 = 1;
+/// How long a test waits for the plugin thread before it gives up.
+const PATIENCE: Duration = Duration::from_secs(10);
+const POLL_EVERY: Duration = Duration::from_millis(2);
 
 struct Counting;
 
@@ -136,7 +140,7 @@ fn found(format: PluginFormat, name: &str) -> PluginInfo {
 
 /// The settings entry of the gain plugin with its gain parameter at `gain`.
 fn gain_spec(format: PluginFormat, name: &str, gain: f64) -> PluginSpec {
-    let mut spec = describe_plugin(&found(format, name)).expect("describe");
+    let mut spec = describe_plugin(&found(format, name), None).expect("describe");
     spec.id = PLUGIN_ID;
     for p in &mut spec.params {
         if p.id == GAIN_PARAM {
@@ -156,6 +160,58 @@ fn plugin_chain() -> ChainSpec {
 
 fn bank(specs: Vec<PluginSpec>) -> PluginBank {
     PluginBank::new(specs, PluginProblems::default())
+}
+
+/// Polls the builder until the chain of a pending `fit` is ready.
+fn await_chain(builder: &mut ChainBuilder) -> Box<Chain> {
+    let start = Instant::now();
+    loop {
+        if let Some(chain) = builder.poll() {
+            return chain;
+        }
+        assert!(start.elapsed() < PATIENCE, "the plugins did not load");
+        std::thread::sleep(POLL_EVERY);
+    }
+}
+
+/// `fit`, then waits for the plugins to load.
+fn fit_ready(builder: &mut ChainBuilder, spec: &ChainSpec, bank: &PluginBank) -> Box<Chain> {
+    match builder.fit(spec, bank) {
+        Some(chain) => chain,
+        None => await_chain(builder),
+    }
+}
+
+/// Runs blocks until `done` is true of a block's output, or gives up: parameters and changes
+/// travel through the plugin thread, so they arrive a moment after the call.
+fn run_until(chain: &mut Chain, input: &[f32], done: impl Fn(&[f32]) -> bool) -> Vec<f32> {
+    let start = Instant::now();
+    loop {
+        let out = run(chain, input);
+        if done(&out) {
+            return out;
+        }
+        assert!(start.elapsed() < PATIENCE, "the plugin did not follow");
+        std::thread::sleep(POLL_EVERY);
+    }
+}
+
+/// Runs blocks until the plugin's own change comes out of the builder.
+fn await_changes(
+    builder: &mut ChainBuilder,
+    chain: &mut Chain,
+    input: &[f32],
+) -> Vec<(u32, u32, f64)> {
+    let start = Instant::now();
+    loop {
+        run(chain, input);
+        let changes = builder.take_param_changes();
+        if !changes.is_empty() {
+            return changes;
+        }
+        assert!(start.elapsed() < PATIENCE, "no change reported");
+        std::thread::sleep(POLL_EVERY);
+    }
 }
 
 fn sine(n: usize) -> Vec<f32> {
@@ -187,7 +243,7 @@ fn the_builder_reports_the_latency_in_ms() {
     let mut builder = ChainBuilder::new(RATE);
     assert_eq!(builder.latency_ms(), 0.0, "nothing built yet");
 
-    builder.fit(&plugin_chain(), &bank).expect("new chain");
+    fit_ready(&mut builder, &plugin_chain(), &bank);
     let want_ms = LATENCY as f64 / RATE * 1000.0;
     assert!((builder.latency_ms() - want_ms).abs() < 1e-9);
 
@@ -198,7 +254,7 @@ fn the_builder_reports_the_latency_in_ms() {
 fn gain_halves_the_bass(format: PluginFormat, name: &str) {
     let bank = bank(vec![gain_spec(format, name, 0.5)]);
     let mut builder = ChainBuilder::new(RATE);
-    let mut chain = builder.fit(&plugin_chain(), &bank).expect("new chain");
+    let mut chain = fit_ready(&mut builder, &plugin_chain(), &bank);
 
     assert_eq!(chain.latency_frames(), LATENCY);
     let input = sine(4096);
@@ -222,9 +278,7 @@ fn saved_state_is_applied() {
     spec.state = 0.25f32.to_le_bytes().to_vec();
     spec.params.clear();
     let mut builder = ChainBuilder::new(RATE);
-    let mut chain = builder
-        .fit(&plugin_chain(), &bank(vec![spec]))
-        .expect("new chain");
+    let mut chain = fit_ready(&mut builder, &plugin_chain(), &bank(vec![spec]));
 
     let input = sine(2048);
     assert_gain(&run(&mut chain, &input), &input, 0.25);
@@ -244,22 +298,49 @@ fn describe_keeps_the_plugins_own_state() {
 #[test]
 fn parameter_changes_reach_the_running_plugin() {
     let mut builder = ChainBuilder::new(RATE);
-    let mut chain = builder
-        .fit(
-            &plugin_chain(),
-            &bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 1.0)]),
-        )
-        .expect("new chain");
+    let mut chain = fit_ready(
+        &mut builder,
+        &plugin_chain(),
+        &bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 1.0)]),
+    );
     let input = sine(2048);
     assert_gain(&run(&mut chain, &input), &input, 1.0);
 
-    // Same shape, other value: no new chain, the instance is told.
+    // Same shape, other value: no new chain, the instance is told (through the plugin thread,
+    // so the audio follows within a few blocks).
     let louder = bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 2.0)]);
     assert!(builder.fit(&plugin_chain(), &louder).is_none());
-    // The change takes effect with a block after the first one that carries it.
-    run(&mut chain, &input);
-    let out = run(&mut chain, &input);
-    assert_gain(&out, &input, 2.0);
+    run_until(&mut chain, &input, |out| {
+        let at = out.len() - 1;
+        (out[at] - input[at - DELAY] * 2.0).abs() < 1e-5
+    });
+    // The change may land within that block (review #271: "frame 65: 0.0072 != 0.0144"); the
+    // next one is louder from its first frame.
+    assert_gain(&run(&mut chain, &input), &input, 2.0);
+}
+
+/// Review #271: while a chain of a new shape loads, the running one follows the sliders.
+#[test]
+fn the_running_chain_follows_while_another_loads() {
+    let mut builder = ChainBuilder::new(RATE);
+    let quiet = bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 1.0)]);
+    let mut chain = fit_ready(&mut builder, &plugin_chain(), &quiet);
+    let input = sine(2048);
+
+    // A widener joins: the new shape loads (and is never polled here, so it stays loading).
+    let bigger = chain_of(&[
+        SlotSpec::for_plugin(PLUGIN_ID),
+        SlotSpec::new(EffectKind::Widener),
+    ]);
+    assert!(builder.fit(&bigger, &quiet).is_none());
+    let louder = bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 2.0)]);
+    assert!(builder.fit(&bigger, &louder).is_none());
+
+    run_until(&mut chain, &input, |out| {
+        let at = out.len() - 1;
+        (out[at] - input[at - DELAY] * 2.0).abs() < 1e-5
+    });
+    assert_gain(&run(&mut chain, &input), &input, 2.0);
 }
 
 #[test]
@@ -274,7 +355,7 @@ fn a_missing_plugin_bypasses_its_slot() {
         SlotSpec::for_plugin(PLUGIN_ID),
         SlotSpec::new(EffectKind::Widener),
     ]);
-    let mut chain = builder.fit(&spec, &bank).expect("new chain");
+    let mut chain = fit_ready(&mut builder, &spec, &bank);
 
     assert!(problems
         .get(PLUGIN_ID)
@@ -285,9 +366,7 @@ fn a_missing_plugin_bypasses_its_slot() {
 
     // A slot that names no plugin at all is bypassed as well.
     let mut builder = ChainBuilder::new(RATE);
-    let mut chain = builder
-        .fit(&plugin_chain(), &PluginBank::default())
-        .expect("chain");
+    let mut chain = fit_ready(&mut builder, &plugin_chain(), &PluginBank::default());
     assert_eq!(chain.process(0.5), (0.5, 0.5));
 }
 
@@ -295,7 +374,7 @@ fn a_missing_plugin_bypasses_its_slot() {
 fn instances_close_after_their_chain_is_gone() {
     let bank = bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 0.5)]);
     let mut builder = ChainBuilder::new(RATE);
-    let first = builder.fit(&plugin_chain(), &bank).expect("first");
+    let first = fit_ready(&mut builder, &plugin_chain(), &bank);
     assert_eq!(builder.retiring(), 0);
 
     // Taking the plugin out: its instance waits for the chain that runs it.
@@ -314,7 +393,7 @@ fn instances_close_after_their_chain_is_gone() {
 fn no_allocation_in_the_callback_with_a_plugin() {
     let bank = bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 0.5)]);
     let mut builder = ChainBuilder::new(RATE);
-    let mut chain = builder.fit(&plugin_chain(), &bank).expect("new chain");
+    let mut chain = fit_ready(&mut builder, &plugin_chain(), &bank);
     let input = sine(1000);
     run(&mut chain, &input);
 
@@ -332,9 +411,11 @@ const REPORTED: f64 = 0.5;
 /// Runs blocks until `want` changes came out of the builder, or gives up.
 fn changes_after_trigger(format: PluginFormat, name: &str) -> Vec<(u32, u32, f64)> {
     let mut builder = ChainBuilder::new(RATE);
-    let mut chain = builder
-        .fit(&plugin_chain(), &bank(vec![gain_spec(format, name, 1.0)]))
-        .expect("new chain");
+    let mut chain = fit_ready(
+        &mut builder,
+        &plugin_chain(),
+        &bank(vec![gain_spec(format, name, 1.0)]),
+    );
     let input = sine(1024);
     run(&mut chain, &input);
     assert!(
@@ -345,9 +426,7 @@ fn changes_after_trigger(format: PluginFormat, name: &str) -> Vec<(u32, u32, f64
     // The plugin answers the trigger with a change of its own.
     let trigger = bank(vec![gain_spec(format, name, TRIGGER)]);
     assert!(builder.fit(&plugin_chain(), &trigger).is_none());
-    run(&mut chain, &input);
-    run(&mut chain, &input);
-    let changes = builder.take_param_changes();
+    let changes = await_changes(&mut builder, &mut chain, &input);
     assert!(
         builder.take_param_changes().is_empty(),
         "a change comes out once"
@@ -379,16 +458,13 @@ fn a_reported_change_is_not_echoed_and_the_processor_follows() {
         (PluginFormat::Vst3, "kontra_vst3_gain"),
     ] {
         let mut builder = ChainBuilder::new(RATE);
-        let mut chain = builder
-            .fit(
-                &plugin_chain(),
-                &bank(vec![gain_spec(format, name, TRIGGER)]),
-            )
-            .expect("new chain");
+        let mut chain = fit_ready(
+            &mut builder,
+            &plugin_chain(),
+            &bank(vec![gain_spec(format, name, TRIGGER)]),
+        );
         let input = sine(2048);
-        run(&mut chain, &input);
-        run(&mut chain, &input);
-        let changes = builder.take_param_changes();
+        let changes = await_changes(&mut builder, &mut chain, &input);
         assert_eq!(changes.len(), 1, "{name}: {changes:?}");
 
         // The settings took the plugin's value: same shape, no new chain, nothing to send.
@@ -400,29 +476,135 @@ fn a_reported_change_is_not_echoed_and_the_processor_follows() {
     }
 }
 
-/// The plugin reports from inside the callback: that path must not allocate either.
+/// The plugin reports from inside the callback: that path must not allocate either. The value
+/// that makes it report is set while loading, so the first block reports.
 #[test]
 fn no_allocation_while_a_plugin_reports_changes() {
     let mut builder = ChainBuilder::new(RATE);
-    let mut chain = builder
-        .fit(
-            &plugin_chain(),
-            &bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 1.0)]),
-        )
-        .expect("new chain");
-    let input = sine(1000);
-    run(&mut chain, &input);
-
     let trigger = bank(vec![gain_spec(
         PluginFormat::Clap,
         "kontra_clap_gain",
         TRIGGER,
     )]);
-    assert!(builder.fit(&plugin_chain(), &trigger).is_none());
+    let mut chain = fit_ready(&mut builder, &plugin_chain(), &trigger);
+    let input = sine(1000);
+
     let mut out = Vec::with_capacity(input.len());
     let count = allocations(|| {
         out.extend(input.iter().map(|&x| chain.process(x).0));
     });
     assert_eq!(count, 0, "the chain allocated while a plugin reported");
-    assert_eq!(builder.take_param_changes().len(), 1);
+    let changes = await_changes(&mut builder, &mut chain, &input);
+    assert_eq!(changes.len(), 1);
+}
+
+/// Loading happens on the plugin thread: `fit` returns before the plugin is there, the chain
+/// comes with `poll`, and a chain without plugins needs no wait.
+#[test]
+fn loading_does_not_block_the_control_thread() {
+    let bank = bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 0.5)]);
+    let mut builder = ChainBuilder::new(RATE);
+
+    assert!(
+        builder.fit(&plugin_chain(), &bank).is_none(),
+        "still loading"
+    );
+    assert!(builder.is_loading());
+    assert_eq!(
+        builder.latency_ms(),
+        0.0,
+        "no chain yet: the bass passes dry"
+    );
+
+    let mut chain = await_chain(&mut builder);
+    assert!(!builder.is_loading());
+    assert!(builder.poll().is_none(), "one chain per shape");
+    let input = sine(2048);
+    assert_gain(&run(&mut chain, &input), &input, 0.5);
+
+    // Built-in effects only: at once, as before.
+    let plain = chain_of(&[SlotSpec::new(EffectKind::Widener)]);
+    assert!(builder.fit(&plain, &bank).is_some());
+    assert!(!builder.is_loading());
+}
+
+/// A shape that changes while the plugins load drops those loads; their instances close, and
+/// the same shape twice loads once.
+#[test]
+fn quick_shape_changes_do_not_leak_instances() {
+    let spec = gain_spec(PluginFormat::Clap, "kontra_clap_gain", 0.5);
+    let path = spec.path.clone();
+    let bank = bank(vec![spec]);
+    let host = PluginHost::global();
+    let mut builder = ChainBuilder::new(RATE);
+
+    // The same shape again while loading: the loads go on, no second instance.
+    assert!(builder.fit(&plugin_chain(), &bank).is_none());
+    assert!(builder.fit(&plugin_chain(), &bank).is_none());
+    let chain = await_chain(&mut builder);
+    assert_eq!(host.open_of(&path), 1);
+
+    // Shape changes, and changes again before the answer: the stale loads close.
+    let widener = chain_of(&[SlotSpec::new(EffectKind::Widener)]);
+    assert!(builder.fit(&ChainSpec::EMPTY, &bank).is_some());
+    assert!(builder.fit(&plugin_chain(), &bank).is_none());
+    assert!(builder.fit(&plugin_chain(), &bank).is_none());
+    assert!(builder.fit(&widener, &bank).is_some(), "built at once");
+    assert!(!builder.is_loading());
+
+    // The chains that fade out go back; then only stale instances are left, and they close.
+    drop(chain);
+    builder.reap();
+    assert_eq!(builder.retiring(), 0);
+    let start = Instant::now();
+    while host.open_of(&path) > 0 {
+        assert!(start.elapsed() < PATIENCE, "an instance leaked");
+        std::thread::sleep(POLL_EVERY);
+    }
+}
+
+/// The crash marker is only there while a plugin's code runs: after a describe, a load and a
+/// load that fails, none is left (one left behind would switch the plugin off at the next start).
+#[test]
+fn no_crash_marker_is_left_behind() {
+    let dir = plugin_file(PluginFormat::Clap, "kontra_clap_gain");
+    let marker = dir.with_file_name("plugin-loading.marker");
+    let info = found(PluginFormat::Clap, "kontra_clap_gain");
+
+    describe_plugin(&info, Some(&marker)).expect("describe");
+    assert!(!marker.exists(), "after a describe");
+
+    let good = gain_spec(PluginFormat::Clap, "kontra_clap_gain", 0.5);
+    let mut gone = good.clone();
+    gone.path = "/nonexistent/gone.clap".into();
+    for spec in [good, gone] {
+        let bank = bank(vec![spec]).with_crash_marker(marker.clone());
+        let mut builder = ChainBuilder::new(RATE);
+        fit_ready(&mut builder, &plugin_chain(), &bank);
+        assert!(!marker.exists(), "after a load");
+    }
+}
+
+/// Review #271: Kontra ended while a plugin loaded; the marker stayed and the plugin counted as
+/// crashed at the next start, and instances were not closed before the program ended.
+#[test]
+fn settling_finishes_loads_and_closes() {
+    let dir = plugin_file(PluginFormat::Clap, "kontra_clap_gain");
+    let marker = dir.with_file_name("plugin-settle.marker");
+    let spec = gain_spec(PluginFormat::Clap, "kontra_clap_gain", 0.5);
+    let path = spec.path.clone();
+    let bank = bank(vec![spec]).with_crash_marker(marker.clone());
+
+    // A load starts, then its builder goes, as when Kontra ends.
+    let mut builder = ChainBuilder::new(RATE);
+    assert!(builder.fit(&plugin_chain(), &bank).is_none());
+    drop(builder);
+
+    assert!(kontra_drivers::plugins::settle_plugins(PATIENCE));
+    assert!(!marker.exists(), "the load finished");
+    assert_eq!(
+        PluginHost::global().open_of(&path),
+        0,
+        "its instance closed"
+    );
 }

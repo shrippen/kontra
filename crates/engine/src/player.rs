@@ -136,7 +136,9 @@ pub trait Output {
     /// without sound ignore it.
     fn set_transpose(&mut self, _semitones: f32) {}
     /// Changes the plugins in the effect chain made themselves since the last call, as
-    /// (`PluginSpec::id`, parameter id, value); outputs without plugins have none.
+    /// (`PluginSpec::id`, parameter id, value); outputs without plugins have none. Also the tick
+    /// that puts a chain in place once its plugins have loaded in the background, so call it
+    /// regularly.
     fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
         Vec::new()
     }
@@ -384,6 +386,20 @@ impl Player {
         }
     }
 
+    /// Hands over the chain whose plugins finished loading since `fit_chain` (they load on the
+    /// plugin thread). Waits for a free slot like `fit_chain`.
+    fn poll_chain(&mut self) {
+        while self.retired.pop().is_ok() {}
+        self.builder.reap();
+        if !self.builder.is_loading() || self.chains.slots() == 0 {
+            return;
+        }
+        if let Some(chain) = self.builder.poll() {
+            // A free slot was checked, and this is the only producer.
+            let _ = self.chains.push(chain);
+        }
+    }
+
     /// What the effect chain running now delays the bass by, in ms. The chain fades in a moment
     /// after it was built; the figure is the new one from then on.
     pub fn chain_latency_ms(&self) -> f64 {
@@ -440,6 +456,7 @@ impl Output for Player {
     }
 
     fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
+        self.poll_chain();
         self.builder.take_param_changes()
     }
 }

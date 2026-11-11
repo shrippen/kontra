@@ -344,7 +344,7 @@ impl Core {
             chain: None,
             lesson_goal: None,
             live_course: None,
-            plugins: fx_plugins::Plugins::new(data_dir),
+            plugins: fx_plugins::Plugins::start(data_dir, &mut settings),
             notice: None,
             active_setlist: None,
             lost: None,
@@ -1745,7 +1745,7 @@ impl Core {
             .set_speed(self.probe.map_or(self.speed, |p| p.speed));
         live.practice_mut().set_loop(self.loop_range());
         live.practice_mut()
-            .set_gains(gains(&self.settings, &self.plugins.problems));
+            .set_gains(gains(&self.settings, &self.plugins));
         let silent = live.output_is_silent;
         self.live = Some(live);
         self.finished_at_s = None;
@@ -2343,7 +2343,7 @@ impl Core {
         self.release_standby();
         let mut live_ear = LiveEar::start(&setup, &instrument)
             .map_err(|e| self.tr("error.audio", &[("reason", e.to_string())]))?;
-        live_ear.set_gains(ear_gains(&self.settings, &self.plugins.problems));
+        live_ear.set_gains(ear_gains(&self.settings, &self.plugins));
         self.live_ear = Some(live_ear);
         self.input.remember(InputUse::Ear, setup.input);
         let stats = store::load(&self.data_dir.join(quiz_stats::FILE));

@@ -1,11 +1,12 @@
 //! The mixer's settings as the player's gains (LH-WIE-03, LH-EIN-08, LH-EIN-17).
 
+use crate::fx_plugins::Plugins;
 use crate::{instrument_from, standby, Settings};
 use kontra_model::ChainSpec;
-use kontra_session::{Gains, Limit, PluginBank, PluginProblems, Shaping};
+use kontra_session::{Gains, Limit, Shaping};
 
 /// The mixer's volumes for the player; monitoring off mutes the input.
-pub(crate) fn gains(settings: &Settings, problems: &PluginProblems) -> Gains {
+pub(crate) fn gains(settings: &Settings, plugins: &Plugins) -> Gains {
     let volume = |v: f64| v.clamp(0.0, 1.0) as f32;
     Gains {
         click: volume(settings.metronome_volume),
@@ -33,15 +34,15 @@ pub(crate) fn gains(settings: &Settings, problems: &PluginProblems) -> Gains {
             },
             bands: instrument_from(settings).tone_bands(),
         },
-        plugins: Some(PluginBank::new(settings.plugins.clone(), problems.clone())),
+        plugins: Some(plugins.bank(settings)),
     }
 }
 
 /// Ear training plays its prompts as tones at the "Vorspielen" volume (round 8).
-pub(crate) fn ear_gains(settings: &Settings, problems: &PluginProblems) -> Gains {
+pub(crate) fn ear_gains(settings: &Settings, plugins: &Plugins) -> Gains {
     Gains {
         tone: settings.prompt_volume.clamp(0.0, 1.0) as f32,
-        ..gains(settings, problems)
+        ..gains(settings, plugins)
     }
 }
 
@@ -52,12 +53,12 @@ impl crate::Core {
         let was_on = self.settings.monitor;
         let passed = self.tuner_monitor().is_some();
         self.update_settings(change);
-        let gains = gains(&self.settings, &self.plugins.problems);
+        let gains = gains(&self.settings, &self.plugins);
         if let Some(live) = self.live.as_mut() {
             live.practice_mut().set_gains(gains);
         }
         if let Some(live_ear) = self.live_ear.as_mut() {
-            live_ear.set_gains(ear_gains(&self.settings, &self.plugins.problems));
+            live_ear.set_gains(ear_gains(&self.settings, &self.plugins));
         }
         self.remix_standby();
         // The tuner's output opens or closes with "Bass hören" (only on a cable input).
