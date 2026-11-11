@@ -9,7 +9,11 @@ publish.workspace = true
 [dependencies]
 # Builds the CLAP plugins the host is tested against (MIT/Apache-2.0).
 clack-plugin = "0.2"
-clack-extensions = { version = "0.2", features = ["clack-plugin", "params", "state", "latency", "audio-ports"] }
+clack-extensions = { version = "0.2", features = ["clack-plugin", "params", "state", "latency", "audio-ports", "gui", "timer", "posix-fd"] }
+
+# The editor's pipe (FX5 tests of descriptors; MIT/Apache-2.0, already in the tree).
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
 
 [lints]
 workspace = true

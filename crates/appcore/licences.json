@@ -33,6 +33,7 @@
 {"name": "errno", "version": "0.3.14", "license": "MIT OR Apache-2.0"},
 {"name": "flate2", "version": "1.1.10", "license": "MIT OR Apache-2.0"},
 {"name": "foldhash", "version": "0.2.0", "license": "Zlib"},
+{"name": "gethostname", "version": "1.1.0", "license": "Apache-2.0"},
 {"name": "getrandom", "version": "0.2.17", "license": "MIT OR Apache-2.0"},
 {"name": "getrandom", "version": "0.4.3", "license": "MIT OR Apache-2.0"},
 {"name": "hashbrown", "version": "0.17.1", "license": "MIT OR Apache-2.0"},
@@ -110,6 +111,8 @@
 {"name": "ureq-proto", "version": "0.6.4", "license": "MIT OR Apache-2.0"},
 {"name": "utf8-zero", "version": "0.8.1", "license": "MIT OR Apache-2.0"},
 {"name": "vst3", "version": "0.3.0", "license": "MIT OR Apache-2.0"},
+{"name": "x11rb", "version": "0.13.2", "license": "MIT OR Apache-2.0"},
+{"name": "x11rb-protocol", "version": "0.13.2", "license": "MIT OR Apache-2.0"},
 {"name": "zeroize", "version": "1.9.1", "license": "Apache-2.0 OR MIT"},
 {"name": "zip", "version": "9.1.0", "license": "MIT"},
 {"name": "zmij", "version": "1.0.23", "license": "MIT"}

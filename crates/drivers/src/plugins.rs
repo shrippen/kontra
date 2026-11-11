@@ -16,17 +16,21 @@
 //! Only the first input and the first output port of a plugin are used (no side chain).
 
 mod clap;
+mod editor;
 mod host;
 mod paths;
 mod scan;
 #[allow(unsafe_code)]
 mod vst3;
+#[cfg(target_os = "linux")]
+mod x11_frame;
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
+pub use editor::{system_frame, EditorFrame, EditorShown, FrameEvent, FrameHandle, FrameMaker};
 pub use host::{
     clear_crash_marker, crashed_plugin, settle_plugins, PendingLoad, PluginDescription,
     PluginHandle, PluginHost, PluginLoaded, PluginSetup,
@@ -154,6 +158,10 @@ pub enum PluginError {
     Block(u32),
     #[error("the audio side is still in use")]
     InUse,
+    #[error("editor: {0}")]
+    Editor(String),
+    #[error("the plugin has no editor of its own")]
+    NoEditor,
     #[error(transparent)]
     File(#[from] crate::FileError),
 }
@@ -308,6 +316,36 @@ impl LoadedPlugin {
     /// Ends the activation (fails while the processor still exists).
     pub fn deactivate(&mut self) -> Result<(), PluginError> {
         each!(&mut self.inner, p => p.deactivate())
+    }
+
+    /// Opens the plugin's own editor in a frame `make_frame` makes; an open one stays. Only on
+    /// the thread that drives `idle`. VST 3 editors come later.
+    pub fn open_editor(&mut self, title: &str, make_frame: FrameMaker) -> Result<(), PluginError> {
+        match &mut self.inner {
+            Backend::Clap(p) => p.open_editor(title, make_frame),
+            Backend::Vst3(_) => Err(PluginError::NoEditor),
+        }
+    }
+
+    pub fn close_editor(&mut self) {
+        if let Backend::Clap(p) = &mut self.inner {
+            p.close_editor();
+        }
+    }
+
+    pub fn editor_open(&self) -> bool {
+        match &self.inner {
+            Backend::Clap(p) => p.editor_open(),
+            Backend::Vst3(_) => false,
+        }
+    }
+
+    /// Lets the plugin do what it asked for (timers, callbacks) and its editor follow the
+    /// window. Call it often (every 10 ms or so) on the plugin's thread.
+    pub fn idle(&mut self) {
+        if let Backend::Clap(p) = &mut self.inner {
+            p.idle();
+        }
     }
 }
 

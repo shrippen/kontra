@@ -37,13 +37,16 @@ clack-host = "0.2"
 vst3 = "0.3"
 # Opens plugin files at runtime (ISC; already in the tree under clack-host, same version).
 libloading = "0.8"
-# CLAP params, state, latency and audio-ports extensions for the host side (MIT/Apache-2.0).
-clack-extensions = { version = "0.2", features = ["clack-host", "params", "state", "latency", "audio-ports"] }
+# CLAP params, state, latency, audio-ports, gui, timer and posix-fd extensions for the host side (MIT/Apache-2.0).
+clack-extensions = { version = "0.2", features = ["clack-host", "params", "state", "latency", "audio-ports", "gui", "timer", "posix-fd"] }
 
 # alsa-lib's own error print, silenced while probing devices (MIT; already in the tree under
 # cpal and midir, same version).
 [target.'cfg(target_os = "linux")'.dependencies]
 alsa-sys = "0.4"
+# The window of a plugin's own editor (FX5; MIT/Apache-2.0): X11 through its pure Rust
+# connection, so no libxcb; also works under XWayland.
+x11rb = "0.13"
 # prctl(PR_SET_PDEATHSIG) for the stem separator: Demucs ends with Kontra, also after a crash
 # (MIT/Apache-2.0; already in the tree under cpal, same version).
 libc = "0.2"
