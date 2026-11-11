@@ -4,6 +4,7 @@
 
 mod connection;
 mod downmix;
+mod kept;
 mod samples;
 mod shared;
 mod stamps;
@@ -545,16 +546,27 @@ fn find_device(direction: Direction, id: Option<&str>) -> Result<cpal::Device, A
     let host = host_of(id)
         .and_then(|h| cpal::host_from_id(h).ok())
         .ok_or(AudioError::NoDevice(direction))?;
-    let devices = match direction {
-        Direction::Input => host.input_devices().map(|d| d.collect::<Vec<_>>()),
-        Direction::Output => host.output_devices().map(|d| d.collect::<Vec<_>>()),
+    let list = || {
+        let devices = match direction {
+            Direction::Input => host.input_devices().map(|d| d.collect::<Vec<_>>()),
+            Direction::Output => host.output_devices().map(|d| d.collect::<Vec<_>>()),
+        };
+        devices
+            .unwrap_or_default()
+            .into_iter()
+            .find(|d| d.id().map(|i| i.to_string() == id).unwrap_or(false))
     };
-    devices
-        .unwrap_or_default()
-        .into_iter()
-        .find(|d| d.id().map(|i| i.to_string() == id).unwrap_or(false))
-        .ok_or(AudioError::NoDevice(direction))
+    // A driver held by the other direction's stream cannot be listed again.
+    let found = match id.starts_with(ASIO_PREFIX) {
+        true => ASIO_DEVICES.find(id, list),
+        false => list(),
+    };
+    found.ok_or(AudioError::NoDevice(direction))
 }
+
+/// Device id prefix of the ASIO host ("asio:Focusrite USB ASIO").
+const ASIO_PREFIX: &str = "asio:";
+static ASIO_DEVICES: kept::Kept<cpal::Device> = kept::Kept::new();
 
 /// The host a saved id belongs to ("alsa:hw:2,0", "pipewire:alsa_input…").
 fn host_of(id: &str) -> Option<cpal::HostId> {
