@@ -1,13 +1,16 @@
 //! The CLAP backend (`clack-host`). Loading a file is the one `unsafe` step: the file's code runs.
 
+use super::editor::EditorFrame;
 use super::{
     ParamInfo, PluginError, PluginFormat, PluginInfo, PortLayout, ProcessError, CHANNELS,
     PARAM_RING_SLOTS,
 };
 use clack_extensions::audio_ports::{AudioPortInfoBuffer, PluginAudioPorts};
+use clack_extensions::gui::PluginGui;
 use clack_extensions::latency::PluginLatency;
 use clack_extensions::params::{ParamInfoBuffer, ParamInfoFlags, PluginParams};
 use clack_extensions::state::PluginState;
+use clack_extensions::timer::PluginTimer;
 use clack_host::events::event_types::ParamValueEvent;
 use clack_host::events::io::{
     EventBuffer, InputEvents, OutputEventBuffer, OutputEvents, TryPushError,
@@ -19,6 +22,10 @@ use clack_host::utils::ClapId;
 use rtrb::{Consumer, Producer, RingBuffer};
 use std::ffi::CString;
 use std::path::Path;
+
+mod gui;
+
+use gui::{HostMain, HostShared};
 
 const HOST_NAME: &str = "Kontra";
 const HOST_VENDOR: &str = "shrippen";
@@ -55,20 +62,15 @@ impl<F: FnMut(ParamChange)> OutputEventBuffer for Sink<F> {
 }
 
 struct Host;
-struct HostShared;
-
-impl SharedHandler<'_> for HostShared {
-    // The plugin asks for a restart, a process call or a main thread callback: Kontra needs
-    // none of them for effects.
-    fn request_restart(&self) {}
-    fn request_process(&self) {}
-    fn request_callback(&self) {}
-}
 
 impl HostHandlers for Host {
     type Shared<'a> = HostShared;
-    type MainThread<'a> = ();
+    type MainThread<'a> = HostMain;
     type AudioProcessor<'a> = ();
+
+    fn declare_extensions(builder: &mut HostExtensions<Self>, _shared: &Self::Shared<'_>) {
+        Host::declare(builder);
+    }
 }
 
 fn load_error(path: &Path, message: impl ToString) -> PluginError {
@@ -101,8 +103,14 @@ fn instantiate(
     id: &std::ffi::CStr,
     path: &Path,
 ) -> Result<PluginInstance<Host>, PluginError> {
-    PluginInstance::<Host>::new(|_| HostShared, |_| (), entry, id, &host_info()?)
-        .map_err(|e| load_error(path, e))
+    PluginInstance::<Host>::new(
+        |_| HostShared::default(),
+        |_| HostMain::default(),
+        entry,
+        id,
+        &host_info()?,
+    )
+    .map_err(|e| load_error(path, e))
 }
 
 fn text(bytes: &[u8]) -> String {
@@ -179,6 +187,12 @@ pub(super) struct ClapPlugin {
     params_ext: Option<PluginParams>,
     state_ext: Option<PluginState>,
     latency_ext: Option<PluginLatency>,
+    gui_ext: Option<PluginGui>,
+    timer_ext: Option<PluginTimer>,
+    #[cfg(target_os = "linux")]
+    fd_ext: Option<clack_extensions::posix_fd::PluginPosixFd>,
+    /// The window of the plugin's own editor while it is open.
+    editor: Option<Box<dyn EditorFrame>>,
     /// Main thread end of the ring to the audio thread while activated.
     ring: Option<Producer<ParamChange>>,
     /// Main thread end of the ring from the audio thread: changes the plugin made itself.
@@ -242,6 +256,10 @@ impl ClapPlugin {
         let params_ext = handle.get_extension::<PluginParams>();
         let state_ext = handle.get_extension::<PluginState>();
         let latency_ext = handle.get_extension::<PluginLatency>();
+        let gui_ext = handle.get_extension::<PluginGui>();
+        let timer_ext = handle.get_extension::<PluginTimer>();
+        #[cfg(target_os = "linux")]
+        let fd_ext = handle.get_extension();
         let params = params_ext
             .as_ref()
             .map(|ext| list_params(ext, &handle))
@@ -261,6 +279,11 @@ impl ClapPlugin {
             params_ext,
             state_ext,
             latency_ext,
+            gui_ext,
+            timer_ext,
+            #[cfg(target_os = "linux")]
+            fd_ext,
+            editor: None,
             ring: None,
             reports: None,
             flushed: Vec::new(),

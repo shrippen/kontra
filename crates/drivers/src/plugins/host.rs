@@ -10,6 +10,8 @@
 //!  PendingLoad::poll ◄───── reply ────────────────────────────────────────┘
 //!  PluginHandle::set_param ── SetParam ─►  instance
 //!  PluginHandle::take_changes ◄─ inbox ◄─  instance.take_changes (every tick)
+//!  PluginHandle::open_editor ── OpenEditor ─► editor in a frame; every tick: idle (timers,
+//!                                             window events); EditorShown says if it is open
 //!  drop PluginHandle ── Close ──────► instance dropped
 //!
 //!  the PluginProcessor of a load goes on to the audio thread, as it did before
@@ -17,6 +19,7 @@
 //!
 //! A processor must be dropped before its handle: the handle's drop closes the instance.
 
+use super::editor::{EditorShown, FrameMaker};
 use super::{coalesce, LoadedPlugin, ParamInfo, PluginError, PluginFormat, PluginProcessor};
 use std::collections::HashMap;
 use std::fmt;
@@ -27,8 +30,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
 
-/// How long the loop waits for a command before it looks after the instances (their own
-/// parameter changes now; timers and window events later).
+/// How long the loop waits for a command before it looks after the instances: their own
+/// parameter changes, timers, descriptors and editor windows.
 const TICK: Duration = Duration::from_millis(10);
 
 /// Separates the file and the plugin id in a crash marker.
@@ -95,6 +98,7 @@ pub struct PluginHandle {
     id: u64,
     commands: Sender<Command>,
     changes: Arc<Mutex<Vec<(u32, f64)>>>,
+    editor: EditorShown,
 }
 
 impl PluginHandle {
@@ -106,6 +110,30 @@ impl PluginHandle {
             param,
             value,
         });
+    }
+
+    /// Opens the plugin's own editor in a frame `make_frame` makes (`system_frame` for a real
+    /// window); an open one stays. Waits for the plugin thread.
+    pub fn open_editor(&self, title: &str, make_frame: FrameMaker) -> Result<(), PluginError> {
+        let (reply, receiver) = mpsc::channel();
+        let command = Command::OpenEditor {
+            plugin: self.id,
+            title: title.to_string(),
+            make_frame,
+            reply,
+        };
+        self.commands.send(command).map_err(|_| gone())?;
+        receiver.recv().map_err(|_| gone())?
+    }
+
+    /// Closes the editor if it is open. Not blocking.
+    pub fn close_editor(&self) {
+        let _ = self.commands.send(Command::CloseEditor { plugin: self.id });
+    }
+
+    /// Whether the editor is open now (the player may close it any time).
+    pub fn editor_open(&self) -> bool {
+        self.editor.get()
     }
 
     /// Parameter changes the plugin made itself since the last call: one entry per parameter,
@@ -146,6 +174,15 @@ enum Command {
         value: f64,
     },
     Close {
+        plugin: u64,
+    },
+    OpenEditor {
+        plugin: u64,
+        title: String,
+        make_frame: FrameMaker,
+        reply: Sender<Result<(), PluginError>>,
+    },
+    CloseEditor {
         plugin: u64,
     },
     /// Answers once everything sent before, and what that sent in turn, is done.
@@ -273,6 +310,7 @@ fn guarded<T>(setup: &PluginSetup, work: impl FnOnce() -> T) -> T {
 struct Slot {
     plugin: LoadedPlugin,
     changes: Arc<Mutex<Vec<(u32, f64)>>>,
+    editor: EditorShown,
 }
 
 /// The loop of the plugin thread.
@@ -291,6 +329,10 @@ fn run(inbox: Receiver<Command>) {
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => return,
         }
+        for slot in slots.values_mut() {
+            slot.plugin.idle();
+            slot.editor.set(slot.plugin.editor_open());
+        }
         collect_changes(&mut slots);
     }
 }
@@ -306,11 +348,13 @@ fn handle(command: Command, slots: &mut HashMap<u64, Slot>) {
         } => {
             let loaded = guarded(&setup, || open(&setup));
             let result = loaded.map(|opened| {
+                let editor = EditorShown::default();
                 slots.insert(
                     id,
                     Slot {
                         plugin: opened.plugin,
                         changes: Arc::clone(&changes),
+                        editor: editor.clone(),
                     },
                 );
                 PluginLoaded {
@@ -319,6 +363,7 @@ fn handle(command: Command, slots: &mut HashMap<u64, Slot>) {
                         id,
                         commands: handle_commands,
                         changes,
+                        editor,
                     },
                     latency_samples: opened.latency_samples,
                     applied: opened.applied,
@@ -348,7 +393,30 @@ fn handle(command: Command, slots: &mut HashMap<u64, Slot>) {
             }
         }
         Command::Close { plugin } => {
-            slots.remove(&plugin);
+            // The editor goes before the instance: the plugin lets go of its window first.
+            if let Some(mut slot) = slots.remove(&plugin) {
+                slot.plugin.close_editor();
+            }
+        }
+        Command::OpenEditor {
+            plugin,
+            title,
+            make_frame,
+            reply,
+        } => {
+            let Some(slot) = slots.get_mut(&plugin) else {
+                let _ = reply.send(Err(gone()));
+                return;
+            };
+            let opened = slot.plugin.open_editor(&title, make_frame);
+            slot.editor.set(slot.plugin.editor_open());
+            let _ = reply.send(opened);
+        }
+        Command::CloseEditor { plugin } => {
+            if let Some(slot) = slots.get_mut(&plugin) {
+                slot.plugin.close_editor();
+                slot.editor.set(false);
+            }
         }
     }
 }

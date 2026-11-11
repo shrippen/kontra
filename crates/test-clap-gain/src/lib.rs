@@ -7,6 +7,10 @@
 //! The same code builds a stereo and a mono variant (`Gain<2>`, `Gain<1>`); the crash and hang
 //! plugins are in `examples/`.
 
+mod editor;
+
+pub use editor::{EditorState, EDITOR_GAIN, EDITOR_RESIZED, EDITOR_SIZE};
+
 use clack_extensions::audio_ports::{
     AudioPortFlags, AudioPortInfo, AudioPortInfoWriter, PluginAudioPorts, PluginAudioPortsImpl,
 };
@@ -46,7 +50,12 @@ pub struct Gain<const CHANNELS: u32>;
 pub struct Shared {
     gain_bits: AtomicU32,
     channels: u32,
+    /// A gain the editor set, as f32 bits, for the next block to report; `NO_TURN`: none.
+    turned_bits: AtomicU32,
 }
+
+/// No knob turned since the last block (a NaN no editor sets).
+const NO_TURN: u32 = u32::MAX;
 
 impl Shared {
     fn gain(&self) -> f32 {
@@ -55,6 +64,29 @@ impl Shared {
 
     fn set_gain(&self, value: f32) {
         self.gain_bits.store(value.to_bits(), Ordering::Relaxed);
+    }
+
+    /// The editor set the gain: the next block takes it and reports it.
+    fn turn_knob(&self, value: f64) {
+        self.turned_bits
+            .store((value as f32).to_bits(), Ordering::Relaxed);
+    }
+
+    /// Reports a gain the editor set, as a real editor's change arrives at the host.
+    fn report_turn(&self, output: &mut OutputEvents) {
+        let bits = self.turned_bits.swap(NO_TURN, Ordering::Relaxed);
+        if bits == NO_TURN {
+            return;
+        }
+        let value = f32::from_bits(bits);
+        self.set_gain(value);
+        let event = ParamValueEvent::new(
+            0,
+            ClapId::new(GAIN_PARAM_ID),
+            Pckn::match_all(),
+            f64::from(value),
+        );
+        let _ = output.try_push(event);
     }
 
     /// Applies the parameter events of one block. The trigger value is answered with the plugin's
@@ -85,9 +117,19 @@ impl Shared {
 
 impl PluginShared<'_> for Shared {}
 
-#[derive(Debug)]
 pub struct GainMainThread<'a> {
     shared: &'a Shared,
+    host: HostMainThreadHandle<'a>,
+    editor: std::cell::RefCell<EditorState>,
+}
+
+impl std::fmt::Debug for GainMainThread<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GainMainThread")
+            .field("shared", &self.shared)
+            .field("editor", &self.editor)
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a> PluginMainThread<'a, Shared> for GainMainThread<'a> {}
@@ -107,7 +149,11 @@ impl<const CHANNELS: u32> Plugin for Gain<CHANNELS> {
             .register::<PluginAudioPorts>()
             .register::<PluginParams>()
             .register::<PluginState>()
-            .register::<PluginLatency>();
+            .register::<PluginLatency>()
+            .register::<clack_extensions::gui::PluginGui>()
+            .register::<clack_extensions::timer::PluginTimer>();
+        #[cfg(target_os = "linux")]
+        builder.register::<clack_extensions::posix_fd::PluginPosixFd>();
     }
 }
 
@@ -129,14 +175,19 @@ impl<const CHANNELS: u32> DefaultPluginFactory for Gain<CHANNELS> {
         Ok(Shared {
             gain_bits: AtomicU32::new(GAIN_DEFAULT.to_bits()),
             channels: CHANNELS,
+            turned_bits: AtomicU32::new(NO_TURN),
         })
     }
 
     fn new_main_thread<'a>(
-        _host: HostMainThreadHandle<'a>,
+        host: HostMainThreadHandle<'a>,
         shared: &'a Shared,
     ) -> Result<GainMainThread<'a>, PluginError> {
-        Ok(GainMainThread { shared })
+        Ok(GainMainThread {
+            shared,
+            host,
+            editor: Default::default(),
+        })
     }
 }
 
@@ -157,6 +208,7 @@ impl<'a> PluginAudioProcessor<'a, Shared, GainMainThread<'a>> for GainProcessor<
         events: Events,
     ) -> Result<ProcessStatus, PluginError> {
         self.shared.apply(events.input, events.output);
+        self.shared.report_turn(events.output);
         let gain = self.shared.gain();
 
         for mut pair in &mut audio {
