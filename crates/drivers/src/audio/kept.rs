@@ -1,6 +1,7 @@
-//! Devices kept by id. An ASIO host loads one driver at a time: while a stream holds it,
-//! listing the devices again finds nothing, so the other direction of the same driver
-//! (loopback: output first, then input) reuses the device found the first time.
+//! Devices kept by id. An ASIO host loads one driver at a time: while a stream holds one,
+//! listing stops at the first other driver, so a held driver listed after another one is
+//! missing. The other direction of that driver (loopback: output first, then input) reuses
+//! the device found the first time.
 
 use std::sync::Mutex;
 

@@ -556,7 +556,7 @@ fn find_device(direction: Direction, id: Option<&str>) -> Result<cpal::Device, A
             .into_iter()
             .find(|d| d.id().map(|i| i.to_string() == id).unwrap_or(false))
     };
-    // A driver held by the other direction's stream cannot be listed again.
+    // While a stream holds an ASIO driver, listing stops at the first other one.
     let found = match id.starts_with(ASIO_PREFIX) {
         true => ASIO_DEVICES.find(id, list),
         false => list(),

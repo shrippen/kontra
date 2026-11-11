@@ -132,8 +132,8 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
     spricht i32: Kontra öffnet Ströme jetzt im Format des Geräts und wandelt (`audio/samples.rs`).
     `scripts/package-windows.sh` baut mit ASIO und legt `GPL-3.0.txt`, `ASIO.txt` und `LICENSE` ins Paket.
   - ASIO in beide Richtungen (11.11., Debug-Build, VM): Loopback mit `asio:Focusrite USB ASIO` als Ein- und Ausgang
-    lief vorher nicht („no audio device found for Input“: der Treiber ist vom Ausgang belegt, ein zweites Auflisten
-    findet nichts); jetzt 5 Läufe, Rundlauf 240,6 bis 241,6 ms, 128 Frames, Aussetzer 1/1/1/5/1.
+    lief vorher nicht („no audio device found for Input“: der Ausgang hält den Treiber, und das Auflisten bricht
+    am ersten anderen Treiber ab; steht einer vor ihm, fehlt er); jetzt 5 Läufe, Rundlauf 240,6 bis 241,6 ms, 128 Frames, Aussetzer 1/1/1/5/1.
   - **Aussetzer** (`kontra-cli soak`, 2 min, in der VM): ASIO (Focusrite) 4, WASAPI mit Focusrite-Treiber 16, WASAPI
     mit Windows-Treiber 3. Die VM reicht USB-Audio über einen emulierten Controller durch: die Zahlen zeigen, dass
     es läuft, nicht wie gut. Messung auf echtem Windows steht aus.
