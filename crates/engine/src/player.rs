@@ -11,6 +11,7 @@
 //! ```
 
 use crate::clock::{settle, Clock};
+use crate::plugin_chain::{ChainBuilder, PluginBank};
 use crate::{EngineError, Event};
 use kontra_drivers::{OutputStream, StreamConfig};
 use kontra_dsp::synth::Noise;
@@ -137,7 +138,7 @@ pub trait Output {
 }
 
 /// Bus volumes, 0..=1.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Gains {
     pub click: f32,
     pub tone: f32,
@@ -150,6 +151,9 @@ pub struct Gains {
     pub monitor: f32,
     /// Tone shaping of the monitored bass (LH-EIN-08); detection hears the dry input.
     pub shaping: Shaping,
+    /// The plugins the chain of `shaping` names (LH-EIN-20, -21). The player keeps them; the
+    /// callback never gets them.
+    pub plugins: Option<PluginBank>,
 }
 
 impl Default for Gains {
@@ -162,10 +166,14 @@ impl Default for Gains {
             bass: 0.0,
             monitor: 0.0,
             shaping: Shaping::FLAT,
+            plugins: None,
         }
     }
 }
 
+// `Gains` is large (the chain). Boxing it would free memory in the callback; the ring slots are
+// all that size anyway.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq)]
 enum Command {
     Schedule {
@@ -231,9 +239,10 @@ pub struct Player {
     chains: rtrb::Producer<Box<Chain>>,
     /// Chains the mixer has faded out; dropped here, not in the callback.
     retired: rtrb::Consumer<Box<Chain>>,
-    /// The shape of the chain last handed to the mixer.
-    chain_shape: ChainSpec,
     pub sample_rate: u32,
+    /// Builds the chains and holds their plugins. Last: dropped after the stream and the rings
+    /// (and with them every plugin processor) are gone.
+    builder: ChainBuilder,
 }
 
 /// What the mixer played (without the monitored bass), for echo removal at a microphone. The
@@ -326,6 +335,7 @@ impl Player {
             },
         )?;
         rate.store(u64::from(stream.sample_rate), Ordering::Relaxed);
+        let rate_hz = f64::from(stream.sample_rate);
         Ok(Player {
             commands: producer,
             sample_rate: stream.sample_rate,
@@ -339,7 +349,7 @@ impl Player {
             })),
             chains: chains_tx,
             retired: retired_rx,
-            chain_shape: ChainSpec::EMPTY,
+            builder: ChainBuilder::new(rate_hz),
         })
     }
 
@@ -356,14 +366,16 @@ impl Player {
     /// Makes a new chain when the effects, their order or on/off differ from the last; the
     /// mixer fades over to it. Values alone travel with the gains. A full ring keeps the old
     /// shape, so the next call tries again.
-    fn fit_chain(&mut self, spec: &ChainSpec) {
+    fn fit_chain(&mut self, spec: &ChainSpec, bank: &PluginBank) {
+        // Dropped here, on the control thread: a plugin processor never ends in the callback.
         while self.retired.pop().is_ok() {}
-        if self.chain_shape.same_shape(spec) {
+        self.builder.reap();
+        if self.chains.slots() == 0 {
             return;
         }
-        let chain = Box::new(Chain::new(spec, f64::from(self.sample_rate)));
-        if self.chains.push(chain).is_ok() {
-            self.chain_shape = *spec;
+        if let Some(chain) = self.builder.fit(spec, bank) {
+            // A free slot was checked, and this is the only producer.
+            let _ = self.chains.push(chain);
         }
     }
 
@@ -405,8 +417,10 @@ impl Output for Player {
         let _ = self.commands.push(Command::StopBacking { at_s });
     }
 
-    fn set_gains(&mut self, gains: Gains) {
-        self.fit_chain(&gains.shaping.chain);
+    fn set_gains(&mut self, mut gains: Gains) {
+        // The bank stays on this side: the callback must never drop its last reference.
+        let bank = gains.plugins.take().unwrap_or_default();
+        self.fit_chain(&gains.shaping.chain, &bank);
         let _ = self.commands.push(Command::Gains(gains));
     }
 
@@ -529,8 +543,8 @@ impl Mixer {
                 }
             }
             Command::Gains(gains) => {
-                self.gains = gains;
                 self.shaper.set(gains.shaping);
+                self.gains = gains;
             }
             Command::Transpose(semitones) => {
                 if self.shifter.semitones() == 0.0 {
@@ -587,7 +601,7 @@ impl Mixer {
             &mut self.voices,
             now,
             sr as f32,
-            self.gains,
+            &self.gains,
             &mut self.noise,
         );
         let (mut left, mut right) = (mono, mono);
@@ -651,7 +665,13 @@ fn shifted_frame(
 }
 
 /// Mixes all voices for one frame at engine time `now`.
-fn render(voices: &mut [Voice; VOICES], now: f64, sr: f32, gains: Gains, noise: &mut Noise) -> f32 {
+fn render(
+    voices: &mut [Voice; VOICES],
+    now: f64,
+    sr: f32,
+    gains: &Gains,
+    noise: &mut Noise,
+) -> f32 {
     let mut mix = 0.0;
     for v in voices.iter_mut().filter(|v| v.active && v.start_s <= now) {
         let t = (now - v.start_s) as f32;
@@ -750,6 +770,7 @@ mod tests {
                 bass: 0.0,
                 monitor: 1.0,
                 shaping: Shaping::FLAT,
+                plugins: None,
             },
             backing: None,
             next: None,
@@ -968,7 +989,7 @@ mod tests {
                 limit: kontra_dsp::Limit::On,
                 ..Shaping::FLAT
             },
-            ..m.gains
+            ..m.gains.clone()
         }));
         let sr = 48_000.0;
         let slap = |i: usize| 1.6 * (std::f64::consts::TAU * 55.0 * i as f64 / sr).sin() as f32;
@@ -1003,7 +1024,7 @@ mod tests {
                 chain: fuzz,
                 ..Shaping::FLAT
             },
-            ..m.gains
+            ..m.gains.clone()
         }));
 
         let tone = |i: usize| 0.3 * (std::f64::consts::TAU * 110.0 * i as f64 / sr).sin() as f32;
@@ -1078,7 +1099,7 @@ mod tests {
 
         m.apply(Command::Gains(Gains {
             bass: 0.5,
-            ..m.gains
+            ..m.gains.clone()
         }));
         let (l, r) = m.render(0.2, sr);
         assert!((l - 0.3).abs() < 1e-6 && (r + 0.1).abs() < 1e-6, "{l} {r}");
@@ -1093,7 +1114,7 @@ mod tests {
                 low_db: 6.0,
                 ..Shaping::FLAT
             },
-            ..m.gains
+            ..m.gains.clone()
         }));
         let sr = 48_000.0;
         let mut last = 0.0;
@@ -1115,7 +1136,7 @@ mod tests {
         // Switched on later: starts with fresh input, not with what queued while muted.
         m.apply(Command::Gains(Gains {
             monitor: 1.0,
-            ..m.gains
+            ..m.gains.clone()
         }));
         assert_eq!(m.render(0.0, 48_000.0), (0.0, 0.0));
     }

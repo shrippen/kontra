@@ -6,7 +6,7 @@ import Kante
 // Mixer (LH-WIE-03, LH-MOD-05): volumes of backing track (and its removed bass, LH-BIB-09),
 // metronome, reference tone and drums (LH-LRN-01), and the bass played through Kontra (off by default: the interface's direct
 // monitoring has no delay). While it plays, three tone bands, a compressor, warmth (LH-EIN-08),
-// the effect chain (LH-EIN-19: free order, on or off, own values) shapes it, a limiter (on by default) catches peaks (LH-EIN-17);
+// the effect chain (LH-EIN-19: built-in effects and plugins, free order, on or off, own values) shapes it, a limiter (on by default) catches peaks (LH-EIN-17);
 // "Neutral" resets them.
 // Changes apply at once, also while playing. On the practice page and in the settings.
 ColumnLayout {
@@ -172,6 +172,10 @@ ColumnLayout {
     // with its own values. Everything is a button or a slider (no dragging); the list comes
     // from the core, the page keeps no logic.
     readonly property var fx: JSON.parse(ctl.effectsJson)
+    // What "add" offers: the built-in effects, then the plugins the search found.
+    readonly property var addable: fx.kinds.concat(fx.plugins.map(function(p) {
+        return { key: p.key, name: mixer.texts.t("fx.plugin.label", { name: p.name, vendor: p.vendor, format: p.format }) }
+    }))
     // Where a slot's move buttons stand, so keyboard focus follows the slot that moved.
     function focusMoved(to) {
         var slot = slots.itemAt(to)
@@ -193,15 +197,41 @@ ColumnLayout {
                 Accessible.name: mixer.texts.t("fx.add")
                 Layout.preferredWidth: KanteStyle.unit(180)
                 enabled: !mixer.fx.full
-                model: mixer.fx.kinds.map(function(k) { return k.name })
+                model: mixer.addable.map(function(k) { return k.name })
             }
             KanteButton {
                 id: addButton
                 text: mixer.texts.t("fx.add")
                 Accessible.name: mixer.texts.t("fx.add.button", { name: kindChoice.currentText })
                 enabled: !mixer.fx.full
-                onClicked: mixer.ctl.editEffects("add", 0, mixer.fx.kinds[kindChoice.currentIndex].key, 0)
+                onClicked: mixer.ctl.editEffects("add", 0, mixer.addable[kindChoice.currentIndex].key, 0)
             }
+        }
+    }
+    // The plugin search (LH-EIN-20, -21): the result in words, files that are broken by name.
+    KanteSettingRow {
+        Layout.fillWidth: true
+        visible: mixer.ctl.monitor
+        title: mixer.texts.t("fx.scan.button")
+        hint: mixer.fx.scan.text
+        KanteButton {
+            text: mixer.texts.t("fx.scan.button")
+            Accessible.name: mixer.texts.t("fx.scan.button")
+            Accessible.description: mixer.texts.t("fx.scan.button.hint")
+            emphasis: KanteButton.Emphasis.Quiet
+            enabled: !mixer.fx.scan.running
+            onClicked: mixer.ctl.editEffects("scan", 0, "", 0)
+        }
+    }
+    Repeater {
+        model: mixer.ctl.monitor ? mixer.fx.scan.broken : []
+        delegate: Text {
+            required property var modelData
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: KanteStyle.mutedTextColor
+            font: KanteStyle.smallFont
+            text: mixer.texts.t("fx.scan.broken", { file: modelData.file, reason: modelData.reason })
         }
     }
     // A full chain says so in words; the add buttons are off then.
@@ -220,14 +250,14 @@ ColumnLayout {
         font: KanteStyle.smallFont
         text: mixer.texts.t("fx.empty")
     }
-    // Later: plugin slots (LH-EIN-20, -21) join the kinds above and this list; a plugin slot
-    // has no values here, only its own window.
+    // A plugin slot (LH-EIN-20, -21) lists the plugin's parameters as sliders, like the values
+    // of a built-in effect; a plugin that does not load says why and stays silent.
     Repeater {
         id: slots
         model: mixer.fx.slots.length
         delegate: ColumnLayout {
             id: slotItem
-            readonly property var slot: mixer.fx.slots[index] || ({ values: [], name: "", hint: "" })
+            readonly property var slot: mixer.fx.slots[index] || ({ values: [], name: "", hint: "", problem: "" })
             readonly property string slotName: mixer.texts.t("fx.slot", { number: index + 1, name: slot.name })
             Layout.fillWidth: true
             visible: mixer.ctl.monitor
@@ -288,6 +318,13 @@ ColumnLayout {
                     }
                 }
             }
+            KanteCallout {
+                Layout.fillWidth: true
+                Layout.topMargin: KanteStyle.unit(4)
+                visible: slotItem.slot.problem !== ""
+                kind: KanteCallout.Kind.Warn
+                text: slotItem.slot.problem
+            }
             Repeater {
                 model: slotItem.slot.values.length
                 delegate: KanteSettingRow {
@@ -303,7 +340,7 @@ ColumnLayout {
                             Layout.preferredWidth: KanteStyle.unit(220)
                             from: 0
                             to: 1
-                            stepSize: 0.05
+                            stepSize: slotItem.slot.kind === "plugin" ? 0.01 : 0.05
                             value: valueRow.entry.value
                             focusPolicy: Qt.StrongFocus
                             Accessible.name: slotItem.slotName + ": " + valueRow.entry.label
@@ -311,10 +348,12 @@ ColumnLayout {
                             KanteSliderSkin { control: valueSlider }
                         }
                         QQC2.Label {
-                            Layout.preferredWidth: KanteStyle.unit(48)
+                            Layout.preferredWidth: KanteStyle.unit(64)
                             horizontalAlignment: Text.AlignRight
                             color: KanteStyle.textColor
-                            text: mixer.texts.t("mixer.percent", { percent: Math.round(valueSlider.value * 100) })
+                            // A plugin's value is in its own units; the core says it.
+                            text: slotItem.slot.kind === "plugin" ? valueRow.entry.shown
+                                : mixer.texts.t("mixer.percent", { percent: Math.round(valueSlider.value * 100) })
                         }
                     }
                 }

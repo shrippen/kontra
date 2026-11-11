@@ -1065,8 +1065,8 @@ mod tests {
             monitor: 0.5,
             ..Gains::default()
         };
-        p.set_gains(gains);
-        assert_eq!(p.output().gains, Some(gains));
+        p.set_gains(gains.clone());
+        assert_eq!(p.output().gains, Some(gains.clone()));
     }
 
     fn told_strikes(p: &mut Practice<Recorder>) -> Vec<ExpectedStrike> {

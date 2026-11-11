@@ -332,7 +332,8 @@ fn arrangement_channels(processor: &ComPtr<IAudioProcessor>, direction: i32) -> 
     (ok(result) && arrangement != 0).then(|| arrangement.count_ones())
 }
 
-/// A plugin's COM objects. Dropping ends them in order: controller, component, module.
+/// A plugin's COM objects, shared by the plugin and its processor. The last owner ends them:
+/// deactivate, disconnect, controller, component; the module goes last (last field).
 struct Parts {
     component: ComPtr<IComponent>,
     processor: ComPtr<IAudioProcessor>,
@@ -814,9 +815,9 @@ pub(super) struct Vst3Processor {
 }
 
 // SAFETY: a VST3 processor may be called from any one thread at a time, here the audio thread
-// that owns this value; its COM objects and the raw pointers into the owned buffers are used
-// from that thread only. The main thread keeps its own references to the same plugin and talks to
-// the processor only through the ring.
+// that owns this value; its audio calls and the raw pointers into the owned buffers are used from
+// that thread only. The plugin on the main thread shares `Parts` and calls only the component and
+// the controller. The engine drops the processor on its control thread, not in the callback.
 unsafe impl Send for Vst3Processor {}
 
 impl Vst3Processor {

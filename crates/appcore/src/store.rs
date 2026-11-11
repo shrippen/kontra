@@ -1,6 +1,6 @@
 //! Settings and library on disk (LH-ALL-03, LH-FOR-03): JSON in the data directory.
 
-use kontra_model::{ChainSpec, EffectKind, SlotSpec, A4_HZ};
+use kontra_model::{ChainSpec, EffectKind, PluginSpec, SlotSpec, A4_HZ};
 use kontra_session::Gains;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -206,6 +206,8 @@ pub struct Settings {
     /// Effects of the monitored bass (LH-EIN-17, LH-EIN-19): slots in free order, empty when
     /// new. Overdrive and stereo width are slots of it (`monitor_drive`, `monitor_width`).
     pub monitor_chain: ChainSpec,
+    /// What the plugin slots of the chain need (LH-EIN-20, -21): the slot names one by id.
+    pub plugins: Vec<PluginSpec>,
     /// The limiter after the chain (LH-EIN-17; on by default: a hard slap does not crackle).
     pub monitor_limit: bool,
     /// Overdrive and width as older files stored them; `migrate` makes slots of them.
@@ -284,6 +286,7 @@ impl Default for Settings {
             monitor_compress: 0.0,
             monitor_warmth: 0.0,
             monitor_chain: ChainSpec::EMPTY,
+            plugins: Vec::new(),
             monitor_limit: true,
             legacy_drive: 0.0,
             legacy_width: 0.0,
@@ -313,6 +316,18 @@ impl Settings {
         }
         self.set_monitor_drive(drive);
         self.set_monitor_width(width);
+    }
+
+    /// Drops the plugins no slot of the chain names any more.
+    pub(crate) fn prune_plugins(&mut self) {
+        let chain = &self.monitor_chain;
+        let used = |id: u32| {
+            chain
+                .slots()
+                .iter()
+                .any(|s| s.plugin == id && s.kind == EffectKind::Plugin)
+        };
+        self.plugins.retain(|p| used(p.id));
     }
 
     /// Overdrive of the monitored bass, 0 (no slot) to 1: the first overdrive slot of the chain.

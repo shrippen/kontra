@@ -551,8 +551,7 @@ pub mod qobject {
         #[cxx_name = "changeLimit"]
         fn change_limit(self: Pin<&mut Self>, on: bool);
 
-        /// Edits the effect chain (`Core::edit_effects`: `op` "add", "remove", "up", "down",
-        /// "on", "set").
+        /// Edits the effect chain, or starts the plugin search (`Core::edit_effects`: `op`).
         #[qinvokable]
         #[cxx_name = "editEffects"]
         fn edit_effects(self: Pin<&mut Self>, op: &QString, index: i32, name: &QString, value: f64);
@@ -1769,6 +1768,7 @@ impl qobject::Controller {
                     self.as_mut().set_density_suggestion(i32::from(percent));
                     self.as_mut().set_density_text(q(&text));
                 }
+                UiEvent::PluginScan => self.as_mut().refresh_effects(),
                 UiEvent::Stems(state) => self.as_mut().set_stems_json(q(&state)),
                 UiEvent::BackingLoading(loading) => self.as_mut().set_backing_loading(loading),
                 UiEvent::ChainStep { chain_json } => {

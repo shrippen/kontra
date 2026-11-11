@@ -72,11 +72,11 @@ fn gains_follow_the_mixer() {
         monitor_volume: 0.5,
         ..Settings::default()
     };
-    let off = gains(&settings);
+    let off = gains(&settings, &Default::default());
     assert_eq!((off.backing, off.click, off.tone), (0.25, 1.0, 0.0));
     assert_eq!(off.monitor, 0.0);
     settings.monitor = true;
-    assert_eq!(gains(&settings).monitor, 0.5);
+    assert_eq!(gains(&settings, &Default::default()).monitor, 0.5);
 
     // Unshaped, but the limiter on by default (LH-EIN-17).
     assert_eq!(
@@ -92,7 +92,7 @@ fn gains_follow_the_mixer() {
     settings.set_monitor_drive(0.75);
     settings.set_monitor_width(1.0);
     settings.monitor_limit = false;
-    let shaped = gains(&settings).shaping;
+    let shaped = gains(&settings, &Default::default()).shaping;
     assert_eq!(
         (shaped.low_db, shaped.compress, shaped.warmth),
         (3.0, 0.5, 0.25)
@@ -462,8 +462,8 @@ fn ear_prompts_have_their_own_volume() {
         prompt_volume: 0.9,
         ..Settings::default()
     };
-    assert_eq!(ear_gains(&settings).tone, 0.9);
-    assert_eq!(gains(&settings).tone, 0.2);
+    assert_eq!(ear_gains(&settings, &Default::default()).tone, 0.9);
+    assert_eq!(gains(&settings, &Default::default()).tone, 0.2);
 }
 
 /// LH-NF-11: the licence list names Kontra (MIT) and only permissive crate licences.
