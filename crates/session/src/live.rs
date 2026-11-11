@@ -397,6 +397,14 @@ impl LiveTuner {
             .is_some_and(|o| o.sample_rate() == self.input.sample_rate)
     }
 
+    /// As `Live::take_param_changes`; nothing while silent.
+    pub fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
+        self.output
+            .as_mut()
+            .map(Output::take_param_changes)
+            .unwrap_or_default()
+    }
+
     /// New volumes and effects; heard at once.
     pub fn set_gains(&mut self, gains: Gains) {
         if let Some(output) = self.output.as_mut() {

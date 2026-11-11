@@ -158,6 +158,9 @@ impl Core {
         if let Some(ear) = self.live_ear.as_mut() {
             return ear.take_param_changes();
         }
+        if let Some(tuner) = self.tuner.as_mut() {
+            return tuner.take_param_changes();
+        }
         match self.standby.monitor.as_mut() {
             Some(monitor) => monitor.take_param_changes(),
             None => Vec::new(),

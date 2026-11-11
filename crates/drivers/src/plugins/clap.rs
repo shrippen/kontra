@@ -541,7 +541,7 @@ impl ClapProcessor {
             ),
         }]);
 
-        // A full ring drops the report: the plugin's value is read again at the next `params`.
+        // A full ring drops the report for good (the settings keep the last value that arrived).
         let reports = &mut self.reports;
         let mut sink = Sink {
             report: |change| {
