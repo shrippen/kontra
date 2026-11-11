@@ -528,6 +528,12 @@ Kirigami.ScrollablePage {
             color: KanteStyle.textColor
             text: texts.t("about.text")
         }
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: KanteStyle.textColor
+            text: texts.t("about.vst")
+        }
         GridLayout {
             Layout.fillWidth: true
             columns: 2

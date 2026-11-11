@@ -183,7 +183,7 @@ fn scan_prints_text_by_default() {
     let text = String::from_utf8_lossy(&out.stdout);
 
     assert!(text.contains("CLAP  Kontra Test Gain — Kontra Tests  [de.arianw.kontra.test.gain]"));
-    assert!(text.contains("VST3  Kontra Test Gain — Kontra Tests  ["));
+    assert!(text.contains("VST 3  Kontra Test Gain — Kontra Tests  ["));
     assert!(text.contains("BROKEN"));
     assert!(text.contains(" broken file(s); searched: "));
     std::fs::remove_dir_all(&dir).expect("clean up");
