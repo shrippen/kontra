@@ -372,6 +372,9 @@ mod tests {
         assert_eq!(PluginFormat::Clap.to_string(), "CLAP");
         for format in [PluginFormat::Clap, PluginFormat::Vst3] {
             assert_eq!(PluginFormat::from_key(format.key()), Some(format));
+            // The scan's JSON (serde) and saved chains (key) name a format alike.
+            let json = serde_json::to_value(format).expect("format as JSON");
+            assert_eq!(json, format.key());
         }
         assert_eq!(PluginFormat::Vst3.key(), "vst3");
         assert_eq!(PluginFormat::from_key("vst"), None);

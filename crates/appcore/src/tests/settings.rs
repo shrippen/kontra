@@ -588,3 +588,35 @@ fn the_chain_is_edited_through_the_core() {
     core.neutral_shaping();
     assert_eq!(list(&core)["empty"], true);
 }
+
+/// LH-EIN-19 (Runde 19): named chains through the core: save, list, load, delete, kept on disk.
+#[test]
+fn chains_are_saved_by_name() {
+    let dir = temp_dir("chain-presets");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let presets = |core: &Core| -> serde_json::Value {
+        serde_json::from_str::<serde_json::Value>(&core.effects_json()).unwrap()["presets"].clone()
+    };
+    core.edit_effects("add", 0, "delay", 0.0);
+    core.edit_effects("add", 0, "reverb", 0.0);
+    let saved = core.settings().monitor_chain;
+
+    assert!(core.edit_effects("save", 0, "Ambient", 0.0).is_none());
+    core.neutral_shaping();
+    assert!(core.edit_effects("save", 0, "Clean", 0.0).is_none());
+    assert_eq!(presets(&core), serde_json::json!(["Ambient", "Clean"]));
+
+    core.edit_effects("load", 0, "", 0.0);
+    assert_eq!(core.settings().monitor_chain, saved);
+    let again = Core::new(&dir, QaOptions::default());
+    assert_eq!(again.settings().chain_presets.len(), 2);
+    assert_eq!(again.settings().monitor_chain, saved);
+
+    core.edit_effects("delete", 1, "", 0.0);
+    assert_eq!(presets(&core), serde_json::json!(["Ambient"]));
+    assert_eq!(
+        core.settings().monitor_chain,
+        saved,
+        "deleting keeps the chain"
+    );
+}

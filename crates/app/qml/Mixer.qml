@@ -217,6 +217,62 @@ ColumnLayout {
             }
         }
     }
+    // Named chains (LH-EIN-19, Runde 19): save the chain under a name, call one up again.
+    KanteSettingRow {
+        Layout.fillWidth: true
+        visible: mixer.ctl.monitor
+        title: mixer.texts.t("fx.preset.save")
+        hint: mixer.texts.t("fx.preset.hint")
+        RowLayout {
+            spacing: KanteStyle.unit(8)
+            KanteTextField {
+                id: presetName
+                Layout.preferredWidth: KanteStyle.unit(180)
+                placeholderText: mixer.texts.t("fx.preset.name")
+                Accessible.name: mixer.texts.t("fx.preset.name")
+                onAccepted: saveButton.clicked()
+            }
+            KanteButton {
+                id: saveButton
+                text: mixer.texts.t("fx.preset.save.label")
+                Accessible.name: mixer.texts.t("fx.preset.save")
+                enabled: presetName.text.trim() !== ""
+                onClicked: {
+                    mixer.ctl.editEffects("save", 0, presetName.text, 0)
+                    presetName.text = ""
+                }
+            }
+        }
+    }
+    KanteSettingRow {
+        Layout.fillWidth: true
+        visible: mixer.ctl.monitor
+        title: mixer.texts.t("fx.preset.load")
+        hint: mixer.fx.presets.length === 0 ? mixer.texts.t("fx.preset.none") : ""
+        RowLayout {
+            spacing: KanteStyle.unit(8)
+            KanteComboBox {
+                id: presetChoice
+                Accessible.name: mixer.texts.t("fx.preset.load")
+                Layout.preferredWidth: KanteStyle.unit(180)
+                enabled: mixer.fx.presets.length > 0
+                model: mixer.fx.presets
+            }
+            KanteButton {
+                text: mixer.texts.t("fx.preset.load.label")
+                Accessible.name: mixer.texts.t("fx.preset.load.button", { name: presetChoice.currentText })
+                enabled: mixer.fx.presets.length > 0
+                onClicked: mixer.ctl.editEffects("load", presetChoice.currentIndex, "", 0)
+            }
+            KanteButton {
+                text: mixer.texts.t("fx.preset.delete.label")
+                Accessible.name: mixer.texts.t("fx.preset.delete", { name: presetChoice.currentText })
+                emphasis: KanteButton.Emphasis.Quiet
+                enabled: mixer.fx.presets.length > 0
+                onClicked: mixer.ctl.editEffects("delete", presetChoice.currentIndex, "", 0)
+            }
+        }
+    }
     // The plugin search (LH-EIN-20, -21): the result in words, files that are broken by name.
     KanteSettingRow {
         Layout.fillWidth: true
