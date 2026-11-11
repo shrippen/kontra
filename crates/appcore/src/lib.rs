@@ -1159,11 +1159,6 @@ impl Core {
         self.finished_at_s = None;
     }
 
-    /// Audio dropouts since Kontra started, over all runs (LH-NF-04).
-    pub fn xruns(&self) -> u64 {
-        self.xruns_done + self.live.as_ref().map_or(0, Live::xruns)
-    }
-
     pub fn set_speed(&mut self, speed: f64) {
         self.speed = speed.clamp(0.25, 1.5);
         if let Some(live) = self.live.as_mut() {
