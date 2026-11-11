@@ -17,6 +17,8 @@ use std::time::{Duration, Instant};
 const GAIN_PARAM: u32 = 7;
 /// `kontra_clap_gain::EDITOR_*` and `kontra_vst3_gain::EDITOR_*` (the same values).
 const EDITOR_SIZE: (u32, u32) = (300, 200);
+// Asked for once a descriptor wakes the editor: Linux only.
+#[cfg(target_os = "linux")]
 const EDITOR_RESIZED: (u32, u32) = (320, 240);
 const EDITOR_GAIN: f64 = 2.5;
 const EDITOR_CLOSE_GAIN: f64 = 3.25;
