@@ -2,7 +2,7 @@
 
 use crate::calibration::{Calibration, CalibrationResult};
 use crate::practice::{Practice, PracticeEvent, PracticeOptions, Told};
-use crate::rig::{Rig, RigOutput};
+use crate::rig::{OnOutputError, Rig, RigOutput};
 use crate::session::Mode;
 use crate::settings::ScoreSettings;
 use kontra_engine::plugins::PluginError;
@@ -185,20 +185,16 @@ impl Live {
         setup: &LiveSetup,
     ) -> Result<Live, LiveError> {
         let instrument = arrangement.instrument.clone();
-        let device = RigOutput::Device(setup.output_device.clone());
-        let open = |output| {
-            Rig::open(
-                &setup.input,
-                output,
-                setup.source,
-                &instrument,
-                Gains::default(),
-            )
-        };
-        // An output that does not open leaves the run silent; then only the input can fail.
-        let rig = open(device)
-            .or_else(|_| open(RigOutput::Silent))
-            .map_err(LiveError::Input)?;
+        // An output that does not open leaves the run silent.
+        let rig = Rig::open(
+            &setup.input,
+            RigOutput::Device(setup.output_device.clone()),
+            OnOutputError::PlaySilent,
+            setup.source,
+            &instrument,
+            Gains::default(),
+        )
+        .map_err(LiveError::Input)?;
         Live::run_on(
             rig,
             Opened::Fresh,
@@ -299,11 +295,15 @@ impl Live {
         let reopened = self
             .rig
             .reopen(&setup.input, device, setup.source, &instrument);
-        // The new output takes over even without an input: the old one may be gone.
+        // Without an input the run keeps its output, with the player's volumes and effects
+        // (review #288); the new one closes.
+        if let Err(e) = reopened {
+            drop(self.rig.take_output());
+            return Err(e);
+        }
         self.output_is_silent = self.rig.player().is_none();
         self.can_monitor = self.rig.is_monitoring();
         self.practice.replace_output(self.rig.take_output());
-        reopened?;
         if let Some(input) = self.rig.input_mut() {
             setup.gate(input);
         }
@@ -433,10 +433,8 @@ impl LiveTuner {
             None => RigOutput::Silent,
         };
         // An output that does not open leaves the tuner silent: tuning matters more.
-        let rig = match Rig::open(input, output, source, instrument, gains.clone()) {
-            Ok(rig) => rig,
-            Err(_) => Rig::open(input, RigOutput::Silent, source, instrument, gains)?,
-        };
+        let silent = OnOutputError::PlaySilent;
+        let rig = Rig::open(input, output, silent, source, instrument, gains)?;
         if let Some(input) = rig.input() {
             input.set_tuner(true);
         }

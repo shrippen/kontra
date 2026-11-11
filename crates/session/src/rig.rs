@@ -28,6 +28,15 @@ pub enum RigOutput {
     Silent,
 }
 
+/// What a rig does when its output device does not open.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OnOutputError {
+    /// Fails; nothing opens (the standby retries later).
+    Fail,
+    /// Opens the input with a silent output: tuning or playing matters more.
+    PlaySilent,
+}
+
 /// What the input last said about itself; a new mode hears it again (the device says it once).
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum InputState {
@@ -66,18 +75,22 @@ pub struct Rig {
 
 impl Rig {
     /// Opens the devices for a first mode with `instrument`, playing at `gains`. The output
-    /// opens first: when it fails, no input is touched (a mode that can do without retries
-    /// with `RigOutput::Silent`).
+    /// opens first: when it fails, `on_error` decides; with `Fail` no input is touched.
     pub fn open(
         input: &InputChoice,
         output: RigOutput,
+        on_error: OnOutputError,
         source: InputSource,
         instrument: &Instrument,
         gains: Gains,
     ) -> Result<Rig, EngineError> {
         let clock = Clock::new();
         let (sender, events) = channel();
-        let mut player = start_player(input, &output, &clock, &sender)?;
+        let (mut player, output) = match start_player(input, &output, &clock, &sender) {
+            Ok(player) => (player, output),
+            Err(e) if on_error == OnOutputError::Fail => return Err(e),
+            Err(_) => (None, RigOutput::Silent),
+        };
         if let Some(player) = player.as_mut() {
             player.set_gains(gains);
         }
@@ -359,6 +372,7 @@ mod tests {
         let mut rig = Rig::open(
             &input,
             null_output(),
+            OnOutputError::Fail,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -389,6 +403,7 @@ mod tests {
         let mut rig = Rig::open(
             &input,
             null_output(),
+            OnOutputError::Fail,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -423,6 +438,7 @@ mod tests {
         let mut rig = Rig::open(
             &input,
             null_output(),
+            OnOutputError::Fail,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -452,6 +468,7 @@ mod tests {
         let rig = Rig::open(
             &input,
             null_output(),
+            OnOutputError::Fail,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -524,6 +541,7 @@ mod tests {
         let rig = Rig::open(
             &input,
             null_output(),
+            OnOutputError::Fail,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -570,6 +588,7 @@ mod tests {
         let mut rig = Rig::open(
             &input,
             null_output(),
+            OnOutputError::Fail,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -600,6 +619,7 @@ mod tests {
         let mut rig = Rig::open(
             &input,
             null_output(),
+            OnOutputError::Fail,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -613,5 +633,37 @@ mod tests {
 
         assert!(seen.iter().any(|e| matches!(e, Event::Ended)), "{seen:?}");
         assert!(!rig.fits(&input, &null_output(), InputSource::Line));
+    }
+
+    /// Review #288: "Erneut versuchen" whose input does not open keeps the run's output, with
+    /// the volumes and effects the player set; the run gets no output of default volumes.
+    #[test]
+    fn a_failed_reopen_keeps_the_runs_output() {
+        let (input, path) = file_input("keep", 0.0);
+        let mut setup = setup_of(&input);
+        setup.output_device = Some("kontra-test:no-such-output".into());
+        let mut live = Live::start(
+            clicks(),
+            Mode::Play,
+            ScoreSettings::default(),
+            PracticeOptions::default(),
+            &setup,
+        )
+        .unwrap();
+        assert!(live.output_is_silent);
+
+        setup.output_device = Some(NULL_OUTPUT.into());
+        setup.input = InputChoice::File {
+            path: path.with_extension("missing.wav"),
+            laptop_jack: false,
+        };
+        assert!(live.reopen(&setup).is_err());
+        let _ = std::fs::remove_file(path);
+
+        assert!(
+            matches!(live.practice().output(), LiveOutput::Silent(_)),
+            "the output was replaced"
+        );
+        assert!(live.output_is_silent);
     }
 }
