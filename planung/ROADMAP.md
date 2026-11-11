@@ -95,9 +95,13 @@ drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier
   mit Name, Hersteller und Format, Parameter als Regler, Zustand in den Einstellungen; ein Plugin, das nicht
   lädt, bleibt als stummer Eintrag mit Grund. Voreinstellungen je Kette fehlen. Plugins laden auf einem
   eigenen Thread (`kontra-plugins`, 11.11.); bis die neue Kette steht, spielt die alte. Stürzt Kontra beim Laden
-  ab, bleibt das Plugin beim nächsten Start aus, mit Hinweis (Runde 19). Offen: Hinzufügen wartet noch auf den
+  ab, bleibt das Plugin beim nächsten Start aus, mit Hinweis (Runde 19). Instanzen überleben Umbauten der Kette
+  (eine je Plugin-Slot, solange er in den Einstellungen steht; Umsortieren, aus/an, anderer Effekt dazu: kein
+  Neuladen, Zustand bleibt; ein Plugin, das umzieht, ist kurz überbrückt). Offen: Hinzufügen wartet noch auf den
   Thread; stirbt er (Panik im Plugin), lädt kein Plugin mehr bis zum Neustart; Werte ohne Einheit.
 - [ ] FX5 Eigene Fenster der Plugins (CLAP `gui`, VST3 `IPlugView`; unter Wayland über XWayland).
+  Voraussetzung steht: Instanzen leben so lang wie ihr Slot (FX4), ein offenes Fenster geht beim Umbauen der Kette
+  nicht verloren. Je Player eine eigene Instanz; ein gemeinsames Register über Player hinweg fehlt noch.
 - [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket. Der
   Scan-Prozess kommt mit: `kontra` startet sich selbst zum Prüfen (`--probe-plugin <Datei>`, vor Qt in `main`),
   die Pakete brauchen kein zweites Programm; offen bleibt, dass die Sandbox die Plugin-Ordner sieht.
