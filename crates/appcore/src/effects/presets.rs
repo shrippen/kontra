@@ -2,8 +2,8 @@
 //! it up later. A preset holds a copy of the chain and of the plugins its slots name, so loading
 //! one replaces both at once.
 
-use crate::Settings;
-use kontra_model::{ChainSpec, PluginSpec};
+use crate::{fx_plugins, Settings};
+use kontra_model::{ChainSpec, EffectKind, PluginSpec};
 use serde::{Deserialize, Serialize};
 
 /// One saved chain.
@@ -41,14 +41,29 @@ pub(super) fn save_preset(settings: &mut Settings, name: &str) -> bool {
     true
 }
 
-/// Makes preset `index` the chain, plugins included. False when there is none.
-pub(super) fn load_preset(settings: &mut Settings, index: usize) -> bool {
-    let Some(preset) = settings.chain_presets.get(index) else {
-        return false;
-    };
-    settings.monitor_chain = preset.chain;
-    settings.plugins = preset.plugins.clone();
-    true
+/// Preset `index` with ids above every plugin of the running chain. The engine keeps a running
+/// instance by id, so a shared id would go on playing the old plugin; a fresh one loads the
+/// preset's plugin with its saved state. Example: running [1], preset [1, 2] → [2, 3].
+pub(super) fn fresh_copy(
+    settings: &Settings,
+    index: usize,
+) -> Option<(ChainSpec, Vec<PluginSpec>)> {
+    let preset = settings.chain_presets.get(index)?;
+    let first = fx_plugins::next_id(&settings.plugins);
+    let mut chain = preset.chain;
+    let mut plugins = preset.plugins.clone();
+    for (n, plugin) in plugins.iter_mut().enumerate() {
+        let old = plugin.id;
+        plugin.id = first + n as u32;
+        let named = chain
+            .slots_mut()
+            .iter_mut()
+            .filter(|s| s.kind == EffectKind::Plugin);
+        for slot in named.filter(|s| s.plugin == old) {
+            slot.plugin = plugin.id;
+        }
+    }
+    Some((chain, plugins))
 }
 
 /// Forgets preset `index`. False when there is none.
@@ -63,7 +78,17 @@ pub(super) fn delete_preset(settings: &mut Settings, index: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kontra_model::{EffectKind, SlotSpec};
+    use kontra_model::SlotSpec;
+
+    /// What `edit_effects("load")` applies; false when there is no preset `index`.
+    fn load_preset(settings: &mut Settings, index: usize) -> bool {
+        let Some((chain, plugins)) = fresh_copy(settings, index) else {
+            return false;
+        };
+        settings.monitor_chain = chain;
+        settings.plugins = plugins;
+        true
+    }
 
     fn gain(id: u32) -> PluginSpec {
         PluginSpec {
@@ -115,5 +140,31 @@ mod tests {
         }
         assert!(!save_preset(&mut s, "one more"));
         assert!(save_preset(&mut s, "0"), "replacing still works");
+    }
+    #[test]
+    fn a_loaded_preset_never_shares_an_id_with_the_running_chain() {
+        // Review #274: the engine keeps a running instance by id; a preset whose plugin had
+        // the same id as another running one went on playing that other plugin.
+        let mut s = Settings::default();
+        s.monitor_chain.push(SlotSpec::for_plugin(1));
+        s.plugins.push(gain(1));
+        assert!(save_preset(&mut s, "A"));
+        let mut other = gain(1);
+        other.name = "B".into();
+        s.plugins = vec![other];
+
+        assert!(load_preset(&mut s, 0));
+        assert_eq!(s.plugins.len(), 1);
+        let id = s.plugins[0].id;
+        assert_ne!(
+            id, 1,
+            "a fresh id loads a fresh instance with the saved state"
+        );
+        assert_eq!(s.plugins[0].name, "Gain");
+        assert_eq!(s.monitor_chain.slots()[0].plugin, id);
+        assert_eq!(
+            s.chain_presets[0].plugins[0].id, 1,
+            "the preset itself stays"
+        );
     }
 }

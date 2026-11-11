@@ -271,15 +271,15 @@ impl Core {
             }
             "save" | "delete" => return self.edit_presets(op, index, name),
             "load" => {
-                let preset = self.settings().chain_presets.get(index)?;
-                let ids: Vec<u32> = preset.plugins.iter().map(|p| p.id).collect();
-                // Ids in a preset may have named other plugins here: their old notes do not apply.
-                for id in ids {
-                    self.plugins.problems.clear(id);
-                    self.plugins.crashed.remove(&id);
+                let (chain, plugins) = presets::fresh_copy(self.settings(), index)?;
+                // Fresh ids may have named removed plugins before: their old notes do not apply.
+                for p in &plugins {
+                    self.plugins.problems.clear(p.id);
+                    self.plugins.crashed.remove(&p.id);
                 }
                 Box::new(move |s| {
-                    presets::load_preset(s, index);
+                    s.monitor_chain = chain;
+                    s.plugins = plugins;
                 })
             }
             "add" if len >= CHAIN_SLOTS => {
