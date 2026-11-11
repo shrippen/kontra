@@ -20,6 +20,8 @@ const GAIN_PARAM: u32 = 7;
 const EDITOR_SIZE: (u32, u32) = (300, 200);
 const EDITOR_RESIZED: (u32, u32) = (320, 240);
 const EDITOR_GAIN: f64 = 2.5;
+const EDITOR_CLOSE_GAIN: f64 = 3.25;
+const EDITOR_MAX_WIDTH: u32 = 400;
 const RATE: f64 = 48_000.0;
 const BLOCK: usize = 256;
 const WINDOW: u32 = 0x4242;
@@ -83,6 +85,8 @@ struct Seen {
     shown: bool,
     /// Set by the test: the player closes the window.
     close: bool,
+    /// Set by the test: the player drags the window to this size.
+    drag: Option<(u32, u32)>,
     dropped: bool,
 }
 
@@ -106,7 +110,11 @@ impl EditorFrame for Recording {
         if std::mem::take(&mut seen.close) {
             return vec![FrameEvent::Closed];
         }
-        Vec::new()
+        seen.drag
+            .take()
+            .map(|(width, height)| FrameEvent::Resized { width, height })
+            .into_iter()
+            .collect()
     }
 }
 
@@ -173,6 +181,53 @@ fn the_editor_lives_in_its_frame_and_follows_the_plugin() {
     // The player closes the window: the editor goes, the frame with it.
     seen.lock().unwrap().close = true;
     wait_for(|| closed(&handle));
+    assert!(seen.lock().unwrap().dropped);
+    drop(processor);
+}
+
+/// Review #275: the player's size goes to the plugin; one it refuses snaps back to its own.
+#[test]
+fn the_player_resizes_within_what_the_editor_takes() {
+    let PluginLoaded {
+        processor, handle, ..
+    } = load_gain();
+    let seen = Arc::new(Mutex::new(Seen::default()));
+    handle
+        .open_editor("Gain", recording(&seen))
+        .expect("editor");
+
+    let taken = (EDITOR_MAX_WIDTH - 50, 260);
+    seen.lock().unwrap().drag = Some(taken);
+    wait_for(|| seen.lock().unwrap().drag.is_none().then_some(()));
+    seen.lock().unwrap().drag = Some((EDITOR_MAX_WIDTH + 100, 300));
+    wait_for(|| {
+        let sizes = seen.lock().unwrap().sizes.clone();
+        sizes.contains(&taken).then_some(())
+    });
+
+    handle.close_editor();
+    wait_for(|| closed(&handle));
+    drop(processor);
+}
+
+/// Review #275: an editor that closes itself (its own close button) is gone for the host too.
+#[test]
+fn the_editor_may_close_itself() {
+    let PluginLoaded {
+        mut processor,
+        handle,
+        ..
+    } = load_gain();
+    let seen = Arc::new(Mutex::new(Seen::default()));
+    handle
+        .open_editor("Gain", recording(&seen))
+        .expect("editor");
+
+    handle.set_param(GAIN_PARAM, EDITOR_CLOSE_GAIN);
+    wait_for(|| {
+        run_block(&mut processor);
+        closed(&handle)
+    });
     assert!(seen.lock().unwrap().dropped);
     drop(processor);
 }

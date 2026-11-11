@@ -9,7 +9,9 @@
 
 mod editor;
 
-pub use editor::{EditorState, EDITOR_GAIN, EDITOR_RESIZED, EDITOR_SIZE};
+pub use editor::{
+    EditorState, EDITOR_CLOSE_GAIN, EDITOR_GAIN, EDITOR_MAX_WIDTH, EDITOR_RESIZED, EDITOR_SIZE,
+};
 
 use clack_extensions::audio_ports::{
     AudioPortFlags, AudioPortInfo, AudioPortInfoWriter, PluginAudioPorts, PluginAudioPortsImpl,
