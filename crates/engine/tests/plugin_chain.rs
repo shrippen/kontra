@@ -8,14 +8,18 @@
 //! allocator, so it is sound.
 #![allow(unsafe_code, clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use kontra_drivers::plugins::{probe_file, PluginFormat, PluginHost, PluginInfo};
+use kontra_drivers::plugins::{
+    probe_file, EditorFrame, FrameEvent, FrameHandle, FrameMaker, PluginError, PluginFormat,
+    PluginHost, PluginInfo,
+};
 use kontra_dsp::Chain;
 use kontra_engine::{describe_plugin, ChainBuilder, PluginBank, PluginProblems};
 use kontra_model::{ChainSpec, EffectKind, PluginSpec, SlotSpec};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 const RATE: f64 = 48_000.0;
@@ -877,4 +881,46 @@ fn moves_while_off_arrive_when_on() {
     run_until(&mut chain, &input, |out| {
         (DELAY..out.len()).all(|n| (out[n] - input[n - DELAY] * 0.25).abs() < 1e-5)
     });
+}
+
+/// A frame that only notes it was made (FX5: no window system in tests).
+struct Quiet;
+
+impl EditorFrame for Quiet {
+    fn handle(&self) -> FrameHandle {
+        FrameHandle::X11(1)
+    }
+    fn resize(&mut self, _width: u32, _height: u32) {}
+    fn show(&mut self) {}
+    fn poll(&mut self) -> Vec<FrameEvent> {
+        Vec::new()
+    }
+}
+
+fn quiet(made: &Arc<AtomicBool>) -> FrameMaker {
+    let made = Arc::clone(made);
+    Box::new(move |_, _, _| {
+        made.store(true, Ordering::Relaxed);
+        Ok(Box::new(Quiet) as Box<dyn EditorFrame>)
+    })
+}
+
+/// FX5: the mixer's "Window" reaches the instance that runs the slot's plugin; a plugin the
+/// chain does not hold has none.
+#[test]
+fn the_editor_of_a_chain_plugin_opens() {
+    let bank = bank(vec![gain_spec(PluginFormat::Clap, "kontra_clap_gain", 1.0)]);
+    let mut builder = ChainBuilder::new(RATE);
+    let _chain = fit_ready(&mut builder, &plugin_chain(), &bank);
+
+    let made = Arc::new(AtomicBool::new(false));
+    builder
+        .open_editor(PLUGIN_ID, "Gain", quiet(&made))
+        .expect("editor opens");
+    assert!(made.load(Ordering::Relaxed));
+
+    let other = Arc::new(AtomicBool::new(false));
+    let missing = builder.open_editor(PLUGIN_ID + 1, "Gain", quiet(&other));
+    assert!(matches!(missing, Err(PluginError::NoEditor)), "{missing:?}");
+    assert!(!other.load(Ordering::Relaxed));
 }

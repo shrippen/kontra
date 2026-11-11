@@ -12,6 +12,7 @@ use crate::expected::ExpectedNote;
 use crate::session::{Mode, Session, SessionEvent};
 use crate::settings::ScoreSettings;
 use crate::transport::LoopRange;
+use kontra_engine::plugins::PluginError;
 use kontra_engine::{
     Accent, BackingAudio, BackingTrack, Clock, Event, Gains, Output, Resolution, Sound,
 };
@@ -177,6 +178,11 @@ impl<O: Output> Practice<O> {
     /// Changes the plugins of the output's effect chain made themselves since the last call.
     pub fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
         self.output.take_param_changes()
+    }
+
+    /// Opens the own editor of the output chain's plugin `plugin`.
+    pub fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
+        self.output.open_editor(plugin, title)
     }
 
     /// Plays on `output` from now (a reopened device): its sounds and backing planned anew,

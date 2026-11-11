@@ -332,3 +332,20 @@ fn a_marker_of_another_plugin_leaves_the_slot_on() {
     let core = Core::new(&dir, QaOptions::default());
     assert!(core.settings().monitor_chain.slots()[0].on);
 }
+
+/// FX5: "Window" on a plugin slot while no player runs the chain says when it opens; on a
+/// built-in effect it does nothing.
+#[test]
+fn a_plugin_window_needs_the_running_chain() {
+    let mut core = core_with_plugin("fx-plugin-window");
+    let key = effects(&core)["plugins"][0]["key"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    core.edit_effects("add", 0, &key, 0.0);
+    core.edit_effects("add", 0, "reverb", 0.0);
+
+    let hint = core.edit_effects("window", 0, "", 0.0);
+    assert_eq!(hint, Some(core.tr("fx.window.off", &[])));
+    assert_eq!(core.edit_effects("window", 1, "", 0.0), None);
+}

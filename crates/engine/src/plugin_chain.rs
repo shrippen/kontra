@@ -39,6 +39,7 @@
 //!   frames of latency to the plugin's own (reported by `Insert::latency_frames`).
 //! - Each `Player` has its own builder and so its own instances; players never run at once.
 
+use kontra_drivers::plugins::FrameMaker;
 use kontra_drivers::plugins::{
     PendingLoad, PluginError, PluginFormat, PluginHandle, PluginHost, PluginInfo, PluginLoaded,
     PluginProcessor, PluginSetup, CHANNELS,
@@ -603,6 +604,20 @@ impl ChainBuilder {
         });
         self.in_chain.push(id);
         Box::new(insert)
+    }
+
+    /// Opens the own editor of plugin `plugin` (a `PluginSpec::id`) in a frame `make_frame`
+    /// makes (`system_frame` for a real window); an open one stays. `NoEditor` when it is not
+    /// loaded here.
+    pub fn open_editor(
+        &self,
+        plugin: u32,
+        title: &str,
+        make_frame: FrameMaker,
+    ) -> Result<(), PluginError> {
+        let active = self.held.iter().find(|a| a.id == plugin);
+        let active = active.ok_or(PluginError::NoEditor)?;
+        active.handle.open_editor(title, make_frame)
     }
 
     /// Changes the plugins made themselves since the last call, as (`PluginSpec::id`, parameter

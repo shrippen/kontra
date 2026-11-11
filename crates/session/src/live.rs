@@ -4,6 +4,7 @@ use crate::calibration::{Calibration, CalibrationResult};
 use crate::practice::{Practice, PracticeEvent, PracticeOptions, Told};
 use crate::session::Mode;
 use crate::settings::ScoreSettings;
+use kontra_engine::plugins::PluginError;
 use kontra_engine::{
     monitor_rate, BackingTrack, Clock, EngineError, Event, Gains, Input, InputKind, NullOutput,
     Output, Pace, Player, Sound, StreamConfig,
@@ -106,6 +107,12 @@ impl Output for LiveOutput {
         match self {
             LiveOutput::Device(p) => p.take_param_changes(),
             LiveOutput::Silent(_) => Vec::new(),
+        }
+    }
+    fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
+        match self {
+            LiveOutput::Device(p) => p.open_editor(plugin, title),
+            LiveOutput::Silent(_) => Err(PluginError::NoEditor),
         }
     }
 }
@@ -269,6 +276,11 @@ impl Live {
         self.practice.take_param_changes()
     }
 
+    /// Opens the own editor of the chain's plugin `plugin`.
+    pub fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
+        self.practice.open_editor(plugin, title)
+    }
+
     /// Input and output dropouts since the start (LH-NF-04).
     pub fn xruns(&self) -> u64 {
         self.xruns_before
@@ -405,6 +417,12 @@ impl LiveTuner {
             .unwrap_or_default()
     }
 
+    /// As `Live::open_editor`; none while silent.
+    pub fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
+        let output = self.output.as_mut().ok_or(PluginError::NoEditor)?;
+        output.open_editor(plugin, title)
+    }
+
     /// New volumes and effects; heard at once.
     pub fn set_gains(&mut self, gains: Gains) {
         if let Some(output) = self.output.as_mut() {
@@ -498,6 +516,11 @@ impl LiveEar {
     /// As `Live::take_param_changes`.
     pub fn take_param_changes(&mut self) -> Vec<(u32, u32, f64)> {
         self.output.take_param_changes()
+    }
+
+    /// As `Live::open_editor`.
+    pub fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
+        self.output.open_editor(plugin, title)
     }
 
     pub fn start(setup: &LiveSetup, instrument: &Instrument) -> Result<LiveEar, EngineError> {

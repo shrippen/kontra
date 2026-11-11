@@ -102,8 +102,9 @@ drivers  Plugins finden, laden (dlopen), CLAP- und VST3-Aufrufe (unsafe nur hier
   Thread; stirbt er (Panik im Plugin), lädt kein Plugin mehr bis zum Neustart; Werte ohne Einheit.
 - [ ] FX5 Eigene Fenster der Plugins (CLAP `gui`, VST3 `IPlugView`; unter Wayland über XWayland).
   Stand 11.11.: CLAP-Editor im Plugin-Thread (eigenes X11-Fenster über x11rb, Timer, Dateideskriptoren,
-  Rückrufe, Größenwünsche; Schließen per Fenster). Offen: Knopf im Mixer, VST 3 (`IPlugView`, `IRunLoop`),
-  Windows (HWND), Flatpak-Zugang zu X11 (Eigentümer, `packaging/`).
+  Rückrufe, Größenwünsche; Schließen per Fenster, #275); Knopf „Fenster“ je Plugin im Mixer, das Fenster gehört
+  zum Player, der die Kette gerade spielt (Ende des Laufs schließt es). Offen: VST 3 (`IPlugView`,
+  `IRunLoop`), Windows (HWND), Flatpak-Zugang zu X11 (Eigentümer, `packaging/`).
   Voraussetzung steht: Instanzen leben so lang wie ihr Slot (FX4), ein offenes Fenster geht beim Umbauen der Kette
   nicht verloren. Je Player eine eigene Instanz; ein gemeinsames Register über Player hinweg fehlt noch.
 - [ ] FX6 Flatpak (Erweiterungspunkt für Plugins, Lesezugriff auf `~/.clap`, `~/.vst3`) und Windows-Paket. Der

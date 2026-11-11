@@ -19,7 +19,7 @@ use crate::fx_plugins::{self, found_at, param_key, param_mut, PLUGIN_KEY};
 use crate::{Core, Settings};
 use kontra_model::{EffectKind, PluginSpec, SlotSpec, CHAIN_SLOTS};
 use kontra_session::describe_plugin;
-use kontra_session::plugins::PluginFormat;
+use kontra_session::plugins::{PluginError, PluginFormat};
 use serde_json::json;
 
 /// A delay below this rounds to 0.0 ms and is not worth a line.
@@ -247,7 +247,7 @@ impl Core {
     /// the kind, or `plugin:<n>` for the n-th plugin found), "remove", "up", "down", "on"
     /// (`value` 0 or 1), "set" (`name` is "a", "b", "mix", or `p<id>` for a plugin parameter),
     /// "scan" (looks for plugins), "save" (the chain as preset `name`), "load" or "delete"
-    /// (preset `index`). Returns a hint when nothing changed for a reason the
+    /// (preset `index`), "window" (the own window of the plugin in slot `index`). Returns a hint when nothing changed for a reason the
     /// player should know (full chain, a plugin that does not load) or monitoring cannot work,
     /// as `remix` does.
     pub fn edit_effects(
@@ -270,6 +270,7 @@ impl Core {
                 return None;
             }
             "save" | "delete" => return self.edit_presets(op, index, name),
+            "window" if index < len => return self.open_slot_window(index),
             "load" => {
                 let (chain, plugins) = presets::fresh_copy(self.settings(), index)?;
                 // Fresh ids may have named removed plugins before: their old notes do not apply.
@@ -326,6 +327,23 @@ impl Core {
             apply(s);
             s.prune_plugins();
         })
+    }
+
+    /// Opens the own window of the plugin in slot `index` (FX5). Says why when it cannot.
+    fn open_slot_window(&mut self, index: usize) -> Option<String> {
+        let plugin = self.settings().monitor_chain.slots()[index].plugin;
+        let spec = self.settings().plugins.iter().find(|p| p.id == plugin)?;
+        let name = spec.name.clone();
+        let Some(opened) = self.open_plugin_editor(plugin, &name) else {
+            return Some(self.tr("fx.window.off", &[]));
+        };
+        match opened {
+            Ok(()) => None,
+            Err(PluginError::Editor(reason)) => {
+                Some(self.tr("fx.window.failed", &[("name", name), ("reason", reason)]))
+            }
+            Err(_) => Some(self.tr("fx.window.none", &[("name", name)])),
+        }
     }
 
     /// Saves the chain as `name` or deletes preset `index`; neither touches the sound. A full
