@@ -14,9 +14,7 @@
 use crate::live::{input_kind, monitor_config, InputChoice, LiveOutput};
 use kontra_engine::{Clock, EngineError, Event, Gains, Input, NullOutput, Output, Player};
 use kontra_model::{InputSource, Instrument};
-#[cfg(test)]
-use std::sync::mpsc::Sender;
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{channel, Receiver, Sender};
 
 /// The rate of an output that plays nothing.
 const SILENT_RATE: u32 = 48_000;
@@ -28,6 +26,25 @@ pub enum RigOutput {
     Device(Option<String>),
     /// No output at all, e.g. a tuner without monitoring: nothing opens.
     Silent,
+}
+
+/// What a rig does when its output device does not open.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OnOutputError {
+    /// Fails; nothing opens (the standby retries later).
+    Fail,
+    /// Opens the input with a silent output: tuning or playing matters more.
+    PlaySilent,
+}
+
+/// What the input last said about itself; a new mode hears it again (the device says it once).
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum InputState {
+    Running,
+    /// Nothing delivered since `at_s` (`Event::Stalled`).
+    Stalled(f64),
+    /// A file reached its end (`Event::Ended`): no rebase follows.
+    Ended,
 }
 
 /// The devices a rig was opened with: a mode that wants others opens its own.
@@ -44,38 +61,35 @@ pub struct Rig {
     devices: Devices,
     clock: Clock,
     output: LiveOutput,
-    input: Input,
+    /// `None` after a reopen whose input did not open.
+    input: Option<Input>,
     events: Receiver<Event>,
-    /// Lets a test report as a device would.
-    #[cfg(test)]
+    /// For reopened devices: they report into the same channel.
     sender: Sender<Event>,
     /// The epoch the mode waits for; its events start after `Event::Rebased` with it.
     waiting: Option<u64>,
-    /// Since when the input has delivered nothing (`Event::Stalled`, told only once).
-    stalled_s: Option<f64>,
-    /// A stall the last mode took, told again to the attached one.
-    retell_s: Option<f64>,
+    state: InputState,
+    /// A stall or end the last mode took, told again to the attached one.
+    retell: Option<InputState>,
 }
 
 impl Rig {
     /// Opens the devices for a first mode with `instrument`, playing at `gains`. The output
-    /// opens first: when it fails, no input is touched (a mode that can do without retries
-    /// with `RigOutput::Silent`).
+    /// opens first: when it fails, `on_error` decides; with `Fail` no input is touched.
     pub fn open(
         input: &InputChoice,
         output: RigOutput,
+        on_error: OnOutputError,
         source: InputSource,
         instrument: &Instrument,
         gains: Gains,
     ) -> Result<Rig, EngineError> {
         let clock = Clock::new();
         let (sender, events) = channel();
-        let mut player = match &output {
-            RigOutput::Device(device) => {
-                let config = monitor_config(input, device.as_deref());
-                Some(Player::start(&config, &clock, sender.clone())?)
-            }
-            RigOutput::Silent => None,
+        let (mut player, output) = match start_player(input, &output, &clock, &sender) {
+            Ok(player) => (player, output),
+            Err(e) if on_error == OnOutputError::Fail => return Err(e),
+            Err(_) => (None, RigOutput::Silent),
         };
         if let Some(player) = player.as_mut() {
             player.set_gains(gains);
@@ -88,12 +102,6 @@ impl Rig {
             sender.clone(),
             player.as_mut(),
         )?;
-        let output_now = match player {
-            Some(player) => LiveOutput::Device(Box::new(player)),
-            None => LiveOutput::Silent(NullOutput {
-                sample_rate: SILENT_RATE,
-            }),
-        };
         Ok(Rig {
             devices: Devices {
                 input: input.clone(),
@@ -101,21 +109,59 @@ impl Rig {
                 source,
             },
             clock,
-            output: output_now,
-            input: input_device,
+            output: live_output(player),
+            input: Some(input_device),
             events,
-            #[cfg(test)]
             sender,
             waiting: None,
-            stalled_s: None,
-            retell_s: None,
+            state: InputState::Running,
+            retell: None,
         })
     }
 
+    /// Opens input and output again on the same clock and channel (LH-EIN-15, "Erneut
+    /// versuchen"): the old input closes first (an exclusive device would be busy), then the
+    /// output (silent if it does not open: the input matters more), then the input for
+    /// `instrument`. An input that fails leaves the rig without one (`fits` says no).
+    pub fn reopen(
+        &mut self,
+        input: &InputChoice,
+        output: RigOutput,
+        source: InputSource,
+        instrument: &Instrument,
+    ) -> Result<(), EngineError> {
+        self.input = None;
+        let (mut player, output) = match start_player(input, &output, &self.clock, &self.sender) {
+            Ok(player) => (player, output),
+            Err(_) => (None, RigOutput::Silent),
+        };
+        let started = Input::start(
+            &input_kind(input),
+            instrument,
+            source,
+            &self.clock,
+            self.sender.clone(),
+            player.as_mut(),
+        );
+        self.output = live_output(player);
+        self.devices = Devices {
+            input: input.clone(),
+            output,
+            source,
+        };
+        self.waiting = None;
+        self.state = InputState::Running;
+        self.retell = None;
+        self.input = Some(started?);
+        Ok(())
+    }
+
     /// Whether this rig has the devices a mode asks for.
+    /// Not once its input is gone or ended: the next mode opens anew.
     pub fn fits(&self, input: &InputChoice, output: &RigOutput, source: InputSource) -> bool {
         let devices = &self.devices;
-        devices.input == *input && devices.output == *output && devices.source == source
+        let alive = self.input.is_some() && self.state != InputState::Ended;
+        alive && devices.input == *input && devices.output == *output && devices.source == source
     }
 
     /// A new mode takes the rig over: what the last one planned stops (sounds, backing,
@@ -131,8 +177,12 @@ impl Rig {
         if let LiveOutput::Device(player) = &self.output {
             player.rebase();
         }
-        self.waiting = self.input.rebase(instrument, self.devices.source);
-        self.retell_s = self.stalled_s;
+        let source = self.devices.source;
+        self.waiting = self
+            .input
+            .as_mut()
+            .and_then(|input| input.rebase(instrument, source));
+        self.retell = Some(self.state).filter(|state| *state != InputState::Running);
     }
 
     /// The events since the last call that belong to the attached mode. What the device says
@@ -140,14 +190,19 @@ impl Rig {
     /// also ends the wait: no rebase follows it.
     pub fn poll(&mut self) -> Vec<Event> {
         let mut out = Vec::new();
-        if let Some(at_s) = self.retell_s.take() {
-            out.push(Event::Stalled { at_s });
+        match self.retell.take() {
+            Some(InputState::Stalled(at_s)) => out.push(Event::Stalled { at_s }),
+            Some(InputState::Ended) => out.push(Event::Ended),
+            Some(InputState::Running) | None => {}
         }
         while let Ok(event) = self.events.try_recv() {
             match &event {
-                Event::Stalled { at_s } => self.stalled_s = Some(*at_s),
-                Event::Resumed { .. } => self.stalled_s = None,
-                Event::Ended => self.waiting = None,
+                Event::Stalled { at_s } => self.state = InputState::Stalled(*at_s),
+                Event::Resumed { .. } => self.state = InputState::Running,
+                Event::Ended => {
+                    self.state = InputState::Ended;
+                    self.waiting = None;
+                }
                 _ => {}
             }
             match (&event, self.waiting) {
@@ -181,6 +236,20 @@ impl Rig {
         }
     }
 
+    /// A mode that plays on its own (a run) takes the output; the rig holds silence meanwhile.
+    pub fn take_output(&mut self) -> LiveOutput {
+        let rate = self.output.sample_rate();
+        std::mem::replace(
+            &mut self.output,
+            LiveOutput::Silent(NullOutput { sample_rate: rate }),
+        )
+    }
+
+    /// The output a mode took comes back.
+    pub fn put_output(&mut self, output: LiveOutput) {
+        self.output = output;
+    }
+
     /// Test: reports `event` as a device would.
     #[cfg(test)]
     pub(crate) fn tell_for_test(&self, event: Event) {
@@ -195,27 +264,55 @@ impl Rig {
         &mut self.output
     }
 
-    pub fn input(&self) -> &Input {
-        &self.input
+    pub fn input(&self) -> Option<&Input> {
+        self.input.as_ref()
     }
 
-    pub fn input_mut(&mut self) -> &mut Input {
-        &mut self.input
+    pub fn input_mut(&mut self) -> Option<&mut Input> {
+        self.input.as_mut()
     }
 
     /// True while the input's samples reach the output (a device, at the input's rate).
     pub fn is_monitoring(&self) -> bool {
-        matches!(&self.output, LiveOutput::Device(p) if p.sample_rate() == self.input.sample_rate)
+        let Some(input) = &self.input else {
+            return false;
+        };
+        matches!(&self.output, LiveOutput::Device(p) if p.sample_rate() == input.sample_rate)
+    }
+}
+
+/// The player for `output`; `None` for silence.
+fn start_player(
+    input: &InputChoice,
+    output: &RigOutput,
+    clock: &Clock,
+    sender: &Sender<Event>,
+) -> Result<Option<Player>, EngineError> {
+    let RigOutput::Device(device) = output else {
+        return Ok(None);
+    };
+    let config = monitor_config(input, device.as_deref());
+    Player::start(&config, clock, sender.clone()).map(Some)
+}
+
+fn live_output(player: Option<Player>) -> LiveOutput {
+    match player {
+        Some(player) => LiveOutput::Device(Box::new(player)),
+        None => LiveOutput::Silent(NullOutput {
+            sample_rate: SILENT_RATE,
+        }),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::live::{LiveTuner, TunerMonitor};
+    use crate::live::{Live, LiveTuner, TunerMonitor};
     use crate::monitor::LiveMonitor;
     use crate::practice::PracticeEvent;
+    use crate::{Mode, PracticeOptions, ScoreSettings};
     use kontra_engine::Direction;
+    use kontra_model::{Arrangement, Note, TempoMap, TICKS_PER_QUARTER};
     use kontra_model::{Pitch, A4_HZ};
     use std::path::PathBuf;
     use std::time::{Duration, Instant};
@@ -227,6 +324,12 @@ mod tests {
     const POLL_EVERY: Duration = Duration::from_millis(5);
     /// Plays nothing and opens no sound card.
     const NULL_OUTPUT: &str = "kontra:null";
+    /// How long the mode before ran on the rig.
+    const STANDBY: Duration = Duration::from_millis(1500);
+    /// One bar of 4/4 at 120 bpm.
+    const COUNT_IN_S: f64 = 2.0;
+    /// Time between starting and reading the position, with room for a slow machine.
+    const TOLERANCE_S: f64 = 0.2;
 
     /// A file input playing `hz` (0: silence) for `FILE_S`.
     fn file_input(name: &str, hz: f64) -> (InputChoice, PathBuf) {
@@ -269,6 +372,7 @@ mod tests {
         let mut rig = Rig::open(
             &input,
             null_output(),
+            OnOutputError::Fail,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -299,6 +403,7 @@ mod tests {
         let mut rig = Rig::open(
             &input,
             null_output(),
+            OnOutputError::Fail,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -333,6 +438,7 @@ mod tests {
         let mut rig = Rig::open(
             &input,
             null_output(),
+            OnOutputError::Fail,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -362,6 +468,7 @@ mod tests {
         let rig = Rig::open(
             &input,
             null_output(),
+            OnOutputError::Fail,
             InputSource::Line,
             &bass,
             Gains::default(),
@@ -402,5 +509,161 @@ mod tests {
 
         assert!(rig.player().is_none());
         assert!(rig.fits(&input, &RigOutput::Silent, InputSource::Line));
+    }
+
+    fn setup_of(input: &InputChoice) -> crate::LiveSetup {
+        crate::LiveSetup {
+            input: input.clone(),
+            output_device: Some(NULL_OUTPUT.into()),
+            source: InputSource::Line,
+            backing: None,
+            original: None,
+            backing_cache: None,
+            onset_gate_db: None,
+        }
+    }
+
+    fn clicks() -> Arrangement {
+        let mut a = Arrangement::new("Clicks", Instrument::default_bass());
+        a.tempo = TempoMap::constant(120.0);
+        a.notes
+            .push(Note::new(0, TICKS_PER_QUARTER, Pitch::parse("E1").unwrap()));
+        a.normalize();
+        a
+    }
+
+    /// A run on devices taken over starts now with its count-in, not at the input's first
+    /// sample, which lies as far back as the mode before ran.
+    #[test]
+    fn a_run_on_a_taken_rig_starts_now() {
+        let (input, path) = file_input("run", 0.0);
+        let bass = Instrument::default_bass();
+        let rig = Rig::open(
+            &input,
+            null_output(),
+            OnOutputError::Fail,
+            InputSource::Line,
+            &bass,
+            Gains::default(),
+        )
+        .unwrap();
+        let start = Instant::now();
+        while rig.input().and_then(Input::started_s).is_none() && start.elapsed() < PATIENCE {
+            std::thread::sleep(POLL_EVERY);
+        }
+        std::thread::sleep(STANDBY);
+        let clock = rig.clock().clone();
+
+        let mut live = Live::on(
+            rig,
+            Gains::default(),
+            clicks(),
+            Mode::Play,
+            ScoreSettings::default(),
+            PracticeOptions::default(),
+            &setup_of(&input),
+        )
+        .unwrap();
+        assert!(live.play_aligned());
+        let (start_s, ..) = live.practice().session().transport().anchor();
+        let starts_in_s = start_s - clock.now_s();
+        let back = live.into_rig();
+        let _ = std::fs::remove_file(path);
+
+        // One bar of count-in at 120 bpm.
+        assert!(
+            (starts_in_s - COUNT_IN_S).abs() < TOLERANCE_S,
+            "starts in {starts_in_s} s"
+        );
+        assert!(back.player().is_some(), "the run hands its output back");
+        assert!(back.fits(&input, &null_output(), InputSource::Line));
+    }
+
+    /// "Erneut versuchen" on the rig: same clock, a new input; one that does not open leaves
+    /// the rig without an input, and no mode takes it over.
+    #[test]
+    fn a_reopen_without_input_leaves_no_fit() {
+        let (input, path) = file_input("reopen", 0.0);
+        let bass = Instrument::default_bass();
+        let mut rig = Rig::open(
+            &input,
+            null_output(),
+            OnOutputError::Fail,
+            InputSource::Line,
+            &bass,
+            Gains::default(),
+        )
+        .unwrap();
+        rig.reopen(&input, null_output(), InputSource::Line, &bass)
+            .unwrap();
+        assert!(rig.fits(&input, &null_output(), InputSource::Line));
+
+        let gone = InputChoice::File {
+            path: path.with_extension("missing.wav"),
+            laptop_jack: false,
+        };
+        assert!(rig
+            .reopen(&gone, null_output(), InputSource::Line, &bass)
+            .is_err());
+        let _ = std::fs::remove_file(path);
+        assert!(rig.input().is_none());
+        assert!(!rig.fits(&gone, &null_output(), InputSource::Line));
+    }
+
+    /// Review #287: an end the last mode took is told to the next one, and a rig whose input
+    /// ended fits no mode.
+    #[test]
+    fn an_ended_input_is_told_and_fits_no_more() {
+        let (input, path) = file_input("ended", 0.0);
+        let bass = Instrument::default_bass();
+        let mut rig = Rig::open(
+            &input,
+            null_output(),
+            OnOutputError::Fail,
+            InputSource::Line,
+            &bass,
+            Gains::default(),
+        )
+        .unwrap();
+        rig.tell_for_test(Event::Ended);
+        assert!(rig.poll().iter().any(|e| matches!(e, Event::Ended)));
+        rig.attach(&bass, Gains::default());
+        let seen = rig.poll();
+        let _ = std::fs::remove_file(path);
+
+        assert!(seen.iter().any(|e| matches!(e, Event::Ended)), "{seen:?}");
+        assert!(!rig.fits(&input, &null_output(), InputSource::Line));
+    }
+
+    /// Review #288: "Erneut versuchen" whose input does not open keeps the run's output, with
+    /// the volumes and effects the player set; the run gets no output of default volumes.
+    #[test]
+    fn a_failed_reopen_keeps_the_runs_output() {
+        let (input, path) = file_input("keep", 0.0);
+        let mut setup = setup_of(&input);
+        setup.output_device = Some("kontra-test:no-such-output".into());
+        let mut live = Live::start(
+            clicks(),
+            Mode::Play,
+            ScoreSettings::default(),
+            PracticeOptions::default(),
+            &setup,
+        )
+        .unwrap();
+        assert!(live.output_is_silent);
+
+        setup.output_device = Some(NULL_OUTPUT.into());
+        setup.input = InputChoice::File {
+            path: path.with_extension("missing.wav"),
+            laptop_jack: false,
+        };
+        assert!(live.reopen(&setup).is_err());
+        let _ = std::fs::remove_file(path);
+
+        assert!(
+            matches!(live.practice().output(), LiveOutput::Silent(_)),
+            "the output was replaced"
+        );
+        assert!(live.output_is_silent);
     }
 }

@@ -79,7 +79,7 @@ pub use monitor::LiveMonitor;
 pub use pocket::{Pocket, PocketVerdict};
 pub use practice::{Practice, PracticeEvent, PracticeOptions};
 pub use progress::{run_from, ProgressError, ProgressStore, Run, SongProgress};
-pub use rig::{Rig, RigOutput};
+pub use rig::{OnOutputError, Rig, RigOutput};
 pub use service::*;
 pub use session::{Mode, Session, SessionEvent, Workshop};
 pub use settings::{ScoreSettings, Strictness};

@@ -9,7 +9,7 @@
 
 use crate::live::{InputChoice, LiveSetup};
 use crate::practice::PracticeEvent;
-use crate::rig::{Rig, RigOutput};
+use crate::rig::{OnOutputError, Rig, RigOutput};
 use kontra_engine::plugins::PluginError;
 use kontra_engine::{EngineError, Event, Gains, Output};
 use kontra_model::Instrument;
@@ -33,7 +33,8 @@ impl LiveMonitor {
         }
         // No output is an error here, not silence: the caller tries again later (review #231).
         let output = RigOutput::Device(setup.output_device.clone());
-        let rig = Rig::open(&setup.input, output, setup.source, instrument, gains);
+        let fail = OnOutputError::Fail;
+        let rig = Rig::open(&setup.input, output, fail, setup.source, instrument, gains);
         Some(rig.map(|rig| LiveMonitor { rig }))
     }
 
