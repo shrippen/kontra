@@ -422,7 +422,8 @@ struct Pending {
     slots: Vec<Wait>,
 }
 
-/// Builds the effect chain of the monitored bass with its plugins and keeps their instances.
+/// Builds the effect chain of the monitored bass with its plugins; their instances live in the
+/// bank's `PluginRack`, shared with the other players.
 pub struct ChainBuilder {
     rate: f64,
     shape: ChainSpec,
