@@ -275,6 +275,10 @@ Item {
         lineView.forceLayout()
     }
     Timer { id: settle; interval: staff.settleMs; onTriggered: staff.takeSize() }
+    /** Shown long enough that its room has settled: before, a change of the room (a page still
+     *  laying out) lands at once instead of growing in (Kontra 12.11.). */
+    property bool grown: false
+    Timer { running: staff.layoutSize.width > 0; interval: KanteStyle.durationSlow; onTriggered: staff.grown = true }
 
     // Line layouts by line index (1.82). A line keeps its layout while it stays in view, so a
     // page turn lays out only the line that comes in; any input below lays them all out
@@ -729,15 +733,15 @@ Item {
         currentIndex: -1
         model: lineModel
         add: Transition {
-            enabled: KanteStyle.animate
+            enabled: KanteStyle.animate && staff.grown
             NumberAnimation { property: "opacity"; from: 0; to: 1; duration: KanteStyle.duration }
         }
         remove: Transition {
-            enabled: KanteStyle.animate
+            enabled: KanteStyle.animate && staff.grown
             NumberAnimation { property: "opacity"; to: 0; duration: KanteStyle.durationFast }
         }
         displaced: Transition {
-            enabled: KanteStyle.animate
+            enabled: KanteStyle.animate && staff.grown
             NumberAnimation { property: "y"; duration: KanteStyle.duration; easing.type: Easing.OutCubic }
         }
         delegate: Item {
@@ -755,7 +759,7 @@ Item {
             property real zoom: 1
             Component.onCompleted: shownLs = staff.ls
             onLayChanged: {
-                if (KanteStyle.animate && shownLs > 0 && Math.abs(shownLs - staff.ls) > 0.01) {
+                if (KanteStyle.animate && staff.grown && shownLs > 0 && Math.abs(shownLs - staff.ls) > 0.01) {
                     zoomAnim.from = shownLs / staff.ls
                     zoomAnim.restart()
                 }
@@ -763,10 +767,11 @@ Item {
             }
             NumberAnimation { id: zoomAnim; target: line; property: "zoom"; to: 1; duration: KanteStyle.duration; easing.type: Easing.OutCubic }
             Behavior on height {
-                enabled: KanteStyle.animate && line.shownLs > 0
+                enabled: KanteStyle.animate && staff.grown && line.shownLs > 0
                 NumberAnimation { duration: KanteStyle.duration; easing.type: Easing.OutCubic }
             }
-            transform: Scale { xScale: line.zoom; yScale: line.zoom }
+            // Up or down only: the width stays, a sideways slide read as a jerk (Kontra 12.11.).
+            transform: Scale { yScale: line.zoom }
 
             // Loop range (1.35): a tint with bracket edges ([ and ]) as on KanteTabLane, not colour
             // alone; as high as the cursor, behind the staff so frets stay readable.

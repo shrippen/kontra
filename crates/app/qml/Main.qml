@@ -35,7 +35,7 @@ Kirigami.ApplicationWindow {
     SidebarInset {
         id: sidebarInset
         edge: root.drawerEdge
-        presenting: root.presenting
+        drawer: root.globalDrawer
     }
     // Page and sidebar show together once the sidebar has its place.
     contentItem.opacity: sidebarInset.ready ? 1 : 0
@@ -48,6 +48,7 @@ Kirigami.ApplicationWindow {
         NumberAnimation { duration: KanteStyle.duration }
     }
     contentItem.anchors.leftMargin: sidebarInset.margin
+    contentItem.transform: Translate { x: sidebarInset.offset }
 
     // Tab and notation lay out again only this long after the window stopped changing size
     // (polish pass, 12.11.): a drag no longer rebuilds the notes on every step. 120 ms felt slow
