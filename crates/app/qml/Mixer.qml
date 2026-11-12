@@ -299,7 +299,7 @@ ColumnLayout {
             // Shows how far the list is scrolled; only when rows lie beyond the edge.
             KanteScrollMeter {
                 Layout.fillWidth: true
-                visible: pickList.contentHeight > pickList.height
+                visible: KanteStyle.active && pickList.contentHeight > pickList.height
                 flickable: pickList
             }
             // The list ends in the middle of a row, so more rows are seen to lie below. The
