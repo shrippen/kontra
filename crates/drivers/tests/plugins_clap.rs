@@ -143,6 +143,7 @@ fn scan_finds_the_plugin() {
     assert_eq!(info.id, GAIN_ID);
     assert_eq!(info.name, "Kontra Test Gain");
     assert_eq!(info.vendor, "Kontra Tests");
+    assert_eq!(info.categories, ["audio-effect", "utility", "stereo"]);
     assert_eq!(info.path, file);
     assert_eq!(
         (info.ports.inputs.clone(), info.ports.outputs.clone()),

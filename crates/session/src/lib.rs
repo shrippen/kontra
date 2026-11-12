@@ -64,6 +64,7 @@ pub use kontra_engine::Separator;
 pub use kontra_engine::{
     describe_plugin, describe_plugin_later, PendingSpec, PluginBank, PluginProblems, PluginRack,
 };
+pub use kontra_engine::{group_of_effect, group_of_plugin, PluginGroup};
 pub use kontra_engine::{EngineError, FileHttp, Http, HttpError, Web};
 pub use kontra_engine::{Gains, Limit, SeparatorError, Shaping, SHAPING_RANGE_DB};
 pub use learning::{

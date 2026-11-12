@@ -279,9 +279,14 @@ fn create<I: Interface>(factory: &ComPtr<IPluginFactory>, cid: &TUID) -> Option<
     unsafe { ComPtr::from_raw(object.cast::<I>()) }
 }
 
+/// One audio class of a factory: id, name, sub-categories ("Fx|Dynamics" as ["Fx", "Dynamics"]).
+type AudioClass = (TUID, String, Vec<String>);
+
 /// The audio classes of a factory.
-fn audio_classes(factory: &ComPtr<IPluginFactory>) -> Vec<(TUID, String)> {
+fn audio_classes(factory: &ComPtr<IPluginFactory>) -> Vec<AudioClass> {
     let mut classes = Vec::new();
+    // Only factories of version 2 and up know sub-categories.
+    let factory2 = factory.cast::<IPluginFactory2>();
     // SAFETY: plain calls on the factory; the info struct is plain data the factory fills in.
     unsafe {
         for index in 0..factory.countClasses() {
@@ -290,11 +295,31 @@ fn audio_classes(factory: &ComPtr<IPluginFactory>) -> Vec<(TUID, String)> {
                 continue;
             }
             if c_text(&info.category) == AUDIO_CLASS {
-                classes.push((info.cid, c_text(&info.name)));
+                let categories = factory2
+                    .as_ref()
+                    .map(|f| sub_categories(f, index))
+                    .unwrap_or_default();
+                classes.push((info.cid, c_text(&info.name), categories));
             }
         }
     }
     classes
+}
+
+/// The sub-categories of class `index`, split on `|`.
+fn sub_categories(factory: &ComPtr<IPluginFactory2>, index: i32) -> Vec<String> {
+    // SAFETY: plain call on the factory; the info struct is plain data the factory fills in.
+    let text = unsafe {
+        let mut info: PClassInfo2 = std::mem::zeroed();
+        if !ok(factory.getClassInfo2(index, &mut info)) {
+            return Vec::new();
+        }
+        c_text(&info.subCategories)
+    };
+    text.split('|')
+        .filter(|part| !part.is_empty())
+        .map(str::to_string)
+        .collect()
 }
 
 fn vendor_of(factory: &ComPtr<IPluginFactory>) -> String {
@@ -488,7 +513,7 @@ pub(super) fn probe(path: &Path) -> Result<Vec<PluginInfo>, PluginError> {
 
     let mut found = Vec::new();
     let mut first_error = None;
-    for (cid, name) in audio_classes(module.factory()?) {
+    for (cid, name, categories) in audio_classes(module.factory()?) {
         let parts = match Parts::new(&module, &cid, path) {
             Ok(parts) => parts,
             Err(e) => {
@@ -506,6 +531,7 @@ pub(super) fn probe(path: &Path) -> Result<Vec<PluginInfo>, PluginError> {
                 inputs: bus_channels(&parts.component, INPUT).unwrap_or_default(),
                 outputs: bus_channels(&parts.component, OUTPUT).unwrap_or_default(),
             },
+            categories,
         });
     }
     match (found.is_empty(), first_error) {
@@ -536,10 +562,10 @@ impl Vst3Plugin {
         let module = load_module(path)?;
         let classes = audio_classes(module.factory()?);
 
-        let (cid, name) = match id {
+        let (cid, name, categories) = match id {
             Some(wanted) => classes
                 .iter()
-                .find(|(cid, _)| id_text(cid) == wanted)
+                .find(|(cid, _, _)| id_text(cid) == wanted)
                 .cloned()
                 .ok_or_else(|| PluginError::NotFound {
                     path: path.to_path_buf(),
@@ -551,7 +577,7 @@ impl Vst3Plugin {
                     path: path.to_path_buf(),
                     ids: classes
                         .iter()
-                        .map(|(cid, _)| id_text(cid))
+                        .map(|(cid, _, _)| id_text(cid))
                         .collect::<Vec<_>>()
                         .join(", "),
                 })
@@ -588,6 +614,7 @@ impl Vst3Plugin {
                 vendor,
                 path: path.to_path_buf(),
                 ports,
+                categories,
             },
             parts,
             params,

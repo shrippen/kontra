@@ -159,6 +159,7 @@ fn scan_finds_the_plugin() {
     assert!(info.id.chars().all(|c| c.is_ascii_hexdigit()));
     assert_eq!(info.name, "Kontra Test Gain");
     assert_eq!(info.vendor, "Kontra Tests");
+    assert_eq!(info.categories, ["Fx", "Tools"]);
     assert_eq!(info.path, file);
     assert_eq!(
         (info.ports.inputs.clone(), info.ports.outputs.clone()),

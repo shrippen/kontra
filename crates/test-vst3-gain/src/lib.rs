@@ -35,6 +35,9 @@ const GAIN_DEFAULT_NORMALIZED: f64 = 0.25;
 const STATE_BYTES: i32 = 8;
 const MONO_CHANNELS: u32 = 1;
 
+/// What the test plugin tells the scan it is.
+const SUB_CATEGORIES: &str = "Fx|Tools";
+
 fn copy_cstring(src: &str, dst: &mut [c_char]) {
     let c_string = CString::new(src).unwrap_or_default();
     for (src, dst) in c_string.as_bytes_with_nul().iter().zip(dst.iter_mut()) {
@@ -417,7 +420,25 @@ impl Factory {
 }
 
 impl Class for Factory {
-    type Interfaces = (IPluginFactory,);
+    type Interfaces = (IPluginFactory2,);
+}
+
+impl IPluginFactory2Trait for Factory {
+    unsafe fn getClassInfo2(&self, index: i32, info: *mut PClassInfo2) -> tresult {
+        let (cid, category) = match index {
+            0 => (component_cid(self.channels), "Audio Module Class"),
+            1 => (controller_cid(self.channels), "Component Controller Class"),
+            _ => return kInvalidArgument,
+        };
+        let info = &mut *info;
+        info.cid = cid;
+        info.cardinality = PClassInfo_::ClassCardinality_::kManyInstances as int32;
+        copy_cstring(category, &mut info.category);
+        copy_cstring(plugin_name(self.channels), &mut info.name);
+        copy_cstring(SUB_CATEGORIES, &mut info.subCategories);
+        copy_cstring("Kontra Tests", &mut info.vendor);
+        kResultOk
+    }
 }
 
 impl IPluginFactoryTrait for Factory {
