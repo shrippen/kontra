@@ -133,6 +133,8 @@
   "level.idle": "Input: Kontra listens once you press play. To check the level first, use the tuner.",
   "level.midi.none": "Input: MIDI keyboard, none is plugged in right now (Settings → Connection).",
   "level.midi": "Input: MIDI keyboard. Kontra reads the keys; there is no level here.",
+  "practice.unfold": "More settings",
+  "practice.fold": "Fewer settings",
   "practice.empty.title": "No piece open yet",
   "practice.empty.text": "Take an exercise from the plan or open a piece from the library (Guitar Pro, MIDI, MusicXML).",
   "practice.empty.exercises": "Go to exercises",

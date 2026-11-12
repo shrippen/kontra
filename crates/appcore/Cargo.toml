@@ -33,3 +33,7 @@ path = "../../tests/glyphs.rs"
 [[test]]
 name = "hidden_views"
 path = "../../tests/hidden_views.rs"
+
+[[test]]
+name = "steady_notes"
+path = "../../tests/steady_notes.rs"
