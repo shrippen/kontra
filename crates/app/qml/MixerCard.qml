@@ -1,32 +1,26 @@
 import QtQuick
-import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import QtQuick.Window
 import Kante
 
-// The mixer card of the practice page: levels and tone shaping above the transport.
-KanteCard {
+// The mixer of the practice page: levels and tone shaping on a glass layer that slides down
+// over the notes (owner 12.11.). As a row of the page it pushed the notes down and shrank
+// them on every frame of its slide, a relayout each.
+KanteGlassPanel {
     id: mixerCard
 
-    property bool open: false
-    // At most this high, the rest scrolls: open with tone shaping it squeezed the notes to a
-    // strip (QA 14.10.).
+    // At most this high, the rest scrolls: tone shaping is tall, and the strike line below stays
+    // in sight (QA 14.10.: as a row it squeezed the notes to a strip).
     property real maxHeight: 0
-    readonly property real fullHeight: Math.min(mixerLoader.implicitHeight + KanteStyle.unit(16), maxHeight)
-    // It grows to its height and shrinks away instead of popping in.
-    property real openness: open ? 1 : 0
-    Behavior on openness { NumberAnimation { duration: KanteStyle.duration; easing.type: Easing.OutCubic } }
-    Layout.preferredHeight: fullHeight * openness
-    visible: openness > 0
-    clip: true
+
+    edge: KanteGlassPanel.Edge.Top
+    panelSize: Math.min(mixerLoader.implicitHeight + 2 * padding, maxHeight)
     barColor: KanteStyle.accentColor
-    borderColor: KanteStyle.frameColor
+    accessibleName: applicationWindow().texts.t("mixer.title")
+
     Flickable {
         id: mixerFlick
-        x: KanteStyle.unit(12)
-        y: KanteStyle.unit(8)
-        width: parent.width - KanteStyle.unit(24)
-        height: mixerCard.fullHeight - KanteStyle.unit(16)
+        anchors.fill: parent
         contentWidth: width
         contentHeight: mixerLoader.implicitHeight
         clip: true

@@ -136,7 +136,7 @@ Kirigami.Page {
     Shortcut { sequence: "L"; enabled: page.keysFree; onActivated: transport.loopToggled() }
     Shortcut { sequence: "M"; enabled: page.keysFree; onActivated: ctl.changeOptions(!ctl.metronome, ctl.reference, ctl.lowStringOnTop) }
     Shortcut { sequence: "C"; enabled: page.keysFree; onActivated: ctl.changeCountIn(!ctl.countIn) }
-    Shortcut { sequence: "X"; enabled: page.keysFree; onActivated: mixerButton.toggle() }
+    Shortcut { sequence: "X"; enabled: page.keysFree && !page.presenting; onActivated: mixerButton.toggle() }
     Shortcut { sequences: ["+", "="]; enabled: page.keysFree; onActivated: ctl.changeSpeed(Math.min(1.5, ctl.speed + 0.05)) }
     Shortcut { sequence: "-"; enabled: page.keysFree; onActivated: ctl.changeSpeed(Math.max(0.25, ctl.speed - 0.05)) }
     Repeater {
@@ -948,8 +948,16 @@ Kirigami.Page {
         }
 
         NotesArea {
+            id: notesArea
             Layout.fillWidth: true
             Layout.fillHeight: true
+            // The mixer slides down over the notes (in the page, so screenshots show it).
+            overlay: MixerCard {
+                anchors { left: parent.left; right: parent.right; top: parent.top }
+                open: mixerButton.checked && !page.presenting
+                blurSource: notesArea.notesLayer
+                maxHeight: notesArea.height * 0.6
+            }
 
             KanteTabLane {
                 id: lane
@@ -1117,13 +1125,6 @@ Kirigami.Page {
         PracticeFooter {
             Layout.fillWidth: true
             practice: page
-        }
-
-        // The mixer opens above the transport (in the page, so screenshots show it).
-        MixerCard {
-            Layout.fillWidth: true
-            open: mixerButton.checked
-            maxHeight: page.height * 0.4
         }
 
         RowLayout {

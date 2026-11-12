@@ -52,7 +52,7 @@ Kirigami.ApplicationWindow {
 
     // Tab and notation lay out again only this long after the window stopped changing size
     // (polish pass, 12.11.): a drag no longer rebuilds the notes on every step. 120 ms felt slow
-    // (owner 12.11.). Other changes of their room (a mode's rows, the mixer) lay out at once,
+    // (owner 12.11.). Other changes of their room (a mode's rows, a callout) lay out at once,
     // while the notes glide (NotesArea).
     readonly property int staffSettleMs: resizing ? 60 : 0
     // True from a size change of the window until it rests; Qt changes the window's size before
@@ -77,6 +77,8 @@ Kirigami.ApplicationWindow {
     }
 
     onPresentingChanged: {
+        // Room, scale and window size change within a moment: the staffs lay out once.
+        noteResize()
         if (presenting) {
             drawerBefore = globalDrawer.drawerOpen
             globalDrawer.close()
