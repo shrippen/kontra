@@ -1,6 +1,7 @@
 //! Playback: backing track, transpose, loop keys, calibration, recorded runs.
 
 use super::*;
+use kontra_session::{Connection, DeviceInfo};
 use std::time::{Duration, Instant};
 
 /// QA P2 (F9): a backing file that is gone must not stop the piece; it plays without, and
@@ -495,29 +496,26 @@ fn runs_from_a_live_course_are_not_stored() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// FPS analysis 12.11.: the Bluetooth hint listed every output device inside `play`; under ALSA
-/// the window stood still for 580 ms per start. A thread lists them, `tick` gives the hint.
-#[test]
-fn bluetooth_check_does_not_hold_the_start() {
-    use kontra_session::{Connection, DeviceInfo};
-    const LISTING: Duration = Duration::from_secs(3);
+const LISTING: Duration = Duration::from_secs(3);
 
-    // One Bluetooth output, the one the test data folder chose, found slowly.
-    fn slow_list(direction: Direction) -> Vec<DeviceInfo> {
-        std::thread::sleep(LISTING);
-        vec![DeviceInfo {
-            id: kontra_session::NULL_DEVICE.into(),
-            name: "Headphones".into(),
-            direction,
-            is_default: true,
-            connection: Connection::Bluetooth,
-            sample_rate: 48_000,
-            channels: 2,
-            past_pipewire: false,
-        }]
-    }
+/// One Bluetooth output, the one the test data folder chose, found slowly.
+fn slow_list(direction: Direction) -> Vec<DeviceInfo> {
+    std::thread::sleep(LISTING);
+    vec![DeviceInfo {
+        id: kontra_session::NULL_DEVICE.into(),
+        name: "Headphones".into(),
+        direction,
+        is_default: true,
+        connection: Connection::Bluetooth,
+        sample_rate: 48_000,
+        channels: 2,
+        past_pipewire: false,
+    }]
+}
 
-    let dir = temp_dir("bluetooth");
+/// A core playing a recording whose device list says Bluetooth, slowly.
+fn bluetooth_core(name: &str) -> (Core, PathBuf) {
+    let dir = temp_dir(name);
     let take = dir.join("take.wav");
     kontra_session::write_mono_wav(&take, &vec![0.0; 48_000], 48_000).unwrap();
     let mut core = Core::new(
@@ -530,6 +528,14 @@ fn bluetooth_check_does_not_hold_the_start() {
     core.update_settings(|s| s.language = Some("en".into()));
     core.open(&demo()).unwrap();
     core.list_devices_with(slow_list);
+    (core, dir)
+}
+
+/// FPS analysis 12.11.: the Bluetooth hint listed every output device inside `play`; under ALSA
+/// the window stood still for 580 ms per start. A thread lists them, `tick` gives the hint.
+#[test]
+fn bluetooth_check_does_not_hold_the_start() {
+    let (mut core, dir) = bluetooth_core("bluetooth");
 
     let started = Instant::now();
     let events = core.play();
@@ -549,5 +555,28 @@ fn bluetooth_check_does_not_hold_the_start() {
     }
     assert!(heard, "no Bluetooth hint after the list came");
     core.stop_live();
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Review #309: a run stopped while the list was read gave the hint afterwards, with nothing
+/// playing.
+#[test]
+fn a_stopped_run_gives_no_bluetooth_hint() {
+    let (mut core, dir) = bluetooth_core("bluetooth-stop");
+    core.play();
+    core.stop_live();
+
+    let hint = core.tr("hint.bluetooth", &[]);
+    let started = Instant::now();
+    while started.elapsed() < LISTING + Duration::from_millis(500) {
+        let late = core.tick();
+        assert!(
+            !late
+                .iter()
+                .any(|e| matches!(e, UiEvent::Message(m) if *m == hint)),
+            "Bluetooth hint after the stop"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
     let _ = std::fs::remove_dir_all(dir);
 }

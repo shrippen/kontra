@@ -46,14 +46,24 @@ impl Core {
         self.bluetooth.answer = Some(answer);
     }
 
-    /// The hint once the thread has answered yes; nothing while it lists.
-    pub(crate) fn bluetooth_hint(&mut self) -> Option<UiEvent> {
-        let answer = self.bluetooth.answer.as_ref()?.try_recv().ok()?;
+    /// The hint once the thread has answered yes; nothing while it lists. The bar shows the
+    /// last message, so the monitor's hint from `play` follows again: it says what to do.
+    pub(crate) fn bluetooth_hint(&mut self) -> Vec<UiEvent> {
+        let Some(Ok(answer)) = self.bluetooth.answer.as_ref().map(Receiver::try_recv) else {
+            return Vec::new();
+        };
         self.bluetooth.answer = None;
         if !answer {
-            return None;
+            return Vec::new();
         }
-        Some(UiEvent::Message(self.tr("hint.bluetooth", &[])))
+        let mut hints = vec![UiEvent::Message(self.tr("hint.bluetooth", &[]))];
+        hints.extend(self.monitor_hint().map(UiEvent::Message));
+        hints
+    }
+
+    /// Drops a question still open; its answer would come with nothing playing.
+    pub(crate) fn forget_bluetooth(&mut self) {
+        self.bluetooth.answer = None;
     }
 
     #[cfg(test)]

@@ -1148,6 +1148,8 @@ impl Core {
 
     /// Ends the run; the next `play` starts from the beginning with current settings.
     pub fn stop_live(&mut self) {
+        // The Bluetooth hint belongs to this run; nothing plays when it would come.
+        self.forget_bluetooth();
         // A run stopped before the end still counts as practice (QA P1 J-C1); a probe stopped
         // before its pass is no probe and would end the start page's offer.
         let passed = self
