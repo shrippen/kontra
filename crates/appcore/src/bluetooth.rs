@@ -5,32 +5,19 @@
 //!   play ──► thread: list outputs ──► bool ──► tick ──► "hint.bluetooth"
 
 use crate::{Core, UiEvent};
-use kontra_session::{list_devices, Connection, DeviceInfo, Direction};
+use kontra_session::{Connection, Direction};
 use std::sync::mpsc::{channel, Receiver};
 
-/// Lists the devices of one direction; tests put in a slow or fixed list.
-pub(crate) type ListDevices = fn(Direction) -> Vec<DeviceInfo>;
-
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct BluetoothCheck {
-    list: ListDevices,
     answer: Option<Receiver<bool>>,
-}
-
-impl Default for BluetoothCheck {
-    fn default() -> Self {
-        Self {
-            list: list_devices,
-            answer: None,
-        }
-    }
 }
 
 impl Core {
     /// Asks in the background whether the chosen output is Bluetooth.
     pub(crate) fn ask_bluetooth(&mut self) {
         let (tell, answer) = channel();
-        let list = self.bluetooth.list;
+        let list = self.device_lister();
         let chosen = self.settings.output_device.clone();
         std::thread::spawn(move || {
             let bluetooth = list(Direction::Output).iter().any(|d| {
@@ -64,15 +51,5 @@ impl Core {
     /// Drops a question still open; its answer would come with nothing playing.
     pub(crate) fn forget_bluetooth(&mut self) {
         self.bluetooth.answer = None;
-    }
-
-    /// How this core lists devices: the system's list, or a test's.
-    pub(crate) fn device_lister(&self) -> ListDevices {
-        self.bluetooth.list
-    }
-
-    #[cfg(test)]
-    pub(crate) fn list_devices_with(&mut self, list: ListDevices) {
-        self.bluetooth.list = list;
     }
 }

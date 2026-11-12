@@ -7,16 +7,32 @@
 //!   nothing listed yet ──► listed on the spot, as before
 
 use crate::Core;
-use kontra_session::{DeviceInfo, Direction};
+use kontra_session::{list_devices, DeviceInfo, Direction};
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
 
-#[derive(Debug, Default)]
+/// Lists the devices of one direction; tests put in a slow or fixed list.
+pub(crate) type ListDevices = fn(Direction) -> Vec<DeviceInfo>;
+
+#[derive(Debug)]
 pub(crate) struct DeviceLists {
+    list: ListDevices,
     known: Option<Lists>,
     job: Option<Receiver<Lists>>,
     /// New lists the pages, and the USB watch, have not seen yet.
     new_for_pages: bool,
     new_for_usb: bool,
+}
+
+impl Default for DeviceLists {
+    fn default() -> Self {
+        Self {
+            list: list_devices,
+            known: None,
+            job: None,
+            new_for_pages: false,
+            new_for_usb: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -83,5 +99,15 @@ impl Core {
             Direction::Input => known.inputs.clone(),
             Direction::Output => known.outputs.clone(),
         }
+    }
+
+    /// How this core lists devices: the system's list, or a test's.
+    pub(crate) fn device_lister(&self) -> ListDevices {
+        self.device_lists.list
+    }
+
+    #[cfg(test)]
+    pub(crate) fn list_devices_with(&mut self, list: ListDevices) {
+        self.device_lists.list = list;
     }
 }

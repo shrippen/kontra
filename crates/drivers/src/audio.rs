@@ -17,7 +17,7 @@ use downmix::Downmix;
 use stamps::lead_s;
 use std::fmt;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 use thiserror::Error;
 
@@ -264,9 +264,23 @@ pub struct StreamConfig {
     pub input_channel: Option<u16>,
 }
 
+/// Listing and opening take turns (review #310): under ALSA, listing holds each device open
+/// while it reads its formats, and a stream opened meanwhile on another thread gets EBUSY.
+static DEVICES: Mutex<()> = Mutex::new(());
+
+fn devices_turn() -> MutexGuard<'static, ()> {
+    // A panic while listing leaves no device half open; the turns go on.
+    DEVICES.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
 /// Lists input or output devices of the audio host (PipeWire nodes, else ALSA devices), the
 /// interfaces first (LH-EIN-02).
 pub fn list_devices(direction: Direction) -> Vec<DeviceInfo> {
+    let _turn = devices_turn();
+    listed(direction)
+}
+
+fn listed(direction: Direction) -> Vec<DeviceInfo> {
     let _quiet = QuietAlsa::new();
     let host = host();
     let default_id = match direction {
@@ -296,7 +310,7 @@ pub fn list_devices(direction: Direction) -> Vec<DeviceInfo> {
         }
     }
     if direction == Direction::Input {
-        connection::mark(&mut list, &list_devices(Direction::Output));
+        connection::mark(&mut list, &listed(Direction::Output));
     }
     interfaces_first(&mut list);
     // After the system's own devices: the defaults stay WASAPI's, an ASIO driver is a choice.
@@ -696,6 +710,7 @@ impl InputStream {
         F: FnMut(&[f32], f64, f64) + Send + 'static,
         E: FnMut(String) + Send + 'static,
     {
+        let _turn = devices_turn();
         let device = find_device(Direction::Input, config.device_id.as_deref())?;
         let (stream_config, format) = stream_config(&device, Direction::Input, config)?;
         let channels = usize::from(stream_config.channels.max(1));
@@ -807,6 +822,7 @@ impl OutputStream {
         if config.device_id.as_deref() == Some(NULL_DEVICE) {
             return Ok(Self::open_null(fill));
         }
+        let _turn = devices_turn();
         let device = find_device(Direction::Output, config.device_id.as_deref())?;
         let (stream_config, format) = stream_config(&device, Direction::Output, config)?;
         let channels = usize::from(stream_config.channels.max(1));

@@ -4,7 +4,7 @@
 #[cfg(all(windows, feature = "asio"))]
 use super::{describe, DeviceInfo};
 #[cfg(windows)]
-use super::{find_device, Direction};
+use super::{devices_turn, find_device, Direction};
 #[cfg(windows)]
 use cpal::traits::DeviceTrait;
 #[cfg(all(windows, feature = "asio"))]
@@ -18,6 +18,7 @@ use cpal::traits::HostTrait;
 /// output is opened at 48 kHz (Windows converts) and the bass is heard.
 #[cfg(windows)]
 pub fn monitor_rate(input: Option<&str>, output: Option<&str>) -> Option<u32> {
+    let _turn = devices_turn();
     let input = find_device(Direction::Input, input).ok()?;
     let output = find_device(Direction::Output, output).ok()?;
     let input_rate = input.default_input_config().ok()?.sample_rate();
