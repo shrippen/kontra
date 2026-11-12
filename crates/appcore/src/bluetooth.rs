@@ -66,6 +66,11 @@ impl Core {
         self.bluetooth.answer = None;
     }
 
+    /// How this core lists devices: the system's list, or a test's.
+    pub(crate) fn device_lister(&self) -> ListDevices {
+        self.bluetooth.list
+    }
+
     #[cfg(test)]
     pub(crate) fn list_devices_with(&mut self, list: ListDevices) {
         self.bluetooth.list = list;

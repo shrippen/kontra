@@ -91,6 +91,11 @@ impl Core {
         as_answered(list_devices(Direction::Input), &self.settings.usb_inputs)
     }
 
+    /// `devices` as the player answered the USB question.
+    pub(crate) fn answered(&self, devices: Vec<DeviceInfo>) -> Vec<DeviceInfo> {
+        as_answered(devices, &self.settings.usb_inputs)
+    }
+
     /// The input the player chose, else the one that fits the connection (LH-EIN-02): an
     /// interface, or the built-in card for the laptop jack.
     pub(crate) fn input_device(&self) -> Option<String> {
@@ -102,17 +107,22 @@ impl Core {
     }
 
     /// Every few seconds: is there a new USB-only input to ask about? Only for the app, and only
-    /// while idle: listing asks the audio server and would stall a run, the tuner or a calibration.
+    /// while idle: a question during a run, the tuner or a calibration would interrupt it. The
+    /// listing runs in the background (FPS analysis 12.11.); a later tick looks at it.
     pub(crate) fn watch_usb(&mut self) -> Option<UiEvent> {
         if !self.standby.wanted || self.qa.input_file.is_some() || !self.idle() {
             return None;
+        }
+        if let Some(inputs) = self.new_inputs() {
+            return self.look_at_usb(&inputs);
         }
         let usb = &mut self.standby.usb;
         if usb.polled.is_some_and(|at| at.elapsed() < POLL) {
             return None;
         }
         usb.polled = Some(Instant::now());
-        self.look_at_usb(&list_devices(Direction::Input))
+        self.relist_devices();
+        None
     }
 
     /// One look at `devices`: the question for a new USB-only input, or its end when the
@@ -210,6 +220,45 @@ mod tests {
             }
             _ => None,
         }
+    }
+
+    /// FPS analysis 12.11.: the app listed the inputs every 5 s in the GUI thread (690 ms under
+    /// ALSA). Now the listing runs in the background and the look waits for it.
+    #[test]
+    fn watching_usb_does_not_hold_the_window() {
+        use std::time::{Duration, Instant};
+        const LISTING: Duration = Duration::from_secs(2);
+
+        fn slow_list(direction: Direction) -> Vec<DeviceInfo> {
+            std::thread::sleep(LISTING);
+            match direction {
+                Direction::Input => vec![device("Scarlett", Connection::Usb)],
+                Direction::Output => Vec::new(),
+            }
+        }
+
+        let (mut core, dir) = core("watch");
+        core.list_devices_with(slow_list);
+        // Wanted without opening anything: the test calls the watch, not the standby.
+        core.standby.wanted = true;
+
+        let started = Instant::now();
+        while started.elapsed() < LISTING * 3 {
+            let look = Instant::now();
+            core.watch_usb();
+            let held = look.elapsed();
+            assert!(held < LISTING, "the watch held the window {held:?}");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+
+        // The background list was the first look: a new cable is asked about now.
+        let solo = device("Scarlett", Connection::Usb);
+        let cable = device("Guitar Link", Connection::UsbMicrophone);
+        assert_eq!(
+            asked(core.look_at_usb(&[solo, cable])).as_deref(),
+            Some("Guitar Link")
+        );
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

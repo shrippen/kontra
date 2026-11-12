@@ -621,3 +621,43 @@ fn chains_are_saved_by_name() {
         "deleting keeps the chain"
     );
 }
+
+/// FPS analysis 12.11.: the settings page listed every device before its first frame, 1.2 s
+/// under ALSA. Lists made in the background are shown at once.
+#[test]
+fn known_device_lists_show_at_once() {
+    use std::time::{Duration, Instant};
+    const LISTING: Duration = Duration::from_secs(2);
+
+    fn slow_list(direction: Direction) -> Vec<DeviceInfo> {
+        std::thread::sleep(LISTING);
+        vec![DeviceInfo {
+            id: format!("card-{direction:?}"),
+            name: "Card".into(),
+            direction,
+            is_default: true,
+            connection: Connection::Usb,
+            sample_rate: 48_000,
+            channels: 2,
+            past_pipewire: false,
+        }]
+    }
+
+    let dir = temp_dir("lists");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.list_devices_with(slow_list);
+    core.relist_devices();
+    let started = Instant::now();
+    while !core.devices_poll() && started.elapsed() < LISTING * 4 {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+
+    let shown = Instant::now();
+    let inputs = core.devices_json(true);
+    let outputs = core.devices_json(false);
+    let held = shown.elapsed();
+    assert!(held < LISTING, "the page waited {held:?} for the lists");
+    assert!(inputs.contains("card-Input"), "{inputs}");
+    assert!(outputs.contains("card-Output"), "{outputs}");
+    let _ = std::fs::remove_dir_all(dir);
+}

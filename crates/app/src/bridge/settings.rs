@@ -109,12 +109,34 @@ impl qobject::Controller {
         self.as_mut().after_retune(result);
     }
 
+    pub(super) fn change_language(mut self: Pin<&mut Self>, code: &QString) {
+        let code = code.to_string();
+        self.as_mut()
+            .core()
+            .update_settings(|s| s.language = Some(code.clone()));
+        let texts = self.as_ref().rust().core.texts_json();
+        self.as_mut().set_texts(q(&texts));
+        self.as_mut().set_language(q(&code));
+        // Kirigami's own texts ("Close Sidebar") at once, not after a restart (audit 10.11.).
+        crate::translator::ffi::install_kirigami_translator(&code);
+        // Note names follow the language (H in German), as do texts made from the settings.
+        self.as_mut().refresh_tuning();
+        self.as_mut().refresh_texts();
+    }
+
     pub(super) fn refresh_devices(mut self: Pin<&mut Self>) {
         self.as_mut().refresh_latency_note();
         let midi = self.as_ref().rust().core.midi_port_name();
         self.as_mut().set_midi_port_name(q(&midi));
         let ports = self.as_ref().rust().core.midi_ports_json();
         self.as_mut().set_midi_ports_json(q(&ports));
+        self.as_mut().show_devices();
+        // The last lists show at once; new ones follow from `tick` (FPS analysis 12.11.).
+        self.as_mut().core().relist_devices();
+    }
+
+    /// The device lists as the core knows them now.
+    pub(super) fn show_devices(mut self: Pin<&mut Self>) {
         let inputs = self.as_ref().rust().core.devices_json(true);
         let outputs = self.as_ref().rust().core.devices_json(false);
         self.as_mut().set_input_devices_json(q(&inputs));
