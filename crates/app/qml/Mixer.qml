@@ -194,13 +194,14 @@ ColumnLayout {
         return q === "" || e.name.toLowerCase().indexOf(q) >= 0 || e.vendor.toLowerCase().indexOf(q) >= 0
     })
     readonly property int pickIndex: picks.findIndex(function(e) { return e.key === mixer.pickKey })
-    // Adds the chosen row, or the first one when none is chosen (a typed name plus Enter).
+    // Adds the chosen row, or the first one when none is chosen (a typed name plus Enter),
+    // through the dialog's accept, which closes it.
     function pickAdd() {
         if (pickIndex < 0 && picks.length > 0) {
             pickKey = picks[0].key
         }
         if (pickIndex >= 0 && !fx.full) {
-            ctl.editEffects("add", 0, pickKey, 0)
+            pickDialog.accept()
         }
     }
     // Puts the keyboard focus on the chosen row (the first when none is chosen); without rows
@@ -244,8 +245,31 @@ ColumnLayout {
         title: mixer.texts.t("fx.add")
         // While a plugin loads to be added (FX4), the row says so instead of its usual hint.
         hint: mixer.fx.adding !== "" ? mixer.fx.adding : mixer.texts.t("fx.hint")
+        KanteButton {
+            text: mixer.texts.t("fx.add.open")
+            enabled: !mixer.fx.full
+            onClicked: pickDialog.open()
+        }
+    }
+    // The picker: groups, search and list in a dialog, so the page stays short.
+    KanteDialog {
+        id: pickDialog
+        parent: QQC2.Overlay.overlay
+        anchors.centerIn: parent
+        modal: true
+        size: KanteDialog.Size.Medium
+        title: mixer.texts.t("fx.add")
+        standardButtons: QQC2.Dialog.Ok | QQC2.Dialog.Cancel
+        acceptText: mixer.texts.t("fx.add.accept")
+        acceptEnabled: !mixer.fx.full && mixer.pickIndex >= 0
+        onAccepted: mixer.ctl.editEffects("add", 0, mixer.pickKey, 0)
+        // Each opening starts with an empty search, typing at once.
+        onOpened: {
+            pickSearch.text = ""
+            pickSearch.forceActiveFocus()
+        }
         ColumnLayout {
-            Layout.fillWidth: true
+            anchors.fill: parent
             spacing: KanteStyle.unit(8)
             // The group chips: a checked chip is a solid fill with inverted text, an unchecked
             // one a frame; screen readers get the checked state from the chip.
@@ -307,8 +331,9 @@ ColumnLayout {
             ListView {
                 id: pickList
                 readonly property real rowHeight: count > 0 ? contentHeight / count : 0
-                readonly property real shownRows: 5.5
+                readonly property real shownRows: 8.5
                 Layout.fillWidth: true
+                Layout.fillHeight: true
                 Layout.preferredHeight: Math.min(contentHeight, rowHeight * shownRows)
                 clip: true
                 model: mixer.picks
@@ -342,13 +367,6 @@ ColumnLayout {
                 color: KanteStyle.mutedTextColor
                 font: KanteStyle.smallFont
                 text: mixer.texts.t("fx.none")
-            }
-            KanteButton {
-                id: addButton
-                text: mixer.texts.t("fx.add")
-                Accessible.name: mixer.texts.t("fx.add.button", { name: mixer.pickIndex >= 0 ? mixer.picks[mixer.pickIndex].name : "" })
-                enabled: !mixer.fx.full && mixer.pickIndex >= 0
-                onClicked: mixer.pickAdd()
             }
         }
     }

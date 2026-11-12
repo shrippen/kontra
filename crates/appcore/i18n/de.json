@@ -424,6 +424,8 @@
   "fx.none": "Keine Treffer",
   "fx.format.builtin": "Eingebaut",
   "fx.vendor.builtin": "Kontra",
+  "fx.add.open": "Effekt hinzufügen …",
+  "fx.add.accept": "Hinzufügen",
   "fx.add.button": "{name} hinzufügen",
   "fx.plugin.adding": "{name} wird geladen …",
   "fx.window.label": "Fenster",
