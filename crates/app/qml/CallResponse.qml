@@ -15,6 +15,9 @@ ColumnLayout {
     readonly property var texts: applicationWindow().texts
 
     spacing: KanteStyle.unit(8)
+    // Only as high as its content: a nested layout with no child shown fills by default and
+    // took half the notes' room on the practice page (owner 12.11.).
+    Layout.fillHeight: false
 
     Row {
         visible: callResponse.possible || callResponse.ctl.call
