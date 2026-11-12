@@ -22,6 +22,8 @@ Kirigami.Page {
     background: Rectangle { color: KanteStyle.backgroundColor }
     title: texts.t("ear.title")
     padding: KanteStyle.unit(16)
+    leftPadding: applicationWindow().readingPad(width)
+    rightPadding: leftPadding
 
     Component.onCompleted: ctl.earStart(kinds[kind])
     Component.onDestruction: ctl.earStop()

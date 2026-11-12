@@ -55,6 +55,8 @@ Kirigami.ScrollablePage {
     background: Rectangle { color: KanteStyle.backgroundColor }
     title: texts.t("quiz.title")
     padding: KanteStyle.unit(16)
+    leftPadding: applicationWindow().readingPad(width)
+    rightPadding: leftPadding
 
     Component.onCompleted: {
         var stored = JSON.parse(ctl.quizJson()).range
