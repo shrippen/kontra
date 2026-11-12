@@ -172,10 +172,41 @@ ColumnLayout {
     // with its own values. Everything is a button or a slider (no dragging); the list comes
     // from the core, the page keeps no logic.
     readonly property var fx: JSON.parse(ctl.effectsJson)
-    // What "add" offers: the built-in effects, then the plugins the search found.
-    readonly property var addable: fx.kinds.concat(fx.plugins.map(function(p) {
-        return { key: p.key, name: mixer.texts.t("fx.plugin.label", { name: p.name, vendor: p.vendor, format: p.format }) }
+    // What "add" offers (picker): the built-in effects, then the plugins the search found, as
+    // rows with the group they belong to. The page holds the chosen group, search and row.
+    readonly property var addable: fx.kinds.map(function(k) {
+        return { key: k.key, name: k.name, vendor: mixer.texts.t("fx.vendor.builtin"), format: mixer.texts.t("fx.format.builtin"), group: k.group, builtIn: true }
+    }).concat(fx.plugins.map(function(p) {
+        return { key: p.key, name: p.name, vendor: p.vendor, format: p.format, group: p.group, builtIn: false }
     }))
+    // "all", "builtin", or a group key.
+    property string pickGroup: "all"
+    property string pickQuery: ""
+    property string pickKey: ""
+    readonly property var picks: addable.filter(function(e) {
+        if (mixer.pickGroup === "builtin" && !e.builtIn) {
+            return false
+        }
+        if (mixer.pickGroup !== "all" && mixer.pickGroup !== "builtin" && e.group !== mixer.pickGroup) {
+            return false
+        }
+        var q = mixer.pickQuery.trim().toLowerCase()
+        return q === "" || e.name.toLowerCase().indexOf(q) >= 0 || e.vendor.toLowerCase().indexOf(q) >= 0
+    })
+    readonly property int pickIndex: picks.findIndex(function(e) { return e.key === mixer.pickKey })
+    function pickAdd() {
+        if (pickIndex >= 0 && !fx.full) {
+            ctl.editEffects("add", 0, pickKey, 0)
+        }
+    }
+    function pickStep(by) {
+        if (picks.length === 0) {
+            return
+        }
+        var at = Math.max(0, Math.min(picks.length - 1, (pickIndex < 0 ? (by > 0 ? -1 : picks.length) : pickIndex) + by))
+        pickKey = picks[at].key
+        pickList.positionViewAtIndex(at, ListView.Contain)
+    }
     // Where a slot's move buttons stand, so keyboard focus follows the slot that moved.
     function focusMoved(to) {
         var slot = slots.itemAt(to)
@@ -191,30 +222,92 @@ ColumnLayout {
         title: mixer.texts.t("fx.add")
         // While a plugin loads to be added (FX4), the row says so instead of its usual hint.
         hint: mixer.fx.adding !== "" ? mixer.fx.adding : mixer.texts.t("fx.hint")
-        RowLayout {
+        ColumnLayout {
+            Layout.fillWidth: true
             spacing: KanteStyle.unit(8)
-            KanteComboBox {
-                id: kindChoice
-                Accessible.name: mixer.texts.t("fx.add")
-                Layout.preferredWidth: KanteStyle.unit(180)
-                enabled: !mixer.fx.full
-                model: mixer.addable.map(function(k) { return k.name })
-                // The list is rebuilt whenever the core reports a change: keep the chosen entry.
-                property string chosenKey: ""
-                onActivated: chosenKey = mixer.addable[currentIndex].key
-                onModelChanged: Qt.callLater(function() {
-                    var at = mixer.addable.findIndex(function(k) { return k.key === kindChoice.chosenKey })
-                    if (at >= 0) {
-                        kindChoice.currentIndex = at
+            // The group chips: a checked chip is a solid fill with inverted text, an unchecked
+            // one a frame; screen readers get the checked state from the chip.
+            Flow {
+                Layout.fillWidth: true
+                spacing: KanteStyle.unit(8)
+                Accessible.role: Accessible.Grouping
+                Accessible.name: mixer.texts.t("fx.group.label")
+                KanteChip {
+                    choice: true
+                    text: mixer.texts.t("fx.group.all") + " (" + mixer.addable.length + ")"
+                    checked: mixer.pickGroup === "all"
+                    onClicked: mixer.pickGroup = "all"
+                }
+                KanteChip {
+                    choice: true
+                    text: mixer.texts.t("fx.group.builtin") + " (" + mixer.fx.kinds.length + ")"
+                    checked: mixer.pickGroup === "builtin"
+                    onClicked: mixer.pickGroup = "builtin"
+                }
+                Repeater {
+                    model: mixer.fx.groups
+                    delegate: KanteChip {
+                        required property var modelData
+                        choice: true
+                        text: modelData.name + " (" + modelData.count + ")"
+                        checked: mixer.pickGroup === modelData.key
+                        onClicked: mixer.pickGroup = modelData.key
                     }
-                })
+                }
+            }
+            KanteCallout {
+                Layout.fillWidth: true
+                visible: mixer.fx.needsRescan
+                kind: KanteCallout.Kind.Info
+                text: mixer.texts.t("fx.rescan")
+                autoHide: false
+            }
+            KanteTextField {
+                Layout.fillWidth: true
+                placeholderText: mixer.texts.t("fx.search.placeholder")
+                Accessible.name: mixer.texts.t("fx.search")
+                onTextChanged: mixer.pickQuery = text
+                onAccepted: mixer.pickAdd()
+            }
+            // One Tab stop for the list: Up and Down move the chosen row, Enter adds it.
+            ListView {
+                id: pickList
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(contentHeight, KanteStyle.unit(240))
+                clip: true
+                model: mixer.picks
+                currentIndex: mixer.pickIndex
+                activeFocusOnTab: true
+                enabled: !mixer.fx.full
+                Accessible.role: Accessible.List
+                Accessible.name: mixer.texts.t("fx.list.label")
+                Keys.onUpPressed: mixer.pickStep(-1)
+                Keys.onDownPressed: mixer.pickStep(1)
+                Keys.onReturnPressed: mixer.pickAdd()
+                delegate: KanteListRow {
+                    required property var modelData
+                    width: ListView.view.width
+                    focusOnClick: false
+                    activeFocusOnTab: false
+                    text: modelData.name
+                    subtitle: modelData.vendor
+                    meta: modelData.format
+                    selected: modelData.key === mixer.pickKey
+                    onClicked: mixer.pickKey = modelData.key
+                }
+            }
+            Text {
+                visible: mixer.picks.length === 0
+                color: KanteStyle.mutedTextColor
+                font: KanteStyle.smallFont
+                text: mixer.texts.t("fx.none")
             }
             KanteButton {
                 id: addButton
                 text: mixer.texts.t("fx.add")
-                Accessible.name: mixer.texts.t("fx.add.button", { name: kindChoice.currentText })
-                enabled: !mixer.fx.full
-                onClicked: mixer.ctl.editEffects("add", 0, mixer.addable[kindChoice.currentIndex].key, 0)
+                Accessible.name: mixer.texts.t("fx.add.button", { name: mixer.pickIndex >= 0 ? mixer.picks[mixer.pickIndex].name : "" })
+                enabled: !mixer.fx.full && mixer.pickIndex >= 0
+                onClicked: mixer.pickAdd()
             }
         }
     }
@@ -398,7 +491,7 @@ ColumnLayout {
                         destructive: true
                         onClicked: {
                             mixer.ctl.editEffects("remove", index, "", 0)
-                            kindChoice.forceActiveFocus()
+                            pickList.forceActiveFocus()
                         }
                     }
                 }

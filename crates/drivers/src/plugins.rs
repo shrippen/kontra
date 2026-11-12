@@ -121,7 +121,8 @@ pub struct PluginInfo {
     pub path: PathBuf,
     pub ports: PortLayout,
     /// What the plugin says it is: VST 3 sub-categories ("Fx", "Dynamics"), CLAP features
-    /// ("audio-effect", "compressor"). Empty in scans from before this field.
+    /// ("audio-effect", "compressor"). Empty in scans from before this field, and when the plugin
+    /// names none (a VST 3 factory without IPluginFactory2, a CLAP without features).
     #[serde(default)]
     pub categories: Vec<String>,
 }

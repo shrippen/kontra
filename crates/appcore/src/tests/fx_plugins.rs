@@ -504,3 +504,81 @@ fn a_new_chain_drops_the_plugin_being_added() {
         "only the reverb"
     );
 }
+
+/// A hand-made plugin entry; nothing is loaded.
+fn listed(name: &str, categories: &[&str]) -> kontra_session::plugins::PluginInfo {
+    kontra_session::plugins::PluginInfo {
+        format: PluginFormat::Clap,
+        id: name.to_string(),
+        name: name.to_string(),
+        vendor: "Acme".to_string(),
+        path: PathBuf::from(format!("{name}.clap")),
+        ports: Default::default(),
+        categories: categories.iter().map(|c| c.to_string()).collect(),
+    }
+}
+
+fn core_listing(name: &str, plugins: Vec<kontra_session::plugins::PluginInfo>) -> Core {
+    let mut core = Core::new(&temp_dir(name), QaOptions::default());
+    core.plugins.set_report(ScanReport {
+        plugins,
+        broken: Vec::new(),
+    });
+    core
+}
+
+fn count_of(fx: &Value, group: &str) -> Option<u64> {
+    let groups = fx["groups"].as_array().unwrap();
+    let found = groups.iter().find(|g| g["key"] == group);
+    found.map(|g| g["count"].as_u64().unwrap())
+}
+
+#[test]
+fn entries_carry_their_group() {
+    let core = core_listing("fx-group", vec![listed("Squash", &["Fx", "Dynamics"])]);
+    let fx = effects(&core);
+
+    let reverb = fx["kinds"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|k| k["key"] == "reverb");
+    assert_eq!(reverb.unwrap()["group"], "space");
+    assert_eq!(fx["plugins"][0]["group"], "dynamics");
+}
+
+#[test]
+fn groups_count_built_ins_and_plugins() {
+    let plugins = vec![
+        listed("Squash", &["Fx", "Dynamics"]),
+        listed("Glue", &["compressor"]),
+        listed("Mystery", &[]),
+    ];
+    let fx = effects(&core_listing("fx-counts", plugins));
+
+    assert_eq!(count_of(&fx, "dynamics"), Some(2));
+    assert_eq!(count_of(&fx, "other"), Some(1));
+    // Overdrive and Fuzz.
+    assert_eq!(count_of(&fx, "distortion"), Some(2));
+    // Nothing in this group: no chip.
+    assert_eq!(count_of(&fx, "analysis"), None);
+    assert_eq!(fx["groups"][0]["name"], "Dynamics");
+}
+
+#[test]
+fn a_search_without_categories_asks_for_a_rescan() {
+    let old = effects(&core_listing(
+        "fx-old",
+        vec![listed("A", &[]), listed("B", &[])],
+    ));
+    assert_eq!(old["needsRescan"], true);
+
+    let mixed = effects(&core_listing(
+        "fx-new",
+        vec![listed("A", &[]), listed("B", &["Fx"])],
+    ));
+    assert_eq!(mixed["needsRescan"], false);
+
+    let none = effects(&core_listing("fx-none", Vec::new()));
+    assert_eq!(none["needsRescan"], false);
+}
