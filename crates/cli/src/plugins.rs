@@ -58,7 +58,10 @@ fn scan(listing: Listing, timeout_s: f32) -> CliResult {
             format!("--timeout-s must be a positive number of seconds, not {timeout_s}")
         })?;
 
-    let mut report = ScanReport::default();
+    let mut report = ScanReport {
+        categories_read: true,
+        ..ScanReport::default()
+    };
     let mut searched = Vec::new();
     for format in FORMATS {
         searched.extend(search_paths(format));

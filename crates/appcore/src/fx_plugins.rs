@@ -228,7 +228,10 @@ impl Plugins {
         self.running = Some(rx);
         self.progress = None;
         std::thread::spawn(move || {
-            let mut report = ScanReport::default();
+            let mut report = ScanReport {
+                categories_read: true,
+                ..ScanReport::default()
+            };
             let Some(probe) = probe else {
                 let _ = tx.send(ScanMessage::Done(report));
                 return;

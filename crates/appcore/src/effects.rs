@@ -18,8 +18,8 @@ pub use presets::ChainPreset;
 use crate::fx_plugins::{self, found_at, param_key, param_mut, PLUGIN_KEY};
 use crate::{Core, Settings};
 use kontra_model::{EffectKind, PluginSpec, SlotSpec, CHAIN_SLOTS};
-use kontra_session::describe_plugin_later;
 use kontra_session::plugins::{PluginError, PluginFormat};
+use kontra_session::{describe_plugin_later, group_of_effect, group_of_plugin, PluginGroup};
 use serde_json::json;
 
 /// A delay below this rounds to 0.0 ms and is not worth a line.
@@ -80,8 +80,10 @@ fn value_mut<'a>(slot: &'a mut SlotSpec, name: &str) -> Option<&'a mut f32> {
 
 impl Core {
     /// The chain for the mixer: `{"max", "full", "empty", "fullText", "latencyText", "kinds":
-    /// [{"key", "name"}], "plugins": [{"key", "name", "vendor", "format"}], "presets": [name], "scan": {"running", "text",
-    /// "broken": [{"file", "reason"}]}, "slots": [{"index", "kind", "name", "hint", "problem",
+    /// [{"key", "name", "group"}], "plugins": [{"key", "name", "vendor", "format", "group"}],
+    /// "groups": [{"key", "name", "count"}] (the groups with entries, in display order),
+    /// "needsRescan" (plugins found from a saved search that predates categories),
+    /// "presets": [name], "scan": {"running", "text", "broken": [{"file", "reason"}]}, "slots": [{"index", "kind", "name", "hint", "problem",
     /// "on", "first", "last", "values": [{"key", "label", "value", "shown"}]}]}`.
     pub fn effects_json(&self) -> String {
         let settings = self.settings();
@@ -95,8 +97,26 @@ impl Core {
             .collect();
         let kinds: Vec<_> = ADDABLE
             .iter()
-            .map(|&k| json!({ "key": key(k), "name": name(k) }))
+            .map(|&k| json!({ "key": key(k), "name": name(k), "group": group_of_effect(k).key() }))
             .collect();
+        let report = self.plugins.report();
+        let groups: Vec<_> = PluginGroup::ALL
+            .iter()
+            .filter_map(|&g| {
+                let built_in = ADDABLE.iter().filter(|&&k| group_of_effect(k) == g).count();
+                let found = report
+                    .plugins
+                    .iter()
+                    .filter(|p| group_of_plugin(&p.categories) == g)
+                    .count();
+                let count = built_in + found;
+                let name = self.tr(&format!("fx.group.{}", g.key()), &[]);
+                (count > 0).then(|| json!({ "key": g.key(), "name": name, "count": count }))
+            })
+            .collect();
+        let needs_rescan = !report.categories_read
+            && !report.plugins.is_empty()
+            && report.plugins.iter().all(|p| p.categories.is_empty());
         json!({
             "max": CHAIN_SLOTS,
             "full": chain.slots().len() >= CHAIN_SLOTS,
@@ -105,6 +125,8 @@ impl Core {
             "latencyText": self.latency_text(self.chain_latency_ms()),
             "kinds": kinds,
             "plugins": self.found_plugins_json(),
+            "groups": groups,
+            "needsRescan": needs_rescan,
             "scan": self.scan_json(),
             "slots": slots,
             "adding": self.plugins.adding.as_ref().map_or_else(String::new, |p| {
@@ -136,6 +158,7 @@ impl Core {
                     "name": p.name,
                     "vendor": p.vendor,
                     "format": p.format.to_string(),
+                    "group": group_of_plugin(&p.categories).key(),
                 })
             })
             .collect()
