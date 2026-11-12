@@ -904,30 +904,8 @@ Kirigami.Page {
         }
 
         // Between runs only: Kontra suggests, the player decides (round 5).
-        KanteCallout {
-            id: densityCallout
+        DensityHint {
             Layout.fillWidth: true
-            // Stays during a run, so play does not move the notes; deciding waits for the end.
-            visible: ctl.densitySuggestion > 0
-            kind: KanteCallout.Kind.Info
-            autoHide: false
-            title: ctl.densityText
-            Accessible.name: ctl.densityText
-            onVisibleChanged: if (visible) Accessible.announce(ctl.densityText)
-            RowLayout {
-                KanteButton {
-                    enabled: !ctl.playing
-                    text: texts.t("density.accept")
-                    emphasis: KanteButton.Emphasis.Primary
-                    onClicked: ctl.changeDensity(ctl.densitySuggestion, "free")
-                }
-                KanteButton {
-                    enabled: !ctl.playing
-                    text: texts.t("density.decline")
-                    emphasis: KanteButton.Emphasis.Quiet
-                    onClicked: ctl.declineDensity()
-                }
-            }
         }
 
         // Call and response (LH-LRN-19): needs chords and four bars.

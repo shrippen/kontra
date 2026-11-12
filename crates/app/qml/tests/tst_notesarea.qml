@@ -36,6 +36,28 @@ Item {
         }
     }
 
+    // A practice page just opened, its notes under a row.
+    Component {
+        id: opened
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+            property alias notes: freshNotes
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 200
+            }
+            NotesArea {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Rectangle {
+                    id: freshNotes
+                    anchors.fill: parent
+                }
+            }
+        }
+    }
+
     TestCase {
         name: "NotesArea"
         when: windowShown
@@ -49,6 +71,13 @@ Item {
         function cleanupTestCase() { KanteStyle.kind = kindBefore }
 
         function screenY() { return notes.mapToItem(root, 0, 0).y }
+
+        // The first place comes from the layout, not from a row coming: no glide.
+        function test_firstPlaceAtOnce() {
+            var page = createTemporaryObject(opened, root)
+            waitForRendering(page)
+            compare(page.notes.mapToItem(root, 0, 0).y, 200)
+        }
 
         function test_glidesToTheNewPlace() {
             verify(KanteStyle.animate)

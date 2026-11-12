@@ -14,9 +14,11 @@ use std::path::PathBuf;
 
 const PAGE: &str = "crates/app/qml/PracticePage.qml";
 /// What changes with a run, not by the player's choice.
-const RUN_STATE: [&str; 4] = [
+/// A density suggestion also comes after each pass of a loop, while playing on.
+const RUN_STATE: [&str; 5] = [
     "ctl.playing",
     "ctl.holdingIndex",
+    "ctl.densitySuggestion",
     "page.summaryReady",
     "page.lean",
 ];

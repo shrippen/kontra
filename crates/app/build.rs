@@ -45,6 +45,7 @@ const PAGES: &[&str] = &[
     "qml/PracticeFooter.qml",
     "qml/NotesArea.qml",
     "qml/SidebarInset.qml",
+    "qml/DensityHint.qml",
     "qml/CourseFolderStatus.qml",
     "qml/UpdateNotice.qml",
     "qml/SongMap.qml",

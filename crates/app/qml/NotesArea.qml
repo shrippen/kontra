@@ -17,17 +17,25 @@ Item {
 
     readonly property bool glides: KanteStyle.animate && !applicationWindow().resizing
     property real lastY: 0
+    // The first place comes from the layout as the page opens: the notes stand there at once.
+    property bool placed: false
 
     clip: true
     onYChanged: {
         const moved = y - lastY
         lastY = y
-        if (!glides) {
+        if (!glides || !placed) {
             return
         }
         glide.stop()
         shift.y -= moved
         glide.start()
+    }
+
+    Connections {
+        target: area.Window.window
+        enabled: !area.placed
+        function onFrameSwapped() { area.placed = true }
     }
 
     Item {
