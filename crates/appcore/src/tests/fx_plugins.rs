@@ -285,6 +285,7 @@ fn the_search_shows_its_progress() {
     let text = midway["text"].as_str().unwrap();
     assert!(text.contains("second"), "the file being probed: {text}");
     assert!(text.contains('2'), "the count: {text}");
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 #[test]

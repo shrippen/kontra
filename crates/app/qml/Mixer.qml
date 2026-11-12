@@ -297,6 +297,7 @@ ColumnLayout {
         indeterminate: mixer.fx.scan.total <= 0
         Accessible.role: Accessible.ProgressBar
         Accessible.name: mixer.texts.t("fx.scan.bar")
+        Accessible.description: mixer.fx.scan.text
     }
     Repeater {
         model: mixer.ctl.monitor ? mixer.fx.scan.broken : []
