@@ -13,7 +13,7 @@ use kontra_drivers::plugins::{probe_file, PluginFormat, PluginHost, PluginInfo};
 use kontra_dsp::Chain;
 use kontra_engine::{describe_plugin, ChainBuilder, PluginBank, PluginProblems};
 use kontra_model::{ChainSpec, PluginSpec, SlotSpec};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
@@ -44,7 +44,12 @@ const BINARY_EXTENSION: &str = "so";
 fn plugin_file(format: PluginFormat, name: &str) -> PathBuf {
     static NEXT: AtomicU32 = AtomicU32::new(0);
     let exe = std::env::current_exe().expect("test binary path");
-    let profile = exe.parent().and_then(Path::parent).expect("target folder");
+    // The profile folder (`target/debug`) holds `examples/`; the test binary lies below it in
+    // `deps/`, or since Cargo 1.100 in `build/<crate>/<hash>/out/`.
+    let profile = exe
+        .ancestors()
+        .find(|dir| dir.join("examples").is_dir())
+        .expect("target folder");
     let built = profile.join("examples").join(format!(
         "{}{name}{}",
         std::env::consts::DLL_PREFIX,

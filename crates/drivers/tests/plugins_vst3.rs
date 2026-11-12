@@ -12,7 +12,7 @@ use kontra_drivers::plugins::{
 use kontra_drivers::{read_audio, write_wav, AudioBuffer};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 /// Class ids as hex of 16 bytes.
@@ -97,7 +97,12 @@ const BINARY_EXTENSION: &str = "so";
 fn plugin_file(name: &str) -> PathBuf {
     static NEXT: AtomicU32 = AtomicU32::new(0);
     let exe = std::env::current_exe().expect("test binary path");
-    let profile = exe.parent().and_then(Path::parent).expect("target folder");
+    // The profile folder (`target/debug`) holds `examples/`; the test binary lies below it in
+    // `deps/`, or since Cargo 1.100 in `build/<crate>/<hash>/out/`.
+    let profile = exe
+        .ancestors()
+        .find(|dir| dir.join("examples").is_dir())
+        .expect("target folder");
     let examples = profile.join("examples");
     let built = examples.join(format!(
         "{}{name}{}",

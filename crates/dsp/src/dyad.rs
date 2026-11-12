@@ -193,7 +193,7 @@ impl DyadCheck {
             let first = (lo / bin_hz).floor() as usize;
             let last = ((hi / bin_hz).ceil() as usize).min(bins - 1);
             let mut energy = 0.0;
-            for k in first..=last {
+            for (k, &s) in self.spectrum.iter().enumerate().take(last + 1).skip(first) {
                 let f = k as f64 * bin_hz;
                 let weight = if f < lo || f > hi {
                     0.0
@@ -202,7 +202,7 @@ impl DyadCheck {
                 } else {
                     (hi - f) / (hi - mid)
                 };
-                energy += weight * f64::from(self.spectrum[k]).powi(2);
+                energy += weight * f64::from(s).powi(2);
             }
             let sigma = (energy / bins as f64).sqrt().max(f64::MIN_POSITIVE);
             self.gains[b] = sigma.powf(NU - 1.0);
@@ -276,9 +276,9 @@ impl DyadCheck {
         for m in 1..=count {
             let (first, last) = self.partial_bins(f, m);
             let mut peak = (first, 0.0f32);
-            for k in first..=last {
-                if self.residual[k] > peak.1 {
-                    peak = (k, self.residual[k]);
+            for (k, &r) in self.residual.iter().enumerate().take(last + 1).skip(first) {
+                if r > peak.1 {
+                    peak = (k, r);
                 }
             }
             self.peaks[m - 1] = peak;

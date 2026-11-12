@@ -178,9 +178,9 @@ impl EchoCanceller {
             }
             self.inv
                 .process_with_scratch(&mut self.echo, &mut self.scratch);
-            for i in 0..FFT {
-                self.echo[i] = if i < ECHO_BLOCK {
-                    self.echo[i] * gain
+            for (i, e) in self.echo.iter_mut().enumerate().take(FFT) {
+                *e = if i < ECHO_BLOCK {
+                    *e * gain
                 } else {
                     Complex::default()
                 };
