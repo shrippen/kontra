@@ -9,7 +9,8 @@ import Kante
 KanteGlassPanel {
     id: mixerCard
 
-    // At most this high, the rest scrolls: open with tone shaping it covered the notes (QA 14.10.).
+    // At most this high, the rest scrolls: tone shaping is tall, and the strike line below stays
+    // in sight (QA 14.10.: as a row it squeezed the notes to a strip).
     property real maxHeight: 0
 
     edge: KanteGlassPanel.Edge.Top

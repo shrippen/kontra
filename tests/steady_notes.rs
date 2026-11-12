@@ -97,3 +97,20 @@ fn presentation_settles_like_a_resize() {
         "the presentation does not count as a resize"
     );
 }
+
+/// The presentation hides the mixer button; a mixer open before F5 lay over the top string with
+/// no button to close it (review #306). It closes with the presentation.
+#[test]
+fn mixer_leaves_the_presentation() {
+    let text = page();
+    let start = text.find("overlay: MixerCard {").unwrap_or(0);
+    let open = text[start..]
+        .lines()
+        .find(|line| line.trim_start().starts_with("open:"))
+        .unwrap_or_else(|| panic!("the mixer has no open binding in {PAGE}"));
+    assert!(
+        open.contains("!page.presenting"),
+        "open in the presentation: {}",
+        open.trim()
+    );
+}

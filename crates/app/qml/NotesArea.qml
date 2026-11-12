@@ -4,7 +4,7 @@ import Kante
 // The practice page's room for the notes, clipped: on small screens a staff taller than its
 // room drew over the transport (QA 13.10.).
 //
-// A row coming or going above (mode, mixer, a callout) moves the room; the notes glide to it
+// A row coming or going above (mode, a callout) moves the room; the notes glide to it
 // in one motion instead of jumping first (owner 12.11.). While the window is resized they
 // follow at once.
 //

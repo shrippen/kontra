@@ -954,9 +954,9 @@ Kirigami.Page {
             // The mixer slides down over the notes (in the page, so screenshots show it).
             overlay: MixerCard {
                 anchors { left: parent.left; right: parent.right; top: parent.top }
-                open: mixerButton.checked
+                open: mixerButton.checked && !page.presenting
                 blurSource: notesArea.notesLayer
-                maxHeight: notesArea.height * 0.8
+                maxHeight: notesArea.height * 0.6
             }
 
             KanteTabLane {
