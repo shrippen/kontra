@@ -5,8 +5,8 @@ import Kante
 import ".."
 
 // The notes take the room the practice page's column leaves (owner 12.11.: one tab line in
-// the middle of an empty page). Song map and call and response are layouts themselves; a
-// nested layout fills by default and took a share of the room, also with nothing shown.
+// the middle of an empty page). Call and response is a layout itself; a nested layout with
+// no child shown fills by default and took half the room. The song map stands beside it.
 // Run by scripts/check-video.sh.
 Item {
     id: root

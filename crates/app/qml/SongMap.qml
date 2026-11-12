@@ -21,9 +21,6 @@ ColumnLayout {
 
     visible: shown && !ctl.playing && summary.played
     spacing: KanteStyle.unit(4)
-    // Only as high as its content: a nested layout fills by default and took half the
-    // notes' room on the practice page, also with nothing shown (owner 12.11.).
-    Layout.fillHeight: false
     Component.onCompleted: refresh()
 
     Connections {
