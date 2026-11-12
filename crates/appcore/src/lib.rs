@@ -5,6 +5,7 @@
 //!     ◄──properties/signals── bridge ◄── UiEvent
 //! ```
 
+mod bluetooth;
 mod bundled;
 mod caches;
 mod calibrate;
@@ -280,6 +281,7 @@ pub struct Core {
     stems: stems::Stems,
     /// Backing track decoded in the background (QA 27.10., J2).
     prepare: prepare::Prepare,
+    bluetooth: bluetooth::BluetoothCheck,
     /// Where the browser saves downloads (LH-BIB-11).
     downloads: Option<PathBuf>,
     /// Songsterr search (LH-BIB-11, round 12).
@@ -341,6 +343,7 @@ impl Core {
             started_at: std::time::Instant::now(),
             stems: stems::Stems::default(),
             prepare: prepare::Prepare::default(),
+            bluetooth: bluetooth::BluetoothCheck::default(),
             downloads: kontra_session::download_dir(),
             finder: songsterr::Finder::default(),
             updater: update::Updater::default(),
@@ -1082,9 +1085,7 @@ impl Core {
                 Err(Unstarted::Other(e)) => return vec![UiEvent::Error(e)],
             }
         }
-        if self.output_is_bluetooth() {
-            events.push(UiEvent::Message(self.tr("hint.bluetooth", &[])));
-        }
+        self.ask_bluetooth();
         if let Some(hint) = self.monitor_hint() {
             events.push(UiEvent::Message(hint));
         }
@@ -1147,6 +1148,8 @@ impl Core {
 
     /// Ends the run; the next `play` starts from the beginning with current settings.
     pub fn stop_live(&mut self) {
+        // The Bluetooth hint belongs to this run; nothing plays when it would come.
+        self.forget_bluetooth();
         // A run stopped before the end still counts as practice (QA P1 J-C1); a probe stopped
         // before its pass is no probe and would end the start page's offer.
         let passed = self
@@ -1781,6 +1784,7 @@ impl Core {
         let mut events: Vec<UiEvent> = raw.into_iter().filter_map(|e| self.translate(e)).collect();
         events.extend(ear_event);
         events.extend(self.prepare_backing());
+        events.extend(self.bluetooth_hint());
         events.extend(self.poll_effects());
         events.extend(self.advise_level(&events));
         // The meter holds the peak the advice judges, so both say the same.
@@ -2171,17 +2175,6 @@ impl Core {
                 })
             }
         }
-    }
-
-    /// True if the chosen (or default) output goes over Bluetooth (LH-EIN-06).
-    fn output_is_bluetooth(&self) -> bool {
-        list_devices(Direction::Output).iter().any(|d| {
-            let chosen = match &self.settings.output_device {
-                Some(id) => &d.id == id,
-                None => d.is_default,
-            };
-            chosen && d.connection == kontra_session::Connection::Bluetooth
-        })
     }
 
     /// Starts the fretboard quiz ("notes" or "intervals") on frets `low`–`high` (kept for the
