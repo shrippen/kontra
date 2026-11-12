@@ -141,6 +141,8 @@
   "lane.part": "Teil %1",
   "part.verse": "Strophe",
   "part.chorus": "Refrain",
+  "fretboard.hide": "Griffbrett ausblenden",
+  "fretboard.show": "Griffbrett zeigen",
   "fretboard.name": "Griffbrett",
   "fretboard.marker": "%1: Saite %2, Bund %3",
   "histogram.mean": "Mittel",

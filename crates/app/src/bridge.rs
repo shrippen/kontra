@@ -86,6 +86,7 @@ pub mod qobject {
         #[qproperty(bool, count_in, cxx_name = "countIn")]
         #[qproperty(bool, reference)]
         #[qproperty(bool, low_string_on_top, cxx_name = "lowStringOnTop")]
+        #[qproperty(bool, fretboard_shown, cxx_name = "fretboardShown")]
         #[qproperty(QString, play_marks, cxx_name = "playMarks")]
         #[qproperty(QString, motion)]
         #[qproperty(QString, strictness)]
@@ -527,6 +528,11 @@ pub mod qobject {
         #[cxx_name = "changeMotion"]
         fn change_motion(self: Pin<&mut Self>, motion: &QString);
 
+        /// Shows or hides the fretboard under the notes on the practice page.
+        #[qinvokable]
+        #[cxx_name = "changeFretboard"]
+        fn change_fretboard(self: Pin<&mut Self>, shown: bool);
+
         #[qinvokable]
         #[cxx_name = "changeCountIn"]
         fn change_count_in(self: Pin<&mut Self>, on: bool);
@@ -937,7 +943,7 @@ use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
 use kontra_appcore::{
-    data_dir, file_url, local_path, Bass, Core, DensityLock, InstrumentChoice, LoopEdge, Opened,
+    data_dir, file_url, local_path, Core, DensityLock, InstrumentChoice, LoopEdge, Opened,
     QaOptions, UiEvent,
 };
 
@@ -1008,6 +1014,7 @@ pub struct ControllerRust {
     count_in: bool,
     reference: bool,
     low_string_on_top: bool,
+    fretboard_shown: bool,
     play_marks: QString,
     motion: QString,
     strictness: QString,
@@ -1185,6 +1192,7 @@ impl Default for ControllerRust {
             count_in: s.count_in_bars > 0,
             reference: s.reference_tones,
             low_string_on_top: s.low_string_on_top,
+            fretboard_shown: s.fretboard_shown,
             play_marks: q(&s.play_marks),
             motion: q(&s.motion),
             strictness: q(&s.strictness),
@@ -1842,80 +1850,5 @@ impl qobject::Controller {
             .update_settings(|s| s.setup_done = true);
         self.as_mut().set_tuner_active(false);
         self.as_mut().set_setup_done(true);
-    }
-
-    /// Every settings property and list from the core, after the data changed underneath.
-    fn sync_settings(mut self: Pin<&mut Self>) {
-        let (s, texts, recent, tuning, keys, choice) = {
-            let this = self.as_ref();
-            let core = &this.rust().core;
-            (
-                core.settings().clone(),
-                core.texts_json(),
-                core.recent_json(),
-                core.tuning_json(),
-                core.key_range_json(),
-                core.instrument_choice(),
-            )
-        };
-        self.as_mut().set_texts(q(&texts));
-        self.as_mut().set_recent_json(q(&recent));
-        self.as_mut().set_tuning_json(q(&tuning));
-        self.as_mut().set_key_range_json(q(&keys));
-        self.as_mut().refresh_setlists();
-        self.as_mut().set_mode(q(&s.mode));
-        self.as_mut().set_view(q(&s.view));
-        self.as_mut().set_style(q(&s.style));
-        self.as_mut()
-            .set_language(q(s.language.as_deref().unwrap_or("")));
-        self.as_mut()
-            .set_input_device(q(s.input_device.as_deref().unwrap_or("")));
-        self.as_mut()
-            .set_output_device(q(s.output_device.as_deref().unwrap_or("")));
-        self.as_mut().set_strings(i32::from(s.strings));
-        self.as_mut().set_fretless(s.instrument == Bass::Fretless);
-        self.as_mut().set_instrument(q(instrument_key(choice)));
-        self.as_mut()
-            .set_laptop_jack(s.input_kind == kontra_appcore::InputKind::LaptopJack);
-        self.as_mut()
-            .set_connection(q(connection_key(s.input_kind)));
-        self.as_mut().set_metronome(s.metronome);
-        self.as_mut().set_count_in(s.count_in_bars > 0);
-        self.as_mut().set_reference(s.reference_tones);
-        self.as_mut().set_low_string_on_top(s.low_string_on_top);
-        self.as_mut().set_play_marks(q(&s.play_marks));
-        self.as_mut().set_motion(q(&s.motion));
-        self.as_mut().set_strictness(q(&s.strictness));
-        self.as_mut().set_pocket(q(&s.pocket));
-        self.as_mut().set_pitch_cents(s.pitch_cents);
-        self.as_mut().set_latency_ms(s.latency_ms);
-        let note = self.as_ref().rust().core.latency_note();
-        self.as_mut().set_latency_note(q(&note));
-        self.as_mut().set_backing_volume(s.backing_volume);
-        self.as_mut().set_metronome_volume(s.metronome_volume);
-        self.as_mut().set_tone_volume(s.tone_volume);
-        self.as_mut().set_drums_volume(s.drums_volume);
-        self.as_mut().set_bass_volume(s.bass_volume);
-        self.as_mut().set_prompt_volume(s.prompt_volume);
-        self.as_mut().set_adaptive(s.adaptive);
-        self.as_mut().set_reacting_band(s.reacting_band);
-        self.as_mut().set_simple_view(s.simple_view);
-        self.as_mut().set_streak(s.streak);
-        self.as_mut().set_tuning(q(&s.tuning));
-        self.as_mut().set_a4_hz(s.a4_hz);
-        self.as_mut().set_window_ms(s.window_ms);
-        self.as_mut().set_string_colors(q(&s.string_colors));
-        self.as_mut().set_left_handed(s.left_handed);
-        self.as_mut().set_monitor(s.monitor);
-        self.as_mut().set_monitor_volume(s.monitor_volume);
-        self.as_mut().set_monitor_low_db(s.monitor_low_db);
-        self.as_mut().set_monitor_mid_db(s.monitor_mid_db);
-        self.as_mut().set_monitor_high_db(s.monitor_high_db);
-        self.as_mut().set_monitor_compress(s.monitor_compress);
-        self.as_mut().set_monitor_warmth(s.monitor_warmth);
-        self.as_mut().refresh_effects();
-        self.as_mut().set_monitor_limit(s.monitor_limit);
-        self.as_mut().set_setup_done(s.setup_done);
-        self.as_mut().set_playing(false);
     }
 }

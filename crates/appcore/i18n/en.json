@@ -141,6 +141,8 @@
   "lane.part": "Part %1",
   "part.verse": "Verse",
   "part.chorus": "Chorus",
+  "fretboard.hide": "Hide fretboard",
+  "fretboard.show": "Show fretboard",
   "fretboard.name": "Fretboard",
   "fretboard.marker": "%1: string %2, fret %3",
   "histogram.mean": "mean",

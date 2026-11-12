@@ -184,6 +184,9 @@ pub struct Settings {
     /// "kante", "kante-light" or "system".
     pub style: String,
     pub low_string_on_top: bool,
+    /// Fretboard under the notes on the practice page (owner 12.11.2026); hidden, the notes
+    /// take its room.
+    pub fretboard_shown: bool,
     /// Note marks in play mode: "quiet" (default), "off" or "full". Other modes always mark fully.
     pub play_marks: String,
     /// Motion: "system" (follow the desktop's animation setting), "reduce" or "full".
@@ -291,6 +294,7 @@ impl Default for Settings {
             piece_mode: None,
             style: "kante".into(),
             low_string_on_top: false,
+            fretboard_shown: true,
             play_marks: "quiet".into(),
             motion: "system".into(),
             strictness: "auto".into(),
@@ -873,6 +877,7 @@ mod tests {
         assert_eq!(settings.window_ms, WINDOW_DEFAULT_MS);
         assert_eq!(settings.string_colors, "kante");
         assert!(!settings.left_handed);
+        assert!(settings.fretboard_shown);
         std::fs::remove_dir_all(dir).unwrap();
     }
 

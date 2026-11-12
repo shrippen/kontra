@@ -152,7 +152,7 @@ Spalten: **ID** · **Anforderung** · **Prio** · **Phase** · **Personas** · *
 | LH-ANZ-02 | Klassische Tabulatur mit Takten, Rhythmus und Wiederholungen, mitlaufend. | Muss | 1 | P2, P4 | Umschalten während des Spiels ohne Unterbrechung. |
 | LH-ANZ-03 | Notenansicht im Bassschlüssel (einstimmig), mitlaufend, mit Vorzeichen, Pausen, Bindebögen. | Muss | 1 | P3, P6 | 10 Referenzstücke werden ohne Notensatzfehler dargestellt (Sichtprüfung gegen MuseScore). |
 | LH-ANZ-04 | Kombinierte Ansicht (Noten über Tab oder Tab-Lane). | Soll | 1 | P3, P4 | Wählbar und gespeichert pro Lied. |
-| LH-ANZ-05 | Griffbrett-Ansicht unter der Lane: nächste Note, Lage, optional Fingersatz. | Soll | 1 | P1 | Zeigt bei Lagenwechsel die neue Lage ≥ 1 Takt vorher. |
+| LH-ANZ-05 | Griffbrett-Ansicht unter der Lane: nächste Note, Lage, optional Fingersatz. Pegel, Lage und Techniken des Stücks stehen in einer Spalte daneben; „Griffbrett ausblenden“ gibt den Noten seinen Platz, bleibt nach Neustart (Eigentümer, 12.11.2026). | Soll | 1 | P1, P2 | Zeigt bei Lagenwechsel die neue Lage ≥ 1 Takt vorher. |
 | LH-ANZ-06 | Saitenfarben einstellbar; Bedeutung nie nur über Farbe (zusätzlich Form, Symbol oder Text). | Muss | 1 | P7 | Graustufen-Screenshot: Treffer, Fehler, zu früh, zu spät unterscheidbar. |
 | LH-ANZ-07 | Saitenreihenfolge umschaltbar (tiefe Saite oben oder unten). | Soll | 1 | P2, P3 | Einstellung wirkt in Lane, Tab und Griffbrett gleich. |
 | LH-ANZ-08 | Linkshänder-Darstellung für Griffbrett. | Kann | 2 | – | Spiegelung korrekt. |

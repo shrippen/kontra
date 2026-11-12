@@ -5,19 +5,21 @@
 #[cfg(test)]
 mod tests {
     const BRIDGE: &str = include_str!("bridge.rs");
+    /// `sync_settings` lives with the other settings functions.
+    const SETTINGS: &str = include_str!("bridge/settings.rs");
 
-    /// Text of the function starting at `start` up to the next one at `end`.
-    fn block<'a>(start: &str, end: &str) -> &'a str {
-        let from = BRIDGE.find(start).unwrap_or(0);
-        let to = BRIDGE[from..].find(end).map_or(BRIDGE.len(), |i| from + i);
-        &BRIDGE[from..to]
+    /// Text of `source` from `start` up to the next `end`.
+    fn block<'a>(source: &'a str, start: &str, end: &str) -> &'a str {
+        let from = source.find(start).unwrap_or(0);
+        let to = source[from..].find(end).map_or(source.len(), |i| from + i);
+        &source[from..to]
     }
 
     #[test]
     fn sync_settings_sets_every_settings_property() {
         // In `new`: `left_handed: s.left_handed,` (struct field from the settings `s`).
-        let init = block("fn default() -> Self", "\n    }\n}");
-        let synced = block("fn sync_settings", "\n    fn ");
+        let init = block(BRIDGE, "fn default() -> Self", "\n    }\n}");
+        let synced = block(SETTINGS, "fn sync_settings", "\n    }\n");
         let missing: Vec<&str> = init
             .lines()
             .filter_map(|line| {
