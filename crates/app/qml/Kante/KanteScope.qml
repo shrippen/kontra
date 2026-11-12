@@ -28,6 +28,20 @@ Item {
 
     required property Item target
     property QtObject popup: null
+    /** KanteStyle role of the target's `backgroundColor` (the window role by default). */
+    property string backgroundRole: "dialogColor"
+    /**
+     * Off: Kante off gives the platform's own colours back (undress), not the parent's. For a
+     * target with a colour set of its own that does not inherit (Kirigami's toolbar, Header).
+     */
+    property bool restorePlatform: false
+    /**
+     * On: the items below the target are not watched while it is enabled (no sweep, one
+     * connection). Only when the target is disabled they are swept: a disabled item has a colour
+     * table of its own, so the whole subtree needs the roles then. For a target that is made
+     * often and is disabled rarely (a Kirigami bar on each page).
+     */
+    property bool shallow: false
     readonly property var theme: target ? target.Kirigami.Theme : null
     readonly property Item ground: popup && popup.background ? popup.background : null
     readonly property var groundTheme: ground ? ground.Kirigami.Theme : null
@@ -38,7 +52,7 @@ Item {
     readonly property var roles: ({
         textColor: "textColor",
         disabledTextColor: "disabledTextColor",
-        backgroundColor: "dialogColor",
+        backgroundColor: scope.backgroundRole,
         alternateBackgroundColor: "cardColor",
         highlightColor: "accentColor",
         highlightedTextColor: "accentForegroundColor",
@@ -66,7 +80,11 @@ Item {
         }
         applied = KanteStyle.themed
         if (applied) {
-            sweep(target)
+            if (!shallow) {
+                sweep(target)
+            } else {
+                watchTarget()
+            }
             return
         }
         undress()
@@ -74,10 +92,25 @@ Item {
 
     // One detached theme: Kante's roles, or the live colours of its item's parent.
     function bind(t, item) {
+        if (restorePlatform && !KanteStyle.themed) {
+            unbind(t)
+            return
+        }
         for (const prop in roles) {
             t[prop] = Qt.binding(KanteStyle.themed ? roleBinding(roles[prop]) : parentBinding(item, prop))
         }
         t.inherit = false
+    }
+
+    // Kante off: the platform's colours again. Undefined drops the colour and leaves the
+    // theme transparent until it syncs; a change of its colour group makes it sync now.
+    function unbind(t) {
+        for (const prop in roles) {
+            t[prop] = undefined
+        }
+        const group = t.colorGroup
+        t.colorGroup = group === Kirigami.Theme.Inactive ? Kirigami.Theme.Active : Kirigami.Theme.Inactive
+        t.colorGroup = group
     }
 
     /** The colors are set by this scope (System never touches the target). */
@@ -165,6 +198,42 @@ Item {
         item.childrenChanged.disconnect(item, itemGrown)
         item.enabledChanged.connect(item, itemEnabled)
         item.childrenChanged.connect(item, itemGrown)
+    }
+
+    // Shallow: only the target's own `enabled` is watched; a disabled target is swept.
+    function watchTarget() {
+        target.enabledChanged.disconnect(scope, targetEnabled)
+        target.enabledChanged.connect(scope, targetEnabled)
+        targetEnabled()
+    }
+
+    function targetEnabled() {
+        if (!applied || !target) {
+            return
+        }
+        if (!target.enabled) {
+            sweep(target)
+            return
+        }
+        unwatchAll()
+    }
+
+    // Enabled again: the items are let go (the ones dressed keep their roles). The next time
+    // the target is disabled, the sweep looks at them again.
+    function unwatchAll() {
+        const table = watched
+        watched = {}
+        watchedCount = 0
+        watchedKept = 0
+        pending = []
+        for (const key in table) {
+            const item = table[key]
+            if (!alive(item)) {
+                continue
+            }
+            item.enabledChanged.disconnect(item, itemEnabled)
+            item.childrenChanged.disconnect(item, itemGrown)
+        }
     }
 
     // Called with the item as `this`. The scope may go before the items (a popup torn down).
@@ -289,7 +358,7 @@ Item {
     }
     // After the event: the themes below take the window's colours first.
     function resweep() {
-        if (applied && windowRoot) {
+        if (applied && windowRoot && (!shallow || !target.enabled)) {
             sweep(target)
         }
     }
@@ -336,13 +405,7 @@ Item {
             if (!alive(item)) {
                 continue
             }
-            const t = item.Kirigami.Theme
-            for (const prop in roles) {
-                t[prop] = undefined
-            }
-            const group = t.colorGroup
-            t.colorGroup = group === Kirigami.Theme.Inactive ? Kirigami.Theme.Active : Kirigami.Theme.Inactive
-            t.colorGroup = group
+            unbind(item.Kirigami.Theme)
         }
     }
 }

@@ -985,17 +985,11 @@ Kirigami.Page {
             KanteTabStaff {
                 id: tabStaff
                 anchors.fill: parent
-                // A short piece (an exercise of 8 bars) needs fewer lines than fit: the staff grows
-                // up to half again instead of filling the top half only (QA 14.10., P1 at 1280 px).
-                readonly property real grow: {
-                    var system = KanteStyle.unit(170) * page.presentScale
-                    var perLine = Math.max(1, Math.floor((width - KanteStyle.unit(60)) / Math.max(1, minBarWidth)))
-                    var lines = Math.max(1, Math.ceil(page.bars.length / perLine))
-                    return Math.max(1, Math.min(1.5, height / (lines * system)))
-                }
-                // As many lines as fit (QA P2 R6: one line left the next bars hidden).
-                systems: Math.max(1, Math.floor(height / (KanteStyle.unit(170) * page.presentScale * grow)))
-                lineSpacing: KanteStyle.unit(14) * page.presentScale * grow
+                // The staff fills its room itself: as many lines as fit, grown until they fill
+                // it, a short piece up to half again (QA 14.10., owner 12.11.: four lines and a
+                // third of the page empty, from a guessed line height).
+                fill: true
+                lineSpacing: KanteStyle.unit(14) * page.presentScale
                 minBarWidth: Math.max(KanteStyle.unit(200), page.densestBar * page.tabNoteWidth)
                 visible: ctl.view === "tab"
                 strings: page.stringNames.length

@@ -161,11 +161,15 @@ QQC2.Button {
         spacing: Math.max(control.spacing, Kirigami.Units.smallSpacing)
         opacity: control.enabled ? 1 : 0.5
 
-        KanteLoader {
-            visible: control.busy
+        // Built while busy only: every button carried it hidden.
+        Loader {
+            active: control.busy
+            visible: active
             Layout.alignment: Qt.AlignVCenter
-            color: control.kanteInk
-            size: KanteStyle.unit(5)
+            sourceComponent: KanteLoader {
+                color: control.kanteInk
+                size: KanteStyle.unit(5)
+            }
         }
 
         KanteIcon {

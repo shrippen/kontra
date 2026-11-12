@@ -44,6 +44,11 @@ import "."
  *   position     the current time in seconds
  *   barsPerSystem  bars per line, 0 = as many as fit (`minBarWidth` each)
  *   systems      lines shown
+ *   fill, maxGrow  (1.81) the staff fills its height itself: as many lines as fit at
+ *                `lineSpacing` (no more than the piece needs), then the spacing grows until
+ *                they fill the height, up to `maxGrow` times (default 1.5); in a staff lower
+ *                than one line it shrinks. `systems` is not read then; `shownSystems` tells
+ *                the lines. Needs a height from outside (anchors or layout)
  *   marks        Full, Quiet (fret numbers in the text colour, small muted signs) or Off;
  *                setNoteState(index, state[, cents]) / resetStates() change states without a new
  *                layout (the layout is computed once per page, the states are read live)
@@ -79,6 +84,9 @@ Item {
     property real loopEnd: -1
     property int barsPerSystem: 0
     property int systems: 1
+    /** Fill the height (1.81, see above). */
+    property bool fill: false
+    property real maxGrow: 1.5
     property bool rhythm: true
     property bool cursor: true
     property real lineSpacing: KanteStyle.unit(14)
@@ -188,8 +196,23 @@ Item {
     readonly property int currentIndex: lastAtOrBefore(position)
     readonly property var barList: normalizeBars(bars, notes)
     readonly property int currentBar: barAt(position)
-    readonly property real ls: Math.max(6, lineSpacing)
-    readonly property int perSystem: barsPerSystem > 0 ? barsPerSystem
+    // The wanted spacing; `ls` is the one drawn (grown or shrunk in fill mode, 1.81).
+    readonly property real baseLs: Math.max(6, lineSpacing)
+    // A line's height per unit of spacing: every row scales with it, the rehearsal mark too.
+    readonly property real lineUnits: (hasSections ? markProbe.implicitHeight / baseLs + 0.4 : 0)
+        + (hasEndings ? 1.6 : 0) + 1.3 + 0.5 + (Math.max(1, strings) - 1) + (rhythm ? 3.2 : 0.8) + 0.4
+    // Bars per line at the wanted spacing; fill mode keeps them while the spacing grows, so
+    // the lines do not change with it (a grown header only narrows the bars a little).
+    readonly property int basePerSystem: barsPerSystem > 0 ? barsPerSystem
+        : Math.max(1, Math.floor((width - Math.round(nameMetrics.width + baseLs * 2.6)) / Math.max(1, minBarWidth)))
+    // Fill mode: the lines that fit, no more than the piece needs.
+    readonly property int fitSystems: Math.max(1, Math.min(Math.floor(height / (lineUnits * baseLs)),
+                                                           Math.ceil(barList.length / basePerSystem)))
+    /** Lines shown: `systems`, or in fill mode as many as fit (1.81). */
+    readonly property int shownSystems: fill ? fitSystems : Math.max(1, systems)
+    readonly property real ls: fill ? Math.max(6, Math.min(baseLs * maxGrow, height / (shownSystems * lineUnits)))
+                                    : baseLs
+    readonly property int perSystem: fill ? basePerSystem : barsPerSystem > 0 ? barsPerSystem
         : Math.max(1, Math.floor((width - headerWidth) / Math.max(1, minBarWidth)))
     readonly property int firstBar: Math.max(0, Math.floor(currentBar / perSystem) * perSystem)
 
@@ -199,21 +222,22 @@ Item {
     readonly property real endingRow: hasEndings ? ls * 1.6 : 0
     /** Any bar with a section: then a row for the rehearsal marks on top (1.50). */
     readonly property bool hasSections: barList.some(function (b) { return b.section !== "" })
-    readonly property real sectionRow: hasSections ? markProbe.implicitHeight + ls * 0.4 : 0
+    readonly property real sectionRow: hasSections ? markProbe.implicitHeight * ls / baseLs + ls * 0.4 : 0
     readonly property real staffTop: sectionRow + endingRow + markRow + ls * 0.5
     readonly property real staffHeight: (Math.max(1, strings) - 1) * ls
     readonly property real systemHeight: staffTop + staffHeight + (rhythm ? ls * 3.2 : ls * 0.8) + ls * 0.4
     readonly property real headerWidth: Math.round(nameMetrics.width + ls * 2.6)
     readonly property real barWidth: (width - headerWidth) / perSystem
 
-    readonly property var layout: computeLayout(firstBar, perSystem, Math.max(1, systems), width, ls, notes, barList,
+    readonly property var layout: computeLayout(firstBar, perSystem, shownSystems, width, ls, notes, barList,
                                                 strings, lowStringOnTop, rhythm)
     /** Loop parts of the page, one per line: [{x, w, sys, left, right}] (1.35). */
-    readonly property var loopParts: loopLayout(firstBar, perSystem, Math.max(1, systems), width, barList,
+    readonly property var loopParts: loopLayout(firstBar, perSystem, shownSystems, width, barList,
                                                 loopStart, loopEnd)
 
     implicitWidth: KanteStyle.unit(720)
-    implicitHeight: Math.ceil(systemHeight * Math.max(1, systems))
+    // In fill mode the height comes from outside; one line at the wanted spacing.
+    implicitHeight: fill ? Math.ceil(lineUnits * baseLs) : Math.ceil(systemHeight * shownSystems)
 
     Accessible.role: Accessible.Chart
     Accessible.name: accessibleName
@@ -699,7 +723,7 @@ Item {
     }
 
     // Rehearsal marks (1.50); the probe measures the row.
-    KanteRehearsalMark { id: markProbe; visible: false; text: "A"; pixelSize: staff.ls; Accessible.ignored: true }
+    KanteRehearsalMark { id: markProbe; visible: false; text: "A"; pixelSize: staff.baseLs; Accessible.ignored: true }
     Repeater {
         model: staff.layout.sections
         delegate: KanteRehearsalMark {
@@ -850,7 +874,7 @@ Item {
     Rectangle {
         readonly property int bar: staff.currentBar
         readonly property int sys: staff.sysOf(bar)
-        visible: staff.cursor && sys >= 0 && sys < staff.systems && staff.barList.length > 0
+        visible: staff.cursor && sys >= 0 && sys < staff.shownSystems && staff.barList.length > 0
         x: visible ? Math.round(staff.xOf(staff.position, bar)) : 0
         y: sys * staff.systemHeight + staff.staffTop - staff.ls * 0.8
         width: Math.max(2, KanteStyle.unit(2))
