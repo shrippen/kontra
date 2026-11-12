@@ -194,10 +194,31 @@ ColumnLayout {
         return q === "" || e.name.toLowerCase().indexOf(q) >= 0 || e.vendor.toLowerCase().indexOf(q) >= 0
     })
     readonly property int pickIndex: picks.findIndex(function(e) { return e.key === mixer.pickKey })
+    // Adds the chosen row, or the first one when none is chosen (a typed name plus Enter).
     function pickAdd() {
+        if (pickIndex < 0 && picks.length > 0) {
+            pickKey = picks[0].key
+        }
         if (pickIndex >= 0 && !fx.full) {
             ctl.editEffects("add", 0, pickKey, 0)
         }
+    }
+    // Puts the keyboard focus on the chosen row (the first when none is chosen); without rows
+    // on the search field.
+    function pickFocus() {
+        if (picks.length === 0) {
+            pickSearch.forceActiveFocus()
+            return
+        }
+        if (pickIndex < 0) {
+            pickKey = picks[0].key
+        }
+        Qt.callLater(function() {
+            var row = pickList.itemAtIndex(mixer.pickIndex)
+            if (row) {
+                row.forceActiveFocus()
+            }
+        })
     }
     function pickStep(by) {
         if (picks.length === 0) {
@@ -206,6 +227,7 @@ ColumnLayout {
         var at = Math.max(0, Math.min(picks.length - 1, (pickIndex < 0 ? (by > 0 ? -1 : picks.length) : pickIndex) + by))
         pickKey = picks[at].key
         pickList.positionViewAtIndex(at, ListView.Contain)
+        pickFocus()
     }
     // Where a slot's move buttons stand, so keyboard focus follows the slot that moved.
     function focusMoved(to) {
@@ -234,12 +256,14 @@ ColumnLayout {
                 Accessible.name: mixer.texts.t("fx.group.label")
                 KanteChip {
                     choice: true
+                    checkable: true
                     text: mixer.texts.t("fx.group.all") + " (" + mixer.addable.length + ")"
                     checked: mixer.pickGroup === "all"
                     onClicked: mixer.pickGroup = "all"
                 }
                 KanteChip {
                     choice: true
+                    checkable: true
                     text: mixer.texts.t("fx.group.builtin") + " (" + mixer.fx.kinds.length + ")"
                     checked: mixer.pickGroup === "builtin"
                     onClicked: mixer.pickGroup = "builtin"
@@ -249,6 +273,7 @@ ColumnLayout {
                     delegate: KanteChip {
                         required property var modelData
                         choice: true
+                        checkable: true
                         text: modelData.name + " (" + modelData.count + ")"
                         checked: mixer.pickGroup === modelData.key
                         onClicked: mixer.pickGroup = modelData.key
@@ -263,32 +288,48 @@ ColumnLayout {
                 autoHide: false
             }
             KanteTextField {
+                id: pickSearch
                 Layout.fillWidth: true
                 placeholderText: mixer.texts.t("fx.search.placeholder")
                 Accessible.name: mixer.texts.t("fx.search")
                 onTextChanged: mixer.pickQuery = text
                 onAccepted: mixer.pickAdd()
+                Keys.onDownPressed: mixer.pickFocus()
             }
-            // One Tab stop for the list: Up and Down move the chosen row, Enter adds it.
+            // Shows how far the list is scrolled; only when rows lie beyond the edge.
+            KanteScrollMeter {
+                Layout.fillWidth: true
+                visible: pickList.contentHeight > pickList.height
+                flickable: pickList
+            }
+            // The list ends in the middle of a row, so more rows are seen to lie below. The
+            // chosen row is the one Tab stop; Up and Down move it, Enter adds it.
             ListView {
                 id: pickList
+                readonly property real rowHeight: count > 0 ? contentHeight / count : 0
+                readonly property real shownRows: 5.5
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(contentHeight, KanteStyle.unit(240))
+                Layout.preferredHeight: Math.min(contentHeight, rowHeight * shownRows)
                 clip: true
                 model: mixer.picks
-                currentIndex: mixer.pickIndex
-                activeFocusOnTab: true
+                currentIndex: Math.max(0, mixer.pickIndex)
                 enabled: !mixer.fx.full
                 Accessible.role: Accessible.List
                 Accessible.name: mixer.texts.t("fx.list.label")
-                Keys.onUpPressed: mixer.pickStep(-1)
-                Keys.onDownPressed: mixer.pickStep(1)
-                Keys.onReturnPressed: mixer.pickAdd()
                 delegate: KanteListRow {
                     required property var modelData
                     width: ListView.view.width
                     focusOnClick: false
-                    activeFocusOnTab: false
+                    activeFocusOnTab: ListView.isCurrentItem
+                    // Reaching the list with nothing chosen chooses its first row.
+                    onActiveFocusChanged: {
+                        if (activeFocus && mixer.pickIndex < 0) {
+                            mixer.pickKey = modelData.key
+                        }
+                    }
+                    Keys.onUpPressed: mixer.pickStep(-1)
+                    Keys.onDownPressed: mixer.pickStep(1)
+                    Keys.onReturnPressed: mixer.pickAdd()
                     text: modelData.name
                     subtitle: modelData.vendor
                     meta: modelData.format
@@ -491,7 +532,7 @@ ColumnLayout {
                         destructive: true
                         onClicked: {
                             mixer.ctl.editEffects("remove", index, "", 0)
-                            pickList.forceActiveFocus()
+                            mixer.pickFocus()
                         }
                     }
                 }

@@ -82,7 +82,7 @@ impl Core {
     /// The chain for the mixer: `{"max", "full", "empty", "fullText", "latencyText", "kinds":
     /// [{"key", "name", "group"}], "plugins": [{"key", "name", "vendor", "format", "group"}],
     /// "groups": [{"key", "name", "count"}] (the groups with entries, in display order),
-    /// "needsRescan" (plugins found, none with categories: the search predates them),
+    /// "needsRescan" (plugins found from a saved search that predates categories),
     /// "presets": [name], "scan": {"running", "text", "broken": [{"file", "reason"}]}, "slots": [{"index", "kind", "name", "hint", "problem",
     /// "on", "first", "last", "values": [{"key", "label", "value", "shown"}]}]}`.
     pub fn effects_json(&self) -> String {
@@ -114,8 +114,9 @@ impl Core {
                 (count > 0).then(|| json!({ "key": g.key(), "name": name, "count": count }))
             })
             .collect();
-        let needs_rescan =
-            !report.plugins.is_empty() && report.plugins.iter().all(|p| p.categories.is_empty());
+        let needs_rescan = !report.categories_read
+            && !report.plugins.is_empty()
+            && report.plugins.iter().all(|p| p.categories.is_empty());
         json!({
             "max": CHAIN_SLOTS,
             "full": chain.slots().len() >= CHAIN_SLOTS,

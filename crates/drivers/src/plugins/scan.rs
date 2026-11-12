@@ -36,6 +36,10 @@ pub struct BrokenFile {
 pub struct ScanReport {
     pub plugins: Vec<PluginInfo>,
     pub broken: Vec<BrokenFile>,
+    /// True for a scan that records `PluginInfo::categories`; false in reports saved before
+    /// that, whose plugins have no categories because the scan never asked.
+    #[serde(default)]
+    pub categories_read: bool,
 }
 
 /// The program that probes one file: `program args… <file>`.
@@ -74,7 +78,10 @@ pub fn probe_line(path: &Path) -> String {
 
 /// Probes every file in its own process; each gets `timeout`.
 pub fn scan_files(files: &[PathBuf], probe: &ProbeCommand, timeout: Duration) -> ScanReport {
-    let mut report = ScanReport::default();
+    let mut report = ScanReport {
+        categories_read: true,
+        ..ScanReport::default()
+    };
     for file in files {
         let Some(format) = PluginFormat::of_file(file) else {
             continue;

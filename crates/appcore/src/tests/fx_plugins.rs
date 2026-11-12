@@ -47,6 +47,7 @@ fn core_with_plugin(name: &str) -> Core {
     core.plugins.set_report(ScanReport {
         plugins,
         broken: Vec::new(),
+        categories_read: true,
     });
     core
 }
@@ -523,6 +524,18 @@ fn core_listing(name: &str, plugins: Vec<kontra_session::plugins::PluginInfo>) -
     core.plugins.set_report(ScanReport {
         plugins,
         broken: Vec::new(),
+        categories_read: false,
+    });
+    core
+}
+
+/// Like `core_listing`, but the report comes from a scan that reads categories.
+fn core_scanned(name: &str, plugins: Vec<kontra_session::plugins::PluginInfo>) -> Core {
+    let mut core = core_listing(name, plugins.clone());
+    core.plugins.set_report(ScanReport {
+        plugins,
+        broken: Vec::new(),
+        categories_read: true,
     });
     core
 }
@@ -581,6 +594,10 @@ fn a_search_without_categories_asks_for_a_rescan() {
         vec![listed("A", &[]), listed("B", &["Fx"])],
     ));
     assert_eq!(mixed["needsRescan"], false);
+
+    // A scan that reads categories and finds none (a VST 3 without IPluginFactory2): no hint.
+    let bare = effects(&core_scanned("fx-bare", vec![listed("A", &[])]));
+    assert_eq!(bare["needsRescan"], false);
 
     let none = effects(&core_listing("fx-none", Vec::new()));
     assert_eq!(none["needsRescan"], false);
