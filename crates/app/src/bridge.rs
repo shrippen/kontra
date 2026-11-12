@@ -1106,6 +1106,8 @@ impl Default for ControllerRust {
             laptop_jack: args.laptop_jack,
         };
         let mut core = Core::new(&data_dir(), qa);
+        // Ready before the settings page asks for them.
+        core.relist_devices();
         // Devices stay open while Kontra is open (LH-EIN-18); a screenshot run holds none.
         if args.screenshot.is_none() {
             core.keep_devices_open();
@@ -1550,21 +1552,6 @@ impl qobject::Controller {
         self.as_mut().set_view(q(&view));
     }
 
-    fn change_language(mut self: Pin<&mut Self>, code: &QString) {
-        let code = code.to_string();
-        self.as_mut()
-            .core()
-            .update_settings(|s| s.language = Some(code.clone()));
-        let texts = self.as_ref().rust().core.texts_json();
-        self.as_mut().set_texts(q(&texts));
-        self.as_mut().set_language(q(&code));
-        // Kirigami's own texts ("Close Sidebar") at once, not after a restart (audit 10.11.).
-        crate::translator::ffi::install_kirigami_translator(&code);
-        // Note names follow the language (H in German), as do texts made from the settings.
-        self.as_mut().refresh_tuning();
-        self.as_mut().refresh_texts();
-    }
-
     fn loop_bars(mut self: Pin<&mut Self>, from: i32, to: i32) {
         let from = usize::try_from(from).unwrap_or(0);
         let to = usize::try_from(to).unwrap_or(0);
@@ -1629,6 +1616,9 @@ impl qobject::Controller {
     fn tick(mut self: Pin<&mut Self>) {
         let events = self.as_mut().core().tick();
         self.as_mut().apply(events);
+        if self.as_mut().core().devices_poll() {
+            self.as_mut().show_devices();
+        }
         if let Some(json) = self.as_mut().core().song_search_poll() {
             self.as_mut().set_song_search_json(q(&json));
         }

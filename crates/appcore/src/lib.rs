@@ -13,6 +13,7 @@ mod call;
 mod choice;
 mod course;
 mod data;
+mod device_lists;
 pub mod ear;
 mod effects;
 pub mod fx_plugins;
@@ -282,6 +283,7 @@ pub struct Core {
     /// Backing track decoded in the background (QA 27.10., J2).
     prepare: prepare::Prepare,
     bluetooth: bluetooth::BluetoothCheck,
+    device_lists: device_lists::DeviceLists,
     /// Where the browser saves downloads (LH-BIB-11).
     downloads: Option<PathBuf>,
     /// Songsterr search (LH-BIB-11, round 12).
@@ -344,6 +346,7 @@ impl Core {
             stems: stems::Stems::default(),
             prepare: prepare::Prepare::default(),
             bluetooth: bluetooth::BluetoothCheck::default(),
+            device_lists: device_lists::DeviceLists::default(),
             downloads: kontra_session::download_dir(),
             finder: songsterr::Finder::default(),
             updater: update::Updater::default(),
@@ -2559,8 +2562,8 @@ impl Core {
             Direction::Output
         };
         let devices = match direction {
-            Direction::Input => self.inputs(),
-            Direction::Output => list_devices(direction),
+            Direction::Input => self.answered(self.listed(direction)),
+            Direction::Output => self.listed(direction),
         };
         // Input: the one Kontra takes when none is chosen (LH-EIN-02).
         let preferred = preferred_input(&devices, self.settings.input_kind)
