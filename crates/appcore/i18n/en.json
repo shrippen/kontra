@@ -491,7 +491,6 @@
   "fx.plugin.crashed": "Kontra stopped while loading this plugin. It stays off until you switch it on.",
   "fx.plugin.failed": "The plugin does not load: {reason}. The entry stays silent.",
   "fx.plugin.cannot": "{name} cannot be loaded: {reason}",
-  "fx.plugin.label": "{name} ({vendor}, {format})",
   "fx.scan.button": "Find plugins",
   "fx.scan.button.hint": "Looks for CLAP and VST® 3 plugins in the usual folders. Each file is checked in a process of its own; one that crashes or hangs counts as broken.",
   "fx.scan.running": "Searching …",

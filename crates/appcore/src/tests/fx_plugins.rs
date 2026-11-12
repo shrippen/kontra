@@ -562,7 +562,10 @@ fn groups_count_built_ins_and_plugins() {
     assert_eq!(count_of(&fx, "distortion"), Some(2));
     // Nothing in this group: no chip.
     assert_eq!(count_of(&fx, "analysis"), None);
-    assert_eq!(fx["groups"][0]["name"], "Dynamics");
+    // The first chip is the first group in display order, named in the page's language.
+    assert_eq!(fx["groups"][0]["key"], "dynamics");
+    let name = fx["groups"][0]["name"].as_str().unwrap();
+    assert!(!name.is_empty() && name != "fx.group.dynamics", "{name}");
 }
 
 #[test]
