@@ -92,8 +92,15 @@ Kirigami.ScrollablePage {
                 return
             }
             var first = page.jumpTarget.nextItemInFocusChain(true)
+            var top = page.jumpTarget.mapToItem(page.flickable.contentItem, 0, 0).y
             page.jumpTarget = null
-            if (first) {
+            // Only a control of this section, in view: a section without one ("Tastenkürzel")
+            // left the focus outside the page (review #299); then it stays on the button.
+            if (!first || !page.flickable.contentItem.contains(first.mapToItem(page.flickable.contentItem, 1, 1))) {
+                return
+            }
+            var y = first.mapToItem(page.flickable.contentItem, 0, 0).y
+            if (y >= top - 1 && y < page.flickable.contentY + page.flickable.height) {
                 first.forceActiveFocus(Qt.TabFocusReason)
             }
         }
