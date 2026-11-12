@@ -4,16 +4,29 @@ import Kante
 import ".."
 
 // At start the sidebar opened and only then pushed the page aside, with a jerk (owner 12.11.).
-// Until the sidebar rests the window stays hidden and the page takes the sidebar's room at
-// once; later it waits for the slide's end (QA 11.11.). Run by scripts/check-video.sh.
+// Until the sidebar rests the window stays hidden and the page follows the sidebar's edge;
+// later the page takes the end width at once and moves with the slide (owner 12.11.).
+// Run by scripts/check-video.sh.
 Item {
     id: root
     width: 800
     height: 600
 
+    // What the inset reads of Kirigami's drawer.
+    QtObject {
+        id: drawerMock
+        property real width: 180
+        property bool collapsed: false
+        property bool drawerOpen: true
+        property bool modal: false
+        property real collapsedSize: 32
+        property real leftPadding: 4
+        property real rightPadding: 4
+    }
+
     Component {
         id: freshInset
-        SidebarInset { edge: 0 }
+        SidebarInset { edge: 0; drawer: drawerMock }
     }
 
     TestCase {
@@ -48,13 +61,34 @@ Item {
             verify(fresh.ready, "hid again later")
         }
 
-        function test_laterAfterTheSlide() {
+        // Opening or closing: the page takes its new width at once (one relayout) and follows
+        // the sidebar's edge by moving only (owner 12.11.: it waited for the slide's end).
+        function test_widthAtOnceThenFollows() {
             var fresh = createTemporaryObject(freshInset, root)
-            fresh.edge = 180
             tryCompare(fresh, "ready", true, fresh.restMs * 4)
+            fresh.edge = 180
+            drawerMock.drawerOpen = false
+            fresh.edge = 170
+            compare(fresh.margin, 0)
+            compare(fresh.offset, 170)
             fresh.edge = 0
+            compare(fresh.offset, 0)
+            drawerMock.drawerOpen = true
             compare(fresh.margin, 180)
-            tryCompare(fresh, "margin", 0, KanteStyle.durationSlow * 3)
+        }
+
+        // Collapsing shrinks the drawer's width step by step: the page takes the collapsed
+        // width at once, not each step's.
+        function test_collapseAtOnce() {
+            var fresh = createTemporaryObject(freshInset, root)
+            tryCompare(fresh, "ready", true, fresh.restMs * 4)
+            drawerMock.collapsed = true
+            compare(fresh.margin, 40)
+            drawerMock.width = 120
+            compare(fresh.margin, 40)
+            drawerMock.collapsed = false
+            compare(fresh.margin, 180)
+            drawerMock.width = 180
         }
     }
 }
