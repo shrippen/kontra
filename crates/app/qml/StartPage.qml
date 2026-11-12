@@ -16,6 +16,9 @@ Kirigami.ScrollablePage {
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
     property var summary: ({ last: null, next: null, lesson: null, review: 0, spots: null, probe: null, repeat: [], streak: 0, week: { minutes: 0, runs: 0 } })
+    // Before the first run: no run in the week and the last piece never played (D5).
+    readonly property bool firstRun: summary.week.runs === 0
+        && (summary.last === null || summary.last.best === null)
     readonly property bool sameAsLast: summary.next !== null && summary.last !== null
         && summary.next.path === summary.last.path
 
@@ -79,6 +82,8 @@ Kirigami.ScrollablePage {
     background: Rectangle { color: KanteStyle.backgroundColor }
     title: texts.t("home.title")
     padding: KanteStyle.unit(16)
+    leftPadding: applicationWindow().readingPad(width)
+    rightPadding: leftPadding
 
     Component.onCompleted: reload()
 
@@ -268,17 +273,25 @@ Kirigami.ScrollablePage {
             color: KanteStyle.mutedTextColor
             text: texts.t("home.streak", { days: page.summary.streak || 0 })
         }
+        QQC2.Label {
+            Layout.fillWidth: true
+            visible: page.firstRun
+            wrapMode: Text.WordWrap
+            color: KanteStyle.textColor
+            text: texts.t("home.week.first")
+        }
         RowLayout {
             Layout.fillWidth: true
+            visible: !page.firstRun
             spacing: KanteStyle.unit(32)
-            KanteKpi {
+            CountKpi {
                 // Under a minute is not nothing: "< 1 min" once anything was played.
                 value: page.summary.week.minutes > 0 && page.summary.week.minutes < 1
                     ? texts.t("home.week.under")
                     : texts.t("home.week.minutes", { minutes: Math.round(page.summary.week.minutes) })
                 label: texts.t("home.week.minutes.label")
             }
-            KanteKpi {
+            CountKpi {
                 value: String(page.summary.week.runs)
                 label: texts.t("home.week.runs.label")
             }

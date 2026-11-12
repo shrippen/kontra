@@ -42,6 +42,8 @@ Kirigami.ScrollablePage {
     background: Rectangle { color: KanteStyle.backgroundColor }
 
     title: texts.t("nav.settings")
+    leftPadding: applicationWindow().readingPad(width)
+    rightPadding: leftPadding
     Component.onCompleted: {
         ctl.refreshDevices()
         // QA `--mixer`: scroll to the mixer once the layout is done.
@@ -62,6 +64,27 @@ Kirigami.ScrollablePage {
         return texts.t("settings.device.default")
     }
 
+    // The section headings of this page, in order (the jump list at the top).
+    readonly property var sections: [
+        { title: texts.t("settings.section.connection"), target: function() { return ctl.connection !== "midi" ? connRow : outRow } },
+        { title: texts.t("settings.section.instrument"), target: function() { return instrRow } },
+        { title: texts.t("settings.section.display"), target: function() { return displayRow } },
+        { title: texts.t("settings.section.scoring"), target: function() { return scoringRow } },
+        { title: texts.t("settings.section.practice"), target: function() { return practiceRow } },
+        { title: texts.t("mixer.title"), target: function() { return mixerLabel } },
+        { title: texts.t("settings.section.language"), target: function() { return languageRow } },
+        { title: texts.t("data.title"), target: function() { return dataLabel } },
+        { title: texts.t("cache.title"), target: function() { return cacheGroupsView.itemAt(0) } },
+        { title: texts.t("about.title"), target: function() { return aboutLabel } },
+        { title: texts.t("keys.title"), target: function() { return keysLabel } }
+    ]
+    NumberAnimation { id: scrollAnim; target: page.flickable; property: "contentY"; duration: KanteStyle.duration; easing.type: Easing.OutCubic }
+    function scrollTo(item) {
+        var top = item.mapToItem(page.flickable.contentItem, 0, 0).y
+        scrollAnim.to = Math.max(0, Math.min(top, page.flickable.contentHeight - page.flickable.height))
+        scrollAnim.restart()
+    }
+
     function deviceIndex(list, id) {
         for (var i = 0; i < list.length; i++) {
             if (list[i].id === id) {
@@ -76,6 +99,26 @@ Kirigami.ScrollablePage {
 
         KanteHeading { text: texts.t("nav.settings"); pageTitle: true }
 
+        // Jump list: each button scrolls to its section.
+        Flow {
+            Layout.fillWidth: true
+            Layout.bottomMargin: KanteStyle.unit(8)
+            spacing: KanteStyle.unit(8)
+            Accessible.role: Accessible.Grouping
+            Accessible.name: texts.t("settings.jump")
+            Repeater {
+                model: page.sections
+                delegate: KanteButton {
+                    required property var modelData
+                    visible: modelData.target() !== null
+                    text: modelData.title
+                    emphasis: KanteButton.Emphasis.Quiet
+                    size: KanteButton.Size.Small
+                    onClicked: page.scrollTo(modelData.target())
+                }
+            }
+        }
+
         // The setup assistant lives here (and on the start page), not in the navigation.
         KanteSettingRow {
             Layout.fillWidth: true
@@ -89,6 +132,7 @@ Kirigami.ScrollablePage {
         // The audio input only matters while the bass comes as audio (not over MIDI).
         KanteSettingRow {
             Layout.fillWidth: true
+            id: connRow
             section: texts.t("settings.section.connection")
             visible: ctl.connection !== "midi"
             title: texts.t("settings.input")
@@ -121,6 +165,7 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             // Over MIDI the input row is hidden; the section starts here then.
+            id: outRow
             section: ctl.connection === "midi" ? texts.t("settings.section.connection") : ""
             title: texts.t("settings.output")
             KanteComboBox {
@@ -171,6 +216,13 @@ Kirigami.ScrollablePage {
                     onClicked: ctl.startCalibration()
                 }
                 KanteInfoTip { term: texts.t("settings.latency"); info: texts.t("help.latency"); accessibleName: texts.t("help.about", { term: texts.t("settings.latency") }) }
+                // How to measure: with a cable, or on the click (laptop jack and MIDI have no cable).
+                HintTip {
+                    title: texts.t("calibration.start")
+                    body: (ctl.laptopJack ? texts.t("calibration.loopback.jack")
+                           : ctl.connection === "midi" ? texts.t("calibration.loopback.midi")
+                           : texts.t("calibration.loopback.hint")) + " " + texts.t("calibration.hint")
+                }
             }
         }
         // Where the value comes from and the player's lean, in words (R4, LH-EIN-05).
@@ -184,37 +236,40 @@ Kirigami.ScrollablePage {
             Accessible.name: texts.t("settings.latency") + ": " + Math.round(ctl.latencyMs) + " ms, " + text
         }
         CalibrationBeat { Layout.fillWidth: true }
+        // The result of a measurement stays; how to measure sits behind the "?" (D4).
         QQC2.Label {
             Layout.fillWidth: true
+            visible: ctl.calibrationText !== ""
             wrapMode: Text.WordWrap
             color: KanteStyle.mutedTextColor
-            text: ctl.calibrationText !== "" ? ctl.calibrationText
-                : ctl.laptopJack ? texts.t("calibration.loopback.jack") + " " + texts.t("calibration.hint")
-                : ctl.connection === "midi" ? texts.t("calibration.loopback.midi") + " " + texts.t("calibration.hint")
-                : texts.t("calibration.loopback.hint") + " " + texts.t("calibration.hint")
+            text: ctl.calibrationText
         }
         InstrumentChoice {
             Layout.fillWidth: true
+            id: instrRow
             section: texts.t("settings.section.instrument")
         }
         KanteSettingRow {
             Layout.fillWidth: true
             visible: ctl.instrument !== "midi"
             title: texts.t("settings.reference")
-            hint: texts.t("settings.reference.hint")
-            KanteSpinBox {
-                Accessible.name: texts.t("settings.reference")
-                from: 430
-                to: 450
-                value: Math.round(ctl.a4Hz)
-                editable: true
-                textFromValue: function(value) { return value + " Hz" }
-                valueFromText: function(text) { return parseInt(text) }
-                onValueModified: ctl.changeReference(value)
+            RowLayout {
+                KanteSpinBox {
+                    Accessible.name: texts.t("settings.reference")
+                    from: 430
+                    to: 450
+                    value: Math.round(ctl.a4Hz)
+                    editable: true
+                    textFromValue: function(value) { return value + " Hz" }
+                    valueFromText: function(text) { return parseInt(text) }
+                    onValueModified: ctl.changeReference(value)
+                }
+                HintTip { title: texts.t("settings.reference"); key: "settings.reference.hint" }
             }
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            id: displayRow
             section: texts.t("settings.section.display")
             title: texts.t("settings.lowtop")
             hint: texts.t("settings.lowtop.hint")
@@ -238,14 +293,16 @@ Kirigami.ScrollablePage {
             id: colorsRow
             Layout.fillWidth: true
             title: texts.t("settings.colors")
-            hint: texts.t("settings.colors.hint")
-            KanteSegmented {
-                Accessible.name: texts.t("settings.colors")
-                readonly property var values: ["kante", "mono", "bright"]
-                model: [texts.t("settings.colors.kante"), texts.t("settings.colors.mono"),
-                        texts.t("settings.colors.bright")]
-                currentIndex: Math.max(0, values.indexOf(ctl.stringColors))
-                onActivated: function(index) { ctl.changeStringColors(values[index]) }
+            RowLayout {
+                KanteSegmented {
+                    Accessible.name: texts.t("settings.colors")
+                    readonly property var values: ["kante", "mono", "bright"]
+                    model: [texts.t("settings.colors.kante"), texts.t("settings.colors.mono"),
+                            texts.t("settings.colors.bright")]
+                    currentIndex: Math.max(0, values.indexOf(ctl.stringColors))
+                    onActivated: function(index) { ctl.changeStringColors(values[index]) }
+                }
+                HintTip { title: texts.t("settings.colors"); key: "settings.colors.hint" }
             }
         }
         // Preview of the string colours with a hit, a wrong and a waiting note.
@@ -270,14 +327,16 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.playmarks")
-            hint: texts.t("settings.playmarks.hint")
-            KanteSegmented {
-                Accessible.name: texts.t("settings.playmarks")
-                readonly property var values: ["quiet", "off", "full"]
-                model: [texts.t("settings.playmarks.quiet"), texts.t("settings.playmarks.off"),
-                        texts.t("settings.playmarks.full")]
-                currentIndex: Math.max(0, values.indexOf(ctl.playMarks))
-                onActivated: function(index) { ctl.changePlayMarks(values[index]) }
+            RowLayout {
+                KanteSegmented {
+                    Accessible.name: texts.t("settings.playmarks")
+                    readonly property var values: ["quiet", "off", "full"]
+                    model: [texts.t("settings.playmarks.quiet"), texts.t("settings.playmarks.off"),
+                            texts.t("settings.playmarks.full")]
+                    currentIndex: Math.max(0, values.indexOf(ctl.playMarks))
+                    onActivated: function(index) { ctl.changePlayMarks(values[index]) }
+                }
+                HintTip { title: texts.t("settings.playmarks"); key: "settings.playmarks.hint" }
             }
         }
         KanteSettingRow {
@@ -295,6 +354,7 @@ Kirigami.ScrollablePage {
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            id: scoringRow
             section: texts.t("settings.section.scoring")
             title: texts.t("settings.window")
             hint: texts.t("settings.window.hint")
@@ -337,6 +397,7 @@ Kirigami.ScrollablePage {
         }
         KanteSettingRow {
             Layout.fillWidth: true
+            id: practiceRow
             section: texts.t("settings.section.practice")
             title: texts.t("transport.metronome")
             KanteSwitch {
@@ -367,31 +428,37 @@ Kirigami.ScrollablePage {
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.band")
-            hint: texts.t("settings.band.hint")
-            KanteSwitch {
-                Accessible.name: texts.t("settings.band")
-                checked: ctl.reactingBand
-                onToggled: ctl.changeReactingBand(checked)
+            RowLayout {
+                KanteSwitch {
+                    Accessible.name: texts.t("settings.band")
+                    checked: ctl.reactingBand
+                    onToggled: ctl.changeReactingBand(checked)
+                }
+                HintTip { title: texts.t("settings.band"); key: "settings.band.hint" }
             }
         }
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.simple")
-            hint: texts.t("settings.simple.hint")
-            KanteSwitch {
-                Accessible.name: texts.t("settings.simple")
-                checked: ctl.simpleView
-                onToggled: ctl.changeSimpleView(checked)
+            RowLayout {
+                KanteSwitch {
+                    Accessible.name: texts.t("settings.simple")
+                    checked: ctl.simpleView
+                    onToggled: ctl.changeSimpleView(checked)
+                }
+                HintTip { title: texts.t("settings.simple"); key: "settings.simple.hint" }
             }
         }
         KanteSettingRow {
             Layout.fillWidth: true
             title: texts.t("settings.streak")
-            hint: texts.t("settings.streak.hint")
-            KanteSwitch {
-                Accessible.name: texts.t("settings.streak")
-                checked: ctl.streak
-                onToggled: ctl.changeStreak(checked)
+            RowLayout {
+                KanteSwitch {
+                    Accessible.name: texts.t("settings.streak")
+                    checked: ctl.streak
+                    onToggled: ctl.changeStreak(checked)
+                }
+                HintTip { title: texts.t("settings.streak"); key: "settings.streak.hint" }
             }
         }
         KanteSettingRow {
@@ -399,17 +466,20 @@ Kirigami.ScrollablePage {
             // Not where a store announces updates (Flatpak).
             visible: updateState.offered
             title: texts.t("settings.update")
-            hint: texts.t("settings.update.hint")
-            KanteSwitch {
-                Accessible.name: texts.t("settings.update")
-                checked: updateState.enabled
-                onToggled: updateState = JSON.parse(ctl.updateNotice(checked ? "on" : "off"))
+            RowLayout {
+                KanteSwitch {
+                    Accessible.name: texts.t("settings.update")
+                    checked: updateState.enabled
+                    onToggled: updateState = JSON.parse(ctl.updateNotice(checked ? "on" : "off"))
+                }
+                HintTip { title: texts.t("settings.update"); key: "settings.update.hint" }
             }
         }
         KanteSectionLabel { id: mixerLabel; text: texts.t("mixer.title"); Layout.topMargin: KanteStyle.unit(12) }
         Mixer { Layout.fillWidth: true }
         KanteSettingRow {
             Layout.fillWidth: true
+            id: languageRow
             section: texts.t("settings.section.language")
             title: texts.t("settings.language")
             KanteSegmented {
@@ -466,6 +536,7 @@ Kirigami.ScrollablePage {
 
         // Round 16: each cache with its size, each entry by its song; delete one or all.
         Repeater {
+            id: cacheGroupsView
             model: page.cacheGroups
             delegate: ColumnLayout {
                 id: group
@@ -589,7 +660,7 @@ Kirigami.ScrollablePage {
         }
 
         // All keyboard shortcuts in one place (LH-NF-07).
-        KanteSectionLabel { text: texts.t("keys.title"); Layout.topMargin: KanteStyle.unit(12) }
+        KanteSectionLabel { id: keysLabel; text: texts.t("keys.title"); Layout.topMargin: KanteStyle.unit(12) }
         GridLayout {
             Layout.fillWidth: true
             columns: 2

@@ -43,6 +43,26 @@ Kirigami.ScrollablePage {
     background: Rectangle { color: KanteStyle.backgroundColor }
 
     title: texts.t("nav.library")
+    leftPadding: applicationWindow().readingPad(width)
+    rightPadding: leftPadding
+
+    // "today", "yesterday", "3 days ago", else the date; "" when the time is unknown.
+    function lastPlayed(unix) {
+        if (!unix) {
+            return ""
+        }
+        var days = Math.floor((Date.now() - unix * 1000) / 86400000)
+        if (days <= 0) {
+            return texts.t("library.last.today")
+        }
+        if (days === 1) {
+            return texts.t("library.last.yesterday")
+        }
+        if (days < 30) {
+            return texts.t("library.last.days", { n: days })
+        }
+        return texts.t("library.last.date", { date: new Date(unix * 1000).toLocaleDateString(Qt.locale(), Locale.ShortFormat) })
+    }
 
     function open(url) {
         if (ctl.openFile(url)) {
@@ -229,14 +249,20 @@ Kirigami.ScrollablePage {
                         // Two pieces of one title: the file name tells them apart (QA 13.10.).
                         readonly property bool twin: page.recent.filter(function(r) {
                             return r.title === piece.modelData.title }).length > 1
-                        readonly property string result: piece.modelData.best !== null && piece.modelData.best !== undefined
+                        readonly property bool played: piece.modelData.best !== null && piece.modelData.best !== undefined
+                        readonly property string result: played
                               ? texts.t("library.best", { percent: Math.round(piece.modelData.best * 100) })
-                                + " · " + (piece.modelData.practiceMin < 1 ? texts.t("library.underminute") : texts.t("library.minutes", { minutes: Math.round(piece.modelData.practiceMin) }))
                               : texts.t("library.unplayed")
+                        // Practised minutes and how long ago, once the piece was played.
+                        readonly property string history: !played ? "" : [
+                              piece.modelData.practiceMin < 1 ? texts.t("library.underminute") : texts.t("library.minutes", { minutes: Math.round(piece.modelData.practiceMin) }),
+                              page.lastPlayed(piece.modelData.lastUnix)].filter(function(s) { return s !== "" }).join(" · ")
+                        density: KanteListRow.Density.Comfortable
                         // In a slim window the result goes under the title, which keeps its room.
                         subtitle: [piece.modelData.artist]
                                   .concat(twin ? [String(piece.modelData.path).split("/").pop()] : [])
                                   .concat(piece.modelData.tags.map(function(t) { return "#" + t }))
+                                  .concat([history])
                                   .concat(page.slim ? [result] : [])
                                   .filter(function(s) { return s !== "" }).join(" · ")
                         meta: page.slim ? "" : result

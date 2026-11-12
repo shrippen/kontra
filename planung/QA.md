@@ -178,6 +178,8 @@ Palm-Mute und die letzte Note (ohne Staccato) werden nicht bewertet. Mikrofon: k
    Takte, die in den letzten drei Tagen am häufigsten am schwersten waren; ein Klick öffnet den Takt in der Werkstatt.
 3. Fortschrittsansicht öffnen.
 Erwartet: Übungszeit und Verbesserung sichtbar; Formulierungen ermutigend, keine Rangliste; ohne Suchen weiterüben.
+Vor dem ersten Lauf steht auf der Startseite statt „0 min · 0“ ein Satz, der zum ersten Durchlauf einlädt; danach zählen
+Minuten und Durchläufe beim Öffnen hoch (nicht bei „weniger Bewegung“), und die Auswertung zählt ihre Trefferquote hoch.
 Liegt eine Übung nach dem Lauf über 90 %, bietet die Auswertung die nächste im Plan an; die Übungsliste zeigt sie mit
 Häkchen.
 
