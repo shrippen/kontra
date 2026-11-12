@@ -982,15 +982,12 @@ Kirigami.Page {
                 loopStart: ctl.loopStart
                 loopEnd: ctl.loopEnd
             }
-            KanteTabStaff {
+            TabStaff {
                 id: tabStaff
                 anchors.fill: parent
-                // The staff fills its room itself: as many lines as fit, grown until they fill
-                // it, a short piece up to half again (QA 14.10., owner 12.11.: four lines and a
-                // third of the page empty, from a guessed line height).
-                fill: true
-                lineSpacing: KanteStyle.unit(14) * page.presentScale
-                minBarWidth: Math.max(KanteStyle.unit(200), page.densestBar * page.tabNoteWidth)
+                presentScale: page.presentScale
+                densestBar: page.densestBar
+                noteWidth: page.tabNoteWidth
                 visible: ctl.view === "tab"
                 strings: page.stringNames.length
                 stringNames: page.stringNames
@@ -1028,6 +1025,7 @@ Kirigami.Page {
                 spacing: KanteStyle.unit(8)
                 KanteBassStaff {
                     id: combinedBass
+                    settleMs: applicationWindow().staffSettleMs
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     // Half the room is the staff's (G18); from the column, not its own height,
@@ -1052,6 +1050,7 @@ Kirigami.Page {
                 }
                 KanteTabStaff {
                     id: combinedTab
+                    settleMs: applicationWindow().staffSettleMs
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.minimumHeight: implicitHeight

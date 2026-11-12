@@ -8,6 +8,9 @@ KanteBassStaff {
     // Size factor of the presentation (LH-ANZ-09), 1 otherwise.
     property real presentScale: 1
 
+    // Sized from `layoutSize`, the size the staff lays out at: while a window is dragged it
+    // stays until the drag settles (Kante 1.82 settleMs).
+
     // Most onsets in one bar (PracticePage.densestBar).
     property int densestBar: 0
 
@@ -29,15 +32,16 @@ KanteBassStaff {
         var wanted = KanteStyle.unit(10) * presentScale
         var lineSpaces = hasChords ? 16.5 : 14.5
         for (var grown = wanted * 1.5; grown > wanted; grown -= wanted * 0.05) {
-            var perLine = Math.max(1, Math.floor((width - grown * 8) / (grown * barSpaces)))
-            if (Math.ceil(bars.length / perLine) * lineSpaces * grown <= height) {
+            var perLine = Math.max(1, Math.floor((layoutSize.width - grown * 8) / (grown * barSpaces)))
+            if (Math.ceil(bars.length / perLine) * lineSpaces * grown <= layoutSize.height) {
                 return grown
             }
         }
-        var line = height / lineSpaces
+        var line = layoutSize.height / lineSpaces
         return Math.min(wanted, line / 2 >= wanted * 0.75 ? line / 2 : line)
     }
     minBarWidth: staffSpace * barSpaces
     // As many lines as fit, as in the tablature (QA 13.10.: one line, the rest empty).
-    systems: Math.max(1, Math.floor(height / systemHeight))
+    systems: Math.max(1, Math.floor(layoutSize.height / systemHeight))
+    settleMs: applicationWindow().staffSettleMs
 }
