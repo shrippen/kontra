@@ -46,6 +46,16 @@ Item {
     property string valueKey: ""
     property real minValue: NaN
     property real maxValue: NaN
+    /** The first level starts at the lowest value (`minValue`, else the points') instead of a
+     *  multiple of the step rounded down: "3–23", not "0–20". Default off. */
+    property bool exactLevelStart: false
+    /** The top level reads "≥ n" (n its start) and holds every value above, instead of a
+     *  closed range that may reach past the highest value. Default off. */
+    property bool openTopLevel: false
+    /** Whole-number levels, for counts ("views"): steps are whole numbers (at least 1), keys
+     *  have no decimals ("3", "3–5"), and values spanning fewer integers than `levels` get
+     *  only as many levels as integers, the top ones of the scale. Default off. */
+    property bool integerLevels: false
     property string valueTitle: ""
     property var seriesNames: []
     property bool equalAspect: false
@@ -78,6 +88,8 @@ Item {
 
     readonly property int count: points ? points.length : 0
     readonly property int levels: 4
+    /** Levels in use: `levels`, or fewer with `integerLevels` when the values span fewer integers. */
+    readonly property int levelCount: levelScale.count
     readonly property bool valued: valueKey !== "" && isFinite(valueRange.low) && isFinite(valueRange.high)
 
     // Layout: y labels on the left, a title row above, x labels and title below, legend last.
@@ -180,22 +192,47 @@ Item {
      * the next nice step until the top bound reaches the highest value. The legend shows
      * exactly these bounds and `levelOf` uses them. The scale may reach past the highest
      * value, so a top level can stay empty. Without a fixed end, one value (or all equal)
-     * takes the top level and the legend shows only that value.
+     * takes the top level and the legend shows only that value. `exactLevelStart` starts the
+     * first level at the lowest value itself. `openTopLevel` writes the top key as "≥ n" and
+     * shrinks the step until that start is not above the highest value, so all bounds and
+     * `levelOf` change with it (`levelOf` always puts values above the last bound on the top
+     * level). `integerLevels`
+     * works on whole numbers: `count` levels (at most `levels`), a step of at least 1, a
+     * level key ends on the integer before the next level's start.
      */
     readonly property var levelScale: {
-        const low = valueRange.low
-        const high = valueRange.high
-        let step = niceStep((high - low) / levels)
-        let start = Math.floor(low / step) * step
-        while (start + levels * step < high) {
-            step = niceStep(step * 1.01)
-            start = Math.floor(low / step) * step
+        const whole = integerLevels
+        const low = whole ? Math.floor(valueRange.low) : valueRange.low
+        const high = whole ? Math.ceil(valueRange.high) : valueRange.high
+        // Integers from low to high; fewer than `levels` of them: one level each.
+        const count = whole ? Math.max(1, Math.min(levels, high - low + 1)) : levels
+        const wholeStep = st => whole ? Math.max(1, Math.ceil(st)) : st
+        let step = wholeStep(niceStep(whole ? (high - low + 1) / count : (high - low) / levels))
+        const startOf = st => exactLevelStart ? low : Math.floor(low / st) * st
+        let start = startOf(step)
+        // Whole numbers: the highest value is itself in the top level, so its bound lies above.
+        const short = () => whole ? start + count * step <= high : start + count * step < high
+        while (short()) {
+            step = wholeStep(niceStep(step * 1.01))
+            start = startOf(step)
+        }
+        // An open top level starts at or below the highest value: it is never an empty "≥ n".
+        // Exact start 3, top 60: step 20 would give "≥ 63", so step 10 gives "≥ 33".
+        while (openTopLevel && high > low && step > (whole ? 1 : 0) && start + (count - 1) * step > high) {
+            // Whole numbers round down (2.5 -> 2): rounding up could return the old step.
+            const smaller = niceStepBelow(step * 0.99)
+            const next = whole ? Math.max(1, Math.floor(smaller)) : smaller
+            if (!(next < step)) {
+                break
+            }
+            step = next
+            start = startOf(step)
         }
         if (!(high > low)) {
             // One value: nothing to compare with, so it takes the top level (full colour).
-            start -= (levels - 1) * step
+            start -= (count - 1) * step
         }
-        return { start: start, step: step }
+        return { start: start, step: step, count: count }
     }
     readonly property real levelStep: levelScale.step
 
@@ -211,7 +248,8 @@ Item {
         if (!valued) {
             return out
         }
-        const digits = decimalsOf(levelStep)
+        const digits = integerLevels ? 0 : decimalsOf(levelStep)
+        const offset = levels - levelCount
         if (!isFinite(minValue) && !isFinite(maxValue) && !(valueRange.high > valueRange.low)) {
             // All points have one value: no ranges to tell apart, just that value in its
             // colour, written as the tooltip writes it. A fixed end keeps the level keys.
@@ -220,11 +258,16 @@ Item {
                        text: numberText(v, Number.isInteger(v) ? 0 : 2) })
             return out
         }
-        for (let k = 1; k <= levels; k++) {
+        for (let k = 1; k <= levelCount; k++) {
             const lo = levelScale.start + (k - 1) * levelStep
             const hi = levelScale.start + k * levelStep
-            out.push({ color: KanteStyle.levelColor(k, levels, scaleColor),
-                       text: numberText(lo, digits) + "–" + numberText(hi, digits) })
+            const open = openTopLevel && k === levelCount
+            // Whole numbers: a key ends on the last integer it holds, "3" when that is one.
+            const last = hi - 1
+            const range = integerLevels && last <= lo ? numberText(lo, digits)
+                : numberText(lo, digits) + "–" + numberText(integerLevels ? last : hi, digits)
+            out.push({ color: KanteStyle.levelColor(offset + k, levels, scaleColor),
+                       text: open ? "≥ " + numberText(lo, digits) : range })
         }
         return out
     }
@@ -243,6 +286,12 @@ Item {
         const p10 = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10))
         const f = raw / p10
         return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p10
+    }
+    /** 1-2-2.5-5 step at most `raw`. */
+    function niceStepBelow(raw) {
+        const p10 = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10))
+        const f = raw / p10
+        return (f >= 5 ? 5 : f >= 2.5 ? 2.5 : f >= 2 ? 2 : 1) * p10
     }
     /**
      * One axis: ends rounded out to its step unless fixed; an empty span (one value, or the
@@ -309,7 +358,8 @@ Item {
         }
         // 1e-9: 0.3 / 0.1 is 2.9999… and still belongs to the level starting at 0.3.
         const index = Math.floor((v - levelScale.start) / levelStep + 1e-9)
-        return Math.max(1, Math.min(levels, 1 + index))
+        // Fewer levels than `levels` take the top colours, as one value does.
+        return levels - levelCount + Math.max(1, Math.min(levelCount, 1 + index))
     }
     function shapeOf(i) {
         const s = points[i] ? points[i].shape : undefined
@@ -374,7 +424,7 @@ Item {
     /** Largest hit distance: the hit radius or half of the biggest mark. Sets the grid's cell. */
     readonly property real hitReach: Math.max(hitRadius, pointSize * bounds.mark / 2)
     readonly property string layoutKey: [count, width, height, axes.x0, axes.x1, axes.y0, axes.y1,
-        padLeft, padTop, plotWidth, plotHeight, valueKey, valueRange.low, valueRange.high, pointSize].join(",")
+        padLeft, padTop, plotWidth, plotHeight, valueKey, valueRange.low, valueRange.high, levelScale.start, levelScale.step, levelScale.count, pointSize].join(",")
     onLayoutKeyChanged: invalidate()
     onPointsChanged: invalidate()
 

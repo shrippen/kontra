@@ -9,6 +9,10 @@ Item {
     width: 1200
     height: 600
 
+    // NotationStaff reads the settle time from the application window; at once here.
+    readonly property int staffSettleMs: 0
+    function applicationWindow() { return root }
+
     // Eight 4/4 bars at 60 BPM (a bar is 4 s) with `perBar` even notes each.
     function piece(perBar) {
         var bars = [], notes = []

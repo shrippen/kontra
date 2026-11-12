@@ -54,6 +54,10 @@ Kirigami.ApplicationWindow {
     }
     contentItem.anchors.leftMargin: pageInset
 
+    // Tab and notation lay out again only this long after the window stopped changing size
+    // (polish pass, 12.11.): a drag no longer rebuilds the notes on every step.
+    readonly property int staffSettleMs: 120
+
     // Text pages keep one reading width, centred; notes, fretboard and tuner stay full width.
     readonly property int readingWidth: KanteStyle.unit(1040)
     function readingPad(pageWidth) {
