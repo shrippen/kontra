@@ -194,9 +194,12 @@ ColumnLayout {
         return q === "" || e.name.toLowerCase().indexOf(q) >= 0 || e.vendor.toLowerCase().indexOf(q) >= 0
     })
     readonly property int pickIndex: picks.findIndex(function(e) { return e.key === mixer.pickKey })
-    // Adds the chosen row, or the first one when none is chosen (a typed name plus Enter),
-    // through the dialog's accept, which closes it.
+    // Adds the chosen row, or the first match when none is chosen (a typed name plus Enter),
+    // through the dialog's accept, which closes it. Enter alone adds nothing.
     function pickAdd() {
+        if (pickIndex < 0 && pickQuery.trim() === "") {
+            return
+        }
         if (pickIndex < 0 && picks.length > 0) {
             pickKey = picks[0].key
         }
@@ -246,6 +249,7 @@ ColumnLayout {
         // While a plugin loads to be added (FX4), the row says so instead of its usual hint.
         hint: mixer.fx.adding !== "" ? mixer.fx.adding : mixer.texts.t("fx.hint")
         KanteButton {
+            objectName: "fxOpen"
             text: mixer.texts.t("fx.add.open")
             enabled: !mixer.fx.full
             onClicked: pickDialog.open()
@@ -254,6 +258,7 @@ ColumnLayout {
     // The picker: groups, search and list in a dialog, so the page stays short.
     KanteDialog {
         id: pickDialog
+        objectName: "fxPicker"
         parent: QQC2.Overlay.overlay
         anchors.centerIn: parent
         modal: true
@@ -263,8 +268,9 @@ ColumnLayout {
         acceptText: mixer.texts.t("fx.add.accept")
         acceptEnabled: !mixer.fx.full && mixer.pickIndex >= 0
         onAccepted: mixer.ctl.editEffects("add", 0, mixer.pickKey, 0)
-        // Each opening starts with an empty search, typing at once.
+        // Each opening starts with an empty search and no row chosen, typing at once.
         onOpened: {
+            mixer.pickKey = ""
             pickSearch.text = ""
             pickSearch.forceActiveFocus()
         }
@@ -313,6 +319,7 @@ ColumnLayout {
             }
             KanteTextField {
                 id: pickSearch
+                objectName: "fxSearch"
                 Layout.fillWidth: true
                 placeholderText: mixer.texts.t("fx.search.placeholder")
                 Accessible.name: mixer.texts.t("fx.search")

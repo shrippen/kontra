@@ -426,7 +426,6 @@
   "fx.vendor.builtin": "Kontra",
   "fx.add.open": "Add effect …",
   "fx.add.accept": "Add",
-  "fx.add.button": "Add {name}",
   "fx.plugin.adding": "Loading {name} …",
   "fx.window.label": "Window",
   "fx.window": "Open the window of {name}",
