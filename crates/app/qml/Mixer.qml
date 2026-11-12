@@ -337,11 +337,18 @@ ColumnLayout {
             // chosen row is the one Tab stop; Up and Down move it, Enter adds it.
             ListView {
                 id: pickList
-                readonly property real rowHeight: count > 0 ? contentHeight / count : 0
+                // The height of a row, kept once known: the list keeps its height while the
+                // search narrows it, so the centred dialog does not jump (review #295).
+                property real rowHeight: 0
                 readonly property real shownRows: 8.5
+                onContentHeightChanged: {
+                    if (count > 0) {
+                        rowHeight = Math.max(rowHeight, contentHeight / count)
+                    }
+                }
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Layout.preferredHeight: Math.min(contentHeight, rowHeight * shownRows)
+                Layout.preferredHeight: rowHeight * shownRows
                 clip: true
                 model: mixer.picks
                 currentIndex: Math.max(0, mixer.pickIndex)

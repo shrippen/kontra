@@ -51,7 +51,11 @@ Item {
             return dialog
         }
 
+        // Each test starts with the dialog closed and nothing added.
         function init() {
+            var dialog = findChild(mixer, "fxPicker")
+            dialog.close()
+            tryCompare(dialog, "visible", false)
             root.ctl.added = []
         }
 
@@ -70,6 +74,18 @@ Item {
             keyClick(Qt.Key_Escape)
             tryCompare(dialog, "visible", false)
             compare(root.ctl.added, [])
+        }
+
+        // The dialog keeps its place while the search narrows the list (review #295).
+        function test_searchKeepsTheHeight() {
+            var dialog = openPicker()
+            waitForRendering(dialog.contentItem)
+            var height = dialog.height
+            keyClick(Qt.Key_F)
+            keyClick(Qt.Key_U)
+            keyClick(Qt.Key_Q)
+            waitForRendering(dialog.contentItem)
+            compare(dialog.height, height)
         }
 
         function test_reopenedEnterAddsNothing() {
