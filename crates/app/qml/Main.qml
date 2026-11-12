@@ -30,7 +30,36 @@ Kirigami.ApplicationWindow {
     // after loading (QA 14.10.).
     onWideScreenChanged: wideScreen ? globalDrawer.open() : globalDrawer.close()
 
-        onPresentingChanged: {
+    // The page gets its width from the sidebar once it has settled, not on every frame of the
+    // slide: each width change relays out the notes (60 ms and more), and the slide stuttered
+    // (QA 11.11., P4). Meanwhile the sidebar slides over the page.
+    //
+    //   frame:  page |#### sidebar slides ####|        page keeps its old width
+    //   settled: [sidebar][ page, new width    ]       one relayout
+    readonly property real drawerEdge: globalDrawer && !globalDrawer.modal
+        ? globalDrawer.width * globalDrawer.position : 0
+    property real pageInset: 0
+    onDrawerEdgeChanged: {
+        if (!KanteStyle.animate) {
+            pageInset = drawerEdge
+            return
+        }
+        insetTimer.restart()
+    }
+    Timer {
+        id: insetTimer
+        interval: KanteStyle.durationSlow + 50
+        onTriggered: root.pageInset = root.drawerEdge
+    }
+    contentItem.anchors.leftMargin: pageInset
+
+    // Text pages keep one reading width, centred; notes, fretboard and tuner stay full width.
+    readonly property int readingWidth: KanteStyle.unit(1040)
+    function readingPad(pageWidth) {
+        return Math.max(KanteStyle.unit(16), (pageWidth - readingWidth) / 2)
+    }
+
+    onPresentingChanged: {
         if (presenting) {
             drawerBefore = globalDrawer.drawerOpen
             globalDrawer.close()
@@ -153,6 +182,7 @@ Kirigami.ApplicationWindow {
         // placed in the graphics scene"); a page created here has one. Pages pushed as objects
         // are not destroyed by the page row, so the old one is.
         var old = pageStack.currentItem
+        pageIn.stop()
         var component = Qt.createComponent(pages[name])
         if (component.status !== Component.Ready) {
             console.warn(component.errorString())
@@ -169,11 +199,43 @@ Kirigami.ApplicationWindow {
             pageStack.push(page)
         } else {
             pageStack.replace(page)
+            if (KanteStyle.animate) {
+                pageIn.play(page)
+            }
         }
         if (old) {
             old.destroy()
         }
     }
+
+    // A page fades in from 8 px below; the old one is already gone.
+    Translate { id: lift }
+    ParallelAnimation {
+        id: pageIn
+        property Item page: null
+        function play(item) {
+            stop()
+            if (page) {
+                page.transform = []
+            }
+            page = item
+            item.opacity = 0
+            lift.y = pageInOffset
+            item.transform = [lift]
+            restart()
+        }
+        onFinished: {
+            if (!page) {
+                return
+            }
+            page.transform = []
+            page.opacity = 1
+            page = null
+        }
+        NumberAnimation { target: pageIn.page; property: "opacity"; to: 1; duration: KanteStyle.durationFast }
+        NumberAnimation { target: lift; property: "y"; to: 0; duration: KanteStyle.durationFast; easing.type: Easing.OutCubic }
+    }
+    readonly property int pageInOffset: 8
 
     // Development (KONTRA_LIVE_QML, live_qml.cpp): an edited file shows without a restart. The
     // page goes first, so its components leave the engine's cache; then it is built from disk.
