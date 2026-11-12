@@ -58,7 +58,7 @@ Kirigami.ApplicationWindow {
     // (polish pass, 12.11.): a drag no longer rebuilds the notes on every step.
     readonly property int staffSettleMs: 120
 
-    // Text pages keep one reading width, centred; notes, fretboard and tuner stay full width.
+    // Every page keeps one reading width, centred; only the practice page (notes) stays full width.
     readonly property int readingWidth: KanteStyle.unit(1040)
     function readingPad(pageWidth) {
         return Math.max(KanteStyle.unit(16), (pageWidth - readingWidth) / 2)

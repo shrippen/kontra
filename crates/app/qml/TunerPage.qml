@@ -68,6 +68,8 @@ Kirigami.Page {
 
     title: texts.t("tuner.title")
     padding: KanteStyle.unit(16)
+    leftPadding: applicationWindow().readingPad(width)
+    rightPadding: leftPadding
 
     Component.onCompleted: ctl.startTuner()
     Component.onDestruction: ctl.stopTuner()

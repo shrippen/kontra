@@ -30,6 +30,8 @@ Kirigami.ScrollablePage {
     background: Rectangle { color: KanteStyle.backgroundColor }
     title: entry ? entry.title : texts.t("learn.glossary")
     padding: KanteStyle.unit(16)
+    leftPadding: applicationWindow().readingPad(width)
+    rightPadding: leftPadding
     // A layer gets Kirigami's own header; the page brings its back button in Kante instead.
     globalToolBarStyle: Kirigami.ApplicationHeaderStyle.None
 
