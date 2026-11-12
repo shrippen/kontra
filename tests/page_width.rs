@@ -19,22 +19,24 @@ fn read(path: &str) -> String {
     std::fs::read_to_string(root.join(path)).unwrap()
 }
 
-/// The page files listed in `pages` of Main.qml.
+/// Every page file, also those opened as a layer (the glossary).
 fn page_files() -> Vec<String> {
-    let main = read(&format!("{QML}/Main.qml"));
-    let start = main.find("readonly property var pages").unwrap();
-    let block = &main[start..start + main[start..].find("})").unwrap()];
-    block
-        .split("Qt.resolvedUrl(\"")
-        .skip(1)
-        .map(|rest| rest[..rest.find('"').unwrap()].to_string())
-        .collect()
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(QML);
+    let mut files: Vec<String> = std::fs::read_dir(root)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|name| name.ends_with("Page.qml"))
+        .collect();
+    files.sort();
+    files
 }
 
 #[test]
 fn pages_share_reading_width() {
     let files = page_files();
-    assert!(files.len() > 5, "pages not found in Main.qml: {files:?}");
+    assert!(files.len() > 5, "pages not found in {QML}: {files:?}");
     let missing: Vec<_> = files
         .iter()
         .filter(|file| *file != FULL_WIDTH_PAGE)
