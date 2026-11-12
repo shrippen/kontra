@@ -248,6 +248,8 @@ Kirigami.Page {
     // Half a laptop screen (beside a video or a tab): one column, no fretboard (QA 13.10.).
     readonly property bool slim: width < KanteStyle.unit(700)
     readonly property bool compact: height < KanteStyle.unit(560)
+    // Room for the fretboard under the notes: not in the keys view, a slim or low window.
+    readonly property bool fretboardRoom: ctl.view !== "keys" && !slim && !compact
     // A low window during a run or at its end (QA 28.10., P4 at 1280×720, 150 %): transpose,
     // timing aim and density step aside, so tab and staff keep their height; in the workshop also
     // target tempo, kept loops and the block choice (B6, P7 at 200 %). Bars and pass stay.
@@ -1121,7 +1123,7 @@ Kirigami.Page {
             ColumnLayout {
             Layout.fillWidth: true
             // The keyboard view has its own keys; a fretboard beside them would only distract.
-            visible: ctl.view !== "keys" && !page.slim && !page.compact
+            visible: page.fretboardRoom && ctl.fretboardShown
             spacing: KanteStyle.unit(4)
             KanteFretboard {
                 Layout.fillWidth: true
@@ -1137,9 +1139,52 @@ Kirigami.Page {
                 accessibleName: texts.t("fretboard.name")
                 markerText: texts.t("fretboard.marker")
             }
-            RowLayout {
+            }
+            GridLayout {
+            columns: page.fretboardRoom && !ctl.fretboardShown ? 5 : 1; columnSpacing: KanteStyle.unit(16)
+            Layout.preferredWidth: meter.implicitWidth
+            // Beside the fretboard a column; alone in the row (keys view, slim or low window) the
+            // whole width; with the fretboard hidden one row of the whole width (owner 12.11.).
+            Layout.fillWidth: !page.fretboardRoom || !ctl.fretboardShown
+            // Kontra listens only while playing; before, "−∞ dB · too quiet" read as a fault
+            // (QA 14.10.). The meter's place keeps a line saying when it shows.
+            // A MIDI keyboard has no level (P5): a line instead of "−∞ dB · too quiet".
+            readonly property bool midi: ctl.connection === "midi"
+            QQC2.Label {
+                visible: !ctl.playing || parent.midi
+                Layout.fillWidth: true
+                Layout.preferredHeight: meter.implicitHeight
+                verticalAlignment: Text.AlignVCenter
+                wrapMode: Text.WordWrap
+                // No keyboard plugged in: say so instead of "Kontra reads the keys" (QA 27.10., P5).
+                text: !parent.midi ? texts.t("level.idle")
+                    : ctl.midiPortName === "" ? texts.t("level.midi.none") : texts.t("level.midi")
+                color: KanteStyle.mutedTextColor
+            }
+            KanteLevelMeter {
+                id: meter
+                visible: ctl.playing && !parent.midi
+                Layout.fillWidth: true
+                peakDb: ctl.peakDb
+                rmsDb: ctl.rmsDb
+                clipped: ctl.clipped
+                title: texts.t("level.title")
+                quietText: texts.t("level.quiet")
+                goodText: texts.t("level.good")
+                loudText: texts.t("level.loud")
+                clipText: texts.t("level.clip")
+                accessibleName: texts.t("level.name")
+            }
+            LevelAdvice {
+                Layout.fillWidth: true
+                listening: ctl.playing && ctl.connection !== "midi"
+                brief: page.compact
+                onUseLaptopJack: ctl.changeConnection("laptop")
+            }
+            Flow {
+                Layout.fillWidth: true
                 spacing: KanteStyle.unit(8)
-                visible: page.handPosition > 0
+                visible: page.fretboardRoom && page.handPosition > 0
                 KantePill {
                     status: KantePill.State.Off
                     text: texts.t("fretboard.position", { position: page.handPosition })
@@ -1163,7 +1208,7 @@ Kirigami.Page {
             // while playing, when a click would come too late.
             Flow {
                 Layout.fillWidth: true
-                visible: page.signs.length > 0 || page.hasChordSymbols
+                visible: page.fretboardRoom && (page.signs.length > 0 || page.hasChordSymbols)
                 spacing: KanteStyle.unit(16)
                 Repeater {
                     model: page.signs
@@ -1204,45 +1249,12 @@ Kirigami.Page {
                     }
                 }
             }
-            }
-            ColumnLayout {
-            Layout.preferredWidth: meter.implicitWidth
-            // Alone in the row (keyboard view, slim or low window): the whole width.
-            Layout.fillWidth: ctl.view === "keys" || page.slim || page.compact
-            // Kontra listens only while playing; before, "−∞ dB · too quiet" read as a fault
-            // (QA 14.10.). The meter's place keeps a line saying when it shows.
-            // A MIDI keyboard has no level (P5): a line instead of "−∞ dB · too quiet".
-            readonly property bool midi: ctl.connection === "midi"
-            QQC2.Label {
-                visible: !ctl.playing || parent.midi
-                Layout.fillWidth: true
-                Layout.preferredHeight: meter.implicitHeight
-                verticalAlignment: Text.AlignVCenter
-                wrapMode: Text.WordWrap
-                // No keyboard plugged in: say so instead of "Kontra reads the keys" (QA 27.10., P5).
-                text: !parent.midi ? texts.t("level.idle")
-                    : ctl.midiPortName === "" ? texts.t("level.midi.none") : texts.t("level.midi")
-                color: KanteStyle.mutedTextColor
-            }
-            KanteLevelMeter {
-                id: meter
-                visible: ctl.playing && !parent.midi
-                Layout.fillWidth: true
-                peakDb: ctl.peakDb
-                rmsDb: ctl.rmsDb
-                clipped: ctl.clipped
-                title: texts.t("level.title")
-                quietText: texts.t("level.quiet")
-                goodText: texts.t("level.good")
-                loudText: texts.t("level.loud")
-                clipText: texts.t("level.clip")
-                accessibleName: texts.t("level.name")
-            }
-            LevelAdvice {
-                Layout.fillWidth: true
-                listening: ctl.playing && ctl.connection !== "midi"
-                brief: page.compact
-                onUseLaptopJack: ctl.changeConnection("laptop")
+            // Hides the fretboard: the notes take its room (owner 12.11.); remembered.
+            KanteButton {
+                visible: page.fretboardRoom
+                emphasis: KanteButton.Emphasis.Quiet
+                text: ctl.fretboardShown ? texts.t("fretboard.hide") : texts.t("fretboard.show")
+                onClicked: ctl.changeFretboard(!ctl.fretboardShown)
             }
             }
         }
