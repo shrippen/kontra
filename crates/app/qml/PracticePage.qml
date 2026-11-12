@@ -174,7 +174,7 @@ Kirigami.Page {
         function onFinished() {
             if (ctl.mode === "play") {
                 page.summaryReady = true
-                summaryCallout.Accessible.announce(texts.t("summary.ready"))
+                summaryButton.Accessible.announce(texts.t("summary.ready"))
             } else {
                 summary.open()
             }
@@ -250,10 +250,12 @@ Kirigami.Page {
     readonly property bool compact: height < KanteStyle.unit(560)
     // Room for the fretboard under the notes: not in the keys view, a slim or low window.
     readonly property bool fretboardRoom: ctl.view !== "keys" && !slim && !compact
-    // A low window during a run or at its end (QA 28.10., P4 at 1280×720, 150 %): transpose,
-    // timing aim and density step aside, so tab and staff keep their height; in the workshop also
-    // target tempo, kept loops and the block choice (B6, P7 at 200 %). Bars and pass stay.
-    readonly property bool lean: compact && (ctl.playing || page.summaryReady)
+    // A low window (QA 28.10., P4 at 1280×720, 150 %): transpose, timing aim and density stay
+    // folded, so tab and staff keep their height; in the workshop also target tempo, kept loops
+    // and the block choice (B6, P7 at 200 %). Bars and pass stay. The player unfolds them; a run
+    // does not, the notes stay put (owner 12.11.).
+    property bool unfolded: false
+    readonly property bool lean: compact && !unfolded
     // Five views as buttons need about 470 px: below this width a list, so modes, view and
     // transposing share one row (QA 14.10., 1280 px with the sidebar).
     readonly property bool viewsAsList: width < KanteStyle.unit(1300)
@@ -339,6 +341,17 @@ Kirigami.Page {
                         onActivated: function(index) { ctl.switchTrack(index) }
                     }
                 }
+            }
+            // Play mode: the run is over, the summary waits behind a button. In the title's row, so
+            // it moves no notes when it comes or goes (owner 12.11.).
+            KanteButton {
+                id: summaryButton
+                visible: page.summaryReady && !summary.visible
+                Layout.alignment: Qt.AlignTop
+                text: texts.t("summary.show")
+                emphasis: KanteButton.Emphasis.Primary
+                Accessible.description: texts.t("summary.ready")
+                onClicked: summary.open()
             }
             // Setlist (LH-BIB-04, J-B1: next song in at most two clicks; also the N key).
             KanteButton {
@@ -482,6 +495,14 @@ Kirigami.Page {
                     info: texts.t("pocket.hint")
                     accessibleName: texts.t("help.about", { term: texts.t("pocket.title") })
                 }
+            }
+            KanteButton {
+                visible: page.compact
+                checkable: true
+                checked: page.unfolded
+                emphasis: KanteButton.Emphasis.Quiet
+                text: page.unfolded ? texts.t("practice.fold") : texts.t("practice.unfold")
+                onToggled: page.unfolded = checked
             }
         }
 
@@ -883,27 +904,8 @@ Kirigami.Page {
         }
 
         // Between runs only: Kontra suggests, the player decides (round 5).
-        KanteCallout {
-            id: densityCallout
+        DensityHint {
             Layout.fillWidth: true
-            visible: ctl.densitySuggestion > 0 && !ctl.playing
-            kind: KanteCallout.Kind.Info
-            autoHide: false
-            title: ctl.densityText
-            Accessible.name: ctl.densityText
-            onVisibleChanged: if (visible) Accessible.announce(ctl.densityText)
-            RowLayout {
-                KanteButton {
-                    text: texts.t("density.accept")
-                    emphasis: KanteButton.Emphasis.Primary
-                    onClicked: ctl.changeDensity(ctl.densitySuggestion, "free")
-                }
-                KanteButton {
-                    text: texts.t("density.decline")
-                    emphasis: KanteButton.Emphasis.Quiet
-                    onClicked: ctl.declineDensity()
-                }
-            }
         }
 
         // Call and response (LH-LRN-19): needs chords and four bars.
@@ -928,10 +930,11 @@ Kirigami.Page {
         KanteCallout {
             id: waitCallout
             Layout.fillWidth: true
-            visible: ctl.holdingIndex >= 0
+            // The whole wait mode, not each held note: the notes stay put (owner 12.11.).
+            visible: ctl.mode === "wait"
             kind: KanteCallout.Kind.Info
             autoHide: false
-            title: ctl.holdingText
+            title: ctl.holdingIndex >= 0 && ctl.holdingText !== "" ? ctl.holdingText : texts.t("mode.wait.hint")
         }
         Connections {
             target: ctl
@@ -941,27 +944,9 @@ Kirigami.Page {
             }
         }
 
-        // Play mode: the run is over, the summary waits behind a button.
-        KanteCallout {
-            id: summaryCallout
-            Layout.fillWidth: true
-            visible: page.summaryReady && !summary.visible
-            kind: KanteCallout.Kind.Info
-            autoHide: false
-            title: texts.t("summary.ready")
-            Accessible.name: texts.t("summary.ready")
-            KanteButton {
-                text: texts.t("summary.show")
-                emphasis: KanteButton.Emphasis.Primary
-                onClicked: summary.open()
-            }
-        }
-
-        // Clipped: on small screens a staff taller than its room drew over the transport (QA 13.10.).
-        Item {
+        NotesArea {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            clip: true
 
             KanteTabLane {
                 id: lane
@@ -1109,153 +1094,9 @@ Kirigami.Page {
             }
         }
 
-        RowLayout {
+        PracticeFooter {
             Layout.fillWidth: true
-            // Only as high as its content: a nested layout fills by default, and in the keyboard
-            // view (no fretboard) it took the notes' room (QA 13.10.).
-            Layout.fillHeight: false
-            // Level and its advice stay at any height, the notes shrink (QA 27.10., S12: P7 at
-            // 150 % found neither); a low window leaves out the fretboard only. After a run the level
-            // is idle: there its line makes room for "Show summary" (QA 28.10.).
-            visible: !page.presenting && !(page.lean && !ctl.playing)
-            spacing: KanteStyle.unit(16)
-            ColumnLayout {
-            Layout.fillWidth: true
-            // The keyboard view has its own keys; a fretboard beside them would only distract.
-            visible: page.fretboardRoom && ctl.fretboardShown
-            spacing: KanteStyle.unit(4)
-            KanteFretboard {
-                Layout.fillWidth: true
-                Layout.preferredHeight: KanteStyle.unit(120)
-                strings: page.stringNames.length
-                stringNames: page.stringNames
-                frets: 15
-                lowStringOnTop: ctl.lowStringOnTop
-                leftHanded: ctl.leftHanded
-                // The finger the position suggests is written in the marker (1 index … 4 pinky).
-                markers: page.nextNote ? [{ string: page.nextNote.string, fret: page.nextNote.fret, role: "next",
-                                            label: page.nextNote.finger > 0 ? String(page.nextNote.finger) : "" }] : []
-                accessibleName: texts.t("fretboard.name")
-                markerText: texts.t("fretboard.marker")
-            }
-            }
-            GridLayout {
-            columns: page.fretboardRoom && !ctl.fretboardShown ? 5 : 1; columnSpacing: KanteStyle.unit(16)
-            Layout.preferredWidth: meter.implicitWidth
-            // Beside the fretboard a column; alone in the row (keys view, slim or low window) the
-            // whole width; with the fretboard hidden one row of the whole width (owner 12.11.).
-            Layout.fillWidth: !page.fretboardRoom || !ctl.fretboardShown
-            // Kontra listens only while playing; before, "−∞ dB · too quiet" read as a fault
-            // (QA 14.10.). The meter's place keeps a line saying when it shows.
-            // A MIDI keyboard has no level (P5): a line instead of "−∞ dB · too quiet".
-            readonly property bool midi: ctl.connection === "midi"
-            QQC2.Label {
-                visible: !ctl.playing || parent.midi
-                Layout.fillWidth: true
-                Layout.preferredHeight: meter.implicitHeight
-                verticalAlignment: Text.AlignVCenter
-                wrapMode: Text.WordWrap
-                // No keyboard plugged in: say so instead of "Kontra reads the keys" (QA 27.10., P5).
-                text: !parent.midi ? texts.t("level.idle")
-                    : ctl.midiPortName === "" ? texts.t("level.midi.none") : texts.t("level.midi")
-                color: KanteStyle.mutedTextColor
-            }
-            KanteLevelMeter {
-                id: meter
-                visible: ctl.playing && !parent.midi
-                Layout.fillWidth: true
-                peakDb: ctl.peakDb
-                rmsDb: ctl.rmsDb
-                clipped: ctl.clipped
-                title: texts.t("level.title")
-                quietText: texts.t("level.quiet")
-                goodText: texts.t("level.good")
-                loudText: texts.t("level.loud")
-                clipText: texts.t("level.clip")
-                accessibleName: texts.t("level.name")
-            }
-            LevelAdvice {
-                Layout.fillWidth: true
-                listening: ctl.playing && ctl.connection !== "midi"
-                brief: page.compact
-                onUseLaptopJack: ctl.changeConnection("laptop")
-            }
-            Flow {
-                Layout.fillWidth: true
-                spacing: KanteStyle.unit(8)
-                visible: page.fretboardRoom && page.handPosition > 0
-                KantePill {
-                    status: KantePill.State.Off
-                    text: texts.t("fretboard.position", { position: page.handPosition })
-                    Accessible.name: text
-                }
-                KantePill {
-                    id: shiftPill
-                    visible: page.shift !== null
-                    status: KantePill.State.Locked
-                    text: page.shift ? texts.t("fretboard.shift", { position: page.shift.position, bar: page.shift.bar }) : ""
-                    Accessible.name: text
-                    onTextChanged: if (text !== "") Accessible.announce(text)
-                }
-                QQC2.Label {
-                    visible: page.nextNote !== null && page.nextNote.finger > 0
-                    text: page.nextNote ? texts.t("fretboard.finger", { finger: page.nextNote.finger }) : ""
-                    color: KanteStyle.mutedTextColor
-                }
-            }
-            // The signs of this piece, each with its "?" (LH-LRN-09): lane and notes show them
-            // while playing, when a click would come too late.
-            Flow {
-                Layout.fillWidth: true
-                visible: page.fretboardRoom && (page.signs.length > 0 || page.hasChordSymbols)
-                spacing: KanteStyle.unit(16)
-                Repeater {
-                    model: page.signs
-                    delegate: Row {
-                        required property string modelData
-                        visible: signTip.entry !== null
-                        spacing: KanteStyle.unit(4)
-                        KanteTechniqueMark {
-                            anchors.verticalCenter: parent.verticalCenter
-                            height: KanteStyle.unit(18)
-                            width: implicitWidth
-                            technique: modelData
-                        }
-                        QQC2.Label {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: signTip.term
-                            color: KanteStyle.mutedTextColor
-                        }
-                        TermTip {
-                            id: signTip
-                            anchors.verticalCenter: parent.verticalCenter
-                            topic: "technique." + modelData
-                        }
-                    }
-                }
-                Row {
-                    visible: page.hasChordSymbols && chordTip.entry !== null
-                    spacing: KanteStyle.unit(4)
-                    QQC2.Label {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: chordTip.term
-                        color: KanteStyle.mutedTextColor
-                    }
-                    TermTip {
-                        id: chordTip
-                        anchors.verticalCenter: parent.verticalCenter
-                        topic: "lane.chord"
-                    }
-                }
-            }
-            // Hides the fretboard: the notes take its room (owner 12.11.); remembered.
-            KanteButton {
-                visible: page.fretboardRoom
-                emphasis: KanteButton.Emphasis.Quiet
-                text: ctl.fretboardShown ? texts.t("fretboard.hide") : texts.t("fretboard.show")
-                onClicked: ctl.changeFretboard(!ctl.fretboardShown)
-            }
-            }
+            practice: page
         }
 
         // The mixer opens above the transport (in the page, so screenshots show it).

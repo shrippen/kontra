@@ -133,6 +133,8 @@
   "level.idle": "Eingang: Kontra hört zu, sobald du abspielst. Den Pegel vorher prüfen: Stimmgerät.",
   "level.midi.none": "Eingang: MIDI-Keyboard, gerade ist keins angeschlossen (Einstellungen → Anschluss).",
   "level.midi": "Eingang: MIDI-Keyboard. Kontra liest die Tasten, einen Pegel gibt es hier nicht.",
+  "practice.unfold": "Mehr Einstellungen",
+  "practice.fold": "Weniger Einstellungen",
   "practice.empty.title": "Noch kein Stück geöffnet",
   "practice.empty.text": "Nimm eine Übung aus dem Plan oder öffne ein Stück aus der Bibliothek (Guitar Pro, MIDI, MusicXML).",
   "practice.empty.exercises": "Zu den Übungen",

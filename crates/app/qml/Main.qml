@@ -30,33 +30,44 @@ Kirigami.ApplicationWindow {
     // after loading (QA 14.10.).
     onWideScreenChanged: wideScreen ? globalDrawer.open() : globalDrawer.close()
 
-    // The page gets its width from the sidebar once it has settled, not on every frame of the
-    // slide: each width change relays out the notes (60 ms and more), and the slide stuttered
-    // (QA 11.11., P4). Meanwhile the sidebar slides over the page.
-    //
-    //   frame:  page |#### sidebar slides ####|        page keeps its old width
-    //   settled: [sidebar][ page, new width    ]       one relayout
     readonly property real drawerEdge: globalDrawer && !globalDrawer.modal
         ? globalDrawer.width * globalDrawer.position : 0
-    property real pageInset: 0
-    // The presentation hides the sidebar at once, so the page takes the room at once too.
-    onDrawerEdgeChanged: {
-        if (!KanteStyle.animate || presenting) {
-            pageInset = drawerEdge
-            return
-        }
-        insetTimer.restart()
+    SidebarInset {
+        id: sidebarInset
+        edge: root.drawerEdge
+        presenting: root.presenting
     }
-    Timer {
-        id: insetTimer
-        interval: KanteStyle.durationSlow + 50
-        onTriggered: root.pageInset = root.drawerEdge
+    // Page and sidebar show together once the sidebar has its place.
+    contentItem.opacity: sidebarInset.ready ? 1 : 0
+    Binding {
+        target: root.globalDrawer
+        property: "opacity"
+        value: root.contentItem.opacity
     }
-    contentItem.anchors.leftMargin: pageInset
+    Behavior on contentItem.opacity {
+        NumberAnimation { duration: KanteStyle.duration }
+    }
+    contentItem.anchors.leftMargin: sidebarInset.margin
 
     // Tab and notation lay out again only this long after the window stopped changing size
-    // (polish pass, 12.11.): a drag no longer rebuilds the notes on every step.
-    readonly property int staffSettleMs: 120
+    // (polish pass, 12.11.): a drag no longer rebuilds the notes on every step. 120 ms felt slow
+    // (owner 12.11.). Other changes of their room (a mode's rows, the mixer) lay out at once,
+    // while the notes glide (NotesArea).
+    readonly property int staffSettleMs: resizing ? 60 : 0
+    // True from a size change of the window until it rests; Qt changes the window's size before
+    // its content's, so the notes already see it.
+    property bool resizing: false
+    onWidthChanged: noteResize()
+    onHeightChanged: noteResize()
+    function noteResize() {
+        resizing = true
+        resizeRest.restart()
+    }
+    Timer {
+        id: resizeRest
+        interval: 250
+        onTriggered: root.resizing = false
+    }
 
     // Every page keeps one reading width, centred; only the practice page (notes) stays full width.
     readonly property int readingWidth: KanteStyle.unit(1040)
