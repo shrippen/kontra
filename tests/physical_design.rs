@@ -38,7 +38,7 @@ const OVER_BUDGET: [(&str, usize); 5] = [
     ("crates/appcore/src/lib.rs", 2847),
     ("crates/app/src/bridge.rs", 1854),
     ("crates/content/src/exercise.rs", 2450),
-    ("crates/app/qml/PracticePage.qml", 1400),
+    ("crates/app/qml/PracticePage.qml", 1394),
     ("crates/dsp/src/tracker.rs", 1450),
 ];
 
