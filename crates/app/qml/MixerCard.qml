@@ -12,7 +12,7 @@ KanteCard {
     // At most this high, the rest scrolls: open with tone shaping it squeezed the notes to a
     // strip (QA 14.10.).
     property real maxHeight: 0
-    readonly property real fullHeight: Math.min(pageMixer.implicitHeight + KanteStyle.unit(16), maxHeight)
+    readonly property real fullHeight: Math.min(mixerLoader.implicitHeight + KanteStyle.unit(16), maxHeight)
     // It grows to its height and shrinks away instead of popping in.
     property real openness: open ? 1 : 0
     Behavior on openness { NumberAnimation { duration: KanteStyle.duration; easing.type: Easing.OutCubic } }
@@ -28,14 +28,14 @@ KanteCard {
         width: parent.width - KanteStyle.unit(24)
         height: mixerCard.fullHeight - KanteStyle.unit(16)
         contentWidth: width
-        contentHeight: pageMixer.implicitHeight
+        contentHeight: mixerLoader.implicitHeight
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         QQC2.ScrollBar.vertical: QQC2.ScrollBar { id: mixerBar; policy: mixerFlick.contentHeight > mixerFlick.height ? QQC2.ScrollBar.AlwaysOn : QQC2.ScrollBar.AsNeeded }
         // Tab into a row below the fold scrolls the whole row into view (P7, keyboard only).
         Window.onActiveFocusItemChanged: {
             let item = Window.activeFocusItem
-            while (item && item.parent !== pageMixer) {
+            while (item && item.parent !== mixerLoader.item) {
                 item = item.parent
             }
             if (!item) {
@@ -48,10 +48,12 @@ KanteCard {
                 contentY = Math.min(top + item.height - height, contentHeight - height)
             }
         }
-        Mixer {
-            id: pageMixer
-            practice: true
+        // Built after the page unless it opens at once: the mixer is many controls.
+        Loader {
+            id: mixerLoader
+            asynchronous: !mixerCard.open
             width: mixerFlick.width - (mixerFlick.contentHeight > mixerFlick.height ? mixerBar.width + KanteStyle.unit(8) : 0)
+            sourceComponent: Mixer { practice: true }
         }
     }
 }

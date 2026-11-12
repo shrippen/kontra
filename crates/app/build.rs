@@ -11,6 +11,7 @@ const PAGES: &[&str] = &[
     "qml/SettingsPage.qml",
     "qml/CalibrationBeat.qml",
     "qml/SummarySheet.qml",
+    "qml/SummaryLayer.qml",
     "qml/Texts.qml",
     "qml/LevelAdvice.qml",
     "qml/ProgressPage.qml",

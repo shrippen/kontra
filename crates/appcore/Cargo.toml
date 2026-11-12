@@ -39,5 +39,9 @@ name = "steady_notes"
 path = "../../tests/steady_notes.rs"
 
 [[test]]
+name = "lazy_parts"
+path = "../../tests/lazy_parts.rs"
+
+[[test]]
 name = "page_width"
 path = "../../tests/page_width.rs"

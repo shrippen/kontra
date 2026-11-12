@@ -45,7 +45,10 @@ Kirigami.Page {
     // Play mode marks quietly or not at all (setting); the other modes mark fully.
     readonly property int marks: ctl.mode !== "play" || ctl.playMarks === "full" ? KanteTabLane.Marks.Full
                                : ctl.playMarks === "off" ? KanteTabLane.Marks.Off : KanteTabLane.Marks.Quiet
-    readonly property var noteViews: [lane, tabStaff, bassStaff, combinedBass, combinedTab, keyLane]
+    // Only the views that exist: the chosen one of the lazy views is loaded (see their Loaders).
+    readonly property var noteViews: [lane, tabStaff, bassLoader.item].concat(
+        combinedLoader.item ? combinedLoader.item.views : [], keysLoader.item ? keysLoader.item.views : [])
+        .filter(function(view) { return view })
 
     // Kirigami pages paint the platform background; Kante's ground replaces it.
     background: Rectangle { color: KanteStyle.backgroundColor }
@@ -270,9 +273,9 @@ Kirigami.Page {
     readonly property real presentScale: presenting ? 1.5 : 1
     function present(on) { applicationWindow().presenting = on }
     Shortcut { sequence: "F5"; onActivated: page.present(!page.presenting) }
-    Shortcut { sequence: "Escape"; enabled: page.presenting && !summary.visible; onActivated: page.present(false) }
+    Shortcut { sequence: "Escape"; enabled: page.presenting && !summary.shown; onActivated: page.present(false) }
     // The summary closes like a dialog (QA 13.10.: only a click closed it).
-    Shortcut { sequence: "Escape"; enabled: summary.visible; onActivated: summary.close() }
+    Shortcut { sequence: "Escape"; enabled: summary.shown; onActivated: summary.close() }
     Component.onDestruction: present(false)
 
     // Nothing open yet (QA 14.10.: an empty lane with live buttons): the ways to a piece.
@@ -307,7 +310,7 @@ Kirigami.Page {
         visible: ctl.loaded
         // Under the summary nothing takes the focus (QA 27.10., P7: Tab went through 18 hidden
         // controls before "close").
-        enabled: !summary.visible
+        enabled: !summary.shown
         spacing: KanteStyle.unit(10)
 
         // The piece's title on a row of its own (QA 14.10.: beside modes and views it was cut
@@ -346,7 +349,7 @@ Kirigami.Page {
             // it moves no notes when it comes or goes (owner 12.11.).
             KanteButton {
                 id: summaryButton
-                visible: page.summaryReady && !summary.visible
+                visible: page.summaryReady && !summary.shown
                 Layout.alignment: Qt.AlignTop
                 text: texts.t("summary.show")
                 emphasis: KanteButton.Emphasis.Primary
@@ -374,7 +377,7 @@ Kirigami.Page {
                 Accessible.name: text
                 QQC2.ToolTip.text: texts.t("backing.hint")
                 QQC2.ToolTip.visible: hovered
-                onClicked: backingDialog.open()
+                onClicked: page.openBacking()
                 TextMetrics { id: backingWords; font: backingButton.font; text: backingButton.text }
             }
             KanteToolButton {
@@ -521,13 +524,13 @@ Kirigami.Page {
             KanteButton {
                 text: texts.t("backing.other")
                 emphasis: KanteButton.Emphasis.Quiet
-                onClicked: backingDialog.open()
+                onClicked: page.openBacking()
             }
             KanteButton {
                 visible: ctl.backingName !== ""
                 text: texts.t("backing.align")
                 emphasis: KanteButton.Emphasis.Quiet
-                onClicked: alignSheet.open()
+                onClicked: page.openAlign()
             }
             KanteButton {
                 visible: ctl.backingName !== ""
@@ -985,111 +988,128 @@ Kirigami.Page {
                 loopStart: ctl.loopStart
                 loopEnd: ctl.loopEnd
             }
-            NotationStaff {
-                id: bassStaff
+            Loader {
+                id: bassLoader
                 anchors.fill: parent
-                presentScale: page.presentScale
-                densestBar: page.densestBar
-                visible: ctl.view === "notation"
-                notes: visible ? page.shownStaff : []
-                rests: page.staff.rests
-                keyFifths: page.staff.keyFifths
-                chords: page.staff.chords
-                marks: page.marks
-                onNotesChanged: Qt.callLater(function() { page.catchUp(bassStaff) })
-                bars: page.bars
-                position: visible ? ctl.position : 0
-                loopStart: ctl.loopStart
-                loopEnd: ctl.loopEnd
-            }
-            // Notation above tablature (LH-ANZ-04).
-            ColumnLayout {
-                id: combined
-                anchors.fill: parent
-                visible: ctl.view === "combined"
-                spacing: KanteStyle.unit(8)
-                KanteBassStaff {
-                    id: combinedBass
-                    settleMs: applicationWindow().staffSettleMs
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    // Half the room is the staff's (G18); from the column, not its own height,
-                    // which follows its size.
-                    // In a low window the tablature keeps its height, the staff takes the rest (S12).
-                    staffSpace: Math.min(KanteStyle.unit(10) * page.presentScale,
-                                         (combined.height - combined.spacing) / 2 / (hasChords ? 16.5 : 14.5),
-                                         (combined.height - combined.spacing - combinedTab.implicitHeight)
-                                         / (hasChords ? 16.5 : 14.5))
-                    // The same bars as the tablature below, so each bar sits over its tab.
-                    barsPerSystem: combinedTab.perSystem
-                    notes: combined.visible ? page.shownStaff : []
+                active: ctl.view === "notation"
+                sourceComponent: NotationStaff {
+                    id: bassStaff
+                    anchors.fill: parent
+                    presentScale: page.presentScale
+                    densestBar: page.densestBar
+                    visible: ctl.view === "notation"
+                    notes: visible ? page.shownStaff : []
                     rests: page.staff.rests
                     keyFifths: page.staff.keyFifths
                     chords: page.staff.chords
                     marks: page.marks
-                    onNotesChanged: Qt.callLater(function() { page.catchUp(combinedBass) })
+                    onNotesChanged: Qt.callLater(function() { page.catchUp(bassStaff) })
                     bars: page.bars
-                    position: combined.visible ? ctl.position : 0
-                    loopStart: ctl.loopStart
-                    loopEnd: ctl.loopEnd
-                }
-                KanteTabStaff {
-                    id: combinedTab
-                    settleMs: applicationWindow().staffSettleMs
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.minimumHeight: implicitHeight
-                    lineSpacing: KanteStyle.unit(14) * page.presentScale
-                    // A low window keeps the level below (S12): the staff above shows the rhythm.
-                    rhythm: !page.compact
-                    minBarWidth: Math.max(KanteStyle.unit(200), page.densestBar * page.tabNoteWidth)
-                    strings: page.stringNames.length
-                    stringNames: page.stringNames
-                    lowStringOnTop: ctl.lowStringOnTop
-                    notes: combined.visible ? page.shown : []
-                    marks: page.marks
-                    onNotesChanged: Qt.callLater(function() { page.catchUp(combinedTab) })
-                    bars: page.bars
-                    position: combined.visible ? ctl.position : 0
+                    position: visible ? ctl.position : 0
                     loopStart: ctl.loopStart
                     loopEnd: ctl.loopEnd
                 }
             }
-            // Bass over MIDI (J-E1, P5): the notes fall onto the keys to play.
-            ColumnLayout {
-                id: keysView
+            // Notation above tablature (LH-ANZ-04).
+            Loader {
+                id: combinedLoader
                 anchors.fill: parent
-                visible: ctl.view === "keys"
-                spacing: 0
-                KanteKeyLane {
-                    id: keyLane
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    low: page.keys.low
-                    high: page.keys.high
-                    noteNames: page.keys.names
-                    notes: keysView.visible ? page.shown : []
-                    marks: page.marks
-                    onNotesChanged: Qt.callLater(function() { page.catchUp(keyLane) })
-                    bars: page.bars
-                    position: keysView.visible ? ctl.position : 0
-                    pixelsPerSecond: Math.max(KanteStyle.unit(240), height * 1.2) * Math.max(0.5, ctl.speed)
-                    accessibleName: texts.t("keyboard.lane")
-                    loopStart: ctl.loopStart
-                    loopEnd: ctl.loopEnd
+                active: ctl.view === "combined"
+                sourceComponent: ColumnLayout {
+                    id: combined
+                    anchors.fill: parent
+                    visible: ctl.view === "combined"
+                    spacing: KanteStyle.unit(8)
+                    readonly property var views: [combinedBass, combinedTab]
+                    KanteBassStaff {
+                        id: combinedBass
+                        settleMs: applicationWindow().staffSettleMs
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        // Half the room is the staff's (G18); from the column, not its own height,
+                        // which follows its size.
+                        // In a low window the tablature keeps its height, the staff takes the rest (S12).
+                        staffSpace: Math.min(KanteStyle.unit(10) * page.presentScale,
+                                             (combined.height - combined.spacing) / 2 / (hasChords ? 16.5 : 14.5),
+                                             (combined.height - combined.spacing - combinedTab.implicitHeight)
+                                             / (hasChords ? 16.5 : 14.5))
+                        // The same bars as the tablature below, so each bar sits over its tab.
+                        barsPerSystem: combinedTab.perSystem
+                        notes: combined.visible ? page.shownStaff : []
+                        rests: page.staff.rests
+                        keyFifths: page.staff.keyFifths
+                        chords: page.staff.chords
+                        marks: page.marks
+                        onNotesChanged: Qt.callLater(function() { page.catchUp(combinedBass) })
+                        bars: page.bars
+                        position: combined.visible ? ctl.position : 0
+                        loopStart: ctl.loopStart
+                        loopEnd: ctl.loopEnd
+                    }
+                    KanteTabStaff {
+                        id: combinedTab
+                        settleMs: applicationWindow().staffSettleMs
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: implicitHeight
+                        lineSpacing: KanteStyle.unit(14) * page.presentScale
+                        // A low window keeps the level below (S12): the staff above shows the rhythm.
+                        rhythm: !page.compact
+                        minBarWidth: Math.max(KanteStyle.unit(200), page.densestBar * page.tabNoteWidth)
+                        strings: page.stringNames.length
+                        stringNames: page.stringNames
+                        lowStringOnTop: ctl.lowStringOnTop
+                        notes: combined.visible ? page.shown : []
+                        marks: page.marks
+                        onNotesChanged: Qt.callLater(function() { page.catchUp(combinedTab) })
+                        bars: page.bars
+                        position: combined.visible ? ctl.position : 0
+                        loopStart: ctl.loopStart
+                        loopEnd: ctl.loopEnd
+                    }
                 }
-                KanteKeyboard {
-                    Layout.fillWidth: true
-                    // Lower in a low window, so the falling notes keep room above the level (S12).
-                    Layout.preferredHeight: KanteStyle.unit(page.compact ? 50 : 90)
-                    low: page.keys.low
-                    high: page.keys.high
-                    noteNames: page.keys.names
-                    markers: page.nextNote ? [{ midi: page.nextNote.midi, role: "next" }] : []
-                    accessibleName: texts.t("keyboard.name")
-                    roleNames: ({ current: texts.t("keyboard.current"), next: texts.t("keyboard.next"),
-                                  root: texts.t("keyboard.root"), scale: texts.t("keyboard.scale") })
-                    markerText: texts.t("keyboard.marker")
+            }
+            // Bass over MIDI (J-E1, P5): the notes fall onto the keys to play.
+            Loader {
+                id: keysLoader
+                anchors.fill: parent
+                active: ctl.view === "keys"
+                sourceComponent: ColumnLayout {
+                    id: keysView
+                    anchors.fill: parent
+                    visible: ctl.view === "keys"
+                    spacing: 0
+                    readonly property var views: [keyLane]
+                    KanteKeyLane {
+                        id: keyLane
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        low: page.keys.low
+                        high: page.keys.high
+                        noteNames: page.keys.names
+                        notes: keysView.visible ? page.shown : []
+                        marks: page.marks
+                        onNotesChanged: Qt.callLater(function() { page.catchUp(keyLane) })
+                        bars: page.bars
+                        position: keysView.visible ? ctl.position : 0
+                        pixelsPerSecond: Math.max(KanteStyle.unit(240), height * 1.2) * Math.max(0.5, ctl.speed)
+                        accessibleName: texts.t("keyboard.lane")
+                        loopStart: ctl.loopStart
+                        loopEnd: ctl.loopEnd
+                    }
+                    KanteKeyboard {
+                        Layout.fillWidth: true
+                        // Lower in a low window, so the falling notes keep room above the level (S12).
+                        Layout.preferredHeight: KanteStyle.unit(page.compact ? 50 : 90)
+                        low: page.keys.low
+                        high: page.keys.high
+                        noteNames: page.keys.names
+                        markers: page.nextNote ? [{ midi: page.nextNote.midi, role: "next" }] : []
+                        accessibleName: texts.t("keyboard.name")
+                        roleNames: ({ current: texts.t("keyboard.current"), next: texts.t("keyboard.next"),
+                                      root: texts.t("keyboard.root"), scale: texts.t("keyboard.scale") })
+                        markerText: texts.t("keyboard.marker")
+                    }
                 }
             }
         }
@@ -1147,51 +1167,33 @@ Kirigami.Page {
         }
     }
 
-    BackingAlign {
-        id: alignSheet
+    // Made when first asked for: not seen on opening (a click on "Practice" waited for them).
+    function openAlign() { alignLoader.active = true; alignLoader.item.open() }
+    function openBacking() { backingLoader.active = true; backingLoader.item.open() }
+    Loader {
+        id: alignLoader; active: false
         anchors.centerIn: parent
-        width: Math.min(page.width - KanteStyle.unit(40), KanteStyle.unit(640))
-        z: 5
-        Component.onCompleted: if (ctl.showAlign) open()
+        sourceComponent: BackingAlign { width: Math.min(page.width - KanteStyle.unit(40), KanteStyle.unit(640)) }
+        Component.onCompleted: if (ctl.showAlign) page.openAlign()
+    }
+    Loader {
+        id: backingLoader; active: false
+        sourceComponent: FileDialog {
+            // QA: Qt's dialog in the window, never the desktop portal.
+            options: ctl.qaRun ? FileDialog.DontUseNativeDialog : 0
+            title: texts.t("dialog.backing")
+            // Recordings of songs usually live in Music (QA 14.10.: it opened in the working folder).
+            currentFolder: StandardPaths.writableLocation(StandardPaths.MusicLocation)
+            nameFilters: [texts.t("backing.filter") + " (*.wav *.flac *.ogg *.mp3)"]
+            onAccepted: ctl.chooseBacking(selectedFile.toString())
+        }
     }
 
-    FileDialog {
-
-        // QA: Qt's dialog in the window, never the desktop portal.
-
-        options: ctl.qaRun ? FileDialog.DontUseNativeDialog : 0
-        id: backingDialog
-        title: texts.t("dialog.backing")
-        // Recordings of songs usually live in Music (QA 14.10.: it opened in the working folder).
-        currentFolder: StandardPaths.writableLocation(StandardPaths.MusicLocation)
-        nameFilters: [texts.t("backing.filter") + " (*.wav *.flac *.ogg *.mp3)"]
-        onAccepted: ctl.chooseBacking(selectedFile.toString())
-    }
-
-    // The summary covers the notes completely (QA P1/P4: the page showed through the card).
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: -page.padding
-        visible: summary.visible
-        z: 4
-        color: Qt.rgba(KanteStyle.backgroundColor.r, KanteStyle.backgroundColor.g, KanteStyle.backgroundColor.b, 0.92)
-        MouseArea { anchors.fill: parent; onClicked: summary.close() }
-    }
-
-    SummarySheet {
+    SummaryLayer {
         id: summary
-        anchors.centerIn: parent
-        width: Math.min(page.width - KanteStyle.unit(40), KanteStyle.unit(640))
-        height: Math.min(contentHeight, page.height - KanteStyle.unit(24))
-        z: 5
-        // Closed, the keyboard goes on at play; it stayed on the hidden "close" (QA 28.10., P7).
+        anchors.fill: parent
+        bleed: page.padding
         returnTo: transport
         behind: [pageContent]
-        onPracticeBar: function(bar) { summary.practiceBars(bar, bar) }
-        onPracticeBars: function(from, to) {
-            ctl.changeMode("workshop")
-            ctl.loopBars(from, to)
-            summary.close()
-        }
     }
 }
