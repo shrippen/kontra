@@ -5,7 +5,8 @@ import ".."
 
 // At start the sidebar opened and only then pushed the page aside, with a jerk (owner 12.11.).
 // Until the sidebar rests the window stays hidden and the page follows the sidebar's edge;
-// later the page takes the end width at once and moves with the slide (owner 12.11.). Run by scripts/check-video.sh.
+// later the page takes the end width at once and moves with the slide (owner 12.11.).
+// Run by scripts/check-video.sh.
 Item {
     id: root
     width: 800
