@@ -592,3 +592,46 @@ fn call_and_response_shows_the_tab_after_two_failed_tries() {
     assert!(core.arrangement().unwrap().calls.is_empty());
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Start page and library: an old run still counts as "played before" (not a first start), and a
+/// piece shows when it was last played, not when it was last opened (PR #299).
+#[test]
+fn old_run_counts_and_recent_names_last_run() {
+    let dir = temp_dir("lastrun");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let day = SECONDS_PER_DAY;
+    let now = 100 * day;
+    let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
+    assert_eq!(home["totalRuns"], 0);
+
+    let first = home["next"]["path"].as_str().unwrap().to_string();
+    core.open(Path::new(&first)).unwrap();
+    let recent: serde_json::Value = serde_json::from_str(&core.recent_json()).unwrap();
+    assert!(recent[0]["lastRunUnix"].is_null());
+
+    let a = core.arrangement().unwrap().clone();
+    let run_at = now - 20 * day;
+    core.progress_store()
+        .record(
+            &a,
+            Run {
+                spread_ms: None,
+                finished_unix: run_at,
+                practice_s: 60.0,
+                speed: 1.0,
+                hit_rate: 0.5,
+                mode: "song".into(),
+                section: None,
+                hardest_bars: Vec::new(),
+                hesitant_bars: Vec::new(),
+                bars: Vec::new(),
+            },
+        )
+        .unwrap();
+    let home: serde_json::Value = serde_json::from_str(&core.home_json_at(now)).unwrap();
+    assert_eq!(home["week"]["runs"], 0);
+    assert_eq!(home["totalRuns"], 1);
+    let recent: serde_json::Value = serde_json::from_str(&core.recent_json()).unwrap();
+    assert_eq!(recent[0]["lastRunUnix"], run_at);
+    let _ = std::fs::remove_dir_all(dir);
+}

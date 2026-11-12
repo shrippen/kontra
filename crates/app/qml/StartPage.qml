@@ -15,10 +15,9 @@ Kirigami.ScrollablePage {
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
-    property var summary: ({ last: null, next: null, lesson: null, review: 0, spots: null, probe: null, repeat: [], streak: 0, week: { minutes: 0, runs: 0 } })
-    // Before the first run: no run in the week and the last piece never played (D5).
-    readonly property bool firstRun: summary.week.runs === 0
-        && (summary.last === null || summary.last.best === null)
+    property var summary: ({ last: null, next: null, lesson: null, review: 0, spots: null, probe: null, repeat: [], streak: 0, week: { minutes: 0, runs: 0 }, totalRuns: 1 })
+    // Before the first run ever (D5): older runs count.
+    readonly property bool firstRun: summary.totalRuns === 0
     readonly property bool sameAsLast: summary.next !== null && summary.last !== null
         && summary.next.path === summary.last.path
 

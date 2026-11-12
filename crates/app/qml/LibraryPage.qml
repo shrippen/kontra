@@ -46,12 +46,13 @@ Kirigami.ScrollablePage {
     leftPadding: applicationWindow().readingPad(width)
     rightPadding: leftPadding
 
-    // "today", "yesterday", "3 days ago", else the date; "" when the time is unknown.
+    // "today", "yesterday", "3 days ago", else the date; "" when the piece was never played.
+    DayAge { id: dayAge }
     function lastPlayed(unix) {
         if (!unix) {
             return ""
         }
-        var days = Math.floor((Date.now() - unix * 1000) / 86400000)
+        var days = dayAge.days(Date.now(), unix)
         if (days <= 0) {
             return texts.t("library.last.today")
         }
@@ -256,7 +257,7 @@ Kirigami.ScrollablePage {
                         // Practised minutes and how long ago, once the piece was played.
                         readonly property string history: !played ? "" : [
                               piece.modelData.practiceMin < 1 ? texts.t("library.underminute") : texts.t("library.minutes", { minutes: Math.round(piece.modelData.practiceMin) }),
-                              page.lastPlayed(piece.modelData.lastUnix)].filter(function(s) { return s !== "" }).join(" · ")
+                              page.lastPlayed(piece.modelData.lastRunUnix)].filter(function(s) { return s !== "" }).join(" · ")
                         density: KanteListRow.Density.Comfortable
                         // In a slim window the result goes under the title, which keeps its room.
                         subtitle: [piece.modelData.artist]

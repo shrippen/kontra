@@ -78,9 +78,29 @@ Kirigami.ScrollablePage {
         { title: texts.t("about.title"), target: function() { return aboutLabel } },
         { title: texts.t("keys.title"), target: function() { return keysLabel } }
     ]
-    NumberAnimation { id: scrollAnim; target: page.flickable; property: "contentY"; duration: KanteStyle.duration; easing.type: Easing.OutCubic }
+    // The section the jump list scrolls to; its first operable control takes the keys when the
+    // scroll ends (P7: the focus was left on the jump button), the page follows if it must.
+    property Item jumpTarget: null
+    NumberAnimation {
+        id: scrollAnim
+        target: page.flickable
+        property: "contentY"
+        duration: KanteStyle.duration
+        easing.type: Easing.OutCubic
+        onFinished: {
+            if (!page.jumpTarget) {
+                return
+            }
+            var first = page.jumpTarget.nextItemInFocusChain(true)
+            page.jumpTarget = null
+            if (first) {
+                first.forceActiveFocus(Qt.TabFocusReason)
+            }
+        }
+    }
     function scrollTo(item) {
         var top = item.mapToItem(page.flickable.contentItem, 0, 0).y
+        jumpTarget = item
         scrollAnim.to = Math.max(0, Math.min(top, page.flickable.contentHeight - page.flickable.height))
         scrollAnim.restart()
     }

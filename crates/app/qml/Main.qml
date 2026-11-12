@@ -39,8 +39,9 @@ Kirigami.ApplicationWindow {
     readonly property real drawerEdge: globalDrawer && !globalDrawer.modal
         ? globalDrawer.width * globalDrawer.position : 0
     property real pageInset: 0
+    // The presentation hides the sidebar at once, so the page takes the room at once too.
     onDrawerEdgeChanged: {
-        if (!KanteStyle.animate) {
+        if (!KanteStyle.animate || presenting) {
             pageInset = drawerEdge
             return
         }

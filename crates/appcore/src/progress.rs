@@ -34,7 +34,7 @@ impl Core {
     /// the next lesson (LH-LRN-07) and the practice of the last seven days.
     /// `{"last": {path, title, artist, best, practiceMin} | null,
     ///   "next": {title, path, best, level} | null, "lesson": {id, title} | null, "review": due,
-    ///   "repeat": [{path, title, bar}], "streak": days, "week": {minutes, runs}}`.
+    ///   "repeat": [{path, title, bar}], "streak": days, "week": {minutes, runs}, "totalRuns": n}`.
     /// `utc_offset_s`: the local time zone, for the days of the streak.
     pub fn home_json(&self, utc_offset_s: i32) -> String {
         self.home_in(unix_now(), utc_offset_s)
@@ -66,8 +66,9 @@ impl Core {
         let next = self.next_exercise(None);
 
         let since = now.saturating_sub(WEEK_DAYS * SECONDS_PER_DAY);
-        let week: Vec<_> = store
-            .all()
+        let all = store.all();
+        let total_runs: usize = all.iter().map(|p| p.runs.len()).sum();
+        let week: Vec<_> = all
             .into_iter()
             .flat_map(|p| p.runs)
             .filter(|r| r.finished_unix > since)
@@ -84,6 +85,7 @@ impl Core {
             "lesson": self.next_lesson(),
             "review": self.review_count(now),
             "week": { "minutes": minutes, "runs": week.len() },
+            "totalRuns": total_runs,
         })
         .to_string()
     }
