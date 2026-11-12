@@ -1,6 +1,7 @@
 //! Hidden views stand still (benchmark 9.11.2026): the practice page keeps lane and tab and
-//! makes notation, combined and keys only while chosen (#303); it shows one. A hidden view that follows the position redraws on
-//! every tick: in the notation view the hidden tab lane alone took 0.18 ms of each 16 ms tick.
+//! makes notation, combined and keys only while chosen (#303); it shows one. A hidden view that
+//! follows the position redraws on every tick: in the notation view the hidden tab lane alone
+//! took 0.18 ms of each 16 ms tick.
 //!
 //! ```text
 //! ctl.position ─► shown view   (moves)
