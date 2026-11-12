@@ -57,7 +57,12 @@ fn vst3_folder(dir: &Path) -> PathBuf {
 /// (`<name>.vst3/Contents/<arch>/<name>.<so|vst3>`); the host recognises plugins by that layout.
 fn plugin_dir(tag: &str) -> PathBuf {
     let exe = std::env::current_exe().expect("test binary path");
-    let profile = exe.parent().and_then(Path::parent).expect("target folder");
+    // The profile folder (`target/debug`) holds `examples/`; the test binary lies below it in
+    // `deps/`, or since Cargo 1.100 in `build/<crate>/<hash>/out/`.
+    let profile = exe
+        .ancestors()
+        .find(|dir| dir.join("examples").is_dir())
+        .expect("target folder");
     let examples = profile.join("examples");
     // Inside the target folder (`cargo clean` removes it), not in the RAM-backed temp folder.
     let dir = profile
