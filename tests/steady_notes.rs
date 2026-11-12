@@ -113,4 +113,15 @@ fn mixer_leaves_the_presentation() {
         "open in the presentation: {}",
         open.trim()
     );
+
+    // "X" would flip the hidden mixer, which then shows (or stays shut) after Esc.
+    let key = text
+        .lines()
+        .find(|line| line.contains("sequence: \"X\""))
+        .unwrap_or_else(|| panic!("no X shortcut in {PAGE}"));
+    assert!(
+        key.contains("!page.presenting"),
+        "X toggles the mixer in the presentation: {}",
+        key.trim()
+    );
 }

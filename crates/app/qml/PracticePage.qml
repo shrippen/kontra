@@ -136,7 +136,7 @@ Kirigami.Page {
     Shortcut { sequence: "L"; enabled: page.keysFree; onActivated: transport.loopToggled() }
     Shortcut { sequence: "M"; enabled: page.keysFree; onActivated: ctl.changeOptions(!ctl.metronome, ctl.reference, ctl.lowStringOnTop) }
     Shortcut { sequence: "C"; enabled: page.keysFree; onActivated: ctl.changeCountIn(!ctl.countIn) }
-    Shortcut { sequence: "X"; enabled: page.keysFree; onActivated: mixerButton.toggle() }
+    Shortcut { sequence: "X"; enabled: page.keysFree && !page.presenting; onActivated: mixerButton.toggle() }
     Shortcut { sequences: ["+", "="]; enabled: page.keysFree; onActivated: ctl.changeSpeed(Math.min(1.5, ctl.speed + 0.05)) }
     Shortcut { sequence: "-"; enabled: page.keysFree; onActivated: ctl.changeSpeed(Math.max(0.25, ctl.speed - 0.05)) }
     Repeater {
