@@ -39,6 +39,8 @@ Kirigami.ScrollablePage {
     background: Rectangle { color: KanteStyle.backgroundColor }
     title: lesson ? lesson.title : texts.t("learn.title")
     padding: KanteStyle.unit(16)
+    leftPadding: applicationWindow().readingPad(width)
+    rightPadding: leftPadding
 
     onStepChanged: {
         applicationWindow().lessonPage = step

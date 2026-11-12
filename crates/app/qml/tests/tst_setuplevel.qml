@@ -54,6 +54,7 @@ Item {
     }
     function show(name) {}
     function applicationWindow() { return root }
+    function readingPad(pageWidth) { return 0 }
 
     Loader {
         id: loader

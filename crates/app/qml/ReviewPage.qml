@@ -41,6 +41,8 @@ Kirigami.ScrollablePage {
     background: Rectangle { color: KanteStyle.backgroundColor }
     title: chapter !== "" ? texts.t("check.title", { title: round.title }) : texts.t("review.title")
     padding: KanteStyle.unit(16)
+    leftPadding: applicationWindow().readingPad(width)
+    rightPadding: leftPadding
 
     ColumnLayout {
         spacing: KanteStyle.unit(16)

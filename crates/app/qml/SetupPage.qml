@@ -51,6 +51,8 @@ Kirigami.ScrollablePage {
     }
 
     title: texts.t("setup.title")
+    leftPadding: applicationWindow().readingPad(width)
+    rightPadding: leftPadding
     background: Rectangle { color: KanteStyle.backgroundColor }
 
     Component.onCompleted: ctl.refreshDevices()

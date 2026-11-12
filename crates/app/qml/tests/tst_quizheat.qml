@@ -36,6 +36,7 @@ Item {
         function stopTuner() {}
     }
     function applicationWindow() { return root }
+    function readingPad(pageWidth) { return 0 }
 
     Loader {
         id: loader

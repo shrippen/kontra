@@ -69,7 +69,7 @@ Kirigami.ApplicationWindow {
         onTriggered: root.resizing = false
     }
 
-    // Text pages keep one reading width, centred; notes, fretboard and tuner stay full width.
+    // Every page keeps one reading width, centred; only the practice page (notes) stays full width.
     readonly property int readingWidth: KanteStyle.unit(1040)
     function readingPad(pageWidth) {
         return Math.max(KanteStyle.unit(16), (pageWidth - readingWidth) / 2)

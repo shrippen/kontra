@@ -37,3 +37,7 @@ path = "../../tests/hidden_views.rs"
 [[test]]
 name = "steady_notes"
 path = "../../tests/steady_notes.rs"
+
+[[test]]
+name = "page_width"
+path = "../../tests/page_width.rs"
