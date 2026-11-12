@@ -194,13 +194,17 @@ ColumnLayout {
         return q === "" || e.name.toLowerCase().indexOf(q) >= 0 || e.vendor.toLowerCase().indexOf(q) >= 0
     })
     readonly property int pickIndex: picks.findIndex(function(e) { return e.key === mixer.pickKey })
-    // Adds the chosen row, or the first one when none is chosen (a typed name plus Enter).
+    // Adds the chosen row, or the first match when none is chosen (a typed name plus Enter),
+    // through the dialog's accept, which closes it. Enter alone adds nothing.
     function pickAdd() {
+        if (pickIndex < 0 && pickQuery.trim() === "") {
+            return
+        }
         if (pickIndex < 0 && picks.length > 0) {
             pickKey = picks[0].key
         }
         if (pickIndex >= 0 && !fx.full) {
-            ctl.editEffects("add", 0, pickKey, 0)
+            pickDialog.accept()
         }
     }
     // Puts the keyboard focus on the chosen row (the first when none is chosen); without rows
@@ -244,8 +248,34 @@ ColumnLayout {
         title: mixer.texts.t("fx.add")
         // While a plugin loads to be added (FX4), the row says so instead of its usual hint.
         hint: mixer.fx.adding !== "" ? mixer.fx.adding : mixer.texts.t("fx.hint")
+        KanteButton {
+            objectName: "fxOpen"
+            text: mixer.texts.t("fx.add.open")
+            enabled: !mixer.fx.full
+            onClicked: pickDialog.open()
+        }
+    }
+    // The picker: groups, search and list in a dialog, so the page stays short.
+    KanteDialog {
+        id: pickDialog
+        objectName: "fxPicker"
+        parent: QQC2.Overlay.overlay
+        anchors.centerIn: parent
+        modal: true
+        size: KanteDialog.Size.Medium
+        title: mixer.texts.t("fx.add")
+        standardButtons: QQC2.Dialog.Ok | QQC2.Dialog.Cancel
+        acceptText: mixer.texts.t("fx.add.accept")
+        acceptEnabled: !mixer.fx.full && mixer.pickIndex >= 0
+        onAccepted: mixer.ctl.editEffects("add", 0, mixer.pickKey, 0)
+        // Each opening starts with an empty search and no row chosen, typing at once.
+        onOpened: {
+            mixer.pickKey = ""
+            pickSearch.text = ""
+            pickSearch.forceActiveFocus()
+        }
         ColumnLayout {
-            Layout.fillWidth: true
+            anchors.fill: parent
             spacing: KanteStyle.unit(8)
             // The group chips: a checked chip is a solid fill with inverted text, an unchecked
             // one a frame; screen readers get the checked state from the chip.
@@ -289,6 +319,7 @@ ColumnLayout {
             }
             KanteTextField {
                 id: pickSearch
+                objectName: "fxSearch"
                 Layout.fillWidth: true
                 placeholderText: mixer.texts.t("fx.search.placeholder")
                 Accessible.name: mixer.texts.t("fx.search")
@@ -306,10 +337,18 @@ ColumnLayout {
             // chosen row is the one Tab stop; Up and Down move it, Enter adds it.
             ListView {
                 id: pickList
-                readonly property real rowHeight: count > 0 ? contentHeight / count : 0
-                readonly property real shownRows: 5.5
+                // The height of a row, kept once known: the list keeps its height while the
+                // search narrows it, so the centred dialog does not jump (review #295).
+                property real rowHeight: 0
+                readonly property real shownRows: 8.5
+                onContentHeightChanged: {
+                    if (count > 0) {
+                        rowHeight = Math.max(rowHeight, contentHeight / count)
+                    }
+                }
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(contentHeight, rowHeight * shownRows)
+                Layout.fillHeight: true
+                Layout.preferredHeight: rowHeight * shownRows
                 clip: true
                 model: mixer.picks
                 currentIndex: Math.max(0, mixer.pickIndex)
@@ -342,13 +381,6 @@ ColumnLayout {
                 color: KanteStyle.mutedTextColor
                 font: KanteStyle.smallFont
                 text: mixer.texts.t("fx.none")
-            }
-            KanteButton {
-                id: addButton
-                text: mixer.texts.t("fx.add")
-                Accessible.name: mixer.texts.t("fx.add.button", { name: mixer.pickIndex >= 0 ? mixer.picks[mixer.pickIndex].name : "" })
-                enabled: !mixer.fx.full && mixer.pickIndex >= 0
-                onClicked: mixer.pickAdd()
             }
         }
     }
