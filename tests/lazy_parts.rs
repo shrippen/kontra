@@ -38,23 +38,43 @@ fn indent(line: &str) -> usize {
 }
 
 /// Whether the line or one of its parents (the nearest line above with less indent, and so on)
-/// declares a lazily made component.
+/// declares a lazily made component: a `Component {`, or a `Loader`'s `sourceComponent:` whose
+/// loader waits (`active:` or `asynchronous:`; a loader is active by default and builds at once).
 fn is_lazy(lines: &[String], at: usize) -> bool {
-    let mut level = indent(&lines[at]);
-    let lazy = |line: &str| line.contains("sourceComponent:") || line.trim() == "Component {";
-    if lazy(&lines[at]) {
-        return true;
-    }
-    for line in lines[..at].iter().rev() {
+    let mut level = indent(&lines[at]) + 1;
+    for (index, line) in lines[..=at].iter().enumerate().rev() {
         if line.trim().is_empty() || indent(line) >= level {
             continue;
         }
-        if lazy(line) {
+        if line.trim() == "Component {" {
             return true;
+        }
+        if line.contains("sourceComponent:") {
+            return loader_waits(lines, index);
         }
         level = indent(line);
     }
     false
+}
+
+/// Whether the loader around the `sourceComponent:` at `at` sets `active:` or `asynchronous:`.
+fn loader_waits(lines: &[String], at: usize) -> bool {
+    let own = indent(&lines[at]);
+    let Some(start) = lines[..at]
+        .iter()
+        .rposition(|line| indent(line) < own && line.trim().ends_with('{'))
+    else {
+        return false;
+    };
+    lines[start + 1..]
+        .iter()
+        .take_while(|line| line.trim().is_empty() || indent(line) >= own)
+        .filter(|line| indent(line) == own)
+        .flat_map(|line| line.split(';'))
+        .any(|part| {
+            let part = part.trim();
+            part.starts_with("active:") || part.starts_with("asynchronous:")
+        })
 }
 
 #[test]

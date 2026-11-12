@@ -5,7 +5,9 @@ import Kante
 // card). The sheet loads in the background after the page; one asked for earlier opens when it
 // is there.
 Item {
-    id: layer
+    // Not "layer": every Item has a property of that name, and inside the loaded sheet it
+    // hid this id (review #303).
+    id: summaryLayer
 
     // What the sheet hands the keyboard back to, and what it hides meanwhile.
     property Item returnTo
@@ -34,24 +36,24 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        anchors.margins: -layer.bleed
-        visible: layer.shown
+        anchors.margins: -summaryLayer.bleed
+        visible: summaryLayer.shown
         color: Qt.rgba(KanteStyle.backgroundColor.r, KanteStyle.backgroundColor.g, KanteStyle.backgroundColor.b, 0.92)
-        MouseArea { anchors.fill: parent; onClicked: layer.close() }
+        MouseArea { anchors.fill: parent; onClicked: summaryLayer.close() }
     }
 
+    // Centred and sized by the sheet: a loader with a size of its own stretches what it loads.
     Loader {
         id: loader
-        anchors.fill: parent
+        anchors.centerIn: parent
         asynchronous: true
-        onLoaded: if (layer.wanted) item.open()
+        onLoaded: if (summaryLayer.wanted) item.open()
         sourceComponent: SummarySheet {
-            anchors.centerIn: parent
-            width: Math.min(layer.width - KanteStyle.unit(40), KanteStyle.unit(640))
-            height: Math.min(contentHeight, layer.height - KanteStyle.unit(24))
+            width: Math.min(summaryLayer.width - KanteStyle.unit(40), KanteStyle.unit(640))
+            height: Math.min(contentHeight, summaryLayer.height - KanteStyle.unit(24))
             // Closed, the keyboard goes on at play; it stayed on the hidden "close" (QA 28.10., P7).
-            returnTo: layer.returnTo
-            behind: layer.behind
+            returnTo: summaryLayer.returnTo
+            behind: summaryLayer.behind
             onPracticeBar: function(bar) { practiceBars(bar, bar) }
             onPracticeBars: function(from, to) {
                 ctl.changeMode("workshop")

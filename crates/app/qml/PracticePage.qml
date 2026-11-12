@@ -1171,13 +1171,13 @@ Kirigami.Page {
     function openAlign() { alignLoader.active = true; alignLoader.item.open() }
     function openBacking() { backingLoader.active = true; backingLoader.item.open() }
     Loader {
-        id: alignLoader
+        id: alignLoader; active: false
         anchors.centerIn: parent
         sourceComponent: BackingAlign { width: Math.min(page.width - KanteStyle.unit(40), KanteStyle.unit(640)) }
         Component.onCompleted: if (ctl.showAlign) page.openAlign()
     }
     Loader {
-        id: backingLoader
+        id: backingLoader; active: false
         sourceComponent: FileDialog {
             // QA: Qt's dialog in the window, never the desktop portal.
             options: ctl.qaRun ? FileDialog.DontUseNativeDialog : 0
