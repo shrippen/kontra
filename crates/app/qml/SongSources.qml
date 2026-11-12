@@ -16,6 +16,7 @@ ColumnLayout {
     property var downloads: ({ dir: "", files: [] })
     // Set when the browser could not be started: the address to copy instead.
     property string failedUrl: ""
+    readonly property string folderName: String(downloads.dir).split(/[\/\\]/).filter(function(n) { return n !== "" }).pop() || ""
     readonly property bool slim: width < KanteStyle.unit(560)
     // The Songsterr search: state ("idle", "running", "done", "error"), reason and hits.
     readonly property var songs: ctl.songSearchJson === "" ? ({ state: "idle", hits: [] })
@@ -186,8 +187,12 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: sources.downloads.files.length === 0
         text: sources.downloads.dir === "" ? texts.t("search.downloads.nodir")
-                                           : texts.t("search.downloads.none", { dir: sources.downloads.dir })
+                                           : texts.t("search.downloads.none", { dir: sources.folderName })
         wrapMode: Text.WordWrap
         color: KanteStyle.mutedTextColor
+        // The folder by its name; the full path only on hover.
+        HoverHandler { id: dirHover }
+        QQC2.ToolTip.visible: dirHover.hovered && sources.downloads.dir !== ""
+        QQC2.ToolTip.text: sources.downloads.dir
     }
 }

@@ -104,10 +104,14 @@ impl Core {
                 let progress = store.load_id(&e.song_id);
                 let best = progress.as_ref().and_then(|p| p.best_hit_rate());
                 let minutes = progress.as_ref().map_or(0.0, |p| p.practice_s() / 60.0);
+                // When it was played, not opened (`last_unix` follows every opening).
+                let last_run = progress
+                    .as_ref()
+                    .and_then(|p| p.runs.iter().map(|r| r.finished_unix).max());
                 let title = self.library_title(e);
                 // Lossy: a name that is not text must not end the program (review #235).
                 let path = e.path.to_string_lossy();
-                json!({ "path": path, "title": title, "artist": e.artist, "best": best, "practiceMin": minutes, "lastUnix": e.last_unix, "tags": e.tags, "hasBacking": e.backing.is_some() })
+                json!({ "path": path, "title": title, "artist": e.artist, "best": best, "practiceMin": minutes, "lastUnix": e.last_unix, "lastRunUnix": last_run, "tags": e.tags, "hasBacking": e.backing.is_some() })
             })
             .collect();
         serde_json::Value::Array(list).to_string()

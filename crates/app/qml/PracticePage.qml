@@ -1259,48 +1259,11 @@ Kirigami.Page {
             }
         }
 
-        // The mixer opens above the transport (in the page, so screenshots show it). At most
-        // 40 % of the page, the rest scrolls: open with tone shaping it squeezed the notes to a
-        // strip (QA 14.10.).
-        KanteCard {
+        // The mixer opens above the transport (in the page, so screenshots show it).
+        MixerCard {
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(pageMixer.implicitHeight + KanteStyle.unit(16), page.height * 0.4)
-            visible: mixerButton.checked
-            barColor: KanteStyle.accentColor
-            borderColor: KanteStyle.frameColor
-            Flickable {
-                id: mixerFlick
-                x: KanteStyle.unit(12)
-                y: KanteStyle.unit(8)
-                width: parent.width - KanteStyle.unit(24)
-                height: parent.height - KanteStyle.unit(16)
-                contentWidth: width
-                contentHeight: pageMixer.implicitHeight
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                QQC2.ScrollBar.vertical: QQC2.ScrollBar { id: mixerBar; policy: mixerFlick.contentHeight > mixerFlick.height ? QQC2.ScrollBar.AlwaysOn : QQC2.ScrollBar.AsNeeded }
-                // Tab into a row below the fold scrolls the whole row into view (P7, keyboard only).
-                Window.onActiveFocusItemChanged: {
-                    let item = Window.activeFocusItem
-                    while (item && item.parent !== pageMixer) {
-                        item = item.parent
-                    }
-                    if (!item) {
-                        return
-                    }
-                    const top = item.y
-                    if (top < contentY) {
-                        contentY = top
-                    } else if (top + item.height > contentY + height) {
-                        contentY = Math.min(top + item.height - height, contentHeight - height)
-                    }
-                }
-                Mixer {
-                    id: pageMixer
-                    practice: true
-                    width: mixerFlick.width - (mixerFlick.contentHeight > mixerFlick.height ? mixerBar.width + KanteStyle.unit(8) : 0)
-                }
-            }
+            open: mixerButton.checked
+            maxHeight: page.height * 0.4
         }
 
         RowLayout {

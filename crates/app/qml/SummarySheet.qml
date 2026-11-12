@@ -71,7 +71,7 @@ KanteCard {
 
         // A lesson's goal (LH-LRN-20): pure instruction shows no figure, never "0 %".
         readonly property var goal: sheet.summary && sheet.summary.goal ? sheet.summary.goal : null
-        KanteKpi {
+        CountKpi {
             Layout.fillWidth: true
             value: !sheet.summary ? "" : content.goal && content.goal.none ? texts.t("summary.goal.none") : sheet.summary.hitRateText
             label: !sheet.summary ? "" : content.goal && content.goal.none ? texts.t("summary.goal.none.text") : sheet.summary.countsText

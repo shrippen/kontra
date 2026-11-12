@@ -36,6 +36,11 @@ Item {
     function show(name) {}
     function glossary(term) {}
     function applicationWindow() { return root }
+    // As Main.qml: text pages keep one centred reading width.
+    readonly property int readingWidth: KanteStyle.unit(1040)
+    function readingPad(pageWidth) {
+        return Math.max(KanteStyle.unit(16), (pageWidth - readingWidth) / 2)
+    }
 
     Loader {
         id: loader
@@ -73,6 +78,25 @@ Item {
             var flick = page.flickable
             var cut = overflow(flick.contentItem, flick, flick.width)
             compare(cut.length, 0, "wider than the page (" + Math.round(flick.width) + "): " + cut.join("; "))
+        }
+
+        // Narrow: the plain margin and one column. Wide: the content stays at the reading width,
+        // centred, and the chapters go in two columns (D2, D6).
+        function test_reading_width_and_columns() {
+            var page = loader.item
+            waitForRendering(page)
+            compare(page.leftPadding, KanteStyle.unit(16))
+            compare(page.rightPadding, KanteStyle.unit(16))
+            verify(!page.twoColumns, "one column at P4's width")
+
+            var narrowWidth = root.width
+            root.width = Kirigami.Units.gridUnit * 90
+            waitForRendering(page)
+            fuzzyCompare(page.leftPadding, (page.width - root.readingWidth) / 2, 1)
+            fuzzyCompare(page.rightPadding, page.leftPadding, 0.01)
+            verify(page.width - page.leftPadding - page.rightPadding <= root.readingWidth + 1)
+            verify(page.twoColumns, "two columns when wide")
+            root.width = narrowWidth
         }
     }
 }
