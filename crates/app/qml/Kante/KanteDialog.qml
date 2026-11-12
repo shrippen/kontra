@@ -14,6 +14,10 @@ import "."
  * the button's own `enabled` stays as the app bound it). Both hold
  * for the footer of every style, also after a switch at run time (Kante has its own footer;
  * a text or lock set on the button itself was lost there).
+ * Reject button (Kante 1.79, from Mitori): `rejectText` names the reject button (Cancel, No,
+ * Close or Abort) after what it does ("Keep going" for "Discard the round?"), where Cancel
+ * is ambiguous. Like `acceptText`: every style, after a switch at run time, after a language
+ * change, standard text back for "".
  * Size (Kante 1.55, from lmix): `size` Small, Medium or Large is 24, 36 or 48 grid units
  * wide and at most 90 % of the window, also in height (taller content scrolls in the app's
  * own ScrollView; the dialog does not clip it); Fit (default) sizes to the content as
@@ -74,6 +78,8 @@ QQC2.Dialog {
     }
     /** Text of the accept button (Ok, Save, Apply, Yes); "": the standard one. */
     property string acceptText: ""
+    /** Text of the reject button (Cancel, No, Close, Abort); "": the standard one. */
+    property string rejectText: ""
     /** The accept button can be pressed; undefined (default): Kante leaves `enabled` alone,
      *  so a dialog that binds it itself keeps its binding. */
     property var acceptEnabled: undefined
@@ -164,36 +170,58 @@ QQC2.Dialog {
         }
         return null
     }
+    /** The reject button of the footer shown now, or null. */
+    function rejectButton() {
+        for (const b of [QQC2.Dialog.Cancel, QQC2.Dialog.No, QQC2.Dialog.Close, QQC2.Dialog.Abort]) {
+            const button = standardButton(b)
+            if (button) {
+                return button
+            }
+        }
+        return null
+    }
+    // Names `button` `name`, or gives its standard text back for "". `current` reads the
+    // name set now: the hook below outlives a change of it.
+    function renameButton(button, name, current) {
+        let kept = standardTexts.find(pair => pair[0] === button)
+        if (name.length === 0) {
+            if (kept) {
+                button.text = kept[1]
+            }
+            return
+        }
+        if (!kept) {
+            // The button, its standard text, the name set last.
+            kept = [button, button.text, ""]
+            standardTexts.push(kept)
+            // The button box sets the standard texts again when the language changes
+            // (at start, once the app's translations are in): the name comes back on
+            // top, and the new standard text is the one to give back.
+            button.textChanged.connect(() => {
+                const now = current()
+                if (now.length > 0 && button.text !== now) {
+                    kept[1] = button.text
+                    button.text = now
+                }
+            })
+        } else if (button.text !== name && button.text !== kept[2]) {
+            // Its standard text may have changed while unset (a language change); the
+            // name set last is no standard text.
+            kept[1] = button.text
+        }
+        kept[2] = name
+        button.text = name
+    }
     function applyAccept() {
+        const reject = rejectButton()
+        if (reject) {
+            renameButton(reject, rejectText, () => control.rejectText)
+        }
         const button = acceptButton()
         if (!button) {
             return
         }
-        let kept = standardTexts.find(pair => pair[0] === button)
-        if (acceptText.length > 0) {
-            if (!kept) {
-                // The button, its standard text, the name set last.
-                kept = [button, button.text, ""]
-                standardTexts.push(kept)
-                // The button box sets the standard texts again when the language changes
-                // (at start, once the app's translations are in): the name comes back on
-                // top, and the new standard text is the one to give back.
-                button.textChanged.connect(() => {
-                    if (control.acceptText.length > 0 && button.text !== control.acceptText) {
-                        kept[1] = button.text
-                        button.text = control.acceptText
-                    }
-                })
-            } else if (button.text !== acceptText && button.text !== kept[2]) {
-                // Its standard text may have changed while unset (a language change); the
-                // name set last is no standard text.
-                kept[1] = button.text
-            }
-            kept[2] = acceptText
-            button.text = acceptText
-        } else if (kept) {
-            button.text = kept[1]
-        }
+        renameButton(button, acceptText, () => control.acceptText)
         if (acceptEnabled !== undefined) {
             button.enabled = !!acceptEnabled
             if (lockedButtons.indexOf(button) < 0) {
@@ -209,6 +237,7 @@ QQC2.Dialog {
         }
     }
     onAcceptTextChanged: applyAccept()
+    onRejectTextChanged: applyAccept()
     onAcceptEnabledChanged: applyAccept()
     onStandardButtonsChanged: applyAcceptLater.start()
     // After the event (the button box makes its buttons first). When the garbage collector
