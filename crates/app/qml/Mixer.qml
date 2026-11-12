@@ -289,6 +289,16 @@ ColumnLayout {
             onClicked: mixer.ctl.editEffects("scan", 0, "", 0)
         }
     }
+    // Files probed so far of all files; before the first file is known: indeterminate.
+    KanteProgressBar {
+        Layout.fillWidth: true
+        visible: mixer.ctl.monitor && mixer.fx.scan.running
+        value: mixer.fx.scan.total > 0 ? mixer.fx.scan.done / mixer.fx.scan.total : 0
+        indeterminate: mixer.fx.scan.total <= 0
+        Accessible.role: Accessible.ProgressBar
+        Accessible.name: mixer.texts.t("fx.scan.bar")
+        Accessible.description: mixer.fx.scan.text
+    }
     Repeater {
         model: mixer.ctl.monitor ? mixer.fx.scan.broken : []
         delegate: Text {
