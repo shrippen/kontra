@@ -948,8 +948,16 @@ Kirigami.Page {
         }
 
         NotesArea {
+            id: notesArea
             Layout.fillWidth: true
             Layout.fillHeight: true
+            // The mixer slides down over the notes (in the page, so screenshots show it).
+            overlay: MixerCard {
+                anchors { left: parent.left; right: parent.right; top: parent.top }
+                open: mixerButton.checked
+                blurSource: notesArea.notesLayer
+                maxHeight: notesArea.height * 0.8
+            }
 
             KanteTabLane {
                 id: lane
@@ -1117,13 +1125,6 @@ Kirigami.Page {
         PracticeFooter {
             Layout.fillWidth: true
             practice: page
-        }
-
-        // The mixer opens above the transport (in the page, so screenshots show it).
-        MixerCard {
-            Layout.fillWidth: true
-            open: mixerButton.checked
-            maxHeight: page.height * 0.4
         }
 
         RowLayout {

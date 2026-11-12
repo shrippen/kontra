@@ -206,14 +206,14 @@ Item {
     readonly property var barList: normalizeBars(bars, notes)
     readonly property int currentBar: barAt(position)
     // The wanted spacing; `ls` is the one drawn (grown or shrunk in fill mode, 1.81).
-    readonly property real baseLs: Math.max(6, lineSpacing)
+    readonly property real baseLs: Math.max(6, layoutSpacing)
     // A line's height per unit of spacing: every row scales with it, the rehearsal mark too.
     readonly property real lineUnits: (hasSections ? markProbe.implicitHeight / baseLs + 0.4 : 0)
         + (hasEndings ? 1.6 : 0) + 1.3 + 0.5 + (Math.max(1, strings) - 1) + (rhythm ? 3.2 : 0.8) + 0.4
     // Bars per line at the wanted spacing; fill mode keeps them while the spacing grows, so
     // the lines do not change with it (a grown header only narrows the bars a little).
     readonly property int basePerSystem: barsPerSystem > 0 ? barsPerSystem
-        : Math.max(1, Math.floor((layoutSize.width - Math.round(nameMetrics.width + baseLs * 2.6)) / Math.max(1, minBarWidth)))
+        : Math.max(1, Math.floor((layoutSize.width - Math.round(nameMetrics.width + baseLs * 2.6)) / Math.max(1, layoutMinBarWidth)))
     // Fill mode: the lines that fit, no more than the piece needs.
     readonly property int fitSystems: Math.max(1, Math.min(Math.floor(layoutSize.height / (lineUnits * baseLs)),
                                                            Math.ceil(barList.length / basePerSystem)))
@@ -222,7 +222,7 @@ Item {
     readonly property real ls: fill ? Math.max(6, Math.min(baseLs * maxGrow, layoutSize.height / (shownSystems * lineUnits)))
                                     : baseLs
     readonly property int perSystem: fill ? basePerSystem : barsPerSystem > 0 ? barsPerSystem
-        : Math.max(1, Math.floor((layoutSize.width - headerWidth) / Math.max(1, minBarWidth)))
+        : Math.max(1, Math.floor((layoutSize.width - headerWidth) / Math.max(1, layoutMinBarWidth)))
     readonly property int firstBar: Math.max(0, Math.floor(currentBar / perSystem) * perSystem)
 
     readonly property real markRow: ls * 1.3
@@ -249,15 +249,23 @@ Item {
     implicitHeight: fill ? Math.ceil(lineUnits * baseLs) : Math.ceil(systemHeight * shownSystems)
 
     /**
-     * Wait after the last size change before laying out again (1.82), in ms: while a window
-     * is dragged the drawn lines stay, then they move to their new place once. 0 (default):
-     * at once.
+     * Wait after the last change of size, spacing or bar width before laying out again
+     * (1.82), in ms: while a window is dragged the drawn lines stay, then they move to their
+     * new place once. 0 (default): at once.
      */
     property int settleMs: 0
     /** The size the layout uses: the item's, taken over at once or `settleMs` after it changed. */
     property size layoutSize: Qt.size(0, 0)
+    /** The spacing the layout uses: `lineSpacing`, taken over with the size (a new spacing that
+     *  comes with a resize, e.g. a presentation going full screen, lays out once). */
+    property real layoutSpacing: lineSpacing
+    /** The bar width the layout uses: `minBarWidth`, taken over with the size too (it may
+     *  follow the spacing, e.g. `staffSpace * 18`). */
+    property real layoutMinBarWidth: minBarWidth
     function takeSize() {
         layoutSize = Qt.size(width, height)
+        layoutSpacing = lineSpacing
+        layoutMinBarWidth = minBarWidth
     }
     function sizeChanged() {
         if (settleMs <= 0 || layoutSize.width <= 0) {
@@ -268,6 +276,8 @@ Item {
     }
     onWidthChanged: sizeChanged()
     onHeightChanged: sizeChanged()
+    onLineSpacingChanged: sizeChanged()
+    onMinBarWidthChanged: sizeChanged()
     // The first lines at once: a staff shows its notes from the first frame.
     Component.onCompleted: {
         takeSize()

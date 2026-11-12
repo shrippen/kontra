@@ -36,6 +36,7 @@ KanteFileDrop 1.0 KanteFileDrop.qml
 KanteFocusFollow 1.0 KanteFocusFollow.qml
 KanteFocusTrap 1.0 KanteFocusTrap.qml
 KanteFretboard 1.0 KanteFretboard.qml
+KanteGlassPanel 1.0 KanteGlassPanel.qml
 KanteGoalMeter 1.0 KanteGoalMeter.qml
 KanteHazard 1.0 KanteHazard.qml
 KanteHeading 1.0 KanteHeading.qml

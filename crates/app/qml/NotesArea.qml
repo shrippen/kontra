@@ -14,6 +14,10 @@ Item {
     id: area
 
     default property alias content: inner.data
+    /** Over the notes and not moved with them: a layer such as the mixer (owner 12.11.). */
+    property alias overlay: overlayLayer.data
+    /** The notes, for a layer that blurs what lies under it. */
+    readonly property Item notesLayer: inner
 
     readonly property bool glides: KanteStyle.animate && !applicationWindow().resizing
     property real lastY: 0
@@ -42,6 +46,18 @@ Item {
         id: inner
         anchors.fill: parent
         transform: Translate { id: shift }
+        // The page's ground under the notes: a layer that blurs them blurs a whole picture,
+        // not lines over nothing (the sharp notes showed through).
+        Rectangle {
+            anchors.fill: parent
+            z: -1
+            color: KanteStyle.backgroundColor
+        }
+    }
+
+    Item {
+        id: overlayLayer
+        anchors.fill: parent
     }
 
     NumberAnimation {

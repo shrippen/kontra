@@ -77,6 +77,8 @@ Kirigami.ApplicationWindow {
     }
 
     onPresentingChanged: {
+        // Room, scale and window size change within a moment: the staffs lay out once.
+        noteResize()
         if (presenting) {
             drawerBefore = globalDrawer.drawerOpen
             globalDrawer.close()

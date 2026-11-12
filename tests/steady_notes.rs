@@ -65,3 +65,35 @@ fn lean_is_steady(text: &str) -> bool {
         .find(|line| line.contains("readonly property bool lean:"))
         .is_some_and(|line| !line.contains("playing") && !line.contains("summaryReady"))
 }
+
+/// The mixer is a layer over the notes (owner 12.11.): it slid in as a row of the page's column
+/// and shrank the notes on every frame, a relayout each (FPS dropped). It sits in the notes
+/// area's overlay now, whose room it does not change.
+#[test]
+fn mixer_lies_over_the_notes() {
+    let text = page();
+    let overlay = text
+        .find("overlay: MixerCard {")
+        .unwrap_or_else(|| panic!("the mixer is no overlay of the notes in {PAGE}"));
+    assert_eq!(
+        text.matches("MixerCard {").count(),
+        1,
+        "a second mixer at {overlay}"
+    );
+}
+
+/// F5 changes the room, the spacing (presentation scale) and the window size within a moment;
+/// marked as a resize, the staffs lay out once when it rests instead of up to three times.
+#[test]
+fn presentation_settles_like_a_resize() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let main = std::fs::read_to_string(root.join("crates/app/qml/Main.qml")).unwrap();
+    let start = main
+        .find("onPresentingChanged: {")
+        .unwrap_or_else(|| panic!("no onPresentingChanged in Main.qml"));
+    let body = &main[start..start + main[start..].find("\n    }").unwrap_or(0)];
+    assert!(
+        body.contains("noteResize()"),
+        "the presentation does not count as a resize"
+    );
+}
