@@ -11,15 +11,24 @@
 //!                                                          └──▶ drums (grooves) ──write──▶ MIDI
 //! ```
 
+mod chord;
 mod labels;
 mod ladder;
+mod piece_plan;
+mod piece_render;
 mod plan;
 mod song;
+mod variety;
 
 use labels::{progression_label, rhythm_label, scale_label, sequence_label};
 pub use ladder::{lesson_seed, stage_exercise, stage_spec, Stage};
+pub use piece_plan::{
+    Drums, PieceFeel, PiecePlan, PlanError, PlanLine, PlanPart, Section, MAX_BARS_PER_PART,
+    MAX_BPM, MAX_PARTS, MAX_TIMES, MAX_TITLE_CHARS, MAX_TOTAL_BARS, MIN_BPM,
+};
+pub use piece_render::{render_piece, render_piece_json};
 pub use plan::{bundled, bundled_specs, plan_place};
-pub use song::{Level, Style};
+pub use song::{Length, Level, Style};
 
 use kontra_model::{Feel, Judging, Technique};
 use midly::num::{u15, u24, u28, u4, u7};
@@ -195,6 +204,11 @@ pub struct ExerciseSpec {
     pub ramp_bpm: f64,
     /// Judged by pitch and time, or by time only (DIDAKTIK I4: grooves on the open string).
     pub judging: Judging,
+    /// Pieces: 0 is the plain piece of the style, any other seed a variant (chords, grooves,
+    /// small changes in the repeats).
+    pub seed: u64,
+    /// Pieces: how long the form plays.
+    pub length: Length,
 }
 
 /// A written exercise: a title and a standard MIDI file.
@@ -232,6 +246,10 @@ pub struct Description {
     pub goal: &'static str,
     /// Time only: the title says so, so it does not share a name with the judged one.
     pub judging: Judging,
+    /// Pieces: the seed of a variant, 0 for the plain piece.
+    pub seed: u64,
+    /// Pieces: "short" or "long", none for the normal length.
+    pub length: Option<&'static str>,
 }
 
 /// One note of the generated line, in file ticks.
@@ -950,7 +968,7 @@ fn build(spec: &ExerciseSpec, passes: &[ExerciseSpec], prefix: &str) -> Exercise
     let fifths = signature(spec.key, head.to_major);
     let title = format!("{prefix}{}", title(spec, &head, fifths));
     let drums = match spec.kind {
-        ExerciseKind::Song(style, level) => song::song(style, level, spec.key).1,
+        ExerciseKind::Song(style, level) => song::render(spec, style, level).drums,
         ExerciseKind::Groove(_, rhythm) => {
             let bars = end / meter.bar();
             let mut hits: Vec<(u32, u8)> = (0..bars)
@@ -965,7 +983,7 @@ fn build(spec: &ExerciseSpec, passes: &[ExerciseSpec], prefix: &str) -> Exercise
     };
     // A piece names its parts over their first bar (rehearsal marks, J10).
     let parts = match spec.kind {
-        ExerciseKind::Song(style, _) => song::parts(style),
+        ExerciseKind::Song(style, level) => song::render(spec, style, level).parts,
         _ => Vec::new(),
     };
     let line = Line {
@@ -1045,7 +1063,13 @@ fn title(spec: &ExerciseSpec, pass: &Pass, fifths: i8) -> String {
         name(i32::from(spec.key), fifths),
         if pass.minor { "m" } else { "" }
     );
-    format!("{} in {key_name} ({bpm} BPM){timing}", pass.label)
+    let variant = piece_render::variant_suffix(spec.seed);
+    let variant = if matches!(spec.kind, ExerciseKind::Song(..)) {
+        variant
+    } else {
+        String::new()
+    };
+    format!("{} in {key_name} ({bpm} BPM){timing}{variant}", pass.label)
 }
 
 /// Notes, markers, length and label of one pass of `spec`.
@@ -1122,7 +1146,7 @@ fn one_pass(spec: &ExerciseSpec) -> Pass {
                 )
             }
         }
-        ExerciseKind::Song(style, level) => song::song(style, level, spec.key).0,
+        ExerciseKind::Song(style, level) => song::render(spec, style, level).pass,
         ExerciseKind::Chromatic(fingers) => {
             let (tones, length) = chromatic_line(fingers, spec.fret(), spec.slow);
             Pass {
@@ -1238,6 +1262,8 @@ pub fn describe(spec: &ExerciseSpec) -> Description {
         fret,
         goal: goal(spec),
         judging: spec.judging,
+        seed: spec.seed,
+        length: (spec.length != Length::Normal).then(|| spec.length.key()),
     }
 }
 
@@ -1442,6 +1468,11 @@ fn fit(key: i32) -> i32 {
 }
 
 fn groove_bar(start: u32, root: i32, quality: Quality, rhythm: Rhythm) -> Vec<Tone> {
+    groove_tones(start, root, quality.tones(), rhythm)
+}
+
+/// One bar of `rhythm` on `root`; `tones` are the chord's root, third, fifth and seventh.
+fn groove_tones(start: u32, root: i32, tones: [i32; 4], rhythm: Rhythm) -> Vec<Tone> {
     let note = |at: u32, length: u32, key: i32| Tone {
         start: start + at,
         length,
@@ -1501,7 +1532,6 @@ fn groove_bar(start: u32, root: i32, quality: Quality, rhythm: Rhythm) -> Vec<To
             .collect(),
         _ => {
             let root = octave_root(root);
-            let tones = quality.tones();
             rhythm
                 .hits()
                 .into_iter()
@@ -1519,6 +1549,16 @@ fn groove_bar(start: u32, root: i32, quality: Quality, rhythm: Rhythm) -> Vec<To
                 })
                 .collect()
         }
+    }
+}
+
+/// The note a half step from `next` that leads into it: from below when `next` lies higher
+/// than `root`, else from above; below the lowest note there is nothing, so from above there too.
+fn approach_note(root: i32, next: i32) -> i32 {
+    if next >= root && next > LOWEST {
+        next - 1
+    } else {
+        next + 1
     }
 }
 
@@ -1545,13 +1585,7 @@ fn walking_line(progression: Progression, key: u8) -> (Vec<Tone>, Vec<(u32, Stri
         } else {
             (chord[2], chord[3])
         };
-        // Approach from below when the next root lies higher, else from above; below the
-        // lowest note there is nothing, so from above there too.
-        let approach = if next >= root && next > LOWEST {
-            next - 1
-        } else {
-            next + 1
-        };
+        let approach = approach_note(root, next);
         let line = [root, fit(root + second), fit(root + third), approach];
         for (beat, key) in line.iter().enumerate() {
             tones.push(Tone {
@@ -1795,6 +1829,8 @@ mod tests {
             repeats: 1,
             ramp_bpm: 0.0,
             judging: Judging::PitchAndTime,
+            seed: 0,
+            length: Length::Normal,
         }
     }
 
