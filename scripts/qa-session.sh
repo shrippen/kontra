@@ -16,6 +16,11 @@
 #   --keep        keep the work folder (data, log) and print it
 #   --run CMD     run CMD (with DISPLAY set) once the window is there, then stop Kontra;
 #                 without it Kontra runs until it quits or Ctrl-C
+#   --seed DIR    copy DIR's files into Kontra's data folder first (a library.json with linked
+#                 folders, progress/ files), for pictures of a library that is not empty; a
+#                 settings.json in DIR is ignored (output stays "kontra:null", --settings applies)
+#   --prepare-only  only prepare the data folder, print its path and stop: no X server, no Kontra
+#                 (scripts/qa-session.test.sh)
 #   --settings J  more settings as a JSON object, e.g. '{"monitor": true}'; the null output stays
 #
 # Kontra binary: $KONTRA_BIN, else $CARGO_TARGET_DIR/debug/kontra, else target/debug/kontra.
@@ -25,7 +30,7 @@ set -euo pipefail
 caller="$PWD"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 
-input="" a11y=0 size="1920x1080" keep=0 run="" extra="{}"
+input="" a11y=0 size="1920x1080" keep=0 run="" extra="{}" seed="" prepare_only=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --input-file) input="$2"; shift 2 ;;
@@ -34,6 +39,8 @@ while [ $# -gt 0 ]; do
         --keep) keep=1; shift ;;
         --run) run="$2"; shift 2 ;;
         --settings) extra="$2"; shift 2 ;;
+        --seed) seed="$2"; shift 2 ;;
+        --prepare-only) prepare_only=1; shift ;;
         --) shift; break ;;
         *) echo "qa-session: unknown option $1 (see the head of this script)" >&2; exit 2 ;;
     esac
@@ -66,8 +73,18 @@ mkdir -p "$base"
 work="$(mktemp -d -p "$base" session.XXXXXX)"
 mkdir -p "$work/data" "$work/runtime" "$work/downloads"
 chmod 700 "$work/runtime"
+# The seed first, then the settings: a seed never undoes "kontra:null" (its settings.json is
+# dropped).
+if [ -n "$seed" ]; then
+    cp -r "$seed"/. "$work/data/"
+    rm -f "$work/data/settings.json"
+fi
 python3 -c 'import json, sys; print(json.dumps({**json.loads(sys.argv[1]), "output_device": "kontra:null"}))' \
     "$extra" > "$work/data/settings.json"
+if [ "$prepare_only" = 1 ]; then
+    echo "$work/data"
+    exit 0
+fi
 
 # A free display from :99 up.
 display=99

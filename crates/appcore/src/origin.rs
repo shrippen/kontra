@@ -111,7 +111,9 @@ impl Core {
 /// Moves those a style made (named "Stück …" or "… piece", the catalogs' `exercise.name.song`)
 /// and lets the library follow; progress is keyed by song id and needs nothing. A file already
 /// at the target stays where it is, so a second start finds nothing to do. Pieces from a plan
-/// have free titles and cannot be told from exercises by name: they stay.
+/// have free titles and cannot be told from exercises by name: only a title that happens to
+/// start with "Stück " or contain " piece" moves, the others stay. A wrong move is harmless: the
+/// file changes its origin only.
 pub(crate) fn move_old_pieces(data_dir: &Path, library: &mut Library) {
     let from_dir = data_dir.join(EXERCISES_DIR);
     let to_dir = data_dir.join(PIECES_DIR);

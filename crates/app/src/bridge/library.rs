@@ -4,7 +4,7 @@ use super::{file_url, local_path, q, qobject};
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
-use kontra_appcore::{Core, DataImport, PackageAudio};
+use kontra_appcore::{Core, DataImport, DensityLock, Opened, PackageAudio};
 use std::path::PathBuf;
 
 impl qobject::Controller {
@@ -50,6 +50,51 @@ impl qobject::Controller {
         };
         self.as_mut().set_recent_json(q(&recent));
         self.as_mut().set_message(q(&text));
+    }
+
+    pub(super) fn library_json(
+        &self,
+        source: &QString,
+        sort: &QString,
+        group: &QString,
+        query: &QString,
+    ) -> QString {
+        q(&self.rust().core.library_json(
+            &source.to_string(),
+            &sort.to_string(),
+            &group.to_string(),
+            &query.to_string(),
+        ))
+    }
+
+    pub(super) fn is_folder(&self, url: &QString) -> bool {
+        local_path(&url.to_string()).is_dir()
+    }
+
+    pub(super) fn link_folder(mut self: Pin<&mut Self>, url: &QString) {
+        let dir = local_path(&url.to_string());
+        if let Err(e) = self.as_mut().core().link_folder(&dir) {
+            self.as_mut().show_error(&e);
+            return;
+        }
+        // The tree shows the folder before its walk ends.
+        self.as_mut().bump_library();
+    }
+
+    pub(super) fn unlink_folder(mut self: Pin<&mut Self>, path: &QString) {
+        self.as_mut()
+            .core()
+            .unlink_folder(&PathBuf::from(path.to_string()));
+        self.as_mut().bump_library();
+    }
+
+    pub(super) fn bump_library(mut self: Pin<&mut Self>) {
+        let revision = self.as_ref().library_revision().wrapping_add(1);
+        self.as_mut().set_library_revision(revision);
+    }
+
+    pub(super) fn library_rescan(mut self: Pin<&mut Self>) {
+        self.as_mut().core().library_rescan();
     }
 
     pub(super) fn search_url(&self, site: &QString, query: &QString) -> QString {
@@ -214,6 +259,39 @@ impl qobject::Controller {
         }
     }
 
+    pub(super) fn generate_piece(
+        mut self: Pin<&mut Self>,
+        style: &QString,
+        level: &QString,
+        key: i32,
+        bpm: f64,
+        seed: i32,
+        length: &QString,
+    ) -> bool {
+        let length = length.to_string();
+        let Some(spec) = Core::exercise_spec(
+            "song",
+            &style.to_string(),
+            &level.to_string(),
+            u8::try_from(key.rem_euclid(12)).unwrap_or(0),
+            bpm,
+            "",
+            kontra_appcore::PieceVariety {
+                seed: u64::try_from(seed).unwrap_or(0),
+                length: &length,
+            },
+        ) else {
+            return false;
+        };
+        match self.as_mut().core().generate_exercise(&spec) {
+            Ok(path) => self.as_mut().open_file(&q(&path.to_string_lossy())),
+            Err(e) => {
+                self.as_mut().show_error(&e);
+                false
+            }
+        }
+    }
+
     pub(super) fn open_demo(mut self: Pin<&mut Self>) -> bool {
         let path = Core::demo_path();
         self.as_mut().open_file(&q(&path.to_string_lossy()))
@@ -275,6 +353,46 @@ impl qobject::Controller {
         match result {
             Ok(text) => self.as_mut().set_message(q(&text)),
             Err(e) => self.as_mut().show_error(&e),
+        }
+    }
+}
+
+impl super::ControllerRust {
+    /// Opening at start-up, before Qt owns the object (fields set directly).
+    pub(super) fn open_now(&mut self, path: &std::path::Path) {
+        match self.core.open(path) {
+            Ok(Opened::Ready) => {
+                self.loaded = true;
+                self.title = q(&self.core.loaded_title());
+                self.artist = q(&self
+                    .core
+                    .arrangement()
+                    .map_or(String::new(), |a| a.artist.clone()));
+                self.notes_json = q(&self.core.notes_json());
+                self.bars_json = q(&self.core.bars_json());
+                self.staff_json = q(&self.core.staff_json());
+                self.string_names_json = q(&self.core.string_names_json());
+                self.key_range_json = q(&self.core.key_range_json());
+                self.duration = self.core.duration_s();
+                self.recent_json = q(&self.core.recent_json());
+                self.backing_name = q(&self.core.backing_name());
+                self.stems_json = q(&self.core.stems_json());
+                self.transpose = self.core.transpose();
+                self.saved_loops_json = q(&self.core.saved_loops_json());
+                self.target_speed = self.core.target_speed();
+                self.view = q(&self.core.view());
+                self.tracks_json = q(&self.core.tracks_json());
+                let (density, lock) = self.core.density();
+                self.density = i32::from(density.percent());
+                self.density_fixed = lock == DensityLock::Fixed;
+                if let Some(notice) = self.core.take_notice() {
+                    self.message = q(&notice);
+                }
+            }
+            Ok(Opened::ChooseTrack(names)) => {
+                self.track_choices_json = q(&serde_json::to_string(&names).unwrap_or_default());
+            }
+            Err(e) => self.error_text = q(&e),
         }
     }
 }

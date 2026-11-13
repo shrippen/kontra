@@ -804,6 +804,31 @@ fn artists_differing_in_case_are_one_group() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+#[test]
+fn folders_differing_in_case_are_one_group() {
+    let dir = temp_dir("group-folder-case");
+    let (upper, lower) = (dir.join("a/Tabs"), dir.join("b/tabs"));
+    touch(&upper.join("a.mid"));
+    touch(&lower.join("b.mid"));
+    touch(&upper.join("c.mid"));
+    let mut core = core_with(&dir, Vec::new());
+    core.link_folder(&upper).unwrap();
+    core.link_folder(&lower).unwrap();
+    // The second link came during the first walk: a second walk follows.
+    wait_walked(&mut core);
+    wait_walked(&mut core);
+    let all = page(&core, "all", "title", "folder", "");
+    let groups: Vec<&Value> = all["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|g| g["key"] != "")
+        .collect();
+    assert_eq!(groups.len(), 1, "{groups:?}");
+    assert_eq!(groups[0]["count"], 3);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 fn gone_walk(_: &Path) -> Walked {
     Walked {
         missing: true,

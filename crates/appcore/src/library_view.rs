@@ -259,7 +259,8 @@ impl Core {
                 label if label.is_empty() => {
                     (String::new(), self.tr("library.group.folder.none", &[]))
                 }
-                label => (label.clone(), label),
+                // Case-folded like the artist: the rank is, so equal names stay together.
+                label => (label.to_lowercase(), label),
             },
         }
     }

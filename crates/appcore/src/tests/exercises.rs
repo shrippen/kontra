@@ -771,6 +771,7 @@ fn a_piece_s_path_and_title_tell_its_seed_and_length_apart() {
 /// Bug (review of PR #316): `piece_path` only replaced `/ : # ♯ ♭`. A plan's title comes from
 /// an LLM; `? * " < > | \` and control characters make an invalid path on Windows (or a
 /// subdirectory, for `/`), and `generate_piece` would fail with a filesystem error there.
+/// A plan's piece now goes to `pieces/`; both folders share `named_path`, tested here.
 #[test]
 fn piece_path_sanitizes_every_character_invalid_in_a_file_name() {
     let dir = temp_dir("piece-sanitize");

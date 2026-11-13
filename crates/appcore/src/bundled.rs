@@ -388,9 +388,9 @@ impl Core {
         }
     }
 
-    /// Where a generated exercise named `title` is written; `title` may come from an LLM's
-    /// plan, so every character invalid in a Windows or Unix file name is replaced, not only
-    /// the ones a built-in piece's own title ever has.
+    /// Where a generated exercise named `title` is written (pieces, also a plan's, go to
+    /// `pieces/`). `named_path` replaces every character invalid in a Windows or Unix file
+    /// name, not only the ones a built-in title ever has.
     pub(crate) fn piece_path(&self, title: &str) -> PathBuf {
         self.named_path(EXERCISES_DIR, title)
     }
