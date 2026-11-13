@@ -57,12 +57,16 @@ KanteDialog {
         // The piece is open: practise it, from the library as from the exercises (QA 14.11.).
         // The bridge reports a failed wish through `errorText` (`LlmEvent::Failed`).
         function onErrorTextChanged() {
-            if (!dialog.asked || dialog.ctl.llmBusy || dialog.ctl.errorText === "") return
+            if (!dialog.asked || dialog.ctl.llmBusy || dialog.ctl.errorText === "") {
+                return
+            }
             dialog.asked = false
             dialog.failure = dialog.ctl.errorText
         }
         function onLlmPieceOpened() {
-            if (!dialog.asked) return
+            if (!dialog.asked) {
+                return
+            }
             dialog.asked = false
             dialog.close()
             applicationWindow().show("practice")
