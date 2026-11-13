@@ -33,6 +33,9 @@ finish-args:
   # not visible in the sandbox: they come as Flatpak extensions (below).
   - --filesystem=~/.clap:ro
   - --filesystem=~/.vst3:ro
+  # LLM API keys (LH-BIB-16) in the system's keyring, via the Secret Service portal (owner,
+  # 13.11.2026).
+  - --talk-name=org.freedesktop.secrets
 # CLAP and VST 3 plugins packaged for Flatpak (org.freedesktop.LinuxAudio.Plugins.*), as other
 # audio apps take them; Kontra searches /app/extensions/Plugins/{clap,vst3} in the sandbox.
 add-extensions:
