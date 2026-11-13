@@ -951,14 +951,6 @@ Kirigami.Page {
             id: notesArea
             Layout.fillWidth: true
             Layout.fillHeight: true
-            // The mixer slides down over the notes (in the page, so screenshots show it).
-            overlay: MixerCard {
-                anchors { left: parent.left; right: parent.right; top: parent.top }
-                open: mixerButton.checked && !page.presenting
-                blurSource: notesArea.notesLayer
-                maxHeight: notesArea.height * 0.6
-            }
-
             KanteTabLane {
                 id: lane
                 anchors.fill: parent
@@ -1128,6 +1120,7 @@ Kirigami.Page {
         }
 
         RowLayout {
+            id: transportRow
             Layout.fillWidth: true
             spacing: KanteStyle.unit(8)
             KanteTransportBar {
@@ -1168,6 +1161,12 @@ Kirigami.Page {
         }
     }
 
+    MixerLayer {
+        id: mixerLayer
+        column: pageContent; startRow: notesArea; stopRow: transportRow
+        open: mixerButton.checked && !page.presenting
+    }
+
     // Made when first asked for: not seen on opening (a click on "Practice" waited for them).
     function openAlign() { alignLoader.active = true; alignLoader.item.open() }
     function openBacking() { backingLoader.active = true; backingLoader.item.open() }
@@ -1195,6 +1194,6 @@ Kirigami.Page {
         anchors.fill: parent
         bleed: page.padding
         returnTo: transport
-        behind: [pageContent]
+        behind: [pageContent, mixerLayer]
     }
 }
