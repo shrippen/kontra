@@ -335,6 +335,23 @@ mod tests {
         assert!(listener.accept().is_err(), "no connection was made");
     }
 
+    /// Whether `request` holds the headers and as many body bytes as `content-length` says.
+    fn request_complete(request: &[u8]) -> bool {
+        let text = String::from_utf8_lossy(request);
+        let Some(end) = text.find("\r\n\r\n") else {
+            return false;
+        };
+        let length = text[..end]
+            .lines()
+            .find_map(|l| {
+                let (key, value) = l.split_once(':')?;
+                key.eq_ignore_ascii_case("content-length")
+                    .then(|| value.trim().parse::<usize>().ok())?
+            })
+            .unwrap_or(0);
+        request.len() >= end + 4 + length
+    }
+
     /// One canned answer on a loopback port; returns the base URL.
     fn serve_once() -> String {
         use std::io::{Read, Write};
@@ -344,8 +361,16 @@ mod tests {
             let Ok((mut stream, _)) = listener.accept() else {
                 return;
             };
+            // The whole request, body too: closing with unread bytes resets the connection on
+            // Windows (os error 10053) before the client reads the answer.
+            let mut request = Vec::new();
             let mut buf = [0u8; 4096];
-            let _ = stream.read(&mut buf);
+            while !request_complete(&request) {
+                match stream.read(&mut buf) {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => request.extend_from_slice(&buf[..n]),
+                }
+            }
             let _ = stream
                 .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
         });
