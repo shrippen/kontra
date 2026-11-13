@@ -206,8 +206,6 @@ pub mod qobject {
         #[qproperty(bool, show_align, cxx_name = "showAlign")]
         /// QA: bars to loop at start, 1-based "from-to" ("" = none).
         #[qproperty(QString, start_loop, cxx_name = "startLoop")]
-        /// QA/screenshots: opens this dialog on the exercises page ("llmSettings", "pieceWish").
-        #[qproperty(QString, open_dialog, cxx_name = "openDialog")]
         #[qproperty(QString, screenshot_path, cxx_name = "screenshotPath")]
         #[qproperty(i32, screenshot_after, cxx_name = "screenshotAfter")]
         #[qproperty(i32, quit_after, cxx_name = "quitAfter")]
@@ -1175,7 +1173,6 @@ pub struct ControllerRust {
     start_section: QString,
     show_align: bool,
     start_loop: QString,
-    open_dialog: QString,
     screenshot_path: QString,
     screenshot_after: i32,
     quit_after: i32,
@@ -1365,7 +1362,6 @@ impl Default for ControllerRust {
                 .loop_bars
                 .map(|(a, b)| format!("{a}-{b}"))
                 .unwrap_or_default()),
-            open_dialog: q(args.open_dialog.as_deref().unwrap_or("")),
             screenshot_path: q(&args
                 .screenshot
                 .as_ref()

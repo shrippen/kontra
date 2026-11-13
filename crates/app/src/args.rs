@@ -45,10 +45,6 @@ pub struct AppArgs {
     /// `--update-answer FILE`: the update check reads this file as `versions.json`, never the
     /// network (QA of the update notice, screenshots).
     pub update_answer: Option<PathBuf>,
-    /// `--open-dialog llmSettings|pieceWish`: opens that dialog on the exercises page
-    /// (screenshots, LH-BIB-16); a dialog is not inside the page, so `Main.qml` grabs the
-    /// whole window while one is named here.
-    pub open_dialog: Option<String>,
     /// `--help` or `-h`: print `USAGE` and quit, never open the audio input (QA 27.10.).
     pub help: bool,
     /// The first `--option` Kontra does not know: an error instead of a start with real audio.
@@ -72,7 +68,6 @@ Usage: kontra [FILE] [OPTIONS]
   --loop-bars A-B, --section NAME
   --screenshot PNG, --screenshot-after MS, --quit-after MS
   --songsterr-answer FILE, --song-search TEXT, --course-answer FILE, --update-answer FILE
-  --open-dialog llmSettings|pieceWish
   --focus-log, --screenshot-notes
   -h, --help               this text
 ";
@@ -123,7 +118,6 @@ impl AppArgs {
                 "--song-search" => out.song_search = Some(text(value())),
                 "--update-answer" => out.update_answer = Some(PathBuf::from(value())),
                 "--course-answer" => out.course_answer = Some(PathBuf::from(value())),
-                "--open-dialog" => out.open_dialog = Some(text(value())),
                 "--loop-bars" => {
                     let v = text(value());
                     let mut parts = v.split('-').map(|p| p.trim().parse::<i32>());
@@ -289,15 +283,5 @@ mod tests {
         assert!(a.laptop_jack && a.autoplay && a.mixer && a.probe);
         assert_eq!(a.page.as_deref(), Some("practice"));
         assert_eq!(a.screenshot_after_ms, 1500);
-    }
-
-    #[test]
-    fn parses_open_dialog() {
-        let a = AppArgs::parse(
-            ["--open-dialog", "llmSettings"]
-                .iter()
-                .map(|s| s.to_string()),
-        );
-        assert_eq!(a.open_dialog.as_deref(), Some("llmSettings"));
     }
 }
