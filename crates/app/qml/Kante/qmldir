@@ -89,6 +89,7 @@ KanteScrollMeter 1.0 KanteScrollMeter.qml
 KanteSearchCombo 1.0 KanteSearchCombo.qml
 KanteSectionLabel 1.0 KanteSectionLabel.qml
 KanteSegmented 1.0 KanteSegmented.qml
+KanteSettingGroup 1.0 KanteSettingGroup.qml
 KanteSettingRow 1.0 KanteSettingRow.qml
 KanteSettle 1.0 KanteSettle.qml
 KanteSheetSkin 1.0 KanteSheetSkin.qml
@@ -101,6 +102,7 @@ KanteSplitHandle 1.0 KanteSplitHandle.qml
 KanteStatusLight 1.0 KanteStatusLight.qml
 KanteSteps 1.0 KanteSteps.qml
 KanteSticker 1.0 KanteSticker.qml
+KanteStickyHeader 1.0 KanteStickyHeader.qml
 KanteSwatch 1.0 KanteSwatch.qml
 KanteSwatchPicker 1.0 KanteSwatchPicker.qml
 KanteSwitch 1.0 KanteSwitch.qml

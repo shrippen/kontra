@@ -998,6 +998,8 @@
   "settings.setup.hint": "Bass, connection, level, tuning and latency once more, step by step.",
   "settings.setup.start": "Start",
   "settings.jump": "Jump to section",
+  "settings.group.count": "{n} settings",
+  "settings.group.count.one": "1 setting",
   "settings.section.connection": "Audio",
   "settings.section.instrument": "Instrument",
   "settings.section.display": "Display",

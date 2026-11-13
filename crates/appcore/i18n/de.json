@@ -998,6 +998,8 @@
   "settings.setup.hint": "Bass, Anschluss, Pegel, Stimmen und Latenz noch einmal Schritt für Schritt.",
   "settings.setup.start": "Starten",
   "settings.jump": "Zu Abschnitt springen",
+  "settings.group.count": "{n} Einstellungen",
+  "settings.group.count.one": "1 Einstellung",
   "settings.section.connection": "Audio",
   "settings.section.instrument": "Instrument",
   "settings.section.display": "Anzeige",

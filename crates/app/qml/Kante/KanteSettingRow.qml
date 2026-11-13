@@ -34,6 +34,22 @@ Item {
         Math.max(titleText.implicitWidth + KanteStyle.unit(14), hintMetrics.advanceWidth))
     readonly property real sectionHeight: section !== "" ? sectionHead.implicitHeight + KanteStyle.unit(14) : 0
 
+    /** A KanteSettingGroup counts the rows (and any item with this property true) it holds. */
+    readonly property bool isSetting: true
+
+    // Tells the group around it that a row came, went or was hidden.
+    function tellGroup() {
+        for (let p = row.parent; p; p = p.parent) {
+            if (p.settingGroup === true) {
+                p.recount()
+                return
+            }
+        }
+    }
+    onVisibleChanged: tellGroup()
+    Component.onCompleted: tellGroup()
+    Component.onDestruction: tellGroup()
+
     implicitWidth: KanteStyle.unit(420)
     implicitHeight: sectionHeight + grid.implicitHeight + KanteStyle.unit(20)
 
