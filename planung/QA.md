@@ -169,7 +169,7 @@ Trefferquote bleibt gleich (Abdämpfen ist Rückmeldung, kein Treffer); Noten oh
 Palm-Mute und die letzte Note (ohne Staccato) werden nicht bewertet. Mikrofon: kein Urteil, die Auswertung sagt
 „Abdämpfen bewertet Kontra über diesen Eingang noch nicht (nur über Kabel)“.
 
-**J-B9 Bibliothek ordnen** (Daten und Zählung getestet in `crates/appcore/src/tests/library_view.rs`, Menü, Baum, Tabelle und Dialoge in `crates/app/qml/tests/tst_addpiecesmenu.qml`, `tst_librarytree.qml`, `tst_librarytable.qml`, `tst_librarydialogs.qml`) · Personas: P2 Jens, P4 Thomas, P1 Lea, P7 Sam · Phase 3 · LH-BIB-17, -18, -19
+**J-B9 Bibliothek ordnen** (Daten und Zählung getestet in `crates/appcore/src/tests/library_view.rs`, Menü, Baum, Tabelle und Dialoge in `crates/app/qml/tests/tst_addpiecesmenu.qml`, `tst_librarytree.qml`, `tst_librarytable.qml`, `tst_librarydialogs.qml`, `tst_librarypage.qml`) · Personas: P2 Jens, P4 Thomas, P1 Lea, P7 Sam · Phase 3 · LH-BIB-17, -18, -19
 1. Jens: 40 Stücke aus Downloads, einen Ordner „Band“ mit Unterordnern „Rock“ und „Slap“ über „Stücke hinzufügen ▾“ → „Ordner hinzufügen …“ verknüpfen (der Dialog fragt: Verknüpfen, Importieren, Als Setliste); im Baum „Heruntergeladen“, dann „Band“ und „Slap“ anklicken; nach „Zuletzt“ absteigend sortieren (Spaltenkopf, Pfeil im Titel), nach Tempo auf- und absteigend; über „Gruppieren“ nach Interpret gruppieren; „funk“ suchen.
 2. Jens: eine Datei aus „Heruntergeladen“ in „Band/Rock“ verschieben, Bibliothek neu öffnen, das Stück spielen.
 3. Thomas: einen Ordner auf einem langsamen oder nicht eingehängten Laufwerk verknüpfen, dann abziehen.

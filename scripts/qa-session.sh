@@ -19,6 +19,8 @@
 #   --seed DIR    copy DIR's files into Kontra's data folder first (a library.json with linked
 #                 folders, progress/ files), for pictures of a library that is not empty; a
 #                 settings.json in DIR is ignored (output stays "kontra:null", --settings applies)
+#   --downloads DIR  copy DIR's files into Kontra's download folder; "@DOWNLOADS@" in the
+#                 seeded library.json becomes that folder (pieces with the origin "Download")
 #   --prepare-only  only prepare the data folder, print its path and stop: no X server, no Kontra
 #                 (scripts/qa-session.test.sh)
 #   --settings J  more settings as a JSON object, e.g. '{"monitor": true}'; the null output stays
@@ -30,7 +32,7 @@ set -euo pipefail
 caller="$PWD"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 
-input="" a11y=0 size="1920x1080" keep=0 run="" extra="{}" seed="" prepare_only=0
+input="" a11y=0 size="1920x1080" keep=0 run="" extra="{}" seed="" downloads="" prepare_only=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --input-file) input="$2"; shift 2 ;;
@@ -40,6 +42,7 @@ while [ $# -gt 0 ]; do
         --run) run="$2"; shift 2 ;;
         --settings) extra="$2"; shift 2 ;;
         --seed) seed="$2"; shift 2 ;;
+        --downloads) downloads="$2"; shift 2 ;;
         --prepare-only) prepare_only=1; shift ;;
         --) shift; break ;;
         *) echo "qa-session: unknown option $1 (see the head of this script)" >&2; exit 2 ;;
@@ -78,6 +81,12 @@ chmod 700 "$work/runtime"
 if [ -n "$seed" ]; then
     cp -r "$seed"/. "$work/data/"
     rm -f "$work/data/settings.json"
+fi
+if [ -n "$downloads" ]; then
+    cp -r "$downloads"/. "$work/downloads/"
+fi
+if [ -f "$work/data/library.json" ]; then
+    sed -i "s|@DOWNLOADS@|$work/downloads|g" "$work/data/library.json"
 fi
 python3 -c 'import json, sys; print(json.dumps({**json.loads(sys.argv[1]), "output_device": "kontra:null"}))' \
     "$extra" > "$work/data/settings.json"

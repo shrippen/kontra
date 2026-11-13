@@ -998,6 +998,29 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 
 ## QA-Runden
 
+### QA-Runde 13./14.11.2026 (J-B9 Bibliothek, Nacht)
+
+Neue Bibliothek nach #322/#323 als P2 Jens, P1 Lea und P7 Sam (Tastatur, Namen über AT-SPI): qa-session (Xvfb
+1296×792, Eingang aus Datei), 40 MusicXML-Stücke in Downloads (`qa-session.sh --downloads`, neu), Ordner „band“
+mit „Rock“ (5) und „Slap“ (4). Bestanden: Zählung im Baum gleich der Zeilenzahl (auch Unterordner), Sortierung mit
+Pfeil und Satz, Gruppen nach Interpret mit Anzahl, Suche „funk“, Menü „Stücke hinzufügen“ mit Pfeilen und Enter,
+Generator öffnet das Stück und legt es unter „Generiert“ ab, neue Setliste.
+
+- [x] Q1 (mittel): „Andere Variante“ rückte nach dem ersten Klick nach links, an seine Stelle kam „Grundvariante“;
+  der zweite Klick setzte die Variante zurück (J-B9 Schritt 6 ergab die Grundvariante).
+- [x] Q2 (mittel): Eine leere Quelle (etwa „Generiert“ mit 0) schob Titel, Suche und Knöpfe in die Seitenmitte.
+- [x] Q3 (niedrig): Ein abgezogener Ordner sagte „In dieser Quelle sind keine Stücke.“; jetzt „Ordner nicht
+  gefunden“ mit Pfad und Grund, und er wird beim Wählen neu gesucht (vorher erst beim nächsten Öffnen der Seite).
+- [x] Q4 (niedrig): „zuletzt am 13.11.25 gespielt“ passte nicht in die Spalte und endete mit „…“; die Zelle zeigt
+  den Tag allein („heute“, „vor 3 Tagen“, das Datum), der Screenreader weiter den Satz.
+- [ ] Q5 (mittel): Tempo fehlt fast überall: Übungen (trotz „90 BPM“ im Namen), Dateien aus Ordnern und Einträge
+  von vor #322 zeigen „—“, Sortieren nach Tempo ordnet nur nach Titel. Dateien aus Ordnern haben auch keinen
+  Interpreten (alle unter „Ohne Interpret“) und den Dateinamen als Titel.
+- [ ] Q6 (mittel): Eine von Downloads nach „band/Rock“ verschobene Datei steht doppelt da: der alte Eintrag mit
+  „Datei fehlt“ unter „Heruntergeladen“, die Datei in „Rock“ ohne Titel, Interpret und Ergebnis (J-B9 Schritt 2
+  erwartet: steht unter „Band/Rock“ und behält das Ergebnis).
+- Nur in der QA: Der Qt-Ordnerdialog (ohne Portal) nimmt den markierten Unterordner statt des geöffneten.
+
 ### QA-Runde 12./13.11.2026 (FPS: Software und GPU, Nacht)
 
 Auftrag des Eigentümers (12.11.): Mixer einblenden und Präsentation ließen die FPS stark sinken; FPS generell mit

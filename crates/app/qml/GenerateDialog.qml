@@ -120,16 +120,19 @@ KanteDialog {
                         : dialog.texts.t("library.gen.variant.n", { n: dialog.variant })
                     color: KanteStyle.strongTextColor
                 }
-                KanteButton {
-                    text: dialog.texts.t("library.gen.other")
-                    emphasis: KanteButton.Emphasis.Quiet
-                    onClicked: dialog.variant += 1
-                }
+                // The reset comes first: "Another variant" keeps its place at the right edge, so
+                // clicking it again never hits the reset (QA 13.11.).
                 KanteButton {
                     visible: dialog.variant > 0
                     text: dialog.texts.t("library.gen.variant.plain")
                     emphasis: KanteButton.Emphasis.Quiet
                     onClicked: dialog.variant = 0
+                }
+                KanteButton {
+                    objectName: "otherVariant"
+                    text: dialog.texts.t("library.gen.other")
+                    emphasis: KanteButton.Emphasis.Quiet
+                    onClicked: dialog.variant += 1
                 }
             }
         }
