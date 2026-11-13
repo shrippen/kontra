@@ -5,8 +5,10 @@
 //!   link, unlink, page opens ──► thread: walk each folder ──► tick ──► found, changed
 //!   a folder gone or unreadable ──► marked missing, no error
 //!
-//! Only file names are read here. Title, artist and tempo come when a piece is opened; parsing
-//! every file of a large folder would cost seconds.
+//! Only file names are read here; title, artist and tempo are read behind the walk by a second
+//! thread (`meta`), since parsing every file of a large folder costs seconds.
+
+mod meta;
 
 use crate::Core;
 use kontra_session::FileKind;
@@ -39,6 +41,8 @@ pub(crate) struct Folders {
     walk: Walk,
     found: BTreeMap<PathBuf, Walked>,
     job: Option<Receiver<BTreeMap<PathBuf, Walked>>>,
+    /// Title, artist and tempo read from the files behind the walk.
+    pub(crate) metas: meta::Metas,
     /// Something changed while a walk ran (a link): walk again when it ends.
     again: bool,
     changed: bool,
@@ -49,6 +53,7 @@ impl Default for Folders {
         Self {
             walk: walk_folder,
             found: BTreeMap::new(),
+            metas: meta::Metas::default(),
             job: None,
             again: false,
             changed: false,
@@ -90,7 +95,9 @@ impl Core {
     /// Reads the linked folders again in the background. One walk at a time: asked during a
     /// walk, it walks once more after that.
     pub fn library_rescan(&mut self) {
+        // Without folders only the library's own entries are read (`read_meta`).
         if self.library.linked_folders.is_empty() {
+            self.read_meta();
             return;
         }
         if self.folders.job.is_some() {
@@ -114,14 +121,24 @@ impl Core {
         self.folders.job = Some(result);
     }
 
-    /// True once a walk ended or a link went; the page then reads `library_json` again.
-    pub fn library_changed(&mut self) -> bool {
-        self.take_walk();
-        std::mem::take(&mut self.folders.changed)
+    /// True while a walk runs.
+    #[cfg(test)]
+    pub(crate) fn walk_busy(&self) -> bool {
+        self.folders.job.is_some()
     }
 
-    /// Keeps the result of a finished walk; called at every tick.
+    /// True once a walk ended, a link went or files were read; the page then reads
+    /// `library_json` again.
+    pub fn library_changed(&mut self) -> bool {
+        self.take_walk();
+        let read = self.meta_changed();
+        std::mem::take(&mut self.folders.changed) || read
+    }
+
+    /// Keeps the result of a finished walk and what was read of the files; called at every
+    /// tick.
     pub(crate) fn take_walk(&mut self) {
+        self.take_meta();
         let Some(job) = self.folders.job.as_ref() else {
             return;
         };
@@ -141,7 +158,10 @@ impl Core {
         self.folders.changed = true;
         if std::mem::take(&mut self.folders.again) {
             self.library_rescan();
+            return;
         }
+        // Titles, artists and tempos of what was found, behind the walk (`meta`).
+        self.read_meta();
     }
 
     #[cfg(test)]
