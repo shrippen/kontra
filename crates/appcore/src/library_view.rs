@@ -286,7 +286,8 @@ impl Core {
     }
 
     /// Every piece the page can show: the library's entries, then files of the linked folders
-    /// and bundled exercises the library does not know yet (nothing is parsed for those).
+    /// and bundled exercises the library does not know yet, with what the background read found
+    /// in them (`folders::meta`).
     fn library_rows(&self) -> Vec<Row> {
         let places = self.places();
         let store = self.progress_store();

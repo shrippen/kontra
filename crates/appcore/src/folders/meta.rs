@@ -12,7 +12,7 @@
 use crate::{piece_name, store, Core};
 use kontra_session::{import_file, ProgressStore};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
 use std::time::UNIX_EPOCH;
@@ -57,6 +57,9 @@ pub(crate) struct Metas {
     dirty: bool,
     /// Read since the page last asked.
     changed: bool,
+    /// The paths the last read looked at: the cache keeps only these, so files deleted or
+    /// unlinked leave it.
+    wanted: Vec<PathBuf>,
 }
 
 impl Metas {
@@ -97,6 +100,7 @@ impl Core {
             .filter_map(|p| Some((p.clone(), self.folders.metas.known.get(p)?.stamp)))
             .collect();
 
+        self.folders.metas.wanted = paths.clone();
         let (tell, result) = channel();
         std::thread::spawn(move || {
             let mut chunk = Chunk::new();
@@ -135,7 +139,11 @@ impl Core {
                 Err(TryRecvError::Empty) => return,
                 Err(TryRecvError::Disconnected) => {
                     self.folders.metas.job = None;
-                    if std::mem::take(&mut self.folders.metas.dirty) {
+                    let metas = &mut self.folders.metas;
+                    let before = metas.known.len();
+                    let wanted: HashSet<&PathBuf> = metas.wanted.iter().collect();
+                    metas.known.retain(|path, _| wanted.contains(path));
+                    if std::mem::take(&mut metas.dirty) || metas.known.len() != before {
                         save_cache(&self.meta_cache_path(), &self.folders.metas.known);
                     }
                     if std::mem::take(&mut self.folders.metas.again) {
@@ -182,24 +190,26 @@ impl Core {
             .into_iter()
             .filter(|p| self.library.entry(p).is_none())
             .collect();
-        let moves: Vec<(PathBuf, PathBuf)> = self
-            .library
-            .recent
-            .iter()
-            .filter(|e| !e.song_id.is_empty() && !e.path.exists())
-            .filter_map(|e| {
-                let mut same = files.iter().filter(|p| {
-                    self.folders
-                        .metas
-                        .get(p)
-                        .is_some_and(|m| m.song_id == e.song_id)
-                });
-                let found = same.next()?;
-                same.next()
-                    .is_none()
-                    .then(|| (e.path.clone(), (*found).clone()))
-            })
-            .collect();
+        let mut moves: Vec<(PathBuf, PathBuf)> = Vec::new();
+        for entry in &self.library.recent {
+            if entry.song_id.is_empty() || entry.path.exists() {
+                continue;
+            }
+            let mut same = files.iter().filter(|p| {
+                self.folders
+                    .metas
+                    .get(p)
+                    .is_some_and(|m| m.song_id == entry.song_id)
+            });
+            let (Some(found), None) = (same.next(), same.next()) else {
+                continue;
+            };
+            // One entry per file (review #326: a piece downloaded twice): the most recent one
+            // follows, the other stays as missing.
+            if moves.iter().all(|(_, to)| to != *found) {
+                moves.push((entry.path.clone(), (*found).clone()));
+            }
+        }
         for (from, to) in &moves {
             self.library.rename_path(from, to);
         }

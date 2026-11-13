@@ -998,3 +998,57 @@ fn a_moved_piece_is_found_again() {
     );
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Review #326: two entries of the same piece (downloaded twice) whose files are gone must not
+/// both follow the one file in the folder; one follows, the other stays as missing.
+#[test]
+fn two_entries_never_follow_one_file() {
+    let dir = temp_dir("meta-twice");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.set_download_dir(&dir.join("Downloads"));
+    let (first, second) = (
+        dir.join("Downloads/etude.mid"),
+        dir.join("Downloads/etude (1).mid"),
+    );
+    known_piece(&mut core, &first);
+    known_piece(&mut core, &second);
+
+    let after = dir.join("tabs/etude.mid");
+    std::fs::create_dir_all(after.parent().unwrap()).unwrap();
+    std::fs::rename(&first, &after).unwrap();
+    std::fs::remove_file(&second).unwrap();
+    core.link_folder(&dir.join("tabs")).unwrap();
+    wait_walked(&mut core);
+
+    let paths: Vec<&PathBuf> = core.library.recent.iter().map(|e| &e.path).collect();
+    assert_eq!(
+        paths.iter().filter(|p| ***p == after).count(),
+        1,
+        "{paths:?}"
+    );
+    assert_eq!(
+        core.library.recent.len(),
+        2,
+        "the other entry stays: {paths:?}"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Review #326: files of an unlinked folder leave the cache of what was read.
+#[test]
+fn the_cache_forgets_unlinked_files() {
+    let dir = temp_dir("meta-cache");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let tabs = dir.join("tabs");
+    score(&tabs.join("song.musicxml"), "Cached", "", 90);
+    core.link_folder(&tabs).unwrap();
+    wait_walked(&mut core);
+    let cache = crate::store::cache_dir(&dir).join("library-meta.json");
+    assert!(std::fs::read_to_string(&cache).unwrap().contains("song.musicxml"));
+
+    core.unlink_folder(&tabs);
+    core.library_rescan();
+    wait_walked(&mut core);
+    assert!(!std::fs::read_to_string(&cache).unwrap().contains("song.musicxml"));
+    let _ = std::fs::remove_dir_all(dir);
+}
