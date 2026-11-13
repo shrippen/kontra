@@ -1162,9 +1162,8 @@ Kirigami.Page {
     }
 
     MixerLayer {
-        column: pageContent
-        startRow: notesArea
-        stopRow: transportRow
+        id: mixerLayer
+        column: pageContent; startRow: notesArea; stopRow: transportRow
         open: mixerButton.checked && !page.presenting
     }
 
@@ -1195,6 +1194,6 @@ Kirigami.Page {
         anchors.fill: parent
         bleed: page.padding
         returnTo: transport
-        behind: [pageContent]
+        behind: [pageContent, mixerLayer]
     }
 }
