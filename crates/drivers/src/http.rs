@@ -1,4 +1,4 @@
-//! HTTPS for the few web requests Kontra makes: GET for the Songsterr search (LH-BIB-11) and for
+//! HTTPS (plain http only to this machine, for local LLMs) for the few web requests Kontra makes: GET for the Songsterr search (LH-BIB-11) and for
 //! an LLM's model list, POST for an LLM's answer (LH-BIB-16, the "Stück wünschen" wish). Behind a
 //! trait, so tests and screenshots use canned answers instead of the network.
 //!
@@ -88,6 +88,9 @@ pub struct Web {
     agent: ureq::Agent,
     /// The same, with time for downloads.
     downloads: ureq::Agent,
+    /// For LLM calls: also plain http (checked per URL by `check_llm_url`), no redirects, so a
+    /// key header never follows one elsewhere.
+    llm: ureq::Agent,
 }
 
 impl Web {
@@ -114,9 +117,17 @@ impl Web {
                 .build()
                 .into()
         };
+        let llm = ureq::Agent::config_builder()
+            .timeout_global(Some(LLM_TIMEOUT))
+            .user_agent(USER_AGENT)
+            .max_redirects(0)
+            .tls_config(tls.clone())
+            .build()
+            .into();
         Web {
             agent: agent(TIMEOUT),
             downloads: agent(DOWNLOAD_TIMEOUT),
+            llm,
         }
     }
 }
@@ -149,7 +160,8 @@ impl Http for Web {
     }
 
     fn get_with(&self, url: &str, headers: &[(&str, &str)]) -> Result<Vec<u8>, HttpError> {
-        let mut request = self.agent.get(url);
+        check_llm_url(url)?;
+        let mut request = self.llm.get(url);
         for (key, value) in headers {
             request = request.header(*key, *value);
         }
@@ -172,8 +184,9 @@ impl Http for Web {
         body: &[u8],
         timeout: Duration,
     ) -> Result<Vec<u8>, HttpError> {
+        check_llm_url(url)?;
         let mut request = self
-            .agent
+            .llm
             .post(url)
             .header("content-type", "application/json");
         for (key, value) in headers {
@@ -188,6 +201,34 @@ impl Http for Web {
             .map_err(error)?;
         body_or_status(response, MAX_LLM_BODY)
     }
+}
+
+/// Whether `host` (as in a URL: IPv6 in brackets) is this machine: `localhost`, 127.0.0.0/8, `::1`.
+fn is_loopback(host: &str) -> bool {
+    if host == "localhost" {
+        return true;
+    }
+    host.trim_start_matches('[')
+        .trim_end_matches(']')
+        .parse::<std::net::IpAddr>()
+        .is_ok_and(|ip| ip.is_loopback())
+}
+
+/// An LLM call may use plain http only to this machine (Ollama, LM Studio); any other host stays
+/// https, so a key never goes in clear text. Checked before any connection is made.
+fn check_llm_url(url: &str) -> Result<(), HttpError> {
+    let uri: ureq::http::Uri = url
+        .parse()
+        .map_err(|_| HttpError::Failed(format!("bad URL: {url}")))?;
+    if uri.scheme_str() == Some("https") {
+        return Ok(());
+    }
+    if uri.scheme_str() == Some("http") && uri.host().is_some_and(is_loopback) {
+        return Ok(());
+    }
+    Err(HttpError::Failed(format!(
+        "plain http is only allowed to this machine: {url}"
+    )))
 }
 
 /// Reads a response's body; past a 4xx/5xx status, the body is the provider's error text and
@@ -269,7 +310,8 @@ mod tests {
         assert!(matches!(http.get("x"), Err(HttpError::Failed(_))));
     }
 
-    /// Never plain http, also not after a redirect from https (a package could be swapped).
+    /// Never plain http for Songsterr and package downloads, also not after a redirect from https
+    /// (a package could be swapped).
     #[test]
     fn plain_http_is_never_asked() {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -278,9 +320,73 @@ mod tests {
         let web = Web::new();
         assert!(web.get(&url).is_err());
         assert!(web.download(&url, 1).is_err());
-        assert!(web.get_with(&url, &[]).is_err());
-        assert!(web.post_json(&url, &[], b"{}", TIMEOUT).is_err());
         assert!(listener.accept().is_err(), "no connection was made");
+    }
+
+    /// One canned answer on a loopback port; returns the base URL.
+    fn serve_once() -> String {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            let Ok((mut stream, _)) = listener.accept() else {
+                return;
+            };
+            let mut buf = [0u8; 4096];
+            let _ = stream.read(&mut buf);
+            let _ = stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
+        });
+        url
+    }
+
+    /// A local provider (Ollama, LM Studio) speaks plain http on loopback.
+    #[test]
+    fn llm_calls_reach_a_loopback_server_over_http() {
+        let web = Web::new();
+        assert_eq!(web.get_with(&serve_once(), &[]).unwrap(), b"ok");
+        assert_eq!(
+            web.post_json(&serve_once(), &[], b"{}", TIMEOUT).unwrap(),
+            b"ok"
+        );
+    }
+
+    /// A key must never travel in clear text to another machine: no connection is made.
+    #[test]
+    fn llm_calls_refuse_plain_http_to_remote_hosts() {
+        let web = Web::new();
+        for url in [
+            "http://192.0.2.1/v1",
+            "http://example.org/v1",
+            "http://localhost.example.org/",
+        ] {
+            let get = web.get_with(url, &[("authorization", "Bearer k")]);
+            assert!(
+                matches!(&get, Err(HttpError::Failed(m)) if m.contains("plain http")),
+                "{url}: {get:?}"
+            );
+            let post = web.post_json(url, &[], b"{}", TIMEOUT);
+            assert!(
+                matches!(&post, Err(HttpError::Failed(m)) if m.contains("plain http")),
+                "{url}: {post:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn loopback_hosts_are_recognised() {
+        for host in ["localhost", "127.0.0.1", "127.5.4.3", "[::1]", "::1"] {
+            assert!(is_loopback(host), "{host}");
+        }
+        for host in [
+            "192.0.2.1",
+            "example.org",
+            "localhost.example.org",
+            "0.0.0.0",
+            "[::2]",
+        ] {
+            assert!(!is_loopback(host), "{host}");
+        }
     }
 
     /// An LLM's error body, e.g. `{"error":"bad model"}`, is what the UI shows; long ones are cut.
