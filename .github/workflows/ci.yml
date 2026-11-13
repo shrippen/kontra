@@ -188,8 +188,11 @@ jobs:
       - name: Rust
         run: rustup toolchain install stable --profile minimal && rustup default stable
       - name: Build and test
+        # Clean first: the cached target keeps qmlcachegen's compiled QML, which calls the bridge
+        # by method index; after a bridge change with unchanged QML it crashes (agent.md, #323).
         run: |
           . scripts/qt-env-windows.sh
+          cargo clean -p kontra-app
           cargo build -p kontra-app
           cargo test -p kontra-app
       - name: Screenshot
