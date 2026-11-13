@@ -39,6 +39,16 @@ pub(super) fn variant_suffix(seed: u64) -> String {
     format!(" · Variante {seed}")
 }
 
+/// The suffix of a title that tells a length other than normal: a different length is a
+/// different piece (LH-BIB-15), so it needs its own title and progress, like a variant.
+pub(super) fn length_suffix(length: Length) -> &'static str {
+    match length {
+        Length::Short => " · kurz",
+        Length::Normal => "",
+        Length::Long => " · lang",
+    }
+}
+
 impl Section {
     /// The rehearsal mark over the part's first bar, as German bands say it (LH-BIB-12); the
     /// twelve bars of a shuffle's blues are a chorus. The app shows Strophe and Refrain in its
