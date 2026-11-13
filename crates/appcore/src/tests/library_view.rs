@@ -1044,11 +1044,15 @@ fn the_cache_forgets_unlinked_files() {
     core.link_folder(&tabs).unwrap();
     wait_walked(&mut core);
     let cache = crate::store::cache_dir(&dir).join("library-meta.json");
-    assert!(std::fs::read_to_string(&cache).unwrap().contains("song.musicxml"));
+    assert!(std::fs::read_to_string(&cache)
+        .unwrap()
+        .contains("song.musicxml"));
 
     core.unlink_folder(&tabs);
     core.library_rescan();
     wait_walked(&mut core);
-    assert!(!std::fs::read_to_string(&cache).unwrap().contains("song.musicxml"));
+    assert!(!std::fs::read_to_string(&cache)
+        .unwrap()
+        .contains("song.musicxml"));
     let _ = std::fs::remove_dir_all(dir);
 }
