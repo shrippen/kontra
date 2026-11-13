@@ -10,7 +10,10 @@ import "."
  * and `countKinds` their kinds (KanteCounter.Kind: 0 normal, 1 info, 2 error, e.g. overdue).
  * With `badges` the counters are filled badges instead of mono text. When the tabs do not
  * fit they scroll sideways and the selected tab is kept in view.
- * Left/Right move the selection while the bar has focus.
+ * Left/Right move the selection while the bar has focus; by default (`activation` Automatic)
+ * they activate it at once, like a tap. With `activation: KanteTabBar.Activation.Manual` the
+ * arrows only move the selection (nothing opens, the bar keeps focus); Return, Enter, Space or
+ * a tap activate it (KanteStickyHeader's tabs: the page should not jump on every arrow).
  * `look` (Underline): no notched tabs, only text and a 2 px accent line under the selected one,
  * for a bar in a page header (KanteStickyHeader); the line and the accent text colour carry
  * the selection, not colour alone.
@@ -26,7 +29,15 @@ FocusScope {
         Underline
     }
 
+    enum Activation {
+        /** The arrows activate at once, like a tap (the default, every earlier app relies on it). */
+        Automatic,
+        /** The arrows only move the selection; Return, Enter, Space or a tap activate it. */
+        Manual
+    }
+
     property int look: KanteTabBar.Look.Notched
+    property int activation: KanteTabBar.Activation.Automatic
     /** Screen readers hear this as the tab list's name. */
     property string accessibleName: ""
     property var model: []
@@ -36,6 +47,8 @@ FocusScope {
     property bool badges: false
     property int currentIndex: 0
     signal activated(int index)
+    /** Manual arrows only (`move`): the selection changed without activating it. */
+    signal moved(int index)
 
     implicitHeight: KanteStyle.heightMedium
     implicitWidth: row.implicitWidth
@@ -43,17 +56,27 @@ FocusScope {
     Accessible.role: Accessible.PageTabList
     Accessible.name: accessibleName
 
-    // Left/Right only move the selection (the bar keeps focus, nothing opens or scrolls);
-    // Return, Enter and Space activate the selected tab, as a tap does.
-    Keys.onLeftPressed: move(Math.max(0, currentIndex - 1))
-    Keys.onRightPressed: move(Math.min(model.length - 1, currentIndex + 1))
+    // Automatic (default): the arrows select and activate at once, like a tap. Manual: they
+    // only move the selection (the bar keeps focus, nothing opens or scrolls); Return, Enter
+    // and Space activate the selected tab then, as a tap does.
+    Keys.onLeftPressed: moveOrSelect(Math.max(0, currentIndex - 1))
+    Keys.onRightPressed: moveOrSelect(Math.min(model.length - 1, currentIndex + 1))
     Keys.onReturnPressed: activate(currentIndex)
     Keys.onEnterPressed: activate(currentIndex)
     Keys.onSpacePressed: activate(currentIndex)
 
-    /** Moves the selection without activating it (the arrows): no `activated`, nothing opens. */
+    function moveOrSelect(i) {
+        if (activation === KanteTabBar.Activation.Manual) {
+            move(i)
+        } else {
+            select(i)
+        }
+    }
+
+    /** Moves the selection without activating it (Manual arrows): no `activated`, nothing opens. */
     function move(i) {
         currentIndex = i
+        moved(i)
     }
 
     /** Selects and activates, as a tap does: fires `activated` only when `i` changes the

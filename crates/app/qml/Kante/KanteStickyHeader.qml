@@ -26,10 +26,11 @@ import "."
  *   currentIndex  the tab of the section at the top; follows the scrolling, a tap scrolls there
  *   scrollTo(i)   scrolls section i just below the header, then moves the keyboard focus to its
  *                 first control (as a Tab from its top would, not out of the section)
- * The tab bar is a KanteTabBar with the Underline look: Left/Right only move the selection (the
- * bar keeps focus, nothing scrolls yet); Return, Enter, Space or a tap scroll there and move the
- * focus to the section (`scrollTo`). The scrollspy stands aside while the bar has focus, so it
- * cannot pull the selection away from under the arrows before they are acted on.
+ * The tab bar is a KanteTabBar with the Underline look, `activation` Manual: Left/Right only
+ * move the selection (the bar keeps focus, nothing scrolls yet); Return, Enter, Space or a tap
+ * scroll there and move the focus to the section (`scrollTo`). The scrollspy stands aside from
+ * a Manual arrow move until it is acted on, or the user scrolls by themselves, so it cannot pull
+ * the selection away from under the arrows before they are acted on.
  * Pair it with `KanteFocusFollow { topInset: header.height }` so Tab does not hide the focus
  * under the header.
  */
@@ -93,11 +94,15 @@ Item {
         return item.mapToItem(flickable.contentItem, 0, 0).y
     }
 
+    // True from a Manual arrow move until it is acted on (Return, Enter, Space, a tap) or the
+    // user scrolls by themselves: while it holds, a stray contentY/contentHeight change (layout
+    // settling, KanteFocusFollow) must not pull the arrow-picked tab away before they act on it.
+    // Not tied to the bar's focus: that left the spy frozen for good after `scrollTo` landed on
+    // a section with no control to focus (the bar kept focus, nothing ever cleared it).
+    property bool browsing: false
+
     function spy() {
-        // While the bar itself has focus the user is browsing it with the arrows (which only
-        // move the selection, not the page): a stray contentY/contentHeight change must not
-        // pull the selection away from under them before they act on it (Return, Enter, Space).
-        if (!flickable || scrollAnim.running || targets.length === 0 || bar.activeFocus) {
+        if (!flickable || scrollAnim.running || targets.length === 0 || browsing) {
             return
         }
         const line = flickable.contentY + height + gap
@@ -119,6 +124,9 @@ Item {
         target: header.flickable
         function onContentYChanged() { header.spy() }
         function onContentHeightChanged() { header.spy() }
+        // A real flick or drag (wheel included): the user is scrolling by themselves now, not
+        // browsing the bar with the arrows any more.
+        function onMovementStarted() { header.browsing = false }
     }
     onTargetsChanged: spy()
     onHeightChanged: spy()
@@ -200,12 +208,16 @@ Item {
             id: bar
             objectName: "headerTabs"
             look: KanteTabBar.Look.Underline
+            // The page must not jump on every arrow press: only Return, Enter, Space or a tap
+            // scroll there (other KanteTabBar uses keep the default, Automatic).
+            activation: KanteTabBar.Activation.Manual
             accessibleName: header.tabsName
             model: header.model
             x: header.sideMargin
             y: parent.height - height
             width: parent.width - 2 * header.sideMargin
-            onActivated: function(index) { header.scrollTo(index) }
+            onActivated: function(index) { header.browsing = false; header.scrollTo(index) }
+            onMoved: header.browsing = true
             // The arrows move the bar's own selection without scrolling (no `activated`):
             // follow it here, so the underline and `currentIndex` agree while the bar has focus.
             onCurrentIndexChanged: header.currentIndex = currentIndex
