@@ -5,7 +5,7 @@ import Kante
 
 // "Stück wünschen" (LH-BIB-16): a wish in words plus a level; an LLM writes a piece plan,
 // Kontra validates and renders it, then opens it like any generated exercise. Opened from
-// ExercisePage next to the song generator.
+// ExercisePage next to the song generator and from the library's generator.
 KanteDialog {
     id: dialog
     objectName: "pieceWish"
@@ -20,6 +20,11 @@ KanteDialog {
     readonly property var texts: applicationWindow().texts
     readonly property var levels: ["easy", "medium", "hard"]
     property int level: 1
+    // This dialog sent the wish now running: its piece opens the practice page, even when the
+    // dialog was closed meanwhile (there are two of these dialogs, exercises and library).
+    property bool asked: false
+    // Why the last wish failed; shown in the dialog, the note bar lies dimmed behind it.
+    property string failure: ""
     // The provider can be asked: it has a key, needs none, or does without (`llmKeyState`'s
     // `ready`).
     property bool hasProvider: false
@@ -44,10 +49,28 @@ KanteDialog {
 
     onOpened: {
         wishField.text = ""
+        failure = ""
         refreshProvider()
     }
     Connections {
         target: dialog.ctl
+        // The piece is open: practise it, from the library as from the exercises (QA 14.11.).
+        // The bridge reports a failed wish through `errorText` (`LlmEvent::Failed`).
+        function onErrorTextChanged() {
+            if (!dialog.asked || dialog.ctl.llmBusy || dialog.ctl.errorText === "") {
+                return
+            }
+            dialog.asked = false
+            dialog.failure = dialog.ctl.errorText
+        }
+        function onLlmPieceOpened() {
+            if (!dialog.asked) {
+                return
+            }
+            dialog.asked = false
+            dialog.close()
+            applicationWindow().show("practice")
+        }
         function onLlmProviderChanged() { dialog.refreshProvider() }
         function onLlmKeyState(provider, state, ready, text) {
             if (provider === dialog.ctl.llmProvider)
@@ -102,6 +125,7 @@ KanteDialog {
             Layout.preferredHeight: KanteStyle.unit(84)
             QQC2.TextArea {
                 id: wishField
+                objectName: "wishText"
                 wrapMode: TextEdit.Wrap
                 color: KanteStyle.textColor
                 placeholderText: dialog.texts.t("wish.placeholder")
@@ -121,22 +145,34 @@ KanteDialog {
             }
         }
 
+        KanteCallout {
+            objectName: "wishError"
+            Layout.fillWidth: true
+            visible: dialog.failure !== ""
+            kind: KanteCallout.Kind.Warn
+            text: dialog.failure
+        }
+
         RowLayout {
             Layout.fillWidth: true
             QQC2.Label {
+                objectName: "wishRunning"
                 Layout.fillWidth: true
                 visible: dialog.ctl.llmBusy
                 text: dialog.texts.t("wish.running")
             }
             KanteButton {
+                objectName: "wishGenerate"
                 text: dialog.texts.t("wish.generate")
                 emphasis: KanteButton.Emphasis.Primary
                 enabled: dialog.hasProvider && !dialog.modelMissing
                     && wishField.text.trim().length > 0
                     && !dialog.ctl.llmBusy && !dialog.ctl.llmKeyBusy
+                // The dialog stays while the provider writes ("wishRunning"); the piece closes
+                // it (`onLlmPieceOpened`), an error leaves the wish for another try.
                 onClicked: {
-                    if (dialog.ctl.llmWish(wishField.text, dialog.levels[dialog.level]))
-                        dialog.close()
+                    dialog.failure = ""
+                    dialog.asked = dialog.ctl.llmWish(wishField.text, dialog.levels[dialog.level])
                 }
             }
         }

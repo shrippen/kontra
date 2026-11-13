@@ -358,8 +358,4 @@ Kirigami.ScrollablePage {
         }
     }
     PieceWish { id: wishDialog }
-    Connections {
-        target: ctl
-        function onLlmPieceOpened() { applicationWindow().show("practice") }
-    }
 }

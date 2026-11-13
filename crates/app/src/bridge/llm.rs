@@ -32,6 +32,9 @@ impl qobject::Controller {
             }
             LlmEvent::Failed(text) => {
                 self.as_mut().set_llm_busy(false);
+                // Cleared first: the same failure twice must reach the wish dialog twice
+                // (`errorText` changes only on a new value).
+                self.as_mut().show_error("");
                 self.as_mut().show_error(&text);
             }
             LlmEvent::KeyState {
