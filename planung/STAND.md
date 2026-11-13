@@ -11,6 +11,9 @@ folgt sofort, Notenzeilen ohne Seitwärtsgleiten), #303 (Übungsseite lädt Teil
 Cargo-Layout der Testprogramme), #309 (Bluetooth-Prüfung blockiert den Start nicht mehr), #310
 (Gerätelisten im Hintergrund), #311 (Kante: lange Titel in Einstellungszeilen umbrechen); Kante #157–#160.
 FPS-Analyse und Messwerte in der Roadmap unter „QA-Runde 12./13.11.2026“.
+Danach in derselben Nacht: #313 (Seitenleiste nach der Präsentation wieder mit „Seitenleiste schließen“ und voller
+Breite; Tab-Beschriftung wächst in der Präsentation, Kante #163; QA-Läufe listen beim Start keine Geräte), #314
+(Tempo mit einem Tab-Halt, Kante #164); Kante #161 (Titelbreite nach #160) kam aus einer anderen Sitzung (Kaiwa).
 
 Offen:
 - Am echten System (PipeWire) nicht gemessen: Abspielen und Einstellungen öffnen; die Messungen liefen in der
@@ -32,6 +35,10 @@ Offen:
   `grown`, `layoutSpacing`, `layoutMinBarWidth`, `KanteGlassPanel` mit Tokens `glass`, `glassDense`,
   `shape.glassBlur`.
 - Eigentümer bestätigen: der Mixer deckt bis 60 % der Notenfläche ab (#306).
+- Eigentümer entscheiden (B8, P7): Nach einem Seitenwechsel hat die Bildlauffläche der Seite den Fokus (ohne Namen
+  für den Screenreader; das erste Tab führt zum ersten Bedienelement). Vorschlag: Überschrift der Seite fokussieren
+  oder der Fläche den Seitentitel als Namen geben.
+- Neue `pub` seit #312: `CollapseBack.drawer` (QML), `Core::list_devices_early` (#313); Kante `labelScale`.
 
 ## Übergabe (12.11.2026: eine Audio-Engine über alle Modi)
 
