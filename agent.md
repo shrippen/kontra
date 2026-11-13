@@ -85,7 +85,7 @@ drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
 - i18n-Konflikte beim Mergen: beide Seiten behalten, Kommas glätten, auf doppelte Schlüssel prüfen (JSON lädt sonst
   stillschweigend nur einen).
 - Neue Felder in `Library`, `RecentEntry` oder `Run` brechen beim Mergen Struktur-Literale in Tests anderer Branches
-  (`RecentEntry` hat kein `Default`). Nach jedem Merge `cargo test --workspace` laufen lassen.
+  (Literale ohne `..Default::default()`). Nach jedem Merge `cargo test --workspace` laufen lassen.
 - Mitgelieferte Übungen sind generiert (`kontra-cli exercises <dir>`); die CI vergleicht mit `testdata/exercises`.
   Nach Änderungen am Generator neu erzeugen und einchecken (`README.md` dort ist handgeschrieben).
 - `KanteCallout.Kind` kennt `Ok`, nicht `Success`. Kante-Bauteile ersetzen QQC2 (`KanteSwitch`, `KanteComboBox`),
