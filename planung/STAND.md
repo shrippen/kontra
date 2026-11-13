@@ -5,9 +5,10 @@ nur, was offen ist und wo es liegt.
 
 ## Übergabe (13.11.2026, Nacht: Übergänge, Mixer als Glasebene, FPS)
 
-In `main`: #301–#305 (Übergänge: Seitenmenü folgt sofort, Notenzeilen ohne Seitwärtsgleiten, Start ohne
-Springen), #306 (Mixer als Glasebene über den Noten, F5 in einem Schritt), #307/#308 (CI unter Rust 1.100:
-Clippy und neues Cargo-Layout der Testprogramme), #309 (Bluetooth-Prüfung blockiert den Start nicht mehr), #310
+In `main`: #301 (eine Lesebreite für alle Seiten), #302 und #305 (Übergänge: Start ohne Springen, Seitenmenü
+folgt sofort, Notenzeilen ohne Seitwärtsgleiten), #303 (Übungsseite lädt Teile erst bei Bedarf), #304, #306
+(Mixer als Glasebene über den Noten, F5 in einem Schritt), #307/#308 (CI unter Rust 1.100: Clippy und neues
+Cargo-Layout der Testprogramme), #309 (Bluetooth-Prüfung blockiert den Start nicht mehr), #310
 (Gerätelisten im Hintergrund), #311 (Kante: lange Titel in Einstellungszeilen umbrechen); Kante #157–#160.
 FPS-Analyse und Messwerte in der Roadmap unter „QA-Runde 12./13.11.2026“.
 
@@ -21,8 +22,13 @@ Offen:
   nicht eingeschaltet) nicht weiter zerlegt.
 - `SidebarInset.openWidth` nach Start im schmalen Fenster: das erste Breitwerden legt je Bild neu aus (einmal je
   Sitzung, Kleinigkeit aus #305).
+- Freigegeben (Eigentümer, 12.11.: „neue schnittstellen sind freigegeben“): die neuen `pub` aus #301–#304
+  (u. a. `LevelAdvice.fit`, `SidebarInset.edge`/`margin`/`ready`/`restMs`, `NotesArea.content`/`glides`,
+  `PracticeFooter.practice`, `Main.resizing`, `PracticePage.unfolded`/`openAlign()`/`openBacking()`/`views`,
+  `SummaryLayer`).
 - Für die nächste Runde, neue `pub`: `NotesArea.overlay`/`notesLayer`, `SidebarInset.drawer`/`target`/`offset`/
-  `openWidth`/`collapsedWidth` (#305, #306), `Core::relist_devices`, `Core::devices_poll` (#310); Kante:
+  `openWidth`/`collapsedWidth` (#305, #306), `MixerCard` als `KanteGlassPanel` (`open`, `maxHeight`,
+  `blurSource`; #306), `Core::relist_devices`, `Core::devices_poll` (#310); Kante:
   `grown`, `layoutSpacing`, `layoutMinBarWidth`, `KanteGlassPanel` mit Tokens `glass`, `glassDense`,
   `shape.glassBlur`.
 - Eigentümer bestätigen: der Mixer deckt bis 60 % der Notenfläche ab (#306).
