@@ -75,6 +75,16 @@ Item {
             compare(table.groupText(""), "No artist · 1")
         }
 
+        // QA 13.11.: "last played 13.11.25" did not fit the column and ended in "…"; the cell
+        // shows the day alone, the screen reader keeps the sentence.
+        function test_lastCellIsShortTheNameIsWhole() {
+            var old = new Date(2025, 10, 13).getTime() / 1000
+            compare(table.lastShort(old), new Date(old * 1000).toLocaleDateString(Qt.locale(), Locale.ShortFormat))
+            compare(table.lastShort(Date.now() / 1000), "library.last.short.today")
+            compare(table.lastPlayed(Date.now() / 1000), "library.last.today")
+            compare(table.lastShort(0), "")
+        }
+
         function test_narrowDropsTempoAndLast() {
             table.compact = true
             compare(table.columns.map(function(c) { return c.id }), ["title", "origin", "result"])

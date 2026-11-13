@@ -46,6 +46,7 @@ ListView {
         entry.top = depth === 0
         entry.path = node.path
         entry.name = node.name
+        entry.missing = gone
         out.push(entry)
         node.children.forEach(function(child) { folderEntries(out, child, depth + 1) })
     }
