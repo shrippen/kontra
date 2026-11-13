@@ -114,16 +114,20 @@ KanteDialog {
             title: dialog.texts.t("library.gen.variant")
             Row {
                 spacing: KanteStyle.unit(8)
+                // Nothing here changes its width when the variant changes, so "Another variant"
+                // stays under the pointer for the next click, whether the row aligns left or
+                // right (QA 13.11.: a second click hit the reset that appeared in its place).
                 QQC2.Label {
                     anchors.verticalCenter: parent.verticalCenter
+                    width: Math.max(plainWidth.width, numberedWidth.width)
                     text: dialog.variant === 0 ? dialog.texts.t("library.gen.variant.plain")
                         : dialog.texts.t("library.gen.variant.n", { n: dialog.variant })
                     color: KanteStyle.strongTextColor
+                    TextMetrics { id: plainWidth; text: dialog.texts.t("library.gen.variant.plain") }
+                    TextMetrics { id: numberedWidth; text: dialog.texts.t("library.gen.variant.n", { n: 99 }) }
                 }
-                // The reset comes first: "Another variant" keeps its place at the right edge, so
-                // clicking it again never hits the reset (QA 13.11.).
                 KanteButton {
-                    visible: dialog.variant > 0
+                    enabled: dialog.variant > 0
                     text: dialog.texts.t("library.gen.variant.plain")
                     emphasis: KanteButton.Emphasis.Quiet
                     onClicked: dialog.variant = 0
