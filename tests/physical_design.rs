@@ -35,8 +35,8 @@ const BUDGET: usize = 1200;
 /// Files over `BUDGET`, each with the most lines it may grow to until it is split (break-up
 /// list, 29.10.2026). Lower a limit when a file shrinks; drop the entry once it fits.
 const OVER_BUDGET: [(&str, usize); 4] = [
-    ("crates/appcore/src/lib.rs", 2864),
-    ("crates/app/src/bridge.rs", 1966),
+    ("crates/appcore/src/lib.rs", 2817),
+    ("crates/app/src/bridge.rs", 1797),
     ("crates/content/src/exercise.rs", 2450),
     ("crates/dsp/src/tracker.rs", 1450),
 ];

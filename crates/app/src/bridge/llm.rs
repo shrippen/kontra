@@ -5,10 +5,44 @@ use super::{q, qobject};
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
+use kontra_appcore::LlmEvent;
 
 impl qobject::Controller {
     pub(super) fn llm_providers_json(&self) -> QString {
         q(&self.rust().core.llm_providers_json())
+    }
+
+    /// `tick`'s dispatch for `UiEvent::Llm` (kept here, not in the big match in `bridge.rs`,
+    /// so that file stays under its line budget).
+    pub(super) fn dispatch_llm(mut self: Pin<&mut Self>, event: LlmEvent) {
+        match event {
+            LlmEvent::PieceReady(path) => {
+                self.as_mut().set_llm_busy(false);
+                if self.as_mut().open_file(&q(&path)) {
+                    self.as_mut().llm_piece_opened();
+                }
+            }
+            LlmEvent::Models(models) => {
+                self.as_mut().set_llm_busy(false);
+                let json = serde_json::Value::Array(
+                    models.into_iter().map(serde_json::Value::String).collect(),
+                )
+                .to_string();
+                self.as_mut().set_llm_models_json(q(&json));
+            }
+            LlmEvent::Failed(text) => {
+                self.as_mut().set_llm_busy(false);
+                self.as_mut().show_error(&text);
+            }
+            LlmEvent::KeyState { provider, text } => {
+                self.as_mut().set_llm_key_busy(false);
+                self.as_mut().llm_key_state(q(&provider), q(&text));
+            }
+            LlmEvent::KeyError { provider, text } => {
+                self.as_mut().set_llm_key_busy(false);
+                self.as_mut().llm_key_error(q(&provider), q(&text));
+            }
+        }
     }
 
     pub(super) fn llm_check_key(mut self: Pin<&mut Self>, provider: &QString) -> bool {

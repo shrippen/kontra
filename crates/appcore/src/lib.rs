@@ -45,6 +45,7 @@ mod summary;
 mod tuner;
 mod unplug;
 mod update;
+mod util;
 
 pub use bundled::PieceVariety;
 pub use data::DataImport;
@@ -52,7 +53,7 @@ pub use i18n::{Catalog, Language};
 pub use input_state::{InputState, QaOptions};
 pub use kontra_session::{exercise, file_url, local_path, Blocks, ChainOrder, Density};
 pub use library::BackingChange;
-pub use llm::KeyState;
+pub use llm::{KeyState, LlmEvent};
 pub use package::PackageAudio;
 pub use store::{
     data_dir, AudioPath, Bass, InputKind, LatencyFrom, Library, PracticeLoop, RecentEntry,
@@ -72,6 +73,7 @@ use mixer::gains;
 use notation::key_at;
 use serde_json::json;
 use std::path::{Path, PathBuf};
+pub(crate) use util::{file_name, piece_name, quantum_too_long_ms, time_seed, unix_now};
 
 /// Crates linked into the app and their licences, from `scripts/licences.py` (LH-NF-11).
 const LICENCES: &str = include_str!("../licences.json");
@@ -185,24 +187,8 @@ pub enum UiEvent {
         latency_ms: Option<f64>,
         text: String,
     },
-    /// A wished-for piece (LH-BIB-16) was generated and written; its path, to open like any
-    /// generated exercise.
-    LlmPieceReady(String),
-    /// A provider's model list came back, sorted.
-    LlmModels(Vec<String>),
-    /// A piece wish or a model list failed; text already translated, the provider's own
-    /// explanation (if any) appended.
-    LlmFailed(String),
-    /// A key check, save or delete came back with a state to show (never the key itself).
-    LlmKeyState {
-        provider: String,
-        text: String,
-    },
-    /// A key save or delete failed; text already translated.
-    LlmKeyError {
-        provider: String,
-        text: String,
-    },
+    /// A piece wish, a model list or a key job (LH-BIB-16); see `llm::LlmEvent`.
+    Llm(LlmEvent),
 }
 
 /// A fixed note density gets no suggestions.
@@ -2825,39 +2811,6 @@ fn drop_lowest(standard: &Tuning) -> Option<Tuning> {
 /// Note names of a tuning's open strings, lowest first ("D1", "A1", …).
 fn names_of(tuning: &Tuning) -> Vec<String> {
     tuning.strings.iter().map(ToString::to_string).collect()
-}
-
-/// A seed that differs between rounds (quiz and ear training questions).
-fn time_seed() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(1, |d| d.as_nanos() as u64)
-}
-
-fn quantum_too_long_ms(frames: u32, rate: u32) -> Option<f64> {
-    let ms = f64::from(frames) / f64::from(rate.max(1)) * 1000.0;
-    (ms > 512.0 / 48.0 + 0.05).then_some(ms)
-}
-
-fn file_name(path: &Path) -> String {
-    path.file_name()
-        .map_or_else(String::new, |n| n.to_string_lossy().into())
-}
-
-fn unix_now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs())
-}
-
-/// The name a piece is shown by: its title, or the file name when the title names nothing
-/// ("", "001", "1." from Guitar Pro templates; QA 27.10., J4).
-fn piece_name(title: &str, path: &Path) -> String {
-    if title.chars().any(char::is_alphabetic) {
-        return title.to_string();
-    }
-    path.file_stem()
-        .map_or_else(|| title.to_string(), |s| s.to_string_lossy().into())
 }
 
 #[cfg(test)]

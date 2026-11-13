@@ -59,7 +59,11 @@ const VALID_PLAN: &str = r#"{"title":"Testwunsch","key":"A","bpm":100,"feel":"st
 
 fn core_with(name: &str, http: FakeHttp, secrets: Arc<dyn SecretStore>) -> Core {
     let mut core = Core::new(&temp_dir(name), QaOptions::default());
-    core.update_settings(|s| s.llm_provider = "openai".into());
+    // The texts below are English; `make check` runs under the owner's German locale.
+    core.update_settings(|s| {
+        s.llm_provider = "openai".into();
+        s.language = Some("en".into());
+    });
     core.llm_test_env(Arc::new(http), secrets);
     core
 }
@@ -129,7 +133,7 @@ fn a_finished_wish_is_rendered_and_opened() {
     let mut core = core_with("llm-done", http, keyed_store());
     assert!(core.llm_wish("a groove in A", "medium"));
     let events = wait(&mut core);
-    let UiEvent::LlmPieceReady(path) = &events[0] else {
+    let UiEvent::Llm(LlmEvent::PieceReady(path)) = &events[0] else {
         panic!("{events:?}");
     };
     assert!(std::path::Path::new(path).is_file(), "{path}");
@@ -144,7 +148,10 @@ fn a_failed_request_is_reported_through_tick() {
     let mut core = core_with("llm-failed", http, keyed_store());
     assert!(core.llm_wish("a groove in A", "medium"));
     let events = wait(&mut core);
-    assert!(matches!(events[0], UiEvent::LlmFailed(_)), "{events:?}");
+    assert!(
+        matches!(events[0], UiEvent::Llm(LlmEvent::Failed(_))),
+        "{events:?}"
+    );
 }
 
 #[test]
@@ -179,7 +186,7 @@ fn model_list_comes_back_sorted_through_tick() {
     let events = wait(&mut core);
     assert_eq!(
         events,
-        vec![UiEvent::LlmModels(vec!["a".into(), "b".into()])]
+        vec![UiEvent::Llm(LlmEvent::Models(vec!["a".into(), "b".into()]))]
     );
 }
 
@@ -187,7 +194,7 @@ fn model_list_comes_back_sorted_through_tick() {
 fn checked_text(core: &mut Core, provider: &str) -> String {
     assert!(core.llm_check_key(provider));
     let events = wait(core);
-    let UiEvent::LlmKeyState { text, .. } = &events[0] else {
+    let UiEvent::Llm(LlmEvent::KeyState { text, .. }) = &events[0] else {
         panic!("{events:?}");
     };
     text.clone()
@@ -195,7 +202,9 @@ fn checked_text(core: &mut Core, provider: &str) -> String {
 
 #[test]
 fn env_variable_beats_a_stored_key() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let secrets = Arc::new(MemoryStore::new());
     secrets.set("openai", "sk-stored").unwrap();
     std::env::set_var("OPENAI_API_KEY", "sk-env");
@@ -206,7 +215,9 @@ fn env_variable_beats_a_stored_key() {
 
 #[test]
 fn a_stored_key_is_reported_without_an_env_variable() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     std::env::remove_var("OPENAI_API_KEY");
     let secrets = Arc::new(MemoryStore::new());
     secrets.set("openai", "sk-stored").unwrap();
@@ -216,7 +227,9 @@ fn a_stored_key_is_reported_without_an_env_variable() {
 
 #[test]
 fn a_missing_key_is_reported_as_missing() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     std::env::remove_var("OPENAI_API_KEY");
     let mut core = core_with(
         "llm-missing",
@@ -243,7 +256,9 @@ impl SecretStore for UnavailableSecrets {
 
 #[test]
 fn an_unreachable_keyring_is_reported_as_such() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     std::env::remove_var("OPENAI_API_KEY");
     let mut core = core_with(
         "llm-unavailable",
@@ -254,7 +269,7 @@ fn an_unreachable_keyring_is_reported_as_such() {
     assert!(core.llm_set_key("openai", "sk-x"));
     let events = wait(&mut core);
     assert!(
-        matches!(events[0], UiEvent::LlmKeyError { .. }),
+        matches!(events[0], UiEvent::Llm(LlmEvent::KeyError { .. })),
         "{events:?}"
     );
 }
@@ -298,7 +313,7 @@ fn the_key_never_reaches_an_error_string() {
     let mut core = core_with("llm-no-leak-error", http, secrets);
     assert!(core.llm_wish("a groove", "medium"));
     let events = wait(&mut core);
-    let UiEvent::LlmFailed(text) = &events[0] else {
+    let UiEvent::Llm(LlmEvent::Failed(text)) = &events[0] else {
         panic!("{events:?}");
     };
     assert!(!text.contains("sk-very-secret"), "{text}");
@@ -309,7 +324,9 @@ fn the_key_never_reaches_an_error_string() {
 /// returning. Now the read happens inside the spawned thread.
 #[test]
 fn checking_a_key_never_blocks_the_caller() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     std::env::remove_var("OPENAI_API_KEY");
     let (release, gate) = channel();
     let secrets = Arc::new(BlockingSecrets {
@@ -329,7 +346,7 @@ fn checking_a_key_never_blocks_the_caller() {
     release.send(()).unwrap();
     let events = wait_timeout(&mut core, Duration::from_secs(2));
     assert!(
-        matches!(events[0], UiEvent::LlmKeyState { .. }),
+        matches!(events[0], UiEvent::Llm(LlmEvent::KeyState { .. })),
         "{events:?}"
     );
     assert!(!format!("{events:?}").contains("sk-blocked"), "{events:?}");
@@ -338,7 +355,9 @@ fn checking_a_key_never_blocks_the_caller() {
 /// Same freeze, for the key read `llm_wish` used to do on the caller before spawning.
 #[test]
 fn a_wish_never_reads_its_key_on_the_caller() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     std::env::remove_var("OPENAI_API_KEY");
     let (release, gate) = channel();
     let secrets = Arc::new(BlockingSecrets {
@@ -361,14 +380,19 @@ fn a_wish_never_reads_its_key_on_the_caller() {
 
     release.send(()).unwrap();
     let events = wait_timeout(&mut core, Duration::from_secs(2));
-    assert!(matches!(events[0], UiEvent::LlmPieceReady(_)), "{events:?}");
+    assert!(
+        matches!(events[0], UiEvent::Llm(LlmEvent::PieceReady(_))),
+        "{events:?}"
+    );
     assert!(!format!("{events:?}").contains("sk-blocked"), "{events:?}");
 }
 
 /// Same freeze, for the key read `llm_fetch_models` used to do on the caller before spawning.
 #[test]
 fn fetching_models_never_reads_its_key_on_the_caller() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     std::env::remove_var("OPENAI_API_KEY");
     let (release, gate) = channel();
     let secrets = Arc::new(BlockingSecrets {
@@ -391,7 +415,10 @@ fn fetching_models_never_reads_its_key_on_the_caller() {
 
     release.send(()).unwrap();
     let events = wait_timeout(&mut core, Duration::from_secs(2));
-    assert!(matches!(events[0], UiEvent::LlmModels(_)), "{events:?}");
+    assert!(
+        matches!(events[0], UiEvent::Llm(LlmEvent::Models(_))),
+        "{events:?}"
+    );
     assert!(!format!("{events:?}").contains("sk-blocked"), "{events:?}");
 }
 
@@ -399,7 +426,9 @@ fn fetching_models_never_reads_its_key_on_the_caller() {
 /// which never blocks on `set`/`delete`) still runs off the caller's thread.
 #[test]
 fn saving_a_key_never_blocks_the_caller() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     std::env::remove_var("OPENAI_API_KEY");
     let mut core = core_with(
         "llm-set-nonblock",
@@ -417,7 +446,7 @@ fn saving_a_key_never_blocks_the_caller() {
 
     let events = wait_timeout(&mut core, Duration::from_secs(2));
     assert!(
-        matches!(events[0], UiEvent::LlmKeyState { .. }),
+        matches!(events[0], UiEvent::Llm(LlmEvent::KeyState { .. })),
         "{events:?}"
     );
     assert!(!format!("{events:?}").contains("sk-fresh"), "{events:?}");

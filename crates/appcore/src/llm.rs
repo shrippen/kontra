@@ -19,6 +19,25 @@ use kontra_session::{
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
 use std::sync::Arc;
 
+/// Everything `tick` has to show about a piece wish, a model list or a key job (LH-BIB-16); one
+/// `UiEvent::Llm` variant in `lib.rs` instead of one per case, so this whole family of events
+/// stays defined here rather than growing the shared enum.
+#[derive(Debug, Clone, PartialEq)]
+pub enum LlmEvent {
+    /// A wished-for piece was generated and written; its path, to open like any generated
+    /// exercise.
+    PieceReady(String),
+    /// A provider's model list came back, sorted.
+    Models(Vec<String>),
+    /// A piece wish or a model list failed; text already translated, the provider's own
+    /// explanation (if any) appended.
+    Failed(String),
+    /// A key check, save or delete came back with a state to show (never the key itself).
+    KeyState { provider: String, text: String },
+    /// A key save or delete failed; text already translated.
+    KeyError { provider: String, text: String },
+}
+
 /// What a key check, save or delete job answers with, once its thread is done.
 enum KeyOutcome {
     /// `llm_check_key`: the state as found, no write attempted.
@@ -260,14 +279,18 @@ impl Core {
             Some(Ok(Ok(plan_json))) => {
                 self.llm.piece = None;
                 let level = std::mem::take(&mut self.llm.piece_level);
-                events.push(match self.generate_piece(&plan_json, &level, llm_seed()) {
-                    Ok(path) => UiEvent::LlmPieceReady(path.to_string_lossy().into_owned()),
-                    Err(e) => UiEvent::LlmFailed(e),
-                });
+                events.push(UiEvent::Llm(
+                    match self.generate_piece(&plan_json, &level, llm_seed()) {
+                        Ok(path) => LlmEvent::PieceReady(path.to_string_lossy().into_owned()),
+                        Err(e) => LlmEvent::Failed(e),
+                    },
+                ));
             }
             Some(Ok(Err(err))) => {
                 self.llm.piece = None;
-                events.push(UiEvent::LlmFailed(self.llm_gen_error_text(&err)));
+                events.push(UiEvent::Llm(LlmEvent::Failed(
+                    self.llm_gen_error_text(&err),
+                )));
             }
             Some(Err(TryRecvError::Disconnected)) => self.llm.piece = None,
             Some(Err(TryRecvError::Empty)) | None => {}
@@ -275,31 +298,33 @@ impl Core {
         match self.llm.models.as_ref().map(Receiver::try_recv) {
             Some(Ok(Ok(models))) => {
                 self.llm.models = None;
-                events.push(UiEvent::LlmModels(models));
+                events.push(UiEvent::Llm(LlmEvent::Models(models)));
             }
             Some(Ok(Err(err))) => {
                 self.llm.models = None;
-                events.push(UiEvent::LlmFailed(self.llm_gen_error_text(&err)));
+                events.push(UiEvent::Llm(LlmEvent::Failed(
+                    self.llm_gen_error_text(&err),
+                )));
             }
             Some(Err(TryRecvError::Disconnected)) => self.llm.models = None,
             Some(Err(TryRecvError::Empty)) | None => {}
         }
         if let Some((provider, rx)) = self.llm.key.take() {
             match rx.try_recv() {
-                Ok(outcome) => events.push(match outcome {
-                    KeyOutcome::Checked(state) => UiEvent::LlmKeyState {
+                Ok(outcome) => events.push(UiEvent::Llm(match outcome {
+                    KeyOutcome::Checked(state) => LlmEvent::KeyState {
                         text: self.llm_key_state_text(&provider, state),
                         provider,
                     },
-                    KeyOutcome::Written(Ok(state)) => UiEvent::LlmKeyState {
+                    KeyOutcome::Written(Ok(state)) => LlmEvent::KeyState {
                         text: self.llm_key_state_text(&provider, state),
                         provider,
                     },
-                    KeyOutcome::Written(Err(e)) => UiEvent::LlmKeyError {
+                    KeyOutcome::Written(Err(e)) => LlmEvent::KeyError {
                         text: self.llm_secret_error_text(&e),
                         provider,
                     },
-                }),
+                })),
                 Err(TryRecvError::Empty) => self.llm.key = Some((provider, rx)),
                 Err(TryRecvError::Disconnected) => {}
             }
