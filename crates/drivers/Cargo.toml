@@ -39,6 +39,9 @@ vst3 = "0.3"
 libloading = "0.8"
 # CLAP params, state, latency, audio-ports, gui, timer and posix-fd extensions for the host side (MIT/Apache-2.0).
 clack-extensions = { version = "0.2", features = ["clack-host", "params", "state", "latency", "audio-ports", "gui", "timer", "posix-fd"] }
+# API keys of LLM providers (LH-BIB-16; MIT/Apache-2.0): the system's own secret store (Linux
+# Secret Service via zbus, Windows Credential Manager), default features.
+keyring = "4"
 
 # alsa-lib's own error print, silenced while probing devices (MIT; already in the tree under
 # cpal and midir, same version).

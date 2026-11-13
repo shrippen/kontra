@@ -1,4 +1,5 @@
-//! HTTPS GET for the few web requests Kontra makes (the Songsterr search, LH-BIB-11). Behind a
+//! HTTPS for the few web requests Kontra makes: GET for the Songsterr search (LH-BIB-11) and for
+//! an LLM's model list, POST for an LLM's answer (LH-BIB-16, the "Stück wünschen" wish). Behind a
 //! trait, so tests and screenshots use canned answers instead of the network.
 //!
 //! ```text
@@ -16,6 +17,12 @@ const TIMEOUT: Duration = Duration::from_secs(8);
 const MAX_BODY: u64 = 2 * 1024 * 1024;
 /// A download (a course package) may take a slow line its time.
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(300);
+/// An LLM can take minutes to write a whole piece plan.
+const LLM_TIMEOUT: Duration = Duration::from_secs(180);
+/// A piece plan is a few kilobytes of JSON; this is already generous.
+const MAX_LLM_BODY: u64 = 4 * 1024 * 1024;
+/// An error body (a provider's explanation) kept in the error, cut to this many bytes.
+const MAX_ERROR_BODY: usize = 2000;
 /// Names Kontra and where to find it, so the site knows who asks.
 const USER_AGENT: &str = concat!(
     "Kontra/",
@@ -34,8 +41,15 @@ pub enum HttpError {
     Timeout,
     #[error("HTTP status {0}")]
     Status(u16),
+    /// An error status with the body the provider sent back (its own explanation), cut short.
+    #[error("HTTP status {0}: {1}")]
+    StatusBody(u16, String),
     #[error("{0}")]
     Failed(String),
+    /// This `Http` implementation does not do this kind of request (the default, for GET-only
+    /// fakes); a real provider call never sees it.
+    #[error("not supported")]
+    NotSupported,
 }
 
 /// Fetches a URL; one call is one request.
@@ -46,6 +60,25 @@ pub trait Http: Send + Sync + std::fmt::Debug {
     fn download(&self, url: &str, max_bytes: u64) -> Result<Vec<u8>, HttpError> {
         let _ = max_bytes;
         self.get(url)
+    }
+
+    /// A GET with extra headers (an LLM provider's model list, sent with its auth header).
+    fn get_with(&self, url: &str, headers: &[(&str, &str)]) -> Result<Vec<u8>, HttpError> {
+        let _ = headers;
+        self.get(url)
+    }
+
+    /// A POST of a JSON body, with extra headers (an LLM provider's chat/messages call). The
+    /// default errors, so a fake that only implements `get` still compiles.
+    fn post_json(
+        &self,
+        url: &str,
+        headers: &[(&str, &str)],
+        body: &[u8],
+        timeout: Duration,
+    ) -> Result<Vec<u8>, HttpError> {
+        let _ = (url, headers, body, timeout);
+        Err(HttpError::NotSupported)
     }
 }
 
@@ -114,6 +147,74 @@ impl Http for Web {
             .read_to_vec()
             .map_err(error)
     }
+
+    fn get_with(&self, url: &str, headers: &[(&str, &str)]) -> Result<Vec<u8>, HttpError> {
+        let mut request = self.agent.get(url);
+        for (key, value) in headers {
+            request = request.header(*key, *value);
+        }
+        // Errors stay a normal response (not Err), so a failing status keeps its body: the
+        // provider's explanation of what went wrong.
+        let response = request
+            .config()
+            .timeout_global(Some(LLM_TIMEOUT))
+            .http_status_as_error(false)
+            .build()
+            .call()
+            .map_err(error)?;
+        body_or_status(response, MAX_LLM_BODY)
+    }
+
+    fn post_json(
+        &self,
+        url: &str,
+        headers: &[(&str, &str)],
+        body: &[u8],
+        timeout: Duration,
+    ) -> Result<Vec<u8>, HttpError> {
+        let mut request = self
+            .agent
+            .post(url)
+            .header("content-type", "application/json");
+        for (key, value) in headers {
+            request = request.header(*key, *value);
+        }
+        let response = request
+            .config()
+            .timeout_global(Some(timeout))
+            .http_status_as_error(false)
+            .build()
+            .send(body)
+            .map_err(error)?;
+        body_or_status(response, MAX_LLM_BODY)
+    }
+}
+
+/// Reads a response's body; past a 4xx/5xx status, the body is the provider's error text and
+/// goes into the error instead, cut to `MAX_ERROR_BODY`.
+fn body_or_status(
+    mut response: ureq::http::Response<ureq::Body>,
+    limit: u64,
+) -> Result<Vec<u8>, HttpError> {
+    let status = response.status().as_u16();
+    let read = response
+        .body_mut()
+        .with_config()
+        .limit(limit)
+        .read_to_vec()
+        .map_err(error)?;
+    if !(200..300).contains(&status) {
+        return Err(HttpError::StatusBody(status, error_text(&read)));
+    }
+    Ok(read)
+}
+
+/// The error body as text, trimmed and cut to `MAX_ERROR_BODY` (a provider's explanation can run
+/// long; the UI shows one line).
+fn error_text(body: &[u8]) -> String {
+    let mut text = String::from_utf8_lossy(body).trim().to_string();
+    text.truncate(MAX_ERROR_BODY);
+    text
 }
 
 fn error(e: ureq::Error) -> HttpError {
@@ -177,6 +278,37 @@ mod tests {
         let web = Web::new();
         assert!(web.get(&url).is_err());
         assert!(web.download(&url, 1).is_err());
+        assert!(web.get_with(&url, &[]).is_err());
+        assert!(web.post_json(&url, &[], b"{}", TIMEOUT).is_err());
         assert!(listener.accept().is_err(), "no connection was made");
+    }
+
+    /// An LLM's error body, e.g. `{"error":"bad model"}`, is what the UI shows; long ones are cut.
+    #[test]
+    fn error_text_trims_and_cuts() {
+        assert_eq!(
+            error_text(b"  {\"error\":\"bad model\"}\n"),
+            "{\"error\":\"bad model\"}"
+        );
+        let long = "x".repeat(MAX_ERROR_BODY + 500);
+        assert_eq!(error_text(long.as_bytes()).len(), MAX_ERROR_BODY);
+    }
+
+    /// The default `post_json`/`get_with` (for a fake `Http` that only implements `get`) never
+    /// silently falls back to a GET: an LLM call on such a fake is a clear "not supported".
+    #[test]
+    fn default_post_json_is_not_supported() {
+        #[derive(Debug)]
+        struct GetOnly;
+        impl Http for GetOnly {
+            fn get(&self, _url: &str) -> Result<Vec<u8>, HttpError> {
+                Ok(b"ok".to_vec())
+            }
+        }
+        let http = GetOnly;
+        assert_eq!(
+            http.post_json("https://example.org", &[], b"{}", TIMEOUT),
+            Err(HttpError::NotSupported)
+        );
     }
 }
