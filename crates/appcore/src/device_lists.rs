@@ -58,6 +58,15 @@ impl Core {
         self.device_lists.job = Some(lists);
     }
 
+    /// The first lists, at start; not in a QA run (input from a file), where listing would
+    /// probe the real ALSA cards at every start. The settings page lists when it opens.
+    pub fn list_devices_early(&mut self) {
+        if self.qa.input_file.is_some() {
+            return;
+        }
+        self.relist_devices();
+    }
+
     /// True once new lists came; the pages then read `devices_json` again.
     pub fn devices_poll(&mut self) -> bool {
         self.take_lists();
