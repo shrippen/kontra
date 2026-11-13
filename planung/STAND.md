@@ -1,7 +1,37 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-11-12. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+Übergabe zwischen Sitzungen. Stand: 2026-11-13. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
+
+## Übergabe (13.11.2026, Nacht: Übergänge, Mixer als Glasebene, FPS)
+
+In `main`: #301 (eine Lesebreite für alle Seiten), #302 und #305 (Übergänge: Start ohne Springen, Seitenmenü
+folgt sofort, Notenzeilen ohne Seitwärtsgleiten), #303 (Übungsseite lädt Teile erst bei Bedarf), #304, #306
+(Mixer als Glasebene über den Noten, F5 in einem Schritt), #307/#308 (CI unter Rust 1.100: Clippy und neues
+Cargo-Layout der Testprogramme), #309 (Bluetooth-Prüfung blockiert den Start nicht mehr), #310
+(Gerätelisten im Hintergrund), #311 (Kante: lange Titel in Einstellungszeilen umbrechen); Kante #157–#160.
+FPS-Analyse und Messwerte in der Roadmap unter „QA-Runde 12./13.11.2026“.
+
+Offen:
+- Am echten System (PipeWire) nicht gemessen: Abspielen und Einstellungen öffnen; die Messungen liefen in der
+  qa-session (ALSA ohne PipeWire), wo das Auflisten der Geräte 200–700 ms kostet.
+- `tick_standby` (alle 5 s ohne Gerät am Kabeleingang) und `watch_lost` (alle 2 s bei verlorenem Eingang) listen
+  die Geräte weiter im GUI-Thread (Bestand aus #310). Umstellen auf die Hintergrundliste ändert, wann der Standby
+  echte Geräte öffnet: erst mit Hardware prüfen.
+- Aufbau der Seiten dauert 150–300 ms (Lernen, Griffbrett, Üben, Einstellungen); ohne QML-Profiler (in der App
+  nicht eingeschaltet) nicht weiter zerlegt.
+- `SidebarInset.openWidth` nach Start im schmalen Fenster: das erste Breitwerden legt je Bild neu aus (einmal je
+  Sitzung, Kleinigkeit aus #305).
+- Freigegeben (Eigentümer, 12.11.: „neue schnittstellen sind freigegeben“): die neuen `pub` aus #301–#304
+  (u. a. `LevelAdvice.fit`, `SidebarInset.edge`/`margin`/`ready`/`restMs`, `NotesArea.content`/`glides`,
+  `PracticeFooter.practice`, `Main.resizing`, `PracticePage.unfolded`/`openAlign()`/`openBacking()`/`views`,
+  `SummaryLayer`).
+- Für die nächste Runde, neue `pub`: `NotesArea.overlay`/`notesLayer`, `SidebarInset.drawer`/`target`/`offset`/
+  `openWidth`/`collapsedWidth` (#305, #306), `MixerCard` als `KanteGlassPanel` (`open`, `maxHeight`,
+  `blurSource`; #306), `Core::relist_devices`, `Core::devices_poll` (#310); Kante:
+  `grown`, `layoutSpacing`, `layoutMinBarWidth`, `KanteGlassPanel` mit Tokens `glass`, `glassDense`,
+  `shape.glassBlur`.
+- Eigentümer bestätigen: der Mixer deckt bis 60 % der Notenfläche ab (#306).
 
 ## Übergabe (12.11.2026: eine Audio-Engine über alle Modi)
 
@@ -56,7 +86,6 @@ Offen aus der Nacht:
   Hörprobe Begrenzer). Das Kabel vom Ausgang in den Eingang hätte rückgekoppelt. Vor einer Hörprobe das Kabel ziehen.
 - Plugins laden im UI-Thread und im Kontra-Prozess (Frage in Runde 19); Werte ohne Einheit; Plugin-Schlüssel in
   „Effekt hinzufügen“ sind Positionen der letzten Suche (#265, Kleinigkeit).
-- Lange deutsche Titel im Mixer (2×) schneiden den Wert rechts ab: `KanteSettingRow`, also in Kante beheben.
 - Windows-VM: aus, Scarlett wieder am Host (Ein- und Ausgang unter PipeWire da). Die geplanten Aufgaben der Nacht sind
   gelöscht; `KontraCli`, `KontraTest`, `KontraTestSw` bleiben. Messungen in der ROADMAP (R3, Win2).
 

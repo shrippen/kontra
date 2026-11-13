@@ -132,7 +132,7 @@ Erwartet: Cent-Werte pro Note weichen ≤ 3 Cent vom annotierten Wert ab; die Au
 2. Übung öffnen, kombinierte Ansicht Noten über Tab, Modus „Frei spielen“.
 3. Stil auf Kante Light wechseln (heller Raum).
 4. Mixer öffnen, dann Präsentation (F5 oder Knopf neben dem Mixer), durchspielen, mit Esc beenden.
-Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreichend; der Mixer gleitet als Glasebene über die Noten, ohne sie zu verschieben, und geht mit F5 zu; in der Präsentation Vollbild ohne Seitenleiste, nur Titel, Noten und Transport, Notenlinien größer, ohne Sprung in der Zeilenzahl; Esc stellt das Fenster wieder her wie vorher, der Mixer ist wieder offen; nach dem Durchspielen lässt „Fertig gespielt“ Noten und Tab lesbar stehen; in Kante Light die Ziffern der Tabulatur in jeder Saitenfarbe mindestens 4,5:1.
+Erwartet: nichts abgeschnitten, Lane und Noten aus 4 m lesbar, Kontrast ausreichend; der Mixer gleitet als Glasebene über die Noten, ohne sie zu verschieben, und geht mit F5 zu; in der Präsentation Vollbild ohne Seitenleiste, nur Titel, Noten und Transport, Notenlinien größer, in einer Neuauslegung ohne Zwischenstand (die Zeilenzahl darf sich dabei ändern); Esc stellt das Fenster wieder her wie vorher, der Mixer ist wieder offen; nach dem Durchspielen lässt „Fertig gespielt“ Noten und Tab lesbar stehen; in Kante Light die Ziffern der Tabulatur in jeder Saitenfarbe mindestens 4,5:1.
 
 **J-B6 Song aus dem Netz** ⚙ 🔍 · Personas: P2 Jens, P3 Mira, P1 Lea, P7 Sam · Phase 2 · LH-BIB-10, -11
 1. Jens: Bibliothek, „Seven Nation Army“ eintippen, Enter (oder „Suchen“); einen Treffer mit Bassspur anklicken.

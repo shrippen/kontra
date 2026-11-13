@@ -989,6 +989,43 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 
 ## QA-Runden
 
+### QA-Runde 12./13.11.2026 (FPS: Software und GPU, Nacht)
+
+Auftrag des Eigentümers (12.11.): Mixer einblenden und Präsentation ließen die FPS stark sinken; FPS generell mit
+Software-Renderer und GPU analysieren. Messung: Release-Build in der qa-session (Xvfb 1296×792, Eingang aus Datei,
+ALSA ohne PipeWire), Qt-Zeitprotokoll (`qt.scenegraph.time.renderloop`), Klicks über xdotool; GPU über
+`QT_QUICK_BACKEND=rhi`, `QSG_RHI_BACKEND=opengl` (RTX 3090; das Kopieren aus Xvfb kostet je Bild etwa 29 ms, daher
+dort höchstens 30 fps). „Erstes Bild“ ist die Zeit vom Klick bis zum ersten neuen Bild. Personas: P4 (Beamer, F5),
+P1–P3 (Mixer), alle (Seitenwechsel).
+
+Vorher im Release-Build mit Software-Renderer: Mixer öffnen 4 Bilder mit 6–14 ms Neuauslegung, F5 an 20 + 13 ms,
+F5 aus ein Bild mit 45 ms Neuauslegung.
+
+Befund: Das Zeichnen selbst ist auf beiden Wegen billig (Software 1–3 ms je Bild, GPU unter 1 ms). Teuer war Arbeit
+im GUI-Thread: Neuauslegungen je Bild und das Auflisten der Audiogeräte.
+
+| Fall | vorher | nachher |
+| --- | --- | --- |
+| Mixer öffnen (GPU, Debug-Build) | bis 17 ms Neuauslegung je Bild | 0,2 ms je Bild, höchstens 2 ms (#306) |
+| F5 an (GPU, Debug-Build) | längste Lücke 371 ms | 61 ms (#306) |
+| F5 aus (GPU, Debug-Build) | 54-ms-Bild | 18 ms (#306) |
+| Seitenmenü ein/aus | Seite wartete das Gleiten ab und sprang dann | folgt sofort, eine Neuauslegung (#305) |
+| Abspielen, erstes Bild | 677 ms | 188 ms (#309) |
+| Einstellungen öffnen, erstes Bild (Software / GPU) | 1226 / 1073 ms | 312–575 / 325 ms (#310) |
+| Abspielen laufend | ≈1 ms je Bild bei 60 fps | unverändert |
+
+- [x] N1 (hoch, #306): Der Mixer schob das Layout (Notenzeilen je Bild neu ausgelegt); jetzt Glasebene von oben
+  (`KanteGlassPanel`, Kante #158), leicht durchscheinend wie Plasma.
+- [x] N2 (hoch, #306): F5 legte die Noten zweimal aus (erst Größe, dann Abstand); jetzt eine Neuauslegung wie beim
+  Ändern der Fenstergröße.
+- [x] N3 (mittel, #309): Abspielen listete alle Ausgabegeräte für den Bluetooth-Hinweis (580 ms im GUI-Thread).
+- [x] N4 (mittel, #310): Einstellungen listeten Ein- und Ausgänge vor dem ersten Bild (900 ms); die USB-Wache der
+  App listete alle 5 s im GUI-Thread.
+- [ ] N5 (mittel): `tick_standby` und `watch_lost` listen weiter im GUI-Thread (siehe STAND).
+- [ ] N6 (niedrig): Aufbau der Seiten 150–300 ms (Lernen, Griffbrett, Üben, Einstellungen); Messwerte schwanken
+  stark mit der Last des Rechners (Load 10–16 bei den Wiederholungen).
+- Nicht gemessen: am echten System mit PipeWire; Kontra mit sichtbarem Fenster.
+
 ### QA-Runde 28.10.2026 (J-B5 und J-F1 erneut, nach Runde 16)
 
 P4 am Beamer (1280×720, 150 %, Kante Light), P7 (1920×1080, 200 %, Deuteranopie simuliert, Bewegung „Weniger“, nur
