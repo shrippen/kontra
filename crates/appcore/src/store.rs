@@ -607,6 +607,21 @@ impl Library {
         self.recent.truncate(RECENT_MAX);
     }
 
+    /// A file moved from `from` to `to`: entries, setlists and beat maps follow it.
+    pub fn rename_path(&mut self, from: &Path, to: &Path) {
+        for entry in self.recent.iter_mut().filter(|e| e.path == from) {
+            entry.path = to.to_path_buf();
+        }
+        for piece in self.setlists.iter_mut().flat_map(|s| s.pieces.iter_mut()) {
+            if piece == from {
+                *piece = to.to_path_buf();
+            }
+        }
+        if let Some(map) = self.beat_maps.remove(from) {
+            self.beat_maps.insert(to.to_path_buf(), map);
+        }
+    }
+
     /// Adds a piece without playing it (folder import): after the played ones, nothing moves.
     pub fn add_known(&mut self, mut entry: RecentEntry) {
         entry.path = plain(&entry.path);

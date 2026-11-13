@@ -12,7 +12,7 @@
 //! ```
 
 use crate::bundled::{EXERCISES_DIR, PIECES_DIR};
-use crate::Core;
+use crate::{store, Catalog, Core, Language, Library};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -104,5 +104,47 @@ impl Core {
             downloads: self.downloads.clone(),
             folders: self.library.linked_folders.clone(),
         }
+    }
+}
+
+/// Pieces in a form were written to `exercises/` before they had `pieces/` (13.11.2026).
+/// Moves those a style made (named "Stück …" or "Piece …", the catalogs' `exercise.name.song`)
+/// and lets the library follow; progress is keyed by song id and needs nothing. A file already
+/// at the target stays where it is, so a second start finds nothing to do. Pieces from a plan
+/// have free titles and cannot be told from exercises by name: they stay.
+pub(crate) fn move_old_pieces(data_dir: &Path, library: &mut Library) {
+    let from_dir = data_dir.join(EXERCISES_DIR);
+    let to_dir = data_dir.join(PIECES_DIR);
+    let prefixes: Vec<String> = [Language::German, Language::English]
+        .into_iter()
+        .filter_map(|l| {
+            let text = Catalog::new(l).tr("exercise.name.song", &[]);
+            text.split_once("{style}").map(|(p, _)| p.to_string())
+        })
+        .collect();
+    let Ok(files) = std::fs::read_dir(&from_dir) else {
+        return;
+    };
+    let mut moved = false;
+    for file in files.flatten().map(|f| f.path()) {
+        let name = file
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default();
+        let is_piece = prefixes
+            .iter()
+            .any(|p| !p.is_empty() && name.starts_with(p.as_str()));
+        let target = to_dir.join(name);
+        if !is_piece || target.exists() || std::fs::create_dir_all(&to_dir).is_err() {
+            continue;
+        }
+        if std::fs::rename(&file, &target).is_ok() {
+            library.rename_path(&file, &target);
+            moved = true;
+        }
+    }
+    // Saved now: the next start must not find the old paths in the file.
+    if moved {
+        let _ = store::save(&data_dir.join("library.json"), library);
     }
 }

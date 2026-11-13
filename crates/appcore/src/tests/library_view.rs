@@ -655,3 +655,76 @@ fn a_backup_carries_linked_folders() {
     assert!(old.library.linked_folders.is_empty());
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Pieces in a form lay in `exercises/` before they got `pieces/`: a start moves them, keeps
+/// the library entry and the progress attached, never overwrites, and does nothing twice.
+#[test]
+fn old_pieces_move_to_their_folder() {
+    let dir = temp_dir("move-pieces");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.update_settings(|s| s.language = Some("de".into()));
+    let song = Core::exercise_spec("song", "pop", "", 7, 90.0, "", PieceVariety::default());
+    let scale = Core::exercise_spec("scale", "major", "", 0, 90.0, "", PieceVariety::default());
+    let piece = core.generate_exercise(&song.unwrap()).unwrap();
+    let scale = core.generate_exercise(&scale.unwrap()).unwrap();
+
+    // As an older Kontra left it: the piece in `exercises/`, opened, with a run.
+    let old = dir.join("exercises").join(piece.file_name().unwrap());
+    std::fs::rename(&piece, &old).unwrap();
+    core.open(&old).unwrap();
+    core.open(&scale).unwrap();
+    let a = core.arrangement().unwrap().clone();
+    core.open(&old).unwrap();
+    let a_piece = core.arrangement().unwrap().clone();
+    assert_ne!(a.title, a_piece.title);
+    let run = kontra_session::Run {
+        spread_ms: None,
+        bars: Vec::new(),
+        finished_unix: 5_000,
+        practice_s: 60.0,
+        speed: 1.0,
+        hit_rate: 0.8,
+        mode: "song".into(),
+        section: None,
+        hardest_bars: Vec::new(),
+        hesitant_bars: Vec::new(),
+    };
+    core.progress_store().record(&a_piece, run).unwrap();
+    core.library.setlists.push(Setlist {
+        name: "Gig".into(),
+        pieces: vec![old.clone()],
+    });
+    core.save_library();
+    drop(core);
+
+    let check = |core: &Core| {
+        assert!(piece.exists() && !old.exists());
+        assert!(scale.exists(), "an exercise stays");
+        let page = page(core, "generated", "title", "none", "");
+        assert_eq!(page["rows"].as_array().unwrap().len(), 1);
+        assert_eq!(page["rows"][0]["path"], piece.to_string_lossy().as_ref());
+        assert_eq!(page["rows"][0]["bestPercent"], 80.0);
+        assert_eq!(
+            core.library.setlists[0].pieces,
+            std::slice::from_ref(&piece)
+        );
+    };
+    let core = Core::new(&dir, QaOptions::default());
+    check(&core);
+    let before = core.library.clone();
+    drop(core);
+    let core = Core::new(&dir, QaOptions::default());
+    check(&core);
+    assert_eq!(core.library, before, "a second start changes nothing");
+    drop(core);
+
+    // A file already at the target is not overwritten.
+    std::fs::write(
+        dir.join("exercises").join(piece.file_name().unwrap()),
+        b"old",
+    )
+    .unwrap();
+    let _ = Core::new(&dir, QaOptions::default());
+    assert_ne!(std::fs::read(&piece).unwrap(), b"old");
+    let _ = std::fs::remove_dir_all(dir);
+}

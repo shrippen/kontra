@@ -334,6 +334,7 @@ impl Core {
         let mut library: Library = store::load(&data_dir.join("library.json"));
         library.plain_paths();
         library.find_moved(&Self::exercises_dir());
+        origin::move_old_pieces(data_dir, &mut library);
         let language = settings
             .language
             .as_deref()
