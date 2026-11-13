@@ -43,7 +43,7 @@ pub enum Command {
     Course(CourseArgs),
     /// Write the JSON Schemas of package and course files (W8); `schema/` is the output.
     Schemas(SchemasArgs),
-    /// Renders a piece plan (LH-BIB-13) to a MIDI file, for trying a plan by hand.
+    /// Renders a piece plan (LH-BIB-14) to a MIDI file, for trying a plan by hand.
     Piece(PieceArgs),
     /// Effect plugins (CLAP): scan, parameters, offline render.
     Plugins(PluginsArgs),

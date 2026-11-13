@@ -39,6 +39,16 @@ pub(super) fn variant_suffix(seed: u64) -> String {
     format!(" · Variante {seed}")
 }
 
+/// The suffix of a title that tells a length other than normal: a different length is a
+/// different piece (LH-BIB-15), so it needs its own title and progress, like a variant.
+pub(super) fn length_suffix(length: Length) -> &'static str {
+    match length {
+        Length::Short => " · kurz",
+        Length::Normal => "",
+        Length::Long => " · lang",
+    }
+}
+
 impl Section {
     /// The rehearsal mark over the part's first bar, as German bands say it (LH-BIB-12); the
     /// twelve bars of a shuffle's blues are a chorus. The app shows Strophe and Refrain in its
@@ -413,13 +423,16 @@ fn lead_into_next(tones: &mut [Tone], seg: &Segment) {
 }
 
 /// A walking line in quarters: root, chord tones, an approach to the next root; in a half bar
-/// the root and a chord tone (first half) or the approach (second half).
+/// the root and a chord tone (first half) or the approach (second half). Alternates its shape
+/// so the line does not repeat itself bar after bar; without a seventh (`has_color`) the
+/// alternate shape takes the octave instead, never the flat seventh `tones` falls back to.
 fn walk(seg: &Segment, index: usize, half: usize) -> Vec<Tone> {
     let c = seg.chord.tones();
     let (second, third) = if index.is_multiple_of(2) {
         (c[1], c[2])
     } else {
-        (c[2], c[3])
+        let seventh = if seg.chord.has_color() { c[3] } else { OCTAVE };
+        (c[2], seventh)
     };
     let lead = approach_note(seg.root, seg.next);
     let notes = match (seg.length, half) {
@@ -440,7 +453,6 @@ fn walk(seg: &Segment, index: usize, half: usize) -> Vec<Tone> {
         .collect()
 }
 
-/// Rehearsal marks, drums and the tick where the closing bar starts.
 /// Rehearsal marks, drums and the tick the closing bar starts at.
 struct FormLayout {
     parts: Vec<(u32, String)>,
@@ -484,4 +496,255 @@ fn part_drums(part: &CheckedPart, start: u32, bars: u32, last: bool) -> Vec<(u32
     hits.retain(|(at, _)| *at < fill_from);
     hits.extend((0..FILL_STROKES).map(|s| (fill_from + s * SIXTEENTH, SNARE)));
     hits
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{import_bytes, FileKind};
+    use kontra_model::TICKS_PER_QUARTER as MODEL_QUARTER;
+
+    /// A minimal, valid plan with one part; override fields on the result as the test needs.
+    fn plan(bars: &[&str], line: PlanLine, groove: &str) -> PiecePlan {
+        PiecePlan {
+            title: "Test".to_string(),
+            key: "C".to_string(),
+            bpm: 90,
+            feel: PieceFeel::Straight,
+            parts: vec![PlanPart {
+                section: Section::Verse,
+                bars: bars.iter().map(|b| (*b).to_string()).collect(),
+                times: 1,
+                groove: groove.to_string(),
+                line,
+                fill: false,
+                drums: Drums::Full,
+            }],
+        }
+    }
+
+    fn render(plan: &PiecePlan, seed: u64) -> Exercise {
+        render_piece(plan, Level::Medium, seed).expect("valid plan")
+    }
+
+    fn arrangement(exercise: &Exercise) -> kontra_model::Arrangement {
+        let imported = import_bytes(&exercise.midi, FileKind::Midi).expect("imports");
+        imported
+            .arrangement(imported.suggested().expect("bass track"))
+            .expect("arrangement")
+    }
+
+    /// Pitch classes of the notes in bar `index`, in order.
+    fn bar_pitch_classes(a: &kontra_model::Arrangement, index: usize) -> Vec<i32> {
+        let bar = &a.bars[index];
+        let end = a.bars.get(index + 1).map_or(u64::MAX, |b| b.start_ticks);
+        a.notes
+            .iter()
+            .filter(|n| (bar.start_ticks..end).contains(&n.start_ticks))
+            .map(|n| i32::from(n.pitch.0).rem_euclid(OCTAVE))
+            .collect()
+    }
+
+    /// Bug (reviewer): a walking line without a seventh played the flat seventh `tones()`
+    /// falls back to (groove chords do mean to play it; `walk`'s *alternate shape* should not).
+    /// Reproduced with key E, bar "A/C#", `line: walking`, seed 3 (`kontra-cli import` showed
+    /// C#-E-G-A# over A major, i.e. a flat seventh (G) where no seventh was asked for).
+    #[test]
+    fn walking_without_a_seventh_never_adds_one() {
+        // Two bars of a plain A major triad: the second (index 1) takes `walk`'s alternate
+        // shape, which used to reach for `tones()[3]`, the flat-seventh fallback.
+        let mut p = plan(&["A", "A"], PlanLine::Walking, "quarters");
+        p.key = "E".to_string();
+        let e = render(&p, 0);
+        let a = arrangement(&e);
+        let second_bar = bar_pitch_classes(&a, 1);
+        let a_pc: i32 = 9; // A
+        let flat_seventh = (a_pc + 10).rem_euclid(OCTAVE); // G
+        assert!(
+            !second_bar.contains(&flat_seventh),
+            "{second_bar:?} contains the flat seventh of A"
+        );
+    }
+
+    #[test]
+    fn roots_line_never_leaves_the_root() {
+        let p = plan(&["C", "G"], PlanLine::Roots, "eighths");
+        let e = render(&p, 0);
+        let a = arrangement(&e);
+        for pc in bar_pitch_classes(&a, 0) {
+            assert_eq!(pc, 0, "C major, roots line");
+        }
+    }
+
+    #[test]
+    fn root_fifth_line_adds_a_fifth_halfway_through_the_bar() {
+        let p = plan(&["C"], PlanLine::RootFifth, "quarters");
+        let e = render(&p, 0);
+        let a = arrangement(&e);
+        let third_beat = a
+            .notes
+            .iter()
+            .find(|n| n.start_ticks == a.bars[0].start_ticks + 2 * MODEL_QUARTER)
+            .expect("third beat");
+        assert_eq!(i32::from(third_beat.pitch.0).rem_euclid(OCTAVE), 7, "fifth");
+    }
+
+    #[test]
+    fn chord_tones_line_plays_third_fifth_and_octave() {
+        let p = plan(&["C"], PlanLine::ChordTones, "quarters");
+        let e = render(&p, 0);
+        let a = arrangement(&e);
+        let pcs: Vec<i32> = bar_pitch_classes(&a, 0);
+        assert_eq!(pcs, vec![0, 4, 7, 0], "root, third, fifth, octave (no 7th)");
+    }
+
+    #[test]
+    fn approach_line_leads_into_the_next_chord() {
+        let p = plan(&["C", "F"], PlanLine::Approach, "eighths");
+        let e = render(&p, 0);
+        let a = arrangement(&e);
+        let last = a
+            .notes
+            .iter()
+            .filter(|n| n.start_ticks < a.bars[1].start_ticks)
+            .max_by_key(|n| n.start_ticks)
+            .expect("last note of bar 1");
+        let pc = i32::from(last.pitch.0).rem_euclid(OCTAVE);
+        // F is pitch class 5; a half or whole step away, not F itself.
+        assert_ne!(pc, 5, "approach note, not the next root itself");
+        let distance = (pc - 5).rem_euclid(OCTAVE).min((5 - pc).rem_euclid(OCTAVE));
+        assert!(distance == 1 || distance == 2, "{pc} not close to F");
+    }
+
+    #[test]
+    fn walking_line_plays_four_quarters_a_bar() {
+        let p = plan(&["C", "G"], PlanLine::Walking, "eighths");
+        let e = render(&p, 0);
+        let a = arrangement(&e);
+        assert_eq!(bar_pitch_classes(&a, 0).len(), 4);
+        assert_eq!(bar_pitch_classes(&a, 0)[0], 0, "starts on the root");
+    }
+
+    #[test]
+    fn slash_chord_plays_its_bass_note_on_beat_one() {
+        let p = plan(&["C/E"], PlanLine::Roots, "quarters");
+        let e = render(&p, 0);
+        let a = arrangement(&e);
+        let first = a.notes.first().expect("a note");
+        assert_eq!(
+            i32::from(first.pitch.0).rem_euclid(OCTAVE),
+            4,
+            "E on beat one"
+        );
+    }
+
+    #[test]
+    fn two_chords_split_the_bar() {
+        let p = plan(&["C G"], PlanLine::Roots, "quarters");
+        let e = render(&p, 0);
+        let a = arrangement(&e);
+        assert!(a
+            .markers
+            .iter()
+            .any(|m| m.tick == a.bars[0].start_ticks && m.name == "C"));
+        let half = a.bars[0].start_ticks + 2 * MODEL_QUARTER;
+        assert!(a.markers.iter().any(|m| m.tick == half && m.name == "G"));
+        let first_half: Vec<i32> = a
+            .notes
+            .iter()
+            .filter(|n| n.start_ticks < half)
+            .map(|n| i32::from(n.pitch.0).rem_euclid(OCTAVE))
+            .collect();
+        let second_half: Vec<i32> = a
+            .notes
+            .iter()
+            .filter(|n| n.start_ticks >= half && n.start_ticks < a.bars[1].start_ticks)
+            .map(|n| i32::from(n.pitch.0).rem_euclid(OCTAVE))
+            .collect();
+        assert!(first_half.iter().all(|pc| *pc == 0), "{first_half:?}");
+        assert!(second_half.iter().all(|pc| *pc == 7), "{second_half:?}");
+    }
+
+    #[test]
+    fn a_fill_plays_at_least_three_notes_on_the_last_beat() {
+        let mut p = plan(&["C"], PlanLine::Roots, "quarters");
+        p.parts[0].fill = true;
+        p.parts.push(PlanPart {
+            section: Section::Outro,
+            bars: vec!["F".to_string()],
+            times: 1,
+            groove: "quarters".to_string(),
+            line: PlanLine::Roots,
+            fill: false,
+            drums: Drums::Full,
+        });
+        let e = render(&p, 0);
+        let a = arrangement(&e);
+        let fill_from = a.bars[0].start_ticks + 3 * MODEL_QUARTER;
+        let count = a
+            .notes
+            .iter()
+            .filter(|n| (fill_from..a.bars[1].start_ticks).contains(&n.start_ticks))
+            .count();
+        assert!(count >= 3, "{count} notes in the fill");
+    }
+
+    #[test]
+    fn drums_none_has_no_drum_notes() {
+        let mut p = plan(&["C", "C"], PlanLine::Roots, "quarters");
+        p.parts[0].drums = Drums::None;
+        let e = render(&p, 0);
+        let a = arrangement(&e);
+        assert!(a.drums.is_empty(), "{:?}", a.drums);
+    }
+
+    #[test]
+    fn same_seed_renders_the_same_midi() {
+        let p = plan(&["C", "G", "Am", "F"], PlanLine::Roots, "eighths");
+        let first = render(&p, 7);
+        let second = render(&p, 7);
+        assert_eq!(first.midi, second.midi);
+    }
+
+    #[test]
+    fn different_seeds_can_render_different_notes() {
+        let mut p = plan(&["C"], PlanLine::Roots, "quarters");
+        p.parts[0].times = 8;
+        // Found by trying seeds 1..20 against seed 0's notes: both differ from the plain
+        // piece and from each other, so the twist in `vary` really depends on the seed.
+        let plain = notes_of(&render(&p, 0));
+        let mut differing = Vec::new();
+        for seed in 1..20 {
+            let notes = notes_of(&render(&p, seed));
+            if notes != plain {
+                differing.push((seed, notes));
+            }
+        }
+        assert!(
+            differing.len() >= 2,
+            "only {} seeds varied",
+            differing.len()
+        );
+        let (_, a) = &differing[0];
+        let (_, b) = &differing[1];
+        assert_ne!(a, b, "two varied seeds produced the same notes");
+    }
+
+    #[test]
+    fn seed_zero_never_varies() {
+        let mut p = plan(&["C"], PlanLine::Roots, "quarters");
+        p.parts[0].times = 8;
+        let e = render(&p, 0);
+        let a = arrangement(&e);
+        // Four quarters per bar, eight bars, one closing tonic bar: no twist, no fill.
+        assert_eq!(a.notes.len(), 8 * 4 + 1, "{} notes", a.notes.len());
+    }
+
+    fn notes_of(e: &Exercise) -> Vec<i32> {
+        arrangement(e)
+            .notes
+            .iter()
+            .map(|n| i32::from(n.pitch.0))
+            .collect()
+    }
 }

@@ -67,18 +67,46 @@ fn lean_is_steady(text: &str) -> bool {
 }
 
 /// The mixer is a layer over the notes (owner 12.11.): it slid in as a row of the page's column
-/// and shrank the notes on every frame, a relayout each (FPS dropped). It sits in the notes
-/// area's overlay now, whose room it does not change.
+/// and shrank the notes on every frame, a relayout each (FPS dropped). It is a layer beside the
+/// page's column now (`MixerLayer`), whose room it does not change.
+/// The run's summary hides what lies behind it, for screen readers too (QA 28.10., P7). The
+/// mixer is no row of the page's column, so the summary names it on its own (review #317: an
+/// open mixer stayed readable under the summary).
+#[test]
+fn summary_hides_the_mixer() {
+    let text = page();
+    let id = text
+        .split("MixerLayer {")
+        .nth(1)
+        .and_then(|rest| rest.lines().nth(1))
+        .and_then(|line| line.trim().strip_prefix("id: "))
+        .unwrap_or_else(|| panic!("the mixer layer has no id in {PAGE}"));
+    let behind = text
+        .lines()
+        .find(|line| line.trim_start().starts_with("behind:"))
+        .unwrap_or_else(|| panic!("the summary hides nothing in {PAGE}"));
+    assert!(
+        behind.contains(id),
+        "the summary leaves the mixer: {}",
+        behind.trim()
+    );
+}
+
 #[test]
 fn mixer_lies_over_the_notes() {
     let text = page();
-    let overlay = text
-        .find("overlay: MixerCard {")
-        .unwrap_or_else(|| panic!("the mixer is no overlay of the notes in {PAGE}"));
+    let layer = text
+        .find("MixerLayer {")
+        .unwrap_or_else(|| panic!("the mixer is no layer over the notes in {PAGE}"));
     assert_eq!(
-        text.matches("MixerCard {").count(),
+        text.matches("MixerLayer {").count(),
         1,
-        "a second mixer at {overlay}"
+        "a second mixer at {layer}"
+    );
+    // Four spaces: a child of the page, not of its column.
+    assert!(
+        text.contains("\n    MixerLayer {"),
+        "the mixer is a row of the page's column"
     );
 }
 
@@ -103,7 +131,7 @@ fn presentation_settles_like_a_resize() {
 #[test]
 fn mixer_leaves_the_presentation() {
     let text = page();
-    let start = text.find("overlay: MixerCard {").unwrap_or(0);
+    let start = text.find("MixerLayer {").unwrap_or(0);
     let open = text[start..]
         .lines()
         .find(|line| line.trim_start().starts_with("open:"))

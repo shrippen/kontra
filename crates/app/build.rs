@@ -18,6 +18,7 @@ const PAGES: &[&str] = &[
     "qml/StartPage.qml",
     "qml/Mixer.qml",
     "qml/MixerCard.qml",
+    "qml/MixerLayer.qml",
     "qml/CountKpi.qml",
     "qml/DayAge.qml",
     "qml/HintTip.qml",

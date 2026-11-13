@@ -237,6 +237,21 @@ impl Core {
                 &[("name", name), ("key", key), ("bpm", bpm)],
             ),
         };
+        // A different length or seed is a different piece (LH-BIB-15): its own file and
+        // progress, so both need to show in the title `generated_path` is named after.
+        let title = match d.length {
+            Some("short") => self.tr("exercise.title.length.short", &[("title", title)]),
+            Some("long") => self.tr("exercise.title.length.long", &[("title", title)]),
+            _ => title,
+        };
+        let title = if d.seed == 0 {
+            title
+        } else {
+            self.tr(
+                "exercise.title.variant",
+                &[("title", title), ("seed", d.seed.to_string())],
+            )
+        };
         // Judged by time only: another exercise with its own file and progress (DIDAKTIK I4).
         match d.judging {
             Judging::TimeOnly => self.tr("exercise.title.timing", &[("title", title)]),
@@ -319,7 +334,7 @@ impl Core {
         })
     }
 
-    /// A piece from an LLM's plan (LH-BIB-13): `plan_json` a `PiecePlan`, written to the data
+    /// A piece from an LLM's plan (LH-BIB-14): `plan_json` a `PiecePlan`, written to the data
     /// folder and opened like a generated exercise. Every validation problem of the plan comes
     /// back as one line, for a retry by whoever wrote it.
     pub fn generate_piece(
@@ -364,16 +379,19 @@ impl Core {
         self.piece_path(&self.exercise_title(&exercise::describe(spec)))
     }
 
-    /// Where a generated exercise named `title` is written.
-    fn piece_path(&self, title: &str) -> PathBuf {
+    /// Where a generated exercise named `title` is written; `title` may come from an LLM's
+    /// plan, so every character invalid in a Windows or Unix file name is replaced, not only
+    /// the ones a built-in piece's own title ever has.
+    pub(crate) fn piece_path(&self, title: &str) -> PathBuf {
         let dir = self.data_dir.join("exercises");
         // ♯ and ♭ as before the printed signs, so a file made again keeps its name.
         let name: String = title
             .chars()
             .map(|c| match c {
-                '/' | ':' | '#' | '♯' => '-',
+                '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' | '#' | '♯' => '-',
                 '♭' => 'b',
-                _ => c,
+                c if c.is_control() => '-',
+                c => c,
             })
             .collect();
         dir.join(format!("{name}.mid"))

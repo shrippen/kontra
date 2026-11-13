@@ -34,6 +34,22 @@ Item {
         Math.max(titleText.implicitWidth + KanteStyle.unit(14), hintMetrics.advanceWidth))
     readonly property real sectionHeight: section !== "" ? sectionHead.implicitHeight + KanteStyle.unit(14) : 0
 
+    /** A KanteSettingGroup counts the rows (and any item with this property true) it holds. */
+    readonly property bool isSetting: true
+
+    // Tells the group around it that a row came, went or was hidden.
+    function tellGroup() {
+        for (let p = row.parent; p; p = p.parent) {
+            if (p.settingGroup === true) {
+                p.recount()
+                return
+            }
+        }
+    }
+    onVisibleChanged: tellGroup()
+    Component.onCompleted: tellGroup()
+    Component.onDestruction: tellGroup()
+
     implicitWidth: KanteStyle.unit(420)
     implicitHeight: sectionHeight + grid.implicitHeight + KanteStyle.unit(20)
 
@@ -95,9 +111,12 @@ Item {
                     objectName: "settingTitle"
                     // As wide as its text, narrower where the column is (it wraps there): the mark
                     // follows the text. Not bound to the column's width, which the layout itself
-                    // sets: that loop left the title at width 0 (Kante 1.80).
+                    // sets: that loop left the title at width 0 (Kante 1.80). Rounded up: the
+                    // layout floors a fractional implicitWidth to whole device pixels, which cut
+                    // a short title (round 22, a real font under X11, not the test font) a
+                    // fraction of a pixel short of its own natural width and wrapped it.
                     Layout.fillWidth: true
-                    Layout.maximumWidth: implicitWidth
+                    Layout.maximumWidth: Math.ceil(implicitWidth)
                     text: row.title
                     color: KanteStyle.strongTextColor
                     font: KanteStyle.defaultFont

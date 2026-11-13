@@ -725,3 +725,64 @@ fn old_run_counts_and_recent_names_last_run() {
     assert_eq!(recent[0]["lastRunUnix"], run_at);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Bug (review of PR #316): a piece's `generated_path` ignored `seed` and `length`, so a
+/// variant or a shorter/longer form of the same style and key overwrote the plain piece's
+/// file and its progress.
+#[test]
+fn a_piece_s_path_and_title_tell_its_seed_and_length_apart() {
+    let dir = temp_dir("piece-paths");
+    let core = Core::new(&dir, QaOptions::default());
+    let spec = |seed, length| exercise::ExerciseSpec {
+        seed,
+        length,
+        ..exercise::ExerciseSpec {
+            kind: exercise::ExerciseKind::Song(exercise::Style::Pop, exercise::Level::Medium),
+            key: 7,
+            bpm: 90.0,
+            slow: false,
+            repeats: 1,
+            ramp_bpm: 0.0,
+            judging: Judging::PitchAndTime,
+            seed: 0,
+            length: exercise::Length::Normal,
+        }
+    };
+    let path = |seed, length| core.generated_path(&spec(seed, length));
+    let plain = path(0, exercise::Length::Normal);
+    let variant = path(7, exercise::Length::Normal);
+    let short = path(0, exercise::Length::Short);
+    let long = path(0, exercise::Length::Long);
+    assert_ne!(plain, variant, "a variant overwrote the plain piece");
+    assert_ne!(plain, short, "a short piece overwrote the plain piece");
+    assert_ne!(plain, long, "a long piece overwrote the plain piece");
+    assert_ne!(short, long);
+    assert_eq!(
+        plain,
+        path(0, exercise::Length::Normal),
+        "same seed and length, same path"
+    );
+
+    let title = core.exercise_title(&exercise::describe(&spec(7, exercise::Length::Short)));
+    assert!(title.contains("7"), "{title}: no sign of the seed");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Bug (review of PR #316): `piece_path` only replaced `/ : # ♯ ♭`. A plan's title comes from
+/// an LLM; `? * " < > | \` and control characters make an invalid path on Windows (or a
+/// subdirectory, for `/`), and `generate_piece` would fail with a filesystem error there.
+#[test]
+fn piece_path_sanitizes_every_character_invalid_in_a_file_name() {
+    let dir = temp_dir("piece-sanitize");
+    let core = Core::new(&dir, QaOptions::default());
+    let title = "A\\B/C:D*E?F\"G<H>I|J\n\tK ♯L ♭M #N";
+    let path = core.piece_path(title);
+    let name = path.file_stem().unwrap().to_str().unwrap().to_string();
+    for bad in [
+        '\\', '/', ':', '*', '?', '"', '<', '>', '|', '\n', '\t', '#', '♯', '♭',
+    ] {
+        assert!(!name.contains(bad), "{name:?} still has {bad:?}");
+    }
+    assert!(name.starts_with("A-B-C-D-E-F-G-H-I-J"), "{name}");
+    let _ = std::fs::remove_dir_all(dir);
+}
