@@ -205,10 +205,14 @@ fn a_linked_folder_is_found_in_its_subfolders() {
         .files
         .iter()
         .map(|f| {
-            f.strip_prefix(&tabs)
+            // "/" between the levels on every system (Windows writes "\\").
+            let parts: Vec<String> = f
+                .strip_prefix(&tabs)
                 .unwrap()
-                .to_string_lossy()
-                .into_owned()
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                .collect();
+            parts.join("/")
         })
         .collect();
     assert_eq!(

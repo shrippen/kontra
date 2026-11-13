@@ -647,6 +647,9 @@ impl qobject::Controller {
         self.as_mut().refresh_effects();
         self.as_mut().set_monitor_limit(s.monitor_limit);
         self.as_mut().set_setup_done(s.setup_done);
+        self.as_mut().set_llm_provider(q(&s.llm_provider));
+        self.as_mut().set_llm_base_url(q(&s.llm_base_url));
+        self.as_mut().set_llm_model(q(&s.llm_model));
         self.as_mut().set_playing(false);
     }
 }

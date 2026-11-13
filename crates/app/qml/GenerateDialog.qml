@@ -42,9 +42,30 @@ KanteDialog {
         }
     }
 
+    // A piece from a wish in words (LH-BIB-16) instead of a style: PieceWish takes over.
+    footerStart: [
+        KanteButton {
+            text: dialog.texts.t("library.gen.wish")
+            emphasis: KanteButton.Emphasis.Quiet
+            Accessible.name: dialog.texts.t("library.gen.wish")
+            onClicked: {
+                dialog.close()
+                wish.active = true
+                wish.item.open()
+            }
+        }
+    ]
     ColumnLayout {
         anchors.fill: parent
         spacing: KanteStyle.unit(8)
+
+        // Loaded at the first wish: the dialog needs the window's `ctl`. Inside the layout, so
+        // the dialog keeps one content item.
+        Loader {
+            id: wish
+            active: false
+            sourceComponent: PieceWish {}
+        }
 
         KanteSettingRow {
             Layout.fillWidth: true

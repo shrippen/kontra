@@ -26,6 +26,7 @@ const PAGES: &[&str] = &[
     "qml/Mixer.qml",
     "qml/MixerCard.qml",
     "qml/MixerLayer.qml",
+    "qml/HeaderScrollBar.qml",
     "qml/CountKpi.qml",
     "qml/DayAge.qml",
     "qml/HintTip.qml",
@@ -60,6 +61,8 @@ const PAGES: &[&str] = &[
     "qml/UpdateNotice.qml",
     "qml/SongMap.qml",
     "qml/CallResponse.qml",
+    "qml/LlmSettings.qml",
+    "qml/PieceWish.qml",
 ];
 
 fn main() {
