@@ -31,6 +31,7 @@ pub(super) fn progression_label(progression: Progression) -> &'static str {
         Progression::Tonic => "auf einem Akkord",
         Progression::TwoFiveOne => "II-V-I",
         Progression::Blues => "12-Takt-Blues",
+        Progression::QuickBlues => "12-Takt-Blues (Quick Change)",
         Progression::Minor => "Moll-Kadenz",
         Progression::OneFourFive => "I-IV-V",
         Progression::Pop => "I-V-VI-IV",

@@ -537,10 +537,7 @@ mod tests {
     /// Pitch classes of the notes in bar `index`, in order.
     fn bar_pitch_classes(a: &kontra_model::Arrangement, index: usize) -> Vec<i32> {
         let bar = &a.bars[index];
-        let end = a
-            .bars
-            .get(index + 1)
-            .map_or(u64::MAX, |b| b.start_ticks);
+        let end = a.bars.get(index + 1).map_or(u64::MAX, |b| b.start_ticks);
         a.notes
             .iter()
             .filter(|n| (bar.start_ticks..end).contains(&n.start_ticks))
@@ -634,7 +631,11 @@ mod tests {
         let e = render(&p, 0);
         let a = arrangement(&e);
         let first = a.notes.first().expect("a note");
-        assert_eq!(i32::from(first.pitch.0).rem_euclid(OCTAVE), 4, "E on beat one");
+        assert_eq!(
+            i32::from(first.pitch.0).rem_euclid(OCTAVE),
+            4,
+            "E on beat one"
+        );
     }
 
     #[test]
@@ -642,7 +643,10 @@ mod tests {
         let p = plan(&["C G"], PlanLine::Roots, "quarters");
         let e = render(&p, 0);
         let a = arrangement(&e);
-        assert!(a.markers.iter().any(|m| m.tick == a.bars[0].start_ticks && m.name == "C"));
+        assert!(a
+            .markers
+            .iter()
+            .any(|m| m.tick == a.bars[0].start_ticks && m.name == "C"));
         let half = a.bars[0].start_ticks + 2 * MODEL_QUARTER;
         assert!(a.markers.iter().any(|m| m.tick == half && m.name == "G"));
         let first_half: Vec<i32> = a
@@ -716,7 +720,11 @@ mod tests {
                 differing.push((seed, notes));
             }
         }
-        assert!(differing.len() >= 2, "only {} seeds varied", differing.len());
+        assert!(
+            differing.len() >= 2,
+            "only {} seeds varied",
+            differing.len()
+        );
         let (_, a) = &differing[0];
         let (_, b) = &differing[1];
         assert_ne!(a, b, "two varied seeds produced the same notes");
