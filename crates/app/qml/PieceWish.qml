@@ -23,6 +23,8 @@ KanteDialog {
     // This dialog sent the wish now running: its piece opens the practice page, even when the
     // dialog was closed meanwhile (there are two of these dialogs, exercises and library).
     property bool asked: false
+    // Why the last wish failed; shown in the dialog, the note bar lies dimmed behind it.
+    property string failure: ""
     // The provider can be asked: it has a key, needs none, or does without (`llmKeyState`'s
     // `ready`).
     property bool hasProvider: false
@@ -47,11 +49,18 @@ KanteDialog {
 
     onOpened: {
         wishField.text = ""
+        failure = ""
         refreshProvider()
     }
     Connections {
         target: dialog.ctl
         // The piece is open: practise it, from the library as from the exercises (QA 14.11.).
+        // The bridge reports a failed wish through `errorText` (`LlmEvent::Failed`).
+        function onErrorTextChanged() {
+            if (!dialog.asked || dialog.ctl.llmBusy || dialog.ctl.errorText === "") return
+            dialog.asked = false
+            dialog.failure = dialog.ctl.errorText
+        }
         function onLlmPieceOpened() {
             if (!dialog.asked) return
             dialog.asked = false
@@ -132,6 +141,14 @@ KanteDialog {
             }
         }
 
+        KanteCallout {
+            objectName: "wishError"
+            Layout.fillWidth: true
+            visible: dialog.failure !== ""
+            kind: KanteCallout.Kind.Warn
+            text: dialog.failure
+        }
+
         RowLayout {
             Layout.fillWidth: true
             QQC2.Label {
@@ -149,7 +166,10 @@ KanteDialog {
                     && !dialog.ctl.llmBusy && !dialog.ctl.llmKeyBusy
                 // The dialog stays while the provider writes ("wishRunning"); the piece closes
                 // it (`onLlmPieceOpened`), an error leaves the wish for another try.
-                onClicked: dialog.asked = dialog.ctl.llmWish(wishField.text, dialog.levels[dialog.level])
+                onClicked: {
+                    dialog.failure = ""
+                    dialog.asked = dialog.ctl.llmWish(wishField.text, dialog.levels[dialog.level])
+                }
             }
         }
     }

@@ -28,6 +28,7 @@ Item {
                 property string llmModelsJson: "[]"
                 property bool llmBusy: false
                 property bool llmKeyBusy: false
+                property string errorText: ""
                 signal llmKeyState(string provider, string state, bool ready, string text)
                 signal llmKeyError(string provider, string text)
                 signal llmPieceOpened()
@@ -64,6 +65,24 @@ Item {
             win.ctl.llmPieceOpened()
             tryCompare(dialog, "visible", false)
             compare(win.shown, "practice")
+        }
+
+        // Review #327: a failed wish said so only in the note bar, dimmed behind the open dialog.
+        function test_aFailureShowsInTheDialog() {
+            var win = createTemporaryObject(windowComponent, root)
+            var dialog = win.dialog()
+            dialog.open()
+            tryCompare(dialog, "opened", true)
+            findChild(dialog, "wishText").text = "Motown in A"
+            findChild(dialog, "wishGenerate").clicked()
+            // As the bridge does on `LlmEvent::Failed`: not busy, then the error.
+            win.ctl.llmBusy = false
+            win.ctl.errorText = "bars: 17 bars, at most 16"
+            var callout = findChild(dialog, "wishError")
+            verify(callout.visible)
+            compare(callout.text, "bars: 17 bars, at most 16")
+            verify(dialog.visible, "the wish stays for another try")
+            compare(win.shown, "")
         }
     }
 }

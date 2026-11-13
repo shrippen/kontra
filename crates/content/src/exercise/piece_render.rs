@@ -153,16 +153,33 @@ pub(super) fn pass_of(
     ))
 }
 
+/// Words a title may put after the key's root to name its mode: "A minor", "A-Moll".
+const MODE_WORDS: [&str; 4] = ["minor", "major", "moll", "dur"];
+
 /// The plan's title without a key at its end: the rendered title adds the key itself
-/// (QA 14.11.: a model's "Motown in A" became "Motown in A in A (104 BPM)").
+/// (QA 14.11.: a model's "Motown in A" became "Motown in A in A (104 BPM)"). Takes the key as
+/// written ("Am"), its root ("A") and the root with a mode word ("A minor", "A-Moll").
 fn bare_title<'a>(title: &'a str, key: &str) -> &'a str {
     let title = title.trim();
-    let suffix = format!(" in {}", key.trim());
-    let cut = title.len().saturating_sub(suffix.len());
-    match title.get(cut..) {
-        Some(end) if cut > 0 && end.eq_ignore_ascii_case(&suffix) => title[..cut].trim_end(),
-        _ => title,
+    let key = key.trim();
+    let root = key.strip_suffix('m').unwrap_or(key);
+    let mut endings = vec![key.to_string(), root.to_string()];
+    for word in MODE_WORDS {
+        endings.push(format!("{root} {word}"));
+        endings.push(format!("{root}-{word}"));
     }
+
+    for ending in endings {
+        let suffix = format!(" in {ending}");
+        let cut = title.len().saturating_sub(suffix.len());
+        let Some(end) = title.get(cut..) else {
+            continue;
+        };
+        if cut > 0 && end.eq_ignore_ascii_case(&suffix) {
+            return title[..cut].trim_end();
+        }
+    }
+    title
 }
 
 /// `pass_of` once `plan` is known to check out (a built-in style's own plan, never bad).
@@ -552,6 +569,22 @@ mod tests {
         assert_eq!(render(&p, 0).title, "Rain in Spain in A (90 BPM)");
         p.title = " in A".to_string();
         assert_eq!(render(&p, 0).title, "in A in A (90 BPM)");
+        // Review #327: other spellings of the key.
+        p.key = "Am".to_string();
+        p.parts[0].bars = vec!["Am".to_string()];
+        for title in [
+            "Groove in A minor",
+            "Groove in A-Moll",
+            "Groove in a moll",
+            "Groove in A",
+        ] {
+            p.title = title.to_string();
+            assert_eq!(render(&p, 0).title, "Groove in Am (90 BPM)", "{title}");
+        }
+        p.key = "F#".to_string();
+        p.parts[0].bars = vec!["F#".to_string()];
+        p.title = "Funk in F# major".to_string();
+        assert_eq!(render(&p, 0).title, "Funk in F# (90 BPM)");
     }
 
     fn arrangement(exercise: &Exercise) -> kontra_model::Arrangement {

@@ -998,6 +998,26 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 
 ## QA-Runden
 
+### QA-Runde 14.11.2026 (J-C13 Stück wünschen, Nacht)
+
+Als P2 Jens gegen einen Schein-Server im Loopback (Anbieter „Eigener“, kein Schlüssel,
+Antwort nach 3 s): ohne Modell nennt der Dialog das und bietet nur „Anbieter einrichten …“; „Modelle laden“ fand das
+Modell; die Antwort ergab ein Stück unter „Generiert“ mit Tempo 104.
+- [x] Q7 (mittel): Nach „Modelle laden“ zeigte die Liste das erste Modell, gewählt war keins (Feld leer, „Generieren“
+  gesperrt), bis man denselben Eintrag noch einmal wählte; jetzt „Modell aus der Liste wählen …“.
+- [x] Q8 (mittel): Der Wunsch-Dialog schloss beim Klick auf „Generieren“; die Zeile „Kontra schreibt das Stück …“ war
+  nie zu sehen, die Bibliothek zeigte nichts. Aus der Bibliothek öffnete das fertige Stück nicht die Übungsseite.
+  Jetzt bleibt der Dialog bis zum Stück und führt von beiden Stellen zur Übungsseite; ein Fehler steht im Dialog.
+- [x] Q9 (niedrig): Titel „Motown in A in A (104 BPM)“: nennt der Plan die Tonart schon am Ende, steht sie nur einmal.
+- [x] Q10 (niedrig): Fehler des Anbieters standen als Hinweis statt als Warnung (`KanteCallout.Kind.Warning` gibt es
+  nicht, richtig ist `Warn`).
+- [ ] Q11 (niedrig): Der Titel trägt „Variante 1794…“ (Sekunden als Seed) – eine Zahl ohne Bedeutung für Jens.
+- [ ] Q12 (niedrig): „Anbieter einrichten …“ legt den Anbieter-Dialog über den Wunsch-Dialog; Kopf und „Schließen“
+  des unteren schauen heraus.
+
+Dazu Einstellungen bei 200 % (P7): Q13 (mittel) die Abschnittsleiste schnitt „Tastenkürzel“ zu „Taste…“ ab, ohne
+Hinweis auf mehr Abschnitte (Kante `KanteTabBar`, Pfeile an den Seiten in Kante).
+
 ### QA-Runde 13./14.11.2026 (J-B9 Bibliothek, Nacht)
 
 Neue Bibliothek nach #322/#323 als P2 Jens, P1 Lea und P7 Sam (Tastatur, Namen über AT-SPI): qa-session (Xvfb
@@ -1005,21 +1025,6 @@ Neue Bibliothek nach #322/#323 als P2 Jens, P1 Lea und P7 Sam (Tastatur, Namen �
 mit „Rock“ (5) und „Slap“ (4). Bestanden: Zählung im Baum gleich der Zeilenzahl (auch Unterordner), Sortierung mit
 Pfeil und Satz, Gruppen nach Interpret mit Anzahl, Suche „funk“, Menü „Stücke hinzufügen“ mit Pfeilen und Enter,
 Generator öffnet das Stück und legt es unter „Generiert“ ab, neue Setliste.
-
-J-C13 (Stück wünschen) als P2 Jens gegen einen Schein-Server im Loopback (Anbieter „Eigener“, kein Schlüssel,
-Antwort nach 3 s): ohne Modell nennt der Dialog das und bietet nur „Anbieter einrichten …“; „Modelle laden“ fand das
-Modell; die Antwort ergab ein Stück unter „Generiert“ mit Tempo 104.
-- [x] Q7 (mittel): Nach „Modelle laden“ zeigte die Liste das erste Modell, gewählt war keins (Feld leer, „Generieren“
-  gesperrt), bis man denselben Eintrag noch einmal wählte; jetzt „Modell aus der Liste wählen …“.
-- [x] Q8 (mittel): Der Wunsch-Dialog schloss beim Klick auf „Generieren“; die Zeile „Kontra schreibt das Stück …“ war
-  nie zu sehen, die Bibliothek zeigte nichts. Aus der Bibliothek öffnete das fertige Stück nicht die Übungsseite.
-  Jetzt bleibt der Dialog bis zum Stück und führt von beiden Stellen zur Übungsseite.
-- [x] Q9 (niedrig): Titel „Motown in A in A (104 BPM)“: nennt der Plan die Tonart schon am Ende, steht sie nur einmal.
-- [x] Q10 (niedrig): Fehler des Anbieters standen als Hinweis statt als Warnung (`KanteCallout.Kind.Warning` gibt es
-  nicht, richtig ist `Warn`).
-- [ ] Q11 (niedrig): Der Titel trägt „Variante 1794…“ (Sekunden als Seed) – eine Zahl ohne Bedeutung für Jens.
-- [ ] Q12 (niedrig): „Anbieter einrichten …“ legt den Anbieter-Dialog über den Wunsch-Dialog; Kopf und „Schließen“
-  des unteren schauen heraus.
 
 - [x] Q1 (mittel): „Andere Variante“ rückte nach dem ersten Klick nach links, an seine Stelle kam „Grundvariante“;
   der zweite Klick setzte die Variante zurück (J-B9 Schritt 6 ergab die Grundvariante).
