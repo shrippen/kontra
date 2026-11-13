@@ -128,12 +128,10 @@ Kirigami.Page {
         // bug, QTBUG-121500); keep its feel now that we build the Flickable ourselves.
         flickDeceleration: 1500
         maximumFlickVelocity: 5000
-        // Starts below the sticky header (full-bleed, in page.overlay): otherwise the header
-        // hides the top of the handle (review round 24).
-        QQC2.ScrollBar.vertical: QQC2.ScrollBar {
+        // Runs below the sticky header (full-bleed, in page.overlay).
+        QQC2.ScrollBar.vertical: HeaderScrollBar {
+            headerHeight: header.height
             policy: flick.contentHeight > flick.height ? QQC2.ScrollBar.AlwaysOn : QQC2.ScrollBar.AsNeeded
-            y: header.height
-            height: flick.height - header.height
         }
 
         ColumnLayout {
