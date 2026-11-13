@@ -21,11 +21,15 @@ import "."
  * the flickable's content (`targets`, one per entry of `model`, usually KanteSettingGroups).
  *   flickable     the scrolled view (a Flickable, a Kirigami page's `flickable`); also the blur's source
  *   title, model  the title and the tabs' labels
- *   targets       the section item of each tab
+ *   targets       the section item of each tab (bind in something that notifies, such as a
+ *                 Repeater's `count`: `itemAt()` alone does not)
  *   currentIndex  the tab of the section at the top; follows the scrolling, a tap scrolls there
  *   scrollTo(i)   scrolls section i just below the header, then moves the keyboard focus to its
  *                 first control (as a Tab from its top would, not out of the section)
- * The tab bar is a KanteTabBar with the Underline look: Left/Right move, a tap or Enter scrolls.
+ * The tab bar is a KanteTabBar with the Underline look: Left/Right only move the selection (the
+ * bar keeps focus, nothing scrolls yet); Return, Enter, Space or a tap scroll there and move the
+ * focus to the section (`scrollTo`). The scrollspy stands aside while the bar has focus, so it
+ * cannot pull the selection away from under the arrows before they are acted on.
  * Pair it with `KanteFocusFollow { topInset: header.height }` so Tab does not hide the focus
  * under the header.
  */
@@ -90,7 +94,10 @@ Item {
     }
 
     function spy() {
-        if (!flickable || scrollAnim.running || targets.length === 0) {
+        // While the bar itself has focus the user is browsing it with the arrows (which only
+        // move the selection, not the page): a stray contentY/contentHeight change must not
+        // pull the selection away from under them before they act on it (Return, Enter, Space).
+        if (!flickable || scrollAnim.running || targets.length === 0 || bar.activeFocus) {
             return
         }
         const line = flickable.contentY + height + gap
@@ -199,6 +206,9 @@ Item {
             y: parent.height - height
             width: parent.width - 2 * header.sideMargin
             onActivated: function(index) { header.scrollTo(index) }
+            // The arrows move the bar's own selection without scrolling (no `activated`):
+            // follow it here, so the underline and `currentIndex` agree while the bar has focus.
+            onCurrentIndexChanged: header.currentIndex = currentIndex
         }
     }
 

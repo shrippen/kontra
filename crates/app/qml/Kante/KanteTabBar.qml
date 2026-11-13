@@ -43,14 +43,33 @@ FocusScope {
     Accessible.role: Accessible.PageTabList
     Accessible.name: accessibleName
 
-    Keys.onLeftPressed: select(Math.max(0, currentIndex - 1))
-    Keys.onRightPressed: select(Math.min(model.length - 1, currentIndex + 1))
+    // Left/Right only move the selection (the bar keeps focus, nothing opens or scrolls);
+    // Return, Enter and Space activate the selected tab, as a tap does.
+    Keys.onLeftPressed: move(Math.max(0, currentIndex - 1))
+    Keys.onRightPressed: move(Math.min(model.length - 1, currentIndex + 1))
+    Keys.onReturnPressed: activate(currentIndex)
+    Keys.onEnterPressed: activate(currentIndex)
+    Keys.onSpacePressed: activate(currentIndex)
 
+    /** Moves the selection without activating it (the arrows): no `activated`, nothing opens. */
+    function move(i) {
+        currentIndex = i
+    }
+
+    /** Selects and activates, as a tap does: fires `activated` only when `i` changes the
+        selection (tapping the already-active tab twice does nothing the second time). */
     function select(i) {
         if (i !== currentIndex) {
             currentIndex = i
             activated(i)
         }
+    }
+
+    /** Activates `i` unconditionally (Return, Enter, Space): the key press itself is the
+        request to act, even when the arrows already left the selection there. */
+    function activate(i) {
+        currentIndex = i
+        activated(i)
     }
 
     function ensureVisible() {
