@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PiecePlan",
+  "description": "A piece: a key, a tempo and parts in order.",
+  "type": "object",
+  "properties": {
+    "bpm": {
+      "description": "Tempo in beats per minute, 40 to 200.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "feel": {
+      "description": "How eighth notes are played. Use the groove \"shuffle\" or \"triplets\" with a shuffle feel.",
+      "$ref": "#/$defs/PieceFeel"
+    },
+    "key": {
+      "description": "Key of the piece: a note name, \"m\" after it for minor. Examples: \"G\", \"F#m\", \"Bb\".\nThe piece ends on this key's tonic chord.",
+      "type": "string"
+    },
+    "parts": {
+      "description": "The parts in playing order, 1 to 16 parts and at most 160 bars in all (every part\ncounted `times` times).",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PlanPart"
+      }
+    },
+    "title": {
+      "description": "Name of the piece, 1 to 80 characters. Progress is kept per title.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "title",
+    "key",
+    "bpm",
+    "feel",
+    "parts"
+  ],
+  "$defs": {
+    "Drums": {
+      "description": "How much the drums play under a part.",
+      "oneOf": [
+        {
+          "description": "Kick, snare and hi-hat; a snare fill on the last beat before the next part.",
+          "type": "string",
+          "const": "full"
+        },
+        {
+          "description": "Kick and hi-hat only (an intro); still gets the snare fill into the next part.",
+          "type": "string",
+          "const": "light"
+        },
+        {
+          "description": "No drums.",
+          "type": "string",
+          "const": "none"
+        }
+      ]
+    },
+    "PieceFeel": {
+      "description": "How the eighth notes are played.",
+      "oneOf": [
+        {
+          "description": "Even eighths.",
+          "type": "string",
+          "const": "straight"
+        },
+        {
+          "description": "Swung eighths (2:1); the metronome clicks the triplet.",
+          "type": "string",
+          "const": "shuffle"
+        }
+      ]
+    },
+    "PlanLine": {
+      "description": "What the bass plays; the groove gives the rhythm.",
+      "oneOf": [
+        {
+          "description": "The groove on the chord's root (the groove's own octaves and fifths stay).",
+          "type": "string",
+          "const": "roots"
+        },
+        {
+          "description": "As roots, a fifth on the third beat of the bar.",
+          "type": "string",
+          "const": "root_fifth"
+        },
+        {
+          "description": "The root on beat one, then the third, fifth and seventh (or octave) of the chord on\nthe following beats.",
+          "type": "string",
+          "const": "chord_tones"
+        },
+        {
+          "description": "A walking line in quarter notes (the groove's rhythm is ignored, the drums follow it).",
+          "type": "string",
+          "const": "walking"
+        },
+        {
+          "description": "As roots; the last note before a chord change leads to the next root by a half or\nwhole step.",
+          "type": "string",
+          "const": "approach"
+        }
+      ]
+    },
+    "PlanPart": {
+      "description": "One part of the form, e.g. a verse, played `times` in a row.",
+      "type": "object",
+      "properties": {
+        "bars": {
+          "description": "One entry per bar (1 to 16 bars), the chord symbols of that bar separated by a space.\nOne chord fills the bar, two chords split it in halves: \"C G\". Symbols are a note name\n(\"C\", \"F#\", \"Bb\") plus an optional quality: \"\" (major), m, 5, 6, m6, 7, maj7, m7, m7b5\n(or ø), dim, dim7, sus2, sus4, 7sus4, add9, aug; \"/\" and a note names the bass note:\n\"C/E\". Example: [\"G\", \"D\", \"Em\", \"C\"]; with a split bar [\"Am\", \"Dm G\", \"C\", \"C\"].",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "drums": {
+          "description": "The drums under the part.",
+          "$ref": "#/$defs/Drums"
+        },
+        "fill": {
+          "description": "The last beat of the part becomes a short run to the first note of the next part.",
+          "type": "boolean"
+        },
+        "groove": {
+          "description": "Rhythm of the bass, one of: quarters, eighths, sixteenths, rests, shuffle, octaves,\nghost, rootfifth, rootfifthoctave, dead, offbeat, tresillo, triplets, funk, slap,\nstaccato (all in 4/4; \"rests\" leaves the beat out, \"rootfifth\" is two half notes).",
+          "type": "string"
+        },
+        "line": {
+          "description": "What the bass plays over the groove.",
+          "$ref": "#/$defs/PlanLine"
+        },
+        "section": {
+          "description": "What the part is; it names the rehearsal mark over its first bar.",
+          "$ref": "#/$defs/Section"
+        },
+        "times": {
+          "description": "How often the bars are played in a row, 1 to 8.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "section",
+        "bars",
+        "times",
+        "groove",
+        "line",
+        "fill",
+        "drums"
+      ]
+    },
+    "Section": {
+      "description": "Where a part stands in the form.",
+      "type": "string",
+      "enum": [
+        "intro",
+        "verse",
+        "pre_chorus",
+        "chorus",
+        "bridge",
+        "solo",
+        "outro"
+      ]
+    }
+  }
+}
