@@ -63,6 +63,9 @@ pub mod qobject {
         #[qproperty(f64, target_speed, cxx_name = "targetSpeed")]
         #[qproperty(QString, recent_json, cxx_name = "recentJson")]
         #[qproperty(QString, setlists_json, cxx_name = "setlistsJson")]
+        /// Counts up when a walk of the linked folders ended or a link changed; the library
+        /// page reads `libraryJson` again then.
+        #[qproperty(i32, library_revision, cxx_name = "libraryRevision")]
         /// Tracks of the loaded file: `{"names": [...], "current": i}`.
         #[qproperty(QString, tracks_json, cxx_name = "tracksJson")]
         /// Title of the next piece of the setlist being played ("" = none).
@@ -404,6 +407,37 @@ pub mod qobject {
         #[cxx_name = "importFiles"]
         fn import_files(self: Pin<&mut Self>, urls_json: &QString);
 
+        /// The library page's table and tree as JSON, see `Core::library_json`.
+        #[qinvokable]
+        #[cxx_name = "libraryJson"]
+        fn library_json(
+            self: &Self,
+            source: &QString,
+            sort: &QString,
+            group: &QString,
+            query: &QString,
+        ) -> QString;
+
+        /// Whether a dropped URL is a folder (it is linked, a file is imported).
+        #[qinvokable]
+        #[cxx_name = "isFolder"]
+        fn is_folder(self: &Self, url: &QString) -> bool;
+
+        /// Links a folder (URL) to the library; the files stay where they are.
+        #[qinvokable]
+        #[cxx_name = "linkFolder"]
+        fn link_folder(self: Pin<&mut Self>, url: &QString);
+
+        /// Takes a linked folder (path) away; no file is touched.
+        #[qinvokable]
+        #[cxx_name = "unlinkFolder"]
+        fn unlink_folder(self: Pin<&mut Self>, path: &QString);
+
+        /// Reads the linked folders again in the background (the page calls it when it opens).
+        #[qinvokable]
+        #[cxx_name = "libraryRescan"]
+        fn library_rescan(self: Pin<&mut Self>);
+
         /// Search page of "songsterr" or "musescore" for `query`, for the browser (LH-BIB-11).
         #[qinvokable]
         #[cxx_name = "searchUrl"]
@@ -633,6 +667,20 @@ pub mod qobject {
             key: i32,
             bpm: f64,
             judging: &QString,
+        ) -> bool;
+
+        /// Generates a piece in a style and opens it; `seed` 0 is the plain piece, any other a
+        /// variant, `length` "short", "normal" or "long"; see `Core::exercise_spec`.
+        #[qinvokable]
+        #[cxx_name = "generatePiece"]
+        fn generate_piece(
+            self: Pin<&mut Self>,
+            style: &QString,
+            level: &QString,
+            key: i32,
+            bpm: f64,
+            seed: i32,
+            length: &QString,
         ) -> bool;
 
         /// Lernen (LH-LRN-07): the course, see `Core::learn_json`.
@@ -942,10 +990,8 @@ use crate::args::AppArgs;
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
-use kontra_appcore::{
-    data_dir, file_url, local_path, Core, DensityLock, InstrumentChoice, LoopEdge, Opened,
-    QaOptions, UiEvent,
-};
+use kontra_appcore::{data_dir, file_url, local_path, Core, LoopEdge, Opened, QaOptions, UiEvent};
+use settings::{connection_key, instrument_key};
 
 /// `calibrationBeat` while no calibration runs.
 const NO_BEAT: i32 = -99;
@@ -996,6 +1042,7 @@ pub struct ControllerRust {
     target_speed: f64,
     recent_json: QString,
     setlists_json: QString,
+    library_revision: i32,
     next_title: QString,
     tracks_json: QString,
     track_choices_json: QString,
@@ -1176,6 +1223,7 @@ impl Default for ControllerRust {
             target_speed: 1.0,
             recent_json: q(&core.recent_json()),
             setlists_json: q(&core.setlists_json()),
+            library_revision: 0,
             next_title: QString::default(),
             tracks_json: q("{\"names\": [], \"current\": 0}"),
             track_choices_json: q("[]"),
@@ -1306,65 +1354,6 @@ impl Default for ControllerRust {
             }
         }
         controller
-    }
-}
-
-impl ControllerRust {
-    /// Opening at start-up, before Qt owns the object (fields set directly).
-    fn open_now(&mut self, path: &std::path::Path) {
-        match self.core.open(path) {
-            Ok(Opened::Ready) => {
-                self.loaded = true;
-                self.title = q(&self.core.loaded_title());
-                self.artist = q(&self
-                    .core
-                    .arrangement()
-                    .map_or(String::new(), |a| a.artist.clone()));
-                self.notes_json = q(&self.core.notes_json());
-                self.bars_json = q(&self.core.bars_json());
-                self.staff_json = q(&self.core.staff_json());
-                self.string_names_json = q(&self.core.string_names_json());
-                self.key_range_json = q(&self.core.key_range_json());
-                self.duration = self.core.duration_s();
-                self.recent_json = q(&self.core.recent_json());
-                self.backing_name = q(&self.core.backing_name());
-                self.stems_json = q(&self.core.stems_json());
-                self.transpose = self.core.transpose();
-                self.saved_loops_json = q(&self.core.saved_loops_json());
-                self.target_speed = self.core.target_speed();
-                self.view = q(&self.core.view());
-                self.tracks_json = q(&self.core.tracks_json());
-                let (density, lock) = self.core.density();
-                self.density = i32::from(density.percent());
-                self.density_fixed = lock == DensityLock::Fixed;
-                if let Some(notice) = self.core.take_notice() {
-                    self.message = q(&notice);
-                }
-            }
-            Ok(Opened::ChooseTrack(names)) => {
-                self.track_choices_json = q(&serde_json::to_string(&names).unwrap_or_default());
-            }
-            Err(e) => self.error_text = q(&e),
-        }
-    }
-}
-
-/// The connection's key for QML: "line", "laptop" or "midi".
-fn connection_key(kind: kontra_appcore::InputKind) -> &'static str {
-    match kind {
-        kontra_appcore::InputKind::Line => "line",
-        kontra_appcore::InputKind::LaptopJack => "laptop",
-        kontra_appcore::InputKind::Midi => "midi",
-        kontra_appcore::InputKind::Microphone => "mic",
-    }
-}
-
-/// The instrument choice's key for QML.
-fn instrument_key(choice: InstrumentChoice) -> &'static str {
-    match choice {
-        InstrumentChoice::EBass => "ebass",
-        InstrumentChoice::Double => "double",
-        InstrumentChoice::Midi => "midi",
     }
 }
 
@@ -1616,6 +1605,9 @@ impl qobject::Controller {
     fn tick(mut self: Pin<&mut Self>) {
         let events = self.as_mut().core().tick();
         self.as_mut().apply(events);
+        if self.as_mut().core().library_changed() {
+            self.as_mut().bump_library();
+        }
         if self.as_mut().core().devices_poll() {
             self.as_mut().show_devices();
         }

@@ -1,6 +1,6 @@
 //! Settings: devices, instrument, tuning, scoring, mixer, latency and calibration.
 
-use super::{connection_key, instrument_key, q, qobject};
+use super::{q, qobject};
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
@@ -648,5 +648,24 @@ impl qobject::Controller {
         self.as_mut().set_monitor_limit(s.monitor_limit);
         self.as_mut().set_setup_done(s.setup_done);
         self.as_mut().set_playing(false);
+    }
+}
+
+/// The connection's key for QML: "line", "laptop" or "midi".
+pub(super) fn connection_key(kind: kontra_appcore::InputKind) -> &'static str {
+    match kind {
+        kontra_appcore::InputKind::Line => "line",
+        kontra_appcore::InputKind::LaptopJack => "laptop",
+        kontra_appcore::InputKind::Midi => "midi",
+        kontra_appcore::InputKind::Microphone => "mic",
+    }
+}
+
+/// The instrument choice's key for QML.
+pub(super) fn instrument_key(choice: InstrumentChoice) -> &'static str {
+    match choice {
+        InstrumentChoice::EBass => "ebass",
+        InstrumentChoice::Double => "double",
+        InstrumentChoice::Midi => "midi",
     }
 }
