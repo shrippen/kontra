@@ -93,9 +93,11 @@ Item {
                 Text {
                     id: titleText
                     objectName: "settingTitle"
-                    // As wide as its text, at most the column less the mark: the mark follows the text.
-                    Layout.maximumWidth: titleLine.width
-                        - (row.modified ? KanteStyle.unit(6) + titleLine.spacing : 0)
+                    // As wide as its text, narrower where the column is (it wraps there): the mark
+                    // follows the text. Not bound to the column's width, which the layout itself
+                    // sets: that loop left the title at width 0 (Kante 1.80).
+                    Layout.fillWidth: true
+                    Layout.maximumWidth: implicitWidth
                     text: row.title
                     color: KanteStyle.strongTextColor
                     font: KanteStyle.defaultFont

@@ -30,6 +30,11 @@ FocusScope {
         Error
     }
 
+    enum Overflow {
+        Elide,     // one line each, cut with "…"
+        Wrap       // as many lines as the texts need
+    }
+
     enum Density {
         Compact,
         Normal,
@@ -53,6 +58,8 @@ FocusScope {
     property int density: KanteListRow.Density.Normal
     /** Opt-in (1.78): the meta figure and `trailing` go under the texts when these would get less than this width. 0 = never. */
     property real minTextWidth: 0
+    /** Text and subtitle longer than their room (1.81): Elide (default) or Wrap; the row grows. */
+    property int overflow: KanteListRow.Overflow.Elide
     /** The meta figure and `trailing` sit under the texts, because the row is too narrow. */
     readonly property bool stacked: minTextWidth > 0 && tail.visible && width < inlineNeed()
     readonly property bool pressed: tap.active
@@ -76,6 +83,7 @@ FocusScope {
         readonly property real margin: KanteStyle.unit(12)
         readonly property real gap: KanteStyle.unit(10)
         readonly property real stackGap: KanteStyle.unit(4)
+        readonly property bool wraps: row.stacked || row.overflow === KanteListRow.Overflow.Wrap
     }
 
     // Width the row needs to keep everything on one line: the fixed items, the tail and the
@@ -236,21 +244,23 @@ FocusScope {
                 Layout.alignment: Qt.AlignVCenter
                 spacing: 0
                 Text {
+                    objectName: "listRowText"
                     Layout.fillWidth: true
                     text: row.text
                     color: KanteStyle.textColor
                     font: KanteStyle.defaultFont
-                    wrapMode: row.stacked ? Text.Wrap : Text.NoWrap
-                    elide: row.stacked ? Text.ElideNone : Text.ElideRight
+                    wrapMode: metrics.wraps ? Text.Wrap : Text.NoWrap
+                    elide: metrics.wraps ? Text.ElideNone : Text.ElideRight
                 }
                 Text {
+                    objectName: "listRowSubtitle"
                     visible: row.secondLine !== ""
                     Layout.fillWidth: true
                     text: row.secondLine
                     color: !row.enabled && row.disabledReason !== "" ? KanteStyle.neutralTextColor : KanteStyle.mutedTextColor
                     font: KanteStyle.smallFont
-                    wrapMode: row.stacked ? Text.Wrap : Text.NoWrap
-                    elide: row.stacked ? Text.ElideNone : Text.ElideRight
+                    wrapMode: metrics.wraps ? Text.Wrap : Text.NoWrap
+                    elide: metrics.wraps ? Text.ElideNone : Text.ElideRight
                 }
             }
             // Count badge: quiet, cyan on the selected row.
