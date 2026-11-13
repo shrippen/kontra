@@ -24,6 +24,7 @@ mod expected;
 mod improv;
 mod learning;
 mod live;
+mod llm;
 mod loopback;
 mod matcher;
 mod monitor;
@@ -73,6 +74,10 @@ pub use learning::{
 pub use live::{
     is_midi_file, soak, InputChoice, Live, LiveCalibration, LiveEar, LiveError, LiveOutput,
     LiveSetup, LiveTuner, PromptTone, SoakReport, TunerMonitor,
+};
+pub use llm::{
+    generate_plan, list_models, provider, provider_message, GenError, KeyNeed, Provider,
+    WireFormat, CUSTOM, PROVIDERS,
 };
 pub use loopback::{LiveLoopback, LoopbackResult};
 pub use matcher::{NoteResult, Outcome};

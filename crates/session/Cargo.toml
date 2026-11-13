@@ -9,13 +9,16 @@ publish.workspace = true
 [dependencies]
 kontra-model.workspace = true
 kontra-engine.workspace = true
-kontra-content.workspace = true
+# "schema" always on: the LLM piece-plan prompt (LH-BIB-16) embeds the PiecePlan JSON Schema at
+# runtime, in every build, not only `kontra-cli schemas` (which kept the feature optional below).
+kontra-content = { workspace = true, features = ["schema"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 
 [features]
-# JSON Schemas of the package and course files (W8), for `kontra-cli schemas`.
+# Kept for `kontra-cli`'s own Cargo.toml, which still asks for it by name; a no-op now that
+# "schema" is always on above.
 schema = ["kontra-content/schema"]
 
 [dev-dependencies]
