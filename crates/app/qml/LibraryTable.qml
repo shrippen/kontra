@@ -24,6 +24,13 @@ ColumnLayout {
     property bool compact: false
 
     readonly property var signs: ({ exercise: "◆", generated: "◇", download: "↓", imported: "●", folder: "□" })
+    readonly property var tones: ({
+        exercise: KanteStyle.positiveTextColor,
+        generated: KanteStyle.tagColor,
+        download: KanteStyle.infoColor,
+        imported: KanteStyle.strongTextColor,
+        folder: KanteStyle.warningColor
+    })
     // Direction a column starts with: figures that matter most come first.
     readonly property var firstDirection: ({ title: "asc", origin: "asc", tempo: "asc", lastPlayed: "desc", result: "desc" })
     readonly property string sortKey: sort.split(":")[0]
@@ -217,12 +224,27 @@ ColumnLayout {
                             width: modelData.width
                             height: KanteStyle.unit(24)
 
-                            KanteChip {
+                            // One sign, the word, a colour of its own: the sign and the word tell it
+                            // without the colour.
+                            Rectangle {
                                 visible: cell.modelData.id === "origin"
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: Math.min(implicitWidth, parent.width)
-                                interactive: false
-                                text: table.signs[line.modelData.origin] + " " + line.originText
+                                width: Math.min(badge.implicitWidth + KanteStyle.unit(16), parent.width)
+                                height: KanteStyle.unit(24)
+                                color: "transparent"
+                                border.width: 1
+                                border.color: table.tones[line.modelData.origin]
+                                QQC2.Label {
+                                    id: badge
+                                    anchors.fill: parent
+                                    anchors.leftMargin: KanteStyle.unit(8)
+                                    anchors.rightMargin: KanteStyle.unit(8)
+                                    verticalAlignment: Text.AlignVCenter
+                                    elide: Text.ElideRight
+                                    text: table.signs[line.modelData.origin] + " " + line.originText
+                                    color: table.tones[line.modelData.origin]
+                                    font: KanteStyle.active ? KanteStyle.labelFont() : font
+                                }
                             }
                             QQC2.Label {
                                 visible: cell.modelData.id === "tempo"

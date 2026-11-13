@@ -338,7 +338,7 @@ Kirigami.Page {
                     text: texts.t("library.add") + " ▾"
                     emphasis: KanteButton.Emphasis.Primary
                     Accessible.name: texts.t("library.add")
-                    onClicked: addMenu.popup(addButton, 0, addButton.height)
+                    onClicked: addMenu.openAt(addButton)
                 }
             }
 

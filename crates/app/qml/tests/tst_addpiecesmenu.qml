@@ -27,36 +27,44 @@ Item {
 
         function init() {
             spy.clear()
-            menu.popup(root, 10, 10)
+            menu.closedAt = 0
+            menu.openAt(root)
             tryCompare(menu, "visible", true)
-            menu.forceActiveFocus()
         }
         function cleanup() {
             menu.close()
             tryCompare(menu, "visible", false)
         }
 
-        function test_enterChoosesTheHighlightedWay() {
-            keyClick(Qt.Key_Down)
+        function test_enterChoosesTheFirstWay() {
             keyClick(Qt.Key_Return)
             compare(spy.count, 1)
             compare(spy.signalArguments[0][0], "download")
         }
 
-        function test_arrowsReachEveryWayAndSkipTheTip() {
+        function test_arrowsReachEveryWay() {
             var ways = ["download", "folder", "file", "generate"]
-            var chosen = []
             for (var i = 0; i < ways.length; i++) {
-                menu.popup(root, 10, 10)
-                tryCompare(menu, "visible", true)
-                for (var k = 0; k <= i; k++) {
+                if (i > 0) {
+                    menu.closedAt = 0
+                    menu.openAt(root)
+                    tryCompare(menu, "visible", true)
+                }
+                for (var k = 0; k < i; k++) {
                     keyClick(Qt.Key_Down)
                 }
                 keyClick(Qt.Key_Return)
-                chosen.push(spy.signalArguments[i][0])
+                compare(spy.signalArguments[i][0], ways[i])
                 tryCompare(menu, "visible", false)
             }
-            compare(chosen, ways)
+        }
+
+        function test_upGoesBack() {
+            keyClick(Qt.Key_Down)
+            keyClick(Qt.Key_Down)
+            keyClick(Qt.Key_Up)
+            keyClick(Qt.Key_Return)
+            compare(spy.signalArguments[0][0], "folder")
         }
 
         function test_escapeClosesWithoutChoosing() {
@@ -66,15 +74,13 @@ Item {
             compare(spy.count, 0)
         }
 
-        function test_itemsHaveAccessibleNames() {
-            var named = 0
-            for (var i = 0; i < menu.count; i++) {
-                var item = menu.itemAt(i)
-                if (item && item.Accessible && item.Accessible.name !== "") {
-                    named++
-                }
-            }
-            verify(named >= 4, "named items: " + named)
+        function test_everyWayHasASignATitleAndADescription() {
+            menu.ways.forEach(function(w) {
+                verify(w.sign !== "")
+                compare(root.texts.t(w.title), w.title)
+                compare(root.texts.t(w.hint), w.hint)
+            })
+            compare(menu.ways.length, 4)
         }
     }
 }

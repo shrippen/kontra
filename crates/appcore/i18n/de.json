@@ -1276,7 +1276,6 @@
   "library.group.origin": "Herkunft",
   "library.add": "Stücke hinzufügen",
   "library.add.download": "Download …",
-  "library.add.file.hint": "oder hineinziehen",
   "library.add.generate": "Neues Stück generieren …",
   "library.add.tip": "Tipp: Dateien und Ordner lassen sich jederzeit auf die Bibliothek ziehen.",
   "library.crumb": "{source} · {n}",
@@ -1310,5 +1309,9 @@
   "library.gen.variant.n": "Variante {n}",
   "library.gen.other": "Andere Variante",
   "library.gen.make": "Generieren",
-  "library.add.folder": "Ordner hinzufügen …"
+  "library.add.folder": "Ordner hinzufügen …",
+  "library.add.download.hint": "Songsterr oder MuseScore durchsuchen",
+  "library.add.folder.hint": "Ordner auf der Festplatte verknüpfen",
+  "library.add.file.hint": "MIDI, Guitar Pro, MusicXML; oder auf die Seite ziehen",
+  "library.add.generate.hint": "Stil, Tonart, Länge und Variante wählen"
 }
