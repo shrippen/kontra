@@ -215,16 +215,8 @@ impl Core {
                         track: 0,
                         last_unix: 0,
                         song_id: ProgressStore::song_id(&a),
-                        backing: None,
-                        backing_offset_s: 0.0,
-                        view: None,
-                        tags: Vec::new(),
-                        sections: Vec::new(),
-                        densities: Vec::new(),
-                        transpose_semitones: 0,
-                        backing_without_bass: false,
-                        loops: Vec::new(),
-                        target_speed: None,
+                        tempo_bpm: Some(a.tempo.bpm_at(0)),
+                        ..Default::default()
                     });
                     added.push(path);
                 }

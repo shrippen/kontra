@@ -16,6 +16,7 @@ mod data;
 mod device_lists;
 pub mod ear;
 mod effects;
+mod folders;
 pub mod fx_plugins;
 mod goal;
 mod i18n;
@@ -24,10 +25,12 @@ mod ladder;
 mod learn;
 pub mod level;
 mod library;
+mod library_view;
 mod live_course;
 mod llm;
 mod mixer;
 mod notation;
+mod origin;
 mod package;
 mod prepare;
 mod progress;
@@ -290,6 +293,8 @@ pub struct Core {
     prepare: prepare::Prepare,
     bluetooth: bluetooth::BluetoothCheck,
     device_lists: device_lists::DeviceLists,
+    /// The linked folders' files (LH-BIB-17), walked in the background.
+    folders: folders::Folders,
     /// Where the browser saves downloads (LH-BIB-11).
     downloads: Option<PathBuf>,
     /// Songsterr search (LH-BIB-11, round 12).
@@ -337,6 +342,7 @@ impl Core {
         let mut library: Library = store::load(&data_dir.join("library.json"));
         library.plain_paths();
         library.find_moved(&Self::exercises_dir());
+        origin::move_old_pieces(data_dir, &mut library);
         let language = settings
             .language
             .as_deref()
@@ -355,6 +361,7 @@ impl Core {
             prepare: prepare::Prepare::default(),
             bluetooth: bluetooth::BluetoothCheck::default(),
             device_lists: device_lists::DeviceLists::default(),
+            folders: folders::Folders::default(),
             downloads: kontra_session::download_dir(),
             finder: songsterr::Finder::default(),
             updater: update::Updater::default(),
@@ -949,16 +956,8 @@ impl Core {
             track,
             last_unix: unix_now(),
             song_id,
-            backing: None,
-            backing_offset_s: 0.0,
-            view: None,
-            tags: Vec::new(),
-            sections: Vec::new(),
-            densities: Vec::new(),
-            transpose_semitones: 0,
-            backing_without_bass: false,
-            loops: Vec::new(),
-            target_speed: None,
+            tempo_bpm: Some(arrangement.tempo.bpm_at(0)),
+            ..Default::default()
         });
         // A backing track with a beat map: the bars follow the band (LH-BIB-06).
         if self
@@ -1781,6 +1780,7 @@ impl Core {
     /// Polls audio and session; call every ~16 ms.
     pub fn tick(&mut self) -> Vec<UiEvent> {
         self.tick_standby();
+        self.take_walk();
         let mut raw = Vec::new();
         if let Some(live) = self.live.as_mut() {
             raw.extend(live.poll());

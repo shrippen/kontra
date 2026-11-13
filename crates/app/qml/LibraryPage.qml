@@ -108,7 +108,10 @@ Kirigami.ScrollablePage {
     // 14.10.: the dialog opened in the program's working folder).
     function startFolder() {
         var recent = JSON.parse(ctl.recentJson)
-            .filter(function(e) { return e.path.replace(/\\/g, "/").indexOf("/exercises/") < 0 })
+            .filter(function(e) {
+                var path = e.path.replace(/\\/g, "/")
+                return path.indexOf("/exercises/") < 0 && path.indexOf("/pieces/") < 0
+            })
             .sort(function(a, b) { return b.lastUnix - a.lastUnix })
         if (recent.length > 0)
             return ctl.folderUrl(recent[0].path)

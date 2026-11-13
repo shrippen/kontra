@@ -10,6 +10,11 @@ const JUDGING_PITCH: &str = "pitch";
 const JUDGING_TIME: &str = "time";
 const JUDGING_OPEN: &str = "open";
 
+/// Folders of the data folder where generated files go: exercises, and pieces in a form
+/// (LH-BIB-17: the library tells them apart by where they lie).
+pub(crate) const EXERCISES_DIR: &str = "exercises";
+pub(crate) const PIECES_DIR: &str = "pieces";
+
 /// How a generated piece varies (`Core::exercise_spec`): `seed` 0 for the plain piece, any
 /// other number for a variant; `length` "short", "normal"/"" or "long".
 #[derive(Debug, Clone, Copy, Default)]
@@ -351,7 +356,7 @@ impl Core {
                 .collect::<Vec<_>>()
                 .join("\n")
         })?;
-        let path = self.piece_path(&exercise.title);
+        let path = self.named_path(PIECES_DIR, &exercise.title);
         Self::write_exercise(&exercise, path)
     }
 
@@ -376,14 +381,23 @@ impl Core {
     /// Where `generate_exercise` writes `spec`.
     pub(crate) fn generated_path(&self, spec: &exercise::ExerciseSpec) -> PathBuf {
         // The file is named in the UI's language; the title inside stays German (progress key).
-        self.piece_path(&self.exercise_title(&exercise::describe(spec)))
+        let title = self.exercise_title(&exercise::describe(spec));
+        match spec.kind {
+            exercise::ExerciseKind::Song(..) => self.named_path(PIECES_DIR, &title),
+            _ => self.piece_path(&title),
+        }
     }
 
     /// Where a generated exercise named `title` is written; `title` may come from an LLM's
     /// plan, so every character invalid in a Windows or Unix file name is replaced, not only
     /// the ones a built-in piece's own title ever has.
     pub(crate) fn piece_path(&self, title: &str) -> PathBuf {
-        let dir = self.data_dir.join("exercises");
+        self.named_path(EXERCISES_DIR, title)
+    }
+
+    /// `piece_path` in the folder `dir` of the data folder.
+    fn named_path(&self, dir: &str, title: &str) -> PathBuf {
+        let dir = self.data_dir.join(dir);
         // ♯ and ♭ as before the printed signs, so a file made again keeps its name.
         let name: String = title
             .chars()

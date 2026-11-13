@@ -169,6 +169,14 @@ Trefferquote bleibt gleich (Abdämpfen ist Rückmeldung, kein Treffer); Noten oh
 Palm-Mute und die letzte Note (ohne Staccato) werden nicht bewertet. Mikrofon: kein Urteil, die Auswertung sagt
 „Abdämpfen bewertet Kontra über diesen Eingang noch nicht (nur über Kabel)“.
 
+**J-B9 Bibliothek ordnen** (Oberfläche folgt; Daten und Zählung getestet in `crates/appcore/src/tests/library_view.rs`) · Personas: P2 Jens, P4 Thomas, P1 Lea, P7 Sam · Phase 3 · LH-BIB-17, -18, -19
+1. Jens: 40 Stücke aus Downloads, ein Ordner „Band“ mit Unterordnern „Rock“ und „Slap“ verknüpfen; im Baum „Heruntergeladen“, dann „Band“ und „Slap“ anklicken; nach „Zuletzt gespielt“ absteigend sortieren, nach Tempo auf- und absteigend; nach Interpret gruppieren; „funk“ suchen.
+2. Jens: eine Datei aus „Heruntergeladen“ in „Band/Rock“ verschieben, Bibliothek neu öffnen, das Stück spielen.
+3. Thomas: einen Ordner auf einem langsamen oder nicht eingehängten Laufwerk verknüpfen, dann abziehen.
+4. Lea: nur „Übungen“ und „Alle Stücke“; Suche nach einem Wort aus dem Titel.
+5. Sam (P7): Baum, Spaltenköpfe, Gruppenüberschriften nur mit Tastatur und Screenreader, 200 %.
+Erwartet: die Zahl am Baum stimmt mit der Zeilenzahl überein (Ordner zählt Unterordner mit); Sortierung hat Richtungsanzeige als Text oder Symbol, Stücke ohne Tempo oder Ergebnis stehen in beiden Richtungen am Ende; Gruppen haben Überschrift und Anzahl, „Ohne Interpret“ steht zuletzt; das verschobene Stück steht danach unter „Band/Rock“ und behält sein Ergebnis; ein langsames Laufwerk lässt das Fenster bedienbar, der Ordner füllt sich, wenn er gelesen ist; ein abgezogener Ordner steht als „fehlt“ im Baum, ohne Fehlerdialog, seine Stücke mit „fehlt“ in der Zeile; „Ordner entfernen“ löscht keine Datei und kein Ergebnis; Tabelle, Baum und Überschriften per Tab erreichbar, der Screenreader liest Sortierrichtung und Gruppe.
+
 ## C. Lernen und Fortschritt
 
 **J-C1 Erste Woche** · Persona: P1 Lea · Phase 1 (adaptive Schwierigkeit Phase 2) · LH-FOR-01, LH-MOD-06, LH-BEW-04
