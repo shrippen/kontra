@@ -111,9 +111,12 @@ Item {
                     objectName: "settingTitle"
                     // As wide as its text, narrower where the column is (it wraps there): the mark
                     // follows the text. Not bound to the column's width, which the layout itself
-                    // sets: that loop left the title at width 0 (Kante 1.80).
+                    // sets: that loop left the title at width 0 (Kante 1.80). Rounded up: the
+                    // layout floors a fractional implicitWidth to whole device pixels, which cut
+                    // a short title (round 22, a real font under X11, not the test font) a
+                    // fraction of a pixel short of its own natural width and wrapped it.
                     Layout.fillWidth: true
-                    Layout.maximumWidth: implicitWidth
+                    Layout.maximumWidth: Math.ceil(implicitWidth)
                     text: row.title
                     color: KanteStyle.strongTextColor
                     font: KanteStyle.defaultFont

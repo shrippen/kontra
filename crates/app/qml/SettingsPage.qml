@@ -54,9 +54,15 @@ Kirigami.Page {
     title: texts.t("nav.settings")
     leftPadding: applicationWindow().readingPad(width)
     rightPadding: leftPadding
-    // The sticky header sits flush with the page's top edge (it is an overlay, not inset by
-    // padding); zero here keeps the content's reserved space under it exact.
-    topPadding: 0
+
+    // The Flickable (and its scrollbar) stay full-bleed, like Kirigami.ScrollablePage's own
+    // ScrollView: leftPadding/rightPadding (the shared reading width) margin the content
+    // column instead, not the Flickable itself, so the scrollbar sits at the page's true right
+    // edge, never over a tile or the header (review round 22: it sat inside the reading width,
+    // over the tiles' border and the "Starten" button).
+    contentItem: Item {
+        anchors.fill: parent
+    }
 
     Component.onCompleted: {
         ctl.refreshDevices()
@@ -126,8 +132,9 @@ Kirigami.Page {
 
         ColumnLayout {
             id: col
+            x: page.leftPadding
             y: KanteStyle.unit(12)
-            width: flick.width
+            width: flick.width - page.leftPadding - page.rightPadding
             spacing: KanteStyle.unit(16)
 
             // Room for the sticky header above the content.
