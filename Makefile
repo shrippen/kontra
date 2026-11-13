@@ -1,6 +1,7 @@
 .PHONY: qa-session-test check check-lite hooks fmt lint test deny advisories design video licences licences-check korpus korpus-real run cli qt-env
 
-# Everything CI runs; run before every commit (agent.md).
+# Everything CI runs, plus qa-session-test (local only, not in ci.yml); run before every commit
+# (agent.md).
 check: fmt lint test deny design video licences-check qa-session-test
 
 # The quick part, before every push (scripts/hooks/pre-push; install with `make hooks`).
