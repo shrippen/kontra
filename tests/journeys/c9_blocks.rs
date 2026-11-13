@@ -4,7 +4,7 @@
 //! blocks of four, but one starts where Jens hesitated twice.
 
 use crate::common::{piece, render, run_until, write_midi, Profile, BPM};
-use kontra_appcore::{Blocks, ChainOrder, Core, UiEvent};
+use kontra_appcore::{Blocks, ChainOrder, Core, PieceVariety, UiEvent};
 use std::time::Duration;
 
 /// Six equal bars: whichever bars loop, the take (played straight through) fits them.
@@ -65,7 +65,16 @@ fn phrases_follow_the_rests() {
     let profile = Profile::new("c9-phrases");
     let mut core = profile.core(None);
     core.update_settings(|s| s.language = Some("de".into()));
-    let spec = Core::exercise_spec("groove", "145", "rests", 4, 80.0, "").unwrap();
+    let spec = Core::exercise_spec(
+        "groove",
+        "145",
+        "rests",
+        4,
+        80.0,
+        "",
+        PieceVariety::default(),
+    )
+    .unwrap();
     let path = core.generate_exercise(&spec).unwrap();
     core.open(&path).unwrap();
     core.set_mode("workshop");

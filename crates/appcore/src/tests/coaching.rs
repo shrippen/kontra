@@ -169,7 +169,16 @@ fn chain_cuts_phrases_at_rests() {
     let mut core = Core::new(&dir, QaOptions::default());
     core.update_settings(|s| s.language = Some("de".into()));
     let open = |core: &mut Core, rhythm| {
-        let spec = Core::exercise_spec("groove", "145", rhythm, 4, 80.0, "").unwrap();
+        let spec = Core::exercise_spec(
+            "groove",
+            "145",
+            rhythm,
+            4,
+            80.0,
+            "",
+            PieceVariety::default(),
+        )
+        .unwrap();
         let path = core.generate_exercise(&spec).unwrap();
         core.open(&path).unwrap();
         core.set_mode("workshop");
@@ -201,7 +210,16 @@ fn chain_cuts_phrases_at_rests() {
 fn chain_cuts_phrases_where_the_player_hesitates() {
     let dir = temp_dir("chainhesitant");
     let mut core = Core::new(&dir, QaOptions::default());
-    let spec = Core::exercise_spec("groove", "145", "eighths", 4, 80.0, "").unwrap();
+    let spec = Core::exercise_spec(
+        "groove",
+        "145",
+        "eighths",
+        4,
+        80.0,
+        "",
+        PieceVariety::default(),
+    )
+    .unwrap();
     let path = core.generate_exercise(&spec).unwrap();
     core.open(&path).unwrap();
     core.set_mode("workshop");

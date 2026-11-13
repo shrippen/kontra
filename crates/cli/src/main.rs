@@ -36,6 +36,7 @@ fn main() -> ExitCode {
         Command::Check(a) => check::run(&a),
         Command::Course(a) => course::run(&a),
         Command::Schemas(a) => schemas(&a),
+        Command::Piece(a) => piece(&a),
         Command::Plugins(a) => plugins::run(&a),
     };
     match result {
@@ -168,6 +169,25 @@ fn schemas(a: &args::SchemasArgs) -> CliResult {
         std::fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))?;
         println!("{}", path.display());
     }
+    Ok(())
+}
+
+/// Renders a piece plan (LH-BIB-13) to a MIDI file, to try a plan by hand.
+fn piece(a: &args::PieceArgs) -> CliResult {
+    let text =
+        std::fs::read_to_string(&a.plan).map_err(|e| format!("{}: {e}", a.plan.display()))?;
+    let level = session::exercise::Level::from_key(&a.level)
+        .ok_or_else(|| format!("unknown level '{}'", a.level))?;
+    let exercise =
+        session::exercise::render_piece_json(&text, level, a.seed).map_err(|errors| {
+            errors
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join("\n")
+        })?;
+    std::fs::write(&a.out, &exercise.midi).map_err(|e| format!("{}: {e}", a.out.display()))?;
+    println!("{}", a.out.display());
     Ok(())
 }
 

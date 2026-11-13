@@ -263,8 +263,26 @@ fn a_course_term_for_another_instrument_is_left_out() {
 fn generated_exercise_opens() {
     let dir = temp_dir("exercise");
     let mut core = Core::new(&dir, QaOptions::default());
-    assert!(Core::exercise_spec("groove", "251", "nope", 0, 90.0, "").is_none());
-    let spec = Core::exercise_spec("walking", "blues", "", 5, 110.0, "").unwrap();
+    assert!(Core::exercise_spec(
+        "groove",
+        "251",
+        "nope",
+        0,
+        90.0,
+        "",
+        PieceVariety::default()
+    )
+    .is_none());
+    let spec = Core::exercise_spec(
+        "walking",
+        "blues",
+        "",
+        5,
+        110.0,
+        "",
+        PieceVariety::default(),
+    )
+    .unwrap();
     let path = core.generate_exercise(&spec).unwrap();
     assert!(path.starts_with(dir.join("exercises")));
     assert!(matches!(core.open(&path), Ok(Opened::Ready)));
@@ -283,7 +301,16 @@ fn generator_offers_patterns_fingers_and_meters() {
     let dir = temp_dir("generator");
     let mut core = Core::new(&dir, QaOptions::default());
     let spec = |kind, variant, rhythm, key| {
-        Core::exercise_spec(kind, variant, rhythm, key, 80.0, "").unwrap()
+        Core::exercise_spec(
+            kind,
+            variant,
+            rhythm,
+            key,
+            80.0,
+            "",
+            PieceVariety::default(),
+        )
+        .unwrap()
     };
     let thirds = spec("scale", "dorian", "thirds", 2);
     assert_eq!(
@@ -305,7 +332,16 @@ fn generator_offers_patterns_fingers_and_meters() {
         meter.kind,
         K::Groove(Progression::Minor, Rhythm::SevenEight)
     );
-    assert!(Core::exercise_spec("chromatic", "1123", "", 5, 80.0, "").is_none());
+    assert!(Core::exercise_spec(
+        "chromatic",
+        "1123",
+        "",
+        5,
+        80.0,
+        "",
+        PieceVariety::default()
+    )
+    .is_none());
 
     core.update_settings(|s| s.language = Some("en".into()));
     let title = |core: &Core, s| core.exercise_title(&exercise::describe(s));
@@ -346,10 +382,28 @@ fn generator_offers_patterns_fingers_and_meters() {
     assert_eq!(title(&core, &easy), "Funk piece (easy) in Am (80 BPM)");
     core.update_settings(|s| s.language = Some("de".into()));
     assert_eq!(title(&core, &easy), "Stück Funk (leicht) in Am (80 BPM)");
-    assert!(Core::exercise_spec("song", "funk", "brutal", 9, 80.0, "").is_none());
+    assert!(Core::exercise_spec(
+        "song",
+        "funk",
+        "brutal",
+        9,
+        80.0,
+        "",
+        PieceVariety::default()
+    )
+    .is_none());
 
     // A groove judged by time only (DIDAKTIK I4): its own title, the file carries it.
-    let timing = Core::exercise_spec("groove", "tonic", "eighths", 4, 80.0, "time").unwrap();
+    let timing = Core::exercise_spec(
+        "groove",
+        "tonic",
+        "eighths",
+        4,
+        80.0,
+        "time",
+        PieceVariety::default(),
+    )
+    .unwrap();
     assert_eq!(timing.judging, Judging::TimeOnly);
     assert_eq!(
         title(&core, &timing),
@@ -358,16 +412,43 @@ fn generator_offers_patterns_fingers_and_meters() {
     let path = core.generate_exercise(&timing).unwrap();
     assert!(matches!(core.open(&path), Ok(Opened::Ready)));
     assert_eq!(core.arrangement().unwrap().judging, Judging::TimeOnly);
-    let normal = Core::exercise_spec("groove", "tonic", "eighths", 4, 80.0, "pitch").unwrap();
+    let normal = Core::exercise_spec(
+        "groove",
+        "tonic",
+        "eighths",
+        4,
+        80.0,
+        "pitch",
+        PieceVariety::default(),
+    )
+    .unwrap();
     assert_ne!(
         core.generate_exercise(&normal).unwrap(),
         path,
         "no overwrite"
     );
-    assert!(Core::exercise_spec("groove", "tonic", "eighths", 4, 80.0, "loud").is_none());
+    assert!(Core::exercise_spec(
+        "groove",
+        "tonic",
+        "eighths",
+        4,
+        80.0,
+        "loud",
+        PieceVariety::default()
+    )
+    .is_none());
 
     // Open (LH-BEW-13): the line is made up, the file says so.
-    let open = Core::exercise_spec("groove", "145", "rests", 9, 80.0, "open").unwrap();
+    let open = Core::exercise_spec(
+        "groove",
+        "145",
+        "rests",
+        9,
+        80.0,
+        "open",
+        PieceVariety::default(),
+    )
+    .unwrap();
     assert_eq!(open.judging, Judging::Open);
     assert!(
         title(&core, &open).ends_with(", frei"),
@@ -571,7 +652,16 @@ fn exercise_titles_follow_the_language() {
 fn call_and_response_shows_the_tab_after_two_failed_tries() {
     let dir = temp_dir("call");
     let mut core = Core::new(&dir, QaOptions::default());
-    let spec = Core::exercise_spec("groove", "145", "quarters", 9, 80.0, "").unwrap();
+    let spec = Core::exercise_spec(
+        "groove",
+        "145",
+        "quarters",
+        9,
+        80.0,
+        "",
+        PieceVariety::default(),
+    )
+    .unwrap();
     let path = core.generate_exercise(&spec).unwrap();
     core.open(&path).unwrap();
     assert!(!core.call_hidden());

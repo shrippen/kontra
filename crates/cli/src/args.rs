@@ -43,6 +43,8 @@ pub enum Command {
     Course(CourseArgs),
     /// Write the JSON Schemas of package and course files (W8); `schema/` is the output.
     Schemas(SchemasArgs),
+    /// Renders a piece plan (LH-BIB-13) to a MIDI file, for trying a plan by hand.
+    Piece(PieceArgs),
     /// Effect plugins (CLAP): scan, parameters, offline render.
     Plugins(PluginsArgs),
 }
@@ -92,6 +94,20 @@ pub enum PluginsCommand {
 pub struct SchemasArgs {
     /// Folder to write the schemas into.
     pub dir: PathBuf,
+}
+
+#[derive(Debug, Args)]
+pub struct PieceArgs {
+    /// A `PiecePlan` as JSON.
+    pub plan: PathBuf,
+    /// Where the MIDI file goes.
+    pub out: PathBuf,
+    /// "easy", "medium" (default) or "hard".
+    #[arg(long, default_value = "medium")]
+    pub level: String,
+    /// 0 for the plain plan, any other number for a variant.
+    #[arg(long, default_value_t = 0)]
+    pub seed: u64,
 }
 
 #[derive(Debug, Args)]

@@ -165,14 +165,24 @@ fn view_is_remembered_per_piece() {
 fn another_piece_starts_at_full_tempo() {
     let dir = temp_dir("fresh-piece");
     let mut core = Core::new(&dir, QaOptions::default());
-    let blues = Core::exercise_spec("walking", "blues", "", 5, 110.0, "").unwrap();
+    let blues = Core::exercise_spec(
+        "walking",
+        "blues",
+        "",
+        5,
+        110.0,
+        "",
+        PieceVariety::default(),
+    )
+    .unwrap();
     let first = core.generate_exercise(&blues).unwrap();
     core.open(&first).unwrap();
     core.set_speed(0.6);
     core.set_loop(1, 5);
     assert!(core.loop_seconds().0 > 0.0);
 
-    let groove = Core::exercise_spec("song", "rock", "", 4, 100.0, "").unwrap();
+    let groove =
+        Core::exercise_spec("song", "rock", "", 4, 100.0, "", PieceVariety::default()).unwrap();
     let second = core.generate_exercise(&groove).unwrap();
     core.open(&second).unwrap();
     assert_eq!(core.speed(), 1.0);
