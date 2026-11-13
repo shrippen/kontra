@@ -1063,13 +1063,16 @@ fn title(spec: &ExerciseSpec, pass: &Pass, fifths: i8) -> String {
         name(i32::from(spec.key), fifths),
         if pass.minor { "m" } else { "" }
     );
-    let variant = piece_render::variant_suffix(spec.seed);
-    let variant = if matches!(spec.kind, ExerciseKind::Song(..)) {
-        variant
+    // A different length or seed is a different piece (LH-BIB-15): its own title and progress.
+    let (length, variant) = if matches!(spec.kind, ExerciseKind::Song(..)) {
+        (
+            piece_render::length_suffix(spec.length),
+            piece_render::variant_suffix(spec.seed),
+        )
     } else {
-        String::new()
+        ("", String::new())
     };
-    format!("{} in {key_name} ({bpm} BPM){timing}{variant}", pass.label)
+    format!("{} in {key_name} ({bpm} BPM){timing}{length}{variant}", pass.label)
 }
 
 /// Notes, markers, length and label of one pass of `spec`.
