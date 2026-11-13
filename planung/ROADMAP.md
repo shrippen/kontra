@@ -226,6 +226,15 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 - Signierung, Wege zur Wahl (in Runde 18 zurückgestellt, keiner gewählt): Azure Trusted Signing (Abo, Identitätsprüfung), SignPath Foundation
   (kostenlos für freie Projekte, signiert unter deren Namen), eigenes Zertifikat (z. B. Certum Open Source).
 
+### Entscheidungen Runde 21 (13.11.2026)
+
+- Einstellungsseite: Design A mit dem schrumpfenden Kopf aus Design C (Kontra #319, Kante #166).
+- Mixer bis zu 2/3 der Seite hoch (#317).
+- Stückgenerator: Stückplan und Varianten per Seed (#318); eine LLM schreibt Stückpläne aus einem Wunsch (#320, offen).
+- Kante: dichtere Glas-Tokens (#166), Scrollspy-Nachträge (#167).
+- Bibliotheks-Neugestaltung: Design A, mit einem Menü „Stücke hinzufügen“ (Herunterladen, Ordner hinzufügen,
+  Datei per Drag and Drop, neues Stück generieren). Noch offen.
+
 ### Entscheidungen Runde 20 (11.11.2026, im Gespräch)
 
 - Flatpak: X11 auch unter Wayland (Plugin-Fenster), Lesezugriff auf `~/.clap` und `~/.vst3`, Erweiterungspunkt

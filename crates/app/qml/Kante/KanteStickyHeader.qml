@@ -29,8 +29,10 @@ import "."
  * The tab bar is a KanteTabBar with the Underline look, `activation` Manual: Left/Right only
  * move the selection (the bar keeps focus, nothing scrolls yet); Return, Enter, Space or a tap
  * scroll there and move the focus to the section (`scrollTo`). The scrollspy stands aside from
- * a Manual arrow move until it is acted on, or the user scrolls by themselves, so it cannot pull
- * the selection away from under the arrows before they are acted on.
+ * a Manual arrow move until it is acted on, the user scrolls by themselves or the bar loses the
+ * focus, so it cannot pull the selection away from under the arrows. After `scrollTo` the
+ * jumped-to tab stays current until the page moves (`jumped`), also when the jump ends at the
+ * page's bottom, where the last tab would otherwise win.
  * Pair it with `KanteFocusFollow { topInset: header.height }` so Tab does not hide the focus
  * under the header.
  */
@@ -97,13 +99,25 @@ Item {
     // True from a Manual arrow move until it is acted on (Return, Enter, Space, a tap) or the
     // user scrolls by themselves: while it holds, a stray contentY/contentHeight change (layout
     // settling, KanteFocusFollow) must not pull the arrow-picked tab away before they act on it.
-    // Not tied to the bar's focus: that left the spy frozen for good after `scrollTo` landed on
-    // a section with no control to focus (the bar kept focus, nothing ever cleared it).
+    // Also cleared when the bar loses active focus (Tab out without Return): otherwise a later
+    // programmatic scroll (KanteFocusFollow, no mouse involved) never clears it and the
+    // underline stays stuck on the arrow-picked tab for the rest of the session.
     property bool browsing: false
+    // True from `scrollTo` until the page actually scrolls away from where the jump landed: a
+    // jump near the end of the page lands at the same clamped contentY the "last tab at the
+    // end" rule below reacts to, which would otherwise override the jumped-to tab right away.
+    property bool jumped: false
+    property real jumpedAtY: 0
 
     function spy() {
         if (!flickable || scrollAnim.running || targets.length === 0 || browsing) {
             return
+        }
+        if (jumped) {
+            if (flickable.contentY === jumpedAtY) {
+                return
+            }
+            jumped = false
         }
         const line = flickable.contentY + height + gap
         const end = flickable.contentHeight - flickable.height
@@ -125,8 +139,8 @@ Item {
         function onContentYChanged() { header.spy() }
         function onContentHeightChanged() { header.spy() }
         // A real flick or drag (wheel included): the user is scrolling by themselves now, not
-        // browsing the bar with the arrows any more.
-        function onMovementStarted() { header.browsing = false }
+        // browsing the bar with the arrows any more, and any earlier jump no longer pins the tab.
+        function onMovementStarted() { header.browsing = false; header.jumped = false }
     }
     onTargetsChanged: spy()
     onHeightChanged: spy()
@@ -147,6 +161,7 @@ Item {
     function arrived() {
         const item = jumpTarget
         jumpTarget = null
+        jumpedAtY = flickable ? flickable.contentY : 0
         spy()
         if (!item) {
             return
@@ -175,6 +190,7 @@ Item {
         const shrunk = top - compactHeight - gap
         const target = shrunk > shrinkAt ? shrunk : Math.max(0, top - expandedHeight - gap)
         jumpTarget = item
+        jumped = true
         currentIndex = index
         scrollAnim.to = Math.max(0, Math.min(target, flickable.contentHeight - flickable.height))
         scrollAnim.restart()
@@ -218,6 +234,14 @@ Item {
             width: parent.width - 2 * header.sideMargin
             onActivated: function(index) { header.browsing = false; header.scrollTo(index) }
             onMoved: header.browsing = true
+            // Tab out without Return: nothing acted on the arrow move, but the pause ends and the
+            // underline goes back to the section at the top (review #167).
+            onActiveFocusChanged: {
+                if (!activeFocus) {
+                    header.browsing = false
+                    header.spy()
+                }
+            }
             // The arrows move the bar's own selection without scrolling (no `activated`):
             // follow it here, so the underline and `currentIndex` agree while the bar has focus.
             onCurrentIndexChanged: header.currentIndex = currentIndex

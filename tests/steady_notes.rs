@@ -66,9 +66,6 @@ fn lean_is_steady(text: &str) -> bool {
         .is_some_and(|line| !line.contains("playing") && !line.contains("summaryReady"))
 }
 
-/// The mixer is a layer over the notes (owner 12.11.): it slid in as a row of the page's column
-/// and shrank the notes on every frame, a relayout each (FPS dropped). It is a layer beside the
-/// page's column now (`MixerLayer`), whose room it does not change.
 /// The run's summary hides what lies behind it, for screen readers too (QA 28.10., P7). The
 /// mixer is no row of the page's column, so the summary names it on its own (review #317: an
 /// open mixer stayed readable under the summary).
@@ -92,6 +89,9 @@ fn summary_hides_the_mixer() {
     );
 }
 
+/// The mixer is a layer over the notes (owner 12.11.): it slid in as a row of the page's column
+/// and shrank the notes on every frame, a relayout each (FPS dropped). It is a layer beside the
+/// page's column now (`MixerLayer`), whose room it does not change.
 #[test]
 fn mixer_lies_over_the_notes() {
     let text = page();
