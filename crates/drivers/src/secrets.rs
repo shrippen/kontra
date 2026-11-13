@@ -96,9 +96,9 @@ impl SecretStore for Keychain {
 fn error(e: keyring::Error) -> SecretError {
     match e {
         keyring::Error::NoEntry => SecretError::NotFound,
-        keyring::Error::NoStorageAccess(_) | keyring::Error::PlatformFailure(_) => {
-            SecretError::Unavailable
-        }
+        keyring::Error::NoStorageAccess(_)
+        | keyring::Error::PlatformFailure(_)
+        | keyring::Error::NoDefaultStore => SecretError::Unavailable,
         other => SecretError::Failed(other.to_string()),
     }
 }
@@ -163,6 +163,17 @@ mod tests {
     fn bounded_passes_through_a_quick_result() {
         let result: Result<&str, SecretError> = bounded(|| Ok("sk-x"));
         assert_eq!(result, Ok("sk-x"));
+    }
+
+    /// No Secret Service or session bus: keyring reports `NoDefaultStore`, which the UI must show
+    /// as "keyring not reachable", not as "no key" or with keyring's English text.
+    #[test]
+    fn no_default_store_is_unavailable() {
+        assert_eq!(
+            error(keyring::Error::NoDefaultStore),
+            SecretError::Unavailable
+        );
+        assert_eq!(error(keyring::Error::NoEntry), SecretError::NotFound);
     }
 
     #[test]
