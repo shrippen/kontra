@@ -295,51 +295,28 @@ Kirigami.Page {
                 }
             }
 
-            RowLayout {
+            LibraryToolbar {
+                id: toolbar
                 Layout.fillWidth: true
-                spacing: KanteStyle.unit(8)
-                // Narrow: the sources are a choice instead of a tree.
-                KanteComboBox {
-                    visible: page.slim
-                    Layout.preferredWidth: KanteStyle.unit(180)
-                    Accessible.name: texts.t("library.source.pick")
-                    model: page.sourceItems.map(function(e) { return (e.sign ? e.sign + " " : "") + e.text })
-                    currentIndex: page.sourceItems.map(function(e) { return e.key }).indexOf(page.source)
-                    onActivated: function(index) {
-                        var entry = page.sourceItems[index]
-                        if (entry.kind === "item") {
-                            page.pick(entry.key)
-                        } else if (entry.id === "folder") {
-                            folderDialog.open()
-                        } else {
-                            newSetlistDialog.open()
-                        }
+                texts: page.texts
+                slim: page.slim
+                isSetlist: page.isSetlist
+                group: page.group
+                groups: page.groups
+                sourceItems: page.sourceItems
+                source: page.source
+                onQueryEdited: function(text) { page.query = text }
+                onGroupChosen: function(key) { page.group = key }
+                onSourceChosen: function(entry) {
+                    if (entry.kind === "item") {
+                        page.pick(entry.key)
+                    } else if (entry.id === "folder") {
+                        folderDialog.open()
+                    } else {
+                        newSetlistDialog.open()
                     }
                 }
-                KanteTextField {
-                    Layout.fillWidth: true
-                    visible: !page.isSetlist
-                    placeholderText: texts.t("library.search")
-                    Accessible.name: texts.t("library.search")
-                    onTextChanged: page.query = text
-                }
-                Item { Layout.fillWidth: true; visible: page.isSetlist }
-                KanteComboBox {
-                    visible: !page.isSetlist && !page.slim
-                    Layout.preferredWidth: KanteStyle.unit(220)
-                    Accessible.name: texts.t("library.group")
-                    displayText: texts.t("library.group") + ": " + texts.t("library.group." + page.group)
-                    model: page.groups.map(function(g) { return texts.t("library.group." + g) })
-                    currentIndex: page.groups.indexOf(page.group)
-                    onActivated: function(index) { page.group = page.groups[index] }
-                }
-                KanteButton {
-                    id: addButton
-                    text: texts.t("library.add") + " ▾"
-                    emphasis: KanteButton.Emphasis.Primary
-                    Accessible.name: texts.t("library.add")
-                    onClicked: addMenu.openAt(addButton)
-                }
+                onAddRequested: function(button) { addMenu.openAt(button) }
             }
 
             // Where the table stands: the source, how many pieces, the column it is sorted by.

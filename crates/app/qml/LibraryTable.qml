@@ -35,15 +35,15 @@ ColumnLayout {
     readonly property var firstDirection: ({ title: "asc", origin: "asc", tempo: "asc", lastPlayed: "desc", result: "desc" })
     readonly property string sortKey: sort.split(":")[0]
     readonly property string sortDirection: sort.split(":")[1] || "asc"
-    readonly property var columns: {
-        var all = [
+    readonly property var columns: allColumns.filter(function(c) { return !compact || (c.id !== "tempo" && c.id !== "last") })
+    readonly property var allColumns: {
+        return [
             { id: "title", sort: "title", title: texts.t("library.col.title"), width: 0 },
             { id: "origin", sort: "origin", title: texts.t("library.col.origin"), width: KanteStyle.unit(112) },
             { id: "tempo", sort: "tempo", title: texts.t("library.col.tempo"), width: KanteStyle.unit(56), align: Text.AlignRight },
             { id: "last", sort: "lastPlayed", title: texts.t("library.col.last"), width: KanteStyle.unit(128) },
             { id: "result", sort: "result", title: texts.t("library.col.result"), width: KanteStyle.unit(112) }
         ]
-        return all.filter(function(c) { return !compact || (c.id !== "tempo" && c.id !== "last") })
     }
     // Same titles: the file name tells them apart (QA 13.10.).
     readonly property var titleCounts: {
@@ -108,6 +108,35 @@ ColumnLayout {
             return c.title
         }
         return c.title + (sortDirection === "desc" ? " ▼" : " ▲")
+    }
+
+    // Narrow: tempo and last played have no column, so the sort is a choice with every column and
+    // a button for the direction.
+    RowLayout {
+        objectName: "sortChoice"
+        visible: table.compact
+        Layout.fillWidth: true
+        Layout.bottomMargin: KanteStyle.unit(4)
+        spacing: KanteStyle.unit(8)
+        KanteComboBox {
+            Layout.fillWidth: true
+            Accessible.name: table.texts.t("library.sortby")
+            displayText: table.texts.t("library.sortby") + ": " + table.allColumns.filter(function(c) { return c.sort === table.sortKey })[0].title
+            model: table.allColumns.map(function(c) { return c.title })
+            currentIndex: table.allColumns.map(function(c) { return c.sort }).indexOf(table.sortKey)
+            onActivated: function(index) {
+                var key = table.allColumns[index].sort
+                if (key !== table.sortKey) {
+                    table.sortChosen(key + ":" + table.firstDirection[key])
+                }
+            }
+        }
+        KanteButton {
+            text: table.sortDirection === "desc" ? "▼" : "▲"
+            emphasis: KanteButton.Emphasis.Quiet
+            Accessible.name: table.texts.t("library.sortby.reverse", { direction: table.directionText(table.sortDirection) })
+            onClicked: table.sortChosen(table.sortKey + ":" + (table.sortDirection === "desc" ? "asc" : "desc"))
+        }
     }
 
     // The header: titles from KanteTableHeader, a button over each (sorting by the keyboard too).
@@ -203,7 +232,7 @@ ColumnLayout {
                 text: line.modelData.title
                 // Artist and format, a twin's file name, tags; a missing file in words.
                 subtitle: [line.modelData.artist, line.modelData.format]
-                    .concat(table.titleCounts[line.modelData.title] > 1 ? [String(line.modelData.path).split("/").pop()] : [])
+                    .concat(table.titleCounts[line.modelData.title] > 1 ? [String(line.modelData.path).split(/[\/\\]/).pop()] : [])
                     .concat(line.modelData.tags.map(function(t) { return "#" + t }))
                     .concat(line.modelData.missing ? [table.texts.t("library.row.missing")] : [])
                     .filter(function(s) { return s !== "" }).join(" · ")

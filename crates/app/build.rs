@@ -8,6 +8,7 @@ const PAGES: &[&str] = &[
     "qml/LibraryPage.qml",
     "qml/LibraryTree.qml",
     "qml/LibraryTable.qml",
+    "qml/LibraryToolbar.qml",
     "qml/LibrarySetlist.qml",
     "qml/AddPiecesMenu.qml",
     "qml/AddFolderDialog.qml",
