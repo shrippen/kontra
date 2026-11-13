@@ -6,38 +6,41 @@ import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import Kante
 
-// Library (LH-BIB-04/05): open a score, pick the bass track if needed, recent pieces.
-Kirigami.ScrollablePage {
+// Library (LH-BIB-04/05/17/18/19): the sources on the left (all, recent, origins, linked folders,
+// setlists), a table on the right with search, grouping and sorting; "Add pieces" holds the ways
+// in (download, folder, file, generate); files and folders can be dragged onto the page.
+//
+//   ┌ sources ──────┐ ┌ Search …            Group by ▾   [Add pieces ▾] ┐
+//   │ All pieces    │ │ All pieces · 214 · sorted by Title, ascending   │
+//   │ ORIGIN …      │ │ TITLE ▲   ORIGIN   TEMPO   LAST   RESULT        │
+//   │ FOLDERS …     │ │ rows …                                          │
+//   │ SETLISTS …    │ └─────────────────────────────────────────────────┘
+Kirigami.Page {
     id: page
-
-    // Tab never leaves the focus below the edge (Kante 1.49, QA 27.10. S2).
-    readonly property KanteFocusFollow focusFollow: KanteFocusFollow { flickable: page.flickable }
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
+    // What the page shows: a source key, a column and direction, a grouping and the search.
+    property string source: "all"
+    property string sort: "lastPlayed:desc"
+    property string group: "none"
     property string query: ""
-    // LH-BIB-04: sort by last played (default), title or result.
-    property string sort: "recent"
-    readonly property var recent: {
-        var list = JSON.parse(ctl.recentJson).filter(function(e) {
-            var q = query.trim().toLowerCase()
-            return q === "" || (e.title + " " + e.artist + " " + e.path + " " + (e.tags || []).join(" ")).toLowerCase().indexOf(q) >= 0
-        })
-        if (sort === "title")
-            list.sort(function(a, b) { return a.title.localeCompare(b.title) })
-        else if (sort === "best")
-            list.sort(function(a, b) { return (b.best || 0) - (a.best || 0) })
-        return list
+    // The table's data. Read again when the library, a setlist or a linked folder changed.
+    readonly property var view: {
+        ctl.recentJson
+        ctl.setlistsJson
+        ctl.libraryRevision
+        return JSON.parse(ctl.libraryJson(source, sort, group, query))
     }
-    readonly property var setlists: JSON.parse(ctl.setlistsJson)
+    readonly property bool isSetlist: source.indexOf("setlist:") === 0
     readonly property var tracks: JSON.parse(ctl.trackChoicesJson)
     readonly property bool slim: width < KanteStyle.unit(700)
-    // LH-BIB-07: the piece being shared and whether its backing audio goes along.
-    property string sharePath: ""
-    // The piece whose tags are open; on the page, so adding a tag (which rebuilds the list)
-    // keeps the editor open with the keys in it (QA 14.10.).
-    property string tagsPath: ""
-    property bool shareAudio: false
+    readonly property var groups: ["none", "artist", "folder", "origin"]
+    readonly property var sourceItems: tree.entries.filter(function(e) { return e.kind !== "heading" })
+    readonly property string sourceText: {
+        var found = tree.entries.filter(function(e) { return e.key === source })[0]
+        return found ? found.text : ""
+    }
 
     // Kirigami pages paint the platform background; Kante's ground replaces it.
     background: Rectangle { color: KanteStyle.backgroundColor }
@@ -45,41 +48,21 @@ Kirigami.ScrollablePage {
     title: texts.t("nav.library")
     leftPadding: applicationWindow().readingPad(width)
     rightPadding: leftPadding
+    topPadding: KanteStyle.unit(16)
+    bottomPadding: KanteStyle.unit(16)
 
-    // "today", "yesterday", "3 days ago", else the date; "" when the piece was never played.
-    DayAge { id: dayAge }
-    function lastPlayed(unix) {
-        if (!unix) {
-            return ""
+    // The folders are read again whenever the page shows (LH-BIB-18).
+    onVisibleChanged: {
+        if (visible) {
+            ctl.libraryRescan()
         }
-        var days = dayAge.days(Date.now(), unix)
-        if (days <= 0) {
-            return texts.t("library.last.today")
-        }
-        if (days === 1) {
-            return texts.t("library.last.yesterday")
-        }
-        if (days < 30) {
-            return texts.t("library.last.days", { n: days })
-        }
-        return texts.t("library.last.date", { date: new Date(unix * 1000).toLocaleDateString(Qt.locale(), Locale.ShortFormat) })
     }
+    Component.onCompleted: ctl.libraryRescan()
 
     function open(url) {
         if (ctl.openFile(url)) {
             applicationWindow().show("practice")
         }
-    }
-
-    FolderDialog {
-
-        // QA: Qt's dialog in the window, never the desktop portal.
-
-        options: ctl.qaRun ? FolderDialog.DontUseNativeDialog : 0
-        id: folderDialog
-        title: texts.t("dialog.folder")
-        currentFolder: StandardPaths.writableLocation(StandardPaths.MusicLocation)
-        onAccepted: ctl.importFolder(selectedFolder.toString(), true)
     }
 
     function openFromSetlist(name, index) {
@@ -88,19 +71,32 @@ Kirigami.ScrollablePage {
         }
     }
 
-    FileDialog {
+    function pick(key) {
+        source = key
+    }
 
-        // QA: Qt's dialog in the window, never the desktop portal.
+    function addWay(way) {
+        if (way === "download") {
+            downloadDialog.open()
+        } else if (way === "folder") {
+            folderDialog.open()
+        } else if (way === "file") {
+            dialog.open()
+        } else {
+            generateDialog.open()
+        }
+    }
 
-        options: ctl.qaRun ? FileDialog.DontUseNativeDialog : 0
-        id: packageDialog
-        title: texts.t("dialog.package")
-        fileMode: FileDialog.SaveFile
-        defaultSuffix: "kontra"
-        nameFilters: [texts.t("package.files") + " (*.kontra)"]
-        onAccepted: {
-            ctl.exportPackage(page.sharePath, selectedFile.toString(), page.shareAudio ? "embed" : "link")
-            page.sharePath = ""
+    // Files and folders dropped on the page: a folder is linked, one file opens, several go
+    // into the library (LH-BIB-11).
+    function drop(urls) {
+        var folders = urls.filter(function(u) { return ctl.isFolder(u) })
+        var files = urls.filter(function(u) { return !ctl.isFolder(u) })
+        folders.forEach(function(u) { ctl.linkFolder(u) })
+        if (files.length === 1 && folders.length === 0) {
+            open(files[0])
+        } else if (files.length > 0) {
+            ctl.importFiles(JSON.stringify(files))
         }
     }
 
@@ -113,9 +109,41 @@ Kirigami.ScrollablePage {
                 return path.indexOf("/exercises/") < 0 && path.indexOf("/pieces/") < 0
             })
             .sort(function(a, b) { return b.lastUnix - a.lastUnix })
-        if (recent.length > 0)
+        if (recent.length > 0) {
             return ctl.folderUrl(recent[0].path)
+        }
         return StandardPaths.writableLocation(StandardPaths.DownloadLocation)
+    }
+
+    FolderDialog {
+
+        // QA: Qt's dialog in the window, never the desktop portal.
+
+        options: ctl.qaRun ? FolderDialog.DontUseNativeDialog : 0
+        id: folderDialog
+        title: texts.t("library.folder.pick")
+        currentFolder: StandardPaths.writableLocation(StandardPaths.MusicLocation)
+        onAccepted: folderWay.ask(selectedFolder.toString())
+    }
+
+    AddFolderDialog { id: folderWay; ctl: page.ctl; texts: page.texts }
+
+    FileDialog {
+
+        // QA: Qt's dialog in the window, never the desktop portal.
+
+        options: ctl.qaRun ? FileDialog.DontUseNativeDialog : 0
+        id: packageDialog
+        title: texts.t("dialog.package")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "kontra"
+        nameFilters: [texts.t("package.files") + " (*.kontra)"]
+        property string path: ""
+        property bool withAudio: false
+        onAccepted: {
+            ctl.exportPackage(path, selectedFile.toString(), withAudio ? "embed" : "link")
+            table.sharePath = ""
+        }
     }
 
     FileDialog {
@@ -130,322 +158,246 @@ Kirigami.ScrollablePage {
         onAccepted: page.open(selectedFile.toString())
     }
 
-    // Files dragged onto the page: one opens, several go into the library (LH-BIB-11).
+    DownloadDialog {
+        id: downloadDialog
+        ctl: page.ctl
+        texts: page.texts
+        onOpenPath: function(path) { page.open(path) }
+    }
+
+    GenerateDialog {
+        id: generateDialog
+        ctl: page.ctl
+        texts: page.texts
+        onGenerated: applicationWindow().show("practice")
+    }
+
+    KanteDialog {
+        id: newSetlistDialog
+        parent: QQC2.Overlay.overlay
+        anchors.centerIn: parent
+        modal: true
+        size: KanteDialog.Size.Small
+        title: texts.t("library.setlist.new.title")
+        standardButtons: QQC2.Dialog.Ok | QQC2.Dialog.Cancel
+        acceptText: texts.t("setlist.create")
+        acceptEnabled: newSetlistName.text.trim() !== ""
+        onOpened: {
+            newSetlistName.text = ""
+            newSetlistName.forceActiveFocus()
+        }
+        onAccepted: {
+            ctl.setlistCreate(newSetlistName.text)
+            page.source = "setlist:" + newSetlistName.text.trim()
+        }
+        KanteTextField {
+            id: newSetlistName
+            anchors.left: parent.left
+            anchors.right: parent.right
+            placeholderText: texts.t("setlist.new")
+            Accessible.name: texts.t("setlist.new")
+            onAccepted: {
+                if (text.trim() !== "") {
+                    newSetlistDialog.accept()
+                }
+            }
+        }
+    }
+
+    AddPiecesMenu {
+        id: addMenu
+        texts: page.texts
+        onChosen: function(way) { page.addWay(way) }
+    }
+
+    // Anything dragged onto the page: the overlay says what happens (LH-BIB-11, LH-BIB-17).
     DropArea {
         id: drop
-        parent: page
         anchors.fill: parent
+        z: 1
         keys: ["text/uri-list"]
         onDropped: function(event) {
-            var urls = event.urls.map(String)
             event.accept(Qt.CopyAction)
-            if (urls.length === 1)
-                page.open(urls[0])
-            else
-                ctl.importFiles(JSON.stringify(urls))
+            page.drop(event.urls.map(String))
         }
     }
     KanteDropZone {
-        parent: page
         anchors.fill: parent
-        anchors.margins: KanteStyle.unit(8)
+        z: 2
         visible: drop.containsDrag
         kind: KanteDropZone.Kind.Cell
-        QQC2.Label {
+        ColumnLayout {
             anchors.centerIn: parent
-            text: texts.t("search.drop")
-            color: KanteStyle.strongTextColor
+            spacing: KanteStyle.unit(4)
+            QQC2.Label {
+                Layout.alignment: Qt.AlignHCenter
+                text: texts.t("library.drop.title")
+                color: KanteStyle.strongTextColor
+                font.bold: true
+            }
+            QQC2.Label {
+                Layout.alignment: Qt.AlignHCenter
+                text: texts.t("library.drop.hint")
+                color: KanteStyle.mutedTextColor
+            }
         }
     }
 
-    ColumnLayout {
+    RowLayout {
+        anchors.fill: parent
         spacing: KanteStyle.unit(16)
 
-        RowLayout {
-            Layout.fillWidth: true
-            KanteHeading { text: texts.t("nav.library"); pageTitle: true; Layout.fillWidth: true }
-            KanteButton {
-                text: texts.t("library.folder")
-                emphasis: KanteButton.Emphasis.Quiet
-                onClicked: folderDialog.open()
-            }
-            KanteButton {
-                text: texts.t("library.open")
-                emphasis: KanteButton.Emphasis.Primary
-                onClicked: dialog.open()
-            }
-        }
-
-        // No bass track recognized: the user chooses (bass guess below 3 points).
-        ColumnLayout {
-            visible: page.tracks.length > 0
-            Layout.fillWidth: true
-            KanteSectionLabel { text: texts.t("track.choose"); Layout.fillWidth: true }
-            Repeater {
-                model: page.tracks
-                delegate: KanteListRow {
-                    required property int index
-                    required property var modelData
-                    Layout.fillWidth: true
-                    text: modelData
-                    leadingText: String(index + 1)
-                    onClicked: {
-                        if (ctl.chooseTrack(index)) {
-                            applicationWindow().show("practice")
-                        }
-                    }
+        LibraryTree {
+            id: tree
+            visible: !page.slim
+            Layout.preferredWidth: KanteStyle.unit(232)
+            Layout.fillHeight: true
+            texts: page.texts
+            counts: page.view.counts
+            source: page.source
+            onPicked: function(key) { page.pick(key) }
+            onAddFolderRequested: folderDialog.open()
+            onNewSetlistRequested: newSetlistDialog.open()
+            onUnlinkRequested: function(path) {
+                ctl.unlinkFolder(path)
+                if (page.source.indexOf("folder:" + path) === 0) {
+                    page.pick("all")
                 }
             }
         }
 
-        KanteEmptyState {
-            visible: JSON.parse(ctl.recentJson).length === 0 && page.tracks.length === 0
-            Layout.fillWidth: true
-            title: texts.t("library.empty.title")
-            text: texts.t("library.empty.hint")
-            // No file of one's own yet (P1): the bundled exercises are one step away.
-            KanteButton {
-                text: texts.t("library.empty.exercises")
-                onClicked: applicationWindow().show("exercises")
-            }
-        }
-
-        KanteTextField {
-            Layout.fillWidth: true
-            visible: JSON.parse(ctl.recentJson).length > 5
-            placeholderText: texts.t("library.search")
-            Accessible.name: texts.t("library.search")
-            onTextChanged: page.query = text
-        }
-        QQC2.Label {
-            visible: page.query !== "" && page.recent.length === 0
-            text: texts.t("library.nomatch")
-            color: KanteStyle.mutedTextColor
-        }
-
         ColumnLayout {
-            visible: page.recent.length > 0
             Layout.fillWidth: true
+            Layout.fillHeight: true
+            spacing: KanteStyle.unit(12)
+
+            KanteHeading { text: texts.t("nav.library"); pageTitle: true; Layout.fillWidth: true }
+
+            // No bass track recognized: the user chooses (bass guess below 3 points).
+            ColumnLayout {
+                visible: page.tracks.length > 0
+                Layout.fillWidth: true
+                KanteSectionLabel { text: texts.t("track.choose"); Layout.fillWidth: true }
+                Repeater {
+                    model: page.tracks
+                    delegate: KanteListRow {
+                        required property int index
+                        required property var modelData
+                        Layout.fillWidth: true
+                        text: modelData
+                        leadingText: String(index + 1)
+                        onClicked: {
+                            if (ctl.chooseTrack(index)) {
+                                applicationWindow().show("practice")
+                            }
+                        }
+                    }
+                }
+            }
+
             RowLayout {
                 Layout.fillWidth: true
-                KanteSectionLabel { text: texts.t("library.pieces"); Layout.fillWidth: true }
-                KanteSegmented {
-                    readonly property var values: ["recent", "title", "best"]
-                    Accessible.name: texts.t("library.sort")
-                    model: [texts.t("library.sort.recent"), texts.t("library.sort.title"), texts.t("library.sort.best")]
-                    currentIndex: values.indexOf(page.sort)
-                    onActivated: function(index) { page.sort = values[index] }
+                spacing: KanteStyle.unit(8)
+                // Narrow: the sources are a choice instead of a tree.
+                KanteComboBox {
+                    visible: page.slim
+                    Layout.preferredWidth: KanteStyle.unit(180)
+                    Accessible.name: texts.t("library.source.pick")
+                    model: page.sourceItems.map(function(e) { return (e.sign ? e.sign + " " : "") + e.text })
+                    currentIndex: page.sourceItems.map(function(e) { return e.key }).indexOf(page.source)
+                    onActivated: function(index) {
+                        var entry = page.sourceItems[index]
+                        if (entry.kind === "item") {
+                            page.pick(entry.key)
+                        } else if (entry.id === "folder") {
+                            folderDialog.open()
+                        } else {
+                            newSetlistDialog.open()
+                        }
+                    }
                 }
-            }
-            Repeater {
-                model: page.recent
-                delegate: ColumnLayout {
-                    id: piece
-                    required property var modelData
-                    readonly property bool editing: page.tagsPath === String(modelData.path)
-                    readonly property bool sharing: page.sharePath === String(modelData.path)
+                KanteTextField {
                     Layout.fillWidth: true
-                    spacing: 0
-                    KanteListRow {
-                        Layout.fillWidth: true
-                        text: piece.modelData.title
-                        // Tags (LH-BIB-04) after the artist; the search finds them too.
-                        // Two pieces of one title: the file name tells them apart (QA 13.10.).
-                        readonly property bool twin: page.recent.filter(function(r) {
-                            return r.title === piece.modelData.title }).length > 1
-                        readonly property bool played: piece.modelData.best !== null && piece.modelData.best !== undefined
-                        readonly property string result: played
-                              ? texts.t("library.best", { percent: Math.round(piece.modelData.best * 100) })
-                              : texts.t("library.unplayed")
-                        // Practised minutes and how long ago, once the piece was played.
-                        readonly property string history: !played ? "" : [
-                              piece.modelData.practiceMin < 1 ? texts.t("library.underminute") : texts.t("library.minutes", { minutes: Math.round(piece.modelData.practiceMin) }),
-                              page.lastPlayed(piece.modelData.lastRunUnix)].filter(function(s) { return s !== "" }).join(" · ")
-                        density: KanteListRow.Density.Comfortable
-                        // In a slim window the result goes under the title, which keeps its room.
-                        subtitle: [piece.modelData.artist]
-                                  .concat(twin ? [String(piece.modelData.path).split("/").pop()] : [])
-                                  .concat(piece.modelData.tags.map(function(t) { return "#" + t }))
-                                  .concat([history])
-                                  .concat(page.slim ? [result] : [])
-                                  .filter(function(s) { return s !== "" }).join(" · ")
-                        meta: page.slim ? "" : result
-                        onClicked: page.open(String(piece.modelData.path))
-                        trailing: Row {
-                            spacing: KanteStyle.unit(4)
-                            KanteButton {
-                                text: texts.t("library.tags")
-                                emphasis: KanteButton.Emphasis.Quiet
-                                checkable: true
-                                checked: piece.editing
-                                Accessible.name: texts.t("library.tags.edit", { title: piece.modelData.title })
-                                // Opened, the field takes the keys: typing went nowhere and Enter
-                                // opened the piece (QA 14.10., P7).
-                                onClicked: {
-                                    page.tagsPath = piece.editing ? "" : String(piece.modelData.path)
-                                    if (piece.editing) {
-                                        tagPicker.search.forceActiveFocus()
-                                    }
-                                }
-                            }
-                            // LH-BIB-07: share the piece as a .kontra package.
-                            KanteButton {
-                                text: texts.t("package.share")
-                                emphasis: KanteButton.Emphasis.Quiet
-                                Accessible.name: texts.t("package.share.name", { title: piece.modelData.title })
-                                onClicked: page.sharePath = piece.sharing ? "" : String(piece.modelData.path)
-                            }
-                        }
-                    }
-                    KanteTagPicker {
-                        id: tagPicker
-                        Layout.fillWidth: true
-                        visible: piece.editing
-                        // Rebuilt after a tag was added: the keys go back into the field.
-                        Component.onCompleted: if (piece.editing) search.forceActiveFocus()
-                        tags: piece.modelData.tags
-                        suggestions: piece.editing ? JSON.parse(ctl.tagsJson()) : []
-                        placeholderText: texts.t("library.tags.add")
-                        removeText: texts.t("library.tags.remove")
-                        Accessible.name: texts.t("library.tags.edit", { title: piece.modelData.title })
-                        onEdited: function(tags) { ctl.setTags(String(piece.modelData.path), JSON.stringify(tags)) }
-                    }
-                    // Audio goes along only when chosen here (J-D2).
-                    RowLayout {
-                        visible: piece.sharing
-                        Layout.fillWidth: true
-                        Layout.leftMargin: KanteStyle.unit(16)
-                        QQC2.CheckBox {
-                            id: withAudio
-                            enabled: piece.modelData.hasBacking === true
-                            text: piece.modelData.hasBacking === true ? texts.t("package.audio") : texts.t("package.audio.none")
-                            Accessible.name: text
-                        }
-                        Item { Layout.fillWidth: true }
-                        KanteButton {
-                            text: texts.t("package.save")
-                            emphasis: KanteButton.Emphasis.Primary
-                            onClicked: {
-                                page.shareAudio = withAudio.checked
-                                packageDialog.selectedFile = StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + String(piece.modelData.title).replace(/[\/:*?"<>|]+/g, "-") + ".kontra"
-                                packageDialog.open()
-                            }
-                        }
-                    }
+                    visible: !page.isSetlist
+                    placeholderText: texts.t("library.search")
+                    Accessible.name: texts.t("library.search")
+                    onTextChanged: page.query = text
+                }
+                Item { Layout.fillWidth: true; visible: page.isSetlist }
+                KanteComboBox {
+                    visible: !page.isSetlist && !page.slim
+                    Layout.preferredWidth: KanteStyle.unit(220)
+                    Accessible.name: texts.t("library.group")
+                    displayText: texts.t("library.group") + ": " + texts.t("library.group." + page.group)
+                    model: page.groups.map(function(g) { return texts.t("library.group." + g) })
+                    currentIndex: page.groups.indexOf(page.group)
+                    onActivated: function(index) { page.group = page.groups[index] }
+                }
+                KanteButton {
+                    id: addButton
+                    text: texts.t("library.add") + " ▾"
+                    emphasis: KanteButton.Emphasis.Primary
+                    Accessible.name: texts.t("library.add")
+                    onClicked: addMenu.popup(addButton, 0, addButton.height)
                 }
             }
-        }
 
-        // Songs from Songsterr and MuseScore via the browser, new downloads (LH-BIB-11, J-B6).
-        SongSources {
-            Layout.fillWidth: true
-            Layout.topMargin: KanteStyle.unit(16)
-            ctl: page.ctl
-            texts: page.texts
-            active: page.visible
-            onOpenPath: function(path) { page.open(path) }
-        }
-
-        // Setlists (LH-BIB-04, J-B1): an order of pieces for a gig; playing one offers the next.
-        // Below the pieces: those are what most players come for (QA 13.10.).
-        KanteSectionLabel { text: texts.t("setlist.title"); Layout.fillWidth: true; Layout.topMargin: KanteStyle.unit(16) }
-        Repeater {
-            model: page.setlists
-            delegate: ColumnLayout {
-                id: list
-                required property var modelData
+            // Where the table stands: the source, how many pieces, the column it is sorted by.
+            QQC2.Label {
+                visible: !page.isSetlist
                 Layout.fillWidth: true
-                spacing: 0
-                RowLayout {
-                    Layout.fillWidth: true
-                    QQC2.Label {
-                        Layout.fillWidth: true
-                        text: list.modelData.name + " · " + texts.t(list.modelData.pieces.length === 1 ? "setlist.count.one" : "setlist.count", { n: list.modelData.pieces.length })
-                        color: KanteStyle.strongTextColor
-                        font.bold: true
-                    }
-                    // Any piece of the library, without opening it first (QA 14.10., P2).
-                    KanteComboBox {
-                        readonly property var pieces: JSON.parse(ctl.recentJson)
-                        visible: pieces.length > 0
-                        Layout.preferredWidth: KanteStyle.unit(240)
-                        Accessible.name: texts.t("setlist.add") + ": " + list.modelData.name
-                        displayText: texts.t("setlist.add")
-                        model: pieces.map(function(p) { return p.title })
-                        currentIndex: -1
-                        onActivated: function(index) {
-                            ctl.setlistAdd(list.modelData.name, pieces[index].path)
-                            currentIndex = -1
-                        }
-                    }
-                    KanteButton {
-                        visible: ctl.loaded
-                        text: texts.t("setlist.addloaded")
-                        emphasis: KanteButton.Emphasis.Quiet
-                        onClicked: ctl.setlistAddLoaded(list.modelData.name)
-                    }
-                    // Two steps: a setlist is gone for good (the pieces stay in the library).
-                    KanteButton {
-                        property bool armed: false
-                        text: armed ? texts.t("setlist.delete.sure") : texts.t("setlist.delete")
-                        emphasis: armed ? KanteButton.Emphasis.Primary : KanteButton.Emphasis.Quiet
-                        onClicked: armed ? ctl.setlistDelete(list.modelData.name) : armed = true
-                        onActiveFocusChanged: if (!activeFocus) armed = false
-                        Timer { running: parent.armed; interval: 4000; onTriggered: parent.armed = false }
-                    }
-                }
-                Repeater {
-                    model: list.modelData.pieces
-                    delegate: RowLayout {
-                        required property var modelData
-                        required property int index
-                        Layout.fillWidth: true
-                        KanteListRow {
-                            Layout.fillWidth: true
-                            leadingText: String(index + 1)
-                            text: modelData.title
-                            subtitle: modelData.artist
-                            disabledReason: modelData.missing ? texts.t("setlist.missing") : ""
-                            enabled: !modelData.missing
-                            onClicked: page.openFromSetlist(list.modelData.name, index)
-                        }
-                        KanteButton {
-                            Layout.preferredWidth: KanteStyle.unit(44)
-                            text: "↑"; emphasis: KanteButton.Emphasis.Quiet; enabled: index > 0
-                            Accessible.name: texts.t("setlist.up")
-                            onClicked: ctl.setlistMove(list.modelData.name, index, -1)
-                        }
-                        KanteButton {
-                            Layout.preferredWidth: KanteStyle.unit(44)
-                            text: "↓"; emphasis: KanteButton.Emphasis.Quiet; enabled: index < list.modelData.pieces.length - 1
-                            Accessible.name: texts.t("setlist.down")
-                            onClicked: ctl.setlistMove(list.modelData.name, index, 1)
-                        }
-                        KanteButton {
-                            Layout.preferredWidth: KanteStyle.unit(44)
-                            text: "×"; emphasis: KanteButton.Emphasis.Quiet
-                            Accessible.name: texts.t("setlist.remove")
-                            onClicked: ctl.setlistRemove(list.modelData.name, index)
-                        }
-                    }
+                elide: Text.ElideRight
+                color: KanteStyle.mutedTextColor
+                text: {
+                    var key = page.sort.split(":")[0]
+                    var names = { title: "title", origin: "origin", tempo: "tempo", lastPlayed: "last", result: "result" }
+                    return texts.t("library.crumb.sorted", {
+                        source: page.sourceText,
+                        n: page.view.rows.length,
+                        column: texts.t("library.col." + names[key]),
+                        direction: table.directionText(page.sort.split(":")[1] || "asc")
+                    })
                 }
             }
-        }
-        RowLayout {
-            Layout.fillWidth: true
-            KanteTextField {
-                id: newSetlist
-                Layout.preferredWidth: KanteStyle.unit(320)
-                placeholderText: texts.t("setlist.new")
-                Accessible.name: texts.t("setlist.new")
-                onAccepted: { ctl.setlistCreate(text); text = "" }
+
+            KanteEmptyState {
+                visible: !page.isSetlist && page.view.rows.length === 0
+                Layout.fillWidth: true
+                title: page.query !== "" ? texts.t("library.nomatch")
+                    : page.source === "all" ? texts.t("library.empty.title") : texts.t("library.source.empty")
+                text: page.source === "all" && page.query === "" ? texts.t("library.empty.hint") : ""
             }
-            KanteButton {
-                text: texts.t("setlist.create")
-                enabled: newSetlist.text.trim() !== ""
-                onClicked: { ctl.setlistCreate(newSetlist.text); newSetlist.text = "" }
+
+            LibraryTable {
+                id: table
+                visible: !page.isSetlist && page.view.rows.length > 0
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                ctl: page.ctl
+                texts: page.texts
+                view: page.view
+                sort: page.sort
+                compact: page.width < KanteStyle.unit(900)
+                onSortChosen: function(sort) { page.sort = sort }
+                onOpenPiece: function(path) { page.open(path) }
+                onShareRequested: function(path, title, withAudio) {
+                    packageDialog.path = path
+                    packageDialog.withAudio = withAudio
+                    packageDialog.selectedFile = StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + String(title).replace(/[\/:*?"<>|]+/g, "-") + ".kontra"
+                    packageDialog.open()
+                }
             }
-            Item { Layout.fillWidth: true }
+
+            LibrarySetlist {
+                visible: page.isSetlist
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                ctl: page.ctl
+                texts: page.texts
+                name: page.source.substring("setlist:".length)
+                onOpenRequested: function(name, index) { page.openFromSetlist(name, index) }
+                onDeleted: page.pick("all")
+            }
         }
     }
 }
