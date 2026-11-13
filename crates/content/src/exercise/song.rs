@@ -247,26 +247,29 @@ impl Style {
 
         use Rhythm::*;
         match self {
-            Style::Ballad => vec![
-                part(Section::Intro, P::OneFourFive, Quarters, 1, Drums::Light),
-                part(Section::Verse, P::Pop, RootFifth, times(2), Drums::Full),
-                part(
-                    Section::Chorus,
-                    P::OneFourFive,
-                    Quarters,
-                    times(2),
-                    Drums::Full,
-                ),
-                part(Section::Verse, P::Pop, RootFifth, times(2), Drums::Full),
-                part(
-                    Section::Chorus,
-                    P::OneFourFive,
-                    Quarters,
-                    times(2),
-                    Drums::Full,
-                ),
-                part(Section::Outro, P::OneFourFive, RootFifth, 1, Drums::Full),
-            ],
+            Style::Ballad => {
+                let verse = pick(&[P::Pop, P::Turnaround]);
+                vec![
+                    part(Section::Intro, P::OneFourFive, Quarters, 1, Drums::Light),
+                    part(Section::Verse, verse, RootFifth, times(2), Drums::Full),
+                    part(
+                        Section::Chorus,
+                        P::OneFourFive,
+                        Quarters,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(Section::Verse, verse, RootFifth, times(2), Drums::Full),
+                    part(
+                        Section::Chorus,
+                        P::OneFourFive,
+                        Quarters,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(Section::Outro, P::OneFourFive, RootFifth, 1, Drums::Full),
+                ]
+            }
             Style::Pop => {
                 let verse = pick(&[P::Pop, P::Turnaround]);
                 vec![
@@ -304,68 +307,62 @@ impl Style {
                     part(Section::Outro, P::Pop, Quarters, 1, Drums::Full),
                 ]
             }
-            Style::Rock => vec![
-                part(Section::Intro, P::OneFourFive, Eighths, 1, Drums::Light),
-                part(
-                    Section::Verse,
-                    P::OneFourFive,
-                    Eighths,
-                    times(2),
-                    Drums::Full,
-                ),
-                part(Section::Chorus, P::Pop, Octaves, times(2), Drums::Full),
-                part(
-                    Section::Verse,
-                    P::OneFourFive,
-                    Eighths,
-                    times(2),
-                    Drums::Full,
-                ),
-                part(Section::Chorus, P::Pop, Octaves, times(2), Drums::Full),
-                part(
-                    Section::Bridge,
-                    P::Turnaround,
-                    RootFifthOctave,
-                    times(2),
-                    Drums::Full,
-                ),
-                part(Section::Chorus, P::Pop, Octaves, times(2), Drums::Full),
-                part(Section::Outro, P::OneFourFive, Quarters, 1, Drums::Full),
-            ],
-            Style::Funk => vec![
-                part(Section::Intro, P::Minor, Ghost, 1, Drums::Light),
-                part(Section::Verse, P::Minor, Ghost, times(2), Drums::Full),
-                part(
-                    Section::Chorus,
-                    P::MinorTwoFiveOne,
-                    Funk,
-                    times(2),
-                    Drums::Full,
-                ),
-                part(Section::Verse, P::Minor, Ghost, times(2), Drums::Full),
-                part(
-                    Section::Chorus,
-                    P::MinorTwoFiveOne,
-                    Funk,
-                    times(2),
-                    Drums::Full,
-                ),
-                part(Section::Bridge, P::Minor, DeadNotes, times(2), Drums::Full),
-                part(
-                    Section::Chorus,
-                    P::MinorTwoFiveOne,
-                    Funk,
-                    times(2),
-                    Drums::Full,
-                ),
-                part(Section::Outro, P::Minor, Quarters, 1, Drums::Full),
-            ],
+            Style::Rock => {
+                let verse = pick(&[P::OneFourFive, P::Turnaround]);
+                vec![
+                    part(Section::Intro, P::OneFourFive, Eighths, 1, Drums::Light),
+                    part(Section::Verse, verse, Eighths, times(2), Drums::Full),
+                    part(Section::Chorus, P::Pop, Octaves, times(2), Drums::Full),
+                    part(Section::Verse, verse, Eighths, times(2), Drums::Full),
+                    part(Section::Chorus, P::Pop, Octaves, times(2), Drums::Full),
+                    part(
+                        Section::Bridge,
+                        P::Turnaround,
+                        RootFifthOctave,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(Section::Chorus, P::Pop, Octaves, times(2), Drums::Full),
+                    part(Section::Outro, P::OneFourFive, Quarters, 1, Drums::Full),
+                ]
+            }
+            Style::Funk => {
+                let verse = pick(&[P::Minor, P::MinorTwoFiveOne]);
+                vec![
+                    part(Section::Intro, P::Minor, Ghost, 1, Drums::Light),
+                    part(Section::Verse, verse, Ghost, times(2), Drums::Full),
+                    part(
+                        Section::Chorus,
+                        P::MinorTwoFiveOne,
+                        Funk,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(Section::Verse, verse, Ghost, times(2), Drums::Full),
+                    part(
+                        Section::Chorus,
+                        P::MinorTwoFiveOne,
+                        Funk,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(Section::Bridge, P::Minor, DeadNotes, times(2), Drums::Full),
+                    part(
+                        Section::Chorus,
+                        P::MinorTwoFiveOne,
+                        Funk,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(Section::Outro, P::Minor, Quarters, 1, Drums::Full),
+                ]
+            }
             Style::Shuffle => {
                 let mut parts = vec![part(Section::Intro, P::Tonic, Shuffle, 1, Drums::Light)];
-                parts.extend(
-                    (0..length.choruses())
-                        .map(|_| part(Section::Verse, P::Blues, Shuffle, 1, Drums::Full)),
-                );
+                parts.extend((0..length.choruses()).map(|_| {
+                    let chorus = pick(&[P::Blues, P::QuickBlues]);
+                    part(Section::Verse, chorus, Shuffle, 1, Drums::Full)
+                }));
                 parts.push(part(Section::Outro, P::Tonic, Shuffle, 1, Drums::Full));
                 parts
             }
@@ -663,6 +660,41 @@ mod tests {
             };
             assert!(bars(Length::Short) < bars(Length::Normal), "{style:?}");
             assert!(bars(Length::Normal) < bars(Length::Long), "{style:?}");
+        }
+    }
+
+    /// Bug (review of PR #316): LH-BIB-15 asks every style to pick between two progressions for
+    /// at least one part when seed != 0; only Pop did (`song.rs:271` at the review's head).
+    /// Across seeds 1..20, every style must show at least two different chord sequences.
+    #[test]
+    fn every_style_has_at_least_two_progressions_across_seeds() {
+        for style in Style::ALL {
+            let sequences: std::collections::HashSet<Vec<String>> = (1..20)
+                .map(|seed| {
+                    let spec = ExerciseSpec {
+                        kind: ExerciseKind::Song(style, Level::Medium),
+                        key: 4,
+                        bpm: 90.0,
+                        slow: false,
+                        repeats: 1,
+                        ramp_bpm: 0.0,
+                        judging: Judging::PitchAndTime,
+                        seed,
+                        length: Length::Normal,
+                    };
+                    render(&spec, style, Level::Medium)
+                        .pass
+                        .markers
+                        .iter()
+                        .map(|m| m.1.clone())
+                        .collect()
+                })
+                .collect();
+            assert!(
+                sequences.len() >= 2,
+                "{style:?}: only {} distinct progression(s) across seeds 1..20",
+                sequences.len()
+            );
         }
     }
 }

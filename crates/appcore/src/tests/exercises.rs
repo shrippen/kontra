@@ -757,7 +757,11 @@ fn a_piece_s_path_and_title_tell_its_seed_and_length_apart() {
     assert_ne!(plain, short, "a short piece overwrote the plain piece");
     assert_ne!(plain, long, "a long piece overwrote the plain piece");
     assert_ne!(short, long);
-    assert_eq!(plain, path(0, exercise::Length::Normal), "same seed and length, same path");
+    assert_eq!(
+        plain,
+        path(0, exercise::Length::Normal),
+        "same seed and length, same path"
+    );
 
     let title = core.exercise_title(&exercise::describe(&spec(7, exercise::Length::Short)));
     assert!(title.contains("7"), "{title}: no sign of the seed");
@@ -774,7 +778,9 @@ fn piece_path_sanitizes_every_character_invalid_in_a_file_name() {
     let title = "A\\B/C:D*E?F\"G<H>I|J\n\tK ♯L ♭M #N";
     let path = core.piece_path(title);
     let name = path.file_stem().unwrap().to_str().unwrap().to_string();
-    for bad in ['\\', '/', ':', '*', '?', '"', '<', '>', '|', '\n', '\t', '#', '♯', '♭'] {
+    for bad in [
+        '\\', '/', ':', '*', '?', '"', '<', '>', '|', '\n', '\t', '#', '♯', '♭',
+    ] {
         assert!(!name.contains(bad), "{name:?} still has {bad:?}");
     }
     assert!(name.starts_with("A-B-C-D-E-F-G-H-I-J"), "{name}");

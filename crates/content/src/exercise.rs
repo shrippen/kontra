@@ -109,6 +109,8 @@ pub enum Progression {
     TwoFiveOne,
     /// Twelve-bar blues with dominant sevenths.
     Blues,
+    /// Twelve-bar "quick change" blues: bar two goes to the fourth, not the first.
+    QuickBlues,
     /// i – iv – i – v in minor.
     Minor,
     /// I – IV – V – I.
@@ -204,8 +206,10 @@ pub struct ExerciseSpec {
     pub ramp_bpm: f64,
     /// Judged by pitch and time, or by time only (DIDAKTIK I4: grooves on the open string).
     pub judging: Judging,
-    /// Pieces: 0 is the plain piece of the style, any other seed a variant (chords, grooves,
-    /// small changes in the repeats).
+    /// Pieces: 0 is the plain piece of the style, any other seed a variant: some sections may
+    /// get a different progression (today: the pop verse), and repeats get small changes to
+    /// the bass line (a lead-in, an octave jump, a ghost note, a pickup) and, before a new
+    /// part, maybe a short bass fill. The groove of a part never changes.
     pub seed: u64,
     /// Pieces: how long the form plays.
     pub length: Length,
@@ -397,10 +401,11 @@ impl Quality {
 }
 
 impl Progression {
-    pub const ALL: [Progression; 8] = [
+    pub const ALL: [Progression; 9] = [
         Progression::Tonic,
         Progression::TwoFiveOne,
         Progression::Blues,
+        Progression::QuickBlues,
         Progression::Minor,
         Progression::OneFourFive,
         Progression::Pop,
@@ -415,6 +420,10 @@ impl Progression {
             Progression::Tonic => vec![(0, Dominant7); 4],
             Progression::TwoFiveOne => vec![(2, Minor7), (7, Dominant7), (0, Major7), (0, Major7)],
             Progression::Blues => [0, 5, 0, 0, 5, 5, 0, 0, 7, 5, 0, 7]
+                .iter()
+                .map(|r| (*r, Dominant7))
+                .collect(),
+            Progression::QuickBlues => [0, 5, 5, 0, 5, 5, 0, 0, 7, 5, 0, 7]
                 .iter()
                 .map(|r| (*r, Dominant7))
                 .collect(),
@@ -450,6 +459,7 @@ impl Progression {
             Progression::Tonic => "tonic",
             Progression::TwoFiveOne => "251",
             Progression::Blues => "blues",
+            Progression::QuickBlues => "quickblues",
             Progression::Minor => "minor",
             Progression::OneFourFive => "145",
             Progression::Pop => "pop",
@@ -1072,7 +1082,10 @@ fn title(spec: &ExerciseSpec, pass: &Pass, fifths: i8) -> String {
     } else {
         ("", String::new())
     };
-    format!("{} in {key_name} ({bpm} BPM){timing}{length}{variant}", pass.label)
+    format!(
+        "{} in {key_name} ({bpm} BPM){timing}{length}{variant}",
+        pass.label
+    )
 }
 
 /// Notes, markers, length and label of one pass of `spec`.
