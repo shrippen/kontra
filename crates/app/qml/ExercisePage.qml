@@ -83,6 +83,9 @@ Kirigami.ScrollablePage {
         }
         applicationWindow().exerciseLevel = -1
         sectionTimer.running = ctl.startSection === "make"
+        // Screenshots (LH-BIB-16): a dialog opened once the page is there.
+        if (ctl.openDialog === "pieceWish") wishDialog.open()
+        else if (ctl.openDialog === "llmSettings") standaloneLlmSettings.open()
     }
 
     // QA `--section make`: open scrolled to the generator (screenshots).
@@ -349,5 +352,20 @@ Kirigami.ScrollablePage {
                     applicationWindow().show("practice")
             }
         }
+        KanteButton {
+            visible: page.isSong
+            text: texts.t("wish.open")
+            emphasis: KanteButton.Emphasis.Quiet
+            Accessible.name: texts.t("wish.open")
+            onClicked: wishDialog.open()
+        }
+    }
+    PieceWish { id: wishDialog }
+    // For a screenshot of the settings alone (`--open-dialog llmSettings`), without the wish
+    // dialog it normally opens from.
+    LlmSettings { id: standaloneLlmSettings }
+    Connections {
+        target: ctl
+        function onLlmPieceOpened() { applicationWindow().show("practice") }
     }
 }

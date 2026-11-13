@@ -179,6 +179,16 @@ pub mod qobject {
         /// before adding and clears this.
         #[qproperty(QString, start_course, cxx_name = "startCourse")]
         #[qproperty(bool, setup_done, cxx_name = "setupDone")]
+        /// LLM provider for "Stück wünschen" (LH-BIB-16): a preset id or "custom".
+        #[qproperty(QString, llm_provider, cxx_name = "llmProvider")]
+        /// Only read when `llmProvider` is "custom".
+        #[qproperty(QString, llm_base_url, cxx_name = "llmBaseUrl")]
+        /// Empty: the provider's default (Anthropic only; every other provider needs one picked).
+        #[qproperty(QString, llm_model, cxx_name = "llmModel")]
+        /// The last model list fetched, sorted: `["id", ...]`; empty after a failure.
+        #[qproperty(QString, llm_models_json, cxx_name = "llmModelsJson")]
+        /// A wish or a model list is being asked for; the UI offers only one at a time.
+        #[qproperty(bool, llm_busy, cxx_name = "llmBusy")]
         #[qproperty(bool, autoplay)]
         /// QA: a blind probe of the start loop instead of autoplay (DIDAKTIK I1).
         #[qproperty(bool, autoprobe)]
@@ -192,6 +202,8 @@ pub mod qobject {
         #[qproperty(bool, show_align, cxx_name = "showAlign")]
         /// QA: bars to loop at start, 1-based "from-to" ("" = none).
         #[qproperty(QString, start_loop, cxx_name = "startLoop")]
+        /// QA/screenshots: opens this dialog on the exercises page ("llmSettings", "pieceWish").
+        #[qproperty(QString, open_dialog, cxx_name = "openDialog")]
         #[qproperty(QString, screenshot_path, cxx_name = "screenshotPath")]
         #[qproperty(i32, screenshot_after, cxx_name = "screenshotAfter")]
         #[qproperty(i32, quit_after, cxx_name = "quitAfter")]
@@ -635,6 +647,49 @@ pub mod qobject {
             judging: &QString,
         ) -> bool;
 
+        /// Every provider Kontra offers (LH-BIB-16); see `Core::llm_providers_json`.
+        #[qinvokable]
+        #[cxx_name = "llmProvidersJson"]
+        fn llm_providers_json(self: &Self) -> QString;
+
+        /// Whether `provider` has a key, and where it came from, as shown text.
+        #[qinvokable]
+        #[cxx_name = "llmKeyStateText"]
+        fn llm_key_state_text(self: &Self, provider: &QString) -> QString;
+
+        /// Stores `value` as `provider`'s key; `""` back on success, else an error text.
+        #[qinvokable]
+        #[cxx_name = "llmSetKey"]
+        fn llm_set_key(self: Pin<&mut Self>, provider: &QString, value: &QString) -> QString;
+
+        /// Removes a stored key; `""` back on success, else an error text.
+        #[qinvokable]
+        #[cxx_name = "llmDeleteKey"]
+        fn llm_delete_key(self: Pin<&mut Self>, provider: &QString) -> QString;
+
+        #[qinvokable]
+        #[cxx_name = "changeLlmProvider"]
+        fn change_llm_provider(self: Pin<&mut Self>, provider: &QString);
+
+        #[qinvokable]
+        #[cxx_name = "changeLlmBaseUrl"]
+        fn change_llm_base_url(self: Pin<&mut Self>, url: &QString);
+
+        #[qinvokable]
+        #[cxx_name = "changeLlmModel"]
+        fn change_llm_model(self: Pin<&mut Self>, model: &QString);
+
+        /// Starts writing a piece from `wish` at `level` in the background (LH-BIB-16); `false`
+        /// when one already runs or no provider is set up.
+        #[qinvokable]
+        #[cxx_name = "llmWish"]
+        fn llm_wish(self: Pin<&mut Self>, wish: &QString, level: &QString) -> bool;
+
+        /// Fetches the chosen provider's model list in the background; also "test connection".
+        #[qinvokable]
+        #[cxx_name = "llmFetchModels"]
+        fn llm_fetch_models(self: Pin<&mut Self>) -> bool;
+
         /// Lernen (LH-LRN-07): the course, see `Core::learn_json`.
         #[qinvokable]
         #[cxx_name = "learnJson"]
@@ -929,12 +984,19 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "arrangementLoaded"]
         fn arrangement_loaded(self: Pin<&mut Self>);
+
+        /// A wished-for piece (LH-BIB-16) opened; the page that asked for it switches to
+        /// practice (as `generateExercise`'s own caller does on the spot).
+        #[qsignal]
+        #[cxx_name = "llmPieceOpened"]
+        fn llm_piece_opened(self: Pin<&mut Self>);
     }
 }
 
 mod backing;
 mod learn;
 mod library;
+mod llm;
 mod loops;
 mod settings;
 
@@ -1079,6 +1141,11 @@ pub struct ControllerRust {
     start_page: QString,
     start_course: QString,
     setup_done: bool,
+    llm_provider: QString,
+    llm_base_url: QString,
+    llm_model: QString,
+    llm_models_json: QString,
+    llm_busy: bool,
     autoplay: bool,
     autoprobe: bool,
     autocalibrate: bool,
@@ -1087,6 +1154,7 @@ pub struct ControllerRust {
     start_section: QString,
     show_align: bool,
     start_loop: QString,
+    open_dialog: QString,
     screenshot_path: QString,
     screenshot_after: i32,
     quit_after: i32,
@@ -1259,6 +1327,11 @@ impl Default for ControllerRust {
             start_page: q(args.page.as_deref().unwrap_or("")),
             start_course: QString::default(),
             setup_done: s.setup_done,
+            llm_provider: q(&s.llm_provider),
+            llm_base_url: q(&s.llm_base_url),
+            llm_model: q(&s.llm_model),
+            llm_models_json: q("[]"),
+            llm_busy: false,
             autoplay: args.autoplay,
             autoprobe: args.probe,
             autocalibrate: args.calibrate,
@@ -1270,6 +1343,7 @@ impl Default for ControllerRust {
                 .loop_bars
                 .map(|(a, b)| format!("{a}-{b}"))
                 .unwrap_or_default()),
+            open_dialog: q(args.open_dialog.as_deref().unwrap_or("")),
             screenshot_path: q(&args
                 .screenshot
                 .as_ref()
@@ -1785,6 +1859,24 @@ impl qobject::Controller {
                     self.as_mut().set_cable_measuring(false);
                     let note = self.as_ref().rust().core.latency_note();
                     self.as_mut().set_latency_note(q(&note));
+                }
+                UiEvent::LlmPieceReady(path) => {
+                    self.as_mut().set_llm_busy(false);
+                    if self.as_mut().open_file(&q(&path)) {
+                        self.as_mut().llm_piece_opened();
+                    }
+                }
+                UiEvent::LlmModels(models) => {
+                    self.as_mut().set_llm_busy(false);
+                    let json = serde_json::Value::Array(
+                        models.into_iter().map(serde_json::Value::String).collect(),
+                    )
+                    .to_string();
+                    self.as_mut().set_llm_models_json(q(&json));
+                }
+                UiEvent::LlmFailed(text) => {
+                    self.as_mut().set_llm_busy(false);
+                    self.as_mut().show_error(&text);
                 }
             }
         }
