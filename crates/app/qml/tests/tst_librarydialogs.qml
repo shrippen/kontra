@@ -54,6 +54,40 @@ Item {
             compare(made.count, 1)
         }
 
+        // QA 13.11.: the reset button appeared where "Another variant" was, so a second click on
+        // the same spot went back to the plain piece.
+        function test_anotherVariantStaysUnderThePointer() {
+            generate.variant = 0
+            generate.open()
+            tryCompare(generate, "opened", true)
+            var other = findChild(generate, "otherVariant")
+            verify(other !== null)
+            var spot = other.mapToItem(root, other.width / 2, other.height / 2)
+            mouseClick(root, spot.x, spot.y)
+            // The layout settles between two clicks of a hand.
+            wait(100)
+            mouseClick(root, spot.x, spot.y)
+            compare(generate.variant, 2)
+            generate.close()
+        }
+
+        // The same in a narrow window, where the row puts its controls on the left (review #325).
+        function test_anotherVariantStaysUnderThePointerWhenNarrow() {
+            root.width = 330
+            generate.variant = 0
+            generate.open()
+            tryCompare(generate, "opened", true)
+            wait(50)
+            var other = findChild(generate, "otherVariant")
+            var spot = other.mapToItem(root, other.width / 2, other.height / 2)
+            mouseClick(root, spot.x, spot.y)
+            wait(100)
+            mouseClick(root, spot.x, spot.y)
+            compare(generate.variant, 2)
+            generate.close()
+            root.width = 900
+        }
+
         function test_aFirstPieceIsThePlainOne() {
             generate.style = 0
             generate.level = 1

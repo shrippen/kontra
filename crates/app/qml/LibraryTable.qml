@@ -89,6 +89,24 @@ ColumnLayout {
         return texts.t("library.last.date", { date: new Date(unix * 1000).toLocaleDateString(Qt.locale(), Locale.ShortFormat) })
     }
 
+    // The same in the few words the column has room for: "today", "3 days ago", the date.
+    function lastShort(unix) {
+        if (!unix) {
+            return ""
+        }
+        var days = dayAge.days(Date.now(), unix)
+        if (days <= 0) {
+            return texts.t("library.last.short.today")
+        }
+        if (days === 1) {
+            return texts.t("library.last.short.yesterday")
+        }
+        if (days < 30) {
+            return texts.t("library.last.short.days", { n: days })
+        }
+        return new Date(unix * 1000).toLocaleDateString(Qt.locale(), Locale.ShortFormat)
+    }
+
     function directionText(direction) {
         return texts.t(direction === "desc" ? "library.dir.desc" : "library.dir.asc")
     }
@@ -288,7 +306,7 @@ ColumnLayout {
                                 anchors.fill: parent
                                 verticalAlignment: Text.AlignVCenter
                                 elide: Text.ElideRight
-                                text: line.last !== "" ? line.last : "—"
+                                text: line.last !== "" ? table.lastShort(line.modelData.lastPlayed) : "—"
                                 color: KanteStyle.mutedTextColor
                             }
                             RowLayout {

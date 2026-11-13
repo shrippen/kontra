@@ -37,10 +37,10 @@ Kirigami.Page {
     readonly property bool slim: width < KanteStyle.unit(700)
     readonly property var groups: ["none", "artist", "folder", "origin"]
     readonly property var sourceItems: tree.entries.filter(function(e) { return e.kind !== "heading" })
-    readonly property string sourceText: {
-        var found = tree.entries.filter(function(e) { return e.key === source })[0]
-        return found ? found.text : ""
-    }
+    readonly property var sourceEntry: tree.entries.filter(function(e) { return e.key === source })[0]
+    readonly property string sourceText: sourceEntry ? sourceEntry.text : ""
+    // A linked folder that is not there (unmounted drive): said as such, not as an empty source.
+    readonly property bool sourceGone: sourceEntry !== undefined && sourceEntry.missing === true
 
     // Kirigami pages paint the platform background; Kante's ground replaces it.
     background: Rectangle { color: KanteStyle.backgroundColor }
@@ -71,8 +71,12 @@ Kirigami.Page {
         }
     }
 
+    // A missing folder is looked for again when picked: the drive may be back.
     function pick(key) {
         source = key
+        if (sourceGone) {
+            ctl.libraryRescan()
+        }
     }
 
     function addWay(way) {
@@ -271,7 +275,12 @@ Kirigami.Page {
             Layout.fillHeight: true
             spacing: KanteStyle.unit(12)
 
-            KanteHeading { text: texts.t("nav.library"); pageTitle: true; Layout.fillWidth: true }
+            KanteHeading {
+                objectName: "libraryHeading"
+                text: texts.t("nav.library")
+                pageTitle: true
+                Layout.fillWidth: true
+            }
 
             // No bass track recognized: the user chooses (bass guess below 3 points).
             ColumnLayout {
@@ -339,11 +348,14 @@ Kirigami.Page {
             }
 
             KanteEmptyState {
+                objectName: "libraryEmpty"
                 visible: !page.isSetlist && page.view.rows.length === 0
                 Layout.fillWidth: true
-                title: page.query !== "" ? texts.t("library.nomatch")
+                title: page.sourceGone ? texts.t("library.folder.gone.title")
+                    : page.query !== "" ? texts.t("library.nomatch")
                     : page.source === "all" ? texts.t("library.empty.title") : texts.t("library.source.empty")
-                text: page.source === "all" && page.query === "" ? texts.t("library.empty.hint") : ""
+                text: page.sourceGone ? texts.t("library.folder.gone.hint", { path: page.sourceEntry.path })
+                    : page.source === "all" && page.query === "" ? texts.t("library.empty.hint") : ""
             }
 
             LibraryTable {
@@ -364,6 +376,13 @@ Kirigami.Page {
                     packageDialog.selectedFile = StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + String(title).replace(/[\/:*?"<>|]+/g, "-") + ".kontra"
                     packageDialog.open()
                 }
+            }
+
+            // Takes the height when neither table nor setlist does, so the head stays at the
+            // top of an empty source (QA 13.11.: the layout centred it).
+            Item {
+                visible: !table.visible && !page.isSetlist
+                Layout.fillHeight: true
             }
 
             LibrarySetlist {
