@@ -147,10 +147,22 @@ pub(super) fn pass_of(
     Ok(render_checked(
         &checked,
         plan.feel,
-        &plan.title,
+        bare_title(&plan.title, &plan.key),
         level,
         seed,
     ))
+}
+
+/// The plan's title without a key at its end: the rendered title adds the key itself
+/// (QA 14.11.: a model's "Motown in A" became "Motown in A in A (104 BPM)").
+fn bare_title<'a>(title: &'a str, key: &str) -> &'a str {
+    let title = title.trim();
+    let suffix = format!(" in {}", key.trim());
+    let cut = title.len().saturating_sub(suffix.len());
+    match title.get(cut..) {
+        Some(end) if cut > 0 && end.eq_ignore_ascii_case(&suffix) => title[..cut].trim_end(),
+        _ => title,
+    }
 }
 
 /// `pass_of` once `plan` is known to check out (a built-in style's own plan, never bad).
@@ -525,6 +537,21 @@ mod tests {
 
     fn render(plan: &PiecePlan, seed: u64) -> Exercise {
         render_piece(plan, Level::Medium, seed).expect("valid plan")
+    }
+
+    /// QA 14.11.: a title naming the key got the key twice.
+    #[test]
+    fn a_title_naming_the_key_names_it_once() {
+        let mut p = plan(&["A"], PlanLine::Roots, "quarters");
+        p.key = "A".to_string();
+        p.title = "Motown in A".to_string();
+        assert_eq!(render(&p, 0).title, "Motown in A (90 BPM)");
+        p.title = "Motown in a".to_string();
+        assert_eq!(render(&p, 0).title, "Motown in A (90 BPM)");
+        p.title = "Rain in Spain".to_string();
+        assert_eq!(render(&p, 0).title, "Rain in Spain in A (90 BPM)");
+        p.title = " in A".to_string();
+        assert_eq!(render(&p, 0).title, "in A in A (90 BPM)");
     }
 
     fn arrangement(exercise: &Exercise) -> kontra_model::Arrangement {

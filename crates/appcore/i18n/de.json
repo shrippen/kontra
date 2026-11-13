@@ -1325,6 +1325,7 @@
   "llm.settings.baseurl": "Server-Adresse",
   "llm.settings.model": "Modell",
   "llm.settings.model.placeholder": "Modellname",
+  "llm.settings.model.pick": "Modell aus der Liste wählen …",
   "llm.settings.model.load": "Modelle laden …",
   "llm.settings.key": "API-Schlüssel",
   "llm.settings.key.placeholder": "Schlüssel einfügen",

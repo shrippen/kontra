@@ -116,10 +116,14 @@ KanteDialog {
             }
         }
         KanteComboBox {
+            objectName: "llmModels"
             Layout.fillWidth: true
             visible: dialog.models.length > 0
             Accessible.name: texts.t("llm.settings.model")
             model: dialog.models
+            // The chosen model, or none with a prompt: the first entry is no choice (QA 14.11.).
+            currentIndex: dialog.models.indexOf(dialog.ctl.llmModel)
+            displayText: currentIndex < 0 ? texts.t("llm.settings.model.pick") : currentText
             onActivated: function(index) {
                 modelField.text = dialog.models[index]
                 dialog.ctl.changeLlmModel(dialog.models[index])
@@ -164,7 +168,7 @@ KanteDialog {
         KanteCallout {
             Layout.fillWidth: true
             visible: dialog.error !== ""
-            kind: KanteCallout.Kind.Warning
+            kind: KanteCallout.Kind.Warn
             text: dialog.error
             dismissible: true
             autoHide: false
