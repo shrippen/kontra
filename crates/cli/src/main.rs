@@ -172,7 +172,7 @@ fn schemas(a: &args::SchemasArgs) -> CliResult {
     Ok(())
 }
 
-/// Renders a piece plan (LH-BIB-13) to a MIDI file, to try a plan by hand.
+/// Renders a piece plan (LH-BIB-14) to a MIDI file, to try a plan by hand.
 fn piece(a: &args::PieceArgs) -> CliResult {
     let text =
         std::fs::read_to_string(&a.plan).map_err(|e| format!("{}: {e}", a.plan.display()))?;
