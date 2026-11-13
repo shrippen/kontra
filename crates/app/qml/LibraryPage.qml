@@ -305,6 +305,7 @@ Kirigami.Page {
                 groups: page.groups
                 sourceItems: page.sourceItems
                 source: page.source
+                query: page.query
                 onQueryEdited: function(text) { page.query = text }
                 onGroupChosen: function(key) { page.group = key }
                 onSourceChosen: function(entry) {

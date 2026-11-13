@@ -17,11 +17,15 @@ Item {
         readonly property string recentJson: "[]"
     }
     property string sort: "title:asc"
+    // What the page keeps: the search words.
+    property string query: ""
 
     LibraryToolbar {
         id: bar
         width: parent.width
         texts: root.texts
+        query: root.query
+        onQueryEdited: function(text) { root.query = text }
         groups: ["none", "artist", "folder", "origin"]
         sourceItems: [{ kind: "item", key: "all", text: "All", sign: "" }]
     }
@@ -44,6 +48,8 @@ Item {
 
         function init() {
             bar.slim = false
+            bar.isSetlist = false
+            root.query = ""
             table.compact = false
             root.sort = "title:asc"
             grouped.clear()
@@ -70,6 +76,25 @@ Item {
             bar.slim = true
             compare(findChild(bar, "searchWide").active, false)
             verify(findChild(bar, "searchNarrow").active)
+        }
+
+        // A field built anew (the width changed, a setlist was shown and left) shows the words the
+        // table is filtered by.
+        function test_searchWordsSurviveRebuildingTheField() {
+            var field = findChild(bar, "searchWide").item
+            field.forceActiveFocus()
+            "Bach".split("").forEach(function(c) { keyClick(c) })
+            compare(root.query, "Bach")
+
+            bar.slim = true
+            compare(findChild(bar, "searchNarrow").item.text, "Bach")
+            bar.slim = false
+            compare(findChild(bar, "searchWide").item.text, "Bach")
+
+            bar.isSetlist = true
+            bar.isSetlist = false
+            compare(findChild(bar, "searchWide").item.text, "Bach")
+            compare(root.query, "Bach")
         }
 
         function test_narrowShowsTheSourceChoice() {

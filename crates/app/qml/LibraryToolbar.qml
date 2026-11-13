@@ -21,6 +21,8 @@ ColumnLayout {
     // Sources as choice entries (items and actions of the tree) and the one shown.
     property var sourceItems: []
     property string source: "all"
+    // The search words the table is filtered by; a field built anew shows them.
+    property string query: ""
 
     signal queryEdited(string text)
     signal groupChosen(string key)
@@ -45,7 +47,10 @@ ColumnLayout {
         KanteTextField {
             placeholderText: bar.texts.t("library.search")
             Accessible.name: bar.texts.t("library.search")
-            onTextChanged: bar.queryEdited(text)
+            // Shows the words the table is filtered by; typing reports them (a field built anew
+            // is not empty while the table stays filtered).
+            text: bar.query
+            onTextEdited: bar.queryEdited(text)
         }
     }
 
