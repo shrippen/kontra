@@ -122,7 +122,7 @@ pub enum PlanLine {
 pub enum Drums {
     /// Kick, snare and hi-hat; a snare fill on the last beat before the next part.
     Full,
-    /// Kick and hi-hat only (an intro).
+    /// Kick and hi-hat only (an intro); still gets the snare fill into the next part.
     Light,
     /// No drums.
     None,

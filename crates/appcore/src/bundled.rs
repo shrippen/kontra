@@ -319,7 +319,7 @@ impl Core {
         })
     }
 
-    /// A piece from an LLM's plan (LH-BIB-13): `plan_json` a `PiecePlan`, written to the data
+    /// A piece from an LLM's plan (LH-BIB-14): `plan_json` a `PiecePlan`, written to the data
     /// folder and opened like a generated exercise. Every validation problem of the plan comes
     /// back as one line, for a retry by whoever wrote it.
     pub fn generate_piece(

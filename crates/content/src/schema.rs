@@ -9,7 +9,7 @@ use crate::Manifest;
 const PACKAGE_MANIFEST: &str = "package-manifest.schema.json";
 const COURSE_MANIFEST: &str = "course-manifest.schema.json";
 const COURSE: &str = "course.schema.json";
-/// For the prompt of an LLM that writes piece plans (LH-BIB-13).
+/// For the prompt of an LLM that writes piece plans (LH-BIB-14).
 const PIECE_PLAN: &str = "piece-plan.schema.json";
 
 /// Each schema as (file name, pretty JSON with a final newline).
