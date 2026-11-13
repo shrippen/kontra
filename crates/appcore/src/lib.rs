@@ -193,6 +193,16 @@ pub enum UiEvent {
     /// A piece wish or a model list failed; text already translated, the provider's own
     /// explanation (if any) appended.
     LlmFailed(String),
+    /// A key check, save or delete came back with a state to show (never the key itself).
+    LlmKeyState {
+        provider: String,
+        text: String,
+    },
+    /// A key save or delete failed; text already translated.
+    LlmKeyError {
+        provider: String,
+        text: String,
+    },
 }
 
 /// A fixed note density gets no suggestions.

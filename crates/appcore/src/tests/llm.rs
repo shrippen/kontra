@@ -4,8 +4,9 @@
 
 use super::*;
 use kontra_session::{HttpError, MemoryStore, SecretError, SecretStore};
+use std::sync::mpsc::{channel, Receiver};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// `std::env::set_var` is process-global; tests that touch a provider's key variable share
 /// this lock so they never see each other's value.
@@ -81,6 +82,44 @@ fn wait(core: &mut Core) -> Vec<UiEvent> {
     }
 }
 
+/// Like `wait`, but fails instead of hanging forever when nothing ever arrives.
+fn wait_timeout(core: &mut Core, timeout: Duration) -> Vec<UiEvent> {
+    let start = Instant::now();
+    loop {
+        let events = core.llm_poll();
+        if !events.is_empty() {
+            return events;
+        }
+        assert!(
+            start.elapsed() < timeout,
+            "timed out waiting for a background job"
+        );
+        std::thread::yield_now();
+    }
+}
+
+/// A `SecretStore` whose `get` blocks until released (review 13.11.2026: `Core::llm_key_state`
+/// and the key resolution inside `llm_wish`/`llm_fetch_models` used to run such a call on the
+/// caller's own thread, freezing the window for up to the keyring's own timeout).
+#[derive(Debug)]
+struct BlockingSecrets {
+    gate: Mutex<Receiver<()>>,
+    value: String,
+}
+
+impl SecretStore for BlockingSecrets {
+    fn get(&self, _account: &str) -> Result<String, SecretError> {
+        self.gate.lock().unwrap().recv().ok();
+        Ok(self.value.clone())
+    }
+    fn set(&self, _account: &str, _value: &str) -> Result<(), SecretError> {
+        Ok(())
+    }
+    fn delete(&self, _account: &str) -> Result<(), SecretError> {
+        Ok(())
+    }
+}
+
 #[test]
 fn a_finished_wish_is_rendered_and_opened() {
     let http = FakeHttp {
@@ -144,15 +183,24 @@ fn model_list_comes_back_sorted_through_tick() {
     );
 }
 
+/// Runs `core.llm_check_key(provider)` to completion and returns its `LlmKeyState` text.
+fn checked_text(core: &mut Core, provider: &str) -> String {
+    assert!(core.llm_check_key(provider));
+    let events = wait(core);
+    let UiEvent::LlmKeyState { text, .. } = &events[0] else {
+        panic!("{events:?}");
+    };
+    text.clone()
+}
+
 #[test]
 fn env_variable_beats_a_stored_key() {
     let _guard = ENV_LOCK.lock().unwrap();
     let secrets = Arc::new(MemoryStore::new());
     secrets.set("openai", "sk-stored").unwrap();
     std::env::set_var("OPENAI_API_KEY", "sk-env");
-    let core = core_with("llm-env", FakeHttp::default(), secrets);
-    assert_eq!(core.llm_key_state("openai"), KeyState::Env);
-    assert!(core.llm_key_state_text("openai").contains("OPENAI_API_KEY"));
+    let mut core = core_with("llm-env", FakeHttp::default(), secrets);
+    assert!(checked_text(&mut core, "openai").contains("OPENAI_API_KEY"));
     std::env::remove_var("OPENAI_API_KEY");
 }
 
@@ -162,20 +210,20 @@ fn a_stored_key_is_reported_without_an_env_variable() {
     std::env::remove_var("OPENAI_API_KEY");
     let secrets = Arc::new(MemoryStore::new());
     secrets.set("openai", "sk-stored").unwrap();
-    let core = core_with("llm-stored", FakeHttp::default(), secrets);
-    assert_eq!(core.llm_key_state("openai"), KeyState::Stored);
+    let mut core = core_with("llm-stored", FakeHttp::default(), secrets);
+    assert_eq!(checked_text(&mut core, "openai"), "saved in the keyring");
 }
 
 #[test]
 fn a_missing_key_is_reported_as_missing() {
     let _guard = ENV_LOCK.lock().unwrap();
     std::env::remove_var("OPENAI_API_KEY");
-    let core = core_with(
+    let mut core = core_with(
         "llm-missing",
         FakeHttp::default(),
         Arc::new(MemoryStore::new()),
     );
-    assert_eq!(core.llm_key_state("openai"), KeyState::Missing);
+    assert_eq!(checked_text(&mut core, "openai"), "no key");
 }
 
 #[derive(Debug, Default)]
@@ -197,23 +245,28 @@ impl SecretStore for UnavailableSecrets {
 fn an_unreachable_keyring_is_reported_as_such() {
     let _guard = ENV_LOCK.lock().unwrap();
     std::env::remove_var("OPENAI_API_KEY");
-    let core = core_with(
+    let mut core = core_with(
         "llm-unavailable",
         FakeHttp::default(),
         Arc::new(UnavailableSecrets),
     );
-    assert_eq!(core.llm_key_state("openai"), KeyState::Unavailable);
-    assert!(core.llm_set_key("openai", "sk-x").is_err());
+    assert_eq!(checked_text(&mut core, "openai"), "keyring not reachable");
+    assert!(core.llm_set_key("openai", "sk-x"));
+    let events = wait(&mut core);
+    assert!(
+        matches!(events[0], UiEvent::LlmKeyError { .. }),
+        "{events:?}"
+    );
 }
 
 #[test]
 fn an_empty_key_is_refused() {
-    let core = core_with(
+    let mut core = core_with(
         "llm-empty-key",
         FakeHttp::default(),
         Arc::new(MemoryStore::new()),
     );
-    assert!(core.llm_set_key("openai", "").is_err());
+    assert!(!core.llm_set_key("openai", ""));
 }
 
 #[test]
@@ -249,4 +302,123 @@ fn the_key_never_reaches_an_error_string() {
         panic!("{events:?}");
     };
     assert!(!text.contains("sk-very-secret"), "{text}");
+}
+
+/// Bound a would-be freeze: before the fix, `llm_check_key` read the keyring itself (its logic
+/// lived in the sync `Core::llm_key_state`), so this test hung until a timeout instead of
+/// returning. Now the read happens inside the spawned thread.
+#[test]
+fn checking_a_key_never_blocks_the_caller() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    std::env::remove_var("OPENAI_API_KEY");
+    let (release, gate) = channel();
+    let secrets = Arc::new(BlockingSecrets {
+        gate: Mutex::new(gate),
+        value: "sk-blocked".into(),
+    });
+    let mut core = core_with("llm-check-nonblock", FakeHttp::default(), secrets);
+
+    let start = Instant::now();
+    assert!(core.llm_check_key("openai"));
+    assert!(
+        start.elapsed() < Duration::from_millis(100),
+        "{:?}",
+        start.elapsed()
+    );
+
+    release.send(()).unwrap();
+    let events = wait_timeout(&mut core, Duration::from_secs(2));
+    assert!(
+        matches!(events[0], UiEvent::LlmKeyState { .. }),
+        "{events:?}"
+    );
+    assert!(!format!("{events:?}").contains("sk-blocked"), "{events:?}");
+}
+
+/// Same freeze, for the key read `llm_wish` used to do on the caller before spawning.
+#[test]
+fn a_wish_never_reads_its_key_on_the_caller() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    std::env::remove_var("OPENAI_API_KEY");
+    let (release, gate) = channel();
+    let secrets = Arc::new(BlockingSecrets {
+        gate: Mutex::new(gate),
+        value: "sk-blocked".into(),
+    });
+    let http = FakeHttp {
+        chat: Ok(chat_json(VALID_PLAN)),
+        ..FakeHttp::default()
+    };
+    let mut core = core_with("llm-wish-nonblock", http, secrets);
+
+    let start = Instant::now();
+    assert!(core.llm_wish("a groove", "medium"));
+    assert!(
+        start.elapsed() < Duration::from_millis(100),
+        "{:?}",
+        start.elapsed()
+    );
+
+    release.send(()).unwrap();
+    let events = wait_timeout(&mut core, Duration::from_secs(2));
+    assert!(matches!(events[0], UiEvent::LlmPieceReady(_)), "{events:?}");
+    assert!(!format!("{events:?}").contains("sk-blocked"), "{events:?}");
+}
+
+/// Same freeze, for the key read `llm_fetch_models` used to do on the caller before spawning.
+#[test]
+fn fetching_models_never_reads_its_key_on_the_caller() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    std::env::remove_var("OPENAI_API_KEY");
+    let (release, gate) = channel();
+    let secrets = Arc::new(BlockingSecrets {
+        gate: Mutex::new(gate),
+        value: "sk-blocked".into(),
+    });
+    let http = FakeHttp {
+        models: Ok(br#"{"data":[{"id":"a"}]}"#.to_vec()),
+        ..FakeHttp::default()
+    };
+    let mut core = core_with("llm-models-nonblock", http, secrets);
+
+    let start = Instant::now();
+    assert!(core.llm_fetch_models());
+    assert!(
+        start.elapsed() < Duration::from_millis(100),
+        "{:?}",
+        start.elapsed()
+    );
+
+    release.send(()).unwrap();
+    let events = wait_timeout(&mut core, Duration::from_secs(2));
+    assert!(matches!(events[0], UiEvent::LlmModels(_)), "{events:?}");
+    assert!(!format!("{events:?}").contains("sk-blocked"), "{events:?}");
+}
+
+/// `llm_set_key`/`llm_delete_key` answer at once too; the write itself (on `BlockingSecrets`,
+/// which never blocks on `set`/`delete`) still runs off the caller's thread.
+#[test]
+fn saving_a_key_never_blocks_the_caller() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    std::env::remove_var("OPENAI_API_KEY");
+    let mut core = core_with(
+        "llm-set-nonblock",
+        FakeHttp::default(),
+        Arc::new(MemoryStore::new()),
+    );
+
+    let start = Instant::now();
+    assert!(core.llm_set_key("openai", "sk-fresh"));
+    assert!(
+        start.elapsed() < Duration::from_millis(100),
+        "{:?}",
+        start.elapsed()
+    );
+
+    let events = wait_timeout(&mut core, Duration::from_secs(2));
+    assert!(
+        matches!(events[0], UiEvent::LlmKeyState { .. }),
+        "{events:?}"
+    );
+    assert!(!format!("{events:?}").contains("sk-fresh"), "{events:?}");
 }

@@ -11,30 +11,35 @@ impl qobject::Controller {
         q(&self.rust().core.llm_providers_json())
     }
 
-    pub(super) fn llm_key_state_text(&self, provider: &QString) -> QString {
-        q(&self.rust().core.llm_key_state_text(&provider.to_string()))
+    pub(super) fn llm_check_key(mut self: Pin<&mut Self>, provider: &QString) -> bool {
+        let started = self.as_mut().core().llm_check_key(&provider.to_string());
+        if started {
+            self.as_mut().set_llm_key_busy(true);
+        }
+        started
     }
 
     pub(super) fn llm_set_key(
         mut self: Pin<&mut Self>,
         provider: &QString,
         value: &QString,
-    ) -> QString {
-        match self
+    ) -> bool {
+        let started = self
             .as_mut()
             .core()
-            .llm_set_key(&provider.to_string(), &value.to_string())
-        {
-            Ok(()) => QString::default(),
-            Err(e) => q(&e),
+            .llm_set_key(&provider.to_string(), &value.to_string());
+        if started {
+            self.as_mut().set_llm_key_busy(true);
         }
+        started
     }
 
-    pub(super) fn llm_delete_key(mut self: Pin<&mut Self>, provider: &QString) -> QString {
-        match self.as_mut().core().llm_delete_key(&provider.to_string()) {
-            Ok(()) => QString::default(),
-            Err(e) => q(&e),
+    pub(super) fn llm_delete_key(mut self: Pin<&mut Self>, provider: &QString) -> bool {
+        let started = self.as_mut().core().llm_delete_key(&provider.to_string());
+        if started {
+            self.as_mut().set_llm_key_busy(true);
         }
+        started
     }
 
     pub(super) fn change_llm_provider(mut self: Pin<&mut Self>, provider: &QString) {

@@ -1254,6 +1254,7 @@
   "llm.settings.key.delete": "Löschen",
   "llm.settings.key.docs": "Wo bekomme ich einen Schlüssel?",
   "llm.settings.test": "Verbindung testen",
+  "llm.key.checking": "Schlüssel wird geprüft …",
   "llm.key.env": "aus Umgebungsvariable {variable}",
   "llm.key.stored": "im Schlüsselbund gespeichert",
   "llm.key.missing": "kein Schlüssel",

@@ -1254,6 +1254,7 @@
   "llm.settings.key.delete": "Delete",
   "llm.settings.key.docs": "Where do I get a key?",
   "llm.settings.test": "Test connection",
+  "llm.key.checking": "Checking the key …",
   "llm.key.env": "from environment variable {variable}",
   "llm.key.stored": "saved in the keyring",
   "llm.key.missing": "no key",

@@ -1,11 +1,14 @@
 //! A wished-for piece, or a provider's model list (LH-BIB-16, "Stück wünschen"): one such
 //! request at a time, answered off the UI thread. The key never crosses into `Settings`; it is
-//! read fresh from the secret store (or the provider's environment variable) right before the
-//! request and held only inside the spawned thread.
+//! read fresh from the secret store (or the provider's environment variable) inside the spawned
+//! thread, never on the caller's (review 13.11.2026: the keyring can block for up to
+//! `KEYRING_TIMEOUT`, which froze the window when read from `Core::llm_key_state` etc. directly).
 //!
 //! ```text
-//! wish, level ──► thread: session::generate_plan ──► PiecePlan JSON ──┬─► tick: render, write
-//! "Modelle laden" ──► thread: session::list_models ──► model ids ────┘   (LlmPieceReady/Failed)
+//! wish, level ──► thread: resolve key, session::generate_plan ──► PiecePlan JSON ─┬─► tick
+//! "Modelle laden" ──► thread: resolve key, session::list_models ──► model ids ────┤ (render,
+//! check/save/delete key ──► thread: Keychain::get/set/delete ──► new KeyState ────┘  write,
+//!                                                                                     LlmKeyState)
 //! ```
 
 use crate::{Core, UiEvent};
@@ -15,6 +18,14 @@ use kontra_session::{
 };
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
 use std::sync::Arc;
+
+/// What a key check, save or delete job answers with, once its thread is done.
+enum KeyOutcome {
+    /// `llm_check_key`: the state as found, no write attempted.
+    Checked(KeyState),
+    /// `llm_set_key`/`llm_delete_key`: the state after the write, or why the write failed.
+    Written(Result<KeyState, SecretError>),
+}
 
 pub(crate) struct LlmJob {
     /// Made on first use (`Web::new` loads the system's TLS roots, not worth paying for at
@@ -26,6 +37,10 @@ pub(crate) struct LlmJob {
     /// The level the running piece job was asked for; needed again once its answer comes back.
     piece_level: String,
     models: Option<Receiver<Result<Vec<String>, GenError>>>,
+    /// A key check, save or delete in flight; the provider id travels with it (the UI may have
+    /// switched provider by the time the answer comes back, but the answer still names the one
+    /// it was asked about).
+    key: Option<(String, Receiver<KeyOutcome>)>,
 }
 
 impl Default for LlmJob {
@@ -36,6 +51,7 @@ impl Default for LlmJob {
             piece: None,
             piece_level: String::new(),
             models: None,
+            key: None,
         }
     }
 }
@@ -45,6 +61,7 @@ impl std::fmt::Debug for LlmJob {
         f.debug_struct("LlmJob")
             .field("piece_running", &self.piece.is_some())
             .field("models_running", &self.models.is_some())
+            .field("key_running", &self.key.is_some())
             .finish_non_exhaustive()
     }
 }
@@ -92,48 +109,77 @@ impl Core {
         serde_json::Value::Array(providers).to_string()
     }
 
-    /// Whether a key is set for `provider_id`, and where it came from (LH-BIB-16).
-    pub fn llm_key_state(&self, provider_id: &str) -> KeyState {
-        let Some(provider) = session::provider(provider_id) else {
-            return KeyState::Missing;
+    /// Starts checking whether a key is set for `provider_id`, and where it came from
+    /// (LH-BIB-16); the answer comes back through `tick` as `UiEvent::LlmKeyState`. `false`
+    /// when a key job already runs or `provider_id` names no provider Kontra offers.
+    pub fn llm_check_key(&mut self, provider_id: &str) -> bool {
+        if self.llm.key.is_some() {
+            return false;
+        }
+        let Some(provider) = session::provider(provider_id).copied() else {
+            return false;
         };
-        if self.llm_env_key(provider).is_some() {
-            return KeyState::Env;
-        }
-        match self.llm.secrets.get(provider.id) {
-            Ok(_) => KeyState::Stored,
-            Err(SecretError::NotFound | SecretError::Failed(_)) => KeyState::Missing,
-            Err(SecretError::Unavailable) => KeyState::Unavailable,
-        }
+        let env_present = self.llm_env_key(&provider).is_some();
+        let secrets = self.llm.secrets.clone();
+        let (tell, answer) = channel();
+        std::thread::spawn(move || {
+            let state = key_state_blocking(secrets.as_ref(), provider.id, env_present);
+            let _ = tell.send(KeyOutcome::Checked(state));
+        });
+        self.llm.key = Some((provider.id.to_string(), answer));
+        true
     }
 
-    /// The i18n text of `llm_key_state`.
-    pub fn llm_key_state_text(&self, provider_id: &str) -> String {
-        let state = self.llm_key_state(provider_id);
-        let args: &[(&str, String)] = match (state, session::provider(provider_id)) {
-            (KeyState::Env, Some(p)) => &[("variable", p.key_env.to_string())],
-            _ => &[],
+    /// Starts storing `value` as `provider_id`'s key in the background; empty is refused (use
+    /// `llm_delete_key`). The new state comes back through `tick` as `UiEvent::LlmKeyState`, a
+    /// failed write as `UiEvent::LlmKeyError`. `false` when nothing was started.
+    pub fn llm_set_key(&mut self, provider_id: &str, value: &str) -> bool {
+        if value.is_empty() || self.llm.key.is_some() {
+            return false;
+        }
+        let Some(provider) = session::provider(provider_id).copied() else {
+            return false;
         };
-        self.tr(state.text_key(), args)
+        let env_present = self.llm_env_key(&provider).is_some();
+        let secrets = self.llm.secrets.clone();
+        let value = value.to_string();
+        let (tell, answer) = channel();
+        std::thread::spawn(move || {
+            let result = secrets
+                .set(provider.id, &value)
+                .map(|()| key_state_blocking(secrets.as_ref(), provider.id, env_present));
+            let _ = tell.send(KeyOutcome::Written(result));
+        });
+        self.llm.key = Some((provider.id.to_string(), answer));
+        true
     }
 
-    /// Stores `value` as `provider_id`'s key; empty is refused (use `llm_delete_key`).
-    pub fn llm_set_key(&self, provider_id: &str, value: &str) -> Result<(), String> {
-        if value.is_empty() {
-            return Err(self.tr("llm.key.error.empty", &[]));
+    /// Starts removing a stored key in the background; not an error when none was stored. The
+    /// new state comes back through `tick` as `UiEvent::LlmKeyState`, a failed delete as
+    /// `UiEvent::LlmKeyError`. `false` when nothing was started.
+    pub fn llm_delete_key(&mut self, provider_id: &str) -> bool {
+        if self.llm.key.is_some() {
+            return false;
         }
-        self.llm
-            .secrets
-            .set(provider_id, value)
-            .map_err(|e| self.llm_secret_error_text(&e))
-    }
-
-    /// Removes a stored key; not an error when none was stored.
-    pub fn llm_delete_key(&self, provider_id: &str) -> Result<(), String> {
-        match self.llm.secrets.delete(provider_id) {
-            Ok(()) | Err(SecretError::NotFound) => Ok(()),
-            Err(e) => Err(self.llm_secret_error_text(&e)),
-        }
+        let Some(provider) = session::provider(provider_id).copied() else {
+            return false;
+        };
+        let env_present = self.llm_env_key(&provider).is_some();
+        let secrets = self.llm.secrets.clone();
+        let (tell, answer) = channel();
+        std::thread::spawn(move || {
+            let result = match secrets.delete(provider.id) {
+                Ok(()) | Err(SecretError::NotFound) => Ok(key_state_blocking(
+                    secrets.as_ref(),
+                    provider.id,
+                    env_present,
+                )),
+                Err(e) => Err(e),
+            };
+            let _ = tell.send(KeyOutcome::Written(result));
+        });
+        self.llm.key = Some((provider.id.to_string(), answer));
+        true
     }
 
     /// Starts writing a piece from `wish` at `level` in the background; `false` when a request
@@ -147,13 +193,15 @@ impl Core {
         };
         let base_url = self.llm_base_url(&provider);
         let model = self.llm_model(&provider);
-        let key = self.llm_key(&provider);
+        let env_key = self.llm_env_key(&provider);
+        let secrets = self.llm.secrets.clone();
         let http = self.llm_http();
         let wish = wish.to_string();
         let level_key = level.to_string();
         let (tell, answer) = channel();
         std::thread::spawn(move || {
             let level = Level::from_key(&level_key).unwrap_or_default();
+            let key = env_key.or_else(|| secrets.get(provider.id).ok());
             let result = session::generate_plan(
                 http.as_ref(),
                 &provider,
@@ -182,10 +230,12 @@ impl Core {
             return false;
         };
         let base_url = self.llm_base_url(&provider);
-        let key = self.llm_key(&provider);
+        let env_key = self.llm_env_key(&provider);
+        let secrets = self.llm.secrets.clone();
         let http = self.llm_http();
         let (tell, answer) = channel();
         std::thread::spawn(move || {
+            let key = env_key.or_else(|| secrets.get(provider.id).ok());
             let result = session::list_models(http.as_ref(), &provider, &base_url, key.as_deref());
             let _ = tell.send(result);
         });
@@ -196,6 +246,11 @@ impl Core {
     /// A request still running; the UI offers only one at a time.
     pub fn llm_busy(&self) -> bool {
         self.llm.piece.is_some() || self.llm.models.is_some()
+    }
+
+    /// A key check, save or delete still running.
+    pub fn llm_key_busy(&self) -> bool {
+        self.llm.key.is_some()
     }
 
     /// Finished background requests, as events for `tick`.
@@ -229,6 +284,26 @@ impl Core {
             Some(Err(TryRecvError::Disconnected)) => self.llm.models = None,
             Some(Err(TryRecvError::Empty)) | None => {}
         }
+        if let Some((provider, rx)) = self.llm.key.take() {
+            match rx.try_recv() {
+                Ok(outcome) => events.push(match outcome {
+                    KeyOutcome::Checked(state) => UiEvent::LlmKeyState {
+                        text: self.llm_key_state_text(&provider, state),
+                        provider,
+                    },
+                    KeyOutcome::Written(Ok(state)) => UiEvent::LlmKeyState {
+                        text: self.llm_key_state_text(&provider, state),
+                        provider,
+                    },
+                    KeyOutcome::Written(Err(e)) => UiEvent::LlmKeyError {
+                        text: self.llm_secret_error_text(&e),
+                        provider,
+                    },
+                }),
+                Err(TryRecvError::Empty) => self.llm.key = Some((provider, rx)),
+                Err(TryRecvError::Disconnected) => {}
+            }
+        }
         events
     }
 
@@ -250,10 +325,13 @@ impl Core {
         }
     }
 
-    /// The key to send: the provider's environment variable first, else the stored one.
-    fn llm_key(&self, provider: &Provider) -> Option<String> {
-        self.llm_env_key(provider)
-            .or_else(|| self.llm.secrets.get(provider.id).ok())
+    /// The i18n text of a `KeyState` found for `provider_id`.
+    fn llm_key_state_text(&self, provider_id: &str, state: KeyState) -> String {
+        let args: &[(&str, String)] = match (state, session::provider(provider_id)) {
+            (KeyState::Env, Some(p)) => &[("variable", p.key_env.to_string())],
+            _ => &[],
+        };
+        self.tr(state.text_key(), args)
     }
 
     fn llm_env_key(&self, provider: &Provider) -> Option<String> {
@@ -313,6 +391,19 @@ impl Core {
     pub(crate) fn llm_test_env(&mut self, http: Arc<dyn Http>, secrets: Arc<dyn SecretStore>) {
         self.llm.http = Some(http);
         self.llm.secrets = secrets;
+    }
+}
+
+/// Where a key stands: `env_present` (checked up front, cheap) wins; else the store itself is
+/// asked. Runs inside the spawned thread, never on the caller's.
+fn key_state_blocking(secrets: &dyn SecretStore, account: &str, env_present: bool) -> KeyState {
+    if env_present {
+        return KeyState::Env;
+    }
+    match secrets.get(account) {
+        Ok(_) => KeyState::Stored,
+        Err(SecretError::NotFound | SecretError::Failed(_)) => KeyState::Missing,
+        Err(SecretError::Unavailable) => KeyState::Unavailable,
     }
 }
 

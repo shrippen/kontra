@@ -22,10 +22,13 @@ KanteDialog {
     property int level: 1
     property bool hasProvider: false
 
+    // The key never answers synchronously (it can live behind a slow or locked keyring); the
+    // dialog shows "checking" (dialog.ctl.llmKeyBusy) until `llmKeyState` names the answer.
     function refreshProvider() {
+        hasProvider = false
         var providers = JSON.parse(ctl.llmProvidersJson())
         var chosen = providers.some(function(p) { return p.id === ctl.llmProvider })
-        hasProvider = chosen && ctl.llmKeyStateText(ctl.llmProvider) !== texts.t("llm.key.missing")
+        if (chosen) ctl.llmCheckKey(ctl.llmProvider)
     }
 
     onOpened: {
@@ -35,15 +38,25 @@ KanteDialog {
     Connections {
         target: dialog.ctl
         function onLlmProviderChanged() { dialog.refreshProvider() }
+        function onLlmKeyState(provider, text) {
+            if (provider === dialog.ctl.llmProvider)
+                dialog.hasProvider = text !== dialog.texts.t("llm.key.missing")
+        }
     }
 
     ColumnLayout {
         anchors.fill: parent
         spacing: KanteStyle.unit(8)
 
+        QQC2.Label {
+            Layout.fillWidth: true
+            visible: dialog.ctl.llmKeyBusy
+            text: dialog.texts.t("llm.key.checking")
+        }
+
         KanteCallout {
             Layout.fillWidth: true
-            visible: !dialog.hasProvider
+            visible: !dialog.hasProvider && !dialog.ctl.llmKeyBusy
             kind: KanteCallout.Kind.Info
             text: dialog.texts.t("wish.no.provider")
             autoHide: false
@@ -104,7 +117,8 @@ KanteDialog {
             KanteButton {
                 text: dialog.texts.t("wish.generate")
                 emphasis: KanteButton.Emphasis.Primary
-                enabled: dialog.hasProvider && wishField.text.trim().length > 0 && !dialog.ctl.llmBusy
+                enabled: dialog.hasProvider && wishField.text.trim().length > 0
+                    && !dialog.ctl.llmBusy && !dialog.ctl.llmKeyBusy
                 onClicked: {
                     if (dialog.ctl.llmWish(wishField.text, dialog.levels[dialog.level]))
                         dialog.close()

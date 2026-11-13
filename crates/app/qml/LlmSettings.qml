@@ -32,8 +32,12 @@ KanteDialog {
     readonly property bool isCustom: ctl.llmProvider === "custom"
     readonly property bool needsKey: currentProvider ? currentProvider.needsKey : true
 
+    // The key never answers synchronously (it can live behind a slow or locked keyring); the
+    // row shows "checking" (`llm.key.checking`) until `llmKeyState`/`llmKeyError` names the
+    // answer (dialog.ctl.llmKeyBusy disables Save/Delete meanwhile).
     function refreshKeyState() {
-        keyState = ctl.llmKeyStateText(ctl.llmProvider)
+        keyState = texts.t("llm.key.checking")
+        ctl.llmCheckKey(ctl.llmProvider)
     }
 
     onOpened: {
@@ -48,6 +52,12 @@ KanteDialog {
         target: dialog.ctl
         function onLlmProviderChanged() { dialog.refreshKeyState() }
         function onLlmModelsJsonChanged() { dialog.models = JSON.parse(dialog.ctl.llmModelsJson) }
+        function onLlmKeyState(provider, text) {
+            if (provider === dialog.ctl.llmProvider) dialog.keyState = text
+        }
+        function onLlmKeyError(provider, text) {
+            if (provider === dialog.ctl.llmProvider) dialog.error = text
+        }
     }
 
     ColumnLayout {
@@ -127,24 +137,21 @@ KanteDialog {
                 KanteButton {
                     text: dialog.keyState === texts.t("llm.key.missing")
                         ? texts.t("llm.settings.key.save") : texts.t("llm.settings.key.replace")
-                    enabled: keyField.text.length > 0
+                    enabled: keyField.text.length > 0 && !dialog.ctl.llmKeyBusy
                     onClicked: {
-                        var answer = dialog.ctl.llmSetKey(dialog.ctl.llmProvider, keyField.text)
-                        dialog.error = answer
-                        if (answer === "") {
+                        dialog.error = ""
+                        if (dialog.ctl.llmSetKey(dialog.ctl.llmProvider, keyField.text))
                             keyField.text = ""
-                            dialog.refreshKeyState()
-                        }
                     }
                 }
                 KanteButton {
                     text: texts.t("llm.settings.key.delete")
                     emphasis: KanteButton.Emphasis.Quiet
                     visible: dialog.keyState !== texts.t("llm.key.missing")
+                    enabled: !dialog.ctl.llmKeyBusy
                     onClicked: {
-                        var answer = dialog.ctl.llmDeleteKey(dialog.ctl.llmProvider)
-                        dialog.error = answer
-                        if (answer === "") dialog.refreshKeyState()
+                        dialog.error = ""
+                        dialog.ctl.llmDeleteKey(dialog.ctl.llmProvider)
                     }
                 }
             }

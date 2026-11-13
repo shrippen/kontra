@@ -189,6 +189,10 @@ pub mod qobject {
         #[qproperty(QString, llm_models_json, cxx_name = "llmModelsJson")]
         /// A wish or a model list is being asked for; the UI offers only one at a time.
         #[qproperty(bool, llm_busy, cxx_name = "llmBusy")]
+        /// A key check, save or delete is being asked for (LH-BIB-16, review 13.11.2026: the
+        /// keyring itself answers off the UI thread, so the dialog shows this instead of
+        /// freezing); the answer arrives as `llmKeyState`/`llmKeyError`.
+        #[qproperty(bool, llm_key_busy, cxx_name = "llmKeyBusy")]
         #[qproperty(bool, autoplay)]
         /// QA: a blind probe of the start loop instead of autoplay (DIDAKTIK I1).
         #[qproperty(bool, autoprobe)]
@@ -652,20 +656,25 @@ pub mod qobject {
         #[cxx_name = "llmProvidersJson"]
         fn llm_providers_json(self: &Self) -> QString;
 
-        /// Whether `provider` has a key, and where it came from, as shown text.
+        /// Starts checking whether `provider` has a key, and where it came from, in the
+        /// background; `false` when a key job already runs or `provider` is unknown. The
+        /// answer is the `llmKeyState` signal.
         #[qinvokable]
-        #[cxx_name = "llmKeyStateText"]
-        fn llm_key_state_text(self: &Self, provider: &QString) -> QString;
+        #[cxx_name = "llmCheckKey"]
+        fn llm_check_key(self: Pin<&mut Self>, provider: &QString) -> bool;
 
-        /// Stores `value` as `provider`'s key; `""` back on success, else an error text.
+        /// Starts storing `value` as `provider`'s key in the background; `false` when nothing
+        /// was started (empty value, a key job already runs, or `provider` is unknown). The
+        /// answer is the `llmKeyState` or `llmKeyError` signal.
         #[qinvokable]
         #[cxx_name = "llmSetKey"]
-        fn llm_set_key(self: Pin<&mut Self>, provider: &QString, value: &QString) -> QString;
+        fn llm_set_key(self: Pin<&mut Self>, provider: &QString, value: &QString) -> bool;
 
-        /// Removes a stored key; `""` back on success, else an error text.
+        /// Starts removing a stored key in the background; `false` when a key job already
+        /// runs. The answer is the `llmKeyState` or `llmKeyError` signal.
         #[qinvokable]
         #[cxx_name = "llmDeleteKey"]
-        fn llm_delete_key(self: Pin<&mut Self>, provider: &QString) -> QString;
+        fn llm_delete_key(self: Pin<&mut Self>, provider: &QString) -> bool;
 
         #[qinvokable]
         #[cxx_name = "changeLlmProvider"]
@@ -990,6 +999,17 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "llmPieceOpened"]
         fn llm_piece_opened(self: Pin<&mut Self>);
+
+        /// A key check, save or delete answered with a new state to show (LH-BIB-16); never
+        /// the key itself.
+        #[qsignal]
+        #[cxx_name = "llmKeyState"]
+        fn llm_key_state(self: Pin<&mut Self>, provider: QString, text: QString);
+
+        /// A key save or delete failed.
+        #[qsignal]
+        #[cxx_name = "llmKeyError"]
+        fn llm_key_error(self: Pin<&mut Self>, provider: QString, text: QString);
     }
 }
 
@@ -1146,6 +1166,7 @@ pub struct ControllerRust {
     llm_model: QString,
     llm_models_json: QString,
     llm_busy: bool,
+    llm_key_busy: bool,
     autoplay: bool,
     autoprobe: bool,
     autocalibrate: bool,
@@ -1332,6 +1353,7 @@ impl Default for ControllerRust {
             llm_model: q(&s.llm_model),
             llm_models_json: q("[]"),
             llm_busy: false,
+            llm_key_busy: false,
             autoplay: args.autoplay,
             autoprobe: args.probe,
             autocalibrate: args.calibrate,
@@ -1877,6 +1899,14 @@ impl qobject::Controller {
                 UiEvent::LlmFailed(text) => {
                     self.as_mut().set_llm_busy(false);
                     self.as_mut().show_error(&text);
+                }
+                UiEvent::LlmKeyState { provider, text } => {
+                    self.as_mut().set_llm_key_busy(false);
+                    self.as_mut().llm_key_state(q(&provider), q(&text));
+                }
+                UiEvent::LlmKeyError { provider, text } => {
+                    self.as_mut().set_llm_key_busy(false);
+                    self.as_mut().llm_key_error(q(&provider), q(&text));
                 }
             }
         }
