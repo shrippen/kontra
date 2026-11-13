@@ -263,8 +263,26 @@ fn a_course_term_for_another_instrument_is_left_out() {
 fn generated_exercise_opens() {
     let dir = temp_dir("exercise");
     let mut core = Core::new(&dir, QaOptions::default());
-    assert!(Core::exercise_spec("groove", "251", "nope", 0, 90.0, "").is_none());
-    let spec = Core::exercise_spec("walking", "blues", "", 5, 110.0, "").unwrap();
+    assert!(Core::exercise_spec(
+        "groove",
+        "251",
+        "nope",
+        0,
+        90.0,
+        "",
+        PieceVariety::default()
+    )
+    .is_none());
+    let spec = Core::exercise_spec(
+        "walking",
+        "blues",
+        "",
+        5,
+        110.0,
+        "",
+        PieceVariety::default(),
+    )
+    .unwrap();
     let path = core.generate_exercise(&spec).unwrap();
     assert!(path.starts_with(dir.join("exercises")));
     assert!(matches!(core.open(&path), Ok(Opened::Ready)));
@@ -283,7 +301,16 @@ fn generator_offers_patterns_fingers_and_meters() {
     let dir = temp_dir("generator");
     let mut core = Core::new(&dir, QaOptions::default());
     let spec = |kind, variant, rhythm, key| {
-        Core::exercise_spec(kind, variant, rhythm, key, 80.0, "").unwrap()
+        Core::exercise_spec(
+            kind,
+            variant,
+            rhythm,
+            key,
+            80.0,
+            "",
+            PieceVariety::default(),
+        )
+        .unwrap()
     };
     let thirds = spec("scale", "dorian", "thirds", 2);
     assert_eq!(
@@ -305,7 +332,16 @@ fn generator_offers_patterns_fingers_and_meters() {
         meter.kind,
         K::Groove(Progression::Minor, Rhythm::SevenEight)
     );
-    assert!(Core::exercise_spec("chromatic", "1123", "", 5, 80.0, "").is_none());
+    assert!(Core::exercise_spec(
+        "chromatic",
+        "1123",
+        "",
+        5,
+        80.0,
+        "",
+        PieceVariety::default()
+    )
+    .is_none());
 
     core.update_settings(|s| s.language = Some("en".into()));
     let title = |core: &Core, s| core.exercise_title(&exercise::describe(s));
@@ -346,10 +382,28 @@ fn generator_offers_patterns_fingers_and_meters() {
     assert_eq!(title(&core, &easy), "Funk piece (easy) in Am (80 BPM)");
     core.update_settings(|s| s.language = Some("de".into()));
     assert_eq!(title(&core, &easy), "Stück Funk (leicht) in Am (80 BPM)");
-    assert!(Core::exercise_spec("song", "funk", "brutal", 9, 80.0, "").is_none());
+    assert!(Core::exercise_spec(
+        "song",
+        "funk",
+        "brutal",
+        9,
+        80.0,
+        "",
+        PieceVariety::default()
+    )
+    .is_none());
 
     // A groove judged by time only (DIDAKTIK I4): its own title, the file carries it.
-    let timing = Core::exercise_spec("groove", "tonic", "eighths", 4, 80.0, "time").unwrap();
+    let timing = Core::exercise_spec(
+        "groove",
+        "tonic",
+        "eighths",
+        4,
+        80.0,
+        "time",
+        PieceVariety::default(),
+    )
+    .unwrap();
     assert_eq!(timing.judging, Judging::TimeOnly);
     assert_eq!(
         title(&core, &timing),
@@ -358,16 +412,43 @@ fn generator_offers_patterns_fingers_and_meters() {
     let path = core.generate_exercise(&timing).unwrap();
     assert!(matches!(core.open(&path), Ok(Opened::Ready)));
     assert_eq!(core.arrangement().unwrap().judging, Judging::TimeOnly);
-    let normal = Core::exercise_spec("groove", "tonic", "eighths", 4, 80.0, "pitch").unwrap();
+    let normal = Core::exercise_spec(
+        "groove",
+        "tonic",
+        "eighths",
+        4,
+        80.0,
+        "pitch",
+        PieceVariety::default(),
+    )
+    .unwrap();
     assert_ne!(
         core.generate_exercise(&normal).unwrap(),
         path,
         "no overwrite"
     );
-    assert!(Core::exercise_spec("groove", "tonic", "eighths", 4, 80.0, "loud").is_none());
+    assert!(Core::exercise_spec(
+        "groove",
+        "tonic",
+        "eighths",
+        4,
+        80.0,
+        "loud",
+        PieceVariety::default()
+    )
+    .is_none());
 
     // Open (LH-BEW-13): the line is made up, the file says so.
-    let open = Core::exercise_spec("groove", "145", "rests", 9, 80.0, "open").unwrap();
+    let open = Core::exercise_spec(
+        "groove",
+        "145",
+        "rests",
+        9,
+        80.0,
+        "open",
+        PieceVariety::default(),
+    )
+    .unwrap();
     assert_eq!(open.judging, Judging::Open);
     assert!(
         title(&core, &open).ends_with(", frei"),
@@ -571,7 +652,16 @@ fn exercise_titles_follow_the_language() {
 fn call_and_response_shows_the_tab_after_two_failed_tries() {
     let dir = temp_dir("call");
     let mut core = Core::new(&dir, QaOptions::default());
-    let spec = Core::exercise_spec("groove", "145", "quarters", 9, 80.0, "").unwrap();
+    let spec = Core::exercise_spec(
+        "groove",
+        "145",
+        "quarters",
+        9,
+        80.0,
+        "",
+        PieceVariety::default(),
+    )
+    .unwrap();
     let path = core.generate_exercise(&spec).unwrap();
     core.open(&path).unwrap();
     assert!(!core.call_hidden());
@@ -633,5 +723,66 @@ fn old_run_counts_and_recent_names_last_run() {
     assert_eq!(home["totalRuns"], 1);
     let recent: serde_json::Value = serde_json::from_str(&core.recent_json()).unwrap();
     assert_eq!(recent[0]["lastRunUnix"], run_at);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Bug (review of PR #316): a piece's `generated_path` ignored `seed` and `length`, so a
+/// variant or a shorter/longer form of the same style and key overwrote the plain piece's
+/// file and its progress.
+#[test]
+fn a_piece_s_path_and_title_tell_its_seed_and_length_apart() {
+    let dir = temp_dir("piece-paths");
+    let core = Core::new(&dir, QaOptions::default());
+    let spec = |seed, length| exercise::ExerciseSpec {
+        seed,
+        length,
+        ..exercise::ExerciseSpec {
+            kind: exercise::ExerciseKind::Song(exercise::Style::Pop, exercise::Level::Medium),
+            key: 7,
+            bpm: 90.0,
+            slow: false,
+            repeats: 1,
+            ramp_bpm: 0.0,
+            judging: Judging::PitchAndTime,
+            seed: 0,
+            length: exercise::Length::Normal,
+        }
+    };
+    let path = |seed, length| core.generated_path(&spec(seed, length));
+    let plain = path(0, exercise::Length::Normal);
+    let variant = path(7, exercise::Length::Normal);
+    let short = path(0, exercise::Length::Short);
+    let long = path(0, exercise::Length::Long);
+    assert_ne!(plain, variant, "a variant overwrote the plain piece");
+    assert_ne!(plain, short, "a short piece overwrote the plain piece");
+    assert_ne!(plain, long, "a long piece overwrote the plain piece");
+    assert_ne!(short, long);
+    assert_eq!(
+        plain,
+        path(0, exercise::Length::Normal),
+        "same seed and length, same path"
+    );
+
+    let title = core.exercise_title(&exercise::describe(&spec(7, exercise::Length::Short)));
+    assert!(title.contains("7"), "{title}: no sign of the seed");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Bug (review of PR #316): `piece_path` only replaced `/ : # ♯ ♭`. A plan's title comes from
+/// an LLM; `? * " < > | \` and control characters make an invalid path on Windows (or a
+/// subdirectory, for `/`), and `generate_piece` would fail with a filesystem error there.
+#[test]
+fn piece_path_sanitizes_every_character_invalid_in_a_file_name() {
+    let dir = temp_dir("piece-sanitize");
+    let core = Core::new(&dir, QaOptions::default());
+    let title = "A\\B/C:D*E?F\"G<H>I|J\n\tK ♯L ♭M #N";
+    let path = core.piece_path(title);
+    let name = path.file_stem().unwrap().to_str().unwrap().to_string();
+    for bad in [
+        '\\', '/', ':', '*', '?', '"', '<', '>', '|', '\n', '\t', '#', '♯', '♭',
+    ] {
+        assert!(!name.contains(bad), "{name:?} still has {bad:?}");
+    }
+    assert!(name.starts_with("A-B-C-D-E-F-G-H-I-J"), "{name}");
     let _ = std::fs::remove_dir_all(dir);
 }

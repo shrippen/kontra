@@ -45,11 +45,11 @@ mod tuner;
 mod unplug;
 mod update;
 
+pub use bundled::PieceVariety;
 pub use data::DataImport;
 pub use i18n::{Catalog, Language};
 pub use input_state::{InputState, QaOptions};
-pub use kontra_session::{exercise, Blocks, ChainOrder, Density};
-pub use kontra_session::{file_url, local_path};
+pub use kontra_session::{exercise, file_url, local_path, Blocks, ChainOrder, Density};
 pub use library::BackingChange;
 pub use package::PackageAudio;
 pub use store::{

@@ -9,7 +9,7 @@
 //! ```
 
 use crate::bundled::plan_number;
-use crate::{ear, exercise, unix_now, Core, Language};
+use crate::{ear, exercise, unix_now, Core, Language, PieceVariety};
 use kontra_model::Pitch;
 use kontra_session::lesson::{Block, Doc, ExerciseRef, Lang, Practice, Span, Tones};
 use kontra_session::{
@@ -701,7 +701,15 @@ impl Core {
         else {
             return None;
         };
-        Core::exercise_spec(kind, variant, rhythm, *key, f64::from(*bpm), judging)
+        Core::exercise_spec(
+            kind,
+            variant,
+            rhythm,
+            *key,
+            f64::from(*bpm),
+            judging,
+            PieceVariety::default(),
+        )
     }
 
     fn pages_json(&self, doc: &Doc) -> Vec<Value> {

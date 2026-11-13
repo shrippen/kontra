@@ -201,6 +201,7 @@ impl qobject::Controller {
             u8::try_from(key.rem_euclid(12)).unwrap_or(0),
             bpm,
             &judging.to_string(),
+            kontra_appcore::PieceVariety::default(),
         ) else {
             return false;
         };

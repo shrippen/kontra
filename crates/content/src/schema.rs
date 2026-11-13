@@ -2,12 +2,15 @@
 //! `.kontra` and course packages and the course file. Generated from the serde structures, so
 //! they say what Kontra reads; `kontra-cli schemas <dir>` writes them, `schema/` holds them.
 
+use crate::exercise::PiecePlan;
 use crate::lesson::{course_schema, CourseManifest};
 use crate::Manifest;
 
 const PACKAGE_MANIFEST: &str = "package-manifest.schema.json";
 const COURSE_MANIFEST: &str = "course-manifest.schema.json";
 const COURSE: &str = "course.schema.json";
+/// For the prompt of an LLM that writes piece plans (LH-BIB-14).
+const PIECE_PLAN: &str = "piece-plan.schema.json";
 
 /// Each schema as (file name, pretty JSON with a final newline).
 pub fn json_schemas() -> Result<Vec<(&'static str, String)>, serde_json::Error> {
@@ -15,6 +18,7 @@ pub fn json_schemas() -> Result<Vec<(&'static str, String)>, serde_json::Error> 
         (PACKAGE_MANIFEST, schemars::schema_for!(Manifest)),
         (COURSE_MANIFEST, schemars::schema_for!(CourseManifest)),
         (COURSE, course_schema()),
+        (PIECE_PLAN, schemars::schema_for!(PiecePlan)),
     ];
     schemas
         .into_iter()

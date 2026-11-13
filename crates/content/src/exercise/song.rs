@@ -1,15 +1,18 @@
-//! Generated pieces to play through (owner, 24.10.: "Etüden wie Lieder"): a form of intro,
-//! verses, choruses, a bridge and an outro, each part with its own chords and groove, drums with
-//! a fill before each new part, the last bar on the tonic. Like the other exercises a MIDI file
-//! through the normal import, so the workshop can loop a chorus like any bars.
+//! The five built-in pieces (Harmonicon: "Etüden wie Lieder", 24.10.) as `PiecePlan`s: a form
+//! of intro, verses, choruses, a bridge and an outro, each part with its own chords and groove.
+//! `Style::plan` builds the plan for a key; `render` hands it to `piece_render`.
 //!
 //! ```text
-//! Style ──form──▶ Part, Part, …  (section, progression, rhythm, times)
-//!                  │ Level: the bass rhythm of each part one step simpler or denser
-//!                  │ chords_line + groove_bar ──▶ tones, chord names ─┐
-//!                  └ drum_bar, fill on the last beat ──▶ drums ───────┴──▶ Pass + drums
+//! Style ──plan(key, length, seed)──▶ PiecePlan (parts: section, bars, groove, times, drums)
+//!                                       └─▶ piece_render::pass_of ──▶ Pass, drums, marks
 //! ```
 
+use super::chord::Chord;
+use super::piece_plan::{
+    Checked, CheckedPart, Drums, PieceFeel, PiecePlan, PlanLine, PlanPart, Section,
+};
+use super::piece_render::Rendered;
+use super::variety::Rng;
 use super::*;
 
 /// Character of a piece: its form, grooves and tempo range.
@@ -54,7 +57,7 @@ impl Level {
     }
 
     /// The German suffix of the file's title; progress is keyed by it, so each level has its own.
-    fn label(self) -> &'static str {
+    pub(super) fn label(self) -> &'static str {
         match self {
             Level::Easy => " (leicht)",
             Level::Medium => "",
@@ -64,7 +67,7 @@ impl Level {
 
     /// `rhythm` at this level. Easy drops subdivisions and syncopation, hard adds them; a
     /// rhythm keeps its meter (all are 4/4 here), so the drums and the form fit.
-    fn rhythm(self, rhythm: Rhythm) -> Rhythm {
+    pub(super) fn rhythm(self, rhythm: Rhythm) -> Rhythm {
         use Rhythm::*;
         match (self, rhythm) {
             (Level::Medium, r) => r,
@@ -84,52 +87,51 @@ impl Level {
     }
 }
 
-/// Where a part stands in the form; the intro plays lighter drums.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Section {
-    Intro,
-    Verse,
-    Chorus,
-    Bridge,
-    Outro,
+/// How long the form plays: fewer or more repeats of its verses and choruses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Length {
+    /// About one minute.
+    Short,
+    #[default]
+    Normal,
+    /// Three to four minutes.
+    Long,
 }
 
-impl Section {
-    /// The rehearsal mark over the part's first bar, as German bands say it (LH-BIB-12); the
-    /// shuffle's twelve bars of blues are a chorus. The app shows Strophe and Refrain in its
-    /// language (`GENERATED_PARTS` in appcore).
-    fn mark(self, style: Style) -> &'static str {
-        match (self, style) {
-            (Section::Intro, _) => "Intro",
-            (Section::Verse, Style::Shuffle) => "Chorus",
-            (Section::Verse, _) => "Strophe",
-            (Section::Chorus, _) => "Refrain",
-            (Section::Bridge, _) => "Bridge",
-            (Section::Outro, _) => "Outro",
+impl Length {
+    pub const ALL: [Length; 3] = [Length::Short, Length::Normal, Length::Long];
+
+    pub fn key(self) -> &'static str {
+        match self {
+            Length::Short => "short",
+            Length::Normal => "normal",
+            Length::Long => "long",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|l| l.key() == key)
+    }
+
+    /// `base` repeats at `Length::Normal`, one fewer (never below one) or one more.
+    fn times(self, base: u32) -> u32 {
+        match self {
+            Length::Short => base.saturating_sub(1).max(1),
+            Length::Normal => base,
+            Length::Long => base + 1,
+        }
+    }
+
+    /// Choruses of the shuffle's blues form (its parts are not repeated, so `times` has no
+    /// part to shorten or lengthen).
+    fn choruses(self) -> usize {
+        match self {
+            Length::Short => 2,
+            Length::Normal => 4,
+            Length::Long => 6,
         }
     }
 }
-
-/// One part of the form: its chords played `times` in a row.
-#[derive(Debug, Clone, Copy)]
-struct Part {
-    section: Section,
-    progression: Progression,
-    rhythm: Rhythm,
-    times: u32,
-}
-
-const fn part(section: Section, progression: Progression, rhythm: Rhythm, times: u32) -> Part {
-    Part {
-        section,
-        progression,
-        rhythm,
-        times,
-    }
-}
-
-/// General MIDI snare roll of a fill: four sixteenths on the last beat.
-const FILL_STROKES: u32 = 4;
 
 impl Style {
     pub const ALL: [Style; 5] = [
@@ -139,62 +141,6 @@ impl Style {
         Style::Funk,
         Style::Shuffle,
     ];
-
-    /// The parts in order: intro, verse and chorus twice, outro; pop, rock and funk add a bridge
-    /// and a last chorus. The shuffle plays four twelve-bar choruses of the blues. 40 to 60 bars.
-    fn form(self) -> Vec<Part> {
-        use Progression as P;
-        use Rhythm::*;
-        use Section::*;
-        match self {
-            Style::Ballad => vec![
-                part(Intro, P::OneFourFive, Quarters, 1),
-                part(Verse, P::Pop, RootFifth, 2),
-                part(Chorus, P::OneFourFive, Quarters, 2),
-                part(Verse, P::Pop, RootFifth, 2),
-                part(Chorus, P::OneFourFive, Quarters, 2),
-                part(Outro, P::OneFourFive, RootFifth, 1),
-            ],
-            Style::Pop => vec![
-                part(Intro, P::Pop, Quarters, 1),
-                part(Verse, P::Pop, Eighths, 2),
-                part(Chorus, P::OneFourFive, Octaves, 2),
-                part(Verse, P::Pop, Eighths, 2),
-                part(Chorus, P::OneFourFive, Octaves, 2),
-                part(Bridge, P::Turnaround, Tresillo, 2),
-                part(Chorus, P::OneFourFive, Octaves, 2),
-                part(Outro, P::Pop, Quarters, 1),
-            ],
-            Style::Rock => vec![
-                part(Intro, P::OneFourFive, Eighths, 1),
-                part(Verse, P::OneFourFive, Eighths, 2),
-                part(Chorus, P::Pop, Octaves, 2),
-                part(Verse, P::OneFourFive, Eighths, 2),
-                part(Chorus, P::Pop, Octaves, 2),
-                part(Bridge, P::Turnaround, RootFifthOctave, 2),
-                part(Chorus, P::Pop, Octaves, 2),
-                part(Outro, P::OneFourFive, Quarters, 1),
-            ],
-            Style::Funk => vec![
-                part(Intro, P::Minor, Ghost, 1),
-                part(Verse, P::Minor, Ghost, 2),
-                part(Chorus, P::MinorTwoFiveOne, Funk, 2),
-                part(Verse, P::Minor, Ghost, 2),
-                part(Chorus, P::MinorTwoFiveOne, Funk, 2),
-                part(Bridge, P::Minor, DeadNotes, 2),
-                part(Chorus, P::MinorTwoFiveOne, Funk, 2),
-                part(Outro, P::Minor, Quarters, 1),
-            ],
-            Style::Shuffle => vec![
-                part(Intro, P::Tonic, Shuffle, 1),
-                part(Verse, P::Blues, Shuffle, 1),
-                part(Verse, P::Blues, Shuffle, 1),
-                part(Verse, P::Blues, Shuffle, 1),
-                part(Verse, P::Blues, Shuffle, 1),
-                part(Outro, P::Tonic, Shuffle, 1),
-            ],
-        }
-    }
 
     pub fn minor(self) -> bool {
         self == Style::Funk
@@ -236,103 +182,309 @@ impl Style {
             Style::Shuffle => "Stück Shuffle",
         }
     }
-}
 
-/// The rehearsal marks of the piece: (tick of the part's first bar, name).
-pub(super) fn parts(style: Style) -> Vec<(u32, String)> {
-    let mut start = 0;
-    let mut marks = Vec::new();
-    for p in style.form() {
-        marks.push((start, p.section.mark(style).to_string()));
-        start += p.times * bars_len(p.progression, p.rhythm.meter());
+    /// The bar-by-bar chords of `progression` in the key of `root` (pitch class), named as
+    /// this style reads them (`voicing`); built directly, not through a written symbol, so
+    /// it never fails to parse (unlike a plan an LLM writes).
+    fn chords(self, root: u8, progression: Progression) -> Vec<Chord> {
+        let fifths = key_fifths(root, self.minor());
+        progression
+            .bars()
+            .into_iter()
+            .map(|(offset, quality)| {
+                let pc =
+                    u8::try_from((i32::from(root) + offset).rem_euclid(OCTAVE)).unwrap_or_default();
+                let spelled = name(i32::from(pc), fifths);
+                Chord::built(pc, spelled, quality, self.voicing())
+            })
+            .collect()
     }
-    marks
-}
 
-/// The whole piece as one pass, closing on a whole-bar tonic; and its drums.
-pub(super) fn song(style: Style, level: Level, key: u8) -> (Pass, Vec<(u32, u8)>) {
-    let form = style.form();
-    let mut tones = Vec::new();
-    let mut markers = Vec::new();
-    let mut drums = Vec::new();
-    let mut start = 0;
-    for (i, p) in form.iter().enumerate() {
-        let meter = p.rhythm.meter();
-        let (line, chords) = chords_line(
-            p.progression,
-            key,
-            style.voicing(),
-            meter,
-            // The level changes the bass line; the drums keep the style's groove (a shuffle).
-            |at, root, q| groove_bar(at, root, q, level.rhythm(p.rhythm)),
-        );
-        let length = bars_len(p.progression, meter);
-        for time in 0..p.times {
-            let shift = start + time * length;
-            tones.extend(line.iter().map(|t| Tone {
-                start: t.start + shift,
-                ..*t
-            }));
-            markers.extend(chords.iter().map(|(at, c)| (at + shift, c.clone())));
+    /// One part with its chords, groove and the rehearsal mark the plan writes for it.
+    fn part(
+        self,
+        root: u8,
+        section: Section,
+        progression: Progression,
+        rhythm: Rhythm,
+        times: u32,
+        drums: Drums,
+    ) -> Built {
+        let chords = self.chords(root, progression);
+        let bars = chords.iter().map(|c| c.name.clone()).collect();
+        Built {
+            part: PlanPart {
+                section,
+                bars,
+                times,
+                groove: rhythm.key().to_string(),
+                line: PlanLine::Roots,
+                fill: false,
+                drums,
+            },
+            rhythm,
+            chords: chords.into_iter().map(|c| vec![c]).collect(),
         }
-        let bars = p.times * length / meter.bar();
-        let last = i + 1 == form.len();
-        drums.extend(part_drums(p, start, bars, last));
-        start += p.times * length;
     }
 
-    // The end: the tonic for a whole bar, a last kick under it.
-    let (offset, quality) = form[0].progression.bars()[0];
-    let root = nearest(i32::from(key) + offset, low_root(key));
-    let fifths = key_fifths(key, style.minor());
-    markers.push((
-        start,
-        format!(
-            "{}{}",
-            name(root, fifths),
-            quality.suffix_for(style.voicing())
-        ),
-    ));
-    tones.push(Tone {
-        start,
-        length: BAR,
-        key: root,
-        stroke: Stroke::Plain,
-        position: None,
-    });
-    drums.extend([(start, KICK), (start, HIHAT)]);
+    /// The piece's parts in the key of `root` (pitch class); `seed` picks between a part's
+    /// progression alternatives where the style has more than one (only for `seed != 0`, so
+    /// the plain piece, seed 0, always keeps the first).
+    fn built(self, root: u8, length: Length, seed: u64) -> Vec<Built> {
+        use Progression as P;
+        let mut rng = Rng::new(seed, &[u64::from(root), length as u64]);
+        let mut pick = |options: &[Progression]| -> Progression {
+            if seed == 0 {
+                options[0]
+            } else {
+                options[rng.below(options.len())]
+            }
+        };
+        let times = |base| length.times(base);
+        let part = |section, progression, rhythm, times, drums| {
+            self.part(root, section, progression, rhythm, times, drums)
+        };
 
-    let pass = Pass {
-        tones,
-        markers,
-        length: start + BAR,
-        minor: style.minor(),
-        to_major: if style.minor() { RELATIVE_MAJOR } else { 0 },
-        label: format!("{}{}", style.label(), level.label()),
-    };
-    (pass, drums)
+        use Rhythm::*;
+        match self {
+            Style::Ballad => {
+                let verse = pick(&[P::Pop, P::Turnaround]);
+                vec![
+                    part(Section::Intro, P::OneFourFive, Quarters, 1, Drums::Light),
+                    part(Section::Verse, verse, RootFifth, times(2), Drums::Full),
+                    part(
+                        Section::Chorus,
+                        P::OneFourFive,
+                        Quarters,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(Section::Verse, verse, RootFifth, times(2), Drums::Full),
+                    part(
+                        Section::Chorus,
+                        P::OneFourFive,
+                        Quarters,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(Section::Outro, P::OneFourFive, RootFifth, 1, Drums::Full),
+                ]
+            }
+            Style::Pop => {
+                let verse = pick(&[P::Pop, P::Turnaround]);
+                vec![
+                    part(Section::Intro, P::Pop, Quarters, 1, Drums::Light),
+                    part(Section::Verse, verse, Eighths, times(2), Drums::Full),
+                    part(
+                        Section::Chorus,
+                        P::OneFourFive,
+                        Octaves,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(Section::Verse, verse, Eighths, times(2), Drums::Full),
+                    part(
+                        Section::Chorus,
+                        P::OneFourFive,
+                        Octaves,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(
+                        Section::Bridge,
+                        P::Turnaround,
+                        Tresillo,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(
+                        Section::Chorus,
+                        P::OneFourFive,
+                        Octaves,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(Section::Outro, P::Pop, Quarters, 1, Drums::Full),
+                ]
+            }
+            Style::Rock => {
+                let verse = pick(&[P::OneFourFive, P::Turnaround]);
+                vec![
+                    part(Section::Intro, P::OneFourFive, Eighths, 1, Drums::Light),
+                    part(Section::Verse, verse, Eighths, times(2), Drums::Full),
+                    part(Section::Chorus, P::Pop, Octaves, times(2), Drums::Full),
+                    part(Section::Verse, verse, Eighths, times(2), Drums::Full),
+                    part(Section::Chorus, P::Pop, Octaves, times(2), Drums::Full),
+                    part(
+                        Section::Bridge,
+                        P::Turnaround,
+                        RootFifthOctave,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(Section::Chorus, P::Pop, Octaves, times(2), Drums::Full),
+                    part(Section::Outro, P::OneFourFive, Quarters, 1, Drums::Full),
+                ]
+            }
+            Style::Funk => {
+                let verse = pick(&[P::Minor, P::MinorTwoFiveOne]);
+                vec![
+                    part(Section::Intro, P::Minor, Ghost, 1, Drums::Light),
+                    part(Section::Verse, verse, Ghost, times(2), Drums::Full),
+                    part(
+                        Section::Chorus,
+                        P::MinorTwoFiveOne,
+                        Funk,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(Section::Verse, verse, Ghost, times(2), Drums::Full),
+                    part(
+                        Section::Chorus,
+                        P::MinorTwoFiveOne,
+                        Funk,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(Section::Bridge, P::Minor, DeadNotes, times(2), Drums::Full),
+                    part(
+                        Section::Chorus,
+                        P::MinorTwoFiveOne,
+                        Funk,
+                        times(2),
+                        Drums::Full,
+                    ),
+                    part(Section::Outro, P::Minor, Quarters, 1, Drums::Full),
+                ]
+            }
+            Style::Shuffle => {
+                let mut parts = vec![part(Section::Intro, P::Tonic, Shuffle, 1, Drums::Light)];
+                parts.extend((0..length.choruses()).map(|_| {
+                    let chorus = pick(&[P::Blues, P::QuickBlues]);
+                    part(Section::Verse, chorus, Shuffle, 1, Drums::Full)
+                }));
+                parts.push(part(Section::Outro, P::Tonic, Shuffle, 1, Drums::Full));
+                parts
+            }
+        }
+    }
+
+    /// The piece's plan in the key of `root` (pitch class), for export and for its JSON
+    /// Schema; `render` below renders the piece directly, without reparsing it.
+    pub fn plan(self, root: u8, length: Length, seed: u64) -> PiecePlan {
+        PiecePlan {
+            title: self.label().to_string(),
+            key: format!(
+                "{}{}",
+                name(i32::from(root), key_fifths(root, self.minor())),
+                if self.minor() { "m" } else { "" }
+            ),
+            bpm: DEFAULT_BPM,
+            feel: self.feel(),
+            parts: self
+                .built(root, length, seed)
+                .into_iter()
+                .map(|b| b.part)
+                .collect(),
+        }
+    }
+
+    fn feel(self) -> PieceFeel {
+        if self == Style::Shuffle {
+            PieceFeel::Shuffle
+        } else {
+            PieceFeel::Straight
+        }
+    }
 }
 
-/// Drums of a part from `start`: the groove's beat (the intro only kick and hi-hat), and a snare
-/// fill on the last beat before the next part.
-fn part_drums(p: &Part, start: u32, bars: u32, last: bool) -> Vec<(u32, u8)> {
-    let bar = p.rhythm.meter().bar();
-    let mut hits: Vec<(u32, u8)> = (0..bars)
-        .flat_map(|b| drum_bar(start + b * bar, p.rhythm))
-        .filter(|(_, key)| p.section != Section::Intro || *key != SNARE)
+/// `bpm` of a plan is never read for a built-in piece (the exercise's own tempo rules its
+/// MIDI file instead, `render` below); any value in range satisfies `validate`.
+const DEFAULT_BPM: u32 = 90;
+
+/// A part together with the data `render` needs and `plan`'s `PlanPart` cannot hold: its
+/// actual rhythm and chords, so rendering never has to reparse what this module just built.
+struct Built {
+    part: PlanPart,
+    rhythm: Rhythm,
+    chords: Vec<Vec<Chord>>,
+}
+
+/// The style's piece as `generate` wants it: the pass, drums and rehearsal marks for `spec`'s
+/// key, level, length and seed. Built directly from the style's data (`built`), not through
+/// `PiecePlan::check`: a built-in piece cannot fail to check out, so there is nothing to
+/// `unwrap`.
+pub(super) fn render(spec: &ExerciseSpec, style: Style, level: Level) -> Rendered {
+    let built = style.built(spec.key, spec.length, spec.seed);
+    let parts: Vec<CheckedPart> = built
+        .iter()
+        .map(|b| CheckedPart {
+            part: &b.part,
+            rhythm: b.rhythm,
+            bars: b.chords.clone(),
+        })
         .collect();
-    if last {
-        return hits;
-    }
-    let fill_from = start + bars * bar - QUARTER;
-    hits.retain(|(at, _)| *at < fill_from);
-    hits.extend((0..FILL_STROKES).map(|s| (fill_from + s * SIXTEENTH, SNARE)));
-    hits
+    let checked = Checked {
+        key: spec.key,
+        minor: style.minor(),
+        parts,
+    };
+    piece_render::render_checked(&checked, style.feel(), style.label(), level, spec.seed)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn song(style: Style, level: Level, key: u8) -> (Pass, Vec<(u32, u8)>) {
+        let spec = ExerciseSpec {
+            kind: ExerciseKind::Song(style, level),
+            key,
+            bpm: 90.0,
+            slow: false,
+            repeats: 1,
+            ramp_bpm: 0.0,
+            judging: Judging::PitchAndTime,
+            seed: 0,
+            length: Length::Normal,
+        };
+        let rendered = render(&spec, style, level);
+        (rendered.pass, rendered.drums)
+    }
+
+    /// `Style::plan` describes the same piece `render` builds: a valid plan whose chords and
+    /// form match, for export and for whoever wants to see a built-in piece as a plan.
+    #[test]
+    fn a_styles_plan_matches_what_it_renders() {
+        for style in Style::ALL {
+            for length in Length::ALL {
+                let plan = style.plan(4, length, 0);
+                assert_eq!(plan.validate(), Ok(()));
+                let bars: usize = plan
+                    .parts
+                    .iter()
+                    .map(|p| p.bars.len() * p.times as usize)
+                    .sum();
+                let (pass, _) = {
+                    let spec = ExerciseSpec {
+                        kind: ExerciseKind::Song(style, Level::Medium),
+                        key: 4,
+                        bpm: 90.0,
+                        slow: false,
+                        repeats: 1,
+                        ramp_bpm: 0.0,
+                        judging: Judging::PitchAndTime,
+                        seed: 0,
+                        length,
+                    };
+                    let rendered = render(&spec, style, Level::Medium);
+                    (rendered.pass, rendered.drums)
+                };
+                // One closing bar beyond the plan's own bars.
+                assert_eq!(bars as u32 + 1, pass.length / BAR, "{style:?} {length:?}");
+            }
+        }
+    }
 
     #[test]
     fn every_style_has_a_form_of_two_to_three_minutes() {
@@ -425,7 +577,7 @@ mod tests {
             .iter()
             .filter(|(at, _)| (fill_from..4 * BAR).contains(at))
             .collect();
-        assert_eq!(fill.len(), FILL_STROKES as usize, "{fill:?}");
+        assert_eq!(fill.len(), 4usize, "{fill:?}");
         assert!(fill.iter().all(|(_, key)| *key == SNARE));
         // No snare before the fill in the intro.
         assert!(!drums
@@ -447,11 +599,6 @@ mod tests {
 
             let length = |level| song(style, level, 4).0.length;
             assert_eq!(length(Level::Easy), length(Level::Hard), "{style:?}");
-            for p in style.form() {
-                for level in Level::ALL {
-                    assert_eq!(level.rhythm(p.rhythm).meter(), p.rhythm.meter());
-                }
-            }
         }
     }
 
@@ -467,6 +614,87 @@ mod tests {
         );
         for level in Level::ALL {
             assert_eq!(Level::from_key(level.key()), Some(level));
+        }
+    }
+
+    #[test]
+    fn seed_zero_is_the_plain_piece_every_other_seed_may_vary() {
+        for style in Style::ALL {
+            let plain = song(style, Level::Medium, 4);
+            for seed in [0, 1] {
+                let spec = ExerciseSpec {
+                    kind: ExerciseKind::Song(style, Level::Medium),
+                    key: 4,
+                    bpm: 90.0,
+                    slow: false,
+                    repeats: 1,
+                    ramp_bpm: 0.0,
+                    judging: Judging::PitchAndTime,
+                    seed,
+                    length: Length::Normal,
+                };
+                let rendered = render(&spec, style, Level::Medium);
+                if seed == 0 {
+                    assert_eq!(rendered.pass.tones.len(), plain.0.tones.len(), "{style:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn lengths_change_the_bar_count() {
+        for style in Style::ALL {
+            let bars = |length| {
+                let spec = ExerciseSpec {
+                    kind: ExerciseKind::Song(style, Level::Medium),
+                    key: 4,
+                    bpm: 90.0,
+                    slow: false,
+                    repeats: 1,
+                    ramp_bpm: 0.0,
+                    judging: Judging::PitchAndTime,
+                    seed: 0,
+                    length,
+                };
+                render(&spec, style, Level::Medium).pass.length / BAR
+            };
+            assert!(bars(Length::Short) < bars(Length::Normal), "{style:?}");
+            assert!(bars(Length::Normal) < bars(Length::Long), "{style:?}");
+        }
+    }
+
+    /// Bug (review of PR #316): LH-BIB-15 asks every style to pick between two progressions for
+    /// at least one part when seed != 0; only Pop did (`song.rs:271` at the review's head).
+    /// Across seeds 1..20, every style must show at least two different chord sequences.
+    #[test]
+    fn every_style_has_at_least_two_progressions_across_seeds() {
+        for style in Style::ALL {
+            let sequences: std::collections::HashSet<Vec<String>> = (1..20)
+                .map(|seed| {
+                    let spec = ExerciseSpec {
+                        kind: ExerciseKind::Song(style, Level::Medium),
+                        key: 4,
+                        bpm: 90.0,
+                        slow: false,
+                        repeats: 1,
+                        ramp_bpm: 0.0,
+                        judging: Judging::PitchAndTime,
+                        seed,
+                        length: Length::Normal,
+                    };
+                    render(&spec, style, Level::Medium)
+                        .pass
+                        .markers
+                        .iter()
+                        .map(|m| m.1.clone())
+                        .collect()
+                })
+                .collect();
+            assert!(
+                sequences.len() >= 2,
+                "{style:?}: only {} distinct progression(s) across seeds 1..20",
+                sequences.len()
+            );
         }
     }
 }

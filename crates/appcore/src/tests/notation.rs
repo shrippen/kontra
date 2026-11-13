@@ -146,7 +146,7 @@ fn bars_carry_sections() {
     assert_eq!(bars[2]["section"], serde_json::Value::Null);
 
     // Review #174: a generated piece names its parts in the UI's language.
-    let pop = Core::exercise_spec("song", "pop", "", 7, 90.0, "").unwrap();
+    let pop = Core::exercise_spec("song", "pop", "", 7, 90.0, "", PieceVariety::default()).unwrap();
     let piece = core.generate_exercise(&pop).unwrap();
     core.open(&piece).unwrap();
     let parts = |core: &Core| {

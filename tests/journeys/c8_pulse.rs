@@ -5,7 +5,7 @@
 //! groove judged by time only next to the judged one, not over it.
 
 use crate::common::{judged, piece, render, run_until, write_marked, write_midi, Profile};
-use kontra_appcore::{Core, UiEvent};
+use kontra_appcore::{Core, PieceVariety, UiEvent};
 use kontra_model::Judging;
 use std::time::Duration;
 
@@ -38,7 +38,18 @@ fn open_string_counts_the_attack() {
 fn generator_keeps_both_judgings() {
     let profile = Profile::new("c8-generator");
     let mut core = profile.core(None);
-    let spec = |judging| Core::exercise_spec("groove", "145", "eighths", 4, 80.0, judging).unwrap();
+    let spec = |judging| {
+        Core::exercise_spec(
+            "groove",
+            "145",
+            "eighths",
+            4,
+            80.0,
+            judging,
+            PieceVariety::default(),
+        )
+        .unwrap()
+    };
 
     let timing = core.generate_exercise(&spec("time")).unwrap();
     let normal = core.generate_exercise(&spec("pitch")).unwrap();

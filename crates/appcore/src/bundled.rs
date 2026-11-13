@@ -10,6 +10,14 @@ const JUDGING_PITCH: &str = "pitch";
 const JUDGING_TIME: &str = "time";
 const JUDGING_OPEN: &str = "open";
 
+/// How a generated piece varies (`Core::exercise_spec`): `seed` 0 for the plain piece, any
+/// other number for a variant; `length` "short", "normal"/"" or "long".
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PieceVariety<'a> {
+    pub seed: u64,
+    pub length: &'a str,
+}
+
 impl Core {
     /// Folder of the bundled exercises (LH-BIB-08): installed share dir, else the repo's.
     pub fn exercises_dir() -> PathBuf {
@@ -229,6 +237,21 @@ impl Core {
                 &[("name", name), ("key", key), ("bpm", bpm)],
             ),
         };
+        // A different length or seed is a different piece (LH-BIB-15): its own file and
+        // progress, so both need to show in the title `generated_path` is named after.
+        let title = match d.length {
+            Some("short") => self.tr("exercise.title.length.short", &[("title", title)]),
+            Some("long") => self.tr("exercise.title.length.long", &[("title", title)]),
+            _ => title,
+        };
+        let title = if d.seed == 0 {
+            title
+        } else {
+            self.tr(
+                "exercise.title.variant",
+                &[("title", title), ("seed", d.seed.to_string())],
+            )
+        };
         // Judged by time only: another exercise with its own file and progress (DIDAKTIK I4).
         match d.judging {
             Judging::TimeOnly => self.tr("exercise.title.timing", &[("title", title)]),
@@ -251,7 +274,8 @@ impl Core {
     /// "251", "blues", "minor", "145", "pop", "1625", "minor251") or the finger order ("1324");
     /// `rhythm` the groove's rhythm or a scale's pattern ("thirds", "fours", "" for up and down).
     /// Finger exercises take `key` as the start fret. `judging` "time" judges only the attack
-    /// (grooves, DIDAKTIK I4); "pitch" or "" pitch and time.
+    /// (grooves, DIDAKTIK I4); "pitch" or "" pitch and time. `variety` varies a piece (`kind`
+    /// "song"); every other kind ignores it.
     pub fn exercise_spec(
         kind: &str,
         variant: &str,
@@ -259,7 +283,9 @@ impl Core {
         key: u8,
         bpm: f64,
         judging: &str,
+        variety: PieceVariety,
     ) -> Option<exercise::ExerciseSpec> {
+        let PieceVariety { seed, length } = variety;
         let judging = match judging {
             "" | JUDGING_PITCH => Judging::PitchAndTime,
             JUDGING_TIME => Judging::TimeOnly,
@@ -290,6 +316,10 @@ impl Core {
         };
         // A piece's form repeats its parts itself; a 12-bar blues is long enough once.
         let once = matches!(kind, ExerciseKind::Song(..)) || variant == "blues";
+        let length = match length {
+            "" => exercise::Length::Normal,
+            length => exercise::Length::from_key(length)?,
+        };
         Some(exercise::ExerciseSpec {
             kind,
             key: key % 12,
@@ -299,7 +329,30 @@ impl Core {
             repeats: if once { 1 } else { 2 },
             ramp_bpm: 0.0,
             judging,
+            seed,
+            length,
         })
+    }
+
+    /// A piece from an LLM's plan (LH-BIB-14): `plan_json` a `PiecePlan`, written to the data
+    /// folder and opened like a generated exercise. Every validation problem of the plan comes
+    /// back as one line, for a retry by whoever wrote it.
+    pub fn generate_piece(
+        &mut self,
+        plan_json: &str,
+        level: &str,
+        seed: u64,
+    ) -> Result<PathBuf, String> {
+        let level = exercise::Level::from_key(level).unwrap_or_default();
+        let exercise = exercise::render_piece_json(plan_json, level, seed).map_err(|errors| {
+            errors
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join("\n")
+        })?;
+        let path = self.piece_path(&exercise.title);
+        Self::write_exercise(&exercise, path)
     }
 
     /// Writes a generated exercise (LH-LRN-04) into the data folder and returns its path.
@@ -322,16 +375,23 @@ impl Core {
 
     /// Where `generate_exercise` writes `spec`.
     pub(crate) fn generated_path(&self, spec: &exercise::ExerciseSpec) -> PathBuf {
-        let dir = self.data_dir.join("exercises");
         // The file is named in the UI's language; the title inside stays German (progress key).
-        let name: String = self
-            .exercise_title(&exercise::describe(spec))
+        self.piece_path(&self.exercise_title(&exercise::describe(spec)))
+    }
+
+    /// Where a generated exercise named `title` is written; `title` may come from an LLM's
+    /// plan, so every character invalid in a Windows or Unix file name is replaced, not only
+    /// the ones a built-in piece's own title ever has.
+    pub(crate) fn piece_path(&self, title: &str) -> PathBuf {
+        let dir = self.data_dir.join("exercises");
+        // ♯ and ♭ as before the printed signs, so a file made again keeps its name.
+        let name: String = title
             .chars()
-            // ♯ and ♭ as before the printed signs, so a file made again keeps its name.
             .map(|c| match c {
-                '/' | ':' | '#' | '♯' => '-',
+                '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' | '#' | '♯' => '-',
                 '♭' => 'b',
-                _ => c,
+                c if c.is_control() => '-',
+                c => c,
             })
             .collect();
         dir.join(format!("{name}.mid"))

@@ -279,6 +279,8 @@ fn spec(kind: ExerciseKind, key: u8, bpm: f64) -> ExerciseSpec {
         repeats: if blues { 1 } else { 2 },
         ramp_bpm: 0.0,
         judging: Judging::PitchAndTime,
+        seed: 0,
+        length: Length::Normal,
     }
 }
 
