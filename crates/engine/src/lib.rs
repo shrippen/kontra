@@ -30,8 +30,9 @@ pub use kontra_drivers::plugins;
 pub use kontra_drivers::{
     audio_priority, cache_dir_of, data_dir_of, download_dir, file_url, find_separator, in_sandbox,
     list_devices, list_midi_inputs, local_path, monitor_rate, read_audio, recent_files, write_wav,
-    AudioBuffer, Connection, DeviceInfo, Direction, FileHttp, Http, HttpError, MidiPort, Priority,
-    RecentFile, SeparationJob, Separator, SeparatorError, StreamConfig, Web, NULL_DEVICE,
+    AudioBuffer, Connection, DeviceInfo, Direction, FileHttp, Http, HttpError, Keychain,
+    MemoryStore, MidiPort, Priority, RecentFile, SecretError, SecretStore, SeparationJob,
+    Separator, SeparatorError, StreamConfig, Web, NULL_DEVICE,
 };
 pub use kontra_dsp::{
     track_beats, BeatGrid, Limit, Pick, Shaping, StringModel, LOG_B_PER_FRET, SHAPING_RANGE_DB,

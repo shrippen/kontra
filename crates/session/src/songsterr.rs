@@ -121,8 +121,8 @@ impl From<HttpError> for SearchError {
         match e {
             HttpError::Offline(_) => SearchError::Offline,
             HttpError::Timeout => SearchError::Timeout,
-            HttpError::Status(code) => SearchError::Status(code),
-            HttpError::Failed(_) => SearchError::Unreadable,
+            HttpError::Status(code) | HttpError::StatusBody(code, _) => SearchError::Status(code),
+            HttpError::Failed(_) | HttpError::NotSupported => SearchError::Unreadable,
         }
     }
 }

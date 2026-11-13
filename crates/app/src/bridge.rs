@@ -179,6 +179,19 @@ pub mod qobject {
         /// before adding and clears this.
         #[qproperty(QString, start_course, cxx_name = "startCourse")]
         #[qproperty(bool, setup_done, cxx_name = "setupDone")]
+        /// LLM provider for "Stück wünschen" (LH-BIB-16): a preset id or "custom".
+        #[qproperty(QString, llm_provider, cxx_name = "llmProvider")]
+        /// Only read when `llmProvider` is "custom".
+        #[qproperty(QString, llm_base_url, cxx_name = "llmBaseUrl")]
+        /// Empty: the provider's default (Anthropic only; every other provider needs one picked).
+        #[qproperty(QString, llm_model, cxx_name = "llmModel")]
+        /// The last model list fetched, sorted: `["id", ...]`; empty after a failure.
+        #[qproperty(QString, llm_models_json, cxx_name = "llmModelsJson")]
+        /// A wish or a model list is being asked for; the UI offers only one at a time.
+        #[qproperty(bool, llm_busy, cxx_name = "llmBusy")]
+        /// A key check, save or delete is running off the UI thread; the answer arrives as
+        /// `llmKeyState`/`llmKeyError`.
+        #[qproperty(bool, llm_key_busy, cxx_name = "llmKeyBusy")]
         #[qproperty(bool, autoplay)]
         /// QA: a blind probe of the start loop instead of autoplay (DIDAKTIK I1).
         #[qproperty(bool, autoprobe)]
@@ -635,6 +648,53 @@ pub mod qobject {
             judging: &QString,
         ) -> bool;
 
+        /// Every provider Kontra offers (LH-BIB-16); see `Core::llm_providers_json`.
+        #[qinvokable]
+        #[cxx_name = "llmProvidersJson"]
+        fn llm_providers_json(self: &Self) -> QString;
+
+        /// Checks in the background whether `provider` has a key (after a running key job);
+        /// `false` when it is unknown. The answer is the `llmKeyState` signal.
+        #[qinvokable]
+        #[cxx_name = "llmCheckKey"]
+        fn llm_check_key(self: Pin<&mut Self>, provider: &QString) -> bool;
+
+        /// Starts storing `value` as `provider`'s key in the background; `false` when nothing
+        /// was started (empty value, a key job already runs, or `provider` is unknown). The
+        /// answer is the `llmKeyState` or `llmKeyError` signal.
+        #[qinvokable]
+        #[cxx_name = "llmSetKey"]
+        fn llm_set_key(self: Pin<&mut Self>, provider: &QString, value: &QString) -> bool;
+
+        /// Starts removing a stored key in the background; `false` when a key job already
+        /// runs. The answer is the `llmKeyState` or `llmKeyError` signal.
+        #[qinvokable]
+        #[cxx_name = "llmDeleteKey"]
+        fn llm_delete_key(self: Pin<&mut Self>, provider: &QString) -> bool;
+
+        #[qinvokable]
+        #[cxx_name = "changeLlmProvider"]
+        fn change_llm_provider(self: Pin<&mut Self>, provider: &QString);
+
+        #[qinvokable]
+        #[cxx_name = "changeLlmBaseUrl"]
+        fn change_llm_base_url(self: Pin<&mut Self>, url: &QString);
+
+        #[qinvokable]
+        #[cxx_name = "changeLlmModel"]
+        fn change_llm_model(self: Pin<&mut Self>, model: &QString);
+
+        /// Starts writing a piece from `wish` at `level` in the background (LH-BIB-16); `false`
+        /// when one already runs or no provider is set up.
+        #[qinvokable]
+        #[cxx_name = "llmWish"]
+        fn llm_wish(self: Pin<&mut Self>, wish: &QString, level: &QString) -> bool;
+
+        /// Fetches the chosen provider's model list in the background; also "test connection".
+        #[qinvokable]
+        #[cxx_name = "llmFetchModels"]
+        fn llm_fetch_models(self: Pin<&mut Self>) -> bool;
+
         /// Lernen (LH-LRN-07): the course, see `Core::learn_json`.
         #[qinvokable]
         #[cxx_name = "learnJson"]
@@ -929,22 +989,46 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "arrangementLoaded"]
         fn arrangement_loaded(self: Pin<&mut Self>);
+
+        /// A wished-for piece (LH-BIB-16) opened; the page that asked for it switches to
+        /// practice (as `generateExercise`'s own caller does on the spot).
+        #[qsignal]
+        #[cxx_name = "llmPieceOpened"]
+        fn llm_piece_opened(self: Pin<&mut Self>);
+
+        /// A key job answered (never with the key). `state`: env, stored, missing, unavailable
+        /// or notNeeded, to compare; `text`: its words; `ready`: the provider can be asked.
+        #[qsignal]
+        #[cxx_name = "llmKeyState"]
+        fn llm_key_state(
+            self: Pin<&mut Self>,
+            provider: QString,
+            state: QString,
+            ready: bool,
+            text: QString,
+        );
+
+        /// A key save or delete failed.
+        #[qsignal]
+        #[cxx_name = "llmKeyError"]
+        fn llm_key_error(self: Pin<&mut Self>, provider: QString, text: QString);
     }
 }
 
 mod backing;
 mod learn;
 mod library;
+mod llm;
 mod loops;
 mod settings;
+mod transport;
 
 use crate::args::AppArgs;
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
 use kontra_appcore::{
-    data_dir, file_url, local_path, Core, DensityLock, InstrumentChoice, LoopEdge, Opened,
-    QaOptions, UiEvent,
+    data_dir, file_url, local_path, Core, DensityLock, InstrumentChoice, Opened, QaOptions, UiEvent,
 };
 
 /// `calibrationBeat` while no calibration runs.
@@ -1079,6 +1163,12 @@ pub struct ControllerRust {
     start_page: QString,
     start_course: QString,
     setup_done: bool,
+    llm_provider: QString,
+    llm_base_url: QString,
+    llm_model: QString,
+    llm_models_json: QString,
+    llm_busy: bool,
+    llm_key_busy: bool,
     autoplay: bool,
     autoprobe: bool,
     autocalibrate: bool,
@@ -1259,6 +1349,12 @@ impl Default for ControllerRust {
             start_page: q(args.page.as_deref().unwrap_or("")),
             start_course: QString::default(),
             setup_done: s.setup_done,
+            llm_provider: q(&s.llm_provider),
+            llm_base_url: q(&s.llm_base_url),
+            llm_model: q(&s.llm_model),
+            llm_models_json: q("[]"),
+            llm_busy: false,
+            llm_key_busy: false,
             autoplay: args.autoplay,
             autoprobe: args.probe,
             autocalibrate: args.calibrate,
@@ -1469,150 +1565,6 @@ impl qobject::Controller {
         }
     }
 
-    fn toggle_play(mut self: Pin<&mut Self>) {
-        if self.as_ref().rust().core.is_playing() {
-            self.as_mut().pause();
-            return;
-        }
-        let finished_before = !self.as_ref().summary_json().is_empty();
-        if finished_before {
-            // A finished run starts again from the beginning.
-            self.as_mut().core().stop_live();
-            self.as_mut().set_summary_json(QString::default());
-            self.as_mut().arrangement_loaded();
-        }
-        let events = self.as_mut().core().play();
-        self.as_mut().apply(events);
-        // A start that resolves other devices forgets the measurements (review #202).
-        self.as_mut().refresh_latency_note();
-        let playing = self.as_ref().rust().core.is_playing();
-        self.as_mut().set_playing(playing);
-    }
-
-    fn pause(mut self: Pin<&mut Self>) {
-        self.as_mut().core().pause();
-        self.as_mut().set_playing(false);
-    }
-
-    fn start_probe(mut self: Pin<&mut Self>) {
-        self.as_mut().set_summary_json(QString::default());
-        self.as_mut().set_holding_index(-1);
-        self.as_mut().arrangement_loaded();
-        let events = self.as_mut().core().start_probe();
-        self.as_mut().apply(events);
-        let (playing, probing) = {
-            let this = self.as_ref();
-            let core = &this.rust().core;
-            (core.is_playing(), core.is_probing())
-        };
-        self.as_mut().set_probing(probing);
-        self.as_mut().set_playing(playing);
-    }
-
-    fn loop_at(mut self: Pin<&mut Self>, start_s: f64, end_s: f64) -> bool {
-        let Some((from, to)) = self.as_ref().rust().core.bars_at(start_s, end_s) else {
-            return false;
-        };
-        let from = i32::try_from(from).unwrap_or(0);
-        let to = i32::try_from(to).unwrap_or(0);
-        self.as_mut().loop_bars(from, to);
-        true
-    }
-
-    fn rewind(mut self: Pin<&mut Self>) {
-        let start = self.as_mut().core().rewind();
-        self.as_mut().set_playing(false);
-        self.as_mut().set_position(start);
-        self.as_mut().set_summary_json(QString::default());
-        self.as_mut().set_holding_index(-1);
-        self.as_mut().arrangement_loaded();
-    }
-
-    fn change_speed(mut self: Pin<&mut Self>, speed: f64) {
-        self.as_mut().core().set_speed(speed);
-        let speed = self.as_ref().rust().core.speed();
-        self.as_mut().set_speed(speed);
-    }
-
-    fn change_mode(mut self: Pin<&mut Self>, mode: &QString) {
-        let mode = mode.to_string();
-        // Leaving the workshop ends the building blocks: back to the bars chosen before them.
-        if self.as_mut().core().set_mode(&mode) {
-            self.as_mut().refresh_arrangement();
-        }
-        self.as_mut().after_loop();
-        self.as_mut().set_mode(q(&mode));
-        self.as_mut().reset_passes();
-        self.as_mut().rewind();
-    }
-
-    fn change_view(mut self: Pin<&mut Self>, view: &QString) {
-        let view = view.to_string();
-        self.as_mut().core().set_view(&view);
-        self.as_mut().set_view(q(&view));
-    }
-
-    fn loop_bars(mut self: Pin<&mut Self>, from: i32, to: i32) {
-        let from = usize::try_from(from).unwrap_or(0);
-        let to = usize::try_from(to).unwrap_or(0);
-        let changed = self.as_mut().core().set_loop(from, to);
-        if changed {
-            self.as_mut().set_playing(false);
-            self.as_mut().refresh_arrangement();
-        }
-        self.as_mut().refresh_density();
-        self.as_mut().refresh_chain();
-        self.as_mut().reset_passes();
-        let (start, end) = self.as_ref().rust().core.loop_seconds();
-        self.as_mut().set_loop_start(start);
-        self.as_mut().set_loop_end(end);
-    }
-
-    fn loop_score_bar(mut self: Pin<&mut Self>, bar: i32) {
-        let printed = u32::try_from(bar).unwrap_or(0);
-        let Some(index) = self.as_ref().rust().core.score_bar_index(printed) else {
-            return;
-        };
-        let index = i32::try_from(index).unwrap_or(0);
-        self.as_mut().loop_bars(index, index);
-    }
-
-    fn loop_edge(mut self: Pin<&mut Self>, edge: &QString) {
-        let edge = match edge.to_string().as_str() {
-            "start" => LoopEdge::Start,
-            "end" => LoopEdge::End,
-            _ => return,
-        };
-        let position = *self.as_ref().position();
-        if self.as_mut().core().set_loop_edge(edge, position) {
-            self.as_mut().set_playing(false);
-            self.as_mut().refresh_arrangement();
-        }
-        self.as_mut().refresh_density();
-        self.as_mut().refresh_chain();
-        self.as_mut().reset_passes();
-        let (start, end) = self.as_ref().rust().core.loop_seconds();
-        self.as_mut().set_loop_start(start);
-        self.as_mut().set_loop_end(end);
-    }
-
-    fn reset_passes(mut self: Pin<&mut Self>) {
-        self.as_mut().set_passes(0);
-        self.as_mut().set_pass_rate(-1.0);
-    }
-
-    fn clear_loop(mut self: Pin<&mut Self>) {
-        self.as_mut().reset_passes();
-        if self.as_mut().core().clear_loop() {
-            self.as_mut().set_playing(false);
-            self.as_mut().refresh_arrangement();
-        }
-        self.as_mut().refresh_density();
-        self.as_mut().refresh_chain();
-        self.as_mut().set_loop_start(-1.0);
-        self.as_mut().set_loop_end(-1.0);
-    }
-
     fn tick(mut self: Pin<&mut Self>) {
         let events = self.as_mut().core().tick();
         self.as_mut().apply(events);
@@ -1786,6 +1738,7 @@ impl qobject::Controller {
                     let note = self.as_ref().rust().core.latency_note();
                     self.as_mut().set_latency_note(q(&note));
                 }
+                UiEvent::Llm(event) => self.as_mut().dispatch_llm(event),
             }
         }
     }
