@@ -10,11 +10,36 @@ import "."
  * and `countKinds` their kinds (KanteCounter.Kind: 0 normal, 1 info, 2 error, e.g. overdue).
  * With `badges` the counters are filled badges instead of mono text. When the tabs do not
  * fit they scroll sideways and the selected tab is kept in view.
- * Left/Right move the selection while the bar has focus.
+ * Left/Right move the selection while the bar has focus; by default (`activation` Automatic)
+ * they activate it at once, like a tap. With `activation: KanteTabBar.Activation.Manual` the
+ * arrows only move the selection (nothing opens, the bar keeps focus); Return, Enter, Space or
+ * a tap activate it (KanteStickyHeader's tabs: the page should not jump on every arrow).
+ * `look` (Underline): no notched tabs, only text and a 2 px accent line under the selected one,
+ * for a bar in a page header (KanteStickyHeader); the line and the accent text colour carry
+ * the selection, not colour alone.
+ *
+ *   Notched:    [ Alle ]  Prüfen   Fertig         Underline:  Alle   Prüfen   Fertig
+ *   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━                      ▔▔▔▔▔
  */
 FocusScope {
     id: tabs
 
+    enum Look {
+        Notched,
+        Underline
+    }
+
+    enum Activation {
+        /** The arrows activate at once, like a tap (the default, every earlier app relies on it). */
+        Automatic,
+        /** The arrows only move the selection; Return, Enter, Space or a tap activate it. */
+        Manual
+    }
+
+    property int look: KanteTabBar.Look.Notched
+    property int activation: KanteTabBar.Activation.Automatic
+    /** Screen readers hear this as the tab list's name. */
+    property string accessibleName: ""
     property var model: []
     property var icons: []
     property var counts: []
@@ -22,19 +47,52 @@ FocusScope {
     property bool badges: false
     property int currentIndex: 0
     signal activated(int index)
+    /** Manual arrows only (`move`): the selection changed without activating it. */
+    signal moved(int index)
 
     implicitHeight: KanteStyle.heightMedium
     implicitWidth: row.implicitWidth
     activeFocusOnTab: true
+    Accessible.role: Accessible.PageTabList
+    Accessible.name: accessibleName
 
-    Keys.onLeftPressed: select(Math.max(0, currentIndex - 1))
-    Keys.onRightPressed: select(Math.min(model.length - 1, currentIndex + 1))
+    // Automatic (default): the arrows select and activate at once, like a tap. Manual: they
+    // only move the selection (the bar keeps focus, nothing opens or scrolls); Return, Enter
+    // and Space activate the selected tab then, as a tap does.
+    Keys.onLeftPressed: moveOrSelect(Math.max(0, currentIndex - 1))
+    Keys.onRightPressed: moveOrSelect(Math.min(model.length - 1, currentIndex + 1))
+    Keys.onReturnPressed: activate(currentIndex)
+    Keys.onEnterPressed: activate(currentIndex)
+    Keys.onSpacePressed: activate(currentIndex)
 
+    function moveOrSelect(i) {
+        if (activation === KanteTabBar.Activation.Manual) {
+            move(i)
+        } else {
+            select(i)
+        }
+    }
+
+    /** Moves the selection without activating it (Manual arrows): no `activated`, nothing opens. */
+    function move(i) {
+        currentIndex = i
+        moved(i)
+    }
+
+    /** Selects and activates, as a tap does: fires `activated` only when `i` changes the
+        selection (tapping the already-active tab twice does nothing the second time). */
     function select(i) {
         if (i !== currentIndex) {
             currentIndex = i
             activated(i)
         }
+    }
+
+    /** Activates `i` unconditionally (Return, Enter, Space): the key press itself is the
+        request to act, even when the arrows already left the selection there. */
+    function activate(i) {
+        currentIndex = i
+        activated(i)
     }
 
     function ensureVisible() {
@@ -77,6 +135,7 @@ FocusScope {
             width: target ? target.width : 0
             height: tabs.height
             fillColor: KanteStyle.accentColor
+            visible: tabs.look === KanteTabBar.Look.Notched
             cutTopRight: KanteStyle.chamferSmall
             Behavior on x { NumberAnimation { duration: KanteStyle.animate ? 260 : 0; easing.type: Easing.OutCubic } }
             Behavior on width { NumberAnimation { duration: KanteStyle.animate ? 260 : 0; easing.type: Easing.OutCubic } }
@@ -96,8 +155,8 @@ FocusScope {
                     readonly property bool current: tabs.currentIndex === index
                     readonly property string iconName: tabs.icons && tabs.icons.length > index ? String(tabs.icons[index]) : ""
                     readonly property string countText: tabs.counts && tabs.counts.length > index ? String(tabs.counts[index]) : ""
-                    readonly property color ink: current ? KanteStyle.accentForegroundColor : (hover.hovered ? KanteStyle.strongTextColor : KanteStyle.mutedTextColor)
-                    width: content.implicitWidth + KanteStyle.unit(iconName.length > 0 && String(modelData).length === 0 ? 24 : 36)
+                    readonly property color ink: current ? (tabs.look === KanteTabBar.Look.Underline ? KanteStyle.accentTextColor : KanteStyle.accentForegroundColor) : (hover.hovered ? KanteStyle.strongTextColor : KanteStyle.mutedTextColor)
+                    width: content.implicitWidth + KanteStyle.unit(iconName.length > 0 && String(modelData).length === 0 ? 24 : tabs.look === KanteTabBar.Look.Underline ? 24 : 36)
                     height: tabs.height
 
                     KantePolygon {
@@ -106,7 +165,7 @@ FocusScope {
                         cutTopRight: KanteStyle.chamferSmall
                         // Shapes entirely outside the flickable are still painted by the software
                         // renderer (it ignores the clip for them): draw only tabs in view.
-                        visible: !tab.current && tab.x + tab.width > flick.contentX && tab.x < flick.contentX + flick.width
+                        visible: tabs.look === KanteTabBar.Look.Notched && !tab.current && tab.x + tab.width > flick.contentX && tab.x < flick.contentX + flick.width
                     }
 
                     RowLayout {
@@ -148,6 +207,16 @@ FocusScope {
                     Accessible.selected: tab.current
                 }
             }
+        }
+
+        // Underline look: the selected tab's accent line, over the bar's rule.
+        Rectangle {
+            visible: tabs.look === KanteTabBar.Look.Underline && slider.width > 0
+            x: slider.x
+            width: slider.width
+            y: tabs.height - height
+            height: KanteStyle.unit(2)
+            color: KanteStyle.accentColor
         }
 
         // Focus: a 3 px cyan line under the selected tab.
