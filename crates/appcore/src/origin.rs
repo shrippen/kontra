@@ -108,19 +108,22 @@ impl Core {
 }
 
 /// Pieces in a form were written to `exercises/` before they had `pieces/` (13.11.2026).
-/// Moves those a style made (named "Stück …" or "Piece …", the catalogs' `exercise.name.song`)
+/// Moves those a style made (named "Stück …" or "… piece", the catalogs' `exercise.name.song`)
 /// and lets the library follow; progress is keyed by song id and needs nothing. A file already
 /// at the target stays where it is, so a second start finds nothing to do. Pieces from a plan
 /// have free titles and cannot be told from exercises by name: they stay.
 pub(crate) fn move_old_pieces(data_dir: &Path, library: &mut Library) {
     let from_dir = data_dir.join(EXERCISES_DIR);
     let to_dir = data_dir.join(PIECES_DIR);
-    let prefixes: Vec<String> = [Language::German, Language::English]
+    // The fixed text around `{style}`: "Stück " before it in German, " piece" after it in English.
+    let patterns: Vec<(String, String)> = [Language::German, Language::English]
         .into_iter()
         .filter_map(|l| {
             let text = Catalog::new(l).tr("exercise.name.song", &[]);
-            text.split_once("{style}").map(|(p, _)| p.to_string())
+            let (before, after) = text.split_once("{style}")?;
+            Some((before.to_string(), after.to_string()))
         })
+        .filter(|(before, after)| !before.is_empty() || !after.is_empty())
         .collect();
     let Ok(files) = std::fs::read_dir(&from_dir) else {
         return;
@@ -131,9 +134,9 @@ pub(crate) fn move_old_pieces(data_dir: &Path, library: &mut Library) {
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or_default();
-        let is_piece = prefixes
-            .iter()
-            .any(|p| !p.is_empty() && name.starts_with(p.as_str()));
+        let is_piece = patterns.iter().any(|(before, after)| {
+            name.starts_with(before.as_str()) && name.contains(after.as_str())
+        });
         let target = to_dir.join(name);
         if !is_piece || target.exists() || std::fs::create_dir_all(&to_dir).is_err() {
             continue;

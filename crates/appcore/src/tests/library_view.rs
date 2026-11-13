@@ -472,7 +472,7 @@ fn groups_by_artist_origin_and_folder() {
         .map(|g| g["key"].as_str().unwrap())
         .collect();
     // By name; the nameless group (no artist: the scanned files and "Gamma") last.
-    assert_eq!(keys, ["Amy", "Zed", ""]);
+    assert_eq!(keys, ["amy", "zed", ""]);
     assert_eq!(by_artist["groups"][0]["count"], 2);
     let bundled = by_artist["counts"]["origins"]["exercise"].as_u64().unwrap();
     assert_eq!(
@@ -482,7 +482,7 @@ fn groups_by_artist_origin_and_folder() {
     assert_eq!(by_artist["groups"][2]["title"], "No artist");
     // Rows come group by group, in the column's order inside.
     assert_eq!(titles(&by_artist)[..2], ["beta", "Delta"]);
-    assert_eq!(by_artist["rows"][0]["group"], "Amy");
+    assert_eq!(by_artist["rows"][0]["group"], "amy");
     assert_eq!(by_artist["rows"][0]["title"], "beta");
 
     let by_origin = page(&core, "all", "title", "origin", "");
@@ -726,5 +726,109 @@ fn old_pieces_move_to_their_folder() {
     .unwrap();
     let _ = Core::new(&dir, QaOptions::default());
     assert_ne!(std::fs::read(&piece).unwrap(), b"old");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// English pieces are named "{style} piece": the catalog's text after `{style}` tells them.
+#[test]
+fn old_english_pieces_move_too() {
+    let dir = temp_dir("move-pieces-en");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.update_settings(|s| s.language = Some("en".into()));
+    let song = Core::exercise_spec("song", "pop", "", 7, 90.0, "", PieceVariety::default());
+    let scale = Core::exercise_spec("scale", "major", "", 0, 90.0, "", PieceVariety::default());
+    let piece = core.generate_exercise(&song.unwrap()).unwrap();
+    let scale = core.generate_exercise(&scale.unwrap()).unwrap();
+    let old = dir.join("exercises").join(piece.file_name().unwrap());
+    std::fs::rename(&piece, &old).unwrap();
+    drop(core);
+
+    let _core = Core::new(&dir, QaOptions::default());
+    assert!(piece.exists() && !old.exists(), "the piece moves");
+    assert!(scale.exists(), "an exercise stays");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// `~/tabs` and `~/tabs/bass`: the outer folder's count is what its source shows.
+#[test]
+fn nested_links_count_what_the_source_shows() {
+    let dir = temp_dir("nested-count");
+    let tabs = dir.join("tabs");
+    let bass = tabs.join("bass");
+    touch(&tabs.join("a.mid"));
+    touch(&bass.join("b.mid"));
+    touch(&bass.join("deep/c.mid"));
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.link_folder(&tabs).unwrap();
+    core.link_folder(&bass).unwrap();
+    wait_walked(&mut core);
+
+    let all = page(&core, "all", "title", "none", "");
+    let outer = all["counts"]["folders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["path"] == tabs.to_string_lossy().as_ref())
+        .unwrap();
+    let shown = page(
+        &core,
+        &format!("folder:{}", tabs.display()),
+        "title",
+        "none",
+        "",
+    );
+    assert_eq!(shown["rows"].as_array().unwrap().len(), 3);
+    assert_eq!(outer["count"], 3);
+    assert_eq!(outer["children"][0]["name"], "bass");
+    assert_eq!(outer["children"][0]["count"], 2);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn artists_differing_in_case_are_one_group() {
+    let dir = temp_dir("group-case");
+    let core = core_with(&dir, vec![entry("one", "Queen"), entry("two", "queen")]);
+    let all = page(&core, "all", "title", "artist", "");
+    let groups: Vec<&Value> = all["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|g| g["key"] != "")
+        .collect();
+    assert_eq!(groups.len(), 1, "{groups:?}");
+    assert_eq!(groups[0]["count"], 2);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+fn gone_walk(_: &Path) -> Walked {
+    Walked {
+        missing: true,
+        ..Walked::default()
+    }
+}
+
+/// The page asks the walk, never the disk: no `is_dir` on the UI thread.
+#[test]
+fn missing_comes_from_the_walk() {
+    let dir = temp_dir("missing-walk");
+    let tabs = dir.join("tabs");
+    std::fs::create_dir_all(&tabs).unwrap();
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.walk_with(slow_walk);
+    core.link_folder(&tabs).unwrap();
+    std::fs::remove_dir_all(&tabs).unwrap();
+    let before = page(&core, "all", "title", "none", "");
+    assert_eq!(
+        before["counts"]["folders"][0]["missing"], false,
+        "not walked yet"
+    );
+    wait_walked(&mut core);
+
+    std::fs::create_dir_all(&tabs).unwrap();
+    core.walk_with(gone_walk);
+    core.library_rescan();
+    wait_walked(&mut core);
+    let after = page(&core, "all", "title", "none", "");
+    assert_eq!(after["counts"]["folders"][0]["missing"], true);
     let _ = std::fs::remove_dir_all(dir);
 }

@@ -253,7 +253,7 @@ impl Core {
             Group::Origin => (row.origin.key().into(), self.origin_label(row.origin)),
             Group::Artist => match row.artist.trim() {
                 "" => (String::new(), self.tr("library.group.artist.none", &[])),
-                artist => (artist.into(), artist.into()),
+                artist => (artist.to_lowercase(), artist.into()),
             },
             Group::Folder => match row.folder_label() {
                 label if label.is_empty() => {
@@ -402,11 +402,19 @@ impl Core {
             .iter()
             .map(|root| {
                 let mut tree = Node::default();
-                for row in rows.iter().filter(|r| r.root.as_ref() == Some(root)) {
-                    tree.add(row.folder.split('/').filter(|p| !p.is_empty()));
+                // As the `folder:` source: everything below, also what a nested link claims.
+                for row in rows.iter().filter(|r| r.path.starts_with(root)) {
+                    let below = row.path.parent().and_then(|d| d.strip_prefix(root).ok());
+                    tree.add(
+                        below
+                            .into_iter()
+                            .flat_map(|d| d.iter())
+                            .filter_map(|p| p.to_str()),
+                    );
                 }
-                let missing = !root.is_dir();
-                let cut_off = self.folders.walked(root).is_some_and(|w| w.cut_off);
+                let walked = self.folders.walked(root);
+                let missing = walked.is_some_and(|w| w.missing);
+                let cut_off = walked.is_some_and(|w| w.cut_off);
                 let mut node = tree.json(root, &name_of(root));
                 node["missing"] = json!(missing);
                 node["cutOff"] = json!(cut_off);
