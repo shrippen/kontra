@@ -88,13 +88,20 @@ pub struct Web {
     agent: ureq::Agent,
     /// The same, with time for downloads.
     downloads: ureq::Agent,
-    /// For LLM calls: also plain http (checked per URL by `check_llm_url`), no redirects, so a
+    /// For LLM calls: also plain http (checked per URL by `llm_agent`), no redirects, so a
     /// key header never follows one elsewhere.
     llm: ureq::Agent,
+    /// The same without proxy, for this machine: a proxy would carry the call elsewhere.
+    llm_direct: ureq::Agent,
 }
 
 impl Web {
     pub fn new() -> Web {
+        Web::build(ureq::Proxy::try_from_env())
+    }
+
+    /// `proxy`: the environment's (`HTTPS_PROXY` and kin); tests pass their own.
+    fn build(proxy: Option<ureq::Proxy>) -> Web {
         use ureq::tls::{Certificate, RootCerts, TlsConfig, TlsProvider};
         // The system's roots (its CA store); unreadable ones are skipped, none means no HTTPS
         // and the search says it is offline.
@@ -113,21 +120,26 @@ impl Web {
                 .user_agent(USER_AGENT)
                 // Also after a redirect: courses and searches are https only.
                 .https_only(true)
+                .proxy(proxy.clone())
                 .tls_config(tls.clone())
                 .build()
                 .into()
         };
-        let llm = ureq::Agent::config_builder()
-            .timeout_global(Some(LLM_TIMEOUT))
-            .user_agent(USER_AGENT)
-            .max_redirects(0)
-            .tls_config(tls.clone())
-            .build()
-            .into();
+        let llm = |proxy| {
+            ureq::Agent::config_builder()
+                .timeout_global(Some(LLM_TIMEOUT))
+                .user_agent(USER_AGENT)
+                .max_redirects(0)
+                .proxy(proxy)
+                .tls_config(tls.clone())
+                .build()
+                .into()
+        };
         Web {
             agent: agent(TIMEOUT),
             downloads: agent(DOWNLOAD_TIMEOUT),
-            llm,
+            llm: llm(proxy.clone()),
+            llm_direct: llm(None),
         }
     }
 }
@@ -160,8 +172,7 @@ impl Http for Web {
     }
 
     fn get_with(&self, url: &str, headers: &[(&str, &str)]) -> Result<Vec<u8>, HttpError> {
-        check_llm_url(url)?;
-        let mut request = self.llm.get(url);
+        let mut request = self.llm_agent(url)?.get(url);
         for (key, value) in headers {
             request = request.header(*key, *value);
         }
@@ -184,9 +195,8 @@ impl Http for Web {
         body: &[u8],
         timeout: Duration,
     ) -> Result<Vec<u8>, HttpError> {
-        check_llm_url(url)?;
         let mut request = self
-            .llm
+            .llm_agent(url)?
             .post(url)
             .header("content-type", "application/json");
         for (key, value) in headers {
@@ -214,21 +224,23 @@ fn is_loopback(host: &str) -> bool {
         .is_ok_and(|ip| ip.is_loopback())
 }
 
-/// An LLM call may use plain http only to this machine (Ollama, LM Studio); any other host stays
-/// https, so a key never goes in clear text. Checked before any connection is made.
-fn check_llm_url(url: &str) -> Result<(), HttpError> {
-    let uri: ureq::http::Uri = url
-        .parse()
-        .map_err(|_| HttpError::Failed(format!("bad URL: {url}")))?;
-    if uri.scheme_str() == Some("https") {
-        return Ok(());
+impl Web {
+    /// The agent for an LLM call to `url`, checked before any connection is made. Plain http
+    /// only to this machine (Ollama, LM Studio); any other host stays https, so a key never goes
+    /// in clear text. This machine is reached direct, never through a proxy.
+    fn llm_agent(&self, url: &str) -> Result<&ureq::Agent, HttpError> {
+        let uri: ureq::http::Uri = url
+            .parse()
+            .map_err(|_| HttpError::Failed(format!("bad URL: {url}")))?;
+        let local = uri.host().is_some_and(is_loopback);
+        match (uri.scheme_str(), local) {
+            (Some("https" | "http"), true) => Ok(&self.llm_direct),
+            (Some("https"), false) => Ok(&self.llm),
+            _ => Err(HttpError::Failed(format!(
+                "plain http is only allowed to this machine: {url}"
+            ))),
+        }
     }
-    if uri.scheme_str() == Some("http") && uri.host().is_some_and(is_loopback) {
-        return Ok(());
-    }
-    Err(HttpError::Failed(format!(
-        "plain http is only allowed to this machine: {url}"
-    )))
 }
 
 /// Reads a response's body; past a 4xx/5xx status, the body is the provider's error text and
@@ -349,6 +361,26 @@ mod tests {
             web.post_json(&serve_once(), &[], b"{}", TIMEOUT).unwrap(),
             b"ok"
         );
+    }
+
+    /// A proxy from the environment would carry a loopback call, key and all, in clear text to
+    /// another machine (closing review of #320): loopback calls go direct.
+    #[test]
+    fn loopback_calls_bypass_the_proxy() {
+        let proxy = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let proxy_url = format!("http://{}", proxy.local_addr().unwrap());
+        proxy.set_nonblocking(true).unwrap();
+        let web = Web::build(Some(ureq::Proxy::new(&proxy_url).unwrap()));
+
+        let got = web.post_json(
+            &serve_once(),
+            &[("authorization", "Bearer k")],
+            b"{}",
+            TIMEOUT,
+        );
+
+        assert!(proxy.accept().is_err(), "the proxy saw the call");
+        assert_eq!(got.unwrap(), b"ok");
     }
 
     /// A key must never travel in clear text to another machine: no connection is made.
