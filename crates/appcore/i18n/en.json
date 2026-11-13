@@ -1236,5 +1236,13 @@
   "update.text": "A newer version is out. Kontra does not download it; the release page has the installer.",
   "update.open": "Open release page",
   "settings.update": "Look for new versions",
-  "settings.update.hint": "At start, Kontra asks shrippen.github.io which version is the latest and says so here if yours is older. The request names Kontra and its version, nothing else. At most once a day. Takes effect at the next start."
+  "settings.update.hint": "At start, Kontra asks shrippen.github.io which version is the latest and says so here if yours is older. The request names Kontra and its version, nothing else. At most once a day. Takes effect at the next start.",
+  "library.origin.exercise": "Exercises",
+  "library.origin.generated": "Generated",
+  "library.origin.download": "Downloaded",
+  "library.origin.imported": "Imported",
+  "library.origin.folder": "Linked folder",
+  "library.group.artist.none": "No artist",
+  "library.group.folder.none": "Not in a linked folder",
+  "library.folder.none": "{name} is not a folder."
 }

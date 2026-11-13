@@ -93,6 +93,11 @@ pub fn merge_library(into: &mut Library, from: Library) -> Merged {
             merged.setlists += 1;
         }
     }
+    for folder in from.linked_folders {
+        if !into.linked_folders.contains(&folder) {
+            into.linked_folders.push(folder);
+        }
+    }
     // Beat maps of backing tracks (LH-BIB-06) come along where the own library has none.
     for (path, map) in from.beat_maps {
         into.beat_maps.entry(path).or_insert(map);
@@ -142,6 +147,7 @@ mod tests {
             backing_without_bass: false,
             loops: Vec::new(),
             target_speed: None,
+            tempo_bpm: None,
         }
     }
 
@@ -216,6 +222,7 @@ mod tests {
     #[test]
     fn merge_adds_only_unknown_pieces_lists_and_runs() {
         let mut own = Library {
+            linked_folders: vec!["/tabs".into()],
             beat_maps: Default::default(),
             recent: vec![entry("a")],
             setlists: vec![Setlist {
@@ -224,6 +231,7 @@ mod tests {
             }],
         };
         let other = Library {
+            linked_folders: vec!["/tabs".into(), "/bass".into()],
             beat_maps: Default::default(),
             recent: vec![entry("a"), entry("b")],
             setlists: vec![
@@ -240,6 +248,12 @@ mod tests {
         let merged = merge_library(&mut own, other);
         assert_eq!((merged.pieces, merged.setlists), (1, 1));
         assert_eq!(own.setlists[0].pieces.len(), 1, "own setlist kept");
+        let folders: Vec<_> = own.linked_folders.iter().map(|p| p.to_str()).collect();
+        assert_eq!(
+            folders,
+            [Some("/tabs"), Some("/bass")],
+            "joined, none twice"
+        );
 
         let mut song = SongProgress {
             song_id: "0123456789abcdef".into(),

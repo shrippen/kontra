@@ -420,7 +420,7 @@ impl Settings {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct RecentEntry {
     pub path: PathBuf,
     pub title: String,
@@ -459,6 +459,9 @@ pub struct RecentEntry {
     /// The workshop's target speed (1.0 = as written); `None`: as written.
     #[serde(default)]
     pub target_speed: Option<f64>,
+    /// Tempo at the start of the score, for the library's tempo column; `None`: not read yet.
+    #[serde(default)]
+    pub tempo_bpm: Option<f64>,
 }
 
 /// Bars `from..=to` of a piece, indices into its bars with repeats unrolled.
@@ -563,6 +566,9 @@ pub struct Library {
     /// Backing-track beat maps per piece (LH-BIB-06).
     pub beat_maps: std::collections::BTreeMap<PathBuf, BeatMap>,
     pub setlists: Vec<Setlist>,
+    /// Folders on disk the user linked (LH-BIB-17), read in place. Kept here, not in the
+    /// settings: a backup carries the library, and merging joins the lists.
+    pub linked_folders: Vec<PathBuf>,
 }
 
 impl Library {
@@ -594,6 +600,7 @@ impl Library {
                 entry.loops = old.loops.clone();
             }
             entry.target_speed = entry.target_speed.or(old.target_speed);
+            entry.tempo_bpm = entry.tempo_bpm.or(old.tempo_bpm);
         }
         self.recent.retain(|e| e.path != entry.path);
         self.recent.insert(0, entry);
@@ -929,6 +936,7 @@ mod tests {
             backing_without_bass: false,
             loops: Vec::new(),
             target_speed: None,
+            tempo_bpm: None,
         };
         library.touch(entry("a"));
         library.touch(entry("b"));
