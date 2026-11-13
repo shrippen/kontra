@@ -189,9 +189,8 @@ pub mod qobject {
         #[qproperty(QString, llm_models_json, cxx_name = "llmModelsJson")]
         /// A wish or a model list is being asked for; the UI offers only one at a time.
         #[qproperty(bool, llm_busy, cxx_name = "llmBusy")]
-        /// A key check, save or delete is being asked for (LH-BIB-16, review 13.11.2026: the
-        /// keyring itself answers off the UI thread, so the dialog shows this instead of
-        /// freezing); the answer arrives as `llmKeyState`/`llmKeyError`.
+        /// A key check, save or delete is running off the UI thread; the answer arrives as
+        /// `llmKeyState`/`llmKeyError`.
         #[qproperty(bool, llm_key_busy, cxx_name = "llmKeyBusy")]
         #[qproperty(bool, autoplay)]
         /// QA: a blind probe of the start loop instead of autoplay (DIDAKTIK I1).
@@ -654,9 +653,8 @@ pub mod qobject {
         #[cxx_name = "llmProvidersJson"]
         fn llm_providers_json(self: &Self) -> QString;
 
-        /// Starts checking whether `provider` has a key, and where it came from, in the
-        /// background; `false` when a key job already runs or `provider` is unknown. The
-        /// answer is the `llmKeyState` signal.
+        /// Checks in the background whether `provider` has a key (after a running key job);
+        /// `false` when it is unknown. The answer is the `llmKeyState` signal.
         #[qinvokable]
         #[cxx_name = "llmCheckKey"]
         fn llm_check_key(self: Pin<&mut Self>, provider: &QString) -> bool;
@@ -998,11 +996,17 @@ pub mod qobject {
         #[cxx_name = "llmPieceOpened"]
         fn llm_piece_opened(self: Pin<&mut Self>);
 
-        /// A key check, save or delete answered with a new state to show (LH-BIB-16); never
-        /// the key itself.
+        /// A key job answered (never with the key). `state`: env, stored, missing, unavailable
+        /// or notNeeded, to compare; `text`: its words; `ready`: the provider can be asked.
         #[qsignal]
         #[cxx_name = "llmKeyState"]
-        fn llm_key_state(self: Pin<&mut Self>, provider: QString, text: QString);
+        fn llm_key_state(
+            self: Pin<&mut Self>,
+            provider: QString,
+            state: QString,
+            ready: bool,
+            text: QString,
+        );
 
         /// A key save or delete failed.
         #[qsignal]

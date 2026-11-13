@@ -33,7 +33,13 @@ pub enum LlmEvent {
     /// explanation (if any) appended.
     Failed(String),
     /// A key check, save or delete came back with a state to show (never the key itself).
-    KeyState { provider: String, text: String },
+    KeyState {
+        provider: String,
+        state: KeyState,
+        /// The provider can be asked: it has a key, or needs none (or may do without).
+        ready: bool,
+        text: String,
+    },
     /// A key save or delete failed; text already translated.
     KeyError { provider: String, text: String },
 }
@@ -60,6 +66,9 @@ pub(crate) struct LlmJob {
     /// switched provider by the time the answer comes back, but the answer still names the one
     /// it was asked about).
     key: Option<(String, Receiver<KeyOutcome>)>,
+    /// A key check asked for while another key job ran (the user switched provider); it starts
+    /// once that one is answered, and only the latest one is kept.
+    pending_check: Option<String>,
 }
 
 impl Default for LlmJob {
@@ -71,6 +80,7 @@ impl Default for LlmJob {
             piece_level: String::new(),
             models: None,
             key: None,
+            pending_check: None,
         }
     }
 }
@@ -96,6 +106,8 @@ pub enum KeyState {
     Missing,
     /// The system's secret store could not be reached at all.
     Unavailable,
+    /// The provider takes no key (a local server): nothing to look for.
+    NotNeeded,
 }
 
 impl KeyState {
@@ -106,6 +118,29 @@ impl KeyState {
             KeyState::Stored => "llm.key.stored",
             KeyState::Missing => "llm.key.missing",
             KeyState::Unavailable => "llm.key.unavailable",
+            KeyState::NotNeeded => "llm.key.notneeded",
+        }
+    }
+
+    /// Whether a provider in this state can be asked: with a key, without a need for one, or
+    /// where the key is only optional.
+    fn ready(self, provider: Option<&Provider>) -> bool {
+        match self {
+            KeyState::Env | KeyState::Stored | KeyState::NotNeeded => true,
+            KeyState::Missing | KeyState::Unavailable => {
+                provider.is_some_and(|p| matches!(p.key, session::KeyNeed::Optional))
+            }
+        }
+    }
+
+    /// A fixed name for QML to compare (never the translated text).
+    pub fn id(self) -> &'static str {
+        match self {
+            KeyState::Env => "env",
+            KeyState::Stored => "stored",
+            KeyState::Missing => "missing",
+            KeyState::Unavailable => "unavailable",
+            KeyState::NotNeeded => "notNeeded",
         }
     }
 }
@@ -118,7 +153,7 @@ impl Core {
             .map(|p| {
                 serde_json::json!({
                     "id": p.id,
-                    "name": p.name,
+                    "name": self.llm_provider_name(p),
                     "needsKey": !matches!(p.key, session::KeyNeed::None),
                     "docsUrl": p.docs_url,
                     "defaultModel": p.default_model.unwrap_or(""),
@@ -129,20 +164,23 @@ impl Core {
     }
 
     /// Starts checking whether a key is set for `provider_id`, and where it came from
-    /// (LH-BIB-16); the answer comes back through `tick` as `UiEvent::LlmKeyState`. `false`
-    /// when a key job already runs or `provider_id` names no provider Kontra offers.
+    /// (LH-BIB-16); the answer comes back through `tick` as `LlmEvent::KeyState`. While another
+    /// key job runs the check waits for it. `false` when `provider_id` names no provider Kontra
+    /// offers.
     pub fn llm_check_key(&mut self, provider_id: &str) -> bool {
-        if self.llm.key.is_some() {
-            return false;
-        }
         let Some(provider) = session::provider(provider_id).copied() else {
             return false;
         };
+        // Runs once the key job in flight is answered, so the latest provider always gets one.
+        if self.llm.key.is_some() {
+            self.llm.pending_check = Some(provider.id.to_string());
+            return true;
+        }
         let env_present = self.llm_env_key(&provider).is_some();
         let secrets = self.llm.secrets.clone();
         let (tell, answer) = channel();
         std::thread::spawn(move || {
-            let state = key_state_blocking(secrets.as_ref(), provider.id, env_present);
+            let state = key_state_blocking(secrets.as_ref(), &provider, env_present);
             let _ = tell.send(KeyOutcome::Checked(state));
         });
         self.llm.key = Some((provider.id.to_string(), answer));
@@ -166,7 +204,7 @@ impl Core {
         std::thread::spawn(move || {
             let result = secrets
                 .set(provider.id, &value)
-                .map(|()| key_state_blocking(secrets.as_ref(), provider.id, env_present));
+                .map(|()| key_state_blocking(secrets.as_ref(), &provider, env_present));
             let _ = tell.send(KeyOutcome::Written(result));
         });
         self.llm.key = Some((provider.id.to_string(), answer));
@@ -188,11 +226,9 @@ impl Core {
         let (tell, answer) = channel();
         std::thread::spawn(move || {
             let result = match secrets.delete(provider.id) {
-                Ok(()) | Err(SecretError::NotFound) => Ok(key_state_blocking(
-                    secrets.as_ref(),
-                    provider.id,
-                    env_present,
-                )),
+                Ok(()) | Err(SecretError::NotFound) => {
+                    Ok(key_state_blocking(secrets.as_ref(), &provider, env_present))
+                }
                 Err(e) => Err(e),
             };
             let _ = tell.send(KeyOutcome::Written(result));
@@ -202,7 +238,8 @@ impl Core {
     }
 
     /// Starts writing a piece from `wish` at `level` in the background; `false` when a request
-    /// already runs or `llm_provider` names no provider Kontra offers.
+    /// already runs, `llm_provider` names no provider Kontra offers, or no model is chosen (and
+    /// the provider has no default).
     pub fn llm_wish(&mut self, wish: &str, level: &str) -> bool {
         if self.llm.piece.is_some() || self.llm.models.is_some() {
             return false;
@@ -212,6 +249,9 @@ impl Core {
         };
         let base_url = self.llm_base_url(&provider);
         let model = self.llm_model(&provider);
+        if model.is_empty() {
+            return false;
+        }
         let env_key = self.llm_env_key(&provider);
         let secrets = self.llm.secrets.clone();
         let http = self.llm_http();
@@ -312,14 +352,14 @@ impl Core {
         if let Some((provider, rx)) = self.llm.key.take() {
             match rx.try_recv() {
                 Ok(outcome) => events.push(UiEvent::Llm(match outcome {
-                    KeyOutcome::Checked(state) => LlmEvent::KeyState {
-                        text: self.llm_key_state_text(&provider, state),
-                        provider,
-                    },
-                    KeyOutcome::Written(Ok(state)) => LlmEvent::KeyState {
-                        text: self.llm_key_state_text(&provider, state),
-                        provider,
-                    },
+                    KeyOutcome::Checked(state) | KeyOutcome::Written(Ok(state)) => {
+                        LlmEvent::KeyState {
+                            text: self.llm_key_state_text(&provider, state),
+                            ready: state.ready(session::provider(&provider)),
+                            state,
+                            provider,
+                        }
+                    }
                     KeyOutcome::Written(Err(e)) => LlmEvent::KeyError {
                         text: self.llm_secret_error_text(&e),
                         provider,
@@ -329,7 +369,20 @@ impl Core {
                 Err(TryRecvError::Disconnected) => {}
             }
         }
+        if self.llm.key.is_none() {
+            if let Some(provider) = self.llm.pending_check.take() {
+                self.llm_check_key(&provider);
+            }
+        }
         events
+    }
+
+    /// A brand name as it is; the custom entry has none, so its name is translated.
+    fn llm_provider_name(&self, provider: &Provider) -> String {
+        if provider.id == session::CUSTOM {
+            return self.tr("llm.provider.custom", &[]);
+        }
+        provider.name.to_string()
     }
 
     /// The base URL to ask: the provider's own, or the user's for "custom".
@@ -419,13 +472,21 @@ impl Core {
     }
 }
 
-/// Where a key stands: `env_present` (checked up front, cheap) wins; else the store itself is
-/// asked. Runs inside the spawned thread, never on the caller's.
-fn key_state_blocking(secrets: &dyn SecretStore, account: &str, env_present: bool) -> KeyState {
+/// Where a key stands: `env_present` (checked up front, cheap) wins; a provider without a key
+/// need asks no store; else the store itself is asked. Runs inside the spawned thread, never on
+/// the caller's.
+fn key_state_blocking(
+    secrets: &dyn SecretStore,
+    provider: &Provider,
+    env_present: bool,
+) -> KeyState {
     if env_present {
         return KeyState::Env;
     }
-    match secrets.get(account) {
+    if matches!(provider.key, session::KeyNeed::None) {
+        return KeyState::NotNeeded;
+    }
+    match secrets.get(provider.id) {
         Ok(_) => KeyState::Stored,
         Err(SecretError::NotFound | SecretError::Failed(_)) => KeyState::Missing,
         Err(SecretError::Unavailable) => KeyState::Unavailable,

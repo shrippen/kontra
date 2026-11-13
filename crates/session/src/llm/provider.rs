@@ -173,7 +173,8 @@ pub const PROVIDERS: [Provider; 12] = [
     },
     Provider {
         id: CUSTOM,
-        name: "Benutzerdefiniert",
+        // No brand name; the UI translates it (`llm.provider.custom`).
+        name: "",
         // The user's own base URL, held in settings; this preset carries none of its own.
         base_url: "",
         wire: WireFormat::OpenAiChat,

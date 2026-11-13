@@ -20,13 +20,24 @@ KanteDialog {
     readonly property var texts: applicationWindow().texts
     readonly property var levels: ["easy", "medium", "hard"]
     property int level: 1
+    // The provider can be asked: it has a key, needs none, or does without (`llmKeyState`'s
+    // `ready`).
     property bool hasProvider: false
+    property var providers: []
+    // No model chosen and the provider has no default of its own: nothing to ask.
+    readonly property bool modelMissing: {
+        if (ctl.llmModel !== "") return false
+        for (var i = 0; i < providers.length; i++) {
+            if (providers[i].id === ctl.llmProvider) return providers[i].defaultModel === ""
+        }
+        return true
+    }
 
     // The key never answers synchronously (it can live behind a slow or locked keyring); the
     // dialog shows "checking" (dialog.ctl.llmKeyBusy) until `llmKeyState` names the answer.
     function refreshProvider() {
         hasProvider = false
-        var providers = JSON.parse(ctl.llmProvidersJson())
+        providers = JSON.parse(ctl.llmProvidersJson())
         var chosen = providers.some(function(p) { return p.id === ctl.llmProvider })
         if (chosen) ctl.llmCheckKey(ctl.llmProvider)
     }
@@ -38,9 +49,9 @@ KanteDialog {
     Connections {
         target: dialog.ctl
         function onLlmProviderChanged() { dialog.refreshProvider() }
-        function onLlmKeyState(provider, text) {
+        function onLlmKeyState(provider, state, ready, text) {
             if (provider === dialog.ctl.llmProvider)
-                dialog.hasProvider = text !== dialog.texts.t("llm.key.missing")
+                dialog.hasProvider = ready
         }
     }
 
@@ -66,6 +77,18 @@ KanteDialog {
             }
         }
 
+        KanteCallout {
+            Layout.fillWidth: true
+            visible: dialog.hasProvider && dialog.modelMissing && !dialog.ctl.llmKeyBusy
+            kind: KanteCallout.Kind.Info
+            text: dialog.texts.t("wish.no.model")
+            autoHide: false
+            KanteButton {
+                text: dialog.texts.t("wish.settings.link")
+                onClicked: settingsDialog.open()
+            }
+        }
+
         QQC2.Label {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
@@ -73,26 +96,17 @@ KanteDialog {
             text: dialog.texts.t("wish.hint")
         }
 
-        // No KanteTextField takes several lines; a plain styled TextArea instead (lessons,
-        // agent.md): Kante colors set directly so it reads in both themes.
-        Rectangle {
+        // Several lines: a TextArea with Kante's field skin, like the other Kante fields.
+        QQC2.ScrollView {
             Layout.fillWidth: true
             Layout.preferredHeight: KanteStyle.unit(84)
-            color: KanteStyle.backgroundColor
-            border.color: KanteStyle.tint2Color
-            radius: KanteStyle.unit(4)
-            QQC2.ScrollView {
-                anchors.fill: parent
-                anchors.margins: KanteStyle.unit(4)
-                QQC2.TextArea {
-                    id: wishField
-                    wrapMode: TextEdit.Wrap
-                    color: KanteStyle.textColor
-                    placeholderTextColor: KanteStyle.mutedTextColor
-                    placeholderText: dialog.texts.t("wish.placeholder")
-                    Accessible.name: dialog.texts.t("wish.title")
-                    background: null
-                }
+            QQC2.TextArea {
+                id: wishField
+                wrapMode: TextEdit.Wrap
+                color: KanteStyle.textColor
+                placeholderText: dialog.texts.t("wish.placeholder")
+                Accessible.name: dialog.texts.t("wish.title")
+                KanteFieldSkin { control: parent }
             }
         }
 
@@ -117,7 +131,8 @@ KanteDialog {
             KanteButton {
                 text: dialog.texts.t("wish.generate")
                 emphasis: KanteButton.Emphasis.Primary
-                enabled: dialog.hasProvider && wishField.text.trim().length > 0
+                enabled: dialog.hasProvider && !dialog.modelMissing
+                    && wishField.text.trim().length > 0
                     && !dialog.ctl.llmBusy && !dialog.ctl.llmKeyBusy
                 onClicked: {
                     if (dialog.ctl.llmWish(wishField.text, dialog.levels[dialog.level]))

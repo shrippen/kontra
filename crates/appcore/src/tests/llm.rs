@@ -62,6 +62,7 @@ fn core_with(name: &str, http: FakeHttp, secrets: Arc<dyn SecretStore>) -> Core 
     // The texts below are English; `make check` runs under the owner's German locale.
     core.update_settings(|s| {
         s.llm_provider = "openai".into();
+        s.llm_model = "test-model".into();
         s.language = Some("en".into());
     });
     core.llm_test_env(Arc::new(http), secrets);
@@ -450,4 +451,121 @@ fn saving_a_key_never_blocks_the_caller() {
         "{events:?}"
     );
     assert!(!format!("{events:?}").contains("sk-fresh"), "{events:?}");
+}
+
+/// Runs `llm_check_key(provider)` and returns the whole `KeyState` event's parts.
+fn checked(core: &mut Core, provider: &str) -> (KeyState, bool) {
+    assert!(core.llm_check_key(provider));
+    let events = wait(core);
+    let UiEvent::Llm(LlmEvent::KeyState { state, ready, .. }) = &events[0] else {
+        panic!("{events:?}");
+    };
+    (*state, *ready)
+}
+
+/// Review 13.11.2026: Ollama, LM Studio (no key) and "custom" (optional key) counted as "not
+/// set up" because only a found key did.
+#[test]
+fn a_provider_without_a_key_need_is_ready() {
+    let _guard = ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    std::env::remove_var("OPENAI_API_KEY");
+    let mut core = core_with(
+        "llm-ready",
+        FakeHttp::default(),
+        Arc::new(MemoryStore::new()),
+    );
+    assert_eq!(checked(&mut core, "ollama"), (KeyState::NotNeeded, true));
+    assert_eq!(checked(&mut core, "lmstudio"), (KeyState::NotNeeded, true));
+    assert_eq!(checked(&mut core, "custom"), (KeyState::Missing, true));
+    assert_eq!(checked(&mut core, "openai"), (KeyState::Missing, false));
+}
+
+#[test]
+fn a_provider_needing_a_key_is_ready_once_it_has_one() {
+    let _guard = ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    std::env::remove_var("OPENAI_API_KEY");
+    let mut core = core_with("llm-ready-key", FakeHttp::default(), keyed_store());
+    assert_eq!(checked(&mut core, "openai"), (KeyState::Stored, true));
+}
+
+/// Review 13.11.2026: the custom provider's name was German text in code.
+#[test]
+fn the_custom_provider_is_named_in_the_ui_language() {
+    let mut core = core_with("llm-custom-name", FakeHttp::default(), keyed_store());
+    let name = |core: &Core| {
+        let json: serde_json::Value = serde_json::from_str(&core.llm_providers_json()).unwrap();
+        json.as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["id"] == "custom")
+            .unwrap()["name"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+    assert_eq!(name(&core), "Custom");
+    core.update_settings(|s| s.language = Some("de".into()));
+    assert_eq!(name(&core), "Benutzerdefiniert");
+}
+
+/// Review 13.11.2026: without a model "Generieren" sent `"model": ""` and got a 4xx.
+#[test]
+fn a_wish_without_a_model_is_refused() {
+    let http = FakeHttp {
+        chat: Ok(chat_json(VALID_PLAN)),
+        ..FakeHttp::default()
+    };
+    let mut core = core_with("llm-no-model", http, keyed_store());
+    core.update_settings(|s| s.llm_model = String::new());
+    assert!(!core.llm_wish("a groove", "medium"));
+    assert!(!core.llm_busy());
+
+    // Anthropic has its own default model.
+    core.update_settings(|s| s.llm_provider = "anthropic".into());
+    assert!(core.llm_wish("a groove", "medium"));
+    wait(&mut core);
+}
+
+/// Review 13.11.2026: switching the provider during a key check left "checking" up forever,
+/// because the second check was refused and the first answer was for the old provider.
+#[test]
+fn a_key_check_for_another_provider_runs_after_the_first() {
+    let _guard = ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    std::env::remove_var("OPENAI_API_KEY");
+    std::env::remove_var("ANTHROPIC_API_KEY");
+    let (release, gate) = channel();
+    let secrets = Arc::new(BlockingSecrets {
+        gate: Mutex::new(gate),
+        value: "sk-blocked".into(),
+    });
+    let mut core = core_with("llm-check-queue", FakeHttp::default(), secrets);
+
+    assert!(core.llm_check_key("openai"));
+    assert!(
+        core.llm_check_key("anthropic"),
+        "the latest provider must get its answer"
+    );
+    assert!(core.llm_key_busy());
+
+    release.send(()).unwrap();
+    release.send(()).unwrap();
+    let mut answered = Vec::new();
+    let start = Instant::now();
+    while answered.len() < 2 {
+        assert!(start.elapsed() < Duration::from_secs(3), "{answered:?}");
+        for event in core.llm_poll() {
+            if let UiEvent::Llm(LlmEvent::KeyState { provider, .. }) = event {
+                answered.push(provider);
+            }
+        }
+        std::thread::yield_now();
+    }
+    assert_eq!(answered.last().map(String::as_str), Some("anthropic"));
+    assert!(!core.llm_key_busy());
 }

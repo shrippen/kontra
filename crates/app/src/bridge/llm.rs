@@ -34,12 +34,21 @@ impl qobject::Controller {
                 self.as_mut().set_llm_busy(false);
                 self.as_mut().show_error(&text);
             }
-            LlmEvent::KeyState { provider, text } => {
-                self.as_mut().set_llm_key_busy(false);
-                self.as_mut().llm_key_state(q(&provider), q(&text));
+            LlmEvent::KeyState {
+                provider,
+                state,
+                ready,
+                text,
+            } => {
+                // A check queued behind this job may already run.
+                let busy = self.as_mut().core().llm_key_busy();
+                self.as_mut().set_llm_key_busy(busy);
+                self.as_mut()
+                    .llm_key_state(q(&provider), q(state.id()), ready, q(&text));
             }
             LlmEvent::KeyError { provider, text } => {
-                self.as_mut().set_llm_key_busy(false);
+                let busy = self.as_mut().core().llm_key_busy();
+                self.as_mut().set_llm_key_busy(busy);
                 self.as_mut().llm_key_error(q(&provider), q(&text));
             }
         }

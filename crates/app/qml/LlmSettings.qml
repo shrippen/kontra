@@ -21,6 +21,8 @@ KanteDialog {
     property var providers: []
     property var models: []
     property string keyState: ""
+    // The state's fixed name (`llmKeyState`'s `state`), never the translated text.
+    property string keyStateId: ""
     property string error: ""
 
     readonly property var currentProvider: {
@@ -37,6 +39,7 @@ KanteDialog {
     // answer (dialog.ctl.llmKeyBusy disables Save/Delete meanwhile).
     function refreshKeyState() {
         keyState = texts.t("llm.key.checking")
+        keyStateId = ""
         ctl.llmCheckKey(ctl.llmProvider)
     }
 
@@ -52,8 +55,10 @@ KanteDialog {
         target: dialog.ctl
         function onLlmProviderChanged() { dialog.refreshKeyState() }
         function onLlmModelsJsonChanged() { dialog.models = JSON.parse(dialog.ctl.llmModelsJson) }
-        function onLlmKeyState(provider, text) {
-            if (provider === dialog.ctl.llmProvider) dialog.keyState = text
+        function onLlmKeyState(provider, state, ready, text) {
+            if (provider !== dialog.ctl.llmProvider) return
+            dialog.keyState = text
+            dialog.keyStateId = state
         }
         function onLlmKeyError(provider, text) {
             if (provider === dialog.ctl.llmProvider) dialog.error = text
@@ -135,8 +140,8 @@ KanteDialog {
                     Accessible.name: texts.t("llm.settings.key")
                 }
                 KanteButton {
-                    text: dialog.keyState === texts.t("llm.key.missing")
-                        ? texts.t("llm.settings.key.save") : texts.t("llm.settings.key.replace")
+                    text: dialog.keyStateId === "stored"
+                        ? texts.t("llm.settings.key.replace") : texts.t("llm.settings.key.save")
                     enabled: keyField.text.length > 0 && !dialog.ctl.llmKeyBusy
                     onClicked: {
                         dialog.error = ""
@@ -147,7 +152,7 @@ KanteDialog {
                 KanteButton {
                     text: texts.t("llm.settings.key.delete")
                     emphasis: KanteButton.Emphasis.Quiet
-                    visible: dialog.keyState !== texts.t("llm.key.missing")
+                    visible: dialog.keyStateId === "stored"
                     enabled: !dialog.ctl.llmKeyBusy
                     onClicked: {
                         dialog.error = ""
