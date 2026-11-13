@@ -890,7 +890,7 @@ fn folder_files_show_title_artist_and_tempo() {
     let dir = temp_dir("meta-folder");
     let mut core = Core::new(&dir, QaOptions::default());
     score(
-        &dir.join("tabs/rock/song-1.musicxml"),
+        &dir.join("tabs").join("rock").join("song-1.musicxml"),
         "Night Drive",
         "Jaco Trio",
         95,
@@ -927,7 +927,7 @@ fn bundled_exercises_have_their_tempo() {
 #[test]
 fn old_entries_get_their_tempo() {
     let dir = temp_dir("meta-old");
-    let path = dir.join("Downloads/old.musicxml");
+    let path = dir.join("Downloads").join("old.musicxml");
     score(&path, "Old One", "", 128);
     let mut core = core_with(
         &dir,
@@ -958,7 +958,7 @@ fn a_moved_piece_is_found_again() {
     let dir = temp_dir("meta-moved");
     let mut core = Core::new(&dir, QaOptions::default());
     core.set_download_dir(&dir.join("Downloads"));
-    let before = dir.join("Downloads/etude.mid");
+    let before = dir.join("Downloads").join("etude.mid");
     known_piece(&mut core, &before);
     let a = core.arrangement().unwrap().clone();
     let run = kontra_session::Run {
@@ -977,7 +977,7 @@ fn a_moved_piece_is_found_again() {
     core.setlist_create("Friday");
     core.setlist_add("Friday", &before);
 
-    let after = dir.join("tabs/rock/etude.mid");
+    let after = dir.join("tabs").join("rock").join("etude.mid");
     std::fs::create_dir_all(after.parent().unwrap()).unwrap();
     std::fs::rename(&before, &after).unwrap();
     core.link_folder(&dir.join("tabs")).unwrap();
@@ -1007,13 +1007,13 @@ fn two_entries_never_follow_one_file() {
     let mut core = Core::new(&dir, QaOptions::default());
     core.set_download_dir(&dir.join("Downloads"));
     let (first, second) = (
-        dir.join("Downloads/etude.mid"),
-        dir.join("Downloads/etude (1).mid"),
+        dir.join("Downloads").join("etude.mid"),
+        dir.join("Downloads").join("etude (1).mid"),
     );
     known_piece(&mut core, &first);
     known_piece(&mut core, &second);
 
-    let after = dir.join("tabs/etude.mid");
+    let after = dir.join("tabs").join("etude.mid");
     std::fs::create_dir_all(after.parent().unwrap()).unwrap();
     std::fs::rename(&first, &after).unwrap();
     std::fs::remove_file(&second).unwrap();
