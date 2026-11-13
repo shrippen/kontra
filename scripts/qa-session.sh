@@ -16,6 +16,8 @@
 #   --keep        keep the work folder (data, log) and print it
 #   --run CMD     run CMD (with DISPLAY set) once the window is there, then stop Kontra;
 #                 without it Kontra runs until it quits or Ctrl-C
+#   --seed DIR    copy DIR's files into Kontra's data folder first (a library.json with linked
+#                 folders, progress/ files), for pictures of a library that is not empty
 #   --settings J  more settings as a JSON object, e.g. '{"monitor": true}'; the null output stays
 #
 # Kontra binary: $KONTRA_BIN, else $CARGO_TARGET_DIR/debug/kontra, else target/debug/kontra.
@@ -25,7 +27,7 @@ set -euo pipefail
 caller="$PWD"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 
-input="" a11y=0 size="1920x1080" keep=0 run="" extra="{}"
+input="" a11y=0 size="1920x1080" keep=0 run="" extra="{}" seed=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --input-file) input="$2"; shift 2 ;;
@@ -34,6 +36,7 @@ while [ $# -gt 0 ]; do
         --keep) keep=1; shift ;;
         --run) run="$2"; shift 2 ;;
         --settings) extra="$2"; shift 2 ;;
+        --seed) seed="$2"; shift 2 ;;
         --) shift; break ;;
         *) echo "qa-session: unknown option $1 (see the head of this script)" >&2; exit 2 ;;
     esac
@@ -68,6 +71,9 @@ mkdir -p "$work/data" "$work/runtime" "$work/downloads"
 chmod 700 "$work/runtime"
 python3 -c 'import json, sys; print(json.dumps({**json.loads(sys.argv[1]), "output_device": "kontra:null"}))' \
     "$extra" > "$work/data/settings.json"
+if [ -n "$seed" ]; then
+    cp -r "$seed"/. "$work/data/"
+fi
 
 # A free display from :99 up.
 display=99
