@@ -9,6 +9,7 @@ mod midi;
 #[cfg(target_os = "linux")]
 mod pipewire;
 pub mod plugins;
+mod secrets;
 mod separator;
 mod urls;
 
@@ -22,5 +23,6 @@ pub use http::{FileHttp, Http, HttpError, Web};
 pub use midi::{
     list_midi_inputs, open_midi, read_midi_notes, MidiConnection, MidiError, MidiNote, MidiPort,
 };
+pub use secrets::{Keychain, MemoryStore, SecretError, SecretStore};
 pub use separator::{find_separator, in_sandbox, SeparationJob, Separator, SeparatorError};
 pub use urls::{file_url, local_path};

@@ -54,6 +54,8 @@ const PAGES: &[&str] = &[
     "qml/UpdateNotice.qml",
     "qml/SongMap.qml",
     "qml/CallResponse.qml",
+    "qml/LlmSettings.qml",
+    "qml/PieceWish.qml",
 ];
 
 fn main() {

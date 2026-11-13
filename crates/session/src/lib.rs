@@ -24,6 +24,7 @@ mod expected;
 mod improv;
 mod learning;
 mod live;
+mod llm;
 mod loopback;
 mod matcher;
 mod monitor;
@@ -67,12 +68,18 @@ pub use kontra_engine::{
 pub use kontra_engine::{group_of_effect, group_of_plugin, PluginGroup};
 pub use kontra_engine::{EngineError, FileHttp, Http, HttpError, Web};
 pub use kontra_engine::{Gains, Limit, SeparatorError, Shaping, SHAPING_RANGE_DB};
+/// Where an LLM key lives (LH-BIB-16): appcore's layer only, never session's own logic.
+pub use kontra_engine::{Keychain, MemoryStore, SecretError, SecretStore};
 pub use learning::{
     lesson, place, positions, Answer, LearnState, LearnStore, Learning, QuestionRef, UnitState,
 };
 pub use live::{
     is_midi_file, soak, InputChoice, Live, LiveCalibration, LiveEar, LiveError, LiveOutput,
     LiveSetup, LiveTuner, PromptTone, SoakReport, TunerMonitor,
+};
+pub use llm::{
+    generate_plan, list_models, provider, provider_message, GenError, KeyNeed, Provider,
+    WireFormat, CUSTOM, PROVIDERS,
 };
 pub use loopback::{LiveLoopback, LoopbackResult};
 pub use matcher::{NoteResult, Outcome};

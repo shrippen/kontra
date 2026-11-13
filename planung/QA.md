@@ -302,6 +302,19 @@ Takte, Kontra spielt, das Schlagzeug leiser) und die Antwort (zwei Takte, gleich
 Quinte); die Tab ist leer, der Hinweis „Hör zu und antworte …“ sagt warum; nach zwei Fehlversuchen (unter 80 %) erscheint
 die Tab; über Mikrofon zählt der Ruf weder als Treffer noch als zusätzliche Note; Aylin sieht keinen Schalter.
 
+**J-C13 Stück wünschen** · Personas: P1 Lea, P2 Jens, P3 Mira, P4 Thomas · Phase 3 · LH-BIB-16
+1. Jens: Übungen, „Stück wünschen …“ ohne eingerichteten Anbieter öffnen; den Hinweis lesen, „Anbieter einrichten …“.
+2. Jens: Anbieter „OpenRouter“, Schlüssel einfügen, „Speichern“; zurück im Wunsch-Dialog einen Wunsch eintragen
+   („Motown-Groove in A, 16 Takte Refrain mit Achtel-Pushes“), Schwierigkeit „Mittel“, „Generieren“.
+3. Lea: denselben Wunsch, Schwierigkeit „Leicht“; während die Antwort noch läuft, den Dialog betrachten.
+4. Mira: einen Anbieter ohne Schlüssel nötig (lokaler Server) einrichten, Modell über „Modelle laden“ wählen.
+5. Thomas: einen Schlüssel ersetzen und wieder löschen; den Hinweis "kein Schlüssel" danach sehen.
+Erwartet: Ohne Anbieter oder ohne Schlüssel nennt der Dialog das und bietet nur den Link zu den Einstellungen, kein
+„Generieren“; während der Anfrage läuft, eine Zeile sagt das, kein zweiter Start möglich; eine gültige Antwort öffnet
+das Stück wie ein erzeugtes (Praxisseite, Fortschritt, Werkstatt); eine zweimal ungültige Antwort zeigt die
+gefundenen Probleme statt eines Absturzes; der Schlüssel steht nach „Speichern“ nie im Klartext im Feld und ist in
+keiner Einstellungsdatei oder Sicherung zu finden; „Löschen“ setzt den Zustand auf „kein Schlüssel“ zurück.
+
 ## D. Inhalte teilen (ab Phase 3)
 
 **J-D1 Original-Song als Backing Track** ⚙ · Persona: P2 Jens, P3, P4 (Schritt 6) · Phase 3 · LH-BIB-06, LH-WIE-01, LH-WIE-02

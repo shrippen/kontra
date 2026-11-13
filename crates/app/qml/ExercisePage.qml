@@ -349,5 +349,17 @@ Kirigami.ScrollablePage {
                     applicationWindow().show("practice")
             }
         }
+        KanteButton {
+            visible: page.isSong
+            text: texts.t("wish.open")
+            emphasis: KanteButton.Emphasis.Quiet
+            Accessible.name: texts.t("wish.open")
+            onClicked: wishDialog.open()
+        }
+    }
+    PieceWish { id: wishDialog }
+    Connections {
+        target: ctl
+        function onLlmPieceOpened() { applicationWindow().show("practice") }
     }
 }
