@@ -39,4 +39,11 @@ ignore = [
     # (u8) and only uses `extend` over `&u8` and `truncate_front`. Checked 29.10.2026; drop this
     # when minimp3 or its ring buffer is replaced.
     { id = "RUSTSEC-2025-0044", reason = "minimp3 uses none of the affected paths (u8, extend, truncate_front)" },
+    # zvariant, zbus_names, zvariant_derive via keyring -> secret-service -> zbus: three
+    # unmaintained notices, not vulnerabilities, for the same move (zbus 6.0+ folds these three
+    # standalone crates into itself; no safe upgrade exists until keyring follows). Checked
+    # 13.11.2026 (LH-BIB-16, API keys in the keyring); drop all three together when that happens.
+    { id = "RUSTSEC-2026-0370", reason = "unmaintained, folded into zbus 6.0+, no fix available yet" },
+    { id = "RUSTSEC-2026-0371", reason = "unmaintained, folded into zbus 6.0+, no fix available yet" },
+    { id = "RUSTSEC-2026-0372", reason = "unmaintained, folded into zbus 6.0+, no fix available yet" },
 ]
