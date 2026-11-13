@@ -91,6 +91,9 @@ Item {
     property bool rhythm: true
     property bool cursor: true
     property real lineSpacing: KanteStyle.unit(14)
+    /** Labels (string names, bar numbers) grow with lines wider than the default, e.g. 1.5 times
+     *  in a presentation; below it they keep the label size, which stays readable (QA 28.10.). */
+    readonly property real labelScale: Math.max(1, baseLs / KanteStyle.unit(14))
     property real minBarWidth: KanteStyle.unit(200)
     /** Ground behind the fret numbers (they interrupt the string line). */
     property color groundColor: KanteStyle.backgroundColor
@@ -379,7 +382,7 @@ Item {
     FontLoader { id: music; source: Qt.resolvedUrl("fonts/Bravura.otf") }
     TextMetrics {
         id: nameMetrics
-        font: KanteStyle.monoFont(KanteStyle.labelFont().pointSize, true)
+        font: KanteStyle.monoFont(KanteStyle.labelFont().pointSize * staff.labelScale, true)
         text: {
             var w = "M"
             for (var s = 0; s < staff.strings; s++) {
@@ -930,6 +933,7 @@ Item {
                         model: hd.line ? staff.strings : 0
                         delegate: Text {
                             required property int index
+                            objectName: "stringName"
                             x: KanteStyle.unit(2)
                             y: hd.modelData.y + staff.rowOf(index) * staff.ls - height / 2
                             text: staff.nameOf(index)
@@ -955,12 +959,13 @@ Item {
                         }
                     }
                     Text {
+                        objectName: "barNumber"
                         visible: !hd.line
                         x: hd.line ? 0 : hd.modelData.x + KanteStyle.unit(2)
                         y: hd.line ? 0 : hd.modelData.y
                         text: hd.line ? "" : hd.modelData.number
                         color: KanteStyle.mutedTextColor
-                        font: KanteStyle.monoFont(KanteStyle.labelFont().pointSize * 0.85, false)
+                        font: KanteStyle.monoFont(KanteStyle.labelFont().pointSize * 0.85 * staff.labelScale, false)
                     }
                 }
             }

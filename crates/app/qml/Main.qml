@@ -277,7 +277,6 @@ Kirigami.ApplicationWindow {
         modal: !root.wideScreen || root.presenting
         // Its handle lay over the transport's time in the presentation.
         handleVisible: !root.presenting && modal
-        collapsible: true
         collapsed: !root.wideScreen
         // A popup outside the content: it marked the page in the desktop's highlight colour
         // (QA 27.10.: green). Kante's selection colour, as on segmented buttons.
@@ -319,6 +318,7 @@ Kirigami.ApplicationWindow {
     }
 
     DrawerFocus { drawer: root.globalDrawer }
+    CollapseBack { drawer: root.globalDrawer }
 
     // Audio and session are polled here, ~60 times a second.
     Timer {

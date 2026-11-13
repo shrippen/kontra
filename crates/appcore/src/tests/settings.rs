@@ -661,3 +661,33 @@ fn known_device_lists_show_at_once() {
     assert!(outputs.contains("card-Output"), "{outputs}");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// A QA run (input from a file) lists no devices at start: listing probes the real ALSA cards,
+/// which a test session must leave alone (agent.md, QA runs only through qa-session).
+#[test]
+fn a_qa_run_lists_no_devices_at_start() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static LISTED: AtomicUsize = AtomicUsize::new(0);
+
+    fn counted(_: Direction) -> Vec<DeviceInfo> {
+        LISTED.fetch_add(1, Ordering::SeqCst);
+        Vec::new()
+    }
+
+    let dir = temp_dir("early");
+    let take = dir.join("take.wav");
+    kontra_session::write_mono_wav(&take, &vec![0.0; 4_800], 48_000).unwrap();
+    let mut core = Core::new(
+        &dir,
+        QaOptions {
+            input_file: Some(take),
+            laptop_jack: false,
+        },
+    );
+    core.list_devices_with(counted);
+    core.list_devices_early();
+    std::thread::sleep(std::time::Duration::from_millis(200));
+    assert!(!core.devices_poll(), "lists came");
+    assert_eq!(LISTED.load(Ordering::SeqCst), 0, "listed at start");
+    let _ = std::fs::remove_dir_all(dir);
+}

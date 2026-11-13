@@ -1107,7 +1107,7 @@ impl Default for ControllerRust {
         };
         let mut core = Core::new(&data_dir(), qa);
         // Ready before the settings page asks for them.
-        core.relist_devices();
+        core.list_devices_early();
         // Devices stay open while Kontra is open (LH-EIN-18); a screenshot run holds none.
         if args.screenshot.is_none() {
             core.keep_devices_open();

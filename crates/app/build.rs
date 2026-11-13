@@ -41,6 +41,7 @@ const PAGES: &[&str] = &[
     "qml/InputStatus.qml",
     "qml/NavSeparator.qml",
     "qml/DrawerFocus.qml",
+    "qml/CollapseBack.qml",
     "qml/NotationStaff.qml",
     "qml/TabStaff.qml",
     "qml/PracticeFooter.qml",
