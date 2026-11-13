@@ -16,11 +16,13 @@ Item {
         anchors.fill: parent
         clip: true
         contentHeight: 2000
-        QQC2.ScrollBar.vertical: HeaderScrollBar {
-            id: bar
-            headerHeight: root.headerHeight
-            policy: QQC2.ScrollBar.AlwaysOn
-        }
+    }
+
+    HeaderScrollBar {
+        id: bar
+        flickable: flick
+        headerHeight: root.headerHeight
+        policy: QQC2.ScrollBar.AlwaysOn
     }
 
     property real headerHeight: 80
@@ -38,6 +40,15 @@ Item {
         function handleTop() { return bar.contentItem.mapToItem(flick, 0, 0).y }
         function handleBottom() { return handleTop() + bar.contentItem.height }
 
+        // The whole bar: org.kde.desktop draws track and handle in the background over the full
+        // height and hides contentItem (closing review of #321).
+        function test_bar_lies_below_the_header() {
+            waitForRendering(root)
+            var top = bar.mapToItem(root, 0, 0).y
+            verify(top >= 80, "bar top " + top)
+            verify(top + bar.height <= root.height, "bar bottom " + (top + bar.height))
+        }
+
         function test_starts_below_the_header() {
             waitForRendering(root)
             verify(handleTop() >= 80, "handle top " + handleTop())
@@ -47,6 +58,13 @@ Item {
             flick.contentY = flick.contentHeight - flick.height
             waitForRendering(root)
             verify(handleBottom() <= flick.height, "handle bottom " + handleBottom())
+        }
+
+        function test_moves_the_flickable() {
+            bar.position = 0.5
+            compare(flick.contentY, 1000)
+            flick.contentY = 0
+            compare(bar.position, 0)
         }
 
         function test_follows_a_smaller_header() {
