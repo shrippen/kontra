@@ -25,6 +25,7 @@ mod learn;
 pub mod level;
 mod library;
 mod live_course;
+mod llm;
 mod mixer;
 mod notation;
 mod package;
@@ -51,6 +52,7 @@ pub use i18n::{Catalog, Language};
 pub use input_state::{InputState, QaOptions};
 pub use kontra_session::{exercise, file_url, local_path, Blocks, ChainOrder, Density};
 pub use library::BackingChange;
+pub use llm::KeyState;
 pub use package::PackageAudio;
 pub use store::{
     data_dir, AudioPath, Bass, InputKind, LatencyFrom, Library, PracticeLoop, RecentEntry,
@@ -183,6 +185,14 @@ pub enum UiEvent {
         latency_ms: Option<f64>,
         text: String,
     },
+    /// A wished-for piece (LH-BIB-16) was generated and written; its path, to open like any
+    /// generated exercise.
+    LlmPieceReady(String),
+    /// A provider's model list came back, sorted.
+    LlmModels(Vec<String>),
+    /// A piece wish or a model list failed; text already translated, the provider's own
+    /// explanation (if any) appended.
+    LlmFailed(String),
 }
 
 /// A fixed note density gets no suggestions.
@@ -299,6 +309,8 @@ pub struct Core {
     live_course: Option<live_course::LiveCourse>,
     /// Plugins of the effect chain: the scan, and why slots are bypassed (LH-EIN-20).
     plugins: fx_plugins::Plugins,
+    /// A wished-for piece or a provider's model list, fetched in the background (LH-BIB-16).
+    llm: llm::LlmJob,
 }
 
 /// One pass of the loop without notes on screen (DIDAKTIK I1), at the speed it was practised.
@@ -355,6 +367,7 @@ impl Core {
             lesson_goal: None,
             live_course: None,
             plugins: fx_plugins::Plugins::start(data_dir, &mut settings),
+            llm: llm::LlmJob::default(),
             notice: None,
             active_setlist: None,
             lost: None,
@@ -1788,6 +1801,7 @@ impl Core {
         events.extend(ear_event);
         events.extend(self.prepare_backing());
         events.extend(self.bluetooth_hint());
+        events.extend(self.llm_poll());
         events.extend(self.poll_effects());
         events.extend(self.advise_level(&events));
         // The meter holds the peak the advice judges, so both say the same.

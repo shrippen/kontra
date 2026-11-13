@@ -266,6 +266,14 @@ pub struct Settings {
     pub update_checked_unix: u64,
     pub update_found_version: String,
     pub update_found_url: String,
+    /// LLM provider for "Stück wünschen" (LH-BIB-16): a preset id (`kontra_session::PROVIDERS`)
+    /// or "custom". The API key never lives here; it is in the system's secret store.
+    pub llm_provider: String,
+    /// The user's own base URL; read only when `llm_provider` is "custom".
+    pub llm_base_url: String,
+    /// The model id chosen, or empty to use the provider's default (Anthropic only; every
+    /// other provider needs one picked).
+    pub llm_model: String,
 }
 
 impl Default for Settings {
@@ -336,6 +344,9 @@ impl Default for Settings {
             update_checked_unix: 0,
             update_found_version: String::new(),
             update_found_url: String::new(),
+            llm_provider: "openrouter".into(),
+            llm_base_url: String::new(),
+            llm_model: String::new(),
         }
     }
 }

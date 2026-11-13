@@ -68,6 +68,8 @@ pub use kontra_engine::{
 pub use kontra_engine::{group_of_effect, group_of_plugin, PluginGroup};
 pub use kontra_engine::{EngineError, FileHttp, Http, HttpError, Web};
 pub use kontra_engine::{Gains, Limit, SeparatorError, Shaping, SHAPING_RANGE_DB};
+/// Where an LLM key lives (LH-BIB-16): appcore's layer only, never session's own logic.
+pub use kontra_engine::{Keychain, MemoryStore, SecretError, SecretStore};
 pub use learning::{
     lesson, place, positions, Answer, LearnState, LearnStore, Learning, QuestionRef, UnitState,
 };
