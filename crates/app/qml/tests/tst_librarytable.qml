@@ -154,6 +154,13 @@ Item {
                 list.contentY = 3000
                 wait(50)
                 compare(list.contentY, 3000, "the view stays where it was scrolled")
+                // Review #332, round 3: the page keys work from there too.
+                keyClick(Qt.Key_End)
+                verify(findChild(list.itemAtIndex(149), "row").activeFocus, "End goes to the last row")
+                list.contentY = 0
+                wait(50)
+                keyClick(Qt.Key_PageUp)
+                verify(findChild(list.itemAtIndex(139), "row").activeFocus, "Page up from the last row")
             } finally {
                 root.view = old
             }

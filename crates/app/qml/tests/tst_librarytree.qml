@@ -13,7 +13,7 @@ Item {
     readonly property QtObject texts: QtObject {
         function t(key, args) { return key + (args ? " " + JSON.stringify(args) : "") }
     }
-    readonly property var counts: ({
+    property var counts: ({
         all: 214, recent: 7,
         origins: { exercise: 152, generated: 3, download: 40, imported: 19, folder: 5 },
         folders: [
@@ -105,6 +105,30 @@ Item {
             verify(after.activeFocus, "Tab leaves the tree")
         }
 
+        // Review #332, round 3: Return on a source rebuilt the tree (new counts); the focus
+        // landed on a delegate, out of sight.
+        function test_aRebuildKeepsTheFocusOnAnEntry() {
+            var before = root.counts
+            var source = tree.source
+            try {
+                tree.positionViewAtBeginning()
+                waitForRendering(tree)
+                tree.focusEntry(1, 0)
+                keyClick(Qt.Key_Return)
+                // As the library page does: the picked source shows, the counts are new.
+                tree.source = picked.signalArguments[picked.count - 1][0]
+                root.counts = JSON.parse(JSON.stringify(before))
+                tryVerify(function() {
+                    var item = tree.Window.activeFocusItem
+                    return item !== null && item.objectName === "treeRow"
+                }, 1000, "an entry has the focus after the rebuild")
+            } finally {
+                tree.source = source
+                root.counts = before
+                tree.focusIndex = -1
+            }
+        }
+
         // Review #332, round 2: a focused entry scrolled away pulled the view back to it.
         function test_scrollingAwayFromTheFocusStays() {
             var height = tree.height
@@ -134,11 +158,12 @@ Item {
             tree.height = 60
             tree.cacheBuffer = 0
             try {
-                tree.focusIndex = last
+                // The last entry is the stop (chosen by keyboard), then the focus leaves.
+                tree.focusEntry(last, 0)
+                after.forceActiveFocus()
                 tree.positionViewAtBeginning()
                 waitForRendering(tree)
                 verify(tree.itemAtIndex(last) === null, "the last entry is not built")
-                after.forceActiveFocus()
                 keyClick(Qt.Key_Backtab)
                 tryVerify(function() {
                     var cell = tree.itemAtIndex(last)

@@ -138,6 +138,20 @@ ColumnLayout {
         }
         return false
     }
+    // Home, End, Page up and Page down from row `from`.
+    function pageKey(event, from) {
+        var moves = { [Qt.Key_PageDown]: pageRows, [Qt.Key_PageUp]: -pageRows }
+        if (event.key === Qt.Key_Home) {
+            focusRow(0)
+        } else if (event.key === Qt.Key_End) {
+            focusRow(list.count - 1)
+        } else if (moves[event.key] !== undefined) {
+            focusRow(from + moves[event.key])
+        } else {
+            return
+        }
+        event.accepted = true
+    }
     function claimFocus() {
         if (wrapsRows(list.Window.activeFocusItem)) {
             focusRow(stopIndex)
@@ -272,9 +286,11 @@ ColumnLayout {
                 Qt.callLater(table.claimFocus)
             }
         }
-        // Rows scrolled away: the arrows bring the focus back to the stop row.
+        // Rows scrolled away: the arrows bring the focus back to the stop row, the page keys
+        // move from it (review #332).
         Keys.onUpPressed: table.focusRow(table.stopIndex)
         Keys.onDownPressed: table.focusRow(table.stopIndex)
+        Keys.onPressed: function(event) { table.pageKey(event, table.stopIndex) }
 
         delegate: ColumnLayout {
             id: line
@@ -327,19 +343,7 @@ ColumnLayout {
                 activeFocusOnTab: line.stop
                 Keys.onDownPressed: table.focusRow(line.index + 1)
                 Keys.onUpPressed: table.focusRow(line.index - 1)
-                Keys.onPressed: function(event) {
-                    var moves = { [Qt.Key_PageDown]: table.pageRows, [Qt.Key_PageUp]: -table.pageRows }
-                    if (event.key === Qt.Key_Home) {
-                        table.focusRow(0)
-                    } else if (event.key === Qt.Key_End) {
-                        table.focusRow(list.count - 1)
-                    } else if (moves[event.key] !== undefined) {
-                        table.focusRow(line.index + moves[event.key])
-                    } else {
-                        return
-                    }
-                    event.accepted = true
-                }
+                Keys.onPressed: function(event) { table.pageKey(event, line.index) }
 
                 trailing: Row {
                     spacing: header.spacing
