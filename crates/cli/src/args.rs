@@ -496,4 +496,7 @@ pub struct RenderArgs {
     /// With `--techniques`: every n-th technique note plucked instead (0 = never).
     #[arg(long, default_value_t = 0)]
     pub plain_every: usize,
+    /// Play the answers of call and response (LH-LRN-19, J-C12); the calls stay silent.
+    #[arg(long)]
+    pub call_response: bool,
 }

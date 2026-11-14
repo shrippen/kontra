@@ -192,7 +192,10 @@ fn piece(a: &args::PieceArgs) -> CliResult {
 }
 
 fn render(a: &args::RenderArgs) -> CliResult {
-    let arrangement = load_arrangement(&a.score, a.track)?;
+    let mut arrangement = load_arrangement(&a.score, a.track)?;
+    if a.call_response {
+        arrangement = answers(&arrangement)?;
+    }
     let mistakes = session::Mistakes {
         offset_ms: a.offset_ms,
         wrong_every: a.wrong_every,
@@ -215,6 +218,18 @@ fn render(a: &args::RenderArgs) -> CliResult {
         samples.len() as f64 / 48_000.0
     );
     Ok(())
+}
+
+/// The player's part of call and response: the answers alone, as through a cable.
+fn answers(arrangement: &kontra_model::Arrangement) -> Result<kontra_model::Arrangement, String> {
+    let mut out = session::call_and_response(arrangement)
+        .ok_or("no call and response: the piece needs chord symbols and four bars")?;
+    let notes = std::mem::take(&mut out.notes);
+    out.notes = notes
+        .into_iter()
+        .filter(|n| !out.in_call(n.start_ticks))
+        .collect();
+    Ok(out)
 }
 
 /// LH-NF-04: plays for `minutes` and fails above `max_xruns` dropouts.
@@ -379,5 +394,33 @@ pub(crate) fn print_summary(s: &session::Summary, arrangement: &kontra_model::Ar
             })
             .collect();
         println!("hardest bars: {}", bars.join(", "));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const GROOVE: [&str; 6] = [
+        "..",
+        "..",
+        "testdata",
+        "exercises",
+        "1 Einstieg",
+        "47 Groove Viertel I-IV-V in A (70 BPM).mid",
+    ];
+
+    /// J-C12 input: the answers sound, the calls stay silent.
+    #[test]
+    fn answers_leave_the_calls_silent() {
+        let score: std::path::PathBuf = std::iter::once(env!("CARGO_MANIFEST_DIR"))
+            .chain(GROOVE)
+            .collect();
+        let arrangement = load_arrangement(&score, None).unwrap();
+        let out = answers(&arrangement).unwrap();
+
+        assert!(!out.calls.is_empty());
+        assert!(!out.notes.is_empty());
+        assert!(out.notes.iter().all(|n| !out.in_call(n.start_ticks)));
     }
 }
