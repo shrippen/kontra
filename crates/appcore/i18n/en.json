@@ -52,6 +52,7 @@
   "summary.outside.early": "mostly {ms} ms early, outside the timing window",
   "summary.outside.late": "mostly {ms} ms late, outside the timing window",
   "summary.observe.technique": "Most to gain now: {technique}, {played} of {judged}. Practise the spots with this technique slowly.",
+  "summary.observe.muting": "{rang} of {judged} notes rang into the rest. Mute the string right at the end of the note.",
   "summary.observe.beside.early": "The notes are right but mostly {ms} ms early. Listen to the click or loosen the timing window.",
   "summary.observe.beside.late": "The notes are right but mostly {ms} ms late. Listen to the click or loosen the timing window.",
   "summary.observe.missed": "{notes} of {judged} notes did not sit yet. Practising slower helps most now.",

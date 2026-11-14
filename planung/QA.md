@@ -167,8 +167,11 @@ Erwartet: Die Auswertung nennt „Abdämpfen: N von N Noten rechtzeitig gestoppt
 zweiten Durchgang „in die Pause geklungen: …“; unter
 „Alle Noten“ steht je Note „rechtzeitig abgedämpft“, „… ms zu spät abgedämpft“ oder „klang in die Pause“; die
 Trefferquote bleibt gleich (Abdämpfen ist Rückmeldung, kein Treffer); Noten ohne Pause danach, Akkorde, Dead Notes,
-Palm-Mute und die letzte Note (ohne Staccato) werden nicht bewertet. Mikrofon: kein Urteil, die Auswertung sagt
-„Abdämpfen bewertet Kontra über diesen Eingang noch nicht (nur über Kabel)“.
+Palm-Mute und die letzte Note (ohne Staccato) werden nicht bewertet. Im zweiten Durchgang nennt die Beobachtung
+„N von N Noten klangen in die Pause …“, die Auswertung bietet kein „Sitzt · als Nächstes“, und 151 gilt in der
+Übungsliste nicht als gemeistert (erst ab drei Vierteln rechtzeitig, Runde 22). Mikrofon: kein Urteil, die
+Auswertung sagt „Abdämpfen bewertet Kontra über diesen Eingang noch nicht (nur über Kabel)“; „Sitzt“ hängt dann nur
+an der Trefferquote.
 
 **J-B9 Bibliothek ordnen** (Daten und Zählung getestet in `crates/appcore/src/tests/library_view.rs`, Menü, Baum, Tabelle und Dialoge in `crates/app/qml/tests/tst_addpiecesmenu.qml`, `tst_librarytree.qml`, `tst_librarytable.qml`, `tst_librarydialogs.qml`, `tst_librarypage.qml`) · Personas: P2 Jens, P4 Thomas, P1 Lea, P7 Sam · Phase 3 · LH-BIB-17, -18, -19
 1. Jens: 40 Stücke aus Downloads, einen Ordner „Band“ mit Unterordnern „Rock“ und „Slap“ über „Stücke hinzufügen ▾“ → „Ordner hinzufügen …“ verknüpfen (der Dialog fragt: Verknüpfen, Importieren, Als Setliste); im Baum „Heruntergeladen“, dann „Band“ und „Slap“ anklicken; nach „Zuletzt“ absteigend sortieren (Spaltenkopf, Pfeil im Titel), nach Tempo auf- und absteigend; über „Gruppieren“ nach Interpret gruppieren; „funk“ suchen.

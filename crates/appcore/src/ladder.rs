@@ -159,6 +159,7 @@ mod tests {
             hardest_bars: Vec::new(),
             hesitant_bars: Vec::new(),
             spread_ms: None,
+            muted_in_time: None,
             bars: Vec::new(),
         };
         core.progress_store().record(&a, run).unwrap();

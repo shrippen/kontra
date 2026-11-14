@@ -10,6 +10,7 @@ mod fx_plugins;
 mod library;
 mod library_view;
 mod llm;
+mod muting;
 mod notation;
 mod note_list;
 mod playback;

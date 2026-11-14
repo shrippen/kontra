@@ -1022,10 +1022,14 @@ gestoppt“ bzw. „0 von 31 … in die Pause geklungen: 31“; unter „Alle No
 (4 Staccato-Noten unter 76), wie notiert gespielt: „0 von 4 … in die Pause geklungen: 4“, Trefferquote 100 %
 (bestanden). Karl (Mikrofon) nicht gespielt.
 
-- [ ] M1 (mittel, P1): Bei 0 von 31 gedämpften Noten sagt die Auswertung „Solide: nichts sticht heraus“ und „Sitzt“,
+- [x] M1 (mittel, P1): Bei 0 von 31 gedämpften Noten sagt die Auswertung „Solide: nichts sticht heraus“ und „Sitzt“,
   obwohl das Ziel der Übung „Pausen zählen und die Saite abdämpfen“ ist. Das Abdämpfen steht nicht in der Rangfolge
   der Beobachtung (LH-BEW-09). Frage in Runde 22 (`mute`): als Beobachtung nach den Techniken, wenn mehr als ein Viertel
   der bewerteten Enden in die Pause klang; „Sitzt“ für Übungen mit Ziel Abdämpfen erst ab drei Vierteln rechtzeitig.
+  Entschieden („beides“) und umgesetzt: Beobachtung „Abdämpfen“ nach den Techniken (ab 4 bewerteten Enden, mehr als ein
+  Viertel in die Pause geklungen); „Sitzt · als Nächstes“ bei Ziel „rests“ (151, 152 und Pausen-Übungen) erst ab
+  drei Vierteln rechtzeitig, nicht bewertete Enden sperren nicht. Die Übungsliste („gemeistert“) und der Start-
+  bildschirm folgen derselben Regel über `Run::muted_in_time` (None: nicht bewertet oder alter Lauf, sperrt nicht).
 - [x] M2 (niedrig): „-0 Cent“ in der Notenliste (eine Note 0,4 Cent zu tief); jetzt „0 Cent“.
 
 ### QA-Runde 14.11.2026 (J-C12 Ruf und Antwort, Nacht)

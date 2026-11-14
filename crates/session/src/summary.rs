@@ -10,8 +10,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 mod muting;
+mod observation;
 
 pub use muting::{EndHeard, MutingTally, NoteEndMark};
+pub use observation::Observation;
 
 const BIN_MS: f64 = 10.0;
 const HISTOGRAM_LIMIT_MS: f64 = 100.0;
@@ -48,6 +50,10 @@ const WEAK_TECHNIQUE: f64 = 0.6;
 /// ... when it also trails the hit rate by this many percentage points, counted whole (all at
 /// 50 % is not about the technique; 55 % against 75 % is 20 points, not 19.99…).
 const TECHNIQUE_GAP_POINTS: f64 = 20.0;
+/// Judged note ends a run needs before muting is told (like a technique's notes).
+const OBSERVE_MIN_ENDS: u32 = 4;
+/// More than this share of the judged ends ringing into the rest is worth telling.
+const MANY_RANG_ON: f64 = 0.25;
 /// A run that missed this share of its notes is about the notes.
 const MANY_MISSED: f64 = 0.35;
 /// Share of hits on one side of the beat that reads as a lean rather than scatter.
@@ -210,27 +216,6 @@ impl StringTally {
         }
         tally
     }
-}
-
-/// The one thing a run most wants the player to hear (LH-BEW-09, after Harmonicon's coaching).
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Observation {
-    /// A technique trails the plain notes: "Slide: 2 of 6".
-    Technique {
-        technique: Technique,
-        played: u32,
-        judged: u32,
-    },
-    /// Most notes missed the window but were played beside it, by this many ms.
-    Beside { offset_ms: f64 },
-    /// Many notes did not sit (wrong or missed).
-    Missed { notes: u32, judged: u32 },
-    /// Hits lean to one side of the beat: `share` of them.
-    Lean { side: Side, share: f64 },
-    /// The mean missed the chosen aim (LH-BEW-08) on this side, by this many ms.
-    Aim { side: Side, off_ms: f64 },
-    /// Enough was played and nothing stands out.
-    Solid,
 }
 
 /// Side of the beat.
@@ -500,10 +485,10 @@ impl Summary {
     }
 
     /// The observation for this run, picked in a fixed order, most specific first: a weak
-    /// technique, notes played beside the window, many notes missed, a missed timing aim
-    /// (`pocket`), a lean (only without an aim), else solid. `None` below `OBSERVE_MIN_NOTES`
-    /// (one missed slide is no diagnosis), and below `OBSERVE_MIN_HITS` hits when none of the
-    /// first three applies.
+    /// technique, ends that rang into the rest, notes played beside the window, many notes
+    /// missed, a missed timing aim (`pocket`), a lean (only without an aim), else solid. `None`
+    /// below `OBSERVE_MIN_NOTES` (one missed slide is no diagnosis), and below
+    /// `OBSERVE_MIN_HITS` hits when none of the first four applies.
     pub fn observation(&self, pocket: Pocket) -> Option<Observation> {
         if self.judged < OBSERVE_MIN_NOTES {
             return None;
@@ -526,6 +511,14 @@ impl Summary {
                 played: t.played,
                 judged: t.judged,
             });
+        }
+
+        // Ends judged (cable only; microphone and MIDI judge none) that rang into the rest.
+        let MutingTally {
+            judged, rang_on, ..
+        } = self.muting;
+        if judged >= OBSERVE_MIN_ENDS && f64::from(rang_on) > MANY_RANG_ON * f64::from(judged) {
+            return Some(Observation::Muting { rang_on, judged });
         }
 
         // Missed, but beside the window: the timing is the point, not the notes.

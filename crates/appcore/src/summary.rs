@@ -358,6 +358,7 @@ impl Core {
             .loaded_path()
             .filter(|p| p.parent().and_then(Path::parent) == Some(Self::exercises_dir().as_path()))
             .filter(|_| Self::run_sits(judging, s.hit_rate, s.spread_ms))
+            .filter(|_| !self.loaded_goal_is_muting() || Self::muting_sits(s.muting))
             .and_then(|p| self.next_exercise(Some(p)));
         json!({
             "next": next,
@@ -421,6 +422,13 @@ impl Core {
                 &[
                     ("technique", self.technique_name(technique)),
                     ("played", played.to_string()),
+                    ("judged", judged.to_string()),
+                ],
+            ),
+            Observation::Muting { rang_on, judged } => self.tr(
+                "summary.observe.muting",
+                &[
+                    ("rang", rang_on.to_string()),
                     ("judged", judged.to_string()),
                 ],
             ),

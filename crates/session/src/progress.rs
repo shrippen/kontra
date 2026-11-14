@@ -42,6 +42,10 @@ pub struct Run {
     /// Timing spread of the run (ms), to compare a blind probe with the practice before it.
     #[serde(default)]
     pub spread_ms: Option<f64>,
+    /// Share of the judged note ends stopped in time (LH-BEW-10); none when no end was judged
+    /// (microphone, MIDI) and in runs recorded before.
+    #[serde(default)]
+    pub muted_in_time: Option<f64>,
     /// Hits per bar (index into the unrolled bars), for the song map (LH-FOR-06).
     #[serde(default)]
     pub bars: Vec<BarTally>,
@@ -230,6 +234,8 @@ pub fn run_from(
             .map(|b| u32::try_from(*b + 1).unwrap_or(u32::MAX))
             .collect(),
         spread_ms: summary.spread_ms,
+        muted_in_time: (summary.muting.judged > 0)
+            .then(|| f64::from(summary.muting.in_time) / f64::from(summary.muting.judged)),
         bars: summary.bars.clone(),
     }
 }
@@ -247,6 +253,7 @@ mod tests {
         a.notes.push(Note::new(0, 960, Pitch(28)));
         let run = |at| Run {
             spread_ms: None,
+            muted_in_time: None,
             finished_unix: at,
             practice_s: 60.0,
             speed: 1.0,
@@ -281,6 +288,7 @@ mod tests {
         a.notes.push(Note::new(0, 960, Pitch(28)));
         let run = Run {
             spread_ms: None,
+            muted_in_time: None,
             finished_unix: 1,
             practice_s: 60.0,
             speed: 0.8,

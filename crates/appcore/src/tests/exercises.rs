@@ -706,6 +706,7 @@ fn old_run_counts_and_recent_names_last_run() {
             &a,
             Run {
                 spread_ms: None,
+                muted_in_time: None,
                 finished_unix: run_at,
                 practice_s: 60.0,
                 speed: 1.0,
