@@ -14,10 +14,10 @@ Tonart im Titel einmal), #328 (Anbieter-Dialog statt Stapel); Kante #172 (Pfeile
 Offen:
 - Runde 22 im Entscheidungs-Artefakt (Dokument `antworten/runde-22`): `pub`-Liste, LH-BIB-18 bestätigen, Variante im
   Titel gewünschter Stücke (Q11), Fokus nach Seitenwechsel (B8), Hardware-Sitzung, nächster Schwerpunkt.
-- Q11 (niedrig): „Variante 1794…“ im Titel gewünschter Stücke (Frage in Runde 22).
 - Nur in der QA-Sitzung: Der Qt-Ordnerdialog ohne Portal nimmt den markierten Unterordner statt des geöffneten.
 - Bestand aus Review #327: weitere `if` ohne Klammern in `PieceWish.qml` (aus #320).
-- Die Punkte der Übergabe vom 13.11. unten gelten weiter (Hardware, N5, N6, B8).
+- Die Punkte der Übergabe vom 13.11. unten gelten weiter (Hardware, Geräte im GUI-Thread, Seitenaufbau, B8;
+  in der ROADMAP N5, N6 und B8).
 
 ## Übergabe (13.11.2026, Nacht: Übergänge, Mixer als Glasebene, FPS)
 
