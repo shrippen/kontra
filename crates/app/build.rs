@@ -64,6 +64,7 @@ const PAGES: &[&str] = &[
     "qml/SongMap.qml",
     "qml/CallResponse.qml",
     "qml/LlmSettings.qml",
+    "qml/KeysGroup.qml",
     "qml/PieceWish.qml",
 ];
 

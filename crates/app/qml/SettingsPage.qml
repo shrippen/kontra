@@ -66,11 +66,12 @@ Kirigami.Page {
 
     Component.onCompleted: {
         ctl.refreshDevices()
-        // QA `--mixer`: scroll to the mixer once the layout is done.
+        // QA `--mixer`, `--section data|about`.
         if (ctl.showMixer) {
-            Qt.callLater(function() { header.scrollTo(page.sectionIndex("mixer")) })
+            page.showSection("mixer")
+        } else if (ctl.startSection !== "") {
+            page.showSection(ctl.startSection)
         }
-        sectionTimer.running = ctl.startSection !== ""
     }
 
     // LH-EIN-02: what "automatic" means right now (the input that fits the connection: an
@@ -92,6 +93,7 @@ Kirigami.Page {
         { key: "scoring", title: texts.t("settings.section.scoring") },
         { key: "practice", title: texts.t("settings.section.practice") },
         { key: "mixer", title: texts.t("mixer.title") },
+        { key: "llm", title: texts.t("llm.settings.title") },
         { key: "language", title: texts.t("settings.section.language") },
         { key: "data", title: texts.t("data.title") },
         { key: "cache", title: texts.t("cache.title") },
@@ -105,6 +107,12 @@ Kirigami.Page {
             }
         }
         return -1
+    }
+
+    // Scrolls to a section once the layout settled (the wish dialog's link: "llm"; QA).
+    function showSection(key) {
+        sectionTimer.key = key
+        sectionTimer.restart()
     }
 
     function deviceIndex(list, id) {
@@ -530,6 +538,8 @@ Kirigami.Page {
                 Mixer { Layout.fillWidth: true }
             }
 
+            LlmSettings { id: llmGroup; Layout.fillWidth: true }
+
             KanteSettingGroup {
                 id: languageGroup
                 Layout.fillWidth: true
@@ -731,51 +741,7 @@ Kirigami.Page {
                 }
             }
 
-            // All keyboard shortcuts in one place (LH-NF-07).
-            KanteSettingGroup {
-                id: keysGroup
-                Layout.fillWidth: true
-                title: page.sections[page.sectionIndex("keys")].title
-                countText: ""
-
-                GridLayout {
-                    Layout.fillWidth: true
-                    columns: 2
-                    columnSpacing: KanteStyle.unit(16)
-                    rowSpacing: KanteStyle.unit(4)
-                    Repeater {
-                        model: [
-                            ["Space / K / PgDn", "keys.play"], ["Pos1 / Home / PgUp", "keys.rewind"], ["L", "keys.loop"],
-                            ["[ / ,", "keys.loopstart"], ["] / .", "keys.loopend"],
-                            ["M", "keys.metronome"], ["C", "keys.countin"], ["X", "keys.mixer"], ["+ / −", "keys.speed"],
-                            ["N", "keys.next"], ["1–4", "keys.mode"], ["Alt+1–5", "keys.view"], ["Ctrl+0–9", "keys.pages"], ["F5 / Esc", "keys.present"]
-                        ]
-                        delegate: RowLayout {
-                            Layout.columnSpan: 2
-                            spacing: KanteStyle.unit(16)
-                            QQC2.Label {
-                                Layout.preferredWidth: KanteStyle.unit(150)
-                                text: modelData[0]
-                                font: KanteStyle.monoFont(KanteStyle.defaultFont.pointSize, false)
-                                color: KanteStyle.strongTextColor
-                            }
-                            QQC2.Label {
-                                Layout.fillWidth: true
-                                wrapMode: Text.WordWrap
-                                text: texts.t(modelData[1])
-                                color: KanteStyle.textColor
-                            }
-                        }
-                    }
-                }
-                // Foot switch (LH-MOD-07): any pedal that types keys works, no driver needed.
-                QQC2.Label {
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    text: texts.t("keys.footswitch")
-                    color: KanteStyle.mutedTextColor
-                }
-            }
+            KeysGroup { id: keysGroup; Layout.fillWidth: true }
         }
     }
 
@@ -799,19 +765,14 @@ Kirigami.Page {
         sideMargin: page.leftPadding
         model: page.sections.map(function(s) { return s.title })
         targets: [connGroup, instrGroup, displayGroup, scoringGroup, practiceGroup, mixerGroup,
-                  languageGroup, dataGroup, cacheGroup, aboutGroup, keysGroup]
+                  llmGroup, languageGroup, dataGroup, cacheGroup, aboutGroup, keysGroup]
     }
 
-    // QA `--section data|about`: screenshots of the lower sections, once the layout settled.
     Timer {
         id: sectionTimer
+        property string key: ""
         interval: 500
-        onTriggered: {
-            var key = ({ data: "data", about: "about" })[ctl.startSection]
-            if (key) {
-                header.scrollTo(page.sectionIndex(key))
-            }
-        }
+        onTriggered: header.scrollTo(page.sectionIndex(key))
     }
 
     FileDialog {

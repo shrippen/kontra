@@ -325,8 +325,10 @@ der Schleife) unter 80 % erscheint die Tab; über Mikrofon zählt der Ruf weder 
    Danach Jens' Wunsch noch einmal mit „Mittel“.
 4. Mira: einen Anbieter ohne Schlüssel nötig (lokaler Server) einrichten, Modell über „Modelle laden“ wählen.
 5. Thomas: einen Schlüssel ersetzen und wieder löschen; den Hinweis "kein Schlüssel" danach sehen.
-Erwartet: Ohne Anbieter oder ohne Schlüssel nennt der Dialog das und bietet nur den Link zu den Einstellungen, kein
-„Generieren“; während der Anfrage läuft, eine Zeile sagt das, kein zweiter Start möglich; eine gültige Antwort öffnet
+6. Thomas: Einstellungen, Abschnitt „KI-Anbieter“ (Tab oder Scrollen) öffnen und Anbieter, Modell oder Schlüssel ändern;
+   danach im Wunsch-Dialog „Anbieter einrichten …“ (auch mit eingerichtetem Anbieter sichtbar) wählen.
+Erwartet: Ohne Anbieter oder ohne Schlüssel nennt der Dialog das, kein „Generieren“; „Anbieter einrichten …“ steht immer
+da, schließt den Dialog und öffnet die Einstellungen beim Abschnitt „KI-Anbieter“; während der Anfrage läuft, eine Zeile sagt das, kein zweiter Start möglich; eine gültige Antwort öffnet
 das Stück wie ein erzeugtes (Praxisseite, Fortschritt, Werkstatt); derselbe Wunsch noch einmal ergibt ein neues Stück
 „… · Variante 2“, das erste bleibt; eine zweimal ungültige Antwort zeigt die
 gefundenen Probleme statt eines Absturzes; der Schlüssel steht nach „Speichern“ nie im Klartext im Feld und ist in

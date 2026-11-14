@@ -19,6 +19,7 @@ Item {
             height: root.height
             visible: true
             property string shown: ""
+            property string shownSection: ""
             readonly property QtObject texts: QtObject {
                 function t(key, args) { return key }
             }
@@ -39,7 +40,7 @@ Item {
                 function llmCheckKey(provider) { llmKeyState(provider, "not_needed", true, "") }
                 function llmWish(text, level) { llmBusy = true; return true }
             }
-            function show(page) { shown = page }
+            function show(page, section) { shown = page; shownSection = section === undefined ? "" : section }
             PieceWish { id: wish }
             function dialog() { return wish }
         }
@@ -86,23 +87,24 @@ Item {
             compare(win.shown, "")
         }
 
-        // QA 14.11. (Q12): the provider dialog lay over the wish dialog, whose head and Close
-        // stuck out below it. Now the wish steps aside and comes back with its text.
-        function test_providerSettingsTakeThePlaceOfTheWish() {
+        // Owner 15.11.: the provider settings were reachable only while none was set. The link
+        // stays, and leads to the settings page's provider section; the wish dialog steps aside.
+        function test_settingsLinkStaysAndOpensTheSettingsPage() {
             var win = createTemporaryObject(windowComponent, root)
-            win.ctl.llmModel = ""
+            win.ctl.llmProvider = "custom"
+            win.ctl.llmModel = "fake"
             var dialog = win.dialog()
             dialog.open()
             tryCompare(dialog, "opened", true)
-            findChild(dialog, "wishText").text = "Motown in A"
-            findChild(dialog, "wishModelLink").clicked()
-            var settings = findChild(win, "llmSettings")
-            tryCompare(settings, "opened", true)
-            tryCompare(dialog, "visible", false)
+            tryCompare(dialog, "hasProvider", true)
+            var link = findChild(dialog, "wishSettingsLink")
+            verify(link, "link exists")
+            verify(link.visible, "visible with a provider set")
 
-            settings.close()
-            tryCompare(dialog, "opened", true)
-            compare(findChild(dialog, "wishText").text, "Motown in A")
+            link.clicked()
+            tryCompare(dialog, "visible", false)
+            compare(win.shown, "settings")
+            compare(win.shownSection, "llm")
         }
     }
 }

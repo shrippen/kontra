@@ -4,8 +4,8 @@ import org.kde.kirigami as Kirigami
 import Kante
 import ".."
 
-// The provider dialog of "Stück wünschen" (LH-BIB-16): the model list shows which model is
-// chosen, and none when none is. Run by scripts/check-video.sh.
+// The provider settings (LH-BIB-16), a group on the settings page: the model list shows which
+// model is chosen, and none when none is. Run by scripts/check-video.sh.
 Item {
     id: root
     width: 1000
@@ -48,10 +48,7 @@ Item {
             var win = createTemporaryObject(windowComponent, root)
             win.ctl.llmModel = model
             win.ctl.llmModelsJson = JSON.stringify(models)
-            var dialog = win.dialog()
-            dialog.open()
-            tryCompare(dialog, "opened", true)
-            return dialog
+            return win.dialog()
         }
 
         // QA 14.11.: after "Load models" the list showed the first model, the field stayed
