@@ -1039,7 +1039,7 @@ erscheint die Tab.
   Rest). Die Regel aus #175 (niedriges Fenster) greift erst unter 560 px. Vorschlag: in der Werkstatt schon unter
   etwa 820 px als niedrig gelten (Griffbrett aus, Zeilen eingeklappt wie bei #175); Frage in Runde 22 (`lane`).
   Entschieden (Runde 22) und umgesetzt: in der Werkstatt gilt die Seite unter 820 px Höhe als niedrig, die anderen
-  Modi behalten 560 (`lowWorkshopHeight`, `lowHeight`; Test `tst_workshoplow.qml`).
+  Modi behalten 560 (Test `tst_workshoplow.qml`).
 - Mira mit der Maus (Modus über AT-SPI erst mit C1): „Frei spielen“ behält Ruf und Antwort samt Hinweis; Werkstatt
   siehe C4.
 
