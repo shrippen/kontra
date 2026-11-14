@@ -59,11 +59,7 @@ Kirigami.Page {
     }
     Component.onCompleted: ctl.libraryRescan()
 
-    function open(url) {
-        if (ctl.openFile(url)) {
-            applicationWindow().show("practice")
-        }
-    }
+    function open(url) { applicationWindow().openPiece(url) }
 
     function openFromSetlist(name, index) {
         if (ctl.openFromSetlist(name, index)) {
