@@ -8,16 +8,24 @@ nur, was offen ist und wo es liegt.
 In `main`: #339 (Antworten Runde 22 in der Roadmap), #340 (Werkstatt unter 820 px niedrig), #341 (Wunschstücke mit
 laufender Nummer), #342 (B8: Seitentitel als Name des fokussierten Bereichs, im Fenster über AT-SPI geprüft), #343
 (Beobachtung „Abdämpfen“; Übungen mit Ziel Abdämpfen sitzen erst ab drei Vierteln; `Run::muted_in_time`), #344
-(Bibliothek öffnet schneller), #345 (Lernen baut den Kurs einmal). Messwerte unter N6 in der Roadmap.
+(Bibliothek öffnet schneller), #345 (Lernen baut den Kurs einmal), #347 (Lernen baut spätere Kapitel nach dem
+ersten Bild), #348 (Kante #179: Knöpfe bauen Schatten, Fokusring und Symbol erst bei Bedarf). Messwerte unter N6 in
+der Roadmap.
 
 Offen:
-- Neue `pub` für die nächste Runde: `PageFocusName.page` (QML, #342); `Observation::Muting`, `Run::muted_in_time`
-  (#343); `render_piece_numbered` (#341); `pub(crate)` `Core::muting_sits`, `Core::loaded_goal_is_muting` (#343).
-- `mute`: Das Ziel „Abdämpfen“ (`rests`) haben die Staccato-Übungen 151/152 und alle Übungen mit Pausen; soll es nur
-  für Staccato gelten, braucht es ein eigenes Ziel. J-B8 und J-C12 nicht im Fenster neu gespielt.
-- N6 weiter: Lernen (QML, 15 Kapitel), Übungen (Generator), Griffbrett, Start; Messung mit Zeitstempeln in
-  `Main.show()` (`console.warn`, `QT_FORCE_STDERR_LOGGING=1`, sonst landet die Ausgabe im Journal), Release-Build in
-  der qa-session, Klicks über xdotool. Die Last anderer Sitzungen (Load bis 28) verfälscht die Werte.
+- `pub` von #341–#343 vom Eigentümer freigegeben (14.11., im Gespräch). Neu seit #347: `LearnPage.chaptersFirst`,
+  `LearnPage.built` (QML).
+- `mute`: Das Ziel „Abdämpfen“ (`rests`) haben die Staccato-Übungen 151/152 und alle Übungen mit Pausen. Empfehlung
+  an den Eigentümer (14.11.): so lassen, die Pausen-Übungen nennen dasselbe Ziel; Antwort offen. J-B8 und J-C12 nicht
+  im Fenster neu gespielt.
+- N6 weiter (#347 Lernen, Kante #179/#348 Knöpfe): Übungen (Generator, etwa 90 ms; ein späterer Aufbau verschöbe nur
+  das Stocken in die Einblendung), Griffbrett (`startTuner` 58 ms im GUI-Thread, in der qa-session mit Datei; am
+  Scarlett messen), Start. Messung mit Zeitstempeln in `Main.show()` (`console.warn`, `QT_FORCE_STDERR_LOGGING=1`,
+  sonst landet die Ausgabe im Journal), Release-Build in der qa-session, Klicks über xdotool. Die Last anderer
+  Sitzungen (Load bis 41) verfälscht die Wanduhr; für einzelne Bauteile die CPU-Zeit vieler Erzeugungen messen
+  (`time` um `qmltestrunner`).
+- `crates/app/qml/Kante/.kante-version` sagt `HEAD` statt `main` (Sync aus einem Worktree auf Kantes `origin/main`,
+  #348); der nächste Sync aus einem Checkout auf `main` behebt das.
 - Kante (Bestand): `KanteTableHeader.qml:58` warnt „Cannot read property 'verticalCenter' of null“, wenn sich die
   Spalten ändern (Bibliothek schmal/breit, `tst_librarytable`).
 - Hardware: Claude darf das Scarlett nachts allein nutzen (Runde 22, ohne Kabel vom Ausgang in den Eingang); N5

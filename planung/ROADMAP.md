@@ -1155,9 +1155,10 @@ im GUI-Thread: Neuauslegungen je Bild und das Auflisten der Audiogeräte.
   Pfad und Karten. Übungen: Daten 1,5 ms; der Generator kostet etwa 90 ms, ein `Loader` mit `asynchronous` brachte
   nichts Messbares (Median 221 gegen 216 ms, je 8 Wechsel), nicht übernommen. Lernen baut jetzt vier Kapitel mit
   der Seite und die übrigen eines je Bild: 295–457 → 131–210 ms bei Load 13–22 (#347). Ein `KanteButton` kostet
-  beim Erzeugen etwa 1,2 ms (Stil-Knopf 0,55, Beschriftung 0,3, drei Formen 0,25, Symbol 0,15); Formen und Symbol
-  nur bei Bedarf brächten etwa ein Viertel (Kante). Weiter offen: Übungen 210–260, Griffbrett 160–190, Start
-  120–140 ms.
+  beim Erzeugen etwa 1,2 ms (Stil-Knopf 0,55, Beschriftung 0,3, drei Formen 0,25, Symbol 0,15); Kante #179 baut
+  Schatten, Fokusring und Symbol erst bei Bedarf: 2000 Knöpfe 4,0 → 3,6 s CPU (#348). Griffbrett: davon 58 ms
+  `startTuner` im GUI-Thread (qa-session mit Datei als Eingang; am Scarlett messen). Weiter offen: Übungen
+  210–260, Griffbrett 160–190, Start 120–140 ms.
 - Nicht gemessen: am echten System mit PipeWire; Kontra mit sichtbarem Fenster.
 
 ### QA-Runde 28.10.2026 (J-B5 und J-F1 erneut, nach Runde 16)
