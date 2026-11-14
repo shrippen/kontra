@@ -3,7 +3,7 @@ import QtQuick.Layouts
 import "."
 
 /**
- * Image tile: 3:2 stage, a 4 px tier bar (green / orange / red, never colour
+ * Image tile: 3:2 stage (`stageAspect` sets another ratio), a 4 px tier bar (green / orange / red, never colour
  * alone: name and figure sit below), selection as a cyan frame and tick, keyboard
  * focus as four cyan brackets that lock on. Put the image in the stage
  * (`content`), or set `source` (an image url, scaled to fill the stage, cropped); `figure` is
@@ -33,6 +33,8 @@ FocusScope {
     property size sourceSize
     /** The stage shows the placeholder while `source` is not an image on screen. */
     property bool placeholder: true
+    /** Width over height of the stage (Kante 1.81): 1.5 is 3:2 (default), 2.39 a wide film frame. */
+    property real stageAspect: 1.5
     readonly property bool captioned: name !== "" || figure !== ""
     property bool selected: false
     property bool stale: false
@@ -59,7 +61,7 @@ FocusScope {
         : (tier === KanteTile.Tier.Check ? KanteStyle.warningColor : KanteStyle.positiveTextColor)
 
     implicitWidth: KanteStyle.unit(180)
-    implicitHeight: implicitWidth * 2 / 3 + (captioned ? KanteStyle.unit(34) : KanteStyle.unit(8))
+    implicitHeight: implicitWidth / stageAspect + (captioned ? KanteStyle.unit(34) : KanteStyle.unit(8))
     activeFocusOnTab: true
 
     Keys.onReturnPressed: clicked()
@@ -78,7 +80,7 @@ FocusScope {
         x: 0
         y: KanteStyle.unit(4)
         width: parent.width
-        height: width * 2 / 3
+        height: width / tile.stageAspect
         clip: true
         opacity: tile.stale ? 0.55 : 1
 
