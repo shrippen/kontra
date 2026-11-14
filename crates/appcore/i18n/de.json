@@ -52,6 +52,7 @@
   "summary.outside.early": "meist {ms} ms zu früh, außerhalb des Zeitfensters",
   "summary.outside.late": "meist {ms} ms zu spät, außerhalb des Zeitfensters",
   "summary.observe.technique": "Am meisten bringt jetzt: {technique}, {played} von {judged}. Übe die Stellen mit dieser Technik langsam.",
+  "summary.observe.muting": "{rang} von {judged} Noten klangen in die Pause. Dämpf die Saite genau am Notenende ab.",
   "summary.observe.beside.early": "Die Töne stimmen, kommen aber meist {ms} ms zu früh. Hör auf den Klick oder stell das Zeitfenster lockerer.",
   "summary.observe.beside.late": "Die Töne stimmen, kommen aber meist {ms} ms zu spät. Hör auf den Klick oder stell das Zeitfenster lockerer.",
   "summary.observe.missed": "{notes} von {judged} Noten saßen noch nicht. Langsamer üben bringt jetzt am meisten.",
