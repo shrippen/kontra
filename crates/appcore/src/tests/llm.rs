@@ -569,3 +569,30 @@ fn a_key_check_for_another_provider_runs_after_the_first() {
     assert_eq!(answered.last().map(String::as_str), Some("anthropic"));
     assert!(!core.llm_key_busy());
 }
+
+/// Runde 22, `variant_no` (LH-BIB-16): a wished piece's title carried the clock seed
+/// ("Variante 1794608..."). It counts per title now: the first piece has no suffix, then
+/// "Variante 2", "Variante 3"; the seed still makes each piece differ.
+#[test]
+fn wished_pieces_of_one_title_are_numbered() {
+    let dir = temp_dir("wish-numbered");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let seeds = [1_794_608_111_u64, 1_794_608_222, 1_794_608_333];
+    let paths: Vec<_> = seeds
+        .iter()
+        .map(|seed| core.generate_piece(VALID_PLAN, "medium", *seed).unwrap())
+        .collect();
+
+    let stems: Vec<_> = paths
+        .iter()
+        .map(|p| p.file_stem().unwrap().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(stems[0], "Testwunsch in A (100 BPM)");
+    assert_eq!(stems[1], "Testwunsch in A (100 BPM) · Variante 2");
+    assert_eq!(stems[2], "Testwunsch in A (100 BPM) · Variante 3");
+    assert!(
+        paths.iter().all(|p| p.exists()),
+        "a piece overwrote another"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}

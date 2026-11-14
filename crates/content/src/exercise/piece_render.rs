@@ -70,7 +70,29 @@ impl Section {
 /// Renders `plan` as an exercise: the plan's title, key and tempo in the name, `seed` 0 for
 /// the plain piece.
 pub fn render_piece(plan: &PiecePlan, level: Level, seed: u64) -> Result<Exercise, Vec<PlanError>> {
-    render_at(plan, level, seed, f64::from(plan.bpm))
+    render_at(
+        plan,
+        level,
+        seed,
+        &variant_suffix(seed),
+        f64::from(plan.bpm),
+    )
+}
+
+/// `render_piece_json`, but the title tells the piece apart by `number` instead of by the
+/// seed: no suffix for 1, " · Variante 2" for 2 and so on. The seed only varies the notes.
+pub fn render_piece_numbered(
+    text: &str,
+    level: Level,
+    seed: u64,
+    number: u32,
+) -> Result<Exercise, Vec<PlanError>> {
+    let plan = PiecePlan::from_json(text).map_err(|e| vec![e])?;
+    let suffix = match number {
+        0 | 1 => String::new(),
+        n => format!(" · Variante {n}"),
+    };
+    render_at(&plan, level, seed, &suffix, f64::from(plan.bpm))
 }
 
 /// `render_piece` for a plan in JSON; a plan that does not read is one `Json` error.
@@ -83,6 +105,7 @@ fn render_at(
     plan: &PiecePlan,
     level: Level,
     seed: u64,
+    suffix: &str,
     bpm: f64,
 ) -> Result<Exercise, Vec<PlanError>> {
     let rendered = pass_of(plan, level, seed)?;
@@ -93,11 +116,7 @@ fn render_at(
         name(i32::from(rendered.key), key),
         if pass.minor { "m" } else { "" }
     );
-    let title = format!(
-        "{} in {key_name} ({bpm:.0} BPM){}",
-        pass.label,
-        variant_suffix(seed)
-    );
+    let title = format!("{} in {key_name} ({bpm:.0} BPM){suffix}", pass.label,);
     let line = Line {
         tones: &pass.tones,
         markers: &pass.markers,

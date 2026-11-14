@@ -26,7 +26,7 @@ pub use piece_plan::{
     Drums, PieceFeel, PiecePlan, PlanError, PlanLine, PlanPart, Section, MAX_BARS_PER_PART,
     MAX_BPM, MAX_PARTS, MAX_TIMES, MAX_TITLE_CHARS, MAX_TOTAL_BARS, MIN_BPM,
 };
-pub use piece_render::{render_piece, render_piece_json};
+pub use piece_render::{render_piece, render_piece_json, render_piece_numbered};
 pub use plan::{bundled, bundled_specs, plan_place};
 pub use song::{Length, Level, Style};
 
