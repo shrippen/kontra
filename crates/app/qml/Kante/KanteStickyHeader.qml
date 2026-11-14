@@ -228,6 +228,8 @@ Item {
             // scroll there (other KanteTabBar uses keep the default, Automatic).
             activation: KanteTabBar.Activation.Manual
             accessibleName: header.tabsName
+            // The side arrows fade into the glass, not the page ground.
+            edgeColor: glass.blurred ? KanteStyle.glassColor : KanteStyle.glassDenseColor
             model: header.model
             x: header.sideMargin
             y: parent.height - height

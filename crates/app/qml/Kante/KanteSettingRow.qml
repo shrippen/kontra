@@ -22,7 +22,7 @@ Item {
     property string title: ""
     property string hint: ""
     property bool modified: false
-    property string resetText: "Zurücksetzen"
+    property string resetText: qsTr("Reset")
     property bool narrow: width > 0 && width < KanteStyle.unit(360)
     property real titleWidth: 0
     property string section: ""

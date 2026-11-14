@@ -140,7 +140,11 @@ Item {
 
     Connections {
         target: KanteStyle
-        function onThemedChanged() { scope.apply() }
+        function onThemedChanged() {
+            if (scope) {
+                scope.apply()
+            }
+        }
     }
 
     // ── Disabled items ──────────────────────────────────────────────────
@@ -218,8 +222,9 @@ Item {
         unwatchAll()
     }
 
-    // Enabled again: the items are let go (the ones dressed keep their roles). The next time
-    // the target is disabled, the sweep looks at them again.
+    // Enabled again: the items are let go (the ones dressed keep their roles and keep their
+    // `enabled` watch: their text colour follows it). The next time the target is disabled,
+    // the sweep looks at them again.
     function unwatchAll() {
         const table = watched
         watched = {}
@@ -231,7 +236,9 @@ Item {
             if (!alive(item)) {
                 continue
             }
-            item.enabledChanged.disconnect(item, itemEnabled)
+            if (dressed[key] !== item) {
+                item.enabledChanged.disconnect(item, itemEnabled)
+            }
             item.childrenChanged.disconnect(item, itemGrown)
         }
     }
@@ -315,21 +322,29 @@ Item {
     // A disabled item in Kante gets the roles; an item another scope detached, or one with
     // colours of its own, keeps them.
     function check(item) {
-        if (!applied || item.enabled) {
+        if (!applied || !windowRoot) {
             return
         }
         const key = String(item)
         if (dressed[key] === item) {
+            // Dressed before: only the text role follows enabled (no binding on item.enabled: it
+            // flips as the window goes and would write to a theme in teardown).
+            const dt = item.Kirigami.Theme
+            dt.textColor = Qt.binding(roleBinding(item.enabled ? "textColor" : "disabledTextColor"))
+            return
+        }
+        if (item.enabled) {
             return
         }
         const t = item.Kirigami.Theme
         // Without a window there is no probe to judge by: the item waits for one.
-        if (!t.inherit || !scope.Window.contentItem || ownColours(t)) {
+        if (!t.inherit || !windowRoot || ownColours(t)) {
             return
         }
         for (const prop in roles) {
-            t[prop] = Qt.binding(prop === "textColor" ? enabledText(item) : roleBinding(roles[prop]))
+            t[prop] = Qt.binding(roleBinding(roles[prop]))
         }
+        t.textColor = Qt.binding(roleBinding("disabledTextColor"))
         dressed[key] = item
     }
 
@@ -344,7 +359,10 @@ Item {
         }
     }
     // A popup's content gets its window on opening: then its disabled items are looked at.
-    readonly property Item windowRoot: scope.Window.contentItem
+    // Looked up through the target (1.82): a scope held as a property (a skin's) has no window of its
+    // own; the scope's is the fallback for a target without one.
+    readonly property Item windowRoot: target && target.Window.contentItem ? target.Window.contentItem
+                                                                           : scope.Window.contentItem
     onWindowRootChanged: resweepLater.start()
     Timer {
         id: resweepLater
@@ -371,11 +389,11 @@ Item {
     // Colours the app set on the theme (review of #88: a red text was lost after Kante): a
     // colour that is neither the platform's for a disabled item nor Kante's.
     function ownColours(t) {
-        if (!probe || probe.parent !== scope.Window.contentItem) {
+        if (!probe || probe.parent !== windowRoot) {
             if (probe) {
                 probe.destroy()
             }
-            probe = probeComponent.createObject(scope.Window.contentItem)
+            probe = probeComponent.createObject(windowRoot)
         }
         if (!probe) {
             return false
@@ -388,11 +406,6 @@ Item {
             }
         }
         return false
-    }
-
-    // An item that is enabled again keeps the binding: then the enabled text colour.
-    function enabledText(item) {
-        return function() { return item.enabled ? KanteStyle.textColor : KanteStyle.disabledTextColor }
     }
 
     // Kante off: the platform's colours again. Undefined drops the colour and leaves the
