@@ -319,11 +319,13 @@ der Schleife) unter 80 % erscheint die Tab; über Mikrofon zählt der Ruf weder 
 2. Jens: Anbieter „OpenRouter“, Schlüssel einfügen, „Speichern“; zurück im Wunsch-Dialog einen Wunsch eintragen
    („Motown-Groove in A, 16 Takte Refrain mit Achtel-Pushes“), Schwierigkeit „Mittel“, „Generieren“.
 3. Lea: denselben Wunsch, Schwierigkeit „Leicht“; während die Antwort noch läuft, den Dialog betrachten.
+   Danach Jens' Wunsch noch einmal mit „Mittel“.
 4. Mira: einen Anbieter ohne Schlüssel nötig (lokaler Server) einrichten, Modell über „Modelle laden“ wählen.
 5. Thomas: einen Schlüssel ersetzen und wieder löschen; den Hinweis "kein Schlüssel" danach sehen.
 Erwartet: Ohne Anbieter oder ohne Schlüssel nennt der Dialog das und bietet nur den Link zu den Einstellungen, kein
 „Generieren“; während der Anfrage läuft, eine Zeile sagt das, kein zweiter Start möglich; eine gültige Antwort öffnet
-das Stück wie ein erzeugtes (Praxisseite, Fortschritt, Werkstatt); eine zweimal ungültige Antwort zeigt die
+das Stück wie ein erzeugtes (Praxisseite, Fortschritt, Werkstatt); derselbe Wunsch noch einmal ergibt ein neues Stück
+„… · Variante 2“, das erste bleibt; eine zweimal ungültige Antwort zeigt die
 gefundenen Probleme statt eines Absturzes; der Schlüssel steht nach „Speichern“ nie im Klartext im Feld und ist in
 keiner Einstellungsdatei oder Sicherung zu finden; „Löschen“ setzt den Zustand auf „kein Schlüssel“ zurück.
 

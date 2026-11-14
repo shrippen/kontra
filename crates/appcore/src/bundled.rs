@@ -362,15 +362,27 @@ impl Core {
         seed: u64,
     ) -> Result<PathBuf, String> {
         let level = exercise::Level::from_key(level).unwrap_or_default();
-        let exercise = exercise::render_piece_json(plan_json, level, seed).map_err(|errors| {
-            errors
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>()
-                .join("\n")
-        })?;
-        let path = self.named_path(PIECES_DIR, &exercise.title);
-        Self::write_exercise(&exercise, path)
+        let render = |number| {
+            exercise::render_piece_numbered(plan_json, level, seed, number).map_err(|errors| {
+                errors
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            })
+        };
+
+        // The same wish again is another piece: the next free number in the title, so each
+        // has its own file and progress. The seed only varies the notes.
+        let mut number = 1;
+        loop {
+            let exercise = render(number)?;
+            let path = self.named_path(PIECES_DIR, &exercise.title);
+            if !path.exists() {
+                return Self::write_exercise(&exercise, path);
+            }
+            number += 1;
+        }
     }
 
     /// Writes a generated exercise (LH-LRN-04) into the data folder and returns its path.
