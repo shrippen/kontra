@@ -998,6 +998,30 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 
 ## QA-Runden
 
+### QA-Runde 14.11.2026 (J-C12 Ruf und Antwort, Nacht)
+
+Als P1 Lea, P3 Mira, P5 Aylin und P7 Sam (AT-SPI): qa-session (Xvfb 1296×792), Übung „Groove Viertel I-IV-V in A“ und
+„Groove Achtel 12-Takt-Blues in G“; Eingang aus Dateien, die nur die Antworten spielen (`kontra-cli render
+--call-response`, neu), richtig und mit falschen Tönen. Bestanden: Schalter nur bei Stücken mit Akkorden (Aylin,
+MIDI ohne Akkorde: kein Schalter); Tab leer mit Hinweis; richtige Antworten 16 von 16, die Rufe zählen weder als
+Treffer noch als zusätzliche Noten (Liedkarte: Ruf-Takte gepunktet, ungewertet); nach zwei Durchläufen unter 80 %
+erscheint die Tab.
+
+- [x] C1 (hoch, P7): Den Modus (Frei spielen, Durchlauf, Warten, Werkstatt) konnte ein Screenreader nicht wählen;
+  „Drücken“ über AT-SPI tat nichts (nur ein Klick). Ebenso Tabs in `KanteTabBar` und `KantePageBar` und das „×“ eines
+  Hinweises. Behoben in Kante #174.
+- [x] C2 (niedrig): Kein Ton getroffen: die Auswertung zeigte ein leeres Timing-Diagramm mit „Mittel 0 ms“. Jetzt
+  ohne Diagramm.
+- [x] C3 (niedrig): Der Hinweis sagte „nach zwei Fehlversuchen“, gemeint sind zwei Durchläufe unter 80 % (nicht zwei
+  Antworten, wie J-C12 es las); er nannte außerdem den Modus „Spielen“, der „Frei spielen“ heißt. Text und Journey
+  angepasst.
+- [x] C4 (mittel, P3): In der Werkstatt deckt die erste Schleife (Takte 1–2) bei „Ruf und Antwort“ nur den Ruf ab:
+  jeder Durchgang zählte „100 % Treffer“, ohne dass etwas zu spielen war, und das Tempo stieg. Ein Durchgang ohne
+  zu wertende Noten ändert das Tempo nicht mehr.
+- Offen (niedrig): In der Werkstatt bei 1296×792 bleibt der Tab-Lane mit Hinweis und Schaltern etwa 60 px Höhe.
+- Mira mit der Maus (Modus über AT-SPI erst mit C1): „Frei spielen“ behält Ruf und Antwort samt Hinweis; Werkstatt
+  siehe C4.
+
 ### QA-Runde 14.11.2026 (J-C13 Stück wünschen, Nacht)
 
 Als P2 Jens gegen einen Schein-Server im Loopback (Anbieter „Eigener“, kein Schlüssel,
