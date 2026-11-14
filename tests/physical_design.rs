@@ -1,5 +1,5 @@
-//! Physical design (Harmonicon W5): the layer rule of agent.md as a test, and a size budget for
-//! every source file with a list of the files still to break up.
+//! Physical design (Harmonicon W5): the layer rule of agent.md as a test. File and function
+//! sizes are checked by `tools/structure-check.py` (`structure.baseline`).
 //!
 //! ```text
 //! app ─► appcore ─┐
@@ -28,21 +28,6 @@ const ALLOWED: [(&str, &[&str]); 12] = [
     ("test-clap-gain", &[]),
     ("test-vst3-gain", &[]),
 ];
-
-/// Lines a Rust or QML file may have.
-const BUDGET: usize = 1200;
-
-/// Files over `BUDGET`, each with the most lines it may grow to until it is split (break-up
-/// list, 29.10.2026). Lower a limit when a file shrinks; drop the entry once it fits.
-const OVER_BUDGET: [(&str, usize); 4] = [
-    ("crates/appcore/src/lib.rs", 2817),
-    ("crates/app/src/bridge.rs", 1790),
-    ("crates/content/src/exercise.rs", 2450),
-    ("crates/dsp/src/tracker.rs", 1450),
-];
-
-/// Copied unchanged from Kante (`scripts/sync-kante.sh`), not ours to split.
-const VENDORED: &str = "crates/app/qml/Kante";
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -190,61 +175,4 @@ fn crates_depend_only_downwards() {
         seen.push(name);
     }
     assert_eq!(seen.len(), ALLOWED.len(), "crates found: {seen:?}");
-}
-
-/// Every `.rs` and `.qml` file below `dir`, as paths relative to the repository root.
-fn sources(dir: &Path, out: &mut Vec<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for path in entries.filter_map(Result::ok).map(|e| e.path()) {
-        let relative = path.strip_prefix(root()).unwrap_or(&path).to_path_buf();
-        if relative.starts_with(VENDORED) {
-            continue;
-        }
-        if path.is_dir() {
-            sources(&path, out);
-            continue;
-        }
-        if path.extension().is_some_and(|x| x == "rs" || x == "qml") {
-            out.push(relative);
-        }
-    }
-}
-
-#[test]
-fn files_stay_in_budget() {
-    let mut files = Vec::new();
-    sources(&root().join("crates"), &mut files);
-    sources(&root().join("tests"), &mut files);
-    assert!(files.len() > 100, "found only {} files", files.len());
-
-    for file in &files {
-        let text = std::fs::read_to_string(root().join(file)).expect("readable");
-        let lines = text.lines().count();
-        let name = file.to_string_lossy().replace('\\', "/");
-        match OVER_BUDGET.iter().find(|(f, _)| *f == name) {
-            Some((_, limit)) => {
-                assert!(
-                    lines <= *limit,
-                    "{name}: {lines} lines, its limit is {limit}: split it rather than raise it"
-                );
-                assert!(
-                    lines > BUDGET,
-                    "{name}: {lines} lines fit the budget now; drop it from OVER_BUDGET"
-                );
-            }
-            None => assert!(
-                lines <= BUDGET,
-                "{name}: {lines} lines, over the budget of {BUDGET}: split it"
-            ),
-        }
-    }
-
-    for (name, _) in OVER_BUDGET {
-        assert!(
-            root().join(name).exists(),
-            "{name} is gone: drop it from OVER_BUDGET"
-        );
-    }
 }

@@ -16,7 +16,7 @@ commit ─► commit-msg (Regeln 1–6) ─► push ─► pre-push (Nachrichten
 | Commit-Nachricht 1–4, 6 (Leerzeile, Betreff ≤ 72, ab 51 Warnung, groß, kein Punkt, Umbruch 72) | `scripts/commit-msg.py` | Hook commit-msg, pre-push, CI |
 | Commit-Nachricht 5 (Imperativ), nur Vermutung | `commit-msg.py`: „Added/Adds/Fixing …“ häufiger Verben scheitern, andere -ed/-es/-ing warnen | wie oben |
 | Schichten nur zum Nachbarn darunter | `tests/physical_design.rs` (`crates_depend_only_downwards`) | CI |
-| Dateigröße (1200 Zeilen, Abbauliste) | `tests/physical_design.rs` (`files_stay_in_budget`) | CI |
+| Strukturgrenzen (Funktion 80 Zeilen, Komplexität 15, Verschachtelung 4; Datei 800 Zeilen; Bestandsliste `structure.baseline`) | `tools/structure-check.py` | CI, `make check` |
 | Kein `unwrap`/`expect`/`panic!` außerhalb von Tests | Clippy-Lints im Workspace (`Cargo.toml`, `clippy.toml`) | CI, `make lint` |
 | Kein `unsafe` außerhalb von `drivers/` und Brücke | `unsafe_code = "deny"`; Ausnahmen per `#![allow]` sichtbar im Diff | CI |
 | cargo fmt, Clippy ohne Warnungen | `cargo fmt --check`, `cargo clippy -D warnings` | pre-push (fmt), CI |
