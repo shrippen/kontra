@@ -226,10 +226,12 @@ fn render(a: &args::RenderArgs) -> CliResult {
 /// Unmuted playing (J-B8): every note sounds up to the next one, over the rests.
 fn ring(arrangement: &mut kontra_model::Arrangement) {
     let starts: Vec<u64> = arrangement.notes.iter().map(|n| n.start_ticks).collect();
-    for (note, next) in arrangement.notes.iter_mut().zip(starts.iter().skip(1)) {
-        if *next > note.start_ticks {
-            note.duration_ticks = next - note.start_ticks;
-        }
+    for note in &mut arrangement.notes {
+        // The next later start: notes of a chord ring together (review #336).
+        let Some(next) = starts.iter().find(|s| **s > note.start_ticks) else {
+            continue;
+        };
+        note.duration_ticks = next - note.start_ticks;
     }
 }
 
@@ -450,6 +452,25 @@ mod tests {
         for w in arrangement.notes.windows(2) {
             assert_eq!(w[0].start_ticks + w[0].duration_ticks, w[1].start_ticks);
         }
+    }
+
+    /// Review #336: both notes of a chord ring up to the next later note.
+    #[test]
+    fn ringing_holds_chords_too() {
+        use kontra_model::{Instrument, Note, Pitch, TICKS_PER_QUARTER};
+        let mut a = kontra_model::Arrangement::new("Chord", Instrument::default_bass());
+        a.notes.push(Note::new(0, TICKS_PER_QUARTER / 2, Pitch(28)));
+        a.notes.push(Note::new(0, TICKS_PER_QUARTER / 2, Pitch(35)));
+        a.notes.push(Note::new(
+            4 * TICKS_PER_QUARTER,
+            TICKS_PER_QUARTER,
+            Pitch(28),
+        ));
+        a.normalize();
+
+        ring(&mut a);
+        assert_eq!(a.notes[0].duration_ticks, 4 * TICKS_PER_QUARTER);
+        assert_eq!(a.notes[1].duration_ticks, 4 * TICKS_PER_QUARTER);
     }
 
     /// J-C12 input: the answers sound, the calls stay silent.
