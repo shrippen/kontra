@@ -3,7 +3,7 @@
 Übergabe zwischen Sitzungen. Stand: 2026-11-14. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
 
-## Übergabe (14.11.2026, Vormittag: Runde 22 umgesetzt, Seitenaufbau)
+## Übergabe (14.11.2026, Vormittag bis Abend: Runde 22 umgesetzt, Seitenaufbau)
 
 In `main`: #339 (Antworten Runde 22 in der Roadmap), #340 (Werkstatt unter 820 px niedrig), #341 (Wunschstücke mit
 laufender Nummer), #342 (B8: Seitentitel als Name des fokussierten Bereichs, im Fenster über AT-SPI geprüft), #343
