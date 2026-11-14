@@ -12,7 +12,7 @@
 //! ```
 
 use crate::bundled::{EXERCISES_DIR, PIECES_DIR};
-use crate::{store, Catalog, Core, Language, Library};
+use crate::{Catalog, Core, Language, Library};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -113,8 +113,8 @@ impl Core {
 /// at the target stays where it is, so a second start finds nothing to do. Pieces from a plan
 /// have free titles and cannot be told from exercises by name: only a title that happens to
 /// start with "Stück " or contain " piece" moves, the others stay. A wrong move is harmless: the
-/// file changes its origin only.
-pub(crate) fn move_old_pieces(data_dir: &Path, library: &mut Library) {
+/// file changes its origin only. True if a piece moved (the caller saves the library).
+pub(crate) fn move_old_pieces(data_dir: &Path, library: &mut Library) -> bool {
     let from_dir = data_dir.join(EXERCISES_DIR);
     let to_dir = data_dir.join(PIECES_DIR);
     // The fixed text around `{style}`: "Stück " before it in German, " piece" after it in English.
@@ -128,7 +128,7 @@ pub(crate) fn move_old_pieces(data_dir: &Path, library: &mut Library) {
         .filter(|(before, after)| !before.is_empty() || !after.is_empty())
         .collect();
     let Ok(files) = std::fs::read_dir(&from_dir) else {
-        return;
+        return false;
     };
     let mut moved = false;
     for file in files.flatten().map(|f| f.path()) {
@@ -148,8 +148,5 @@ pub(crate) fn move_old_pieces(data_dir: &Path, library: &mut Library) {
             moved = true;
         }
     }
-    // Saved now: the next start must not find the old paths in the file.
-    if moved {
-        let _ = store::save(&data_dir.join("library.json"), library);
-    }
+    moved
 }

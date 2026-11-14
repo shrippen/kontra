@@ -1,6 +1,6 @@
 //! Library: recent pieces, tags, folder import and setlists (LH-BIB-04).
 
-use crate::{piece_name, store, Core, Opened, RecentEntry, Setlist};
+use crate::{piece_name, Core, Opened, RecentEntry, Setlist};
 use kontra_session::{import_file, FileKind, ProgressStore};
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -73,7 +73,7 @@ impl Core {
             // only then (review #240).
             return self.apply_beat_map().map(|()| BackingChange::StartOver);
         }
-        let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+        self.save_library();
         if under_way {
             return Ok(BackingChange::StartOver);
         }
@@ -349,7 +349,9 @@ impl Core {
         serde_json::Value::Array(lists).to_string()
     }
 
-    pub(crate) fn save_library(&self) {
-        let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+    pub(super) fn apply_beat_map(&mut self) -> Result<(), String> {
+        self.save_library();
+        let track = self.loaded.as_ref().map_or(0, |l| l.track);
+        self.reload(track)
     }
 }

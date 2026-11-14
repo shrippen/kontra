@@ -331,7 +331,7 @@ impl Core {
         if let Some(entry) = self.library.entry_mut(piece) {
             entry.backing_without_bass = on;
         }
-        let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+        self.save_library();
         if running == Running::End {
             self.stop_live();
         }
