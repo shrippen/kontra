@@ -635,7 +635,8 @@ fn a_stalled_or_ended_input_still_misses() {
 }
 
 /// QA 14.11. (J-C12): a workshop loop over a call of call and response has no note to judge;
-/// each pass counted 100 % and the tempo rose with nothing played.
+/// each pass counted 100 % and the tempo rose with nothing played. Review #333: no pass is
+/// reported either (no "100 %", no try, no building-block step).
 #[test]
 fn workshop_holds_without_notes_to_judge() {
     let workshop = Workshop {
@@ -659,4 +660,10 @@ fn workshop_holds_without_notes_to_judge() {
     s.play(0.0);
     let events = run(&mut s, &[], 25.0);
     assert!(speed_changes(&events).is_empty(), "{events:?}");
+    assert!(
+        !events
+            .iter()
+            .any(|e| matches!(e, SessionEvent::PassComplete { .. })),
+        "{events:?}"
+    );
 }

@@ -1012,12 +1012,12 @@ erscheint die Tab.
   Hinweises. Behoben in Kante #174.
 - [x] C2 (niedrig): Kein Ton getroffen: die Auswertung zeigte ein leeres Timing-Diagramm mit „Mittel 0 ms“. Jetzt
   ohne Diagramm.
-- [x] C3 (niedrig): Der Hinweis sagte „nach zwei Fehlversuchen“, gemeint sind zwei Durchläufe unter 80 % (nicht zwei
-  Antworten, wie J-C12 es las); er nannte außerdem den Modus „Spielen“, der „Frei spielen“ heißt. Text und Journey
+- [x] C3 (niedrig): Der Hinweis sagte „nach zwei Fehlversuchen“, gemeint sind zwei Versuche unter 80 %, je ein
+  Durchlauf oder ein Durchgang der Schleife (nicht zwei Antworten, wie J-C12 es las); er nannte außerdem den Modus „Spielen“, der „Frei spielen“ heißt. Text und Journey
   angepasst.
 - [x] C4 (mittel, P3): In der Werkstatt deckt die erste Schleife (Takte 1–2) bei „Ruf und Antwort“ nur den Ruf ab:
   jeder Durchgang zählte „100 % Treffer“, ohne dass etwas zu spielen war, und das Tempo stieg. Ein Durchgang ohne
-  zu wertende Noten ändert das Tempo nicht mehr.
+  zu wertende Noten zählt nicht mehr: keine Quote, kein Tempo-Schritt, kein Versuch, kein Schritt der Bausteine.
 - Offen (niedrig): In der Werkstatt bei 1296×792 bleibt der Tab-Lane mit Hinweis und Schaltern etwa 60 px Höhe.
 - Mira mit der Maus (Modus über AT-SPI erst mit C1): „Frei spielen“ behält Ruf und Antwort samt Hinweis; Werkstatt
   siehe C4.
