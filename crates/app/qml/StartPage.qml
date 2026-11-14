@@ -22,55 +22,32 @@ Kirigami.ScrollablePage {
         && summary.next.path === summary.last.path
 
     function reload() { summary = JSON.parse(ctl.homeJson()) }
-    function open(path) {
-        if (ctl.openFile(path)) {
-            applicationWindow().show("practice")
-        } else if (JSON.parse(ctl.trackChoicesJson).length > 0) {
-            // No clear bass track: the library asks which one (it shows the choice).
-            applicationWindow().show("library")
-        }
-    }
+    function open(path) { applicationWindow().openPiece(path) }
     // A spot from the last days: the piece in the workshop, looping that bar.
     function practise(path, bar) {
-        if (!ctl.openFile(path)) {
-            if (JSON.parse(ctl.trackChoicesJson).length > 0)
-                applicationWindow().show("library")
-            return
-        }
-        ctl.changeMode("workshop")
-        ctl.loopScoreBar(bar)
-        applicationWindow().show("practice")
+        applicationWindow().openPiece(path, function() {
+            ctl.changeMode("workshop")
+            ctl.loopScoreBar(bar)
+        })
     }
     // A section practised before, once without notes (DIDAKTIK I1); the count-in gives a bar to
     // get ready.
     function probe(offer) {
-        if (!ctl.openFile(offer.path)) {
-            if (JSON.parse(ctl.trackChoicesJson).length > 0) {
-                applicationWindow().show("library")
+        applicationWindow().openPiece(offer.path, function() {
+            ctl.changeMode("workshop")
+            // The bars moved (backing aligned anew): no loop, the probe asks to choose the bars.
+            if (!ctl.loopAt(offer.startS, offer.endS)) {
+                ctl.clearLoop()
             }
-            return
-        }
-        ctl.changeMode("workshop")
-        // The bars moved (backing aligned anew): no loop, the probe asks to choose the bars.
-        if (!ctl.loopAt(offer.startS, offer.endS)) {
-            ctl.clearLoop()
-        }
-        applicationWindow().show("practice")
-        ctl.startProbe()
+        }, function() { ctl.startProbe() })
     }
     // A passage due again (LH-LRN-16): that bar once without notes; the probe decides when it
     // comes back.
     function repeat(item) {
-        if (!ctl.openFile(item.path)) {
-            if (JSON.parse(ctl.trackChoicesJson).length > 0) {
-                applicationWindow().show("library")
-            }
-            return
-        }
-        ctl.changeMode("workshop")
-        ctl.loopScoreBar(item.bar)
-        applicationWindow().show("practice")
-        ctl.startProbe()
+        applicationWindow().openPiece(item.path, function() {
+            ctl.changeMode("workshop")
+            ctl.loopScoreBar(item.bar)
+        }, function() { ctl.startProbe() })
     }
     function bestText(best) {
         return best !== null && best >= 0

@@ -170,7 +170,7 @@ KanteCard {
                 onClicked: {
                     var path = nextCard.upcoming.path
                     sheet.close()
-                    ctl.openFile(path)
+                    applicationWindow().openPiece(path)
                 }
             }
         }

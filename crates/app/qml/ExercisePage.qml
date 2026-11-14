@@ -169,10 +169,7 @@ Kirigami.ScrollablePage {
                                 Accessible.ignored: true
                             }
                         }
-                        onClicked: {
-                            if (ctl.openFile(modelData.path))
-                                applicationWindow().show("practice")
-                        }
+                        onClicked: applicationWindow().openPiece(modelData.path)
                     }
                 }
             }

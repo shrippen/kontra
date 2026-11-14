@@ -197,6 +197,30 @@ Kirigami.ApplicationWindow {
     // Names the area a page switch leaves the focus on (QA 28.10., B8).
     Component { id: nameFocus; PageFocusName {} }
 
+    // Opens a piece and goes where it leads: to practice, or to the library when the bass track
+    // must be chosen (the library shows that question). `prepare` runs once the piece is open,
+    // before the page changes (mode, loop); `after` once practice shows (start a probe). Opening
+    // from the practice page itself (the run summary) keeps that page.
+    // Returns whether the piece opened.
+    function openPiece(path, prepare, after) {
+        if (!ctl.openFile(path)) {
+            if (current !== "library" && JSON.parse(ctl.trackChoicesJson).length > 0) {
+                show("library")
+            }
+            return false
+        }
+        if (prepare) {
+            prepare()
+        }
+        if (current !== "practice") {
+            show("practice")
+        }
+        if (after) {
+            after()
+        }
+        return true
+    }
+
     function show(name) {
         if ((current === "tuner" || current === "setup" || current === "quiz") && name !== current) {
             ctl.stopTuner()

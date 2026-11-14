@@ -38,6 +38,9 @@ Item {
     // The page a button asked for.
     property string shownPage: ""
     function show(name) { shownPage = name }
+    // The routing after opening a piece lives in Main.qml; a page only asks for it.
+    property var openedPieces: []
+    function openPiece(path) { openedPieces = openedPieces.concat([path]) }
 
     Column {
         id: behindItem
@@ -119,6 +122,26 @@ Item {
                 }
             }
             return null
+        }
+
+        // Opening the next piece goes through the window's routing, so a piece that needs a
+        // bass track choice leads to the track question (audit 14.11., Fund 5). Before: the sheet
+        // called ctl.openFile itself and nothing was routed.
+        function test_nextPieceIsRouted() {
+            var before = root.ctl.summaryJson
+            var summary = JSON.parse(before)
+            summary.next = { path: "/x/next.mid", level: "L1", title: "Next" }
+            root.ctl.summaryJson = JSON.stringify(summary)
+            root.openedPieces = []
+            try {
+                sheet.open()
+                var play = showing(sheet, "summary.next.play")
+                verify(play !== null)
+                play.clicked()
+                compare(root.openedPieces, ["/x/next.mid"])
+            } finally {
+                root.ctl.summaryJson = before
+            }
         }
 
         // QA 14.11. (J-C12): no note hit drew an empty chart with "mean 0 ms", a time
