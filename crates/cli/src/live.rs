@@ -120,7 +120,7 @@ fn show(event: &PracticeEvent, arrangement: &kontra_model::Arrangement) -> bool 
                     "✗ wrong ({})",
                     kontra_model::Pitch(played_midi.round().clamp(0.0, 127.0) as u8)
                 ),
-                Outcome::OffPitch => format!("~ off pitch ({:+.0} ct)", r.cents.unwrap_or(0.0)),
+                Outcome::OffPitch => format!("~ off pitch ({} ct)", signed(r.cents.unwrap_or(0.0))),
                 Outcome::Missed => "○ missed".to_string(),
                 Outcome::Extra { played_midi } => format!(
                     "+ extra ({})",
@@ -129,8 +129,10 @@ fn show(event: &PracticeEvent, arrangement: &kontra_model::Arrangement) -> bool 
             };
             let timing = r
                 .offset_ms
-                .map_or(String::new(), |o| format!(" {o:+.0} ms"));
-            let cents = r.cents.map_or(String::new(), |c| format!(" {c:+.0} ct"));
+                .map_or(String::new(), |o| format!(" {} ms", signed(o)));
+            let cents = r
+                .cents
+                .map_or(String::new(), |c| format!(" {} ct", signed(c)));
             println!("bar {bar:>3}  {what}{timing}{cents}");
         }
         PracticeEvent::Session(SessionEvent::Holding { note }) => {
@@ -237,10 +239,28 @@ pub fn tune(a: &TuneArgs) -> CliResult {
     Ok(())
 }
 
+/// A whole number with sign, "+2", "-4"; zero is "0", never "-0" (review #336).
+fn signed(value: f64) -> String {
+    let value = value.round();
+    if value == 0.0 {
+        return "0".into();
+    }
+    format!("{value:+.0}")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::path::Path;
+
+    // Review #336: -0.4 cent printed "-0 ct"; in tune is "0".
+    #[test]
+    fn whole_numbers_have_no_negative_zero() {
+        assert_eq!(signed(-0.4), "0");
+        assert_eq!(signed(0.4), "0");
+        assert_eq!(signed(-3.6), "-4");
+        assert_eq!(signed(2.0), "+2");
+    }
 
     // QA 27.10.: "practice --input-file … --backing …" played the backing on the owner's speakers.
     #[test]
