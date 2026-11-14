@@ -135,8 +135,11 @@ impl Core {
                 return;
             };
             match job.try_recv() {
+                // Nothing new read (the last chunk of a read is often empty): the page keeps its
+                // rows; a rebuild costs it a frame of 200 ms (N6).
+                Ok(chunk) if chunk.is_empty() => {}
                 Ok(chunk) => {
-                    self.folders.metas.dirty |= !chunk.is_empty();
+                    self.folders.metas.dirty = true;
                     self.folders.metas.known.extend(chunk);
                     self.apply_meta();
                     self.folders.metas.changed = true;
@@ -164,6 +167,16 @@ impl Core {
     #[cfg(test)]
     pub(crate) fn feed_meta(&mut self, chunks: Receiver<Chunk>) {
         self.folders.metas.job = Some(chunks);
+    }
+
+    /// A chunk that read `path`, nothing in it.
+    #[cfg(test)]
+    pub(crate) fn chunk_of(path: &Path) -> Chunk {
+        let stamp = Stamp {
+            size: 0,
+            modified_ms: 0,
+        };
+        vec![(path.to_path_buf(), Known { stamp, meta: None })]
     }
 
     /// True once files were read since the last call; while the read runs, at most once a

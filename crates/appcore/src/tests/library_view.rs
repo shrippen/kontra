@@ -1071,9 +1071,10 @@ fn reading_tells_the_page_at_most_once_a_second() {
     let (tell, chunks) = std::sync::mpsc::channel();
     core.feed_meta(chunks);
 
-    tell.send(Vec::new()).unwrap();
+    let chunk = || Core::chunk_of(&dir.join("song.musicxml"));
+    tell.send(chunk()).unwrap();
     assert!(core.library_changed(), "the first chunk is told");
-    tell.send(Vec::new()).unwrap();
+    tell.send(chunk()).unwrap();
     assert!(
         !core.library_changed(),
         "the next one within a second waits"
@@ -1081,5 +1082,20 @@ fn reading_tells_the_page_at_most_once_a_second() {
     drop(tell);
     assert!(core.library_changed(), "the end of the read is told");
     assert!(!core.library_changed());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// N6: a read that found nothing new (every file known) still told the page, so the library
+/// page built its table a second time whenever it opened (about 200 ms before the first frame).
+#[test]
+fn a_read_with_nothing_new_tells_nothing() {
+    let dir = temp_dir("meta-quiet");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let (tell, chunks) = std::sync::mpsc::channel();
+    core.feed_meta(chunks);
+
+    tell.send(Vec::new()).unwrap();
+    drop(tell);
+    assert!(!core.library_changed(), "nothing read, nothing told");
     let _ = std::fs::remove_dir_all(dir);
 }
