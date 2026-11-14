@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtCore
 import QtQuick.Layouts
 import QtQuick.Controls as QQC2
@@ -107,6 +108,16 @@ Kirigami.ScrollablePage {
     padding: KanteStyle.unit(16)
     leftPadding: applicationWindow().readingPad(width)
     rightPadding: leftPadding
+    // Chapters built so far: the first with the page, then one a frame. All 15 cost the first
+    // frame about 150 ms, the screen shows four (N6); Tab and the screen reader reach every one
+    // a few frames later.
+    readonly property int chaptersFirst: 4
+    property int built: chaptersFirst
+    Connections {
+        target: page.Window.window
+        enabled: page.built < page.course.chapters.length
+        function onFrameSwapped() { page.built += 1 }
+    }
     readonly property bool twoColumns: width - leftPadding - rightPadding > KanteStyle.unit(860)
 
     ColumnLayout {
@@ -302,64 +313,67 @@ Kirigami.ScrollablePage {
             rowSpacing: KanteStyle.unit(16)
             Repeater {
                 model: page.course.chapters
-                delegate: ColumnLayout {
+                delegate: Loader {
                     id: chapter
                     required property var modelData
                     required property int index
                     Layout.fillWidth: true
                     Layout.preferredWidth: 1
                     Layout.alignment: Qt.AlignTop
-                    spacing: KanteStyle.unit(8)
+                    active: index < page.built
+                    sourceComponent: ColumnLayout {
+                        spacing: KanteStyle.unit(8)
 
-                    KanteSectionLabel {
-                        Layout.fillWidth: true
-                        rule: true
-                        text: texts.t("learn.chapter", { number: chapter.index + 1, title: chapter.modelData.title,
-                                                         done: chapter.modelData.done, total: chapter.modelData.total })
-                    }
-                    KantePath {
-                        Layout.fillWidth: true
-                        Layout.maximumWidth: KanteStyle.unit(560)
-                        model: chapter.modelData.units.map(function(u) {
-                            return { title: u.title,
-                                     state: !u.fits ? "locked" : u.done ? "done" : u.id === page.nextId ? "current" : "open" }
-                        })
-                        lockedText: texts.t("learn.locked.short")
-                        doneText: texts.t("learn.state.done")
-                        currentText: texts.t("learn.state.current")
-                        openText: texts.t("learn.state.open")
-                        onActivated: function(index) { page.open(chapter.modelData.units[index].id) }
-                    }
-                    // Nothing is locked (LERNEN.md): who knows a chapter proves it with its questions.
-                    KanteButton {
-                        // Only lessons for this instrument can be ticked off.
-                        visible: chapter.modelData.questions > 0
-                            && chapter.modelData.units.some(function(u) { return u.fits && !u.done })
-                        text: texts.t("learn.check")
-                        emphasis: KanteButton.Emphasis.Quiet
-                        onClicked: {
-                            applicationWindow().checkChapter = chapter.modelData.id
-                            applicationWindow().show("review")
+                        KanteSectionLabel {
+                            Layout.fillWidth: true
+                            rule: true
+                            text: texts.t("learn.chapter", { number: chapter.index + 1, title: chapter.modelData.title,
+                                                             done: chapter.modelData.done, total: chapter.modelData.total })
                         }
-                    }
+                        KantePath {
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: KanteStyle.unit(560)
+                            model: chapter.modelData.units.map(function(u) {
+                                return { title: u.title,
+                                         state: !u.fits ? "locked" : u.done ? "done" : u.id === page.nextId ? "current" : "open" }
+                            })
+                            lockedText: texts.t("learn.locked.short")
+                            doneText: texts.t("learn.state.done")
+                            currentText: texts.t("learn.state.current")
+                            openText: texts.t("learn.state.open")
+                            onActivated: function(index) { page.open(chapter.modelData.units[index].id) }
+                        }
+                        // Nothing is locked (LERNEN.md): who knows a chapter proves it with its questions.
+                        KanteButton {
+                            // Only lessons for this instrument can be ticked off.
+                            visible: chapter.modelData.questions > 0
+                                && chapter.modelData.units.some(function(u) { return u.fits && !u.done })
+                            text: texts.t("learn.check")
+                            emphasis: KanteButton.Emphasis.Quiet
+                            onClicked: {
+                                applicationWindow().checkChapter = chapter.modelData.id
+                                applicationWindow().show("review")
+                            }
+                        }
 
-                    // The chapter's piece, slow to full speed.
-                    KanteHintCard {
-                        Layout.fillWidth: true
-                        Layout.maximumWidth: KanteStyle.unit(560)
-                        visible: chapter.modelData.finale !== null
-                        tier: KanteHintCard.Tier.Blue
-                        tierText: texts.t("learn.finale")
-                        titleText: chapter.modelData.finale ? chapter.modelData.finale.title : ""
-                        text: texts.t("learn.finale.text")
-                        Repeater {
-                            model: chapter.modelData.finale ? chapter.modelData.finale.speeds : []
-                            delegate: KanteButton {
-                                required property int modelData
-                                required property int index
-                                text: texts.t("learn.practice.speed", { percent: modelData })
-                                emphasis: index === 0 ? KanteButton.Emphasis.Normal : KanteButton.Emphasis.Quiet
-                                onClicked: page.finale(chapter.modelData.id, modelData)
+                        // The chapter's piece, slow to full speed.
+                        KanteHintCard {
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: KanteStyle.unit(560)
+                            visible: chapter.modelData.finale !== null
+                            tier: KanteHintCard.Tier.Blue
+                            tierText: texts.t("learn.finale")
+                            titleText: chapter.modelData.finale ? chapter.modelData.finale.title : ""
+                            text: texts.t("learn.finale.text")
+                            Repeater {
+                                model: chapter.modelData.finale ? chapter.modelData.finale.speeds : []
+                                delegate: KanteButton {
+                                    required property int modelData
+                                    required property int index
+                                    text: texts.t("learn.practice.speed", { percent: modelData })
+                                    emphasis: index === 0 ? KanteButton.Emphasis.Normal : KanteButton.Emphasis.Quiet
+                                    onClicked: page.finale(chapter.modelData.id, modelData)
+                                }
                             }
                         }
                     }

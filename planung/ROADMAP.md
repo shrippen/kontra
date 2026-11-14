@@ -1153,8 +1153,11 @@ im GUI-Thread: Neuauslegungen je Bild und das Auflisten der Audiogeräte.
   Zeilen bauen nur, was sie zeigen, 177 → 67 Elemente je Zeile; leeres Lesen meldet keine Änderung). Lernen: der
   Kurs wurde je Kapitel neu gebaut, `learn_json` 35 → 4,6 ms (#345); der Rest (etwa 180 ms) ist QML, 15 Kapitel mit
   Pfad und Karten. Übungen: Daten 1,5 ms; der Generator kostet etwa 90 ms, ein `Loader` mit `asynchronous` brachte
-  nichts Messbares (Median 221 gegen 216 ms, je 8 Wechsel), nicht übernommen. Weiter offen: Lernen 300–350,
-  Übungen 210–260, Griffbrett 160–190, Start 120–140 ms.
+  nichts Messbares (Median 221 gegen 216 ms, je 8 Wechsel), nicht übernommen. Lernen baut jetzt vier Kapitel mit
+  der Seite und die übrigen eines je Bild: 295–457 → 131–210 ms bei Load 13–22 (#347). Ein `KanteButton` kostet
+  beim Erzeugen etwa 1,2 ms (Stil-Knopf 0,55, Beschriftung 0,3, drei Formen 0,25, Symbol 0,15); Formen und Symbol
+  nur bei Bedarf brächten etwa ein Viertel (Kante). Weiter offen: Übungen 210–260, Griffbrett 160–190, Start
+  120–140 ms.
 - Nicht gemessen: am echten System mit PipeWire; Kontra mit sichtbarem Fenster.
 
 ### QA-Runde 28.10.2026 (J-B5 und J-F1 erneut, nach Runde 16)
