@@ -103,5 +103,88 @@ Item {
             compare(opened.count, 1)
             compare(opened.signalArguments[0][0], "/a.mid")
         }
+
+        // QA 14.11. (K1, P7): every row and its "…" were Tab stops, 300 for 152 exercises.
+        // The rows are one stop now; the arrows move inside, Tab goes on to the row's "…" and
+        // then out of the table.
+        function test_rowsAreOneTabStop() {
+            var list = findChild(table, "rows")
+            waitForRendering(list)
+            var rowOf = function(i) { return findChild(list.itemAtIndex(i), "row") }
+            var moreOf = function(i) { return findChild(list.itemAtIndex(i), "more") }
+            rowOf(0).forceActiveFocus()
+            keyClick(Qt.Key_Down)
+            verify(rowOf(1).activeFocus, "Down goes to the next row")
+            keyClick(Qt.Key_Up)
+            verify(rowOf(0).activeFocus, "Up comes back")
+            keyClick(Qt.Key_Down)
+            keyClick(Qt.Key_Tab)
+            verify(moreOf(1).activeFocus, "Tab goes to the row's own menu")
+            keyClick(Qt.Key_Tab)
+            verify(!rowOf(2).activeFocus && !rowOf(0).activeFocus && !moreOf(2).activeFocus,
+                   "then out of the table, not to the next row")
+        }
+
+        // The list takes Tab itself (below): Backtab from the row must still leave the table,
+        // not land on the list, which hands it back to the row.
+        function test_backtabLeavesTheTable() {
+            var list = findChild(table, "rows")
+            table.focusRow(1)
+            verify(findChild(list.itemAtIndex(1), "row").activeFocus)
+            keyClick(Qt.Key_Backtab)
+            wait(50)
+            verify(!list.activeFocus, "Backtab leaves the list")
+        }
+
+        // Review #332, round 2: a focused row scrolled away by wheel or scroll bar pulled the
+        // view back to it.
+        function test_scrollingAwayFromTheFocusStays() {
+            var many = []
+            for (var i = 0; i < 150; i++) {
+                many.push({ id: "/" + i + ".mid", path: "/" + i + ".mid", title: "Piece " + i, artist: "",
+                            format: "MID", origin: "imported", bpm: null, lastPlayed: null,
+                            bestPercent: null, missing: false, tags: [], group: "" })
+            }
+            var old = root.view
+            root.view = { rows: many, groups: [] }
+            try {
+                var list = findChild(table, "rows")
+                waitForRendering(list)
+                table.focusRow(2)
+                list.contentY = 3000
+                wait(50)
+                compare(list.contentY, 3000, "the view stays where it was scrolled")
+            } finally {
+                root.view = old
+            }
+        }
+
+        // Review #332: with the stop row scrolled out of the built rows (search, sort, wheel),
+        // Tab passed the table by. The list takes Tab itself and hands it to that row.
+        function test_aRowOutOfViewIsStillTheStop() {
+            var many = []
+            for (var i = 0; i < 150; i++) {
+                many.push({ id: "/" + i + ".mid", path: "/" + i + ".mid", title: "Piece " + i, artist: "",
+                            format: "MID", origin: "imported", bpm: null, lastPlayed: null,
+                            bestPercent: null, missing: false, tags: [], group: "" })
+            }
+            var old = root.view
+            root.view = { rows: many, groups: [] }
+            try {
+                var list = findChild(table, "rows")
+                waitForRendering(list)
+                table.focusIndex = 60
+                list.positionViewAtBeginning()
+                waitForRendering(list)
+                verify(list.itemAtIndex(60) === null, "row 60 is not built")
+                list.forceActiveFocus()
+                tryVerify(function() {
+                    var line = list.itemAtIndex(60)
+                    return line !== null && findChild(line, "row").activeFocus
+                }, 1000, "the list hands the focus to row 60")
+            } finally {
+                root.view = old
+            }
+        }
     }
 }

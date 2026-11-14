@@ -1046,6 +1046,8 @@ Generator öffnet das Stück und legt es unter „Generiert“ ab, neue Setliste
   GUI-Thread 90 ms (Release), beim Lesen alle 32 Dateien einer. Jetzt höchstens einer je Sekunde und einer am Ende;
   Plan-Titel und Übungs-Tempo nur noch für Übungen (vorher je Zeile Dateisystem-Aufrufe): 90 → 60 ms je Neuaufbau,
   davon etwa 20 ms für den JSON-Text.
+- [x] K1 (mittel, P7, J-B9 Schritt 5 mit `qactl.py focus`, neu): Jede Zeile der Tabelle und ihr „…“ waren eigene
+  Tab-Halte, 304 bei 152 Übungen, ebenso jeder Eintrag im Baum. Jetzt je ein Halt, Pfeiltasten darin.
 - Nur in der QA: Der Qt-Ordnerdialog (ohne Portal) nimmt den markierten Unterordner statt des geöffneten.
 
 ### QA-Runde 12./13.11.2026 (FPS: Software und GPU, Nacht)

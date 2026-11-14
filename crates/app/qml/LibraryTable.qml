@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import Kante
@@ -105,6 +106,42 @@ ColumnLayout {
             return texts.t("library.last.short.days", { n: days })
         }
         return new Date(unix * 1000).toLocaleDateString(Qt.locale(), Locale.ShortFormat)
+    }
+
+    // The rows are one Tab stop (QA 14.11., K1: 300 stops for 152 exercises): only the current
+    // row and its "…" take Tab; Up, Down, Page Up, Page Down, Home and End move between rows.
+    // Not the ListView's currentIndex: setting that gives the delegate the focus, away from the row.
+    property int focusIndex: 0
+    readonly property int stopIndex: Math.max(0, Math.min(focusIndex, list.count - 1))
+    function focusRow(i) {
+        var to = Math.max(0, Math.min(i, list.count - 1))
+        list.positionViewAtIndex(to, ListView.Contain)
+        // Build the rows there now: the row is wanted in this same call.
+        list.forceLayout()
+        var line = list.itemAtIndex(to)
+        if (line) {
+            line.focusRow()
+        }
+        // After the focus moved: Qt refuses to take Tab from the item that still has it.
+        focusIndex = to
+    }
+    readonly property int pageRows: 10
+    // The list itself or a row's delegate, not a row: Tab arrived without a row to take it.
+    function wrapsRows(item) {
+        return item === list || (item !== null && item.parent === list.contentItem)
+    }
+    function within(item) {
+        for (var i = item; i; i = i.parent) {
+            if (i === list) {
+                return true
+            }
+        }
+        return false
+    }
+    function claimFocus() {
+        if (wrapsRows(list.Window.activeFocusItem)) {
+            focusRow(stopIndex)
+        }
     }
 
     function directionText(direction) {
@@ -215,6 +252,29 @@ ColumnLayout {
         model: table.view.rows
         reuseItems: false
         QQC2.ScrollBar.vertical: QQC2.ScrollBar {}
+        // The list takes Tab and hands it to the stop row: that row may be scrolled out of the
+        // rows the view has built (review #332), then no row would take Tab at all.
+        activeFocusOnTab: true
+        // No current item of the view's own: with focus it would scroll to it (row 0).
+        currentIndex: -1
+        keyNavigationEnabled: false
+        // The list is a focus scope: Tab gives the focus to the list itself, or to the delegate
+        // that last had it, not to a row. Then the stop row takes it, but only when the focus
+        // comes from outside: a focused row scrolled away also leaves it on the list (review
+        // #332), and the view must not jump back.
+        readonly property Item focusItem: Window.activeFocusItem
+        property bool hadFocus: false
+        onFocusItemChanged: {
+            var entering = !hadFocus
+            hadFocus = table.within(focusItem)
+            if (entering && table.wrapsRows(focusItem)) {
+                // Later: Qt drops a focus moved while it is still moving it.
+                Qt.callLater(table.claimFocus)
+            }
+        }
+        // Rows scrolled away: the arrows bring the focus back to the stop row.
+        Keys.onUpPressed: table.focusRow(table.stopIndex)
+        Keys.onDownPressed: table.focusRow(table.stopIndex)
 
         delegate: ColumnLayout {
             id: line
@@ -230,6 +290,10 @@ ColumnLayout {
             readonly property string originText: table.texts.t("library.badge." + modelData.origin)
             width: ListView.view.width
             spacing: 0
+            readonly property bool stop: index === table.stopIndex
+            function focusRow() {
+                row.forceActiveFocus()
+            }
 
             KanteSectionLabel {
                 visible: line.firstOfGroup
@@ -260,6 +324,22 @@ ColumnLayout {
                     line.played ? table.texts.t("library.row.result", { percent: line.modelData.bestPercent }) : table.texts.t("library.unplayed")]
                     .filter(function(s) { return s !== "" }).join(", ")
                 onClicked: table.openPiece(String(line.modelData.path))
+                activeFocusOnTab: line.stop
+                Keys.onDownPressed: table.focusRow(line.index + 1)
+                Keys.onUpPressed: table.focusRow(line.index - 1)
+                Keys.onPressed: function(event) {
+                    var moves = { [Qt.Key_PageDown]: table.pageRows, [Qt.Key_PageUp]: -table.pageRows }
+                    if (event.key === Qt.Key_Home) {
+                        table.focusRow(0)
+                    } else if (event.key === Qt.Key_End) {
+                        table.focusRow(list.count - 1)
+                    } else if (moves[event.key] !== undefined) {
+                        table.focusRow(line.index + moves[event.key])
+                    } else {
+                        return
+                    }
+                    event.accepted = true
+                }
 
                 trailing: Row {
                     spacing: header.spacing
@@ -327,6 +407,8 @@ ColumnLayout {
                     }
                     KanteToolButton {
                         id: moreButton
+                        objectName: "more"
+                        activeFocusOnTab: line.stop
                         width: header.moreWidth
                         text: "…"
                         Accessible.name: table.texts.t("library.row.more", { title: line.modelData.title })
