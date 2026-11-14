@@ -14,7 +14,7 @@ Hinweises; vorher war der Übungsmodus über AT-SPI nicht wählbar), in Kontra m
 CLI).
 
 Offen:
-- Neue `pub` (QML) für die nächste Runde: `LibraryTable.focusIndex`, `stopIndex`, `focusRow()`, `pageRows`,
+- Neue `pub` (QML), in Runde 22 freigegeben: `LibraryTable.focusIndex`, `stopIndex`, `focusRow()`, `pageRows`,
   `pageKey()`, `wrapsRows()`, `within()`, `claimFocus()`; `LibraryTree.focusIndex`, `stopIndex`, `focusEntry()`,
   `wrapsEntries()`, `within()`, `claimFocus()`, `hadFocus`, `focusItem` (die Fokus-Teile kamen in den Review-Runden
   dazu und stehen nicht im PR-Text von #332); `Metas`/`Known` in appcore (#331, `pub(crate)`).
@@ -23,8 +23,8 @@ Offen:
   (Kleinigkeit aus Kante #174).
 - J-C12 über Mikrofon (der Ruf darf nicht als Treffer zählen) nur im Test geprüft, nicht im Fenster; J-B8 Karl
   (Mikrofon) nicht gespielt.
-- Runde 22 um zwei Fragen ergänzt: Werkstatt in niedrigen Fenstern (`lane`) und Abdämpfen in der Beobachtung
-  (`mute`, J-B8 M1: bei 0 gedämpften Noten heißt es „Solide“ und „Sitzt“).
+- Runde 22 beantwortet (14.11. morgens, ROADMAP „Entscheidungen Runde 22“); Umsetzung von `variant_no`, `b8`,
+  `lane` und `mute` läuft, danach Seitenaufbau (N6).
 - Bestand aus #337: `kontra-cli tune` („-0.0 ct“) und `kontra-cli check` („-0 ms“) schreiben noch eine negative Null.
 
 ## Übergabe (14.11.2026, Nacht: QA Bibliothek und „Stück wünschen“)
@@ -36,8 +36,7 @@ Tonart im Titel einmal), #328 (Anbieter-Dialog statt Stapel); Kante #172 (Pfeile
 #329.
 
 Offen:
-- Runde 22 im Entscheidungs-Artefakt (Dokument `antworten/runde-22`): `pub`-Liste, LH-BIB-18 bestätigen, Variante im
-  Titel gewünschter Stücke (Q11), Fokus nach Seitenwechsel (B8), Hardware-Sitzung, nächster Schwerpunkt.
+- Runde 22 beantwortet (siehe oben).
 - Nur in der QA-Sitzung: Der Qt-Ordnerdialog ohne Portal nimmt den markierten Unterordner statt des geöffneten.
 - Bestand aus Review #327: weitere `if` ohne Klammern in `PieceWish.qml` (aus #320).
 - Die Punkte der Übergabe vom 13.11. unten gelten weiter (Hardware, Geräte im GUI-Thread, Seitenaufbau, B8;
