@@ -20,6 +20,7 @@ pub(crate) mod chords;
 mod double;
 pub(crate) mod ends;
 mod report;
+mod requirements;
 
 pub use double::{
     announce_second_tone, double_stop_mixtures, evaluate_double_stops, generate_double_stops,
@@ -958,101 +959,18 @@ mod tests {
         assert_eq!(expected_strikes(&notes, told).len(), 1);
     }
 
-    /// LH-NF-16: at most one false note in a minute without notes (the idle sets' length).
-    const IDLE_MAX_FALSE: usize = 1;
+    const S_PER_MINUTE: f64 = 60.0;
 
-    /// Lastenheft LH-NF-02 (onset < 10 ms) and LH-NF-03 (pitch ≥ 98 % line, ≥ 95 % laptop jack,
-    /// ≥ 90 % at a microphone in a room, LH-EIN-11).
+    /// Lastenheft LH-NF-02, LH-NF-03 and the other corpus limits (`requirements.rs`).
     #[test]
     fn corpus_meets_requirements() {
         for set in KorpusSet::ALL {
             let item = generate(set);
             let e = evaluate(set, &item.samples, item.sample_rate, &item.notes);
             eprintln!("{e:?}");
-            if set.is_idle() {
-                assert!(
-                    e.pitched <= IDLE_MAX_FALSE,
-                    "{}: {} false notes",
-                    set.name(),
-                    e.pitched
-                );
-                continue;
-            }
-            // LH-EIN-11: a microphone in a room needs ≥ 90 %.
-            let room = matches!(set, KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking);
-            let found = if room { 0.9 } else { 0.99 };
-            assert!(
-                e.recall() >= found,
-                "{}: recall {:.3}",
-                set.name(),
-                e.recall()
-            );
-            assert!(
-                e.precision() >= found,
-                "{}: precision {:.3}",
-                set.name(),
-                e.precision()
-            );
-            // Legato notes have no attack: their time comes from the pitch window (±30 ms).
-            let onset_ms = if set == KorpusSet::Techniques {
-                30.0
-            } else {
-                10.0
-            };
-            assert!(
-                e.p95_abs_onset_ms < onset_ms,
-                "{}: p95 onset {:.1} ms",
-                set.name(),
-                e.p95_abs_onset_ms
-            );
-            let needed = match set {
-                KorpusSet::LaptopJack4 => 0.95,
-                // LH-EIN-11: ≥ 90 % at a microphone in a room.
-                KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking => 0.9,
-                _ => 0.98,
-            };
-            assert!(
-                e.pitch_accuracy() >= needed,
-                "{}: pitch {:.3}",
-                set.name(),
-                e.pitch_accuracy()
-            );
-            // LH-BEW-06: ≥ 85 % of the technique set recognised; elsewhere none invented.
-            let technique_needed = if set == KorpusSet::Techniques {
-                0.85
-            } else {
-                0.95
-            };
-            assert!(
-                e.technique_accuracy() >= technique_needed,
-                "{}: technique {:.3}",
-                set.name(),
-                e.technique_accuracy()
-            );
-            // LH-NF-15: told with a pitch soon after the attack, per note (`report.rs`).
-            if let Some(limits) = set.report_limits() {
-                assert!(
-                    e.p95_report_ms > 0.0 && limits.met(&e),
-                    "{}: p95 report {:.1} ms from E1, {:.1} ms below",
-                    set.name(),
-                    e.p95_report_from_e1_ms,
-                    e.p95_report_below_e1_ms
-                );
-            }
-            if set == KorpusSet::Fretless5 {
-                assert!(
-                    e.mean_abs_cents < 6.0,
-                    "fretless cents {:.1}",
-                    e.mean_abs_cents
-                );
-                // LH-BEW-05: intonation shown within 3 cents, for every note.
-                assert!(
-                    e.p95_abs_cents <= 3.0 && e.max_abs_cents <= 3.0,
-                    "fretless cents p95 {:.1}, max {:.1}",
-                    e.p95_abs_cents,
-                    e.max_abs_cents
-                );
-            }
+            let minutes = item.samples.len() as f64 / f64::from(item.sample_rate) / S_PER_MINUTE;
+            let misses = set.requirement_misses(&e, minutes);
+            assert!(misses.is_empty(), "{}: {misses:?}", set.name());
         }
     }
 }

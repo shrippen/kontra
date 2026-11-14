@@ -7,13 +7,8 @@ use kontra_session as session;
 use kontra_session::KorpusSet;
 use std::path::Path;
 
-/// LH-BEW-05: fretless intonation within 3 cents of the reference, per note.
-const FRETLESS_MAX_CENTS: f64 = 3.0;
-
 const CENTS_PER_SEMITONE: f64 = 100.0;
 
-/// LH-NF-16: at most one false note per minute where nothing is played (met since F3, 29.10.).
-const IDLE_TARGET_PER_MINUTE: f64 = 1.0;
 const S_PER_MINUTE: f64 = 60.0;
 
 pub fn run(a: &KorpusArgs) -> CliResult {
@@ -452,54 +447,22 @@ fn check(dir: Option<&Path>) -> CliResult {
             None => session::generate_korpus(set),
         };
         let e = session::evaluate_korpus(set, &item.samples, item.sample_rate, &item.notes);
+        let minutes = item.samples.len() as f64 / f64::from(item.sample_rate) / S_PER_MINUTE;
+        let ok = set.requirement_misses(&e, minutes).is_empty();
         // Nothing played: only false notes count (LH-NF-16).
         if set.is_idle() {
-            let minutes = item.samples.len() as f64 / f64::from(item.sample_rate) / S_PER_MINUTE;
             let per_minute = e.pitched as f64 / minutes;
-            let ok = per_minute <= IDLE_TARGET_PER_MINUTE;
             failed |= !ok;
             println!(
                 "{:<14} {:>6} {:>6} false notes, {per_minute:.1} per minute (target {:.0}) {}",
                 set.name(),
                 0,
                 e.pitched,
-                IDLE_TARGET_PER_MINUTE,
+                KorpusSet::IDLE_MAX_PER_MINUTE,
                 if ok { "ok" } else { "FAILED" }
             );
             continue;
         }
-        // LH-EIN-11: a room through a microphone needs ≥ 90 % (acceptance of J-E2).
-        let room = matches!(set, KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking);
-        let needed = match set {
-            KorpusSet::LaptopJack4 => 0.95,
-            KorpusSet::RoomDouble | KorpusSet::RoomDoubleBacking => 0.9,
-            _ => 0.98,
-        };
-        let found = if room { 0.9 } else { 0.99 };
-        // Legato notes have no attack: their time comes from the pitch window (±30 ms).
-        let onset_ms = if room || set == KorpusSet::Techniques {
-            30.0
-        } else {
-            10.0
-        };
-        // A mean hides one note that is always off (B0 +8 ct, J-B4): check p95 and max too.
-        let cents_ok = set != KorpusSet::Fretless5
-            || (e.p95_abs_cents <= FRETLESS_MAX_CENTS && e.max_abs_cents <= FRETLESS_MAX_CENTS);
-        // LH-BEW-06: ≥ 85 % of the technique set recognised; elsewhere no technique invented.
-        let technique_needed = if set == KorpusSet::Techniques {
-            0.85
-        } else {
-            0.95
-        };
-        // LH-NF-15: p95 from attack to report per note, on the line sets.
-        let report_ok = set.report_limits().is_none_or(|l| l.met(&e));
-        let ok = e.recall() >= found
-            && e.precision() >= found
-            && e.pitch_accuracy() >= needed
-            && e.technique_accuracy() >= technique_needed
-            && e.p95_abs_onset_ms < onset_ms
-            && cents_ok
-            && report_ok;
         failed |= !ok;
         println!(
             "{:<14} {:>6} {:>7.1}% {:>8.1}% {:>6.1}% {:>6.1}% {:>9.2} {:>8.2} {:>8.2} {:>8.2} {:>8.1} {:>8.1} {}",
