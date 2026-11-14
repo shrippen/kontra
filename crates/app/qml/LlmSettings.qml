@@ -39,13 +39,25 @@ KanteSettingGroup {
         ctl.llmCheckKey(ctl.llmProvider)
     }
 
-    // The keyring can ask to be unlocked: it is asked once this group's section shows in the
-    // page's sticky header (`sectionHeader`, `section`), not whenever the settings open.
-    property var sectionHeader: null
-    property int section: -1
+    // The keyring can ask to be unlocked: it is asked once this group comes into the page's
+    // scrolled `view`, not whenever the settings open (the tabs' scrollspy skips sections in a
+    // tall window, so the view decides, not the tab).
+    property Flickable view: null
     property bool keyAsked: false
-    readonly property bool sectionShown: sectionHeader === null || sectionHeader.currentIndex === section
+    // Until the first frame the layout has not placed the group yet (it sits at the top).
+    property bool laidOut: view === null
+    Connections {
+        target: group.Window.window
+        enabled: !group.laidOut
+        function onFrameSwapped() { group.laidOut = true }
+    }
+    readonly property bool sectionShown: laidOut && (view === null || inView(view.contentY, view.height, y, height))
     onSectionShownChanged: askKeyOnce()
+    // The arguments only make the binding follow scrolling and layout.
+    function inView(top, viewHeight, groupY, groupHeight) {
+        var at = mapToItem(view.contentItem, 0, 0).y
+        return at < top + viewHeight && at + groupHeight > top
+    }
     function askKeyOnce() {
         if (!sectionShown || keyAsked) {
             return
