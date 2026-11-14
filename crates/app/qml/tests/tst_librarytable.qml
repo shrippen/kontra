@@ -136,6 +136,25 @@ Item {
             verify(!list.activeFocus, "Backtab leaves the list")
         }
 
+        // Review #334: keys the tag field does not take (arrows, page keys) reached the list,
+        // which took the focus out of the field.
+        function test_keysStayInTheTagField() {
+            var list = findChild(table, "rows")
+            table.focusRow(0)
+            table.tagsPath = "/a.mid"
+            try {
+                table.focusTagsRequested()
+                var field = list.Window.activeFocusItem
+                verify(field !== null && field.objectName !== "row", "the tag field has the focus")
+                keyClick(Qt.Key_PageDown)
+                compare(list.Window.activeFocusItem, field, "Page down stays in the field")
+                keyClick(Qt.Key_Down)
+                compare(list.Window.activeFocusItem, field, "Down stays in the field")
+            } finally {
+                table.tagsPath = ""
+            }
+        }
+
         // Review #332, round 2: a focused row scrolled away by wheel or scroll bar pulled the
         // view back to it.
         function test_scrollingAwayFromTheFocusStays() {
@@ -154,6 +173,13 @@ Item {
                 list.contentY = 3000
                 wait(50)
                 compare(list.contentY, 3000, "the view stays where it was scrolled")
+                // Review #332, round 3: the page keys work from there too.
+                keyClick(Qt.Key_End)
+                verify(findChild(list.itemAtIndex(149), "row").activeFocus, "End goes to the last row")
+                list.contentY = 0
+                wait(50)
+                keyClick(Qt.Key_PageUp)
+                verify(findChild(list.itemAtIndex(139), "row").activeFocus, "Page up from the last row")
             } finally {
                 root.view = old
             }
