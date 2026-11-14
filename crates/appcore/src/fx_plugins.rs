@@ -149,8 +149,8 @@ impl Plugins {
     }
 
     /// As `new`, and if the last run died while a plugin loaded (a marker is left), switches
-    /// that plugin's slots off in `settings` and saves them, so it stays off until the player
-    /// switches it on.
+    /// that plugin's slots off in `settings` and lists it in `crashed` (the caller saves), so it stays
+    /// off until the player switches it on.
     pub(crate) fn start(data_dir: &Path, settings: &mut Settings) -> Plugins {
         let mut plugins = Plugins::new(data_dir);
         let Some((path, plugin)) = crashed_plugin(&plugins.crash_marker) else {
@@ -170,9 +170,6 @@ impl Plugins {
             }
             slot.on = false;
             plugins.crashed.insert(slot.plugin);
-        }
-        if !plugins.crashed.is_empty() {
-            let _ = store::save(&data_dir.join("settings.json"), settings);
         }
         plugins
     }
@@ -409,7 +406,7 @@ impl crate::Core {
             changed = true;
         }
         if changed {
-            let _ = store::save(&self.data_dir.join("settings.json"), &self.settings);
+            self.save_settings();
         }
         changed
     }

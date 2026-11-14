@@ -38,6 +38,7 @@ pub mod quiz;
 pub mod quiz_stats;
 mod report;
 mod rig;
+mod save;
 mod song_map;
 mod songsterr;
 mod sources;
@@ -324,7 +325,7 @@ struct Probe {
 /// else the environment's. Kirigami's own texts follow it (round 12: "Close Sidebar" in a German
 /// Kontra on an English system).
 pub fn startup_language(data_dir: &Path) -> &'static str {
-    let settings: Settings = store::load(&data_dir.join("settings.json"));
+    let settings: Settings = store::load(&data_dir.join(save::SETTINGS_FILE));
     let language = settings
         .language
         .as_deref()
@@ -337,12 +338,12 @@ pub fn startup_language(data_dir: &Path) -> &'static str {
 
 impl Core {
     pub fn new(data_dir: &Path, qa: QaOptions) -> Core {
-        let mut settings: Settings = store::load(&data_dir.join("settings.json"));
+        let mut settings: Settings = store::load(&data_dir.join(save::SETTINGS_FILE));
         settings.migrate();
-        let mut library: Library = store::load(&data_dir.join("library.json"));
+        let mut library: Library = store::load(&data_dir.join(save::LIBRARY_FILE));
         library.plain_paths();
         library.find_moved(&Self::exercises_dir());
-        origin::move_old_pieces(data_dir, &mut library);
+        let moved_pieces = origin::move_old_pieces(data_dir, &mut library);
         let language = settings
             .language
             .as_deref()
@@ -399,6 +400,7 @@ impl Core {
             looping: None,
             call: call::CallState::default(),
         };
+        core.save_after_start(moved_pieces);
         // Measured latencies hold only for the devices they were measured on (LH-EIN-05).
         core.check_audio_path();
         core
@@ -719,7 +721,7 @@ impl Core {
             if let Some(entry) = self.library.entry_mut(&path) {
                 entry.view = Some(view.to_string());
             }
-            let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+            self.save_library();
         }
     }
 
@@ -738,7 +740,7 @@ impl Core {
         if let Some(code) = &self.settings.language {
             self.catalog = Catalog::new(Language::from_code(code));
         }
-        let _ = store::save(&self.data_dir.join("settings.json"), &self.settings);
+        self.save_settings();
     }
 
     /// Changes settings the audio depends on (mode, instrument, devices, latency, metronome):
@@ -975,7 +977,7 @@ impl Core {
                 }
             }
         }
-        let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+        self.save_library();
         // After the progress key: a transposed piece keeps its progress (LH-WIE-02).
         let semitones = self
             .library
@@ -1977,12 +1979,6 @@ impl Core {
         self.apply_beat_map()
     }
 
-    fn apply_beat_map(&mut self) -> Result<(), String> {
-        let _ = store::save(&self.data_dir.join("library.json"), &self.library);
-        let track = self.loaded.as_ref().map_or(0, |l| l.track);
-        self.reload(track)
-    }
-
     /// The beat map in words for the alignment sheet:
     /// `{"analysed", "bpm", "firstS", "mapped", "bars", "sure", "halfBeat", "text"}`. Not `sure`: kick and
     /// bass do not show where the beat is, the grid may sit on the offbeat.
@@ -2079,7 +2075,7 @@ impl Core {
         if let Some(entry) = self.library.entry_mut(&loaded.0) {
             entry.transpose_semitones = semitones.clamp(-max, max);
         }
-        let _ = store::save(&self.data_dir.join("library.json"), &self.library);
+        self.save_library();
         // Kept out of `reload`, which would end it.
         let live = self.live.take();
         let looping = self.looping;
