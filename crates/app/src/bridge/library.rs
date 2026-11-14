@@ -292,11 +292,6 @@ impl qobject::Controller {
         }
     }
 
-    pub(super) fn open_demo(mut self: Pin<&mut Self>) -> bool {
-        let path = Core::demo_path();
-        self.as_mut().open_file(&q(&path.to_string_lossy()))
-    }
-
     pub(super) fn export_data(mut self: Pin<&mut Self>, url: &QString) {
         let path = local_path(&url.to_string());
         match self.as_ref().rust().core.export_data(&path) {
