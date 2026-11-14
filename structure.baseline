@@ -29,8 +29,6 @@ crates/appcore/src/tests/library.rs	-	lines=1196
 crates/appcore/src/tests/library.rs	package_moves_a_piece_to_another_profile	length=94
 crates/appcore/src/tests/library_view.rs	-	lines=1125
 crates/cli/src/check.rs	run	ccn=19
-crates/cli/src/korpus.rs	-	lines=822
-crates/cli/src/korpus.rs	check	ccn=23 length=100
 crates/cli/src/korpus.rs	measure	length=86
 crates/cli/src/korpus.rs	run	ccn=21 length=87
 crates/cli/src/live.rs	practice	ccn=17 length=93
@@ -91,9 +89,8 @@ crates/dsp/src/tracker.rs	follow	ccn=16
 crates/engine/src/input.rs	-	lines=1082
 crates/engine/src/input.rs	start_device	length=142
 crates/engine/src/input/tests.rs	-	lines=815
-crates/engine/src/korpus.rs	-	lines=1199
+crates/engine/src/korpus.rs	-	lines=1117
 crates/engine/src/korpus.rs	compare	length=108
-crates/engine/src/korpus.rs	corpus_meets_requirements	length=91
 crates/engine/src/korpus.rs	generate	ccn=19 length=100
 crates/engine/src/korpus.rs	render_techniques	nesting=6
 crates/engine/src/korpus/double.rs	generate_double_stops	nesting=6
