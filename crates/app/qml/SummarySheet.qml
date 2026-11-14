@@ -213,6 +213,9 @@ KanteCard {
             color: KanteStyle.mutedTextColor
         }
         KanteTimingHistogram {
+            objectName: "timingChart"
+            // No note hit: no time to show (QA 14.11., J-C12).
+            visible: counts.some(function(n) { return n > 0 })
             Layout.fillWidth: true
             // Lower on low screens, so the hardest bars stay in view.
             Layout.preferredHeight: Math.min(KanteStyle.unit(180), Math.max(KanteStyle.unit(100), flick.height * 0.3))
