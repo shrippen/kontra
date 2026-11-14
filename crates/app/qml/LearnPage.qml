@@ -71,6 +71,8 @@ Kirigami.ScrollablePage {
     }
 
     function reload() {
+        // The new chapters follow the page as on the first show (review #347).
+        page.built = page.chaptersFirst
         page.course = JSON.parse(ctl.learnJson())
     }
     // A live course folder was read again or closed: its chapters anew.

@@ -16,7 +16,7 @@ Item {
     readonly property QtObject ctl: QtObject {
         property string startCourse: ""
         property string courseFetchJson: ""
-        property string courseFolderJson: "{}"
+        property string courseFolderJson: ""
         property bool qaRun: true
         function learnJson() {
             var chapters = []
@@ -58,6 +58,15 @@ Item {
             verify(page !== null)
             verify(chapters(page) < root.chapterCount, "built with the page: " + chapters(page))
             tryCompare(page, "built", root.chapterCount, 3000)
+            tryVerify(function() { return chapters(page) === root.chapterCount }, 3000, "all follow")
+        }
+
+        // Review #347: a reload (another course, a saved course folder) built all again at once.
+        function test_aReloadStartsWithTheFirstChapters() {
+            var page = createTemporaryObject(pageComponent, root)
+            tryCompare(page, "built", root.chapterCount, 3000)
+            page.reload()
+            verify(chapters(page) < root.chapterCount, "built after the reload: " + chapters(page))
             tryVerify(function() { return chapters(page) === root.chapterCount }, 3000, "all follow")
         }
     }
