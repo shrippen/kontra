@@ -159,7 +159,8 @@ Auswertung sagen, dass Doppelgriffe über Mikrofon noch nicht so bewertet werden
 **J-B8 Abdämpfen** · Personas: P1 Lea, P3 Mira, P6 Karl · Phase 4 · LH-BEW-10
 1. Lea (Laptop-Buchse): Lektion „Saiten dämpfen“, Übung „Groove Staccato auf einem Akkord in E“ (151), Modus
    „Durchlauf“; erst jede Note nach einer Achtel abdämpfen, dann im zweiten Durchgang die Töne durchklingen lassen
-   (Aufnahme per `--input-file`, gerendert wie in `crates/session/tests/ends.rs`).
+   (Aufnahme per `--input-file`: `kontra-cli render --lead-in <Einzähler in s>` für gedämpft, mit `--ring` für
+   durchklingend).
 2. Mira: ein eigenes Stück mit Staccato-Punkten (MusicXML) über Kabel.
 3. Karl: dieselbe Übung über Mikrofon.
 Erwartet: Die Auswertung nennt „Abdämpfen: N von N Noten rechtzeitig gestoppt“ (alle außer der letzten) bzw. im
