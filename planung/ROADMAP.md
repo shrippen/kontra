@@ -1054,7 +1054,8 @@ Modell; die Antwort ergab ein Stück unter „Generiert“ mit Tempo 104.
 - [x] Q9 (niedrig): Titel „Motown in A in A (104 BPM)“: nennt der Plan die Tonart schon am Ende, steht sie nur einmal.
 - [x] Q10 (niedrig): Fehler des Anbieters standen als Hinweis statt als Warnung (`KanteCallout.Kind.Warning` gibt es
   nicht, richtig ist `Warn`).
-- [ ] Q11 (niedrig): Der Titel trägt „Variante 1794…“ (Sekunden als Seed) – eine Zahl ohne Bedeutung für Jens.
+- [x] Q11 (niedrig): Der Titel trägt „Variante 1794…“ (Sekunden als Seed) – eine Zahl ohne Bedeutung für Jens.
+  Runde 22 (#341): laufende Nummer je Titel, das erste ohne Zusatz, dann „Variante 2“; der Seed bleibt intern.
 - [x] Q12 (niedrig): „Anbieter einrichten …“ legt den Anbieter-Dialog über den Wunsch-Dialog; Kopf und „Schließen“
   des unteren schauen heraus. Jetzt tritt der Wunsch zur Seite und kommt mit seinem Text zurück.
 

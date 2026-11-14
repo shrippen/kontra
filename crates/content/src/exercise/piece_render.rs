@@ -88,9 +88,11 @@ pub fn render_piece_numbered(
     number: u32,
 ) -> Result<Exercise, Vec<PlanError>> {
     let plan = PiecePlan::from_json(text).map_err(|e| vec![e])?;
-    let suffix = match number {
-        0 | 1 => String::new(),
-        n => format!(" · Variante {n}"),
+    // The first piece has no suffix, like seed 0.
+    let suffix = if number > 1 {
+        variant_suffix(u64::from(number))
+    } else {
+        String::new()
     };
     render_at(&plan, level, seed, &suffix, f64::from(plan.bpm))
 }
