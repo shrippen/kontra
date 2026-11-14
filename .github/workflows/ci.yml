@@ -77,6 +77,9 @@ jobs:
             target
           key: core-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
       - run: cargo fmt --all --check
+      # Function and file sizes stay within the limits or the inventory (structure.baseline).
+      - name: Structure limits
+        run: pipx run tools/structure-check.py
       - name: Design tokens only (LH-NF-10)
         run: scripts/check-design.sh
       - run: cargo clippy --workspace --exclude kontra-app --all-targets -- -D warnings
