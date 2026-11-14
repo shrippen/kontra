@@ -124,8 +124,6 @@ Item {
             return null
         }
 
-        // QA 14.11. (J-C12): no note hit drew an empty chart with "mean 0 ms", a time
-        // nobody played.
         // Opening the next piece goes through the window's routing, so a piece that needs a
         // bass track choice leads to the track question (audit 14.11., Fund 5). Before: the sheet
         // called ctl.openFile itself and nothing was routed.
@@ -146,6 +144,8 @@ Item {
             }
         }
 
+        // QA 14.11. (J-C12): no note hit drew an empty chart with "mean 0 ms", a time
+        // nobody played.
         function test_noHitNoTimingChart() {
             var before = root.ctl.summaryJson
             var summary = JSON.parse(before)
