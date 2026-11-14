@@ -250,7 +250,8 @@ Kirigami.Page {
     readonly property bool narrow: width < KanteStyle.unit(1000)
     // Half a laptop screen (beside a video or a tab): one column, no fretboard (QA 13.10.).
     readonly property bool slim: width < KanteStyle.unit(700)
-    readonly property bool compact: height < KanteStyle.unit(560)
+    // Low page: the workshop's extra rows make it low earlier (QA 14.11., J-C12: lane 60 px at 792).
+    readonly property bool compact: height < KanteStyle.unit(ctl.mode === "workshop" ? 820 : 560)
     // Room for the fretboard under the notes: not in the keys view, a slim or low window.
     readonly property bool fretboardRoom: ctl.view !== "keys" && !slim && !compact
     // A low window (QA 28.10., P4 at 1280×720, 150 %): transpose, timing aim and density stay
