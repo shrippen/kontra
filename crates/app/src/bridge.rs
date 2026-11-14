@@ -938,11 +938,6 @@ pub mod qobject {
         #[cxx_name = "backingClear"]
         fn backing_clear(self: Pin<&mut Self>);
 
-        /// Opens the bundled first exercise.
-        #[qinvokable]
-        #[cxx_name = "openDemo"]
-        fn open_demo(self: Pin<&mut Self>) -> bool;
-
         /// All user data as one JSON file (LH-FOR-03).
         #[qinvokable]
         #[cxx_name = "exportData"]
@@ -1016,10 +1011,6 @@ pub mod qobject {
             offset_ms: f64,
             cents: f64,
         );
-
-        #[qsignal]
-        #[cxx_name = "extraNote"]
-        fn extra_note(self: Pin<&mut Self>);
 
         /// How a note's technique was played (LH-BEW-06): Kante's keys, e.g. "slide", "played".
         #[qsignal]
@@ -1625,7 +1616,7 @@ impl qobject::Controller {
                         cents,
                     );
                 }
-                UiEvent::Extra => self.as_mut().extra_note(),
+                UiEvent::Extra => {}
                 UiEvent::Technique {
                     index,
                     technique,
