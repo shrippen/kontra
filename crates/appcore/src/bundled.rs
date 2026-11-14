@@ -141,6 +141,19 @@ impl Core {
         Some(self.exercise_title(&exercise::describe(&spec)))
     }
 
+    /// The tempo a bundled exercise is written at; `None` for any other file.
+    pub(crate) fn bundled_bpm(&self, path: &Path) -> Option<f64> {
+        if !self.is_bundled(path) {
+            return None;
+        }
+        let stem = path.file_stem()?.to_string_lossy();
+        let number: usize = stem.split_once(' ')?.0.parse().ok()?;
+        let (_, spec) = exercise::bundled_specs()
+            .into_iter()
+            .nth(number.checked_sub(1)?)?;
+        Some(spec.bpm)
+    }
+
     /// How bundled exercise "NN …" is judged; pitch and time when unknown.
     fn bundled_judging(&self, stem: &str) -> Judging {
         stem.split_once(' ')

@@ -10,10 +10,15 @@
 
 use crate::origin::{Origin, Places};
 use crate::{Core, RecentEntry};
+use kontra_session::ProgressStore;
 use serde_json::{json, Value};
+use std::cell::OnceCell;
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
+
+/// Best result and last run per song id, read when the first unopened file needs it.
+type Played = OnceCell<HashMap<String, (Option<f64>, Option<u64>)>>;
 
 const SOURCE_FOLDER: &str = "folder:";
 const SOURCE_SETLIST: &str = "setlist:";
@@ -281,7 +286,8 @@ impl Core {
     }
 
     /// Every piece the page can show: the library's entries, then files of the linked folders
-    /// and bundled exercises the library does not know yet (nothing is parsed for those).
+    /// and bundled exercises the library does not know yet, with what the background read found
+    /// in them (`folders::meta`).
     fn library_rows(&self) -> Vec<Row> {
         let places = self.places();
         let store = self.progress_store();
@@ -308,13 +314,56 @@ impl Core {
             .flat_map(|walked| walked.files.iter())
             .cloned()
             .chain(self.bundled_files());
+        let played = Played::new();
         for path in unknown {
             if !seen.insert(path.clone()) {
                 continue;
             }
-            rows.push(self.file_row(path, &places));
+            rows.push(self.unopened_row(path, &places, &played));
         }
         rows
+    }
+
+    /// Best result and last run per song id, read once for all unopened files (one file read
+    /// each would cost thousands in a large folder, at every refresh).
+    fn played(store: &ProgressStore) -> HashMap<String, (Option<f64>, Option<u64>)> {
+        store
+            .all()
+            .into_iter()
+            .map(|p| {
+                let last = p.runs.iter().map(|r| r.finished_unix).max();
+                (p.song_id.clone(), (p.best_hit_rate(), last))
+            })
+            .collect()
+    }
+
+    /// A file the library has not opened: what the background read found in it (`meta`), a
+    /// bundled exercise's tempo from its plan, else the file name alone.
+    fn unopened_row(&self, path: PathBuf, places: &Places, played: &Played) -> Row {
+        let row = self.file_row(path, places);
+        if let Some(bpm) = self.bundled_bpm(&row.path) {
+            return Row {
+                bpm: Some(bpm),
+                ..row
+            };
+        }
+        let Some(meta) = self.folders.metas.get(&row.path) else {
+            return row;
+        };
+        let (best_rate, last_played) = played
+            .get_or_init(|| Self::played(&self.progress_store()))
+            .get(&meta.song_id)
+            .copied()
+            .unwrap_or_default();
+        Row {
+            title_key: meta.title.to_lowercase(),
+            title: meta.title.clone(),
+            artist: meta.artist.clone(),
+            bpm: meta.bpm,
+            best_rate,
+            last_played,
+            ..row
+        }
     }
 
     fn entry_row(
@@ -330,7 +379,9 @@ impl Core {
             title,
             artist: entry.artist.clone(),
             tags: entry.tags.clone(),
-            bpm: entry.tempo_bpm,
+            bpm: entry
+                .tempo_bpm
+                .or_else(|| self.folders.metas.get(&entry.path).and_then(|m| m.bpm)),
             last_played,
             best_rate,
             missing: !entry.path.exists(),

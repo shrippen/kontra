@@ -1033,12 +1033,15 @@ Generator öffnet das Stück und legt es unter „Generiert“ ab, neue Setliste
   gefunden“ mit Pfad und Grund, und er wird beim Wählen neu gesucht (vorher erst beim nächsten Öffnen der Seite).
 - [x] Q4 (niedrig): „zuletzt am 13.11.25 gespielt“ passte nicht in die Spalte und endete mit „…“; die Zelle zeigt
   den Tag allein („heute“, „vor 3 Tagen“, das Datum), der Screenreader weiter den Satz.
-- [ ] Q5 (mittel): Tempo fehlt fast überall: Übungen (trotz „90 BPM“ im Namen), Dateien aus Ordnern und Einträge
+- [x] Q5 (mittel): Tempo fehlt fast überall: Übungen (trotz „90 BPM“ im Namen), Dateien aus Ordnern und Einträge
   von vor #322 zeigen „—“, Sortieren nach Tempo ordnet nur nach Titel. Dateien aus Ordnern haben auch keinen
   Interpreten (alle unter „Ohne Interpret“) und den Dateinamen als Titel.
-- [ ] Q6 (mittel): Eine von Downloads nach „band/Rock“ verschobene Datei steht doppelt da: der alte Eintrag mit
+- [x] Q6 (mittel): Eine von Downloads nach „band/Rock“ verschobene Datei steht doppelt da: der alte Eintrag mit
   „Datei fehlt“ unter „Heruntergeladen“, die Datei in „Rock“ ohne Titel, Interpret und Ergebnis (J-B9 Schritt 2
   erwartet: steht unter „Band/Rock“ und behält das Ergebnis).
+  Q5 und Q6 behoben: Ein Thread liest Titel, Interpret, Tempo und Song-Id der Ordner-Dateien und alter Einträge nach
+  jedem Durchsuchen (Zwischenspeicher `library-meta.json` nach Größe und Änderungszeit); ein Eintrag ohne Datei folgt
+  der einen Ordner-Datei mit derselben Song-Id; Übungen nehmen das Tempo ihres Plans. Im echten Fenster geprüft.
 - Nur in der QA: Der Qt-Ordnerdialog (ohne Portal) nimmt den markierten Unterordner statt des geöffneten.
 
 ### QA-Runde 12./13.11.2026 (FPS: Software und GPU, Nacht)

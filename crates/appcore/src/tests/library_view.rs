@@ -11,10 +11,16 @@ fn touch(path: &Path) {
     std::fs::write(path, b"x").unwrap();
 }
 
-/// Waits for the walk in the background; a hang fails the test instead of the run.
+/// Waits for the walk in the background and the reading of files behind it; a hang fails the
+/// test instead of the run.
 fn wait_walked(core: &mut Core) {
-    let until = Instant::now() + Duration::from_secs(10);
-    while !core.library_changed() {
+    let until = Instant::now() + Duration::from_secs(20);
+    let mut changed = false;
+    loop {
+        changed |= core.library_changed();
+        if changed && !core.walk_busy() && !core.meta_busy() {
+            return;
+        }
         assert!(Instant::now() < until, "no walk ended");
         std::thread::sleep(Duration::from_millis(5));
     }
@@ -814,8 +820,7 @@ fn folders_differing_in_case_are_one_group() {
     let mut core = core_with(&dir, Vec::new());
     core.link_folder(&upper).unwrap();
     core.link_folder(&lower).unwrap();
-    // The second link came during the first walk: a second walk follows.
-    wait_walked(&mut core);
+    // The second link came during the first walk: a second walk follows, and the wait covers it.
     wait_walked(&mut core);
     let all = page(&core, "all", "title", "folder", "");
     let groups: Vec<&Value> = all["groups"]
@@ -859,5 +864,195 @@ fn missing_comes_from_the_walk() {
     wait_walked(&mut core);
     let after = page(&core, "all", "title", "none", "");
     assert_eq!(after["counts"]["folders"][0]["missing"], true);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// A MusicXML score with a title, a composer and a tempo.
+fn score(path: &Path, title: &str, artist: &str, bpm: u32) {
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let note = "<note><pitch><step>E</step><octave>1</octave></pitch><duration>1</duration>\
+        <notations><technical><string>4</string><fret>0</fret></technical></notations></note>";
+    let xml = format!(
+        "<?xml version=\"1.0\"?><score-partwise><work><work-title>{title}</work-title></work>\
+        <identification><creator type=\"composer\">{artist}</creator></identification>\
+        <part-list><score-part id=\"P1\"><part-name>Bass</part-name></score-part></part-list>\
+        <part id=\"P1\"><measure number=\"1\"><attributes><divisions>1</divisions><time>\
+        <beats>4</beats><beat-type>4</beat-type></time></attributes><sound tempo=\"{bpm}\"/>\
+        {note}{note}{note}{note}</measure></part></score-partwise>"
+    );
+    std::fs::write(path, xml).unwrap();
+}
+
+/// QA 13.11. (Q5): files of a linked folder showed their file name, no artist and no tempo, so
+/// grouping by artist and sorting by tempo did nothing for them.
+#[test]
+fn folder_files_show_title_artist_and_tempo() {
+    let dir = temp_dir("meta-folder");
+    let mut core = Core::new(&dir, QaOptions::default());
+    score(
+        &dir.join("tabs").join("rock").join("song-1.musicxml"),
+        "Night Drive",
+        "Jaco Trio",
+        95,
+    );
+    core.link_folder(&dir.join("tabs")).unwrap();
+    wait_walked(&mut core);
+
+    let page = page(&core, "folder", "title", "none", "");
+    let row = &page["rows"][0];
+    assert_eq!(row["title"], "Night Drive", "{row}");
+    assert_eq!(row["artist"], "Jaco Trio", "{row}");
+    assert_eq!(row["bpm"], 95.0, "{row}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// QA 13.11. (Q5): bundled exercises had no tempo, though each is written at a known one.
+#[test]
+fn bundled_exercises_have_their_tempo() {
+    let dir = temp_dir("meta-bundled");
+    let core = Core::new(&dir, QaOptions::default());
+    let page = page(&core, "exercise", "title", "none", "");
+    let rows = page["rows"].as_array().unwrap();
+    let without: Vec<_> = rows.iter().filter(|r| r["bpm"].is_null()).collect();
+    assert!(
+        without.is_empty(),
+        "{} of {} without tempo",
+        without.len(),
+        rows.len()
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// QA 13.11. (Q5): pieces in the library from before the tempo column had none.
+#[test]
+fn old_entries_get_their_tempo() {
+    let dir = temp_dir("meta-old");
+    let path = dir.join("Downloads").join("old.musicxml");
+    score(&path, "Old One", "", 128);
+    let mut core = core_with(
+        &dir,
+        vec![RecentEntry {
+            path: path.clone(),
+            title: "Old One".into(),
+            last_unix: 1_000,
+            ..Default::default()
+        }],
+    );
+    core.library_rescan();
+    wait_walked(&mut core);
+
+    let page = page(&core, "all", "title", "none", "Old One");
+    assert_eq!(page["rows"][0]["bpm"], 128.0, "{}", page["rows"][0]);
+    assert_eq!(
+        core.library.recent[0].tempo_bpm,
+        Some(128.0),
+        "kept in the library"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// QA 13.11. (Q6): a file moved from Downloads into a linked folder stood twice, the old
+/// entry with "file missing" and the new file without title or result.
+#[test]
+fn a_moved_piece_is_found_again() {
+    let dir = temp_dir("meta-moved");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.set_download_dir(&dir.join("Downloads"));
+    let before = dir.join("Downloads").join("etude.mid");
+    known_piece(&mut core, &before);
+    let a = core.arrangement().unwrap().clone();
+    let run = kontra_session::Run {
+        spread_ms: None,
+        bars: Vec::new(),
+        finished_unix: 5_000,
+        practice_s: 60.0,
+        speed: 1.0,
+        hit_rate: 0.9,
+        mode: "song".into(),
+        section: None,
+        hardest_bars: Vec::new(),
+        hesitant_bars: Vec::new(),
+    };
+    core.progress_store().record(&a, run).unwrap();
+    core.setlist_create("Friday");
+    core.setlist_add("Friday", &before);
+
+    let after = dir.join("tabs").join("rock").join("etude.mid");
+    std::fs::create_dir_all(after.parent().unwrap()).unwrap();
+    std::fs::rename(&before, &after).unwrap();
+    core.link_folder(&dir.join("tabs")).unwrap();
+    wait_walked(&mut core);
+
+    let page = page(&core, "all", "title", "none", "etude");
+    let rows = page["rows"].as_array().unwrap();
+    assert_eq!(rows.len(), 1, "{rows:?}");
+    assert_eq!(rows[0]["path"], after.to_string_lossy().as_ref());
+    assert_eq!(rows[0]["origin"], "folder");
+    assert_eq!(rows[0]["missing"], false);
+    assert_eq!(rows[0]["bestPercent"], 90.0);
+    assert!(rows[0]["lastPlayed"].as_u64().is_some());
+    assert_eq!(
+        core.library.setlists[0].pieces,
+        vec![after.clone()],
+        "the setlist follows"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Review #326: two entries of the same piece (downloaded twice) whose files are gone must not
+/// both follow the one file in the folder; one follows, the other stays as missing.
+#[test]
+fn two_entries_never_follow_one_file() {
+    let dir = temp_dir("meta-twice");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.set_download_dir(&dir.join("Downloads"));
+    let (first, second) = (
+        dir.join("Downloads").join("etude.mid"),
+        dir.join("Downloads").join("etude (1).mid"),
+    );
+    known_piece(&mut core, &first);
+    known_piece(&mut core, &second);
+
+    let after = dir.join("tabs").join("etude.mid");
+    std::fs::create_dir_all(after.parent().unwrap()).unwrap();
+    std::fs::rename(&first, &after).unwrap();
+    std::fs::remove_file(&second).unwrap();
+    core.link_folder(&dir.join("tabs")).unwrap();
+    wait_walked(&mut core);
+
+    let paths: Vec<&PathBuf> = core.library.recent.iter().map(|e| &e.path).collect();
+    assert_eq!(
+        paths.iter().filter(|p| ***p == after).count(),
+        1,
+        "{paths:?}"
+    );
+    assert_eq!(
+        core.library.recent.len(),
+        2,
+        "the other entry stays: {paths:?}"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Review #326: files of an unlinked folder leave the cache of what was read.
+#[test]
+fn the_cache_forgets_unlinked_files() {
+    let dir = temp_dir("meta-cache");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let tabs = dir.join("tabs");
+    score(&tabs.join("song.musicxml"), "Cached", "", 90);
+    core.link_folder(&tabs).unwrap();
+    wait_walked(&mut core);
+    let cache = crate::store::cache_dir(&dir).join("library-meta.json");
+    assert!(std::fs::read_to_string(&cache)
+        .unwrap()
+        .contains("song.musicxml"));
+
+    core.unlink_folder(&tabs);
+    core.library_rescan();
+    wait_walked(&mut core);
+    assert!(!std::fs::read_to_string(&cache)
+        .unwrap()
+        .contains("song.musicxml"));
     let _ = std::fs::remove_dir_all(dir);
 }
