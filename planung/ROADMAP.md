@@ -226,6 +226,18 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 - Signierung, Wege zur Wahl (in Runde 18 zurückgestellt, keiner gewählt): Azure Trusted Signing (Abo, Identitätsprüfung), SignPath Foundation
   (kostenlos für freie Projekte, signiert unter deren Namen), eigenes Zertifikat (z. B. Certum Open Source).
 
+### Entscheidungen Runde 22 (14.11.2026)
+
+- `pub`-Liste der Nächte 12./13. und 13./14.11. freigegeben.
+- LH-BIB-18: Titel, Interpret und Tempo ungeöffneter Dateien weiter im Hintergrund lesen (#326 bleibt).
+- Gewünschte Stücke (Q11): laufende Nummer je Titel statt Seed („Variante 2“, „Variante 3“; das erste ohne Zusatz).
+- B8: Die Bildlauffläche bekommt nach einem Seitenwechsel den Seitentitel als Namen (nicht der Fokus auf die Überschrift).
+- Werkstatt (`lane`): gilt schon unter etwa 820 px Seitenhöhe als niedrig (Griffbrett aus, Einstellungen eingeklappt).
+- Abdämpfen (`mute`): Beobachtung „Abdämpfen“ nach den Techniken, wenn mehr als ein Viertel der Enden in die Pause
+  klang; Übungen mit Ziel Abdämpfen „sitzen“ erst ab drei Vierteln rechtzeitig.
+- Hardware: Claude darf das Scarlett nachts allein nutzen, ohne Kabel vom Ausgang in den Eingang.
+- Danach zuerst: Seitenaufbau (N6).
+
 ### Entscheidungen Runde 21 (13.11.2026)
 
 - Einstellungsseite: Design A mit dem schrumpfenden Kopf aus Design C (Kontra #319, Kante #166).
