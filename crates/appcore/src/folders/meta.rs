@@ -15,11 +15,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
-use std::time::UNIX_EPOCH;
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 const CACHE_FILE: &str = "library-meta.json";
 /// Files read before the page hears of them: a large folder fills in step by step.
 const CHUNK: usize = 32;
+/// While a read runs, the page rebuilds at most this often: a refresh of thousands of rows costs
+/// tens of milliseconds in the GUI thread.
+const TELL_EVERY: Duration = Duration::from_secs(1);
 
 /// What a score says about itself.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -39,12 +42,12 @@ struct Stamp {
 
 /// One file read; `meta` is `None` for a file that did not parse (tried once per change).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Known {
+pub(crate) struct Known {
     stamp: Stamp,
     meta: Option<FileMeta>,
 }
 
-type Chunk = Vec<(PathBuf, Known)>;
+pub(crate) type Chunk = Vec<(PathBuf, Known)>;
 
 #[derive(Debug, Default)]
 pub(crate) struct Metas {
@@ -55,8 +58,10 @@ pub(crate) struct Metas {
     again: bool,
     /// Read since the cache was last saved.
     dirty: bool,
-    /// Read since the page last asked.
+    /// Read since the page was last told.
     changed: bool,
+    /// When the page was last told while a read ran (`TELL_EVERY`).
+    told: Option<Instant>,
     /// The paths the last read looked at: the cache keeps only these, so files deleted or
     /// unlinked leave it.
     wanted: Vec<PathBuf>,
@@ -155,10 +160,25 @@ impl Core {
         }
     }
 
-    /// True once files were read since the last call.
+    /// A read whose chunks the test sends itself.
+    #[cfg(test)]
+    pub(crate) fn feed_meta(&mut self, chunks: Receiver<Chunk>) {
+        self.folders.metas.job = Some(chunks);
+    }
+
+    /// True once files were read since the last call; while the read runs, at most once a
+    /// second (`TELL_EVERY`), and always when it ends.
     pub(crate) fn meta_changed(&mut self) -> bool {
         self.take_meta();
-        std::mem::take(&mut self.folders.metas.changed)
+        let metas = &mut self.folders.metas;
+        let reading = metas.job.is_some();
+        let waited = metas.told.is_none_or(|t| t.elapsed() >= TELL_EVERY);
+        if !metas.changed || (reading && !waited) {
+            return false;
+        }
+        metas.changed = false;
+        metas.told = reading.then(Instant::now);
+        true
     }
 
     /// The files of all linked folders as the last walk found them.
