@@ -1071,9 +1071,10 @@ fn reading_tells_the_page_at_most_once_a_second() {
     let (tell, chunks) = std::sync::mpsc::channel();
     core.feed_meta(chunks);
 
-    tell.send(Vec::new()).unwrap();
+    let chunk = || Core::chunk_of(&dir.join("song.musicxml"));
+    tell.send(chunk()).unwrap();
     assert!(core.library_changed(), "the first chunk is told");
-    tell.send(Vec::new()).unwrap();
+    tell.send(chunk()).unwrap();
     assert!(
         !core.library_changed(),
         "the next one within a second waits"
@@ -1081,5 +1082,44 @@ fn reading_tells_the_page_at_most_once_a_second() {
     drop(tell);
     assert!(core.library_changed(), "the end of the read is told");
     assert!(!core.library_changed());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// N6: a read that found nothing new (every file known) still told the page, so the library
+/// page built its table a second time whenever it opened (about 200 ms before the first frame).
+#[test]
+fn a_read_with_nothing_new_tells_nothing() {
+    let dir = temp_dir("meta-quiet");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let (tell, chunks) = std::sync::mpsc::channel();
+    core.feed_meta(chunks);
+
+    tell.send(Vec::new()).unwrap();
+    drop(tell);
+    assert!(!core.library_changed(), "nothing read, nothing told");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Review #344: a read that found every file known sent only an empty chunk, and skipping it
+/// also skipped the matching: an entry whose file was deleted no longer followed the copy in a
+/// linked folder that the cache already knew (Q6).
+#[test]
+fn a_known_copy_is_followed_after_a_quiet_read() {
+    let dir = temp_dir("meta-quiet-move");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.set_download_dir(&dir.join("Downloads"));
+    let before = dir.join("Downloads").join("etude.mid");
+    known_piece(&mut core, &before);
+    let after = dir.join("tabs").join("etude.mid");
+    std::fs::create_dir_all(after.parent().unwrap()).unwrap();
+    std::fs::copy(&before, &after).unwrap();
+    core.link_folder(&dir.join("tabs")).unwrap();
+    wait_walked(&mut core);
+
+    std::fs::remove_file(&before).unwrap();
+    core.library_rescan();
+    wait_walked(&mut core);
+    let paths: Vec<_> = core.library.recent.iter().map(|e| e.path.clone()).collect();
+    assert_eq!(paths, vec![after]);
     let _ = std::fs::remove_dir_all(dir);
 }

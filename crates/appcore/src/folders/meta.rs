@@ -135,10 +135,13 @@ impl Core {
                 return;
             };
             match job.try_recv() {
+                // Nothing new read (the last chunk of a read is often empty): the page keeps its
+                // rows; a rebuild costs it a frame of 200 ms (N6).
+                Ok(chunk) if chunk.is_empty() => {}
                 Ok(chunk) => {
-                    self.folders.metas.dirty |= !chunk.is_empty();
+                    self.folders.metas.dirty = true;
                     self.folders.metas.known.extend(chunk);
-                    self.apply_meta();
+                    let _ = self.apply_meta();
                     self.folders.metas.changed = true;
                 }
                 Err(TryRecvError::Empty) => return,
@@ -150,6 +153,11 @@ impl Core {
                     metas.known.retain(|path, _| wanted.contains(path));
                     if std::mem::take(&mut metas.dirty) || metas.known.len() != before {
                         save_cache(&self.meta_cache_path(), &self.folders.metas.known);
+                    }
+                    // A read that found every file known sent no chunk with files: a deleted
+                    // entry may still follow a known copy (review #344).
+                    if self.apply_meta() {
+                        self.folders.metas.changed = true;
                     }
                     if std::mem::take(&mut self.folders.metas.again) {
                         self.read_meta();
@@ -164,6 +172,16 @@ impl Core {
     #[cfg(test)]
     pub(crate) fn feed_meta(&mut self, chunks: Receiver<Chunk>) {
         self.folders.metas.job = Some(chunks);
+    }
+
+    /// A chunk that read `path`, nothing in it.
+    #[cfg(test)]
+    pub(crate) fn chunk_of(path: &Path) -> Chunk {
+        let stamp = Stamp {
+            size: 0,
+            modified_ms: 0,
+        };
+        vec![(path.to_path_buf(), Known { stamp, meta: None })]
     }
 
     /// True once files were read since the last call; while the read runs, at most once a
@@ -192,8 +210,9 @@ impl Core {
     }
 
     /// Gives old entries their tempo and lets an entry whose file is gone follow the file of a
-    /// linked folder with the same song id (moved there), when exactly one has it.
-    fn apply_meta(&mut self) {
+    /// linked folder with the same song id (moved there), when exactly one has it. True when
+    /// an entry changed.
+    fn apply_meta(&mut self) -> bool {
         let mut save = false;
         for entry in &mut self.library.recent {
             if entry.tempo_bpm.is_some() {
@@ -234,9 +253,11 @@ impl Core {
             self.library.rename_path(from, to);
         }
 
-        if save || !moves.is_empty() {
+        let changed = save || !moves.is_empty();
+        if changed {
             self.save_library();
         }
+        changed
     }
 
     fn meta_cache_path(&self) -> PathBuf {
