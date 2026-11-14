@@ -121,6 +121,25 @@ Item {
             return null
         }
 
+        // QA 14.11. (J-C12): no note hit drew an empty chart with "mean 0 ms", a time
+        // nobody played.
+        function test_noHitNoTimingChart() {
+            var before = root.ctl.summaryJson
+            var summary = JSON.parse(before)
+            summary.counts = [0, 0, 0]
+            root.ctl.summaryJson = JSON.stringify(summary)
+            try {
+                sheet.open()
+                verify(!findChild(sheet, "timingChart").visible)
+                sheet.close()
+            } finally {
+                root.ctl.summaryJson = before
+            }
+            sheet.open()
+            verify(findChild(sheet, "timingChart").visible, "with hits it shows")
+            sheet.close()
+        }
+
         // One observation in words above the details (LH-BEW-09).
         function test_observation_shown() {
             sheet.open()

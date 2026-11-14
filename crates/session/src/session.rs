@@ -1065,6 +1065,9 @@ impl Session {
         let judged = crate::summary::final_per_note(&of_pass);
         let in_pass = || judged.iter();
         let count = in_pass().count();
+        // Nothing to judge (a loop over a call of call and response): no pass to report, no
+        // rate, no step of the tempo (QA 14.11., review #333).
+        let judgeable = count > 0 || self.open.is_some();
         let (clean, hit_rate) = match (self.open.is_some(), self.open_pass_rate(pass)) {
             // An open pass has no notes to hit: its fit counts, nothing played is 0 %.
             (true, rate) => (rate.is_some(), rate.unwrap_or(0.0)),
@@ -1074,11 +1077,13 @@ impl Session {
                 in_pass().filter(|r| r.is_hit()).count() as f64 / count as f64,
             ),
         };
-        self.events.push(SessionEvent::PassComplete {
-            pass,
-            clean,
-            hit_rate,
-        });
+        if judgeable {
+            self.events.push(SessionEvent::PassComplete {
+                pass,
+                clean,
+                hit_rate,
+            });
+        }
         self.cursor_pass += 1;
         self.cursor_slot = self.first_slot_from(self.range().0);
         if matches!(self.mode, Mode::Probe) {
@@ -1090,6 +1095,9 @@ impl Session {
         let Mode::Workshop(workshop) = self.mode else {
             return;
         };
+        if !judgeable {
+            return;
+        }
         let (low, high) = workshop.band;
         self.band_streak = if hit_rate > high {
             self.band_streak.max(0) + 1

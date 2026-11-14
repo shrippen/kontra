@@ -305,13 +305,13 @@ Pausen frei.
 
 **J-C12 Ruf und Antwort** · Personas: P1 Lea, P3 Mira, P5 Aylin · Phase 3 · LH-LRN-19
 1. Lea (Mikrofon): Übungen, ein Groove mit Akkorden (I–IV–V, Viertel); „Ruf und Antwort“ an, Modus „Durchlauf“.
-   Kontra spielt zwei Takte, Lea antwortet; die ersten beiden Antworten absichtlich daneben.
-2. Mira (Kabel): dasselbe im Modus „Spielen“ (ohne Bewertung) und in der Werkstatt mit einer Schleife über vier Takte.
+   Kontra spielt zwei Takte, Lea antwortet; die ersten beiden Durchläufe absichtlich daneben.
+2. Mira (Kabel): dasselbe im Modus „Frei spielen“ (ohne Bewertung) und in der Werkstatt mit einer Schleife über vier Takte.
 3. Aylin (MIDI): ein importiertes Stück ohne Akkordsymbole öffnen.
 Erwartet: Der Schalter steht nur bei Stücken mit Akkorden und mindestens vier Takten; an: je vier Takte ein Ruf (zwei
 Takte, Kontra spielt, das Schlagzeug leiser) und die Antwort (zwei Takte, gleiches Motiv aus Akkordtönen, höchstens eine
-Quinte); die Tab ist leer, der Hinweis „Hör zu und antworte …“ sagt warum; nach zwei Fehlversuchen (unter 80 %) erscheint
-die Tab; über Mikrofon zählt der Ruf weder als Treffer noch als zusätzliche Note; Aylin sieht keinen Schalter.
+Quinte); die Tab ist leer, der Hinweis „Hör zu und antworte …“ sagt warum; nach zwei Durchläufen (oder Durchgängen
+der Schleife) unter 80 % erscheint die Tab; über Mikrofon zählt der Ruf weder als Treffer noch als zusätzliche Note; Aylin sieht keinen Schalter.
 
 **J-C13 Stück wünschen** · Personas: P1 Lea, P2 Jens, P3 Mira, P4 Thomas · Phase 3 · LH-BIB-16
 1. Jens: Übungen, „Stück wünschen …“ ohne eingerichteten Anbieter öffnen; den Hinweis lesen, „Anbieter einrichten …“.

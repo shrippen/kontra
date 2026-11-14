@@ -255,6 +255,16 @@ Item {
         }
     }
 
+    // `item` is the target or still hangs below it (every sweep starts at the target).
+    function below(item) {
+        for (let p = item; p; p = p.parent) {
+            if (p === target) {
+                return true
+            }
+        }
+        return false
+    }
+
     // Reading a gone item throws.
     function alive(item) {
         try {
@@ -323,6 +333,11 @@ Item {
     // colours of its own, keeps them.
     function check(item) {
         if (!applied || !windowRoot) {
+            return
+        }
+        // Taken apart (~QQuickItem drops its children, which are enabled again, and the items
+        // below them): its theme reads a parent that is gone.
+        if (!below(item)) {
             return
         }
         const key = String(item)

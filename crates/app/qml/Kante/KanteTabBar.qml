@@ -279,6 +279,9 @@ FocusScope {
                     Accessible.role: Accessible.PageTab
                     Accessible.name: String(tab.modelData).length > 0 ? tab.modelData : tab.iconName
                     Accessible.selected: tab.current
+                    // Screen readers pick a tab through this, not through a tap; Qt sends it to
+                    // a disabled control too (review #174).
+                    Accessible.onPressAction: if (tabs.enabled) { tabs.select(tab.index) }
                 }
             }
         }
