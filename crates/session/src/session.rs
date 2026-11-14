@@ -1090,6 +1090,10 @@ impl Session {
         let Mode::Workshop(workshop) = self.mode else {
             return;
         };
+        // Nothing to judge (a loop over a call of call and response): no step either way.
+        if count == 0 && self.open.is_none() {
+            return;
+        }
         let (low, high) = workshop.band;
         self.band_streak = if hit_rate > high {
             self.band_streak.max(0) + 1
