@@ -1052,6 +1052,9 @@ pub mod qobject {
         #[cxx_name = "llmKeyError"]
         fn llm_key_error(self: Pin<&mut Self>, provider: QString, text: QString);
     }
+
+    // `Default` builds the core; `initialize` (below) fills the properties from it.
+    impl cxx_qt::Initialize for Controller {}
 }
 
 mod backing;
@@ -1060,14 +1063,14 @@ mod library;
 mod llm;
 mod loops;
 mod settings;
+mod start;
 mod transport;
 
 use crate::args::AppArgs;
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
-use kontra_appcore::{data_dir, file_url, local_path, Core, Opened, QaOptions, UiEvent};
-use settings::{connection_key, instrument_key};
+use kontra_appcore::{file_url, local_path, Core, Opened, UiEvent};
 
 /// `calibrationBeat` while no calibration runs.
 const NO_BEAT: i32 = -99;
@@ -1220,229 +1223,12 @@ pub struct ControllerRust {
     screenshot_after: i32,
     quit_after: i32,
     qa_run: bool,
+    args: AppArgs,
     core: Core,
 }
 
 fn q(text: &str) -> QString {
     QString::from(text)
-}
-
-impl Default for ControllerRust {
-    fn default() -> Self {
-        let args = AppArgs::from_env();
-        let qa = QaOptions {
-            input_file: args.input_file.clone(),
-            laptop_jack: args.laptop_jack,
-        };
-        let mut core = Core::new(&data_dir(), qa);
-        // Ready before the settings page asks for them.
-        core.list_devices_early();
-        // Devices stay open while Kontra is open (LH-EIN-18); a screenshot run holds none.
-        if args.screenshot.is_none() {
-            core.keep_devices_open();
-        }
-        if let Some(answer) = &args.songsterr_answer {
-            core.fake_song_search(answer);
-        }
-        if let Some(answer) = &args.course_answer {
-            core.fake_course_web(answer);
-        }
-        core.start_update_check(args.update_answer.as_deref(), args.screenshot.as_deref());
-        if let Some(style) = &args.style {
-            core.update_settings(|s| s.style = style.clone());
-        }
-        if let Some(language) = &args.language {
-            core.update_settings(|s| s.language = Some(language.clone()));
-        }
-        if let Some(mode) = &args.mode {
-            core.reconfigure(|s| s.mode = mode.clone());
-        }
-        if let Some(view) = &args.view {
-            core.update_settings(|s| s.view = view.clone());
-        }
-        let s = core.settings().clone();
-        let mut controller = ControllerRust {
-            texts: q(&core.texts_json()),
-            loaded: false,
-            title: QString::default(),
-            artist: QString::default(),
-            notes_json: q("[]"),
-            bars_json: q("[]"),
-            staff_json: q(&core.staff_json()),
-            string_names_json: q("[]"),
-            key_range_json: q(&core.key_range_json()),
-            duration: 0.0,
-            position: 0.0,
-            playing: false,
-            probing: false,
-            speed: 1.0,
-            loop_start: -1.0,
-            pass_rate: -1.0,
-            passes: 0,
-            band_low: kontra_appcore::Core::workshop_band().0,
-            band_high: kontra_appcore::Core::workshop_band().1,
-            loop_end: -1.0,
-            mode: q(&s.mode),
-            view: q(&s.view),
-            style: q(&s.style),
-            language: q(s.language.as_deref().unwrap_or("")),
-            peak_db: -120.0,
-            rms_db: -120.0,
-            clipped: false,
-            tuner_note: QString::default(),
-            ear_state: QString::default(),
-            level_state: QString::default(),
-            suggest_laptop: false,
-            tuner_midi: 0.0,
-            tuning_json: q(&core.tuning_json()),
-            tuner_cents: 0.0,
-            tuner_active: false,
-            holding_index: -1,
-            holding_text: QString::default(),
-            summary_json: QString::default(),
-            chain_json: q("null"),
-            saved_loops_json: q("[]"),
-            target_speed: 1.0,
-            recent_json: q(&core.recent_json()),
-            setlists_json: q(&core.setlists_json()),
-            library_revision: 0,
-            next_title: QString::default(),
-            tracks_json: q("{\"names\": [], \"current\": 0}"),
-            track_choices_json: q("[]"),
-            input_devices_json: q("[]"),
-            output_devices_json: q("[]"),
-            input_device: q(s.input_device.as_deref().unwrap_or("")),
-            output_device: q(s.output_device.as_deref().unwrap_or("")),
-            strings: i32::from(s.strings),
-            fretless: s.instrument == kontra_appcore::Bass::Fretless,
-            instrument: q(instrument_key(core.instrument_choice())),
-            laptop_jack: s.input_kind == kontra_appcore::InputKind::LaptopJack || args.laptop_jack,
-            connection: q(connection_key(s.input_kind)),
-            midi_port_name: QString::default(),
-            midi_ports_json: QString::default(),
-            metronome: s.metronome,
-            count_in: s.count_in_bars > 0,
-            reference: s.reference_tones,
-            low_string_on_top: s.low_string_on_top,
-            fretboard_shown: s.fretboard_shown,
-            play_marks: q(&s.play_marks),
-            motion: q(&s.motion),
-            strictness: q(&s.strictness),
-            pocket: q(&s.pocket),
-            pitch_cents: s.pitch_cents,
-            latency_ms: s.latency_ms,
-            tuning: q(&s.tuning),
-            profile_tuning_json: q(&core.profile_tuning_json()),
-            note_choices_json: q(&core.note_choices_json()),
-            a4_hz: s.a4_hz,
-            window_ms: s.window_ms,
-            string_colors: q(&s.string_colors),
-            left_handed: s.left_handed,
-            backing_volume: s.backing_volume,
-            metronome_volume: s.metronome_volume,
-            tone_volume: s.tone_volume,
-            drums_volume: s.drums_volume,
-            bass_volume: s.bass_volume,
-            prompt_volume: s.prompt_volume,
-            monitor: s.monitor,
-            monitor_volume: s.monitor_volume,
-            monitor_low_db: s.monitor_low_db,
-            monitor_mid_db: s.monitor_mid_db,
-            monitor_high_db: s.monitor_high_db,
-            monitor_compress: s.monitor_compress,
-            monitor_warmth: s.monitor_warmth,
-            effects_json: q(&core.effects_json()),
-            monitor_limit: s.monitor_limit,
-            shaping_range_db: kontra_appcore::Core::shaping_range_db(),
-            density: 100,
-            density_fixed: false,
-            density_suggestion: 0,
-            density_text: QString::default(),
-            adaptive: s.adaptive,
-            reacting_band: s.reacting_band,
-            call: false,
-            call_hidden: false,
-            simple_view: s.simple_view,
-            streak: s.streak,
-            calibrating: false,
-            calibration_beat: NO_BEAT,
-            calibration_text: QString::default(),
-            cable_measuring: false,
-            latency_note: q(&core.latency_note()),
-            backing_name: QString::default(),
-            stems_json: QString::default(),
-            backing_loading: false,
-            song_search_json: QString::default(),
-            course_fetch_json: QString::default(),
-            course_folder_json: QString::default(),
-            run_kept: false,
-            transpose: 0,
-            transpose_max: kontra_appcore::Core::transpose_max(),
-            message: QString::default(),
-            xruns: 0,
-            offer_input: QString::default(),
-            input_state: QString::default(),
-            input_detail: QString::default(),
-            offer_text: QString::default(),
-            usb_ask: QString::default(),
-            error_text: QString::default(),
-            start_page: q(args.page.as_deref().unwrap_or("")),
-            start_course: QString::default(),
-            setup_done: s.setup_done,
-            llm_provider: q(&s.llm_provider),
-            llm_base_url: q(&s.llm_base_url),
-            llm_model: q(&s.llm_model),
-            llm_models_json: q("[]"),
-            llm_busy: false,
-            llm_key_busy: false,
-            autoplay: args.autoplay,
-            autoprobe: args.probe,
-            autocalibrate: args.calibrate,
-            show_mixer: args.mixer,
-            start_presenting: args.present,
-            start_section: q(args.section.as_deref().unwrap_or("")),
-            show_align: args.align,
-            start_loop: q(&args
-                .loop_bars
-                .map(|(a, b)| format!("{a}-{b}"))
-                .unwrap_or_default()),
-            screenshot_path: q(&args
-                .screenshot
-                .as_ref()
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_default()),
-            screenshot_after: args.screenshot_after_ms,
-            quit_after: args.quit_after_ms,
-            qa_run: args.input_file.is_some(),
-            core,
-        };
-        controller.song_search_json = q(&match &args.song_search {
-            Some(query) => controller.core.song_search(query),
-            None => controller.core.song_search_json(),
-        });
-        // A course is added, not played: the learn page shows what it is first (LH-LRN-14).
-        if let Some(path) = args.open.as_ref().filter(|p| Core::is_course(p)) {
-            controller.start_course = q(&path.to_string_lossy());
-            controller.start_page = q("learn");
-        } else if let Some(path) = args.open {
-            controller.open_now(&path);
-            // Opening may set the mode (plan exercises: run-through); an explicit --mode wins.
-            if let Some(mode) = &args.mode {
-                controller.core.set_mode(mode);
-            }
-            controller.mode = q(&controller.core.settings().mode);
-            // An explicit --view wins over the view remembered for the piece (QA runs).
-            if let Some(view) = &args.view {
-                controller.core.set_view(view);
-                controller.view = q(view);
-            }
-            if args.remove_bass {
-                controller.core.remove_bass(true);
-                controller.stems_json = q(&controller.core.stems_json());
-            }
-        }
-        controller
-    }
 }
 
 impl qobject::Controller {
