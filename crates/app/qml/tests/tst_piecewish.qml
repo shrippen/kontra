@@ -89,6 +89,18 @@ Item {
 
         // Owner 15.11.: the provider settings were reachable only while none was set. The link
         // stays, and leads to the settings page's provider section; the wish dialog steps aside.
+        // Review #359: leaving for the settings while the provider writes lost the piece's
+        // arrival and the wish; the link waits.
+        function test_settingsLinkWaitsWhileWriting() {
+            var win = createTemporaryObject(windowComponent, root)
+            var dialog = win.dialog()
+            dialog.open()
+            win.ctl.llmBusy = true
+            verify(!findChild(dialog, "wishSettingsLink").enabled)
+            win.ctl.llmBusy = false
+            verify(findChild(dialog, "wishSettingsLink").enabled)
+        }
+
         function test_settingsLinkStaysAndOpensTheSettingsPage() {
             var win = createTemporaryObject(windowComponent, root)
             win.ctl.llmProvider = "custom"

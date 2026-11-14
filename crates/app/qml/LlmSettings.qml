@@ -39,11 +39,26 @@ KanteSettingGroup {
         ctl.llmCheckKey(ctl.llmProvider)
     }
 
+    // The keyring can ask to be unlocked: it is asked once this group's section shows in the
+    // page's sticky header (`sectionHeader`, `section`), not whenever the settings open.
+    property var sectionHeader: null
+    property int section: -1
+    property bool keyAsked: false
+    readonly property bool sectionShown: sectionHeader === null || sectionHeader.currentIndex === section
+    onSectionShownChanged: askKeyOnce()
+    function askKeyOnce() {
+        if (!sectionShown || keyAsked) {
+            return
+        }
+        keyAsked = true
+        refreshKeyState()
+    }
+
     Component.onCompleted: {
         providers = JSON.parse(ctl.llmProvidersJson())
         models = JSON.parse(ctl.llmModelsJson)
         error = ""
-        refreshKeyState()
+        askKeyOnce()
     }
     // `llmProvider` is `ctl`'s property, not this group's: a plain `onXChanged` only fires
     // for properties of the object it is written on.

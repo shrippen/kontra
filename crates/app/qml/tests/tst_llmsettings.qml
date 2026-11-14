@@ -14,6 +14,7 @@ Item {
     Component {
         id: windowComponent
         Kirigami.ApplicationWindow {
+            id: testWindow
             width: root.width
             height: root.height
             visible: true
@@ -32,10 +33,13 @@ Item {
                 function llmProvidersJson() {
                     return JSON.stringify([{ id: "custom", name: "Custom", needsKey: false }])
                 }
-                function llmCheckKey(provider) {}
+                property int keyChecks: 0
+                function llmCheckKey(provider) { keyChecks += 1 }
                 function changeLlmModel(model) { llmModel = model }
             }
-            LlmSettings { id: settings }
+            // The settings page's sticky header, as far as the group reads it.
+            readonly property QtObject sticky: QtObject { property int currentIndex: 0 }
+            LlmSettings { id: settings; sectionHeader: testWindow.sticky; section: 2 }
             function dialog() { return settings }
         }
     }
@@ -62,6 +66,19 @@ Item {
         function test_theChosenModelIsShown() {
             var list = findChild(openWith("other", ["fake-bass", "other"]), "llmModels")
             compare(list.currentIndex, 1)
+        }
+    
+        // Review #359: the group sits on the settings page now; asking the keyring as the page
+        // opens would prompt to unlock it for anyone changing only the input. Asked once its
+        // section shows.
+        function test_theKeyringIsAskedOnceTheSectionShows() {
+            var win = createTemporaryObject(windowComponent, root)
+            compare(win.ctl.keyChecks, 0)
+            win.sticky.currentIndex = 2
+            compare(win.ctl.keyChecks, 1)
+            win.sticky.currentIndex = 0
+            win.sticky.currentIndex = 2
+            compare(win.ctl.keyChecks, 1)
         }
     }
 }

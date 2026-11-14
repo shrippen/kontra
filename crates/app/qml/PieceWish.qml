@@ -121,6 +121,8 @@ KanteDialog {
         // Always there: provider, model and key can be changed later, not only while missing.
         KanteButton {
             objectName: "wishSettingsLink"
+            // Not while the provider writes: leaving would lose the piece's arrival and the wish.
+            enabled: !dialog.ctl.llmBusy
             text: dialog.texts.t("wish.settings.link")
             emphasis: KanteButton.Emphasis.Quiet
             onClicked: dialog.openSettings()

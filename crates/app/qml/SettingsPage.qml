@@ -538,7 +538,7 @@ Kirigami.Page {
                 Mixer { Layout.fillWidth: true }
             }
 
-            LlmSettings { id: llmGroup; Layout.fillWidth: true }
+            LlmSettings { id: llmGroup; Layout.fillWidth: true; sectionHeader: header; section: page.sectionIndex("llm") }
 
             KanteSettingGroup {
                 id: languageGroup
