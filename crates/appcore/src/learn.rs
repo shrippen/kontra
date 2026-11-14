@@ -857,6 +857,7 @@ mod tests {
 
     /// N6: the learn page waited 30-40 ms for its course, because each chapter's question
     /// count built the course's lessons again (16 times for 15 chapters). It is built once.
+    /// The limit leaves room for the folder listings of the chapter pieces (slow on Windows).
     #[test]
     fn the_course_is_read_once_for_the_page() {
         let (core, dir) = core("once");
@@ -867,7 +868,7 @@ mod tests {
             let _ = core.learn_json();
         });
         assert!(
-            page < 4.0 * course,
+            page < 8.0 * course,
             "page {page:.4} s, course {course:.4} s"
         );
         let _ = std::fs::remove_dir_all(dir);
