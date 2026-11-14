@@ -1004,8 +1004,9 @@ Als P1 Lea: qa-session (Xvfb 1296×792), Übung 151 „Groove Staccato auf einem
 Eingang aus zwei gerenderten Aufnahmen: jede Note nach einer Achtel abgedämpft (`kontra-cli render`) und jede Note
 bis zur nächsten klingend (`kontra-cli render --ring`, neu). Bestanden: „Abdämpfen: 31 von 31 Noten rechtzeitig
 gestoppt“ bzw. „0 von 31 … in die Pause geklungen: 31“; unter „Alle Noten“ je Note „rechtzeitig abgedämpft“ bzw.
-„klang in die Pause“, die letzte ohne Urteil; Trefferquote in beiden Läufen 100 %. Mira (MusicXML mit Staccato) und
-Karl (Mikrofon) nicht gespielt.
+„klang in die Pause“, die letzte ohne Urteil; Trefferquote in beiden Läufen 100 %. Mira: IDMT-MusicXML `010.xml`
+(4 Staccato-Noten unter 76), wie notiert gespielt: „0 von 4 … in die Pause geklungen: 4“, Trefferquote 100 %
+(bestanden). Karl (Mikrofon) nicht gespielt.
 
 - [ ] M1 (mittel, P1): Bei 0 von 31 gedämpften Noten sagt die Auswertung „Solide: nichts sticht heraus“ und „Sitzt“,
   obwohl das Ziel der Übung „Pausen zählen und die Saite abdämpfen“ ist. Das Abdämpfen steht nicht in der Rangfolge
