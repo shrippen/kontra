@@ -72,8 +72,16 @@ Item {
             required property var modelData
             readonly property Item bar: modelData ? modelData.globalToolBarItem : null
 
-            onBarChanged: root.themeBar(bar)
-            Component.onCompleted: root.themeBar(bar)
+            onBarChanged: {
+                if (root) {
+                    root.themeBar(bar)
+                }
+            }
+            Component.onCompleted: {
+                if (root) {
+                    root.themeBar(bar)
+                }
+            }
         }
     }
 
@@ -87,8 +95,16 @@ Item {
             readonly property var page: root.stack.layers.depth > index ? root.stack.layers.get(index) : null
             readonly property Item bar: page ? (page.globalToolBarItem ?? null) : null
 
-            onBarChanged: root.themeBar(bar)
-            Component.onCompleted: root.themeBar(bar)
+            onBarChanged: {
+                if (root) {
+                    root.themeBar(bar)
+                }
+            }
+            Component.onCompleted: {
+                if (root) {
+                    root.themeBar(bar)
+                }
+            }
         }
     }
 

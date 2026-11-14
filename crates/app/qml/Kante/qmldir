@@ -92,6 +92,7 @@ KanteSegmented 1.0 KanteSegmented.qml
 KanteSettingGroup 1.0 KanteSettingGroup.qml
 KanteSettingRow 1.0 KanteSettingRow.qml
 KanteSettle 1.0 KanteSettle.qml
+KanteShapeCanvas 1.0 KanteShapeCanvas.qml
 KanteSheetSkin 1.0 KanteSheetSkin.qml
 KanteSkeleton 1.0 KanteSkeleton.qml
 KanteSliderSkin 1.0 KanteSliderSkin.qml
@@ -120,6 +121,7 @@ KanteTimeField 1.0 KanteTimeField.qml
 KanteTimingHistogram 1.0 KanteTimingHistogram.qml
 KanteToast 1.0 KanteToast.qml
 KanteToolButton 1.0 KanteToolButton.qml
+KanteTrackTimeline 1.0 KanteTrackTimeline.qml
 KanteTransportBar 1.0 KanteTransportBar.qml
 KanteTube 1.0 KanteTube.qml
 KanteTunerGauge 1.0 KanteTunerGauge.qml

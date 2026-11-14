@@ -1015,8 +1015,8 @@ Modell; die Antwort ergab ein Stück unter „Generiert“ mit Tempo 104.
 - [x] Q12 (niedrig): „Anbieter einrichten …“ legt den Anbieter-Dialog über den Wunsch-Dialog; Kopf und „Schließen“
   des unteren schauen heraus. Jetzt tritt der Wunsch zur Seite und kommt mit seinem Text zurück.
 
-Dazu Einstellungen bei 200 % (P7): Q13 (mittel) die Abschnittsleiste schnitt „Tastenkürzel“ zu „Taste…“ ab, ohne
-Hinweis auf mehr Abschnitte (Kante `KanteTabBar`, Pfeile an den Seiten in Kante).
+Dazu Einstellungen bei 200 % (P7): Q13 (mittel, behoben mit Kante #172) die Abschnittsleiste schnitt „Tastenkürzel“
+zu „Taste…“ ab, ohne Hinweis auf mehr Abschnitte; jetzt ‹ › an jeder Seite mit verborgenen Abschnitten.
 
 ### QA-Runde 13./14.11.2026 (J-B9 Bibliothek, Nacht)
 
