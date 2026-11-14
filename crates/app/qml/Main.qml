@@ -190,8 +190,12 @@ Kirigami.ApplicationWindow {
     GlossaryReturn { id: glossaryReturn; pageStack: root.pageStack }
     function glossary(id) {
         glossaryReturn.save()
-        pageStack.layers.push(Qt.resolvedUrl("GlossaryPage.qml"), { termId: id })
+        var layer = pageStack.layers.push(Qt.resolvedUrl("GlossaryPage.qml"), { termId: id })
+        nameFocus.createObject(layer, { page: layer })
     }
+
+    // Names the area a page switch leaves the focus on (QA 28.10., B8).
+    Component { id: nameFocus; PageFocusName {} }
 
     function show(name) {
         if ((current === "tuner" || current === "setup" || current === "quiz") && name !== current) {
@@ -214,6 +218,7 @@ Kirigami.ApplicationWindow {
         // Only now: on a load error the drawer kept marking a page that never showed.
         current = name
         var page = component.createObject(pageStack)
+        nameFocus.createObject(page, { page: page })
         if (pageStack.depth === 0) {
             pageStack.push(page)
         } else {
