@@ -15,6 +15,7 @@ mod fx;
 mod instrument;
 mod pitch;
 mod plugin;
+mod spelling;
 mod tempo;
 mod tuning;
 
@@ -32,5 +33,6 @@ pub use fx::{ChainSpec, EffectKind, SlotSpec, CHAIN_SLOTS};
 pub use instrument::{Instrument, InstrumentError, InstrumentKind, KeyRange, ToneBands};
 pub use pitch::{cents_between, hz_to_midi, midi_to_hz, NoteName, Pitch, A4_HZ};
 pub use plugin::{ParamSpec, PluginSpec};
+pub use spelling::{read_note, ReadNote};
 pub use tempo::{TempoChange, TempoMap};
 pub use tuning::{Tuning, TuningError};

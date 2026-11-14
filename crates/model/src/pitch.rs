@@ -1,5 +1,6 @@
 //! Pitches as MIDI note numbers, conversion to and from Hz, note names.
 
+use crate::read_note;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -169,25 +170,16 @@ impl NoteName {
         NoteName::B,
     ];
 
+    /// Lower case and German "H" (= B) are accepted here, unlike in chord symbols.
     fn parse(text: &str) -> Option<NoteName> {
-        let mut chars = text.chars();
-        let base = match chars.next()?.to_ascii_uppercase() {
-            'C' => 0,
-            'D' => 2,
-            'E' => 4,
-            'F' => 5,
-            'G' => 7,
-            'A' => 9,
-            'B' | 'H' => 11,
-            _ => return None,
+        let first = text.chars().next()?;
+        let letter = match first.to_ascii_uppercase() {
+            'H' => 'B',
+            other => other,
         };
-        let shift: i32 = match chars.as_str() {
-            "" => 0,
-            "#" | "♯" => 1,
-            "b" | "♭" => -1,
-            _ => return None,
-        };
-        Some(NoteName::ALL[(base + shift).rem_euclid(12) as usize])
+        let normalised = format!("{letter}{}", &text[first.len_utf8()..]);
+        let note = read_note(&normalised).filter(|n| n.rest.is_empty())?;
+        Some(NoteName::ALL[usize::from(note.class)])
     }
 }
 
@@ -214,6 +206,28 @@ impl fmt::Display for NoteName {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn names_take_every_spelling() {
+        let table = [
+            ("E1", Some(28)),
+            ("e1", Some(28)),
+            ("F#2", Some(42)),
+            ("f♯2", Some(42)),
+            ("Bb0", Some(22)),
+            ("B♭0", Some(22)),
+            ("H0", Some(23)),
+            ("h1", Some(35)),
+            ("Hb0", Some(22)),
+            ("X1", None),
+            ("F##2", None),
+            ("F2x", None),
+            ("F", None),
+        ];
+        for (text, midi) in table {
+            assert_eq!(Pitch::parse(text).map(|p| p.0), midi, "{text}");
+        }
+    }
 
     #[test]
     fn low_strings_have_expected_frequencies() {

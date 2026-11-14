@@ -18,6 +18,7 @@ use super::{
     Block, Chapter, Course, Doc, ExerciseRef, Goal, Lang, LessonError, Page, Practice, Question,
     Span, Task, Tones,
 };
+use kontra_model::read_note;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
@@ -30,7 +31,6 @@ const WRONG: &str = "[ ] ";
 /// A list item continues on lines indented by this.
 const CONTINUED: &str = "  ";
 const ANY: &str = "any";
-const SEMITONES: i32 = 12;
 
 /// Targets of a practice goal when the block names none (LH-LRN-20; I4: ±25 ms).
 const HITS_PERCENT: u8 = 80;
@@ -664,26 +664,11 @@ fn words(text: &str) -> Vec<String> {
     text.split_whitespace().map(str::to_string).collect()
 }
 
-/// Pitch class of a note name, C = 0: "C", "F#", "Bb".
+/// Pitch class of a note name, C = 0: "C", "F#", "F♯", "Bb".
 pub fn note_class(name: &str) -> Option<u8> {
-    let mut chars = name.chars();
-    let base: i32 = match chars.next()? {
-        'C' => 0,
-        'D' => 2,
-        'E' => 4,
-        'F' => 5,
-        'G' => 7,
-        'A' => 9,
-        'B' => 11,
-        _ => return None,
-    };
-    let shift = match chars.as_str() {
-        "" => 0,
-        "#" => 1,
-        "b" => -1,
-        _ => return None,
-    };
-    u8::try_from((base + shift).rem_euclid(SEMITONES)).ok()
+    read_note(name)
+        .filter(|n| n.rest.is_empty())
+        .map(|n| n.class)
 }
 
 /// `root=A steps="0 7" labels="1 5"`.
@@ -814,6 +799,13 @@ Wie viele Halbtöne hat die kleine Septime?
 :::
 ::: practice kind=arpeggio variant=251 key=C bpm=80 speeds=\"60 80 100\"
 ";
+
+    #[test]
+    fn a_sharp_sign_works_as_root() {
+        let text = UNIT.replace("root=A", "root=F♯");
+        assert!(unit("u/de.md", &text).is_ok());
+        assert_eq!(note_class("F##"), None);
+    }
 
     #[test]
     fn reads_a_unit() {
