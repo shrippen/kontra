@@ -1356,5 +1356,7 @@
   "llm.error.invalid": "Der Plan war ungültig:\n{detail}",
   "library.gen.wish": "Als Wunsch …",
   "library.sortby": "Sortieren nach",
-  "library.sortby.reverse": "Richtung umkehren (jetzt {direction})"
+  "library.sortby.reverse": "Richtung umkehren (jetzt {direction})",
+  "save.failed": "{file} konnte nicht gespeichert werden: {reason}. Änderungen seit dem letzten Speichern gehen beim Beenden verloren.",
+  "save.broken": "{files} ließ sich nicht lesen und liegt jetzt als .broken im Datenordner. Kontra hat mit leeren Daten gestartet."
 }

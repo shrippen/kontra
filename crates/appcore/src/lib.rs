@@ -325,7 +325,7 @@ struct Probe {
 /// else the environment's. Kirigami's own texts follow it (round 12: "Close Sidebar" in a German
 /// Kontra on an English system).
 pub fn startup_language(data_dir: &Path) -> &'static str {
-    let settings: Settings = store::load(&data_dir.join(save::SETTINGS_FILE));
+    let settings: Settings = save::peek(&data_dir.join(save::SETTINGS_FILE));
     let language = settings
         .language
         .as_deref()
@@ -338,9 +338,8 @@ pub fn startup_language(data_dir: &Path) -> &'static str {
 
 impl Core {
     pub fn new(data_dir: &Path, qa: QaOptions) -> Core {
-        let mut settings: Settings = store::load(&data_dir.join(save::SETTINGS_FILE));
+        let (mut settings, mut library, damaged) = save::load_data(data_dir);
         settings.migrate();
-        let mut library: Library = store::load(&data_dir.join(save::LIBRARY_FILE));
         library.plain_paths();
         library.find_moved(&Self::exercises_dir());
         let moved_pieces = origin::move_old_pieces(data_dir, &mut library);
@@ -400,7 +399,7 @@ impl Core {
             looping: None,
             call: call::CallState::default(),
         };
-        core.save_after_start(moved_pieces);
+        core.save_after_start(moved_pieces, &damaged);
         // Measured latencies hold only for the devices they were measured on (LH-EIN-05).
         core.check_audio_path();
         core
@@ -1796,7 +1795,7 @@ impl Core {
         self.input.observe(&raw);
         let ear_event = self.ear_heard(&mut raw);
         let mut events: Vec<UiEvent> = raw.into_iter().filter_map(|e| self.translate(e)).collect();
-        events.extend(ear_event);
+        events.extend(ear_event.into_iter().chain(self.notice_event()));
         events.extend(self.prepare_backing());
         events.extend(self.bluetooth_hint());
         events.extend(self.llm_poll());

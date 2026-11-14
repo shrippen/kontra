@@ -15,6 +15,7 @@ mod muting;
 mod notation;
 mod note_list;
 mod playback;
+mod save;
 mod settings;
 mod update;
 
