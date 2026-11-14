@@ -1,7 +1,23 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-11-13. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+Übergabe zwischen Sitzungen. Stand: 2026-11-14. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
+
+## Übergabe (14.11.2026, Nacht: QA Bibliothek und „Stück wünschen“)
+
+QA-Runden in der Roadmap unter „QA-Runden“ (14.11. J-C13, 13./14.11. J-B9). In `main`: #325 (vier Befunde der
+Bibliothek, `qa-session.sh --downloads`), #326 (Titel, Interpret und Tempo ungeöffneter Dateien im Hintergrund,
+verschobene Dateien wiedergefunden; LH-BIB-18 geändert), #327 (Modell-Liste, Wunsch-Dialog bleibt bis zum Stück,
+Tonart im Titel einmal), #328 (Anbieter-Dialog statt Stapel); Kante #172 (Pfeile in `KanteTabBar`), in Kontra mit
+#329.
+
+Offen:
+- Runde 22 im Entscheidungs-Artefakt (Dokument `antworten/runde-22`): `pub`-Liste, LH-BIB-18 bestätigen, Variante im
+  Titel gewünschter Stücke (Q11), Fokus nach Seitenwechsel (B8), Hardware-Sitzung, nächster Schwerpunkt.
+- Q11 (niedrig): „Variante 1794…“ im Titel gewünschter Stücke (Frage in Runde 22).
+- Nur in der QA-Sitzung: Der Qt-Ordnerdialog ohne Portal nimmt den markierten Unterordner statt des geöffneten.
+- Bestand aus Review #327: weitere `if` ohne Klammern in `PieceWish.qml` (aus #320).
+- Die Punkte der Übergabe vom 13.11. unten gelten weiter (Hardware, N5, N6, B8).
 
 ## Übergabe (13.11.2026, Nacht: Übergänge, Mixer als Glasebene, FPS)
 
