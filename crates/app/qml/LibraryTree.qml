@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Layouts
 import Kante
 
@@ -40,7 +41,7 @@ ListView {
     }
     function focusEntry(from, step) {
         var i = from + step
-        while (i >= 0 && i < entries.length && entries[i].kind === "heading") {
+        while (step !== 0 && i >= 0 && i < entries.length && entries[i].kind === "heading") {
             i += step
         }
         if (i < 0 || i >= entries.length) {
@@ -53,6 +54,30 @@ ListView {
         }
         // After the focus moved: Qt refuses to take Tab from the item that still has it.
         focusIndex = i
+    }
+
+    // The tree is a focus scope: Tab gives the focus to the tree itself, or to the delegate
+    // that last had it, not to an entry (review #332: the stop entry may not be built). Then
+    // the stop entry takes it.
+    activeFocusOnTab: true
+    currentIndex: -1
+    keyNavigationEnabled: false
+    readonly property Item focusItem: Window.activeFocusItem
+    function holdsFocus() {
+        var item = Window.activeFocusItem
+        return item === tree || (item && (item.parent === contentItem
+            || (item.parent && item.parent.parent === contentItem)))
+    }
+    function claimFocus() {
+        if (holdsFocus()) {
+            focusEntry(stopIndex, 0)
+        }
+    }
+    onFocusItemChanged: {
+        if (holdsFocus()) {
+            // Later: Qt drops a focus moved while it is still moving it.
+            Qt.callLater(claimFocus)
+        }
     }
 
     signal picked(string key)

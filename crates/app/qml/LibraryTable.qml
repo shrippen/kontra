@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import Kante
@@ -115,6 +116,8 @@ ColumnLayout {
     function focusRow(i) {
         var to = Math.max(0, Math.min(i, list.count - 1))
         list.positionViewAtIndex(to, ListView.Contain)
+        // Build the rows there now: the row is wanted in this same call.
+        list.forceLayout()
         var line = list.itemAtIndex(to)
         if (line) {
             line.focusRow()
@@ -123,6 +126,12 @@ ColumnLayout {
         focusIndex = to
     }
     readonly property int pageRows: 10
+    function claimFocus() {
+        var item = list.Window.activeFocusItem
+        if (item === list || (item && item.parent === list.contentItem)) {
+            focusRow(stopIndex)
+        }
+    }
 
     function directionText(direction) {
         return texts.t(direction === "desc" ? "library.dir.desc" : "library.dir.asc")
@@ -232,6 +241,21 @@ ColumnLayout {
         model: table.view.rows
         reuseItems: false
         QQC2.ScrollBar.vertical: QQC2.ScrollBar {}
+        // The list takes Tab and hands it to the stop row: that row may be scrolled out of the
+        // rows the view has built (review #332), then no row would take Tab at all.
+        activeFocusOnTab: true
+        // No current item of the view's own: with focus it would scroll to it (row 0).
+        currentIndex: -1
+        keyNavigationEnabled: false
+        // The list is a focus scope: Tab gives the focus to the list itself, or to the delegate
+        // that last had it, not to a row. Then the stop row takes it.
+        readonly property Item focusItem: Window.activeFocusItem
+        onFocusItemChanged: {
+            if (focusItem === list || (focusItem && focusItem.parent === list.contentItem)) {
+                // Later: Qt drops a focus moved while it is still moving it.
+                Qt.callLater(table.claimFocus)
+            }
+        }
 
         delegate: ColumnLayout {
             id: line

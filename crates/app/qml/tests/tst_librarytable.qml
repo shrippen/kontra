@@ -124,5 +124,44 @@ Item {
             verify(!rowOf(2).activeFocus && !rowOf(0).activeFocus && !moreOf(2).activeFocus,
                    "then out of the table, not to the next row")
         }
+
+        // The list takes Tab itself (below): Backtab from the row must still leave the table,
+        // not land on the list, which hands it back to the row.
+        function test_backtabLeavesTheTable() {
+            var list = findChild(table, "rows")
+            table.focusRow(1)
+            verify(findChild(list.itemAtIndex(1), "row").activeFocus)
+            keyClick(Qt.Key_Backtab)
+            wait(50)
+            verify(!list.activeFocus, "Backtab leaves the list")
+        }
+
+        // Review #332: with the stop row scrolled out of the built rows (search, sort, wheel),
+        // Tab passed the table by. The list takes Tab itself and hands it to that row.
+        function test_aRowOutOfViewIsStillTheStop() {
+            var many = []
+            for (var i = 0; i < 150; i++) {
+                many.push({ id: "/" + i + ".mid", path: "/" + i + ".mid", title: "Piece " + i, artist: "",
+                            format: "MID", origin: "imported", bpm: null, lastPlayed: null,
+                            bestPercent: null, missing: false, tags: [], group: "" })
+            }
+            var old = root.view
+            root.view = { rows: many, groups: [] }
+            try {
+                var list = findChild(table, "rows")
+                waitForRendering(list)
+                table.focusIndex = 60
+                list.positionViewAtBeginning()
+                waitForRendering(list)
+                verify(list.itemAtIndex(60) === null, "row 60 is not built")
+                list.forceActiveFocus()
+                tryVerify(function() {
+                    var line = list.itemAtIndex(60)
+                    return line !== null && findChild(line, "row").activeFocus
+                }, 1000, "the list hands the focus to row 60")
+            } finally {
+                root.view = old
+            }
+        }
     }
 }

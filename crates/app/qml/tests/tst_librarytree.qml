@@ -104,5 +104,30 @@ Item {
             keyClick(Qt.Key_Tab)
             verify(after.activeFocus, "Tab leaves the tree")
         }
+
+        // Review #332: an entry scrolled out of the built ones (many folders, a short window)
+        // took no Tab, so the tree could not be reached. The tree takes it and hands it on.
+        function test_anEntryOutOfViewIsStillTheStop() {
+            var last = tree.entries.length - 1
+            var height = tree.height
+            var buffer = tree.cacheBuffer
+            tree.height = 60
+            tree.cacheBuffer = 0
+            try {
+                tree.focusIndex = last
+                tree.positionViewAtBeginning()
+                waitForRendering(tree)
+                verify(tree.itemAtIndex(last) === null, "the last entry is not built")
+                after.forceActiveFocus()
+                keyClick(Qt.Key_Backtab)
+                tryVerify(function() {
+                    var cell = tree.itemAtIndex(last)
+                    return cell !== null && findChild(cell, "treeRow").activeFocus
+                }, 1000, "Backtab reaches the tree's stop entry")
+            } finally {
+                tree.height = height
+                tree.cacheBuffer = buffer
+            }
+        }
     }
 }
