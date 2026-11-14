@@ -16,7 +16,8 @@ Offen:
   `pageKey()`, `wrapsRows()`, `within()`, `claimFocus()`; `LibraryTree.focusIndex`, `stopIndex`, `focusEntry()`,
   `wrapsEntries()`, `within()`, `claimFocus()`, `hadFocus`, `focusItem` (die Fokus-Teile kamen in den Review-Runden
   dazu und stehen nicht im PR-Text von #332); `Metas`/`Known` in appcore (#331, `pub(crate)`).
-- Niedrig (C5-Kandidat): In der Werkstatt bei 1296×792 bleibt der Tab-Lane mit Hinweis „Ruf und Antwort“ etwa 60 px.
+- Für Runde 23: In der Werkstatt bei 1296×792 bleibt der Tab-Lane etwa 60–65 px, mit und ohne „Ruf und Antwort“
+  (ROADMAP J-C12, offen). Vorschlag: Werkstatt schon unter etwa 820 px als niedriges Fenster behandeln.
 - Kante ohne Press-Aktion für Screenreader (in Kontra nicht benutzt): `KanteAgenda`, `KanteWeekTimeline`,
   `KanteWeekView`, Entfernen in `KanteBandEditor`, `KanteSongMap` (ListItem); `KanteCallout` prüft `enabled` nicht
   (Kleinigkeit aus Kante #174).

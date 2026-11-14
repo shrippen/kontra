@@ -1018,7 +1018,10 @@ erscheint die Tab.
 - [x] C4 (mittel, P3): In der Werkstatt deckt die erste Schleife (Takte 1–2) bei „Ruf und Antwort“ nur den Ruf ab:
   jeder Durchgang zählte „100 % Treffer“, ohne dass etwas zu spielen war, und das Tempo stieg. Ein Durchgang ohne
   zu wertende Noten zählt nicht mehr: keine Quote, kein Tempo-Schritt, kein Versuch, kein Schritt der Bausteine.
-- Offen (niedrig): In der Werkstatt bei 1296×792 bleibt der Tab-Lane mit Hinweis und Schaltern etwa 60 px Höhe.
+- Offen (mittel, P4 am Beamer 1280×720, Laptops mit 768 px): In der Werkstatt bei 1296×792 bleibt der Tab-Lane etwa
+  60–65 px Höhe, auch ohne „Ruf und Antwort“ (Takte, Zieltempo, Bausteine, Notendichte und Griffbrett nehmen den
+  Rest). Die Regel aus #175 (niedriges Fenster) greift erst unter 560 px. Vorschlag: in der Werkstatt schon unter
+  etwa 820 px als niedrig gelten (Griffbrett aus, Zeilen eingeklappt wie bei #175); Entscheidung in Runde 23.
 - Mira mit der Maus (Modus über AT-SPI erst mit C1): „Frei spielen“ behält Ruf und Antwort samt Hinweis; Werkstatt
   siehe C4.
 
