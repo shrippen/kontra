@@ -105,6 +105,26 @@ Item {
             verify(after.activeFocus, "Tab leaves the tree")
         }
 
+        // Review #332, round 2: a focused entry scrolled away pulled the view back to it.
+        function test_scrollingAwayFromTheFocusStays() {
+            var height = tree.height
+            var buffer = tree.cacheBuffer
+            tree.height = 60
+            tree.cacheBuffer = 0
+            try {
+                tree.positionViewAtBeginning()
+                waitForRendering(tree)
+                findChild(tree.itemAtIndex(0), "treeRow").forceActiveFocus()
+                var end = tree.contentHeight - tree.height
+                tree.contentY = end
+                wait(50)
+                compare(tree.contentY, end, "the view stays where it was scrolled")
+            } finally {
+                tree.height = height
+                tree.cacheBuffer = buffer
+            }
+        }
+
         // Review #332: an entry scrolled out of the built ones (many folders, a short window)
         // took no Tab, so the tree could not be reached. The tree takes it and hands it on.
         function test_anEntryOutOfViewIsStillTheStop() {

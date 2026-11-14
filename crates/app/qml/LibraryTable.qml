@@ -126,9 +126,20 @@ ColumnLayout {
         focusIndex = to
     }
     readonly property int pageRows: 10
+    // The list itself or a row's delegate, not a row: Tab arrived without a row to take it.
+    function wrapsRows(item) {
+        return item === list || (item !== null && item.parent === list.contentItem)
+    }
+    function within(item) {
+        for (var i = item; i; i = i.parent) {
+            if (i === list) {
+                return true
+            }
+        }
+        return false
+    }
     function claimFocus() {
-        var item = list.Window.activeFocusItem
-        if (item === list || (item && item.parent === list.contentItem)) {
+        if (wrapsRows(list.Window.activeFocusItem)) {
             focusRow(stopIndex)
         }
     }
@@ -248,14 +259,22 @@ ColumnLayout {
         currentIndex: -1
         keyNavigationEnabled: false
         // The list is a focus scope: Tab gives the focus to the list itself, or to the delegate
-        // that last had it, not to a row. Then the stop row takes it.
+        // that last had it, not to a row. Then the stop row takes it, but only when the focus
+        // comes from outside: a focused row scrolled away also leaves it on the list (review
+        // #332), and the view must not jump back.
         readonly property Item focusItem: Window.activeFocusItem
+        property bool hadFocus: false
         onFocusItemChanged: {
-            if (focusItem === list || (focusItem && focusItem.parent === list.contentItem)) {
+            var entering = !hadFocus
+            hadFocus = table.within(focusItem)
+            if (entering && table.wrapsRows(focusItem)) {
                 // Later: Qt drops a focus moved while it is still moving it.
                 Qt.callLater(table.claimFocus)
             }
         }
+        // Rows scrolled away: the arrows bring the focus back to the stop row.
+        Keys.onUpPressed: table.focusRow(table.stopIndex)
+        Keys.onDownPressed: table.focusRow(table.stopIndex)
 
         delegate: ColumnLayout {
             id: line

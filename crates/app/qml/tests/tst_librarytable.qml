@@ -136,6 +136,29 @@ Item {
             verify(!list.activeFocus, "Backtab leaves the list")
         }
 
+        // Review #332, round 2: a focused row scrolled away by wheel or scroll bar pulled the
+        // view back to it.
+        function test_scrollingAwayFromTheFocusStays() {
+            var many = []
+            for (var i = 0; i < 150; i++) {
+                many.push({ id: "/" + i + ".mid", path: "/" + i + ".mid", title: "Piece " + i, artist: "",
+                            format: "MID", origin: "imported", bpm: null, lastPlayed: null,
+                            bestPercent: null, missing: false, tags: [], group: "" })
+            }
+            var old = root.view
+            root.view = { rows: many, groups: [] }
+            try {
+                var list = findChild(table, "rows")
+                waitForRendering(list)
+                table.focusRow(2)
+                list.contentY = 3000
+                wait(50)
+                compare(list.contentY, 3000, "the view stays where it was scrolled")
+            } finally {
+                root.view = old
+            }
+        }
+
         // Review #332: with the stop row scrolled out of the built rows (search, sort, wheel),
         // Tab passed the table by. The list takes Tab itself and hands it to that row.
         function test_aRowOutOfViewIsStillTheStop() {

@@ -58,27 +58,41 @@ ListView {
 
     // The tree is a focus scope: Tab gives the focus to the tree itself, or to the delegate
     // that last had it, not to an entry (review #332: the stop entry may not be built). Then
-    // the stop entry takes it.
+    // the stop entry takes it, but only when the focus comes from outside: a focused entry
+    // scrolled away also leaves it on the tree, and the view must not jump back.
     activeFocusOnTab: true
     currentIndex: -1
     keyNavigationEnabled: false
     readonly property Item focusItem: Window.activeFocusItem
-    function holdsFocus() {
-        var item = Window.activeFocusItem
-        return item === tree || (item && (item.parent === contentItem
-            || (item.parent && item.parent.parent === contentItem)))
+    property bool hadFocus: false
+    function wrapsEntries(item) {
+        return item === tree || (item !== null && (item.parent === contentItem
+            || (item.parent !== null && item.parent.parent === contentItem)))
+    }
+    function within(item) {
+        for (var i = item; i; i = i.parent) {
+            if (i === tree) {
+                return true
+            }
+        }
+        return false
     }
     function claimFocus() {
-        if (holdsFocus()) {
+        if (wrapsEntries(Window.activeFocusItem)) {
             focusEntry(stopIndex, 0)
         }
     }
     onFocusItemChanged: {
-        if (holdsFocus()) {
+        var entering = !hadFocus
+        hadFocus = within(focusItem)
+        if (entering && wrapsEntries(focusItem)) {
             // Later: Qt drops a focus moved while it is still moving it.
             Qt.callLater(claimFocus)
         }
     }
+    // Entries scrolled away: the arrows bring the focus back to the stop entry.
+    Keys.onUpPressed: focusEntry(stopIndex, 0)
+    Keys.onDownPressed: focusEntry(stopIndex, 0)
 
     signal picked(string key)
     signal addFolderRequested()
