@@ -1,7 +1,7 @@
 //! Library: recent pieces, tags, folder import and setlists (LH-BIB-04).
 
 use crate::{piece_name, store, Core, Opened, RecentEntry, Setlist};
-use kontra_session::{import_file, ProgressStore};
+use kontra_session::{import_file, FileKind, ProgressStore};
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
@@ -148,17 +148,13 @@ impl Core {
         dir: &Path,
         as_setlist: bool,
     ) -> (usize, Vec<(String, String)>) {
-        const EXTENSIONS: [&str; 11] = [
-            "gp", "gp3", "gp4", "gp5", "gpx", "mid", "midi", "musicxml", "mxl", "mscz", "mscx",
-        ];
         let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
             .map(|entries| entries.filter_map(Result::ok).map(|e| e.path()).collect())
             .unwrap_or_default();
         files.retain(|p| {
-            p.extension().and_then(|e| e.to_str()).is_some_and(|e| {
-                EXTENSIONS.contains(&e.to_ascii_lowercase().as_str())
-                    || e.eq_ignore_ascii_case("xml")
-            })
+            p.extension()
+                .and_then(|e| e.to_str())
+                .is_some_and(|e| FileKind::from_extension(e).is_some())
         });
         files.sort();
         let (added, failed) = self.add_files(&files);
