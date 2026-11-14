@@ -6,6 +6,8 @@
 //! "F#m7b5/E"  →  {F#, A, C, E} plus the bass E
 //! ```
 
+use crate::read_note;
+
 const PITCH_CLASSES: u8 = 12;
 /// Semitones from the tonic of the major scale; the key's minor uses the same tones.
 const MAJOR_SCALE: [u8; 7] = [0, 2, 4, 5, 7, 9, 11];
@@ -107,31 +109,9 @@ pub fn in_key(key_fifths: i8, midi: u8) -> bool {
 
 /// Pitch class of a note name at the start of `text` and what follows it.
 fn root_of(text: &str) -> Option<(u8, &str)> {
-    let mut chars = text.chars();
-    let letter = chars.next()?;
-    let natural: u8 = match letter.to_ascii_uppercase() {
-        'C' => 0,
-        'D' => 2,
-        'E' => 4,
-        'F' => 5,
-        'G' => 7,
-        'A' => 9,
-        'B' => 11,
-        _ => return None,
-    };
     // Lower case is no root ("am" could be a word); "H" is German for B and left out.
-    if letter.is_lowercase() {
-        return None;
-    }
-    let rest = chars.as_str();
-    let (shift, rest) = if let Some(r) = rest.strip_prefix(['#', '♯']) {
-        (1, r)
-    } else if let Some(r) = rest.strip_prefix(['b', '♭']) {
-        (PITCH_CLASSES - 1, r)
-    } else {
-        (0, rest)
-    };
-    Some(((natural + shift) % PITCH_CLASSES, rest))
+    let note = read_note(text)?;
+    Some((note.class, note.rest))
 }
 
 #[cfg(test)]
@@ -142,6 +122,23 @@ mod tests {
     const C2: u8 = 36;
     const E2: u8 = 40;
     const G2: u8 = 43;
+
+    #[test]
+    fn roots_take_upper_case_letters_only() {
+        let table = [
+            ("C", Some(0)),
+            ("F#m", Some(6)),
+            ("F♯m", Some(6)),
+            ("Bb", Some(10)),
+            ("B♭", Some(10)),
+            ("c", None),
+            ("am", None),
+            ("H", None),
+        ];
+        for (symbol, root) in table {
+            assert_eq!(Chord::parse(symbol).map(Chord::root), root, "{symbol}");
+        }
+    }
 
     #[test]
     fn chord_symbols_give_their_tones() {

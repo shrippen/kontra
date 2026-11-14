@@ -5,7 +5,8 @@
 //! "Am7/G" ─▶ root A (9), Min7 [0 3 7 10], bass G (7), name "Am7/G"
 //! ```
 
-use super::{Quality, Voicing, OCTAVE};
+use super::{Quality, Voicing};
+use kontra_model::read_note;
 
 /// What a chord is made of, in semitones above its root.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -119,28 +120,13 @@ pub(super) struct Chord {
 /// Pitch class and written form of the note name at the start of `text` ("Bb7" → 10, "Bb"),
 /// and what follows it.
 pub(super) fn note(text: &str) -> Option<(u8, String, &str)> {
-    let mut chars = text.chars();
-    let letter = chars.next()?;
-    let base: i32 = match letter {
-        'C' => 0,
-        'D' => 2,
-        'E' => 4,
-        'F' => 5,
-        'G' => 7,
-        'A' => 9,
-        'B' => 11,
-        _ => return None,
+    let read = read_note(text)?;
+    let mark = match read.shift {
+        1 => "#",
+        -1 => "b",
+        _ => "",
     };
-    let rest = chars.as_str();
-    let (shift, mark, rest) = if let Some(r) = rest.strip_prefix(['#', '♯']) {
-        (1, "#", r)
-    } else if let Some(r) = rest.strip_prefix(['b', '♭']) {
-        (-1, "b", r)
-    } else {
-        (0, "", rest)
-    };
-    let pc = u8::try_from((base + shift).rem_euclid(OCTAVE)).ok()?;
-    Some((pc, format!("{letter}{mark}"), rest))
+    Some((read.class, format!("{}{mark}", read.letter), read.rest))
 }
 
 impl Chord {
@@ -242,6 +228,24 @@ impl Chord {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn note_reads_the_start_of_a_text() {
+        let table = [
+            ("Bb7", Some((10, "Bb", "7"))),
+            ("F♯m", Some((6, "F#", "m"))),
+            ("A♭", Some((8, "Ab", ""))),
+            ("C", Some((0, "C", ""))),
+            ("c", None),
+            ("H", None),
+            ("x", None),
+        ];
+        for (text, want) in table {
+            let got = note(text).map(|(pc, name, rest)| (pc, name, rest.to_string()));
+            let want = want.map(|(pc, name, rest)| (pc, name.to_string(), rest.to_string()));
+            assert_eq!(got, want, "{text}");
+        }
+    }
 
     /// (symbol, root, name kept, tones).
     #[test]
