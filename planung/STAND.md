@@ -9,19 +9,23 @@ In `main`: #331 (Bibliothek baut sich beim Lesen höchstens einmal je Sekunde ne
 Tabelle je ein Tab-Halt, K1; drei Review-Runden: Stopp-Zeile außerhalb der angelegten Zeilen, Wegrollen),
 #333 (QA-Runde J-C12 „Ruf und Antwort“: C1–C4, `kontra-cli render --call-response`), #334 (Seitentasten nach dem
 Wegrollen; Tasten im Tag-Feld bleiben dort); Kante #174 (Screenreader drücken Segmente, Tabs und das „×“ eines
-Hinweises; vorher war der Übungsmodus über AT-SPI nicht wählbar), in Kontra mit #333.
+Hinweises; vorher war der Übungsmodus über AT-SPI nicht wählbar), in Kontra mit #333. Danach #336 (QA-Runde J-B8
+„Abdämpfen“: bestanden, „-0 Cent“ behoben, `kontra-cli render --ring`) und #337 (kein „-0“ in der Live-Ausgabe der
+CLI).
 
 Offen:
 - Neue `pub` (QML) für die nächste Runde: `LibraryTable.focusIndex`, `stopIndex`, `focusRow()`, `pageRows`,
   `pageKey()`, `wrapsRows()`, `within()`, `claimFocus()`; `LibraryTree.focusIndex`, `stopIndex`, `focusEntry()`,
   `wrapsEntries()`, `within()`, `claimFocus()`, `hadFocus`, `focusItem` (die Fokus-Teile kamen in den Review-Runden
   dazu und stehen nicht im PR-Text von #332); `Metas`/`Known` in appcore (#331, `pub(crate)`).
-- Für Runde 23: In der Werkstatt bei 1296×792 bleibt der Tab-Lane etwa 60–65 px, mit und ohne „Ruf und Antwort“
-  (ROADMAP J-C12, offen). Vorschlag: Werkstatt schon unter etwa 820 px als niedriges Fenster behandeln.
 - Kante ohne Press-Aktion für Screenreader (in Kontra nicht benutzt): `KanteAgenda`, `KanteWeekTimeline`,
   `KanteWeekView`, Entfernen in `KanteBandEditor`, `KanteSongMap` (ListItem); `KanteCallout` prüft `enabled` nicht
   (Kleinigkeit aus Kante #174).
-- J-C12 über Mikrofon (der Ruf darf nicht als Treffer zählen) nur im Test geprüft, nicht im Fenster.
+- J-C12 über Mikrofon (der Ruf darf nicht als Treffer zählen) nur im Test geprüft, nicht im Fenster; J-B8 Karl
+  (Mikrofon) nicht gespielt.
+- Runde 22 um zwei Fragen ergänzt: Werkstatt in niedrigen Fenstern (`lane`) und Abdämpfen in der Beobachtung
+  (`mute`, J-B8 M1: bei 0 gedämpften Noten heißt es „Solide“ und „Sitzt“).
+- Bestand aus #337: `kontra-cli tune` („-0.0 ct“) und `kontra-cli check` („-0 ms“) schreiben noch eine negative Null.
 
 ## Übergabe (14.11.2026, Nacht: QA Bibliothek und „Stück wünschen“)
 

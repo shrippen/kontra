@@ -1010,7 +1010,7 @@ gestoppt“ bzw. „0 von 31 … in die Pause geklungen: 31“; unter „Alle No
 
 - [ ] M1 (mittel, P1): Bei 0 von 31 gedämpften Noten sagt die Auswertung „Solide: nichts sticht heraus“ und „Sitzt“,
   obwohl das Ziel der Übung „Pausen zählen und die Saite abdämpfen“ ist. Das Abdämpfen steht nicht in der Rangfolge
-  der Beobachtung (LH-BEW-09). Vorschlag für Runde 23: als Beobachtung nach den Techniken, wenn mehr als ein Viertel
+  der Beobachtung (LH-BEW-09). Frage in Runde 22 (`mute`): als Beobachtung nach den Techniken, wenn mehr als ein Viertel
   der bewerteten Enden in die Pause klang; „Sitzt“ für Übungen mit Ziel Abdämpfen erst ab drei Vierteln rechtzeitig.
 - [x] M2 (niedrig): „-0 Cent“ in der Notenliste (eine Note 0,4 Cent zu tief); jetzt „0 Cent“.
 
@@ -1037,7 +1037,7 @@ erscheint die Tab.
 - Offen (mittel, P4 am Beamer 1280×720, Laptops mit 768 px): In der Werkstatt bei 1296×792 bleibt der Tab-Lane etwa
   60–65 px Höhe, auch ohne „Ruf und Antwort“ (Takte, Zieltempo, Bausteine, Notendichte und Griffbrett nehmen den
   Rest). Die Regel aus #175 (niedriges Fenster) greift erst unter 560 px. Vorschlag: in der Werkstatt schon unter
-  etwa 820 px als niedrig gelten (Griffbrett aus, Zeilen eingeklappt wie bei #175); Entscheidung in Runde 23.
+  etwa 820 px als niedrig gelten (Griffbrett aus, Zeilen eingeklappt wie bei #175); Frage in Runde 22 (`lane`).
 - Mira mit der Maus (Modus über AT-SPI erst mit C1): „Frei spielen“ behält Ruf und Antwort samt Hinweis; Werkstatt
   siehe C4.
 
