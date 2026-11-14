@@ -1154,7 +1154,7 @@ Orca nicht genutzt, statt dessen der AT-SPI-Baum.
   bei 200 % und mehr sowie bei kleinen Auflösungen als Screenshot, dazu Ideen je Seite; mit dem Eigentümer
   entscheiden. Dazu gehört B6 vor dem Abspielen (Vorschlag: Klappe „Einstellungen“).
 - [x] B7 (mittel, Kante 1.51, übernommen #176): Saitenfarben der Tabulatur in Kante Light auf hellem Grund 1,7–2,6:1, am Beamer kaum lesbar.
-- [ ] B8 (niedrig): Nach Seitenwechsel Fokus auf der ScrollView (behoben Runde 22: sie trägt den Seitentitel als Namen, `PageFocusName`, `tst_pagefocusname`); Trenner der Seitenleiste als unbenannte
+- [ ] B8 (niedrig): Nach Seitenwechsel Fokus auf der ScrollView (behoben Runde 22: sie trägt den Seitentitel als Namen, `PageFocusName`, `tst_pagefocusname`; im Fenster über AT-SPI geprüft); Trenner der Seitenleiste als unbenannte
   Listeneinträge (gehört nach Kante: `KanteScope.popup`); Tempo-Regler mit zwei Tab-Halten (behoben 13.11. mit Kante #164); nach „Klinke direkt“ zeigte der Eingang weiter „Automatisch:
   Scarlett Solo …“ (behoben 10.11.: die eingebaute Karte, Test `laptop_jack_takes_the_built_in_card`); nach Esc aus der Präsentation Seitenleiste 216 statt 260 px (behoben 13.11.: Kirigami schaltete
   `collapsible` ab, Test `tst_collapseback`); Saitenbuchstaben und Taktzahlen in der Präsentation etwa 8 px

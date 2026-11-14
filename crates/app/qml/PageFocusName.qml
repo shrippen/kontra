@@ -1,12 +1,12 @@
 import QtQuick
 import org.kde.kirigami as Kirigami
 
-// Names the scroll area of its page with the page title. After a page switch the screen reader
-// lands on that area, and unnamed it said nothing useful (QA 28.10., B8, P7). Main.qml adds one
-// to every page it shows.
+// Names the content item of its page with the page title. After a page switch the focus is
+// there (the scroll view of a ScrollablePage), and unnamed the screen reader said nothing
+// useful (QA 28.10., B8, P7). Main.qml adds one to every page it shows.
 //
 //   page (title "Lessons")
-//     └─ flickable ── Accessible.name = "Lessons"
+//     └─ contentItem (has the focus) ── Accessible.name = "Lessons"
 Item {
     id: root
     visible: false
@@ -14,9 +14,9 @@ Item {
     required property Kirigami.Page page
 
     Binding {
-        when: root.page !== null && root.page.flickable !== null
-        target: root.page ? root.page.flickable.Accessible : null
+        when: root.page.contentItem !== null
+        target: root.page.contentItem ? root.page.contentItem.Accessible : null
         property: "name"
-        value: root.page ? root.page.title : ""
+        value: root.page.title
     }
 }
