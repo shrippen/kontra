@@ -364,56 +364,72 @@ ColumnLayout {
                             width: modelData.width
                             height: KanteStyle.unit(24)
 
+                            // Only the part this column shows: all four in every cell cost the
+                            // library about 100 ms before its first frame (N6).
+                            Loader {
+                                anchors.fill: parent
+                                sourceComponent: cell.modelData.id === "origin" ? originPart
+                                    : cell.modelData.id === "tempo" ? tempoPart
+                                    : cell.modelData.id === "last" ? lastPart : resultPart
+                            }
+
                             // One sign, the word, a colour of its own: the sign and the word tell it
                             // without the colour.
-                            Rectangle {
-                                visible: cell.modelData.id === "origin"
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: Math.min(badge.implicitWidth + KanteStyle.unit(16), parent.width)
-                                height: KanteStyle.unit(24)
-                                color: "transparent"
-                                border.width: 1
-                                border.color: table.tones[line.modelData.origin]
+                            Component {
+                                id: originPart
+                                Item {
+                                    Rectangle {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: Math.min(badge.implicitWidth + KanteStyle.unit(16), parent.width)
+                                        height: KanteStyle.unit(24)
+                                        color: "transparent"
+                                        border.width: 1
+                                        border.color: table.tones[line.modelData.origin]
+                                        QQC2.Label {
+                                            id: badge
+                                            anchors.fill: parent
+                                            anchors.leftMargin: KanteStyle.unit(8)
+                                            anchors.rightMargin: KanteStyle.unit(8)
+                                            verticalAlignment: Text.AlignVCenter
+                                            elide: Text.ElideRight
+                                            text: table.signs[line.modelData.origin] + " " + line.originText
+                                            color: table.tones[line.modelData.origin]
+                                            font: KanteStyle.active ? KanteStyle.labelFont() : font
+                                        }
+                                    }
+                                }
+                            }
+                            Component {
+                                id: tempoPart
                                 QQC2.Label {
-                                    id: badge
-                                    anchors.fill: parent
-                                    anchors.leftMargin: KanteStyle.unit(8)
-                                    anchors.rightMargin: KanteStyle.unit(8)
+                                    horizontalAlignment: Text.AlignRight
+                                    verticalAlignment: Text.AlignVCenter
+                                    text: line.modelData.bpm ? String(Math.round(line.modelData.bpm)) : "—"
+                                    color: KanteStyle.mutedTextColor
+                                }
+                            }
+                            Component {
+                                id: lastPart
+                                QQC2.Label {
                                     verticalAlignment: Text.AlignVCenter
                                     elide: Text.ElideRight
-                                    text: table.signs[line.modelData.origin] + " " + line.originText
-                                    color: table.tones[line.modelData.origin]
-                                    font: KanteStyle.active ? KanteStyle.labelFont() : font
-                                }
-                            }
-                            QQC2.Label {
-                                visible: cell.modelData.id === "tempo"
-                                anchors.fill: parent
-                                horizontalAlignment: Text.AlignRight
-                                verticalAlignment: Text.AlignVCenter
-                                text: line.modelData.bpm ? String(Math.round(line.modelData.bpm)) : "—"
-                                color: KanteStyle.mutedTextColor
-                            }
-                            QQC2.Label {
-                                visible: cell.modelData.id === "last"
-                                anchors.fill: parent
-                                verticalAlignment: Text.AlignVCenter
-                                elide: Text.ElideRight
-                                text: line.last !== "" ? table.lastShort(line.modelData.lastPlayed) : "—"
-                                color: KanteStyle.mutedTextColor
-                            }
-                            RowLayout {
-                                visible: cell.modelData.id === "result"
-                                anchors.fill: parent
-                                spacing: KanteStyle.unit(6)
-                                KanteProgressBar {
-                                    visible: line.played
-                                    Layout.fillWidth: true
-                                    value: line.played ? line.modelData.bestPercent / 100 : 0
-                                }
-                                QQC2.Label {
-                                    text: line.played ? line.modelData.bestPercent + " %" : "—"
+                                    text: line.last !== "" ? table.lastShort(line.modelData.lastPlayed) : "—"
                                     color: KanteStyle.mutedTextColor
+                                }
+                            }
+                            Component {
+                                id: resultPart
+                                RowLayout {
+                                    spacing: KanteStyle.unit(6)
+                                    KanteProgressBar {
+                                        visible: line.played
+                                        Layout.fillWidth: true
+                                        value: line.played ? line.modelData.bestPercent / 100 : 0
+                                    }
+                                    QQC2.Label {
+                                        text: line.played ? line.modelData.bestPercent + " %" : "—"
+                                        color: KanteStyle.mutedTextColor
+                                    }
                                 }
                             }
                         }
@@ -433,44 +449,52 @@ ColumnLayout {
                 }
             }
 
-            KanteTagPicker {
-                id: tagPicker
+            // Tag editor and share line only while in use (N6: in every row they cost the
+            // library about 100 ms before its first frame).
+            Loader {
                 Layout.fillWidth: true
-                visible: line.editing
-                // Rebuilt after a tag was added: the keys go back into the field.
-                Component.onCompleted: if (line.editing) search.forceActiveFocus()
-                Connections {
-                    target: table
-                    function onFocusTagsRequested() {
-                        if (line.editing) {
-                            tagPicker.search.forceActiveFocus()
+                active: line.editing
+                visible: active
+                sourceComponent: KanteTagPicker {
+                    id: tagPicker
+                    // Rebuilt after a tag was added: the keys go back into the field.
+                    Component.onCompleted: if (line.editing) search.forceActiveFocus()
+                    Connections {
+                        target: table
+                        function onFocusTagsRequested() {
+                            if (line.editing) {
+                                tagPicker.search.forceActiveFocus()
+                            }
                         }
                     }
+                    tags: line.modelData.tags
+                    suggestions: line.editing ? JSON.parse(table.ctl.tagsJson()) : []
+                    placeholderText: table.texts.t("library.tags.add")
+                    removeText: table.texts.t("library.tags.remove")
+                    Accessible.name: table.texts.t("library.tags.edit", { title: line.modelData.title })
+                    onEdited: function(tags) { table.ctl.setTags(String(line.modelData.path), JSON.stringify(tags)) }
                 }
-                tags: line.modelData.tags
-                suggestions: line.editing ? JSON.parse(table.ctl.tagsJson()) : []
-                placeholderText: table.texts.t("library.tags.add")
-                removeText: table.texts.t("library.tags.remove")
-                Accessible.name: table.texts.t("library.tags.edit", { title: line.modelData.title })
-                onEdited: function(tags) { table.ctl.setTags(String(line.modelData.path), JSON.stringify(tags)) }
             }
 
             // Audio goes along only when chosen here (J-D2).
-            RowLayout {
-                visible: line.sharing
+            Loader {
                 Layout.fillWidth: true
                 Layout.leftMargin: KanteStyle.unit(16)
-                QQC2.CheckBox {
-                    id: withAudio
-                    enabled: line.hasBacking
-                    text: line.hasBacking ? table.texts.t("package.audio") : table.texts.t("package.audio.none")
-                    Accessible.name: text
-                }
-                Item { Layout.fillWidth: true }
-                KanteButton {
-                    text: table.texts.t("package.save")
-                    emphasis: KanteButton.Emphasis.Primary
-                    onClicked: table.shareRequested(String(line.modelData.path), line.modelData.title, withAudio.checked)
+                active: line.sharing
+                visible: active
+                sourceComponent: RowLayout {
+                    QQC2.CheckBox {
+                        id: withAudio
+                        enabled: line.hasBacking
+                        text: line.hasBacking ? table.texts.t("package.audio") : table.texts.t("package.audio.none")
+                        Accessible.name: text
+                    }
+                    Item { Layout.fillWidth: true }
+                    KanteButton {
+                        text: table.texts.t("package.save")
+                        emphasis: KanteButton.Emphasis.Primary
+                        onClicked: table.shareRequested(String(line.modelData.path), line.modelData.title, withAudio.checked)
+                    }
                 }
             }
         }

@@ -43,6 +43,8 @@ Item {
         onSortChosen: function(s) { root.sort = s }
     }
     SignalSpy { id: opened; target: table; signalName: "openPiece" }
+    // Items one row may build: the row, its cells and the parts it shows.
+    readonly property int rowItems: 80
 
     TestCase {
         name: "LibraryTable"
@@ -68,6 +70,21 @@ Item {
             compare(table.columnTitle(title), "library.col.title ▼")
             var tempo = table.columns.filter(function(c) { return c.id === "tempo" })[0]
             compare(table.columnTitle(tempo), "library.col.tempo")
+        }
+
+        // N6: a row built its tag editor, its share line and all four parts of every cell, shown
+        // or not; 20 rows cost about 200 ms before the library's first frame.
+        function test_aRowBuildsOnlyWhatItShows() {
+            var count = function(item) {
+                var n = 1
+                for (var i = 0; i < item.children.length; ++i) {
+                    n += count(item.children[i])
+                }
+                return n
+            }
+            var row = findChild(table, "rows").itemAtIndex(0)
+            verify(row !== null)
+            verify(count(row) <= rowItems, "a row has " + count(row) + " items")
         }
 
         function test_groupHeadingHasTheCount() {
