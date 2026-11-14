@@ -1,0 +1,121 @@
+# What is over a structure limit today (tools/structure-check.py). An entry may shrink,
+# never grow; a raised or new entry needs its reason in the PR. Rewrite with --update.
+# Lines: exclude<TAB>glob | path<TAB>function or - for the file<TAB>metric=value ...
+exclude	crates/app/qml/Kante/*
+crates/app/qml/PracticePage.qml	-	lines=1200
+crates/app/qml/SettingsPage.qml	-	lines=838
+crates/app/src/args.rs	parse	ccn=37
+crates/app/src/bridge.rs	-	lines=1790
+crates/app/src/bridge.rs	apply	ccn=28 length=126
+crates/app/src/bridge.rs	default	length=215
+crates/app/src/bridge.rs	open_file	length=857
+crates/appcore/src/bundled.rs	exercise_spec	ccn=29
+crates/appcore/src/bundled.rs	exercise_title	length=83
+crates/appcore/src/effects.rs	edit_effects	ccn=28
+crates/appcore/src/learn.rs	-	lines=1131
+crates/appcore/src/level.rs	state_at	nesting=5
+crates/appcore/src/lib.rs	-	lines=2817
+crates/appcore/src/lib.rs	ear_json	ccn=20 length=111
+crates/appcore/src/lib.rs	load	length=96
+crates/appcore/src/lib.rs	tick	ccn=19 length=87
+crates/appcore/src/package.rs	open_package	ccn=16
+crates/appcore/src/stems.rs	stems_json	ccn=18 nesting=5
+crates/appcore/src/store.rs	-	lines=979
+crates/appcore/src/summary.rs	note_details	ccn=24 length=128
+crates/appcore/src/summary.rs	summary_json	length=106
+crates/appcore/src/tests/coaching.rs	-	lines=1197
+crates/appcore/src/tests/exercises.rs	generator_offers_patterns_fingers_and_meters	length=164
+crates/appcore/src/tests/library.rs	-	lines=1196
+crates/appcore/src/tests/library.rs	package_moves_a_piece_to_another_profile	length=94
+crates/appcore/src/tests/library_view.rs	-	lines=1125
+crates/cli/src/check.rs	run	ccn=19
+crates/cli/src/korpus.rs	-	lines=822
+crates/cli/src/korpus.rs	check	ccn=23 length=100
+crates/cli/src/korpus.rs	measure	length=86
+crates/cli/src/korpus.rs	run	ccn=21 length=87
+crates/cli/src/live.rs	practice	ccn=17 length=93
+crates/cli/src/main.rs	main	ccn=16
+crates/content/src/build.rs	arrangement	length=87
+crates/content/src/exercise.rs	-	lines=2447
+crates/content/src/exercise.rs	hits	ccn=16 length=81
+crates/content/src/exercise.rs	key	ccn=20
+crates/content/src/exercise.rs	one_pass	length=87
+crates/content/src/exercise.rs	write	length=125
+crates/content/src/exercise/chord.rs	suffix	ccn=16
+crates/content/src/exercise/labels.rs	rhythm_label	ccn=20
+crates/content/src/exercise/piece_render.rs	-	lines=831
+crates/content/src/exercise/piece_render.rs	render_checked	ccn=19 length=127
+crates/content/src/exercise/piece_render.rs	segment_tones	ccn=17
+crates/content/src/exercise/plan.rs	bundled_specs	length=193
+crates/content/src/exercise/song.rs	built	length=138
+crates/content/src/gp/binary.rs	-	lines=904
+crates/content/src/gp/binary.rs	bar_head	ccn=32
+crates/content/src/gp/binary.rs	beat	ccn=29
+crates/content/src/gp/binary.rs	beat_effects	ccn=19
+crates/content/src/gp/binary.rs	mix_table	ccn=23
+crates/content/src/gp/binary.rs	note	ccn=26
+crates/content/src/gp/binary.rs	note_effects	ccn=24
+crates/content/src/gp/binary.rs	part	ccn=22
+crates/content/src/gp/binary.rs	song	ccn=37
+crates/content/src/gp/gpif.rs	bar_notes	nesting=5
+crates/content/src/lesson.rs	parse	ccn=19
+crates/content/src/lesson/check.rs	problems	ccn=25 length=91 nesting=5
+crates/content/src/lesson/pack.rs	-	lines=902
+crates/content/src/lesson/pack.rs	problems	ccn=16
+crates/content/src/lesson/parse.rs	-	lines=1020
+crates/content/src/lesson/parse.rs	body	ccn=22
+crates/content/src/lesson/parse.rs	directive	ccn=31
+crates/content/src/lesson/parse.rs	question	ccn=19
+crates/content/src/lib.rs	import_bytes	ccn=16
+crates/content/src/midi.rs	parse	ccn=24 length=123 nesting=5
+crates/content/src/mscx.rs	voice	ccn=23 length=81
+crates/content/src/musicxml.rs	-	lines=832
+crates/content/src/musicxml.rs	chord_suffix	ccn=25
+crates/content/src/musicxml.rs	measure	ccn=28 length=104
+crates/content/src/tab.rs	solve	nesting=5
+crates/content/src/xml.rs	parse	ccn=21
+crates/content/tests/common/mod.rs	-	lines=995
+crates/content/tests/common/mod.rs	gp5	ccn=24 length=118
+crates/content/tests/common/mod.rs	musicxml	length=230
+crates/content/tests/common/mod.rs	write_beat	ccn=16
+crates/drivers/src/audio.rs	-	lines=1166
+crates/drivers/src/pipewire.rs	read	ccn=17 length=87
+crates/drivers/src/plugins/clap.rs	block	length=88
+crates/drivers/src/plugins/clap.rs	open	length=89
+crates/drivers/src/plugins/host.rs	handle	length=98
+crates/drivers/src/plugins/vst3.rs	-	lines=1110
+crates/dsp/src/echo.rs	process	length=85
+crates/dsp/src/synth.rs	phrase	ccn=21 length=93
+crates/dsp/src/tracker.rs	-	lines=1428
+crates/dsp/src/tracker.rs	follow	ccn=16
+crates/engine/src/input.rs	-	lines=1082
+crates/engine/src/input.rs	start_device	length=142
+crates/engine/src/input/tests.rs	-	lines=815
+crates/engine/src/korpus.rs	-	lines=1199
+crates/engine/src/korpus.rs	compare	length=108
+crates/engine/src/korpus.rs	corpus_meets_requirements	length=91
+crates/engine/src/korpus.rs	generate	ccn=19 length=100
+crates/engine/src/korpus.rs	render_techniques	nesting=6
+crates/engine/src/korpus/double.rs	generate_double_stops	nesting=6
+crates/engine/src/player.rs	-	lines=833
+crates/engine/src/player.rs	start	length=99
+crates/engine/src/plugin_chain.rs	-	lines=833
+crates/engine/tests/plugin_chain.rs	-	lines=951
+crates/session/src/check.rs	check_takes	length=89
+crates/session/src/live.rs	-	lines=1062
+crates/session/src/matcher.rs	score	ccn=17
+crates/session/src/practice.rs	-	lines=1179
+crates/session/src/practice.rs	handle	ccn=16
+crates/session/src/rig.rs	-	lines=810
+crates/session/src/session.rs	-	lines=1153
+crates/session/src/session.rs	on_note	ccn=21 length=89
+crates/session/src/summary.rs	-	lines=1192
+crates/session/src/summary.rs	observation	length=87
+crates/session/src/summary.rs	one_observation_with_enough_evidence	length=98
+scripts/korpus-import.py	read_midi_notes	ccn=21 nesting=5
+scripts/qactl.py	main	ccn=21
+tests/journeys/b1_song.rs	play_through_a_setlist	length=83
+tests/journeys/c5_techniques.rs	techniques_are_judged_apart_from_the_hit_rate	length=106
+tests/journeys/c6_probe.rs	probe_compares_with_the_workshop	length=81
+tests/journeys/d1_backing.rs	backing_beats_slow_and_transposed	length=107
+tests/journeys/d1_backing.rs	bass_removed_once_and_kept	length=84
