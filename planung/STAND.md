@@ -19,6 +19,8 @@ in der CLI 10 statt 30 ms nach LH-NF-02; Messwerte unverändert).
   „Datei öffnen“ (`LibraryPage.qml`) hat eine eigene Endungsliste ohne `*.kar`; `.xml` behandeln Ordner-Import,
   verknüpfte Ordner und Quellenliste verschieden; `kontra-cli korpus check` zeigt die Gründe aus
   `requirement_misses` nicht.
+- Sicherung „Ersetzen“ mit anderer Stimmung: `import_data` setzt die Einstellungen über `remix`, nicht `retune`; ein
+  geladenes Stück und ein laufendes Stimmgerät bleiben auf den alten Saiten (LH-TUN-02; Review #357).
 
 ## Übergabe (14.11.2026, Vormittag bis Abend: Runde 22 umgesetzt, Seitenaufbau)
 
