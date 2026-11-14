@@ -3,6 +3,26 @@
 Übergabe zwischen Sitzungen. Stand: 2026-11-14. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
 
+## Übergabe (14.11.2026, Vormittag: Runde 22 umgesetzt, Seitenaufbau)
+
+In `main`: #339 (Antworten Runde 22 in der Roadmap), #340 (Werkstatt unter 820 px niedrig), #341 (Wunschstücke mit
+laufender Nummer), #342 (B8: Seitentitel als Name des fokussierten Bereichs, im Fenster über AT-SPI geprüft), #343
+(Beobachtung „Abdämpfen“; Übungen mit Ziel Abdämpfen sitzen erst ab drei Vierteln; `Run::muted_in_time`), #344
+(Bibliothek öffnet schneller), #345 (Lernen baut den Kurs einmal). Messwerte unter N6 in der Roadmap.
+
+Offen:
+- Neue `pub` für die nächste Runde: `PageFocusName.page` (QML, #342); `Observation::Muting`, `Run::muted_in_time`
+  (#343); `render_piece_numbered` (#341); `pub(crate)` `Core::muting_sits`, `Core::loaded_goal_is_muting` (#343).
+- `mute`: Das Ziel „Abdämpfen“ (`rests`) haben die Staccato-Übungen 151/152 und alle Übungen mit Pausen; soll es nur
+  für Staccato gelten, braucht es ein eigenes Ziel. J-B8 und J-C12 nicht im Fenster neu gespielt.
+- N6 weiter: Lernen (QML, 15 Kapitel), Übungen (Generator), Griffbrett, Start; Messung mit Zeitstempeln in
+  `Main.show()` (`console.warn`, `QT_FORCE_STDERR_LOGGING=1`, sonst landet die Ausgabe im Journal), Release-Build in
+  der qa-session, Klicks über xdotool. Die Last anderer Sitzungen (Load bis 28) verfälscht die Werte.
+- Kante (Bestand): `KanteTableHeader.qml:58` warnt „Cannot read property 'verticalCenter' of null“, wenn sich die
+  Spalten ändern (Bibliothek schmal/breit, `tst_librarytable`).
+- Hardware: Claude darf das Scarlett nachts allein nutzen (Runde 22, ohne Kabel vom Ausgang in den Eingang); N5
+  und die Messungen unter PipeWire stehen noch aus.
+
 ## Übergabe (14.11.2026, später in der Nacht: Tastatur in der Bibliothek, Ruf und Antwort)
 
 In `main`: #331 (Bibliothek baut sich beim Lesen höchstens einmal je Sekunde neu auf, Q14), #332 (Baum und
@@ -23,8 +43,7 @@ Offen:
   (Kleinigkeit aus Kante #174).
 - J-C12 über Mikrofon (der Ruf darf nicht als Treffer zählen) nur im Test geprüft, nicht im Fenster; J-B8 Karl
   (Mikrofon) nicht gespielt.
-- Runde 22 beantwortet (14.11. morgens, ROADMAP „Entscheidungen Runde 22“); Umsetzung von `variant_no`, `b8`,
-  `lane` und `mute` läuft, danach Seitenaufbau (N6).
+- Runde 22 beantwortet und umgesetzt (siehe oben).
 - Bestand aus #337: `kontra-cli tune` („-0.0 ct“) und `kontra-cli check` („-0 ms“) schreiben noch eine negative Null.
 
 ## Übergabe (14.11.2026, Nacht: QA Bibliothek und „Stück wünschen“)
@@ -39,8 +58,8 @@ Offen:
 - Runde 22 beantwortet (siehe oben).
 - Nur in der QA-Sitzung: Der Qt-Ordnerdialog ohne Portal nimmt den markierten Unterordner statt des geöffneten.
 - Bestand aus Review #327: weitere `if` ohne Klammern in `PieceWish.qml` (aus #320).
-- Die Punkte der Übergabe vom 13.11. unten gelten weiter (Hardware, Geräte im GUI-Thread, Seitenaufbau, B8;
-  in der ROADMAP N5, N6 und B8).
+- Die Punkte der Übergabe vom 13.11. unten gelten weiter (Hardware, Geräte im GUI-Thread, Seitenaufbau; in der
+  ROADMAP N5 und N6).
 
 ## Übergabe (13.11.2026, Nacht: Übergänge, Mixer als Glasebene, FPS)
 
@@ -74,9 +93,7 @@ Offen:
   `grown`, `layoutSpacing`, `layoutMinBarWidth`, `KanteGlassPanel` mit Tokens `glass`, `glassDense`,
   `shape.glassBlur`.
 - Eigentümer bestätigen: der Mixer deckt bis 60 % der Notenfläche ab (#306).
-- Eigentümer entscheiden (B8, P7): Nach einem Seitenwechsel hat die Bildlauffläche der Seite den Fokus (ohne Namen
-  für den Screenreader; das erste Tab führt zum ersten Bedienelement). Vorschlag: Überschrift der Seite fokussieren
-  oder der Fläche den Seitentitel als Namen geben.
+- B8 (P7): entschieden in Runde 22, umgesetzt mit #342.
 - Neue `pub` seit #312: `CollapseBack.drawer` (QML), `Core::list_devices_early` (#313); Kante `labelScale`.
 
 ## Übergabe (12.11.2026: eine Audio-Engine über alle Modi)

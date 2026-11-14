@@ -1150,8 +1150,11 @@ im GUI-Thread: Neuauslegungen je Bild und das Auflisten der Audiogeräte.
 - [ ] N6 (niedrig): Aufbau der Seiten 150–300 ms (Lernen, Griffbrett, Üben, Einstellungen); Messwerte schwanken
   stark mit der Last des Rechners (Load 10–16 bei den Wiederholungen).
   14.11. (Runde 22, release, qa-session, Load 6–9, Klick bis erstes Bild): Bibliothek 340–420 → 220–250 ms (#344:
-  Zeilen bauen nur, was sie zeigen, 177 → 67 Elemente je Zeile; leeres Lesen meldet keine Änderung). Weiter offen:
-  Lernen 310–400, Übungen 260–300, Griffbrett 160–190, Start 120–140 ms.
+  Zeilen bauen nur, was sie zeigen, 177 → 67 Elemente je Zeile; leeres Lesen meldet keine Änderung). Lernen: der
+  Kurs wurde je Kapitel neu gebaut, `learn_json` 35 → 4,6 ms (#345); der Rest (etwa 180 ms) ist QML, 15 Kapitel mit
+  Pfad und Karten. Übungen: Daten 1,5 ms; der Generator kostet etwa 90 ms, ein `Loader` mit `asynchronous` brachte
+  nichts Messbares (Median 221 gegen 216 ms, je 8 Wechsel), nicht übernommen. Weiter offen: Lernen 300–350,
+  Übungen 210–260, Griffbrett 160–190, Start 120–140 ms.
 - Nicht gemessen: am echten System mit PipeWire; Kontra mit sichtbarem Fenster.
 
 ### QA-Runde 28.10.2026 (J-B5 und J-F1 erneut, nach Runde 16)
