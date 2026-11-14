@@ -2,7 +2,7 @@
 //! techniques and before the timing; only from enough judged ends, only above a quarter.
 
 use kontra_model::{Arrangement, Instrument, Technique};
-use kontra_session::{MutingTally, Observation, Pocket, Summary, TechniqueTally};
+use kontra_session::{run_from, MutingTally, Observation, Pocket, Summary, TechniqueTally};
 
 fn run() -> Summary {
     let arrangement = Arrangement::new("Run", Instrument::default_bass());
@@ -72,4 +72,24 @@ fn a_weak_technique_ranks_above_muting() {
         s.observation(Pocket::Free),
         Some(Observation::Technique { .. })
     ));
+}
+
+// Review #343: the stored run keeps the share stopped in time, none when nothing was judged.
+#[test]
+fn a_run_keeps_the_share_stopped_in_time() {
+    let mut s = run();
+    s.muting = MutingTally {
+        judged: 8,
+        in_time: 6,
+        late: 1,
+        rang_on: 1,
+        ..MutingTally::default()
+    };
+    assert_eq!(
+        run_from(&s, 60.0, 1.0, "song", None, 1).muted_in_time,
+        Some(0.75)
+    );
+
+    s.muting = MutingTally::default();
+    assert_eq!(run_from(&s, 60.0, 1.0, "song", None, 1).muted_in_time, None);
 }

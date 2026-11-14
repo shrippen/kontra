@@ -116,8 +116,13 @@ fn the_list_masters_a_muting_exercise_on_muted_ends() {
 
     core.progress_store().record(&a, run(Some(0.0))).unwrap();
     assert!(!mastered(&core), "no end stopped: not mastered");
+    core.progress_store().record(&a, run(Some(0.74))).unwrap();
+    assert!(!mastered(&core), "under three quarters: not mastered");
+    core.progress_store().record(&a, run(Some(0.75))).unwrap();
+    assert!(mastered(&core), "three quarters: mastered");
 
     // Ends not judged (microphone, old runs): not blocked.
+    let _ = std::fs::remove_dir_all(dir.join("progress"));
     core.progress_store().record(&a, run(None)).unwrap();
     assert!(mastered(&core));
     let _ = std::fs::remove_dir_all(dir);

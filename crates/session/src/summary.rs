@@ -485,10 +485,10 @@ impl Summary {
     }
 
     /// The observation for this run, picked in a fixed order, most specific first: a weak
-    /// technique, ends that rang into the rest, notes played beside the window, many notes missed, a missed timing aim
-    /// (`pocket`), a lean (only without an aim), else solid. `None` below `OBSERVE_MIN_NOTES`
-    /// (one missed slide is no diagnosis), and below `OBSERVE_MIN_HITS` hits when none of the
-    /// first three applies.
+    /// technique, ends that rang into the rest, notes played beside the window, many notes
+    /// missed, a missed timing aim (`pocket`), a lean (only without an aim), else solid. `None`
+    /// below `OBSERVE_MIN_NOTES` (one missed slide is no diagnosis), and below
+    /// `OBSERVE_MIN_HITS` hits when none of the first four applies.
     pub fn observation(&self, pocket: Pocket) -> Option<Observation> {
         if self.judged < OBSERVE_MIN_NOTES {
             return None;
