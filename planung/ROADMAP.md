@@ -1012,8 +1012,8 @@ Modell; die Antwort ergab ein Stück unter „Generiert“ mit Tempo 104.
 - [x] Q10 (niedrig): Fehler des Anbieters standen als Hinweis statt als Warnung (`KanteCallout.Kind.Warning` gibt es
   nicht, richtig ist `Warn`).
 - [ ] Q11 (niedrig): Der Titel trägt „Variante 1794…“ (Sekunden als Seed) – eine Zahl ohne Bedeutung für Jens.
-- [ ] Q12 (niedrig): „Anbieter einrichten …“ legt den Anbieter-Dialog über den Wunsch-Dialog; Kopf und „Schließen“
-  des unteren schauen heraus.
+- [x] Q12 (niedrig): „Anbieter einrichten …“ legt den Anbieter-Dialog über den Wunsch-Dialog; Kopf und „Schließen“
+  des unteren schauen heraus. Jetzt tritt der Wunsch zur Seite und kommt mit seinem Text zurück.
 
 Dazu Einstellungen bei 200 % (P7): Q13 (mittel) die Abschnittsleiste schnitt „Tastenkürzel“ zu „Taste…“ ab, ohne
 Hinweis auf mehr Abschnitte (Kante `KanteTabBar`, Pfeile an den Seiten in Kante).

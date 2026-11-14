@@ -25,6 +25,7 @@ Item {
             readonly property QtObject ctl: QtObject {
                 property string llmProvider: "custom"
                 property string llmModel: "fake"
+                property string llmBaseUrl: ""
                 property string llmModelsJson: "[]"
                 property bool llmBusy: false
                 property bool llmKeyBusy: false
@@ -83,6 +84,25 @@ Item {
             compare(callout.text, "bars: 17 bars, at most 16")
             verify(dialog.visible, "the wish stays for another try")
             compare(win.shown, "")
+        }
+
+        // QA 14.11. (Q12): the provider dialog lay over the wish dialog, whose head and Close
+        // stuck out below it. Now the wish steps aside and comes back with its text.
+        function test_providerSettingsTakeThePlaceOfTheWish() {
+            var win = createTemporaryObject(windowComponent, root)
+            win.ctl.llmModel = ""
+            var dialog = win.dialog()
+            dialog.open()
+            tryCompare(dialog, "opened", true)
+            findChild(dialog, "wishText").text = "Motown in A"
+            findChild(dialog, "wishModelLink").clicked()
+            var settings = findChild(win, "llmSettings")
+            tryCompare(settings, "opened", true)
+            tryCompare(dialog, "visible", false)
+
+            settings.close()
+            tryCompare(dialog, "opened", true)
+            compare(findChild(dialog, "wishText").text, "Motown in A")
         }
     }
 }

@@ -48,9 +48,23 @@ KanteDialog {
     }
 
     onOpened: {
-        wishField.text = ""
-        failure = ""
+        // Back from the provider settings: the wish typed so far stays.
+        if (inSettings) {
+            inSettings = false
+        } else {
+            wishField.text = ""
+            failure = ""
+        }
         refreshProvider()
+    }
+
+    // The provider settings take the wish dialog's place instead of lying over it (QA 14.11.:
+    // the head and Close of this one stuck out below); closing them brings the wish back.
+    property bool inSettings: false
+    function openSettings() {
+        inSettings = true
+        close()
+        settingsDialog.open()
     }
     Connections {
         target: dialog.ctl
@@ -96,7 +110,7 @@ KanteDialog {
             autoHide: false
             KanteButton {
                 text: dialog.texts.t("wish.settings.link")
-                onClicked: settingsDialog.open()
+                onClicked: dialog.openSettings()
             }
         }
 
@@ -107,8 +121,9 @@ KanteDialog {
             text: dialog.texts.t("wish.no.model")
             autoHide: false
             KanteButton {
+                objectName: "wishModelLink"
                 text: dialog.texts.t("wish.settings.link")
-                onClicked: settingsDialog.open()
+                onClicked: dialog.openSettings()
             }
         }
 
@@ -178,5 +193,12 @@ KanteDialog {
         }
     }
 
-    LlmSettings { id: settingsDialog }
+    LlmSettings {
+        id: settingsDialog
+        onClosed: {
+            if (dialog.inSettings) {
+                dialog.open()
+            }
+        }
+    }
 }
