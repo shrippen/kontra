@@ -58,8 +58,8 @@ Offen:
 - Runde 22 beantwortet (siehe oben).
 - Nur in der QA-Sitzung: Der Qt-Ordnerdialog ohne Portal nimmt den markierten Unterordner statt des geöffneten.
 - Bestand aus Review #327: weitere `if` ohne Klammern in `PieceWish.qml` (aus #320).
-- Die Punkte der Übergabe vom 13.11. unten gelten weiter (Hardware, Geräte im GUI-Thread, Seitenaufbau, B8;
-  in der ROADMAP N5, N6 und B8).
+- Die Punkte der Übergabe vom 13.11. unten gelten weiter (Hardware, Geräte im GUI-Thread, Seitenaufbau; in der
+  ROADMAP N5 und N6).
 
 ## Übergabe (13.11.2026, Nacht: Übergänge, Mixer als Glasebene, FPS)
 
