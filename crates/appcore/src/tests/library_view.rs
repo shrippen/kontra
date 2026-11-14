@@ -157,6 +157,7 @@ fn a_moved_file_keeps_its_progress() {
     let a = core.arrangement().unwrap().clone();
     let run = kontra_session::Run {
         spread_ms: None,
+        muted_in_time: None,
         bars: Vec::new(),
         finished_unix: 5_000,
         practice_s: 60.0,
@@ -441,6 +442,7 @@ fn the_result_column_sorts_by_the_best_run() {
                 artist: String::new(),
                 runs: vec![kontra_session::Run {
                     spread_ms: None,
+                    muted_in_time: None,
                     bars: Vec::new(),
                     finished_unix: 10,
                     practice_s: 1.0,
@@ -689,6 +691,7 @@ fn old_pieces_move_to_their_folder() {
     assert_ne!(a.title, a_piece.title);
     let run = kontra_session::Run {
         spread_ms: None,
+        muted_in_time: None,
         bars: Vec::new(),
         finished_unix: 5_000,
         practice_s: 60.0,
@@ -963,6 +966,7 @@ fn a_moved_piece_is_found_again() {
     let a = core.arrangement().unwrap().clone();
     let run = kontra_session::Run {
         spread_ms: None,
+        muted_in_time: None,
         bars: Vec::new(),
         finished_unix: 5_000,
         practice_s: 60.0,

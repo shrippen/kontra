@@ -71,3 +71,54 @@ fn a_muting_exercise_sits_on_muted_ends() {
     assert!(summary(&core, tally(0, 31))["next"].is_object());
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Runde 22 (`mute`): the exercise list follows the same rule as the summary: a muting
+/// exercise is mastered only from three quarters of the ends stopped in time.
+#[test]
+fn the_list_masters_a_muting_exercise_on_muted_ends() {
+    let dir = temp_dir("mutelist");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.update_settings(|s| s.language = Some("de".into()));
+    let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+    let path = levels
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|l| l["items"].as_array().unwrap())
+        .find(|i| i["title"].as_str().unwrap().contains("Staccato"))
+        .map(|i| i["path"].as_str().unwrap().to_string())
+        .unwrap();
+    core.open(Path::new(&path)).unwrap();
+    let a = core.arrangement().unwrap().clone();
+    let run = |muted_in_time| kontra_session::Run {
+        finished_unix: 1,
+        practice_s: 60.0,
+        speed: 1.0,
+        hit_rate: 1.0,
+        mode: "song".into(),
+        section: None,
+        hardest_bars: Vec::new(),
+        hesitant_bars: Vec::new(),
+        spread_ms: Some(10.0),
+        muted_in_time,
+        bars: Vec::new(),
+    };
+    let mastered = |core: &Core| {
+        let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
+        let mut items = levels
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|l| l["items"].as_array().unwrap());
+        let item = items.find(|i| i["path"] == path.as_str()).unwrap();
+        item["mastered"] == true
+    };
+
+    core.progress_store().record(&a, run(Some(0.0))).unwrap();
+    assert!(!mastered(&core), "no end stopped: not mastered");
+
+    // Ends not judged (microphone, old runs): not blocked.
+    core.progress_store().record(&a, run(None)).unwrap();
+    assert!(mastered(&core));
+    let _ = std::fs::remove_dir_all(dir);
+}

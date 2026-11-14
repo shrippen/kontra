@@ -92,7 +92,11 @@ impl Core {
                                 .map_or(String::new(), |g| format!("goal.{g}")),
                             "path": f.to_string_lossy(),
                             "best": best,
-                            "mastered": self.sits(f, self.bundled_judging(&stem)),
+                            "mastered": self.sits(
+                                f,
+                                self.bundled_judging(&stem),
+                                bundled_goal_key(&stem) == Some(MUTING_GOAL),
+                            ),
                         })
                     })
                     .collect();
@@ -181,6 +185,11 @@ impl Core {
             || f64::from(muting.in_time) >= MUTING_SITS_SHARE * f64::from(muting.judged)
     }
 
+    /// `muting_sits` for a stored run: its share of ends stopped in time, none when not judged.
+    fn muted_share_sits(muted_in_time: Option<f64>) -> bool {
+        muted_in_time.is_none_or(|share| share >= MUTING_SITS_SHARE)
+    }
+
     /// Whether the loaded bundled exercise trains muting (goal "rests", LH-BEW-10).
     pub(crate) fn loaded_goal_is_muting(&self) -> bool {
         let stem = self
@@ -192,13 +201,14 @@ impl Core {
     }
 
     /// Whether any run of the piece at `path` sits (`run_sits`).
-    fn sits(&self, path: &Path, judging: Judging) -> bool {
+    fn sits(&self, path: &Path, judging: Judging, muting_goal: bool) -> bool {
         self.library
             .entry(path)
             .and_then(|e| self.progress_store().load_id(&e.song_id))
             .is_some_and(|p| {
                 p.runs
                     .iter()
+                    .filter(|r| !muting_goal || Self::muted_share_sits(r.muted_in_time))
                     .any(|r| Self::run_sits(judging, r.hit_rate, r.spread_ms))
             })
     }

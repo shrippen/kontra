@@ -1014,8 +1014,8 @@ gestoppt“ bzw. „0 von 31 … in die Pause geklungen: 31“; unter „Alle No
   der bewerteten Enden in die Pause klang; „Sitzt“ für Übungen mit Ziel Abdämpfen erst ab drei Vierteln rechtzeitig.
   Entschieden („beides“) und umgesetzt: Beobachtung „Abdämpfen“ nach den Techniken (ab 4 bewerteten Enden, mehr als ein
   Viertel in die Pause geklungen); „Sitzt · als Nächstes“ bei Ziel „rests“ (151, 152 und Pausen-Übungen) erst ab
-  drei Vierteln rechtzeitig, nicht bewertete Enden sperren nicht. Die Übungsliste („gemeistert“) kennt die Enden noch
-  nicht (Run speichert sie nicht).
+  drei Vierteln rechtzeitig, nicht bewertete Enden sperren nicht. Die Übungsliste („gemeistert“) und der Start-
+  bildschirm folgen derselben Regel über `Run::muted_in_time` (None: nicht bewertet oder alter Lauf, sperrt nicht).
 - [x] M2 (niedrig): „-0 Cent“ in der Notenliste (eine Note 0,4 Cent zu tief); jetzt „0 Cent“.
 
 ### QA-Runde 14.11.2026 (J-C12 Ruf und Antwort, Nacht)

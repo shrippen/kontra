@@ -68,6 +68,7 @@ fn home_summary() {
     let a = core.arrangement().unwrap().clone();
     let run = |unix, rate| Run {
         spread_ms: None,
+        muted_in_time: None,
         finished_unix: unix,
         practice_s: 120.0,
         speed: 1.0,
@@ -84,6 +85,7 @@ fn home_summary() {
             &a,
             Run {
                 spread_ms: Some(12.0),
+                muted_in_time: None,
                 ..run(now - 10 * day, 0.95)
             },
         )
@@ -130,6 +132,7 @@ fn the_pulse_sits_on_a_small_spread() {
     let a = core.arrangement().unwrap().clone();
     let run = |spread| Run {
         spread_ms: Some(spread),
+        muted_in_time: None,
         finished_unix: 1,
         practice_s: 60.0,
         speed: 1.0,
@@ -235,6 +238,7 @@ fn chain_cuts_phrases_where_the_player_hesitates() {
         hardest_bars: Vec::new(),
         hesitant_bars: hesitant,
         spread_ms: None,
+        muted_in_time: None,
         bars: Vec::new(),
     };
 
@@ -674,6 +678,7 @@ fn summary_compares_probe_with_workshop() {
         hardest_bars: Vec::new(),
         hesitant_bars: Vec::new(),
         spread_ms: Some(11.0),
+        muted_in_time: None,
         bars: Vec::new(),
     };
     core.progress_store().record(&a, run).unwrap();
@@ -760,6 +765,7 @@ fn home_offers_a_probe() {
         hardest_bars: Vec::new(),
         hesitant_bars: Vec::new(),
         spread_ms: None,
+        muted_in_time: None,
         bars: Vec::new(),
     };
     let offer = |core: &Core| {
@@ -806,6 +812,7 @@ fn probe_offer_skips_what_it_cannot_open() {
         hardest_bars: Vec::new(),
         hesitant_bars: Vec::new(),
         spread_ms: None,
+        muted_in_time: None,
         bars: Vec::new(),
     };
     let store = core.progress_store();
@@ -849,6 +856,7 @@ fn home_offers_yesterdays_spots() {
     let a = core.arrangement().unwrap().clone();
     let run = |unix, bars: &[u32]| Run {
         spread_ms: None,
+        muted_in_time: None,
         finished_unix: unix,
         practice_s: 60.0,
         speed: 1.0,
@@ -930,6 +938,7 @@ fn home_names_the_streak_when_switched_on() {
         hardest_bars: Vec::new(),
         hesitant_bars: Vec::new(),
         spread_ms: None,
+        muted_in_time: None,
         bars: Vec::new(),
     };
     let store = core.progress_store();
@@ -972,6 +981,7 @@ fn home_brings_hard_passages_back() {
         hardest_bars: bars.to_vec(),
         hesitant_bars: Vec::new(),
         spread_ms: None,
+        muted_in_time: None,
         bars: Vec::new(),
     };
     let repeat = |core: &Core, now| {
@@ -1082,6 +1092,7 @@ fn probe_counts_in_a_piece_with_repeats() {
         },
         hesitant_bars: Vec::new(),
         spread_ms: None,
+        muted_in_time: None,
         bars: Vec::new(),
     };
     let repeat = |core: &Core, now| {
@@ -1162,6 +1173,7 @@ fn probe_over_a_jump_back_counts() {
         },
         hesitant_bars: Vec::new(),
         spread_ms: None,
+        muted_in_time: None,
         bars: Vec::new(),
     };
     let repeat = |core: &Core, now| {
