@@ -341,7 +341,11 @@ impl Core {
     /// bundled exercise's tempo from its plan, else the file name alone.
     fn unopened_row(&self, path: PathBuf, places: &Places, played: &Played) -> Row {
         let row = self.file_row(path, places);
-        if let Some(bpm) = self.bundled_bpm(&row.path) {
+        // Only an exercise can be bundled; asking costs file system calls (`exercises_dir`).
+        let bundled = (row.origin == Origin::Exercise)
+            .then(|| self.bundled_bpm(&row.path))
+            .flatten();
+        if let Some(bpm) = bundled {
             return Row {
                 bpm: Some(bpm),
                 ..row
@@ -404,9 +408,11 @@ impl Core {
         let stem = path
             .file_stem()
             .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
-        let title = self
-            .bundled_title(&stem)
-            .filter(|_| origin == Origin::Exercise)
+        // Only an exercise has a plan title; building the plan for every file of a large folder
+        // cost most of a refresh.
+        let title = (origin == Origin::Exercise)
+            .then(|| self.bundled_title(&stem))
+            .flatten()
             .unwrap_or(stem);
         Row {
             title_key: title.to_lowercase(),

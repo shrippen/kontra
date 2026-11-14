@@ -1056,3 +1056,26 @@ fn the_cache_forgets_unlinked_files() {
         .contains("song.musicxml"));
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// A large folder read in many chunks rebuilt the whole page for each (3000 rows: 30–90 ms in
+/// the GUI thread every few hundred ms while reading). The page hears of it at most once a
+/// second, and once more when the read ends.
+#[test]
+fn reading_tells_the_page_at_most_once_a_second() {
+    let dir = temp_dir("meta-throttle");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let (tell, chunks) = std::sync::mpsc::channel();
+    core.feed_meta(chunks);
+
+    tell.send(Vec::new()).unwrap();
+    assert!(core.library_changed(), "the first chunk is told");
+    tell.send(Vec::new()).unwrap();
+    assert!(
+        !core.library_changed(),
+        "the next one within a second waits"
+    );
+    drop(tell);
+    assert!(core.library_changed(), "the end of the read is told");
+    assert!(!core.library_changed());
+    let _ = std::fs::remove_dir_all(dir);
+}
