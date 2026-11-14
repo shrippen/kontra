@@ -13,6 +13,7 @@ Runs inside an isolated session, never against the desktop:
     qactl.py text [--role R] [--contains] NAME  its text (Text interface, else name)
     qactl.py wait [--role R] [--contains] NAME [--timeout S]
     qactl.py layout [--json]                    cut-off, overlapping, nameless widgets (W3); exit 1 if any
+    qactl.py focus                              the widget with keyboard focus (role, name, place)
 
 `--a11y` of qa-session.sh gives Kontra and the --run command one private session bus.
 """
@@ -221,6 +222,7 @@ def main():
         p.add_argument("name")
         if name == "wait":
             p.add_argument("--timeout", type=float, default=WAIT_S)
+    sub.add_parser("focus")
     layout = sub.add_parser("layout")
     layout.add_argument("--json", action="store_true")
     args = parser.parse_args()
@@ -244,6 +246,11 @@ def main():
                 sys.exit(f"qactl: '{args.name}' did not appear within {args.timeout} s")
             time.sleep(POLL_S)
         print(describe(find(args)[0]))
+    elif args.command == "focus":
+        # The deepest focused widget: Qt marks the window and the item both.
+        focused = [node for _, node in walk(app())
+                   if node.get_state_set().contains(Atspi.StateType.FOCUSED)]
+        print(describe(focused[-1]) if focused else "qactl: nothing has focus")
     elif args.command == "layout":
         findings = layout_findings(app())
         if args.json:

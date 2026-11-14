@@ -26,10 +26,13 @@ Item {
 
     LibraryTree {
         id: tree
-        anchors.fill: parent
+        width: parent.width
+        height: parent.height - 40
         texts: root.texts
         counts: root.counts
     }
+    // Something after the tree for Tab to go to.
+    Rectangle { id: after; y: parent.height - 30; width: 20; height: 20; activeFocusOnTab: true }
     SignalSpy { id: picked; target: tree; signalName: "picked" }
     SignalSpy { id: unlink; target: tree; signalName: "unlinkRequested" }
     SignalSpy { id: addFolder; target: tree; signalName: "addFolderRequested" }
@@ -83,6 +86,23 @@ Item {
         function test_actionsAreEntriesToo() {
             var actions = tree.entries.filter(function(e) { return e.kind === "action" })
             compare(actions.map(function(a) { return a.id }), ["folder", "setlist"])
+        }
+
+        // QA 14.11. (K1, P7): every entry was a Tab stop. The tree is one stop now: the arrows
+        // move between entries (over the headings), Tab leaves it.
+        function test_theTreeIsOneTabStop() {
+            tree.positionViewAtBeginning()
+            waitForRendering(tree)
+            var rowAt = function(i) { return findChild(tree.itemAtIndex(i), "treeRow") }
+            rowAt(0).forceActiveFocus()
+            keyClick(Qt.Key_Down)
+            verify(rowAt(1).activeFocus, "Down goes to the next entry")
+            keyClick(Qt.Key_Down)
+            verify(rowAt(3).activeFocus, "the heading in between is passed over")
+            keyClick(Qt.Key_Up)
+            verify(rowAt(1).activeFocus, "Up passes it too")
+            keyClick(Qt.Key_Tab)
+            verify(after.activeFocus, "Tab leaves the tree")
         }
     }
 }

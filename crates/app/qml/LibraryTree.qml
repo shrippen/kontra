@@ -28,6 +28,33 @@ ListView {
     readonly property var origins: ["exercise", "generated", "download", "imported"]
     readonly property var entries: build()
 
+    // The tree is one Tab stop (QA 14.11., K1): the entry of the shown source takes Tab, the
+    // arrows move between entries and pass over the headings.
+    property int focusIndex: -1
+    readonly property int stopIndex: {
+        if (focusIndex >= 0 && focusIndex < entries.length && entries[focusIndex].kind !== "heading") {
+            return focusIndex
+        }
+        var shown = entries.findIndex(function(e) { return e.key === source })
+        return shown >= 0 ? shown : 0
+    }
+    function focusEntry(from, step) {
+        var i = from + step
+        while (i >= 0 && i < entries.length && entries[i].kind === "heading") {
+            i += step
+        }
+        if (i < 0 || i >= entries.length) {
+            return
+        }
+        positionViewAtIndex(i, ListView.Contain)
+        var cell = itemAtIndex(i)
+        if (cell && cell.item) {
+            cell.item.focusRow()
+        }
+        // After the focus moved: Qt refuses to take Tab from the item that still has it.
+        focusIndex = i
+    }
+
     signal picked(string key)
     signal addFolderRequested()
     signal newSetlistRequested()
@@ -78,6 +105,7 @@ ListView {
 
     delegate: Loader {
         id: cell
+        required property int index
         required property var modelData
         width: ListView.view.width
         sourceComponent: modelData.kind === "heading" ? headingPart : rowPart
@@ -101,9 +129,13 @@ ListView {
                 readonly property var entry: cell.modelData
                 readonly property bool action: entry.kind === "action"
                 readonly property real indent: (entry.depth || 0) * KanteStyle.unit(14)
+                function focusRow() {
+                    row.forceActiveFocus()
+                }
 
                 KanteListRow {
                     id: row
+                    objectName: "treeRow"
                     x: parent.indent
                     width: parent.width - parent.indent
                     density: KanteListRow.Density.Dense
@@ -112,9 +144,13 @@ ListView {
                     leadingText: parent.entry.sign || ""
                     count: parent.action ? "" : String(parent.entry.count)
                     selected: !parent.action && parent.entry.key === tree.source
+                    activeFocusOnTab: cell.index === tree.stopIndex
+                    Keys.onDownPressed: tree.focusEntry(cell.index, 1)
+                    Keys.onUpPressed: tree.focusEntry(cell.index, -1)
                     Accessible.name: parent.action ? text
                         : tree.texts.t("library.tree.item", { name: text, n: parent.entry.count })
                     onClicked: {
+                        tree.focusIndex = cell.index
                         if (!parent.action) {
                             tree.picked(parent.entry.key)
                         } else if (parent.entry.id === "folder") {
@@ -125,6 +161,7 @@ ListView {
                     }
                     trailing: KanteToolButton {
                         visible: row.parent.entry.top === true
+                        activeFocusOnTab: row.activeFocusOnTab
                         text: "×"
                         Accessible.name: tree.texts.t("library.folder.unlink", { name: row.parent.entry.name || "" })
                         onClicked: tree.unlinkRequested(row.parent.entry.path)

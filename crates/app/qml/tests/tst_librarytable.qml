@@ -103,5 +103,26 @@ Item {
             compare(opened.count, 1)
             compare(opened.signalArguments[0][0], "/a.mid")
         }
+
+        // QA 14.11. (K1, P7): every row and its "…" were Tab stops, 300 for 152 exercises.
+        // The rows are one stop now; the arrows move inside, Tab goes on to the row's "…" and
+        // then out of the table.
+        function test_rowsAreOneTabStop() {
+            var list = findChild(table, "rows")
+            waitForRendering(list)
+            var rowOf = function(i) { return findChild(list.itemAtIndex(i), "row") }
+            var moreOf = function(i) { return findChild(list.itemAtIndex(i), "more") }
+            rowOf(0).forceActiveFocus()
+            keyClick(Qt.Key_Down)
+            verify(rowOf(1).activeFocus, "Down goes to the next row")
+            keyClick(Qt.Key_Up)
+            verify(rowOf(0).activeFocus, "Up comes back")
+            keyClick(Qt.Key_Down)
+            keyClick(Qt.Key_Tab)
+            verify(moreOf(1).activeFocus, "Tab goes to the row's own menu")
+            keyClick(Qt.Key_Tab)
+            verify(!rowOf(2).activeFocus && !rowOf(0).activeFocus && !moreOf(2).activeFocus,
+                   "then out of the table, not to the next row")
+        }
     }
 }
