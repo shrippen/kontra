@@ -12,12 +12,23 @@ import "."
  *     kind     "line" (2 points), "polyline", "polygon" (closed), "circle" (points [cx, cy], radius)
  *     points   [x0, y0, x1, y1, …] in model units
  *     width    stroke width in model units, 0 = hairline (always at least one pixel)
- *     label    a colour of KanteStyle.labels, or "text", "muted", "accent", "focus", "warning"
+ *     label    a colour of KanteStyle.labels, or "text", "muted", "accent", "focus", "warning",
+ *              "ground" (the app's background: a sign on a filled shape, such as a dot in a
+ *              filled circle, reads in every label colour)
  *     stroke   "solid" (default), "dashed", "dotted": a dash is a mark, not only a colour
  *     fill     "none" (default), "solid", "tint" (the colour at a fifth of its strength)
  *     text     small caption beside the shape, always at the same size on screen
  *     key      id given back by the signals; selected: framed wider in the focus colour
  *     Drawn in order, so the last shape is on top (and wins the hit test).
+ *   Image     { kind: "image", source, points: [x, y], width, height, rotation, opacity, key }
+ *             a background such as a scanned plan. source is an absolute url or path:
+ *             loadImage resolves a relative one against Kante, so pass Qt.resolvedUrl(...);
+ *             points is the top left corner and width, height the size, both in model units;
+ *             rotation in degrees, clockwise, about the top left corner; opacity 0..1 (default 1).
+ *             Drawn in order like any shape. Loaded on first use and the view repaints when it
+ *             arrives; a missing image draws nothing and is no error. It is background: the hit
+ *             test never finds it (keyAt gives "" over it, shapeClicked and shapeDragged report
+ *             what lies beneath, or empty ground), and it takes no label, fill, stroke or text.
  *   zoom       pixels per model unit; writing it zooms about the middle of the view
  *   fitOnLoad  fit() when the view gets its size, until the view is panned or zoomed
  *   fit()      the whole plan in view, centred
@@ -25,6 +36,11 @@ import "."
  *   keyAt(px, py)             key of the topmost shape under a pixel, "" for none
  *   shapeClicked(key, x, y)   click without drag; key "" on empty ground; x, y in model units
  *   shapeHovered(key, x, y)   the pointer moved; key "" when it is over nothing
+ *   editing    the left button edits instead of panning: a drag on a shape or on empty ground
+ *              reports shapeDragged; pan stays on the middle button and with space held
+ *   shapeDragged(key, fromX, fromY, x, y, done)   in editing, a left drag: key of the shape
+ *              it began on ("" on empty ground), where it began and where it is now (model
+ *              units); done on release. The app moves or draws; the canvas changes nothing.
  *
  * Hit test: inside a polygon or circle that has a fill, or within a few pixels of an outline,
  * line or polyline (an unfilled polygon is only hit at its edge, so a room does not hide what
@@ -47,6 +63,9 @@ FocusScope {
 
     signal shapeClicked(string key, real x, real y)
     signal shapeHovered(string key, real x, real y)
+    signal shapeDragged(string key, real fromX, real fromY, real x, real y, bool done)
+
+    property bool editing: false
 
     // Where the model origin lies in the view.
     property real panX: 0
@@ -176,6 +195,7 @@ FocusScope {
         case "accent": return KanteStyle.accentColor
         case "focus": return KanteStyle.focusColor
         case "warning": return KanteStyle.warningColor
+        case "ground": return KanteStyle.backgroundColor
         }
         const c = KanteStyle.labelColor(name)
         return c.a > 0 ? c : KanteStyle.textColor
@@ -225,6 +245,9 @@ FocusScope {
         const filled = s.fill === "solid" || s.fill === "tint"
         const half = (s.width || 0) / 2
         switch (s.kind) {
+        case "image":
+            // Background: never hit.
+            return false
         case "circle":
             if (pts.length < 2) {
                 return false
@@ -318,6 +341,10 @@ FocusScope {
         id: canvas
         anchors.fill: parent
 
+        // Image sources already asked for.
+        property var _asked: ({})
+        onImageLoaded: requestPaint()
+
         // Strokes and fills of one shape, in view pixels.
         function _trace(ctx, s) {
             const pts = s.points || []
@@ -348,6 +375,34 @@ FocusScope {
                 ctx.closePath()
             }
             return true
+        }
+
+        // An image shape: top left corner, size in model units, turned about the corner.
+        function _image(ctx, s) {
+            const pts = s.points || []
+            if (!s.source || pts.length < 2) {
+                return
+            }
+
+            const src = String(s.source)
+            // Asked once; onImageLoaded repaints. An image Qt already holds is ready at once
+            // and sends no signal, so look again right after asking.
+            if (!isImageLoaded(src) && !_asked[src]) {
+                _asked[src] = true
+                loadImage(src)
+            }
+            if (!isImageLoaded(src)) {
+                return
+            }
+
+            const alpha = s.opacity === undefined ? 1 : Math.max(0, Math.min(1, s.opacity))
+            ctx.save()
+            ctx.globalAlpha = alpha
+            const a = (s.rotation || 0) * Math.PI / 180
+            ctx.transform(Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a),
+                          root.panX + pts[0] * root.zoom, root.panY + pts[1] * root.zoom)
+            ctx.drawImage(src, 0, 0, (s.width || 0) * root.zoom, (s.height || 0) * root.zoom)
+            ctx.restore()
         }
 
         function _dash(ctx, stroke) {
@@ -448,6 +503,11 @@ FocusScope {
 
             const frame = KanteStyle.unit(2)
             for (const s of root.shapes) {
+                if (s.kind === "image") {
+                    _image(ctx, s)
+                    continue
+                }
+
                 const color = root._colorOf(s.label)
                 const lineW = Math.max(1, (s.width || 0) * root.zoom)
                 if (!_trace(ctx, s)) {
@@ -474,7 +534,7 @@ FocusScope {
             // Captions last, so no shape covers one.
             ctx.setLineDash([])
             for (const s of root.shapes) {
-                if (s.text) {
+                if (s.text && s.kind !== "image") {
                     _caption(ctx, s, root._colorOf(s.label))
                 }
             }
@@ -490,6 +550,14 @@ FocusScope {
 
         property bool panning: false
         property bool moved: false
+        // In editing: a left drag the app gets, and the shape it began on.
+        property bool dragging: false
+        property string dragKey: ""
+        // Where the drag began, in model units: fixed at the press, whatever the view does.
+        property real dragFromX: 0
+        property real dragFromY: 0
+        property real lastModelX: 0
+        property real lastModelY: 0
         property real lastX: 0
         property real lastY: 0
         property real startX: 0
@@ -504,8 +572,21 @@ FocusScope {
             lastX = startX = mouse.x
             lastY = startY = mouse.y
             moved = false
-            // Middle button and space always pan; the left button pans from empty ground.
-            panning = mouse.button === Qt.MiddleButton || root._spaceDown || root.shapeAt(mouse.x, mouse.y) < 0
+            // Middle button and space always pan; the left button pans from empty ground,
+            // unless the app edits: then it gets the drag.
+            const forced = mouse.button === Qt.MiddleButton || root._spaceDown
+            panning = forced || (!root.editing && root.shapeAt(mouse.x, mouse.y) < 0)
+            dragging = root.editing && !forced
+            dragKey = dragging ? root.keyAt(mouse.x, mouse.y) : ""
+            const from = _model(startX, startY)
+            dragFromX = lastModelX = from.x
+            dragFromY = lastModelY = from.y
+        }
+        function _drag(mx, my, done) {
+            const m = _model(mx, my)
+            lastModelX = m.x
+            lastModelY = m.y
+            root.shapeDragged(dragKey, dragFromX, dragFromY, m.x, m.y, done)
         }
         onPositionChanged: function (mouse) {
             if (!pressed) {
@@ -521,6 +602,10 @@ FocusScope {
             if (Math.hypot(mouse.x - startX, mouse.y - startY) > root._dragSlop) {
                 moved = true
             }
+            if (dragging && moved) {
+                _drag(mouse.x, mouse.y, false)
+                return
+            }
             if (!panning || !moved) {
                 return
             }
@@ -529,7 +614,21 @@ FocusScope {
             lastX = mouse.x
             lastY = mouse.y
         }
-        onReleased: panning = false
+        onReleased: function (mouse) {
+            if (dragging && moved) {
+                _drag(mouse.x, mouse.y, true)
+            }
+            panning = false
+            dragging = false
+        }
+        // A pinch or the window took the press over: end the drag where it was last seen.
+        onCanceled: {
+            if (dragging && moved) {
+                root.shapeDragged(dragKey, dragFromX, dragFromY, lastModelX, lastModelY, true)
+            }
+            panning = false
+            dragging = false
+        }
         onExited: {
             if (root._hoverKey !== "") {
                 root.shapeHovered("", 0, 0)

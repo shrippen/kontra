@@ -378,7 +378,13 @@ Item {
     // own; the scope's is the fallback for a target without one.
     readonly property Item windowRoot: target && target.Window.contentItem ? target.Window.contentItem
                                                                            : scope.Window.contentItem
-    onWindowRootChanged: resweepLater.start()
+    // Only towards a window: resweep() does nothing without one, and a Timer started in a teardown
+    // makes Qt tick every running animation at once (ColumnView then disabled pages being deleted).
+    onWindowRootChanged: {
+        if (windowRoot) {
+            resweepLater.start()
+        }
+    }
     Timer {
         id: resweepLater
         interval: 0
