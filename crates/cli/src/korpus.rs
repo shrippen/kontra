@@ -9,8 +9,6 @@ use std::path::Path;
 
 const CENTS_PER_SEMITONE: f64 = 100.0;
 
-/// LH-NF-16: at most one false note per minute where nothing is played (met since F3, 29.10.).
-const IDLE_TARGET_PER_MINUTE: f64 = 1.0;
 const S_PER_MINUTE: f64 = 60.0;
 
 pub fn run(a: &KorpusArgs) -> CliResult {
@@ -460,7 +458,7 @@ fn check(dir: Option<&Path>) -> CliResult {
                 set.name(),
                 0,
                 e.pitched,
-                IDLE_TARGET_PER_MINUTE,
+                KorpusSet::IDLE_MAX_PER_MINUTE,
                 if ok { "ok" } else { "FAILED" }
             );
             continue;

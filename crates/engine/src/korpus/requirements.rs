@@ -3,8 +3,6 @@
 
 use super::{Evaluation, KorpusSet};
 
-/// LH-NF-16: at most one false note per minute where nothing is played.
-const IDLE_MAX_PER_MINUTE: f64 = 1.0;
 /// LH-NF-02: onset error below 10 ms, at a microphone in a room too.
 const ONSET_MS: f64 = 10.0;
 /// Legato notes have no attack: their time comes from the pitch window (±30 ms).
@@ -32,6 +30,9 @@ struct Limits {
 }
 
 impl KorpusSet {
+    /// LH-NF-16: at most one false note per minute where nothing is played.
+    pub const IDLE_MAX_PER_MINUTE: f64 = 1.0;
+
     /// What `e` misses of the requirements for this set, empty if it meets them.
     /// `minutes` is the length of the recording (for the idle sets).
     pub fn requirement_misses(self, e: &Evaluation, minutes: f64) -> Vec<String> {
@@ -87,7 +88,7 @@ impl KorpusSet {
 
 fn idle_misses(e: &Evaluation, minutes: f64) -> Vec<String> {
     let per_minute = e.pitched as f64 / minutes;
-    if per_minute <= IDLE_MAX_PER_MINUTE {
+    if per_minute <= KorpusSet::IDLE_MAX_PER_MINUTE {
         return Vec::new();
     }
     vec![format!(
