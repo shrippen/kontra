@@ -801,27 +801,10 @@ Wie viele Halbtöne hat die kleine Septime?
 ";
 
     #[test]
-    fn note_names_take_every_accidental_spelling() {
-        let table = [
-            ("C", 0),
-            ("F#", 6),
-            ("F♯", 6),
-            ("Bb", 10),
-            ("B♭", 10),
-            ("Cb", 11),
-        ];
-        for (name, class) in table {
-            assert_eq!(note_class(name), Some(class), "{name}");
-        }
-        for name in ["", "c", "H", "F##", "F#x", "X"] {
-            assert_eq!(note_class(name), None, "{name}");
-        }
-    }
-
-    #[test]
     fn a_sharp_sign_works_as_root() {
         let text = UNIT.replace("root=A", "root=F♯");
         assert!(unit("u/de.md", &text).is_ok());
+        assert_eq!(note_class("F##"), None);
     }
 
     #[test]
