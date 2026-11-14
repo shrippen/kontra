@@ -118,7 +118,7 @@ impl Core {
                         parts.push(self.tr("summary.note.played", &[("played", played)]));
                     }
                     (_, Some(c)) => {
-                        parts.push(self.tr("summary.note.cents", &[("cents", format!("{c:+.0}"))]));
+                        parts.push(self.tr("summary.note.cents", &[("cents", signed_cents(c))]));
                     }
                     _ => {}
                 }
@@ -688,4 +688,13 @@ pub(crate) fn hardest_notes(notes: &[serde_json::Value]) -> Vec<serde_json::Valu
 /// A share 0..=1 as whole percent, "85".
 fn percent(share: f64) -> String {
     format!("{:.0}", share * 100.0)
+}
+
+/// Whole cents with sign: "+6", "-14"; in tune "0", never "-0" (QA 14.11., J-B8).
+fn signed_cents(cents: f64) -> String {
+    let cents = cents.round();
+    if cents == 0.0 {
+        return "0".into();
+    }
+    format!("{cents:+.0}")
 }

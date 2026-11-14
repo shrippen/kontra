@@ -189,3 +189,25 @@ fn chord_of_three_says_no_one_tone() {
     assert!(!text.contains(&hint), "{text}");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// QA 14.11. (J-B8): a note 0.4 cent flat read "-0 Cent"; in tune is "0 Cent".
+#[test]
+fn in_tune_has_no_sign() {
+    let dir = temp_dir("note-cents");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.update_settings(|s| s.language = Some("de".into()));
+    core.open(&demo()).unwrap();
+    let result = NoteResult {
+        pass: 0,
+        note: Some(0),
+        bar: Some(0),
+        outcome: Outcome::Hit,
+        offset_ms: Some(0.0),
+        cents: Some(-0.4),
+        position_s: 0.0,
+    };
+    let notes = core.note_details(&[result], &[], &[], &[]);
+    let text = notes[0]["text"].as_str().unwrap();
+    assert!(text.ends_with(" 0 Cent"), "{text}");
+    let _ = std::fs::remove_dir_all(dir);
+}

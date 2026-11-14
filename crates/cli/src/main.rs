@@ -196,6 +196,9 @@ fn render(a: &args::RenderArgs) -> CliResult {
     if a.call_response {
         arrangement = answers(&arrangement)?;
     }
+    if a.ring {
+        ring(&mut arrangement);
+    }
     let mistakes = session::Mistakes {
         offset_ms: a.offset_ms,
         wrong_every: a.wrong_every,
@@ -218,6 +221,16 @@ fn render(a: &args::RenderArgs) -> CliResult {
         samples.len() as f64 / 48_000.0
     );
     Ok(())
+}
+
+/// Unmuted playing (J-B8): every note sounds up to the next one, over the rests.
+fn ring(arrangement: &mut kontra_model::Arrangement) {
+    let starts: Vec<u64> = arrangement.notes.iter().map(|n| n.start_ticks).collect();
+    for (note, next) in arrangement.notes.iter_mut().zip(starts.iter().skip(1)) {
+        if *next > note.start_ticks {
+            note.duration_ticks = next - note.start_ticks;
+        }
+    }
 }
 
 /// The player's part of call and response: the answers alone, as through a cable.
@@ -409,6 +422,35 @@ mod tests {
         "1 Einstieg",
         "47 Groove Viertel I-IV-V in A (70 BPM).mid",
     ];
+
+    const STACCATO: [&str; 6] = [
+        "..",
+        "..",
+        "testdata",
+        "exercises",
+        "8 Technik",
+        "151 Groove Staccato auf einem Akkord in E (75 BPM).mid",
+    ];
+
+    /// J-B8 input: unmuted, every note sounds up to the next one, over the rests.
+    #[test]
+    fn ringing_holds_each_note_to_the_next() {
+        let score: std::path::PathBuf = std::iter::once(env!("CARGO_MANIFEST_DIR"))
+            .chain(STACCATO)
+            .collect();
+        let mut arrangement = load_arrangement(&score, None).unwrap();
+        let rests = arrangement
+            .notes
+            .windows(2)
+            .filter(|w| w[0].start_ticks + w[0].duration_ticks < w[1].start_ticks)
+            .count();
+        assert!(rests > 0, "the score has rests to ring into");
+
+        ring(&mut arrangement);
+        for w in arrangement.notes.windows(2) {
+            assert_eq!(w[0].start_ticks + w[0].duration_ticks, w[1].start_ticks);
+        }
+    }
 
     /// J-C12 input: the answers sound, the calls stay silent.
     #[test]

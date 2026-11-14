@@ -499,4 +499,7 @@ pub struct RenderArgs {
     /// Play the answers of call and response (LH-LRN-19, J-C12); the calls stay silent.
     #[arg(long)]
     pub call_response: bool,
+    /// Do not mute: every note sounds up to the next one, over the rests (LH-BEW-10, J-B8).
+    #[arg(long)]
+    pub ring: bool,
 }

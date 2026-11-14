@@ -998,6 +998,21 @@ Kontra umsetzen. Jede Idee wird klein als Prototyp gebaut, mit den Personas
 
 ## QA-Runden
 
+### QA-Runde 14.11.2026 (J-B8 Abdämpfen, Nacht)
+
+Als P1 Lea: qa-session (Xvfb 1296×792), Übung 151 „Groove Staccato auf einem Akkord in E“, Modus „Durchlauf“;
+Eingang aus zwei gerenderten Aufnahmen: jede Note nach einer Achtel abgedämpft (`kontra-cli render`) und jede Note
+bis zur nächsten klingend (`kontra-cli render --ring`, neu). Bestanden: „Abdämpfen: 31 von 31 Noten rechtzeitig
+gestoppt“ bzw. „0 von 31 … in die Pause geklungen: 31“; unter „Alle Noten“ je Note „rechtzeitig abgedämpft“ bzw.
+„klang in die Pause“, die letzte ohne Urteil; Trefferquote in beiden Läufen 100 %. Mira (MusicXML mit Staccato) und
+Karl (Mikrofon) nicht gespielt.
+
+- [ ] M1 (mittel, P1): Bei 0 von 31 gedämpften Noten sagt die Auswertung „Solide: nichts sticht heraus“ und „Sitzt“,
+  obwohl das Ziel der Übung „Pausen zählen und die Saite abdämpfen“ ist. Das Abdämpfen steht nicht in der Rangfolge
+  der Beobachtung (LH-BEW-09). Vorschlag für Runde 23: als Beobachtung nach den Techniken, wenn mehr als ein Viertel
+  der bewerteten Enden in die Pause klang; „Sitzt“ für Übungen mit Ziel Abdämpfen erst ab drei Vierteln rechtzeitig.
+- [x] M2 (niedrig): „-0 Cent“ in der Notenliste (eine Note 0,4 Cent zu tief); jetzt „0 Cent“.
+
 ### QA-Runde 14.11.2026 (J-C12 Ruf und Antwort, Nacht)
 
 Als P1 Lea, P3 Mira, P5 Aylin und P7 Sam (AT-SPI): qa-session (Xvfb 1296×792), Übung „Groove Viertel I-IV-V in A“ und
