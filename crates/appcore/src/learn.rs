@@ -155,7 +155,7 @@ impl Core {
                 let done = units.iter().filter(|u| u["done"] == true).count();
                 json!({
                     "id": chapter.id,
-                    "questions": self.chapter_questions(&chapter.id).len(),
+                    "questions": self.questions_in(&learning, &chapter.id).len(),
                     "title": chapter.titles.get(&lang).cloned().unwrap_or_default(),
                     "done": done,
                     "total": units.len(),
@@ -497,9 +497,14 @@ impl Core {
     /// The questions of a chapter's lessons for this instrument, where they are and as
     /// `review_json` lists them.
     fn chapter_questions(&self, chapter: &str) -> Vec<(QuestionRef, Value)> {
-        let Some(learning) = self.learning() else {
-            return Vec::new();
-        };
+        self.learning()
+            .map(|learning| self.questions_in(&learning, chapter))
+            .unwrap_or_default()
+    }
+
+    /// `chapter_questions` from a course already built: building it takes milliseconds, and
+    /// the course page counts the questions of every chapter (N6).
+    fn questions_in(&self, learning: &Learning, chapter: &str) -> Vec<(QuestionRef, Value)> {
         let Some(chapter) = learning
             .course()
             .and_then(|c| c.chapters.iter().find(|ch| ch.id == chapter))
@@ -837,6 +842,36 @@ mod tests {
 
     fn parse(text: &str) -> Value {
         text.parse().unwrap()
+    }
+
+    /// The fastest of a few runs of `f`, in seconds: less noise from a busy machine.
+    fn fastest(f: impl Fn()) -> f64 {
+        (0..5)
+            .map(|_| {
+                let start = std::time::Instant::now();
+                f();
+                start.elapsed().as_secs_f64()
+            })
+            .fold(f64::MAX, f64::min)
+    }
+
+    /// N6: the learn page waited 30-40 ms for its course, because each chapter's question
+    /// count built the course's lessons again (16 times for 15 chapters). It is built once.
+    /// The limit leaves room for the folder listings of the chapter pieces (slow on Windows).
+    #[test]
+    fn the_course_is_read_once_for_the_page() {
+        let (core, dir) = core("once");
+        let course = fastest(|| {
+            let _ = core.learning();
+        });
+        let page = fastest(|| {
+            let _ = core.learn_json();
+        });
+        assert!(
+            page < 8.0 * course,
+            "page {page:.4} s, course {course:.4} s"
+        );
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     /// German puts umlauts with their base letter: "Dämpfen" before "Durchgangston" (QA 27.10.).
