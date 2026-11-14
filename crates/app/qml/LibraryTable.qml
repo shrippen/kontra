@@ -287,10 +287,19 @@ ColumnLayout {
             }
         }
         // Rows scrolled away: the arrows bring the focus back to the stop row, the page keys
-        // move from it (review #332).
-        Keys.onUpPressed: table.focusRow(table.stopIndex)
-        Keys.onDownPressed: table.focusRow(table.stopIndex)
-        Keys.onPressed: function(event) { table.pageKey(event, table.stopIndex) }
+        // move from it (review #332). Keys a field in a row did not take (the tag editor) pass
+        // by here too; they stay unhandled (review #334).
+        Keys.onPressed: function(event) {
+            if (!table.wrapsRows(Window.activeFocusItem)) {
+                return
+            }
+            if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
+                table.focusRow(table.stopIndex)
+                event.accepted = true
+                return
+            }
+            table.pageKey(event, table.stopIndex)
+        }
 
         delegate: ColumnLayout {
             id: line
