@@ -48,24 +48,17 @@ KanteDialog {
     }
 
     onOpened: {
-        // Back from the provider settings: the wish typed so far stays.
-        if (inSettings) {
-            inSettings = false
-        } else {
-            wishField.text = ""
-            failure = ""
-        }
+        wishField.text = ""
+        failure = ""
         refreshProvider()
     }
 
-    // The provider settings take the wish dialog's place instead of lying over it (QA 14.11.:
-    // the head and Close of this one stuck out below); closing them brings the wish back.
-    property bool inSettings: false
+    // The provider settings are a section of the settings page: this dialog steps aside.
     function openSettings() {
-        inSettings = true
         close()
-        settingsDialog.open()
+        applicationWindow().show("settings", "llm")
     }
+
     Connections {
         target: dialog.ctl
         // The piece is open: practise it, from the library as from the exercises (QA 14.11.).
@@ -108,10 +101,6 @@ KanteDialog {
             kind: KanteCallout.Kind.Info
             text: dialog.texts.t("wish.no.provider")
             autoHide: false
-            KanteButton {
-                text: dialog.texts.t("wish.settings.link")
-                onClicked: dialog.openSettings()
-            }
         }
 
         KanteCallout {
@@ -120,11 +109,6 @@ KanteDialog {
             kind: KanteCallout.Kind.Info
             text: dialog.texts.t("wish.no.model")
             autoHide: false
-            KanteButton {
-                objectName: "wishModelLink"
-                text: dialog.texts.t("wish.settings.link")
-                onClicked: dialog.openSettings()
-            }
         }
 
         QQC2.Label {
@@ -132,6 +116,16 @@ KanteDialog {
             wrapMode: Text.WordWrap
             color: KanteStyle.mutedTextColor
             text: dialog.texts.t("wish.hint")
+        }
+
+        // Always there: provider, model and key can be changed later, not only while missing.
+        KanteButton {
+            objectName: "wishSettingsLink"
+            // Not while the provider writes: leaving would lose the piece's arrival and the wish.
+            enabled: !dialog.ctl.llmBusy
+            text: dialog.texts.t("wish.settings.link")
+            emphasis: KanteButton.Emphasis.Quiet
+            onClicked: dialog.openSettings()
         }
 
         // Several lines: a TextArea with Kante's field skin, like the other Kante fields.
@@ -189,15 +183,6 @@ KanteDialog {
                     dialog.failure = ""
                     dialog.asked = dialog.ctl.llmWish(wishField.text, dialog.levels[dialog.level])
                 }
-            }
-        }
-    }
-
-    LlmSettings {
-        id: settingsDialog
-        onClosed: {
-            if (dialog.inSettings) {
-                dialog.open()
             }
         }
     }

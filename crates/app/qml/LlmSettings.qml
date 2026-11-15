@@ -4,17 +4,13 @@ import QtQuick.Controls as QQC2
 import Kante
 
 // LLM provider for "Stück wünschen" (LH-BIB-16): provider, model and the API key, kept in the
-// system's own secret store, never in Kontra's settings file. Opened from PieceWish.qml; the
-// settings page embeds it too once its own rewrite (another PR) lands.
-KanteDialog {
-    id: dialog
+// system's own secret store, never in Kontra's settings file. A group of the settings page
+// (section "llm"); the wish dialog's link leads there.
+KanteSettingGroup {
+    id: group
     objectName: "llmSettings"
-    parent: QQC2.Overlay.overlay
-    anchors.centerIn: parent
-    modal: true
-    size: KanteDialog.Size.Medium
     title: texts.t("llm.settings.title")
-    standardButtons: QQC2.Dialog.Close
+    countText: texts.t(count === 1 ? "settings.group.count.one" : "settings.group.count", { n: count })
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
@@ -36,149 +32,171 @@ KanteDialog {
 
     // The key never answers synchronously (it can live behind a slow or locked keyring); the
     // row shows "checking" (`llm.key.checking`) until `llmKeyState`/`llmKeyError` names the
-    // answer (dialog.ctl.llmKeyBusy disables Save/Delete meanwhile).
+    // answer (group.ctl.llmKeyBusy disables Save/Delete meanwhile).
     function refreshKeyState() {
         keyState = texts.t("llm.key.checking")
         keyStateId = ""
         ctl.llmCheckKey(ctl.llmProvider)
     }
 
-    onOpened: {
+    // The keyring can ask to be unlocked: it is asked once this group comes into the page's
+    // scrolled `view`, not whenever the settings open (the tabs' scrollspy skips sections in a
+    // tall window, so the view decides, not the tab).
+    property Flickable view: null
+    property bool keyAsked: false
+    // Until the first frame the layout has not placed the group yet (it sits at the top).
+    property bool laidOut: view === null
+    Connections {
+        target: group.Window.window
+        enabled: !group.laidOut
+        function onFrameSwapped() { group.laidOut = true }
+    }
+    readonly property bool sectionShown: laidOut && (view === null || inView(view.contentY, view.height, y, height))
+    onSectionShownChanged: askKeyOnce()
+    // The arguments only make the binding follow scrolling and layout.
+    function inView(top, viewHeight, groupY, groupHeight) {
+        var at = mapToItem(view.contentItem, 0, 0).y
+        return at < top + viewHeight && at + groupHeight > top
+    }
+    function askKeyOnce() {
+        if (!sectionShown || keyAsked) {
+            return
+        }
+        keyAsked = true
+        refreshKeyState()
+    }
+
+    Component.onCompleted: {
         providers = JSON.parse(ctl.llmProvidersJson())
         models = JSON.parse(ctl.llmModelsJson)
         error = ""
-        refreshKeyState()
+        askKeyOnce()
     }
-    // `llmProvider` is `ctl`'s property, not this dialog's: a plain `onXChanged` only fires
+    // `llmProvider` is `ctl`'s property, not this group's: a plain `onXChanged` only fires
     // for properties of the object it is written on.
     Connections {
-        target: dialog.ctl
-        function onLlmProviderChanged() { dialog.refreshKeyState() }
-        function onLlmModelsJsonChanged() { dialog.models = JSON.parse(dialog.ctl.llmModelsJson) }
+        target: group.ctl
+        function onLlmProviderChanged() { group.refreshKeyState() }
+        function onLlmModelsJsonChanged() { group.models = JSON.parse(group.ctl.llmModelsJson) }
         function onLlmKeyState(provider, state, ready, text) {
-            if (provider !== dialog.ctl.llmProvider) return
-            dialog.keyState = text
-            dialog.keyStateId = state
+            if (provider !== group.ctl.llmProvider) return
+            group.keyState = text
+            group.keyStateId = state
         }
         function onLlmKeyError(provider, text) {
-            if (provider === dialog.ctl.llmProvider) dialog.error = text
+            if (provider === group.ctl.llmProvider) group.error = text
         }
     }
 
-    ColumnLayout {
-        anchors.fill: parent
-        spacing: KanteStyle.unit(8)
-
-        KanteSettingRow {
-            Layout.fillWidth: true
-            title: texts.t("llm.settings.provider")
-            KanteComboBox {
-                Accessible.name: texts.t("llm.settings.provider")
-                width: KanteStyle.unit(220)
-                model: dialog.providers.map(function(p) { return p.name })
-                currentIndex: dialog.providers.findIndex(function(p) { return p.id === dialog.ctl.llmProvider })
-                onActivated: function(index) {
-                    dialog.ctl.changeLlmProvider(dialog.providers[index].id)
-                    dialog.refreshKeyState()
-                }
-            }
-        }
-
-        KanteSettingRow {
-            Layout.fillWidth: true
-            visible: dialog.isCustom
-            title: texts.t("llm.settings.baseurl")
-            KanteTextField {
-                Layout.fillWidth: true
-                Accessible.name: texts.t("llm.settings.baseurl")
-                text: dialog.ctl.llmBaseUrl
-                onEditingFinished: dialog.ctl.changeLlmBaseUrl(text)
-            }
-        }
-
-        KanteSettingRow {
-            Layout.fillWidth: true
-            title: texts.t("llm.settings.model")
-            RowLayout {
-                KanteTextField {
-                    id: modelField
-                    Layout.fillWidth: true
-                    placeholderText: texts.t("llm.settings.model.placeholder")
-                    Accessible.name: texts.t("llm.settings.model")
-                    text: dialog.ctl.llmModel
-                    onEditingFinished: dialog.ctl.changeLlmModel(text)
-                }
-                KanteButton {
-                    text: texts.t("llm.settings.model.load")
-                    enabled: !dialog.ctl.llmBusy
-                    onClicked: dialog.ctl.llmFetchModels()
-                }
-            }
-        }
+    KanteSettingRow {
+        Layout.fillWidth: true
+        title: texts.t("llm.settings.provider")
         KanteComboBox {
-            objectName: "llmModels"
-            Layout.fillWidth: true
-            visible: dialog.models.length > 0
-            Accessible.name: texts.t("llm.settings.model")
-            model: dialog.models
-            // The chosen model, or none with a prompt: the first entry is no choice (QA 14.11.).
-            currentIndex: dialog.models.indexOf(dialog.ctl.llmModel)
-            displayText: currentIndex < 0 ? texts.t("llm.settings.model.pick") : currentText
+            Accessible.name: texts.t("llm.settings.provider")
+            width: KanteStyle.unit(220)
+            model: group.providers.map(function(p) { return p.name })
+            currentIndex: group.providers.findIndex(function(p) { return p.id === group.ctl.llmProvider })
             onActivated: function(index) {
-                modelField.text = dialog.models[index]
-                dialog.ctl.changeLlmModel(dialog.models[index])
+                group.ctl.changeLlmProvider(group.providers[index].id)
+                group.refreshKeyState()
             }
         }
+    }
 
-        KanteSettingRow {
+    KanteSettingRow {
+        Layout.fillWidth: true
+        visible: group.isCustom
+        title: texts.t("llm.settings.baseurl")
+        KanteTextField {
             Layout.fillWidth: true
-            visible: dialog.needsKey
-            title: texts.t("llm.settings.key")
-            hint: dialog.keyState
-            RowLayout {
-                KanteTextField {
-                    id: keyField
-                    Layout.fillWidth: true
-                    echoMode: TextInput.Password
-                    placeholderText: texts.t("llm.settings.key.placeholder")
-                    Accessible.name: texts.t("llm.settings.key")
+            Accessible.name: texts.t("llm.settings.baseurl")
+            text: group.ctl.llmBaseUrl
+            onEditingFinished: group.ctl.changeLlmBaseUrl(text)
+        }
+    }
+
+    KanteSettingRow {
+        Layout.fillWidth: true
+        title: texts.t("llm.settings.model")
+        RowLayout {
+            KanteTextField {
+                id: modelField
+                Layout.fillWidth: true
+                placeholderText: texts.t("llm.settings.model.placeholder")
+                Accessible.name: texts.t("llm.settings.model")
+                text: group.ctl.llmModel
+                onEditingFinished: group.ctl.changeLlmModel(text)
+            }
+            KanteButton {
+                text: texts.t("llm.settings.model.load")
+                enabled: !group.ctl.llmBusy
+                onClicked: group.ctl.llmFetchModels()
+            }
+        }
+    }
+    KanteComboBox {
+        objectName: "llmModels"
+        Layout.fillWidth: true
+        visible: group.models.length > 0
+        Accessible.name: texts.t("llm.settings.model")
+        model: group.models
+        // The chosen model, or none with a prompt: the first entry is no choice (QA 14.11.).
+        currentIndex: group.models.indexOf(group.ctl.llmModel)
+        displayText: currentIndex < 0 ? texts.t("llm.settings.model.pick") : currentText
+        onActivated: function(index) {
+            modelField.text = group.models[index]
+            group.ctl.changeLlmModel(group.models[index])
+        }
+    }
+
+    KanteSettingRow {
+        Layout.fillWidth: true
+        visible: group.needsKey
+        title: texts.t("llm.settings.key")
+        hint: group.keyState
+        RowLayout {
+            KanteTextField {
+                id: keyField
+                Layout.fillWidth: true
+                echoMode: TextInput.Password
+                placeholderText: texts.t("llm.settings.key.placeholder")
+                Accessible.name: texts.t("llm.settings.key")
+            }
+            KanteButton {
+                text: group.keyStateId === "stored"
+                    ? texts.t("llm.settings.key.replace") : texts.t("llm.settings.key.save")
+                enabled: keyField.text.length > 0 && !group.ctl.llmKeyBusy
+                onClicked: {
+                    group.error = ""
+                    if (group.ctl.llmSetKey(group.ctl.llmProvider, keyField.text))
+                        keyField.text = ""
                 }
-                KanteButton {
-                    text: dialog.keyStateId === "stored"
-                        ? texts.t("llm.settings.key.replace") : texts.t("llm.settings.key.save")
-                    enabled: keyField.text.length > 0 && !dialog.ctl.llmKeyBusy
-                    onClicked: {
-                        dialog.error = ""
-                        if (dialog.ctl.llmSetKey(dialog.ctl.llmProvider, keyField.text))
-                            keyField.text = ""
-                    }
-                }
-                KanteButton {
-                    text: texts.t("llm.settings.key.delete")
-                    emphasis: KanteButton.Emphasis.Quiet
-                    visible: dialog.keyStateId === "stored"
-                    enabled: !dialog.ctl.llmKeyBusy
-                    onClicked: {
-                        dialog.error = ""
-                        dialog.ctl.llmDeleteKey(dialog.ctl.llmProvider)
-                    }
+            }
+            KanteButton {
+                text: texts.t("llm.settings.key.delete")
+                emphasis: KanteButton.Emphasis.Quiet
+                visible: group.keyStateId === "stored"
+                enabled: !group.ctl.llmKeyBusy
+                onClicked: {
+                    group.error = ""
+                    group.ctl.llmDeleteKey(group.ctl.llmProvider)
                 }
             }
         }
-        KanteCallout {
-            Layout.fillWidth: true
-            visible: dialog.error !== ""
-            kind: KanteCallout.Kind.Warn
-            text: dialog.error
-            dismissible: true
-            autoHide: false
-            onDismissed: dialog.error = ""
-        }
-        KanteButton {
-            visible: dialog.currentProvider && dialog.currentProvider.docsUrl !== ""
-            text: texts.t("llm.settings.key.docs")
-            emphasis: KanteButton.Emphasis.Quiet
-            onClicked: if (dialog.currentProvider) Qt.openUrlExternally(dialog.currentProvider.docsUrl)
-        }
+    }
+    KanteCallout {
+        Layout.fillWidth: true
+        visible: group.error !== ""
+        kind: KanteCallout.Kind.Warn
+        text: group.error
+        dismissible: true
+        autoHide: false
+        onDismissed: group.error = ""
+    }
+    KanteButton {
+        visible: group.currentProvider && group.currentProvider.docsUrl !== ""
+        text: texts.t("llm.settings.key.docs")
+        emphasis: KanteButton.Emphasis.Quiet
+        onClicked: if (group.currentProvider) Qt.openUrlExternally(group.currentProvider.docsUrl)
     }
 }
