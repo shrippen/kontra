@@ -1,7 +1,7 @@
 //! Library and settings on disk: reading JSON files and the one place that writes them.
 
 use crate::store::Settings;
-use crate::{store, Core, Library, UiEvent};
+use crate::{Core, Library, UiEvent};
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::Path;
 
@@ -78,12 +78,12 @@ pub fn save<T: Serialize>(path: &Path, value: &T) -> std::io::Result<()> {
 
 impl Core {
     pub(crate) fn save_library(&mut self) {
-        let saved = store::save(&self.data_dir.join(LIBRARY_FILE), &self.library);
+        let saved = save(&self.data_dir.join(LIBRARY_FILE), &self.library);
         self.tell_save(LIBRARY_FILE, saved);
     }
 
     pub(crate) fn save_settings(&mut self) {
-        let saved = store::save(&self.data_dir.join(SETTINGS_FILE), &self.settings);
+        let saved = save(&self.data_dir.join(SETTINGS_FILE), &self.settings);
         self.tell_save(SETTINGS_FILE, saved);
     }
 

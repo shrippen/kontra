@@ -13,7 +13,8 @@
 //! The probe is this program itself: packages ship only `kontra`, and `main` answers
 //! `--probe-plugin <file>` before Qt starts (`probe_plugin_line`).
 
-use crate::store::{self, Settings};
+use crate::save;
+use crate::store::Settings;
 use kontra_model::{EffectKind, ParamSpec, PluginSpec};
 use kontra_session::plugins::{clear_crash_marker, crashed_plugin, settle_plugins};
 use kontra_session::plugins::{
@@ -137,7 +138,7 @@ impl Plugins {
             adding: None,
             texts: BTreeMap::new(),
             crash_marker: data_dir.join(CRASH_MARKER_FILE),
-            report: store::load(&cache),
+            report: save::load(&cache),
             running: None,
             cache,
             probe: None,
@@ -280,7 +281,7 @@ impl Plugins {
         };
         self.running = None;
         self.progress = None;
-        let _ = store::save(&self.cache, &finished);
+        let _ = save::save(&self.cache, &finished);
         self.report = finished;
         true
     }

@@ -1358,5 +1358,5 @@
   "library.sortby": "Sortieren nach",
   "library.sortby.reverse": "Richtung umkehren (jetzt {direction})",
   "save.failed": "{file} konnte nicht gespeichert werden: {reason}. Änderungen seit dem letzten Speichern gehen beim Beenden verloren.",
-  "save.broken": "{files} ließ sich nicht lesen und liegt jetzt als .broken im Datenordner. Kontra hat mit leeren Daten gestartet."
+  "save.broken": "Nicht lesbar und als .broken im Datenordner beiseitegelegt: {files}. Kontra hat diese Daten neu begonnen."
 }

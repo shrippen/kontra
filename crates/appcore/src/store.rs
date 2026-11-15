@@ -43,8 +43,6 @@ pub fn cache_dir(data: &Path) -> PathBuf {
     kontra_session::cache_dir_of(PROGRAM).unwrap_or_else(|| PathBuf::from(HOMELESS_CACHE))
 }
 
-pub use crate::save::{load, save};
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InputKind {
     /// Interface or Hi-Z instrument cable.
@@ -713,6 +711,7 @@ fn plain(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::save::{load, save};
 
     #[test]
     fn roundtrip_and_broken_file() {

@@ -568,9 +568,9 @@ impl Core {
             settings: self.settings.clone(),
             library: self.library.clone(),
             progress: self.progress_store().all(),
-            quiz: store::load(&self.data_dir.join(quiz_stats::FILE)),
+            quiz: save::load(&self.data_dir.join(quiz_stats::FILE)),
         };
-        store::save(path, &bundle)
+        save::save(path, &bundle)
             .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
         let runs = bundle.progress.iter().map(|p| p.runs.len()).sum::<usize>();
         Ok(self.tr(
@@ -634,10 +634,10 @@ impl Core {
         let quiz = match how {
             DataImport::Replace => bundle.quiz,
             DataImport::Merge => {
-                store::load::<quiz_stats::QuizStats>(&quiz_file).merged(bundle.quiz)
+                save::load::<quiz_stats::QuizStats>(&quiz_file).merged(bundle.quiz)
             }
         };
-        store::save(&quiz_file, &quiz)
+        save::save(&quiz_file, &quiz)
             .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
         self.quiz = None;
         self.save_library();
@@ -2192,11 +2192,11 @@ impl Core {
             "intervals" => quiz::QuizKind::Intervals,
             _ => quiz::QuizKind::Notes,
         };
-        let mut stats: quiz_stats::QuizStats = store::load(&self.data_dir.join(quiz_stats::FILE));
+        let mut stats: quiz_stats::QuizStats = save::load(&self.data_dir.join(quiz_stats::FILE));
         stats.range = quiz_stats::FretRange::new(low, high);
         let instrument = instrument_from(&self.settings);
         let quiz = quiz::Quiz::new(kind, &instrument, stats, time_seed(), unix_now());
-        let _ = store::save(&self.data_dir.join(quiz_stats::FILE), quiz.stats());
+        let _ = save::save(&self.data_dir.join(quiz_stats::FILE), quiz.stats());
         self.quiz = Some(quiz);
         self.quiz_json()
     }
@@ -2219,8 +2219,8 @@ impl Core {
         };
         let right = q.answer(midi, &instrument, unix_now());
         let file = self.data_dir.join(quiz_stats::FILE);
-        let stats = store::load::<quiz_stats::QuizStats>(&file).with_places_of(q.stats());
-        let _ = store::save(&file, &stats);
+        let stats = save::load::<quiz_stats::QuizStats>(&file).with_places_of(q.stats());
+        let _ = save::save(&file, &stats);
         right
     }
 
@@ -2249,7 +2249,7 @@ impl Core {
     /// fret, role}]}`. Before a start only the stored range.
     pub fn quiz_json(&self) -> String {
         let Some(q) = &self.quiz else {
-            let stats: quiz_stats::QuizStats = store::load(&self.data_dir.join(quiz_stats::FILE));
+            let stats: quiz_stats::QuizStats = save::load(&self.data_dir.join(quiz_stats::FILE));
             return json!({ "range": stats.range }).to_string();
         };
         let instrument = instrument_from(&self.settings);
@@ -2337,7 +2337,7 @@ impl Core {
         self.release_standby();
         self.live_ear = Some(self.open_ear(&setup, &instrument)?);
         self.input.remember(InputUse::Ear, setup.input);
-        let stats = store::load(&self.data_dir.join(quiz_stats::FILE));
+        let stats = save::load(&self.data_dir.join(quiz_stats::FILE));
         self.ear = Some(ear::EarQuiz::new(
             kind,
             &instrument,
@@ -2366,8 +2366,8 @@ impl Core {
             return;
         };
         let file = self.data_dir.join(quiz_stats::FILE);
-        let stats = store::load::<quiz_stats::QuizStats>(&file).with_intervals_of(quiz.stats());
-        let _ = store::save(&file, &stats);
+        let stats = save::load::<quiz_stats::QuizStats>(&file).with_intervals_of(quiz.stats());
+        let _ = save::save(&file, &stats);
     }
 
     /// Plays the current prompt (again).

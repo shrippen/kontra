@@ -66,7 +66,7 @@ fn a_package_opens_under_any_name() {
 
     let mut student = Core::new(&dir.join("schueler"), QaOptions::default());
     student.open(&odd).unwrap();
-    assert!(store::save(&dir.join("probe.json"), &student.library).is_ok());
+    assert!(crate::save::save(&dir.join("probe.json"), &student.library).is_ok());
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -92,7 +92,7 @@ fn a_folder_leaves_such_a_name_out() {
     assert!(failed[0].1.contains("umbenennen"), "{failed:?}");
     let recent: serde_json::Value = serde_json::from_str(&core.recent_json()).unwrap();
     assert_eq!(recent.as_array().map(Vec::len), Some(1));
-    assert!(store::save(&dir.join("probe.json"), &core.library).is_ok());
+    assert!(crate::save::save(&dir.join("probe.json"), &core.library).is_ok());
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -114,7 +114,7 @@ fn a_plain_path_stays_text() {
     let mut core = Core::new(&dir.join("data"), QaOptions::default());
 
     core.open(&dir.join("tabs/../link/a.mid")).unwrap();
-    assert!(store::save(&dir.join("probe.json"), &core.library).is_ok());
+    assert!(crate::save::save(&dir.join("probe.json"), &core.library).is_ok());
     let recent: serde_json::Value = serde_json::from_str(&core.recent_json()).unwrap();
     assert_eq!(recent.as_array().map(Vec::len), Some(1));
     let _ = std::fs::remove_dir_all(dir);
@@ -455,7 +455,7 @@ fn swapped_levels_keep_progress_and_setlists() {
         name: "Probe".into(),
         pieces: old_paths.clone(),
     });
-    store::save(&dir.join("library.json"), &core.library).unwrap();
+    crate::save::save(&dir.join("library.json"), &core.library).unwrap();
 
     let core = Core::new(&dir, QaOptions::default());
     let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
@@ -488,7 +488,7 @@ fn exercises_played_in_the_wrong_level_are_found() {
         name: "Probe".into(),
         pieces: vec![before],
     });
-    store::save(&dir.join("library.json"), &core.library).unwrap();
+    crate::save::save(&dir.join("library.json"), &core.library).unwrap();
 
     let core = Core::new(&dir, QaOptions::default());
     assert!(core.library.entry(&walking).is_some());
@@ -513,7 +513,7 @@ fn two_entries_of_one_moved_exercise_become_one() {
         .join(walking.file_name().unwrap());
     newer.last_unix = 2;
     core.library.recent.push(older);
-    store::save(&dir.join("library.json"), &core.library).unwrap();
+    crate::save::save(&dir.join("library.json"), &core.library).unwrap();
 
     let core = Core::new(&dir, QaOptions::default());
     let entries: Vec<_> = core

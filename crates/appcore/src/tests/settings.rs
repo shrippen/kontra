@@ -130,7 +130,7 @@ fn mixer_changes_apply_while_playing() {
         hint.is_some(),
         !silent && !core.live.as_ref().unwrap().can_monitor()
     );
-    let saved: Settings = store::load(&dir.join("settings.json"));
+    let saved: Settings = crate::save::load(&dir.join("settings.json"));
     assert!(saved.monitor);
     assert_eq!(saved.backing_volume, 0.3);
     core.stop_live();

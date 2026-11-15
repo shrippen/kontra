@@ -54,7 +54,7 @@ fn a_broken_library_at_start_is_told() {
 
     let notice = core.take_notice().expect("a notice");
     assert!(notice.contains("library.json"), "{notice}");
-    assert!(!notice.contains("load.broken"), "untranslated: {notice}");
+    assert!(!notice.contains("save.broken"), "untranslated: {notice}");
     assert!(dir.join("library.json.broken").exists());
 }
 

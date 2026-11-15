@@ -1358,5 +1358,5 @@
   "library.sortby": "Sort by",
   "library.sortby.reverse": "Reverse the direction (now {direction})",
   "save.failed": "Could not save {file}: {reason}. Changes since the last save will be lost when Kontra closes.",
-  "save.broken": "{files} could not be read and was set aside as .broken in the data folder. Kontra started with empty data."
+  "save.broken": "Could not be read and set aside as .broken in the data folder: {files}. Kontra started this data afresh."
 }
