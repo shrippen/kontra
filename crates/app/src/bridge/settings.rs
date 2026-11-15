@@ -576,13 +576,14 @@ impl qobject::Controller {
 
     /// Every settings property and list from the core, after the data changed underneath.
     pub(super) fn sync_settings(mut self: Pin<&mut Self>) {
-        let (s, texts, recent, keys, choice) = {
+        let (s, texts, recent, staff, keys, choice) = {
             let this = self.as_ref();
             let core = &this.rust().core;
             (
                 core.settings().clone(),
                 core.texts_json(),
                 core.recent_json(),
+                core.staff_json(),
                 core.key_range_json(),
                 core.instrument_choice(),
             )
@@ -590,6 +591,7 @@ impl qobject::Controller {
         self.as_mut().set_texts(q(&texts));
         self.as_mut().set_recent_json(q(&recent));
         self.as_mut().refresh_tuning();
+        self.as_mut().set_staff_json(q(&staff));
         self.as_mut().set_key_range_json(q(&keys));
         self.as_mut().refresh_setlists();
         self.as_mut().set_mode(q(&s.mode));

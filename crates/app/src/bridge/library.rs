@@ -4,7 +4,7 @@ use super::{file_url, local_path, q, qobject};
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
-use kontra_appcore::{Core, DataImport, DensityLock, Opened, PackageAudio};
+use kontra_appcore::{Core, DataImport, PackageAudio};
 use std::path::PathBuf;
 
 impl qobject::Controller {
@@ -348,46 +348,6 @@ impl qobject::Controller {
         match result {
             Ok(text) => self.as_mut().set_message(q(&text)),
             Err(e) => self.as_mut().show_error(&e),
-        }
-    }
-}
-
-impl super::ControllerRust {
-    /// Opening at start-up, before Qt owns the object (fields set directly).
-    pub(super) fn open_now(&mut self, path: &std::path::Path) {
-        match self.core.open(path) {
-            Ok(Opened::Ready) => {
-                self.loaded = true;
-                self.title = q(&self.core.loaded_title());
-                self.artist = q(&self
-                    .core
-                    .arrangement()
-                    .map_or(String::new(), |a| a.artist.clone()));
-                self.notes_json = q(&self.core.notes_json());
-                self.bars_json = q(&self.core.bars_json());
-                self.staff_json = q(&self.core.staff_json());
-                self.string_names_json = q(&self.core.string_names_json());
-                self.key_range_json = q(&self.core.key_range_json());
-                self.duration = self.core.duration_s();
-                self.recent_json = q(&self.core.recent_json());
-                self.backing_name = q(&self.core.backing_name());
-                self.stems_json = q(&self.core.stems_json());
-                self.transpose = self.core.transpose();
-                self.saved_loops_json = q(&self.core.saved_loops_json());
-                self.target_speed = self.core.target_speed();
-                self.view = q(&self.core.view());
-                self.tracks_json = q(&self.core.tracks_json());
-                let (density, lock) = self.core.density();
-                self.density = i32::from(density.percent());
-                self.density_fixed = lock == DensityLock::Fixed;
-                if let Some(notice) = self.core.take_notice() {
-                    self.message = q(&notice);
-                }
-            }
-            Ok(Opened::ChooseTrack(names)) => {
-                self.track_choices_json = q(&serde_json::to_string(&names).unwrap_or_default());
-            }
-            Err(e) => self.error_text = q(&e),
         }
     }
 }

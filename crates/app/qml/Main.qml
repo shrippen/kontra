@@ -221,7 +221,8 @@ Kirigami.ApplicationWindow {
         return true
     }
 
-    function show(name) {
+    // `section`: a settings section to scroll to (SettingsPage.showSection).
+    function show(name, section) {
         if ((current === "tuner" || current === "setup" || current === "quiz") && name !== current) {
             ctl.stopTuner()
         }
@@ -243,6 +244,9 @@ Kirigami.ApplicationWindow {
         current = name
         var page = component.createObject(pageStack)
         nameFocus.createObject(page, { page: page })
+        if (section && page.showSection) {
+            page.showSection(section)
+        }
         if (pageStack.depth === 0) {
             pageStack.push(page)
         } else {
