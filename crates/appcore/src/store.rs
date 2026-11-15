@@ -3,7 +3,7 @@
 use crate::effects::ChainPreset;
 use kontra_model::{ChainSpec, EffectKind, PluginSpec, SlotSpec, A4_HZ};
 use kontra_session::Gains;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -41,31 +41,6 @@ pub fn cache_dir(data: &Path) -> PathBuf {
         return data.join("cache");
     }
     kontra_session::cache_dir_of(PROGRAM).unwrap_or_else(|| PathBuf::from(HOMELESS_CACHE))
-}
-
-/// Reads JSON or returns the default (a damaged file is kept aside as `.broken`).
-pub fn load<T: DeserializeOwned + Default>(path: &Path) -> T {
-    let Ok(text) = std::fs::read_to_string(path) else {
-        return T::default();
-    };
-    match serde_json::from_str(&text) {
-        Ok(value) => value,
-        Err(_) => {
-            let _ = std::fs::rename(path, path.with_extension("json.broken"));
-            T::default()
-        }
-    }
-}
-
-/// Writes JSON atomically.
-pub fn save<T: Serialize>(path: &Path, value: &T) -> std::io::Result<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let text = serde_json::to_string_pretty(value).map_err(std::io::Error::other)?;
-    let temp = path.with_extension("json.tmp");
-    std::fs::write(&temp, text)?;
-    std::fs::rename(temp, path)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -736,6 +711,7 @@ fn plain(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::save::{load, save};
 
     #[test]
     fn roundtrip_and_broken_file() {

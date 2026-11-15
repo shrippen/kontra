@@ -3,7 +3,6 @@
 # Lines: exclude<TAB>glob | path<TAB>function or - for the file<TAB>metric=value ...
 exclude	crates/app/qml/Kante/*
 crates/app/qml/PracticePage.qml	-	lines=1200
-crates/app/qml/SettingsPage.qml	-	lines=838
 crates/app/src/args.rs	parse	ccn=37
 crates/app/src/bridge.rs	-	lines=1567
 crates/app/src/bridge.rs	apply	ccn=28 length=126
@@ -14,13 +13,13 @@ crates/appcore/src/bundled.rs	exercise_title	length=83
 crates/appcore/src/effects.rs	edit_effects	ccn=28
 crates/appcore/src/learn.rs	-	lines=1131
 crates/appcore/src/level.rs	state_at	nesting=5
-crates/appcore/src/lib.rs	-	lines=2813
+crates/appcore/src/lib.rs	-	lines=2812
 crates/appcore/src/lib.rs	ear_json	ccn=20 length=111
 crates/appcore/src/lib.rs	load	length=96
 crates/appcore/src/lib.rs	tick	ccn=19 length=87
 crates/appcore/src/package.rs	open_package	ccn=16
 crates/appcore/src/stems.rs	stems_json	ccn=18 nesting=5
-crates/appcore/src/store.rs	-	lines=979
+crates/appcore/src/store.rs	-	lines=955
 crates/appcore/src/summary.rs	note_details	ccn=24 length=128
 crates/appcore/src/summary.rs	summary_json	length=106
 crates/appcore/src/tests/coaching.rs	-	lines=1197
