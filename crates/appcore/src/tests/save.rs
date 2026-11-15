@@ -20,6 +20,7 @@ fn a_failed_library_save_is_told() {
     let notice = core.take_notice().expect("a notice");
     assert!(notice.contains("library.json"), "{notice}");
     assert!(!notice.contains("save.failed"), "untranslated: {notice}");
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 #[test]
@@ -32,6 +33,7 @@ fn a_failed_settings_save_is_told() {
 
     let notice = core.take_notice().expect("a notice");
     assert!(notice.contains("settings.json"), "{notice}");
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 #[test]
@@ -43,6 +45,7 @@ fn a_working_save_says_nothing() {
     core.update_settings(|s| s.view = "tab".to_string());
 
     assert_eq!(core.take_notice(), None);
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 #[test]
@@ -56,6 +59,7 @@ fn a_broken_library_at_start_is_told() {
     assert!(notice.contains("library.json"), "{notice}");
     assert!(!notice.contains("save.broken"), "untranslated: {notice}");
     assert!(dir.join("library.json.broken").exists());
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 #[test]
@@ -69,4 +73,5 @@ fn a_notice_reaches_the_tick() {
 
     assert!(events.iter().any(|e| matches!(e, UiEvent::Message(_))));
     assert_eq!(core.take_notice(), None);
+    let _ = std::fs::remove_dir_all(dir);
 }

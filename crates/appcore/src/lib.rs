@@ -700,7 +700,7 @@ impl Core {
         Ok(())
     }
 
-    /// The note left by the last `open`, once.
+    /// The note left by the last `open`, a failed save or the start, once.
     pub fn take_notice(&mut self) -> Option<String> {
         self.notice.take()
     }
