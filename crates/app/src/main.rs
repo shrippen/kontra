@@ -18,7 +18,6 @@ mod bridge;
 mod live_qml;
 mod probe;
 mod qt_env;
-mod sync_check;
 mod translator;
 
 use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QString, QUrl};
