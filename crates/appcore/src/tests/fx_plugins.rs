@@ -3,7 +3,7 @@
 //! (built as an example by `cargo test --workspace`).
 
 use super::*;
-use kontra_session::plugins::{probe_file, PluginFormat, ProbeCommand, ScanReport};
+use kontra_session::plugin_host::{probe_here, PluginFormat, ProbeCommand, ScanReport};
 use serde_json::Value;
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -48,7 +48,7 @@ fn gain_file() -> PathBuf {
 /// A core whose last scan found the gain plugin.
 fn core_with_plugin(name: &str) -> Core {
     let mut core = Core::new(&temp_dir(name), QaOptions::default());
-    let plugins = probe_file(PluginFormat::Clap, &gain_file()).expect("probe");
+    let plugins = probe_here(PluginFormat::Clap, &gain_file()).expect("probe");
     core.plugins.set_report(ScanReport {
         plugins,
         broken: Vec::new(),
@@ -512,8 +512,8 @@ fn a_new_chain_drops_the_plugin_being_added() {
 }
 
 /// A hand-made plugin entry; nothing is loaded.
-fn listed(name: &str, categories: &[&str]) -> kontra_session::plugins::PluginInfo {
-    kontra_session::plugins::PluginInfo {
+fn listed(name: &str, categories: &[&str]) -> kontra_session::plugin_host::PluginInfo {
+    kontra_session::plugin_host::PluginInfo {
         format: PluginFormat::Clap,
         id: name.to_string(),
         name: name.to_string(),
@@ -524,7 +524,7 @@ fn listed(name: &str, categories: &[&str]) -> kontra_session::plugins::PluginInf
     }
 }
 
-fn core_listing(name: &str, plugins: Vec<kontra_session::plugins::PluginInfo>) -> Core {
+fn core_listing(name: &str, plugins: Vec<kontra_session::plugin_host::PluginInfo>) -> Core {
     let mut core = Core::new(&temp_dir(name), QaOptions::default());
     core.plugins.set_report(ScanReport {
         plugins,
@@ -535,7 +535,7 @@ fn core_listing(name: &str, plugins: Vec<kontra_session::plugins::PluginInfo>) -
 }
 
 /// Like `core_listing`, but the report comes from a scan that reads categories.
-fn core_scanned(name: &str, plugins: Vec<kontra_session::plugins::PluginInfo>) -> Core {
+fn core_scanned(name: &str, plugins: Vec<kontra_session::plugin_host::PluginInfo>) -> Core {
     let mut core = core_listing(name, plugins.clone());
     core.plugins.set_report(ScanReport {
         plugins,

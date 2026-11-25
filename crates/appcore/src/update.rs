@@ -7,7 +7,7 @@
 //! ```
 
 use crate::Core;
-use kontra_session::{is_newer, FileHttp, Http, NewRelease, UpdateCheck, Web};
+use kontra_session::{external, is_newer, Http, NewRelease, UpdateCheck};
 use serde_json::json;
 use std::path::Path;
 use std::sync::Arc;
@@ -55,11 +55,7 @@ impl Core {
             self.recall_update();
             return;
         }
-        let http = self
-            .updater
-            .http
-            .get_or_insert_with(|| Arc::new(Web::new()))
-            .clone();
+        let http = self.updater.http.get_or_insert_with(external::web).clone();
         let mut check = UpdateCheck::new(http);
         check.start(VERSION);
         self.updater.check = Some(check);
@@ -107,7 +103,7 @@ impl Core {
 
     /// Answers the check with the file's content (QA runs, screenshots): never the network.
     fn fake_update_answer(&mut self, answer: &Path) {
-        self.set_update_http(Arc::new(FileHttp::new(answer)));
+        self.set_update_http(external::web_from_file(answer));
     }
 
     /// The web client the check uses; tests pass a fake.

@@ -14,7 +14,7 @@
 use crate::{Core, UiEvent};
 use kontra_session::exercise::Level;
 use kontra_session::{
-    self as session, GenError, Http, HttpError, Keychain, Provider, SecretError, SecretStore, Web,
+    self as session, external, GenError, Http, HttpError, Provider, SecretError, SecretStore,
 };
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
 use std::sync::Arc;
@@ -75,7 +75,7 @@ impl Default for LlmJob {
     fn default() -> LlmJob {
         LlmJob {
             http: None,
-            secrets: Arc::new(Keychain),
+            secrets: external::keychain(),
             piece: None,
             piece_level: String::new(),
             models: None,
@@ -423,10 +423,7 @@ impl Core {
 
     /// The web client to ask with; made on first use.
     fn llm_http(&mut self) -> Arc<dyn Http> {
-        self.llm
-            .http
-            .get_or_insert_with(|| Arc::new(Web::new()))
-            .clone()
+        self.llm.http.get_or_insert_with(external::web).clone()
     }
 
     fn llm_secret_error_text(&self, e: &SecretError) -> String {

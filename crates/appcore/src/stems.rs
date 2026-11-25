@@ -85,7 +85,7 @@ impl Core {
 
     /// The cache alone, without looking for the separator.
     pub(crate) fn cached_stems(&self) -> BassRemoval {
-        BassRemoval::with_separator(None, &self.stems_cache())
+        BassRemoval::with_program(None, &self.stems_cache())
     }
 
     /// The separator, looked for once (inside a Flatpak that asks the host, which takes a
@@ -100,8 +100,7 @@ impl Core {
     /// QA (journeys): a stand-in for Demucs at `program`; `None` acts as if none is installed.
     pub fn qa_separator(&mut self, program: Option<&Path>) {
         let cache = self.stems_cache();
-        let separator = program.map(kontra_session::Separator::with_program);
-        self.stems.removal = Some(BassRemoval::with_separator(separator, &cache));
+        self.stems.removal = Some(BassRemoval::with_program(program, &cache));
     }
 
     /// Looks for the separator again, e.g. after installing it (no restart needed).

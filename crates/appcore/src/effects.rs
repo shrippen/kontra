@@ -18,7 +18,7 @@ pub use presets::ChainPreset;
 use crate::fx_plugins::{self, found_at, param_key, param_mut, PLUGIN_KEY};
 use crate::{Core, Settings};
 use kontra_model::{EffectKind, PluginSpec, SlotSpec, CHAIN_SLOTS};
-use kontra_session::plugins::{PluginError, PluginFormat};
+use kontra_session::plugin_host::{PluginError, PluginFormat};
 use kontra_session::{describe_plugin_later, group_of_effect, group_of_plugin, PluginGroup};
 use serde_json::json;
 

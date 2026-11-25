@@ -208,7 +208,7 @@ impl Core {
         &mut self,
         plugin: u32,
         title: &str,
-    ) -> Option<Result<(), kontra_session::plugins::PluginError>> {
+    ) -> Option<Result<(), kontra_session::plugin_host::PluginError>> {
         if let Some(live) = self.live.as_mut() {
             return Some(live.open_editor(plugin, title));
         }

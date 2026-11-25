@@ -16,10 +16,7 @@
 use crate::save;
 use crate::store::Settings;
 use kontra_model::{EffectKind, ParamSpec, PluginSpec};
-use kontra_session::plugins::{clear_crash_marker, crashed_plugin, settle_plugins};
-use kontra_session::plugins::{
-    plugin_files, probe_line, scan_files, PluginFormat, PluginInfo, ProbeCommand, ScanReport,
-};
+use kontra_session::plugin_host::{self, PluginFormat, PluginInfo, ProbeCommand, ScanReport};
 use kontra_session::{PendingSpec, PluginBank, PluginProblems, PluginRack};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -45,7 +42,7 @@ const FORMATS: [PluginFormat; 2] = [PluginFormat::Clap, PluginFormat::Vst3];
 
 /// The body of the probe process: what `PROBE_FLAG` prints for `path` (one line of JSON).
 pub fn probe_plugin_line(path: &Path) -> String {
-    probe_line(path)
+    plugin_host::probe_answer(path)
 }
 
 /// Where a running scan stands: `done` of `total` files are probed, `name` is being probed.
@@ -101,7 +98,7 @@ impl Drop for Plugins {
         // The players are gone, so every processor is parked: the instances close now, and the
         // settle below waits for that too.
         drop(std::mem::take(&mut self.rack));
-        let _ = settle_plugins(SETTLE_PATIENCE);
+        let _ = plugin_host::settle(SETTLE_PATIENCE);
     }
 }
 
@@ -154,10 +151,10 @@ impl Plugins {
     /// off until the player switches it on.
     pub(crate) fn start(data_dir: &Path, settings: &mut Settings) -> Plugins {
         let mut plugins = Plugins::new(data_dir);
-        let Some((path, plugin)) = crashed_plugin(&plugins.crash_marker) else {
+        let Some((path, plugin)) = plugin_host::crashed(&plugins.crash_marker) else {
             return plugins;
         };
-        clear_crash_marker(&plugins.crash_marker);
+        plugin_host::clear_crash(&plugins.crash_marker);
 
         let ids: Vec<u32> = settings
             .plugins
@@ -234,8 +231,12 @@ impl Plugins {
                 let _ = tx.send(ScanMessage::Done(report));
                 return;
             };
-            let files =
-                only.unwrap_or_else(|| FORMATS.iter().flat_map(|f| plugin_files(*f)).collect());
+            let files = only.unwrap_or_else(|| {
+                FORMATS
+                    .iter()
+                    .flat_map(|f| plugin_host::installed(*f))
+                    .collect()
+            });
             for (done, file) in files.iter().enumerate() {
                 let name = file
                     .file_stem()
@@ -247,7 +248,7 @@ impl Plugins {
                     name,
                     found,
                 }));
-                let mut part = scan_files(std::slice::from_ref(file), &probe, PROBE_TIMEOUT);
+                let mut part = plugin_host::scan(std::slice::from_ref(file), &probe, PROBE_TIMEOUT);
                 report.plugins.append(&mut part.plugins);
                 report.broken.append(&mut part.broken);
             }

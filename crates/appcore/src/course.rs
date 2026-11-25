@@ -13,7 +13,7 @@
 
 use crate::Core;
 use kontra_session::lesson::{self, Block, CoursePack, PackError, COURSE_EXT};
-use kontra_session::{CourseError, CourseFetch, CourseStore, FileHttp, Http, Web};
+use kontra_session::{external, CourseError, CourseFetch, CourseStore, Http};
 use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::Arc;
@@ -35,11 +35,7 @@ impl Core {
     /// Fetches the package at `url` for a preview: `{"state": "running"}`, or
     /// `{"state": "error", "message"}` when it cannot start (not https).
     pub fn course_fetch(&mut self, url: &str) -> String {
-        let http = self
-            .fetcher
-            .http
-            .get_or_insert_with(|| Arc::new(Web::new()))
-            .clone();
+        let http = self.fetcher.http.get_or_insert_with(external::web).clone();
         match CourseStore::new(&self.data_dir).fetch(http, url) {
             Ok(fetch) => {
                 self.fetcher.running = Some(fetch);
@@ -63,7 +59,7 @@ impl Core {
 
     /// Answers every course address with the file's content (QA runs): never the network.
     pub fn fake_course_web(&mut self, answer: &Path) {
-        self.set_course_http(Arc::new(FileHttp::new(answer)));
+        self.set_course_http(external::web_from_file(answer));
     }
 
     /// The web client fetching uses; tests pass a fake.
