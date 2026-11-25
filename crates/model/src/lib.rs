@@ -1,10 +1,12 @@
 //! Domain types shared by every Kontra layer.
 //!
 //! ```text
-//! ui / cli  →  session  →  engine  →  drivers
-//!                 ↓           ↓
-//!              content      (model is used by all of them, depends on nothing)
+//! app ─► appcore ─┐
+//!                 ├─► session ─┬─► engine ─┬─► drivers
+//! cli ────────────┘            │           ├─► dsp
+//!                              └─► content └─► stretch
 //! ```
+//! (model is used by all but app, drivers and stretch; it depends on nothing)
 //!
 //! Units are part of the names: `_hz`, `_cent`, `_s`, `_ms`, `_ticks`.
 

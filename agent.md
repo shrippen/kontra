@@ -19,17 +19,21 @@ Implementierung: Rust (Cargo-Workspace), UI in QML (Kirigami + Kante) über cxx-
 Audio über cpal. Erkennung, Time-Stretch, Notensatz und Import sind eigene Implementierungen. Lizenz MIT.
 
 ## Schichten (nur zum direkten Nachbarn darunter)
+Jede Schicht ist ein Crate unter `crates/`; `tests/physical_design.rs` prüft die Pfeile in den `Cargo.toml`.
 ```
-ui/         QML-Seiten, Modelle für QML           (Qt 6, Kirigami, Kante)
-  ↓
-session/    Zeitachse, Modi, Bewertung, Fortschritt
-  ↓
-engine/     Erkennung (Onset, Tonhöhe), Wiedergabe, Mixer, Instrument-Profile
-  ↓
-drivers/    rohes Audio-I/O (cpal), MIDI (midir), Dateizugriff
+app ─► appcore ─┐                              app      QML-Seiten und cxx-qt-Brücke (Qt 6, Kirigami, Kante)
+                ├─► session ─┬─► engine ─┬─► drivers   appcore  Kern der App ohne Qt, alles, was die Brücke ruft
+cli ────────────┘            │           ├─► dsp       session  Zeitachse, Modi, Bewertung, Fortschritt
+                             └─► content └─► stretch   engine   Erkennung, Wiedergabe, Mixer, Instrument-Profile
+                                                       drivers  rohes Audio-I/O (cpal), MIDI, Web, Dateien
+                                                       content  Import, Arrangement, Pakete
+                                                       dsp, stretch  Signalverarbeitung, Time-Stretch, ohne I/O
+                                                       cli      Kommandozeile für Entwicklung, QA, Skripte
+model: Domänentypen, für alle außer app, drivers und stretch
 ```
-- `content/` (Import, Arrangement, Pakete) liegt neben `session/` und wird nur von ihr gerufen.
-- UI ruft nie Engine oder Treiber direkt auf.
+- `content/` liegt neben `engine/` und wird nur von `session/` gerufen.
+- Die UI (`app`, `appcore`) ruft nie Engine oder Treiber direkt auf, auch nicht über Namen, die eine Schicht
+  unverändert nach oben weiterreicht (`pub use`).
 - Instrument und Eingang sind getrennte Profile/Adapter; ein neues Instrument ändert weder Session noch Bewertung.
 - Jede Schicht ist ein eigenes Crate; Abhängigkeiten nur zum Nachbarn darunter (in `Cargo.toml` sichtbar).
 - Alles privat; `pub` (auch `pub(crate)`) nur, wo das Design es braucht. Für Kontra generell freigegeben
