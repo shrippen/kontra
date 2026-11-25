@@ -735,11 +735,14 @@ fn a_restore_survives_a_missing_piece() {
 
     let report = second.import_data(&file, DataImport::Replace);
 
-    assert!(report.is_ok(), "{report:?}");
+    // One text for the note bar: the restore and, after it, why the piece stayed as it was.
+    let report = report.expect("a restore");
+    assert!(report.contains("sicherung.json"), "{report}");
+    assert!(report.lines().count() > 1, "{report}");
     // The profile has the restored strings; the piece that is gone keeps its old layout.
     let profile: Vec<serde_json::Value> =
         serde_json::from_str(&second.profile_tuning_json()).unwrap();
     assert_eq!(profile[0]["full"], "D1");
-    assert!(second.take_notice().is_some());
+    assert_eq!(second.take_notice(), None);
     let _ = std::fs::remove_dir_all(dir);
 }

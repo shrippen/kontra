@@ -649,8 +649,7 @@ impl Core {
         self.quiz = None;
         self.save_library();
         if how == DataImport::Replace {
-            // The restored strings and reference act on the piece and the tuner at once. The
-            // backup is in place either way, so a piece gone missing is a notice, not a failure.
+            // Strings and reference act at once; a piece gone missing is a notice, not a failure.
             if let Err(e) = self.relayout() {
                 self.notice.push_back(e);
             }
@@ -659,7 +658,7 @@ impl Core {
             DataImport::Merge => "data.merged",
             DataImport::Replace => "data.replaced",
         };
-        Ok(self.tr(
+        let report = self.tr(
             key,
             &[
                 ("pieces", merged.pieces.to_string()),
@@ -667,7 +666,8 @@ impl Core {
                 ("runs", merged.runs.to_string()),
                 ("name", file_name(path)),
             ],
-        ))
+        );
+        Ok(self.with_notices(report))
     }
 
     /// The About section's licence list (LH-NF-11): Kontra, the dynamically linked Qt and KDE

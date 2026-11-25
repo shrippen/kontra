@@ -96,6 +96,15 @@ impl Core {
         Some(self.notice.drain(..).collect::<Vec<_>>().join("\n"))
     }
 
+    /// `report` with the notices waiting below it: the note bar has one place, and a notice
+    /// in the next tick would replace the report (review #367).
+    pub(crate) fn with_notices(&mut self, report: String) -> String {
+        match self.take_notice() {
+            Some(notice) => format!("{report}\n{notice}"),
+            None => report,
+        }
+    }
+
     /// The notice, if there is one, for the next tick: a failed save or a damaged file at start
     /// (an open that nobody took leaves its notice too).
     pub(crate) fn notice_event(&mut self) -> Option<UiEvent> {
