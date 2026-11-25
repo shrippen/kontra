@@ -87,6 +87,15 @@ impl Core {
         self.tell_save(SETTINGS_FILE, saved);
     }
 
+    /// The notes left by `open`, failed saves or the start, once, oldest first, one per line:
+    /// the note bar has a single place.
+    pub fn take_notice(&mut self) -> Option<String> {
+        if self.notice.is_empty() {
+            return None;
+        }
+        Some(self.notice.drain(..).collect::<Vec<_>>().join("\n"))
+    }
+
     /// The notice, if there is one, for the next tick: a failed save or a damaged file at start
     /// (an open that nobody took leaves its notice too).
     pub(crate) fn notice_event(&mut self) -> Option<UiEvent> {

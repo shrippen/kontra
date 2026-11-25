@@ -714,15 +714,6 @@ impl Core {
         Ok(())
     }
 
-    /// The notes left by `open`, failed saves or the start, once, oldest first, one per line:
-    /// the note bar has a single place.
-    pub fn take_notice(&mut self) -> Option<String> {
-        if self.notice.is_empty() {
-            return None;
-        }
-        Some(self.notice.drain(..).collect::<Vec<_>>().join("\n"))
-    }
-
     /// The view for the loaded piece: the one last used with it, else the default (LH-ANZ-04).
     pub fn view(&self) -> String {
         self.loaded_path()

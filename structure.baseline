@@ -14,7 +14,7 @@ crates/appcore/src/ear_training.rs	ear_json	ccn=20 length=111
 crates/appcore/src/effects.rs	edit_effects	ccn=28
 crates/appcore/src/learn.rs	-	lines=1131
 crates/appcore/src/level.rs	state_at	nesting=5
-crates/appcore/src/lib.rs	-	lines=1887
+crates/appcore/src/lib.rs	-	lines=1883
 crates/appcore/src/lib.rs	load	length=96
 crates/appcore/src/lib.rs	tick	ccn=19 length=87
 crates/appcore/src/package.rs	open_package	ccn=16
