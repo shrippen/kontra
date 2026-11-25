@@ -691,3 +691,22 @@ fn a_qa_run_lists_no_devices_at_start() {
     assert_eq!(LISTED.load(Ordering::SeqCst), 0, "listed at start");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// LH-TUN-02: restoring a backup with another tuning lays the loaded piece out on its strings.
+#[test]
+fn restoring_a_backup_retunes_the_piece() {
+    let dir = temp_dir("restore-tuning");
+    let mut first = Core::new(&dir.join("a"), QaOptions::default());
+    first.set_tuning("drop").unwrap();
+    let file = dir.join("sicherung.json");
+    first.export_data(&file).unwrap();
+
+    let mut second = Core::new(&dir.join("b"), QaOptions::default());
+    second.open(&demo()).unwrap();
+    assert_eq!(second.arrangement().unwrap().instrument.tuning.strings[0].0, 28);
+    second.import_data(&file, DataImport::Replace).unwrap();
+
+    assert_eq!(open_strings(&second), ["D1", "A1", "D2", "G2"]);
+    assert_eq!(second.arrangement().unwrap().instrument.tuning.strings[0].0, 26);
+    let _ = std::fs::remove_dir_all(dir);
+}

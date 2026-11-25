@@ -603,6 +603,7 @@ impl Core {
             }
         })?;
         self.stop_live();
+        let tuner_running = self.tuner.is_some();
         let store = self.progress_store();
         let mut merged = data::Merged::default();
         match how {
@@ -647,6 +648,10 @@ impl Core {
             .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
         self.quiz = None;
         self.save_library();
+        if how == DataImport::Replace {
+            // The restored strings and reference act on the piece and the tuner at once.
+            self.relayout(tuner_running)?;
+        }
         let key = match how {
             DataImport::Merge => "data.merged",
             DataImport::Replace => "data.replaced",
@@ -770,6 +775,11 @@ impl Core {
     pub fn retune(&mut self, change: impl FnOnce(&mut Settings)) -> Result<(), String> {
         let tuner_running = self.tuner.is_some();
         self.reconfigure(change);
+        self.relayout(tuner_running)
+    }
+
+    /// Lays the loaded piece out on the settings' strings again and restarts a tuner that ran.
+    fn relayout(&mut self, tuner_running: bool) -> Result<(), String> {
         if let Some(track) = self.loaded.as_ref().map(|l| l.track) {
             self.reload(track)?;
         }
