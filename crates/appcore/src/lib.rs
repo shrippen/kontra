@@ -779,17 +779,6 @@ impl Core {
         self.relayout(tuner_running)
     }
 
-    /// Lays the loaded piece out on the settings' strings again and restarts a tuner that ran.
-    fn relayout(&mut self, tuner_running: bool) -> Result<(), String> {
-        if let Some(track) = self.loaded.as_ref().map(|l| l.track) {
-            self.reload(track)?;
-        }
-        if tuner_running {
-            self.start_tuner()?;
-        }
-        Ok(())
-    }
-
     /// The instrument as the UI offers it (LH-EIN-09): MIDI input, else the stored bass.
     pub fn instrument_choice(&self) -> InstrumentChoice {
         match (self.settings.input_kind, self.settings.instrument) {
@@ -932,7 +921,7 @@ impl Core {
             if !reaches {
                 // QA P2 (U1): say why the tab shows more strings than the profile.
                 let note = lowest.map_or_else(String::new, |p| self.note_label(&p.to_string()));
-                let text = self.tr(
+                self.notice.push_back(self.tr(
                     "notice.more.strings",
                     &[
                         ("note", note),
@@ -941,8 +930,7 @@ impl Core {
                             arrangement.instrument.tuning.strings.len().to_string(),
                         ),
                     ],
-                );
-                self.notice.push_back(text);
+                ));
             }
             if reaches && profile.tuning != arrangement.instrument.tuning {
                 arrangement.instrument = profile;
