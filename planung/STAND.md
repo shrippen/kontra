@@ -1,7 +1,29 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-11-14. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+Übergabe zwischen Sitzungen. Stand: 2026-11-25. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
+
+## Übergabe (14.11.2026, Abend: Code-Audit und Behebung)
+
+Eigentümer: Audit und Strukturprüfung freigegeben, dann „alles umsetzen und fixen“ (alle zehn Funde aus `AUDIT.md`,
+je Fund ein PR). In `main`: #350 (Strukturprüfung in der CI, `structure.baseline`), #352 (`AUDIT.md`), #351 (Fund 5:
+`Main.openPiece`, Übungen und Auswertung führen zur Spurfrage), #353 (Fund 3: Ordner-Import liest `.kar`), #354
+(Fund 2: `kontra_model::read_note`, Lektionen nehmen `F♯`), #355 (Fund 8: `openDemo`, `extraNote`, `lib.rs.test`
+entfernt; `UiEvent::Extra` bleibt für die Journeys c5/e3), #356 (Fund 4: `KorpusSet::requirement_misses`, Raum-Onset
+in der CLI 10 statt 30 ms nach LH-NF-02; Messwerte unverändert).
+
+- Welle 2 in `main`: #357 (Fund 7a: Sicherung frischt Stimmung und Töne auf), #358 (Fund 1a: Speichern an einer
+  Stelle), #360 (Fund 1b: Speicherfehler als Hinweis), #361 (Fund 7b: `cxx_qt::Initialize`). Dazu #359
+  (KI-Anbieter in den Einstellungen). Welle 3 offen: Funde 6, 9, 10.
+- Aus den Reviews, offen: `ctl.openNext()` auf der Übungsseite führt bei unklarer Bass-Spur nicht zur Spurfrage
+  (`PracticePage.qml`, Weg über `bridge/library.rs after_open`); `Main.openPiece` hat keinen eigenen Test; der Dialog
+  „Datei öffnen“ (`LibraryPage.qml`) hat eine eigene Endungsliste ohne `*.kar`; `.xml` behandeln Ordner-Import,
+  verknüpfte Ordner und Quellenliste verschieden; `kontra-cli korpus check` zeigt die Gründe aus
+  `requirement_misses` nicht.
+- Sicherung „Ersetzen“ mit anderer Stimmung: `import_data` setzt die Einstellungen über `remix`, nicht `retune`; ein
+  geladenes Stück und ein laufendes Stimmgerät bleiben auf den alten Saiten (LH-TUN-02; Review #357).
+- Hinweise an den Nutzer (`Core.notice`) haben einen Platz: ein Speicherfehler kann von einem späteren Hinweis im
+  selben Tick überschrieben werden (Review #360). Plugin-Zwischenspeicher und Quiz-Statistik speichern weiter still.
 
 ## Übergabe (14.11.2026, Vormittag bis Abend: Runde 22 umgesetzt, Seitenaufbau)
 
@@ -404,6 +426,8 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
 
 ## Neue pub-Schnittstellen (nächste Runde zur Freigabe)
 
+- Audit 14.11.: QML `Main.openPiece` (#351); `kontra_model::{read_note, ReadNote}` (#354);
+  `KorpusSet::{requirement_misses, IDLE_MAX_PER_MINUTE}` (#356).
 - #48/#49: `Core::home_json`, `Core::loaded_title`, `Library::plain_paths`, `TrackInfo::is_percussion`.
 - #50: `TechniqueTarget`, `technique_signs`, `TechniqueResult::sign`, `Annotation::slide_cents`.
 - Runde 12 und danach (freigegeben in Runde 12 bis #66; neu): `startup_language`, `Settings::piece_mode`,
