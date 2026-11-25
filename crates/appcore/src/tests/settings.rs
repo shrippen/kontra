@@ -703,10 +703,16 @@ fn restoring_a_backup_retunes_the_piece() {
 
     let mut second = Core::new(&dir.join("b"), QaOptions::default());
     second.open(&demo()).unwrap();
-    assert_eq!(second.arrangement().unwrap().instrument.tuning.strings[0].0, 28);
+    assert_eq!(
+        second.arrangement().unwrap().instrument.tuning.strings[0].0,
+        28
+    );
     second.import_data(&file, DataImport::Replace).unwrap();
 
     assert_eq!(open_strings(&second), ["D1", "A1", "D2", "G2"]);
-    assert_eq!(second.arrangement().unwrap().instrument.tuning.strings[0].0, 26);
+    assert_eq!(
+        second.arrangement().unwrap().instrument.tuning.strings[0].0,
+        26
+    );
     let _ = std::fs::remove_dir_all(dir);
 }

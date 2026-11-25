@@ -75,3 +75,22 @@ fn a_notice_reaches_the_tick() {
     assert_eq!(core.take_notice(), None);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Two failures before the next tick: the player hears both, oldest first.
+#[test]
+fn notices_queue_up() {
+    let dir = temp_dir("save-queue");
+    let mut core = Core::new(&dir, QaOptions::default());
+    block(&dir, "library.json");
+    block(&dir, "settings.json");
+
+    core.save_library();
+    core.update_settings(|s| s.view = "tab".to_string());
+
+    let first = core.take_notice().expect("first notice");
+    let second = core.take_notice().expect("second notice");
+    assert!(first.contains("library.json"), "{first}");
+    assert!(second.contains("settings.json"), "{second}");
+    assert_eq!(core.take_notice(), None);
+    let _ = std::fs::remove_dir_all(dir);
+}

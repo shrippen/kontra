@@ -82,6 +82,7 @@ use kontra_session::{
 use mixer::gains;
 use notation::key_at;
 use serde_json::json;
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 pub(crate) use util::{file_name, piece_name, quantum_too_long_ms, time_seed, unix_now};
 
@@ -266,7 +267,7 @@ pub struct Core {
     /// Call and response (LH-LRN-19).
     call: call::CallState,
     /// A note for the user from the last `open` (e.g. a five-string bass was chosen).
-    notice: Option<String>,
+    notice: VecDeque<String>,
     /// The setlist being played and the position in it (LH-BIB-04).
     active_setlist: Option<(String, usize)>,
     /// The input that went away, watched until it is back (LH-ALL-04).
@@ -377,7 +378,7 @@ impl Core {
             live_course: None,
             plugins: fx_plugins::Plugins::start(data_dir, &mut settings),
             llm: llm::LlmJob::default(),
-            notice: None,
+            notice: VecDeque::new(),
             active_setlist: None,
             lost: None,
             input: input_state::InputStatus::new(),
@@ -711,9 +712,9 @@ impl Core {
         Ok(())
     }
 
-    /// The note left by the last `open`, a failed save or the start, once.
+    /// The oldest note left by an `open`, a failed save or the start, once.
     pub fn take_notice(&mut self) -> Option<String> {
-        self.notice.take()
+        self.notice.pop_front()
     }
 
     /// The view for the loaded piece: the one last used with it, else the default (LH-ANZ-04).
@@ -931,7 +932,7 @@ impl Core {
             if !reaches {
                 // QA P2 (U1): say why the tab shows more strings than the profile.
                 let note = lowest.map_or_else(String::new, |p| self.note_label(&p.to_string()));
-                self.notice = Some(self.tr(
+                let text = self.tr(
                     "notice.more.strings",
                     &[
                         ("note", note),
@@ -940,7 +941,8 @@ impl Core {
                             arrangement.instrument.tuning.strings.len().to_string(),
                         ),
                     ],
-                ));
+                );
+                self.notice.push_back(text);
             }
             if reaches && profile.tuning != arrangement.instrument.tuning {
                 arrangement.instrument = profile;

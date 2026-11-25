@@ -172,14 +172,15 @@ impl Core {
             .arrangement()
             .map_or_else(String::new, |a| a.title.clone());
         let percent = (self.target_speed() * 100.0).round().to_string();
-        self.notice = Some(self.tr(
+        let text = self.tr(
             "package.opened",
             &[
                 ("title", title),
                 ("loops", loops.to_string()),
                 ("percent", percent),
             ],
-        ));
+        );
+        self.notice.push_back(text);
         Ok(())
     }
 }

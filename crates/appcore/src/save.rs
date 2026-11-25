@@ -99,7 +99,8 @@ impl Core {
             return;
         };
         let args = [("file", file.to_string()), ("reason", error.to_string())];
-        self.notice = Some(self.tr("save.failed", &args));
+        let text = self.tr("save.failed", &args);
+        self.notice.push_back(text);
     }
 
     /// What `new` changed while loading: pieces moved (the next start must not find the old
@@ -115,6 +116,7 @@ impl Core {
         if damaged.is_empty() {
             return;
         }
-        self.notice = Some(self.tr("save.broken", &[("files", damaged.join(", "))]));
+        let text = self.tr("save.broken", &[("files", damaged.join(", "))]);
+        self.notice.push_back(text);
     }
 }
