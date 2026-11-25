@@ -95,6 +95,13 @@ pub fn local_path(url: &str) -> PathBuf {
     kontra_engine::local_path(url)
 }
 
+/// Extensions of everything Kontra opens: the importer's list and packages.
+pub fn openable_extensions() -> Vec<&'static str> {
+    let mut all: Vec<&'static str> = FileKind::EXTENSIONS.iter().map(|(e, _)| *e).collect();
+    all.push(PACKAGE_EXTENSION);
+    all
+}
+
 /// Files Kontra can open that arrived in `dir` within `max_age`, newest first.
 pub fn recent_scores(dir: &Path, max_age: Duration) -> Vec<RecentFile> {
     let mut files = kontra_engine::recent_files(dir, max_age);

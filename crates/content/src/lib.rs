@@ -73,19 +73,31 @@ pub enum FileKind {
 }
 
 impl FileKind {
+    /// Every extension the importer reads, lower case: the one list behind
+    /// [`FileKind::from_extension`], the folder import and the open dialog.
+    pub const EXTENSIONS: &'static [(&'static str, FileKind)] = &[
+        ("gp3", FileKind::GuitarPro),
+        ("gp4", FileKind::GuitarPro),
+        ("gp5", FileKind::GuitarPro),
+        ("gpx", FileKind::GuitarPro6),
+        ("gp", FileKind::GuitarPro7),
+        ("mid", FileKind::Midi),
+        ("midi", FileKind::Midi),
+        ("kar", FileKind::Midi),
+        ("musicxml", FileKind::MusicXml),
+        ("xml", FileKind::MusicXml),
+        ("mxl", FileKind::MusicXmlZip),
+        ("mscx", FileKind::MuseScore),
+        ("mscz", FileKind::MuseScoreZip),
+    ];
+
     /// Kind from the file extension, case-insensitive.
     pub fn from_extension(extension: &str) -> Option<FileKind> {
-        match extension.to_ascii_lowercase().as_str() {
-            "gp3" | "gp4" | "gp5" => Some(FileKind::GuitarPro),
-            "gpx" => Some(FileKind::GuitarPro6),
-            "gp" => Some(FileKind::GuitarPro7),
-            "mid" | "midi" | "kar" => Some(FileKind::Midi),
-            "musicxml" | "xml" => Some(FileKind::MusicXml),
-            "mxl" => Some(FileKind::MusicXmlZip),
-            "mscx" => Some(FileKind::MuseScore),
-            "mscz" => Some(FileKind::MuseScoreZip),
-            _ => None,
-        }
+        let extension = extension.to_ascii_lowercase();
+        Self::EXTENSIONS
+            .iter()
+            .find(|(known, _)| *known == extension)
+            .map(|(_, kind)| *kind)
     }
 
     /// Kind from the first bytes; zip archives are told apart by their content.

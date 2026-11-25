@@ -18,6 +18,10 @@ impl qobject::Controller {
         folder.map_or_else(QString::default, |p| q(&file_url(p)))
     }
 
+    pub(super) fn open_filter(&self) -> QString {
+        q(&self.rust().core.open_filter())
+    }
+
     pub(super) fn import_folder(mut self: Pin<&mut Self>, url: &QString, as_setlist: bool) {
         let dir = local_path(&url.to_string());
         let (added, failed) = self.as_mut().core().import_folder(&dir, as_setlist);

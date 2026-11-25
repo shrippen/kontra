@@ -410,6 +410,11 @@ pub mod qobject {
         #[cxx_name = "folderUrl"]
         fn folder_url(self: &Self, path: &QString) -> QString;
 
+        /// Glob patterns of everything the importer reads, for the open dialog's filter.
+        #[qinvokable]
+        #[cxx_name = "openFilter"]
+        fn open_filter(self: &Self) -> QString;
+
         /// Adds all scores of a folder (URL) to the library, optionally as a setlist.
         #[qinvokable]
         #[cxx_name = "importFolder"]

@@ -1,7 +1,7 @@
 //! Library: recent pieces, tags, folder import and setlists (LH-BIB-04).
 
 use crate::{piece_name, Core, Opened, RecentEntry, Setlist};
-use kontra_session::{import_file, FileKind, ProgressStore};
+use kontra_session::{import_file, openable_extensions, FileKind, ProgressStore};
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
@@ -17,6 +17,15 @@ pub enum BackingChange {
 }
 
 impl Core {
+    /// Glob patterns for the open dialog (`*.gp *.mid ...`): what the importer reads.
+    pub fn open_filter(&self) -> String {
+        let patterns: Vec<String> = openable_extensions()
+            .iter()
+            .map(|e| format!("*.{e}"))
+            .collect();
+        patterns.join(" ")
+    }
+
     /// What an import says about its count.
     pub fn imported_text(&self, added: usize) -> String {
         let key = match added {

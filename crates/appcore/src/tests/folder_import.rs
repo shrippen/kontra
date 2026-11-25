@@ -16,3 +16,23 @@ fn a_folder_import_takes_a_kar_file() {
     assert_eq!(added, 1, "{failed:?}");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// The open dialog filter lists every extension the importer reads, plus packages.
+#[test]
+fn open_filter_lists_what_the_importer_reads() {
+    let dir = temp_dir("filter");
+    let core = Core::new(&dir, QaOptions::default());
+    let filter = core.open_filter();
+    let patterns: Vec<&str> = filter.split(' ').collect();
+    for (extension, _) in kontra_session::FileKind::EXTENSIONS {
+        assert!(
+            patterns.contains(&format!("*.{extension}").as_str()),
+            "{extension}"
+        );
+    }
+    assert!(
+        patterns.contains(&"*.kar") && patterns.contains(&"*.kontra"),
+        "{filter}"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
