@@ -25,9 +25,11 @@ app ─► appcore ─┐                              app      QML-Seiten und c
                 ├─► session ─┬─► engine ─┬─► drivers   appcore  Kern der App ohne Qt, alles, was die Brücke ruft
 cli ────────────┘            │           ├─► dsp       session  Zeitachse, Modi, Bewertung, Fortschritt
                              └─► content └─► stretch   engine   Erkennung, Wiedergabe, Mixer, Instrument-Profile
-model: Domänentypen, jedes Crate darf es nutzen         drivers  rohes Audio-I/O (cpal), MIDI, Web, Dateien
+                                                       drivers  rohes Audio-I/O (cpal), MIDI, Web, Dateien
                                                        content  Import, Arrangement, Pakete
                                                        dsp, stretch  Signalverarbeitung, Time-Stretch, ohne I/O
+                                                       cli      Kommandozeile für Entwicklung, QA, Skripte
+model: Domänentypen, für alle außer app, drivers und stretch
 ```
 - `content/` liegt neben `engine/` und wird nur von `session/` gerufen.
 - Die UI (`app`, `appcore`) ruft nie Engine oder Treiber direkt auf, auch nicht über Namen, die eine Schicht
