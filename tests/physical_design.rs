@@ -176,3 +176,108 @@ fn crates_depend_only_downwards() {
     }
     assert_eq!(seen.len(), ALLOWED.len(), "crates found: {seen:?}");
 }
+
+/// Driver names session still passes on to appcore and cli, each for a reason: plain data
+/// (`DeviceInfo`, `Connection`, `Direction`, `MidiPort`, `Priority`, `NULL_DEVICE`, the errors),
+/// the `Http` and `SecretStore` seams tests put fakes into, and the device lists, which a
+/// session function does not wrap yet. An entry goes when session stops passing the name on.
+const DRIVER_NAMES_PASSED_ON: [&str; 15] = [
+    "Connection",
+    "DeviceInfo",
+    "Direction",
+    "Http",
+    "HttpError",
+    "MemoryStore",
+    "MidiPort",
+    "NULL_DEVICE",
+    "Priority",
+    "SecretError",
+    "SecretStore",
+    "SeparatorError",
+    "audio_priority",
+    "list_devices",
+    "list_midi_inputs",
+];
+
+/// The names a `pub use <prefix>…;` statement brings in, by their first path segment after the
+/// prefix, aliases off. Example: `pub use kontra_engine::{a::B, C as D};` → "a", "C".
+fn reexported(source: &str, prefix: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    for statement in source.split(';') {
+        let Some((_, rest)) = statement.split_once(&format!("pub use {prefix}::")) else {
+            continue;
+        };
+        let rest = rest.trim().trim_start_matches('{').trim_end_matches('}');
+        for item in rest.split(',') {
+            let item = item.split(" as ").next().unwrap_or_default().trim();
+            let first = item.split("::").next().unwrap_or_default().trim();
+            if !first.is_empty() {
+                names.push(first.to_string());
+            }
+        }
+    }
+    names
+}
+
+/// Every `.rs` file under `dir`.
+fn rust_files(dir: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return files;
+    };
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        if path.is_dir() {
+            files.extend(rust_files(&path));
+        } else if path.extension().is_some_and(|e| e == "rs") {
+            files.push(path);
+        }
+    }
+    files
+}
+
+#[test]
+fn reads_reexports() {
+    let source = "pub use kontra_engine::plugins;\n\
+                  pub use kontra_engine::{A, b::C, D as E};\n\
+                  pub use other::F;\n";
+    assert_eq!(
+        reexported(source, "kontra_engine"),
+        ["plugins", "A", "b", "D"]
+    );
+}
+
+/// The layer rule holds in the code, not only in `Cargo.toml`: session passes no driver name on
+/// that engine passes on from `kontra_drivers`; it wraps them in functions of its own.
+#[test]
+fn session_hides_the_drivers() {
+    let engine = std::fs::read_to_string(root().join("crates/engine/src/lib.rs")).expect("engine");
+    let driver_names = reexported(&engine, "kontra_drivers");
+    assert!(
+        driver_names.len() > 10,
+        "engine's driver names: {driver_names:?}"
+    );
+
+    let mut passed_on = Vec::new();
+    for file in rust_files(&root().join("crates/session/src")) {
+        let source = std::fs::read_to_string(&file).expect("session source");
+        for name in reexported(&source, "kontra_engine") {
+            if driver_names.contains(&name) {
+                passed_on.push(name);
+            }
+        }
+    }
+
+    for name in &passed_on {
+        assert!(
+            DRIVER_NAMES_PASSED_ON.contains(&name.as_str()),
+            "session passes the driver name {name} on: wrap it in a function of its own"
+        );
+    }
+    for name in DRIVER_NAMES_PASSED_ON {
+        assert!(
+            passed_on.iter().any(|n| n == name),
+            "session no longer passes {name} on: remove it from DRIVER_NAMES_PASSED_ON"
+        );
+    }
+}
