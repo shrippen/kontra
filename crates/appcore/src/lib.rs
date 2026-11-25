@@ -604,7 +604,6 @@ impl Core {
             }
         })?;
         self.stop_live();
-        let tuner_running = self.tuner.is_some();
         let store = self.progress_store();
         let mut merged = data::Merged::default();
         match how {
@@ -650,8 +649,11 @@ impl Core {
         self.quiz = None;
         self.save_library();
         if how == DataImport::Replace {
-            // The restored strings and reference act on the piece and the tuner at once.
-            self.relayout(tuner_running)?;
+            // The restored strings and reference act on the piece and the tuner at once. The
+            // backup is in place either way, so a piece gone missing is a notice, not a failure.
+            if let Err(e) = self.relayout() {
+                self.notice.push_back(e);
+            }
         }
         let key = match how {
             DataImport::Merge => "data.merged",
@@ -712,9 +714,13 @@ impl Core {
         Ok(())
     }
 
-    /// The oldest note left by an `open`, a failed save or the start, once.
+    /// The notes left by `open`, failed saves or the start, once, oldest first, one per line:
+    /// the note bar has a single place.
     pub fn take_notice(&mut self) -> Option<String> {
-        self.notice.pop_front()
+        if self.notice.is_empty() {
+            return None;
+        }
+        Some(self.notice.drain(..).collect::<Vec<_>>().join("\n"))
     }
 
     /// The view for the loaded piece: the one last used with it, else the default (LH-ANZ-04).
@@ -774,9 +780,8 @@ impl Core {
     /// a loaded piece without its own tuning is laid out on the new strings again (LH-TUN-02) and
     /// a running tuner listens with the new strings and reference.
     pub fn retune(&mut self, change: impl FnOnce(&mut Settings)) -> Result<(), String> {
-        let tuner_running = self.tuner.is_some();
         self.reconfigure(change);
-        self.relayout(tuner_running)
+        self.relayout()
     }
 
     /// The instrument as the UI offers it (LH-EIN-09): MIDI input, else the stored bass.

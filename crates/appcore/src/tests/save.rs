@@ -76,7 +76,8 @@ fn a_notice_reaches_the_tick() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// Two failures before the next tick: the player hears both, oldest first.
+/// Two failures before the next tick: the player reads both in the one message, oldest first
+/// (the note bar has one place; one notice per tick overwrote the first 16 ms later).
 #[test]
 fn notices_queue_up() {
     let dir = temp_dir("save-queue");
@@ -87,10 +88,18 @@ fn notices_queue_up() {
     core.save_library();
     core.update_settings(|s| s.view = "tab".to_string());
 
-    let first = core.take_notice().expect("first notice");
-    let second = core.take_notice().expect("second notice");
-    assert!(first.contains("library.json"), "{first}");
-    assert!(second.contains("settings.json"), "{second}");
+    let events = core.tick();
+    let messages: Vec<&String> = events
+        .iter()
+        .filter_map(|e| match e {
+            UiEvent::Message(m) => Some(m),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(messages.len(), 1, "{messages:?}");
+    let library = messages[0].find("library.json").expect("library notice");
+    let settings = messages[0].find("settings.json").expect("settings notice");
+    assert!(library < settings, "{}", messages[0]);
     assert_eq!(core.take_notice(), None);
     let _ = std::fs::remove_dir_all(dir);
 }

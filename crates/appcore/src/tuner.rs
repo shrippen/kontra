@@ -62,7 +62,8 @@ impl Core {
     }
 
     /// Lays the loaded piece out on the settings' strings again and restarts a tuner that ran.
-    pub(crate) fn relayout(&mut self, tuner_running: bool) -> Result<(), String> {
+    pub(crate) fn relayout(&mut self) -> Result<(), String> {
+        let tuner_running = self.tuner.is_some();
         if let Some(track) = self.loaded.as_ref().map(|l| l.track) {
             self.reload(track)?;
         }

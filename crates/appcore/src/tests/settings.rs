@@ -716,3 +716,30 @@ fn restoring_a_backup_retunes_the_piece() {
     );
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// A restore whose piece is gone since it was opened is still a restore: the player is told
+/// about the piece, not that the backup failed (review #367).
+#[test]
+fn a_restore_survives_a_missing_piece() {
+    let dir = temp_dir("restore-missing");
+    let mut first = Core::new(&dir.join("a"), QaOptions::default());
+    first.set_tuning("drop").unwrap();
+    let file = dir.join("sicherung.json");
+    first.export_data(&file).unwrap();
+
+    let piece = dir.join("stueck.mid");
+    std::fs::copy(demo(), &piece).unwrap();
+    let mut second = Core::new(&dir.join("b"), QaOptions::default());
+    second.open(&piece).unwrap();
+    std::fs::remove_file(&piece).unwrap();
+
+    let report = second.import_data(&file, DataImport::Replace);
+
+    assert!(report.is_ok(), "{report:?}");
+    // The profile has the restored strings; the piece that is gone keeps its old layout.
+    let profile: Vec<serde_json::Value> =
+        serde_json::from_str(&second.profile_tuning_json()).unwrap();
+    assert_eq!(profile[0]["full"], "D1");
+    assert!(second.take_notice().is_some());
+    let _ = std::fs::remove_dir_all(dir);
+}
