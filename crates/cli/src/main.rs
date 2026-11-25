@@ -10,6 +10,7 @@ mod double_stops;
 mod ends;
 mod korpus;
 mod live;
+mod misses;
 mod plugins;
 mod strings;
 mod tab;
