@@ -4,9 +4,9 @@
 exclude	crates/app/qml/Kante/*
 crates/app/qml/PracticePage.qml	-	lines=1200
 crates/app/src/args.rs	parse	ccn=37
-crates/app/src/bridge.rs	-	lines=1567
+crates/app/src/bridge.rs	-	lines=1572
 crates/app/src/bridge.rs	apply	ccn=28 length=126
-crates/app/src/bridge.rs	open_file	length=836
+crates/app/src/bridge.rs	open_file	length=841
 crates/app/src/bridge/start.rs	default	length=189
 crates/appcore/src/bundled.rs	exercise_spec	ccn=29
 crates/appcore/src/bundled.rs	exercise_title	length=83

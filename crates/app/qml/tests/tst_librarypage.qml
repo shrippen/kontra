@@ -44,6 +44,7 @@ Item {
                 property bool loaded: false
                 property string tagsJson: "[]"
                 property string songSearchJson: ""
+                function openFilter() { return "*.zzz *.yyy" }
                 function libraryJson(source, sort, group, query) {
                     return JSON.stringify({ counts: root.counts, rows: root.empty ? [] : [root.row],
                                            groups: [] })
@@ -91,6 +92,15 @@ Item {
             page.pick("folder:/m/Gone")
             compare(findChild(page, "libraryEmpty").title, "library.folder.gone.title")
             compare(win.ctl.rescans, before + 1)
+        }
+
+        // The open dialog lists what the importer reads (the core's list), not a list of its own.
+        function test_openDialogTakesItsFilterFromTheCore() {
+            var win = createTemporaryObject(windowComponent, root)
+            var page = win.pageStack.currentItem
+            var dialog = findChild(page, "openDialog")
+            verify(dialog, "dialog")
+            verify(dialog.nameFilters[0].indexOf("(*.zzz *.yyy)") >= 0, dialog.nameFilters[0])
         }
     }
 }

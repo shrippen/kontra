@@ -2,6 +2,7 @@
 //! (`double-stops` in `double_stops.rs`).
 
 use crate::args::{KorpusArgs, KorpusCommand};
+use crate::misses::miss_lines;
 use crate::CliResult;
 use kontra_session as session;
 use kontra_session::KorpusSet;
@@ -448,7 +449,8 @@ fn check(dir: Option<&Path>) -> CliResult {
         };
         let e = session::evaluate_korpus(set, &item.samples, item.sample_rate, &item.notes);
         let minutes = item.samples.len() as f64 / f64::from(item.sample_rate) / S_PER_MINUTE;
-        let ok = set.requirement_misses(&e, minutes).is_empty();
+        let misses = set.requirement_misses(&e, minutes);
+        let ok = misses.is_empty();
         // Nothing played: only false notes count (LH-NF-16).
         if set.is_idle() {
             let per_minute = e.pitched as f64 / minutes;
@@ -461,6 +463,7 @@ fn check(dir: Option<&Path>) -> CliResult {
                 KorpusSet::IDLE_MAX_PER_MINUTE,
                 if ok { "ok" } else { "FAILED" }
             );
+            print!("{}", miss_lines(set.name(), &misses));
             continue;
         }
         failed |= !ok;
@@ -480,6 +483,7 @@ fn check(dir: Option<&Path>) -> CliResult {
             e.p95_report_below_e1_ms,
             if ok { "ok" } else { "FAILED" }
         );
+        print!("{}", miss_lines(set.name(), &misses));
     }
     // Generated only: real recordings go through `korpus double-stops`, `chords` and `ends`.
     if dir.is_none() {

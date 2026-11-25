@@ -221,6 +221,14 @@ Kirigami.ApplicationWindow {
         return true
     }
 
+    // The next piece of the active setlist; like `openPiece`, a bass track to choose leads to the
+    // library. The practice page stays when it opens.
+    function openNext() {
+        if (!ctl.openNext() && JSON.parse(ctl.trackChoicesJson).length > 0) {
+            show("library")
+        }
+    }
+
     // `section`: a settings section to scroll to (SettingsPage.showSection).
     function show(name, section) {
         if ((current === "tuner" || current === "setup" || current === "quiz") && name !== current) {

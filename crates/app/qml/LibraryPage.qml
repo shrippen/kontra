@@ -152,9 +152,10 @@ Kirigami.Page {
 
         options: ctl.qaRun ? FileDialog.DontUseNativeDialog : 0
         id: dialog
+        objectName: "openDialog"
         title: texts.t("dialog.open")
         currentFolder: page.startFolder()
-        nameFilters: [texts.t("library.formats") + " (*.gp *.gp3 *.gp4 *.gp5 *.gpx *.mid *.midi *.musicxml *.xml *.mxl *.mscz *.mscx *.kontra)"]
+        nameFilters: [texts.t("library.formats") + " (" + ctl.openFilter() + ")"]
         onAccepted: page.open(selectedFile.toString())
     }
 
