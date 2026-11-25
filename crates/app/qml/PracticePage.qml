@@ -128,7 +128,7 @@ Kirigami.Page {
 
     // Foot switches emulate a keyboard and mostly send PageDown/PageUp: play and rewind.
     Shortcut { sequences: ["K", "PgDown"]; enabled: page.keysFree; onActivated: ctl.togglePlay() }
-    Shortcut { sequence: "N"; enabled: page.keysFree && ctl.nextTitle !== ""; onActivated: ctl.openNext() }
+    Shortcut { sequence: "N"; enabled: page.keysFree && ctl.nextTitle !== ""; onActivated: applicationWindow().openNext() }
     Shortcut { sequences: ["Home", "PgUp"]; enabled: page.keysFree; onActivated: ctl.rewind() }
     // Loop start and end at the current bar; "," and "." for layouts where brackets need AltGr.
     Shortcut { sequences: ["[", ","]; enabled: page.keysFree; onActivated: ctl.loopEdge("start") }
@@ -359,11 +359,11 @@ Kirigami.Page {
             }
             // Setlist (LH-BIB-04, J-B1: next song in at most two clicks; also the N key).
             KanteButton {
+                objectName: "nextPiece"; Layout.alignment: Qt.AlignTop
                 visible: ctl.nextTitle !== "" && !page.presenting
-                Layout.alignment: Qt.AlignTop
                 text: texts.t("setlist.next", { title: ctl.nextTitle })
                 emphasis: KanteButton.Emphasis.Primary
-                onClicked: ctl.openNext()
+                onClicked: applicationWindow().openNext()
             }
             // A backing track is for some (P2); without one its row stays away (QA 14.10.).
             KanteToolButton {
