@@ -1,6 +1,6 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-11-14. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+Übergabe zwischen Sitzungen. Stand: 2026-11-25. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
 
 ## Übergabe (14.11.2026, Abend: Code-Audit und Behebung)
@@ -12,8 +12,9 @@ je Fund ein PR). In `main`: #350 (Strukturprüfung in der CI, `structure.baselin
 entfernt; `UiEvent::Extra` bleibt für die Journeys c5/e3), #356 (Fund 4: `KorpusSet::requirement_misses`, Raum-Onset
 in der CLI 10 statt 30 ms nach LH-NF-02; Messwerte unverändert).
 
-- Welle 2 läuft: Fund 1 (Speichern an einer Stelle, dann Fehler und kaputte Datei als Hinweis) und Fund 7 (Sicherung
-  frischt Stimmung und wählbare Töne nicht auf; danach `cxx_qt::Initialize`). Welle 3 danach: Funde 6, 9, 10.
+- Welle 2 in `main`: #357 (Fund 7a: Sicherung frischt Stimmung und Töne auf), #358 (Fund 1a: Speichern an einer
+  Stelle), #360 (Fund 1b: Speicherfehler als Hinweis), #361 (Fund 7b: `cxx_qt::Initialize`). Dazu #359
+  (KI-Anbieter in den Einstellungen). Welle 3 offen: Funde 6, 9, 10.
 - Aus den Reviews, offen: `ctl.openNext()` auf der Übungsseite führt bei unklarer Bass-Spur nicht zur Spurfrage
   (`PracticePage.qml`, Weg über `bridge/library.rs after_open`); `Main.openPiece` hat keinen eigenen Test; der Dialog
   „Datei öffnen“ (`LibraryPage.qml`) hat eine eigene Endungsliste ohne `*.kar`; `.xml` behandeln Ordner-Import,
