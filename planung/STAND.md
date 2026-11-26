@@ -19,8 +19,8 @@ Offen:
 - Fund 10, Rest (Liste `DRIVER_NAMES_PASSED_ON`, 16 Namen): Geräteliste (`list_devices`, `list_midi_inputs`,
   `audio_priority`; 17 Stellen in appcore, `audio_priority` nur in der CLI), ihre Datentypen (`DeviceInfo`, `Connection`, `Direction`,
   `MidiPort`, `Priority`, `NULL_DEVICE`), die Datentypen des Plugin-Hosts, Fehlertypen und die Test-Nähte `Http`,
-  `SecretStore`, `MemoryStore`. Die Gerätetypen gehören nach `kontra-model`, aber `drivers` darf `model` nicht nutzen:
-  Entscheidung des Eigentümers (Schichten). Die Session reicht außerdem 44 weitere Namen der Engine weiter (meist
+  `SecretStore`, `MemoryStore`. Runde 23: `drivers` darf `model` nutzen, die Gerätetypen ziehen dorthin; alle Engine-Namen
+  werden gekapselt. Die Session reicht außerdem 44 weitere Namen der Engine weiter (meist
   Korpus-Werkzeuge der CLI).
 - Fund 6, Rest: QML vergleicht an einigen Stellen mit Literalen (`ctl.mode === "workshop"`, `"kante-light"`);
   `KanteStyle.stringPalettes` hat eine eigene Liste (nur in Kante änderbar). `llm_provider` und `Run.mode` bleiben Text.
@@ -34,7 +34,7 @@ Offen:
 - Kleinigkeit aus #367: fehlen Stück und Eingangsgerät zugleich, nennt `relayout` nur den Fehler des Stimmgeräts.
 - Kleinigkeit aus #369: der Alias-Parser des Schichtentests übersieht `use kontra_engine::{x as y}` und
   `use kontra_engine as e` (heute nicht im Code).
-- Neue `pub` für die nächste Runde: `Core::relayout`, `Core::with_notices` (`pub(crate)`); `FileKind::EXTENSIONS`,
+- In Runde 23 freigegeben (mit den älteren Listen in dieser Datei): `Core::relayout`, `Core::with_notices` (`pub(crate)`); `FileKind::EXTENSIONS`,
   `kontra_session::openable_extensions`, `Core::open_filter`, QML `openFilter()`, `Main.openNext()`;
   `kontra_session::plugin_host` (`installed`, `search_dirs`, `probe_answer`, `probe_here`, `scan`, `settle`,
   `crashed`, `clear_crash`), `kontra_session::external` (`web`, `web_from_file`, `keychain`),

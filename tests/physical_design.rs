@@ -6,7 +6,8 @@
 //!                 ├─► session ─┬─► engine ─┬─► drivers
 //! cli ────────────┘            │           ├─► dsp
 //!                              └─► content └─► stretch
-//! model: domain types, every crate may use it
+//! model: domain types, for every crate but app, drivers and stretch (ARCHITECTURE.md: drivers too, once
+//! the device types live there)
 //! ```
 
 use std::path::{Path, PathBuf};

@@ -44,16 +44,17 @@ and that session hands no driver name on.
 - The user interfaces (`app`, `appcore`, `cli`) reach engine, dsp, stretch and drivers only
   through functions and types that session defines itself. Session hands no engine or driver
   name on unchanged (`pub use`); it wraps what a user interface needs, also for the CLI.
-- Session may hand content's types and functions on unchanged: they are plain data and pure
-  functions. Only session depends on content.
+- Session may hand content's types and functions on unchanged: they hold no devices and no
+  running state. Only session depends on content.
 - `app` holds no logic: a page calls the bridge, the bridge calls `appcore`. What can be decided
   without Qt is decided in `appcore` and tested there.
 - Data that crosses more than one layer (notes, device descriptions, effect chain) is a type in
   `model`, not in the block that produces it.
 - Instrument and input are separate descriptions in `model` (`Instrument`, `InputSource`). A new
   instrument changes neither session's logic nor the scoring.
-- `drivers` does device, media, web and plugin I/O. A block's own state files (settings,
-  library, progress, caches) are written by that block, each file in one place.
+- `drivers` does device, audio file, web and plugin I/O. `content` reads and writes the files
+  of its own formats (scores, packages, lessons). A block's own state files (settings, library,
+  progress, caches) are written by that block, each file in one place.
 - The audio callback (engine, drivers, dsp, stretch) never allocates, locks or waits; results
   leave it through ring buffers created beforehand.
 - No text in code or QML: every visible text is a key in `crates/appcore/i18n/de.json` and
@@ -83,10 +84,12 @@ A change that needs more places than listed is a finding for the audit.
   `tests/physical_design.rs`). The device descriptions (`DeviceInfo`, `Connection`, `Direction`,
   `MidiPort`, `Priority`, `NULL_DEVICE`) still live in `crates/drivers/src/audio.rs` and
   `midi.rs` instead of `model`. `AUDIT.md` finding 10.
-- Session hands engine names on unchanged (`crates/session/src/lib.rs`, `service.rs`), among
+- Session hands engine names on unchanged (`crates/session/src/lib.rs`, `service.rs`,
+  `plugin_host.rs`), among
   them the driver names in `DRIVER_NAMES_PASSED_ON` of the layer test: the device lists and their
   types, the plugin host's data types, error types and the test seams `Http`, `SecretStore`,
-  `MemoryStore`. The rest are mostly the corpus tools the CLI uses. `AUDIT.md` finding 10.
+  `MemoryStore`. The rest are mostly the corpus tools the CLI uses. The plugin host's data types
+  (`PluginInfo`, `PluginFormat`) live in `crates/drivers/src/plugins.rs`, not in `model`.
+  `AUDIT.md` finding 10.
 - QML compares fixed choices with literal texts (`ctl.mode === "workshop"`), so a practice mode
   or style needs more QML places than listed. Kept by the owner (round 23). `AUDIT.md` finding 6.
-- A setting needs five bridge places. `AUDIT.md` finding 7 (reduced, not gone).
