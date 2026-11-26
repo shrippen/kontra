@@ -82,6 +82,7 @@ use kontra_session::{
 use mixer::gains;
 use notation::key_at;
 use serde_json::json;
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 pub(crate) use util::{file_name, piece_name, quantum_too_long_ms, time_seed, unix_now};
 
@@ -266,7 +267,7 @@ pub struct Core {
     /// Call and response (LH-LRN-19).
     call: call::CallState,
     /// A note for the user from the last `open` (e.g. a five-string bass was chosen).
-    notice: Option<String>,
+    notice: VecDeque<String>,
     /// The setlist being played and the position in it (LH-BIB-04).
     active_setlist: Option<(String, usize)>,
     /// The input that went away, watched until it is back (LH-ALL-04).
@@ -377,7 +378,7 @@ impl Core {
             live_course: None,
             plugins: fx_plugins::Plugins::start(data_dir, &mut settings),
             llm: llm::LlmJob::default(),
-            notice: None,
+            notice: VecDeque::new(),
             active_setlist: None,
             lost: None,
             input: input_state::InputStatus::new(),
@@ -647,11 +648,17 @@ impl Core {
             .map_err(|e| self.tr("data.error.write", &[("reason", e.to_string())]))?;
         self.quiz = None;
         self.save_library();
+        if how == DataImport::Replace {
+            // Strings and reference act at once; a piece gone missing is a notice, not a failure.
+            if let Err(e) = self.relayout() {
+                self.notice.push_back(e);
+            }
+        }
         let key = match how {
             DataImport::Merge => "data.merged",
             DataImport::Replace => "data.replaced",
         };
-        Ok(self.tr(
+        let report = self.tr(
             key,
             &[
                 ("pieces", merged.pieces.to_string()),
@@ -659,7 +666,8 @@ impl Core {
                 ("runs", merged.runs.to_string()),
                 ("name", file_name(path)),
             ],
-        ))
+        );
+        Ok(self.with_notices(report))
     }
 
     /// The About section's licence list (LH-NF-11): Kontra, the dynamically linked Qt and KDE
@@ -704,11 +712,6 @@ impl Core {
         self.load(&path, &imported, track)?;
         self.active_setlist = setlist;
         Ok(())
-    }
-
-    /// The note left by the last `open`, a failed save or the start, once.
-    pub fn take_notice(&mut self) -> Option<String> {
-        self.notice.take()
     }
 
     /// The view for the loaded piece: the one last used with it, else the default (LH-ANZ-04).
@@ -768,15 +771,8 @@ impl Core {
     /// a loaded piece without its own tuning is laid out on the new strings again (LH-TUN-02) and
     /// a running tuner listens with the new strings and reference.
     pub fn retune(&mut self, change: impl FnOnce(&mut Settings)) -> Result<(), String> {
-        let tuner_running = self.tuner.is_some();
         self.reconfigure(change);
-        if let Some(track) = self.loaded.as_ref().map(|l| l.track) {
-            self.reload(track)?;
-        }
-        if tuner_running {
-            self.start_tuner()?;
-        }
-        Ok(())
+        self.relayout()
     }
 
     /// The instrument as the UI offers it (LH-EIN-09): MIDI input, else the stored bass.
@@ -921,7 +917,7 @@ impl Core {
             if !reaches {
                 // QA P2 (U1): say why the tab shows more strings than the profile.
                 let note = lowest.map_or_else(String::new, |p| self.note_label(&p.to_string()));
-                self.notice = Some(self.tr(
+                self.notice.push_back(self.tr(
                     "notice.more.strings",
                     &[
                         ("note", note),

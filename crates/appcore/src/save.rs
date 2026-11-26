@@ -87,6 +87,24 @@ impl Core {
         self.tell_save(SETTINGS_FILE, saved);
     }
 
+    /// The notes left by `open`, failed saves or the start, once, oldest first, one per line:
+    /// the note bar has a single place.
+    pub fn take_notice(&mut self) -> Option<String> {
+        if self.notice.is_empty() {
+            return None;
+        }
+        Some(self.notice.drain(..).collect::<Vec<_>>().join("\n"))
+    }
+
+    /// `report` with the notices waiting below it: the note bar has one place, and a notice
+    /// in the next tick would replace the report (review #367).
+    pub(crate) fn with_notices(&mut self, report: String) -> String {
+        match self.take_notice() {
+            Some(notice) => format!("{report}\n{notice}"),
+            None => report,
+        }
+    }
+
     /// The notice, if there is one, for the next tick: a failed save or a damaged file at start
     /// (an open that nobody took leaves its notice too).
     pub(crate) fn notice_event(&mut self) -> Option<UiEvent> {
@@ -99,7 +117,8 @@ impl Core {
             return;
         };
         let args = [("file", file.to_string()), ("reason", error.to_string())];
-        self.notice = Some(self.tr("save.failed", &args));
+        let text = self.tr("save.failed", &args);
+        self.notice.push_back(text);
     }
 
     /// What `new` changed while loading: pieces moved (the next start must not find the old
@@ -115,6 +134,7 @@ impl Core {
         if damaged.is_empty() {
             return;
         }
-        self.notice = Some(self.tr("save.broken", &[("files", damaged.join(", "))]));
+        let text = self.tr("save.broken", &[("files", damaged.join(", "))]);
+        self.notice.push_back(text);
     }
 }

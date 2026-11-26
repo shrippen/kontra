@@ -691,3 +691,58 @@ fn a_qa_run_lists_no_devices_at_start() {
     assert_eq!(LISTED.load(Ordering::SeqCst), 0, "listed at start");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// LH-TUN-02: restoring a backup with another tuning lays the loaded piece out on its strings.
+#[test]
+fn restoring_a_backup_retunes_the_piece() {
+    let dir = temp_dir("restore-tuning");
+    let mut first = Core::new(&dir.join("a"), QaOptions::default());
+    first.set_tuning("drop").unwrap();
+    let file = dir.join("sicherung.json");
+    first.export_data(&file).unwrap();
+
+    let mut second = Core::new(&dir.join("b"), QaOptions::default());
+    second.open(&demo()).unwrap();
+    assert_eq!(
+        second.arrangement().unwrap().instrument.tuning.strings[0].0,
+        28
+    );
+    second.import_data(&file, DataImport::Replace).unwrap();
+
+    assert_eq!(open_strings(&second), ["D1", "A1", "D2", "G2"]);
+    assert_eq!(
+        second.arrangement().unwrap().instrument.tuning.strings[0].0,
+        26
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// A restore whose piece is gone since it was opened is still a restore: the player is told
+/// about the piece, not that the backup failed (review #367).
+#[test]
+fn a_restore_survives_a_missing_piece() {
+    let dir = temp_dir("restore-missing");
+    let mut first = Core::new(&dir.join("a"), QaOptions::default());
+    first.set_tuning("drop").unwrap();
+    let file = dir.join("sicherung.json");
+    first.export_data(&file).unwrap();
+
+    let piece = dir.join("stueck.mid");
+    std::fs::copy(demo(), &piece).unwrap();
+    let mut second = Core::new(&dir.join("b"), QaOptions::default());
+    second.open(&piece).unwrap();
+    std::fs::remove_file(&piece).unwrap();
+
+    let report = second.import_data(&file, DataImport::Replace);
+
+    // One text for the note bar: the restore and, after it, why the piece stayed as it was.
+    let report = report.expect("a restore");
+    assert!(report.contains("sicherung.json"), "{report}");
+    assert!(report.lines().count() > 1, "{report}");
+    // The profile has the restored strings; the piece that is gone keeps its old layout.
+    let profile: Vec<serde_json::Value> =
+        serde_json::from_str(&second.profile_tuning_json()).unwrap();
+    assert_eq!(profile[0]["full"], "D1");
+    assert_eq!(second.take_notice(), None);
+    let _ = std::fs::remove_dir_all(dir);
+}
