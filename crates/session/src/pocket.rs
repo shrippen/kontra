@@ -7,6 +7,9 @@
 //! −30     −10     −5     0     +5    +10       +30 ms (mean offset; negative = early)
 //! ```
 
+use crate::Choice;
+use serde::{Deserialize, Serialize};
+
 /// Mean offset in ms that still counts as on the beat.
 const ON_BEAT_MS: f64 = 5.0;
 /// Laid-back or pushed: the mean sits this far off the beat (micro-timing in grooves is
@@ -14,8 +17,9 @@ const ON_BEAT_MS: f64 = 5.0;
 const OFF_BEAT_MIN_MS: f64 = 10.0;
 const OFF_BEAT_MAX_MS: f64 = 30.0;
 
-/// The aim for a run.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// The aim for a run. Keys (settings, translations): "free", "onbeat", "laidback", "pushed".
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Pocket {
     /// No aim: the summary only says where the run sat.
     #[default]
@@ -35,28 +39,16 @@ pub enum PocketVerdict {
     Late(f64),
 }
 
-impl Pocket {
-    const ALL: [Pocket; 4] = [
+impl Choice for Pocket {
+    const ALL: &'static [Pocket] = &[
         Pocket::Free,
         Pocket::OnBeat,
         Pocket::LaidBack,
         Pocket::Pushed,
     ];
+}
 
-    /// Settings and translation key: "free", "onbeat", "laidback", "pushed".
-    pub fn key(self) -> &'static str {
-        match self {
-            Pocket::Free => "free",
-            Pocket::OnBeat => "onbeat",
-            Pocket::LaidBack => "laidback",
-            Pocket::Pushed => "pushed",
-        }
-    }
-
-    pub fn from_key(key: &str) -> Option<Pocket> {
-        Pocket::ALL.into_iter().find(|p| p.key() == key)
-    }
-
+impl Pocket {
     /// Range of the mean offset in ms that holds this aim; none for `Free`.
     pub fn band_ms(self) -> Option<(f64, f64)> {
         match self {
@@ -96,8 +88,8 @@ mod tests {
 
     #[test]
     fn keys_round_trip() {
-        for p in Pocket::ALL {
-            assert_eq!(Pocket::from_key(p.key()), Some(p));
+        for p in Pocket::ALL.iter().copied() {
+            assert_eq!(Pocket::from_key(&p.key()), Some(p));
         }
         assert_eq!(Pocket::from_key("swing"), None);
     }

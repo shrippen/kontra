@@ -26,7 +26,7 @@ fn density_thins_notes_per_section_and_is_suggested() {
     assert_eq!(count(&core), 32);
 
     // Suggestions only in song and workshop mode, not when fixed or switched off.
-    core.update_settings(|s| s.mode = "song".into());
+    core.update_settings(|s| s.mode = PracticeMode::Song);
     assert!(matches!(
         core.density_hint(0.95),
         Some(UiEvent::DensitySuggestion { percent: 75, .. })
@@ -184,7 +184,7 @@ fn chain_cuts_phrases_at_rests() {
         .unwrap();
         let path = core.generate_exercise(&spec).unwrap();
         core.open(&path).unwrap();
-        core.set_mode("workshop");
+        core.set_mode(PracticeMode::Workshop);
         core.set_loop(0, 7);
     };
 
@@ -225,7 +225,7 @@ fn chain_cuts_phrases_where_the_player_hesitates() {
     .unwrap();
     let path = core.generate_exercise(&spec).unwrap();
     core.open(&path).unwrap();
-    core.set_mode("workshop");
+    core.set_mode(PracticeMode::Workshop);
     core.set_loop(0, 7);
     let full = core.loaded.as_ref().unwrap().full.clone();
     let run = |hesitant: Vec<u32>| Run {
@@ -270,7 +270,7 @@ fn chain_restarts_over_the_chosen_bars() {
     core.open(&Core::demo_path()).unwrap();
     let bars = core.arrangement().unwrap().bars.len();
     assert!(bars > 6, "{bars}");
-    core.set_mode("workshop");
+    core.set_mode(PracticeMode::Workshop);
     core.set_loop(0, 5);
 
     core.start_chain(Blocks::Bars(2), ChainOrder::Forward);
@@ -311,7 +311,7 @@ fn chain_restarts_over_the_chosen_bars() {
         "{}",
         core.chain_json()
     );
-    core.set_mode("song");
+    core.set_mode(PracticeMode::Song);
     assert_eq!(core.looping, Some((0, 3)));
     assert_eq!(core.chain_json(), "null");
     let _ = std::fs::remove_dir_all(dir);
@@ -333,12 +333,12 @@ fn summary_judges_the_pocket() {
     };
     assert_eq!(text(&core, &s), "", "no aim");
 
-    core.update_settings(|s| s.pocket = "laidback".into());
+    core.update_settings(|s| s.pocket = Pocket::LaidBack);
     assert_eq!(
         text(&core, &s),
         "Ziel laid-back (10 bis 30 ms dahinter): verfehlt, 6 ms vor dem Zielbereich"
     );
-    core.update_settings(|s| s.pocket = "onbeat".into());
+    core.update_settings(|s| s.pocket = Pocket::OnBeat);
     assert_eq!(text(&core, &s), "Ziel auf den Punkt (±5 ms): gehalten");
 
     // Just outside by less than half a ms: inside, as the text rounds.
@@ -624,7 +624,7 @@ fn summary_names_a_detuned_string() {
     );
 
     // Drop D has two D strings (D1, D2): the octave tells which one (review #224).
-    core.set_tuning("drop").unwrap();
+    core.set_tuning(TuningPreset::Drop).unwrap();
     s.detuned = Some(DetunedString {
         string: 2,
         mean_cent: 15.0,

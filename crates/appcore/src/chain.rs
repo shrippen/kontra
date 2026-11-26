@@ -1,7 +1,7 @@
 //! Building blocks in the app (DIDAKTIK I6): the `chain_*` calls on `Core`, which walk a piece
 //! in short steps.
 
-use crate::{Core, UiEvent};
+use crate::{Core, PracticeMode, UiEvent};
 use kontra_session::{Blocks, Chain, ChainOrder, Workshop};
 use serde_json::json;
 
@@ -120,7 +120,7 @@ impl Core {
     /// After a workshop pass: when the step sits, its run ends (and is saved) and the next step
     /// starts with a count-in. Not within the run: clicks and backing are planned ahead.
     pub(crate) fn chain_pass(&mut self, hit_rate: f64) -> Vec<UiEvent> {
-        if self.settings.mode != "workshop" || self.probe.is_some() {
+        if self.settings.mode != PracticeMode::Workshop || self.probe.is_some() {
             return Vec::new();
         }
         let Some((from, to)) = self.chain.as_mut().and_then(|(c, _)| c.on_pass(hit_rate)) else {

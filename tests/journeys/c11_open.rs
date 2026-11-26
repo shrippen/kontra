@@ -3,7 +3,7 @@
 //! chord tones, and the run is saved like any other.
 
 use crate::common::{piece, render, run_until, write_marked, Profile};
-use kontra_appcore::UiEvent;
+use kontra_appcore::{PracticeMode, UiEvent};
 use std::time::Duration;
 
 /// Marker of an open exercise (`exercise::OPEN_TEXT` in kontra-content).
@@ -23,7 +23,7 @@ fn a_line_of_chord_tones_fits_and_is_saved() {
 
     let mut core = profile.core(Some(&take));
     core.open(&score).unwrap();
-    core.set_mode("song");
+    core.set_mode(PracticeMode::Song);
     core.play();
     let events = run_until(&mut core, Duration::from_secs(10), |e| {
         matches!(e, UiEvent::Finished { .. })

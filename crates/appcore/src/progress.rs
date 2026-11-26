@@ -4,7 +4,9 @@ use crate::{
     same_range, same_section, unix_now, Core, RecentEntry, SectionBars, PROBE_MODE,
     SECONDS_PER_DAY, WORKSHOP_MODE,
 };
-use kontra_session::{run_from, spacing, streak_days, LoopRange, PassageEvent, ProgressStore, Run};
+use kontra_session::{
+    run_from, spacing, streak_days, Choice, LoopRange, PassageEvent, ProgressStore, Run,
+};
 use serde_json::json;
 use std::path::Path;
 
@@ -404,7 +406,7 @@ impl Core {
             &summary,
             practice_s,
             session.played_speed(),
-            self.run_mode(),
+            &self.run_mode(),
             section,
             unix_now(),
         );
@@ -433,11 +435,11 @@ impl Core {
     }
 
     /// The mode a run is saved under: a probe apart from the mode chosen.
-    fn run_mode(&self) -> &str {
+    fn run_mode(&self) -> String {
         if self.probe.is_some() {
-            return PROBE_MODE;
+            return PROBE_MODE.to_string();
         }
-        &self.settings.mode
+        self.settings.mode.key()
     }
 
     /// Keeps the written bar numbers of a practised section with the piece (LH-FOR-01).

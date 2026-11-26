@@ -13,6 +13,7 @@ mod calibrate;
 mod call;
 mod chain;
 mod choice;
+mod choices;
 mod course;
 mod data;
 mod density;
@@ -58,6 +59,7 @@ mod update;
 mod util;
 
 pub use bundled::PieceVariety;
+pub use choices::*;
 pub use data::DataImport;
 pub use i18n::{Catalog, Language};
 pub use input_state::{InputState, QaOptions};
@@ -107,8 +109,6 @@ const CUSTOM_NOTES: std::ops::RangeInclusive<u8> = 19..=55;
 const DEFAULT_KEYS: (u8, u8) = (28, 67);
 /// Middle C (MIDI 60): any octave names the twelve keys of the keyboard view.
 const MIDDLE_C: u8 = 60;
-/// Tunings the settings offer (LH-TUN-02); "drop" lowers the lowest string a whole step.
-const TUNINGS: [&str; 5] = ["standard", "drop", "half-down", "whole-down", "custom"];
 
 /// What the UI has to show after a call or a tick.
 #[derive(Debug, Clone, PartialEq)]
@@ -500,14 +500,14 @@ impl Core {
     pub fn score_settings(&self, kind: InstrumentKind) -> ScoreSettings {
         let mut settings = ScoreSettings::defaults(kind, self.source());
         settings.latency_ms = self.settings.latency_ms;
-        settings.strictness = match self.settings.strictness.as_str() {
-            "loose" => kontra_session::Strictness::Loose,
-            "normal" => kontra_session::Strictness::Normal,
-            "strict" => kontra_session::Strictness::Strict,
-            "custom" => kontra_session::Strictness::Custom {
+        settings.strictness = match self.settings.strictness {
+            Window::Loose => kontra_session::Strictness::Loose,
+            Window::Normal => kontra_session::Strictness::Normal,
+            Window::Strict => kontra_session::Strictness::Strict,
+            Window::Custom => kontra_session::Strictness::Custom {
                 window_ms: self.settings.window_ms.clamp(WINDOW_MIN_MS, WINDOW_MAX_MS),
             },
-            _ => settings.strictness,
+            Window::Auto => settings.strictness,
         };
         if self.settings.pitch_cents > 0.0 {
             settings.pitch_cents = self.settings.pitch_cents;
@@ -715,19 +715,19 @@ impl Core {
     }
 
     /// The view for the loaded piece: the one last used with it, else the default (LH-ANZ-04).
-    pub fn view(&self) -> String {
+    pub fn view(&self) -> View {
         self.loaded_path()
             .and_then(|p| self.library.entry(p))
-            .and_then(|e| e.view.clone())
-            .unwrap_or_else(|| self.settings.view.clone())
+            .and_then(|e| e.view)
+            .unwrap_or(self.settings.view)
     }
 
     /// Remembers `view` for the loaded piece and as the default for pieces opened next.
-    pub fn set_view(&mut self, view: &str) {
-        self.update_settings(|s| s.view = view.to_string());
+    pub fn set_view(&mut self, view: View) {
+        self.update_settings(|s| s.view = view);
         if let Some(path) = self.loaded_path().map(Path::to_path_buf) {
             if let Some(entry) = self.library.entry_mut(&path) {
-                entry.view = Some(view.to_string());
+                entry.view = Some(view);
             }
             self.save_library();
         }
@@ -812,16 +812,13 @@ impl Core {
     }
 
     /// Chooses a tuning by name (`TUNINGS`); "custom" starts from the strings in use.
-    pub fn set_tuning(&mut self, name: &str) -> Result<(), String> {
-        if !TUNINGS.contains(&name) {
-            return Ok(());
-        }
+    pub fn set_tuning(&mut self, preset: TuningPreset) -> Result<(), String> {
         let current = names_of(&tuning_from(&self.settings));
         self.retune(|s| {
-            if name == "custom" && s.custom_tuning.len() != current.len() {
+            if preset == TuningPreset::Custom && s.custom_tuning.len() != current.len() {
                 s.custom_tuning = current;
             }
-            s.tuning = name.to_string();
+            s.tuning = preset;
         })
     }
 
@@ -837,7 +834,7 @@ impl Core {
         *slot = kontra_model::Pitch(midi).to_string();
         self.retune(|s| {
             s.custom_tuning = names;
-            s.tuning = "custom".into();
+            s.tuning = TuningPreset::Custom;
         })
     }
 
@@ -853,7 +850,7 @@ impl Core {
         let ms = window_ms.clamp(WINDOW_MIN_MS, WINDOW_MAX_MS).round();
         self.reconfigure(|s| {
             s.window_ms = ms;
-            s.strictness = "custom".into();
+            s.strictness = Window::Custom;
         });
         ms
     }
@@ -869,9 +866,9 @@ impl Core {
         let imported = import_file(path).map_err(|e| self.import_error(&e))?;
         // Round 12: plan exercises in a run-through, own pieces in the mode last chosen for them.
         let mode = if self.is_bundled(path) {
-            Some(PLAN_MODE.to_string())
+            Some(PLAN_MODE)
         } else {
-            self.settings.piece_mode.clone()
+            self.settings.piece_mode
         };
         if let Some(mode) = mode {
             self.update_settings(|s| s.mode = mode);
@@ -1198,13 +1195,13 @@ impl Core {
 
     /// Returns true if the notes changed: leaving the workshop ends the building blocks and
     /// loops the bars chosen before them (`stop_chain`).
-    pub fn set_mode(&mut self, mode: &str) -> bool {
-        let changed = mode != "workshop" && self.stop_chain();
+    pub fn set_mode(&mut self, mode: PracticeMode) -> bool {
+        let changed = mode != PracticeMode::Workshop && self.stop_chain();
         let own = self.loaded_path().is_some_and(|p| !self.is_bundled(p));
         self.reconfigure(|s| {
-            s.mode = mode.to_string();
+            s.mode = mode;
             if own {
-                s.piece_mode = Some(mode.to_string());
+                s.piece_mode = Some(mode);
             }
         });
         changed
@@ -1241,14 +1238,14 @@ impl Core {
         if self.probe.is_some() {
             return Mode::Probe;
         }
-        match self.settings.mode.as_str() {
-            "song" => Mode::Song,
-            "wait" => Mode::Wait,
-            "workshop" => Mode::Workshop(Workshop {
+        match self.settings.mode {
+            PracticeMode::Song => Mode::Song,
+            PracticeMode::Wait => Mode::Wait,
+            PracticeMode::Workshop => Mode::Workshop(Workshop {
                 target_speed: self.target_speed(),
                 ..Workshop::default()
             }),
-            _ => Mode::Play,
+            PracticeMode::Play => Mode::Play,
         }
     }
 
@@ -1589,7 +1586,9 @@ impl Core {
                 let offset = r.offset_ms.unwrap_or(0.0);
                 let state = match r.outcome {
                     // In wait mode the note stays open: show what was played instead of marking it.
-                    Outcome::WrongPitch { played_midi } if self.settings.mode == "wait" => {
+                    Outcome::WrongPitch { played_midi }
+                        if self.settings.mode == PracticeMode::Wait =>
+                    {
                         let text = self.wait_text(index, Some(played_midi))?;
                         return Some(UiEvent::Holding { index, text });
                     }
@@ -1659,7 +1658,7 @@ impl Core {
 }
 
 /// Plan exercises open in a run-through: evaluation and "next exercise" at the end (round 12).
-const PLAN_MODE: &str = "song";
+const PLAN_MODE: PracticeMode = PracticeMode::Song;
 
 /// Saved mode of workshop runs and of blind probes (DIDAKTIK I1).
 const WORKSHOP_MODE: &str = "workshop";
@@ -1850,15 +1849,15 @@ fn tuning_from(settings: &Settings) -> Tuning {
         6 => Tuning::bass6_standard(),
         _ => Tuning::bass4_standard(),
     };
-    let chosen = match settings.tuning.as_str() {
-        "drop" => drop_lowest(&standard),
-        "half-down" => standard.shifted("half-down", -1),
-        "whole-down" => standard.shifted("whole-down", -2),
-        "custom" if settings.custom_tuning.len() == standard.string_count() => {
+    let chosen = match settings.tuning {
+        TuningPreset::Drop => drop_lowest(&standard),
+        TuningPreset::HalfDown => standard.shifted("half-down", -1),
+        TuningPreset::WholeDown => standard.shifted("whole-down", -2),
+        TuningPreset::Custom if settings.custom_tuning.len() == standard.string_count() => {
             let names: Vec<&str> = settings.custom_tuning.iter().map(String::as_str).collect();
             Tuning::from_names("custom", &names).ok()
         }
-        _ => None,
+        TuningPreset::Standard | TuningPreset::Custom => None,
     };
     chosen.unwrap_or(standard)
 }

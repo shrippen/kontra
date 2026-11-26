@@ -1,6 +1,6 @@
 //! Note density of a section in the app (LH-MOD-06): thinning the notes and its hint.
 
-use crate::{call, Core, DensityLock, SectionDensity, UiEvent};
+use crate::{call, Core, DensityLock, PracticeMode, SectionDensity, UiEvent};
 use kontra_session::Density;
 use std::path::Path;
 
@@ -73,7 +73,12 @@ impl Core {
     /// The suggestion after a pass or run with `hit_rate` (LH-MOD-06): song and workshop only,
     /// not for a fixed section, not when switched off, not after a probe (it only judges).
     pub(crate) fn density_hint(&self, hit_rate: f64) -> Option<UiEvent> {
-        if !self.settings.adaptive || !matches!(self.settings.mode.as_str(), "song" | "workshop") {
+        if !self.settings.adaptive
+            || !matches!(
+                self.settings.mode,
+                PracticeMode::Song | PracticeMode::Workshop
+            )
+        {
             return None;
         }
         if self.probe.is_some() || self.call_on() {

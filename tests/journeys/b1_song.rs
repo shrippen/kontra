@@ -2,7 +2,7 @@
 //! and view while playing, next piece.
 
 use crate::common::{judged, piece, render, run_until, write_midi, Profile};
-use kontra_appcore::{Opened, UiEvent};
+use kontra_appcore::{Opened, PracticeMode, UiEvent, View};
 use std::time::Duration;
 
 const RIFF: [u8; 8] = [28, 33, 38, 43, 28, 33, 38, 43];
@@ -28,7 +28,7 @@ fn play_through_a_setlist() {
 
     // Step 2-3: the setlist "Freitag", first piece, play mode, through to the end.
     assert_eq!(core.open_from_setlist("Freitag", 0).unwrap(), Opened::Ready);
-    core.set_mode("play");
+    core.set_mode(PracticeMode::Play);
     let start = core.play();
     assert!(
         !start.iter().any(|e| matches!(e, UiEvent::Error(_))),
@@ -72,7 +72,7 @@ fn play_through_a_setlist() {
         (0.0, 0.0, 0.0)
     );
     assert!(s.monitor_chain.is_empty());
-    core.set_view("tab");
+    core.set_view(View::Tab);
     assert!(core.is_playing());
     events.extend(run_until(&mut core, Duration::from_secs(8), |e| {
         matches!(e, UiEvent::Finished { .. })
@@ -83,7 +83,7 @@ fn play_through_a_setlist() {
     assert_eq!(states.len(), RIFF.len(), "{states:?}");
     assert!(states.iter().all(|s| *s == "hit"), "{states:?}");
     assert!(!events.iter().any(|e| matches!(e, UiEvent::Holding { .. })));
-    assert_eq!(core.view(), "tab");
+    assert_eq!(core.view(), View::Tab);
 
     // Step 5: next piece in one call (one click in the UI).
     // Titles come from the file names (the MIDI track name names the part).

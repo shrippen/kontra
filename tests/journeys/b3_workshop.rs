@@ -3,7 +3,7 @@
 //! played on another string than the tab's are named in the summary and stay hits (R7).
 
 use crate::common::{piece, render, run_until, write_midi, Profile, BPM, COUNT_IN_S, RATE};
-use kontra_appcore::{Core, UiEvent};
+use kontra_appcore::{Core, PracticeMode, UiEvent};
 use kontra_model::{midi_to_hz, DetectedNote, InputSource, A4_HZ};
 use kontra_session::{LoopRange, Mode, ScoreSettings, Session, SessionEvent, LOG_B_PER_FRET};
 use std::time::Duration;
@@ -159,7 +159,7 @@ fn stiff_take(a: &kontra_model::Arrangement, strings: &[u8]) -> Vec<f32> {
 /// A song run of the riff from `take`; the summary JSON.
 fn song_summary(core: &mut Core, score: &std::path::Path) -> serde_json::Value {
     core.open(score).unwrap();
-    core.set_mode("song");
+    core.set_mode(PracticeMode::Song);
     core.play();
     let events = run_until(core, Duration::from_secs(30), |e| {
         matches!(e, UiEvent::Finished { .. })
@@ -267,7 +267,7 @@ fn a_sharp_string_is_named() {
 
     let mut core = profile.core(Some(&take));
     core.open(&score).unwrap();
-    core.set_mode("song");
+    core.set_mode(PracticeMode::Song);
     core.play();
     let events = run_until(&mut core, Duration::from_secs(20), |e| {
         matches!(e, UiEvent::Finished { .. })

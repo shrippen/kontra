@@ -4,7 +4,7 @@
 //! (`UiEvent::LevelAdvice`), so the test reads the hint the UI shows.
 
 use crate::common::{run_until, Profile, COUNT_IN_S, RATE};
-use kontra_appcore::{Core, QaOptions, UiEvent};
+use kontra_appcore::{Core, PracticeMode, QaOptions, TuningPreset, UiEvent};
 use std::path::Path;
 use std::time::{Duration, Instant};
 
@@ -57,7 +57,7 @@ fn laptop_jack_to_first_note() {
     // Step 2: four strings, standard tuning, laptop jack; the level is too quiet.
     core.reconfigure(|s| {
         s.strings = 4;
-        s.tuning = "standard".into();
+        s.tuning = TuningPreset::Standard;
         s.input_kind = kontra_appcore::InputKind::LaptopJack;
     });
     let hint = core.tr("hint.laptop", &[]);
@@ -83,7 +83,7 @@ fn laptop_jack_to_first_note() {
     let home: serde_json::Value = serde_json::from_str(&core.home_json(0)).unwrap();
     let next = home["next"]["path"].as_str().expect("a next exercise");
     core.open(Path::new(next)).unwrap();
-    core.set_mode("play");
+    core.set_mode(PracticeMode::Play);
     core.play();
     let events = run_until(&mut core, Duration::from_secs(10), |e| {
         matches!(e, UiEvent::Judged { .. })

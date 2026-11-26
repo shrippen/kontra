@@ -152,11 +152,11 @@ fn view_is_remembered_per_piece() {
     let dir = temp_dir("view");
     let mut core = Core::new(&dir, QaOptions::default());
     core.open(&demo()).unwrap();
-    core.set_view("tab");
-    core.update_settings(|s| s.view = "lane".into());
+    core.set_view(View::Tab);
+    core.update_settings(|s| s.view = View::Lane);
     let mut again = Core::new(&dir, QaOptions::default());
     again.open(&demo()).unwrap();
-    assert_eq!(again.view(), "tab");
+    assert_eq!(again.view(), View::Tab);
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -322,14 +322,14 @@ fn plan_exercises_open_in_a_run_through() {
     let levels: serde_json::Value = serde_json::from_str(&core.bundled_json()).unwrap();
     let exercise = PathBuf::from(levels[0]["items"][0]["path"].as_str().unwrap());
     core.open(&Core::demo_path()).unwrap();
-    core.set_mode("workshop");
+    core.set_mode(PracticeMode::Workshop);
     core.open(&exercise).unwrap();
-    assert_eq!(core.settings().mode, "song");
-    core.set_mode("wait");
+    assert_eq!(core.settings().mode, PracticeMode::Song);
+    core.set_mode(PracticeMode::Wait);
     core.open(&Core::demo_path()).unwrap();
     assert_eq!(
         core.settings().mode,
-        "workshop",
+        PracticeMode::Workshop,
         "the own piece's mode comes back"
     );
     let _ = std::fs::remove_dir_all(dir);
@@ -1007,7 +1007,7 @@ fn target_speed_and_loops_per_piece() {
     assert_eq!(core.target_speed(), 1.0);
     core.set_target_speed(0.72);
     assert_eq!(core.target_speed(), 0.7, "steps of 5 %");
-    core.update_settings(|s| s.mode = "workshop".into());
+    core.update_settings(|s| s.mode = PracticeMode::Workshop);
     let Mode::Workshop(w) = core.mode() else {
         panic!("workshop");
     };

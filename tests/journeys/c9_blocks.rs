@@ -4,7 +4,7 @@
 //! blocks of four, but one starts where Jens hesitated twice.
 
 use crate::common::{piece, render, run_until, write_midi, Profile, BPM};
-use kontra_appcore::{Blocks, ChainOrder, Core, PieceVariety, UiEvent};
+use kontra_appcore::{Blocks, ChainOrder, Core, PieceVariety, PracticeMode, UiEvent};
 use std::time::Duration;
 
 /// Six equal bars: whichever bars loop, the take (played straight through) fits them.
@@ -21,7 +21,7 @@ fn blocks_join_until_the_whole_part() {
 
     let mut core = profile.core(Some(&take));
     core.open(&score).unwrap();
-    core.set_mode("workshop");
+    core.set_mode(PracticeMode::Workshop);
     core.set_loop(0, 2);
     core.start_chain(Blocks::Bars(1), ChainOrder::Forward);
     let chain = |core: &kontra_appcore::Core| -> serde_json::Value {
@@ -77,7 +77,7 @@ fn phrases_follow_the_rests() {
     .unwrap();
     let path = core.generate_exercise(&spec).unwrap();
     core.open(&path).unwrap();
-    core.set_mode("workshop");
+    core.set_mode(PracticeMode::Workshop);
     core.set_loop(0, 7);
 
     core.start_chain(Blocks::Phrases, ChainOrder::Forward);
@@ -102,7 +102,7 @@ fn phrases_start_where_the_player_hesitates() {
         let mut core = profile.core(Some(&take));
         core.update_settings(|s| s.language = Some("de".into()));
         core.open(&score).unwrap();
-        core.set_mode("song");
+        core.set_mode(PracticeMode::Song);
         core.play();
         run_until(&mut core, Duration::from_secs(30), |e| {
             matches!(e, UiEvent::Finished { .. })
@@ -112,7 +112,7 @@ fn phrases_start_where_the_player_hesitates() {
     let mut core = profile.core(None);
     core.update_settings(|s| s.language = Some("de".into()));
     core.open(&score).unwrap();
-    core.set_mode("workshop");
+    core.set_mode(PracticeMode::Workshop);
     core.set_loop(0, 7);
     core.start_chain(Blocks::Phrases, ChainOrder::Forward);
     let chain: serde_json::Value = serde_json::from_str(&core.chain_json()).unwrap();

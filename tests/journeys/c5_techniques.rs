@@ -6,7 +6,7 @@
 //! technique error.
 
 use crate::common::{render, run_until, write_marked, Profile, COUNT_IN_S, RATE};
-use kontra_appcore::UiEvent;
+use kontra_appcore::{PracticeMode, UiEvent};
 use std::time::Duration;
 
 /// E1 h F♯1 p E1, A1 sl B1, then dead E1 (x), ghost A1 ( ), dead A1 (x); 120 BPM quarters on
@@ -76,7 +76,7 @@ fn techniques_are_judged_apart_from_the_hit_rate() {
     // Step 2: played in song mode with the techniques.
     let mut core = profile.core(Some(&take));
     core.open(&score).unwrap();
-    core.set_mode("song");
+    core.set_mode(PracticeMode::Song);
     core.play();
     let events = run_until(&mut core, Duration::from_secs(10), |e| {
         matches!(e, UiEvent::Finished { .. })
@@ -162,7 +162,7 @@ fn slap_over_the_cable_is_a_hint() {
 
     let mut core = profile.core(Some(&take));
     core.open(&song).unwrap();
-    core.set_mode("song");
+    core.set_mode(PracticeMode::Song);
     core.play();
     let events = run_until(&mut core, Duration::from_secs(10), |e| {
         matches!(e, UiEvent::Finished { .. })
