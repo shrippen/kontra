@@ -10,7 +10,7 @@ Runs inside an isolated session, never against the desktop. Two ways in:
 
     # background session for a QA round: <workdir>/qa is this script with the session's
     # environment (DISPLAY, buses, QA_WORKDIR); see the head of scripts/qa-session.sh
-    scripts/qa-session.sh start W --a11y --input-file take.wav
+    scripts/qa-session.sh start W --a11y --size 1366x800 --input-file take.wav
     W/qa shot; W/qa click 640 400; W/qa key ctrl+o; W/qa type "hello"; W/qa stop
 
 Every command inside a background session appends a line to <workdir>/actions.log:
@@ -38,6 +38,7 @@ import datetime
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -66,6 +67,7 @@ SCROLL_BAR = "scroll bar"
 DRAG_STEPS = 10
 DRAG_PAUSE_S = 0.03
 ACTIONS_LOG = "actions.log"
+SESSION_FILE = "session.env"
 SHOT_PATTERN = re.compile(r"shot-(\d+)\.png$")
 SCREEN_COMMANDS = ("shot", "click", "hover", "drag", "key", "type")
 # Pixels two widgets may share before they count as overlapping (antialiased borders).
@@ -256,10 +258,26 @@ def log_action(command, rest):
                            command, " ".join(rest), last]) + "\n")
 
 
+def session_display(folder):
+    """DISPLAY recorded in the session file of `folder`, None if there is none."""
+    try:
+        with open(os.path.join(folder, SESSION_FILE), encoding="utf-8") as f:
+            for line in f:
+                key, _, value = line.partition("=")
+                if key == "DISPLAY":
+                    return shlex.split(value)[0]
+    except OSError:
+        return None
+    return None
+
+
 def require_x():
-    """The screen commands act on the session's X server only, never on a Wayland desktop."""
-    if os.environ.get("WAYLAND_DISPLAY") or not os.environ.get("DISPLAY"):
-        sys.exit("qactl: no X session (DISPLAY unset or WAYLAND_DISPLAY set); "
+    """The screen commands act on the session's X server only: QA_WORKDIR is set and DISPLAY is
+    the one in that session's file (so never a Wayland desktop or the owner's X server)."""
+    folder = workdir()
+    wanted = session_display(folder) if folder else None
+    if not wanted or os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY") != wanted:
+        sys.exit("qactl: not inside a session (QA_WORKDIR and DISPLAY must match its session.env); "
                  "use <workdir>/qa of scripts/qa-session.sh start")
 
 

@@ -28,7 +28,7 @@
 # Background mode, for QA rounds with a tester agent (skill qa-personas; one session per tester,
 # any number in parallel, each on its own display):
 #
-#   scripts/qa-session.sh start <workdir> --input-file take.wav [--a11y] [--size 1280x800]
+#   scripts/qa-session.sh start <workdir> --input-file take.wav [--a11y] [--size 1366x800]
 #                         [--seed DIR] [--downloads DIR] [--settings J] [-- <kontra arguments>]
 #   <workdir>/qa <command>        qactl.py in this session: shot, click, drag, key, type, hover
 #                                 and, with --a11y, tree, find, press, text, wait, layout, focus
@@ -38,7 +38,9 @@
 #   start returns once the window is there. <workdir> then holds session.env (DISPLAY, buses,
 #   PIDs, data folder; sourceable), the wrapper qa, data/ downloads/ runtime/ and the logs.
 #   shot-<nr>.png (one pixel per click coordinate: no scaling) and actions.log stay after stop.
-#   Only the PIDs in session.env are ever stopped, never a process found by name.
+#   Only the process groups in session.env are ever stopped, each by PID and start time (and
+#   boot id), never a process found by name. The session has its own HOME and XDG folders under
+#   <workdir>/home (Music, Documents; Downloads is <workdir>/downloads): a dialog starts there.
 #
 # Kontra binary: $KONTRA_BIN, else $CARGO_TARGET_DIR/debug/kontra, else target/debug/kontra.
 set -euo pipefail
@@ -47,8 +49,23 @@ set -euo pipefail
 caller="$PWD"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Ends a background session by the PIDs of its session file. Each of them leads a process group
-# of its own (setsid); the PID is only killed if it still does (a reused PID would not).
+# Start time of a process (field 22 of /proc/<pid>/stat, in ticks since boot). With the boot id it
+# names one process for good: a PID alone is reused (after a reboot pipewire may hold it).
+pstart() {
+    awk -F') ' '{ split($2, f, " "); print f[20] }' "/proc/$1/stat" 2> /dev/null
+}
+# PID in the lock file of an X display (empty if there is none).
+lock_pid() {
+    { tr -d ' \n' < "/tmp/.X$1-lock"; } 2> /dev/null || true
+}
+boot_id() {
+    cat /proc/sys/kernel/random/boot_id
+}
+
+# Ends a background session. session.env lists its process group leaders as "pid:start". A
+# group is signalled only if its leader is still the process we started (same start time, same
+# boot) or is gone: then no other process can hold that PID, and what still runs in the group
+# is ours. A PID that now belongs to another process is left alone, whatever it leads.
 stop_session() {
     local dir="$1"
     if [ ! -f "$dir/session.env" ]; then
@@ -59,25 +76,31 @@ stop_session() {
     (
         # shellcheck disable=SC1091
         . "$dir/session.env"
-        for pid in $APP_PID $BUS_PIDS $XVFB_PID; do
-            [ "$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')" = "$pid" ] || continue
-            kill -- "-$pid" 2>/dev/null || true
-        done
-        for _ in $(seq 50); do
-            alive=0
-            for pid in $APP_PID $BUS_PIDS $XVFB_PID; do
-                if [ "$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')" = "$pid" ]; then
-                    alive=1
-                fi
+        ours() {
+            [ "$BOOT_ID" = "$(boot_id)" ] || return 1
+            [ -d "/proc/${1%%:*}" ] || return 0
+            [ "$(pstart "${1%%:*}")" = "${1##*:}" ]
+        }
+        running() {
+            local entry
+            for entry in $PROCS; do
+                ours "$entry" && kill -0 -- "-${entry%%:*}" 2> /dev/null && return 0
             done
-            [ "$alive" = 0 ] && break
+            return 1
+        }
+        signal() {
+            local entry
+            for entry in $PROCS; do
+                ours "$entry" && kill "-$1" -- "-${entry%%:*}" 2> /dev/null || true
+            done
+        }
+        signal TERM
+        for _ in $(seq 50); do
+            running || break
             sleep 0.1
         done
-        for pid in $APP_PID $BUS_PIDS $XVFB_PID; do
-            [ "$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')" = "$pid" ] || continue
-            kill -KILL -- "-$pid" 2>/dev/null || true
-        done
-        rm -rf "$XDG_RUNTIME_DIR"
+        signal KILL
+        rm -rf "$dir/runtime"
     )
     date +%FT%T > "$dir/stopped"
 }
@@ -145,7 +168,7 @@ fi
 # Temporary files under ~/.cache/claude (CLAUDE.md), never /tmp.
 if [ "$mode" = start ]; then
     work="$workdir"
-    rm -rf "$work/stopped" "$work/data" "$work/runtime" "$work/downloads"
+    rm -rf "$work/stopped" "$work/data" "$work/runtime" "$work/downloads" "$work/home"
     keep=1
 else
     base="${KONTRA_QA_TMP:-$HOME/.cache/claude/kontra-qa}"
@@ -191,34 +214,69 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# A free display from :99 up. Xvfb takes its lock file atomically: of two sessions racing for
-# a number, the loser ends at once and tries the next.
+# A free display from :99 up. Xvfb takes its lock file atomically; the display is ours only
+# when the lock holds our Xvfb's PID (a socket may be another session's). A server that ends
+# at once on a lock or socket is a busy display, any other end (a broken --size) is fatal.
 display=99
 while :; do
     if [ ! -e "/tmp/.X11-unix/X$display" ] && [ ! -e "/tmp/.X$display-lock" ]; then
         setsid Xvfb ":$display" -screen 0 "${size}x24" -nolisten tcp > "$work/xvfb.log" 2>&1 &
         xvfb_pid=$!
-        for _ in $(seq 50); do
-            [ -e "/tmp/.X11-unix/X$display" ] && break 2
-            kill -0 "$xvfb_pid" 2>/dev/null || break
+        state=wait
+        for _ in $(seq 100); do
+            if ! kill -0 "$xvfb_pid" 2> /dev/null; then
+                state=ended
+                break
+            fi
+            if [ "$(lock_pid "$display")" = "$xvfb_pid" ] \
+                && [ -e "/tmp/.X11-unix/X$display" ]; then
+                state=up
+                break
+            fi
             sleep 0.1
         done
-        kill -0 "$xvfb_pid" 2>/dev/null && break
-        wait "$xvfb_pid" 2>/dev/null || true
+        [ "$state" = up ] && break
+        if [ "$state" = wait ]; then
+            echo "qa-session: Xvfb :$display did not come up (see $work/xvfb.log)" >&2
+            keep=1
+            exit 1
+        fi
+        wait "$xvfb_pid" 2> /dev/null || true
         xvfb_pid=""
+        if ! grep -qE 'already active|Cannot establish any listening sockets' "$work/xvfb.log"; then
+            echo "qa-session: Xvfb did not start (see $work/xvfb.log)" >&2
+            keep=1
+            exit 1
+        fi
     fi
     display=$((display + 1))
     if [ "$display" -gt 199 ]; then
-        echo "qa-session: no free display (see $work/xvfb.log)" >&2
+        echo "qa-session: no free display :99 to :199" >&2
         keep=1
         exit 1
     fi
 done
+procs=("$xvfb_pid:$(pstart "$xvfb_pid")")
 
 # The environment is cleaned before anything starts, the session bus too: a bus started with
 # the desktop's environment let a portal attach to the real Wayland session (28.10.).
+# The session's own home: Qt's standard folders (Music, Downloads, Documents) and every config,
+# cache and data folder lie inside the work folder, never in the caller's home.
+home="$work/home"
+mkdir -p "$home/.config" "$home/.local/share" "$home/.local/state" "$home/.cache" \
+    "$home/Music" "$home/Documents" "$home/Desktop" "$home/Pictures" "$home/Videos"
+cat > "$home/.config/user-dirs.dirs" <<DIRS
+XDG_DESKTOP_DIR="$home/Desktop"
+XDG_DOCUMENTS_DIR="$home/Documents"
+XDG_DOWNLOAD_DIR="$work/downloads"
+XDG_MUSIC_DIR="$home/Music"
+XDG_PICTURES_DIR="$home/Pictures"
+XDG_VIDEOS_DIR="$home/Videos"
+DIRS
 clean=(env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE -u DBUS_SESSION_BUS_ADDRESS
     QT_QPA_PLATFORM=xcb DISPLAY=":$display" XDG_RUNTIME_DIR="$work/runtime"
+    HOME="$home" XDG_CONFIG_HOME="$home/.config" XDG_DATA_HOME="$home/.local/share"
+    XDG_CACHE_HOME="$home/.cache" XDG_STATE_HOME="$home/.local/state"
     KONTRA_DATA_DIR="$work/data" KONTRA_DOWNLOAD_DIR="$work/downloads")
 if [ "$mode" = start ]; then
     # One image pixel is one click coordinate: no scaling, whatever the caller has set.
@@ -237,6 +295,7 @@ bus() {
     setsid "${clean[@]}" dbus-daemon "$@" --nofork --print-address=3 3> "$work/$name" \
         > "$work/$name.log" 2>&1 &
     bus_pids+=("$!")
+    procs+=("$!:$(pstart "$!")")
     for _ in $(seq 50); do
         [ -s "$work/$name" ] && return
         sleep 0.1
@@ -252,9 +311,11 @@ if [ "$a11y" = 1 ]; then
         AT_SPI_BUS_ADDRESS="$(head -1 "$work/a11y")" QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1)
     setsid "${clean[@]}" "$REGISTRY" > "$work/registry.log" 2>&1 &
     bus_pids+=("$!")
+    procs+=("$!:$(pstart "$!")")
 fi
 setsid "${clean[@]}" "$app" --input-file "$input" "$@" > "$work/kontra.log" 2>&1 &
 app_pid=$!
+procs+=("$app_pid:$(pstart "$app_pid")")
 
 # Wait for the window (xdotool), at most 30 s.
 window=""
@@ -289,7 +350,7 @@ if [ "$mode" = start ]; then
         printf '%s=%q\n' DISPLAY ":$display" XDG_RUNTIME_DIR "$work/runtime" \
             KONTRA_DATA_DIR "$work/data" KONTRA_DOWNLOAD_DIR "$work/downloads" \
             QA_WORKDIR "$work" QA_WINDOW "$window" XVFB_PID "$xvfb_pid" APP_PID "$app_pid" \
-            BUS_PIDS "${bus_pids[*]}"
+            BUS_PIDS "${bus_pids[*]}" PROCS "${procs[*]}" BOOT_ID "$(boot_id)" HOME_DIR "$home"
         if [ "$a11y" = 1 ]; then
             printf '%s=%q\n' DBUS_SESSION_BUS_ADDRESS "$(head -1 "$work/session")" \
                 AT_SPI_BUS_ADDRESS "$(head -1 "$work/a11y")" QT_LINUX_ACCESSIBILITY_ALWAYS_ON 1
