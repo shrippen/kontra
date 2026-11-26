@@ -12,7 +12,6 @@ mod caches;
 mod calibrate;
 mod call;
 mod chain;
-mod choice;
 mod choices;
 mod course;
 mod data;
@@ -25,6 +24,7 @@ mod folders;
 pub mod fx_plugins;
 mod goal;
 mod i18n;
+mod input_choice;
 mod input_state;
 mod ladder;
 mod learn;
@@ -72,7 +72,7 @@ pub use store::{
     SectionBars, SectionDensity, Setlist, Settings,
 };
 
-use choice::{chosen_input, chosen_output, preferred_input};
+use input_choice::{chosen_input, chosen_output, preferred_input};
 use input_state::{InputUse, Unstarted};
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Technique, Tuning};
 use kontra_session::{
