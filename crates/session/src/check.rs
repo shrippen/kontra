@@ -507,7 +507,7 @@ mod tests {
                 path: path.clone(),
                 laptop_jack: false,
             },
-            output_device: Some(kontra_engine::NULL_DEVICE.to_string()),
+            output_device: Some(kontra_model::NULL_DEVICE.to_string()),
             source: InputSource::Line,
             backing: None,
             original: None,

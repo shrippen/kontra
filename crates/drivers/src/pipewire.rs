@@ -7,7 +7,7 @@
 //!          └─► metadata "default" ──► default.audio.source / default.audio.sink
 //! ```
 
-use crate::audio::Direction;
+use kontra_model::Direction;
 use pipewire::{
     context::ContextRc, core::PW_ID_CORE, main_loop::MainLoopRc, metadata::Metadata,
     spa::utils::result::AsyncSeq, types::ObjectType,

@@ -707,7 +707,7 @@ fn start_device(
             }
         },
         move |message| {
-            let _ = error_events.send(Event::Error(kontra_drivers::Direction::Input, message));
+            let _ = error_events.send(Event::Error(kontra_model::Direction::Input, message));
         },
     )?;
     let sample_rate = stream.sample_rate;

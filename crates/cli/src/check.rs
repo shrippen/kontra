@@ -163,7 +163,7 @@ fn ask(a: &CheckArgs, prompt: &str) -> Answer {
 /// The devices the check runs on.
 fn devices(report: &mut Report, a: &CheckArgs) {
     report.section("Devices");
-    let name = |direction: session::Direction, id: &Option<String>| -> String {
+    let name = |direction: kontra_model::Direction, id: &Option<String>| -> String {
         let list = session::list_devices(direction);
         let found = list.iter().find(|d| match id {
             Some(id) => &d.id == id,
@@ -176,9 +176,9 @@ fn devices(report: &mut Report, a: &CheckArgs) {
     };
     let input = match &a.input_file {
         Some(path) => format!("file {}", path.display()),
-        None => name(session::Direction::Input, &a.input),
+        None => name(kontra_model::Direction::Input, &a.input),
     };
-    let output = name(session::Direction::Output, &a.output);
+    let output = name(kontra_model::Direction::Output, &a.output);
     report.line(format!("- input: {input}"));
     report.line(format!("- output: {output}"));
     report.line(format!("- laptop jack: {}", a.laptop_jack));
@@ -251,7 +251,7 @@ fn loopback(
     ));
     report.line(format!("- block {block} frames, {} xruns", take.xruns));
     // Refused real-time priority loses blocks under load (14.10.); the report says which ran.
-    let realtime = session::audio_priority() == session::Priority::Realtime;
+    let realtime = session::audio_priority() == kontra_model::Priority::Realtime;
     report.line(format!("- real-time priority: {realtime}"));
     report.json.insert(
         "loopback".into(),

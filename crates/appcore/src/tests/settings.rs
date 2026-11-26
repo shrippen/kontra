@@ -2,11 +2,12 @@
 
 use super::*;
 use crate::mixer::ear_gains;
-use kontra_session::{Connection, DeviceInfo, Limit, Shaping};
+use kontra_model::{Connection, DeviceInfo};
+use kontra_session::{Limit, Shaping};
 
 #[test]
 fn midi_choice_by_name_falls_back_to_the_first() {
-    let port = |id: &str, name: &str| kontra_session::MidiPort {
+    let port = |id: &str, name: &str| kontra_model::MidiPort {
         id: id.into(),
         name: name.into(),
     };
@@ -450,8 +451,8 @@ fn unlisted_choice_is_automatic() {
     assert_eq!(chosen_output(Some("hda"), &list).as_deref(), Some("hda"));
     // The engine's timer output is never listed and stays (tests must stay silent).
     assert_eq!(
-        chosen_output(Some(kontra_session::NULL_DEVICE), &[]).as_deref(),
-        Some(kontra_session::NULL_DEVICE)
+        chosen_output(Some(kontra_model::NULL_DEVICE), &[]).as_deref(),
+        Some(kontra_model::NULL_DEVICE)
     );
 }
 

@@ -30,9 +30,8 @@ pub use kontra_drivers::plugins;
 pub use kontra_drivers::{
     audio_priority, cache_dir_of, data_dir_of, download_dir, file_url, find_separator, in_sandbox,
     list_devices, list_midi_inputs, local_path, monitor_rate, read_audio, recent_files, write_wav,
-    AudioBuffer, Connection, DeviceInfo, Direction, FileHttp, Http, HttpError, Keychain,
-    MemoryStore, MidiPort, Priority, RecentFile, SecretError, SecretStore, SeparationJob,
-    Separator, SeparatorError, StreamConfig, Web, NULL_DEVICE,
+    AudioBuffer, FileHttp, Http, HttpError, Keychain, MemoryStore, RecentFile, SecretError,
+    SecretStore, SeparationJob, Separator, SeparatorError, StreamConfig, Web,
 };
 pub use kontra_dsp::{
     track_beats, BeatGrid, Limit, Pick, Shaping, StringModel, LOG_B_PER_FRET, SHAPING_RANGE_DB,
@@ -57,8 +56,8 @@ pub use strings_korpus::{tell_strings, StringTold};
 
 use kontra_dsp::TunerReading;
 use kontra_model::{
-    DetectedNote, DoubleStopVerdict, NoteEnd, NoteRetraction, PitchRevision, StringVerdict,
-    TechniqueRevision,
+    DetectedNote, Direction, DoubleStopVerdict, NoteEnd, NoteRetraction, PitchRevision,
+    StringVerdict, TechniqueRevision,
 };
 
 /// What the engine reports to the layer above.

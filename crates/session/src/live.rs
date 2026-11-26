@@ -468,10 +468,8 @@ impl LiveTuner {
     /// Test: the output reports an error, as a device that went away would.
     #[cfg(test)]
     fn fail_output_for_test(&self) {
-        self.rig.tell_for_test(Event::Error(
-            kontra_engine::Direction::Output,
-            "gone".into(),
-        ));
+        self.rig
+            .tell_for_test(Event::Error(kontra_model::Direction::Output, "gone".into()));
     }
 
     /// True while the bass passes through the output.
@@ -524,7 +522,7 @@ impl LiveTuner {
                     clipped,
                 }),
                 // The monitor's output went away: tuning goes on without it.
-                Event::Error(kontra_engine::Direction::Output, _) => self.rig.silence_output(),
+                Event::Error(kontra_model::Direction::Output, _) => self.rig.silence_output(),
                 Event::Error(side, m) => out.push(PracticeEvent::Error(side, m)),
                 Event::Ended => out.push(PracticeEvent::InputEnded),
                 Event::Stalled { .. } => out.push(PracticeEvent::InputStalled),

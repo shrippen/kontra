@@ -1,7 +1,7 @@
 //! Playback: backing track, transpose, loop keys, calibration, recorded runs.
 
 use super::*;
-use kontra_session::{Connection, DeviceInfo};
+use kontra_model::{Connection, DeviceInfo};
 use std::time::{Duration, Instant};
 
 /// QA P2 (F9): a backing file that is gone must not stop the piece; it plays without, and
@@ -502,7 +502,7 @@ const LISTING: Duration = Duration::from_secs(3);
 fn slow_list(direction: Direction) -> Vec<DeviceInfo> {
     std::thread::sleep(LISTING);
     vec![DeviceInfo {
-        id: kontra_session::NULL_DEVICE.into(),
+        id: kontra_model::NULL_DEVICE.into(),
         name: "Headphones".into(),
         direction,
         is_default: true,

@@ -23,12 +23,11 @@ pub use kontra_engine::{
     DoubleStopTally,
 };
 pub use kontra_engine::{
-    audio_priority, evaluate as evaluate_korpus, evaluate_expecting as evaluate_korpus_expecting,
+    evaluate as evaluate_korpus, evaluate_expecting as evaluate_korpus_expecting,
     evaluate_laptop_jack as evaluate_korpus_laptop_jack, evaluate_with as evaluate_korpus_with,
-    generate as generate_korpus, list_devices, list_midi_inputs, render_performance, same_pitch,
-    track_beats, Annotation, BackingTrack, Connection, DeviceInfo, Direction, Evaluation,
-    Expecting, KorpusItem, KorpusSet, Matching, MidiPort, Mistakes, Pick, Playing, Priority,
-    StringModel, LOG_B_PER_FRET, NULL_DEVICE,
+    generate as generate_korpus, render_performance, same_pitch, track_beats, Annotation,
+    BackingTrack, Evaluation, Expecting, KorpusItem, KorpusSet, Matching, Mistakes, Pick, Playing,
+    StringModel, LOG_B_PER_FRET,
 };
 pub use kontra_engine::{
     evaluate_ends, generate_midi_chords, generate_staccato, score_chords, ChordTally, EndTally,

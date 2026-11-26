@@ -6,6 +6,7 @@
 //! take.mid ─► midly ─► [(seconds, MidiNote)]
 //! ```
 
+use kontra_model::MidiPort;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
@@ -27,14 +28,6 @@ pub enum MidiError {
     NoPort,
     #[error("cannot read {path}: {message}")]
     File { path: PathBuf, message: String },
-}
-
-/// A MIDI input port.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MidiPort {
-    /// Stable within a session (midir's port id).
-    pub id: String,
-    pub name: String,
 }
 
 /// One key going down (velocity 1..=127) or up (velocity 0).

@@ -81,14 +81,9 @@ and that session hands no driver name on.
 A change that needs more places than listed is a finding for the audit.
 
 ## Known deviations
-- `drivers` does not use `model` yet, and the layer test forbids it (`ALLOWED` in
-  `tests/physical_design.rs`). The device descriptions (`DeviceInfo`, `Connection`, `Direction`,
-  `MidiPort`, `Priority`, `NULL_DEVICE`) still live in `crates/drivers/src/audio.rs` and
-  `midi.rs` instead of `model`. `AUDIT.md` finding 10.
 - Session hands engine names on unchanged (`crates/session/src/lib.rs`, `service.rs`,
-  `plugin_host.rs`), among
-  them the driver names in `DRIVER_NAMES_PASSED_ON` of the layer test: the device lists and their
-  types, the plugin host's data types, error types and the test seams `Http`, `SecretStore`,
+  `plugin_host.rs`), among them the driver names in `DRIVER_NAMES_PASSED_ON` of the layer test:
+  the plugin host's data types, error types and the test seams `Http`, `SecretStore`,
   `MemoryStore`. The rest are mostly the corpus tools the CLI uses. The plugin host's data types
   (`PluginInfo`, `PluginFormat`) live in `crates/drivers/src/plugins.rs`, not in `model`.
   `AUDIT.md` finding 10.

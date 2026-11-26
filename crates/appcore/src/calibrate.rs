@@ -9,9 +9,10 @@
 
 use crate::store::{AudioPath, LatencyFrom, Settings};
 use crate::{Core, UiEvent, CALIBRATION_LEAD_S};
+use kontra_model::{Direction, MidiPort};
 use kontra_session::{
-    list_devices, CalibrationResult, Direction, InputChoice, LiveCalibration, LiveLoopback,
-    LiveSetup, LoopbackResult, MidiPort, Pocket, Side, Summary,
+    list_devices, CalibrationResult, InputChoice, LiveCalibration, LiveLoopback, LiveSetup,
+    LoopbackResult, Pocket, Side, Summary,
 };
 
 /// Input of a recording fed in for QA: one device, whichever file.
@@ -404,7 +405,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("kontra-cal-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let mut core = file_core(&dir);
-        core.update_settings(|s| s.output_device = Some(kontra_session::NULL_DEVICE.into()));
+        core.update_settings(|s| s.output_device = Some(kontra_model::NULL_DEVICE.into()));
         core.update_settings(|s| {
             s.latency_ms = 20.0;
             s.latency_from = LatencyFrom::Loopback;
@@ -430,7 +431,7 @@ mod tests {
     fn other_resolved_device_forgets() {
         let usb = AudioPath {
             input: Some("alsa:front:CARD=USB,DEV=0".into()),
-            output: Some(kontra_session::NULL_DEVICE.into()),
+            output: Some(kontra_model::NULL_DEVICE.into()),
             kind: crate::InputKind::Line,
         };
         let dir = measured_profile("resolved-other", usb);
@@ -448,7 +449,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("kontra-cal-probe-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let mut probe = file_core(&dir);
-        probe.update_settings(|s| s.output_device = Some(kontra_session::NULL_DEVICE.into()));
+        probe.update_settings(|s| s.output_device = Some(kontra_model::NULL_DEVICE.into()));
         let here = probe.audio_path();
         drop(probe);
         let _ = std::fs::remove_dir_all(&dir);

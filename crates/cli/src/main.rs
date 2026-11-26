@@ -53,7 +53,10 @@ fn main() -> ExitCode {
 pub(crate) type CliResult = Result<(), String>;
 
 fn devices() -> CliResult {
-    for direction in [session::Direction::Input, session::Direction::Output] {
+    for direction in [
+        kontra_model::Direction::Input,
+        kontra_model::Direction::Output,
+    ] {
         println!("{direction:?}:");
         let list = session::list_devices(direction);
         if list.is_empty() {
@@ -252,7 +255,7 @@ fn answers(arrangement: &kontra_model::Arrangement) -> Result<kontra_model::Arra
 fn soak(a: &args::SoakArgs) -> CliResult {
     let arrangement = load_arrangement(&a.score, None)?;
     let output = match a.output.as_str() {
-        "null" => session::NULL_DEVICE,
+        "null" => kontra_model::NULL_DEVICE,
         id => id,
     };
     println!(

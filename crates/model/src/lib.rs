@@ -6,12 +6,13 @@
 //! cli ────────────┘            │           ├─► dsp
 //!                              └─► content └─► stretch
 //! ```
-//! (model is used by all but app, drivers and stretch; it depends on nothing)
+//! (model is used by all but app and stretch; it depends on nothing)
 //!
 //! Units are part of the names: `_hz`, `_cent`, `_s`, `_ms`, `_ticks`.
 
 mod arrangement;
 mod chord;
+mod device;
 mod event;
 mod fx;
 mod instrument;
@@ -26,6 +27,7 @@ pub use arrangement::{
     TimeSignature, TICKS_PER_QUARTER,
 };
 pub use chord::{in_key, Chord};
+pub use device::{Connection, DeviceInfo, Direction, MidiPort, Priority, NULL_DEVICE};
 pub use event::{
     ChordHearing, DetectedNote, DoubleStopHeard, DoubleStopVerdict, Ending, ExpectedStrike,
     ExpectedTone, InputSource, NoteEnd, NoteRetraction, PitchRevision, StringHeard, StringVerdict,

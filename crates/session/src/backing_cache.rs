@@ -15,9 +15,8 @@
 use crate::cache_files::{self, CacheEntry, Partial};
 use crate::live::InputChoice;
 use crate::stems::file_key;
-use kontra_engine::{
-    list_devices, monitor_rate, BackingTrack, Direction, EngineError, NULL_DEVICE,
-};
+use kontra_engine::{list_devices, monitor_rate, BackingTrack, EngineError};
+use kontra_model::{Direction, NULL_DEVICE};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
 

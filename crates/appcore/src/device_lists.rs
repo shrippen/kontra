@@ -7,7 +7,8 @@
 //!   nothing listed yet ──► listed on the spot, as before
 
 use crate::Core;
-use kontra_session::{list_devices, DeviceInfo, Direction};
+use kontra_model::{DeviceInfo, Direction};
+use kontra_session::list_devices;
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
 
 /// Lists the devices of one direction; tests put in a slow or fixed list.
