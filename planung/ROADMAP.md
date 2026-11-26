@@ -226,6 +226,24 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 - Signierung, Wege zur Wahl (in Runde 18 zurückgestellt, keiner gewählt): Azure Trusted Signing (Abo, Identitätsprüfung), SignPath Foundation
   (kostenlos für freie Projekte, signiert unter deren Namen), eigenes Zertifikat (z. B. Certum Open Source).
 
+### Entscheidungen Runde 23 (26.11.2026)
+
+- Geräteliste (Audit Fund 10, Rest): Die Treiber dürfen `model` benutzen; die Gerätebeschreibungen ziehen dorthin,
+  die Session bekommt eigene Gerätefunktionen (Änderung der Schichten in `agent.md` und im Test).
+- Die 44 Namen der Engine, die die Session weiterreicht: alle kapseln, auch für die CLI.
+- Feste Werte in QML (Fund 6, Rest): so lassen.
+- Reine `.xml`: überall prüfen, ob die Datei MusicXML ist, und nur dann nehmen.
+- Speicherfehler: Quiz-Statistik und Plugin-Liste melden sie wie Bibliothek und Einstellungen.
+- Kleinigkeiten aus den Reviews: in einem Sammel-PR beheben.
+- Ziel „Abdämpfen“ bei Pausen-Übungen: bleibt.
+- „Bass hören“ auch im Gehörtraining (LH-EIN-18).
+- LH-NF-15: nacharbeiten, bis 70 ms auch beim Fünfsaiter ab E1 und mit Brummen erreicht sind.
+- Neue `pub` seit Runde 22 und die älteren Listen in `planung/STAND.md`: freigegeben.
+- `ARCHITECTURE.md`: jetzt anlegen, mit dem `advisor` (Fable) als Verfasser des Entwurfs.
+- Hardware: Claude darf nachts eingebaute Karte und Scarlett zugleich nutzen (R3, N5), ohne Kabel vom Ausgang in
+  den Eingang.
+- Danach zuerst: diese Runde umsetzen, dann eine QA-Runde mit allen Personas.
+
 ### Entscheidungen Runde 22 (14.11.2026)
 
 - `pub`-Liste der Nächte 12./13. und 13./14.11. freigegeben.
