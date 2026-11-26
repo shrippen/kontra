@@ -179,20 +179,45 @@ fn crates_depend_only_downwards() {
     assert_eq!(seen.len(), ALLOWED.len(), "crates found: {seen:?}");
 }
 
-/// Driver names session still passes on to appcore and cli, each for a reason: the errors, the
-/// `Http` and `SecretStore` seams tests put fakes into, and the plugin host's data types
-/// (`plugins::PluginInfo`, …, see `plugin_host.rs`). An entry goes when session stops passing
-/// the name on.
-const DRIVER_NAMES_PASSED_ON: [&str; 7] = [
-    "Http",
-    "HttpError",
-    "MemoryStore",
-    "SecretError",
-    "SecretStore",
-    "SeparatorError",
-    "plugins",
-];
+/// Driver names session still passes on to appcore and cli. An entry goes when session stops
+/// passing the name on.
+const DRIVER_NAMES_PASSED_ON: [&str; 0] = [];
 
+/// Engine names (drivers' included) session still passes on to the CLI: the detection corpus
+/// tools (`service.rs`). Their types hold plain data and private counting methods of the
+/// engine's corpus code, so they neither moved to `model` nor got a twin in session yet.
+/// An entry goes when session stops passing the name on.
+const ENGINE_NAMES_PASSED_ON: [&str; 29] = [
+    "Annotation",
+    "ChordTally",
+    "DoubleStopTally",
+    "EndTally",
+    "Evaluation",
+    "Expecting",
+    "KorpusItem",
+    "KorpusSet",
+    "LOG_B_PER_FRET",
+    "Matching",
+    "Mistakes",
+    "Pick",
+    "Playing",
+    "StringModel",
+    "announce_second_tone",
+    "double_stop_mixtures",
+    "evaluate",
+    "evaluate_double_stops",
+    "evaluate_ends",
+    "evaluate_expecting",
+    "evaluate_laptop_jack",
+    "evaluate_with",
+    "generate",
+    "generate_double_stops",
+    "generate_midi_chords",
+    "generate_staccato",
+    "render_performance",
+    "same_pitch",
+    "score_chords",
+];
 /// The names a `pub use <prefix>…;` statement brings in, by their first path segment after the
 /// prefix, aliases off. Example: `pub use kontra_engine::{a::B, C as D};` → "a", "C".
 fn reexported(source: &str, prefix: &str) -> Vec<String> {
@@ -288,7 +313,8 @@ fn reads_reexports() {
 }
 
 /// The layer rule holds in the code, not only in `Cargo.toml`: session passes no driver name on
-/// that engine passes on from `kontra_drivers`; it wraps them in functions of its own.
+/// that engine passes on from `kontra_drivers`, and no engine name beyond the corpus tools of
+/// `ENGINE_NAMES_PASSED_ON`; it wraps them in functions and types of its own.
 #[test]
 fn session_hides_the_drivers() {
     let engine = std::fs::read_to_string(root().join("crates/engine/src/lib.rs")).expect("engine");
@@ -298,28 +324,40 @@ fn session_hides_the_drivers() {
         "engine's driver names: {driver_names:?}"
     );
 
-    let mut passed_on = Vec::new();
+    let mut engine_passed = Vec::new();
     for file in rust_files(&root().join("crates/session/src")) {
         let source = std::fs::read_to_string(&file).expect("session source");
-        for name in reexported(&source, "kontra_engine") {
-            if driver_names.contains(&name) {
-                passed_on.push(name);
-            }
-        }
-        // A driver module under another name (`use kontra_engine::plugins as host;`) passes on
-        // what `pub use host::…` names, as the driver module itself.
-        // The crate under another name (`use kontra_engine as e;`) passes on what `pub use e::…`
-        // names.
+        engine_passed.extend(reexported(&source, "kontra_engine"));
+        // A module under another name (`use kontra_engine::plugins as host;`) passes on what
+        // `pub use host::…` names, as the module itself. The crate under another name
+        // (`use kontra_engine as e;`) passes on what `pub use e::…` names.
         for (name, alias) in aliases(&source, "kontra_engine") {
             if name.is_empty() {
-                let names = reexported(&source, &alias);
-                passed_on.extend(names.into_iter().filter(|n| driver_names.contains(n)));
+                engine_passed.extend(reexported(&source, &alias));
                 continue;
             }
-            if driver_names.contains(&name) && !reexported(&source, &alias).is_empty() {
-                passed_on.push(name);
+            if !reexported(&source, &alias).is_empty() {
+                engine_passed.push(name);
             }
         }
+    }
+    let passed_on: Vec<String> = engine_passed
+        .iter()
+        .filter(|n| driver_names.contains(n))
+        .cloned()
+        .collect();
+
+    for name in &engine_passed {
+        assert!(
+            ENGINE_NAMES_PASSED_ON.contains(&name.as_str()),
+            "session passes the engine name {name} on: wrap it in a function or type of its own"
+        );
+    }
+    for name in ENGINE_NAMES_PASSED_ON {
+        assert!(
+            engine_passed.iter().any(|n| n == name),
+            "session no longer passes {name} on: remove it from ENGINE_NAMES_PASSED_ON"
+        );
     }
 
     for name in &passed_on {

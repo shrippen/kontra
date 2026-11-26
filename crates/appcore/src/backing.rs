@@ -11,15 +11,7 @@ impl Core {
         let (backing, _) = self
             .backing()
             .ok_or_else(|| self.tr("backing.nobacking", &[]))?;
-        let audio =
-            kontra_session::BackingTrack::load(&backing, 44_100).map_err(|e| e.to_string())?;
-        let mono: Vec<f32> = audio
-            .left
-            .iter()
-            .zip(&audio.right)
-            .map(|(l, r)| 0.5 * (l + r))
-            .collect();
-        let grid = kontra_session::track_beats(&mono, audio.sample_rate);
+        let grid = kontra_session::beat_grid(&backing).map_err(|e| e.to_string())?;
         if grid.beats.len() < 4 {
             return Err(self.tr("backing.nobeats", &[]));
         }

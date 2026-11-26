@@ -18,13 +18,13 @@
 
 mod process;
 
+pub use kontra_model::SeparatorError;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use thiserror::Error;
 
 use process::PROGRAM;
 /// The program as the host of a Flatpak knows it, started at a lower priority there.
@@ -47,19 +47,6 @@ const TAIL_BYTES: usize = 600;
 /// Seconds left are kept +1, so 0 means "not known yet".
 const UNKNOWN: u32 = 0;
 const SECONDS_PER_MINUTE: u32 = 60;
-
-#[derive(Debug, Error)]
-pub enum SeparatorError {
-    #[error("cannot start {program}: {source}")]
-    Start {
-        program: String,
-        source: std::io::Error,
-    },
-    #[error("separation failed: {0}")]
-    Failed(String),
-    #[error("separation cancelled")]
-    Cancelled,
-}
 
 /// An installed separator: the command that runs Demucs.
 #[derive(Debug, Clone, PartialEq, Eq)]

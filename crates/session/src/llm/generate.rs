@@ -14,7 +14,7 @@ use super::provider::Provider;
 use super::wire::{self, PreparedRequest, Turn, WireError};
 use super::{prompt, LLM_TIMEOUT};
 use kontra_content::exercise::{Level, PiecePlan, PlanError};
-use kontra_engine::{Http, HttpError};
+use kontra_model::{Http, HttpError};
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]

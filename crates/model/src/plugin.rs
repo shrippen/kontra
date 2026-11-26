@@ -10,7 +10,112 @@
 //! The state is written as base64 text, so the settings stay a readable JSON file.
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::path::PathBuf;
+use std::ffi::OsString;
+use std::fmt;
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PluginFormat {
+    Clap,
+    Vst3,
+}
+
+impl PluginFormat {
+    /// The format a file belongs to, by its extension.
+    pub fn of_file(path: &Path) -> Option<PluginFormat> {
+        let ext = path.extension()?.to_str()?.to_ascii_lowercase();
+        match ext.as_str() {
+            "clap" => Some(PluginFormat::Clap),
+            "vst3" => Some(PluginFormat::Vst3),
+            _ => None,
+        }
+    }
+
+    /// The name saved in chains and settings ("clap", "vst3"); never shown.
+    pub fn key(self) -> &'static str {
+        match self {
+            PluginFormat::Clap => "clap",
+            PluginFormat::Vst3 => "vst3",
+        }
+    }
+
+    /// The format a saved [`PluginFormat::key`] names.
+    pub fn from_key(key: &str) -> Option<PluginFormat> {
+        [PluginFormat::Clap, PluginFormat::Vst3]
+            .into_iter()
+            .find(|f| f.key() == key)
+    }
+}
+
+/// The name shown to the player. "VST 3" is spelled as Steinberg's trademark rules ask.
+impl fmt::Display for PluginFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PluginFormat::Clap => f.write_str("CLAP"),
+            PluginFormat::Vst3 => f.write_str("VST 3"),
+        }
+    }
+}
+
+/// Channels of every audio input and output port of a plugin.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PortLayout {
+    pub inputs: Vec<u32>,
+    pub outputs: Vec<u32>,
+}
+
+/// One plugin as the scan found it. A file can hold several.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PluginInfo {
+    pub format: PluginFormat,
+    pub id: String,
+    pub name: String,
+    pub vendor: String,
+    pub path: PathBuf,
+    pub ports: PortLayout,
+    /// What the plugin says it is: VST 3 sub-categories ("Fx", "Dynamics"), CLAP features
+    /// ("audio-effect", "compressor"). Empty in scans from before this field, and when the plugin
+    /// names none (a VST 3 factory without IPluginFactory2, a CLAP without features).
+    #[serde(default)]
+    pub categories: Vec<String>,
+}
+
+/// A plugin file the scan could not read, and why.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BrokenFile {
+    pub format: PluginFormat,
+    pub path: PathBuf,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScanReport {
+    pub plugins: Vec<PluginInfo>,
+    pub broken: Vec<BrokenFile>,
+    /// True for a scan that records `PluginInfo::categories`; false in reports saved before
+    /// that, whose plugins have no categories because the scan never asked.
+    #[serde(default)]
+    pub categories_read: bool,
+}
+
+/// The program that probes one file: `program args… <file>`.
+#[derive(Debug, Clone)]
+pub struct ProbeCommand {
+    pub program: PathBuf,
+    pub args: Vec<OsString>,
+}
+
+/// A parameter with its range and current value, in the plugin's own units.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ParamInfo {
+    pub id: u32,
+    pub name: String,
+    pub min: f64,
+    pub max: f64,
+    pub default: f64,
+    pub current: f64,
+}
 
 /// A parameter of a plugin with the range the page needs for a slider, in the plugin's units.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -7,10 +7,9 @@
 //! ```
 
 use keyring::Entry;
+pub use kontra_model::{MemoryStore, SecretError, SecretStore};
 use std::sync::mpsc::RecvTimeoutError;
-use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
-use thiserror::Error;
 
 /// Identifies Kontra to the secret store; one entry per provider id as the account name.
 const SERVICE: &str = "io.github.shrippen.Kontra";
@@ -19,25 +18,6 @@ const SERVICE: &str = "io.github.shrippen.Kontra";
 /// `Keychain` call is bounded by this, so a caller on the UI thread never freezes on it; past
 /// it, the call is treated as `Unavailable` (its thread is left to finish or hang on its own).
 const KEYRING_TIMEOUT: Duration = Duration::from_secs(3);
-
-#[derive(Debug, Error, Clone, PartialEq, Eq)]
-pub enum SecretError {
-    /// No secret under that account (a plain "not set", not a failure).
-    #[error("no secret stored")]
-    NotFound,
-    /// No Secret Service (or equivalent) is running; the UI says so instead of failing silently.
-    #[error("the system's secret store is not reachable")]
-    Unavailable,
-    #[error("{0}")]
-    Failed(String),
-}
-
-/// One secret under an account name (here: an LLM provider's id).
-pub trait SecretStore: Send + Sync + std::fmt::Debug {
-    fn get(&self, account: &str) -> Result<String, SecretError>;
-    fn set(&self, account: &str, value: &str) -> Result<(), SecretError>;
-    fn delete(&self, account: &str) -> Result<(), SecretError>;
-}
 
 /// The system's real secret store.
 #[derive(Debug, Default)]
@@ -100,46 +80,6 @@ fn error(e: keyring::Error) -> SecretError {
         | keyring::Error::PlatformFailure(_)
         | keyring::Error::NoDefaultStore => SecretError::Unavailable,
         other => SecretError::Failed(other.to_string()),
-    }
-}
-
-/// A fake store, in memory only: tests never touch the real keyring.
-#[derive(Debug, Default)]
-pub struct MemoryStore {
-    entries: Mutex<std::collections::HashMap<String, String>>,
-}
-
-impl MemoryStore {
-    pub fn new() -> MemoryStore {
-        MemoryStore::default()
-    }
-
-    // A poisoned lock (a panic while held) still holds every secret set so far; one test's
-    // panic must not make the next test's assertions lie about what is stored.
-    fn entries(&self) -> MutexGuard<'_, std::collections::HashMap<String, String>> {
-        self.entries.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-}
-
-impl SecretStore for MemoryStore {
-    fn get(&self, account: &str) -> Result<String, SecretError> {
-        self.entries()
-            .get(account)
-            .cloned()
-            .ok_or(SecretError::NotFound)
-    }
-
-    fn set(&self, account: &str, value: &str) -> Result<(), SecretError> {
-        self.entries()
-            .insert(account.to_string(), value.to_string());
-        Ok(())
-    }
-
-    fn delete(&self, account: &str) -> Result<(), SecretError> {
-        self.entries()
-            .remove(account)
-            .map(|_| ())
-            .ok_or(SecretError::NotFound)
     }
 }
 

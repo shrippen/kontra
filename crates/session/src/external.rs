@@ -1,7 +1,8 @@
 //! The outside world as the layers above get it: web access and the store of secrets.
-//! The traits (`Http`, `SecretStore`) stay the driver's, so tests can pass fakes.
+//! The traits (`Http`, `SecretStore`) are in `kontra_model`, so tests can pass fakes.
 
-use kontra_engine::{FileHttp, Http, Keychain, SecretStore, Web};
+use kontra_engine::{FileHttp, Keychain, Web};
+use kontra_model::{Http, SecretStore};
 use std::path::Path;
 use std::sync::Arc;
 

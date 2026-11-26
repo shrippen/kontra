@@ -9,13 +9,13 @@
 
 use crate::band::{Band, ReactingBand};
 use crate::expected::ExpectedNote;
+use crate::plugin_host::PluginError;
 use crate::session::{Mode, Session, SessionEvent};
 use crate::settings::ScoreSettings;
 use crate::transport::LoopRange;
-use kontra_engine::plugins::PluginError;
-use kontra_engine::{
-    Accent, BackingAudio, BackingTrack, Clock, Event, Gains, Output, Resolution, Sound,
-};
+use crate::BackingTrack;
+use crate::Gains;
+use kontra_engine::{Accent, BackingAudio, Clock, Event, Output, Resolution, Sound};
 use kontra_model::{Arrangement, ExpectedStrike, ExpectedTone, Feel, TICKS_PER_QUARTER};
 use reacting::Reaction;
 use std::collections::{HashMap, HashSet};
@@ -187,7 +187,7 @@ impl<O: Output> Practice<O> {
 
     /// Opens the own editor of the output chain's plugin `plugin`.
     pub fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
-        self.output.open_editor(plugin, title)
+        Ok(self.output.open_editor(plugin, title)?)
     }
 
     /// Ends the practice; its output goes on (to the next mode).
@@ -216,7 +216,7 @@ impl<O: Output> Practice<O> {
 
     /// Sets the mixer's volumes (LH-WIE-03, LH-MOD-05); takes effect at once, also while playing.
     pub fn set_gains(&mut self, gains: Gains) {
-        self.output.set_gains(gains);
+        self.output.set_gains(gains.into());
     }
 
     pub fn options(&self) -> &PracticeOptions {
@@ -723,7 +723,7 @@ mod tests {
         backings: Vec<(f64, usize)>,
         cleared: Vec<f64>,
         stopped: Vec<f64>,
-        gains: Option<Gains>,
+        gains: Option<kontra_engine::Gains>,
     }
 
     impl Output for Recorder {
@@ -744,7 +744,7 @@ mod tests {
         fn stop_backing(&mut self, at_s: f64) {
             self.stopped.push(at_s);
         }
-        fn set_gains(&mut self, gains: Gains) {
+        fn set_gains(&mut self, gains: kontra_engine::Gains) {
             self.gains = Some(gains);
         }
     }
@@ -1089,7 +1089,7 @@ mod tests {
             ..Gains::default()
         };
         p.set_gains(gains.clone());
-        assert_eq!(p.output().gains, Some(gains.clone()));
+        assert_eq!(p.output().gains, Some(gains.into()));
     }
 
     fn told_strikes(p: &mut Practice<Recorder>) -> Vec<ExpectedStrike> {

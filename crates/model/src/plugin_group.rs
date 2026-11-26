@@ -2,7 +2,7 @@
 //! itself with free categories (VST 3 sub-categories, CLAP features); this maps them onto a
 //! small fixed set.
 
-use kontra_model::EffectKind;
+use crate::fx::EffectKind;
 use serde::{Deserialize, Serialize};
 
 /// The groups, in display order.

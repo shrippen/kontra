@@ -20,7 +20,6 @@ mod korpus;
 mod offline;
 mod player;
 mod plugin_chain;
-mod plugin_group;
 mod strings_korpus;
 
 pub use backing::{BackingTrack, Resolution};
@@ -34,7 +33,7 @@ pub use kontra_drivers::{
     SecretStore, SeparationJob, Separator, SeparatorError, StreamConfig, Web,
 };
 pub use kontra_dsp::{
-    track_beats, BeatGrid, Limit, Pick, Shaping, StringModel, LOG_B_PER_FRET, SHAPING_RANGE_DB,
+    track_beats, Limit, Pick, Shaping, StringModel, LOG_B_PER_FRET, SHAPING_RANGE_DB,
 };
 pub use korpus::chords::{analyze_midi_file, generate_midi_chords, score_chords, ChordTally};
 pub use korpus::ends::{evaluate_ends, generate_staccato, EndTally};
@@ -51,7 +50,6 @@ pub use plugin_chain::{
     describe_plugin, describe_plugin_later, ChainBuilder, PendingSpec, PluginBank, PluginProblems,
     PluginRack,
 };
-pub use plugin_group::{group_of_effect, group_of_plugin, PluginGroup};
 pub use strings_korpus::{tell_strings, StringTold};
 
 use kontra_dsp::TunerReading;

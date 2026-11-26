@@ -1,13 +1,14 @@
 //! Live practice and tuner with real devices or a recording as input.
 
 use crate::calibration::{Calibration, CalibrationResult};
+use crate::plugin_host::PluginError;
 use crate::practice::{Practice, PracticeEvent, PracticeOptions, Told};
 use crate::rig::{InputTap, OnOutputError, Rig, RigOutput};
 use crate::session::Mode;
 use crate::settings::ScoreSettings;
-use kontra_engine::plugins::PluginError;
+use crate::{BackingTrack, EngineError, Gains};
 use kontra_engine::{
-    monitor_rate, BackingTrack, Clock, EngineError, Event, Gains, Input, InputKind, NullOutput,
+    monitor_rate, plugins::PluginError as HostError, Clock, Event, Input, InputKind, NullOutput,
     Output, Pace, Player, Sound, StreamConfig,
 };
 use kontra_model::{Arrangement, InputSource, Instrument, Pitch};
@@ -116,10 +117,10 @@ impl Output for LiveOutput {
             LiveOutput::Silent(_) => Vec::new(),
         }
     }
-    fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
+    fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), HostError> {
         match self {
             LiveOutput::Device(p) => p.open_editor(plugin, title),
-            LiveOutput::Silent(_) => Err(PluginError::NoEditor),
+            LiveOutput::Silent(_) => Err(HostError::NoEditor),
         }
     }
 }
@@ -489,12 +490,12 @@ impl LiveTuner {
 
     /// As `Live::open_editor`; none while silent.
     pub fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
-        self.rig.output().open_editor(plugin, title)
+        Ok(self.rig.output().open_editor(plugin, title)?)
     }
 
     /// New volumes and effects; heard at once.
     pub fn set_gains(&mut self, gains: Gains) {
-        self.rig.output().set_gains(gains);
+        self.rig.output().set_gains(gains.into());
     }
 
     /// The input's block size in frames and its sample rate, once the device delivered audio.
@@ -585,7 +586,7 @@ impl LiveEar {
 
     /// As `Live::open_editor`.
     pub fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
-        self.rig.output().open_editor(plugin, title)
+        Ok(self.rig.output().open_editor(plugin, title)?)
     }
 
     /// As `Live::take_param_texts`.
@@ -620,8 +621,8 @@ impl LiveEar {
         self.rig
     }
 
-    pub fn set_gains(&mut self, gains: kontra_engine::Gains) {
-        self.rig.output().set_gains(quiet(gains));
+    pub fn set_gains(&mut self, gains: Gains) {
+        self.rig.output().set_gains(quiet(gains).into());
     }
 
     /// Plays `tones` now (replacing a prompt still sounding); returns its length in seconds.

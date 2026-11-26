@@ -12,7 +12,8 @@
 //! ```
 
 use crate::live::{input_kind, monitor_config, InputChoice, LiveOutput};
-use kontra_engine::{Clock, EngineError, Event, Gains, Input, NullOutput, Output, Player};
+use crate::{EngineError, Gains};
+use kontra_engine::{Clock, Event, Input, NullOutput, Output, Player};
 use kontra_model::{InputSource, Instrument};
 use std::sync::mpsc::{channel, Receiver, Sender};
 
@@ -106,7 +107,7 @@ impl Rig {
             Err(_) => (None, RigOutput::Silent),
         };
         if let Some(player) = player.as_mut() {
-            player.set_gains(gains);
+            player.set_gains(gains.into());
         }
         let input_device = Input::start(
             &input_kind(input),
@@ -191,7 +192,7 @@ impl Rig {
         self.output.clear_from(f64::NEG_INFINITY);
         self.output.stop_backing(f64::NEG_INFINITY);
         self.output.set_transpose(0.0);
-        self.output.set_gains(gains);
+        self.output.set_gains(gains.into());
         if let LiveOutput::Device(player) = &self.output {
             player.rebase();
         }
@@ -313,7 +314,7 @@ fn start_player(
         return Ok(None);
     };
     let config = monitor_config(input, device.as_deref());
-    Player::start(&config, clock, sender.clone()).map(Some)
+    Ok(Player::start(&config, clock, sender.clone()).map(Some)?)
 }
 
 fn live_output(player: Option<Player>) -> LiveOutput {

@@ -10,9 +10,10 @@
 //!                  └─► BrokenFile { path, reason }
 //! ```
 
-use super::{clap, vst3, PluginError, PluginFormat, PluginInfo};
+use super::{
+    clap, vst3, BrokenFile, PluginError, PluginFormat, PluginInfo, ProbeCommand, ScanReport,
+};
 use serde::{Deserialize, Serialize};
-use std::ffi::OsString;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -23,31 +24,6 @@ const POLL: Duration = Duration::from_millis(10);
 /// After the probe ended, its output is read this long at most (a child it left behind may keep
 /// the pipe open).
 const READER_GRACE: Duration = Duration::from_secs(2);
-
-/// A plugin file the scan could not read, and why.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BrokenFile {
-    pub format: PluginFormat,
-    pub path: PathBuf,
-    pub reason: String,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ScanReport {
-    pub plugins: Vec<PluginInfo>,
-    pub broken: Vec<BrokenFile>,
-    /// True for a scan that records `PluginInfo::categories`; false in reports saved before
-    /// that, whose plugins have no categories because the scan never asked.
-    #[serde(default)]
-    pub categories_read: bool,
-}
-
-/// The program that probes one file: `program args… <file>`.
-#[derive(Debug, Clone)]
-pub struct ProbeCommand {
-    pub program: PathBuf,
-    pub args: Vec<OsString>,
-}
 
 /// What the probe process writes as its last line.
 #[derive(Debug, Serialize, Deserialize)]

@@ -2,9 +2,7 @@
 
 use crate::args::{PluginsArgs, PluginsCommand};
 use crate::CliResult;
-use kontra_session::plugin_host::{
-    self, LoadedPlugin, PluginFormat, PluginInfo, ProbeCommand, ScanReport,
-};
+use kontra_session::plugin_host::{self, PluginFormat, ProbeCommand, ScanReport};
 use std::path::Path;
 use std::time::Duration;
 
@@ -31,9 +29,8 @@ pub fn run(a: &PluginsArgs) -> CliResult {
     }
 }
 
-fn open(path: &Path, id: Option<&str>) -> Result<LoadedPlugin, String> {
-    let format = PluginFormat::of_file(path).ok_or("not a plugin file (.clap, .vst3)")?;
-    LoadedPlugin::open(format, path, id).map_err(|e| e.to_string())
+fn format_of(path: &Path) -> Result<PluginFormat, String> {
+    PluginFormat::of_file(path).ok_or_else(|| "not a plugin file (.clap, .vst3)".to_string())
 }
 
 /// How `scan` prints what it found.
@@ -118,11 +115,11 @@ fn channels(ports: &[u32]) -> String {
 }
 
 fn params(path: &Path, id: Option<&str>) -> CliResult {
-    let mut plugin = open(path, id)?;
-    let info: PluginInfo = plugin.info().clone();
+    let plugin = plugin_host::inspect(format_of(path)?, path, id).map_err(|e| e.to_string())?;
+    let info = &plugin.info;
     println!("{} — {}  [{}]", info.name, info.vendor, info.id);
-    println!("latency: {} samples", plugin.latency_samples());
-    for p in plugin.params() {
+    println!("latency: {} samples", plugin.latency_samples);
+    for p in &plugin.params {
         println!(
             "{:>6}  {}  min {}  max {}  default {}  current {}",
             p.id, p.name, p.min, p.max, p.default, p.current
@@ -142,14 +139,12 @@ fn render(
     for text in params {
         parsed.push(parse_param(text)?);
     }
-    let mut plugin = open(path, id)?;
-    plugin
-        .render_file(input, output, &parsed)
-        .map_err(|e| e.to_string())?;
+    let latency_samples =
+        plugin_host::render_file(format_of(path)?, path, id, input, output, &parsed)
+            .map_err(|e| e.to_string())?;
     println!(
-        "written: {} (latency {} samples, not compensated)",
-        output.display(),
-        plugin.latency_samples()
+        "written: {} (latency {latency_samples} samples, not compensated)",
+        output.display()
     );
     Ok(())
 }

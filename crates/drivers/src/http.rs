@@ -7,12 +7,11 @@
 //!                      └─► FileHttp (QA: one file as every answer)
 //! ```
 
+use kontra_model::HTTP_TIMEOUT as TIMEOUT;
+pub use kontra_model::{Http, HttpError};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use thiserror::Error;
 
-/// A slow answer is no answer: the user waits for it.
-const TIMEOUT: Duration = Duration::from_secs(8);
 /// Search answers are kilobytes; anything near this is not one.
 const MAX_BODY: u64 = 2 * 1024 * 1024;
 /// A download (a course package) may take a slow line its time.
@@ -31,56 +30,6 @@ const USER_AGENT: &str = concat!(
     env!("CARGO_PKG_REPOSITORY"),
     ")"
 );
-
-#[derive(Debug, Error, Clone, PartialEq, Eq)]
-pub enum HttpError {
-    /// No connection: offline, name not found, refused.
-    #[error("no connection: {0}")]
-    Offline(String),
-    #[error("no answer within {} s", TIMEOUT.as_secs())]
-    Timeout,
-    #[error("HTTP status {0}")]
-    Status(u16),
-    /// An error status with the body the provider sent back (its own explanation), cut short.
-    #[error("HTTP status {0}: {1}")]
-    StatusBody(u16, String),
-    #[error("{0}")]
-    Failed(String),
-    /// This `Http` implementation does not do this kind of request (the default, for GET-only
-    /// fakes); a real provider call never sees it.
-    #[error("not supported")]
-    NotSupported,
-}
-
-/// Fetches a URL; one call is one request.
-pub trait Http: Send + Sync + std::fmt::Debug {
-    fn get(&self, url: &str) -> Result<Vec<u8>, HttpError>;
-
-    /// A file to keep (a course package): up to `max_bytes`, with time for a slow line.
-    fn download(&self, url: &str, max_bytes: u64) -> Result<Vec<u8>, HttpError> {
-        let _ = max_bytes;
-        self.get(url)
-    }
-
-    /// A GET with extra headers (an LLM provider's model list, sent with its auth header).
-    fn get_with(&self, url: &str, headers: &[(&str, &str)]) -> Result<Vec<u8>, HttpError> {
-        let _ = headers;
-        self.get(url)
-    }
-
-    /// A POST of a JSON body, with extra headers (an LLM provider's chat/messages call). The
-    /// default errors, so a fake that only implements `get` still compiles.
-    fn post_json(
-        &self,
-        url: &str,
-        headers: &[(&str, &str)],
-        body: &[u8],
-        timeout: Duration,
-    ) -> Result<Vec<u8>, HttpError> {
-        let _ = (url, headers, body, timeout);
-        Err(HttpError::NotSupported)
-    }
-}
 
 /// The real web.
 #[derive(Debug)]

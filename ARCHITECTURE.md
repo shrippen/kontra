@@ -23,7 +23,7 @@ Every block under `crates/` is one Rust crate.
 | `crates/dsp` | Signal processing without I/O: onset, pitch, tuner, effects, synthesis. |
 | `crates/stretch` | Time-stretch: tempo change without pitch change. Without I/O. |
 | `crates/drivers` | The outside world: sound and MIDI devices, audio files, HTTPS, the system's secret store, CLAP/VST3 plugin files, the external stem separator. No music logic. |
-| `crates/model` | Domain types as plain data: notes, arrangement, tuning, instrument, input source, effect chain, device descriptions. Depends on no other block. |
+| `crates/model` | Domain types as plain data: notes, arrangement, tuning, instrument, input source, effect chain, device descriptions, plugin descriptions; and the interfaces to the outside world that tests replace with fakes (`Http`, `SecretStore`, `outside.rs`). Depends on no other block. |
 | `crates/test-clap-gain`, `crates/test-vst3-gain` | Test plugins the plugin host is tested against. Use no Kontra block. |
 | `tests/` | Tests across blocks: the journeys of `planung/QA.md` (`tests/journeys/`) and the layer test (`tests/physical_design.rs`). |
 | `testdata/`, `lessons/`, `schema/` | Detection corpus, generated exercises, import samples; course texts; JSON Schemas of the file formats. |
@@ -72,7 +72,7 @@ and that session hands no driver name on.
 | A practice mode | `session/src/session.rs` (`Mode`) and `session/src/practice/`; `appcore/src/choices.rs` (`PracticeMode`) and its mapping in `appcore/src/lib.rs`; `cli/src/args.rs`; `PracticePage.qml`; texts; a journey in `planung/QA.md`. |
 | An import format | A reader file in `crates/content/src/`; `FileKind` and `EXTENSIONS` in `content/src/lib.rs`; a sample in `testdata/import/`; `packaging/*.mime.xml` and `*.desktop`. |
 | An exercise kind | `crates/content/src/exercise.rs` and `exercise/`; `appcore/src/bundled.rs`; `ExercisePage.qml`; texts; regenerate `testdata/exercises` (`kontra-cli exercises <dir>`). |
-| A built-in effect | `model/src/fx.rs` (kind, defaults); `dsp/src/fx.rs` (sound); `engine/src/plugin_group.rs` (group); `appcore/src/effects.rs` (key, order); texts `fx.kind.*`, `fx.value.*`. |
+| A built-in effect | `model/src/fx.rs` (kind, defaults); `dsp/src/fx.rs` (sound); `model/src/plugin_group.rs` (group); `appcore/src/effects.rs` (key, order); texts `fx.kind.*`, `fx.value.*`. |
 | A CLI command | `cli/src/args.rs` (`Command`), `cli/src/main.rs` (dispatch), a file of its own in `cli/src/`; the work itself is a session function. |
 | A device, audio file or web access | The access in `crates/drivers`; engine uses it; session offers a function of its own; `appcore` and `cli` call only that. |
 | A file of a piece, package or lesson format | `crates/content` reads and writes it; session offers it to `appcore` and `cli`. |
@@ -81,12 +81,9 @@ and that session hands no driver name on.
 A change that needs more places than listed is a finding for the audit.
 
 ## Known deviations
-- Session hands engine names on unchanged (`crates/session/src/lib.rs`, `service.rs`,
-  `plugin_host.rs`), among them the driver names in `DRIVER_NAMES_PASSED_ON` of the layer test:
-  the plugin host's data types, error types and the test seams `Http`, `SecretStore`,
-  `MemoryStore`. The rest are mostly the corpus tools the CLI uses. The plugin host's data types
-  (`PluginInfo`, `PluginFormat`) live in `crates/drivers/src/plugins.rs`, not in `model`.
-  `AUDIT.md` finding 10.
+- Session hands the corpus tools of the CLI on unchanged from engine (`KorpusSet`, `Evaluation`,
+  `evaluate*`, the tallies; list `ENGINE_NAMES_PASSED_ON` in the layer test): their types keep
+  private counting in engine's corpus code. `AUDIT.md` finding 10.
 - The user interfaces and session read and write score, audio and package files themselves
   where content should, for example `crates/appcore/src/package.rs` (export, open, unpack),
   `appcore/src/bundled.rs` (generated exercise MIDI), `crates/cli/src/main.rs` (`exercises`,
