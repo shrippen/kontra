@@ -9,7 +9,6 @@ Notizen aus den Entscheidungsrunden, die bewusst aufgeschoben sind.
 ## Offen nach der Sitzung vom 30./31.10.2026
 
 ### Entscheidungen des Eigentümers (nächste Runde im Entscheidungs-Artefakt)
-- LH-NF-15: Ausnahmen bestätigen oder nacharbeiten: `line-5` ab E1 74,7 ms, `hum-line` 72,0 ms (Ziel 70 ms).
 - R4 `ON_TIME_MS` 10 ms: Neigung ±10 ms nur in ~10 % erkannt; Toleranz ändern?
 - #202: Ersatzgerät verwirft Messungen endgültig (LH-EIN-05 verlangt das); Messungen je Gerät merken?
 - Neue `pub`-Schnittstellen seit Runde 17 zur Freigabe listen (siehe `planung/STAND.md`: tech-hint, cleanup,

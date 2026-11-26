@@ -237,7 +237,7 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 - Kleinigkeiten aus den Reviews: in einem Sammel-PR beheben.
 - Ziel „Abdämpfen“ bei Pausen-Übungen: bleibt.
 - „Bass hören“ auch im Gehörtraining (LH-EIN-18).
-- LH-NF-15: nacharbeiten, bis 70 ms auch beim Fünfsaiter ab E1 und mit Brummen erreicht sind.
+- LH-NF-15: nacharbeiten, bis 70 ms auch beim Fünfsaiter ab E1 und mit Brummen erreicht sind (erledigt 26.11.: `line-5` 64,0, `hum-line` 68,0 ms).
 - Neue `pub` seit Runde 22 und die älteren Listen in `planung/STAND.md`: freigegeben.
 - `ARCHITECTURE.md`: jetzt anlegen, mit dem `advisor` (Fable) als Verfasser des Entwurfs.
 - Hardware: Claude darf nachts eingebaute Karte und Scarlett zugleich nutzen (R3, N5), ohne Kabel vom Ausgang in
@@ -867,7 +867,11 @@ Kleinigkeiten aus den Reviews, W9, L3, W3 und E5 jetzt; der Rest steht hier:
       Instrument. Stand R1 (#206): `line-4` p95 69 ms, `line-5` p95 80 ms.
       `korpus check` prüft das seit 30.10. (Branch `cleanup`) je Note, ab E1 und unter E1 getrennt: `line-4` 69,3 ms
       erfüllt; verfehlt und als Ausnahme mit gemessenem Wert geprüft: `line-5` ab E1 74,7 ms, `hum-line` 72,0 ms;
-      unter E1 94,7 ms. Offen: Entscheidung, ob das Ziel dort nachgearbeitet oder die Ausnahme bestätigt wird.
+      unter E1 94,7 ms. Runde 23: nacharbeiten. Erledigt 26.11. (Branch `nf15-latency`): eine frühe Schätzung ab
+      Sicherheit 0,97 genügt ohne zweite (`SURE_CONFIDENCE`, `tracker/expect.rs`); p95 ab E1 `line-4` 69,3 → 61,3,
+      `line-5` 74,7 → 64,0, `hum-line` 72,0 → 68,0 ms; unter E1 94,7 → 84,0 ms (Grenze jetzt 85). IDMT Erkennung
+      91,6 / 82,5 % und Techniken unverändert, erste Meldung richtig 97,6 → 97,4 %, zurückgenommen 5 → 5; alle Grenzen
+      der Sätze gleich. Versuche und Aufschlüsselung: `FORSCHUNG-AUDIO.md` (Meldezeit ab E1).
 - [x] R8 Doppelgriffe über Mikrofon aus, bis Aufnahmen da sind (FiloBass 12,2 % Fehlalarm): `ChordHearing::OneTone`,
       ein Doppelgriff zählt dort wie ein Ton; Einstellung „Mikrofon“ und Auswertung sagen, dass Doppelgriffe über
       Mikrofon noch nicht nach beiden Tönen bewertet werden (LH-BEW-11, J-B7).

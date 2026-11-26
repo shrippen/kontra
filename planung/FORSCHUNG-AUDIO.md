@@ -153,6 +153,60 @@ mit 69 % weit von brauchbar. Risiken: Vorlagen ohne Anschlag und Abklingen, nur 
 echter Doppelgriffe, Oktaven nicht geprüft. Nächster Schritt nach 1.0: Vorlagen aus Einzelnoten lernen (je Bass),
 echte Doppelgriffe des Eigentümers, Akkorde (Gitarre) mit M3 als Kandidatenfilter.
 
+## Meldezeit ab E1 (LH-NF-15, Runde 23), 26.11.2026
+
+Ziel: p95 ab E1 höchstens 70 ms auch auf `line-5` (74,7) und `hum-line` (72,0). `korpus check` Release, IDMT
+`korpus measure` wie in der CI.
+
+Aufschlüsselung (je Note, Median der Meldezeit nach Tonhöhe; `line-5`, vorher): E1 76, F1 73, F#1 73, G1 61 (Sprung
+durch die 10,7-ms-Blöcke des Korpus), A1 59, D2 52, A2 45, ab C3 40–48. Der Onset-Fehler ist 0 (die Anschlagzeit steht
+nicht im Weg), das Brummfilter (`Dehum`) rechnet je Sample und verzögert nicht; `hum-line` ist langsam, weil der Satz
+nur E1 bis A2 hat. Die Zeit einer Note der Periode T:
+
+| Anteil | E1 (T = 24,3 ms) |
+|---|---|
+| Anschlag-Überspringen (`attack_skip_s`) | 12 ms |
+| Signal, bis die Periode eindeutig ist (`hear_free`: Fenster 1 T + Lags 1,06 T) | 2,06 T = 50 ms |
+| zweite, gleiche Schätzung (`try_early`, 5 ms Schritt) | 5 ms |
+| Block des Korpus (512 Samples), bis die Note beim Aufrufer ist | 0–10,7 ms, im Mittel 5 |
+| Summe | 67 ms + Block = 73–76 ms |
+
+Das lange Fenster der Fünfsaiter (`needed()`) spielt für die frühe Meldung keine Rolle; die 74,7 statt 69,3 ms von
+`line-5` sind die Lage der Noten im Blockraster (E1 76 gegen 73 ms auf `line-4`).
+
+Versuche (p95 ab E1 `line-4` / `line-5` / `hum-line`; unter E1 `line-5`; IDMT Präzision / erste Meldung richtig /
+zurückgenommen; Rest der Sätze und Techniken jeweils unverändert, wo nicht genannt):
+
+| Versuch | line-4 | line-5 | hum | <E1 | IDMT Präz. | erste Meldung | zurückgenommen |
+|---|---|---|---|---|---|---|---|
+| Ausgang | 69,3 | 74,7 | 72,0 | 94,7 | 82,5 | 97,6 | 5 |
+| Fenster kürzer (Anteil 0,42 statt 0,49) | 61,3 | 64,0 | 68,0 | 84,0 | 82,7 | 96,7 | 7 |
+| Fenster 0,45 | 66,7 | 65,3 | 69,3 | 84,0 | 82,6 | 97,4 | 6 |
+| Schritt 2,5 statt 5 ms | 64,0 | 64,0 | 69,3 | 92,0 | 82,6 | 96,5 | 7 |
+| Anschlag-Überspringen 8 statt 12 ms | 64,0 | 64,0 | 69,3 | 94,7 | 80,6 | 97,1 | 3 |
+| eine Schätzung genügt ab Sicherheit 0,90 | 61,3 | 64,0 | 68,0 | 84,0 | 82,6 | 96,9 | 6 |
+| ab 0,80 | 61,3 | 64,0 | 66,7 | 84,0 | 82,6 | 96,0 | 7 |
+| ab 0,95 und 0,97 (gleich) | 61,3 | 64,0 | 68,0 | 84,0 | 82,5 | 97,4 | 5 |
+| Fenster 0,42 + Schritt 2,5 | 60,0 | 64,0 | 65,3 | 84,0 | 82,8 | 95,9 | 9 |
+| Fenster 0,42 + ab 0,95 | 60,0 | 64,0 | 64,0 | 84,0 | 82,8 | 96,4 | 7 |
+
+| ab 0,97, aber erst bei 2,25 Perioden Audio (genug für `refine_hz`) | 69,3 | 74,7 | 72,0 | 94,7 | 82,5 | 97,1 | 5 |
+| ab 0,97 und `refine_hz` mit kürzerem Fenster (1,75 Perioden) | 61,3 | 64,0 | 68,0 | 84,0 | 82,5 | 97,2 | 5 |
+
+Das Überspringen von 8 ms ist eine Sackgasse: IDMT Erkennung 91,6 / 82,5 → 90,5 / 80,6 %, `room-double-backing` und
+Slide-Technik (15 → 20 %) ändern sich, Falschnoten mehr. Alle anderen Hebel erreichen das Ziel; gewählt ist der mit
+der kleinsten Wirkung: Eine Schätzung genügt ab Sicherheit 0,97 (`SURE_CONFIDENCE`, `tracker/expect.rs`). Saubere
+Noten erreichen 0,97, Anschläge mit Rauschen und Griffgeräusch nicht; die Rückfallebene (volles Fenster mit dem
+letzten Wort) bleibt. Ein Gewinn von 5 ms im Signal springt im Korpus auf 10,7 ms, weil Blöcke einrasten: Die Spanne
+bis 70 ms hängt an der Lage der Noten im Raster (`hum-line` 68,0, 2 ms Reserve).
+
+Preis: Die frühe Schätzung (2,06 Perioden) hat zu wenig Audio für `refine_hz` (2,25 Perioden); ihre Cent liegen bis
+etwa 8 ct daneben, das volle Fenster revidiert sie (`PitchRevision`, Grenze 2 ct), und die Session beurteilt die Note
+ein zweites Mal (`Judged` zweimal für denselben Index). Synthetische Sätze: 3143 → 4169 Revisionen in `korpus
+check`; echte IDMT-Aufnahmen 580 → 581 (kein Unterschied: ihre Noten erreichen die Sicherheit 0,97 selten früh).
+Wer erst bei 2,25 Perioden meldet, spart auf E1 nichts (der erste Versuch fällt dort schon auf 55 ms); ein kürzeres
+Fenster in `refine_hz` ließ die Revisionen bestehen.
+
 ## Recherche (Quellen und Ausgangslage)
 
 Nine points, ranked by benefit for the player. Lines refer to `main` as of 29.10. (may have shifted slightly).
