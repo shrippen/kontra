@@ -220,14 +220,7 @@ pub fn tune(a: &TuneArgs) -> CliResult {
         for event in tuner.poll() {
             match event {
                 PracticeEvent::Tuner { note, cents } => {
-                    let hint = if cents < -3.0 {
-                        "tune up"
-                    } else if cents > 3.0 {
-                        "tune down"
-                    } else {
-                        "in tune"
-                    };
-                    println!("{note:<4} {cents:+6.1} ct  {hint}");
+                    println!("{}", tune_line(&note, cents));
                 }
                 PracticeEvent::InputEnded => return Ok(()),
                 PracticeEvent::Error(_, m) => println!("audio problem: {m}"),
@@ -239,8 +232,20 @@ pub fn tune(a: &TuneArgs) -> CliResult {
     Ok(())
 }
 
+/// One line of the tuner: the note, its deviation and what to do about it.
+fn tune_line(note: &str, cents: f64) -> String {
+    let hint = if cents < -3.0 {
+        "tune up"
+    } else if cents > 3.0 {
+        "tune down"
+    } else {
+        "in tune"
+    };
+    format!("{note:<4} {:>4} ct  {hint}", signed(cents))
+}
+
 /// A whole number with sign, "+2", "-4"; zero is "0", never "-0" (review #336).
-fn signed(value: f64) -> String {
+pub(crate) fn signed(value: f64) -> String {
     let value = value.round();
     if value == 0.0 {
         return "0".into();
@@ -260,6 +265,14 @@ mod tests {
         assert_eq!(signed(0.4), "0");
         assert_eq!(signed(-3.6), "-4");
         assert_eq!(signed(2.0), "+2");
+    }
+
+    // "-0.0 ct" for a deviation that rounds to zero.
+    #[test]
+    fn the_tuner_line_has_no_negative_zero() {
+        assert_eq!(tune_line("E1", -0.04), "E1      0 ct  in tune");
+        assert_eq!(tune_line("A1", -7.6), "A1     -8 ct  tune up");
+        assert_eq!(tune_line("D2", 4.0), "D2     +4 ct  tune down");
     }
 
     // QA 27.10.: "practice --input-file … --backing …" played the backing on the owner's speakers.
