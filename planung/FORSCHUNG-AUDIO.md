@@ -189,7 +189,6 @@ zurückgenommen; Rest der Sätze und Techniken jeweils unverändert, wo nicht ge
 | ab 0,95 und 0,97 (gleich) | 61,3 | 64,0 | 68,0 | 84,0 | 82,5 | 97,4 | 5 |
 | Fenster 0,42 + Schritt 2,5 | 60,0 | 64,0 | 65,3 | 84,0 | 82,8 | 95,9 | 9 |
 | Fenster 0,42 + ab 0,95 | 60,0 | 64,0 | 64,0 | 84,0 | 82,8 | 96,4 | 7 |
-
 | ab 0,97, aber erst bei 2,25 Perioden Audio (genug für `refine_hz`) | 69,3 | 74,7 | 72,0 | 94,7 | 82,5 | 97,1 | 5 |
 | ab 0,97 und `refine_hz` mit kürzerem Fenster (1,75 Perioden) | 61,3 | 64,0 | 68,0 | 84,0 | 82,5 | 97,2 | 5 |
 

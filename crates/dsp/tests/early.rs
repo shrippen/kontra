@@ -108,6 +108,8 @@ fn low_e_is_told_within_the_target() {
     assert_eq!(told.len(), 1, "{told:?}");
     let ms = told[0].after_s * 1000.0;
     assert!(ms <= LOW_E_WITHIN_MS, "E1 told after {ms:.0} ms");
+    // The player sees the first, early estimate: it must be E1, not the octave below.
+    assert_eq!(told[0].first_midi.round(), midi("E1").round());
     assert!((told[0].final_midi - midi("E1")).abs() * 100.0 < 3.0);
 }
 

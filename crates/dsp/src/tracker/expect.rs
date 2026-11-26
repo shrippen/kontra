@@ -2,12 +2,13 @@
 //!
 //! An attack near an expected strike is tried from 8 ms after the attack skip on, on a short
 //! stretch that holds one period of the expected tone and lags up to just past twice it. The
-//! expected pitch goes out early only when everything agrees, twice in a row:
+//! expected pitch goes out early only when everything agrees, twice in a row, or once when that
+//! one estimate is sure (confidence at least `SURE_CONFIDENCE`):
 //!
 //! ```text
 //! attack ─ skip ─ every 5 ms: CMNDF at the expected period < 0.25,
 //!                             the octave below not clearly deeper,
-//!                             YIN's own pick within 30 ct of the expected pitch ─► twice? ─► emit
+//!                             YIN's own pick within 30 ct of the expected pitch ─► twice or sure? ─► emit
 //!          … full window there ─► the usual search (two agree) has the last word:
 //!                                 another pitch ─► PitchRevision
 //! ```
