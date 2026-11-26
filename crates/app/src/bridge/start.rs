@@ -226,17 +226,15 @@ impl cxx_qt::Initialize for qobject::Controller {
         let result = self.as_mut().core().open(&path);
         self.as_mut().after_open(result);
         // Opening may set the mode (plan exercises: run-through); an explicit --mode wins.
-        let mode = self
-            .as_mut()
-            .core()
-            .pick_opt::<PracticeMode>(args.mode.as_deref());
+        // `Default` told an unknown key already; here it is read silently.
+        let mode = args.mode.as_deref().and_then(PracticeMode::from_key);
         if let Some(mode) = mode {
             self.as_mut().core().set_mode(mode);
         }
         let mode = self.as_ref().rust().core.settings().mode.key();
         self.as_mut().set_mode(q(&mode));
         // An explicit --view wins over the view remembered for the piece (QA runs).
-        let view = self.as_mut().core().pick_opt::<View>(args.view.as_deref());
+        let view = args.view.as_deref().and_then(View::from_key);
         if let Some(view) = view {
             self.as_mut().core().set_view(view);
             self.as_mut().set_view(q(&view.key()));
