@@ -19,8 +19,8 @@ Offen:
 - Fund 10, Rest (Liste `DRIVER_NAMES_PASSED_ON`, 16 Namen): Geräteliste (`list_devices`, `list_midi_inputs`,
   `audio_priority`; 17 Stellen in appcore, `audio_priority` nur in der CLI), ihre Datentypen (`DeviceInfo`, `Connection`, `Direction`,
   `MidiPort`, `Priority`, `NULL_DEVICE`), die Datentypen des Plugin-Hosts, Fehlertypen und die Test-Nähte `Http`,
-  `SecretStore`, `MemoryStore`. Die Gerätetypen gehören nach `kontra-model`, aber `drivers` darf `model` nicht nutzen:
-  Entscheidung des Eigentümers (Schichten). Die Session reicht außerdem 44 weitere Namen der Engine weiter (meist
+  `SecretStore`, `MemoryStore`. Runde 23: `drivers` darf `model` nutzen, die Gerätetypen ziehen dorthin; alle Engine-Namen
+  werden gekapselt. Die Session reicht außerdem 44 weitere Namen der Engine weiter (meist
   Korpus-Werkzeuge der CLI).
 - Fund 6, Rest: QML vergleicht an einigen Stellen mit Literalen (`ctl.mode === "workshop"`, `"kante-light"`);
   `KanteStyle.stringPalettes` hat eine eigene Liste (nur in Kante änderbar). `llm_provider` und `Run.mode` bleiben Text.
@@ -34,7 +34,7 @@ Offen:
 - Kleinigkeit aus #367: fehlen Stück und Eingangsgerät zugleich, nennt `relayout` nur den Fehler des Stimmgeräts.
 - Kleinigkeit aus #369: der Alias-Parser des Schichtentests übersieht `use kontra_engine::{x as y}` und
   `use kontra_engine as e` (heute nicht im Code).
-- Neue `pub` für die nächste Runde: `Core::relayout`, `Core::with_notices` (`pub(crate)`); `FileKind::EXTENSIONS`,
+- In Runde 23 freigegeben (mit den älteren Listen in dieser Datei): `Core::relayout`, `Core::with_notices` (`pub(crate)`); `FileKind::EXTENSIONS`,
   `kontra_session::openable_extensions`, `Core::open_filter`, QML `openFilter()`, `Main.openNext()`;
   `kontra_session::plugin_host` (`installed`, `search_dirs`, `probe_answer`, `probe_here`, `scan`, `settle`,
   `crashed`, `clear_crash`), `kontra_session::external` (`web`, `web_from_file`, `keychain`),
@@ -42,7 +42,6 @@ Offen:
   `Core::{pick, pick_opt, choices_json}`, QML `ctl.choicesJson()`; aus #366 zehn `pub(crate)` (`advise_level`,
   `ear_heard`, `score_text`, `backing`, `backing_original`, `rethin`, `loop_to`, `loop_range`, `density_hint`,
   `chain_pass`).
-- `ARCHITECTURE.md` fehlt (Skill `architektur`): anlegen nur in einer Sitzung auf Fable.
 
 ## Übergabe (14.11.2026, Abend: Code-Audit und Behebung)
 
@@ -148,7 +147,7 @@ Offen:
   (u. a. `LevelAdvice.fit`, `SidebarInset.edge`/`margin`/`ready`/`restMs`, `NotesArea.content`/`glides`,
   `PracticeFooter.practice`, `Main.resizing`, `PracticePage.unfolded`/`openAlign()`/`openBacking()`/`views`,
   `SummaryLayer`).
-- Für die nächste Runde, neue `pub`: `NotesArea.overlay`/`notesLayer`, `SidebarInset.drawer`/`target`/`offset`/
+- In Runde 23 freigegeben, neue `pub`: `NotesArea.overlay`/`notesLayer`, `SidebarInset.drawer`/`target`/`offset`/
   `openWidth`/`collapsedWidth` (#305, #306), `MixerCard` als `KanteGlassPanel` (`open`, `maxHeight`,
   `blurSource`; #306), `Core::relist_devices`, `Core::devices_poll` (#310); Kante:
   `grown`, `layoutSpacing`, `layoutMinBarWidth`, `KanteGlassPanel` mit Tokens `glass`, `glassDense`,
@@ -166,7 +165,7 @@ Modus zu Modus weiter. Befund und Messung in der Roadmap unter „Entscheidungen
 Offen:
 - J-A5 Schritt 5 am Scarlett mit dem Ohr: Wechsel zwischen Bereitschaft, Stimmgerät und Lauf bei „Bass hören“
   ohne hörbare Lücke (gemessen: Ausgang läuft durch, Übergabe 2,1–2,3 ms, 0 Xruns).
-- Für die nächste Runde: die neuen `pub` aus #285 bis #290 (`Player::rebase`, `Input::rebase`, `Event::Rebased`,
+- In Runde 23 freigegeben: die neuen `pub` aus #285 bis #290 (`Player::rebase`, `Input::rebase`, `Event::Rebased`,
   `Rig` samt `RigOutput`, `OnOutputError`, `InputTap`, `on`/`into_rig` der Modi, `Practice::into_output`) und die
   Frage, ob das Gehörtraining den Bass bei „Bass hören“ durchlässt (heute nicht, LH-EIN-18).
 - Der Loopback öffnet weiter eigene Geräte (seine Aufnahme hängt am ersten Sample).
@@ -233,12 +232,12 @@ Offen daraus:
   Eigentümer braucht den Arbeitsspeicher); vor weiteren Tests fragen, dann starten und das Scarlett durchreichen
   (README dort). Offen: Latenz mit Kabel, MIDI, Messung auf echtem Windows, ein kaputter ASIO-Treiber reißt Kontra
   mit, ein Echtzeit-Test war in der VM unter Last einmal rot (Roadmap „Win2“).
-- `pub` für die nächste Runde: `kontra_drivers::monitor_rate` (über `kontra_engine` weitergereicht).
+- `pub`, in Runde 23 freigegeben: `kontra_drivers::monitor_rate` (über `kontra_engine` weitergereicht).
 - Win5: Inno Setup und ZIP, Update-Hinweis (LH-ALL-07). Signierung zurückgestellt.
 - Kaiwa und hansei: App-IDs auf `io.github.shrippen.*` (eigene PRs dort).
 - `pub`: Die Liste der Runde 18 ist freigegeben, samt der dort am 10.11. nachgetragenen `Core::imported_text`,
   `kontra_appcore::BackingChange` und `Core::set_backing` mit `Result<BackingChange, String>`. Neu seither, für
-  die nächste Runde: `kontra_dsp::OutputLimiter` (#244).
+  Runde 23 (freigegeben): `kontra_dsp::OutputLimiter` (#244).
 
 In `main` seit der ersten Fassung: #237 bis #243 (Kirigami auf Englisch, Flatpak-Lint, „Klinke direkt“ nimmt die
 eingebaute Karte, alter Abgleich geht mit dem Backing-Track, Gehör-Liste begrenzt, Auswertung bleibt beim Wählen
@@ -284,7 +283,7 @@ Offen:
 - #220 (`tea` → `gt` in `scripts/gitea/`, `cloud-setup.sh`, `agent.md`): Review ohne Wichtig; braucht die Bestätigung
   des Eigentümers (ändert `agent.md`). Bis dahin liegen die Skripte in `~/.cache/claude/kontra-wt/gt-cli`.
 - Erlaubnis-Regel für Merges in den Claude-Code-Einstellungen nennt noch `tea pr merge`; Eigentümer stellt auf `gt` um.
-- Zur Freigabe in der nächsten Runde: `quiz::Heat`, `Quiz::heat`, `FretRange::places`, `QuizStats::counts` (#222);
+- In Runde 23 freigegeben: `quiz::Heat`, `Quiz::heat`, `FretRange::places`, `QuizStats::counts` (#222);
   `EarQuiz::stats`, `EarQuiz::new`/`next`/`answer` mit `now_s`, `QuizStats::{record_interval, interval_weight,
   with_places_of, with_intervals_of}` (#223); `kontra_session::DetunedString`, `Summary::detuned`, `summary::detuned`
   (#224).
@@ -408,7 +407,7 @@ new_course, pack, COURSE_*}`, `Block::Video::subtitles`, `pub(crate) Zip::{read_
 cues, Cue}`, `MAX_COURSE_BYTES`, `Settings::course`, Core `course_preview`, `course_add`, `course_remove`,
 `course_fetch`, `course_fetch_poll`, `choose_course`, `lesson_video`, `is_course`, `fake_course_web`,
 `set_course_http`; Brücke `coursePreview`, `courseAdd`, `courseRemove`, `courseFetch`, `chooseCourse`,
-`lessonVideo`, `startCourse`, `courseFetchJson`. Zur nächsten Runde: siehe Übergabe oben.
+`lessonVideo`, `startCourse`, `courseFetchJson`. In Runde 23 freigegeben: siehe Übergabe oben.
 
 Plan (Eigentümer, 24.10.): Didaktik I4 (#106), I5 (#107), I6 umgesetzt. Offen aus
 I5: Ziel-Band im Histogramm (Kante). I6 Phrasengrenzen aus Zögern: #128.
@@ -455,7 +454,7 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   mit Lautsprechern (J-E2), Soak ohne Last, Mithör-Latenz (nach #58), Tastatur/Screenreader am Gerät.
 - **Profilwahl „Keyboard“** erst mit den Tasteninstrumenten nach 1.0.
 
-## Neue pub-Schnittstellen (nächste Runde zur Freigabe)
+## pub-Schnittstellen, in Runde 23 freigegeben
 
 - Audit 14.11.: QML `Main.openPiece` (#351); `kontra_model::{read_note, ReadNote}` (#354);
   `KorpusSet::{requirement_misses, IDLE_MAX_PER_MINUTE}` (#356).
