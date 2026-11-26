@@ -39,6 +39,7 @@ pub use transpose::{transpose, TRANSPOSE_MAX};
 
 use kontra_model::Arrangement;
 use score::Score;
+use std::io::Read;
 use std::path::Path;
 
 /// Files larger than this are refused before reading (scores are kilobytes to a few MB).
@@ -50,6 +51,10 @@ const GP7_SCORE: &str = "Content/score.gpif";
 const MSCX_SUFFIX: &str = ".mscx";
 /// Bytes searched for a MusicXML root element.
 const XML_SNIFF: usize = 4096;
+/// The extension that names MusicXML but also every other XML file.
+const PLAIN_XML: &str = "xml";
+/// Root elements of MusicXML, with the `<`.
+const ROOTS: [&[u8]; 2] = [b"<score-partwise", b"<score-timewise"];
 
 /// Supported file formats.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,6 +105,25 @@ impl FileKind {
             .map(|(_, kind)| *kind)
     }
 
+    /// Kind of the file at `path` as far as a folder walk needs it: by extension, but a plain
+    /// `.xml` only if its start says MusicXML (most XML files are not). Reads at most
+    /// `XML_SNIFF` bytes; a file that cannot be read counts by its extension.
+    pub fn of_file(path: &Path) -> Option<FileKind> {
+        let extension = path.extension()?.to_str()?;
+        let kind = Self::from_extension(extension)?;
+        if !extension.eq_ignore_ascii_case(PLAIN_XML) {
+            return Some(kind);
+        }
+        let mut head = Vec::new();
+        // Unreadable: the extension decides, so the import names the file and the reason.
+        let read = std::fs::File::open(path)
+            .and_then(|file| file.take(XML_SNIFF as u64).read_to_end(&mut head));
+        if read.is_err() {
+            return Some(kind);
+        }
+        has_musicxml_root(&head).then_some(kind)
+    }
+
     /// Kind from the first bytes; zip archives are told apart by their content.
     fn sniff(data: &[u8]) -> Option<FileKind> {
         if data.get(1..).is_some_and(|d| d.starts_with(GP_MAGIC)) {
@@ -130,6 +154,56 @@ impl FileKind {
         }
         None
     }
+}
+
+/// Whether the root element in `head` is `score-partwise` or `score-timewise`: after a byte
+/// order mark, an XML declaration, comments and a DOCTYPE, which are skipped.
+fn has_musicxml_root(head: &[u8]) -> bool {
+    let mut rest = head.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(head);
+    loop {
+        rest = rest.trim_ascii_start();
+        let end = if rest.starts_with(b"<?") {
+            find(rest, b"?>")
+        } else if rest.starts_with(b"<!--") {
+            find(rest, b"-->")
+        } else if rest.starts_with(b"<!DOCTYPE") {
+            doctype_end(rest)
+        } else {
+            break;
+        };
+        let Some(end) = end else {
+            return false;
+        };
+        rest = &rest[end..];
+    }
+    ROOTS.iter().any(|root| {
+        rest.strip_prefix(*root)
+            .and_then(|after| after.first())
+            .is_some_and(|c| c.is_ascii_whitespace() || *c == b'>' || *c == b'/')
+    })
+}
+
+/// Index after the first `needle` in `hay`.
+fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
+    hay.windows(needle.len())
+        .position(|w| w == needle)
+        .map(|i| i + needle.len())
+}
+
+/// Index after the `>` that closes a DOCTYPE; one with an internal subset (`[ ... ]`) ends
+/// after the `]`.
+fn doctype_end(doctype: &[u8]) -> Option<usize> {
+    let close = doctype.iter().position(|b| *b == b'>')?;
+    let Some(open) = doctype
+        .iter()
+        .position(|b| *b == b'[')
+        .filter(|o| *o < close)
+    else {
+        return Some(close + 1);
+    };
+    let subset_end = open + doctype[open..].iter().position(|b| *b == b']')?;
+    let close = subset_end + doctype[subset_end..].iter().position(|b| *b == b'>')?;
+    Some(close + 1)
 }
 
 /// One track (part) of an imported file.

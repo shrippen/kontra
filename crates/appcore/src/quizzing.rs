@@ -15,7 +15,8 @@ impl Core {
         stats.range = quiz_stats::FretRange::new(low, high);
         let instrument = instrument_from(&self.settings);
         let quiz = quiz::Quiz::new(kind, &instrument, stats, time_seed(), unix_now());
-        let _ = save::save(&self.data_dir.join(quiz_stats::FILE), quiz.stats());
+        let saved = save::save(&self.data_dir.join(quiz_stats::FILE), quiz.stats());
+        self.tell_save(quiz_stats::FILE, saved);
         self.quiz = Some(quiz);
         self.quiz_json()
     }
@@ -39,7 +40,8 @@ impl Core {
         let right = q.answer(midi, &instrument, unix_now());
         let file = self.data_dir.join(quiz_stats::FILE);
         let stats = save::load::<quiz_stats::QuizStats>(&file).with_places_of(q.stats());
-        let _ = save::save(&file, &stats);
+        let saved = save::save(&file, &stats);
+        self.tell_save(quiz_stats::FILE, saved);
         right
     }
 

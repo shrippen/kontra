@@ -112,7 +112,7 @@ impl Core {
     }
 
     /// A failed save becomes a notice; the app goes on with what is in memory.
-    fn tell_save(&mut self, file: &str, saved: std::io::Result<()>) {
+    pub(crate) fn tell_save(&mut self, file: &str, saved: std::io::Result<()>) {
         let Err(error) = saved else {
             return;
         };

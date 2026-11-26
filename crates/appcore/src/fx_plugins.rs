@@ -79,6 +79,8 @@ pub(crate) struct Plugins {
     report: ScanReport,
     running: Option<mpsc::Receiver<ScanMessage>>,
     cache: PathBuf,
+    /// Why the last save of `cache` failed, until `Core` has told the player.
+    cache_failure: Option<std::io::Error>,
     /// The program that probes a file; `None`: this program.
     probe: Option<ProbeCommand>,
     /// The files to scan instead of the plugin folders; only tests set it.
@@ -138,6 +140,7 @@ impl Plugins {
             report: save::load(&cache),
             running: None,
             cache,
+            cache_failure: None,
             probe: None,
             files: None,
             progress: None,
@@ -282,7 +285,7 @@ impl Plugins {
         };
         self.running = None;
         self.progress = None;
-        let _ = save::save(&self.cache, &finished);
+        self.cache_failure = save::save(&self.cache, &finished).err();
         self.report = finished;
         true
     }
@@ -377,6 +380,9 @@ impl crate::Core {
             events.push(crate::UiEvent::Message(hint.clone()));
         }
         let scanned = self.plugins.poll();
+        if let Some(failure) = self.plugins.cache_failure.take() {
+            self.tell_save(CACHE_FILE, Err(failure));
+        }
         let latency = self.chain_latency_ms();
         let moved = self.plugins.latency_moved(latency);
         let changes = self.plugin_changes();

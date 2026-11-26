@@ -51,7 +51,7 @@ impl Core {
     }
 
     /// Keeps the interval answers (LH-LRN-18) beside the fretboard quiz's in its file.
-    fn save_ear_stats(&self) {
+    fn save_ear_stats(&mut self) {
         let Some(quiz) = self
             .ear
             .as_ref()
@@ -61,7 +61,8 @@ impl Core {
         };
         let file = self.data_dir.join(quiz_stats::FILE);
         let stats = save::load::<quiz_stats::QuizStats>(&file).with_intervals_of(quiz.stats());
-        let _ = save::save(&file, &stats);
+        let saved = save::save(&file, &stats);
+        self.tell_save(quiz_stats::FILE, saved);
     }
 
     /// Plays the current prompt (again).
