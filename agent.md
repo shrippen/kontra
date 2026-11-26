@@ -18,28 +18,12 @@ Personas: `planung/PERSONAS.md`; Journeys: `planung/QA.md`; Plan und QA-Runden: 
 Implementierung: Rust (Cargo-Workspace), UI in QML (Kirigami + Kante) über cxx-qt,
 Audio über cpal. Erkennung, Time-Stretch, Notensatz und Import sind eigene Implementierungen. Lizenz MIT.
 
-## Schichten (nur zum direkten Nachbarn darunter)
-Jede Schicht ist ein Crate unter `crates/`; `tests/physical_design.rs` prüft die Pfeile in den `Cargo.toml`.
-```
-app ─► appcore ─┐                              app      QML-Seiten und cxx-qt-Brücke (Qt 6, Kirigami, Kante)
-                ├─► session ─┬─► engine ─┬─► drivers   appcore  Kern der App ohne Qt, alles, was die Brücke ruft
-cli ────────────┘            │           ├─► dsp       session  Zeitachse, Modi, Bewertung, Fortschritt
-                             └─► content └─► stretch   engine   Erkennung, Wiedergabe, Mixer, Instrument-Profile
-                                                       drivers  rohes Audio-I/O (cpal), MIDI, Web, Dateien
-                                                       content  Import, Arrangement, Pakete
-                                                       dsp, stretch  Signalverarbeitung, Time-Stretch, ohne I/O
-                                                       cli      Kommandozeile für Entwicklung, QA, Skripte
-model: Domänentypen, für alle außer app, drivers und stretch
-```
-- `content/` liegt neben `engine/` und wird nur von `session/` gerufen.
-- Die UI (`app`, `appcore`) ruft nie Engine oder Treiber direkt auf, auch nicht über Namen, die eine Schicht
-  unverändert nach oben weiterreicht (`pub use`).
-- Instrument und Eingang sind getrennte Profile/Adapter; ein neues Instrument ändert weder Session noch Bewertung.
-- Jede Schicht ist ein eigenes Crate; Abhängigkeiten nur zum Nachbarn darunter (in `Cargo.toml` sichtbar).
-- Alles privat; `pub` (auch `pub(crate)`) nur, wo das Design es braucht. Für Kontra generell freigegeben
-  (Eigentümer, 11.10.2026): keine Rückfrage, aber jede neue Schnittstelle im PR nennen.
+## Aufbau
+Aufbau, Schichten und wohin Neues gehört: `ARCHITECTURE.md`.
 
 ## Konventionen
+- Alles privat; `pub` (auch `pub(crate)`) nur, wo das Design es braucht. Für Kontra generell freigegeben
+  (Eigentümer, 11.10.2026): keine Rückfrage, aber jede neue Schnittstelle im PR nennen.
 - Rust (stable), cargo fmt, clippy ohne Warnungen. `make check` vor jedem Commit
   (Tests, Erkennungs-Tests gegen `testdata/korpus/`, Token-Prüfung, cargo-deny).
 - Kein `unsafe` außerhalb von `drivers/` und der cxx-qt-Brücke; jedes `unsafe` mit Kommentar, warum es sicher ist.

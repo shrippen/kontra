@@ -1,4 +1,4 @@
-//! Physical design (Harmonicon W5): the layer rule of agent.md as a test. File and function
+//! Physical design (Harmonicon W5): the layer rule of ARCHITECTURE.md as a test. File and function
 //! sizes are checked by `tools/structure-check.py` (`structure.baseline`).
 //!
 //! ```text
@@ -164,7 +164,7 @@ fn crates_depend_only_downwards() {
             continue;
         };
         let Some((_, allowed)) = ALLOWED.iter().find(|(c, _)| *c == name) else {
-            panic!("crate {name} has no place in the layers: add it to ALLOWED (and agent.md)");
+            panic!("crate {name} has no place in the layers: add it to ALLOWED (and ARCHITECTURE.md)");
         };
         for dep in layered_deps(&manifest) {
             assert!(

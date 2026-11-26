@@ -42,7 +42,6 @@ Offen:
   `Core::{pick, pick_opt, choices_json}`, QML `ctl.choicesJson()`; aus #366 zehn `pub(crate)` (`advise_level`,
   `ear_heard`, `score_text`, `backing`, `backing_original`, `rethin`, `loop_to`, `loop_range`, `density_hint`,
   `chain_pass`).
-- `ARCHITECTURE.md` fehlt (Skill `architektur`): anlegen nur in einer Sitzung auf Fable.
 
 ## Übergabe (14.11.2026, Abend: Code-Audit und Behebung)
 
