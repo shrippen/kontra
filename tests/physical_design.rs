@@ -165,7 +165,9 @@ fn crates_depend_only_downwards() {
             continue;
         };
         let Some((_, allowed)) = ALLOWED.iter().find(|(c, _)| *c == name) else {
-            panic!("crate {name} has no place in the layers: add it to ALLOWED (and ARCHITECTURE.md)");
+            panic!(
+                "crate {name} has no place in the layers: add it to ALLOWED (and ARCHITECTURE.md)"
+            );
         };
         for dep in layered_deps(&manifest) {
             assert!(
