@@ -1,7 +1,48 @@
 # Arbeitsstand
 
-Übergabe zwischen Sitzungen. Stand: 2026-11-25. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
+Übergabe zwischen Sitzungen. Stand: 2026-11-26. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
+
+## Übergabe (25./26.11.2026: Audit Welle 3, Reste aus den Reviews)
+
+Eigentümer: „setze 1, 2 und 3 um“ (Übergabe in `main`, Welle 3 des Audits, offene Punkte aus den Reviews). In `main`:
+#364 (Übergabe Welle 1/2), #365 (Fund 10a: Schichtenzeichnung in `agent.md` nach `tests/physical_design.rs`, neue
+Regel zu `pub use`; vom Eigentümer bestätigt), #366 (Fund 9: `appcore/src/lib.rs` 2812 → 1887 Zeilen, Themen-Dateien
+`ear_training`, `quizzing`, `backing`, `loops`, `density`, `chain`), #367 (Sicherung „Ersetzen“ legt Stück und
+Stimmgerät neu aus, `Core::relayout`; Hinweise als Warteschlange, alle wartenden in einer Meldung, die Meldung einer
+Sicherung trägt ihre Hinweise), #368 (Dialog „Datei öffnen“ aus `FileKind::EXTENSIONS`, „Nächstes Stück“ über
+`Main.openNext()` mit Spurfrage, `korpus check` nennt die Gründe), #369 (Fund 10b: Session reicht Plugins,
+Schlüsselbund, Web und Stem-Trenner nicht mehr durch, `plugin_host`, `external`; 29 ungenutzte Re-Exports weg; Test
+`session_hides_the_drivers`), #370 (Fund 6: feste Auswahlen als Aufzählungstypen, Trait `Choice`, `ctl.choicesJson()`).
+
+Offen:
+- Fund 10, Rest (Liste `DRIVER_NAMES_PASSED_ON`, 16 Namen): Geräteliste (`list_devices`, `list_midi_inputs`,
+  `audio_priority`; 17 Stellen in appcore, `audio_priority` nur in der CLI), ihre Datentypen (`DeviceInfo`, `Connection`, `Direction`,
+  `MidiPort`, `Priority`, `NULL_DEVICE`), die Datentypen des Plugin-Hosts, Fehlertypen und die Test-Nähte `Http`,
+  `SecretStore`, `MemoryStore`. Die Gerätetypen gehören nach `kontra-model`, aber `drivers` darf `model` nicht nutzen:
+  Entscheidung des Eigentümers (Schichten). Die Session reicht außerdem 44 weitere Namen der Engine weiter (meist
+  Korpus-Werkzeuge der CLI).
+- Fund 6, Rest: QML vergleicht an einigen Stellen mit Literalen (`ctl.mode === "workshop"`, `"kante-light"`);
+  `KanteStyle.stringPalettes` hat eine eigene Liste (nur in Kante änderbar). `llm_provider` und `Run.mode` bleiben Text.
+- Kleinigkeiten aus #370: `--mode`/`--view` werden beim Start zweimal geprüft (`bridge/start.rs`), ein ungültiger
+  Wert meldet sich doppelt; `appcore/src/choices.rs` (Auswahlen) steht neben `choice.rs` (Eingabegerät).
+- `Main.openPiece` und `Main.openNext` haben keinen Test ihrer Bedingung (Wechsel zur Bibliothek bei Spurfrage).
+- `.xml`: Verknüpfte Ordner und Quellenliste schließen reine XML-Dateien aus (`PLAIN_XML`), Ordner-Import und Dialog
+  nehmen sie.
+  `session/src/sources.rs::recent_scores` prüft Endungen noch selbst statt über `openable_extensions`.
+- Plugin-Zwischenspeicher (`fx_plugins.rs`) und Quiz-Statistik (`quizzing.rs`) verwerfen Speicherfehler weiter still.
+- Kleinigkeit aus #367: fehlen Stück und Eingangsgerät zugleich, nennt `relayout` nur den Fehler des Stimmgeräts.
+- Kleinigkeit aus #369: der Alias-Parser des Schichtentests übersieht `use kontra_engine::{x as y}` und
+  `use kontra_engine as e` (heute nicht im Code).
+- Neue `pub` für die nächste Runde: `Core::relayout`, `Core::with_notices` (`pub(crate)`); `FileKind::EXTENSIONS`,
+  `kontra_session::openable_extensions`, `Core::open_filter`, QML `openFilter()`, `Main.openNext()`;
+  `kontra_session::plugin_host` (`installed`, `search_dirs`, `probe_answer`, `probe_here`, `scan`, `settle`,
+  `crashed`, `clear_crash`), `kontra_session::external` (`web`, `web_from_file`, `keychain`),
+  `BassRemoval::with_program`; `kontra_session::{Choice, or_default}`, `kontra_appcore::choices::*`,
+  `Core::{pick, pick_opt, choices_json}`, QML `ctl.choicesJson()`; aus #366 zehn `pub(crate)` (`advise_level`,
+  `ear_heard`, `score_text`, `backing`, `backing_original`, `rethin`, `loop_to`, `loop_range`, `density_hint`,
+  `chain_pass`).
+- `ARCHITECTURE.md` fehlt (Skill `architektur`): anlegen nur in einer Sitzung auf Fable.
 
 ## Übergabe (14.11.2026, Abend: Code-Audit und Behebung)
 
@@ -12,18 +53,8 @@ je Fund ein PR). In `main`: #350 (Strukturprüfung in der CI, `structure.baselin
 entfernt; `UiEvent::Extra` bleibt für die Journeys c5/e3), #356 (Fund 4: `KorpusSet::requirement_misses`, Raum-Onset
 in der CLI 10 statt 30 ms nach LH-NF-02; Messwerte unverändert).
 
-- Welle 2 in `main`: #357 (Fund 7a: Sicherung frischt Stimmung und Töne auf), #358 (Fund 1a: Speichern an einer
-  Stelle), #360 (Fund 1b: Speicherfehler als Hinweis), #361 (Fund 7b: `cxx_qt::Initialize`). Dazu #359
-  (KI-Anbieter in den Einstellungen). Welle 3 offen: Funde 6, 9, 10.
-- Aus den Reviews, offen: `ctl.openNext()` auf der Übungsseite führt bei unklarer Bass-Spur nicht zur Spurfrage
-  (`PracticePage.qml`, Weg über `bridge/library.rs after_open`); `Main.openPiece` hat keinen eigenen Test; der Dialog
-  „Datei öffnen“ (`LibraryPage.qml`) hat eine eigene Endungsliste ohne `*.kar`; `.xml` behandeln Ordner-Import,
-  verknüpfte Ordner und Quellenliste verschieden; `kontra-cli korpus check` zeigt die Gründe aus
-  `requirement_misses` nicht.
-- Sicherung „Ersetzen“ mit anderer Stimmung: `import_data` setzt die Einstellungen über `remix`, nicht `retune`; ein
-  geladenes Stück und ein laufendes Stimmgerät bleiben auf den alten Saiten (LH-TUN-02; Review #357).
-- Hinweise an den Nutzer (`Core.notice`) haben einen Platz: ein Speicherfehler kann von einem späteren Hinweis im
-  selben Tick überschrieben werden (Review #360). Plugin-Zwischenspeicher und Quiz-Statistik speichern weiter still.
+- Welle 2 in `main`: #357 (Fund 7a), #358 (Fund 1a), #360 (Fund 1b), #361 (Fund 7b), dazu #359 (KI-Anbieter in
+  den Einstellungen). Welle 3 und die Reste aus den Reviews: siehe Übergabe vom 25./26.11.
 
 ## Übergabe (14.11.2026, Vormittag bis Abend: Runde 22 umgesetzt, Seitenaufbau)
 
