@@ -37,6 +37,61 @@ fn a_failed_settings_save_is_told() {
 }
 
 #[test]
+fn a_failed_quiz_save_is_told() {
+    let dir = temp_dir("save-quiz-failed");
+    let mut core = Core::new(&dir, QaOptions::default());
+    block(&dir, "quiz.json");
+
+    core.quiz_start("notes", 0, 4);
+
+    let notice = core.take_notice().expect("a notice");
+    assert!(notice.contains("quiz.json"), "{notice}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_failed_quiz_answer_save_is_told() {
+    let dir = temp_dir("save-quiz-answer-failed");
+    let mut core = Core::new(&dir, QaOptions::default());
+    core.quiz_start("notes", 0, 4);
+    block(&dir, "quiz.json");
+
+    core.quiz_answer(40.0);
+
+    let notice = core.take_notice().expect("a notice");
+    assert!(notice.contains("quiz.json"), "{notice}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_failed_plugin_cache_save_is_told() {
+    let dir = temp_dir("save-plugins-failed");
+    let mut core = Core::new(&dir, QaOptions::default());
+    block(&dir, "plugins.json");
+    // A probe that calls every file broken: nothing of the system is loaded.
+    core.plugins
+        .set_probe(kontra_session::plugin_host::ProbeCommand {
+            program: "sh".into(),
+            args: vec!["-c".into(), "echo '{\"Failed\":\"for the test\"}'".into()],
+        });
+    core.plugins.set_files(vec![dir.join("one.clap")]);
+    core.edit_effects("scan", 0, "", 0.0);
+
+    let start = std::time::Instant::now();
+    let mut notice = None;
+    while notice.is_none() {
+        assert!(start.elapsed().as_secs() < 30, "the search does not end");
+        core.poll_effects();
+        notice = core.take_notice();
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+
+    let notice = notice.unwrap_or_default();
+    assert!(notice.contains("plugins.json"), "{notice}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn a_working_save_says_nothing() {
     let dir = temp_dir("save-works");
     let mut core = Core::new(&dir, QaOptions::default());
