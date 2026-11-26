@@ -17,18 +17,20 @@ Schlüsselbund, Web und Stem-Trenner nicht mehr durch, `plugin_host`, `external`
 
 Offen:
 - Fund 10, Rest (Liste `DRIVER_NAMES_PASSED_ON`, 16 Namen): Geräteliste (`list_devices`, `list_midi_inputs`,
-  `audio_priority`; rund 25 Stellen in appcore), ihre Datentypen (`DeviceInfo`, `Connection`, `Direction`,
+  `audio_priority`; 17 Stellen in appcore, `audio_priority` nur in der CLI), ihre Datentypen (`DeviceInfo`, `Connection`, `Direction`,
   `MidiPort`, `Priority`, `NULL_DEVICE`), die Datentypen des Plugin-Hosts, Fehlertypen und die Test-Nähte `Http`,
   `SecretStore`, `MemoryStore`. Die Gerätetypen gehören nach `kontra-model`, aber `drivers` darf `model` nicht nutzen:
-  Entscheidung des Eigentümers (Schichten). Die Session reicht außerdem 59 Namen der Engine weiter (meist
+  Entscheidung des Eigentümers (Schichten). Die Session reicht außerdem 44 weitere Namen der Engine weiter (meist
   Korpus-Werkzeuge der CLI).
 - Fund 6, Rest: QML vergleicht an einigen Stellen mit Literalen (`ctl.mode === "workshop"`, `"kante-light"`);
   `KanteStyle.stringPalettes` hat eine eigene Liste (nur in Kante änderbar). `llm_provider` und `Run.mode` bleiben Text.
 - Kleinigkeiten aus #370: `--mode`/`--view` werden beim Start zweimal geprüft (`bridge/start.rs`), ein ungültiger
   Wert meldet sich doppelt; `appcore/src/choices.rs` (Auswahlen) steht neben `choice.rs` (Eingabegerät).
 - `Main.openPiece` und `Main.openNext` haben keinen Test ihrer Bedingung (Wechsel zur Bibliothek bei Spurfrage).
-- `.xml`: Ordner-Import schließt reine XML-Dateien aus (`PLAIN_XML`), Dialog und Quellenliste zeigen sie.
+- `.xml`: Verknüpfte Ordner und Quellenliste schließen reine XML-Dateien aus (`PLAIN_XML`), Ordner-Import und Dialog
+  nehmen sie.
   `session/src/sources.rs::recent_scores` prüft Endungen noch selbst statt über `openable_extensions`.
+- Plugin-Zwischenspeicher (`fx_plugins.rs`) und Quiz-Statistik (`quizzing.rs`) verwerfen Speicherfehler weiter still.
 - Kleinigkeit aus #367: fehlen Stück und Eingangsgerät zugleich, nennt `relayout` nur den Fehler des Stimmgeräts.
 - Kleinigkeit aus #369: der Alias-Parser des Schichtentests übersieht `use kontra_engine::{x as y}` und
   `use kontra_engine as e` (heute nicht im Code).
