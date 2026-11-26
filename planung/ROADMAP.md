@@ -229,7 +229,7 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 ### Entscheidungen Runde 23 (26.11.2026)
 
 - Geräteliste (Audit Fund 10, Rest): Die Treiber dürfen `model` benutzen; die Gerätebeschreibungen ziehen dorthin,
-  die Session bekommt eigene Gerätefunktionen (Änderung der Schichten in `agent.md` und im Test).
+  die Session bekommt eigene Gerätefunktionen (Änderung der Schichten in `ARCHITECTURE.md` und im Test).
 - Die 44 Namen der Engine, die die Session weiterreicht: alle kapseln, auch für die CLI.
 - Feste Werte in QML (Fund 6, Rest): so lassen.
 - Reine `.xml`: überall prüfen, ob die Datei MusicXML ist, und nur dann nehmen.

@@ -35,7 +35,7 @@ app ─► appcore ─┐
                 ├─► session ─┬─► engine ─┬─► drivers
 cli ────────────┘            │           ├─► dsp
                              └─► content └─► stretch
-model: usable by every block except app and stretch; depends on nothing
+model: usable by every block except app, stretch and the test plugins; depends on nothing
 ```
 An arrow means "may use". `tests/physical_design.rs` checks the arrows in each `Cargo.toml`
 and that session hands no driver name on.
@@ -57,8 +57,8 @@ and that session hands no driver name on.
   progress, caches) are written by that block, each file in one place.
 - The audio callback (engine, drivers, dsp, stretch) never allocates, locks or waits; results
   leave it through ring buffers created beforehand.
-- No text in code or QML: every visible text is a key in `crates/appcore/i18n/de.json` and
-  `en.json`.
+- No text in code or QML: every text the window shows is a key in `crates/appcore/i18n/de.json`
+  and `en.json`. Terminal output (`kontra-cli`, command line usage) is English text in code.
 - `crates/app/qml/Kante` is changed only in the Kante repository; a component Kontra needs is
   added there first.
 
@@ -96,5 +96,11 @@ A change that needs more places than listed is a finding for the audit.
   where content should, for example `crates/appcore/src/package.rs` (export, open, unpack),
   `appcore/src/bundled.rs` (generated exercise MIDI), `crates/cli/src/main.rs` (`exercises`,
   `piece`), `cli/src/course.rs` (course pack) and `crates/session/src/courses.rs` (course media).
+- Error reasons from the layers below reach the window in English: an `#[error(...)]` text
+  goes into a translated message as `{reason}`, e.g. `crates/drivers/src/audio.rs` ("no audio
+  device found") via `crates/appcore/src/calibrate.rs` into `error.audio`.
+- `app` decides things that need no Qt: command line parsing (`crates/app/src/args.rs`), theme
+  and style choice from the environment (`crates/app/src/main.rs`), value limits and bus names
+  in the bridge (`crates/app/src/bridge/settings.rs`, `bridge/transport.rs`).
 - QML compares fixed choices with literal texts (`ctl.mode === "workshop"`), so a practice mode
   or style needs more QML places than listed. Kept by the owner (round 23). `AUDIT.md` finding 6.
