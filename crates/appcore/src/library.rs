@@ -160,11 +160,7 @@ impl Core {
         let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
             .map(|entries| entries.filter_map(Result::ok).map(|e| e.path()).collect())
             .unwrap_or_default();
-        files.retain(|p| {
-            p.extension()
-                .and_then(|e| e.to_str())
-                .is_some_and(|e| FileKind::from_extension(e).is_some())
-        });
+        files.retain(|p| FileKind::of_file(p).is_some());
         files.sort();
         let (added, failed) = self.add_files(&files);
         if as_setlist && !added.is_empty() {

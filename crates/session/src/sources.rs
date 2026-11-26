@@ -18,8 +18,6 @@ use std::time::Duration;
 
 /// Package extension (LH-BIB-07), opened like a score.
 const PACKAGE_EXTENSION: &str = "kontra";
-/// Any XML file could be MusicXML; in a download folder most are not.
-const PLAIN_XML: &str = "xml";
 const SONGSTERR_SEARCH: &str = "https://www.songsterr.com/?pattern=";
 const MUSESCORE_SEARCH: &str = "https://musescore.com/sheetmusic?text=";
 
@@ -102,18 +100,15 @@ pub fn openable_extensions() -> Vec<&'static str> {
     all
 }
 
+fn is_package(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case(PACKAGE_EXTENSION))
+}
+
 /// Files Kontra can open that arrived in `dir` within `max_age`, newest first.
 pub fn recent_scores(dir: &Path, max_age: Duration) -> Vec<RecentFile> {
     let mut files = kontra_engine::recent_files(dir, max_age);
-    files.retain(|f| {
-        f.path
-            .extension()
-            .and_then(|e| e.to_str())
-            .filter(|e| !e.eq_ignore_ascii_case(PLAIN_XML))
-            .is_some_and(|e| {
-                FileKind::from_extension(e).is_some() || e.eq_ignore_ascii_case(PACKAGE_EXTENSION)
-            })
-    });
+    files.retain(|f| FileKind::of_file(&f.path).is_some() || is_package(&f.path));
     files
 }
 
@@ -150,12 +145,20 @@ mod tests {
         ] {
             std::fs::write(dir.join(name), b"x").unwrap();
         }
+        std::fs::write(
+            dir.join("score.xml"),
+            b"<?xml version=\"1.0\"?><score-partwise version=\"4.0\"/>",
+        )
+        .unwrap();
         let mut names: Vec<String> = recent_scores(&dir, Duration::from_secs(60))
             .iter()
             .filter_map(|f| f.path.file_name().map(|n| n.to_string_lossy().into_owned()))
             .collect();
         names.sort();
-        assert_eq!(names, ["chart.mscz", "lesson.kontra", "song.gp5"]);
+        assert_eq!(
+            names,
+            ["chart.mscz", "lesson.kontra", "score.xml", "song.gp5"]
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

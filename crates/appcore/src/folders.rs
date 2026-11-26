@@ -20,8 +20,6 @@ use std::sync::mpsc::{channel, Receiver, TryRecvError};
 pub(crate) const DEPTH_MAX: usize = 8;
 /// Files kept per linked folder; more are left out and the folder is marked as cut off.
 pub(crate) const FILES_MAX: usize = 5000;
-/// Plain `.xml` is MusicXML, but also every other XML file: not taken from a folder walk.
-const PLAIN_XML: &str = "xml";
 
 /// What walking one linked folder found.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -223,8 +221,5 @@ fn is_hidden(path: &Path) -> bool {
 }
 
 fn is_score(path: &Path) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .filter(|e| !e.eq_ignore_ascii_case(PLAIN_XML))
-        .is_some_and(|e| FileKind::from_extension(e).is_some())
+    FileKind::of_file(path).is_some()
 }
