@@ -8,7 +8,9 @@ use kontra_engine::plugins as host;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-pub use host::{LoadedPlugin, PluginError, PluginFormat, PluginInfo, ProbeCommand, ScanReport};
+pub use kontra_engine::plugins::{
+    LoadedPlugin, PluginError, PluginFormat, PluginInfo, ProbeCommand, ScanReport,
+};
 
 /// The plugin files installed for `format`, found in the standard folders.
 pub fn installed(format: PluginFormat) -> Vec<PathBuf> {

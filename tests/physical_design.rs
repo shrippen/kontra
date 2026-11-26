@@ -179,9 +179,10 @@ fn crates_depend_only_downwards() {
 
 /// Driver names session still passes on to appcore and cli, each for a reason: plain data
 /// (`DeviceInfo`, `Connection`, `Direction`, `MidiPort`, `Priority`, `NULL_DEVICE`, the errors),
-/// the `Http` and `SecretStore` seams tests put fakes into, and the device lists, which a
-/// session function does not wrap yet. An entry goes when session stops passing the name on.
-const DRIVER_NAMES_PASSED_ON: [&str; 15] = [
+/// the `Http` and `SecretStore` seams tests put fakes into, the plugin host's data types
+/// (`plugins::PluginInfo`, …, see `plugin_host.rs`), and the device lists, which a session
+/// function does not wrap yet. An entry goes when session stops passing the name on.
+const DRIVER_NAMES_PASSED_ON: [&str; 16] = [
     "Connection",
     "DeviceInfo",
     "Direction",
@@ -197,6 +198,7 @@ const DRIVER_NAMES_PASSED_ON: [&str; 15] = [
     "audio_priority",
     "list_devices",
     "list_midi_inputs",
+    "plugins",
 ];
 
 /// The names a `pub use <prefix>…;` statement brings in, by their first path segment after the
@@ -217,6 +219,25 @@ fn reexported(source: &str, prefix: &str) -> Vec<String> {
         }
     }
     names
+}
+
+/// The `(name, alias)` pairs of `use <prefix>::name as alias;` statements.
+/// Example: `use kontra_engine::plugins as host;` → ("plugins", "host").
+fn aliases(source: &str, prefix: &str) -> Vec<(String, String)> {
+    let mut pairs = Vec::new();
+    for statement in source.split(';') {
+        let Some((_, rest)) = statement.split_once(&format!("use {prefix}::")) else {
+            continue;
+        };
+        let Some((name, alias)) = rest.split_once(" as ") else {
+            continue;
+        };
+        if name.contains(['{', ',']) {
+            continue;
+        }
+        pairs.push((name.trim().to_string(), alias.trim().to_string()));
+    }
+    pairs
 }
 
 /// Every `.rs` file under `dir`.
@@ -245,6 +266,11 @@ fn reads_reexports() {
         reexported(source, "kontra_engine"),
         ["plugins", "A", "b", "D"]
     );
+    let aliased = "use kontra_engine::plugins as host;\npub use host::{A, B};\n";
+    assert_eq!(
+        aliases(aliased, "kontra_engine"),
+        [("plugins".to_string(), "host".to_string())]
+    );
 }
 
 /// The layer rule holds in the code, not only in `Cargo.toml`: session passes no driver name on
@@ -263,6 +289,13 @@ fn session_hides_the_drivers() {
         let source = std::fs::read_to_string(&file).expect("session source");
         for name in reexported(&source, "kontra_engine") {
             if driver_names.contains(&name) {
+                passed_on.push(name);
+            }
+        }
+        // A driver module under another name (`use kontra_engine::plugins as host;`) passes on
+        // what `pub use host::…` names, as the driver module itself.
+        for (name, alias) in aliases(&source, "kontra_engine") {
+            if driver_names.contains(&name) && !reexported(&source, &alias).is_empty() {
                 passed_on.push(name);
             }
         }
