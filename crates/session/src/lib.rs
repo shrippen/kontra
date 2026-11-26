@@ -21,6 +21,7 @@ mod check;
 mod courses;
 mod density;
 mod expected;
+pub mod external;
 mod improv;
 mod learning;
 mod live;
@@ -28,6 +29,7 @@ mod llm;
 mod loopback;
 mod matcher;
 mod monitor;
+pub mod plugin_host;
 mod pocket;
 mod practice;
 mod progress;
@@ -47,64 +49,57 @@ mod update;
 pub use backing_cache::{BackingCache, Preparing};
 pub use band::Band;
 pub use cache_files::CacheEntry;
-pub use calibration::{
-    CalibrationResult, CLICKS as CALIBRATION_CLICKS, INTERVAL_S as CALIBRATION_INTERVAL_S,
-};
+pub use calibration::CalibrationResult;
 pub use call::call_and_response;
 pub use chain::{Blocks, Chain, ChainOrder};
 pub use check::{
-    check_takes, loopback_length_s, loopback_plan, round_trip, tone_delays_s, CheckNote, CheckTake,
-    LiveTake, RoundTrip, Take, TakeSound, CHECK_BPM, LOOPBACK_TONES,
+    check_takes, loopback_length_s, loopback_plan, round_trip, tone_delays_s, CheckTake, LiveTake,
+    Take, TakeSound, CHECK_BPM, LOOPBACK_TONES,
 };
 pub use courses::{CourseError, CourseFetch, CourseStore};
 pub use density::Density;
-pub use expected::{expected_notes, ExpectedNote};
-pub use improv::{fit, Fit, Improvisation};
-pub use kontra_engine::plugins;
-pub use kontra_engine::Separator;
+
+pub use improv::{fit, Improvisation};
 pub use kontra_engine::{
-    describe_plugin, describe_plugin_later, PendingSpec, PluginBank, PluginProblems, PluginRack,
+    describe_plugin_later, PendingSpec, PluginBank, PluginProblems, PluginRack,
 };
 pub use kontra_engine::{group_of_effect, group_of_plugin, PluginGroup};
-pub use kontra_engine::{EngineError, FileHttp, Http, HttpError, Web};
+pub use kontra_engine::{EngineError, Http, HttpError};
 pub use kontra_engine::{Gains, Limit, SeparatorError, Shaping, SHAPING_RANGE_DB};
 /// Where an LLM key lives (LH-BIB-16): appcore's layer only, never session's own logic.
-pub use kontra_engine::{Keychain, MemoryStore, SecretError, SecretStore};
+pub use kontra_engine::{MemoryStore, SecretError, SecretStore};
 pub use learning::{
-    lesson, place, positions, Answer, LearnState, LearnStore, Learning, QuestionRef, UnitState,
+    lesson, place, positions, Answer, LearnState, LearnStore, Learning, QuestionRef,
 };
 pub use live::{
-    is_midi_file, soak, InputChoice, Live, LiveCalibration, LiveEar, LiveError, LiveOutput,
-    LiveSetup, LiveTuner, PromptTone, SoakReport, TunerMonitor,
+    is_midi_file, soak, InputChoice, Live, LiveCalibration, LiveEar, LiveError, LiveSetup,
+    LiveTuner, PromptTone, SoakReport, TunerMonitor,
 };
 pub use llm::{
-    generate_plan, list_models, provider, provider_message, GenError, KeyNeed, Provider,
-    WireFormat, CUSTOM, PROVIDERS,
+    generate_plan, list_models, provider, provider_message, GenError, KeyNeed, Provider, CUSTOM,
+    PROVIDERS,
 };
 pub use loopback::{LiveLoopback, LoopbackResult};
 pub use matcher::{NoteResult, Outcome};
 pub use monitor::LiveMonitor;
 pub use pocket::{Pocket, PocketVerdict};
 pub use practice::{Practice, PracticeEvent, PracticeOptions};
-pub use progress::{run_from, ProgressError, ProgressStore, Run, SongProgress};
-pub use rig::{InputTap, OnOutputError, Rig, RigOutput};
+pub use progress::{run_from, ProgressStore, Run, SongProgress};
+pub use rig::{Rig, RigOutput};
 pub use service::*;
 pub use session::{Mode, Session, SessionEvent, Workshop};
 pub use settings::{ScoreSettings, Strictness};
-pub use songsterr::{BassTrack, SearchError, SearchStart, SongHit, SongSearch};
+pub use songsterr::{SearchError, SearchStart, SongHit, SongSearch};
 pub use sources::{
     cache_dir_of, data_dir_of, download_dir, file_url, local_path, openable_extensions,
     recent_scores, search_url, SongSite,
 };
-pub use spacing::{spacing, streak_days, PassageEvent, Spacing};
+pub use spacing::{spacing, streak_days, PassageEvent};
 pub use stems::{BassRemoval, StemJob};
 pub use summary::{
-    BarTally, DetunedString, EndHeard, Intonation, IntonationPart, Leaning, MutingTally,
-    NoteEndMark, Observation, OutsideNote, Side, StringTally, Summary, TimingHistogram,
+    DetunedString, EndHeard, Intonation, IntonationPart, Leaning, MutingTally, NoteEndMark,
+    Observation, OutsideNote, Side, StringTally, Summary,
 };
-pub use technique::{
-    technique_signs, technique_targets, told_techniques, TechniqueGrade, TechniqueOutcome,
-    TechniqueResult, TechniqueTally, TechniqueTarget,
-};
+pub use technique::{technique_signs, TechniqueOutcome, TechniqueResult, TechniqueTally};
 pub use transport::{LoopRange, Transport};
 pub use update::{is_newer, NewRelease, UpdateCheck};

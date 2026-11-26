@@ -8,7 +8,7 @@
 
 use crate::Core;
 use kontra_model::Pitch;
-use kontra_session::{FileHttp, Http, SearchError, SearchStart, SongHit, SongSearch, Web};
+use kontra_session::{external, Http, SearchError, SearchStart, SongHit, SongSearch};
 use serde_json::json;
 use std::path::Path;
 use std::sync::Arc;
@@ -47,7 +47,7 @@ impl Core {
         let search = self
             .finder
             .search
-            .get_or_insert_with(|| SongSearch::new(Arc::new(Web::new())));
+            .get_or_insert_with(|| SongSearch::new(external::web()));
         if search.start(query) == SearchStart::Started {
             self.finder.state = State::Running(query.trim().to_string());
         }
@@ -94,7 +94,7 @@ impl Core {
 
     /// Answers every search with the file's content (QA runs, screenshots): never the network.
     pub fn fake_song_search(&mut self, answer: &Path) {
-        self.set_song_http(Arc::new(FileHttp::new(answer)));
+        self.set_song_http(external::web_from_file(answer));
     }
 
     /// The web client the search uses; tests pass a fake.

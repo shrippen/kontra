@@ -2,9 +2,8 @@
 
 use crate::args::{PluginsArgs, PluginsCommand};
 use crate::CliResult;
-use kontra_session::plugins::{
-    plugin_files, probe_line, scan_files, search_paths, LoadedPlugin, PluginFormat, PluginInfo,
-    ProbeCommand, ScanReport,
+use kontra_session::plugin_host::{
+    self, LoadedPlugin, PluginFormat, PluginInfo, ProbeCommand, ScanReport,
 };
 use std::path::Path;
 use std::time::Duration;
@@ -18,7 +17,7 @@ pub fn run(a: &PluginsArgs) -> CliResult {
             scan(listing, *timeout_s)
         }
         PluginsCommand::Probe { path } => {
-            println!("{}", probe_line(path));
+            println!("{}", plugin_host::probe_answer(path));
             Ok(())
         }
         PluginsCommand::Params { path, id } => params(path, id.as_deref()),
@@ -64,8 +63,8 @@ fn scan(listing: Listing, timeout_s: f32) -> CliResult {
     };
     let mut searched = Vec::new();
     for format in FORMATS {
-        searched.extend(search_paths(format));
-        let mut part = scan_files(&plugin_files(format), &probe, timeout);
+        searched.extend(plugin_host::search_dirs(format));
+        let mut part = plugin_host::scan(&plugin_host::installed(format), &probe, timeout);
         report.plugins.append(&mut part.plugins);
         report.broken.append(&mut part.broken);
     }

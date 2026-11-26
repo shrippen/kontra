@@ -27,13 +27,16 @@ pub struct BassRemoval {
 impl BassRemoval {
     /// Looks for the separator; results go to `cache_dir`.
     pub fn new(cache_dir: &Path) -> BassRemoval {
-        BassRemoval::with_separator(find_separator(), cache_dir)
+        BassRemoval {
+            separator: find_separator(),
+            cache_dir: cache_dir.to_path_buf(),
+        }
     }
 
-    /// With a given separator (`None`: not installed), for tests.
-    pub fn with_separator(separator: Option<Separator>, cache_dir: &Path) -> BassRemoval {
+    /// With a Demucs-compatible separator at `program` (`None`: not installed), for tests and QA.
+    pub fn with_program(program: Option<&Path>, cache_dir: &Path) -> BassRemoval {
         BassRemoval {
-            separator,
+            separator: program.map(Separator::with_program),
             cache_dir: cache_dir.to_path_buf(),
         }
     }
@@ -249,10 +252,10 @@ mod tests {
         let cache = dir.join("cache");
         std::fs::create_dir_all(&cache).unwrap();
 
-        let none = BassRemoval::with_separator(None, &cache);
+        let none = BassRemoval::with_program(None, &cache);
         assert!(!none.available() && none.start(&song).is_none());
 
-        let stems = BassRemoval::with_separator(Some(Separator::with_program(&script)), &cache);
+        let stems = BassRemoval::with_program(Some(&script), &cache);
         assert_eq!(stems.cached(&song), None);
         let mut job = stems.start(&song).unwrap().unwrap();
         let result = loop {
@@ -294,7 +297,7 @@ mod tests {
         let song = dir.join("Song.wav");
         std::fs::write(&song, b"RIFF").unwrap();
 
-        let stems = BassRemoval::with_separator(Some(Separator::with_program(&script)), &cache);
+        let stems = BassRemoval::with_program(Some(&script), &cache);
         let job = stems.start(&song).unwrap().unwrap();
         assert!(!stale.exists());
         drop(job);
@@ -323,7 +326,7 @@ mod tests {
         std::fs::write(&song, b"RIFF").unwrap();
         let cache = dir.join("cache");
 
-        let stems = BassRemoval::with_separator(Some(Separator::with_program(&script)), &cache);
+        let stems = BassRemoval::with_program(Some(&script), &cache);
         let mut job = stems.start(&song).unwrap().unwrap();
         let work = cache.join(WORK_DIR);
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);

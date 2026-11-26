@@ -5,7 +5,7 @@ use crate::session::{Mode, Session};
 use crate::settings::ScoreSettings;
 use crate::summary::Summary;
 use crate::NoteResult;
-use kontra_engine::{Clock, EngineError, Event, Input, InputKind, Pace};
+use kontra_engine::{Clock, EngineError, Event, Input, InputKind, Pace, StringTold};
 use kontra_model::{Arrangement, DetectedNote, InputSource, Instrument};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
@@ -15,20 +15,20 @@ pub use kontra_content::exercise;
 pub use kontra_content::json_schemas;
 pub use kontra_content::{
     assign_tab, import_file, read_package, transpose, write_package, FileKind, ImportError,
-    ImportResult, Manifest, Package, PackageBacking, PackageLoop, TrackInfo,
-    PACKAGE_AUDIO_MAX_BYTES, PACKAGE_FORMAT, PACKAGE_VERSION, TRANSPOSE_MAX,
+    ImportResult, Manifest, Package, PackageBacking, PackageLoop, PACKAGE_AUDIO_MAX_BYTES,
+    PACKAGE_FORMAT, PACKAGE_VERSION, TRANSPOSE_MAX,
 };
 pub use kontra_engine::{
     announce_second_tone, double_stop_mixtures, evaluate_double_stops, generate_double_stops,
-    DoubleStopSet, DoubleStopStrike, DoubleStopTally, DOUBLE_STOP_INTERVALS,
+    DoubleStopTally,
 };
 pub use kontra_engine::{
     audio_priority, evaluate as evaluate_korpus, evaluate_expecting as evaluate_korpus_expecting,
     evaluate_laptop_jack as evaluate_korpus_laptop_jack, evaluate_with as evaluate_korpus_with,
     generate as generate_korpus, list_devices, list_midi_inputs, render_performance, same_pitch,
-    track_beats, Annotation, BackingTrack, BeatGrid, Connection, DeviceInfo, Direction, Evaluation,
+    track_beats, Annotation, BackingTrack, Connection, DeviceInfo, Direction, Evaluation,
     Expecting, KorpusItem, KorpusSet, Matching, MidiPort, Mistakes, Pick, Playing, Priority,
-    StreamConfig, StringModel, StringTold, LOG_B_PER_FRET, NULL_DEVICE,
+    StringModel, LOG_B_PER_FRET, NULL_DEVICE,
 };
 pub use kontra_engine::{
     evaluate_ends, generate_midi_chords, generate_staccato, score_chords, ChordTally, EndTally,

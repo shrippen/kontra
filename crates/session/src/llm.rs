@@ -19,5 +19,5 @@ mod wire;
 const LLM_TIMEOUT: Duration = Duration::from_secs(180);
 
 pub use generate::{generate_plan, list_models, GenError};
-pub use provider::{provider, KeyNeed, Provider, WireFormat, CUSTOM, PROVIDERS};
+pub use provider::{provider, KeyNeed, Provider, CUSTOM, PROVIDERS};
 pub use wire::provider_message;

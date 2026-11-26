@@ -7,14 +7,14 @@
 //! ```text
 //! wish, level ──► thread: resolve key, session::generate_plan ──► PiecePlan JSON ─┬─► tick
 //! "Modelle laden" ──► thread: resolve key, session::list_models ──► model ids ────┤ (render,
-//! check/save/delete key ──► thread: Keychain::get/set/delete ──► new KeyState ────┘  write,
+//! check/save/delete key ──► thread: keychain get/set/delete ───► new KeyState ────┘  write,
 //!                                                                                     LlmKeyState)
 //! ```
 
 use crate::{Core, UiEvent};
 use kontra_session::exercise::Level;
 use kontra_session::{
-    self as session, GenError, Http, HttpError, Keychain, Provider, SecretError, SecretStore, Web,
+    self as session, external, GenError, Http, HttpError, Provider, SecretError, SecretStore,
 };
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
 use std::sync::Arc;
@@ -53,7 +53,7 @@ enum KeyOutcome {
 }
 
 pub(crate) struct LlmJob {
-    /// Made on first use (`Web::new` loads the system's TLS roots, not worth paying for at
+    /// Made on first use (`external::web` loads the system's TLS roots, not worth paying for at
     /// every start); a fake in tests.
     http: Option<Arc<dyn Http>>,
     /// Cheap to make, so kept ready from the start; a fake in tests.
@@ -75,7 +75,7 @@ impl Default for LlmJob {
     fn default() -> LlmJob {
         LlmJob {
             http: None,
-            secrets: Arc::new(Keychain),
+            secrets: external::keychain(),
             piece: None,
             piece_level: String::new(),
             models: None,
@@ -423,10 +423,7 @@ impl Core {
 
     /// The web client to ask with; made on first use.
     fn llm_http(&mut self) -> Arc<dyn Http> {
-        self.llm
-            .http
-            .get_or_insert_with(|| Arc::new(Web::new()))
-            .clone()
+        self.llm.http.get_or_insert_with(external::web).clone()
     }
 
     fn llm_secret_error_text(&self, e: &SecretError) -> String {
