@@ -13,6 +13,8 @@ const BLOCK: usize = 480;
 const LEAD_S: f64 = 0.2;
 /// Notes from E2 up are told within this (until R1 80 ms).
 const TOLD_WITHIN_MS: f64 = 65.0;
+/// LH-NF-15: E1, the lowest note of a four-string bass, is told within this.
+const LOW_E_WITHIN_MS: f64 = 70.0;
 
 /// A note as the session ends up with it: every revision applied, retracted ones dropped.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -88,6 +90,25 @@ fn reports_before_the_full_window() {
         let cents = (t.final_midi - midi(name)) * 100.0;
         assert!(cents.abs() < 3.0, "{name}: {cents:.1} ct");
     }
+}
+
+#[test]
+fn low_e_is_told_within_the_target() {
+    // LH-NF-15: E1 needs 2.06 periods (50 ms) of audio after the 12 ms attack skip; one very
+    // sure estimate goes out, a second 5 ms later would cost a block more.
+    let notes = [SynthNote {
+        onset_s: LEAD_S,
+        hz: Pitch::parse("E1").unwrap().hz(A4_HZ),
+        duration_s: 0.5,
+        velocity: 0.7,
+    }];
+    let signal = render(&notes, SR, 1.0, ToneShape::Rich, 21);
+    let (told, retracted) = track(&signal);
+    assert!(retracted.is_empty(), "{retracted:?}");
+    assert_eq!(told.len(), 1, "{told:?}");
+    let ms = told[0].after_s * 1000.0;
+    assert!(ms <= LOW_E_WITHIN_MS, "E1 told after {ms:.0} ms");
+    assert!((told[0].final_midi - midi("E1")).abs() * 100.0 < 3.0);
 }
 
 #[test]

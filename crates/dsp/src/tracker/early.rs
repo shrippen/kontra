@@ -5,7 +5,7 @@
 //!
 //! ```text
 //! attack ─ skip ─ every 5 ms: audio since the skip ├─ window ─┼─ lags (1.06×) ─┤
-//!                 a dip below the threshold inside the lags ─► twice in a row? ─► emit
+//!                 a dip below the threshold inside the lags ─► twice in a row or sure (0.97)? ─► emit
 //!          … full window there ─► the usual search has the last word: another pitch (up or
 //!                                 down, an octave too), or the same a few cents off ─► revise
 //! ```

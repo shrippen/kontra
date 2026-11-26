@@ -398,16 +398,19 @@ fn plays_a_recording_and_judges_notes() {
         !events.iter().any(|e| matches!(e, UiEvent::Error(_))),
         "{events:?}"
     );
-    let mut hits = 0;
+    // A revised pitch judges a note again and replaces the earlier verdict: the last state per
+    // note counts.
+    let mut last_state = std::collections::HashMap::new();
     let end = std::time::Instant::now() + std::time::Duration::from_secs(7);
     while std::time::Instant::now() < end {
         for e in core.tick() {
-            if let UiEvent::Judged { state: "hit", .. } = e {
-                hits += 1;
+            if let UiEvent::Judged { index, state, .. } = e {
+                last_state.insert(index, state);
             }
         }
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
+    let hits = last_state.values().filter(|s| **s == "hit").count();
     // 3.6 s of playing at 0.3 s per note: about 12 hits.
     assert!(hits >= 10, "hits {hits}");
 

@@ -45,6 +45,11 @@ const OCTAVE_MARGIN: f64 = 0.05;
 const HALF_SEMITONE: f64 = 0.5;
 /// … and, refined, lie this close to it (cents).
 const EXPECTED_CENTS: f64 = 30.0;
+/// An early estimate this sure goes out at once, without a second one 5 ms later: at E1 that
+/// saves a block. Clean notes reach 0.97 and more; IDMT (real bass) first pitch right 97.6 →
+/// 97.4 %, at 0.9 it was 96.9 % (nf15, 26.11.2026).
+const SURE_CONFIDENCE: f32 = 0.97;
+
 /// The full window revises an early pitch on another semitone or this far off (cents).
 const CONFIRM_CENTS: f64 = 2.0;
 const CENTS_PER_SEMITONE: f64 = 100.0;
@@ -125,7 +130,8 @@ impl NoteTracker {
     }
 
     /// Early tries due for `p`, until the full window is there; true when an expected pitch or
-    /// an unambiguous one (`hear_free`, R1) held twice in a row (`p.best` is it then).
+    /// an unambiguous one (`hear_free`, R1) held twice in a row or is very sure (`p.best` is it
+    /// then).
     pub(super) fn try_early(&mut self, p: &mut Pending) -> bool {
         let full = self.full_try(p.onset);
         let step = (RETRY_S * self.sample_rate) as u64;
@@ -137,7 +143,8 @@ impl NoteTracker {
             let twice = heard.zip(p.early).is_some_and(|(now, last)| {
                 cents_between(last.hz, now.hz).abs() < self.config.agree_cents
             });
-            if twice && self.attack_start(p.onset) == p.onset {
+            let sure = heard.is_some_and(|h| h.confidence >= SURE_CONFIDENCE);
+            if (twice || sure) && self.attack_start(p.onset) == p.onset {
                 p.best = heard;
                 return true;
             }
