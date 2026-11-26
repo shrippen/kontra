@@ -746,3 +746,31 @@ fn a_restore_survives_a_missing_piece() {
     assert_eq!(second.take_notice(), None);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// A piece that cannot be laid out again and a tuner that cannot restart are both told; the
+/// tuner's error used to hide the piece's.
+#[test]
+fn a_retune_tells_the_piece_and_the_tuner() {
+    let dir = temp_dir("retune-both");
+    let take = dir.join("take.wav");
+    kontra_session::write_mono_wav(&take, &vec![0.0; 48_000], 48_000).unwrap();
+    let piece = dir.join("stueck.mid");
+    std::fs::copy(demo(), &piece).unwrap();
+    let mut core = Core::new(&dir.join("data"), QaOptions::default());
+    core.qa.input_file = Some(take.clone());
+    core.open(&piece).unwrap();
+    core.start_tuner().unwrap();
+    std::fs::remove_file(&piece).unwrap();
+    std::fs::remove_file(&take).unwrap();
+
+    let error = core
+        .retune(|s| s.tuning = TuningPreset::Drop)
+        .expect_err("both fail");
+
+    let lines: Vec<&str> = error.lines().collect();
+    assert_eq!(lines.len(), 2, "{error}");
+    assert!(!lines[0].contains("take.wav"), "the piece first: {error}");
+    assert!(lines[1].contains("take.wav"), "then the tuner: {error}");
+    core.stop_tuner();
+    let _ = std::fs::remove_dir_all(dir);
+}
