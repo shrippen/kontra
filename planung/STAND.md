@@ -147,7 +147,7 @@ Offen:
   (u. a. `LevelAdvice.fit`, `SidebarInset.edge`/`margin`/`ready`/`restMs`, `NotesArea.content`/`glides`,
   `PracticeFooter.practice`, `Main.resizing`, `PracticePage.unfolded`/`openAlign()`/`openBacking()`/`views`,
   `SummaryLayer`).
-- Für die nächste Runde, neue `pub`: `NotesArea.overlay`/`notesLayer`, `SidebarInset.drawer`/`target`/`offset`/
+- In Runde 23 freigegeben, neue `pub`: `NotesArea.overlay`/`notesLayer`, `SidebarInset.drawer`/`target`/`offset`/
   `openWidth`/`collapsedWidth` (#305, #306), `MixerCard` als `KanteGlassPanel` (`open`, `maxHeight`,
   `blurSource`; #306), `Core::relist_devices`, `Core::devices_poll` (#310); Kante:
   `grown`, `layoutSpacing`, `layoutMinBarWidth`, `KanteGlassPanel` mit Tokens `glass`, `glassDense`,
@@ -165,7 +165,7 @@ Modus zu Modus weiter. Befund und Messung in der Roadmap unter „Entscheidungen
 Offen:
 - J-A5 Schritt 5 am Scarlett mit dem Ohr: Wechsel zwischen Bereitschaft, Stimmgerät und Lauf bei „Bass hören“
   ohne hörbare Lücke (gemessen: Ausgang läuft durch, Übergabe 2,1–2,3 ms, 0 Xruns).
-- Für die nächste Runde: die neuen `pub` aus #285 bis #290 (`Player::rebase`, `Input::rebase`, `Event::Rebased`,
+- In Runde 23 freigegeben: die neuen `pub` aus #285 bis #290 (`Player::rebase`, `Input::rebase`, `Event::Rebased`,
   `Rig` samt `RigOutput`, `OnOutputError`, `InputTap`, `on`/`into_rig` der Modi, `Practice::into_output`) und die
   Frage, ob das Gehörtraining den Bass bei „Bass hören“ durchlässt (heute nicht, LH-EIN-18).
 - Der Loopback öffnet weiter eigene Geräte (seine Aufnahme hängt am ersten Sample).
@@ -232,12 +232,12 @@ Offen daraus:
   Eigentümer braucht den Arbeitsspeicher); vor weiteren Tests fragen, dann starten und das Scarlett durchreichen
   (README dort). Offen: Latenz mit Kabel, MIDI, Messung auf echtem Windows, ein kaputter ASIO-Treiber reißt Kontra
   mit, ein Echtzeit-Test war in der VM unter Last einmal rot (Roadmap „Win2“).
-- `pub` für die nächste Runde: `kontra_drivers::monitor_rate` (über `kontra_engine` weitergereicht).
+- `pub`, in Runde 23 freigegeben: `kontra_drivers::monitor_rate` (über `kontra_engine` weitergereicht).
 - Win5: Inno Setup und ZIP, Update-Hinweis (LH-ALL-07). Signierung zurückgestellt.
 - Kaiwa und hansei: App-IDs auf `io.github.shrippen.*` (eigene PRs dort).
 - `pub`: Die Liste der Runde 18 ist freigegeben, samt der dort am 10.11. nachgetragenen `Core::imported_text`,
   `kontra_appcore::BackingChange` und `Core::set_backing` mit `Result<BackingChange, String>`. Neu seither, für
-  die nächste Runde: `kontra_dsp::OutputLimiter` (#244).
+  Runde 23 (freigegeben): `kontra_dsp::OutputLimiter` (#244).
 
 In `main` seit der ersten Fassung: #237 bis #243 (Kirigami auf Englisch, Flatpak-Lint, „Klinke direkt“ nimmt die
 eingebaute Karte, alter Abgleich geht mit dem Backing-Track, Gehör-Liste begrenzt, Auswertung bleibt beim Wählen
@@ -454,7 +454,7 @@ Hilfe prüfen; dabei: später letzter Ton im Loop zählt für seinen Durchgang, 
   mit Lautsprechern (J-E2), Soak ohne Last, Mithör-Latenz (nach #58), Tastatur/Screenreader am Gerät.
 - **Profilwahl „Keyboard“** erst mit den Tasteninstrumenten nach 1.0.
 
-## Neue pub-Schnittstellen (nächste Runde zur Freigabe)
+## pub-Schnittstellen, in Runde 23 freigegeben
 
 - Audit 14.11.: QML `Main.openPiece` (#351); `kontra_model::{read_note, ReadNote}` (#354);
   `KorpusSet::{requirement_misses, IDLE_MAX_PER_MINUTE}` (#356).

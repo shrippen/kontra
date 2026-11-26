@@ -74,7 +74,8 @@ and that session hands no driver name on.
 | An exercise kind | `crates/content/src/exercise.rs` and `exercise/`; `appcore/src/bundled.rs`; `ExercisePage.qml`; texts; regenerate `testdata/exercises` (`kontra-cli exercises <dir>`). |
 | A built-in effect | `model/src/fx.rs` (kind, defaults); `dsp/src/fx.rs` (sound); `engine/src/plugin_group.rs` (group); `appcore/src/effects.rs` (key, order); texts `fx.kind.*`, `fx.value.*`. |
 | A CLI command | `cli/src/args.rs` (`Command`), `cli/src/main.rs` (dispatch), a file of its own in `cli/src/`; the work itself is a session function. |
-| A device, file or web access | The access in `crates/drivers`; engine uses it; session offers a function of its own; `appcore` and `cli` call only that. |
+| A device, audio file or web access | The access in `crates/drivers`; engine uses it; session offers a function of its own; `appcore` and `cli` call only that. |
+| A file of a piece, package or lesson format | `crates/content` reads and writes it; session offers it to `appcore` and `cli`. |
 | A detection or signal step | `crates/dsp` (no I/O), wired in `engine/src/input/`; measured with `kontra-cli korpus measure` against `testdata/korpus/`. |
 
 A change that needs more places than listed is a finding for the audit.
@@ -91,5 +92,8 @@ A change that needs more places than listed is a finding for the audit.
   `MemoryStore`. The rest are mostly the corpus tools the CLI uses. The plugin host's data types
   (`PluginInfo`, `PluginFormat`) live in `crates/drivers/src/plugins.rs`, not in `model`.
   `AUDIT.md` finding 10.
+- `appcore` reads and writes score and audio files itself where content should: opening and
+  unpacking a package (`crates/appcore/src/package.rs`), writing a generated exercise's MIDI
+  (`bundled.rs`); session writes course media and packages (`crates/session/src/courses.rs`).
 - QML compares fixed choices with literal texts (`ctl.mode === "workshop"`), so a practice mode
   or style needs more QML places than listed. Kept by the owner (round 23). `AUDIT.md` finding 6.
