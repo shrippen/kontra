@@ -93,9 +93,7 @@ fn other_extensions_need_no_look_inside() {
 }
 
 #[test]
-fn a_missing_file_is_none() {
-    assert_eq!(
-        FileKind::of_file(&PathBuf::from("/nonexistent/a.xml")),
-        None
-    );
+fn an_unreadable_file_counts_by_its_extension() {
+    let missing = PathBuf::from("/nonexistent/a.xml");
+    assert_eq!(FileKind::of_file(&missing), Some(FileKind::MusicXml));
 }

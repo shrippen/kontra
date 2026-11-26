@@ -5,8 +5,9 @@
 //!   link, unlink, page opens ──► thread: walk each folder ──► tick ──► found, changed
 //!   a folder gone or unreadable ──► marked missing, no error
 //!
-//! Only file names are read here; title, artist and tempo are read behind the walk by a second
-//! thread (`meta`), since parsing every file of a large folder costs seconds.
+//! Only file names are read here, plus the first 4 KB of each `.xml` (is it MusicXML?); title,
+//! artist and tempo are read behind the walk by a second thread (`meta`), since parsing every
+//! file of a large folder costs seconds.
 
 mod meta;
 

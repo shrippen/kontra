@@ -27,10 +27,7 @@ Offen:
 - Kleinigkeiten aus #370: `--mode`/`--view` werden beim Start zweimal geprüft (`bridge/start.rs`), ein ungültiger
   Wert meldet sich doppelt; `appcore/src/choices.rs` (Auswahlen) steht neben `choice.rs` (Eingabegerät).
 - `Main.openPiece` und `Main.openNext` haben keinen Test ihrer Bedingung (Wechsel zur Bibliothek bei Spurfrage).
-- `.xml`: Verknüpfte Ordner und Quellenliste schließen reine XML-Dateien aus (`PLAIN_XML`), Ordner-Import und Dialog
-  nehmen sie.
-  `session/src/sources.rs::recent_scores` prüft Endungen noch selbst statt über `openable_extensions`.
-- Plugin-Zwischenspeicher (`fx_plugins.rs`) und Quiz-Statistik (`quizzing.rs`) verwerfen Speicherfehler weiter still.
+- Der Lauf durch verknüpfte Ordner liest jedes `.xml` bei jedem Lauf neu an (kein mtime-Zwischenspeicher): bekannte Kosten.
 - Kleinigkeit aus #367: fehlen Stück und Eingangsgerät zugleich, nennt `relayout` nur den Fehler des Stimmgeräts.
 - Kleinigkeit aus #369: der Alias-Parser des Schichtentests übersieht `use kontra_engine::{x as y}` und
   `use kontra_engine as e` (heute nicht im Code).

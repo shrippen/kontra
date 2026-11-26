@@ -107,7 +107,7 @@ impl FileKind {
 
     /// Kind of the file at `path` as far as a folder walk needs it: by extension, but a plain
     /// `.xml` only if its start says MusicXML (most XML files are not). Reads at most
-    /// `XML_SNIFF` bytes; `None` for other files and files that cannot be read.
+    /// `XML_SNIFF` bytes; a file that cannot be read counts by its extension.
     pub fn of_file(path: &Path) -> Option<FileKind> {
         let extension = path.extension()?.to_str()?;
         let kind = Self::from_extension(extension)?;
@@ -115,11 +115,12 @@ impl FileKind {
             return Some(kind);
         }
         let mut head = Vec::new();
-        std::fs::File::open(path)
-            .ok()?
-            .take(XML_SNIFF as u64)
-            .read_to_end(&mut head)
-            .ok()?;
+        // Unreadable: the extension decides, so the import names the file and the reason.
+        let read = std::fs::File::open(path)
+            .and_then(|file| file.take(XML_SNIFF as u64).read_to_end(&mut head));
+        if read.is_err() {
+            return Some(kind);
+        }
         has_musicxml_root(&head).then_some(kind)
     }
 
