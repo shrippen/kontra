@@ -31,9 +31,13 @@ KanteDialog {
     property var providers: []
     // No model chosen and the provider has no default of its own: nothing to ask.
     readonly property bool modelMissing: {
-        if (ctl.llmModel !== "") return false
+        if (ctl.llmModel !== "") {
+            return false
+        }
         for (var i = 0; i < providers.length; i++) {
-            if (providers[i].id === ctl.llmProvider) return providers[i].defaultModel === ""
+            if (providers[i].id === ctl.llmProvider) {
+                return providers[i].defaultModel === ""
+            }
         }
         return true
     }
@@ -44,7 +48,9 @@ KanteDialog {
         hasProvider = false
         providers = JSON.parse(ctl.llmProvidersJson())
         var chosen = providers.some(function(p) { return p.id === ctl.llmProvider })
-        if (chosen) ctl.llmCheckKey(ctl.llmProvider)
+        if (chosen) {
+            ctl.llmCheckKey(ctl.llmProvider)
+        }
     }
 
     onOpened: {
@@ -80,8 +86,9 @@ KanteDialog {
         }
         function onLlmProviderChanged() { dialog.refreshProvider() }
         function onLlmKeyState(provider, state, ready, text) {
-            if (provider === dialog.ctl.llmProvider)
+            if (provider === dialog.ctl.llmProvider) {
                 dialog.hasProvider = ready
+            }
         }
     }
 
