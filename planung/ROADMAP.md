@@ -230,8 +230,8 @@ Win1 Rust-Kern ─► Win2 Audio/MIDI ─► Win3 Qt-App ─► Win4 Pfade/Diens
 
 - Geräteliste (Audit Fund 10, Rest): Die Treiber dürfen `model` benutzen; die Gerätebeschreibungen ziehen dorthin,
   die Session bekommt eigene Gerätefunktionen (Änderung der Schichten in `ARCHITECTURE.md` und im Test). Erledigt: #376.
-- Die 44 Namen der Engine, die die Session weiterreicht: alle kapseln, auch für die CLI. Erledigt bis auf die 29
-  Korpus-Werkzeuge der CLI: #377.
+- Die 44 Namen der Engine, die die Session weiterreicht: alle kapseln, auch für die CLI. Zum Teil erledigt (#377); offen:
+  die 29 Korpus-Werkzeuge der CLI und Typen in Signaturen (`planung/STAND.md`).
 - Feste Werte in QML (Fund 6, Rest): so lassen.
 - Reine `.xml`: überall prüfen, ob die Datei MusicXML ist, und nur dann nehmen. Erledigt: #375.
 - Speicherfehler: Quiz-Statistik und Plugin-Liste melden sie wie Bibliothek und Einstellungen. Erledigt: #375.

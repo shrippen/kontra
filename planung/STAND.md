@@ -5,7 +5,7 @@ nur, was offen ist und wo es liegt.
 
 ## Übergabe (26.11.2026: Runde 23 umgesetzt)
 
-Eigentümer: Runde 23 beantwortet, „diese Runde umsetzen, dann eine QA-Runde mit allen Personas“. In `main`: #364–#370
+Eigentümer: Runde 23 beantwortet, „diese Runde umsetzen, dann eine QA-Runde mit allen Personas“. In `main`: #364–#371
 (Übergabe, Audit Welle 3, Reste der Reviews), #372 (Antworten Runde 23), #373 (`ARCHITECTURE.md`, Soll-Aufbau; vom
 Eigentümer bestätigt), #374 (Kleinigkeiten der Reviews, `PieceOpener.qml`), #375 (`.xml` nur, wenn MusicXML;
 Speicherfehler von Quiz, Gehörstatistik und Plugin-Liste werden gemeldet), #376 (Gerätetypen in `model`), #377 (Session
@@ -20,17 +20,16 @@ Offen:
   (Eigentümer muss sie starten). Höchstens drei Personas je Runde; zuerst Probelauf mit P1 und drei Aufgaben. P8 nur
   in der Windows-VM, Freigabe offen. Fenster mindestens 1296×792: `--size 1366x800`.
 - Fund 10, Rest: 29 Korpus-Werkzeuge der CLI (`ENGINE_NAMES_PASSED_ON`) kapseln; Engine-Typen in Signaturen
-  (`Rig::player/clock/poll`, `Practice<O: Output>`), die der Schichtentest nicht sieht.
+  (`Rig::player/clock/poll`, `Practice<O: Output>`, `recent_scores` mit `RecentFile` aus drivers), die der
+  Schichtentest nicht sieht.
 - Flackernde Tests unter Last (Wanduhr): `c4_ear::notes_during_the_prompt_do_not_count`,
   `learn::tests::the_course_is_read_once_for_the_page`.
 - Der Lauf durch verknüpfte Ordner prüft jedes `.xml` bei jedem Lauf neu (bis 4 KB, kein mtime-Zwischenspeicher).
 - LH-NF-15: `hum-line` hat nur 2 ms Reserve (Raster 10,7 ms im Korpus); Nachkorrekturen der Tonhöhe synthetisch
   +33 % (echte Aufnahmen unverändert). Am Bass nicht gespielt.
-- Kleinigkeit aus #369: der Alias-Parser des Schichtentests übersieht `use kontra_engine::{x as y}`.
-- `Main.openPiece`/`openNext`: Bedingung (Wechsel zur Bibliothek bei Spurfrage) ohne Test.
 - Neue `pub` zur Freigabe in der nächsten Runde (#374–#380): QML `PieceOpener` (`ctl`, `current`, `showRequested`,
-  `openPiece`, `openNext`, `trackToChoose`); `FileKind::of_file`; `kontra_model::device::*` (`DeviceInfo`,
-  `Connection`, `Direction`, `MidiPort`, `Priority`, `NULL_DEVICE`), `kontra_session::{list_devices,
+  `openPiece`, `openNext`, `trackToChoose`); `FileKind::of_file`; `kontra_model::{DeviceInfo,
+  Connection, Direction, MidiPort, Priority, NULL_DEVICE}`, `kontra_session::{list_devices,
   list_midi_inputs, audio_priority}`; nach `kontra_model` verschoben: `Shaping` (`clamped`), `Limit` (`amount`),
   `SHAPING_RANGE_DB`, `PluginFormat`, `PortLayout`, `PluginInfo`, `ParamInfo`, `ScanReport`, `BrokenFile`,
   `ProbeCommand`, `PluginGroup`, `group_of_effect`, `group_of_plugin`, `BeatGrid`, `Http`, `HttpError`,
