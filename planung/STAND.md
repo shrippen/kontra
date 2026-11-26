@@ -3,42 +3,42 @@
 Übergabe zwischen Sitzungen. Stand: 2026-11-26. Was erledigt ist, steht in Lastenheft und Roadmap; hier steht
 nur, was offen ist und wo es liegt.
 
-## Übergabe (25./26.11.2026: Audit Welle 3, Reste aus den Reviews)
+## Übergabe (26.11.2026: Runde 23 umgesetzt)
 
-Eigentümer: „setze 1, 2 und 3 um“ (Übergabe in `main`, Welle 3 des Audits, offene Punkte aus den Reviews). In `main`:
-#364 (Übergabe Welle 1/2), #365 (Fund 10a: Schichtenzeichnung in `agent.md` nach `tests/physical_design.rs`, neue
-Regel zu `pub use`; vom Eigentümer bestätigt), #366 (Fund 9: `appcore/src/lib.rs` 2812 → 1887 Zeilen, Themen-Dateien
-`ear_training`, `quizzing`, `backing`, `loops`, `density`, `chain`), #367 (Sicherung „Ersetzen“ legt Stück und
-Stimmgerät neu aus, `Core::relayout`; Hinweise als Warteschlange, alle wartenden in einer Meldung, die Meldung einer
-Sicherung trägt ihre Hinweise), #368 (Dialog „Datei öffnen“ aus `FileKind::EXTENSIONS`, „Nächstes Stück“ über
-`Main.openNext()` mit Spurfrage, `korpus check` nennt die Gründe), #369 (Fund 10b: Session reicht Plugins,
-Schlüsselbund, Web und Stem-Trenner nicht mehr durch, `plugin_host`, `external`; 29 ungenutzte Re-Exports weg; Test
-`session_hides_the_drivers`), #370 (Fund 6: feste Auswahlen als Aufzählungstypen, Trait `Choice`, `ctl.choicesJson()`).
+Eigentümer: Runde 23 beantwortet, „diese Runde umsetzen, dann eine QA-Runde mit allen Personas“. In `main`: #364–#370
+(Übergabe, Audit Welle 3, Reste der Reviews), #372 (Antworten Runde 23), #373 (`ARCHITECTURE.md`, Soll-Aufbau; vom
+Eigentümer bestätigt), #374 (Kleinigkeiten der Reviews, `PieceOpener.qml`), #375 (`.xml` nur, wenn MusicXML;
+Speicherfehler von Quiz, Gehörstatistik und Plugin-Liste werden gemeldet), #376 (Gerätetypen in `model`), #377 (Session
+kapselt Engine- und Treibernamen), #379 (LH-NF-15: 70 ms ab E1 auch für `line-5` und `hum-line`), #380 (QA-Werkzeug:
+`qa-session.sh start/stop`, `qactl.py shot/click/key/type/drag/hover`, `actions.log`).
 
 Offen:
-- Fund 10, Rest (Liste `DRIVER_NAMES_PASSED_ON`, 16 Namen): Geräteliste (`list_devices`, `list_midi_inputs`,
-  `audio_priority`; 17 Stellen in appcore, `audio_priority` nur in der CLI), ihre Datentypen (`DeviceInfo`, `Connection`, `Direction`,
-  `MidiPort`, `Priority`, `NULL_DEVICE`), die Datentypen des Plugin-Hosts, Fehlertypen und die Test-Nähte `Http`,
-  `SecretStore`, `MemoryStore`. Runde 23: `drivers` darf `model` nutzen, die Gerätetypen ziehen dorthin; alle Engine-Namen
-  werden gekapselt. Die Session reicht außerdem 44 weitere Namen der Engine weiter (meist
-  Korpus-Werkzeuge der CLI).
-- Fund 6, Rest: QML vergleicht an einigen Stellen mit Literalen (`ctl.mode === "workshop"`, `"kante-light"`);
-  `KanteStyle.stringPalettes` hat eine eigene Liste (nur in Kante änderbar). `llm_provider` und `Run.mode` bleiben Text.
-- Kleinigkeiten aus #370: `--mode`/`--view` werden beim Start zweimal geprüft (`bridge/start.rs`), ein ungültiger
-  Wert meldet sich doppelt; `appcore/src/choices.rs` (Auswahlen) steht neben `input_choice.rs` (Eingabegerät).
-- `Main.openPiece` und `Main.openNext` haben keinen Test ihrer Bedingung (Wechsel zur Bibliothek bei Spurfrage).
-- Der Lauf durch verknüpfte Ordner liest jedes `.xml` bei jedem Lauf neu an (kein mtime-Zwischenspeicher): bekannte Kosten.
-- Kleinigkeit aus #367: fehlen Stück und Eingangsgerät zugleich, nennt `relayout` nur den Fehler des Stimmgeräts.
-- Kleinigkeit aus #369: der Alias-Parser des Schichtentests übersieht `use kontra_engine::{x as y}` und
-  `use kontra_engine as e` (heute nicht im Code).
-- In Runde 23 freigegeben (mit den älteren Listen in dieser Datei): `Core::relayout`, `Core::with_notices` (`pub(crate)`); `FileKind::EXTENSIONS`,
-  `kontra_session::openable_extensions`, `Core::open_filter`, QML `openFilter()`, `Main.openNext()`;
-  `kontra_session::plugin_host` (`installed`, `search_dirs`, `probe_answer`, `probe_here`, `scan`, `settle`,
-  `crashed`, `clear_crash`), `kontra_session::external` (`web`, `web_from_file`, `keychain`),
-  `BassRemoval::with_program`; `kontra_session::{Choice, or_default}`, `kontra_appcore::choices::*`,
-  `Core::{pick, pick_opt, choices_json}`, QML `ctl.choicesJson()`; aus #366 zehn `pub(crate)` (`advise_level`,
-  `ear_heard`, `score_text`, `backing`, `backing_original`, `rethin`, `loop_to`, `loop_range`, `density_hint`,
-  `chain_pass`).
+- #378 („Bass hören“ im Gehörtraining, LH-EIN-18): Review ohne offenen Code-Fund; das **Wichtig** ist die Messung
+  am Scarlett (Latenz, Xruns, Hörprobe J-A5 Schritt 5). Nachts messen (Runde 22/23 freigegeben), Werte in den PR,
+  Abschlussrunde, mergen. Worktree `~/.cache/claude/kontra-wt/ear-bass` ist entfernt; Branch `ear-bass` auf Gitea.
+- QA-Runde mit allen Personas (Skill `qa-personas`): Die Tester starten aus einer Sitzung in `~/Hacking/eigene`
+  (Eigentümer muss sie starten). Höchstens drei Personas je Runde; zuerst Probelauf mit P1 und drei Aufgaben. P8 nur
+  in der Windows-VM, Freigabe offen. Fenster mindestens 1296×792: `--size 1366x800`.
+- Fund 10, Rest: 29 Korpus-Werkzeuge der CLI (`ENGINE_NAMES_PASSED_ON`) kapseln; Engine-Typen in Signaturen
+  (`Rig::player/clock/poll`, `Practice<O: Output>`), die der Schichtentest nicht sieht.
+- Flackernde Tests unter Last (Wanduhr): `c4_ear::notes_during_the_prompt_do_not_count`,
+  `learn::tests::the_course_is_read_once_for_the_page`.
+- Der Lauf durch verknüpfte Ordner prüft jedes `.xml` bei jedem Lauf neu (bis 4 KB, kein mtime-Zwischenspeicher).
+- LH-NF-15: `hum-line` hat nur 2 ms Reserve (Raster 10,7 ms im Korpus); Nachkorrekturen der Tonhöhe synthetisch
+  +33 % (echte Aufnahmen unverändert). Am Bass nicht gespielt.
+- Kleinigkeit aus #369: der Alias-Parser des Schichtentests übersieht `use kontra_engine::{x as y}`.
+- `Main.openPiece`/`openNext`: Bedingung (Wechsel zur Bibliothek bei Spurfrage) ohne Test.
+- Neue `pub` zur Freigabe in der nächsten Runde (#374–#380): QML `PieceOpener` (`ctl`, `current`, `showRequested`,
+  `openPiece`, `openNext`, `trackToChoose`); `FileKind::of_file`; `kontra_model::device::*` (`DeviceInfo`,
+  `Connection`, `Direction`, `MidiPort`, `Priority`, `NULL_DEVICE`), `kontra_session::{list_devices,
+  list_midi_inputs, audio_priority}`; nach `kontra_model` verschoben: `Shaping` (`clamped`), `Limit` (`amount`),
+  `SHAPING_RANGE_DB`, `PluginFormat`, `PortLayout`, `PluginInfo`, `ParamInfo`, `ScanReport`, `BrokenFile`,
+  `ProbeCommand`, `PluginGroup`, `group_of_effect`, `group_of_plugin`, `BeatGrid`, `Http`, `HttpError`,
+  `HTTP_TIMEOUT`, `SecretStore`, `SecretError`, `MemoryStore`, `SeparatorError`; Session `Gains`, `PluginBank`
+  (`new`, `with_rack`, `with_crash_marker`), `PluginRack`, `PluginProblems` (`get`, `note`, `clear`, `revision`),
+  `PendingSpec` (`poll`, `info`), `describe_plugin_later`, `BackingTrack::load`, `beat_grid`, `EngineError`,
+  `PluginError`, `PluginReport`, `inspect`, `render_file`. `pub(crate)`: `live::signed`, `tell_save`,
+  `BackingTrack::{save, with_bass_of, interleaved}`, `Core::ear_mix` (#378).
 
 ## Übergabe (14.11.2026, Abend: Code-Audit und Behebung)
 
@@ -164,7 +164,7 @@ Offen:
   ohne hörbare Lücke (gemessen: Ausgang läuft durch, Übergabe 2,1–2,3 ms, 0 Xruns).
 - In Runde 23 freigegeben: die neuen `pub` aus #285 bis #290 (`Player::rebase`, `Input::rebase`, `Event::Rebased`,
   `Rig` samt `RigOutput`, `OnOutputError`, `InputTap`, `on`/`into_rig` der Modi, `Practice::into_output`) und die
-  Frage, ob das Gehörtraining den Bass bei „Bass hören“ durchlässt (heute nicht, LH-EIN-18).
+  Frage zum Gehörtraining mit „Bass hören“: Runde 23 entschieden, umgesetzt in #378.
 - Der Loopback öffnet weiter eigene Geräte (seine Aufnahme hängt am ersten Sample).
 - Hardware-Prüfungen mit `kontra-cli check` immer mit `--input`/`--output` des Scarletts: der Systemstandard für
   die Ausgabe ist die eingebaute Karte (IEC958).
