@@ -5,6 +5,7 @@ use kontra_model::Judging;
 use kontra_session::{NoteResult, OutsideNote};
 
 mod coaching;
+mod ear_bass;
 mod exercises;
 mod folder_import;
 mod fx_plugins;

@@ -12,7 +12,7 @@
 //! at the next tick, or close where it holds nothing (`tick_standby`). The loopback opens its
 //! own devices.
 
-use crate::mixer::{ear_gains, gains};
+use crate::mixer::gains;
 use crate::Core;
 use kontra_model::{Arrangement, InputSource, Instrument};
 use kontra_session::{
@@ -71,7 +71,7 @@ impl Core {
         setup: &LiveSetup,
         instrument: &Instrument,
     ) -> Result<LiveEar, String> {
-        let gains = ear_gains(&self.settings, &self.plugins);
+        let gains = self.ear_mix();
         let mut ear = match self.take_rig(setup) {
             Some(rig) => LiveEar::on(rig, setup, instrument, gains.clone()),
             None => LiveEar::start(setup, instrument)

@@ -47,6 +47,18 @@ pub(crate) fn ear_gains(settings: &Settings, plugins: &Plugins) -> Gains {
 }
 
 impl crate::Core {
+    /// The prompt volume, and the bass only where the tuner passes it too (LH-EIN-18).
+    pub(crate) fn ear_mix(&self) -> Gains {
+        let gains = ear_gains(&self.settings, &self.plugins);
+        if self.tuner_monitor().is_some() {
+            return gains;
+        }
+        Gains {
+            monitor: 0.0,
+            ..gains
+        }
+    }
+
     /// Changes the mixer (volumes, monitoring) and saves; a running practice hears it at once.
     /// Returns a hint when monitoring is on but cannot work.
     pub fn remix(&mut self, change: impl FnOnce(&mut Settings)) -> Option<String> {
@@ -57,8 +69,9 @@ impl crate::Core {
         if let Some(live) = self.live.as_mut() {
             live.practice_mut().set_gains(gains);
         }
+        let ear_mix = self.ear_mix();
         if let Some(live_ear) = self.live_ear.as_mut() {
-            live_ear.set_gains(ear_gains(&self.settings, &self.plugins));
+            live_ear.set_gains(ear_mix);
         }
         self.remix_standby();
         // The tuner's output opens or closes with "Bass hören" (only on a cable input); on

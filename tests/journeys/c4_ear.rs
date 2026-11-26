@@ -13,7 +13,18 @@ const LEAD_IN_S: f64 = 0.3;
 
 #[test]
 fn notes_during_the_prompt_do_not_count() {
-    let profile = Profile::new("c4");
+    prompt_round("c4", false);
+}
+
+/// The same with "Bass hören" on: the bass passes through the output (LH-EIN-18) and still
+/// does not answer before the prompt ended.
+#[test]
+fn notes_during_the_prompt_do_not_count_with_the_bass_heard() {
+    prompt_round("c4-monitor", true);
+}
+
+fn prompt_round(name: &str, monitor: bool) {
+    let profile = Profile::new(name);
     let take = profile.dir.join("gehoer.wav");
     // A1 during the prompt, D2 after it (beat 4 at 120 BPM). Only D2 may be judged.
     let mut a = Arrangement::new("Antwort", Instrument::default_bass());
@@ -30,6 +41,7 @@ fn notes_during_the_prompt_do_not_count() {
     kontra_session::write_mono_wav(&take, &samples, RATE).unwrap();
 
     let mut core = profile.core(Some(&take));
+    core.update_settings(|s| s.monitor = monitor);
     let first: serde_json::Value = serde_json::from_str(&core.ear_start("echo").unwrap()).unwrap();
     assert_eq!(first["total"], 1, "starts with one note");
     assert_eq!(first["prompting"], true);

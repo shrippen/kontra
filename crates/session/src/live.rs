@@ -566,7 +566,7 @@ const PROMPT_TAIL_S: f64 = 0.1;
 /// ```
 #[derive(Debug)]
 pub struct LiveEar {
-    /// Its output plays the prompts; the bass is not heard through it (`quiet`).
+    /// Its output plays the prompts and, as the gains say, the bass (LH-EIN-18).
     rig: Rig,
     a4_hz: f64,
     /// Engine time from which notes count as answers.
@@ -599,9 +599,9 @@ impl LiveEar {
         Ok(LiveEar::with(rig, setup, instrument))
     }
 
-    /// Ear training on the devices of `rig`, its prompts at `gains`.
+    /// Ear training on the devices of `rig`, its prompts and bass at `gains`.
     pub fn on(mut rig: Rig, setup: &LiveSetup, instrument: &Instrument, gains: Gains) -> LiveEar {
-        rig.attach(instrument, quiet(gains));
+        rig.attach(instrument, gains);
         LiveEar::with(rig, setup, instrument)
     }
 
@@ -622,7 +622,7 @@ impl LiveEar {
     }
 
     pub fn set_gains(&mut self, gains: Gains) {
-        self.rig.output().set_gains(quiet(gains).into());
+        self.rig.output().set_gains(gains.into());
     }
 
     /// Plays `tones` now (replacing a prompt still sounding); returns its length in seconds.
@@ -713,8 +713,8 @@ fn open_rig(setup: &LiveSetup, instrument: &Instrument, gains: Gains) -> Result<
     )
 }
 
-/// `gains` without the bass: ear training and calibration play only their own sounds (the
-/// bass through the output would ring into the answers and plucks; LH-EIN-18).
+/// `gains` without the bass: calibration plays only its own sounds (the bass through the
+/// output would ring into the plucks; LH-EIN-18). Ear training lets its caller decide.
 fn quiet(gains: Gains) -> Gains {
     Gains {
         monitor: 0.0,
