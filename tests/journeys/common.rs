@@ -6,7 +6,7 @@ use kontra_model::{Arrangement, Instrument, Note, Pitch, TempoMap, TICKS_PER_QUA
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-/// The engine's timer output instead of a sound card (`kontra_engine::NULL_DEVICE`).
+/// The engine's timer output instead of a sound card (`kontra_model::NULL_DEVICE`).
 const SILENT_OUTPUT: &str = "kontra:null";
 
 pub const RATE: u32 = 48_000;

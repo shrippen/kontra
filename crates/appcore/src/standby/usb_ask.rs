@@ -13,7 +13,8 @@
 
 use crate::store::UsbRole;
 use crate::{Core, UiEvent};
-use kontra_session::{list_devices, Connection, DeviceInfo, Direction};
+use kontra_model::{Connection, DeviceInfo, Direction};
+use kontra_session::list_devices;
 use serde_json::json;
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};

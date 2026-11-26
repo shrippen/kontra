@@ -9,9 +9,8 @@
 //! ```
 
 use crate::{Core, UiEvent};
-use kontra_session::{
-    list_devices, DeviceInfo, Direction, EngineError, InputChoice, PracticeEvent,
-};
+use kontra_model::{DeviceInfo, Direction};
+use kontra_session::{list_devices, EngineError, InputChoice, PracticeEvent};
 use std::path::PathBuf;
 
 /// Options for QA runs (planung/QA.md): a recording instead of the audio input.
@@ -342,7 +341,7 @@ mod tests {
             name: id.into(),
             direction: Direction::Input,
             is_default,
-            connection: kontra_session::Connection::Usb,
+            connection: kontra_model::Connection::Usb,
             sample_rate: 48_000,
             channels: 2,
             past_pipewire: false,

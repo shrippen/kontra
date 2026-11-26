@@ -14,15 +14,12 @@ mod separator;
 mod urls;
 
 pub use audio::{
-    audio_priority, list_devices, monitor_rate, AudioError, Connection, DeviceInfo, Direction,
-    InputStream, OutputStream, Priority, StreamConfig, NULL_DEVICE,
+    audio_priority, list_devices, monitor_rate, AudioError, InputStream, OutputStream, StreamConfig,
 };
 pub use file::{read_audio, write_wav, AudioBuffer, FileError};
 pub use folder::{cache_dir_of, data_dir_of, download_dir, recent_files, RecentFile};
 pub use http::{FileHttp, Http, HttpError, Web};
-pub use midi::{
-    list_midi_inputs, open_midi, read_midi_notes, MidiConnection, MidiError, MidiNote, MidiPort,
-};
+pub use midi::{list_midi_inputs, open_midi, read_midi_notes, MidiConnection, MidiError, MidiNote};
 pub use secrets::{Keychain, MemoryStore, SecretError, SecretStore};
 pub use separator::{find_separator, in_sandbox, SeparationJob, Separator, SeparatorError};
 pub use urls::{file_url, local_path};

@@ -75,7 +75,7 @@ crates/content/tests/common/mod.rs	-	lines=995
 crates/content/tests/common/mod.rs	gp5	ccn=24 length=118
 crates/content/tests/common/mod.rs	musicxml	length=230
 crates/content/tests/common/mod.rs	write_beat	ccn=16
-crates/drivers/src/audio.rs	-	lines=1166
+crates/drivers/src/audio.rs	-	lines=1121
 crates/drivers/src/pipewire.rs	read	ccn=17 length=87
 crates/drivers/src/plugins/clap.rs	block	length=88
 crates/drivers/src/plugins/clap.rs	open	length=89
@@ -98,7 +98,7 @@ crates/engine/src/player.rs	start	length=99
 crates/engine/src/plugin_chain.rs	-	lines=833
 crates/engine/tests/plugin_chain.rs	-	lines=951
 crates/session/src/check.rs	check_takes	length=89
-crates/session/src/live.rs	-	lines=1062
+crates/session/src/live.rs	-	lines=1060
 crates/session/src/matcher.rs	score	ccn=17
 crates/session/src/practice.rs	-	lines=1179
 crates/session/src/practice.rs	handle	ccn=16

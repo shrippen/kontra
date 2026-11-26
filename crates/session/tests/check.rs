@@ -1,12 +1,13 @@
 //! Hardware checks (round 10) through a real-time input: a loopback take measures how late the
 //! planned tones come back, and the take keeps the audio in step with the plan.
 
+use kontra_model::NULL_DEVICE;
 use kontra_model::{
     Arrangement, InputSource, Instrument, Note, Pitch, TempoMap, TICKS_PER_QUARTER,
 };
 use kontra_session::{
     loopback_length_s, loopback_plan, render_performance, round_trip, tone_delays_s,
-    write_mono_wav, InputChoice, LiveSetup, LiveTake, Mistakes, LOOPBACK_TONES, NULL_DEVICE,
+    write_mono_wav, InputChoice, LiveSetup, LiveTake, Mistakes, LOOPBACK_TONES,
 };
 use std::time::Duration;
 

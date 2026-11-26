@@ -21,6 +21,7 @@ mod check;
 mod choice;
 mod courses;
 mod density;
+mod devices;
 mod expected;
 pub mod external;
 mod improv;
@@ -60,6 +61,7 @@ pub use check::{
 pub use choice::{or_default, Choice};
 pub use courses::{CourseError, CourseFetch, CourseStore};
 pub use density::Density;
+pub use devices::{audio_priority, list_devices, list_midi_inputs};
 
 pub use improv::{fit, Improvisation};
 pub use kontra_engine::{

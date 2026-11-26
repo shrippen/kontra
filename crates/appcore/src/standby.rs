@@ -12,8 +12,9 @@
 
 use crate::mixer::gains;
 use crate::{chosen_input, Core, InputKind, Settings};
+use kontra_model::DeviceInfo;
 use kontra_model::InputSource;
-use kontra_session::{DeviceInfo, InputChoice, LiveMonitor, LiveSetup, TunerMonitor};
+use kontra_session::{InputChoice, LiveMonitor, LiveSetup, TunerMonitor};
 use std::time::{Duration, Instant};
 
 mod usb_ask;
@@ -555,7 +556,7 @@ mod device_change {
 mod which_input {
     use super::standby_input;
     use crate::InputKind;
-    use kontra_session::{Connection, DeviceInfo, Direction};
+    use kontra_model::{Connection, DeviceInfo, Direction};
 
     fn device(id: &str, connection: Connection, is_default: bool) -> DeviceInfo {
         DeviceInfo {

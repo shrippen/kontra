@@ -8,7 +8,8 @@
 //! ```
 
 use crate::{Core, UiEvent};
-use kontra_session::{list_devices, DeviceInfo, Direction, InputChoice};
+use kontra_model::{DeviceInfo, Direction};
+use kontra_session::{list_devices, InputChoice};
 use std::time::{Duration, Instant};
 
 const POLL: Duration = Duration::from_secs(2);
@@ -123,7 +124,7 @@ impl Core {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kontra_session::Connection;
+    use kontra_model::Connection;
 
     fn device(id: &str, is_default: bool) -> DeviceInfo {
         DeviceInfo {

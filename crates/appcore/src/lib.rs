@@ -74,12 +74,12 @@ pub use store::{
 
 use input_choice::{chosen_input, chosen_output, preferred_input};
 use input_state::{InputUse, Unstarted};
+use kontra_model::Direction;
 use kontra_model::{Arrangement, InputSource, InstrumentKind, Technique, Tuning};
 use kontra_session::{
-    import_file, list_devices, Chain, Direction, ImportResult, InputChoice, Live, LiveCalibration,
-    LiveEar, LiveError, LiveLoopback, LiveSetup, LiveTuner, LoopRange, Mode, Outcome,
-    PracticeEvent, PracticeOptions, ProgressStore, Run, ScoreSettings, SessionEvent,
-    TechniqueOutcome, Workshop,
+    import_file, list_devices, Chain, ImportResult, InputChoice, Live, LiveCalibration, LiveEar,
+    LiveError, LiveLoopback, LiveSetup, LiveTuner, LoopRange, Mode, Outcome, PracticeEvent,
+    PracticeOptions, ProgressStore, Run, ScoreSettings, SessionEvent, TechniqueOutcome, Workshop,
 };
 use mixer::gains;
 use notation::key_at;
@@ -1311,7 +1311,7 @@ impl Core {
     }
 
     /// The MIDI input to use: the chosen device if connected, else the first (LH-EIN-12).
-    fn midi_port(&self) -> Option<kontra_session::MidiPort> {
+    fn midi_port(&self) -> Option<kontra_model::MidiPort> {
         let ports = kontra_session::list_midi_inputs();
         let (index, _) = pick_midi(&ports, self.settings.midi_port.as_deref());
         index.and_then(|i| ports.into_iter().nth(i))
@@ -1354,7 +1354,7 @@ impl Core {
     /// The chosen output if it is there, else the system default.
     fn output_device(&self) -> Option<String> {
         let saved = self.settings.output_device.as_deref()?;
-        if saved == kontra_session::NULL_DEVICE {
+        if saved == kontra_model::NULL_DEVICE {
             return Some(saved.to_string());
         }
         chosen_output(Some(saved), &list_devices(Direction::Output))
@@ -1714,7 +1714,7 @@ enum MidiChoice {
 /// Index of the MIDI port to use: the one named `chosen`, else the first. Settings from before
 /// held the port id ("20:0"); it still finds its port.
 fn pick_midi(
-    ports: &[kontra_session::MidiPort],
+    ports: &[kontra_model::MidiPort],
     chosen: Option<&str>,
 ) -> (Option<usize>, MidiChoice) {
     let first = (!ports.is_empty()).then_some(0);

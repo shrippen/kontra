@@ -8,6 +8,7 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+kontra-model.workspace = true
 thiserror.workspace = true
 # Plugin lists between the scan and its probe processes (MIT/Apache-2.0; already in the tree).
 serde.workspace = true

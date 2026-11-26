@@ -332,7 +332,7 @@ mod tests {
     use crate::monitor::LiveMonitor;
     use crate::practice::PracticeEvent;
     use crate::{Mode, PracticeOptions, ScoreSettings};
-    use kontra_engine::Direction;
+    use kontra_model::Direction;
     use kontra_model::{Arrangement, Note, TempoMap, TICKS_PER_QUARTER};
     use kontra_model::{Pitch, A4_HZ};
     use std::path::PathBuf;

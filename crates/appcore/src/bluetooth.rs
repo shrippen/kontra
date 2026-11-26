@@ -5,7 +5,7 @@
 //!   play ──► thread: list outputs ──► bool ──► tick ──► "hint.bluetooth"
 
 use crate::{Core, UiEvent};
-use kontra_session::{Connection, Direction};
+use kontra_model::{Connection, Direction};
 use std::sync::mpsc::{channel, Receiver};
 
 #[derive(Debug, Default)]

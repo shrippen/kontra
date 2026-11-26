@@ -3,9 +3,10 @@
 use crate::args::{ModeArg, PracticeArgs, TuneArgs};
 use crate::{instrument, load_arrangement, print_summary, CliResult};
 use kontra_model::InputSource;
+use kontra_model::NULL_DEVICE;
 use kontra_session::{
     InputChoice, Live, LiveSetup, LiveTuner, LoopRange, Mode, Outcome, PracticeEvent,
-    PracticeOptions, ScoreSettings, SessionEvent, Workshop, NULL_DEVICE,
+    PracticeOptions, ScoreSettings, SessionEvent, Workshop,
 };
 use std::time::{Duration, Instant};
 

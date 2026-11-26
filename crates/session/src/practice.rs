@@ -79,7 +79,7 @@ pub enum PracticeEvent {
         cents: f64,
     },
     /// A device failed: which side, the system's message.
-    Error(kontra_engine::Direction, String),
+    Error(kontra_model::Direction, String),
     /// The device stopped delivering (LH-EIN-15); judging pauses.
     InputStalled,
     /// The device delivers again.

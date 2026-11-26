@@ -9,7 +9,7 @@
 //! ```
 
 use crate::InputKind;
-use kontra_session::{Connection, DeviceInfo};
+use kontra_model::{Connection, DeviceInfo};
 
 /// The saved input if it is listed, else the one that fits the connection `kind` (LH-EIN-02):
 /// an unplugged device or an ALSA id saved before PipeWire means "Automatic", not the system
@@ -28,7 +28,7 @@ pub(crate) fn chosen_input(
 /// The saved output if it is listed (or the engine's timer), else the system default.
 pub(crate) fn chosen_output(saved: Option<&str>, devices: &[DeviceInfo]) -> Option<String> {
     let id = saved?;
-    if id == kontra_session::NULL_DEVICE || devices.iter().any(|d| d.id == id) {
+    if id == kontra_model::NULL_DEVICE || devices.iter().any(|d| d.id == id) {
         return Some(id.to_string());
     }
     None
