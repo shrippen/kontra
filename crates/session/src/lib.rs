@@ -69,11 +69,12 @@ pub use devices::{audio_priority, list_devices, list_midi_inputs};
 
 pub use error::EngineError;
 pub use improv::{fit, Improvisation};
-/// Where an LLM key lives (LH-BIB-16): appcore's layer only, never session's own logic.
 pub use kontra_model::{
-    group_of_effect, group_of_plugin, Http, HttpError, Limit, MemoryStore, PluginGroup,
-    SecretError, SecretStore, SeparatorError, Shaping, SHAPING_RANGE_DB,
+    group_of_effect, group_of_plugin, Http, HttpError, Limit, PluginGroup, SeparatorError, Shaping,
+    SHAPING_RANGE_DB,
 };
+/// Where an LLM key lives (LH-BIB-16): appcore's layer only, never session's own logic.
+pub use kontra_model::{MemoryStore, SecretError, SecretStore};
 pub use learning::{
     lesson, place, positions, Answer, LearnState, LearnStore, Learning, QuestionRef,
 };

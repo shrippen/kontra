@@ -83,7 +83,10 @@ A change that needs more places than listed is a finding for the audit.
 ## Known deviations
 - Session hands the corpus tools of the CLI on unchanged from engine (`KorpusSet`, `Evaluation`,
   `evaluate*`, the tallies; list `ENGINE_NAMES_PASSED_ON` in the layer test): their types keep
-  private counting in engine's corpus code. `AUDIT.md` finding 10.
+  private counting in engine's corpus code. Engine types also leave session through
+  signatures, which the layer test does not see: `Rig::player()`, `Rig::clock()`, `Rig::poll()`
+  (`crates/session/src/rig.rs`), `Practice<O: Output>` and `recent_scores` (the driver type
+  `RecentFile`); the CLI's device check calls the player's `xruns()`. `AUDIT.md` finding 10.
 - The user interfaces and session read and write score, audio and package files themselves
   where content should, for example `crates/appcore/src/package.rs` (export, open, unpack),
   `appcore/src/bundled.rs` (generated exercise MIDI), `crates/cli/src/main.rs` (`exercises`,
@@ -93,6 +96,7 @@ A change that needs more places than listed is a finding for the audit.
   device found") via `crates/appcore/src/calibrate.rs` into `error.audio`.
 - `app` decides things that need no Qt: command line parsing (`crates/app/src/args.rs`), theme
   and style choice from the environment (`crates/app/src/main.rs`), value limits and bus names
-  in the bridge (`crates/app/src/bridge/settings.rs`, `bridge/transport.rs`).
+  in the bridge (`crates/app/src/bridge/settings.rs`), the loop edge names `"start"`/`"end"`
+  (`bridge/transport.rs`).
 - QML compares fixed choices with literal texts (`ctl.mode === "workshop"`), so a practice mode
   or style needs more QML places than listed. Kept by the owner (round 23). `AUDIT.md` finding 6.
