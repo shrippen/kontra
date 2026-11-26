@@ -64,6 +64,27 @@ fn a_failed_quiz_answer_save_is_told() {
 }
 
 #[test]
+fn a_failed_ear_stats_save_is_told() {
+    let dir = temp_dir("save-ear-failed");
+    let mut core = Core::new(&dir, QaOptions::default());
+    let instrument = crate::instrument_from(&core.settings);
+    core.ear = Some(crate::ear::EarQuiz::new(
+        crate::ear::EarKind::Interval,
+        &instrument,
+        Default::default(),
+        1,
+        0,
+    ));
+    block(&dir, "quiz.json");
+
+    core.ear_answer(40.0);
+
+    let notice = core.take_notice().expect("a notice");
+    assert!(notice.contains("quiz.json"), "{notice}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn a_failed_plugin_cache_save_is_told() {
     let dir = temp_dir("save-plugins-failed");
     let mut core = Core::new(&dir, QaOptions::default());
