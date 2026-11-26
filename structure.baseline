@@ -109,7 +109,6 @@ crates/session/src/summary.rs	-	lines=1192
 crates/session/src/summary.rs	observation	length=87
 crates/session/src/summary.rs	one_observation_with_enough_evidence	length=98
 scripts/korpus-import.py	read_midi_notes	ccn=21 nesting=5
-scripts/qactl.py	main	ccn=21
 tests/journeys/b1_song.rs	play_through_a_setlist	length=83
 tests/journeys/c5_techniques.rs	techniques_are_judged_apart_from_the_hit_rate	length=106
 tests/journeys/c6_probe.rs	probe_compares_with_the_workshop	length=81

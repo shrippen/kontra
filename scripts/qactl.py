@@ -3,9 +3,25 @@
 text, check the layout (W3). No coordinates: what a screen reader sees is what QA uses, so a
 widget without a name shows up as a finding too.
 
-Runs inside an isolated session, never against the desktop:
+Runs inside an isolated session, never against the desktop. Two ways in:
 
+    # one shot: the session lives as long as the command
     scripts/qa-session.sh --a11y --input-file take.wav --run "scripts/qactl.py tree"
+
+    # background session for a QA round: <workdir>/qa is this script with the session's
+    # environment (DISPLAY, buses, QA_WORKDIR); see the head of scripts/qa-session.sh
+    scripts/qa-session.sh start W --a11y --input-file take.wav
+    W/qa shot; W/qa click 640 400; W/qa key ctrl+o; W/qa type "hello"; W/qa stop
+
+Every command inside a background session appends a line to <workdir>/actions.log:
+`time<TAB>command<TAB>arguments<TAB>shot-<nr>` (the last picture taken so far, "-" before one).
+The screen commands need DISPLAY of the session and refuse to run on a Wayland desktop.
+
+    qactl.py shot                               PNG of the whole X screen: <workdir>/shot-<nr>.png
+    qactl.py click X Y | hover X Y              mouse in screen pixels = pixels of the shot
+    qactl.py drag X1 Y1 X2 Y2                   press at 1, move in steps, release at 2
+    qactl.py key KEYS...                        xdotool key syntax (ctrl+o Return)
+    qactl.py type TEXT                          typed as is
 
     qactl.py tree [--all]                       visible widgets: role 'name' [x,y w×h]
     qactl.py find [--role R] [--contains] NAME  matching widgets
@@ -18,7 +34,11 @@ Runs inside an isolated session, never against the desktop:
 `--a11y` of qa-session.sh gives Kontra and the --run command one private session bus.
 """
 import argparse
+import datetime
 import json
+import os
+import re
+import subprocess
 import sys
 import time
 
@@ -42,6 +62,12 @@ READABLE = INTERACTIVE | {"label", "static", "heading"}
 # Roles that scroll their content: what lies outside them is scrolled away, not cut off.
 SCROLLING = {"scroll pane", "viewport", "list", "tree", "table", "page tab list"}
 SCROLL_BAR = "scroll bar"
+# Mouse movements of a drag (Qt starts a drag only after some motion) and the pause between them.
+DRAG_STEPS = 10
+DRAG_PAUSE_S = 0.03
+ACTIONS_LOG = "actions.log"
+SHOT_PATTERN = re.compile(r"shot-(\d+)\.png$")
+SCREEN_COMMANDS = ("shot", "click", "hover", "drag", "key", "type")
 # Pixels two widgets may share before they count as overlapping (antialiased borders).
 TOLERANCE_PX = 2
 
@@ -209,8 +235,72 @@ def layout_findings(root):
     return findings
 
 
+def workdir():
+    """The session's folder (QA_WORKDIR of the wrapper), None outside a background session."""
+    return os.environ.get("QA_WORKDIR")
+
+
+def shot_numbers(folder):
+    return sorted(int(m.group(1)) for f in os.listdir(folder) if (m := SHOT_PATTERN.match(f)))
+
+
+def log_action(command, rest):
+    """Appends the action to actions.log with the number of the last picture."""
+    folder = workdir()
+    if not folder:
+        return
+    numbers = shot_numbers(folder)
+    last = f"shot-{numbers[-1]:03d}" if numbers else "-"
+    with open(os.path.join(folder, ACTIONS_LOG), "a", encoding="utf-8") as f:
+        f.write("\t".join([datetime.datetime.now().isoformat(timespec="milliseconds"),
+                           command, " ".join(rest), last]) + "\n")
+
+
+def require_x():
+    """The screen commands act on the session's X server only, never on a Wayland desktop."""
+    if os.environ.get("WAYLAND_DISPLAY") or not os.environ.get("DISPLAY"):
+        sys.exit("qactl: no X session (DISPLAY unset or WAYLAND_DISPLAY set); "
+                 "use <workdir>/qa of scripts/qa-session.sh start")
+
+
+def xdo(*argv):
+    subprocess.run(["xdotool", *argv], check=True)
+
+
+def shot():
+    """Saves the X screen as the next shot-<nr>.png of the session and prints the path."""
+    folder = workdir()
+    if not folder:
+        sys.exit("qactl: shot needs a background session (QA_WORKDIR)")
+    numbers = shot_numbers(folder)
+    path = os.path.join(folder, f"shot-{(numbers[-1] + 1 if numbers else 1):03d}.png")
+    subprocess.run(["import", "-window", "root", path], check=True)
+    print(path)
+
+
+def screen_command(args):
+    require_x()
+    if args.command == "shot":
+        shot()
+    elif args.command in ("click", "hover"):
+        xdo("mousemove", "--sync", str(args.x), str(args.y))
+        if args.command == "click":
+            xdo("click", "1")
+    elif args.command == "drag":
+        xdo("mousemove", "--sync", str(args.x1), str(args.y1), "mousedown", "1")
+        for i in range(1, DRAG_STEPS + 1):
+            time.sleep(DRAG_PAUSE_S)
+            x = args.x1 + (args.x2 - args.x1) * i // DRAG_STEPS
+            y = args.y1 + (args.y2 - args.y1) * i // DRAG_STEPS
+            xdo("mousemove", str(x), str(y))
+        xdo("mouseup", "1")
+    elif args.command == "key":
+        xdo("key", "--", *args.keys)
+    elif args.command == "type":
+        xdo("type", "--", args.text)
+
+
 def main():
-    Atspi.init()
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
     tree = sub.add_parser("tree")
@@ -223,43 +313,87 @@ def main():
         if name == "wait":
             p.add_argument("--timeout", type=float, default=WAIT_S)
     sub.add_parser("focus")
+    sub.add_parser("shot")
+    for name in ("click", "hover"):
+        p = sub.add_parser(name)
+        p.add_argument("x", type=int)
+        p.add_argument("y", type=int)
+    drag = sub.add_parser("drag")
+    for name in ("x1", "y1", "x2", "y2"):
+        drag.add_argument(name, type=int)
+    sub.add_parser("key").add_argument("keys", nargs="+")
+    sub.add_parser("type").add_argument("text")
     layout = sub.add_parser("layout")
     layout.add_argument("--json", action="store_true")
     args = parser.parse_args()
+    # Logged after the action, so a shot is already the last picture in its own line.
+    try:
+        run(args)
+    finally:
+        log_action(args.command, sys.argv[2:])
 
-    if args.command == "tree":
-        for depth, node in walk(app(), everything=args.all):
-            print("  " * depth + describe(node))
-    elif args.command == "find":
-        for node in find(args):
-            print(describe(node))
-    elif args.command == "press":
-        node = first(args)
-        press(node)
-        print(f"pressed {describe(node)}")
-    elif args.command == "text":
-        print(text_of(first(args)))
-    elif args.command == "wait":
-        deadline = time.monotonic() + args.timeout
-        while not find(args):
-            if time.monotonic() > deadline:
-                sys.exit(f"qactl: '{args.name}' did not appear within {args.timeout} s")
-            time.sleep(POLL_S)
-        print(describe(find(args)[0]))
-    elif args.command == "focus":
-        # The deepest focused widget: Qt marks the window and the item both.
-        focused = [node for _, node in walk(app())
-                   if node.get_state_set().contains(Atspi.StateType.FOCUSED)]
-        print(describe(focused[-1]) if focused else "qactl: nothing has focus")
-    elif args.command == "layout":
-        findings = layout_findings(app())
-        if args.json:
-            print(json.dumps(findings, ensure_ascii=False, indent=1))
-        else:
-            for f in findings:
-                rest = f.get("other", "")
-                print(f"{f['kind']}: {f['widget']}" + (f"  /  {rest}" if rest else ""))
-        sys.exit(1 if findings else 0)
+
+def run(args):
+    if args.command in SCREEN_COMMANDS:
+        screen_command(args)
+        return
+    # No private AT-SPI bus: libatspi would start or find another one.
+    if not os.environ.get("AT_SPI_BUS_ADDRESS"):
+        sys.exit("qactl: no AT_SPI_BUS_ADDRESS; start the session with --a11y")
+    Atspi.init()
+    atspi_command(args)
+
+
+def cmd_tree(args):
+    for depth, node in walk(app(), everything=args.all):
+        print("  " * depth + describe(node))
+
+
+def cmd_find(args):
+    for node in find(args):
+        print(describe(node))
+
+
+def cmd_press(args):
+    node = first(args)
+    press(node)
+    print(f"pressed {describe(node)}")
+
+
+def cmd_text(args):
+    print(text_of(first(args)))
+
+
+def cmd_wait(args):
+    deadline = time.monotonic() + args.timeout
+    while not find(args):
+        if time.monotonic() > deadline:
+            sys.exit(f"qactl: '{args.name}' did not appear within {args.timeout} s")
+        time.sleep(POLL_S)
+    print(describe(find(args)[0]))
+
+
+def cmd_focus(_args):
+    # The deepest focused widget: Qt marks the window and the item both.
+    focused = [node for _, node in walk(app())
+               if node.get_state_set().contains(Atspi.StateType.FOCUSED)]
+    print(describe(focused[-1]) if focused else "qactl: nothing has focus")
+
+
+def cmd_layout(args):
+    findings = layout_findings(app())
+    if args.json:
+        print(json.dumps(findings, ensure_ascii=False, indent=1))
+    else:
+        for f in findings:
+            rest = f.get("other", "")
+            print(f"{f['kind']}: {f['widget']}" + (f"  /  {rest}" if rest else ""))
+    sys.exit(1 if findings else 0)
+
+
+def atspi_command(args):
+    {"tree": cmd_tree, "find": cmd_find, "press": cmd_press, "text": cmd_text,
+     "wait": cmd_wait, "focus": cmd_focus, "layout": cmd_layout}[args.command](args)
 
 
 if __name__ == "__main__":
