@@ -12,7 +12,8 @@
 //! ```
 
 use crate::live::{input_kind, open_output, LiveOutput, LiveSetup};
-use kontra_engine::{Accent, Annotation, Clock, EngineError, Event, Input, Output, Sound};
+use crate::EngineError;
+use kontra_engine::{Accent, Annotation, Clock, Event, Input, Output, Sound};
 use kontra_model::{DetectedNote, Instrument, Pitch, Technique};
 use std::sync::mpsc::{channel, Receiver};
 

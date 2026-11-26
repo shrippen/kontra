@@ -9,6 +9,7 @@
 //!
 //! Offline only: the whole file is analysed once when it is coupled to a piece.
 
+use kontra_model::BeatGrid;
 use rustfft::num_complex::Complex32;
 use rustfft::FftPlanner;
 use std::f32::consts::PI;
@@ -29,16 +30,6 @@ const PHASE_REACH: usize = 2;
 /// Low-band rise (linear FFT magnitude) below which there is no kick or bass: about 48 dB under
 /// a full-scale sine (256 in a Hann window of 1024).
 const LOW_FLOOR: f64 = 1.0;
-
-/// Tempo and beat times (seconds) of a recording.
-#[derive(Debug, Clone, PartialEq)]
-pub struct BeatGrid {
-    pub bpm: f64,
-    pub beats: Vec<f64>,
-    /// Share (0–1) of the kick and bass onsets on the beats rather than half a beat off. Near 0.5
-    /// (or 0 without any): the grid may sit on the offbeat, the player should check by ear.
-    pub on_beat_share: f64,
-}
 
 /// Finds the beats of `samples` (mono) at `rate` Hz. Silence or very short input gives no beats.
 pub fn track_beats(samples: &[f32], rate: u32) -> BeatGrid {

@@ -8,10 +8,12 @@
 //! ```
 
 use crate::live::{InputChoice, LiveSetup};
+use crate::plugin_host::PluginError;
 use crate::practice::PracticeEvent;
 use crate::rig::{InputTap, OnOutputError, Rig, RigOutput};
-use kontra_engine::plugins::PluginError;
-use kontra_engine::{EngineError, Event, Gains, Output};
+use crate::EngineError;
+use crate::Gains;
+use kontra_engine::{Event, Output};
 use kontra_model::Instrument;
 
 /// Input and output held open for monitoring.
@@ -59,7 +61,7 @@ impl LiveMonitor {
 
     /// New volumes and effects; heard at once.
     pub fn set_gains(&mut self, gains: Gains) {
-        self.rig.output().set_gains(gains);
+        self.rig.output().set_gains(gains.into());
     }
 
     /// What the effect chain delays the bass by, in ms; 0 while silent.
@@ -80,7 +82,7 @@ impl LiveMonitor {
 
     /// Opens the own editor of the chain's plugin `plugin`.
     pub fn open_editor(&mut self, plugin: u32, title: &str) -> Result<(), PluginError> {
-        self.rig.output().open_editor(plugin, title)
+        Ok(self.rig.output().open_editor(plugin, title)?)
     }
 
     /// True once the output asked for its first block (before that, nothing plays).

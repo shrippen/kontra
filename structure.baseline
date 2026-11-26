@@ -98,11 +98,11 @@ crates/engine/src/player.rs	start	length=99
 crates/engine/src/plugin_chain.rs	-	lines=833
 crates/engine/tests/plugin_chain.rs	-	lines=951
 crates/session/src/check.rs	check_takes	length=89
-crates/session/src/live.rs	-	lines=1060
+crates/session/src/live.rs	-	lines=1061
 crates/session/src/matcher.rs	score	ccn=17
 crates/session/src/practice.rs	-	lines=1179
 crates/session/src/practice.rs	handle	ccn=16
-crates/session/src/rig.rs	-	lines=810
+crates/session/src/rig.rs	-	lines=811
 crates/session/src/session.rs	-	lines=1153
 crates/session/src/session.rs	on_note	ccn=21 length=89
 crates/session/src/summary.rs	-	lines=1192

@@ -9,7 +9,7 @@
 //! ```
 //! Format and comparison rules: shrippen.github.io/overview/VERSIONS.md.
 
-use kontra_engine::{Http, HttpError};
+use kontra_model::{Http, HttpError};
 use serde::Deserialize;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -139,7 +139,7 @@ fn parts(version: &str) -> Vec<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kontra_engine::HttpError;
+    use kontra_model::HttpError;
 
     #[derive(Debug)]
     struct Canned(Result<Vec<u8>, HttpError>);

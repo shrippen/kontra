@@ -9,7 +9,8 @@
 //! separated again.
 
 use crate::cache_files::{self, CacheEntry, Partial};
-use kontra_engine::{find_separator, in_sandbox, SeparationJob, Separator, SeparatorError};
+use kontra_engine::{find_separator, in_sandbox, SeparationJob, Separator};
+use kontra_model::SeparatorError;
 use std::path::{Path, PathBuf};
 
 const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;

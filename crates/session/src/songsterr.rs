@@ -10,7 +10,7 @@
 //! Polite by design: only on the user's request, one request at a time, no retries, no prefetch.
 
 use crate::sources::percent_encode;
-use kontra_engine::{Http, HttpError};
+use kontra_model::{Http, HttpError};
 use serde::Deserialize;
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
 use std::sync::Arc;

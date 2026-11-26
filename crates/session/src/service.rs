@@ -4,8 +4,9 @@
 use crate::session::{Mode, Session};
 use crate::settings::ScoreSettings;
 use crate::summary::Summary;
+use crate::EngineError;
 use crate::NoteResult;
-use kontra_engine::{Clock, EngineError, Event, Input, InputKind, Pace, StringTold};
+use kontra_engine::{Clock, Event, Input, InputKind, Pace, StringTold};
 use kontra_model::{Arrangement, DetectedNote, InputSource, Instrument};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
@@ -25,9 +26,8 @@ pub use kontra_engine::{
 pub use kontra_engine::{
     evaluate as evaluate_korpus, evaluate_expecting as evaluate_korpus_expecting,
     evaluate_laptop_jack as evaluate_korpus_laptop_jack, evaluate_with as evaluate_korpus_with,
-    generate as generate_korpus, render_performance, same_pitch, track_beats, Annotation,
-    BackingTrack, Evaluation, Expecting, KorpusItem, KorpusSet, Matching, Mistakes, Pick, Playing,
-    StringModel, LOG_B_PER_FRET,
+    generate as generate_korpus, render_performance, same_pitch, Annotation, Evaluation, Expecting,
+    KorpusItem, KorpusSet, Matching, Mistakes, Pick, Playing, StringModel, LOG_B_PER_FRET,
 };
 pub use kontra_engine::{
     evaluate_ends, generate_midi_chords, generate_staccato, score_chords, ChordTally, EndTally,
@@ -35,13 +35,11 @@ pub use kontra_engine::{
 
 /// Writes mono audio as WAV (corpus export).
 pub fn write_mono_wav(path: &Path, samples: &[f32], sample_rate: u32) -> Result<(), EngineError> {
-    kontra_engine::write_wav(
-        path,
-        &kontra_engine::AudioBuffer {
-            sample_rate,
-            channels: vec![samples.to_vec()],
-        },
-    )?;
+    let buffer = kontra_engine::AudioBuffer {
+        sample_rate,
+        channels: vec![samples.to_vec()],
+    };
+    kontra_engine::write_wav(path, &buffer).map_err(kontra_engine::EngineError::from)?;
     Ok(())
 }
 

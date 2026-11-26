@@ -2,7 +2,7 @@
 //! chat/completions shape (most providers) and Anthropic's own messages shape.
 
 use super::provider::{Provider, WireFormat};
-use kontra_engine::HttpError;
+use kontra_model::HttpError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

@@ -12,7 +12,7 @@
 use kontra_content::lesson::{
     self, CoursePack, Cue, Lessons, PackError, COURSE_EXT, MAX_COURSE_BYTES,
 };
-use kontra_engine::{Http, HttpError};
+use kontra_model::{Http, HttpError};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, TryRecvError};

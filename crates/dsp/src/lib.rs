@@ -34,7 +34,7 @@ mod yin;
 
 pub mod synth;
 
-pub use beats::{track_beats, BeatGrid};
+pub use beats::track_beats;
 pub use biquad::{Biquad, EqKind, FilterKind};
 pub use chain::{Chain, Insert};
 pub use echo::{EchoCanceller, ECHO_BLOCK};

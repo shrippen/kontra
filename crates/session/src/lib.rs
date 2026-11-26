@@ -11,6 +11,7 @@
 //! Two clocks: *real time* (seconds on the engine's audio clock) and *position* (seconds of the
 //! arrangement at original tempo). At speed 0.5 the position advances half as fast.
 
+mod backing;
 mod backing_cache;
 mod band;
 mod cache_files;
@@ -22,6 +23,7 @@ mod choice;
 mod courses;
 mod density;
 mod devices;
+mod error;
 mod expected;
 pub mod external;
 mod improv;
@@ -30,6 +32,7 @@ mod live;
 mod llm;
 mod loopback;
 mod matcher;
+mod mixer;
 mod monitor;
 pub mod plugin_host;
 mod pocket;
@@ -48,6 +51,7 @@ mod technique;
 mod transport;
 mod update;
 
+pub use backing::{beat_grid, BackingTrack};
 pub use backing_cache::{BackingCache, Preparing};
 pub use band::Band;
 pub use cache_files::CacheEntry;
@@ -63,15 +67,13 @@ pub use courses::{CourseError, CourseFetch, CourseStore};
 pub use density::Density;
 pub use devices::{audio_priority, list_devices, list_midi_inputs};
 
+pub use error::EngineError;
 pub use improv::{fit, Improvisation};
-pub use kontra_engine::{
-    describe_plugin_later, PendingSpec, PluginBank, PluginProblems, PluginRack,
-};
-pub use kontra_engine::{group_of_effect, group_of_plugin, PluginGroup};
-pub use kontra_engine::{EngineError, Http, HttpError};
-pub use kontra_engine::{Gains, Limit, SeparatorError, Shaping, SHAPING_RANGE_DB};
 /// Where an LLM key lives (LH-BIB-16): appcore's layer only, never session's own logic.
-pub use kontra_engine::{MemoryStore, SecretError, SecretStore};
+pub use kontra_model::{
+    group_of_effect, group_of_plugin, Http, HttpError, Limit, MemoryStore, PluginGroup,
+    SecretError, SecretStore, SeparatorError, Shaping, SHAPING_RANGE_DB,
+};
 pub use learning::{
     lesson, place, positions, Answer, LearnState, LearnStore, Learning, QuestionRef,
 };
@@ -85,6 +87,9 @@ pub use llm::{
 };
 pub use loopback::{LiveLoopback, LoopbackResult};
 pub use matcher::{NoteResult, Outcome};
+pub use mixer::{
+    describe_plugin_later, Gains, PendingSpec, PluginBank, PluginProblems, PluginRack,
+};
 pub use monitor::LiveMonitor;
 pub use pocket::{Pocket, PocketVerdict};
 pub use practice::{Practice, PracticeEvent, PracticeOptions};

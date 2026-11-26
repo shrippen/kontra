@@ -11,7 +11,7 @@ use crate::check::{
     loopback_length_s, loopback_plan, round_trip, LiveTake, RoundTrip, TakeSound, LOOPBACK_TONES,
 };
 use crate::live::LiveSetup;
-use kontra_engine::EngineError;
+use crate::EngineError;
 use kontra_model::Instrument;
 
 /// At least this many of the tones must come back: fewer is crosstalk or noise, not a cable.

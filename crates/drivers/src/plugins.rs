@@ -28,7 +28,6 @@ mod win32_frame;
 #[cfg(target_os = "linux")]
 mod x11_frame;
 
-use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
@@ -38,8 +37,11 @@ pub use host::{
     clear_crash_marker, crashed_plugin, settle_plugins, PendingDescribe, PendingLoad,
     PluginDescription, PluginHandle, PluginHost, PluginLoaded, PluginSetup,
 };
+pub use kontra_model::{
+    BrokenFile, ParamInfo, PluginFormat, PluginInfo, PortLayout, ProbeCommand, ScanReport,
+};
 pub use paths::{plugin_files, search_paths};
-pub use scan::{probe_file, probe_line, scan_files, BrokenFile, ProbeCommand, ScanReport};
+pub use scan::{probe_file, probe_line, scan_files};
 
 /// Channels of the audio at the API.
 pub const CHANNELS: usize = 2;
@@ -59,84 +61,6 @@ fn coalesce(changes: impl Iterator<Item = (u32, f64)>) -> Vec<(u32, f64)> {
 
 /// Block size of the offline render.
 const RENDER_BLOCK: u32 = 512;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum PluginFormat {
-    Clap,
-    Vst3,
-}
-
-impl PluginFormat {
-    /// The format a file belongs to, by its extension.
-    pub fn of_file(path: &Path) -> Option<PluginFormat> {
-        let ext = path.extension()?.to_str()?.to_ascii_lowercase();
-        match ext.as_str() {
-            "clap" => Some(PluginFormat::Clap),
-            "vst3" => Some(PluginFormat::Vst3),
-            _ => None,
-        }
-    }
-
-    /// The name saved in chains and settings ("clap", "vst3"); never shown.
-    pub fn key(self) -> &'static str {
-        match self {
-            PluginFormat::Clap => "clap",
-            PluginFormat::Vst3 => "vst3",
-        }
-    }
-
-    /// The format a saved [`PluginFormat::key`] names.
-    pub fn from_key(key: &str) -> Option<PluginFormat> {
-        [PluginFormat::Clap, PluginFormat::Vst3]
-            .into_iter()
-            .find(|f| f.key() == key)
-    }
-}
-
-/// The name shown to the player. "VST 3" is spelled as Steinberg's trademark rules ask.
-impl fmt::Display for PluginFormat {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            PluginFormat::Clap => f.write_str("CLAP"),
-            PluginFormat::Vst3 => f.write_str("VST 3"),
-        }
-    }
-}
-
-/// Channels of every audio input and output port of a plugin.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PortLayout {
-    pub inputs: Vec<u32>,
-    pub outputs: Vec<u32>,
-}
-
-/// One plugin as the scan found it. A file can hold several.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PluginInfo {
-    pub format: PluginFormat,
-    pub id: String,
-    pub name: String,
-    pub vendor: String,
-    pub path: PathBuf,
-    pub ports: PortLayout,
-    /// What the plugin says it is: VST 3 sub-categories ("Fx", "Dynamics"), CLAP features
-    /// ("audio-effect", "compressor"). Empty in scans from before this field, and when the plugin
-    /// names none (a VST 3 factory without IPluginFactory2, a CLAP without features).
-    #[serde(default)]
-    pub categories: Vec<String>,
-}
-
-/// A parameter with its range and current value, in the plugin's own units.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ParamInfo {
-    pub id: u32,
-    pub name: String,
-    pub min: f64,
-    pub max: f64,
-    pub default: f64,
-    pub current: f64,
-}
 
 #[derive(Debug, Error)]
 pub enum PluginError {

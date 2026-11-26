@@ -15,7 +15,9 @@
 use crate::cache_files::{self, CacheEntry, Partial};
 use crate::live::InputChoice;
 use crate::stems::file_key;
-use kontra_engine::{list_devices, monitor_rate, BackingTrack, EngineError};
+use crate::BackingTrack;
+use crate::EngineError;
+use kontra_engine::{list_devices, monitor_rate};
 use kontra_model::{Direction, NULL_DEVICE};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
@@ -209,6 +211,7 @@ mod tests {
         assert!(cache.cached(&song, OUTPUT_RATE));
         assert_eq!(cache.usage().0, 1);
         let again = cache.load(&song, OUTPUT_RATE).unwrap();
+        let (first, again) = (first.engine(), again.engine());
         assert_eq!(again.sample_rate, OUTPUT_RATE);
         assert_eq!(again.left.len(), first.left.len());
         let worst = first
