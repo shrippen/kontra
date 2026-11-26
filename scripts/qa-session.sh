@@ -25,12 +25,84 @@
 #                 (scripts/qa-session.test.sh)
 #   --settings J  more settings as a JSON object, e.g. '{"monitor": true}'; the null output stays
 #
+# Background mode, for QA rounds with a tester agent (skill qa-personas; one session per tester,
+# any number in parallel, each on its own display):
+#
+#   scripts/qa-session.sh start <workdir> --input-file take.wav [--a11y] [--size 1280x800]
+#                         [--seed DIR] [--downloads DIR] [--settings J] [-- <kontra arguments>]
+#   <workdir>/qa <command>        qactl.py in this session: shot, click, drag, key, type, hover
+#                                 and, with --a11y, tree, find, press, text, wait, layout, focus
+#   <workdir>/qa stop             end the session, no process stays
+#   scripts/qa-session.sh stop <workdir>   the same
+#
+#   start returns once the window is there. <workdir> then holds session.env (DISPLAY, buses,
+#   PIDs, data folder; sourceable), the wrapper qa, data/ downloads/ runtime/ and the logs.
+#   shot-<nr>.png (one pixel per click coordinate: no scaling) and actions.log stay after stop.
+#   Only the PIDs in session.env are ever stopped, never a process found by name.
+#
 # Kontra binary: $KONTRA_BIN, else $CARGO_TARGET_DIR/debug/kontra, else target/debug/kontra.
 set -euo pipefail
 # Paths given by the caller (--input-file, KONTRA_BIN, CARGO_TARGET_DIR) and --run hold from the
 # caller's folder; only the default binary is looked up in the repository.
 caller="$PWD"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Ends a background session by the PIDs of its session file. Each of them leads a process group
+# of its own (setsid); the PID is only killed if it still does (a reused PID would not).
+stop_session() {
+    local dir="$1"
+    if [ ! -f "$dir/session.env" ]; then
+        echo "qa-session: $dir has no session.env" >&2
+        return 2
+    fi
+    [ -e "$dir/stopped" ] && return 0
+    (
+        # shellcheck disable=SC1091
+        . "$dir/session.env"
+        for pid in $APP_PID $BUS_PIDS $XVFB_PID; do
+            [ "$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')" = "$pid" ] || continue
+            kill -- "-$pid" 2>/dev/null || true
+        done
+        for _ in $(seq 50); do
+            alive=0
+            for pid in $APP_PID $BUS_PIDS $XVFB_PID; do
+                if [ "$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')" = "$pid" ]; then
+                    alive=1
+                fi
+            done
+            [ "$alive" = 0 ] && break
+            sleep 0.1
+        done
+        for pid in $APP_PID $BUS_PIDS $XVFB_PID; do
+            [ "$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')" = "$pid" ] || continue
+            kill -KILL -- "-$pid" 2>/dev/null || true
+        done
+        rm -rf "$XDG_RUNTIME_DIR"
+    )
+    date +%FT%T > "$dir/stopped"
+}
+
+mode=oneshot workdir=""
+case "${1:-}" in
+    stop)
+        [ $# -eq 2 ] || { echo "qa-session: stop <workdir>" >&2; exit 2; }
+        stop_session "$(realpath "$2")"
+        exit $?
+        ;;
+    start)
+        [ $# -ge 2 ] || { echo "qa-session: start <workdir> [options]" >&2; exit 2; }
+        mode=start
+        mkdir -p "$2"
+        workdir="$(realpath "$2")"
+        shift 2
+        if [ -e "$workdir/session.env" ] && [ ! -e "$workdir/stopped" ]; then
+            echo "qa-session: $workdir holds a running session" >&2
+            exit 2
+        fi
+        # Not the caller's terminal or pipe: the session outlives this script.
+        exec < /dev/null
+        ;;
+esac
 
 input="" a11y=0 size="1920x1080" keep=0 run="" extra="{}" seed="" downloads="" prepare_only=0
 while [ $# -gt 0 ]; do
@@ -71,9 +143,15 @@ if [ ! -x "$app" ]; then
 fi
 
 # Temporary files under ~/.cache/claude (CLAUDE.md), never /tmp.
-base="${KONTRA_QA_TMP:-$HOME/.cache/claude/kontra-qa}"
-mkdir -p "$base"
-work="$(mktemp -d -p "$base" session.XXXXXX)"
+if [ "$mode" = start ]; then
+    work="$workdir"
+    rm -rf "$work/stopped" "$work/data" "$work/runtime" "$work/downloads"
+    keep=1
+else
+    base="${KONTRA_QA_TMP:-$HOME/.cache/claude/kontra-qa}"
+    mkdir -p "$base"
+    work="$(mktemp -d -p "$base" session.XXXXXX)"
+fi
 mkdir -p "$work/data" "$work/runtime" "$work/downloads"
 chmod 700 "$work/runtime"
 # The seed first, then the settings: a seed never undoes "kontra:null" (its settings.json is
@@ -95,12 +173,6 @@ if [ "$prepare_only" = 1 ]; then
     exit 0
 fi
 
-# A free display from :99 up.
-display=99
-while [ -e "/tmp/.X11-unix/X$display" ] || [ -e "/tmp/.X$display-lock" ]; do
-    display=$((display + 1))
-done
-
 xvfb_pid="" app_pid="" bus_pids=()
 cleanup() {
     # Kontra, each bus and the registry run in process groups of their own (with what they
@@ -109,7 +181,7 @@ cleanup() {
     for pid in "${bus_pids[@]}"; do
         kill -- "-$pid" 2>/dev/null || true
     done
-    [ -n "$xvfb_pid" ] && kill "$xvfb_pid" 2>/dev/null || true
+    [ -n "$xvfb_pid" ] && kill -- "-$xvfb_pid" 2>/dev/null || true
     wait 2>/dev/null || true
     if [ "$keep" = 1 ]; then
         echo "qa-session: kept $work"
@@ -119,23 +191,39 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-Xvfb ":$display" -screen 0 "${size}x24" -nolisten tcp > "$work/xvfb.log" 2>&1 &
-xvfb_pid=$!
-for _ in $(seq 50); do
-    [ -e "/tmp/.X11-unix/X$display" ] && break
-    sleep 0.1
+# A free display from :99 up. Xvfb takes its lock file atomically: of two sessions racing for
+# a number, the loser ends at once and tries the next.
+display=99
+while :; do
+    if [ ! -e "/tmp/.X11-unix/X$display" ] && [ ! -e "/tmp/.X$display-lock" ]; then
+        setsid Xvfb ":$display" -screen 0 "${size}x24" -nolisten tcp > "$work/xvfb.log" 2>&1 &
+        xvfb_pid=$!
+        for _ in $(seq 50); do
+            [ -e "/tmp/.X11-unix/X$display" ] && break 2
+            kill -0 "$xvfb_pid" 2>/dev/null || break
+            sleep 0.1
+        done
+        kill -0 "$xvfb_pid" 2>/dev/null && break
+        wait "$xvfb_pid" 2>/dev/null || true
+        xvfb_pid=""
+    fi
+    display=$((display + 1))
+    if [ "$display" -gt 199 ]; then
+        echo "qa-session: no free display (see $work/xvfb.log)" >&2
+        keep=1
+        exit 1
+    fi
 done
-if [ ! -e "/tmp/.X11-unix/X$display" ]; then
-    echo "qa-session: Xvfb :$display did not start (see $work/xvfb.log)" >&2
-    keep=1
-    exit 1
-fi
 
 # The environment is cleaned before anything starts, the session bus too: a bus started with
 # the desktop's environment let a portal attach to the real Wayland session (28.10.).
 clean=(env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE -u DBUS_SESSION_BUS_ADDRESS
     QT_QPA_PLATFORM=xcb DISPLAY=":$display" XDG_RUNTIME_DIR="$work/runtime"
     KONTRA_DATA_DIR="$work/data" KONTRA_DOWNLOAD_DIR="$work/downloads")
+if [ "$mode" = start ]; then
+    # One image pixel is one click coordinate: no scaling, whatever the caller has set.
+    clean+=(QT_SCALE_FACTOR=1 QT_AUTO_SCREEN_SCALE_FACTOR=0 QT_ENABLE_HIGHDPI_SCALING=0)
+fi
 # Private buses for Kontra and the --run command (qactl talks to Kontra over AT-SPI): a session
 # bus, the accessibility bus beside it and the AT-SPI registry on it, all started here. Not by
 # activation: at-spi-bus-launcher starts the registry through systemd where dbus-broker is used,
@@ -187,6 +275,44 @@ if [ -z "$window" ]; then
     exit 1
 fi
 echo "qa-session: DISPLAY=:$display window $window data $work/data"
+
+if [ "$mode" = start ]; then
+    # The window exists before it is painted: the first shot would be black. Wait for a pixel
+    # that is not (at most 10 s).
+    for _ in $(seq 100); do
+        peak="$(DISPLAY=":$display" import -window root -format '%[fx:maxima]' info: 2>/dev/null || true)"
+        [ -n "$peak" ] && [ "$peak" != 0 ] && break
+        sleep 0.1
+    done
+    # Session file (sourceable) and the wrapper that runs qactl.py inside the session.
+    {
+        printf '%s=%q\n' DISPLAY ":$display" XDG_RUNTIME_DIR "$work/runtime" \
+            KONTRA_DATA_DIR "$work/data" KONTRA_DOWNLOAD_DIR "$work/downloads" \
+            QA_WORKDIR "$work" QA_WINDOW "$window" XVFB_PID "$xvfb_pid" APP_PID "$app_pid" \
+            BUS_PIDS "${bus_pids[*]}"
+        if [ "$a11y" = 1 ]; then
+            printf '%s=%q\n' DBUS_SESSION_BUS_ADDRESS "$(head -1 "$work/session")" \
+                AT_SPI_BUS_ADDRESS "$(head -1 "$work/a11y")" QT_LINUX_ACCESSIBILITY_ALWAYS_ON 1
+        fi
+    } > "$work/session.env"
+    {
+        echo '#!/usr/bin/env bash'
+        echo '# qactl.py inside this session (written by qa-session.sh start); "stop" ends it.'
+        echo 'set -euo pipefail'
+        echo 'here="$(cd "$(dirname "$0")" && pwd)"'
+        printf 'if [ "${1:-}" = stop ]; then exec %q stop "$here"; fi\n' "$repo/scripts/qa-session.sh"
+        echo '[ ! -e "$here/stopped" ] || { echo "qa: session stopped" >&2; exit 1; }'
+        echo 'set -a'
+        echo '. "$here/session.env"'
+        echo 'set +a'
+        printf 'exec env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE QT_QPA_PLATFORM=xcb python3 %q "$@"\n' \
+            "$repo/scripts/qactl.py"
+    } > "$work/qa"
+    chmod +x "$work/qa"
+    trap - EXIT INT TERM
+    echo "qa-session: started, use $work/qa"
+    exit 0
+fi
 
 if [ -n "$run" ]; then
     (cd "$caller" && "${clean[@]}" KONTRA_QA_WINDOW="$window" bash -c "$run")
