@@ -697,7 +697,7 @@ fn a_qa_run_lists_no_devices_at_start() {
 fn restoring_a_backup_retunes_the_piece() {
     let dir = temp_dir("restore-tuning");
     let mut first = Core::new(&dir.join("a"), QaOptions::default());
-    first.set_tuning("drop").unwrap();
+    first.set_tuning(TuningPreset::Drop).unwrap();
     let file = dir.join("sicherung.json");
     first.export_data(&file).unwrap();
 
@@ -723,7 +723,7 @@ fn restoring_a_backup_retunes_the_piece() {
 fn a_restore_survives_a_missing_piece() {
     let dir = temp_dir("restore-missing");
     let mut first = Core::new(&dir.join("a"), QaOptions::default());
-    first.set_tuning("drop").unwrap();
+    first.set_tuning(TuningPreset::Drop).unwrap();
     let file = dir.join("sicherung.json");
     first.export_data(&file).unwrap();
 
