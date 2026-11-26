@@ -241,7 +241,16 @@ fn tune_line(note: &str, cents: f64) -> String {
     } else {
         "in tune"
     };
-    format!("{note:<4} {:>4} ct  {hint}", signed(cents))
+    format!("{note:<4} {:>5} ct  {hint}", signed_tenths(cents))
+}
+
+/// One decimal with sign, "+3.2", "-0.5"; zero is "0.0", never "-0.0".
+fn signed_tenths(value: f64) -> String {
+    let value = (value * 10.0).round() / 10.0;
+    if value == 0.0 {
+        return "0.0".into();
+    }
+    format!("{value:+.1}")
 }
 
 /// A whole number with sign, "+2", "-4"; zero is "0", never "-0" (review #336).
@@ -270,9 +279,9 @@ mod tests {
     // "-0.0 ct" for a deviation that rounds to zero.
     #[test]
     fn the_tuner_line_has_no_negative_zero() {
-        assert_eq!(tune_line("E1", -0.04), "E1      0 ct  in tune");
-        assert_eq!(tune_line("A1", -7.6), "A1     -8 ct  tune up");
-        assert_eq!(tune_line("D2", 4.0), "D2     +4 ct  tune down");
+        assert_eq!(tune_line("E1", -0.04), "E1     0.0 ct  in tune");
+        assert_eq!(tune_line("A1", -7.6), "A1    -7.6 ct  tune up");
+        assert_eq!(tune_line("D2", 3.2), "D2    +3.2 ct  tune down");
     }
 
     // QA 27.10.: "practice --input-file … --backing …" played the backing on the owner's speakers.

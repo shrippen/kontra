@@ -25,7 +25,7 @@ Offen:
 - Fund 6, Rest: QML vergleicht an einigen Stellen mit Literalen (`ctl.mode === "workshop"`, `"kante-light"`);
   `KanteStyle.stringPalettes` hat eine eigene Liste (nur in Kante änderbar). `llm_provider` und `Run.mode` bleiben Text.
 - Kleinigkeiten aus #370: `--mode`/`--view` werden beim Start zweimal geprüft (`bridge/start.rs`), ein ungültiger
-  Wert meldet sich doppelt; `appcore/src/choices.rs` (Auswahlen) steht neben `choice.rs` (Eingabegerät).
+  Wert meldet sich doppelt; `appcore/src/choices.rs` (Auswahlen) steht neben `input_choice.rs` (Eingabegerät).
 - `Main.openPiece` und `Main.openNext` haben keinen Test ihrer Bedingung (Wechsel zur Bibliothek bei Spurfrage).
 - `.xml`: Verknüpfte Ordner und Quellenliste schließen reine XML-Dateien aus (`PLAIN_XML`), Ordner-Import und Dialog
   nehmen sie.
