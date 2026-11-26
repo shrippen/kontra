@@ -283,7 +283,7 @@ Offen:
 - #220 (`tea` → `gt` in `scripts/gitea/`, `cloud-setup.sh`, `agent.md`): Review ohne Wichtig; braucht die Bestätigung
   des Eigentümers (ändert `agent.md`). Bis dahin liegen die Skripte in `~/.cache/claude/kontra-wt/gt-cli`.
 - Erlaubnis-Regel für Merges in den Claude-Code-Einstellungen nennt noch `tea pr merge`; Eigentümer stellt auf `gt` um.
-- Zur Freigabe in der nächsten Runde: `quiz::Heat`, `Quiz::heat`, `FretRange::places`, `QuizStats::counts` (#222);
+- In Runde 23 freigegeben: `quiz::Heat`, `Quiz::heat`, `FretRange::places`, `QuizStats::counts` (#222);
   `EarQuiz::stats`, `EarQuiz::new`/`next`/`answer` mit `now_s`, `QuizStats::{record_interval, interval_weight,
   with_places_of, with_intervals_of}` (#223); `kontra_session::DetunedString`, `Summary::detuned`, `summary::detuned`
   (#224).
@@ -407,7 +407,7 @@ new_course, pack, COURSE_*}`, `Block::Video::subtitles`, `pub(crate) Zip::{read_
 cues, Cue}`, `MAX_COURSE_BYTES`, `Settings::course`, Core `course_preview`, `course_add`, `course_remove`,
 `course_fetch`, `course_fetch_poll`, `choose_course`, `lesson_video`, `is_course`, `fake_course_web`,
 `set_course_http`; Brücke `coursePreview`, `courseAdd`, `courseRemove`, `courseFetch`, `chooseCourse`,
-`lessonVideo`, `startCourse`, `courseFetchJson`. Zur nächsten Runde: siehe Übergabe oben.
+`lessonVideo`, `startCourse`, `courseFetchJson`. In Runde 23 freigegeben: siehe Übergabe oben.
 
 Plan (Eigentümer, 24.10.): Didaktik I4 (#106), I5 (#107), I6 umgesetzt. Offen aus
 I5: Ziel-Band im Histogramm (Kante). I6 Phrasengrenzen aus Zögern: #128.

@@ -92,8 +92,9 @@ A change that needs more places than listed is a finding for the audit.
   `MemoryStore`. The rest are mostly the corpus tools the CLI uses. The plugin host's data types
   (`PluginInfo`, `PluginFormat`) live in `crates/drivers/src/plugins.rs`, not in `model`.
   `AUDIT.md` finding 10.
-- `appcore` reads and writes score and audio files itself where content should: opening and
-  unpacking a package (`crates/appcore/src/package.rs`), writing a generated exercise's MIDI
-  (`bundled.rs`); session writes course media and packages (`crates/session/src/courses.rs`).
+- The user interfaces and session read and write score, audio and package files themselves
+  where content should, for example `crates/appcore/src/package.rs` (export, open, unpack),
+  `appcore/src/bundled.rs` (generated exercise MIDI), `crates/cli/src/main.rs` (`exercises`,
+  `piece`), `cli/src/course.rs` (course pack) and `crates/session/src/courses.rs` (course media).
 - QML compares fixed choices with literal texts (`ctl.mode === "workshop"`), so a practice mode
   or style needs more QML places than listed. Kept by the owner (round 23). `AUDIT.md` finding 6.
