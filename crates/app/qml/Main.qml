@@ -197,37 +197,14 @@ Kirigami.ApplicationWindow {
     // Names the area a page switch leaves the focus on (QA 28.10., B8).
     Component { id: nameFocus; PageFocusName {} }
 
-    // Opens a piece and goes where it leads: to practice, or to the library when the bass track
-    // must be chosen (the library shows that question). `prepare` runs once the piece is open,
-    // before the page changes (mode, loop); `after` once practice shows (start a probe). Opening
-    // from the practice page itself (the run summary) keeps that page.
-    // Returns whether the piece opened.
-    function openPiece(path, prepare, after) {
-        if (!ctl.openFile(path)) {
-            if (current !== "library" && JSON.parse(ctl.trackChoicesJson).length > 0) {
-                show("library")
-            }
-            return false
-        }
-        if (prepare) {
-            prepare()
-        }
-        if (current !== "practice") {
-            show("practice")
-        }
-        if (after) {
-            after()
-        }
-        return true
+    PieceOpener {
+        id: opener
+        ctl: root.ctl
+        current: root.current
+        onShowRequested: name => root.show(name)
     }
-
-    // The next piece of the active setlist; like `openPiece`, a bass track to choose leads to the
-    // library. The practice page stays when it opens.
-    function openNext() {
-        if (!ctl.openNext() && JSON.parse(ctl.trackChoicesJson).length > 0) {
-            show("library")
-        }
-    }
+    function openPiece(path, prepare, after) { return opener.openPiece(path, prepare, after) }
+    function openNext() { opener.openNext() }
 
     // `section`: a settings section to scroll to (SettingsPage.showSection).
     function show(name, section) {
@@ -380,7 +357,7 @@ Kirigami.ApplicationWindow {
         parent: root.pageStack.parent
         anchors { left: root.pageStack.left; right: root.pageStack.right; bottom: parent.bottom }
         z: 10
-        ctl: ctl
+        ctl: root.ctl
         texts: texts
     }
 

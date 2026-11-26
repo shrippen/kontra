@@ -160,26 +160,21 @@ impl Core {
         key.and_then(|key| self.pick(key))
     }
 
-    /// The keys of every fixed choice by UI property name, for the UI's lists.
+    /// The keys of every fixed choice by UI property name, as JSON, for the UI's lists.
     pub fn choices_json() -> String {
-        choices_json()
+        json!({
+            "mode": PracticeMode::keys(),
+            "view": View::keys(),
+            "style": Style::keys(),
+            "playMarks": PlayMarks::keys(),
+            "motion": Motion::keys(),
+            "strictness": Window::keys(),
+            "pocket": Pocket::keys(),
+            "tuning": TuningPreset::keys(),
+            "stringColors": StringColors::keys(),
+        })
+        .to_string()
     }
-}
-
-/// Every choice's keys by the name of the UI property, as JSON, for the UI's lists.
-fn choices_json() -> String {
-    json!({
-        "mode": PracticeMode::keys(),
-        "view": View::keys(),
-        "style": Style::keys(),
-        "playMarks": PlayMarks::keys(),
-        "motion": Motion::keys(),
-        "strictness": Window::keys(),
-        "pocket": Pocket::keys(),
-        "tuning": TuningPreset::keys(),
-        "stringColors": StringColors::keys(),
-    })
-    .to_string()
 }
 
 #[cfg(test)]

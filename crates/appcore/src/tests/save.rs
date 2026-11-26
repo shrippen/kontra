@@ -142,3 +142,18 @@ fn an_unknown_key_from_the_ui_is_told() {
     assert!(!notice.contains("choice.unknown"), "untranslated: {notice}");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// A command line key that is no choice is told once; the controller reads it a second time
+/// with `from_key`, which stays silent.
+#[test]
+fn an_unknown_argument_is_told_once() {
+    let dir = temp_dir("save-pick-opt");
+    let mut core = Core::new(&dir, QaOptions::default());
+
+    assert_eq!(core.pick_opt::<View>(None), None);
+    assert_eq!(core.pick_opt::<View>(Some("wobble")), None);
+    assert_eq!(View::from_key("wobble"), None);
+    assert!(core.take_notice().is_some());
+    assert_eq!(core.take_notice(), None);
+    let _ = std::fs::remove_dir_all(dir);
+}

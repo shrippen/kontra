@@ -10,6 +10,7 @@
 mod switch;
 
 use crate::args::{CheckArgs, CheckStep};
+use crate::live::signed;
 use crate::{load_arrangement, CliResult};
 use kontra_model::{Instrument, Technique};
 use kontra_session as session;
@@ -435,7 +436,7 @@ fn judge(
         ""
     };
     let offset_ms = take.player_offset_ms(heard, latency_ms);
-    let offset = offset_ms.map_or("–".into(), |ms| format!("{ms:+.0} ms"));
+    let offset = offset_text(offset_ms);
     let technique = if take.notes.iter().any(|n| n.technique.is_some()) {
         format!("{}/{}", e.technique_correct, e.matched)
     } else {
@@ -613,9 +614,22 @@ fn civil_from_days(days: i64) -> (i64, u32, u32) {
     (year, month, day)
 }
 
+/// The player's offset for the report line; "–" when there is none.
+fn offset_text(offset_ms: Option<f64>) -> String {
+    offset_ms.map_or("–".into(), |ms| format!("{} ms", signed(ms)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // "-0 ms" for an offset that rounds to zero.
+    #[test]
+    fn an_offset_that_rounds_to_zero_has_no_sign() {
+        assert_eq!(offset_text(Some(-0.3)), "0 ms");
+        assert_eq!(offset_text(Some(-12.4)), "-12 ms");
+        assert_eq!(offset_text(None), "–");
+    }
 
     #[test]
     fn dates_from_days() {

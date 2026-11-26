@@ -51,5 +51,15 @@ Item {
             compare(root.directOpens, 0)
             compare(root.windowOpens, 1)
         }
+
+        function test_theNKeyOpensThroughTheWindow() {
+            root.windowOpens = 0
+            root.directOpens = 0
+            var page = createTemporaryObject(pageComponent, root)
+            page.forceActiveFocus()
+            keyClick(Qt.Key_N)
+            compare(root.directOpens, 0)
+            compare(root.windowOpens, 1)
+        }
     }
 }

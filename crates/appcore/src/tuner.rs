@@ -69,10 +69,15 @@ impl Core {
             Some(track) => self.reload(track),
             None => Ok(()),
         };
-        if tuner_running {
-            self.start_tuner()?;
+        if !tuner_running {
+            return piece;
         }
-        piece
+
+        // Both failures are told, the piece's first, in the one text the note bar has.
+        match (piece, self.start_tuner()) {
+            (Err(piece), Err(tuner)) => Err(format!("{piece}\n{tuner}")),
+            (piece, tuner) => piece.and(tuner),
+        }
     }
 
     pub fn stop_tuner(&mut self) {
