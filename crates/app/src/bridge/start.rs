@@ -5,7 +5,7 @@ use super::{q, qobject, AppArgs, ControllerRust, NO_BEAT};
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
-use kontra_appcore::{data_dir, Core, QaOptions};
+use kontra_appcore::{data_dir, Choice, Core, PracticeMode, QaOptions, Style, View};
 
 impl Default for ControllerRust {
     fn default() -> Self {
@@ -28,17 +28,17 @@ impl Default for ControllerRust {
             core.fake_course_web(answer);
         }
         core.start_update_check(args.update_answer.as_deref(), args.screenshot.as_deref());
-        if let Some(style) = &args.style {
-            core.update_settings(|s| s.style = style.clone());
+        if let Some(style) = core.pick_opt::<Style>(args.style.as_deref()) {
+            core.update_settings(|s| s.style = style);
         }
         if let Some(language) = &args.language {
             core.update_settings(|s| s.language = Some(language.clone()));
         }
-        if let Some(mode) = &args.mode {
-            core.reconfigure(|s| s.mode = mode.clone());
+        if let Some(mode) = core.pick_opt::<PracticeMode>(args.mode.as_deref()) {
+            core.reconfigure(|s| s.mode = mode);
         }
-        if let Some(view) = &args.view {
-            core.update_settings(|s| s.view = view.clone());
+        if let Some(view) = core.pick_opt::<View>(args.view.as_deref()) {
+            core.update_settings(|s| s.view = view);
         }
         ControllerRust {
             texts: QString::default(),
@@ -226,15 +226,20 @@ impl cxx_qt::Initialize for qobject::Controller {
         let result = self.as_mut().core().open(&path);
         self.as_mut().after_open(result);
         // Opening may set the mode (plan exercises: run-through); an explicit --mode wins.
-        if let Some(mode) = &args.mode {
+        let mode = self
+            .as_mut()
+            .core()
+            .pick_opt::<PracticeMode>(args.mode.as_deref());
+        if let Some(mode) = mode {
             self.as_mut().core().set_mode(mode);
         }
-        let mode = self.as_ref().rust().core.settings().mode.clone();
+        let mode = self.as_ref().rust().core.settings().mode.key();
         self.as_mut().set_mode(q(&mode));
         // An explicit --view wins over the view remembered for the piece (QA runs).
-        if let Some(view) = &args.view {
+        let view = self.as_mut().core().pick_opt::<View>(args.view.as_deref());
+        if let Some(view) = view {
             self.as_mut().core().set_view(view);
-            self.as_mut().set_view(q(view));
+            self.as_mut().set_view(q(&view.key()));
         }
         if args.remove_bass {
             self.as_mut().core().remove_bass(true);

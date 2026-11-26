@@ -19,7 +19,7 @@ crates/appcore/src/lib.rs	load	length=96
 crates/appcore/src/lib.rs	tick	ccn=19 length=87
 crates/appcore/src/package.rs	open_package	ccn=16
 crates/appcore/src/stems.rs	stems_json	ccn=18 nesting=5
-crates/appcore/src/store.rs	-	lines=955
+crates/appcore/src/store.rs	-	lines=962
 crates/appcore/src/summary.rs	note_details	ccn=24 length=128
 crates/appcore/src/summary.rs	summary_json	length=106
 crates/appcore/src/tests/coaching.rs	-	lines=1197

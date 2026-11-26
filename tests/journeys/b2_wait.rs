@@ -1,7 +1,7 @@
 //! J-B2 Warten-Modus (P1 Lea): three wrong notes, then the right one, then a long pause.
 
 use crate::common::{judged, run_until, write_midi, Profile, BPM, COUNT_IN_S, RATE};
-use kontra_appcore::UiEvent;
+use kontra_appcore::{PracticeMode, UiEvent};
 use kontra_model::{Arrangement, Instrument, Note, Pitch, TempoMap, TICKS_PER_QUARTER};
 use std::time::Duration;
 
@@ -47,7 +47,7 @@ fn waits_names_wrong_notes_and_survives_a_pause() {
     kontra_session::write_mono_wav(&take, &samples, RATE).unwrap();
     let mut core = profile.core(Some(&take));
     core.open(&score).unwrap();
-    core.set_mode("wait");
+    core.set_mode(PracticeMode::Wait);
     let start = core.play();
     assert!(
         !start.iter().any(|e| matches!(e, UiEvent::Error(_))),

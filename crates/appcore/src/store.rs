@@ -1,8 +1,11 @@
 //! Settings and library on disk (LH-ALL-03, LH-FOR-03): JSON in the data directory.
 
+use crate::choices::{
+    Motion, PlayMarks, PracticeMode, StringColors, Style, TuningPreset, View, Window,
+};
 use crate::effects::ChainPreset;
 use kontra_model::{ChainSpec, EffectKind, PluginSpec, SlotSpec, A4_HZ};
-use kontra_session::Gains;
+use kontra_session::{or_default, Gains, Pocket};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -152,24 +155,28 @@ pub struct Settings {
     pub metronome: bool,
     pub reference_tones: bool,
     pub count_in_bars: u32,
-    pub view: String,
-    pub mode: String,
+    #[serde(deserialize_with = "or_default")]
+    pub view: View,
+    #[serde(deserialize_with = "or_default")]
+    pub mode: PracticeMode,
     /// The mode last chosen for an own piece; plan exercises open in "song" (round 12).
-    pub piece_mode: Option<String>,
-    /// "kante", "kante-light" or "system".
-    pub style: String,
+    #[serde(deserialize_with = "or_default")]
+    pub piece_mode: Option<PracticeMode>,
+    #[serde(deserialize_with = "or_default")]
+    pub style: Style,
     pub low_string_on_top: bool,
     /// Fretboard under the notes on the practice page (owner 12.11.2026); hidden, the notes
     /// take its room.
     pub fretboard_shown: bool,
-    /// Note marks in play mode: "quiet" (default), "off" or "full". Other modes always mark fully.
-    pub play_marks: String,
-    /// Motion: "system" (follow the desktop's animation setting), "reduce" or "full".
-    pub motion: String,
-    /// Timing window (LH-BEW-02): "auto" (by input), "loose", "normal" or "strict".
-    pub strictness: String,
-    /// Aim against the beat (LH-BEW-08): "free", "onbeat", "laidback" or "pushed".
-    pub pocket: String,
+    #[serde(deserialize_with = "or_default")]
+    pub play_marks: PlayMarks,
+    #[serde(deserialize_with = "or_default")]
+    pub motion: Motion,
+    #[serde(deserialize_with = "or_default")]
+    pub strictness: Window,
+    /// Aim against the beat (LH-BEW-08).
+    #[serde(deserialize_with = "or_default")]
+    pub pocket: Pocket,
     /// The course to learn (LH-LRN-14); `None` or gone: the first for the instrument.
     pub course: Option<String>,
     /// Pitch limit in cents (LH-BEW-05); 0 = by bass kind (50 fretted, 30 fretless).
@@ -219,17 +226,16 @@ pub struct Settings {
     pub simple_view: bool,
     /// The start page names the practice streak in days (LH-FOR-05); off by default.
     pub streak: bool,
-    /// Tuning (LH-TUN-02): "standard", "drop" (lowest string a whole step down),
-    /// "half-down", "whole-down" or "custom".
-    pub tuning: String,
+    #[serde(deserialize_with = "or_default")]
+    pub tuning: TuningPreset,
     /// Open strings of the custom tuning, lowest first, e.g. `["C1", "G1", "C2", "F2"]`.
     pub custom_tuning: Vec<String>,
     /// Reference pitch of A4 in Hz (LH-TUN-04), 430..=450.
     pub a4_hz: f64,
     /// Timing window half width in ms when `strictness` is "custom" (LH-BEW-02).
     pub window_ms: f64,
-    /// String colours (LH-ANZ-06): "kante" or a preset name the UI knows.
-    pub string_colors: String,
+    #[serde(deserialize_with = "or_default")]
+    pub string_colors: StringColors,
     /// Mirrored fretboard, nut on the right (LH-ANZ-08).
     pub left_handed: bool,
     /// Look for a newer release at start (LH-ALL-07); never in Flatpak, tests and QA runs.
@@ -272,16 +278,16 @@ impl Default for Settings {
             metronome: true,
             reference_tones: false,
             count_in_bars: 1,
-            view: "lane".into(),
-            mode: "play".into(),
+            view: View::Lane,
+            mode: PracticeMode::Play,
             piece_mode: None,
-            style: "kante".into(),
+            style: Style::Kante,
             low_string_on_top: false,
             fretboard_shown: true,
-            play_marks: "quiet".into(),
-            motion: "system".into(),
-            strictness: "auto".into(),
-            pocket: "free".into(),
+            play_marks: PlayMarks::Quiet,
+            motion: Motion::System,
+            strictness: Window::Auto,
+            pocket: Pocket::Free,
             course: None,
             pitch_cents: 0.0,
             setup_done: false,
@@ -308,11 +314,11 @@ impl Default for Settings {
             reacting_band: false,
             simple_view: false,
             streak: false,
-            tuning: "standard".into(),
+            tuning: TuningPreset::Standard,
             custom_tuning: Vec::new(),
             a4_hz: A4_HZ,
             window_ms: WINDOW_DEFAULT_MS,
-            string_colors: "kante".into(),
+            string_colors: StringColors::Kante,
             left_handed: false,
             update_check: true,
             update_dismissed: None,
@@ -423,7 +429,8 @@ pub struct RecentEntry {
     pub backing_offset_s: f64,
     /// View last used for this piece (LH-ANZ-04); `None`: the default from the settings.
     #[serde(default)]
-    pub view: Option<String>,
+    #[serde(deserialize_with = "or_default")]
+    pub view: Option<View>,
     /// Own tags for search (LH-BIB-04), e.g. "Band", "Slap".
     #[serde(default)]
     pub tags: Vec<String>,
@@ -567,7 +574,7 @@ impl Library {
                 entry.backing_offset_s = old.backing_offset_s;
             }
             if entry.view.is_none() {
-                entry.view = old.view.clone();
+                entry.view = old.view;
             }
             if entry.tags.is_empty() {
                 entry.tags = old.tags.clone();
@@ -879,12 +886,12 @@ mod tests {
         std::fs::write(&path, r#"{ "strings": 5, "strictness": "strict" }"#).unwrap();
         let settings: Settings = load(&path);
         assert_eq!(settings.strings, 5);
-        assert_eq!(settings.strictness, "strict");
-        assert_eq!(settings.tuning, "standard");
+        assert_eq!(settings.strictness, Window::Strict);
+        assert_eq!(settings.tuning, TuningPreset::Standard);
         assert!(settings.custom_tuning.is_empty());
         assert_eq!(settings.a4_hz, A4_HZ);
         assert_eq!(settings.window_ms, WINDOW_DEFAULT_MS);
-        assert_eq!(settings.string_colors, "kante");
+        assert_eq!(settings.string_colors, StringColors::Kante);
         assert!(!settings.left_handed);
         assert!(settings.fretboard_shown);
         std::fs::remove_dir_all(dir).unwrap();

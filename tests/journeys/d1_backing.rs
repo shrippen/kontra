@@ -4,7 +4,7 @@
 //! needs ears and a device and stays a manual step.
 
 use crate::common::{band, judged, run_until, write_midi, Profile, COUNT_IN_S, RATE};
-use kontra_appcore::UiEvent;
+use kontra_appcore::{PracticeMode, UiEvent};
 use kontra_model::Arrangement;
 use std::path::Path;
 use std::time::Duration;
@@ -25,7 +25,7 @@ fn take(path: &Path, a: &Arrangement, speed: f64) {
 }
 
 fn play_all_hit(core: &mut kontra_appcore::Core, seconds: u64) {
-    core.set_mode("song");
+    core.set_mode(PracticeMode::Song);
     let start = core.play();
     assert!(
         !start.iter().any(|e| matches!(e, UiEvent::Error(_))),

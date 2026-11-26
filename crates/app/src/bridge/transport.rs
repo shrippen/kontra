@@ -6,7 +6,7 @@ use super::{q, qobject};
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
-use kontra_appcore::LoopEdge;
+use kontra_appcore::{Choice, LoopEdge, PracticeMode, View};
 
 impl qobject::Controller {
     pub(super) fn toggle_play(mut self: Pin<&mut Self>) {
@@ -75,21 +75,25 @@ impl qobject::Controller {
     }
 
     pub(super) fn change_mode(mut self: Pin<&mut Self>, mode: &QString) {
-        let mode = mode.to_string();
+        let Some(mode) = self.as_mut().pick::<PracticeMode>(mode) else {
+            return;
+        };
         // Leaving the workshop ends the building blocks: back to the bars chosen before them.
-        if self.as_mut().core().set_mode(&mode) {
+        if self.as_mut().core().set_mode(mode) {
             self.as_mut().refresh_arrangement();
         }
         self.as_mut().after_loop();
-        self.as_mut().set_mode(q(&mode));
+        self.as_mut().set_mode(q(&mode.key()));
         self.as_mut().reset_passes();
         self.as_mut().rewind();
     }
 
     pub(super) fn change_view(mut self: Pin<&mut Self>, view: &QString) {
-        let view = view.to_string();
-        self.as_mut().core().set_view(&view);
-        self.as_mut().set_view(q(&view));
+        let Some(view) = self.as_mut().pick::<View>(view) else {
+            return;
+        };
+        self.as_mut().core().set_view(view);
+        self.as_mut().set_view(q(&view.key()));
     }
 
     pub(super) fn loop_bars(mut self: Pin<&mut Self>, from: i32, to: i32) {

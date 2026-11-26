@@ -30,7 +30,8 @@ Kirigami.Page {
     readonly property int mainLicences: 3
     readonly property var inputs: JSON.parse(ctl.inputDevicesJson)
     readonly property var outputs: JSON.parse(ctl.outputDevicesJson)
-    readonly property var styles: ["kante", "kante-light", "system"]
+    readonly property var choices: JSON.parse(ctl.choicesJson())
+    readonly property var styles: choices.style
     // LH-FOR-03: how a loaded backup is taken over.
     property string dataHow: "merge"
     property var updateState: JSON.parse(ctl.updateNotice("poll"))
@@ -337,7 +338,7 @@ Kirigami.Page {
                     RowLayout {
                         KanteSegmented {
                             Accessible.name: texts.t("settings.colors")
-                            readonly property var values: ["kante", "mono", "bright"]
+                            readonly property var values: page.choices.stringColors
                             model: [texts.t("settings.colors.kante"), texts.t("settings.colors.mono"),
                                     texts.t("settings.colors.bright")]
                             currentIndex: Math.max(0, values.indexOf(ctl.stringColors))
@@ -371,7 +372,7 @@ Kirigami.Page {
                     RowLayout {
                         KanteSegmented {
                             Accessible.name: texts.t("settings.playmarks")
-                            readonly property var values: ["quiet", "off", "full"]
+                            readonly property var values: page.choices.playMarks
                             model: [texts.t("settings.playmarks.quiet"), texts.t("settings.playmarks.off"),
                                     texts.t("settings.playmarks.full")]
                             currentIndex: Math.max(0, values.indexOf(ctl.playMarks))
@@ -386,7 +387,7 @@ Kirigami.Page {
                     hint: texts.t("settings.motion.hint")
                     KanteSegmented {
                         Accessible.name: texts.t("settings.motion")
-                        readonly property var values: ["system", "reduce", "full"]
+                        readonly property var values: page.choices.motion
                         model: [texts.t("settings.motion.system"), texts.t("settings.motion.reduce"),
                                 texts.t("settings.motion.full")]
                         currentIndex: Math.max(0, values.indexOf(ctl.motion))
@@ -408,7 +409,7 @@ Kirigami.Page {
                     ColumnLayout {
                         KanteSegmented {
                             Accessible.name: texts.t("settings.window")
-                            readonly property var values: ["auto", "loose", "normal", "strict", "custom"]
+                            readonly property var values: page.choices.strictness
                             model: [texts.t("settings.auto"), texts.t("settings.window.loose"),
                                     texts.t("settings.window.normal"), texts.t("settings.window.strict"),
                                     texts.t("settings.window.custom")]

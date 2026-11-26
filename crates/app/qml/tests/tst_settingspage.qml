@@ -35,6 +35,19 @@ Item {
                 property string stemsJson: "[]"
                 signal llmKeyState(string provider, string state, bool ready, string text)
                 signal llmKeyError(string provider, string text)
+                function choicesJson() {
+                    return JSON.stringify({
+                        mode: ["play", "song", "wait", "workshop"],
+                        view: ["lane", "tab", "notation", "combined", "keys"],
+                        style: ["kante", "kante-light", "system"],
+                        playMarks: ["quiet", "off", "full"],
+                        motion: ["system", "reduce", "full"],
+                        strictness: ["auto", "loose", "normal", "strict", "custom"],
+                        pocket: ["free", "onbeat", "laidback", "pushed"],
+                        tuning: ["standard", "drop", "half-down", "whole-down", "custom"],
+                        stringColors: ["kante", "mono", "bright"]
+                    })
+                }
                 function llmProvidersJson() {
                     return JSON.stringify([{ id: "custom", name: "Custom", needsKey: false }])
                 }

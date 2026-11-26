@@ -156,7 +156,7 @@ fn scoring_follows_the_settings() {
     assert_eq!(auto.pitch_cents, 30.0);
     assert_eq!(auto.strictness.window_ms(), 60.0);
     core.reconfigure(|s| {
-        s.strictness = "strict".into();
+        s.strictness = Window::Strict;
         s.pitch_cents = 20.0;
     });
     let chosen = core.score_settings(InstrumentKind::Fretless);
@@ -269,7 +269,7 @@ fn tunings_follow_the_settings() {
     let names = |strings: u8, tuning: &str| {
         let settings = Settings {
             strings,
-            tuning: tuning.into(),
+            tuning: TuningPreset::from_key(tuning).unwrap(),
             custom_tuning: vec!["C1".into(), "G1".into(), "C2".into(), "F2".into()],
             ..Settings::default()
         };
@@ -291,10 +291,10 @@ fn custom_tuning_reaches_tuner_and_tab() {
     let dir = temp_dir("custom-tuning");
     let mut core = Core::new(&dir, QaOptions::default());
     core.open(&demo()).unwrap();
-    core.set_tuning("drop").unwrap();
+    core.set_tuning(TuningPreset::Drop).unwrap();
     assert_eq!(open_strings(&core), ["D1", "A1", "D2", "G2"]);
     core.set_custom_string(3, 41).unwrap(); // G2 → F2
-    assert_eq!(core.settings().tuning, "custom");
+    assert_eq!(core.settings().tuning, TuningPreset::Custom);
     assert_eq!(open_strings(&core), ["D1", "A1", "D2", "F2"]);
 
     // Every note sits on a string and fret that sound its pitch in the new tuning.
@@ -331,7 +331,7 @@ fn free_timing_window() {
     let dir = temp_dir("window");
     let mut core = Core::new(&dir, QaOptions::default());
     assert_eq!(core.set_window(35.0), 35.0);
-    assert_eq!(core.settings().strictness, "custom");
+    assert_eq!(core.settings().strictness, Window::Custom);
     let settings = core.score_settings(InstrumentKind::Fretted);
     assert_eq!(settings.strictness.window_ms(), 35.0);
     assert_eq!(core.set_window(5.0), 20.0);

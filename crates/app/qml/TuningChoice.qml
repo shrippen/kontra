@@ -10,7 +10,7 @@ ColumnLayout {
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
-    readonly property var values: ["standard", "drop", "half-down", "whole-down", "custom"]
+    readonly property var values: JSON.parse(ctl.choicesJson()).tuning
     readonly property var strings: JSON.parse(ctl.profileTuningJson)
     readonly property var notes: JSON.parse(ctl.noteChoicesJson)
     // Too narrow for five buttons (half a laptop screen): the presets as a list (QA 14.10.).

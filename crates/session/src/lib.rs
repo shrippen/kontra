@@ -18,6 +18,7 @@ mod calibration;
 mod call;
 mod chain;
 mod check;
+mod choice;
 mod courses;
 mod density;
 mod expected;
@@ -56,6 +57,7 @@ pub use check::{
     check_takes, loopback_length_s, loopback_plan, round_trip, tone_delays_s, CheckNote, CheckTake,
     LiveTake, RoundTrip, Take, TakeSound, CHECK_BPM, LOOPBACK_TONES,
 };
+pub use choice::{or_default, Choice};
 pub use courses::{CourseError, CourseFetch, CourseStore};
 pub use density::Density;
 pub use expected::{expected_notes, ExpectedNote};

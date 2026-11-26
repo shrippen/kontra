@@ -4,7 +4,7 @@
 //! notation in the bass clef is checked by eye (screenshot).
 
 use crate::common::{last_judged, run_until, write_midi, Profile, COUNT_IN_S, RATE};
-use kontra_appcore::UiEvent;
+use kontra_appcore::{PracticeMode, UiEvent, Window};
 use std::time::Duration;
 
 /// B0 C1 D1 E1 on the B and E strings, then up and back down.
@@ -25,7 +25,7 @@ fn low_fretless_line_reads_its_cents() {
     core.reconfigure(|s| {
         s.strings = 5;
         s.instrument = kontra_appcore::Bass::Fretless;
-        s.strictness = "strict".into();
+        s.strictness = Window::Strict;
     });
     core.open(&score).unwrap();
     let a = core.arrangement().unwrap().clone();
@@ -47,7 +47,7 @@ fn low_fretless_line_reads_its_cents() {
 
     let mut core = profile.core(Some(&take));
     core.open(&score).unwrap();
-    core.set_mode("song");
+    core.set_mode(PracticeMode::Song);
     core.play();
     let events = run_until(&mut core, Duration::from_secs(9), |e| {
         matches!(e, UiEvent::Finished { .. })

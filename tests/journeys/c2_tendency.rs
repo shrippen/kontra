@@ -3,7 +3,7 @@
 //! for laid-back (LH-BEW-08): the summary says she missed it, and by how much.
 
 use crate::common::{piece, render, run_until, write_midi, Profile};
-use kontra_appcore::UiEvent;
+use kontra_appcore::{Choice, Pocket, PracticeMode, UiEvent};
 use std::time::Duration;
 
 const LINE: [u8; 8] = [28, 31, 33, 35, 36, 35, 33, 31];
@@ -22,9 +22,9 @@ fn summary_shows_tendency_and_counts() {
     };
     render(&take, &piece("Linie", &LINE), mistakes);
     let mut core = profile.core(Some(&take));
-    core.update_settings(|s| s.pocket = "laidback".into());
+    core.update_settings(|s| s.pocket = Pocket::LaidBack);
     core.open(&score).unwrap();
-    core.set_mode("song");
+    core.set_mode(PracticeMode::Song);
     core.play();
     let events = run_until(&mut core, Duration::from_secs(12), |e| {
         matches!(e, UiEvent::Finished { .. })
@@ -100,9 +100,9 @@ fn late_take_asks_to_recalibrate() {
 
     let hint = |pocket: &str| {
         let mut core = profile.core(Some(&take));
-        core.update_settings(|s| s.pocket = pocket.into());
+        core.update_settings(|s| s.pocket = Pocket::from_key(pocket).unwrap());
         core.open(&score).unwrap();
-        core.set_mode("song");
+        core.set_mode(PracticeMode::Song);
         core.play();
         let events = run_until(&mut core, Duration::from_secs(12), |e| {
             matches!(e, UiEvent::Finished { .. })

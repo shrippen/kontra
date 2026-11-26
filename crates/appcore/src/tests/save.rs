@@ -29,7 +29,7 @@ fn a_failed_settings_save_is_told() {
     let mut core = Core::new(&dir, QaOptions::default());
     block(&dir, "settings.json");
 
-    core.update_settings(|s| s.view = "tab".to_string());
+    core.update_settings(|s| s.view = View::Tab);
 
     let notice = core.take_notice().expect("a notice");
     assert!(notice.contains("settings.json"), "{notice}");
@@ -42,7 +42,7 @@ fn a_working_save_says_nothing() {
     let mut core = Core::new(&dir, QaOptions::default());
 
     core.save_library();
-    core.update_settings(|s| s.view = "tab".to_string());
+    core.update_settings(|s| s.view = View::Tab);
 
     assert_eq!(core.take_notice(), None);
     let _ = std::fs::remove_dir_all(dir);
@@ -86,7 +86,7 @@ fn notices_queue_up() {
     block(&dir, "settings.json");
 
     core.save_library();
-    core.update_settings(|s| s.view = "tab".to_string());
+    core.update_settings(|s| s.view = View::Tab);
 
     let events = core.tick();
     let messages: Vec<&String> = events
@@ -101,5 +101,44 @@ fn notices_queue_up() {
     let settings = messages[0].find("settings.json").expect("settings notice");
     assert!(library < settings, "{}", messages[0]);
     assert_eq!(core.take_notice(), None);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// A value that is no choice any more takes the default of its field; the rest of the file
+/// stays (the file is not set aside as damaged).
+#[test]
+fn an_unknown_choice_falls_back_for_that_field_only() {
+    let dir = temp_dir("save-choice");
+    std::fs::write(
+        dir.join("settings.json"),
+        r#"{ "strings": 5, "mode": "karaoke", "view": 3, "motion": "reduce", "piece_mode": "x" }"#,
+    )
+    .unwrap();
+
+    let mut core = Core::new(&dir, QaOptions::default());
+
+    let settings = core.settings();
+    assert_eq!(settings.strings, 5);
+    assert_eq!(settings.motion, Motion::Reduce);
+    assert_eq!(settings.mode, PracticeMode::Play);
+    assert_eq!(settings.view, View::Lane);
+    assert_eq!(settings.piece_mode, None);
+    assert_eq!(core.take_notice(), None);
+    assert!(!dir.join("settings.json.broken").exists());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The UI's key that is no choice is told, not dropped.
+#[test]
+fn an_unknown_key_from_the_ui_is_told() {
+    let dir = temp_dir("save-pick");
+    let mut core = Core::new(&dir, QaOptions::default());
+
+    assert_eq!(core.pick::<Motion>("reduce"), Some(Motion::Reduce));
+    assert_eq!(core.take_notice(), None);
+    assert_eq!(core.pick::<Motion>("wobble"), None);
+    let notice = core.take_notice().expect("a notice");
+    assert!(notice.contains("wobble"), "{notice}");
+    assert!(!notice.contains("choice.unknown"), "untranslated: {notice}");
     let _ = std::fs::remove_dir_all(dir);
 }

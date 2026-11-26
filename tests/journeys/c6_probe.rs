@@ -2,7 +2,7 @@
 //! then played once without help; the summary sets both side by side and the probe is saved.
 
 use crate::common::{piece, render, run_until, write_midi, Profile};
-use kontra_appcore::UiEvent;
+use kontra_appcore::{PracticeMode, UiEvent};
 use std::time::Duration;
 
 /// Two bars; the workshop and the probe play the first.
@@ -19,7 +19,7 @@ fn probe_compares_with_the_workshop() {
     render(&clean, &piece("Linie", &LINE), Default::default());
     let mut core = profile.core(Some(&clean));
     core.open(&score).unwrap();
-    core.set_mode("workshop");
+    core.set_mode(PracticeMode::Workshop);
     core.set_loop(0, 0);
     core.play();
     run_until(&mut core, Duration::from_secs(8), |e| {
@@ -36,7 +36,7 @@ fn probe_compares_with_the_workshop() {
     render(&shaky, &piece("Linie", &LINE), mistakes);
     let mut core = profile.core(Some(&shaky));
     core.open(&score).unwrap();
-    core.set_mode("workshop");
+    core.set_mode(PracticeMode::Workshop);
     core.set_loop(0, 0);
 
     // Stopped after its first note: no probe, nothing saved apart from the workshop.
@@ -126,7 +126,7 @@ fn hard_bar_comes_back_after_days() {
     for _ in 0..2 {
         let mut core = profile.core(Some(&shaky));
         core.open(&score).unwrap();
-        core.set_mode("workshop");
+        core.set_mode(PracticeMode::Workshop);
         core.set_loop(0, 0);
         core.play();
         run_until(&mut core, Duration::from_secs(8), |e| {
@@ -144,7 +144,7 @@ fn hard_bar_comes_back_after_days() {
     let due = home(&core)["repeat"].clone();
     assert_eq!(due[0]["bar"], 1, "{due}");
     core.open(&score).unwrap();
-    core.set_mode("workshop");
+    core.set_mode(PracticeMode::Workshop);
     core.set_loop(0, 0);
     core.start_probe();
     run_until(&mut core, Duration::from_secs(8), |e| {

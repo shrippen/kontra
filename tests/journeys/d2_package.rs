@@ -4,7 +4,7 @@
 //! from the student's own data folder without aligning, and their progress starts at zero.
 
 use crate::common::{band, judged, run_until, write_midi, Profile, COUNT_IN_S, RATE};
-use kontra_appcore::{Core, Opened, PackageAudio, UiEvent};
+use kontra_appcore::{Core, Opened, PackageAudio, PracticeMode, UiEvent};
 use kontra_model::Arrangement;
 use std::path::Path;
 use std::time::Duration;
@@ -26,7 +26,7 @@ fn take(path: &Path, a: &Arrangement) {
 
 /// One run in song mode, every note a hit.
 fn play_song(core: &mut Core) {
-    core.set_mode("song");
+    core.set_mode(PracticeMode::Song);
     let start = core.play();
     assert!(
         !start.iter().any(|e| matches!(e, UiEvent::Error(_))),

@@ -7,8 +7,8 @@ use crate::{
 };
 use kontra_model::{Judging, Technique};
 use kontra_session::{
-    EndHeard, Intonation, Leaning, MutingTally, NoteEndMark, NoteResult, Observation, Outcome,
-    OutsideNote, Pocket, PocketVerdict, Side, Summary, TechniqueResult,
+    Choice, EndHeard, Intonation, Leaning, MutingTally, NoteEndMark, NoteResult, Observation,
+    Outcome, OutsideNote, PocketVerdict, Side, Summary, TechniqueResult,
 };
 use serde_json::json;
 use std::path::Path;
@@ -403,7 +403,7 @@ impl Core {
     /// hits, for timing):
     /// `{ solid: false, text: "Am meisten bringt jetzt: Slide, 2 von 6. …" }`.
     fn observation_json(&self, s: &Summary) -> serde_json::Value {
-        let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
+        let pocket = self.settings.pocket;
         let Some(observation) = s.observation(pocket) else {
             return serde_json::Value::Null;
         };
@@ -475,7 +475,7 @@ impl Core {
     /// on ("Liegen die Treffer so beständig hinter dem Schlag (im Mittel 25 ms), kann auch …"),
     /// otherwise it stands alone ("Die Treffer liegen beständig hinter dem Schlag …").
     fn recalibrate_text(&self, s: &Summary) -> String {
-        let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
+        let pocket = self.settings.pocket;
         let Some(side) = self.latency_hint(s, pocket) else {
             return String::new();
         };
@@ -645,7 +645,7 @@ impl Core {
     /// (10 bis 30 ms dahinter): verfehlt, 6 ms vor dem Zielbereich"; empty without an aim or
     /// timed notes.
     fn pocket_text(&self, s: &Summary) -> String {
-        let pocket = Pocket::from_key(&self.settings.pocket).unwrap_or_default();
+        let pocket = self.settings.pocket;
         // Whole ms, as the text shows them: +9.6 is laid-back, not "missed by 0 ms".
         let Some(verdict) = s.mean_offset_ms.and_then(|m| pocket.judge(m.round())) else {
             return String::new();

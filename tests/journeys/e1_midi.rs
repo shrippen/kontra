@@ -4,7 +4,7 @@
 //! The keyboard view (Klaviatur) shows every note of the riff on its keys.
 
 use crate::common::{run_until, write_midi, Profile, BPM, COUNT_IN_S};
-use kontra_appcore::{InputKind, UiEvent};
+use kontra_appcore::{InputKind, PracticeMode, UiEvent, View};
 use std::path::Path;
 use std::time::Duration;
 
@@ -67,8 +67,8 @@ fn midi_keyboard_is_judged_like_a_bass() {
 
     // Step 2: the groove in song mode, keyboard view: every note lies on a shown key.
     core.open(&score).unwrap();
-    core.set_mode("song");
-    core.set_view("keys");
+    core.set_mode(PracticeMode::Song);
+    core.set_view(View::Keys);
     let keys: serde_json::Value = serde_json::from_str(&core.key_range_json()).unwrap();
     let (low, high) = (
         keys["low"].as_u64().unwrap(),
@@ -78,7 +78,7 @@ fn midi_keyboard_is_judged_like_a_bass() {
         RIFF.iter().all(|k| (low..=high).contains(&u64::from(*k))),
         "keys {low}..{high}"
     );
-    assert_eq!(core.view(), "keys");
+    assert_eq!(core.view(), View::Keys);
     core.play();
     let events = run_until(&mut core, Duration::from_secs(9), |e| {
         matches!(e, UiEvent::Finished { .. })

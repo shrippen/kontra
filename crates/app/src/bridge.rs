@@ -701,6 +701,10 @@ pub mod qobject {
             length: &QString,
         ) -> bool;
 
+        #[qinvokable]
+        #[cxx_name = "choicesJson"]
+        fn choices_json(self: &Self) -> QString;
+
         /// Every provider Kontra offers (LH-BIB-16); see `Core::llm_providers_json`.
         #[qinvokable]
         #[cxx_name = "llmProvidersJson"]
@@ -1075,7 +1079,7 @@ use crate::args::AppArgs;
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
-use kontra_appcore::{file_url, local_path, Core, Opened, UiEvent};
+use kontra_appcore::{file_url, local_path, Choice, Core, Opened, UiEvent};
 
 /// `calibrationBeat` while no calibration runs.
 const NO_BEAT: i32 = -99;
@@ -1258,7 +1262,7 @@ impl qobject::Controller {
         let loaded = core.arrangement().is_some();
         let backing = core.backing_name();
         let transpose = core.transpose();
-        let view = core.view();
+        let view = core.view().key();
         let tracks = core.tracks_json();
         // Loop and tempo as the core has them now (QA 27.10., J9: the last piece's showed on).
         let (loop_start, loop_end) = core.loop_seconds();
@@ -1540,7 +1544,7 @@ impl qobject::Controller {
                 self.as_mut().set_track_choices_json(q("[]"));
                 self.as_mut().refresh_arrangement();
                 // Opening may change the mode (plan exercises: run-through, round 12).
-                let mode = self.as_ref().rust().core.settings().mode.clone();
+                let mode = self.as_ref().rust().core.settings().mode.key();
                 self.as_mut().set_mode(q(&mode));
                 if let Some(notice) = self.as_mut().core().take_notice() {
                     self.as_mut().set_message(q(&notice));

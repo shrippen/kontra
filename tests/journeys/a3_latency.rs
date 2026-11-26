@@ -3,7 +3,7 @@
 //! 2048) needs the audio server and stays a manual step.
 
 use crate::common::{last_judged, piece, run_until, write_midi, Profile, COUNT_IN_S, RATE};
-use kontra_appcore::UiEvent;
+use kontra_appcore::{Choice, Pocket, PracticeMode, UiEvent};
 use kontra_model::{Arrangement, Instrument, Note, Pitch, TempoMap, TICKS_PER_QUARTER};
 use std::time::Duration;
 
@@ -80,7 +80,7 @@ fn calibrated_latency_makes_late_notes_on_time() {
     let mut song = profile.core(Some(&take));
     assert_eq!(song.settings().latency_ms, latency, "kept in the profile");
     song.open(&score).unwrap();
-    song.set_mode("song");
+    song.set_mode(PracticeMode::Song);
     song.play();
     let events = run_until(&mut song, Duration::from_secs(9), |e| {
         matches!(e, UiEvent::Finished { .. })
@@ -177,9 +177,9 @@ fn song_summary(
 
     let mut song = profile.core(Some(&take));
     assert_eq!(song.settings().latency_ms, data.settings().latency_ms);
-    song.update_settings(|s| s.pocket = pocket.into());
+    song.update_settings(|s| s.pocket = Pocket::from_key(pocket).unwrap());
     song.open(&score).unwrap();
-    song.set_mode("song");
+    song.set_mode(PracticeMode::Song);
     song.play();
     let events = run_until(&mut song, Duration::from_secs(12), |e| {
         matches!(e, UiEvent::Finished { .. })

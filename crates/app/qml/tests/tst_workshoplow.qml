@@ -19,6 +19,13 @@ Item {
         property string mode: "workshop"
         property string view: "combined"
         property bool call: false
+        function choicesJson() {
+            return JSON.stringify({
+                mode: ["play", "song", "wait", "workshop"],
+                view: ["lane", "tab", "notation", "combined", "keys"],
+                pocket: ["free", "onbeat", "laidback", "pushed"]
+            })
+        }
     }
     function applicationWindow() { return root }
 

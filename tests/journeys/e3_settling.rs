@@ -5,7 +5,7 @@
 //! pluck is told early and taken back; the mark ends on the pluck's verdict.
 
 use crate::common::{last_judged, run_until, write_midi, Profile, COUNT_IN_S, RATE};
-use kontra_appcore::UiEvent;
+use kontra_appcore::{PracticeMode, UiEvent, Window};
 use kontra_model::{Pitch, A4_HZ};
 use std::time::Duration;
 
@@ -52,7 +52,7 @@ fn flat_starts_turn_into_hits() {
 /// wrong (0 %); the settling must not depend on them.
 #[test]
 fn flat_starts_turn_into_hits_when_strict() {
-    settles_into_hits("e3-strict", |s| s.strictness = "strict".into());
+    settles_into_hits("e3-strict", |s| s.strictness = Window::Strict);
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn settles_into_hits(name: &str, choose: impl FnOnce(&mut kontra_appcore::Settin
     let mut core = profile.core(Some(&take));
     core.update_settings(choose);
     core.open(&score).unwrap();
-    core.set_mode("song");
+    core.set_mode(PracticeMode::Song);
     core.play();
     let events = run_until(&mut core, Duration::from_secs(8), |e| {
         matches!(e, UiEvent::Finished { .. })
@@ -150,15 +150,15 @@ fn tapped_line(pluck: Pluck) -> Vec<f32> {
 
 #[test]
 fn tap_before_the_pluck_is_taken_back() {
-    taps_taken_back("e3-tap", "song");
+    taps_taken_back("e3-tap", PracticeMode::Song);
 }
 
 #[test]
 fn tap_before_the_pluck_is_taken_back_waiting() {
-    taps_taken_back("e3-tap-wait", "wait");
+    taps_taken_back("e3-tap-wait", PracticeMode::Wait);
 }
 
-fn taps_taken_back(name: &str, mode: &str) {
+fn taps_taken_back(name: &str, mode: PracticeMode) {
     let profile = Profile::new(name);
     let score = profile.dir.join("Walking.mid");
     write_midi(&score, "Walking", &LINE);
@@ -197,7 +197,7 @@ fn tap_taken_back_clears_its_mark_waiting() {
     kontra_session::write_mono_wav(&take, &tapped_line(Pluck::Sharp), RATE).unwrap();
     let mut core = profile.core(Some(&take));
     core.open(&score).unwrap();
-    core.set_mode("wait");
+    core.set_mode(PracticeMode::Wait);
     core.play();
     let events = run_until(&mut core, Duration::from_secs(4), |_| false);
 

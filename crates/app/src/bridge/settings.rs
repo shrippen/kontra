@@ -4,7 +4,10 @@ use super::{q, qobject};
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::QString;
-use kontra_appcore::{Bass, InstrumentChoice};
+use kontra_appcore::{
+    Bass, Choice, Core, InstrumentChoice, Motion, PlayMarks, Pocket, StringColors, Style,
+    TuningPreset, View, Window,
+};
 
 impl qobject::Controller {
     pub(super) fn retry_input(mut self: Pin<&mut Self>) {
@@ -48,12 +51,28 @@ impl qobject::Controller {
         self.as_mut().refresh_devices();
     }
 
+    /// The choice the UI sent as `key`; an unknown key shows as a message and gives none.
+    pub(super) fn pick<C: Choice>(mut self: Pin<&mut Self>, key: &QString) -> Option<C> {
+        let picked = self.as_mut().core().pick::<C>(&key.to_string());
+        if picked.is_none() {
+            if let Some(notice) = self.as_mut().core().take_notice() {
+                self.as_mut().set_message(q(&notice));
+            }
+        }
+        picked
+    }
+
+    /// The keys of every fixed choice, for the lists of the settings and the practice page.
+    pub(super) fn choices_json(&self) -> QString {
+        q(&Core::choices_json())
+    }
+
     pub(super) fn change_style(mut self: Pin<&mut Self>, style: &QString) {
-        let style = style.to_string();
-        self.as_mut()
-            .core()
-            .update_settings(|s| s.style = style.clone());
-        self.as_mut().set_style(q(&style));
+        let Some(style) = self.as_mut().pick::<Style>(style) else {
+            return;
+        };
+        self.as_mut().core().update_settings(|s| s.style = style);
+        self.as_mut().set_style(q(&style.key()));
     }
 
     pub(super) fn change_simple_view(mut self: Pin<&mut Self>, on: bool) {
@@ -258,7 +277,7 @@ impl qobject::Controller {
             let this = self.as_ref();
             let core = &this.rust().core;
             (
-                core.settings().tuning.clone(),
+                core.settings().tuning.key(),
                 core.profile_tuning_json(),
                 core.tuning_json(),
                 core.note_choices_json(),
@@ -271,7 +290,10 @@ impl qobject::Controller {
     }
 
     pub(super) fn change_tuning(mut self: Pin<&mut Self>, name: &QString) {
-        let result = self.as_mut().core().set_tuning(&name.to_string());
+        let Some(preset) = self.as_mut().pick::<TuningPreset>(name) else {
+            return;
+        };
+        let result = self.as_mut().core().set_tuning(preset);
         self.as_mut().after_retune(result);
     }
 
@@ -293,21 +315,19 @@ impl qobject::Controller {
     pub(super) fn change_window(mut self: Pin<&mut Self>, window_ms: f64) {
         let kept = self.as_mut().core().set_window(window_ms);
         self.as_mut().set_window_ms(kept);
-        self.as_mut().set_strictness(q("custom"));
+        self.as_mut().set_strictness(q(&Window::Custom.key()));
         self.as_mut().set_playing(false);
     }
 
     pub(super) fn change_string_colors(mut self: Pin<&mut Self>, preset: &QString) {
-        let preset = preset.to_string();
-        if !["kante", "mono", "bright"].contains(&preset.as_str()) {
+        let Some(preset) = self.as_mut().pick::<StringColors>(preset) else {
             return;
-        }
-        let value = q(&preset);
+        };
         // Display only: a running take goes on.
         self.as_mut()
             .core()
             .update_settings(|s| s.string_colors = preset);
-        self.as_mut().set_string_colors(value);
+        self.as_mut().set_string_colors(q(&preset.key()));
     }
 
     pub(super) fn change_left_handed(mut self: Pin<&mut Self>, on: bool) {
@@ -333,58 +353,48 @@ impl qobject::Controller {
     }
 
     pub(super) fn change_scoring(mut self: Pin<&mut Self>, strictness: &QString, pitch_cents: f64) {
-        let strictness = strictness.to_string();
-        if !["auto", "loose", "normal", "strict", "custom"].contains(&strictness.as_str()) {
+        let Some(strictness) = self.as_mut().pick::<Window>(strictness) else {
             return;
-        }
+        };
         let cents = pitch_cents.clamp(0.0, 100.0);
-        let value = q(&strictness);
         self.as_mut().core().reconfigure(|s| {
             s.strictness = strictness;
             s.pitch_cents = cents;
         });
-        self.as_mut().set_strictness(value);
+        self.as_mut().set_strictness(q(&strictness.key()));
         self.as_mut().set_pitch_cents(cents);
         self.as_mut().set_playing(false);
     }
 
     pub(super) fn change_pocket(mut self: Pin<&mut Self>, pocket: &QString) {
-        let pocket = pocket.to_string();
-        if !["free", "onbeat", "laidback", "pushed"].contains(&pocket.as_str()) {
+        let Some(pocket) = self.as_mut().pick::<Pocket>(pocket) else {
             return;
-        }
-        let value = q(&pocket);
+        };
         // Read when the run ends: a running take keeps going.
         self.as_mut().core().update_settings(|s| s.pocket = pocket);
-        self.as_mut().set_pocket(value);
+        self.as_mut().set_pocket(q(&pocket.key()));
     }
 
     pub(super) fn change_play_marks(mut self: Pin<&mut Self>, marks: &QString) {
-        let marks = marks.to_string();
-        if !["quiet", "off", "full"].contains(&marks.as_str()) {
+        let Some(marks) = self.as_mut().pick::<PlayMarks>(marks) else {
             return;
-        }
-        let value = q(&marks);
+        };
         // Display only: no need to stop a running take.
         self.as_mut()
             .core()
             .update_settings(|s| s.play_marks = marks);
-        self.as_mut().set_play_marks(value);
+        self.as_mut().set_play_marks(q(&marks.key()));
     }
 
     pub(super) fn change_motion(mut self: Pin<&mut Self>, motion: &QString) {
-        let motion = motion.to_string();
-        if !["system", "reduce", "full"].contains(&motion.as_str()) {
+        let Some(motion) = self.as_mut().pick::<Motion>(motion) else {
             return;
-        }
-        let value = q(&motion);
-        self.as_mut()
-            .core()
-            .update_settings(|s| s.motion = motion.clone());
-        self.as_mut().set_motion(value);
+        };
+        self.as_mut().core().update_settings(|s| s.motion = motion);
+        self.as_mut().set_motion(q(&motion.key()));
         // Less motion means the page-wise tab instead of the scrolling lane.
-        if motion == "reduce" && self.as_ref().view().to_string() == "lane" {
-            self.as_mut().change_view(&q("tab"));
+        if motion == Motion::Reduce && self.as_ref().view().to_string() == View::Lane.key() {
+            self.as_mut().change_view(&q(&View::Tab.key()));
         }
     }
 
@@ -594,9 +604,9 @@ impl qobject::Controller {
         self.as_mut().set_staff_json(q(&staff));
         self.as_mut().set_key_range_json(q(&keys));
         self.as_mut().refresh_setlists();
-        self.as_mut().set_mode(q(&s.mode));
-        self.as_mut().set_view(q(&s.view));
-        self.as_mut().set_style(q(&s.style));
+        self.as_mut().set_mode(q(&s.mode.key()));
+        self.as_mut().set_view(q(&s.view.key()));
+        self.as_mut().set_style(q(&s.style.key()));
         self.as_mut()
             .set_language(q(s.language.as_deref().unwrap_or("")));
         self.as_mut()
@@ -615,10 +625,10 @@ impl qobject::Controller {
         self.as_mut().set_reference(s.reference_tones);
         self.as_mut().set_low_string_on_top(s.low_string_on_top);
         self.as_mut().set_fretboard_shown(s.fretboard_shown);
-        self.as_mut().set_play_marks(q(&s.play_marks));
-        self.as_mut().set_motion(q(&s.motion));
-        self.as_mut().set_strictness(q(&s.strictness));
-        self.as_mut().set_pocket(q(&s.pocket));
+        self.as_mut().set_play_marks(q(&s.play_marks.key()));
+        self.as_mut().set_motion(q(&s.motion.key()));
+        self.as_mut().set_strictness(q(&s.strictness.key()));
+        self.as_mut().set_pocket(q(&s.pocket.key()));
         self.as_mut().set_pitch_cents(s.pitch_cents);
         self.as_mut().set_latency_ms(s.latency_ms);
         let note = self.as_ref().rust().core.latency_note();
@@ -635,7 +645,7 @@ impl qobject::Controller {
         self.as_mut().set_streak(s.streak);
         self.as_mut().set_a4_hz(s.a4_hz);
         self.as_mut().set_window_ms(s.window_ms);
-        self.as_mut().set_string_colors(q(&s.string_colors));
+        self.as_mut().set_string_colors(q(&s.string_colors.key()));
         self.as_mut().set_left_handed(s.left_handed);
         self.as_mut().set_monitor(s.monitor);
         self.as_mut().set_monitor_volume(s.monitor_volume);

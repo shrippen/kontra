@@ -12,8 +12,8 @@ Kirigami.Page {
 
     readonly property var ctl: applicationWindow().ctl
     readonly property var texts: applicationWindow().texts
-    readonly property var modes: ["play", "song", "wait", "workshop"]
-    readonly property var views: ["lane", "tab", "notation", "combined", "keys"]
+    readonly property var modes: JSON.parse(ctl.choicesJson()).mode
+    readonly property var views: JSON.parse(ctl.choicesJson()).view
 
     // The notes as loaded; live states go to the views one by one (setNoteState) and are kept
     // here too, so a view that gets its notes later (view switch) can catch up.
@@ -477,7 +477,7 @@ Kirigami.Page {
             // Aim against the beat (LH-BEW-08, DIDAKTIK I5): the summary says if the run held it.
             Row {
                 visible: !page.simple && !page.lean
-                readonly property var pockets: ["free", "onbeat", "laidback", "pushed"]
+                readonly property var pockets: JSON.parse(ctl.choicesJson()).pocket
                 spacing: KanteStyle.unit(8)
                 height: KanteStyle.heightMedium
                 KanteHud {
