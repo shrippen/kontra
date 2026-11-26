@@ -164,7 +164,7 @@ Offen:
   ohne hörbare Lücke (gemessen: Ausgang läuft durch, Übergabe 2,1–2,3 ms, 0 Xruns).
 - In Runde 23 freigegeben: die neuen `pub` aus #285 bis #290 (`Player::rebase`, `Input::rebase`, `Event::Rebased`,
   `Rig` samt `RigOutput`, `OnOutputError`, `InputTap`, `on`/`into_rig` der Modi, `Practice::into_output`) und die
-  Frage, ob das Gehörtraining den Bass bei „Bass hören“ durchlässt (heute nicht, LH-EIN-18).
+  Frage zum Gehörtraining mit „Bass hören“: Runde 23 entschieden (lässt durch, LH-EIN-18).
 - Der Loopback öffnet weiter eigene Geräte (seine Aufnahme hängt am ersten Sample).
 - Hardware-Prüfungen mit `kontra-cli check` immer mit `--input`/`--output` des Scarletts: der Systemstandard für
   die Ausgabe ist die eingebaute Karte (IEC958).

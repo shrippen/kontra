@@ -980,7 +980,7 @@ mod tests {
         assert_eq!(output_config(None).buffer_frames, Some(LIVE_BUFFER_FRAMES));
     }
 
-    /// Ear training and calibration never pass the bass on: only the monitor volume goes.
+    /// Calibration never passes the bass on: only the monitor volume goes.
     #[test]
     fn quiet_gains_keep_all_but_the_bass() {
         let gains = Gains {
